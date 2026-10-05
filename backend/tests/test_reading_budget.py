@@ -12,6 +12,43 @@ from backend.services import ai_usage_ledger as ledger, reading_budget as budget
 from backend.services.ai_usage_transport import instrument
 
 
+@pytest.mark.parametrize('asynchronous', [False, True])
+def test_truncated_structured_response_records_reasoning_cost_and_settles_reservation(asynchronous):
+    import asyncio
+    from openai import LengthFinishReasonError
+    from backend.domains.agent.structured_output import constrain_output
+    requests = []
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(200, json={
+            'id': 'gen-truncated', 'model': 'test', 'object': 'chat.completion', 'created': 1,
+            'choices': [{'index': 0, 'finish_reason': 'length',
+                         'message': {'role': 'assistant', 'content': ''}}],
+            'usage': {'prompt_tokens': 14441, 'completion_tokens': 16384, 'total_tokens': 30825,
+                      'completion_tokens_details': {'reasoning_tokens': 16384}, 'cost': .01035815},
+        })
+    async def invoke_async(model):
+        await model.ainvoke('source')
+    identifier = budget.configure(.1)
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        model = instrument(ChatOpenAI(model='test', api_key='fake', base_url='https://test.invalid',
+            max_tokens=16384, http_client=client,
+            http_async_client=httpx.AsyncClient(transport=httpx.MockTransport(respond))), 'openrouter', 'test')
+        model = constrain_output(model, 'openrouter', {'type': 'object', 'properties': {
+            'notes': {'type': 'string'}}, 'required': ['notes'], 'additionalProperties': False})
+        with budget.session(identifier), pytest.raises(LengthFinishReasonError):
+            asyncio.run(invoke_async(model)) if asynchronous else model.invoke('source')
+    assert len(requests) == 1  # Never charge a hidden retry for a truncated response.
+    with ledger.connect() as db:
+        rows = [dict(row) for row in db.execute('select * from usage_calls')]
+    assert len(rows) == 1
+    assert rows[0]['status'] == 'failed'
+    assert rows[0]['input_tokens'] == 14441 and rows[0]['reasoning_tokens'] == 16384
+    assert rows[0]['cost_usd'] == '0.01035815' and rows[0]['cost_source'] == 'reported'
+    assert budget.status(identifier)['reserved_usd'] == 0
+    assert budget.status(identifier)['spent_usd'] == .01035815
+
+
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
     from backend.config import app_config

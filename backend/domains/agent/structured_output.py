@@ -5,6 +5,30 @@ from copy import deepcopy
 from typing import Any
 
 
+def constrain_default_reasoning(model: Any, provider: str, effort: str | None) -> Any:
+    """Reserve useful answer capacity without replacing explicit reasoning choices."""
+    if provider != "openrouter" or effort is None:
+        return model
+    from backend.agent.json_tool_model import JsonToolModel
+    if isinstance(model, JsonToolModel):
+        return JsonToolModel(constrain_default_reasoning(model.model, provider, effort), model.schemas)
+    base = getattr(model, "bound", model)
+    bound = getattr(model, "kwargs", {})
+    extra = {**deepcopy(getattr(base, "extra_body", None) or {}), **deepcopy(bound.get("extra_body", {}))}
+    if any((getattr(base, "reasoning", None), getattr(base, "reasoning_effort", None),
+            bound.get("reasoning"), bound.get("reasoning_effort"), extra.get("reasoning"), extra.get("reasoning_effort"))):
+        return model
+    from backend.services.model_reasoning import reasoning_options
+    model_id = str(getattr(base, "model_name", "") or getattr(base, "model", ""))
+    if effort not in reasoning_options(provider, model_id)["supported_efforts"]:
+        return model
+    # Keep Chat Completions on its existing transport. The gateway's reasoning
+    # object also works for Responses; changing endpoints is unnecessary.
+    extra["reasoning"] = {"effort": effort}
+    extra["provider"] = {**extra.get("provider", {}), "require_parameters": True}
+    return model.bind(extra_body=extra)
+
+
 def _has_dynamic_object(schema: Any) -> bool:
     """Strict provider schemas cannot represent arbitrary concept-map keys."""
     if isinstance(schema, list):

@@ -388,6 +388,8 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         # Reading returns one bounded action, never the whole book. Avoid a
         # provider-default reservation of 65,536 output tokens for each step.
         operation_max_output_tokens=(16_384 if request.operation == "knowledge.process-source.phase" else None),
+        operation_default_reasoning_effort=("low" if request.operation == "knowledge.process-source.phase"
+                                            and not snapshot.profile.get("reasoning_effort") else None),
         output_schema=request.output_schema,
     )
     if workflow is None:

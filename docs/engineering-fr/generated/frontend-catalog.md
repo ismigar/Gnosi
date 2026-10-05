@@ -48,9 +48,9 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1172 | 129720 | 38 |
+| `features` | 1172 | 129726 | 38 |
 | `generated` | 2 | 49837 | 510 |
-| `shared` | 279 | 32631 | 440 |
+| `shared` | 279 | 32636 | 440 |
 
 ## app
 
@@ -310,7 +310,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/literature/records/metadata-lookup/MetadataLookupResults.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/MetadataLookupResults.tsx) | 173 | `MetadataLookupResults` | — |
 | [`frontend/src/features/literature/records/metadata-lookup/metadataLookupModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/metadataLookupModel.ts) | 154 | `SOURCE_LABELS`, `groupMetadataEntries`, `initialFieldSelection`, `metadataDisplayText`, `metadataScalarText`, `metadataValueIsEmpty`, `normalizeLookupResult`, `resolveZoteroType`, `selectedMetadataPatch`, `zoteroTypeLabel` | — |
 | [`frontend/src/features/literature/records/metadata-lookup/useMetadataLookup.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/useMetadataLookup.ts) | 286 | `useMetadataLookup` | — |
-| [`frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx) | 283 | `ProcessResourceModalView` | — |
+| [`frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx) | 289 | `ProcessResourceModalView` | — |
 | [`frontend/src/features/literature/records/process-resource/ProcessResourcePreflight.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ProcessResourcePreflight.tsx) | 68 | `ProcessResourcePreflight` | — |
 | [`frontend/src/features/literature/records/process-resource/ResourceProcessingMonitor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ResourceProcessingMonitor.tsx) | 69 | `ResourceProcessingMonitor` | — |
 | [`frontend/src/features/literature/records/process-resource/processResourceModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/processResourceModel.ts) | 115 | `NO_BRAIN_TABLE_ERROR`, `PHASE_LABELS`, `POLL_INTERVAL_MS`, `countTouchedPages`, `getPollingIdentifier`, `getProcessPhase`, `getProgressPercent`, `getStartErrorMessage`, `getTerminalProcessState`, `isProviderRateLimit` | — |
@@ -1456,7 +1456,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/shared/i18n/locales/registry.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/i18n/locales/registry.ts) | 263 | `FALLBACK_LOCALE`, `applyDocumentLocale`, `applyLocaleMetadata`, `availableLocales`, `buildLocaleRegistry`, `canonicalizeLocale`, `getIntlLocale`, `getLocaleMeta`, `loadLocaleResource`, `resolveLocale` | — |
 | [`frontend/src/shared/i18n/useLocaleSettings.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/i18n/useLocaleSettings.ts) | 76 | `useLocaleSettings` | — |
 | [`frontend/src/shared/notifications/notifyError.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/notifications/notifyError.ts) | 204 | `_persistNotification`, `logError`, `notifyError`, `notifyInfo`, `notifySuccess` | — |
-| [`frontend/src/shared/notifications/resourceProcessingError.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/notifications/resourceProcessingError.ts) | 13 | `resourceProcessingError` | — |
+| [`frontend/src/shared/notifications/resourceProcessingError.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/notifications/resourceProcessingError.ts) | 18 | `resourceProcessingError` | — |
 | [`frontend/src/shared/notifications/toast.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/notifications/toast.ts) | 185 | `toast` | — |
 | [`frontend/src/shared/page-search/GlobalSearchModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/page-search/GlobalSearchModal.tsx) | 450 | `GlobalSearchModal` | — |
 | [`frontend/src/shared/page-search/global-search-modal/GlobalSearchResults.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/page-search/global-search-modal/GlobalSearchResults.tsx) | 103 | `GlobalSearchResults` | — |

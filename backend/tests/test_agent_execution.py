@@ -44,6 +44,28 @@ def test_migration_preserves_personal_brain_and_disabled_features():
     assert migrate(migrated, {"ai-platform"}) == (migrated, False)
 
 
+@pytest.mark.parametrize('operation,effort,expected', [
+    ('knowledge.process-source.phase', None, 'low'),
+    ('knowledge.process-source.phase', 'max', None),
+    ('knowledge.process-source.phase', 'low', None),
+    ('other.operation', None, None),
+])
+def test_only_reading_with_default_reasoning_requests_low(monkeypatch, runtime, operation, effort, expected):
+    _, snapshot = runtime
+    if effort:
+        snapshot.profile['reasoning_effort'] = effort
+    captured = {}
+    async def workflow(*args, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(compile=lambda: 'compiled'), {}
+    monkeypatch.setattr('backend.agent.factory.create_agent_workflow', workflow)
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation, input='source')
+    asyncio.run(execution._operation_application(request, snapshot, {}, None))
+    assert captured['operation_default_reasoning_effort'] == expected
+    assert snapshot.profile.get('reasoning_effort') == effort
+    assert captured['prepared_agent_data'] is snapshot.profile
+
+
 def test_migration_replaces_managed_principal_without_global_knowledge_instructions():
     params = {"ai": {"active_agent_id": "llm-wiki", "agents": [{"id": "llm-wiki", "managed_by": "llm-wiki", "persona": "Knowledge only", "provider": "local", "model": "m"}]}}
     migrated, _ = migrate(params, {"llm-wiki"})

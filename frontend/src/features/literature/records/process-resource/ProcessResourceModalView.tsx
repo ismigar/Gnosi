@@ -96,7 +96,7 @@ export function ProcessResourceModalView({
                     </button>
                 </div>
 
-                <div className="p-5 space-y-3 overflow-y-auto min-h-0">
+                <div className="p-5 space-y-3 overflow-y-auto min-h-0 min-w-0">
                     {title ? (
                         <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
                             {title}
@@ -214,11 +214,17 @@ export function ProcessResourceModalView({
                                 className="text-red-500 shrink-0 mt-0.5"
                                 size={18}
                             />
-                            <div className="text-xs text-red-500 break-words">
+                            <div className="text-xs text-red-500 min-w-0 flex-1 [overflow-wrap:anywhere]">
                                 {isProviderRateLimit(error) ? translate(
                                     'error_rate_limit',
                                     'The AI provider is limiting requests. Wait a few minutes or check your account limits, then retry.',
                                 ) : error}
+                                {job?.error && job.error !== error ? (
+                                    <details className="mt-2">
+                                        <summary>{translate('error_details', 'Technical details')}</summary>
+                                        <p className="mt-2 whitespace-pre-wrap">{job.error}</p>
+                                    </details>
+                                ) : null}
                                 {(job?.chunks_done ?? 0) > 0 ? (
                                     <p className="mt-2">
                                         {translate(

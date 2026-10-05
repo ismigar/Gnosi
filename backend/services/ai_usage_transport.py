@@ -202,6 +202,17 @@ class UsageCallback(BaseCallbackHandler):
     def on_llm_end(self, response: Any, *, run_id: Any, **kwargs: Any) -> None:
         self._finish(run_id, response)
     def on_llm_error(self, error: BaseException, *, run_id: Any, **kwargs: Any) -> None:
+        # The SDK can throw while parsing a structured response, before its
+        # completion reaches our transport wrapper. It retains the raw usage
+        # on LengthFinishReasonError.completion (including billed reasoning).
+        completion = _mapping(getattr(error, "completion", None))
+        if completion.get("usage"):
+            with self.lock:
+                state = self.pending.get(str(run_id))
+                if state is not None:
+                    state["raw_usage"] = _mapping(completion["usage"])
+                    state["generation_id"] = str(completion.get("id") or "")
+                    state["actual_model"] = str(completion.get("model") or self.model)
         self._finish(run_id, result=kwargs.get("response"), error=error)
 
 

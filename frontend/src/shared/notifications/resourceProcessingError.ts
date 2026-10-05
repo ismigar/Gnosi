@@ -3,6 +3,11 @@ import type { TFunction } from 'i18next';
 const PROVIDER_TIMEOUT = 'The AI provider did not respond in time. Retry to resume saved progress.';
 
 export function resourceProcessingError(error: string | null | undefined, t: TFunction): string {
+    if (error?.includes('length limit was reached') || error?.includes('LengthFinishReasonError')) {
+        const total = /completion_tokens=(\d+)/u.exec(error)?.[1];
+        const reasoning = /reasoning_tokens=(\d+)/u.exec(error)?.[1];
+        return t(total && reasoning === total ? 'llm_wiki.error_reasoning_output_limit' : 'llm_wiki.error_output_limit');
+    }
     for (const key of ['reading_budget_exhausted', 'reading_budget_pending_cost', 'reading_budget_unknown_price_or_output_limit', 'reading_estimate_changed', 'reading_checkpoint_incompatible']) {
         if (error?.includes(key)) return t(`llm_wiki.${key}`);
     }

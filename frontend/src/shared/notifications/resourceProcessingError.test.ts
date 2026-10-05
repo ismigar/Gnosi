@@ -15,5 +15,9 @@ describe('resource processing errors', () => {
         )).toBe(translation.llm_wiki.error_provider_timeout);
         expect(resourceProcessingError('', i18n.t)).toBe(translation.llm_wiki.error_generic);
         expect(resourceProcessingError('Provider unavailable (503)', i18n.t)).toBe('Provider unavailable (503)');
+        expect(resourceProcessingError('Could not parse response content as the length limit was reached - CompletionUsage(completion_tokens=16384, completion_tokens_details=CompletionTokensDetails(reasoning_tokens=16384))', i18n.t))
+            .toBe(translation.llm_wiki.error_reasoning_output_limit);
+        expect(resourceProcessingError('Could not parse response content as the length limit was reached - CompletionUsage(completion_tokens=16384, reasoning_tokens=2000)', i18n.t))
+            .toBe(translation.llm_wiki.error_output_limit);
     });
 });

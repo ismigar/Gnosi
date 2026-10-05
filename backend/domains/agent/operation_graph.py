@@ -19,7 +19,8 @@ def is_read_tool(descriptor: Any) -> bool:
 
 def operation_workflow(model: Any, instructions: str, context_window: int, *, team_help: TeamHelp | None = None,
                        output_schema: dict[str, Any] | None = None, provider: str = "",
-                       runtime: Any = None, max_output_tokens: int | None = None) -> StateGraph[Any, None, Any, Any]:
+                       runtime: Any = None, max_output_tokens: int | None = None,
+                       default_reasoning_effort: str | None = None) -> StateGraph[Any, None, Any, Any]:
     from backend.services.agent_tool_identity import runtime_tool_name
     from backend.domains.agent.policy import _tool_policy_wrapper
     pairs = [(descriptor, tool) for descriptor, tool in zip(runtime.tool_descriptors, runtime.tools, strict=True)
@@ -51,7 +52,7 @@ def operation_workflow(model: Any, instructions: str, context_window: int, *, te
         if not budget["fits"]:
             raise OperationContextExceeded()
         active_model = selected_model if can_request_help(state) else read_model
-        from backend.domains.agent.structured_output import constrain_output
+        from backend.domains.agent.structured_output import constrain_output, constrain_default_reasoning
         from backend.agent.json_tool_model import JsonToolModel
         # Native tool selection must remain a function-call turn. JSON-only
         # answer formatting makes some providers describe a call as text
@@ -62,6 +63,7 @@ def operation_workflow(model: Any, instructions: str, context_window: int, *, te
             active_model = constrain_output(active_model, provider, output_schema)
         if max_output_tokens is not None:
             active_model = active_model.bind(max_tokens=max_output_tokens)
+        active_model = constrain_default_reasoning(active_model, provider, default_reasoning_effort)
         return {"messages": [_invoke_agent_model(active_model, messages, state)]}
 
     graph: StateGraph[Any, None, Any, Any] = StateGraph(AgentState)
