@@ -472,7 +472,7 @@ def process_resource(
         batch_size=batch_size,
         expected_reading_identity=expected_reading_identity,
         execution_revision=runtime.identity,
-        agent_directed=bool(
+        semantic_reading=bool(
             getattr(runtime, "snapshot", None) and runtime.snapshot.behavior_resources
         ),
         execution_metadata=runtime.metadata,

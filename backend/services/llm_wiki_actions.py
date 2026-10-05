@@ -149,7 +149,7 @@ def start_source_process(
     )
     preflight = _source_preflight(item_id, metadata, body, vr, source_table, source_config,
                                  brain_table_id, force=force, batch_size=batch_size,
-                                 estimate_id=estimate_id, estimate_only=estimate_only)
+                                 estimate_id=estimate_id, estimate_only=estimate_only, source_title=title, language=resolved_language)
     if estimate_only:
         return preflight
     expected_reading_identity = str(preflight["_reading_identity"])
@@ -234,13 +234,13 @@ async def run_maintenance_async(*, semantic: bool = False) -> Dict[str, object]:
     return await asyncio.to_thread(run_maintenance, semantic=semantic)
 
 
-def _source_preflight(item_id: str, metadata: dict[str, object], body: str, vr: VaultActionsPort, source_table: dict[str, object], source_config: dict[str, object], brain_table_id: str, *, force: bool, batch_size: int, estimate_id: str, estimate_only: bool) -> Dict[str, object]:
+def _source_preflight(item_id: str, metadata: dict[str, object], body: str, vr: VaultActionsPort, source_table: dict[str, object], source_config: dict[str, object], brain_table_id: str, *, force: bool, batch_size: int, estimate_id: str, estimate_only: bool, source_title: str = "", language: str = "") -> Dict[str, object]:
     expected_reading_identity = ""
     if estimate_only or estimate_id:
         from backend.services.reading_estimate import estimate
         try:
             preflight = estimate(item_id, metadata, body, vr.get_p("VAULT"), source_table,
-                                 source_config, brain_table_id, force=force, batch_size=batch_size)
+                                 source_config, brain_table_id, force=force, batch_size=batch_size, source_title=source_title, language=language)
         except (ValueError, RuntimeError) as error:
             raise LlmWikiActionError(400, str(error)) from error
         if estimate_only:

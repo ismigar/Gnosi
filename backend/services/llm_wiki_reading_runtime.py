@@ -62,6 +62,10 @@ class ReadingRuntime:
         return hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode()).hexdigest()
 
     @property
+    def reading_engine(self) -> str:
+        return "semantic" if self.snapshot.behavior_resources else "legacy"
+
+    @property
     def metadata(self) -> dict[str, object]:
         return {
             "agent_id": self.agent_id,
@@ -69,6 +73,7 @@ class ReadingRuntime:
             "model": self.model,
             "skill_id": SKILL_ID,
             "skill_version": SKILL_VERSION,
+            "reading_engine": self.reading_engine,
             "execution_revision": self.identity,
         }
 
@@ -113,6 +118,10 @@ class ReadingRuntime:
             from backend.domains.llm_wiki.reading_dimension_repairs import build_dimension_repair
             # A schema rejection can hide bad citations in the same draft.
             # Collect both before spending another call on a full rewrite.
+            if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic":
+                from backend.domains.llm_wiki.semantic_repairs import build_semantic_repair
+                semantic_repair = build_semantic_repair(prompt, text)
+                return semantic_repair if semantic_repair is not None and self.count_tokens(semantic_repair.input) <= self.input_budget else None
             plan = build_dimension_repair(prompt, text, validate)
             if plan is None:
                 plan = build_reading_repair(prompt, text, error)
@@ -123,7 +132,7 @@ class ReadingRuntime:
             input=prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
             # A syntax correction can expose reference errors. Allow their one
             # immutable patch within the same finite operation deadline.
-            output_schema=schema, max_model_calls=3), snapshot=self.snapshot, output_validator=checked, output_repair=repair)
+            output_schema=schema, max_model_calls=2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3), snapshot=self.snapshot, output_validator=checked, output_repair=repair)
         return result.result, result.model
 
 

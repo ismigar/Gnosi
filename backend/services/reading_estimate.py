@@ -14,11 +14,12 @@ from backend.services.llm_wiki_reading_runtime import prepare_reading_runtime
 from backend.services import reading_budget
 from backend.services.ai_usage_dashboard import currency_context
 from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, reduce_batch
+from backend.domains.llm_wiki.semantic_context import state_progress
 
 
 def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_root: Path,
              source_table: dict[str, object], source_config: dict[str, object],
-             brain_table_id: str, *, force: bool = False, batch_size: int = 4) -> dict[str, Any]:
+             brain_table_id: str, *, force: bool = False, batch_size: int = 4, source_title: str = "", language: str = "") -> dict[str, Any]:
     runtime = prepare_reading_runtime(vault_root)
     origins, warnings = llm_wiki_extractors.extract_resource_sources(metadata, body, vault_root, source_table, source_config)
     if not origins:
@@ -28,18 +29,8 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     index = llm_wiki._load_brain_index(brain_table_id, resource_id)
     identity = fingerprint([runtime.identity, chunks, dimensions, index])
     previous = llm_wiki_storage.get_job_status(resource_id, str(source_table.get("id") or ""))
-    saved: dict[str, Any] = {}
-    previous_plans = 0
-    if not force and previous.get("phase") in {llm_wiki.PHASE_PARTIAL, llm_wiki.PHASE_ERROR}:
-        for job_id in llm_wiki_storage.resume_checkpoint_jobs(str(previous.get("job_id") or "")):
-            checkpoint = llm_wiki_storage.load_checkpoint(job_id, "agent-state")
-            if isinstance(checkpoint, dict) and isinstance(checkpoint.get("plans"), dict):
-                previous_plans = max(previous_plans, len(checkpoint["plans"]))
-            if isinstance(checkpoint, dict) and checkpoint.get("identity") == identity:
-                plans = checkpoint.get("plans", {})
-                if isinstance(plans, dict) and (not saved or len(plans) > len(saved.get("plans", {}))):
-                    saved = deepcopy(checkpoint)
-                    reduce_batch(saved, str(llm_wiki_storage.get_job_status(job_id).get("error") or ""))
+    semantic = getattr(runtime, "reading_engine", "legacy") == "semantic"
+    saved, previous_plans = _saved_state(previous, identity, semantic, force, source_title, language)
     batch_size = batch_limit(batch_size, saved)
     remaining = [chunk for chunk in chunks if str(chunk["id"]) not in saved.get("plans", {})]
     # Same context bound as automatic delivery; conservative fixed full memory
@@ -64,6 +55,15 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     # possible and are subject to the durable spending limit.
     output_assumed = sum(len(encoded(chunk).encode()) for chunk in remaining)//2 + 512*calls
     output_bound = 16384*calls
+    semantic_cost = {}
+    if semantic:
+        from backend.services.reading_semantic_estimate import phase_estimate
+        semantic_cost = phase_estimate(runtime, chunks, remaining, dimensions, saved, batch_size)
+        calls = semantic_cost["planned_calls"]
+        restore_calls = 0
+        input_bound = semantic_cost["input_token_bound"]
+        output_assumed = semantic_cost["output_tokens_assumed"]
+        output_bound = semantic_cost["output_token_bound"]
     from backend.agent.model_catalog import catalog_model_cost
     from backend.agent.model_router import load_registry
     rates = catalog_model_cost(runtime.provider, runtime.model)
@@ -78,12 +78,12 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     low = high = None
     if priced and rates:
         low = (input_bound*float(rates["cost_in"])+output_assumed*float(rates["cost_out"]))/1_000_000
-        # A reference repair can require two further bounded calls.
-        high = 3*(input_bound*float(rates["cost_in"])+output_bound*float(rates["cost_out"]))/1_000_000*1.10
+        # Semantic phases permit one repair; legacy phases permit two.
+        high = (2 if semantic else 3)*(input_bound*float(rates["cost_in"])+output_bound*float(rates["cost_out"]))/1_000_000*1.10
     budget = None
     if not force and previous.get("budget_id"):
         budget = reading_budget.status(str(previous["budget_id"]))
-    return {"_reading_identity": identity, "estimate_id": fingerprint([identity, rates, batch_size, len(saved.get("plans", {})), previous_plans]),
+    return {"_reading_identity": identity, "estimate_id": fingerprint([identity, source_title, language, rates, batch_size, len(saved.get("plans", {})), previous_plans]),
             "provider": runtime.provider, "model": runtime.model, "currency": "USD", "priced": priced,
             "display_currency": currency_context(),
             "cost_in_per_million_usd": rates["cost_in"] if priced and rates else None,
@@ -93,4 +93,26 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
             "batch_size": batch_size, "planned_calls": calls, "memory_restore_calls": restore_calls,
             "source_token_bound": source_bytes, "input_token_bound": input_bound,
             "output_tokens_assumed": output_assumed, "output_token_bound": output_bound,
-            "cost_usd": low, "cost_with_repairs_usd": high, "budget": budget, "warnings": warnings}
+            "cost_usd": low, "cost_with_repairs_usd": high, "budget": budget, "warnings": warnings, **semantic_cost}
+
+
+def _saved_state(previous: dict[str, Any], identity: str, semantic: bool, force: bool,
+                 source_title: str, language: str) -> tuple[dict[str, Any], int]:
+    saved: dict[str, Any] = {}
+    previous_plans = 0
+    if not force and previous.get("phase") in {llm_wiki.PHASE_PARTIAL, llm_wiki.PHASE_ERROR}:
+        for job_id in llm_wiki_storage.resume_checkpoint_jobs(str(previous.get("job_id") or "")):
+            legacy = llm_wiki_storage.load_checkpoint(job_id, "agent-state")
+            if semantic and isinstance(legacy, dict) and isinstance(legacy.get("plans"), dict):
+                previous_plans = max(previous_plans, len(legacy["plans"]))
+            checkpoint = llm_wiki_storage.load_checkpoint(job_id, "semantic-state") if semantic else legacy
+            if isinstance(checkpoint, dict) and isinstance(checkpoint.get("plans"), dict):
+                previous_plans = max(previous_plans, len(checkpoint["plans"]))
+            if (isinstance(checkpoint, dict) and checkpoint.get("identity") == identity
+                    and (not semantic or (checkpoint.get("engine") == 1
+                         and checkpoint.get("reading_context") == fingerprint([source_title, language])))):
+                plans = checkpoint.get("plans", {})
+                if isinstance(plans, dict) and (not saved or state_progress(checkpoint) > state_progress(saved)):
+                    saved = deepcopy(checkpoint)
+                    reduce_batch(saved, str(llm_wiki_storage.get_job_status(job_id).get("error") or ""))
+    return saved, previous_plans

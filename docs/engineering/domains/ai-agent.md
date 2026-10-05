@@ -2,6 +2,13 @@
 status: implemented
 last_verified: 2026-10-05
 source_paths:
+  - backend/domains/llm_wiki/semantic_reading.py
+  - backend/domains/llm_wiki/semantic_contracts.py
+  - backend/domains/llm_wiki/semantic_context.py
+  - backend/domains/llm_wiki/semantic_review.py
+  - backend/domains/llm_wiki/semantic_repairs.py
+  - backend/services/reading_semantic_estimate.py
+  - backend/tests/test_semantic_reading.py
   - backend/services/agent_task_cases.py
   - backend/services/agent_task_evaluation_models.py
   - backend/services/agent_task_evaluations.py
@@ -1311,3 +1318,17 @@ When the provider truncates an automatically delivered batch after emitting answ
 Structured-output repair diagnostics name the failing path and constraint without resending the entire JSON schema or rejected document inside the diagnostic. For reader actions, diagnostics validate the arguments of the chosen action, avoiding a misleading error from another alternative. Automatic-delivery instructions explicitly distinguish the already supplied passages from subsequent reads. Validation, evidence checks and the bounded repair allowance are retained.
 
 Model recommendations show recent measured sample time and, for book duties, available real reading-step durations and failures on the exact provider/model route. Reader-step time includes repairs, does not mix parent jobs or other operations, and is not extrapolated into a whole-book duration because batch sizes and contexts differ. Only the recent activity returned by the API is represented. Among candidates that passed all selected task checks, the balanced option minimizes estimated cost multiplied by average sample time only when every checked candidate has positive, recent measurements for the same current suite, mode and requested cases. Otherwise it keeps cost ordering and explicitly marks unavailable timings. The cheapest option remains ordered by cost. Older quality evidence remains reusable; it is not treated as current speed evidence. These measurements are indicative and may come from shared samples; workload and provider load can change.
+
+## Application-directed source reading
+
+The current source-processing path uses `semantic_reading.py`. Gnosi schedules a source-wide overview, ordered interpretation, a joint map of every proposed note, and source-grounded review before persistence. The model no longer chooses workflow actions, copies source identifiers or rewrites working memory. The action-directed reader and its contracts described elsewhere on this page are legacy compatibility paths, not the production reader.
+
+The original `plugin.llm-wiki.process-source` skill is written in English and owns intellectual methodology: substantive atomic reading notes, attribution, exact evidence, qualifications, classification and supported connections with existing knowledge. The Knowledge bot owns purpose and user criteria. Code owns batching, source identities, progress, checkpoints, retrieval, budget, validation, source sections and storage. Sources remain untrusted data. Permanent notes still require human approval.
+
+Each interpretation returns ordered passage results with ideas, exact quotations and semantic properties. The application binds these to the already-known primary sources and configured fields. A quote must match the original exactly; ambiguous contextual quotations and notes without a primary quotation fail validation. Every primary passage has notes or an omission reason. Partial repair requests only invalid passage interpretations and preserves valid passages and observations. Each governed phase permits two model calls, retains its deadline and spending reservations, and cannot delegate.
+
+Larger source windows contribute to a hierarchical argument map, including the ending. Local neighbours and lexical retrieval across all original passages supply context during interpretation. Prior notes, themes, questions and contradictions are stored as structured checkpoint data, and pertinent entries are selected for later reading. Every note and all observations contribute to the joint map. Review examines every proposed note with original evidence and both maps, returning sparse corrections; unchanged notes are retained locally. Exact citations establish provenance, not semantic correctness. Lexical retrieval and generated maps may miss nuance and are not a substitute for human judgment.
+
+`semantic-state` checkpoints retain maps, validated plans, observations and completed reviews. Reuse requires matching execution policy, original chunks, configured fields, knowledge context, title and language. Legacy action checkpoints remain preserved but cannot be silently imported after the skill change; preflight exposes their incompatibility and requires explicit reprocessing. No update starts a book job, changes its model or increases its spending limit. Preflight includes overview, interpretation, joint synthesis and review; note volume and repair needs are estimates, while the existing durable budget gates every actual call.
+
+Offline regression cases cover complete long-source delivery, joint review, attribution corrections, exact quotation binding, configured property types, partial repair, output-driven batch reduction, checkpoint reuse and interruption. They validate orchestration and invariants, not a live model's understanding of a whole book.

@@ -98,7 +98,7 @@ class ContextualReader:
                 return answer
         display_phase = (
             "reviewing"
-            if phase == "review" or key.startswith(("note-map", "all-notes"))
+            if phase in {"review", "verify"} or key.startswith(("note-map", "all-notes"))
             else "overview"
             if phase in {"overview", "synthesis"}
             else "planning"
@@ -334,6 +334,9 @@ class ContextualReader:
         return groups
 
     def run(self) -> tuple[dict[str, object], list[str]]:
+        if getattr(self.dependencies, "semantic_reading", False):
+            from backend.domains.llm_wiki.semantic_reading import run_semantic
+            return run_semantic(self)
         if getattr(self.dependencies, "agent_directed", False):
             from backend.domains.llm_wiki.directed_reading import run_directed
             return run_directed(self)

@@ -2,6 +2,13 @@
 status: implemented
 last_verified: 2026-10-05
 source_paths:
+  - backend/domains/llm_wiki/semantic_reading.py
+  - backend/domains/llm_wiki/semantic_contracts.py
+  - backend/domains/llm_wiki/semantic_context.py
+  - backend/domains/llm_wiki/semantic_review.py
+  - backend/domains/llm_wiki/semantic_repairs.py
+  - backend/services/reading_semantic_estimate.py
+  - backend/tests/test_semantic_reading.py
   - backend/services/agent_task_cases.py
   - backend/services/agent_task_evaluation_models.py
   - backend/services/agent_task_evaluations.py
@@ -1483,3 +1490,17 @@ Cuando el proveedor trunca un lote entregado automáticamente después de emitir
 Los diagnósticos de reparación estructurada identifican el campo y la restricción incorrectos sin repetir todo el esquema JSON ni el documento rechazado dentro del diagnóstico. Para las acciones del lector se validan los argumentos de la acción elegida, evitando errores engañosos de otra alternativa. Las instrucciones de entrega automática distinguen explícitamente los pasajes ya aportados de las lecturas posteriores. Se mantienen la validación, la comprobación de evidencias y el límite de reparaciones.
 
 Las recomendaciones muestran el tiempo reciente medido de las muestras y, para tareas de libro, las duraciones y fallos disponibles de los pasos de lectura real con el mismo proveedor y modelo. El tiempo por paso incluye correcciones, no mezcla trabajos padre ni otras operaciones y no se extrapola a la duración del libro porque varían lotes y contextos. Solo representa la actividad reciente devuelta por la API. Entre candidatos que han superado todas las pruebas de las tareas seleccionadas, la opción equilibrada minimiza el coste estimado multiplicado por el tiempo medio de muestra únicamente si todos los candidatos comprobados tienen mediciones positivas y recientes del mismo juego vigente, modo y casos solicitados. En caso contrario conserva el orden por coste e indica las mediciones ausentes. La opción más económica sigue ordenada por coste. Las evidencias antiguas de calidad se reutilizan, pero no cuentan como mediciones actuales de velocidad. Las mediciones son orientativas y pueden proceder de muestras compartidas; las cargas de trabajo y del proveedor pueden cambiar.
+
+## Lectura de fuentes dirigida por la aplicación
+
+La ruta actual de procesamiento de fuentes utiliza `semantic_reading.py`. Gnosi programa una visión global de la fuente, la interpretación ordenada, un mapa conjunto de todas las notas propuestas y la revisión con evidencia original antes de guardar. El modelo ya no elige acciones del flujo, copia identificadores de fuente ni reescribe la memoria de trabajo. El lector dirigido por acciones y sus contratos descritos en otros apartados de esta página son rutas de compatibilidad antiguas, no el lector de producción.
+
+La skill original `plugin.llm-wiki.process-source` está escrita en inglés y define la metodología intelectual: notas de lectura atómicas y sustantivas, atribución, evidencia exacta, matices, clasificación y conexiones fundamentadas con conocimiento existente. El bot de Conocimiento define la finalidad y los criterios del usuario. El código controla lotes, identidades de fuente, progreso, checkpoints, recuperación de contexto, presupuesto, validación, secciones y almacenamiento. Las fuentes siguen siendo datos no fiables. Las notas permanentes siguen requiriendo aprobación humana.
+
+Cada interpretación devuelve resultados ordenados de los pasajes con ideas, citas exactas y propiedades semánticas. La aplicación los vincula a las fuentes primarias ya conocidas y los campos configurados. Las citas deben coincidir exactamente con el original; las citas contextuales ambiguas y las notas sin cita primaria no superan la validación. Cada pasaje primario tiene notas o un motivo de omisión. La reparación parcial solicita únicamente corregir interpretaciones de pasajes inválidas y conserva los pasajes válidos y las observaciones. Cada fase gobernada permite dos llamadas al modelo, mantiene su plazo y reservas de gasto y no puede delegar.
+
+Ventanas de texto más amplias contribuyen a un mapa jerárquico del argumento, incluido el final. Los pasajes vecinos y la recuperación léxica entre todos los originales aportan contexto a la interpretación. Las notas previas, temas, preguntas y contradicciones se guardan como datos estructurados del checkpoint y se seleccionan las entradas pertinentes para continuar leyendo. Todas las notas y observaciones contribuyen al mapa conjunto. La revisión examina todas las notas propuestas con evidencia original y ambos mapas y devuelve correcciones puntuales; las notas intactas se conservan localmente. Las citas exactas acreditan procedencia, no corrección semántica. La recuperación léxica y los mapas generados pueden perder matices y no sustituyen el juicio humano.
+
+Los checkpoints `semantic-state` conservan mapas, planes validados, observaciones y revisiones terminadas. Para reutilizarlos deben coincidir la política de ejecución, los fragmentos originales, los campos configurados, el contexto de conocimiento, el título y el idioma. Los checkpoints antiguos de acciones se conservan pero no pueden importarse silenciosamente tras cambiar la skill; la estimación previa muestra la incompatibilidad y exige reprocesamiento explícito. Ninguna actualización inicia la lectura, cambia el modelo ni aumenta el límite de gasto. La estimación incluye visión global, interpretación, síntesis conjunta y revisión; el volumen de notas y las reparaciones son estimaciones, mientras que el presupuesto persistente existente controla cada llamada real.
+
+Las regresiones sin conexión cubren la entrega completa de una fuente larga, la revisión conjunta, las correcciones de atribución, la vinculación de citas exactas, los tipos de propiedades, la reparación parcial, la reducción de lotes por límite de salida, la reutilización de checkpoints y las interrupciones. Validan la orquestación y las invariantes, no la comprensión de un libro completo por un modelo real.

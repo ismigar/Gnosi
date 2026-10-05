@@ -1,13 +1,13 @@
 """The process-source skill's shared, versioned reading methodology.
 
 Published by the plugin catalog and consumed verbatim by the durable worker.
-Keep interpretive policy here; the worker only enforces budgets and contracts.
+Keep interpretive policy here; the worker owns scheduling, evidence identities, memory and persistence.
 """
 
 from backend.services.agent_behavior import resource as behavior_resource
 
 SKILL_ID = "plugin.llm-wiki.process-source"
-SKILL_VERSION = "4"
+SKILL_VERSION = "5"
 
 INSTRUCTIONS = behavior_resource('skills/plugin.llm-wiki.process-source/SKILL.md')
 

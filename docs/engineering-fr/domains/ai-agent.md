@@ -2,6 +2,13 @@
 status: implemented
 last_verified: 2026-10-05
 source_paths:
+  - backend/domains/llm_wiki/semantic_reading.py
+  - backend/domains/llm_wiki/semantic_contracts.py
+  - backend/domains/llm_wiki/semantic_context.py
+  - backend/domains/llm_wiki/semantic_review.py
+  - backend/domains/llm_wiki/semantic_repairs.py
+  - backend/services/reading_semantic_estimate.py
+  - backend/tests/test_semantic_reading.py
   - backend/services/agent_task_cases.py
   - backend/services/agent_task_evaluation_models.py
   - backend/services/agent_task_evaluations.py
@@ -1506,3 +1513,17 @@ Lorsque le fournisseur tronque un lot livré automatiquement après avoir émis 
 Les diagnostics de réparation structurée identifient le champ et la contrainte incorrects sans répéter tout le schéma JSON ni le document rejeté dans le diagnostic. Pour les actions du lecteur, les arguments de l’action choisie sont validés, évitant un message trompeur issu d’une autre alternative. Les instructions de livraison automatique distinguent explicitement les passages déjà fournis des lectures suivantes. La validation, les contrôles de preuves et la limite de réparations sont conservés.
 
 Les recommandations affichent le temps récent mesuré des exemples et, pour les tâches de livre, les durées et échecs disponibles des étapes de lecture réelle sur la même route fournisseur/modèle. Le temps par étape inclut les corrections, ne mélange pas les traitements parents ou d’autres opérations et n’est pas extrapolé à la durée du livre car lots et contextes varient. Seule l’activité récente renvoyée par l’API est représentée. Parmi les candidats ayant réussi tous les tests des tâches choisies, l’option équilibrée minimise le coût estimé multiplié par le temps moyen d’exemple uniquement si tous les candidats vérifiés disposent de mesures positives et récentes pour le même jeu actuel, mode et cas demandés. Sinon, elle conserve l’ordre par coût et indique les mesures absentes. L’option la moins chère reste classée par coût. Les anciennes preuves de qualité restent réutilisables, mais ne constituent pas des mesures actuelles de vitesse. Les mesures sont indicatives et peuvent provenir d’exemples partagés ; les charges de travail et du fournisseur peuvent varier.
+
+## Lecture des sources dirigée par l’application
+
+Le traitement actuel des sources utilise `semantic_reading.py`. Gnosi programme une vue globale de la source, une interprétation ordonnée, une carte commune de toutes les notes proposées et une révision fondée sur les originaux avant enregistrement. Le modèle ne choisit plus les actions du processus, ne recopie plus les identifiants des sources et ne réécrit plus la mémoire de travail. Le lecteur dirigé par actions et ses contrats décrits ailleurs sur cette page sont des voies de compatibilité anciennes, pas le lecteur de production.
+
+La skill originale `plugin.llm-wiki.process-source` est rédigée en anglais et définit la méthodologie intellectuelle : notes de lecture atomiques et substantielles, attribution, preuves exactes, nuances, classification et liens fondés avec les connaissances existantes. Le bot de Connaissance définit le but et les critères de l’utilisateur. Le code contrôle les lots, les identités des sources, la progression, les checkpoints, la récupération du contexte, le budget, la validation, les sections et le stockage. Les sources restent des données non fiables. Les notes permanentes exigent toujours une approbation humaine.
+
+Chaque interprétation renvoie des résultats ordonnés par passage, avec des idées, des citations exactes et des propriétés sémantiques. L’application les associe aux sources primaires déjà connues et aux champs configurés. Les citations doivent correspondre exactement à l’original ; les citations contextuelles ambiguës et les notes sans citation primaire échouent à la validation. Chaque passage primaire possède des notes ou une raison d’omission. La réparation partielle ne demande que de corriger les interprétations invalides et conserve les passages valides et les observations. Chaque phase gouvernée autorise deux appels au modèle, conserve son délai et ses réservations de dépenses et ne peut pas déléguer.
+
+Des fenêtres de texte plus larges alimentent une carte hiérarchique de l’argument, y compris sa conclusion. Les passages voisins et la recherche lexicale dans tous les originaux fournissent du contexte pendant l’interprétation. Les notes antérieures, thèmes, questions et contradictions sont stockés dans des checkpoints structurés ; les éléments pertinents sont sélectionnés pour poursuivre la lecture. Toutes les notes et observations contribuent à la carte commune. La révision examine chaque note proposée avec les originaux et les deux cartes, puis renvoie des corrections ponctuelles ; les notes inchangées restent conservées localement. Les citations exactes établissent la provenance, pas la justesse sémantique. La recherche lexicale et les cartes générées peuvent manquer des nuances et ne remplacent pas le jugement humain.
+
+Les checkpoints `semantic-state` conservent les cartes, plans validés, observations et révisions terminées. Leur réutilisation exige les mêmes règles d’exécution, passages originaux, champs configurés, contexte de connaissance, titre et langue. Les anciens checkpoints d’actions sont conservés mais ne peuvent pas être importés silencieusement après le changement de skill ; l’estimation préalable indique leur incompatibilité et exige un retraitement explicite. Aucune mise à jour ne lance la lecture, ne change le modèle ni n’augmente le plafond de dépenses. L’estimation inclut la vue globale, l’interprétation, la synthèse commune et la révision ; le volume des notes et les réparations sont des estimations, tandis que le budget persistant existant contrôle chaque appel réel.
+
+Les tests de régression hors ligne couvrent la transmission complète d’une source longue, la révision commune, les corrections d’attribution, l’association de citations exactes, les types de propriétés, la réparation partielle, la réduction des lots après saturation de sortie, la réutilisation des checkpoints et les interruptions. Ils valident l’orchestration et les invariants, pas la compréhension d’un livre entier par un modèle réel.

@@ -107,6 +107,7 @@ class IngestionDependencies:
     resume_candidates: Callable[[str], list[str]] | None = None
     resume_job_status: Callable[[str], dict[str, object]] | None = None
     execution_revision: str = ""
+    semantic_reading: bool = False
     agent_directed: bool = False
     expected_reading_identity: str = ""
     batch_size: int = 1

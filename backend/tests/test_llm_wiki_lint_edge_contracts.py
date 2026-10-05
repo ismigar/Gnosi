@@ -125,6 +125,9 @@ def test_load_notes_normalizes_values_and_omits_incomplete_pages(
         assert path in {"synthetic.md", None}
         return body if path else ""
 
+    from backend.services import llm_wiki_config
+    monkeypatch.setattr(llm_wiki_config, "load_config", lambda: {})
+    monkeypatch.setattr(legacy_ports, "table_by_id", lambda _: {})
     monkeypatch.setattr(legacy_ports, "table_pages", table_pages)
     monkeypatch.setattr(storage, "page_metadata", page_metadata)
     monkeypatch.setattr(lint, "_read_body", read_body)

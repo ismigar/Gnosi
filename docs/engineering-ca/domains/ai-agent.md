@@ -2,6 +2,13 @@
 status: implemented
 last_verified: 2026-10-05
 source_paths:
+  - backend/domains/llm_wiki/semantic_reading.py
+  - backend/domains/llm_wiki/semantic_contracts.py
+  - backend/domains/llm_wiki/semantic_context.py
+  - backend/domains/llm_wiki/semantic_review.py
+  - backend/domains/llm_wiki/semantic_repairs.py
+  - backend/services/reading_semantic_estimate.py
+  - backend/tests/test_semantic_reading.py
   - backend/services/agent_task_cases.py
   - backend/services/agent_task_evaluation_models.py
   - backend/services/agent_task_evaluations.py
@@ -1417,3 +1424,17 @@ Quan el proveïdor talla un lot lliurat automàticament després d’emetre toke
 Els diagnòstics de reparació estructurada indiquen el camp i la restricció incorrectes sense repetir tot l’esquema JSON ni el document rebutjat dins del diagnòstic. Per a les accions del lector es validen els arguments de l’acció triada, evitant errors enganyosos d’una altra alternativa. Les instruccions de lliurament automàtic distingeixen explícitament els passatges ja aportats de les lectures posteriors. Es mantenen la validació, la comprovació d’evidències i el límit de reparacions.
 
 Les recomanacions mostren el temps recent mesurat de les mostres i, per a tasques de llibre, les durades i els errors disponibles dels passos de lectura real amb el mateix proveïdor i model. El temps de cada pas inclou correccions, no barreja feines pare ni altres operacions i no s’extrapola a la durada del llibre perquè varien els lots i els contextos. Només representa l’activitat recent retornada per l’API. Entre candidats que han superat totes les proves de les tasques seleccionades, l’opció equilibrada minimitza el cost estimat multiplicat pel temps mitjà de mostra només si tots els candidats comprovats tenen mesures positives i recents del mateix joc vigent, mode i casos demanats. Altrament conserva l’ordre per cost i indica les mesures absents. L’opció més econòmica continua ordenada per cost. Les evidències antigues de qualitat es poden reutilitzar, però no compten com a mesures actuals de velocitat. Les mesures són orientatives i poden provenir de mostres compartides; la càrrega de treball i la del proveïdor poden variar.
+
+## Lectura de fonts dirigida per l’aplicació
+
+La ruta actual de processament de fonts utilitza `semantic_reading.py`. Gnosi programa una visió global de la font, la interpretació ordenada, un mapa conjunt de totes les notes proposades i la revisió amb evidència original abans de desar. El model ja no tria accions del flux, copia identificadors de font ni reescriu la memòria de treball. El lector dirigit per accions i els seus contractes descrits en altres apartats d’aquesta pàgina són rutes de compatibilitat antigues, no el lector de producció.
+
+L’skill original `plugin.llm-wiki.process-source` està escrita en anglès i defineix la metodologia intel·lectual: notes de lectura atòmiques i substantives, atribució, evidència exacta, matisos, classificació i connexions fonamentades amb coneixement existent. El bot de Coneixement defineix la finalitat i els criteris de l’usuari. El codi controla lots, identitats de font, progrés, checkpoints, recuperació de context, pressupost, validació, seccions i desament. Les fonts continuen sent dades no fiables. Les notes permanents continuen requerint aprovació humana.
+
+Cada interpretació retorna resultats ordenats dels passatges amb idees, citacions exactes i propietats semàntiques. L’aplicació els vincula a les fonts primàries ja conegudes i als camps configurats. Les cites han de coincidir exactament amb l’original; les cites contextuals ambigües i les notes sense cita primària no superen la validació. Cada passatge primari té notes o un motiu d’omissió. La reparació parcial només demana corregir interpretacions de passatges invàlides i conserva els passatges vàlids i les observacions. Cada fase governada permet dues crides al model, manté el termini i les reserves de despesa i no pot delegar.
+
+Finestres de text més àmplies contribueixen a un mapa jeràrquic de l’argument, inclòs el final. Els passatges veïns i la recuperació lèxica entre tots els originals aporten context a la interpretació. Les notes prèvies, els temes, les preguntes i les contradiccions es desen com a dades estructurades del checkpoint i se’n seleccionen les entrades pertinents per continuar llegint. Totes les notes i observacions contribueixen al mapa conjunt. La revisió examina totes les notes proposades amb evidència original i els dos mapes i retorna correccions puntuals; les notes intactes es conserven localment. Les cites exactes acrediten procedència, no correcció semàntica. La recuperació lèxica i els mapes generats poden perdre matisos i no substitueixen el judici humà.
+
+Els checkpoints `semantic-state` conserven mapes, plans validats, observacions i revisions acabades. Per reutilitzar-los han de coincidir la política d’execució, els fragments originals, els camps configurats, el context de coneixement, el títol i la llengua. Els checkpoints antics d’accions es conserven però no es poden importar silenciosament després del canvi d’skill; l’estimació prèvia mostra la incompatibilitat i exigeix reprocessament explícit. Cap actualització inicia la lectura, canvia el model ni augmenta el límit de despesa. L’estimació inclou visió global, interpretació, síntesi conjunta i revisió; el volum de notes i les reparacions són estimacions, mentre que el pressupost persistent existent controla cada crida real.
+
+Les regressions sense connexió cobreixen l’entrega completa d’una font llarga, la revisió conjunta, les correccions d’atribució, la vinculació de cites exactes, els tipus de propietats, la reparació parcial, la reducció de lots per límit de sortida, la reutilització de checkpoints i les interrupcions. Validem l’orquestració i les invariants, no la comprensió d’un llibre sencer per un model real.
