@@ -129,9 +129,10 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             {botId && <ModelTaskEvaluation agentId={botId} provider={candidate.offer.route.provider} model={candidate.offer.route.model_id}
                 tasks={(!manual && detected.length ? detected : [task]).map(item => item.id)} currency={feed.currency}
                 active={registry.some(row => row.enabled && row.provider === candidate.offer.route.provider && row.model_id === candidate.offer.route.model_id)}
+                disabled={disabled} onConfigure={onConfigure ? () => { onConfigure(candidate); } : undefined}
                 onComplete={() => { setReload(value => value + 1); }} />}
             {(onConfigure || onAssign) && <div className="model-task-choice__actions">
-                {onConfigure && <button type="button" className="btn-gnosi btn-gnosi-secondary" disabled={disabled}
+                {onConfigure && (!botId || registry.some(row => row.enabled && row.provider === candidate.offer.route.provider && row.model_id === candidate.offer.route.model_id)) && <button type="button" className="btn-gnosi btn-gnosi-secondary" disabled={disabled}
                     onClick={() => { onConfigure(candidate); }}>{t('model_comparison.workspace.configure_offer')}</button>}
                 {onAssign && registry.some(row => row.enabled && row.provider === candidate.offer.route.provider && row.model_id === candidate.offer.route.model_id)
                     && <button type="button" className="btn-gnosi btn-gnosi-primary" disabled={disabled}

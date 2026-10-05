@@ -5661,7 +5661,10 @@
       "accept": "Aceptar resultado",
       "reject": "Rechazar resultado",
       "review_error": "No se ha podido guardar la revisión. El resultado mantiene su estado anterior.",
-      "old_result": "Resultado de hace más de 30 días: conservado; revisa si el proveedor ha cambiado el modelo."
+      "old_result": "Resultado de hace más de 30 días: conservado; revisa si el proveedor ha cambiado el modelo.",
+      "configure_to_test": "Configurar para probar",
+      "setup_help": "Primero configura y activa esta oferta. Al terminar se abrirá el panel de pruebas. No se asigna al bot ni se ejecutan pruebas automáticamente.",
+      "run_help": "Para ejecutar la prueba: revisa el límite de gasto, autoriza las llamadas y pulsa «Ejecutar solo las pruebas pendientes». Abrir este panel no genera gasto."
     }
   },
   "tags": {

@@ -5661,7 +5661,10 @@
       "accept": "Acceptar resultat",
       "reject": "Rebutjar resultat",
       "review_error": "No s’ha pogut desar la revisió. El resultat continua amb el seu estat anterior.",
-      "old_result": "Resultat de fa més de 30 dies: conservat; revisa si el proveïdor ha canviat el model."
+      "old_result": "Resultat de fa més de 30 dies: conservat; revisa si el proveïdor ha canviat el model.",
+      "configure_to_test": "Configurar per provar",
+      "setup_help": "Primer configura i activa aquesta oferta. En acabar s’obrirà el panell de proves. No s’assigna al bot ni s’executen proves automàticament.",
+      "run_help": "Per executar la prova: revisa el límit de despesa, autoritza les crides i prem «Fer només les proves pendents». Obrir aquest panell no genera despesa."
     }
   },
   "tags": {

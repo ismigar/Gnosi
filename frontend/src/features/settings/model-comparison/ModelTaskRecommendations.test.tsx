@@ -123,3 +123,14 @@ it('uses detected bot duties by default and keeps single-task simulation in adva
     expect(minimum()).toBe('80');
     expect(mocks.invoke).not.toHaveBeenCalled();
 });
+it('guides an inactive bot candidate straight to setup for its exact offer', async () => {
+    const configure = vi.fn<(candidate: Candidate) => void>();
+    await act(async () => { root.render(<I18nextProvider i18n={i18n}><ModelTaskRecommendations models={models} feed={feed}
+        provider="all" profile="documentalist" revision={0} botId="knowledge" registry={[]}
+        onConfigure={configure} /></I18nextProvider>); await Promise.resolve(); });
+    const buttons = [...container.querySelectorAll<HTMLButtonElement>('.model-task-choice button')];
+    expect(buttons.map(button => button.textContent)).toEqual(['Configurar per provar']);
+    act(() => { buttons[0]?.click(); });
+    expect(configure.mock.calls[0]?.[0]?.offer.route).toMatchObject({ provider: 'p', model_id: '3' });
+    expect(mocks.invoke).not.toHaveBeenCalled();
+});

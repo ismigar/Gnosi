@@ -6768,7 +6768,10 @@
       "accept": "Accept result",
       "reject": "Reject result",
       "review_error": "Could not save the review. The result retains its previous status.",
-      "old_result": "Result older than 30 days: retained; check whether the provider changed the model."
+      "old_result": "Result older than 30 days: retained; check whether the provider changed the model.",
+      "configure_to_test": "Set up to test",
+      "setup_help": "First set up and activate this offer. The test panel will then open. This does not assign it to the bot or run tests automatically.",
+      "run_help": "To run the test: review the spending limit, authorize model calls and select “Run pending checks only”. Opening this panel incurs no cost."
     }
   },
   "relation_item": {

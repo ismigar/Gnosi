@@ -5661,7 +5661,10 @@
       "accept": "Accepter le résultat",
       "reject": "Rejeter le résultat",
       "review_error": "Impossible d’enregistrer l’évaluation. Le résultat conserve son état précédent.",
-      "old_result": "Résultat de plus de 30 jours : conservé ; vérifiez si le fournisseur a changé le modèle."
+      "old_result": "Résultat de plus de 30 jours : conservé ; vérifiez si le fournisseur a changé le modèle.",
+      "configure_to_test": "Configurer pour tester",
+      "setup_help": "Configurez et activez d’abord cette offre. Le panneau de tests s’ouvrira ensuite. Cela ne l’affecte pas au bot et ne lance aucun test automatiquement.",
+      "run_help": "Pour lancer le test : vérifiez le plafond de dépense, autorisez les appels et sélectionnez « Exécuter uniquement les tests manquants ». Ouvrir ce panneau n’entraîne aucun coût."
     }
   },
   "tags": {

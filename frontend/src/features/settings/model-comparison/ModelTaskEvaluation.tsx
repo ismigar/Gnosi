@@ -12,21 +12,33 @@ type EvaluationProps = {
     readonly tasks: readonly TaskId[]; readonly currency: { usd_rate: number; symbol: string };
     readonly active: boolean; readonly onComplete: () => void;
     readonly onBusyChange?: (busy: boolean) => void;
+    readonly onConfigure?: () => void; readonly disabled?: boolean;
 };
 
 /** Consent and results belong to one bot, vault, route and task selection. */
 export function ModelTaskEvaluation(props: EvaluationProps) {
     const vault = useActiveVaultId();
-    return <EvaluationSession key={JSON.stringify([vault, props.agentId, props.provider, props.model, props.tasks])} {...props} />;
+    return <EvaluationEntry key={JSON.stringify([vault, props.agentId, props.provider, props.model, props.tasks])} {...props} />;
+}
+
+function EvaluationEntry(props: EvaluationProps) {
+    const { t } = useTranslation();
+    const [requested, setRequested] = useState(false);
+    if (!props.active && props.onConfigure) return <div className="model-task-evaluation">
+        <button type="button" className="btn-gnosi btn-gnosi-secondary" disabled={props.disabled}
+            onClick={() => { setRequested(true); props.onConfigure?.(); }}>{t('model_comparison.tests.configure_to_test')}</button>
+        <p className="settings-desc">{t('model_comparison.tests.setup_help')}</p>
+    </div>;
+    return <EvaluationSession initialOpen={requested} {...props} />;
 }
 
 /** Opening reads saved evidence. Only the explicitly authorized button pays. */
-function EvaluationSession({ agentId, provider, model, tasks, currency, active, onComplete, onBusyChange }: EvaluationProps) {
+function EvaluationSession({ agentId, provider, model, tasks, currency, active, onComplete, onBusyChange, initialOpen }: EvaluationProps & { readonly initialOpen?: boolean }) {
     const { t } = useTranslation();
     const vault = useActiveVaultId();
     const activeVault = useRef(vault);
     useLayoutEffect(() => { activeVault.current = vault; }, [vault]);
-    const [open, setOpen] = useState(false);
+    const [open, setOpen] = useState(initialOpen ?? false);
     const isOpen = useRef(open);
     useLayoutEffect(() => { isOpen.current = open; }, [open]);
     const [budget, setBudget] = useState(String(Number((.05 * currency.usd_rate).toFixed(4))));
@@ -67,7 +79,7 @@ function EvaluationSession({ agentId, provider, model, tasks, currency, active, 
     }, [open, active, valid, agentId, provider, model, taskKey, limit, retest, vault, revision]);
     const money = (usd: number) => formatComparisonCost(usd * currency.usd_rate, currency.symbol);
     const run = async () => {
-        if (inFlight.current || !authorized || !plan?.can_run || !valid) return;
+        if (inFlight.current || !active || !authorized || !plan?.can_run || !valid) return;
         const requestedVault = vault;
         inFlight.current = true; setBusy(true); onBusyChange?.(true); setError(''); setStatus('');
         try {
@@ -94,6 +106,7 @@ function EvaluationSession({ agentId, provider, model, tasks, currency, active, 
         <summary className="btn-gnosi btn-gnosi-secondary">{t('model_comparison.tests.title')}</summary>
         {open && <>
             <p><strong>{model}</strong> · {provider}</p>
+            {active && <p className="settings-desc">{t('model_comparison.tests.run_help')}</p>}
             <p>{t('model_comparison.tests.help')}</p>
             <p>{t('model_comparison.tests.limitations')}</p>
             {suite && <details><summary>{t('model_comparison.tests.work_set')} · {suite.version}</summary>

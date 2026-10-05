@@ -20,9 +20,9 @@ beforeEach(() => {
     container = document.createElement('div'); document.body.append(container); root = createRoot(container);
 });
 afterEach(async () => { await act(async () => { root.unmount(); await Promise.resolve(); }); container.remove(); });
-async function mount(active = true, model = 'candidate') {
+async function mount(active = true, model = 'candidate', configure?: () => void, disabled = false) {
     await act(async () => { root.render(<ModelTaskEvaluation agentId="knowledge" provider="p" model={model} tasks={['book']}
-        currency={{ usd_rate: .9, symbol: '€' }} active={active} onComplete={mocks.complete} />); await Promise.resolve(); });
+        currency={{ usd_rate: .9, symbol: '€' }} active={active} onConfigure={configure} disabled={disabled} onComplete={mocks.complete} />); await Promise.resolve(); });
 }
 async function open() {
     const details = container.querySelector('details');
@@ -84,4 +84,27 @@ it('ignores a response from a model that is no longer displayed', async () => {
     await act(async () => { resolveRun({ status: 'completed', model_calls: 1, cost_usd: .001, reserved_usd: 0 }); await Promise.resolve(); });
     expect(container.textContent).not.toContain('model_comparison.tests.summary');
     expect(mocks.complete).not.toHaveBeenCalled();
+});
+
+it('opens setup directly for an inactive offer and returns to tests without paying or inheriting consent', async () => {
+    const configure = vi.fn();
+    await mount(false, 'candidate', configure);
+    expect(container.querySelector('details')).toBeNull();
+    expect(container.textContent).toContain('model_comparison.tests.configure_to_test');
+    await act(async () => { container.querySelector<HTMLButtonElement>('button')?.click(); await Promise.resolve(); });
+    expect(configure).toHaveBeenCalledOnce();
+    expect(mocks.preview).not.toHaveBeenCalled(); expect(mocks.run).not.toHaveBeenCalled();
+    await mount(true, 'candidate', configure);
+    expect(container.querySelector('details')?.open).toBe(true);
+    expect(mocks.preview).toHaveBeenCalledOnce();
+    expect(container.textContent).toContain('model_comparison.tests.run_help');
+    expect(container.querySelector<HTMLButtonElement>('button.btn-gnosi')?.disabled).toBe(true);
+    expect(mocks.run).not.toHaveBeenCalled();
+});
+it('does not open setup when configuration actions are disabled', async () => {
+    const configure = vi.fn();
+    await mount(false, 'candidate', configure, true);
+    expect(container.querySelector<HTMLButtonElement>('button')?.disabled).toBe(true);
+    await act(async () => { container.querySelector<HTMLButtonElement>('button')?.click(); await Promise.resolve(); });
+    expect(configure).not.toHaveBeenCalled(); expect(mocks.run).not.toHaveBeenCalled();
 });
