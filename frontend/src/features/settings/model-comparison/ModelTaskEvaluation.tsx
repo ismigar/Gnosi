@@ -7,23 +7,39 @@ import { formatComparisonCost } from '../modelComparison';
 import type { TaskId } from './taskRecommendations';
 import { ModelTaskSampleResults } from './ModelTaskSampleResults';
 
-/** Opening reads saved evidence. Only the explicitly authorized button pays. */
-export function ModelTaskEvaluation({ agentId, provider, model, tasks, currency, active, onComplete, onBusyChange }: {
+type EvaluationProps = {
     readonly agentId: string; readonly provider: string; readonly model: string;
     readonly tasks: readonly TaskId[]; readonly currency: { usd_rate: number; symbol: string };
     readonly active: boolean; readonly onComplete: () => void;
     readonly onBusyChange?: (busy: boolean) => void;
-}) {
+};
+
+/** Consent and results belong to one bot, vault, route and task selection. */
+export function ModelTaskEvaluation(props: EvaluationProps) {
+    const vault = useActiveVaultId();
+    return <EvaluationSession key={JSON.stringify([vault, props.agentId, props.provider, props.model, props.tasks])} {...props} />;
+}
+
+/** Opening reads saved evidence. Only the explicitly authorized button pays. */
+function EvaluationSession({ agentId, provider, model, tasks, currency, active, onComplete, onBusyChange }: EvaluationProps) {
     const { t } = useTranslation();
     const vault = useActiveVaultId();
     const activeVault = useRef(vault);
     useLayoutEffect(() => { activeVault.current = vault; }, [vault]);
     const [open, setOpen] = useState(false);
+    const isOpen = useRef(open);
+    useLayoutEffect(() => { isOpen.current = open; }, [open]);
     const [budget, setBudget] = useState(String(Number((.05 * currency.usd_rate).toFixed(4))));
     const [retest, setRetest] = useState(false);
     const [authorized, setAuthorized] = useState(false);
     const [busy, setBusy] = useState(false);
     const inFlight = useRef(false);
+    const mounted = useRef(true);
+    const evidenceChanged = useRef(false);
+    useEffect(() => {
+        mounted.current = true;
+        return () => { mounted.current = false; };
+    }, []);
     const [plan, setPlan] = useState<TaskEvaluationPlan | null>(null);
     const [suite, setSuite] = useState<TaskEvaluationSuite | null>(null);
     const [checkedAt, setCheckedAt] = useState(0);
@@ -57,16 +73,24 @@ export function ModelTaskEvaluation({ agentId, provider, model, tasks, currency,
         try {
             const report = await runTaskEvaluation({ agent_id: agentId, provider, model, tasks: [...tasks],
                 budget_usd: limit, retest, authorize_model_calls: true, suite: 'work' });
-            if (activeVault.current !== requestedVault) return;
+            if (!mounted.current || activeVault.current !== requestedVault) return;
             setStatus(report.status === 'completed' ? 'completed' : 'stopped');
             setLastReport(report);
-            setAuthorized(false); setRetest(false); setRevision(value => value + 1); onComplete();
-        } catch { if (activeVault.current === requestedVault) setError('run_error'); }
-        finally { inFlight.current = false; setBusy(false); onBusyChange?.(false); }
+            setAuthorized(false); setRetest(false); setRevision(value => value + 1);
+            if (isOpen.current) evidenceChanged.current = true;
+            else onComplete();
+        } catch { if (mounted.current && activeVault.current === requestedVault) setError('run_error'); }
+        finally { inFlight.current = false; if (mounted.current) { setBusy(false); onBusyChange?.(false); } }
     };
     const results = plan?.reused_cases ?? [];
     return <details className="model-task-recommendations__requirements model-task-evaluation" open={open}
-        onToggle={event => { setOpen(event.currentTarget.open); }}>
+        onToggle={event => {
+            setOpen(event.currentTarget.open);
+            // Keep the tested offer visible until its results have been read.
+            if (!event.currentTarget.open && evidenceChanged.current) {
+                evidenceChanged.current = false; onComplete();
+            }
+        }}>
         <summary className="btn-gnosi btn-gnosi-secondary">{t('model_comparison.tests.title')}</summary>
         {open && <>
             <p><strong>{model}</strong> · {provider}</p>
@@ -99,7 +123,7 @@ export function ModelTaskEvaluation({ agentId, provider, model, tasks, currency,
                         {checkedAt - Date.parse(item.checked_at) > 30 * 86400000 && ` · ${t('model_comparison.tests.old_result')}`}
                     </li>)}</ul>}
                     {suite && <ModelTaskSampleResults results={results} suite={suite} busy={busy} onReviewed={() => {
-                        setRevision(value => value + 1); onComplete();
+                        setRevision(value => value + 1); evidenceChanged.current = true;
                     }} />}
                     {!plan.can_run && <p role="alert">{t(`model_comparison.tests.errors.${plan.reason}`)}</p>}
                     {plan.can_run && plan.pending_ids.length > 0 && <>

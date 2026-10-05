@@ -11,7 +11,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 625 | 2714 |
+| Vitest | 625 | 2716 |
 | pytest | 626 | 4571 |
 
 ## Fichiers
@@ -276,7 +276,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/settings/model-comparison/ModelOfferList.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelOfferList.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/model-comparison/ModelParameterReview.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelParameterReview.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/model-comparison/ModelPriceOffer.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelPriceOffer.test.tsx) | 4 | call-pattern estimate |
-| Vitest | [`frontend/src/features/settings/model-comparison/ModelTaskEvaluation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskEvaluation.test.tsx) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/model-comparison/ModelTaskEvaluation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskEvaluation.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/model-comparison/ModelTaskEvaluationChooser.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskEvaluationChooser.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/model-comparison/ModelTaskRecommendations.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskRecommendations.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/model-comparison/ModelTaskSampleResults.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskSampleResults.test.tsx) | 1 | call-pattern estimate |

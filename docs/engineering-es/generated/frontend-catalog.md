@@ -48,7 +48,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1170 | 129583 | 38 |
+| `features` | 1170 | 129607 | 38 |
 | `generated` | 2 | 49645 | 508 |
 | `shared` | 279 | 32619 | 438 |
 
@@ -641,7 +641,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/model-comparison/ModelOfferList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelOfferList.tsx) | 19 | `ModelOfferList` | — |
 | [`frontend/src/features/settings/model-comparison/ModelParameterReview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelParameterReview.tsx) | 53 | `ModelParameterReview` | — |
 | [`frontend/src/features/settings/model-comparison/ModelPriceOffer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelPriceOffer.tsx) | 59 | `ModelPriceOffer` | — |
-| [`frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx) | 122 | `ModelTaskEvaluation` | — |
+| [`frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx) | 146 | `ModelTaskEvaluation` | — |
 | [`frontend/src/features/settings/model-comparison/ModelTaskEvaluationChooser.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskEvaluationChooser.tsx) | 33 | `ModelTaskEvaluationChooser` | — |
 | [`frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx) | 187 | `ModelTaskRecommendations` | — |
 | [`frontend/src/features/settings/model-comparison/ModelTaskSampleResults.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskSampleResults.tsx) | 53 | `ModelTaskSampleResults` | — |

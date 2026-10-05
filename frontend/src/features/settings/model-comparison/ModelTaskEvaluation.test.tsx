@@ -20,8 +20,8 @@ beforeEach(() => {
     container = document.createElement('div'); document.body.append(container); root = createRoot(container);
 });
 afterEach(async () => { await act(async () => { root.unmount(); await Promise.resolve(); }); container.remove(); });
-async function mount(active = true) {
-    await act(async () => { root.render(<ModelTaskEvaluation agentId="knowledge" provider="p" model="candidate" tasks={['book']}
+async function mount(active = true, model = 'candidate') {
+    await act(async () => { root.render(<ModelTaskEvaluation agentId="knowledge" provider="p" model={model} tasks={['book']}
         currency={{ usd_rate: .9, symbol: '€' }} active={active} onComplete={mocks.complete} />); await Promise.resolve(); });
 }
 async function open() {
@@ -44,6 +44,11 @@ it('requires explicit authorization and passes the converted spending limit', as
     expect(mocks.run).toHaveBeenCalledOnce();
     expect(mocks.run.mock.calls[0]?.[0]).toMatchObject({ authorize_model_calls: true, retest: false });
     expect((mocks.run.mock.calls[0]?.[0] as TaskEvaluationRequest).budget_usd).toBeCloseTo(.05);
+    expect(mocks.complete).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('model_comparison.tests.summary');
+    const details = container.querySelector('details');
+    if (!details) throw new Error('Missing details');
+    await act(async () => { details.open = false; details.dispatchEvent(new Event('toggle')); await Promise.resolve(); });
     expect(mocks.complete).toHaveBeenCalledOnce();
 });
 it('does not test a disabled candidate', async () => {
@@ -55,4 +60,28 @@ it('does not test a disabled candidate', async () => {
 it('fully reusable evidence offers no paid run button', async () => {
     mocks.preview.mockResolvedValue({ can_run: true, reused_cases: [], pending_ids: [], maximum_cost_usd: 0 });
     await mount(); await open(); expect(container.querySelector('button.btn-gnosi')).toBeNull(); expect(mocks.run).not.toHaveBeenCalled();
+});
+
+it('does not carry consent or completed results to another model', async () => {
+    await mount(); await open();
+    const authorize = container.querySelector<HTMLElement>('[role="switch"][aria-label="model_comparison.tests.authorize"]');
+    if (!authorize) throw new Error('Missing authorization');
+    await act(async () => { authorize.click(); await Promise.resolve(); });
+    await mount(true, 'other'); await open();
+    expect(container.querySelector<HTMLButtonElement>('button.btn-gnosi')?.disabled).toBe(true);
+    expect(container.textContent).not.toContain('model_comparison.tests.summary');
+    expect(mocks.run).not.toHaveBeenCalled();
+});
+it('ignores a response from a model that is no longer displayed', async () => {
+    let resolveRun: (value: unknown) => void = () => { throw new Error('Missing pending run'); };
+    mocks.run.mockImplementation(() => new Promise(resolve => { resolveRun = resolve; }));
+    await mount(); await open();
+    const authorize = container.querySelector<HTMLElement>('[role="switch"][aria-label="model_comparison.tests.authorize"]');
+    if (!authorize) throw new Error('Missing authorization');
+    await act(async () => { authorize.click(); await Promise.resolve(); });
+    await act(async () => { container.querySelector<HTMLButtonElement>('button.btn-gnosi')?.click(); await Promise.resolve(); });
+    await mount(true, 'other'); await open();
+    await act(async () => { resolveRun({ status: 'completed', model_calls: 1, cost_usd: .001, reserved_usd: 0 }); await Promise.resolve(); });
+    expect(container.textContent).not.toContain('model_comparison.tests.summary');
+    expect(mocks.complete).not.toHaveBeenCalled();
 });

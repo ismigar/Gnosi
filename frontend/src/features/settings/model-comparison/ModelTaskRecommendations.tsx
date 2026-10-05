@@ -106,7 +106,7 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             const value = candidate.model[key as 'intelligence' | 'coding' | 'agentic'];
             return `${t(`model_comparison.columns.${key}`)}: ${String(value)} (${String(Math.round(weight * 100))}%)`;
         }).join(' · ')}`).join('; ');
-    const render = (candidate: Candidate | undefined, kinds: string[]) => <article className="ai-resource-card model-task-choice" key={kinds[0]}>
+    const render = (candidate: Candidate | undefined, kinds: string[]) => <article className="ai-resource-card model-task-choice" key={JSON.stringify([kinds[0], candidate?.offer.route.provider, candidate?.offer.route.model_id])}>
         <h3>{kinds.map(kind => t(`model_comparison.recommend.${kind}`)).join(' · ')}</h3>
         {candidate ? <>
             <strong>{candidate.model.name}</strong>

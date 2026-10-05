@@ -76,7 +76,7 @@ it('rejects invalid attempts and honours a selected provider with no matching of
 it('keeps recommendations available when evidence reading fails, with an explicit notice', async () => {
     mocks.reports.mockRejectedValue(new Error('offline')); await render();
     expect(container.textContent).toContain('No s’han pogut llegir totes les evidències');
-    expect(container.textContent).toContain('sense proves recents verificades');
+    expect(container.textContent).toContain('Proposta provisional: falten mostres de treball comprovades');
     expect(container.textContent).toContain('Model 3'); expect(mocks.invoke).not.toHaveBeenCalled();
 });
 it('hides the previous vault history immediately while reading a new vault', async () => {
