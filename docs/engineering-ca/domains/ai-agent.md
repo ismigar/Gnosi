@@ -2,6 +2,11 @@
 status: implemented
 last_verified: 2026-10-05
 source_paths:
+  - frontend/src/shared/api/resource-processing.ts
+  - frontend/src/features/literature/records/process-resource/useProcessResourceController.ts
+  - frontend/src/features/literature/records/process-resource/resourceProcessingTasks.ts
+  - frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx
+  - frontend/src/features/literature/records/ResourceProcessingMonitor.test.tsx
   - backend/domains/llm_wiki/reading_identity.py
   - backend/domains/llm_wiki/semantic_map_windows.py
   - backend/domains/llm_wiki/semantic_reading.py
@@ -1448,3 +1453,5 @@ La petició de 2.000 tokens és un objectiu de síntesi. Els mapes complets més
 La versió 2 de la identitat de lectura normalitza les claus dels diccionaris i l’ordre de l’índex de coneixement. Els límits de coneixement i catàlegs de relacions s’apliquen després d’una ordenació estable, de manera que una recàrrega no pot seleccionar un subconjunt arbitrari diferent. Els components de la identitat es desen per al diagnòstic; l’ordre de les fonts, el text, les classificacions i la política d’execució continuen sent rellevants. Els mapes de prosa complets tenen una identitat pròpia basada en el material exacte, el títol, la llengua i la política d’execució fixada, independent de la classificació i el context de coneixement. Es poden reutilitzar encara que calgui regenerar les notes provisionals. Les memòries cau de mapes antics requereixen evidència explícita d’una resposta completa del proveïdor abans de migrar-les.
 
 Les operacions de mapes de prosa reserven com a màxim 8.192 tokens de sortida. Les metadades natives del límit de sortida rebutgen el text incomplet abans de desar-lo com a mapa complet o reparar-ne el format tornant a enviar tota la font. Només es divideix una finestra tallada que contingui text de resposta; les finestres germanes completes i les decisions de divisió es conserven després d’una interrupció. Els mapes sense text de resposta o les finestres que no es poden dividir s’aturen. La reducció ha de disminuir el material o el nombre de mapes i té una profunditat finita. El progrés de la visió general avança quan es completen les finestres de fonts; aquests mapes són diferents dels fragments de notes extrets.
+
+El diàleg de processament de recursos detecta un treball persistent actiu en obrir-se abans d’habilitar un inici amb cost. Mentre una confirmació inactiva roman oberta comprova si el treball s’ha iniciat externament i hi vincula el diàleg sense un nou inici ni càlcul previ. El magatzem compartit de tasques controla les consultes posteriors, també després de tancar o navegar; la detecció es pot cancel·lar, no solapa peticions i no pot sobreescriure un inici local pendent. El diàleg mostra la fase i el percentatge actuals en lloc de presentar un treball actiu com una confirmació nova.

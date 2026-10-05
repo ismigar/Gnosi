@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import type { TFunction } from 'i18next';
-import { fetchResourceProcessingStatus, startResourceProcessing, type ResourceProcessingJob } from '../../../../shared/api/resource-processing';
+import { fetchResourceProcessingStatus, findActiveResourceProcessing, startResourceProcessing, type ResourceProcessingJob } from '../../../../shared/api/resource-processing';
 import { toast } from '../../../../shared/notifications/toast';
 import { resourceProcessingError } from '../../../../shared/notifications/resourceProcessingError';
 import { countTouchedPages, getPollingIdentifier, getStartErrorMessage, getTerminalProcessState, POLL_INTERVAL_MS, type ProcessResourceState } from './processResourceModel';
@@ -80,6 +80,34 @@ function applyJob(id: string, job: ResourceProcessingJob, t: TFunction): boolean
     return true;
 }
 
+function watch(id: string, identifier: string, sourceTableId: string | undefined, t: TFunction, poller: Poller, immediately = true): void {
+    const poll = async (): Promise<void> => {
+        if (pollers.get(id) !== poller || poller.request) return;
+        const request = new AbortController();
+        poller.request = request;
+        try {
+            const job = await fetchResourceProcessingStatus(identifier, sourceTableId ?? '', request.signal);
+            if (!request.signal.aborted && pollers.get(id) === poller) applyJob(id, job, t);
+        } catch { /* A connection failure does not cancel a durable job. */ }
+        finally { if (poller.request === request) poller.request = undefined; }
+    };
+    poller.timer = setInterval(() => { void poll(); }, POLL_INTERVAL_MS);
+    if (immediately) void poll();
+}
+
+export async function discoverResourceProcessingTask(input: TaskInput, t: TFunction, signal: AbortSignal): Promise<void> {
+    const id = processingTaskId(input.noteId, input.sourceTableId);
+    if (tasks.some(task => task.id === id && task.state === 'running')) return;
+    const job = await findActiveResourceProcessing(input.noteId, input.sourceTableId, signal);
+    if (!job || signal.aborted || tasks.some(task => task.id === id && task.state === 'running')) return;
+    stop(id);
+    const poller: Poller = {};
+    pollers.set(id, poller);
+    tasks = [...tasks.filter(task => task.id !== id), { ...input, id, job, state: 'running', error: '', background: false }];
+    publish();
+    watch(id, job.job_id || input.noteId, input.sourceTableId, t, poller, false);
+}
+
 export async function startResourceProcessingTask(input: TaskInput, force: boolean, t: TFunction): Promise<void> {
     const id = processingTaskId(input.noteId, input.sourceTableId);
     const previous = tasks.find(task => task.id === id);
@@ -100,21 +128,7 @@ export async function startResourceProcessingTask(input: TaskInput, force: boole
         if (!current()) return;
         if (applyJob(id, response.job, t)) return;
         const identifier = getPollingIdentifier(response, input.noteId);
-        const poll = async (): Promise<void> => {
-            if (!current() || poller.request) return;
-            const request = new AbortController();
-            poller.request = request;
-            try {
-                const job = await fetchResourceProcessingStatus(identifier, input.sourceTableId ?? '', request.signal);
-                if (!request.signal.aborted && current()) applyJob(id, job, t);
-            } catch {
-                // A transient connection failure does not cancel a durable backend job.
-            } finally {
-                if (poller.request === request) poller.request = undefined;
-            }
-        };
-        poller.timer = setInterval(() => { void poll(); }, POLL_INTERVAL_MS);
-        void poll();
+        watch(id, identifier, input.sourceTableId, t, poller);
     } catch (error: unknown) {
         if (!current()) return;
         stop(id);

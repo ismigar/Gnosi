@@ -2,7 +2,8 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { estimateResourceProcessing, type ResourceProcessingEstimate } from '../../../../shared/api/resource-processing';
 import { useTranslation } from 'react-i18next';
 import type { ProcessResourceModalProps } from './processResourceModel';
-import { dismissResourceProcessingTask, getResourceProcessingTasks, processingTaskId, setResourceProcessingBackground, startResourceProcessingTask, subscribeResourceProcessingTasks, useResourceProcessingTasks } from './resourceProcessingTasks';
+import { discoverResourceProcessingTask, dismissResourceProcessingTask, getResourceProcessingTasks, processingTaskId, setResourceProcessingBackground, startResourceProcessingTask, subscribeResourceProcessingTasks, useResourceProcessingTasks } from './resourceProcessingTasks';
+import { POLL_INTERVAL_MS } from './processResourceModel';
 
 export function useProcessResourceController({ force = false, isOpen, noteId, onClose, onContinueInBackground, onJobUpdate, onProcessed, sourceTableId, title, keepBackground = false }: ProcessResourceModalProps & { readonly keepBackground?: boolean }) {
     const { t } = useTranslation();
@@ -18,7 +19,30 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
     const [batchSize, setBatchSize] = useState(4);
     const hasTask = Boolean(task);
     const taskState = task?.state;
-    const needsEstimate = isOpen && (!task || task.state === 'error');
+    const statusKey = useMemo(() => Symbol(JSON.stringify([isOpen, id])), [isOpen, id]);
+    const [statusChecked, setStatusChecked] = useState<symbol | null>(null);
+    const checkingStatus = isOpen && !hasTask && statusChecked !== statusKey;
+    useEffect(() => {
+        if (!isOpen || taskState === 'running') return;
+        const request = new AbortController();
+        let pending = false;
+        const active = (): boolean => !request.signal.aborted;
+        const discover = async (): Promise<void> => {
+            if (pending || !active()) return;
+            pending = true;
+            try { await discoverResourceProcessingTask({ noteId, sourceTableId, title }, t, request.signal); }
+            catch { /* Retry discovery while the dialog remains open. */ }
+            finally {
+                pending = false;
+                if (active()) setStatusChecked(statusKey);
+            }
+        };
+        void discover();
+        if (hasTask) return () => { request.abort(); };
+        const timer = setInterval(() => { void discover(); }, POLL_INTERVAL_MS);
+        return () => { request.abort(); clearInterval(timer); };
+    }, [isOpen, taskState, hasTask, noteId, sourceTableId, title, t, statusKey]);
+    const needsEstimate = isOpen && !checkingStatus && (!task || task.state === 'error');
     const estimateKey = useMemo(() => Symbol(JSON.stringify([isOpen, noteId, sourceTableId, processingForce, reprocess, batchSize, hasTask, taskState])), [isOpen, noteId, sourceTableId, processingForce, reprocess, batchSize, hasTask, taskState]);
     const [preflight, setPreflight] = useState<{ key: symbol; result: ResourceProcessingEstimate | null; error: string } | null>(null);
     const estimate = preflight?.key === estimateKey ? preflight.result : null;
@@ -37,7 +61,7 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
         });
         return () => { request.abort(); };
     }, [needsEstimate, noteId, sourceTableId, force, reprocess, batchSize, hasTask, estimateKey, t]);
-    const canStart = Boolean(estimate?.priced) && !(estimate?.incompatible_saved_chunks ?? 0) && Number.isFinite(budgetLimit) && budgetLimit > 0 && budgetLimit <= 1000;
+    const canStart = !checkingStatus && taskState !== 'running' && Boolean(estimate?.priced) && !(estimate?.incompatible_saved_chunks ?? 0) && Number.isFinite(budgetLimit) && budgetLimit > 0 && budgetLimit <= 1000;
     const reportJob = useEffectEvent((job: NonNullable<typeof task>['job']) => { if (job) onJobUpdate?.(job); });
     const reportDone = useEffectEvent(() => { onProcessed?.(); });
     useEffect(() => {

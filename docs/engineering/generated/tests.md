@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 627 | 2727 |
+| Vitest | 627 | 2730 |
 | pytest | 633 | 4631 |
 
 ## Files
@@ -157,7 +157,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/features/literature/records/ProcessResourceBudget.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ProcessResourceBudget.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/ProcessResourceModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ProcessResourceModal.test.tsx) | 17 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/ReferenceImportExport.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ReferenceImportExport.test.tsx) | 4 | call-pattern estimate |
-| Vitest | [`frontend/src/features/literature/records/ResourceProcessingMonitor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ResourceProcessingMonitor.test.tsx) | 5 | call-pattern estimate |
+| Vitest | [`frontend/src/features/literature/records/ResourceProcessingMonitor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ResourceProcessingMonitor.test.tsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/ZoteroExtrasSection.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ZoteroExtrasSection.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/metadata-lookup/metadataLookupModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/metadataLookupModel.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/process-resource/processResourceModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/processResourceModel.test.ts) | 6 | call-pattern estimate |

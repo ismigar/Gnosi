@@ -133,11 +133,12 @@ export function ProcessResourceModalView({
                                 size={18}
                             />
                             <div className="min-w-0 flex-1">
-                                <div className="text-sm font-semibold text-[var(--text-primary)]">
-                                    {translate(
+                                <div className="flex items-center justify-between gap-2 text-sm font-semibold text-[var(--text-primary)]">
+                                    <span>{translate(
                                         `phase_${phase.key}`,
                                         phase.defaultLabel,
-                                    )}
+                                    )}</span>
+                                    {progress !== null && <span className="text-[var(--text-secondary)] tabular-nums">{progress}%</span>}
                                 </div>
                                 {(job?.chunks_total ?? 0) > 0 ? (
                                     <div className="text-xs text-[var(--text-secondary)]/70">
@@ -158,7 +159,9 @@ export function ProcessResourceModalView({
                                     </div>
                                 ) : null}
                                 {progress !== null ? (
-                                    <div className="mt-2 h-1.5 rounded-full bg-[var(--border-primary)] overflow-hidden">
+                                    <div className="mt-2 h-1.5 rounded-full bg-[var(--border-primary)] overflow-hidden"
+                                        role="progressbar" aria-label={translate(`phase_${phase.key}`, phase.defaultLabel)}
+                                        aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
                                         <div
                                             className="h-full bg-[var(--gnosi-primary)] transition-[width]"
                                             style={{ width: `${String(progress)}%` }}
