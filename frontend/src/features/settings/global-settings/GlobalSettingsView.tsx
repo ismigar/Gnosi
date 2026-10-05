@@ -1,3 +1,5 @@
+import { detachBotModels } from '../model-comparison/detachBotModels';
+import { withBotModel } from '../model-comparison/botModelChoice';
 import { ProfileSettingsNavigation } from '../../../shared/ui/settings/ProfileSettingsNavigation';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { AppearancePanel } from './AppearancePanel';
@@ -261,6 +263,14 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
       <Suspense fallback={<div role="status">{t('common.loading')}</div>}>
         {isModelComparisonOpen && <AIModelComparisonModal
           isOpen={isModelComparisonOpen}
+          bots={draft.ai.agents} skillCatalog={context.aiResources.skills} skillCatalogStatus={context.aiResources.loading ? 'loading' : context.aiResources.error ? 'error' : 'ready'} principalId={draft.ai.active_agent_id} saveStatus={context.savingStatus}
+          onModelsDetached={routes => { context.setEditingAgent(current => current ? detachBotModels(current, routes) : current); setDraft(prev => ({ ...prev, ai: { ...prev.ai,
+            agents: prev.ai.agents.map(bot => detachBotModels(bot, routes)),
+          } })); }}
+          onAssignModel={(id, provider, model) => { setDraft(prev => ({ ...prev, ai: { ...prev.ai,
+            agents: prev.ai.agents.map(bot => bot.id === id ? withBotModel(bot, provider, model) : bot),
+          } })); }}
+          onConfigureBot={id => { setIsModelComparisonOpen(false); openPluginAISettings('agents', id); context.setEditingAgent(draft.ai.agents.find(bot => bot.id === id) ?? null); }}
           onClose={() => { setIsModelComparisonOpen(false); }}
         />}
 

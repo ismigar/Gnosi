@@ -10,6 +10,51 @@ from backend.domains.agent.structured_output import constrain_output
 from backend.domains.llm_wiki.directed_reading import ACTION_SCHEMA
 
 
+def test_bounded_reader_uses_supported_low_reasoning_on_the_wire(monkeypatch):
+    from backend.domains.agent import operation_graph
+    monkeypatch.setattr('backend.services.model_reasoning.reasoning_options',
+                        lambda *_: {'supported_efforts': ['low', 'high', 'max'], 'default_effort': 'max'})
+    monkeypatch.setattr(operation_graph, '_invoke_agent_model', lambda model, messages, state: model.invoke(messages))
+    sent = []
+    def respond(request):
+        sent.append(json.loads(request.content))
+        return httpx.Response(200, json={'id': 'fixture', 'model': 'fixture', 'object': 'chat.completion',
+            'choices': [{'index': 0, 'finish_reason': 'stop', 'message': {
+                'role': 'assistant', 'content': '{"action":"index","arguments":{}}'}}]})
+    with httpx.Client(transport=httpx.MockTransport(respond)) as transport:
+        model = ChatOpenAI(model='fixture', api_key='fixture', http_client=transport,
+                           base_url='https://test.invalid/v1', extra_body={'provider': {'order': ['chosen']}})
+        graph = operation_graph.operation_workflow(model, 'Return one action', 32000,
+            provider='openrouter', output_schema=ACTION_SCHEMA,
+            max_output_tokens=16384, default_reasoning_effort='low').compile()
+        graph.invoke({'messages': [HumanMessage(content='Read this passage')], 'team_help_allowed': False})
+    assert len(sent) == 1
+    assert sent[0]['reasoning'] == {'effort': 'low'}
+    assert sent[0]['max_completion_tokens'] == 16384
+    assert sent[0]['provider'] == {'order': ['chosen'], 'require_parameters': True}
+    assert sent[0]['response_format']['json_schema']['schema'] == ACTION_SCHEMA
+    assert 'reasoning' not in model.extra_body
+
+
+@pytest.mark.parametrize('explicit', [
+    {'reasoning': {'effort': 'max'}}, {'reasoning_effort': 'high'},
+    {'extra_body': {'reasoning': {'enabled': False}}},
+])
+def test_reading_default_does_not_override_explicit_reasoning(monkeypatch, explicit):
+    from backend.domains.agent.structured_output import constrain_default_reasoning
+    monkeypatch.setattr('backend.services.model_reasoning.reasoning_options', lambda *_: pytest.fail('explicit setting'))
+    model = ChatOpenAI(model='fixture', api_key='fixture', **explicit)
+    assert constrain_default_reasoning(model, 'openrouter', 'low') is model
+
+
+def test_unknown_reasoning_support_does_not_invent_a_setting(monkeypatch):
+    from backend.domains.agent.structured_output import constrain_default_reasoning
+    monkeypatch.setattr('backend.services.model_reasoning.reasoning_options', lambda *_: {'supported_efforts': []})
+    model = ChatOpenAI(model='fixture', api_key='fixture')
+    assert constrain_default_reasoning(model, 'openrouter', 'low') is model
+    assert constrain_default_reasoning(model, 'other', 'low') is model
+
+
 def test_schema_reaches_provider_and_preserves_tools_routing_and_reasoning():
     requests = []
     def respond(request):

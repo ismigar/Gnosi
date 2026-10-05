@@ -5,6 +5,7 @@ import { AIAgentForm } from './AIAgentForm';
 import type { AgentDraft, SettingsModel } from './types';
 import { fetchAiCatalog, fetchAiModelReasoning } from '../../../shared/api/ai';
 
+vi.mock('../AIModelComparisonModal', () => ({ default: (props: { initialBotId: string; onAssignModel: (id: string, provider: string, model: string) => void }) => <div data-testid="model-comparison" data-bot={props.initialBotId}>{['alpha||small', 'beta||large', 'ollama||local'].map(route => <button key={route} onClick={() => { const [provider, model] = route.split('||'); props.onAssignModel(props.initialBotId, provider || '', model || ''); }}>{route}</button>)}</div> }));
 vi.mock('../../../shared/editor/InstructionRichEditor', () => ({ default: () => null }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('./AgentIconSelect', () => ({ AgentIconSelect: () => null }));
@@ -43,6 +44,14 @@ function render(draft = agent, models = registry) {
   act(() => { root.render(<Harness draft={draft} models={models} />); });
 }
 function select(label: string, value: string) {
+  if (label === 'profile_model') {
+    const open = [...host.querySelectorAll('button')].find(button => button.textContent === 'model_comparison.choose_bot_model');
+    act(() => { open?.click(); });
+    expect(host.querySelector('[data-testid="model-comparison"]')?.getAttribute('data-bot')).toBe('principal');
+    const choice = [...host.querySelectorAll('button')].find(button => button.textContent === value);
+    act(() => { choice?.click(); });
+    return;
+  }
   const element = host.querySelector<HTMLSelectElement>(`select[aria-label="settings.ai.assistant.${label}"]`);
   if (!element) throw new Error(`Missing select: ${label}`);
   act(() => { element.value = value; element.dispatchEvent(new Event('change', { bubbles: true })); });
@@ -55,7 +64,7 @@ async function click(text: string) {
 
 it('keeps legacy agents fixed and retains their instructions and capabilities on save', () => {
   render();
-  expect(host.querySelector('select')?.value).toBe('alpha||small');
+  expect(host.querySelector('select[aria-label="settings.ai.assistant.profile_model"]')).toBeNull();
   expect(host.querySelector('[role="switch"]')).toBeNull();
   select('profile_model', 'alpha||small');
   expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ ...agent,
@@ -64,7 +73,7 @@ it('keeps legacy agents fixed and retains their instructions and capabilities on
 
 it('removes legacy model alternatives and saves exactly one selected LLM', () => {
   render({ ...agent, model_strategy: { schema_version: 1, mode: 'adaptive', decision_engine: 'jev', allowed_models: [{ provider: 'beta', model: 'large' }] } });
-  expect(host.querySelectorAll('select')).toHaveLength(1);
+  expect(host.querySelectorAll('select')).toHaveLength(0);
   select('profile_model', 'ollama||local');
   expect(onSave.mock.calls[0]?.[0]).toMatchObject({ provider: 'ollama', model: 'local', model_strategy: { schema_version: 1, mode: 'pinned', decision_engine: 'rules', allowed_models: [] } });
 });
@@ -146,7 +155,7 @@ it('restores saved effort and clears it when choosing a different model', async 
 it('does not invent choices for a model without effort metadata', async () => {
   vi.mocked(fetchAiModelReasoning).mockResolvedValue({ supported_efforts: [], default_effort: null, source: 'openrouter' });
   await act(async () => { render(luna, reasoningModels); await Promise.resolve(); });
-  expect(host.querySelectorAll('select')).toHaveLength(1);
+  expect(host.querySelectorAll('select')).toHaveLength(0);
 });
 
 it('saves reasoning when creating an assistant', async () => {
@@ -163,5 +172,5 @@ it('ignores a late metadata response after the user changes model', async () => 
   render(luna, reasoningModels);
   select('profile_model', 'beta||large');
   await act(async () => { resolve({ supported_efforts: ['medium'], default_effort: 'medium', source: 'openrouter' }); await Promise.resolve(); });
-  expect(host.querySelectorAll('select')).toHaveLength(1);
+  expect(host.querySelectorAll('select')).toHaveLength(0);
 });

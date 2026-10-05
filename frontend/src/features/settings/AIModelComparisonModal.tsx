@@ -1,10 +1,21 @@
+import { createPortal } from 'react-dom';
+import { browserDocumentBody } from '../../shared/platform/browser-events';
+import ConfirmModal from '../../shared/ui/dialogs/ConfirmModal';
+import type { NormalizedSkill } from './AI/aiSettingsUtils';
+import { botModelDemand } from './model-comparison/botModelDemand';
 import { AgentEvaluationLab } from './AI/AgentEvaluationLab';
-import { useMemo, useReducer, type CSSProperties } from 'react';
-import { X } from 'lucide-react';
+import { ModelTaskRecommendations, type TaskRecommendationDraft } from './model-comparison/ModelTaskRecommendations';
+import { useMemo, useReducer, useState, useCallback, type CSSProperties } from 'react';
+import { Bot, FlaskConical, List, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useModalKeyboard } from '../../shared/hooks/useModalKeyboard';
 import './AIModelComparisonModal.css';
+import { SettingsSectionTabs } from '../../shared/ui/settings/SettingsSectionTabs';
+import { ModelBotContext } from './model-comparison/ModelBotContext';
+import { isSuspendedPluginProfile, principalAssistant, profileDisplayName } from '../../shared/ai/assistantProfiles';
+import type { SettingsAgent } from './global-settings/types';
+import type { AiModelComparisonEntry } from '../../shared/api/ai';
 import {
     filteredComparisonModels,
     INITIAL_COMPARISON_UI_STATE,
@@ -19,11 +30,21 @@ import { ModelComparisonToolbar } from './ModelComparisonToolbar';
 import { useModelComparisonData } from './useModelComparisonData';
 import { useModelComparisonLayout } from './useModelComparisonLayout';
 import { comparisonRouteKey } from './model-comparison/modelComparisonRegistry';
+import { configuredModelOffers } from './model-comparison/configuredModelOffers';
 
 
 export interface AIModelComparisonModalProps {
     readonly isOpen: boolean;
     readonly onClose: () => void;
+    readonly bots?: readonly SettingsAgent[];
+    readonly skillCatalog?: readonly NormalizedSkill[];
+    readonly skillCatalogStatus?: 'ready' | 'loading' | 'error';
+    readonly principalId?: string;
+    readonly initialBotId?: string;
+    readonly onModelsDetached?: (routes: readonly { provider: string; model: string }[]) => void;
+    readonly onAssignModel?: (botId: string, provider: string, model: string) => void;
+    readonly onConfigureBot?: (id: string) => void;
+    readonly saveStatus?: string;
 }
 
 
@@ -34,14 +55,28 @@ type FilterHeightStyle = CSSProperties & {
 
 export function AIModelComparisonModal({
     isOpen,
-    onClose,
+    onClose, bots = [], skillCatalog = [], skillCatalogStatus = 'ready', principalId = '', initialBotId = '', onModelsDetached, onAssignModel, onConfigureBot, saveStatus,
 }: AIModelComparisonModalProps) {
     const { t } = useTranslation();
+    const [taskDrafts, setTaskDrafts] = useState<Record<string, TaskRecommendationDraft>>({});
+    const [tab, setTab] = useState('bots');
+    const [labVisited, setLabVisited] = useState(false);
+    const [botId, setBotId] = useState(initialBotId || principalId);
+    const [offerProvider, setOfferProvider] = useState('configured');
+    const visibleBots = bots.filter(bot => !isSuspendedPluginProfile(bot));
+    const principal = principalAssistant(visibleBots, principalId);
+    const bot = visibleBots.find(item => item.id === botId) ?? principal ?? visibleBots.at(0);
+    const demand = botModelDemand(bot, principal?.id ?? principalId, skillCatalog);
+    const draftKey = bot?.id ?? 'general';
+    const rememberDraft = useCallback((draft: TaskRecommendationDraft) => {
+        setTaskDrafts(previous => JSON.stringify(previous[draftKey]) === JSON.stringify(draft) ? previous : { ...previous, [draftKey]: draft });
+    }, [draftKey]);
+    const [evidenceRevision, setEvidenceRevision] = useState(0);
     const [ui, dispatchUi] = useReducer(
         modelComparisonUiReducer,
         INITIAL_COMPARISON_UI_STATE,
     );
-    const controller = useModelComparisonData(isOpen);
+    const controller = useModelComparisonData(isOpen, onModelsDetached);
     const { state: data } = controller;
     const {
         bodyRef,
@@ -51,10 +86,9 @@ export function AIModelComparisonModal({
         profileHelpRef,
         scrollbarRef,
         tableScrollWidth,
-        tableViewportWidth,
         tableWrapRef,
         toolbarRef,
-    } = useModelComparisonLayout(isOpen, data.feed);
+    } = useModelComparisonLayout(isOpen, useMemo(() => ({ feed: data.feed, tab }), [data.feed, tab]));
 
     useModalKeyboard({
         containerRef: modalRef,
@@ -87,6 +121,12 @@ export function AIModelComparisonModal({
         data.registry.models,
         ui,
     ), [data.feed, data.registry.models, ui]);
+    const taskModels = configuredModelOffers(data.feed?.models ?? [], Object.values(controller.providersById),
+        data.registry.models, offerProvider);
+    const beginActivation = (model: AiModelComparisonEntry, provider?: string) => {
+        controller.beginActivation(model, provider);
+        bodyRef.current?.scrollTo({ top: 0 });
+    };
     const providerOptions = useMemo(() => {
         const providers = new Map<string, string>();
         for (const model of data.feed?.models ?? []) {
@@ -102,7 +142,6 @@ export function AIModelComparisonModal({
             relatedBenchmarks={(data.feed?.models ?? []).filter(model => model.routes.some(route =>
                 data.setup?.routeKey === comparisonRouteKey(route))).map(model => model.name)}
             busyModelId={data.busyModelId}
-            onAliasChange={controller.setSetupAlias}
             onApiKeyChange={controller.setSetupApiKey}
             onBaseUrlChange={controller.setSetupBaseUrl}
             onCancel={controller.closeSetup}
@@ -112,14 +151,17 @@ export function AIModelComparisonModal({
             providersById={controller.providersById}
             routesForMode={controller.routesForMode}
             setup={data.setup}
-            tableViewportWidth={tableViewportWidth}
+            tableViewportWidth={0}
         />
     ) : null;
 
     if (!isOpen) return null;
 
-    return (
+    return createPortal(
         <div className="model-comparison-layer" role="presentation">
+            <ConfirmModal isOpen={Boolean(controller.detachConfirmation)} onClose={controller.cancelDeactivation} onConfirm={controller.confirmDeactivation}
+                title={t('model_comparison.deactivate_assigned_title')} confirmText={t('model_comparison.deactivate_assigned_confirm')} confirmOnEnter={false} autofocusConfirm={false}
+                message={<><p>{t('model_comparison.deactivate_assigned_help')}</p><ul>{controller.detachConfirmation?.agents.map(agent => <li key={agent.id}>{profileDisplayName(agent, t)}</li>)}</ul></>} />
             <div className="model-comparison-backdrop" />
             <section
                 aria-labelledby="model-comparison-title"
@@ -169,16 +211,44 @@ export function AIModelComparisonModal({
 
                     {!data.loading && data.feed ? (
                         <>
-                            <AgentEvaluationLab />
-                            <ModelComparisonToolbar
-                                providers={providerOptions}
-                                currencySymbol={data.feed.currency.symbol || data.feed.currency.code}
-                                dispatch={dispatchUi}
-                                metricAvailability={metricAvailability}
-                                profileHelpRef={profileHelpRef}
-                                state={ui}
-                                toolbarRef={toolbarRef}
-                            />
+                            <ModelBotContext key={bot?.id ?? 'general'} disabled={data.configurationLoading || Boolean(data.configurationError) || skillCatalogStatus !== 'ready'} bots={visibleBots} bot={bot} onBotChange={setBotId} registry={data.registry.models}
+                                onAssign={onAssignModel} onConfigure={onConfigureBot} saveStatus={saveStatus} />
+                            <SettingsSectionTabs activeId={tab} ariaLabel={t('model_comparison.workspace.sections')}
+                                items={[
+                                    { id: 'bots', icon: Bot, label: t('model_comparison.workspace.choose') },
+                                    { id: 'catalogue', icon: List, label: t('model_comparison.workspace.catalogue') },
+                                    { id: 'tests', icon: FlaskConical, label: t('model_comparison.workspace.tests') },
+                                ]} onChange={id => { setTab(id); if (id === 'tests') setLabVisited(true); dispatchUi({ type: 'set-show-profile-help', value: false }); bodyRef.current?.scrollTo({ top: 0 }); }} />
+                            {setupPanel && <section className="model-choice-setup">
+                                <h3>{t('model_comparison.workspace.configure_offer')} · {data.setup?.model.name}</h3>
+                                {setupPanel}
+                            </section>}
+                            {tab === 'bots' && <>
+                                <p className="settings-desc">{t('model_comparison.workspace.choose_help')}</p>
+                                {skillCatalogStatus !== 'ready' && <p role={skillCatalogStatus === 'error' ? 'alert' : 'status'}>{t(`model_comparison.workspace.skills_${skillCatalogStatus}`)}</p>}
+                                <label className="model-setup-field model-bot-provider">{t('settings.ai.provider')}
+                                    <select className="gnosi-select" value={offerProvider} onChange={event => { setOfferProvider(event.target.value); }}>
+                                        <option value="configured">{t('model_comparison.workspace.configured_providers')}</option>
+                                        <option value="all">{t('model_comparison.all_providers')}</option>
+                                        {providerOptions.map(provider => <option key={provider.id} value={provider.id}>{provider.name}</option>)}
+                                    </select>
+                                </label>
+                                {offerProvider === 'configured' && <p className="settings-desc">{t('model_comparison.workspace.configured_providers_help')}</p>}
+                                <ModelTaskRecommendations key={bot?.id ?? 'general'} profile="all" initialTask={demand.tasks[0]} botDemand={bot ? demand : undefined} botId={bot?.id} currentRoute={bot?.provider && bot.model ? { provider: bot.provider, model: bot.model } : undefined} provider={offerProvider === 'configured' ? 'all' : offerProvider}
+                                    initialDraft={taskDrafts[draftKey]} onDraftChange={rememberDraft}
+                                    models={taskModels} feed={data.feed} revision={evidenceRevision} registry={data.registry.models}
+                                    botName={bot ? profileDisplayName(bot, t) || bot.id : undefined} disabled={data.configurationLoading || Boolean(data.configurationError) || skillCatalogStatus !== 'ready' || saveStatus === 'saving'}
+                                    onConfigure={candidate => { beginActivation({ ...candidate.model, routes: [candidate.offer.route] }, candidate.offer.route.provider); }}
+                                    onAssign={bot && onAssignModel ? candidate => { onAssignModel(bot.id, candidate.offer.route.provider, candidate.offer.route.model_id); } : undefined} />
+                            </>}
+                            {labVisited && <div hidden={tab !== 'tests'}>
+                                <p className="settings-desc">{t('model_comparison.workspace.tests_help')}</p>
+                                <AgentEvaluationLab onComplete={() => { setEvidenceRevision(value => value + 1); controller.retry(); }} />
+                            </div>}
+                            {tab === 'catalogue' && <>
+                            <ModelComparisonToolbar providers={providerOptions}
+                                currencySymbol={data.feed.currency.symbol || data.feed.currency.code} dispatch={dispatchUi}
+                                metricAvailability={metricAvailability} profileHelpRef={profileHelpRef} state={ui} toolbarRef={toolbarRef} />
                             <p className="settings-desc" role="status">
                                 {t('model_comparison.results_count', { count: models.length })}
                             </p>
@@ -192,8 +262,7 @@ export function AIModelComparisonModal({
                                 inputTokens={ui.inputTokens}
                                 metricAvailability={metricAvailability}
                                 models={models}
-                                onBeginActivation={(model) => { controller.beginActivation(model, ui.provider === 'all' ? undefined : ui.provider); }}
-                                onSaveAlias={controller.saveModelAlias}
+                                onBeginActivation={(model) => { beginActivation(model, ui.provider === 'all' ? undefined : ui.provider); }}
                                 onDeactivate={controller.deactivateModel}
                                 onScrollbarScroll={onScrollbarScroll}
                                 onSort={(key) => {
@@ -205,17 +274,19 @@ export function AIModelComparisonModal({
                                 providersById={controller.providersById}
                                 registryModels={data.registry.models}
                                 scrollbarRef={scrollbarRef}
-                                setupModelId={data.setup?.model.id ?? null}
-                                setupPanel={setupPanel}
+                                setupModelId={null}
+                                setupPanel={null}
                                 sort={ui.sort}
                                 tableScrollWidth={tableScrollWidth}
                                 tableWrapRef={tableWrapRef}
                             />
+                            </>}
                         </>
                     ) : null}
                 </div>
             </section>
-        </div>
+        </div>,
+        browserDocumentBody(),
     );
 }
 

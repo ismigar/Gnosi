@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
+        i18n: { language: 'en' },
         t: (key: string) => key,
     }),
 }));
@@ -102,6 +103,7 @@ let root: Root;
 
 beforeEach(() => {
     vi.resetAllMocks();
+    HTMLDivElement.prototype.scrollTo = vi.fn();
     mocks.deactivateModel.mockResolvedValue(undefined);
     mocks.useData.mockReturnValue({
         activateModel: vi.fn(),
@@ -158,33 +160,64 @@ afterEach(() => {
 });
 
 
+function openCatalogue() {
+    act(() => { document.body.querySelector<HTMLButtonElement>('.settings-section-tabs button:nth-child(2)')?.click(); });
+}
+
 describe('AIModelComparisonModal', () => {
+    it('keeps recommendations and activation on the configured provider instead of cheaper unfinished credentials', async () => {
+        const data = mocks.useData.getMockImplementation()?.() as ReturnType<typeof useModelComparisonData>;
+        const base = FEED.models[0];
+        const originalRoute = base?.routes[0];
+        if (!base || !originalRoute) throw new Error('Missing comparison fixture');
+        const full = { ...base, routes: [{ ...originalRoute, input_modes: ['text'], output_modes: ['text'] },
+            { ...originalRoute, provider: 'pareto', provider_name: 'Pareto', cost_in: .01, cost_out: .01, input_modes: ['text'], output_modes: ['text'] }] };
+        mocks.useData.mockReturnValue({ ...data, providersById: {
+            openai: { ...data.providersById.openai, id: 'openai', enabled: true, has_api_key: true, connected: true, validated_models: [] },
+            pareto: { id: 'pareto', enabled: true, has_api_key: true, connected: true, validated_models: [] },
+        }, state: { ...data.state, feed: { ...FEED, models: [full, { ...base, id: 'baseline', intelligence: 10, routes: [] }] } } });
+        await act(async () => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); await Promise.resolve(); });
+        const choices = [...document.body.querySelectorAll('.model-task-choice')];
+        expect(document.body.textContent).toContain('model_comparison.workspace.configured_providers_help');
+        expect(choices.map(choice => choice.textContent).join(' ')).not.toContain('Pareto');
+        expect(document.body.querySelector('.model-task-choice')?.textContent).toContain('OpenAI');
+        const configure = document.body.querySelector<HTMLButtonElement>('.model-task-choice button');
+        expect(configure).not.toBeNull();
+        act(() => { configure?.click(); });
+        expect(mocks.beginActivation).toHaveBeenCalledWith(expect.objectContaining({ routes: [full.routes[0]] }), 'openai');
+        const filter = document.body.querySelector<HTMLSelectElement>('.model-bot-provider select');
+        if (!filter) throw new Error('Missing provider selector');
+        act(() => { filter.value = 'all'; filter.dispatchEvent(new Event('change', { bubbles: true })); });
+        expect(document.body.querySelector('.model-task-choice')?.textContent).toContain('Pareto');
+    });
+
     it('exposes parameter filters and explicit mode matching', () => {
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
-        const tokenInputs = container.querySelectorAll<HTMLInputElement>('.model-cost-calculator input');
+        openCatalogue();
+        const tokenInputs = document.body.querySelectorAll<HTMLInputElement>('.model-cost-calculator input');
         expect([...tokenInputs].map(input => input.value)).toEqual(['5.000.000', '1.000.000']);
-        const group = container.querySelector('.model-parameter-filters');
+        const group = document.body.querySelector('.model-parameter-filters');
         expect(group?.querySelectorAll('input[type="number"]')).toHaveLength(2);
         const status = group?.querySelector('select');
         if (!status) throw new Error('Missing parameter status filter');
         act(() => { status.value = 'known'; status.dispatchEvent(new Event('change', { bubbles: true })); });
-        expect(container.textContent).not.toContain('Model One');
+        expect(document.body.textContent).not.toContain('Model One');
         act(() => { status.value = 'all'; status.dispatchEvent(new Event('change', { bubbles: true })); });
-        expect(container.textContent).toContain('Model One');
-        const button = container.querySelector<HTMLButtonElement>('.model-modes-filter > button');
+        expect(document.body.textContent).toContain('Model One');
+        const button = document.body.querySelector<HTMLButtonElement>('.model-modes-filter > button');
         act(() => { button?.click(); });
-        const match = container.querySelector<HTMLSelectElement>('.model-modes-menu select');
+        const match = document.body.querySelector<HTMLSelectElement>('.model-modes-menu select');
         expect(match?.value).toBe('all');
         if (!match) throw new Error('Missing mode matching filter');
         act(() => { match.value = 'any'; match.dispatchEvent(new Event('change', { bubbles: true })); });
         expect(match.value).toBe('any');
         act(() => { match.dispatchEvent(new Event('pointerdown', { bubbles: true })); });
-        expect(container.querySelector('.model-modes-menu')).not.toBeNull();
-        act(() => { container.querySelector('.model-search input')?.dispatchEvent(new Event('pointerdown', { bubbles: true })); });
-        expect(container.querySelector('.model-modes-menu')).toBeNull();
+        expect(document.body.querySelector('.model-modes-menu')).not.toBeNull();
+        act(() => { document.body.querySelector('.model-search input')?.dispatchEvent(new Event('pointerdown', { bubbles: true })); });
+        expect(document.body.querySelector('.model-modes-menu')).toBeNull();
         expect(button?.getAttribute('aria-expanded')).toBe('false');
         act(() => { button?.click(); });
-        expect(container.querySelector<HTMLSelectElement>('.model-modes-menu select')?.value).toBe('any');
+        expect(document.body.querySelector<HTMLSelectElement>('.model-modes-menu select')?.value).toBe('any');
     });
 
     it('shows provider context and directional capabilities instead of general model claims', () => {
@@ -200,7 +233,8 @@ describe('AIModelComparisonModal', () => {
             }] }],
         } } });
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
-        const row = container.querySelector('tbody tr');
+        openCatalogue();
+        const row = document.body.querySelector('tbody tr');
         expect(row?.textContent).toContain('OpenAI — 8K');
         expect(row?.textContent).not.toContain('1M');
         expect(row?.textContent).toContain('model_comparison.input_modes — model_comparison.modes_list.text, model_comparison.modes_list.image');
@@ -221,14 +255,15 @@ describe('AIModelComparisonModal', () => {
             }] }],
         } } });
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
-        const details = container.querySelector('.model-role-assessments');
+        openCatalogue();
+        const details = document.body.querySelector('.model-role-assessments');
         expect(details?.querySelector('button')?.textContent).toContain('75%');
         expect(details?.querySelector('.model-role-assessments__body')).toBeNull();
         act(() => { details?.querySelector<HTMLButtonElement>('button')?.click(); });
-        expect(container.querySelector('.model-role-assessments__body')?.textContent).toContain('agent_team.missing_catalog');
-        expect(container.querySelector('.model-role-assessments__body')?.textContent).toContain('agent_team.verify_roles.documentalist');
-        expect(container.querySelector('.model-role-assessments__body')?.textContent).toContain('agent_team.verification_pending');
-        const refresh = container.querySelector<HTMLButtonElement>('[aria-label="common.refresh"]');
+        expect(document.body.querySelector('.model-role-assessments__body')?.textContent).toContain('agent_team.missing_catalog');
+        expect(document.body.querySelector('.model-role-assessments__body')?.textContent).toContain('agent_team.verify_roles.documentalist');
+        expect(document.body.querySelector('.model-role-assessments__body')?.textContent).toContain('agent_team.verification_pending');
+        const refresh = document.body.querySelector<HTMLButtonElement>('[aria-label="common.refresh"]');
         expect(refresh).not.toBeNull();
         act(() => { refresh?.click(); });
         expect(data.retry).toHaveBeenCalledOnce();
@@ -243,16 +278,17 @@ describe('AIModelComparisonModal', () => {
             ],
         } } });
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
-        const filter = [...container.querySelectorAll('select')].find(s => s.querySelector('option[value="worker"]'));
+        openCatalogue();
+        const filter = [...document.body.querySelectorAll('select')].find(s => s.querySelector('option[value="worker"]'));
         if (!filter) throw new Error('Missing role filter');
         act(() => { filter.value = 'worker'; filter.dispatchEvent(new Event('change', { bubbles: true })); });
-        const summaries = [...container.querySelectorAll('.model-role-assessments > .model-details-trigger')];
+        const summaries = [...document.body.querySelectorAll('.model-role-assessments > .model-details-trigger')];
         expect(summaries.map(s => s.textContent)).toEqual(['model_comparison.profiles.worker · 90%', 'model_comparison.profiles.worker · 65%']);
-        expect(container.querySelector('.model-role-assessments')?.textContent).not.toContain('model_comparison.profiles.expert');
-        const sort = container.querySelector<HTMLButtonElement>('[aria-label="model_comparison.columns.profile"]');
+        expect(document.body.querySelector('.model-role-assessments')?.textContent).not.toContain('model_comparison.profiles.expert');
+        const sort = document.body.querySelector<HTMLButtonElement>('[aria-label="model_comparison.columns.profile"]');
         act(() => { sort?.click(); });
         act(() => { sort?.click(); });
-        expect(container.querySelector('tbody tr:first-child strong')?.textContent).toBe('B');
+        expect(document.body.querySelector('tbody tr:first-child strong')?.textContent).toBe('B');
     });
 
     it.each([
@@ -266,7 +302,8 @@ describe('AIModelComparisonModal', () => {
             ...FEED, models: [{ ...FEED.models[0], name, creator }],
         } } });
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
-        const cell = container.querySelectorAll('tbody tr:first-child > td')[9];
+        openCatalogue();
+        const cell = document.body.querySelectorAll('tbody tr:first-child > td')[9];
         expect(cell?.textContent).toContain(label);
         expect(cell?.querySelector('a')?.getAttribute('href')).toBe(source);
         expect(cell?.querySelector('a')?.title).toContain('model_comparison.parameters_checked');
@@ -277,13 +314,14 @@ describe('AIModelComparisonModal', () => {
         act(() => {
             root.render(<AIModelComparisonModal isOpen onClose={onClose} />);
         });
+        openCatalogue();
 
-        const headers = [...container.querySelectorAll('thead th')].map((cell) => cell.querySelector('button')?.getAttribute('aria-label') ?? cell.textContent.trim());
+        const headers = [...document.body.querySelectorAll('thead th')].map((cell) => cell.querySelector('button')?.getAttribute('aria-label') ?? cell.textContent.trim());
         expect(headers).toEqual([
             'model', 'profile', 'monthly_cost', 'creator', 'intelligence', 'context', 'input_price', 'output_price',
             'modes', 'parameters', 'speed', 'latency', 'coding', 'agentic', 'available',
         ].map((key) => `model_comparison.columns.${key}`));
-        const cells = [...container.querySelectorAll('tbody tr:first-child > td')];
+        const cells = [...document.body.querySelectorAll('tbody tr:first-child > td')];
         expect(cells).toHaveLength(headers.length);
         expect(cells[4]?.textContent).toContain('85');
         expect(cells[5]?.textContent).toBe('OpenAI — 128K');
@@ -291,9 +329,9 @@ describe('AIModelComparisonModal', () => {
         expect(cells[2]?.textContent).toContain('OpenAI —');
         expect(cells[9]?.textContent).toContain('model_comparison.parameters_missing');
         expect(cells[14]?.textContent).toBe('OpenAI');
-        expect(container.textContent).toContain('Model One');
-        expect(container.textContent).toContain('model_comparison.title');
-        const toggle = container.querySelector<HTMLButtonElement>(
+        expect(document.body.textContent).toContain('Model One');
+        expect(document.body.textContent).toContain('model_comparison.title');
+        const toggle = document.body.querySelector<HTMLButtonElement>(
             'tbody [role="switch"]',
         );
         if (!toggle) throw new Error('Availability switch was not rendered');
@@ -302,7 +340,7 @@ describe('AIModelComparisonModal', () => {
         });
         expect(mocks.deactivateModel).toHaveBeenCalledWith(FEED.models[0], 'all');
 
-        const close = container.querySelector<HTMLButtonElement>(
+        const close = document.body.querySelector<HTMLButtonElement>(
             'button.gnosi-close-btn',
         );
         if (!close) throw new Error('Close action was not rendered');
@@ -316,7 +354,7 @@ describe('AIModelComparisonModal', () => {
         act(() => {
             root.render(<AIModelComparisonModal isOpen={false} onClose={vi.fn()} />);
         });
-        expect(container.textContent).toBe('');
+        expect(document.body.textContent).toBe('');
     });
 });
 
@@ -327,9 +365,10 @@ it('keeps a model with many provider offers compact and reveals the remaining of
     const routes = Array.from({ length: 24 }, (_, index) => ({ ...base.routes[0], provider: `provider-${String(index)}`, provider_name: `Provider ${String(index)}`, cost_in: index + 1 }));
     mocks.useData.mockReturnValue({ ...data, state: { ...data.state, feed: { ...FEED, models: [{ ...base, routes }] } } });
     act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
-    const row = container.querySelector('tbody tr');
+        openCatalogue();
+    const row = document.body.querySelector('tbody tr');
     expect(row?.textContent).toContain('Model One');
-    const offerLists = [...container.querySelectorAll('.model-offer-list')];
+    const offerLists = [...document.body.querySelectorAll('.model-offer-list')];
     expect(offerLists).toHaveLength(5);
     for (const list of offerLists) {
         expect(list.querySelectorAll(':scope > div')).toHaveLength(1);
@@ -339,10 +378,85 @@ it('keeps a model with many provider offers compact and reveals the remaining of
     if (!firstList) throw new Error('Missing offers');
     const offers = firstList.querySelector<HTMLButtonElement>('button');
     act(() => { offers?.click(); });
-    expect(container.querySelectorAll('.model-offer-list__details > div')).toHaveLength(24);
-    expect(container.querySelector('.model-details-popover')?.textContent).toContain('Provider 23');
+    expect(document.body.querySelectorAll('.model-offer-list__details > div')).toHaveLength(24);
+    expect(document.body.querySelector('.model-details-popover')?.textContent).toContain('Provider 23');
     act(() => { offers?.click(); });
-    expect(container.querySelector('.model-offer-list__details')).toBeNull();
+    expect(document.body.querySelector('.model-offer-list__details')).toBeNull();
     act(() => { firstList.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); });
-    expect(container.querySelectorAll('.model-offer-list__details > div')).toHaveLength(24);
+    expect(document.body.querySelectorAll('.model-offer-list__details > div')).toHaveLength(24);
+});
+
+it('starts with a bot decision view and separates the catalogue and optional tests', async () => {
+    await act(async () => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} bots={[
+        { id: 'principal', name: 'Principal', provider: 'openai', model: 'model-1' },
+        { id: 'wiki', name: 'Knowledge', managed_by: 'builtin:llm-wiki', provider: 'openai', model: 'model-1' },
+        { id: 'suspended', name: 'Hidden', managed_by: 'builtin:mail', plugin_suspended: true },
+    ]} principalId="principal" />);  await Promise.resolve(); });
+    expect(document.body.querySelector('.model-comparison-table')).toBeNull();
+    expect(document.body.querySelector('.model-comparison-toolbar')).toBeNull();
+    expect(document.body.querySelector('.agent-evaluation-lab')).toBeNull();
+    expect(document.body.textContent).not.toContain('Hidden');
+    const botSelect = document.body.querySelector<HTMLSelectElement>('.model-bot-context select');
+    expect(botSelect?.value).toBe('principal');
+    const taskSelect = () => document.body.querySelector<HTMLSelectElement>('.model-task-recommendations select');
+    expect(taskSelect()).toBeNull();
+    expect(document.body.textContent).toContain('model_comparison.recommend.tasks.workflow');
+    await act(async () => { if (botSelect) { botSelect.value = 'wiki'; botSelect.dispatchEvent(new Event('change', { bubbles: true })); }  await Promise.resolve(); });
+    expect(taskSelect()).toBeNull();
+    expect(document.body.textContent).toContain('model_comparison.recommend.tasks.book');
+    await act(async () => { [...document.body.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'model_comparison.workspace.manual_mode')?.click(); await Promise.resolve(); });
+    await act(async () => { const select = taskSelect(); if (select) { select.value = 'retrieve'; select.dispatchEvent(new Event('change', { bubbles: true })); }  await Promise.resolve(); });
+    openCatalogue(); expect(document.body.querySelector('.model-comparison-table')).not.toBeNull();
+    expect(document.body.querySelector('.model-task-recommendations')).toBeNull();
+    await act(async () => { document.body.querySelector<HTMLButtonElement>('.settings-section-tabs button:nth-child(3)')?.click();  await Promise.resolve(); });
+    expect(document.body.querySelector('.agent-evaluation-lab')).not.toBeNull();
+    expect(document.body.querySelector('.model-comparison-table')).toBeNull();
+    expect(mocks.beginActivation).not.toHaveBeenCalled();
+    await act(async () => { document.body.querySelector<HTMLButtonElement>('.settings-section-tabs button:first-child')?.click();  await Promise.resolve(); });
+    expect(taskSelect()?.value).toBe('retrieve');
+});
+
+it('assigns an explicitly chosen active route to the selected bot and opens its existing settings', async () => {
+    const assign = vi.fn(); const configure = vi.fn();
+    await act(async () => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} bots={[
+        { id: 'wiki', name: 'Knowledge', managed_by: 'builtin:llm-wiki', provider: 'old', model: 'old-model' },
+    ]} onAssignModel={assign} onConfigureBot={configure} saveStatus="error" />);  await Promise.resolve(); });
+    const route = document.body.querySelector<HTMLSelectElement>('.model-bot-context details select');
+    const button = document.body.querySelector<HTMLButtonElement>('.model-bot-context details button');
+    expect(button?.disabled).toBe(true);
+    act(() => { if (route) { route.value = JSON.stringify(['openai', 'model-1']); route.dispatchEvent(new Event('change', { bubbles: true })); } });
+    expect(assign).not.toHaveBeenCalled();
+    act(() => { button?.click(); });
+    expect(assign).toHaveBeenCalledWith('wiki', 'openai', 'model-1');
+    act(() => { document.body.querySelector<HTMLButtonElement>('.model-bot-context__summary > button')?.click(); });
+    expect(configure).toHaveBeenCalledWith('wiki');
+    expect(document.body.querySelector('[role="alert"]')?.textContent).toContain('model_comparison.workspace.save_error');
+});
+it('waits for skill data before assigning an active model and reports catalogue failures', async () => {
+    const assign = vi.fn();
+    const render = (status: 'loading' | 'error' | 'ready') => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} bots={[{ id: 'wiki', managed_by: 'builtin:llm-wiki' }]} onAssignModel={assign} skillCatalogStatus={status} />); };
+    await act(async () => { render('loading'); await Promise.resolve(); });
+    const route = document.body.querySelector<HTMLSelectElement>('.model-bot-context details select');
+    act(() => { if (route) { route.value = JSON.stringify(['openai', 'model-1']); route.dispatchEvent(new Event('change', { bubbles: true })); } });
+    const button = document.body.querySelector<HTMLButtonElement>('.model-bot-context details button');
+    expect(button?.disabled).toBe(true); expect(assign).not.toHaveBeenCalled();
+    act(() => { render('error'); });
+    expect(document.body.querySelector('[role="alert"]')?.textContent).toContain('model_comparison.workspace.skills_error');
+    expect(button?.disabled).toBe(true);
+    act(() => { render('ready'); });
+    expect(button?.disabled).toBe(false); expect(assign).not.toHaveBeenCalled();
+});
+
+
+it('escapes the transformed bot editor and mounts the whole modal at the viewport root', () => {
+    act(() => { root.render(<div style={{ transform: 'translateY(0)', overflow: 'hidden', width: 300, height: 200 }}>
+        <AIModelComparisonModal isOpen onClose={vi.fn()} bots={[{ id: 'principal', name: 'Principal' }, { id: 'wiki', name: 'Knowledge' }]} principalId="principal" initialBotId="wiki" />
+    </div>); });
+    const layer = document.body.querySelector('.model-comparison-layer');
+    expect(layer?.parentElement).toBe(document.body);
+    expect(container.contains(layer)).toBe(false);
+    expect(layer?.querySelector('.model-comparison-header')).not.toBeNull();
+    expect(layer?.querySelector<HTMLSelectElement>('.model-bot-context select')?.value).toBe('wiki');
+    act(() => { root.render(<AIModelComparisonModal isOpen={false} onClose={vi.fn()} />); });
+    expect(document.body.querySelector('.model-comparison-layer')).toBeNull();
 });

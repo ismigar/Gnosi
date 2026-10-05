@@ -41,6 +41,7 @@ CURRENCY_SYMBOLS: Dict[str, str] = {
     "GBP": "£",
     "JPY": "¥",
     "CHF": "₣",
+    "CNY": "CN¥",  # Provider subscriptions; no unverified static conversion.
 }
 
 # Approximate units-per-USD, LAST-RESORT only (no network and no disk cache).
@@ -109,6 +110,9 @@ def _read_cache() -> Optional[Dict[str, Any]]:
 
 def _is_fresh(snapshot: Optional[Dict[str, Any]]) -> bool:
     if not snapshot:
+        return False
+    # Upgrade old snapshots once when a provider billing currency is added.
+    if not all(code in (snapshot.get("rates") or {}) for code in CURRENCY_SYMBOLS):
         return False
     try:
         fetched = datetime.fromisoformat(snapshot.get("fetched_at", ""))

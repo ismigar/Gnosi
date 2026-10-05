@@ -15,7 +15,6 @@ import type {
 interface ModelComparisonSetupPanelProps {
     readonly relatedBenchmarks?: readonly string[];
     readonly busyModelId: string;
-    readonly onAliasChange: (value: string) => void;
     readonly onApiKeyChange: (value: string) => void;
     readonly onBaseUrlChange: (value: string) => void;
     readonly onCancel: () => void;
@@ -35,7 +34,6 @@ interface ModelComparisonSetupPanelProps {
 export function ModelComparisonSetupPanel({
     relatedBenchmarks = [],
     busyModelId,
-    onAliasChange,
     onApiKeyChange,
     onBaseUrlChange,
     onCancel,
@@ -72,14 +70,6 @@ export function ModelComparisonSetupPanel({
                 {relatedBenchmarks.length > 1 && <p className="settings-desc" role="note">
                     {t('model_comparison.setup.shared_offer_help', { models: relatedBenchmarks.join(', ') })}
                 </p>}
-                <label className="model-setup-field">
-                    <span>{t('model_comparison.alias.label')}</span>
-                    <input value={setup.alias || ''} maxLength={120}
-                        disabled={setup.connectionStatus === 'testing' || busyModelId === setup.model.id}
-                        placeholder={t('model_comparison.alias.placeholder')}
-                        onChange={event => { onAliasChange(event.target.value); }} />
-                    <small>{t('model_comparison.alias.help')}</small>
-                </label>
                 {modes.length > 1 ? (
                     <fieldset className="model-execution-choice">
                         <legend>{t('model_comparison.setup.execution')}</legend>
@@ -223,7 +213,7 @@ export function ModelComparisonSetupPanel({
             <footer>
                 <span role="status">{setup.connectionStatus === 'testing' || busyModelId === setup.model.id
                     ? <><Loader2 className="animate-spin" size={16} /> {t('model_comparison.setup.auto_checking')}</>
-                    : route ? t('model_comparison.alias.activation_help') : ''}</span>
+                    : route ? t('model_comparison.setup.activation_help') : ''}</span>
                 <div>
                     <button
                         className="btn-gnosi-secondary"

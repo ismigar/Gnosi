@@ -9,7 +9,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from backend.domains.llm_wiki.chunking import encoded, reading_chunks
+from backend.domains.llm_wiki.chunking import encoded, reading_chunk_budget, reading_chunks
 from backend.domains.llm_wiki.contextual_reading import ContextualReader
 from backend.domains.llm_wiki.origins import finalize_origin
 from backend.services.llm_wiki_reading_runtime import token_bound
@@ -39,6 +39,7 @@ def note_answer(request):
     segments = request["primary_segments"]
     return {
         "summary": "A qualified reading",
+        "memory": "The opponent claims innate knowledge; the author rejects it in favor of experience.",
         "notes": [
             {
                 "title": segment["text"],
@@ -396,7 +397,7 @@ def test_resumed_reader_distinguishes_stale_memory_from_current_reviewed_plans(l
     result, _ = reader.run()
     resumed = calls[-2]
     assert resumed["memory"] == original["memory"]
-    assert resumed["memory_step"] == (None if legacy_checkpoint else 0)
+    assert resumed["memory_step"] == original.get("memory_step")
     assert resumed["saved_plan_count"] == len(reader.chunks)
     assert all(item["saved"] and item["reviewed"] and item["note_count"] == 1 for item in resumed["index"])
     assert "supersede conflicting progress claims" in resumed["state_contract"]
@@ -485,3 +486,252 @@ def test_validating_an_action_does_not_mutate_live_state(action):
     validate_action(reader, state, chunks, {"action": action, "arguments": arguments})
     assert state == before
     assert not checkpoints
+
+
+def test_long_context_chunks_preserve_the_complete_source_and_global_reading():
+    original = "The opening claim is qualified by the final conclusion. " * 5_000
+    origin = finalize_origin({"kind": "text", "label": "Whole book", "input_order": 0,
+                              "segments": [{"text": original, "locator": {}}]})
+    chunks = reading_chunks([origin], budget=reading_chunk_budget(750_000), count=token_bound)
+    assert len(chunks) > 10
+    assert all(token_bound(encoded(chunk["segments"])) <= 4096 for chunk in chunks)
+    assert "".join(segment["text"] for chunk in chunks for segment in chunk["segments"]) == original.strip()
+    assert all(chunk["context_segments"] for chunk in chunks)
+    reader, _, _ = setup_reader()
+    reader.origins, reader.chunks = [origin], chunks
+    reader.dependencies.input_budget = 750_000
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 64
+    requests = []
+    def inspect(prompt, **kwargs):
+        requests.append(json.loads(prompt))
+        raise ValueError("inspect global delivery")
+    reader.dependencies.generate_text = inspect
+    with pytest.raises(ValueError, match="inspect global delivery"):
+        reader.run()
+    delivered = requests[0]["last_result"]["sources"]
+    assert "".join(segment["text"] for chunk in delivered for segment in chunk["segments"]) == original.strip()
+
+
+def test_long_book_can_save_every_bounded_plan_beyond_the_short_document_step_limit():
+    reader, calls, checkpoints = setup_reader()
+    origin = finalize_origin({"kind": "text", "label": "Long book", "input_order": 0,
+        "segments": [{"text": f"Idea {i}.", "locator": {"section": f"Section {i}"}} for i in range(70)]})
+    reader.origins = [origin]
+    reader.chunks = reading_chunks([origin], budget=reading_chunk_budget(24_000), count=token_bound)
+    reader.dependencies.input_budget = 750_000
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 64
+    actions = [{"action": "save_plan", "arguments": {"chunk_id": chunk["id"],
+                "plan": {**note_answer({"primary_segments": chunk["segments"]}), "reviewed": True}}}
+               for chunk in reader.chunks]
+    actions.append({"action": "finish", "arguments": {"summary": "Complete book"}})
+    def generate(prompt, **kwargs):
+        return json.dumps(actions.pop(0)), "test-model"
+    reader.dependencies.generate_text = generate
+    result, _ = reader.run()
+    assert len(result["notes"]) == 70
+    assert len(checkpoints[("current", "agent-state")]["plans"]) == 70
+    assert result["reviewed"] is True
+
+
+def test_automatic_delivery_reads_a_long_book_with_one_call_per_plan():
+    delivered = []
+    def generate(request):
+        if request['saved_plan_count'] == request['source_count']:
+            return {'action': 'finish', 'arguments': {'summary': 'All originals connected and reviewed'}}
+        chunk = request['last_result']
+        delivered.append(chunk)
+        plan = note_answer({'primary_segments': chunk['segments']})
+        plan['memory'] = request['memory'] + ' ' + chunk['id']
+        return {'action': 'save_plan', 'arguments': {'chunk_id': chunk['id'], 'plan': plan}}
+    reader, calls, checkpoints = setup_reader(generate=generate)
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 64
+    reader.origins = [finalize_origin({'kind': 'text', 'label': 'Long book', 'input_order': 0,
+        'segments': [{'text': f'Argument {i}: ' + 'Original evidence. ' * 100,
+                      'locator': {'section': f'Chapter {i}'}} for i in range(40)]})]
+    reader.chunks = reading_chunks(reader.origins, budget=4096, count=token_bound)
+    result, _ = reader.run()
+    assert len(reader.chunks) == 40
+    assert len(calls) == 41
+    assert [chunk['id'] for chunk in delivered] == [chunk['id'] for chunk in reader.chunks]
+    assert len(result['notes']) == 40
+    assert all(len(request['index']) <= 8 for request in calls)
+    assert all('output_contract' not in request for request in calls)
+    assert all(token_bound(encoded(request)) <= reader.budget for request in calls)
+    state = checkpoints[('current', 'agent-state')]
+    assert all(chunk['id'] in state['memory'] for chunk in reader.chunks)
+    assert calls[-1]['memory'] == state['memory']
+    assert len(state['read']) == len(state['plans']) == 40
+
+
+def test_invalid_plan_cannot_replace_global_memory_or_advance_progress():
+    def generate(request):
+        chunk = request['last_result']['sources'][0]
+        plan = note_answer({'primary_segments': chunk['segments']})
+        plan.pop('memory')
+        return {'action': 'save_plan', 'arguments': {'chunk_id': chunk['id'], 'plan': plan}}
+    reader, _, checkpoints = setup_reader(generate=generate)
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 10
+    with pytest.raises(RuntimeError, match='memory'):
+        reader.run()
+    state = checkpoints[('current', 'agent-state')]
+    assert state['memory'] == '' and state['plans'] == {}
+
+
+def test_legacy_resume_reconstructs_memory_and_preserves_saved_plans():
+    reader, calls, checkpoints = setup_reader()
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 1
+    def first(request):
+        chunk = reader.chunks[0]
+        return {'action': 'save_plan', 'arguments': {'chunk_id': chunk['id'],
+                'plan': note_answer({'primary_segments': chunk['segments']})}}
+    reader.dependencies.generate_text = lambda prompt, **kwargs: (json.dumps(first(json.loads(prompt))), 'test-model')
+    with pytest.raises(RuntimeError, match='resume_required'):
+        reader.run()
+    saved = checkpoints[('current', 'agent-state')]
+    saved['memory'] = ''
+    for plan in saved['plans'].values():
+        plan.pop('memory')
+    original = deepcopy(saved['plans'])
+    seen_material = []
+    def resumed(prompt, **kwargs):
+        request = json.loads(prompt)
+        if request['phase'] == 'synthesis':
+            seen_material.extend(request['material']['saved_plans'])
+            return json.dumps({'summary': 'The opening claim needs qualification by the conclusion.'}), 'test-model'
+        assert request['saved_plan_count'] == 1
+        assert request['memory'] == 'The opening claim needs qualification by the conclusion.'
+        raise RuntimeError('provider unavailable after reconstruction')
+    reader.resume_job_id, reader.job_id = 'current', 'resumed'
+    reader.dependencies.generate_text = resumed
+    with pytest.raises(RuntimeError, match='provider unavailable'):
+        reader.run()
+    assert [item['chunk_id'] for item in seen_material] == list(original)
+    assert checkpoints[('resumed', 'agent-state')]['plans'] == original
+    assert checkpoints[('resumed', 'agent-state')]['memory']
+
+
+@pytest.mark.parametrize("compatible", [True, False])
+def test_resume_chooses_most_advanced_compatible_checkpoint(compatible):
+    reader, _, checkpoints = setup_reader()
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 1
+    chunk = reader.chunks[0]
+    reader.dependencies.generate_text = lambda *args, **kwargs: (json.dumps({
+        "action": "save_plan", "arguments": {"chunk_id": chunk["id"],
+        "plan": note_answer({"primary_segments": chunk["segments"]})}}), "test")
+    with pytest.raises(RuntimeError, match="resume_required"):
+        reader.run()
+    older = deepcopy(checkpoints[("current", "agent-state")])
+    latest = deepcopy(older)
+    latest["plans"] = {}
+    if not compatible:
+        older["identity"] = "different-source-or-runtime"
+    checkpoints[("older", "agent-state")] = older
+    checkpoints[("latest", "agent-state")] = latest
+    reader.resume_job_id, reader.job_id = "latest", "resumed"
+    reader.dependencies.resume_candidates = lambda job: [job, "older"]
+    reader.dependencies.generate_text = Mock(side_effect=RuntimeError("stop before action"))
+    with pytest.raises(RuntimeError, match="stop before action"):
+        reader.run()
+    saved = checkpoints[("resumed", "agent-state")]
+    assert len(saved["plans"]) == (1 if compatible else 0)
+    assert reader.resume_job_id == ("older" if compatible else "latest")
+
+
+def test_legacy_memory_uses_global_budget_and_reports_token_units():
+    from backend.domains.llm_wiki.reading_memory import restore_memory
+    reader, calls, _ = setup_reader()
+    summary = "x" * 2500
+    assert 2000 < token_bound(summary) <= reader.budget // 8
+    reader.dependencies.generate_text = lambda prompt, **kwargs: (
+        calls.append(json.loads(prompt)) or json.dumps({"summary": summary}), "test")
+    assert restore_memory(reader, {"chunk": {"notes": [], "coverage": []}}) == summary
+    assert calls[-1]["summary_max_tokens"] == reader.budget // 8
+    assert "summary_max_utf8_bytes" not in calls[-1]
+
+
+def test_targeted_memory_updates_preserve_global_context_across_191_plans_and_resume():
+    """One plan per passage; resume never regenerates the saved first 166 plans."""
+    delivered, repeated_memory_bytes, edit_bytes = [], [], []
+
+    def generate(request):
+        if request['saved_plan_count'] == request['source_count']:
+            assert 'Link0.' in request['memory'] and 'Link190.' in request['memory']
+            return {'action': 'finish', 'arguments': {'summary': 'Reviewed all originals'}}
+        chunk = request['last_result']
+        delivered.append(chunk['id'])
+        plan = note_answer({'primary_segments': chunk['segments']})
+        plan.pop('memory')
+        addition = f"Link{request['saved_plan_count']}."
+        plan['memory_updates'] = [{'old': '', 'new': addition}]
+        plan['reviewed'] = True
+        repeated_memory_bytes.append(len(encoded({'memory': request['memory'] + '\n' + addition})))
+        edit_bytes.append(len(encoded({'memory_updates': plan['memory_updates']})))
+        return {'action': 'save_plan', 'arguments': {'chunk_id': chunk['id'], 'plan': plan}}
+
+    reader, calls, checkpoints = setup_reader(generate=generate)
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 166
+    reader.origins = [finalize_origin({'kind': 'text', 'label': 'Long book', 'input_order': 0,
+        'segments': [{'text': f'Argument {i}: ' + 'Original evidence. ' * 100,
+                      'locator': {'section': f'Chapter {i}'}} for i in range(191)]})]
+    reader.chunks = reading_chunks(reader.origins, budget=4096, count=token_bound)
+    assert len(reader.chunks) == 191
+    with pytest.raises(RuntimeError, match='resume_required'):
+        reader.run()
+    original = deepcopy(checkpoints[('current', 'agent-state')]['plans'])
+    assert len(original) == 166
+    delivered.clear()
+    reader.resume_job_id, reader.job_id = 'current', 'resumed'
+    reader.dependencies.max_action_steps = 64
+    result, _ = reader.run()
+    state = checkpoints[('resumed', 'agent-state')]
+    assert delivered == [chunk['id'] for chunk in reader.chunks[166:]]
+    assert len(calls) == 192  # 191 validated plans and finalization, across both runs.
+    assert len(result['notes']) == 191 and result['reviewed']
+    assert all(state['plans'][key] == plan for key, plan in original.items())
+    assert all(f'Link{i}.' in state['memory'] for i in range(191))
+    assert sum(edit_bytes) < sum(repeated_memory_bytes) // 5
+    assert all('available_actions' not in request for request in calls)
+    assert all(token_bound(encoded(request)) <= reader.budget for request in calls)
+
+
+@pytest.mark.parametrize('updates', [
+    [{'old': 'missing', 'new': 'change'}],
+    [{'old': 'claim', 'new': 'change'}],
+    [{'old': '', 'new': ''}],
+    [{'old': '', 'new': 'addition'}, {'old': 'missing', 'new': 'change'}],
+])
+def test_invalid_memory_edits_cannot_change_existing_memory_or_save_a_plan(updates):
+    from backend.domains.llm_wiki.directed_reading import _apply_action
+    reader, _, _ = setup_reader()
+    key = reader.chunks[0]['id']
+    state = {'read': [key], 'plans': {}, 'memory': 'claim and claim', 'step': 0}
+    plan = note_answer({'primary_segments': reader.chunks[0]['segments']})
+    plan.pop('memory')
+    plan['memory_updates'] = updates
+    with pytest.raises(ValueError):
+        _apply_action(reader, state, {key: reader.chunks[0]}, 'save_plan', {'chunk_id': key, 'plan': plan})
+    assert state['memory'] == 'claim and claim' and state['plans'] == {}
+
+
+def test_exact_memory_edits_reconcile_a_claim_and_retain_unmentioned_qualifications():
+    from backend.domains.llm_wiki.reading_memory import update_memory
+    current = 'Opening: claim. Qualification: disputed. Evidence: chunk-1.'
+    assert update_memory(current, {'memory_updates': [
+        {'old': 'Opening: claim.', 'new': 'Opening: revised claim.'},
+        {'old': '', 'new': 'Conclusion: resolves the dispute; chunk-2.'},
+    ]}) == 'Opening: revised claim. Qualification: disputed. Evidence: chunk-1.\nConclusion: resolves the dispute; chunk-2.'
+    with pytest.raises(ValueError, match='either'):
+        update_memory(current, {'memory': 'rewrite', 'memory_updates': [{'old': '', 'new': 'addition'}]})
+
+
+def test_memory_edit_rejects_overlapping_ambiguous_anchors():
+    from backend.domains.llm_wiki.reading_memory import update_memory
+    with pytest.raises(ValueError, match='exactly once'):
+        update_memory('aaa', {'memory_updates': [{'old': 'aa', 'new': 'b'}]})

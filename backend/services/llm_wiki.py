@@ -14,9 +14,9 @@ import threading
 import time
 import uuid
 from collections.abc import Callable, Iterable
-from functools import partial
+from functools import partial, wraps
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol, cast
+from typing import Dict, List, Optional, Protocol, cast, ParamSpec, TypeVar
 from urllib.parse import urlencode
 
 from backend.config.logger_config import get_logger
@@ -441,9 +441,11 @@ def process_resource(
     job_id: str = "",
     resume_checkpoint: Optional[dict[str, object]] = None,
     resume_job_id: str = "",
+    batch_size: int = 4,
+    expected_reading_identity: str = "",
 ) -> Dict[str, object]:
     """Run a complete blocking ingest. Call from :func:`start_ingest`."""
-    from backend.domains.llm_wiki.chunking import reading_chunks
+    from backend.domains.llm_wiki.chunking import reading_chunk_budget, reading_chunks
     from backend.services.llm_wiki_reading_runtime import prepare_reading_runtime, token_bound
 
     runtime = prepare_reading_runtime(vault_root)
@@ -459,7 +461,7 @@ def process_resource(
         save_snapshot=llm_wiki_storage.save_snapshot,
         chunk_origins=partial(
             reading_chunks,
-            budget=runtime.input_budget // 5,
+            budget=reading_chunk_budget(runtime.input_budget),
             count=getattr(runtime, "count_tokens", token_bound),
         ),
         load_brain_index=_load_brain_index,
@@ -467,8 +469,11 @@ def process_resource(
         build_prompt=_build_chunk_prompt,
         generate_text=runtime.generate,
         generate_structured=getattr(runtime, "generate_structured", None),
+        generate_prose=getattr(runtime, "generate_prose", None),
+        batch_size=batch_size,
+        expected_reading_identity=expected_reading_identity,
         execution_revision=runtime.identity,
-        agent_directed=bool(
+        semantic_reading=bool(
             getattr(runtime, "snapshot", None) and runtime.snapshot.behavior_resources
         ),
         execution_metadata=runtime.metadata,
@@ -477,6 +482,8 @@ def process_resource(
         parse_plan=_parse_plan,
         save_checkpoint=llm_wiki_storage.save_checkpoint,
         load_checkpoint=llm_wiki_storage.load_checkpoint,
+        resume_candidates=llm_wiki_storage.resume_checkpoint_jobs,
+        resume_job_status=llm_wiki_storage.get_job_status,
         reduce_plans=_validate_and_reduce_plans,
         apply_plan=_apply_plan,
         sync_annotations=llm_wiki_pdf_annotations.sync_generated_pdf_annotations,
@@ -508,6 +515,21 @@ def process_resource(
     )
 
 
+_START_LOCK = threading.RLock()
+_StartArgs = ParamSpec("_StartArgs")
+_StartResult = TypeVar("_StartResult")
+
+
+def _serialized_start(function: Callable[_StartArgs, _StartResult]) -> Callable[_StartArgs, _StartResult]:
+    @wraps(function)
+    def invoke(*args: _StartArgs.args, **kwargs: _StartArgs.kwargs) -> _StartResult:
+        # Keep the running check, budget ownership and worker launch atomic.
+        with _START_LOCK:
+            return function(*args, **kwargs)
+    return invoke
+
+
+@_serialized_start
 def start_ingest(
     source_page_id: str,
     source_title: str,
@@ -521,6 +543,9 @@ def start_ingest(
     source_table: Optional[dict[str, object]] = None,
     source_config: Optional[dict[str, object]] = None,
     force: bool = False,
+    max_cost_usd: float = 0.50,
+    batch_size: int = 4,
+    expected_reading_identity: str = "",
 ) -> dict[str, object]:
     """Start a durable background job and return its initial state."""
     from backend.services import context_vars as cv
@@ -555,8 +580,14 @@ def start_ingest(
     snapshot = prepare_snapshot(SKILL_ID)
     if Path(snapshot.scope.vault_path).resolve() != Path(vault_root).resolve():
         raise PermissionError("agent_execution_vault_mismatch")
+    from backend.services import reading_budget
+    budget_id = reading_budget.configure(max_cost_usd, str(previous.get("budget_id") or "") if resume_job_id else "")
     job = llm_wiki_storage.create_job(source_table_id, source_page_id)
     job_id = str(job["job_id"])
+    # Preserve legacy lineage on a resume; a fresh run creates its own boundary.
+    llm_wiki_storage.update_job(
+        job_id, budget_id=budget_id, batch_size=batch_size, resume_lineage=previous.get("resume_lineage") if resume_job_id else job_id,
+    )
     snapshot = create_job_run(snapshot, job_id, "knowledge.process-source")
     active_vault = cv.get_active_vault_path()
 
@@ -579,6 +610,8 @@ def start_ingest(
                 job_id=job_id,
                 resume_checkpoint=resume_checkpoint,
                 resume_job_id=resume_job_id,
+                batch_size=batch_size,
+                expected_reading_identity=expected_reading_identity,
             )
             llm_wiki_storage.update_job(job_id, phase=PHASE_INDEXING, progress=90)
             index_report = llm_wiki_indices.rebuild_indexes(
@@ -621,11 +654,12 @@ def start_ingest(
                 progress=status.get("progress", 0),
             )
         finally:
+            llm_wiki_storage.update_job(job_id, budget=reading_budget.status(budget_id))
             if token is not None:
                 cv.active_vault_path.reset(token)
 
     def _governed_worker() -> None:
-        with operation_session(snapshot):
+        with operation_session(snapshot), reading_budget.session(budget_id):
             agent_execution_store.update(snapshot.scope, job_id, status="running")
             _worker()
             status = llm_wiki_storage.get_job_status(job_id)

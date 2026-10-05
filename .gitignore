@@ -25,6 +25,7 @@ backend/data/*.json
 *.sqlite3-*
 # vendored snapshot, IS versioned (regenerate: python -m backend.scripts.refresh_model_catalog)
 !backend/data/model_catalog.json
+!backend/data/provider_billing.json
 backend/data/logs/
 # Dades locals del runtime NATIU (chroma, sqlite, index, cache) — mai al repo
 local_data/

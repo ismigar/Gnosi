@@ -229,13 +229,12 @@ const settleAutosave = async (ms = 0) => {
 const NEW_MODEL = { ...MODEL, id: 'model-2', routes: MODEL.routes.map(route => ({ ...route, model_id: 'model-2' })) };
 
 describe('explicit model activation', () => {
-    it('preserves the chosen alias and validates the exact model on activation', async () => {
+    it('activates the exact model with its official identity', async () => {
         vi.useFakeTimers();
         await mountController();
         act(() => { currentController().beginActivation(NEW_MODEL); });
         await settleAutosave();
         expect(mocks.validateProvider).not.toHaveBeenCalled();
-        act(() => { currentController().setSetupAlias('  Research model  '); });
         expect(mocks.updateModels).not.toHaveBeenCalled();
         await act(async () => { await currentController().testSetupConnection(); });
         expect(mocks.validateProvider).toHaveBeenCalledWith('openai', { model: 'model-2' });
@@ -243,7 +242,7 @@ describe('explicit model activation', () => {
         expect(mocks.updateModels).toHaveBeenCalledOnce();
         const saved = mocks.updateModels.mock.lastCall?.[0] as { models: AiModelRegistryEntry[] };
         expect(saved.models).toEqual(expect.arrayContaining([
-            expect.objectContaining({ provider: 'openai', model_id: 'model-2', enabled: true, alias: 'Research model' }),
+            expect.objectContaining({ provider: 'openai', model_id: 'model-2', enabled: true }),
         ]));
         expect(currentController().state.setup).toBeNull();
     });
@@ -366,3 +365,26 @@ function lastSavedRegistry(): { models: AiModelRegistryEntry[]; budget: Record<s
     if (!payload) throw new Error('No registry write recorded');
     return payload;
 }
+
+it('requires explicit confirmation to detach bots and cancellation never retries the write', async () => {
+    const { GnosiApiError } = await import('../../shared/api/errors');
+    await mountController();
+    mocks.updateModels.mockRejectedValueOnce(new GnosiApiError(new Response('', { status: 409 }), {
+        detail: { code: 'model_in_use', confirmation_revision: 'reviewed-agents',
+            agents: [{ id: 'reader', name: 'Reader' }], routes: [{ provider: 'openai', model: 'model-1' }] },
+    }));
+    await act(async () => { await currentController().deactivateModel(MODEL); });
+    expect(currentController().detachConfirmation?.agents).toEqual([{ id: 'reader', name: 'Reader' }]);
+    expect(mocks.updateModels).toHaveBeenCalledTimes(1);
+    act(() => { currentController().cancelDeactivation(); });
+    expect(currentController().detachConfirmation).toBeNull();
+    expect(mocks.updateModels).toHaveBeenCalledTimes(1);
+    mocks.updateModels.mockRejectedValueOnce(new GnosiApiError(new Response('', { status: 409 }), {
+        detail: { code: 'model_in_use', confirmation_revision: 'reviewed-agents',
+            agents: [{ id: 'reader', name: 'Reader' }], routes: [{ provider: 'openai', model: 'model-1' }] },
+    }));
+    await act(async () => { await currentController().deactivateModel(MODEL); });
+    await act(async () => { await currentController().confirmDeactivation(); });
+    expect(mocks.updateModels).toHaveBeenLastCalledWith(expect.objectContaining({ detach_agents_revision: 'reviewed-agents' }));
+    expect(currentController().detachConfirmation).toBeNull();
+});

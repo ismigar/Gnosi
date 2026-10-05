@@ -12,12 +12,12 @@ export type { ProcessResourceModalProps } from './process-resource/processResour
 export function ProcessResourceModal(
     props: ProcessResourceModalProps,
 ) {
-    const { force = false, isOpen, title } = props;
+    const { isOpen, title } = props;
     const modalRef = useRef<HTMLDivElement>(null);
     const processState = useProcessResourceController(props);
 
     useModalKeyboard({
-        confirmDisabled: processState.state !== 'confirm',
+        confirmDisabled: processState.state !== 'confirm' || !processState.canStart,
         containerRef: modalRef,
         isOpen,
         onClose: processState.dismiss,
@@ -33,8 +33,17 @@ export function ProcessResourceModal(
 
     return (
         <ProcessResourceModalView
+            estimate={processState.estimate}
+            estimateError={processState.estimateError}
+            budgetLimit={processState.budgetLimit}
+            onBudgetLimit={processState.setBudgetLimit}
+            batchSize={processState.batchSize}
+            onBatchSize={processState.setBatchSize}
+            canStart={processState.canStart}
             error={processState.error}
-            force={force}
+            force={processState.force}
+            fresh={processState.fresh}
+            onReprocess={processState.reprocess}
             job={processState.job}
             modalRef={modalRef}
             onCancel={processState.dismiss}

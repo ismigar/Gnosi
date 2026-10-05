@@ -33,6 +33,12 @@ ARM64 rootless `nerdctl` runner without masking failed image builds.
   command. Otherwise the full suite fails after a correct workflow migration.
 - Do not delete runner caches while a job is active. An installer can observe a
   cache before deletion and leave a later command without its executable.
+- Rootless nerdctl can retain a stopped smoke container with an empty inspected
+  `State.Status`. Cleanup accepts that shape only with `Running`, `Paused` and
+  `Restarting` explicitly false and an integer zero PID, plus the existing exact
+  CI project/service labels. Missing state is not proof of inactivity. Removal
+  still uses plain `docker rm`, preserving volumes and failing safely if a
+  container restarts; image removal remains mandatory before the next build.
 
 ## Verification
 

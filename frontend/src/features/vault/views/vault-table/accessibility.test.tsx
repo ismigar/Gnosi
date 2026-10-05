@@ -23,3 +23,19 @@ it.each(['ca','en','es','fr'])('names selection and column aggregation in %s, pr
  const selects=Array.from(view.container.querySelectorAll('select'));expect(selects.map(s=>s.getAttribute('aria-label'))).toEqual([i18n.t('table.aggregate_column',{column:i18n.t('table.note_name')}),i18n.t('table.aggregate_column',{column:'Score'}),i18n.t('table.aggregate_column',{column:i18n.t('table.modified_column')})]);
  const score=selects[1];if(!score)throw new Error('Missing Score aggregation');act(()=>{score.value='sum';score.dispatchEvent(new Event('change',{bubbles:true}));});expect(setAggregations).toHaveBeenCalledWith({Score:'sum'});
 });
+
+it.each([
+ ['partial', true, false], ['error', true, false], ['partial', false, false],
+ ['done', true, true], ['idle', false, false],
+] as const)('resumes table-row %s status without discarding saved work (processed=%s)', async (phase, processed, force) => {
+ const i18n=createInstance(); await i18n.init({lng:'en',resources:{en:{translation:en}},interpolation:{escapeValue:false}});
+ const setPendingAction=vi.fn();
+ const model={t:i18n.t,i18n,selectedIds:new Set(),isSelected:()=>false,toggleSelect:vi.fn(),tableFunctionalities:[],hasOpenableResource:()=>false,onNoteSelect:vi.fn(),setPendingAction,isLlmWikiTable:true,llmWikiTableId:'resources',llmWikiJobs:{resources:{source:{phase,running:false}}},llmWikiConfig:{processed_resources:{}}} as unknown as TableController;
+ const note={id:'source',title:'Book',metadata:processed?{'Processat pel Cervell':'2026-09-28'}:{}};
+ const view=mountTestComponent(<table><tbody><tr><RowActions model={model} note={note} isChild={false}/></tr></tbody></table>);
+ const label=i18n.t(phase==='partial'||phase==='error'?'table.reprocess_resource_error':processed?'table.reprocess_resource':'table.process_resource',{date:'2026-09-28'});
+ const button=Array.from(view.container.querySelectorAll('button')).find(item=>item.getAttribute('aria-label')===label);
+ if(!button)throw new Error(`Missing processing button: ${label}`);
+ act(()=>{button.click();});
+ expect(setPendingAction).toHaveBeenCalledExactlyOnceWith({noteId:'source',action:'process_resource',sourceTableId:'resources',force});
+});

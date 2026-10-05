@@ -1,7 +1,7 @@
 import { comparisonRouteCapabilities, knownContext } from './model-comparison/modelRouteCapabilities';
-import { comparisonRouteCosts, knownPrice } from './model-comparison/modelRouteCosts';
+import { comparisonRouteCosts } from './model-comparison/modelRouteCosts';
+import { ModelPriceOffer } from './model-comparison/ModelPriceOffer';
 import { ModelParameterReview } from './model-comparison/ModelParameterReview';
-import { ModelAliasField } from './ModelAliasField';
 import { modelParameterDisclosure, modelParameterMetadata } from './model-comparison/modelParameters';
 import { Fragment, type ReactNode } from 'react';
 import { ComparisonDetails } from './model-comparison/ComparisonDetails';
@@ -19,7 +19,6 @@ import type {
 import {
     COMPARISON_PROFILE_KEYS,
     formatComparisonContext,
-    formatComparisonCost,
     formatComparisonMetric,
     isFiniteMetric,
     PROFILE_ICONS,
@@ -41,7 +40,6 @@ interface ModelComparisonRowProps {
     readonly metricAvailability: MetricAvailability;
     readonly model: AiModelComparisonEntry;
     readonly onBeginActivation: (model: AiModelComparisonEntry) => void;
-    readonly onSaveAlias?: (entry: AiModelRegistryEntry, alias: string) => Promise<void>;
     readonly onDeactivate: (model: AiModelComparisonEntry, provider?: string) => Promise<void>;
     readonly selectedProvider?: string;
     readonly selectedProfile?: 'all' | ComparisonProfile;
@@ -82,7 +80,6 @@ export function ModelComparisonRow({
     inputTokens,
     model,
     onBeginActivation,
-    onSaveAlias,
     onDeactivate,
     selectedProvider = 'all',
     selectedProfile = 'all',
@@ -93,8 +90,6 @@ export function ModelComparisonRow({
     setupPanel,
 }: ModelComparisonRowProps) {
     const { t } = useTranslation();
-    const currencySymbol = feed.currency.symbol || '$';
-    const currencyRate = feed.currency.usd_rate || 1;
     const routeCapabilities = comparisonRouteCapabilities(model, selectedProvider);
     const routeCosts = {
         monthly_cost: comparisonRouteCosts(model, selectedProvider, inputTokens, outputTokens),
@@ -113,7 +108,9 @@ export function ModelComparisonRow({
     )).filter(Boolean).join(', ');
     const isBusy = busyModelId === model.id;
     const sourceTitle = (field: string): string | undefined => {
-        if (['input_price', 'output_price', 'monthly_cost', 'context_window', 'modes'].includes(field)) return 'models.dev';
+        if (selectedProvider !== 'all' && (field === 'speed' || field === 'latency')) return t('model_comparison.provider_measurement_unknown');
+        if (['input_price', 'output_price', 'monthly_cost'].includes(field)) return undefined;
+        if (['context_window', 'modes'].includes(field)) return 'models.dev';
         const source = model.metric_sources?.[field];
         return source ? t(`model_comparison.metric_sources.${source}`) : undefined;
     };
@@ -125,8 +122,8 @@ export function ModelComparisonRow({
         .sort((first, second) => COMPARISON_PROFILE_KEYS.indexOf(first.role) - COMPARISON_PROFILE_KEYS.indexOf(second.role));
     const renderCell = (key: ComparisonColumn['key']): ReactNode => {
         switch (key) {
-            case 'name': return <><strong title={model.name}>{model.name}</strong><small>{model.release_date || '—'}</small>{relatedBenchmarks.length > 1 && <ComparisonDetails summary={t('model_comparison.setup.shared_offer_label')}>{() => <p>{t('model_comparison.setup.shared_offer_help', { models: relatedBenchmarks.join(', ') })}</p>}</ComparisonDetails>}{onSaveAlias && activeEntries.map(entry => <ModelAliasField key={`${entry.provider}:${entry.model_id}`} entry={entry} onSave={onSaveAlias} disabled={isBusy} />)}</>;
-            case 'provider': return [...new Set(model.routes.map(route => providersById[route.provider]?.name || route.provider))].sort().join(', ') || '—';
+            case 'name': return <><strong title={model.name}>{model.name}</strong><small>{model.release_date || '—'}</small>{relatedBenchmarks.length > 1 && <ComparisonDetails summary={t('model_comparison.setup.shared_offer_label')}>{() => <p>{t('model_comparison.setup.shared_offer_help', { models: relatedBenchmarks.join(', ') })}</p>}</ComparisonDetails>}</>;
+            case 'provider': return [...new Set(routeCapabilities.map(route => providersById[route.provider]?.name || route.provider))].sort().join(', ') || '—';
             case 'creator': return model.creator || '—';
             case 'modes': return routeCapabilities.length ? <ModelOfferList offers={routeCapabilities} renderOffer={(route, index) => <div key={index} title={route.model_id}>
                 <strong>{providersById[route.provider]?.name || route.provider_name || route.provider}</strong>
@@ -153,17 +150,15 @@ export function ModelComparisonRow({
             case 'context_window': return routeCapabilities.length ? <ModelOfferList offers={routeCapabilities} renderOffer={(route, index) => <div key={index} title={route.model_id}>{providersById[route.provider]?.name || route.provider_name || route.provider} — <strong>{knownContext(route.context_window) ? formatComparisonContext(route.context_window) : t('model_comparison.unknown_capability')}</strong></div>} /> : t('model_comparison.unknown_capability');
             case 'input_price':
             case 'output_price':
-            case 'monthly_cost': return routeCosts[key].length ? <ModelOfferList offers={routeCosts[key]} renderOffer={({ route, cost }, index) => {
-                const value = key === 'monthly_cost' ? cost : route[key === 'input_price' ? 'cost_in' : 'cost_out'];
-                const label = providersById[route.provider]?.name || route.provider_name || route.provider;
-                return <div key={`${route.provider}:${String(index)}`} title={route.model_id}>
-                    {label} — <strong>{knownPrice(value) ? formatComparisonCost(value * currencyRate, currencySymbol) : t('model_comparison.unknown_cost')}</strong>
-                    {route.is_local && <small>{t('model_comparison.local_cost_note')}</small>}
-                </div>;
-            }} /> : t('model_comparison.unknown_cost');
-            case 'speed': return isFiniteMetric(model.speed)
+            case 'monthly_cost': return routeCosts[key].length ? <ModelOfferList offers={routeCosts[key]}
+                isHighlighted={({ route }) => activeEntries.some(entry => entry.provider === route.provider && entry.model_id === route.model_id)}
+                renderOffer={(offer, index) => <ModelPriceOffer key={`${offer.route.provider}:${String(index)}`} offer={offer} field={key}
+                    label={providersById[offer.route.provider]?.name || offer.route.provider_name || offer.route.provider} currency={feed.currency}
+                    active={activeEntries.some(entry => entry.provider === offer.route.provider && entry.model_id === offer.route.model_id)} />}
+            /> : t('model_comparison.unknown_cost');
+            case 'speed': return selectedProvider === 'all' && isFiniteMetric(model.speed)
                 ? `${formatComparisonMetric(model.speed)} tokens/s` : '—';
-            case 'latency': return isFiniteMetric(model.latency)
+            case 'latency': return selectedProvider === 'all' && isFiniteMetric(model.latency)
                 ? `${formatComparisonMetric(model.latency, 2)} s` : '—';
             case 'profile': return model.role_assessments?.length ? <><ComparisonDetails className="model-role-assessments" summary={<>{assessments.filter(r => ['catalog_compatible', 'tested'].includes(r.status)).map(r => `${t(`model_comparison.profiles.${r.role}`)}${r.score != null ? ` · ${formatComparisonMetric(r.score)}%` : ''}`).join(', ') || [...new Set(assessments.map(r => t(`agent_team.${r.status}`)))].join(', ')}</>}>
                 {() => <div className="model-role-assessments__body"><p className="settings-desc">{t('agent_team.scoring_help')}</p>

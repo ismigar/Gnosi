@@ -36,7 +36,6 @@ interface ModelComparisonTableProps {
     readonly metricAvailability: MetricAvailability;
     readonly models: readonly AiModelComparisonEntry[];
     readonly onBeginActivation: (model: AiModelComparisonEntry) => void;
-    readonly onSaveAlias?: (entry: AiModelRegistryEntry, alias: string) => Promise<void>;
     readonly onDeactivate: (model: AiModelComparisonEntry, provider?: string) => Promise<void>;
     readonly onScrollbarScroll: UIEventHandler<HTMLDivElement>;
     readonly onSort: (key: ComparisonSortKey) => void;
@@ -79,7 +78,6 @@ export function ModelComparisonTable({
     metricAvailability,
     models,
     onBeginActivation,
-    onSaveAlias,
     onDeactivate,
     onScrollbarScroll,
     onSort,
@@ -174,7 +172,6 @@ export function ModelComparisonTable({
                                 metricAvailability={metricAvailability}
                                 model={model}
                                 onBeginActivation={onBeginActivation}
-                                onSaveAlias={onSaveAlias}
                                 onDeactivate={onDeactivate}
                                 selectedProvider={selectedProvider}
                                 selectedProfile={selectedProfile}

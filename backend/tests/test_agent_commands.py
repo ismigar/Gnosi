@@ -98,10 +98,11 @@ def test_settings_validate_and_preserve_command(monkeypatch):
 
     monkeypatch.setattr(model_router, 'load_registry', lambda: [{'provider': 'fake', 'model_id': 'fixed', 'enabled': True}])
     row = {'id': 'translator', 'provider': 'fake', 'model': 'fixed', 'command': ' /TRADUCTOR '}
-    merged = {}
+    merged = {'ai': {'agents': [row]}}
     _validate_agent_strategies({'ai': {'agents': [row]}}, merged)
     assert merged['ai']['agents'][0]['command'] == '/traductor'
     with pytest.raises(HTTPException) as error:
-        _validate_agent_strategies({'ai': {'agents': [row, {**row, 'id': 'other'}]}}, {})
+        duplicates = {'ai': {'agents': [row, {**row, 'id': 'other'}]}}
+        _validate_agent_strategies(duplicates, duplicates)
     assert error.value.status_code == 400
     assert error.value.detail == 'agent_command_duplicate'

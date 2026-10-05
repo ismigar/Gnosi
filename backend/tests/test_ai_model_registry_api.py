@@ -110,6 +110,8 @@ def test_budget_only_save_repairs_metadata_and_evicts_workflows(
     request = SimpleNamespace(
         app=SimpleNamespace(state=SimpleNamespace(agent_cache={"old": object()})),
     )
+    from backend.domains.configuration.config_response_cache import configuration_response_cache
+    configuration_response_cache.get_or_load("model-bindings-test", lambda: {"old": True})
 
     asyncio.run(ai_routes.set_model_registry(
         ai_routes.ModelsPayload(
@@ -129,6 +131,7 @@ def test_budget_only_save_repairs_metadata_and_evicts_workflows(
     assert saved["ai"]["models"][0]["context_window"] == 262144
     assert saved["ai"]["budget"]["monthly_cost_cap"] == 10.0
     assert request.app.state.agent_cache == {}
+    assert configuration_response_cache.get_or_load("model-bindings-test", lambda: {"new": True}) == {"new": True}
 
 
 def test_registry_rejects_a_concurrent_stale_writer(monkeypatch, tmp_path):
@@ -164,3 +167,62 @@ def test_registry_rejects_a_concurrent_stale_writer(monkeypatch, tmp_path):
     saved = yaml.safe_load(params_path.read_text())["ai"]
     assert len(saved["models"]) == 1
     assert saved["budget"] == initial["ai"]["budget"]
+
+
+def test_disabling_assigned_model_requires_fresh_confirmation(monkeypatch, tmp_path):
+    import pytest
+    from fastapi import HTTPException
+    from backend.domains.configuration.ai.model_bindings import detach_models
+    from backend.services.agent_model_strategy import validate_model_strategies
+
+    row = {"provider": "openai", "model_id": "test", "enabled": True}
+    agent = {"id": "reader", "name": "Reader", "provider": "openai", "model": "test", "persona": "Preserve me", "skill_ids": ["read"], "enabled": True}
+    params_path = tmp_path / "params.yaml"
+    config = {"ai": {"models": [row], "agents": [agent]}}
+    params_path.write_text(yaml.safe_dump(config))
+    class Config(dict):
+        params_source = params_path
+    monkeypatch.setattr(ai_routes, "load_params", lambda strict_env=False: Config(yaml.safe_load(params_path.read_text())))
+    monkeypatch.setattr(model_catalog, "catalog_price_index", lambda: {})
+    monkeypatch.setattr(model_catalog, "catalog_model_metadata_index", lambda: {})
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(agent_cache={})))
+    disabled = {**row, "enabled": False}
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(ai_routes.set_model_registry(ai_routes.ModelsPayload(models=[disabled]), request))
+    assert error.value.status_code == 409
+    assert yaml.safe_load(params_path.read_text()) == config
+    detail = error.value.detail
+    assert detail["agents"] == [{"id": "reader", "name": "Reader"}]
+    # Adding another assignment invalidates the reviewed confirmation.
+    changed = {"ai": {"models": [row], "agents": [agent, {**agent, "id": "other"}]}}
+    params_path.write_text(yaml.safe_dump(changed))
+    with pytest.raises(HTTPException) as stale:
+        asyncio.run(ai_routes.set_model_registry(ai_routes.ModelsPayload(models=[disabled], detach_agents_revision=detail["confirmation_revision"]), request))
+    assert stale.value.detail["confirmation_revision"] != detail["confirmation_revision"]
+    asyncio.run(ai_routes.set_model_registry(ai_routes.ModelsPayload(models=[disabled], detach_agents_revision=stale.value.detail["confirmation_revision"]), request))
+    saved = yaml.safe_load(params_path.read_text())
+    assert saved["ai"]["models"][0]["enabled"] is False
+    assert saved["ai"]["agents"][0] == {**agent, "provider": "", "model": "", "reasoning_effort": None}
+    with pytest.raises(ValueError, match="disabled model"):
+        validate_model_strategies([agent], [disabled])
+    alternatives = {**agent, "provider": "other", "model": "active", "model_strategy": {"allowed_models": [{"provider": "openai", "model": "test"}]}, "team": {"temporary": {"models": [{"provider": "openai", "model": "test"}]}}}
+    detached, affected, _ = detach_models([alternatives], {("openai", "test")})
+    assert affected
+    assert detached[0]["model_strategy"]["allowed_models"] == []
+    assert detached[0]["team"]["temporary"]["models"] == []
+    assert alternatives["model_strategy"]["allowed_models"]  # Original is untouched.
+
+
+def test_settings_cannot_disable_a_bound_model_or_restore_its_assignment(monkeypatch):
+    import pytest
+    from fastapi import HTTPException
+    from backend.domains.configuration.api.settings import _validate_agent_strategies
+
+    disabled = {"provider": "openai", "model_id": "test", "enabled": False}
+    agent = {"id": "reader", "name": "Reader", "provider": "openai", "model": "test"}
+    monkeypatch.setattr(model_router, "load_registry", lambda: [disabled])
+    for payload in ({"ai": {"agents": [agent]}}, {"ai": {"models": [disabled]}}):
+        with pytest.raises(HTTPException) as error:
+            _validate_agent_strategies(payload, {"ai": {"agents": [agent], "models": [disabled]}})
+        assert error.value.status_code == 400
+        assert "disabled model" in error.value.detail

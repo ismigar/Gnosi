@@ -2,17 +2,22 @@ import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, Maximize2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useModalKeyboard } from '../../../../shared/hooks/useModalKeyboard';
+import { useProcessResourceController } from './useProcessResourceController';
 import { ProcessResourceModalView } from './ProcessResourceModalView';
 import { getProcessPhase, getProgressPercent } from './processResourceModel';
-import { dismissResourceProcessingTask, resetResourceProcessingTasks, startResourceProcessingTask, useResourceProcessingTasks, type ResourceProcessingTask } from './resourceProcessingTasks';
+import { dismissResourceProcessingTask, resetResourceProcessingTasks, useResourceProcessingTasks, type ResourceProcessingTask } from './resourceProcessingTasks';
 import './resource-processing-monitor.css';
 
 function ProcessingDetails({ task, onClose }: { readonly task: ResourceProcessingTask; readonly onClose: () => void }) {
-    const { t } = useTranslation();
+    const controller = useProcessResourceController({ isOpen: true, keepBackground: true,
+        noteId: task.noteId, sourceTableId: task.sourceTableId, title: task.title, onClose });
     const modalRef = useRef<HTMLDivElement>(null);
     useModalKeyboard({ containerRef: modalRef, isOpen: true, onClose, trapFocus: true });
-    return <ProcessResourceModalView error={task.error} force={false} job={task.job} modalRef={modalRef}
-        onCancel={onClose} onDismiss={onClose} onStart={() => { void startResourceProcessingTask(task, false, t); }}
+    return <ProcessResourceModalView estimate={controller.estimate} estimateError={controller.estimateError}
+        budgetLimit={controller.budgetLimit} onBudgetLimit={controller.setBudgetLimit}
+        batchSize={controller.batchSize} onBatchSize={controller.setBatchSize} canStart={controller.canStart}
+        error={task.error} force={controller.force} fresh={controller.fresh} onReprocess={controller.reprocess} job={task.job} modalRef={modalRef}
+        onCancel={onClose} onDismiss={onClose} onStart={() => { void controller.start(); }}
         state={task.state} title={task.title} />;
 }
 

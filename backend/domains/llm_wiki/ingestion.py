@@ -104,8 +104,14 @@ class IngestionDependencies:
     logger: logging.Logger
     phases: IngestionPhases
     generate_structured: Callable[[str, Callable[[dict[str, object]], None], int], tuple[str, str]] | None = None
+    generate_prose: Callable[[str, Callable[[str], str], int], tuple[str, str]] | None = None
+    resume_candidates: Callable[[str], list[str]] | None = None
+    resume_job_status: Callable[[str], dict[str, object]] | None = None
     execution_revision: str = ""
+    semantic_reading: bool = False
     agent_directed: bool = False
+    expected_reading_identity: str = ""
+    batch_size: int = 1
     max_action_steps: int = 64
     execution_metadata: dict[str, object] | None = None
     input_budget: int = 24000
@@ -169,6 +175,10 @@ def process_resource(
         resolved_config,
         metadata,
     )
+    if dependencies.expected_reading_identity and dependencies.expected_reading_identity != fingerprint(
+        [dependencies.execution_revision, sources.chunks, ai_dimensions, brain_index]
+    ):
+        raise RuntimeError("reading_estimate_changed")
     reading_revision = fingerprint([dependencies.execution_revision, source_title, language,
                                     source_dimensions, ai_dimensions, brain_index, sources.chunks,
                                     [document_key(origin) for origin in sources.origins]])

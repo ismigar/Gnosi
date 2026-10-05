@@ -100,7 +100,6 @@ export type ModelComparisonUiAction =
 
 export interface ModelSetupState {
     readonly routeKey?: string;
-    readonly alias?: string;
     readonly apiKey: string;
     readonly baseUrl: string;
     readonly error: string;
@@ -346,13 +345,14 @@ const sortableModelValue = (
     profile: ModelComparisonUiState['profile'],
     provider: string,
 ): number | string | null => {
+    if (provider !== 'all' && (key === 'speed' || key === 'latency')) return null;
     if (key === 'context_window') return routeContextValue(model, provider);
     if (key === 'modes') {
         const modes = selectedRoutes(model, provider).map(routeModes).filter(value => value !== null).flat();
         return modes.length ? [...new Set(modes)].sort().join(',') : null;
     }
     if (key === 'parameters') return modelParameterMetadata(model)?.total ?? null;
-    if (key === 'provider') return [...new Set(model.routes.map(route => route.provider))].sort().join(', ');
+    if (key === 'provider') return [...new Set(selectedRoutes(model, provider).map(route => route.provider))].sort().join(', ');
     if (key === 'profile') {
         const scores = (model.role_assessments ?? []).filter(r => (profile === 'all' ? ['catalog_compatible', 'tested'].includes(r.status) : r.role === profile)).map(r => r.score).filter((score): score is number => typeof score === 'number' && Number.isFinite(score));
         return scores.length ? Math.max(...scores) : null;
@@ -400,7 +400,7 @@ export const filteredComparisonModels = (
     });
     return candidates.filter((model) => (
         (!normalizedQuery
-            || `${model.name} ${model.creator} ${model.routes.map(route => `${route.provider} ${route.provider_name} ${route.model_id}`).join(' ')} ${matchingRegistryIndexes(registryModels, model, ui.provider).map(index => registryModels[index]?.alias || '').join(' ')}`
+            || `${model.name} ${model.creator} ${model.routes.map(route => `${route.provider} ${route.provider_name} ${route.model_id}`).join(' ')}`
                 .toLocaleLowerCase()
                 .includes(normalizedQuery))
         && (ui.provider === 'all' || model.routes.some((route) => route.provider === ui.provider))
@@ -414,7 +414,7 @@ export const filteredComparisonModels = (
                 (model.role_assessments?.length ? model.role_assessments.some(r => ['catalog_compatible', 'tested'].includes(r.status)) : model.profile !== 'unrated')
                 && model.coding !== null
                 && model.agentic !== null
-                && selectedRoutes(model, ui.provider).some(route => routeHasPrice(route, Infinity) && knownContext(route.context_window))
+                && selectedRoutes(model, ui.provider).some(route => (routeHasPrice(route, Infinity) || route.billing?.kind === 'subscription') && knownContext(route.context_window))
             )
             || ui.profile === 'unrated'
         )

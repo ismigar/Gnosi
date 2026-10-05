@@ -198,6 +198,9 @@ async def create_agent_workflow(
     reviewed_memory_rows: Iterable[dict[str, Any]] | None = None,
     operation_mode: bool = False,
     operation_read_tools: bool = False,
+    operation_team_help: bool = True,
+    operation_max_output_tokens: int | None = None,
+    operation_default_reasoning_effort: str | None = None,
     output_schema: dict[str, Any] | None = None,
 ) -> tuple[StateGraph[Any, None, Any, Any] | None, dict[str, Any]]:
     """Delegate to the canonical workflow with explicit compatibility seams."""
@@ -231,13 +234,16 @@ async def create_agent_workflow(
         reviewed_memory_rows=reviewed_memory_rows,
         operation_mode=operation_mode,
         operation_read_tools=operation_read_tools,
+        operation_team_help=operation_team_help,
+        operation_max_output_tokens=operation_max_output_tokens,
+        operation_default_reasoning_effort=operation_default_reasoning_effort,
         output_schema=output_schema,
         dependencies=dependencies,
     )
     return workflow, dict(metadata)
 
 
-def build_diagnostic_client(provider: str, model: str, provider_config: dict[str, Any]) -> Any:
+def build_diagnostic_client(provider: str, model: str, provider_config: dict[str, Any], *, max_output: int = 512) -> Any:
     """Construct the bounded client used by the audited diagnostic transport."""
     client = get_llm(
         provider=provider, model=model,
@@ -246,4 +252,6 @@ def build_diagnostic_client(provider: str, model: str, provider_config: dict[str
     )
     if client is None:
         raise ValueError("agent_team.evaluation_model_unavailable")
-    return client.bind(max_tokens=512)
+    if max_output not in {512, 1024}:
+        raise ValueError('invalid_diagnostic_output_limit')
+    return client.bind(max_tokens=max_output)

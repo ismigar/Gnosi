@@ -244,7 +244,7 @@ def _validate_agent_strategies(
 ) -> None:
     """Validate explicit agent rows against the current model registry."""
     ai_payload = new_config.get("ai")
-    if not isinstance(ai_payload, dict) or "agents" not in ai_payload:
+    if not isinstance(ai_payload, dict) or not {"agents", "models"}.intersection(ai_payload):
         return
     from backend.agent.model_router import load_registry
     from backend.services.agent_model_strategy import validate_model_strategies
@@ -254,16 +254,17 @@ def _validate_agent_strategies(
         if not isinstance(ai_config, dict):
             ai_config = {}
             merged_config["ai"] = ai_config
+        registry = ai_config.get("models") if "models" in ai_payload else load_registry()
         ai_config["agents"] = validate_model_strategies(
-            ai_payload.get("agents") or [],
-            load_registry(),
+            ai_config.get("agents") or [],
+            registry or [],
         )
         from backend.services.agent_commands import validate_commands
         validate_commands(ai_config["agents"])
         from backend.services.model_reasoning import validate_agent_reasoning
         validate_agent_reasoning(ai_config["agents"])
         from backend.services.agent_team_policy import validate_teams
-        validate_teams(ai_config, load_registry())
+        validate_teams(ai_config, registry or [])
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -320,32 +321,35 @@ def _evict_agent_cache(request: Request, new_config: dict[str, Any]) -> None:
 
 def _update_config_document(new_config: dict[str, Any]) -> None:
     """Apply one complete configuration transaction in a blocking worker."""
-    # Retrieve the current configuration
-    cfg = load_params(strict_env=False)
-    params_path = cfg.params_source
+    from backend.domains.configuration.ai.model_bindings import model_configuration_lock
 
-    # The LLM Wiki profile is created by the plugin lifecycle and may be
-    # edited here like any other agent. It must not be silently removed by
-    # a generic Settings save: disabling the plugin is the deliberate,
-    # confirmed removal path.
-    if isinstance(new_config.get("ai"), dict):
-        _validate_llm_wiki_agent(cfg.ai, new_config)
-    current_config = _load_current_config(params_path)
+    with model_configuration_lock:
+        # Retrieve the current configuration
+        cfg = load_params(strict_env=False)
+        params_path = cfg.params_source
 
-    _migrate_system_password(new_config)
-    merged_config = deep_merge(current_config, new_config)
-    _validate_agent_strategies(new_config, merged_config)
-    _replace_provider_map(new_config, merged_config)
-    _secure_ai_config(merged_config)
+        # The LLM Wiki profile is created by the plugin lifecycle and may be
+        # edited here like any other agent. It must not be silently removed by
+        # a generic Settings save: disabling the plugin is the deliberate,
+        # confirmed removal path.
+        if isinstance(new_config.get("ai"), dict):
+            _validate_llm_wiki_agent(cfg.ai, new_config)
+        current_config = _load_current_config(params_path)
 
-    if "ai" in merged_config:
-        log.info(
-            "Final AI Config to save (sanitized): %s",
-            sanitize_ai_config(merged_config["ai"]),
-        )
-    log.info("Final configuration to save (summary): %s", list(merged_config.keys()))
-    _write_config(params_path, merged_config)
-    log.info("File params.yaml updated successfully.")
+        _migrate_system_password(new_config)
+        merged_config = deep_merge(current_config, new_config)
+        _validate_agent_strategies(new_config, merged_config)
+        _replace_provider_map(new_config, merged_config)
+        _secure_ai_config(merged_config)
+
+        if "ai" in merged_config:
+            log.info(
+                "Final AI Config to save (sanitized): %s",
+                sanitize_ai_config(merged_config["ai"]),
+            )
+        log.info("Final configuration to save (summary): %s", list(merged_config.keys()))
+        _write_config(params_path, merged_config)
+        log.info("File params.yaml updated successfully.")
 
 
 @router.post("/config", response_model=ConfigurationUpdateResponse)

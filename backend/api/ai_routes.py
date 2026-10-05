@@ -656,76 +656,96 @@ async def set_model_registry(payload: ModelsPayload, request: Request) -> JsonOb
         asyncio.to_thread(catalog_price_index),
         asyncio.to_thread(catalog_model_metadata_index),
     )
-    cfg = load_params(strict_env=False)
-    params_path = cfg.params_source
-    current_config = _load_yaml_mapping(params_path)
-    ai_cfg = dict(current_config.get("ai") or {})
-    if payload.expected_revision is not None and payload.expected_revision != registry_revision(dict(cfg.get("ai", {}) or {})):
-        raise HTTPException(status_code=409, detail="model_registry_changed")
-    current_rows = [dict(row) for row in (ai_cfg.get("models") or []) if isinstance(row, dict)]
-    current_by_key = {
-        (
-            str(row.get("provider") or "").strip().lower(),
-            str(row.get("model_id") or "").strip(),
-        ): row
-        for row in current_rows
-    }
-    # Minimal validation of each entry
-    cleaned: list[JsonObject] = []
-    for m in payload.models:
-        if not isinstance(m, dict) or not m.get("provider") or not m.get("model_id"):
-            raise HTTPException(status_code=400, detail="cada model necessita provider i model_id")
-        provider = str(m["provider"]).strip().lower()
-        model_id = str(m["model_id"]).strip()
-        candidate = {
-            **current_by_key.get((provider, model_id), {}),
-            **m,
-            "provider": provider,
-            "model_id": model_id,
+    from backend.domains.configuration.ai.model_bindings import model_configuration_lock
+
+    with model_configuration_lock:
+        cfg = load_params(strict_env=False)
+        params_path = cfg.params_source
+        current_config = _load_yaml_mapping(params_path)
+        ai_cfg = dict(current_config.get("ai") or {})
+        if payload.expected_revision is not None and payload.expected_revision != registry_revision(dict(cfg.get("ai", {}) or {})):
+            raise HTTPException(status_code=409, detail="model_registry_changed")
+        current_rows = [dict(row) for row in (ai_cfg.get("models") or []) if isinstance(row, dict)]
+        current_by_key = {
+            (
+                str(row.get("provider") or "").strip().lower(),
+                str(row.get("model_id") or "").strip(),
+            ): row
+            for row in current_rows
         }
-        alias = candidate.get("alias")
-        if alias is not None and (not isinstance(alias, str) or len(alias.strip()) > 120):
-            raise HTTPException(status_code=400, detail="alias ha de ser un text de fins a 120 caràcters")
-        effective = hydrate_registry_metadata(
-            [candidate],
-            metadata_index,
-        )[0]
-        rates = price_index.get(f"{provider}:{model_id}")
-        cleaned.append(
-            {
+        # Minimal validation of each entry
+        cleaned: list[JsonObject] = []
+        for m in payload.models:
+            if not isinstance(m, dict) or not m.get("provider") or not m.get("model_id"):
+                raise HTTPException(status_code=400, detail="cada model necessita provider i model_id")
+            provider = str(m["provider"]).strip().lower()
+            model_id = str(m["model_id"]).strip()
+            candidate = {
+                **current_by_key.get((provider, model_id), {}),
+                **m,
                 "provider": provider,
                 "model_id": model_id,
-                "alias": alias.strip() if isinstance(alias, str) else "",
-                "is_local": bool(effective.get("is_local", False)),
-                "enabled": bool(effective.get("enabled", True)),
-                "priority": int(effective.get("priority") or 100),
-                "cost_in": rates["cost_in"] if rates else float(effective.get("cost_in") or 0),
-                "cost_out": rates["cost_out"] if rates else float(effective.get("cost_out") or 0),
-                "context_window": int(effective.get("context_window") or 8192),
-                "quality": int(effective.get("quality") or 2),
-                "tags": [str(t) for t in (effective.get("tags") or [])],
-                **(
-                    {"monthly_quota": int(effective["monthly_quota"])}
-                    if effective.get("monthly_quota")
-                    else {}
-                ),
-                **({"endpoint": str(effective["endpoint"])} if effective.get("endpoint") else {}),
             }
-        )
-    ai_cfg["models"] = cleaned
-    if payload.budget is not None:
-        ai_cfg["budget"] = _sanitize_budget(dict(payload.budget))
-    current_config["ai"] = ai_cfg
+            alias = candidate.get("alias")
+            if alias is not None and (not isinstance(alias, str) or len(alias.strip()) > 120):
+                raise HTTPException(status_code=400, detail="alias ha de ser un text de fins a 120 caràcters")
+            effective = hydrate_registry_metadata(
+                [candidate],
+                metadata_index,
+            )[0]
+            rates = price_index.get(f"{provider}:{model_id}")
+            cleaned.append(
+                {
+                    "provider": provider,
+                    "model_id": model_id,
+                    "alias": alias.strip() if isinstance(alias, str) else "",
+                    "is_local": bool(effective.get("is_local", False)),
+                    "enabled": bool(effective.get("enabled", True)),
+                    "priority": int(effective.get("priority") or 100),
+                    "cost_in": rates["cost_in"] if rates else float(effective.get("cost_in") or 0),
+                    "cost_out": rates["cost_out"] if rates else float(effective.get("cost_out") or 0),
+                    "context_window": int(effective.get("context_window") or 8192),
+                    "quality": int(effective.get("quality") or 2),
+                    "tags": [str(t) for t in (effective.get("tags") or [])],
+                    **(
+                        {"monthly_quota": int(effective["monthly_quota"])}
+                        if effective.get("monthly_quota")
+                        else {}
+                    ),
+                    **({"endpoint": str(effective["endpoint"])} if effective.get("endpoint") else {}),
+                }
+            )
+        from backend.domains.configuration.ai.model_bindings import detach_models
 
-    yaml_text = yaml.safe_dump(
-        current_config,
-        default_flow_style=False,
-        allow_unicode=True,
-        sort_keys=False,
-    )
-    safe_write_text(params_path, yaml_text)
-    _evict_agent_graphs(request)
-    return {"status": "success", "count": len(cleaned)}
+        disabled = {(str(row["provider"]), str(row["model_id"])) for row in cleaned if not row["enabled"]}
+        detached, affected, confirmation_revision = detach_models(ai_cfg.get("agents") or [], disabled)
+        if affected:
+            if payload.detach_agents_revision != confirmation_revision:
+                raise HTTPException(status_code=409, detail={
+                    "code": "model_in_use",
+                    "message": "Confirm model deactivation and unlink affected bots.",
+                    "confirmation_revision": confirmation_revision,
+                    "agents": affected,
+                    "routes": [{"provider": provider, "model": model} for provider, model in sorted(disabled)],
+                })
+            ai_cfg["agents"] = detached
+        ai_cfg["models"] = cleaned
+        if payload.budget is not None:
+            ai_cfg["budget"] = _sanitize_budget(dict(payload.budget))
+        current_config["ai"] = ai_cfg
+
+        yaml_text = yaml.safe_dump(
+            current_config,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
+        )
+        safe_write_text(params_path, yaml_text)
+        from backend.domains.configuration.config_response_cache import configuration_response_cache
+
+        configuration_response_cache.invalidate()
+        _evict_agent_graphs(request)
+        return {"status": "success", "count": len(cleaned)}
 
 
 router.include_router(content_router)

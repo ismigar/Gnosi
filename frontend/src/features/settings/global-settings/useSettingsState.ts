@@ -75,7 +75,7 @@ export function useSettingsState(props: GlobalSettingsModalProps) {
   const autoSaveTimeoutRef = useRef<Timer>(undefined);
   const lastSavedDataRef = useRef<string | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const [, setSavingStatus] = useState('idle');
+  const [savingStatus, setSavingStatus] = useState('idle');
   const [confirmConfig, setConfirmConfig] = useState<Confirmation>({ isOpen: false, title: '', message: '', onConfirm: () => { } });
   const [isAddingTable, setIsAddingTable] = useState(false);
   const [editingTableColor, setEditingTableColor] = useState<TableColor | null>(null);
@@ -94,7 +94,7 @@ export function useSettingsState(props: GlobalSettingsModalProps) {
     pickerOpen,
     setPickerOpen, pickerField, setPickerField, setGoogleAuthConfigured, googleCalAuthError, setGoogleCalAuthError,
     editingAgent, setEditingAgent, agentEditorTarget, setAgentEditorTarget, isModelComparisonOpen, setIsModelComparisonOpen,
-    autoSaveTimeoutRef, lastSavedDataRef, panelRef, setSavingStatus, confirmConfig, setConfirmConfig,
+    autoSaveTimeoutRef, lastSavedDataRef, panelRef, savingStatus, setSavingStatus, confirmConfig, setConfirmConfig,
     isAddingTable, setIsAddingTable, editingTableColor, setEditingTableColor, isDatabasesExpanded, setIsDatabasesExpanded,
     isSystemEntitiesExpanded, setIsSystemEntitiesExpanded,
   };

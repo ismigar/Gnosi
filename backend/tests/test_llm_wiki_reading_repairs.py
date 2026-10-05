@@ -75,6 +75,30 @@ def test_well_formed_patch_still_requires_original_grounding_validation():
         validate_notes(restored["arguments"]["plan"], passages, passages)
 
 
+def test_citation_patch_cannot_use_coverage_shape():
+    _, _, repair, patch = repair_fixture(coverage_error=True)
+    patch["patches"][1]["value"] = [{"segment_id": "p1", "reason": "unused"}]
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(patch, repair.output_schema)
+    with pytest.raises(jsonschema.ValidationError):
+        repair.restore(json.dumps(patch))
+
+
+def test_large_patch_enforces_value_type_locally_when_path_enums_are_omitted():
+    action, passages, _, _ = repair_fixture()
+    action["arguments"]["plan"]["notes"] = [deepcopy(action["arguments"]["plan"]["notes"][0]) for _ in range(130)]
+    with pytest.raises(ReadingPlanError) as caught:
+        validate_notes(action["arguments"]["plan"], passages, passages)
+    repair = build_reading_repair("original context", json.dumps(action), caught.value)
+    assert repair is not None
+    patches = [{"path": f"notes/{i}/{key}", "value": value} for i in range(130) for key, value in
+               [("source_segment_id", "p1"), ("citations", [{"segment_id": "p1", "quote": "Original colur"}])]]
+    patches[1]["value"] = "p1"
+    jsonschema.validate({"patches": patches}, repair.output_schema)
+    with pytest.raises(jsonschema.ValidationError):
+        repair.restore(json.dumps({"patches": patches}))
+
+
 def test_unrelated_validation_uses_existing_full_response_repair():
     assert build_reading_repair("context", "not JSON", ValueError("syntax")) is None
 
@@ -89,14 +113,26 @@ def test_large_source_does_not_expand_provider_grammar_without_bound():
 
 def test_many_rejected_notes_still_reject_an_unauthorized_path_locally():
     action, passages, _, _ = repair_fixture()
-    action["arguments"]["plan"]["notes"] = [deepcopy(action["arguments"]["plan"]["notes"][0]) for _ in range(70)]
+    action["arguments"]["plan"]["notes"] = [deepcopy(action["arguments"]["plan"]["notes"][0]) for _ in range(130)]
     with pytest.raises(ReadingPlanError) as caught:
         validate_notes(action["arguments"]["plan"], passages, passages)
     repair = build_reading_repair("original context", json.dumps(action), caught.value)
     assert repair is not None
-    patches = [{"path": f"notes/{i}/{key}", "value": value} for i in range(70) for key, value in
+    patches = [{"path": f"notes/{i}/{key}", "value": value} for i in range(130) for key, value in
                [("source_segment_id", "p1"), ("citations", [{"segment_id": "p1", "quote": "Original colur"}])]]
     patches[0]["path"] = "notes/0/body_md"
     jsonschema.validate({"patches": patches}, repair.output_schema)
     with pytest.raises(ValueError, match="permitted repair path"):
         repair.restore(json.dumps({"patches": patches}))
+
+
+def test_repair_keeps_primary_originals_when_both_identifier_and_quote_are_wrong():
+    action, passages, _, _ = repair_fixture()
+    note = action['arguments']['plan']['notes'][0]
+    note['source_segment_id'] = 'unknown'
+    note['citations'] = [{'segment_id': 'unknown', 'quote': 'Invented'}]
+    with pytest.raises(ReadingPlanError) as caught:
+        validate_notes(action['arguments']['plan'], passages, passages)
+    repair = build_reading_repair('context', json.dumps(action), caught.value)
+    assert repair is not None
+    assert json.loads(repair.input)['reference_passages'] == passages
