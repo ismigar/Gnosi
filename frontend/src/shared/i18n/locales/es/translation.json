@@ -6789,6 +6789,7 @@
     "error_generic": "Error procesando el recurso",
     "error_reasoning_output_limit": "El modelo ha consumido todo el límite de respuesta en razonamiento y no ha devuelto las notas. El progreso está guardado. Si has configurado un razonamiento alto o máximo, redúcelo antes de reanudar; la lectura con razonamiento por defecto utiliza bajo cuando el modelo lo admite.",
     "error_reading_evidence": "No se han podido verificar todas las referencias y citas de este lote. Los fragmentos validados se han guardado; puedes reanudar la lectura. Consulta los detalles si el error se repite.",
+    "error_reading_memory": "No se ha podido actualizar la visión global del libro. Se conservan la memoria anterior y los fragmentos validados. Puedes reanudar la lectura; consulta los detalles si el error se repite.",
     "error_output_limit": "La respuesta del modelo ha quedado incompleta al alcanzar el límite de salida. El progreso está guardado. Reduce los fragmentos por lote antes de reanudar.",
     "error_details": "Detalles técnicos",
     "error_provider_timeout": "El proveedor de IA no ha respondido a tiempo. Vuelve a intentarlo para reanudar el progreso guardado.",

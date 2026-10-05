@@ -6789,6 +6789,7 @@
     "error_generic": "Error processant el recurs",
     "error_reasoning_output_limit": "El model ha consumit tot el límit de resposta en raonament i no ha retornat les notes. El progrés està desat. Si has configurat un raonament alt o màxim, redueix-lo abans de reprendre; la lectura amb raonament per defecte utilitza baix quan el model ho admet.",
     "error_reading_evidence": "No s’han pogut verificar totes les referències i cites d’aquest lot. Els fragments validats s’han desat; pots reprendre la lectura. Consulta els detalls si l’error es repeteix.",
+    "error_reading_memory": "No s’ha pogut actualitzar la visió global del llibre. Es conserven la memòria anterior i els fragments validats. Pots reprendre la lectura; consulta els detalls si l’error es repeteix.",
     "error_output_limit": "La resposta del model ha quedat incompleta perquè ha arribat al límit de sortida. El progrés està desat. Redueix els fragments per lot abans de reprendre.",
     "error_details": "Detalls tècnics",
     "error_provider_timeout": "El proveïdor d’IA no ha respost a temps. Torna-ho a provar per reprendre el progrés desat.",

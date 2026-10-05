@@ -6234,6 +6234,7 @@
     "error_generic": "Error processing the resource",
     "error_reasoning_output_limit": "The model used its entire response allowance for reasoning and returned no notes. Progress is saved. If you selected high or maximum reasoning, lower it before resuming; reading with default reasoning uses low when supported by the model.",
     "error_reading_evidence": "Not all references and quotations in this batch could be verified. Validated fragments have been saved; you can resume reading. See the details if the error persists.",
+    "error_reading_memory": "The overall understanding of the book could not be updated. The previous memory and validated fragments are preserved. You can resume reading; see the details if the error persists.",
     "error_output_limit": "The model response was cut short by the output limit. Progress is saved. Reduce the fragments per batch before resuming.",
     "error_details": "Technical details",
     "error_provider_timeout": "The AI provider did not respond in time. Retry to resume saved progress.",

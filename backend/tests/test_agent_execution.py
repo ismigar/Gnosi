@@ -299,7 +299,8 @@ def test_invalid_reference_patch_retries_without_rewriting_notes(runtime, monkey
     assert "not a rewritten reading action" in calls[-1]["messages"][-1].content
 
 
-def test_syntax_then_classification_and_citations_fit_the_same_three_calls(runtime, monkeypatch):
+@pytest.mark.parametrize('memory_fault', [False, True])
+def test_syntax_then_classification_and_citations_fit_the_same_three_calls(runtime, monkeypatch, memory_fault):
     from backend.tests.test_llm_wiki_dimension_repairs import fixture, patch_for
     from backend.services.llm_wiki_reading_runtime import ReadingRuntime
     scope, snapshot = runtime
@@ -313,7 +314,12 @@ def test_syntax_then_classification_and_citations_fit_the_same_three_calls(runti
     action, prompt, validate, state = fixture()
     from backend.domains.llm_wiki.reading_dimension_repairs import build_dimension_repair
     repair = build_dimension_repair(prompt, json.dumps(action), validate)
-    calls = install_workflow(monkeypatch, ['{"action":', json.dumps(action), json.dumps(patch_for(repair))])
+    patch = patch_for(repair)
+    if memory_fault:
+        from backend.tests.test_reading_memory_repairs import memory_fixture
+        action, repair, patch, validate, state = memory_fixture(misplaced=True)
+        prompt = json.loads(repair.input)['original_request']
+    calls = install_workflow(monkeypatch, ['{"action":', json.dumps(action), json.dumps(patch)])
     reader = ReadingRuntime(snapshot.agent_id, 'test', 'fake', '', 1_000_000, snapshot)
     with execution_scope(scope):
         text, model = reader.generate_structured(prompt, validate, 900)
@@ -323,6 +329,7 @@ def test_syntax_then_classification_and_citations_fit_the_same_three_calls(runti
     last_request = json.loads(calls[-1]['messages'][0].content)
     combined = json.loads(last_request['input'])
     assert combined['classification_fields'] and combined['reference_repair']
+    assert bool(combined['memory_repair']) == memory_fault
     assert state['plans'] == {}  # Validation and repair do not commit progress.
     for entry in restored['arguments']['plans']:
         assert entry['plan']['notes'][0]['dimensions']['area'] == ['Ethics']
