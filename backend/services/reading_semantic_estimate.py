@@ -33,7 +33,9 @@ def phase_estimate(runtime: Any, chunks: list[dict[str, object]], remaining: lis
     review = max(0, math.ceil((2 * source + expected_notes) / max(1, budget // 3)) - len(saved.get("reviewed_groups", {})))
     calls = overview + synthesis + extract + note_maps + review
     schema = interpretation_schema(1, dimensions)
-    repeated = calls * (2 * len(runtime.instructions.encode()) + 3 * len(encoded(schema).encode()) + min(12000, budget // 5) + 2048)
+    # The requested summary length is a target, not a discard threshold.
+    # Reserve for both retained source and joint-note maps in a review prompt.
+    repeated = calls * (2 * len(runtime.instructions.encode()) + 3 * len(encoded(schema).encode()) + 2 * max(2000, budget // 8) + 2048)
     inputs = 2 * pending + (source if overview else 0) + 2 * source * bool(review) + expected_notes * bool(note_maps) + repeated
     return {"planned_calls": calls, "memory_restore_calls": 0, "input_token_bound": inputs,
             "output_tokens_assumed": pending // 2 + map_size * (overview + synthesis + note_maps) + 512 * (extract + review),

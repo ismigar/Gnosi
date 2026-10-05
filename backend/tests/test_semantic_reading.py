@@ -295,3 +295,26 @@ def test_prose_maps_do_not_accept_empty_or_broken_json_as_an_argument_map(invali
     with pytest.raises(ValueError, match='plain text'):
         reader.run()
     assert not checkpoints['new', 'semantic-state']['maps']
+
+
+def test_useful_prose_map_above_target_is_retained_without_format_repair():
+    reader, _, checkpoints = setup()
+    long_map = 'The author qualifies the opponent’s claim; evidence and the conclusion matter. ' * 40
+    assert 2000 < token_bound(long_map) < reader.budget // 8
+    calls = []
+    def prose(prompt, validator, timeout):
+        request = json.loads(prompt); calls.append(request)
+        assert request['summary_max_tokens'] == 2000
+        return validator(long_map), 'test-model'
+    reader.dependencies.generate_prose = prose
+    reader.run()
+    assert len(calls) == 2
+    assert checkpoints['new', 'semantic-state']['global_map'] == long_map.strip()
+
+
+def test_prose_map_that_exceeds_reserved_context_capacity_is_not_accepted():
+    reader, _, checkpoints = setup()
+    reader.dependencies.generate_prose = lambda prompt, validator, timeout: (validator('x' * reader.budget), 'test-model')
+    with pytest.raises(ValueError, match='reserved context capacity'):
+        reader.run()
+    assert not checkpoints['new', 'semantic-state']['maps']

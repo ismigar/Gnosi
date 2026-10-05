@@ -68,8 +68,8 @@ class SemanticReader:
             return self.prose_map(key, material, limit)
         def validate(answer: dict[str, object]) -> None:
             validate_schema(answer, MAP_SCHEMA)
-            if self.deps.count_tokens(str(answer["summary"])) > limit:
-                raise ValueError(f"Keep the argument map within {limit} estimated tokens; preserve caveats and attribution")
+            if self.deps.count_tokens(str(answer["summary"])) > max(2000, self.reader.budget // 8):
+                raise ValueError("The argument map exceeds its reserved context capacity")
         answer = self.ask(key, "overview", {"material": material, "summary_max_tokens": limit,
             "instruction": "Map the argument, attributed voices, definitions, developments, disagreements and unresolved questions. Include the ending. Preserve document boundaries and qualifications. Do not invent reference IDs; original text remains authoritative."}, MAP_SCHEMA, validate)
         return str(answer["summary"])
@@ -86,8 +86,8 @@ class SemanticReader:
             clean = text.strip()
             if not clean or clean.startswith(("{", "```")):
                 raise ValueError("Return a nonempty argument map as plain text, without JSON or code fences")
-            if self.deps.count_tokens(clean) > limit:
-                raise ValueError(f"Keep the argument map within {limit} estimated tokens; preserve caveats and attribution")
+            if self.deps.count_tokens(clean) > max(2000, self.reader.budget // 8):
+                raise ValueError("The argument map exceeds its reserved context capacity")
             return clean
         cached = self.deps.load_checkpoint(self.reader.resume_job_id, key) if self.reader.resume_job_id else None
         if isinstance(cached, dict) and cached.get("identity") == identity:

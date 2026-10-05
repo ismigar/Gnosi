@@ -1333,4 +1333,6 @@ Larger source windows contribute to a hierarchical argument map, including the e
 
 Offline regression cases cover complete long-source delivery, joint review, attribution corrections, exact quotation binding, configured property types, partial repair, output-driven batch reduction, checkpoint reuse and interruption. They validate orchestration and invariants, not a live model's understanding of a whole book.
 
-Argument maps and joint-note syntheses are requested as bounded plain text, with no JSON output schema. Gnosi serializes them into checkpoints. Empty answers, JSON envelopes, code fences and oversized maps are rejected within the existing two-call allowance. Interpretation and review retain their strict structured contracts and evidence validation. This avoids paying to repair JSON punctuation around prose; it does not certify the map’s semantic quality.
+Argument maps and joint-note syntheses are requested as bounded plain text, with no JSON output schema. Gnosi serializes them into checkpoints. Empty answers, JSON envelopes, code fences and maps exceeding reserved context capacity are rejected within the existing two-call allowance. Interpretation and review retain their strict structured contracts and evidence validation. This avoids paying to repair JSON punctuation around prose; it does not certify the map’s semantic quality.
+
+The 2,000-token request is a synthesis target. Longer complete maps that fit the reserved context capacity are retained without rereading the sources; preflight reserves for the larger retained maps.

@@ -24,11 +24,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 225 | 45969 |
+| `services` | 225 | 45971 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **937 modules** and **185216 source lines**.
+Total: **937 modules** and **185218 source lines**.
 
 ## agent
 
@@ -1002,7 +1002,7 @@ Total: **937 modules** and **185216 source lines**.
 | [`backend/services/reader_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reader_analysis.py) | 125 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical Reader analysis domain. |
 | [`backend/services/reading_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_budget.py) | 116 | 1 | 8 | 0 | 1 | Durable per-book reservations: a retry or resumed worker cannot reset spending. |
 | [`backend/services/reading_estimate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_estimate.py) | 118 | 0 | 2 | 0 | 0 | Read-only source preflight; includes repeated context, output and repair allowance. |
-| [`backend/services/reading_semantic_estimate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_semantic_estimate.py) | 42 | 0 | 1 | 0 | 0 | Offline phase estimates for the deterministic reader, including joint review. |
+| [`backend/services/reading_semantic_estimate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_semantic_estimate.py) | 44 | 0 | 1 | 0 | 0 | Offline phase estimates for the deterministic reader, including joint review. |
 | [`backend/services/recursos_zotero_mapping.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/recursos_zotero_mapping.py) | 71 | 0 | 1 | 0 | 1 | Bidirectional mapping between Recursos columns and Zotero fields. |
 | [`backend/services/reference_config_migration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reference_config_migration.py) | 292 | 2 | 12 | 0 | 6 | Explicit, recoverable migration of legacy references JSON into local data. |
 | [`backend/services/reference_migration_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reference_migration_io.py) | 157 | 2 | 9 | 0 | 10 | Private, no-clobber filesystem primitives for reference configuration migration. |
