@@ -319,7 +319,8 @@ def test_build_payload_enriches_context_from_models_dev():
     assert model["metric_sources"]["context_window"] == "models_dev"
     assert model["profile"] == "expert"
     assert model["modes"] == ["image", "text"]
-    assert model["routes"] == [{
+    assert model["routes"][0]["billing"]["kind"] == "metered"
+    assert [{key: value for key, value in route.items() if key != "billing"} for route in model["routes"]] == [{
         "provider": "cloud-host",
         "provider_name": "Cloud Host",
         "model_id": "long-model",

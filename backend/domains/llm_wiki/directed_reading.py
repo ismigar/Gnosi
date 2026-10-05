@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 from typing import Any, cast
+from copy import deepcopy
 
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.reading_contracts import validate_notes
 from backend.domains.llm_wiki.contextual_reading import fingerprint
 from backend.domains.llm_wiki.reading_action_contracts import ACTION_SCHEMA as ACTION_SCHEMA, action_schemas
+from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, delivered_batch_size, reduce_batch
 
 
 def _chunk_status(state: dict[str, Any], key: str) -> dict[str, object]:
@@ -21,14 +23,14 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
     output_schema, _ = action_schemas(reader.dimensions)
     chunks = {str(chunk["id"]): chunk for chunk in reader.chunks}
     identity = fingerprint([deps.execution_revision, reader.chunks, reader.dimensions, reader.brain_index])
-    saved = deps.load_checkpoint(reader.resume_job_id, "agent-state") if reader.resume_job_id else None
-    state: dict[str, Any] = saved if isinstance(saved, dict) and saved.get("identity") == identity else {
+    saved = _resume_state(reader, identity)
+    state: dict[str, Any] = deepcopy(saved) if isinstance(saved, dict) and saved.get("identity") == identity else {
         "identity": identity, "step": 0, "read": [], "plans": {}, "memory": "", "last_result": {},
     }
     if not chunks:
         raise RuntimeError("No readable source segments were extracted")
     complete = list(chunks.values())
-    if state["step"] == 0 and deps.count_tokens(encoded([complete, reader.dimensions, reader.title, reader.language, output_schema])) + 2048 <= reader.budget:
+    if getattr(deps, "batch_size", 1) == 1 and state["step"] == 0 and deps.count_tokens(encoded([complete, reader.dimensions, reader.title, reader.language, output_schema])) + 2048 <= reader.budget:
         state["read"] = list(chunks)
         state["last_result"] = {"sources": complete, "delivery": "complete"}
 
@@ -42,15 +44,50 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
 
     # Carry resumed plans into the new job before a provider call can fail.
     checkpoint()
+    if state["plans"] and not state["memory"]:
+        # Older checkpoints may have plans but no reader-authored global memory.
+        # Reconstruct from every saved note, preserving the original plans.
+        from backend.domains.llm_wiki.reading_memory import restore_memory
+        state["memory"] = restore_memory(reader, state["plans"])
+        state["memory_step"] = state["step"]
+        checkpoint()
 
     # A per-resume execution allowance, not a prescribed intellectual sequence.
-    for _ in range(deps.max_action_steps):
+    # Reading, saving and reviewing remain finite, but the allowance must
+    # grow with the number of bounded source chunks rather than stop a long
+    # book after the fixed short-document allowance.
+    action_steps = deps.max_action_steps
+    if action_steps == 64:
+        action_steps = max(action_steps, 4 * len(chunks) + 16)
+    for _ in range(action_steps):
+        # Deliver the next original without spending a model call on a read
+        # command. Explicit read/search/recall actions still select other context.
+        _deliver_next(reader, state, chunks, output_schema, checkpoint)
         request = {
             "task": "knowledge.process-source.actions", "resource": reader.title,
             "step": state["step"],
             "language": reader.language, "output_schema": output_schema,
             "source_count": len(chunks), "read_count": len(state["read"]),
             "saved_plan_count": len(state["plans"]), "memory": state["memory"],
+            "execution_contract": (
+                "Return exactly one JSON action for the current step. The application executes it, "
+                "persists its result and calls you again for the next step. source_count describes the "
+                "whole book, not work to complete in this response. Do not delegate the book loop or "
+                "simulate reading or saving other chunks within this response. Use remember, search "
+                "and recall to preserve global understanding across steps. The next original is delivered "
+                "automatically after saving a plan; analyze that last_result directly. Every save_plan "
+                "must update global memory, retaining prior arguments, qualifications, contradictions "
+                "and cross-chunk references. Prefer plan.memory_updates with exact old/new edits; "
+                "empty old appends new and all untouched memory is retained. Use plan.memory only "
+                "when rewriting the complete synthesis is necessary. Never replace global memory "
+                "with only the current fragment's summary. When delivery is batch, prefer save_batch "
+                "with exactly one individually evidenced plan per delivered chunk_id and one shared "
+                "global memory update. Never omit, merge or shorten a fragment to fit a batch; "
+                "save_plan remains available for a fragment requiring more attention. Do not request "
+                "the next unread chunks while automatically delivered originals await analysis. "
+                "Explicit read and recall accept one chunk_id, never a chunk_ids array. "
+                "Return only the action JSON, without repeating source passages outside citations."
+            ),
             "memory_step": state.get("memory_step"), "last_action": state.get("last_action"),
             "state_contract": (
                 "The index and counts report the current persisted state, after evidence and coverage validation. "
@@ -59,18 +96,25 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
                 "which may describe an earlier step. last_action identifies the operation that produced last_result."
             ),
             "last_result": state["last_result"], "dimensions": reader.dimensions,
-            "available_actions": {
-                "index": {"offset": "integer", "limit": "integer, maximum 100"},
-                "read": {"chunk_id": "string"}, "search": {"query": "string", "offset": "integer"},
-                "remember": {"text": "string"},
-                "save_plan": {"chunk_id": "string", "plan": "notes, coverage, warnings, reviewed"},
-                "recall": {"chunk_id": "string"}, "finish": {"summary": "string"},
-            },
         }
-        request["index"] = [{"id": key, "label": chunk.get("origin_label"), "section": chunk.get("section"),
+        # Keep a small current window; the index action exposes any other range.
+        keys = list(chunks)
+        focus = next((i for i, key in enumerate(keys) if key not in state["plans"]), len(keys) - 1)
+        start = max(0, focus - 2)
+        request["index_offset"] = start
+        request["index_total"] = len(keys)
+        request["memory_max_tokens"] = reader.budget // 8
+        request["index"] = [{"id": key, "section": chunks[key].get("section"),
                              **_chunk_status(state, key),
-                             "primary_segment_count": len(records(chunk.get("segments")))} for key, chunk in list(chunks.items())[:100]]
-        answer = reader.ask(f"action-{state['step']}", "agent-actions", request, checked, contract=output_schema)
+                             "primary_segment_count": len(records(chunks[key].get("segments")))} for key in keys[start:start + 8]]
+        try:
+            answer = reader.ask(f"action-{state['step']}", "agent-actions", request, checked, contract=output_schema)
+        except Exception as error:
+            if not reduce_batch(state, error):
+                raise
+            record("reading.batch.reduced", {"step": state["step"], "batch_size": state["batch_size_limit"], "reason": "output_limit"})
+            checkpoint()
+            continue
         action, args = str(answer["action"]), answer["arguments"]
         record("reading.action", {"step": state["step"], **answer})
         result: Any = {}
@@ -102,12 +146,22 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
 
 def validate_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], answer: dict[str, object]) -> None:
     import jsonschema
+    if answer.get("action") == "save_plan":
+        arguments = answer.get("arguments")
+        plan = arguments.get("plan") if isinstance(arguments, dict) else None
+        if isinstance(plan, dict) and not any(key in plan for key in ("memory", "memory_updates")):
+            raise ValueError("global_memory_required: provide memory or memory_updates")
     output_schema, argument_schemas = action_schemas(reader.dimensions)
     try:
         jsonschema.validate(answer, output_schema)
         jsonschema.validate(answer["arguments"], argument_schemas[str(answer["action"])])
     except jsonschema.ValidationError as error:
         raise ValueError(error.message) from error
+    from backend.domains.llm_wiki.reading_references import normalize_action_references
+    from backend.services.agent_execution_trace import record
+    normalized = normalize_action_references(answer, chunks, state["read"])
+    if normalized:
+        record("reading.references.normalized", {"count": normalized})
     action, args = str(answer["action"]), cast(dict[str, Any], answer["arguments"])
     if action in {"read", "recall", "save_plan"} and args["chunk_id"] not in chunks:
         raise ValueError("unknown_chunk_id: use an exact chunk id from the supplied index")
@@ -152,6 +206,8 @@ def _apply_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], ac
         result = {"saved": True}
     elif action == "recall":
         result = state["plans"][str(args["chunk_id"]) ]
+    elif action == "save_batch":
+        result = _save_batch(reader, state, chunks, args)
     elif action == "save_plan":
         key = str(args["chunk_id"])
         if key not in state["read"]:
@@ -159,10 +215,90 @@ def _apply_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], ac
         plan = args["plan"]
         if not isinstance(plan, dict) or "requests" in plan:
             raise ValueError("plan_required")
+        from backend.domains.llm_wiki.reading_memory import update_memory
+        plan_memory = update_memory(state["memory"], plan)
+        if deps.count_tokens(plan_memory) > reader.budget // 8:
+            raise ValueError("memory_budget_exceeded")
         evidence = [segment for chunk_id in state["read"] for segment in records(chunks[chunk_id].get("segments"))]
         validate_notes(plan, records(chunks[key].get("segments")), evidence)
         if deps.count_tokens(encoded(plan)) > reader.budget // 3:
             raise ValueError("plan_budget_exceeded")
         state["plans"][key] = plan
+        state["memory"] = plan_memory
+        state["memory_step"] = state["step"]
         result = {"saved": key, "remaining": len(chunks) - len(state["plans"])}
+    return result
+
+
+def _resume_state(reader: Any, identity: str) -> Any:
+    deps = reader.dependencies
+    saved = None
+    if reader.resume_job_id:
+        find_candidates = getattr(deps, "resume_candidates", None)
+        candidates = (find_candidates(reader.resume_job_id)
+                      if find_candidates else [reader.resume_job_id])
+        for candidate in candidates:
+            checkpoint_state = deps.load_checkpoint(candidate, "agent-state")
+            if (isinstance(checkpoint_state, dict)
+                    and checkpoint_state.get("identity") == identity
+                    and isinstance(checkpoint_state.get("plans"), dict)
+                    and (saved is None or len(checkpoint_state["plans"]) > len(saved["plans"]))):
+                saved = checkpoint_state
+                reader.resume_job_id = candidate
+    resume_status = getattr(deps, "resume_job_status", None)
+    if saved and resume_status:
+        saved = deepcopy(saved)
+        reduce_batch(saved, str(resume_status(reader.resume_job_id).get("error") or ""))
+    return saved
+
+
+def _deliver_next(reader: Any, state: dict[str, Any], chunks: dict[str, Any], output_schema: dict[str, Any], checkpoint: Any) -> None:
+    from backend.services.agent_execution_trace import record
+    deps = reader.dependencies
+    limit = batch_limit(getattr(deps, "batch_size", 1), state)
+    if not state["last_result"] or (state.get("last_action") or {}).get("name") in {"save_plan", "save_batch"} or delivered_batch_size(state) > limit:
+        pending = [key for key in chunks if key not in state["plans"]]
+        delivered: list[str] = []
+        for key in pending[:limit]:
+            candidates = [chunks[k] for k in [*delivered, key]]
+            if delivered and deps.count_tokens(encoded([candidates, state["memory"], output_schema, reader.dimensions])) > reader.budget // 2:
+                break
+            delivered.append(key)
+        if delivered:
+            for key in delivered:
+                _apply_action(reader, state, chunks, "read", {"chunk_id": key})
+            state["delivered"] = delivered
+            state["last_result"] = (chunks[delivered[0]] if len(delivered) == 1 else
+                                    {"sources": [chunks[key] for key in delivered], "delivery": "batch"})
+            state["last_action"] = {"name": "read", "chunk_ids": delivered, "step": state["step"], "delivery": "automatic"}
+            if reader.job_id:
+                deps.update_job(reader.job_id, effective_batch_size=len(delivered))
+            record("reading.source.delivered", {"step": state["step"], "chunk_ids": delivered})
+            checkpoint()
+
+
+def _save_batch(reader: Any, state: dict[str, Any], chunks: dict[str, Any], args: dict[str, Any]) -> Any:
+    from backend.domains.llm_wiki.reading_memory import update_memory
+    from backend.domains.llm_wiki.reading_contracts import ReadingPlanError, ReadingBatchError
+    entries = args["plans"]
+    keys = [entry["chunk_id"] for entry in entries]
+    if len(set(keys)) != len(keys) or set(keys) != set(state.get("delivered", [])):
+        raise ValueError("batch_requires_exactly_all_delivered_chunks")
+    memory = update_memory(state["memory"], args)
+    preview = {**state, "read": list(state["read"]), "plans": dict(state["plans"])}
+    errors = {}
+    for index, entry in enumerate(entries):
+        try:
+            _apply_action(reader, preview, chunks, "save_plan", {
+                "chunk_id": entry["chunk_id"], "plan": {**entry["plan"], "memory": memory}})
+        except ReadingPlanError as error:
+            error.batch_index = index
+            errors[index] = error
+    if len(errors) == 1:
+        raise next(iter(errors.values()))
+    if errors:
+        raise ReadingBatchError(errors)
+    # Commit only after every plan passes; prior checkpoints stay intact.
+    state.update(plans=preview["plans"], memory=preview["memory"], memory_step=preview["memory_step"])
+    result = {"saved": keys, "remaining": len(chunks)-len(state["plans"])}
     return result

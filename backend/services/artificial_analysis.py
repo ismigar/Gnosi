@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from backend.agent.model_catalog import load_catalog
+from backend.services.model_billing import route_billing
 
 
 ARTIFICIAL_ANALYSIS_URL = "https://artificialanalysis.ai/api/v2/language/models/free"
@@ -188,6 +189,7 @@ def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, List[Dict[st
                 "is_local": bool(provider.get("is_local")),
                 "cost_in": _route_price(model, "cost_in"),
                 "cost_out": _route_price(model, "cost_out"),
+                "billing": route_billing(provider, model),
                 "context_window": int(model["context_window"]) if model.get("context_known") is True else None,
                 "input_modes": model.get("input_modes"),
                 "output_modes": model.get("output_modes"),

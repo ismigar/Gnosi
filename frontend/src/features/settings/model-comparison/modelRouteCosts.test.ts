@@ -21,6 +21,10 @@ describe('route pricing', () => {
         expect(formatComparisonCost(.0001, '€')).toMatch(/^< /);
         expect(formatComparisonCost(0, '€')).not.toMatch(/^< /);
     });
+    it('retains exact model routes with equal tariffs so the active offer and hover identify the right model', () => {
+        const variants = { ...model, routes: [route('openrouter', .3, 1.5), { ...route('openrouter', .3, 1.5), model_id: 'active-variant' }] };
+        expect(comparisonRouteCosts(variants, 'openrouter', '1000000', '1000000').map(offer => offer.route.model_id)).toEqual(['x', 'active-variant']);
+    });
     it('filters and sorts with route prices rather than generic catalog prices', () => {
         const second = { ...model, id: 'y', routes: [route('openrouter', .1, .2)] };
         const feed = { models: [model, second], currency: { usd_rate: 1 } } as Parameters<typeof filteredComparisonModels>[0];

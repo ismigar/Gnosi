@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+    estimateResourceProcessing,
     fetchResourceProcessingStatus,
     startResourceProcessing,
     type ResourceProcessingJob,
@@ -11,6 +12,8 @@ import {
 import { ProcessResourceModal } from './ProcessResourceModal';
 import { getResourceProcessingTasks, resetResourceProcessingTasks } from './process-resource/resourceProcessingTasks';
 
+
+vi.mock('../../../shared/i18n/useLocaleSettings', () => ({ useLocaleSettings: () => ({ numberLocale: 'en-US' }) }));
 
 vi.mock('../../../shared/hooks/useModalKeyboard', () => ({
     useModalKeyboard: vi.fn(),
@@ -23,6 +26,7 @@ vi.mock('../../../shared/notifications/toast', () => ({
 
 
 vi.mock('../../../shared/api/resource-processing', () => ({
+    estimateResourceProcessing: vi.fn(),
     fetchResourceProcessingStatus: vi.fn(),
     startResourceProcessing: vi.fn(),
 }));
@@ -95,6 +99,7 @@ beforeEach(() => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    vi.mocked(estimateResourceProcessing).mockResolvedValue({ estimate_id: 'estimate-1', provider: 'test', model: 'test-model', currency: 'USD', priced: true, chunks_total: 8, saved_chunks: 0, incompatible_saved_chunks: 0, remaining_chunks: 8, batch_size: 4, planned_calls: 3, memory_restore_calls: 0, source_token_bound: 1000, input_token_bound: 4000, output_tokens_assumed: 1000, output_token_bound: 49152, cost_usd: 0.02, cost_with_repairs_usd: 0.1, budget: null, warnings: [] });
     vi.mocked(startResourceProcessing).mockResolvedValue(started);
     vi.mocked(fetchResourceProcessingStatus).mockResolvedValue(runningJob);
 });
@@ -110,9 +115,10 @@ afterEach(() => {
 });
 
 
-function render(element: ReactElement): void {
-    act(() => {
+async function render(element: ReactElement): Promise<void> {
+    await act(async () => {
         root.render(element);
+        await Promise.resolve();
     });
 }
 
@@ -152,7 +158,7 @@ function closeDialog(): void {
 
 describe('resource processing corner monitor', () => {
     it('minimizes, updates and reopens details without starting a second job', async () => {
-        render(<ProcessingScreen />);
+        await render(<ProcessingScreen />);
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
         closeDialog();
@@ -176,7 +182,7 @@ describe('resource processing corner monitor', () => {
     it('keeps a pending start visible when the dialog closes before the server responds', async () => {
         let resolveStart!: (response: ResourceProcessingStart) => void;
         vi.mocked(startResourceProcessing).mockReturnValueOnce(new Promise(resolve => { resolveStart = resolve; }));
-        render(<ProcessingScreen />);
+        await render(<ProcessingScreen />);
         act(() => { buttonWithText('Process').click(); });
         closeDialog();
         expect(container.querySelector('.resource-processing-monitor')?.textContent).toContain('A long book');
@@ -188,10 +194,10 @@ describe('resource processing corner monitor', () => {
     });
 
     it('keeps monitoring when navigation unmounts the originating page', async () => {
-        render(<ProcessingScreen />);
+        await render(<ProcessingScreen />);
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
-        render(<ProcessingScreen visible={false} />);
+        await render(<ProcessingScreen visible={false} />);
         expect(container.querySelector('.resource-processing-monitor')?.textContent).toContain('A long book');
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({ ...runningJob, progress: 60 });
         await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
@@ -199,7 +205,7 @@ describe('resource processing corner monitor', () => {
     });
 
     it('keeps an interrupted result visible and resumes it from the details', async () => {
-        render(<ProcessingScreen />);
+        await render(<ProcessingScreen />);
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
         closeDialog();
@@ -210,18 +216,19 @@ describe('resource processing corner monitor', () => {
         act(() => { container.querySelector<HTMLButtonElement>('.resource-processing-card-open')?.click(); });
         expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Provider unavailable');
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce(doneJob);
+        await flushProcessing();
         act(() => { buttonWithText('Retry').click(); });
         await flushProcessing();
-        expect(startResourceProcessing).toHaveBeenLastCalledWith({ force: false, resource_id: 'note-1', source_table_id: 'resources' });
+        expect(startResourceProcessing).toHaveBeenLastCalledWith({ force: false, resource_id: 'note-1', source_table_id: 'resources', max_cost_usd: 0.5, batch_size: 4, estimate_id: 'estimate-1' });
         expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Resource processed');
     });
 
     it('ignores a pending start from a previous Vault after the monitor resets', async () => {
         let resolveStart!: (response: ResourceProcessingStart) => void;
         vi.mocked(startResourceProcessing).mockReturnValueOnce(new Promise(resolve => { resolveStart = resolve; }));
-        render(<ProcessingScreen />);
+        await render(<ProcessingScreen />);
         act(() => { buttonWithText('Process').click(); });
-        render(<div />);
+        await render(<div />);
         resolveStart(started);
         await flushProcessing();
         expect(getResourceProcessingTasks()).toEqual([]);

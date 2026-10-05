@@ -44,6 +44,28 @@ def test_migration_preserves_personal_brain_and_disabled_features():
     assert migrate(migrated, {"ai-platform"}) == (migrated, False)
 
 
+@pytest.mark.parametrize('operation,effort,expected', [
+    ('knowledge.process-source.phase', None, 'low'),
+    ('knowledge.process-source.phase', 'max', None),
+    ('knowledge.process-source.phase', 'low', None),
+    ('other.operation', None, None),
+])
+def test_only_reading_with_default_reasoning_requests_low(monkeypatch, runtime, operation, effort, expected):
+    _, snapshot = runtime
+    if effort:
+        snapshot.profile['reasoning_effort'] = effort
+    captured = {}
+    async def workflow(*args, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(compile=lambda: 'compiled'), {}
+    monkeypatch.setattr('backend.agent.factory.create_agent_workflow', workflow)
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation, input='source')
+    asyncio.run(execution._operation_application(request, snapshot, {}, None))
+    assert captured['operation_default_reasoning_effort'] == expected
+    assert snapshot.profile.get('reasoning_effort') == effort
+    assert captured['prepared_agent_data'] is snapshot.profile
+
+
 def test_migration_replaces_managed_principal_without_global_knowledge_instructions():
     params = {"ai": {"active_agent_id": "llm-wiki", "agents": [{"id": "llm-wiki", "managed_by": "llm-wiki", "persona": "Knowledge only", "provider": "local", "model": "m"}]}}
     migrated, _ = migrate(params, {"llm-wiki"})
@@ -237,6 +259,81 @@ def test_reference_patch_uses_same_executor_and_revalidates_complete_result(runt
     assert configurations[0]["output_schema"] == request.output_schema
     assert "patches" in configurations[1]["output_schema"]["properties"]
     assert "All original context" in calls[-1]["messages"][0].content
+
+
+@pytest.mark.parametrize("second_patch_valid", [True, False])
+def test_invalid_reference_patch_retries_without_rewriting_notes(runtime, monkeypatch, second_patch_valid):
+    from copy import deepcopy
+    import jsonschema
+    from backend.domains.llm_wiki.reading_contracts import validate_notes
+    from backend.domains.llm_wiki.reading_repairs import build_reading_repair
+    from backend.tests.test_llm_wiki_reading_repairs import repair_fixture
+    scope, snapshot = runtime
+    action, passages, _, valid = repair_fixture()
+    invalid = deepcopy(valid)
+    invalid["patches"][1]["value"] = [{"segment_id": "p1", "reason": "unused"}]
+    answers = [action, invalid, valid if second_patch_valid else invalid]
+    calls = install_workflow(monkeypatch, [json.dumps(answer) for answer in answers])
+    def validate(text):
+        validate_notes(json.loads(text)["arguments"]["plan"], passages, passages)
+        return text
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation="knowledge.process-source.phase",
+                             input="Original passages and global memory", output_schema={"type": "object"}, max_model_calls=3)
+    with execution_scope(scope):
+        work = execution.execute_operation(request, snapshot=snapshot, output_validator=validate,
+            output_repair=lambda text, error: build_reading_repair(request.input, text, error))
+        if second_patch_valid:
+            result = asyncio.run(work)
+            repaired = json.loads(result.result)["arguments"]["plan"]
+            assert repaired["notes"][0]["body_md"] == action["arguments"]["plan"]["notes"][0]["body_md"]
+            assert repaired["notes"][1] == action["arguments"]["plan"]["notes"][1]
+            assert repaired["coverage"] == action["arguments"]["plan"]["coverage"]
+            assert result.status == "completed"
+        else:
+            with pytest.raises(jsonschema.ValidationError):
+                asyncio.run(work)
+            assert store.list_runs(scope)[0].status == "failed"
+            assert not store.list_runs(scope)[0].result
+    assert len(calls) == 3
+    assert "Original passages and global memory" in calls[-1]["messages"][0].content
+    assert "not a rewritten reading action" in calls[-1]["messages"][-1].content
+
+
+@pytest.mark.parametrize('memory_fault', [False, True])
+def test_syntax_then_classification_and_citations_fit_the_same_three_calls(runtime, monkeypatch, memory_fault):
+    from backend.tests.test_llm_wiki_dimension_repairs import fixture, patch_for
+    from backend.services.llm_wiki_reading_runtime import ReadingRuntime
+    scope, snapshot = runtime
+    from backend.domains.llm_wiki.reading_skill import SKILL_ID
+    from backend.services.agent_skill_catalog import resolve_agent_runtime
+    from dataclasses import replace
+    resolved = resolve_agent_runtime({})
+    snapshot.skill_ids.append(SKILL_ID)
+    monkeypatch.setattr('backend.services.agent_skill_catalog.resolve_agent_runtime', lambda *args, **kwargs:
+        replace(resolved, active_skill_ids=tuple(snapshot.skill_ids)))
+    action, prompt, validate, state = fixture()
+    from backend.domains.llm_wiki.reading_dimension_repairs import build_dimension_repair
+    repair = build_dimension_repair(prompt, json.dumps(action), validate)
+    patch = patch_for(repair)
+    if memory_fault:
+        from backend.tests.test_reading_memory_repairs import memory_fixture
+        action, repair, patch, validate, state = memory_fixture(misplaced=True)
+        prompt = json.loads(repair.input)['original_request']
+    calls = install_workflow(monkeypatch, ['{"action":', json.dumps(action), json.dumps(patch)])
+    reader = ReadingRuntime(snapshot.agent_id, 'test', 'fake', '', 1_000_000, snapshot)
+    with execution_scope(scope):
+        text, model = reader.generate_structured(prompt, validate, 900)
+    restored = json.loads(text)
+    validate(restored)
+    assert len(calls) == 3 and model == 'fake'
+    last_request = json.loads(calls[-1]['messages'][0].content)
+    combined = json.loads(last_request['input'])
+    assert combined['classification_fields'] and combined['reference_repair']
+    assert bool(combined['memory_repair']) == memory_fault
+    assert state['plans'] == {}  # Validation and repair do not commit progress.
+    for entry in restored['arguments']['plans']:
+        assert entry['plan']['notes'][0]['dimensions']['area'] == ['Ethics']
+        assert entry['plan']['notes'][0]['body_md'] == 'Complete and unchanged idea.'
 
 
 def test_partial_repair_keeps_the_original_deadline(runtime, monkeypatch):

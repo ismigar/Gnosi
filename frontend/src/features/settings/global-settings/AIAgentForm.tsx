@@ -1,6 +1,8 @@
+import { detachBotModels } from '../model-comparison/detachBotModels';
+import AIModelComparisonModal from '../AIModelComparisonModal';
 import { modelDisplayName } from '../../../shared/ai/modelDisplayName';
 import { profileDisplayName } from '../../../shared/ai/assistantProfiles';
-import type { AgentDraft, SettingsModel } from './types';
+import type { AgentDraft, SettingsAgent, SettingsModel } from './types';
 import type { NormalizedSkill, NormalizedTool } from '../AI/aiSettingsUtils';
 import { Activity } from 'lucide-react';
 import AgentContextSources from '../../agent-context/AgentContextSources';
@@ -18,13 +20,20 @@ import { AgentBehaviorInspection } from '../AI/AgentBehaviorInspection';
 import { InstructionMarkdownEditor } from '../../../shared/editor/InstructionMarkdownEditor';
 import { useTranslation } from 'react-i18next';
 
-export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', onSave, onChange, aiRegistry, skills, tools, onSelectSkill }: { agent: AgentDraft; otherCommands?: string[]; purpose?: 'principal' | 'profile'; onChange?: (agent: AgentDraft) => void; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[] }) {
+export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', onSave, onChange, aiRegistry, skills, tools, onSelectSkill, onModelsDetached, bots = [], principalId, onAssignOtherBot }: { agent: AgentDraft; otherCommands?: string[]; purpose?: 'principal' | 'profile'; onChange?: (agent: AgentDraft) => void; bots?: readonly SettingsAgent[]; principalId?: string; onAssignOtherBot?: (id: string, provider: string, model: string) => void; onModelsDetached?: (routes: readonly { provider: string; model: string }[]) => void; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[] }) {
   const { t } = useTranslation();
+  const [choosingModel, setChoosingModel] = useState(false);
   const [form, setForm] = useState({
     ...agent, command: agent.command || '', name: agent.name || '', provider: agent.provider || '', model: agent.model || '',
     icon: agent.icon === 'Bot' ? 'lucide:Bot:default' : agent.icon || 'lucide:Bot:default', persona: agent.persona || '', context: agent.context || '',
     context_refs: agent.context_refs || [], skill_ids: agent.skill_ids || [],
   });
+  const incomingRoute = JSON.stringify([agent.provider, agent.model, agent.reasoning_effort]);
+  const [modelIdentity, setModelIdentity] = useState(incomingRoute);
+  if (modelIdentity !== incomingRoute) {
+    setModelIdentity(incomingRoute);
+    setForm(previous => ({ ...previous, provider: agent.provider || '', model: agent.model || '', reasoning_effort: agent.reasoning_effort }));
+  }
   const { name, command, provider, model, icon, persona, context, context_refs: contextRefs, skill_ids: selectedSkillIds } = form;
   const [section, setSection] = useState('instructions');
   const migration = agent.behavior_migration && typeof agent.behavior_migration === 'object' ? agent.behavior_migration as Record<string, unknown> : undefined;
@@ -55,12 +64,11 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
   const update = (patch: Partial<typeof form>) => {
     const next = { ...form, ...patch };
     setForm(next);
-    if (agent.id && !commandError(next.command) && next.name.trim() && grouped.get(next.provider)?.includes(next.model)) {
+    if (agent.id && !commandError(next.command) && next.name.trim()) {
       onChange?.({ ...next, model_strategy: { schema_version: 1, mode: 'pinned', decision_engine: 'rules', allowed_models: [] } });
     }
   };
-  // Composite value for the single select: "provider||model". The "||" is
-  // safe — neither provider ids nor model ids contain that pattern.
+  // Keep reasoning metadata tied to the exact provider/model route.
   const selectedKey = (provider && model) ? `${provider}||${model}` : '';
   const registryEmpty = grouped.size === 0;
   const [reasoning, setReasoning] = useState<{ key: string; options: AiModelReasoning } | null>(null);
@@ -115,24 +123,16 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
           {currentCommandError && <p role="alert">{t(`agent_commands.${currentCommandError}`)}</p>}
         </FormGroup>
 
-        {/* Single grouped select: provider is derived from the
-                            chosen model (registry rows are provider+model pairs).
-                            Only enabled registry models are valid agent targets;
-                            an agent whose provider/model is no longer in the
-                            registry shows blank and must be re-picked. */}
         <FormGroup label={t('settings.ai.assistant.profile_model')}>
-          <select className="gnosi-select" value={selectedKey} aria-label={t('settings.ai.assistant.profile_model')}
-            onChange={e => {
-              const [p, m] = e.target.value.split('||');
-              update({ provider: p || '', model: m || '', reasoning_effort: null });
-            }}>
-            <option value="">{t('settings.ai.select_model_option')}</option>
-            {[...grouped.entries()].flatMap(([prov, modelIds]) => modelIds.map(mid => (
-              <option key={`${prov}||${mid}`} value={`${prov}||${mid}`}>
-                {modelDisplayName(aiRegistry.find(row => row.provider === prov && row.model_id === mid)) || mid}
-              </option>
-            )))}
-          </select>
+          <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { setChoosingModel(true); }}>
+            {t('model_comparison.choose_bot_model')}
+          </button>
+          <p>{modelDisplayName(aiRegistry.find(row => row.provider === provider && row.model_id === model)) || model || t('settings.ai.select_model_option')}</p>
+          {choosingModel && <AIModelComparisonModal isOpen onClose={() => { setChoosingModel(false); }}
+            bots={[...bots.filter(bot => bot.id !== agent.id), { ...form, id: agent.id || 'new-agent', name: form.name || t('settings.ai.assistant.new_profile') }]} skillCatalog={skills} principalId={principalId}
+            initialBotId={agent.id || 'new-agent'}
+            onAssignModel={(id, nextProvider, nextModel) => { if (id === (agent.id || 'new-agent')) update({ provider: nextProvider, model: nextModel, reasoning_effort: null }); else onAssignOtherBot?.(id, nextProvider, nextModel); setChoosingModel(false); }}
+            onModelsDetached={routes => { onModelsDetached?.(routes); update(detachBotModels({ ...form, id: agent.id || 'new-agent' }, routes)); }} />}
           {registryEmpty && (
             <div style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', marginTop: 6 }}>
               {t('settings.ai.model_registry_empty')}
@@ -227,7 +227,7 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
       {!agent.id && <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
         <button
           className="btn-gnosi btn-gnosi-primary"
-          disabled={Boolean(currentCommandError) || !name || !grouped.get(provider)?.includes(model) || savingAgent}
+          disabled={Boolean(currentCommandError) || !name || !provider || !model || savingAgent}
           onClick={() => {
             void (async () => {
               setSavingAgent(true);

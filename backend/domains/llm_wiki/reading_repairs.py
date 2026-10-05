@@ -7,7 +7,7 @@ from typing import Any
 
 import jsonschema
 
-from backend.domains.llm_wiki.reading_contracts import ReadingPlanError
+from backend.domains.llm_wiki.reading_contracts import ReadingPlanError, ReadingBatchError
 from backend.services.agent_output_repair import OutputRepair
 
 
@@ -22,24 +22,44 @@ def _bounded_strings(values: list[str]) -> dict[str, Any]:
     return {"type": "string", "minLength": 1, **({"enum": values} if len(values) <= 128 else {})}
 
 
-def _repair_schema(paths: list[str], primary: list[dict[str, object]], evidence: list[dict[str, object]]) -> dict[str, Any]:
+def _value_schemas(primary: list[dict[str, object]], evidence: list[dict[str, object]]) -> dict[str, Any]:
     primary_id = _bounded_strings([str(s["id"]) for s in primary])
     evidence_id = _bounded_strings([str(s["id"]) for s in evidence])
     text = {"type": "string", "minLength": 1}
     citations = {"type": "array", "minItems": 1, "items": _object({"segment_id": evidence_id, "quote": text})}
     coverage = {"type": "array", "items": _object({"segment_id": primary_id, "reason": text})}
+    return {"source_segment_id": primary_id, "citations": citations, "coverage": coverage}
+
+
+def _repair_schema(paths: list[str], primary: list[dict[str, object]], evidence: list[dict[str, object]]) -> dict[str, Any]:
+    # Bind each path to its field's shape. An unrelated coverage value must
+    # never satisfy the provider grammar for a citation patch.
+    variants = []
+    for key, schema in _value_schemas(primary, evidence).items():
+        matching = [path for path in paths if path.rsplit("/", 1)[-1] == key]
+        if matching:
+            variants.append(_object({"path": _bounded_strings(matching), "value": schema}))
     return _object({"patches": {"type": "array", "minItems": len(paths), "maxItems": len(paths),
-        "items": _object({"path": _bounded_strings(paths), "value": {"anyOf": [primary_id, citations, coverage]}})}})
+        "items": {"anyOf": variants}}})
 
 
 def build_reading_repair(original_request: str, rejected: str, error: Exception) -> OutputRepair | None:
+    if isinstance(error, ReadingBatchError):
+        from backend.domains.llm_wiki.reading_batch_repairs import build_batch_repair
+        return build_batch_repair(original_request, rejected, error)
     if not isinstance(error, ReadingPlanError):
         return None
     answer = json.loads(rejected)
-    if not isinstance(answer, dict) or answer.get("action") != "save_plan":
+    if not isinstance(answer, dict) or answer.get("action") not in {"save_plan", "save_batch"}:
         return None
     original = deepcopy(answer)
-    plan = original.get("arguments", {}).get("plan", {})
+    batch_index = getattr(error, "batch_index", None)
+    if original["action"] == "save_batch":
+        if not isinstance(batch_index, int):
+            return None
+        plan = original["arguments"]["plans"][batch_index]["plan"]
+    else:
+        plan = original.get("arguments", {}).get("plan", {})
     notes = plan.get("notes")
     if not isinstance(notes, list) or any(not isinstance(n, dict) or not n.get("title") or not n.get("body_md") for n in notes):
         return None
@@ -52,18 +72,9 @@ def build_reading_repair(original_request: str, rejected: str, error: Exception)
     if not fields or not error.primary or not error.evidence:
         return None
     schema = _repair_schema(list(fields), error.primary, error.evidence)
+    value_schemas = _value_schemas(error.primary, error.evidence)
     affected = [{"index": i, "note": notes[i]} for i in error.note_indices]
-    cited_ids = {str(notes[i].get("source_segment_id")) for i in error.note_indices}
-    quotes = set()
-    for i in error.note_indices:
-        for citation in notes[i].get("citations", []):
-            if isinstance(citation, dict):
-                cited_ids.add(str(citation.get("segment_id")))
-                quote = citation.get("quote")
-                if isinstance(quote, str) and quote:
-                    quotes.add(quote)
-    # Exact existing matches help correct a miscopied reference without fuzzy matching.
-    evidence = [s for s in error.evidence if str(s["id"]) in cited_ids or any(q in str(s["text"]) for q in quotes)]
+    evidence = _matching_evidence(notes, error)
     payload = {
         "task": "Repair only the listed reference fields; return patches, not a new reading action.",
         "instructions": "Return each allowed path exactly once. Keep all titles, bodies, note order and other fields unchanged. "
@@ -83,11 +94,33 @@ def build_reading_repair(original_request: str, rejected: str, error: Exception)
         if {row["path"] for row in replacements} != set(fields):
             raise ValueError("Return every permitted repair path exactly once")
         restored = deepcopy(original)
-        target = restored["arguments"]["plan"]
+        target = (restored["arguments"]["plans"][batch_index]["plan"]
+                  if batch_index is not None else restored["arguments"]["plan"])
         for row in replacements:
             index, key = fields[row["path"]]
+            # Long-source schemas can omit path enums to bound grammar size.
+            # Always enforce the path/value pairing locally as well.
+            jsonschema.validate(row["value"], value_schemas[key])
             owner = target if index is None else target["notes"][index]
             owner[key] = row["value"]
         return json.dumps(restored, ensure_ascii=False)
 
     return OutputRepair(json.dumps(payload, ensure_ascii=False), schema, restore)
+
+
+def _matching_evidence(notes: list[Any], error: ReadingPlanError) -> list[dict[str, object]]:
+    cited_ids = {str(notes[i].get("source_segment_id")) for i in error.note_indices}
+    quotes = set()
+    for i in error.note_indices:
+        for citation in notes[i].get("citations", []):
+            if isinstance(citation, dict):
+                cited_ids.add(str(citation.get("segment_id")))
+                quote = citation.get("quote")
+                if isinstance(quote, str) and quote:
+                    quotes.add(quote)
+    # Exact existing matches help correct a miscopied reference without fuzzy matching.
+    # Always include the rejected plan's primary originals. A wrong ID and a
+    # nonliteral quote otherwise hide the very passage the repair must inspect.
+    cited_ids.update(str(s["id"]) for s in error.primary)
+    evidence = [s for s in error.evidence if str(s["id"]) in cited_ids or any(q in str(s["text"]) for q in quotes)]
+    return evidence

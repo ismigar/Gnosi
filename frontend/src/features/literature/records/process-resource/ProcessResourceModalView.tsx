@@ -1,8 +1,9 @@
 import type { RefObject } from 'react';
+import { ProcessResourcePreflight } from './ProcessResourcePreflight';
 import { AlertTriangle, BrainCircuit, CheckCircle2, Loader2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import type { ResourceProcessingJob } from '../../../../shared/api/resource-processing';
+import type { ResourceProcessingJob, ResourceProcessingEstimate } from '../../../../shared/api/resource-processing';
 import {
     countTouchedPages,
     getProcessPhase,
@@ -13,6 +14,15 @@ import {
 
 
 interface ProcessResourceModalViewProps {
+    readonly estimate: ResourceProcessingEstimate | null;
+    readonly estimateError: string;
+    readonly budgetLimit: number;
+    readonly onBudgetLimit: (value: number) => void;
+    readonly batchSize: number;
+    readonly onBatchSize: (value: number) => void;
+    readonly canStart: boolean;
+    readonly fresh: boolean;
+    readonly onReprocess: () => void;
     readonly error: string;
     readonly force: boolean;
     readonly job: ResourceProcessingJob | null;
@@ -26,6 +36,8 @@ interface ProcessResourceModalViewProps {
 
 
 export function ProcessResourceModalView({
+    estimate, estimateError, budgetLimit, onBudgetLimit, batchSize, onBatchSize, canStart,
+    fresh, onReprocess,
     error,
     force,
     job,
@@ -42,6 +54,7 @@ export function ProcessResourceModalView({
         defaultValue: string,
         values: Readonly<Record<string, string | number>> = {},
     ): string => t(`llm_wiki.${key}`, { defaultValue, ...values });
+    const incompatible = (estimate?.incompatible_saved_chunks ?? 0) > 0;
     const phase = getProcessPhase(job);
     const touched = countTouchedPages(job);
     const progress = getProgressPercent(job);
@@ -83,7 +96,7 @@ export function ProcessResourceModalView({
                     </button>
                 </div>
 
-                <div className="p-5 space-y-3 overflow-y-auto min-h-0">
+                <div className="p-5 space-y-3 overflow-y-auto min-h-0 min-w-0">
                     {title ? (
                         <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
                             {title}
@@ -105,6 +118,12 @@ export function ProcessResourceModalView({
                                 </span>
                             ) : null}
                         </p>
+                    ) : null}
+
+                    {state === 'confirm' || state === 'error' ? (
+                        <ProcessResourcePreflight estimate={estimate} estimateError={estimateError}
+                            budgetLimit={budgetLimit} onBudgetLimit={onBudgetLimit}
+                            batchSize={batchSize} onBatchSize={onBatchSize} />
                     ) : null}
 
                     {state === 'running' ? (
@@ -195,11 +214,17 @@ export function ProcessResourceModalView({
                                 className="text-red-500 shrink-0 mt-0.5"
                                 size={18}
                             />
-                            <div className="text-xs text-red-500 break-words">
+                            <div className="text-xs text-red-500 min-w-0 flex-1 [overflow-wrap:anywhere]">
                                 {isProviderRateLimit(error) ? translate(
                                     'error_rate_limit',
                                     'The AI provider is limiting requests. Wait a few minutes or check your account limits, then retry.',
                                 ) : error}
+                                {job?.error && job.error !== error ? (
+                                    <details className="mt-2">
+                                        <summary>{translate('error_details', 'Technical details')}</summary>
+                                        <p className="mt-2 whitespace-pre-wrap">{job.error}</p>
+                                    </details>
+                                ) : null}
                                 {(job?.chunks_done ?? 0) > 0 ? (
                                     <p className="mt-2">
                                         {translate(
@@ -223,17 +248,18 @@ export function ProcessResourceModalView({
                                 {t('common.cancel', 'Cancel')}
                             </button>
                             <button
-                                className="px-4 py-2 rounded-md text-sm font-bold text-white bg-[var(--gnosi-primary)] hover:opacity-90 transition-opacity"
+                                className="px-4 py-2 rounded-md text-sm font-bold text-white bg-[var(--gnosi-primary)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={!incompatible && !canStart}
                                 data-autofocus="true"
-                                onClick={onStart}
+                                onClick={incompatible ? onReprocess : onStart}
                             >
-                                {translate('modal_confirm', 'Process')}
+                                {incompatible || fresh ? translate('reprocess', 'Reprocess') : translate('modal_confirm', 'Process')}
                             </button>
                         </>
                     ) : null}
                     {state === 'done' || state === 'error' ? (
                         <button
-                            className="px-4 py-2 rounded-md text-sm font-bold text-white bg-[var(--gnosi-primary)] hover:opacity-90 transition-opacity"
+                            className="px-4 py-2 rounded-md text-sm font-bold text-white bg-[var(--gnosi-primary)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                             onClick={onCancel}
                         >
                             {t('common.close', 'Close')}
@@ -241,10 +267,11 @@ export function ProcessResourceModalView({
                     ) : null}
                     {state === 'error' ? (
                         <button
-                            className="px-4 py-2 rounded-md text-sm font-bold text-white bg-[var(--gnosi-primary)] hover:opacity-90 transition-opacity"
-                            onClick={onStart}
+                            disabled={!incompatible && !canStart}
+                            className="px-4 py-2 rounded-md text-sm font-bold text-white bg-[var(--gnosi-primary)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={incompatible ? onReprocess : onStart}
                         >
-                            {translate('retry', 'Retry')}
+                            {incompatible || fresh ? translate('reprocess', 'Reprocess') : translate('retry', 'Retry')}
                         </button>
                     ) : null}
                     {state === 'running' ? (

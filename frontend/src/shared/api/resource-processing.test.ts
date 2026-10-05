@@ -2,6 +2,7 @@ import { resetApiTestStorage } from '../../../tests/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  estimateResourceProcessing,
   fetchResourceProcessingStatus,
   startResourceProcessing,
 } from './resource-processing';
@@ -52,6 +53,17 @@ describe('resource processing API', () => {
       resource_id: 'resource-1',
       source_table_id: 'resources',
     });
+  });
+
+  it('fetches a read-only preflight through its separate endpoint', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ estimate_id: 'preflight' }));
+    vi.stubGlobal('fetch', fetchMock);
+    await estimateResourceProcessing({ resource_id: 'book', batch_size: 4 });
+    const [request] = fetchMock.mock.calls[0] || [];
+    if (!(request instanceof Request)) throw new Error('Expected a Request');
+    expect(new URL(request.url).pathname).toBe('/api/vault/llm-wiki/estimate');
+    expect(request.method).toBe('POST');
+    expect(await request.json()).toEqual({ resource_id: 'book', batch_size: 4 });
   });
 
   it('polls one encoded job with its optional source table', async () => {

@@ -454,3 +454,14 @@ def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, t
 ])
 def test_processing_errors_always_explain_the_failure(error, expected):
     assert recovery.processing_error_message(error) == expected
+
+
+def test_resume_candidates_respect_resource_and_forced_restart_lineage(ingest):
+    old = str(llm_wiki_storage.create_job("sources", "resource")["job_id"])
+    llm_wiki_storage.update_job(old, running=False, phase="partial")
+    recent = str(llm_wiki_storage.create_job("sources", "resource")["job_id"])
+    llm_wiki_storage.update_job(recent, running=False, phase="error")
+    assert set(llm_wiki_storage.resume_checkpoint_jobs(recent)) == {old, recent}
+    fresh = str(llm_wiki_storage.create_job("sources", "resource")["job_id"])
+    llm_wiki_storage.update_job(fresh, running=False, phase="partial", resume_lineage=fresh)
+    assert llm_wiki_storage.resume_checkpoint_jobs(fresh) == [fresh]

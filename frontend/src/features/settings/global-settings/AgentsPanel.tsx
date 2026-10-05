@@ -1,3 +1,4 @@
+import { detachBotModels } from '../model-comparison/detachBotModels';
 import { modelDisplayName } from '../../../shared/ai/modelDisplayName';
 import { TEAM_SKILL, changeTeamPrincipal } from '../../../shared/ai/agentTeams';
 import { AgentTeamSetup } from './AgentTeamSetup';
@@ -39,6 +40,8 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
         <AIAgentForm
           key={editingAgent.id || 'new-agent'}
           agent={editingAgent}
+          bots={draft.ai.agents} principalId={principal?.id}
+          onAssignOtherBot={(id, provider, model) => { setDraft(prev => ({ ...prev, ai: { ...prev.ai, agents: prev.ai.agents.map(bot => bot.id === id ? { ...bot, provider, model, reasoning_effort: null, model_strategy: { schema_version: 1, mode: 'pinned', decision_engine: 'rules', allowed_models: [] } } : bot) } })); }}
           otherCommands={draft.ai.agents.filter(item => item.id !== editingAgent.id).map(item => item.command || '')}
           purpose={!principal || editingAgent.id === principal.id ? 'principal' : 'profile'}
           onChange={updated => {
@@ -84,6 +87,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
             }));
             setEditingAgent(null);
           }}
+          onModelsDetached={routes => { setDraft(prev => ({ ...prev, ai: { ...prev.ai, agents: prev.ai.agents.map(bot => detachBotModels(bot, routes)) } })); }}
           aiRegistry={aiRegistry}
           skills={aiResources.skills}
           tools={aiResources.tools}

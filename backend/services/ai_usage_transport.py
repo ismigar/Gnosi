@@ -32,6 +32,7 @@ def observe(value: Any) -> None:
     usage = _mapping(response.get("usage"))
     if usage:
         state["raw_usage"] = usage
+        state["generation_id"] = str(response.get("id") or "")
         state["actual_model"] = str(response.get("model") or state["model"])
 
 
@@ -69,15 +70,21 @@ def _observed_result(value: Any) -> Any:
 
 class ObservedResource:
     """Preserve the SDK surface, including raw-response parse and streams."""
-    def __init__(self, resource: Any) -> None:
+    def __init__(self, resource: Any, sdk_client: Any = None) -> None:
         self.resource = resource
+        self.sdk_client = sdk_client or getattr(resource, "_client", None)
     def __getattr__(self, name: str) -> Any:
         attribute = getattr(self.resource, name)
         if name in {"with_raw_response", "with_streaming_response"}:
-            return ObservedResource(attribute)
+            return ObservedResource(attribute, self.sdk_client)
         if name not in {"create", "parse", "stream"} or not callable(attribute):
             return attribute
         def call(*args: Any, **kwargs: Any) -> Any:
+            from backend.services import reading_budget
+            if reading_budget.active():
+                sdk = self.sdk_client
+                if sdk is not None and hasattr(sdk, "max_retries"):
+                    sdk.max_retries = 0
             result = attribute(*args, **kwargs)
             if inspect.isawaitable(result):
                 async def finish() -> Any:
@@ -124,8 +131,10 @@ def price(provider: str, model: str, tokens: dict[str, Any], raw: dict[str, Any]
 
 class UsageCallback(BaseCallbackHandler):
     run_inline = True
-    def __init__(self, provider: str, model: str) -> None:
+    raise_error = True
+    def __init__(self, provider: str, model: str, api_key: str = "") -> None:
         self.provider, self.model = provider, model
+        self.api_key = api_key
         self.pending: dict[str, dict[str, Any]] = {}
         self.lock = threading.Lock()
     def on_chat_model_start(self, serialized: Any, messages: Any, *, run_id: Any, **kwargs: Any) -> None:
@@ -149,6 +158,8 @@ class UsageCallback(BaseCallbackHandler):
             state["attribution"]["profile"] = str(profile or "unrated")
         except Exception:
             state["rates"] = None
+        from backend.services import reading_budget
+        reading_budget.reserve(str(run_id), messages, kwargs.get("invocation_params") or {}, state.get("rates"), self.provider)
         with self.lock:
             self.pending[str(run_id)] = state
         _active.set(state)
@@ -163,6 +174,8 @@ class UsageCallback(BaseCallbackHandler):
             metadata = getattr(message, "usage_metadata", None) or {}
             raw = state["raw_usage"] or _mapping(getattr(result, "llm_output", None)).get("token_usage") or _mapping(getattr(message, "response_metadata", None)).get("token_usage") or {}
             tokens = normalize(raw, metadata)
+            response_meta = _mapping(getattr(message, "response_metadata", None))
+            generation_id = state.get("generation_id") or str(response_meta.get("id") or "")
             model = state.get("actual_model") or self.model
             # Estimates use the route's tariff frozen at invocation time, never
             # a native vendor's tariff inferred from an OpenRouter model prefix.
@@ -171,7 +184,10 @@ class UsageCallback(BaseCallbackHandler):
                 cost_usd=cost, cost_source=source, call_id=state["id"], created=state["started"],
                 duration_ms=(time.time() - state["started"]) * 1000,
                 status="cancelled" if isinstance(error, BaseException) and (type(error).__name__ in {"CancelledError", "AgentTurnCancelled"}) else "failed" if error is not None else "completed",
-                metadata=state["attribution"])
+                metadata=state["attribution"], generation_id=generation_id)
+            if added and self.provider == "openrouter" and source != "reported" and generation_id.startswith("gen-") and self.api_key:
+                from backend.services.ai_usage_openrouter import schedule
+                schedule(state["id"], generation_id, self.api_key)
             for item in messages:
                 item.additional_kwargs["gnosi_usage_recorded"] = True
             if added and state["attribution"]["run_id"] and tokens["input_tokens"] is not None:
@@ -186,6 +202,17 @@ class UsageCallback(BaseCallbackHandler):
     def on_llm_end(self, response: Any, *, run_id: Any, **kwargs: Any) -> None:
         self._finish(run_id, response)
     def on_llm_error(self, error: BaseException, *, run_id: Any, **kwargs: Any) -> None:
+        # The SDK can throw while parsing a structured response, before its
+        # completion reaches our transport wrapper. It retains the raw usage
+        # on LengthFinishReasonError.completion (including billed reasoning).
+        completion = _mapping(getattr(error, "completion", None))
+        if completion.get("usage"):
+            with self.lock:
+                state = self.pending.get(str(run_id))
+                if state is not None:
+                    state["raw_usage"] = _mapping(completion["usage"])
+                    state["generation_id"] = str(completion.get("id") or "")
+                    state["actual_model"] = str(completion.get("model") or self.model)
         self._finish(run_id, result=kwargs.get("response"), error=error)
 
 
@@ -193,8 +220,21 @@ def instrument(model: Any, provider: str, model_id: str | None) -> Any:
     from langchain_core.language_models import BaseChatModel
     if not isinstance(model, BaseChatModel):
         return model
+    from backend.services import reading_budget
+    if reading_budget.active():
+        # SDK retries are opaque to callbacks. Govern each attempt at the agent
+        # boundary instead, where every new invocation reserves its own budget.
+        if hasattr(model, "max_retries"):
+            model.max_retries = 0
+        for field in ("root_client", "root_async_client"):
+            client = getattr(model, field, None)
+            if client is not None and hasattr(client, "max_retries"):
+                client.max_retries = 0
     actual = str(getattr(model, "model_name", None) or getattr(model, "model", None) or model_id or "")
-    callback = UsageCallback(provider, actual)
+    credential = getattr(model, "openai_api_key", None)
+    get_secret = getattr(credential, "get_secret_value", None)
+    api_key = get_secret() if callable(get_secret) else str(credential or "")
+    callback = UsageCallback(provider, actual, api_key if provider == "openrouter" else "")
     if model.callbacks is not None and not isinstance(model.callbacks, list):
         manager = model.callbacks.copy()
         manager.add_handler(callback, inherit=True)

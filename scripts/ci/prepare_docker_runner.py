@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 from pathlib import Path
@@ -35,11 +36,48 @@ def _ci_image_exists(tag: str) -> bool:
     return bool(listed.stdout.strip())
 
 
+def _stopped_container(state: dict[str, object]) -> bool:
+    if state.get("Running") is not False:
+        return False
+    if state.get("Status") in {"exited", "dead", "created"}:
+        return True
+    # nerdctl reports a container with no task as an empty status. Require
+    # explicit inactive flags and a zero PID; missing metadata is not evidence.
+    return (state.get("Status") == "" and type(state.get("Pid")) is int
+            and state["Pid"] == 0 and state.get("Paused") is False
+            and state.get("Restarting") is False)
+
+
+def _remove_stopped_ci_containers(_tag: str) -> None:
+    """Release abandoned smoke containers without deleting volumes or active work."""
+    try:
+        listed = run(
+            ("docker", "ps", "--all", "--quiet", "--filter", "label=com.docker.compose.project"),
+            check=True, capture_output=True, text=True, timeout=30,
+        )
+    except CalledProcessError as error:
+        LOG.error("Cannot list CI smoke containers: %s", error.stderr or error)
+        raise
+    for container_id in listed.stdout.split():
+        inspected = run(("docker", "inspect", container_id),
+                        check=True, capture_output=True, text=True, timeout=30)
+        container = json.loads(inspected.stdout)[0]
+        labels = container.get("Config", {}).get("Labels") or {}
+        state = container.get("State", {})
+        project = labels.get("com.docker.compose.project", "")
+        if (re.fullmatch(r"gnosi-ci-[0-9]+-[0-9]+", project)
+                and labels.get("com.docker.compose.service") in {"frontend", "backend"}
+                and _stopped_container(state)):
+            # A restart between inspection and removal fails safely: no --force or --volumes.
+            run(("docker", "rm", container_id), check=True, timeout=60)
+
+
 def _remove_ci_image(tag: str) -> None:
     for attempt in range(1, MAX_IMAGE_REMOVAL_ATTEMPTS + 1):
         if not _ci_image_exists(tag):
             return
         try:
+            _remove_stopped_ci_containers(tag)
             # Never force removal of an image that is still used by a container.
             run(("docker", "image", "rm", tag), check=True, timeout=60)
         except TimeoutExpired:
