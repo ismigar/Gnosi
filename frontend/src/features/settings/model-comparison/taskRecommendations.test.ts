@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AiModelComparisonEntry } from '../../../shared/api/ai';
 import type { RoleEvaluationReport } from '../../../shared/api/ai-activity';
-import { recommendTask, TASKS, type TaskRequest } from './taskRecommendations';
+import { recommendTask, TASKS, taskMinimum, type TaskRequest } from './taskRecommendations';
 import { suite, checked } from './__fixtures__/taskEvidence';
 
 function firstRoute(model: AiModelComparisonEntry) {
@@ -34,23 +34,61 @@ const report = (changed: Partial<RoleEvaluationReport> = {}): RoleEvaluationRepo
 const compare = (models = [high, near, cheap], changes: Partial<TaskRequest> = {}, reports: RoleEvaluationReport[] = [], provider = 'all') =>
     recommendTask(models, peers, provider, { ...request, ...changes }, reports, now);
 
-it('reuses task-specific evidence for the selected bot and prefers checked near-best offers', () => {
+it('uses different advisory floors for routine and demanding duties without forcing different model names', () => {
+    const routine = model('routine', 12, .1);
+    const classify = TASKS[0];
+    const candidates = [routine, near, high];
+    expect(compare(candidates, { task: classify, minimumQuality: taskMinimum([classify]) }).balanced?.model.id).toBe('routine');
+    expect(compare(candidates, { minimumQuality: taskMinimum([book]) }).balanced?.model.id).toBe('near');
+    expect(taskMinimum([classify, book])).toBe(taskMinimum([book]));
+    const dominant = model('dominant', 21, .01);
+    for (const task of [classify, book]) {
+        expect(compare([dominant, near], { task, minimumQuality: taskMinimum([task]) }).balanced?.model.id).toBe('dominant');
+    }
+});
+
+it('chooses by the input/output mix of the function after meeting its floor', () => {
+    const inputCheap = model('input-cheap', 18, .1); firstRoute(inputCheap).cost_out = 2;
+    const outputCheap = model('output-cheap', 18, 1); firstRoute(outputCheap).cost_out = .1;
+    const translate = TASKS.find(task => task.id === 'translate');
+    if (!translate) throw new Error('Missing translation');
+    const forTask = (task: typeof TASKS[number]) => compare([high, inputCheap, outputCheap], {
+        task, input: task.input, output: task.output, minimumQuality: taskMinimum([task]),
+    }).balanced?.model.id;
+    expect(forTask(TASKS[0])).toBe('input-cheap');
+    expect(forTask(translate)).toBe('output-cheap');
+});
+
+it('does not hide a checked specialist outside the top five catalogue points', () => {
+    const specialist = model('specialist', 15, 3);
+    const stored = { suite, reports: [checked({ model: specialist.id })] };
+    const result = recommendTask([high, near, specialist], peers, 'p', {
+        ...request, minimumQuality: 65, budgetUsd: 1,
+    }, [], now, stored);
+    expect(result.balanced?.model.id).toBe('specialist');
+    expect(result.balanced?.taskChecks?.complete).toBe(true);
+    expect(result.cheapest?.model.id).toBe('near');
+    expect(result.quality?.model.id).toBe('high');
+    expect((result.quality?.quality ?? 0) - (result.balanced?.quality ?? 0)).toBeGreaterThan(5);
+});
+
+it('reuses evidence only for the selected functions and prefers checked offers', () => {
     const stored = { suite, reports: [checked({ created_at: '2026-10-03T12:00:00Z', cases: checked().cases?.map(item => ({ ...item, checked_at: '2026-10-03T12:00:00Z' })) })] };
     const translate = TASKS.find(task => task.id === 'translate');
     if (!translate) throw new Error('Missing translation');
     const knowledge = recommendTask([high, near, cheap], peers, 'all', request, [], now, stored);
     expect(knowledge.balanced?.model.id).toBe('near'); expect(knowledge.balanced?.taskChecks?.complete).toBe(true);
     const translation = recommendTask([high, near, cheap], peers, 'all', { ...request, task: translate }, [], now, stored);
-    expect(translation.balanced?.model.id).toBe('high'); expect(translation.excluded.failed_test).toBe(1);
+    expect(translation.balanced?.model.id).toBe('cheap'); expect(translation.excluded.failed_test).toBe(1);
 });
 
 describe('task recommendations', () => {
-    it('gives distinct quality, economical and near-best balanced choices', () => {
+    it('chooses the cheapest eligible option instead of overprovisioning toward the global top score', () => {
         const result = compare();
         expect(result.quality?.model.id).toBe('high');
-        expect(result.balanced?.model.id).toBe('near');
+        expect(result.balanced?.model.id).toBe('cheap');
         expect(result.cheapest?.model.id).toBe('cheap');
-        expect(result.balanced?.offer.cost).toBeCloseTo(.21);
+        expect(result.balanced?.offer.cost).toBeCloseTo(.021);
     });
     it('changes eligibility with actual execution budget, volume and attempts', () => {
         expect(compare(undefined, { budgetUsd: .1 }).quality?.model.id).toBe('cheap');

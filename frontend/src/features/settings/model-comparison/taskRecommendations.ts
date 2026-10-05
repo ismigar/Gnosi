@@ -22,6 +22,13 @@ export const TASKS = [
 ] as const;
 export type Task = typeof TASKS[number];
 export type TaskId = Task['id'];
+// Advisory catalogue floors, not measured task accuracy. Users can override
+// the default; combined duties take the most demanding floor.
+const TASK_MINIMUM: Record<TaskId, number> = {
+    classify: 50, extract: 65, book: 80, retrieve: 65, code: 80, workflow: 80,
+    translate: 65, write: 65, calendar: 65, research: 80, synthesize: 80, analyse: 80,
+};
+export const taskMinimum = (tasks: readonly Task[]) => Math.max(...tasks.map(task => TASK_MINIMUM[task.id]), 0);
 export type Exclusion = 'capabilities' | 'terms' | 'cost' | 'budget' | 'quality' | 'failed_test';
 export interface TaskRequest {
     task: Task;
@@ -131,8 +138,7 @@ export function recommendTask(models: readonly Model[], peers: readonly Model[],
             const report = !stored && relevantReports.length === 1 ? relevantReports[0] : undefined;
             const checks = taskEvidence(stored, route.provider, route.model_id, demands.map(task => task.id), now);
             if (checks.failed || (!stored && relevantReports.some(item => item?.cases.some(c => !c.passed)))) { excluded.failed_test++; continue; }
-            const quality = observed === null ? null : report && variantCount === 1
-                ? Math.round((.8 * observed + .2 * report.score) * 10) / 10 : observed;
+            const quality = observed;
             if (quality === null || quality < request.minimumQuality) { excluded.quality++; continue; }
             seen.add(identity);
             const successes = report?.cases.filter(c => c.passed).length ?? 0;
@@ -149,9 +155,11 @@ export function recommendTask(models: readonly Model[], peers: readonly Model[],
         || b.quality - a.quality || a.model.name.localeCompare(b.model.name);
     const byQuality = [...candidates].sort((a, b) => b.quality - a.quality || cost(a, b));
     const best = byQuality[0];
-    // Among near-best catalogue options prefer a fully checked small sample,
-    // then price. A synthetic pass never replaces broader quality evidence.
-    const balanced = best ? [...candidates].filter(c => c.quality >= best.quality - 5)
-        .sort((a, b) => Number(Boolean(b.taskChecks?.complete)) - Number(Boolean(a.taskChecks?.complete)) || cost(a, b))[0] : undefined;
+    // Eligibility already applies the bot's demands and advisory floor. A
+    // global top-score window would overprovision routine bots and hide a
+    // cheaper specialist even after it passed every relevant check.
+    // Without checks this is only a provisional, cost-based suggestion.
+    const balanced = [...candidates].sort((a, b) =>
+        Number(Boolean(b.taskChecks?.complete)) - Number(Boolean(a.taskChecks?.complete)) || cost(a, b))[0];
     return { balanced, cheapest: [...candidates].sort(cost)[0], quality: best, excluded, count: candidates.length };
 }

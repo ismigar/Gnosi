@@ -8,7 +8,7 @@ import { useActiveVaultId } from '../../../shared/hooks/useActiveVaultId';
 import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
 import { formatComparisonCost } from '../modelComparison';
 import { ModelPriceOffer } from './ModelPriceOffer';
-import { recommendTask, TASKS, type Candidate, type TaskId } from './taskRecommendations';
+import { recommendTask, TASKS, taskMinimum, type Candidate, type TaskId } from './taskRecommendations';
 import { operationalEvidence } from './operationalEvidence';
 import { ModelTaskEvaluation } from './ModelTaskEvaluation';
 import { ModelTaskEvaluationChooser } from './ModelTaskEvaluationChooser';
@@ -46,8 +46,9 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
     const [input, setInput] = useState(initialDraft?.input ?? (String(!manual && detected.length ? Math.max(...detected.map(item => item.input)) : task.input)));
     const [output, setOutput] = useState(initialDraft?.output ?? (String(!manual && detected.length ? Math.max(...detected.map(item => item.output)) : task.output)));
     const [context, setContext] = useState(initialDraft?.context ?? (String(!manual && detected.length ? Math.max(...detected.map(item => item.context)) : task.context)));
-    const [minimum, setMinimum] = useState(initialDraft?.minimum ?? ('60'));
-    const [budget, setBudget] = useState(initialDraft?.budget ?? (task.id === 'book' ? String(Number((.5 * feed.currency.usd_rate).toFixed(2))) : ''));
+    const demands = !manual && detected.length ? detected : [task];
+    const [minimum, setMinimum] = useState(initialDraft?.minimum ?? String(taskMinimum(demands)));
+    const [budget, setBudget] = useState(initialDraft?.budget ?? (demands.some(item => item.id === 'book') ? String(Number((.5 * feed.currency.usd_rate).toFixed(2))) : ''));
     const [attempts, setAttempts] = useState(initialDraft?.attempts ?? ('2'));
     useEffect(() => { onDraftChange?.({ manual, taskId, input, output, context, minimum, budget, attempts }); },
         [manual, taskId, input, output, context, minimum, budget, attempts, onDraftChange]);
@@ -89,6 +90,7 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             setInput(String(Math.max(...detected.map(item => item.input))));
             setOutput(String(Math.max(...detected.map(item => item.output))));
             setContext(String(Math.max(...detected.map(item => item.context))));
+            setMinimum(String(taskMinimum(detected)));
             setBudget(detected.some(item => item.id === 'book') ? String(Number((.5 * feed.currency.usd_rate).toFixed(2))) : '');
         }
     };
@@ -110,10 +112,11 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             <strong>{candidate.model.name}</strong>
             <ModelPriceOffer offer={candidate.offer} field="monthly_cost" label={candidate.offer.route.provider_name || candidate.offer.route.provider} currency={feed.currency} active={false} />
             <p>{t('model_comparison.recommend.score', { score: candidate.quality })}</p>
-            <p>{t(`model_comparison.recommend.why_${kinds[0] ?? 'balanced'}`)}</p>
+            <p>{t(`model_comparison.recommend.why_${kinds[0] === 'balanced' && candidate.taskChecks?.complete ? 'balanced_checked' : kinds[0] ?? 'balanced'}`)}</p>
             <p>{t('model_comparison.tests.evidence', { measured: candidate.taskChecks?.cases.length ?? 0, total: candidate.taskChecks?.expected ?? 0 })}</p>
-            <p>{t(candidate.report ? 'model_comparison.recommend.synthetic' : 'model_comparison.recommend.catalogue', { count: candidate.report?.cases.length ?? 0, date: candidate.report?.created_at.slice(0, 10) ?? '' })}</p>
+            <p>{t(candidate.taskChecks?.complete ? 'model_comparison.recommend.checked' : 'model_comparison.recommend.catalogue')}</p>
             <details><summary>{t('model_comparison.workspace.evidence')}</summary>
+            {candidate.report && <p>{t('model_comparison.recommend.synthetic', { count: candidate.report.cases.length, date: candidate.report.created_at.slice(0, 10) })}</p>}
             {candidate.taskChecks && <ul>{candidate.taskChecks.tasks.map(item => <li key={item.task}>{t(`model_comparison.recommend.tasks.${item.task}`)}: {item.passed}/{item.total} {t('model_comparison.tests.checked')}</li>)}</ul>}
             <p>{t('model_comparison.recommend.benchmark', { metrics: metrics(candidate), date: feed.fetched_at.slice(0, 10) })}</p>
             {candidate.variantCount > 1 && <p>{t('model_comparison.recommend.variants', { count: candidate.variantCount })}</p>}
@@ -163,10 +166,11 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             <label>{t('model_comparison.recommend.task')}<select className="gnosi-select" value={task.id} onChange={event => {
                 const next = tasks.find(item => item.id === event.target.value);
                 if (!next) return;
-                setTaskId(next.id); setInput(String(next.input)); setOutput(String(next.output)); setContext(String(next.context)); setBudget(next.id === 'book' ? String(Number((.5 * feed.currency.usd_rate).toFixed(2))) : '');
+                setTaskId(next.id); setInput(String(next.input)); setOutput(String(next.output)); setContext(String(next.context)); setMinimum(String(taskMinimum([next]))); setBudget(next.id === 'book' ? String(Number((.5 * feed.currency.usd_rate).toFixed(2))) : '');
             }}>{tasks.map(item => <option key={item.id} value={item.id}>{t(`model_comparison.recommend.tasks.${item.id}`)}</option>)}</select></label>
             </div>}
             <div className="ai-resource-editor__grid model-task-recommendations__fields">{field('context', context, setContext)}{field('minimum', minimum, setMinimum, 100)}{field('attempts', attempts, setAttempts, 10)}</div>
+            <p className="settings-desc">{t('model_comparison.recommend.policy_help')}</p>
             <p className="settings-desc">{t('model_comparison.recommend.volume_help')}</p>
             <p className="settings-desc">{t('model_comparison.recommend.help')}</p>
         </details>

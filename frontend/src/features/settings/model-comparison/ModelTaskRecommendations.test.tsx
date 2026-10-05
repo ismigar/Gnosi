@@ -45,9 +45,12 @@ function changeInput(text: string, value: string) {
 }
 it('presents three explained choices with currency, retry allowance and pending real quality', async () => {
     await render();
-    expect(container.textContent).toContain('Millor equilibri');
+    expect(container.textContent).toContain('Opció eficient per al bot');
     expect(container.textContent).toContain('Més econòmic que compleix');
-    expect(container.textContent).toContain('Màxima qualitat estimada');
+    expect(container.textContent).toContain('Millor puntuació de catàleg');
+    expect(container.textContent).toContain('Proposta provisional');
+    expect(container.textContent).toContain('Referència general del catàleg');
+    expect(container.textContent).not.toContain('Adequació relativa estimada');
     expect(container.textContent).toContain('Model 3');
     expect(container.textContent).toContain('Els tres criteris coincideixen en la mateixa oferta');
     expect(container.textContent).toContain('no tres costos acumulats');
@@ -103,12 +106,20 @@ it('uses detected bot duties by default and keeps single-task simulation in adva
     expect(container.textContent).toContain('Analitzar un llibre');
     expect(container.textContent).toContain('Extreure dades');
     expect(container.textContent).toContain('Encara no podem classificar aquestes habilitats: Custom');
+    const minimum = () => [...container.querySelectorAll('label')].find(label => label.textContent.includes('Exigència orientativa'))?.querySelector('input')?.value;
+    expect(minimum()).toBe('80');
     const simulation = [...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'Simular manualment una tasca');
     expect(simulation?.closest('details')?.className).toBe('model-task-recommendations__requirements');
     act(() => { simulation?.click(); });
     expect(container.querySelector('select')?.value).toBe('book');
+    act(() => {
+        const select = container.querySelector('select');
+        if (select) { select.value = 'classify'; select.dispatchEvent(new Event('change', { bubbles: true })); }
+    });
+    expect(minimum()).toBe('50');
     expect(container.textContent).toContain('Simulació manual d’una tasca');
     act(() => { simulation?.click(); });
     expect(container.querySelector('select')).toBeNull();
+    expect(minimum()).toBe('80');
     expect(mocks.invoke).not.toHaveBeenCalled();
 });
