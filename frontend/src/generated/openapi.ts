@@ -236,6 +236,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/runs/shared-task-evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Shared Bank */
+        get: operations["shared_bank_api_agent_runs_shared_task_evaluations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/task-evaluation-suite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Suite */
+        get: operations["suite_api_agent_runs_task_evaluation_suite_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/task-evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reports */
+        get: operations["reports_api_agent_runs_task_evaluations_get"];
+        put?: never;
+        /** Run */
+        post: operations["run_api_agent_runs_task_evaluations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/task-evaluations/{report_id}/public-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Export */
+        get: operations["public_export_api_agent_runs_task_evaluations__report_id__public_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/task-evaluations/{report_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review */
+        post: operations["review_api_agent_runs_task_evaluations__report_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/task-evaluations/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview */
+        post: operations["preview_api_agent_runs_task_evaluations_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/runs/team-proposals": {
         parameters: {
             query?: never;
@@ -6730,6 +6833,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/knowledge/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Knowledge Llm Wiki Estimate
+         * @description Estimate all processing phases without inference or writes to the vault.
+         */
+        post: operations["knowledge_llm_wiki_estimate_llm_wiki_estimate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/knowledge/evidence/{resource_id}/{snapshot_id}/{segment_id}": {
         parameters: {
             query?: never;
@@ -7639,6 +7762,26 @@ export interface paths {
          */
         put: operations["put_llm_wiki_config_api_vault_llm_wiki_config_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/llm-wiki/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Llm Wiki Estimate
+         * @description Estimate all processing phases without inference or writes to the vault.
+         */
+        post: operations["llm_wiki_estimate_api_vault_llm_wiki_estimate_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13595,6 +13738,76 @@ export interface components {
             /** Resolved */
             resolved?: boolean | null;
         };
+        /**
+         * ComparisonBilling
+         * @description Provenance and comparability of one provider/model offer.
+         */
+        ComparisonBilling: {
+            /** Checked At */
+            checked_at?: string | null;
+            /** Input Price Usd */
+            input_price_usd?: number | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "metered" | "subscription" | "free" | "unknown" | "local";
+            /** Model Covered */
+            model_covered?: boolean | null;
+            /** Notes */
+            notes?: string[];
+            /** Output Price Usd */
+            output_price_usd?: number | null;
+            /** Plans */
+            plans?: components["schemas"]["ComparisonBillingPlan"][];
+            /** Rate Source Url */
+            rate_source_url?: string | null;
+            /**
+             * Source Url
+             * @default
+             */
+            source_url: string;
+            /**
+             * Stale
+             * @default false
+             */
+            stale: boolean;
+        };
+        /**
+         * ComparisonBillingPlan
+         * @description Public monthly fee and quota, with exact-model deduction units.
+         */
+        ComparisonBillingPlan: {
+            /**
+             * Currency
+             * @default USD
+             */
+            currency: string;
+            /** Input Units Per Million */
+            input_units_per_million?: number | null;
+            /** Monthly Fee */
+            monthly_fee?: number | null;
+            /** Monthly Fee Usd */
+            monthly_fee_usd?: number | null;
+            /** Name */
+            name: string;
+            /** Output Units Per Million */
+            output_units_per_million?: number | null;
+            /** Quota */
+            quota?: number | null;
+            /**
+             * Quota Period
+             * @default unknown
+             * @enum {string}
+             */
+            quota_period: "month" | "week" | "5h" | "unknown";
+            /**
+             * Quota Unit
+             * @default usage
+             * @enum {string}
+             */
+            quota_unit: "tokens" | "credits" | "usd" | "requests" | "usage";
+        };
         /** ComposeProposal */
         ComposeProposal: {
             /** Char Count */
@@ -17307,6 +17520,19 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** LlmWikiBudgetResponse */
+        LlmWikiBudgetResponse: {
+            /** Id */
+            id: string;
+            /** Limit Usd */
+            limit_usd: number;
+            /** Remaining Usd */
+            remaining_usd: number;
+            /** Reserved Usd */
+            reserved_usd: number;
+            /** Spent Usd */
+            spent_usd: number;
+        };
         /** LlmWikiCapabilitiesResponse */
         LlmWikiCapabilitiesResponse: {
             /** Binaries */
@@ -17427,6 +17653,56 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** LlmWikiEstimateResponse */
+        LlmWikiEstimateResponse: {
+            /** Batch Size */
+            batch_size: number;
+            budget: components["schemas"]["LlmWikiBudgetResponse"] | null;
+            /** Chunks Total */
+            chunks_total: number;
+            /** Cost In Per Million Usd */
+            cost_in_per_million_usd?: number | null;
+            /** Cost Out Per Million Usd */
+            cost_out_per_million_usd?: number | null;
+            /** Cost Usd */
+            cost_usd: number | null;
+            /** Cost With Repairs Usd */
+            cost_with_repairs_usd: number | null;
+            /** Currency */
+            currency: string;
+            display_currency?: components["schemas"]["CurrencyInfoResponse"] | null;
+            /** Estimate Id */
+            estimate_id: string;
+            /**
+             * Incompatible Saved Chunks
+             * @default 0
+             */
+            incompatible_saved_chunks: number;
+            /** Input Token Bound */
+            input_token_bound: number;
+            /** Memory Restore Calls */
+            memory_restore_calls: number;
+            /** Model */
+            model: string;
+            /** Output Token Bound */
+            output_token_bound: number;
+            /** Output Tokens Assumed */
+            output_tokens_assumed: number;
+            /** Planned Calls */
+            planned_calls: number;
+            /** Priced */
+            priced: boolean;
+            /** Provider */
+            provider: string;
+            /** Remaining Chunks */
+            remaining_chunks: number;
+            /** Saved Chunks */
+            saved_chunks: number;
+            /** Source Token Bound */
+            source_token_bound: number;
+            /** Warnings */
+            warnings: string[];
+        };
         /**
          * LlmWikiEvidenceResponse
          * @description Persisted citation evidence resolved without exposing filesystem paths.
@@ -17458,6 +17734,7 @@ export interface components {
          * @description Durable Brain-ingest state returned while a resource is processed.
          */
         LlmWikiJobResponse: {
+            budget?: components["schemas"]["LlmWikiBudgetResponse"] | null;
             /** Chunks Done */
             chunks_done?: number | null;
             /** Chunks Total */
@@ -17634,6 +17911,16 @@ export interface components {
          */
         LlmWikiProcessRequest: {
             /**
+             * Batch Size
+             * @default 4
+             */
+            batch_size: number;
+            /**
+             * Estimate Id
+             * @default
+             */
+            estimate_id: string;
+            /**
              * Force
              * @default false
              */
@@ -17648,6 +17935,11 @@ export interface components {
              * @default
              */
             language: string;
+            /**
+             * Max Cost Usd
+             * @default 0.5
+             */
+            max_cost_usd: number;
             /**
              * Resource Id
              * @default
@@ -19068,6 +19360,7 @@ export interface components {
          * @description One usable Gnosi route for an externally benchmarked model.
          */
         ModelComparisonRoute: {
+            billing?: components["schemas"]["ComparisonBilling"] | null;
             /** Context Window */
             context_window: number | null;
             /** Cost In */
@@ -19285,6 +19578,8 @@ export interface components {
             budget?: {
                 [key: string]: components["schemas"]["JsonValue"];
             } | null;
+            /** Detach Agents Revision */
+            detach_agents_revision?: string | null;
             /** Expected Revision */
             expected_revision?: string | null;
             /** Models */
@@ -22807,6 +23102,30 @@ export interface components {
              */
             permission: string;
         };
+        /** SharedEvaluationBank */
+        SharedEvaluationBank: {
+            /**
+             * Fetched At
+             * @default
+             */
+            fetched_at: string;
+            /** Reports */
+            reports?: components["schemas"]["TaskEvaluationReport"][];
+            /**
+             * Repository Url
+             * @default https://github.com/ismigar/ismigar.github.io/tree/main/data/model-evaluations
+             */
+            repository_url: string;
+            /**
+             * Source Url
+             * @default https://gnosi.temenosismael.org/data/model-evaluations/index.json
+             */
+            source_url: string;
+            /** State */
+            state: string;
+            /** Summaries */
+            summaries?: components["schemas"]["SharedRouteSummary"][];
+        };
         /** SharedPageContentResponse */
         SharedPageContentResponse: {
             /** Content */
@@ -22829,6 +23148,37 @@ export interface components {
             permission: string;
             /** Token */
             token: string;
+        };
+        /** SharedRouteSummary */
+        SharedRouteSummary: {
+            /** Contributors */
+            contributors: number;
+            /** Cost Sources */
+            cost_sources: string[];
+            /** Failed */
+            failed: number;
+            /** Inconclusive */
+            inconclusive: number;
+            /** Maximum Cost Usd */
+            maximum_cost_usd: number | null;
+            /** Maximum Latency Ms */
+            maximum_latency_ms: number;
+            /** Median Cost Usd */
+            median_cost_usd: number | null;
+            /** Median Latency Ms */
+            median_latency_ms: number | null;
+            /** Minimum Cost Usd */
+            minimum_cost_usd: number | null;
+            /** Minimum Latency Ms */
+            minimum_latency_ms: number;
+            /** Model */
+            model: string;
+            /** Observations */
+            observations: number;
+            /** Passed */
+            passed: number;
+            /** Provider */
+            provider: string;
         };
         /** ShareLinkResponse */
         ShareLinkResponse: {
@@ -23481,6 +23831,276 @@ export interface components {
         } & {
             [key: string]: components["schemas"]["JsonValue"];
         };
+        /** TaskCaseResult */
+        TaskCaseResult: {
+            /** Checked At */
+            checked_at: string;
+            /**
+             * Contributors
+             * @default 1
+             */
+            contributors: number;
+            /**
+             * Cost Source
+             * @default unknown
+             * @enum {string}
+             */
+            cost_source: "reported" | "estimated" | "unknown";
+            /** Cost Usd */
+            cost_usd?: number | null;
+            /**
+             * Evidence Origin
+             * @default local
+             * @enum {string}
+             */
+            evidence_origin: "local" | "shared";
+            /** Expected */
+            expected?: unknown;
+            /**
+             * Failure
+             * @default
+             */
+            failure: string;
+            /** Id */
+            id: string;
+            /** Latency Ms */
+            latency_ms: number;
+            /** Metric */
+            metric: string;
+            /**
+             * Observations
+             * @default 1
+             */
+            observations: number;
+            /**
+             * Output
+             * @default
+             */
+            output: string;
+            /** Passed */
+            passed: boolean;
+            /**
+             * Requires Review
+             * @default false
+             */
+            requires_review: boolean;
+            /**
+             * Reused From
+             * @default
+             */
+            reused_from: string;
+            /**
+             * Review
+             * @default not_required
+             * @enum {string}
+             */
+            review: "pending" | "accepted" | "rejected" | "not_required";
+            /**
+             * Review Note
+             * @default
+             */
+            review_note: string;
+            /**
+             * Reviewed At
+             * @default
+             */
+            reviewed_at: string;
+            /**
+             * Task Prompt
+             * @default
+             */
+            task_prompt: string;
+            /** Tasks */
+            tasks: ("classify" | "extract" | "book" | "retrieve" | "code" | "workflow" | "analyse" | "translate" | "write" | "calendar" | "research" | "synthesize")[];
+        };
+        /** TaskCriterion */
+        TaskCriterion: {
+            /** Expected */
+            expected?: unknown;
+            /** Id */
+            id: string;
+            /** Metric */
+            metric: string;
+            /**
+             * Prompt
+             * @default
+             */
+            prompt: string;
+            /**
+             * Requires Review
+             * @default false
+             */
+            requires_review: boolean;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /** Tasks */
+            tasks: ("classify" | "extract" | "book" | "retrieve" | "code" | "workflow" | "analyse" | "translate" | "write" | "calendar" | "research" | "synthesize")[];
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+        };
+        /** TaskEvaluationPlan */
+        TaskEvaluationPlan: {
+            /** Can Run */
+            can_run: boolean;
+            /** Case Ids */
+            case_ids: string[];
+            /** Maximum Cost Usd */
+            maximum_cost_usd: number | null;
+            /**
+             * Mode
+             * @default diagnostic_default_512
+             */
+            mode: string;
+            /** Pending Ids */
+            pending_ids: string[];
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /** Reused Cases */
+            reused_cases: components["schemas"]["TaskCaseResult"][];
+            /**
+             * Version
+             * @default bot_tasks_v1
+             */
+            version: string;
+        };
+        /** TaskEvaluationReport */
+        TaskEvaluationReport: {
+            /** Agent Id */
+            agent_id: string;
+            /** Budget Usd */
+            budget_usd: number;
+            /** Cases */
+            cases?: components["schemas"]["TaskCaseResult"][];
+            /** Cost Usd */
+            cost_usd?: number | null;
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: string;
+            /**
+             * Mode
+             * @default diagnostic_default_512
+             */
+            mode: string;
+            /** Model */
+            model: string;
+            /**
+             * Model Calls
+             * @default 0
+             */
+            model_calls: number;
+            /** Provider */
+            provider: string;
+            /** Public Parameters */
+            public_parameters?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Reserved Usd
+             * @default 0
+             */
+            reserved_usd: number;
+            /**
+             * Reused Cases
+             * @default 0
+             */
+            reused_cases: number;
+            /**
+             * Status
+             * @default completed
+             * @enum {string}
+             */
+            status: "completed" | "stopped";
+            /**
+             * Stop Reason
+             * @default
+             */
+            stop_reason: string;
+            /** Tasks */
+            tasks: ("classify" | "extract" | "book" | "retrieve" | "code" | "workflow" | "analyse" | "translate" | "write" | "calendar" | "research" | "synthesize")[];
+            /**
+             * Version
+             * @default bot_tasks_v1
+             */
+            version: string;
+        };
+        /** TaskEvaluationRequest */
+        TaskEvaluationRequest: {
+            /** Agent Id */
+            agent_id: string;
+            /**
+             * Authorize Model Calls
+             * @default false
+             */
+            authorize_model_calls: boolean;
+            /**
+             * Budget Usd
+             * @default 0.05
+             */
+            budget_usd: number;
+            /** Model */
+            model: string;
+            /** Provider */
+            provider: string;
+            /**
+             * Retest
+             * @default false
+             */
+            retest: boolean;
+            /**
+             * Suite
+             * @default basic
+             * @enum {string}
+             */
+            suite: "basic" | "work";
+            /** Tasks */
+            tasks: ("classify" | "extract" | "book" | "retrieve" | "code" | "workflow" | "analyse" | "translate" | "write" | "calendar" | "research" | "synthesize")[];
+            /**
+             * Use Shared
+             * @default true
+             */
+            use_shared: boolean;
+        };
+        /** TaskEvaluationSuite */
+        TaskEvaluationSuite: {
+            /** Criteria */
+            criteria: components["schemas"]["TaskCriterion"][];
+            /**
+             * Kind
+             * @default basic
+             * @enum {string}
+             */
+            kind: "basic" | "work";
+            /**
+             * Max Age Days
+             * @default 30
+             */
+            max_age_days: number;
+            /**
+             * Max Output Tokens
+             * @default 512
+             */
+            max_output_tokens: number;
+            /**
+             * Mode
+             * @default diagnostic_default_512
+             */
+            mode: string;
+            /**
+             * Version
+             * @default bot_tasks_v1
+             */
+            version: string;
+        };
         /**
          * TaskFactPayload
          * @description Markdown-owned task facts accepted by schedule recalculation.
@@ -23534,6 +24154,21 @@ export interface components {
             status: string;
             /** Task Name */
             task_name: string;
+        };
+        /** TaskReviewRequest */
+        TaskReviewRequest: {
+            /** Case Id */
+            case_id: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "accepted" | "rejected";
         };
         /**
          * TaskRunResponse
@@ -25249,6 +25884,280 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RoleEvaluationReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    shared_bank_api_agent_runs_shared_task_evaluations_get: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedEvaluationBank"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suite_api_agent_runs_task_evaluation_suite_get: {
+        parameters: {
+            query?: {
+                kind?: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEvaluationSuite"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reports_api_agent_runs_task_evaluations_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEvaluationReport"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_api_agent_runs_task_evaluations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskEvaluationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEvaluationReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_export_api_agent_runs_task_evaluations__report_id__public_export_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                report_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_api_agent_runs_task_evaluations__report_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                report_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEvaluationReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_api_agent_runs_task_evaluations_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskEvaluationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEvaluationPlan"];
                 };
             };
             /** @description Validation Error */
@@ -39543,6 +40452,46 @@ export interface operations {
             };
         };
     };
+    knowledge_llm_wiki_estimate_llm_wiki_estimate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LlmWikiProcessRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmWikiEstimateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     knowledge_llm_wiki_evidence_llm_wiki_evidence__resource_id___snapshot_id___segment_id__get: {
         parameters: {
             query?: never;
@@ -41816,6 +42765,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LlmWikiConfigResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    llm_wiki_estimate_api_vault_llm_wiki_estimate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LlmWikiProcessRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmWikiEstimateResponse"];
                 };
             };
             /** @description Validation Error */

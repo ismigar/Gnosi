@@ -177,3 +177,18 @@ def test_format_repair_keeps_read_evidence_without_repeating_tools(reading, monk
     assert result.status == "completed" and result.model_calls == 3
     assert result.result == '{"value": 7}' and reading[4] == ["dreams"]
     assert len(reading[5]) == 1
+
+
+def test_output_reservation_is_bound_before_provider_call(monkeypatch):
+    bindings = []
+    class Model:
+        model_name = "fixture"
+        def bind(self, **kwargs):
+            bindings.append(kwargs)
+            return self
+    monkeypatch.setattr(operation_graph, "_invoke_agent_model",
+                        lambda *args: AIMessage(content='{"summary":"bounded"}'))
+    graph = operation_graph.operation_workflow(Model(), "Read one passage", 32000,
+                                               max_output_tokens=16384).compile()
+    graph.invoke({"messages": []})
+    assert bindings == [{"max_tokens": 16384}]

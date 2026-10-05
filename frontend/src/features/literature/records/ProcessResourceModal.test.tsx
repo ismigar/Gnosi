@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
 import { toast } from '../../../shared/notifications/toast';
 import {
+    estimateResourceProcessing,
     fetchResourceProcessingStatus,
     startResourceProcessing,
     type ResourceProcessingJob,
@@ -13,22 +14,21 @@ import {
 import { ProcessResourceModal } from './ProcessResourceModal';
 import { resetResourceProcessingTasks } from './process-resource/resourceProcessingTasks';
 
+vi.mock('../../../shared/i18n/useLocaleSettings', () => ({ useLocaleSettings: () => ({ numberLocale: 'en-US' }) }));
 
 vi.mock('../../../shared/hooks/useModalKeyboard', () => ({
     useModalKeyboard: vi.fn(),
 }));
 
-
 vi.mock('../../../shared/notifications/toast', () => ({
     toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-
 vi.mock('../../../shared/api/resource-processing', () => ({
+    estimateResourceProcessing: vi.fn(),
     fetchResourceProcessingStatus: vi.fn(),
     startResourceProcessing: vi.fn(),
 }));
-
 
 vi.mock('react-i18next', () => {
     const t = (
@@ -49,12 +49,10 @@ vi.mock('react-i18next', () => {
     return { useTranslation: () => ({ t }) };
 });
 
-
 const reactTestGlobal = globalThis as typeof globalThis & {
     IS_REACT_ACT_ENVIRONMENT: boolean;
 };
 reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
-
 
 const runningJob: ResourceProcessingJob = {
     created: ['First note'],
@@ -85,10 +83,8 @@ const doneJob: ResourceProcessingJob = {
     updated: ['Existing note'],
 };
 
-
 let container: HTMLDivElement;
 let root: Root;
-
 
 beforeEach(() => {
     vi.useFakeTimers();
@@ -97,10 +93,10 @@ beforeEach(() => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    vi.mocked(estimateResourceProcessing).mockResolvedValue({ estimate_id: 'estimate-1', provider: 'test', model: 'test-model', currency: 'USD', priced: true, chunks_total: 8, saved_chunks: 0, incompatible_saved_chunks: 0, remaining_chunks: 8, batch_size: 4, planned_calls: 3, memory_restore_calls: 0, source_token_bound: 1000, input_token_bound: 4000, output_tokens_assumed: 1000, output_token_bound: 49152, cost_usd: 0.02, cost_with_repairs_usd: 0.1, budget: null, warnings: [] });
     vi.mocked(startResourceProcessing).mockResolvedValue(started);
     vi.mocked(fetchResourceProcessingStatus).mockResolvedValue(runningJob);
 });
-
 
 afterEach(() => {
     act(() => {
@@ -111,13 +107,12 @@ afterEach(() => {
     vi.useRealTimers();
 });
 
-
-function render(element: ReactElement): void {
-    act(() => {
+async function render(element: ReactElement): Promise<void> {
+    await act(async () => {
         root.render(element);
+        await Promise.resolve();
     });
 }
-
 
 function buttonWithText(label: string): HTMLButtonElement {
     const button = [...container.querySelectorAll('button')]
@@ -125,7 +120,6 @@ function buttonWithText(label: string): HTMLButtonElement {
     if (!button) throw new Error(`Missing button: ${label}`);
     return button;
 }
-
 
 async function flushProcessing(): Promise<void> {
     await act(async () => {
@@ -135,30 +129,29 @@ async function flushProcessing(): Promise<void> {
     });
 }
 
-
 describe('ProcessResourceModal', () => {
     it('explains provider timeouts and retries without forcing a fresh run', async () => {
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
             ...runningJob, running: false, phase: 'partial',
             error: 'The AI provider did not respond in time. Retry to resume saved progress.',
         });
-        render(<ProcessResourceModal isOpen force noteId="note-1" onClose={vi.fn()} />);
+        await render(<ProcessResourceModal isOpen force noteId="note-1" onClose={vi.fn()} />);
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
         expect(container.textContent).toContain('The AI provider did not respond in time.');
         expect(vi.getTimerCount()).toBe(0);
         act(() => { buttonWithText('Retry').click(); });
         await flushProcessing();
-        expect(startResourceProcessing).toHaveBeenLastCalledWith({
-            force: false, resource_id: 'note-1', source_table_id: undefined,
-        });
+        expect(startResourceProcessing).toHaveBeenLastCalledWith(expect.objectContaining({
+            force: false, resource_id: 'note-1', source_table_id: undefined, max_cost_usd: 0.5, batch_size: 4, estimate_id: 'estimate-1',
+        }));
     });
 
     it('stops with a recoverable error when a tracked job disappears', async () => {
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
             resource_id: 'job-1', running: false, phase: 'idle', progress: 0,
         });
-        render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
 
@@ -168,7 +161,6 @@ describe('ProcessResourceModal', () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
-
     it('does not overlap slow polls and keeps monitoring after navigation', async () => {
         let resolvePoll: (job: ResourceProcessingJob) => void = () => {};
         vi.mocked(fetchResourceProcessingStatus).mockReturnValueOnce(new Promise((resolve) => {
@@ -176,7 +168,7 @@ describe('ProcessResourceModal', () => {
         }));
         const onJobUpdate = vi.fn();
         const onProcessed = vi.fn();
-        render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()}
+        await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()}
             onJobUpdate={onJobUpdate} onProcessed={onProcessed} />);
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
@@ -185,7 +177,7 @@ describe('ProcessResourceModal', () => {
         expect(fetchResourceProcessingStatus).toHaveBeenCalledTimes(1);
         const signal = vi.mocked(fetchResourceProcessingStatus).mock.calls[0]?.[2];
         expect(signal?.aborted).toBe(false);
-        render(<div />);
+        await render(<div />);
         expect(signal?.aborted).toBe(false);
         resolvePoll(doneJob);
         await flushProcessing();
@@ -195,24 +187,22 @@ describe('ProcessResourceModal', () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
-
     it('shows reading observations even when no existing notes were updated', async () => {
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
             ...doneJob, updated: [], warnings: ['A distant definition remains uncertain.'],
         });
-        render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
         expect(container.textContent).toContain('Reading observations');
         expect(container.textContent).toContain('A distant definition remains uncertain.');
     });
 
-
     it('keeps polling while the provider cooldown is in progress', async () => {
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
             ...runningJob, phase: 'retrying', chunks_done: 1, chunks_total: 85,
         });
-        render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
 
@@ -228,13 +218,12 @@ describe('ProcessResourceModal', () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
-
     it('explains rate limits and resumes a failed force-run without forcing again', async () => {
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
             ...runningJob, running: false, phase: 'partial', chunks_done: 1,
             error: "Error code: 429 - {'message': 'Rate limit exceeded', 'code': '1300'}",
         });
-        render(<ProcessResourceModal force isOpen noteId="note-1" onClose={vi.fn()} />);
+        await render(<ProcessResourceModal force isOpen noteId="note-1" onClose={vi.fn()} />);
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
 
@@ -254,10 +243,64 @@ describe('ProcessResourceModal', () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
+    it('blocks paid starts while the read-only estimate is pending', async () => {
+        vi.mocked(estimateResourceProcessing).mockReturnValueOnce(new Promise(() => {}));
+        await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        expect(buttonWithText('Process').disabled).toBe(true);
+        expect(container.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('0.5');
+        act(() => { buttonWithText('Process').click(); });
+        expect(startResourceProcessing).not.toHaveBeenCalled();
+        expect(vi.mocked(useModalKeyboard).mock.calls.at(-1)?.[0].confirmDisabled).toBe(true);
+    });
 
-    it('renders the accessible force-confirmation contract', () => {
+    it('blocks an unpriced model after preflight without a paid start', async () => {
+        const defaults = await vi.mocked(estimateResourceProcessing)({});
+        vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults, priced: false, cost_usd: null, cost_with_repairs_usd: null });
+        await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        expect(buttonWithText('Process').disabled).toBe(true);
+        expect(container.textContent).toContain('no verified tariff');
+        expect(startResourceProcessing).not.toHaveBeenCalled();
+    });
+
+    it('retains the existing book limit and reported costs on resume', async () => {
+        const defaults = await vi.mocked(estimateResourceProcessing)({});
+        vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults, saved_chunks: 166, remaining_chunks: 25,
+            budget: { id: 'book-budget', limit_usd: 0.75, spent_usd: 0.20, reserved_usd: 0.10, remaining_usd: 0.45 } });
+        await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        expect(container.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('0.75');
+        expect(container.textContent).toContain('166 saved fragments');
+        expect(container.textContent).toContain('$0.20');
+        act(() => { buttonWithText('Process').click(); });
+        await flushProcessing();
+        expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ max_cost_usd: 0.75, batch_size: 4, estimate_id: 'estimate-1' }));
+    });
+
+    it('blocks accidental rereading when saved plans are incompatible', async () => {
+        const defaults = await vi.mocked(estimateResourceProcessing)({});
+        vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults, saved_chunks: 0, incompatible_saved_chunks: 166 });
+        await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        expect(buttonWithText('Reprocess').disabled).toBe(false);
+        expect(container.textContent).toContain('166 saved fragments cannot be reused');
+        expect(startResourceProcessing).not.toHaveBeenCalled();
+    });
+
+    it('requires a fresh estimate and a second click before explicit reprocessing', async () => {
+        const defaults = await vi.mocked(estimateResourceProcessing)({});
+        vi.mocked(estimateResourceProcessing).mockClear();
+        vi.mocked(estimateResourceProcessing).mockResolvedValueOnce({ ...defaults, incompatible_saved_chunks: 166 })
+            .mockResolvedValue({ ...defaults, estimate_id: 'fresh-estimate', incompatible_saved_chunks: 0 });
+        await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        await act(async () => { buttonWithText('Reprocess').click(); await Promise.resolve(); });
+        expect(startResourceProcessing).not.toHaveBeenCalled();
+        expect(estimateResourceProcessing).toHaveBeenLastCalledWith(expect.objectContaining({ force: true }), expect.any(AbortSignal));
+        expect(container.textContent).toContain('All configured sources will be processed again');
+        await act(async () => { buttonWithText('Reprocess').click(); await Promise.resolve(); });
+        expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ force: true, estimate_id: 'fresh-estimate', max_cost_usd: 0.5, batch_size: 4 }));
+    });
+
+    it('renders the accessible force-confirmation contract', async () => {
         const onClose = vi.fn();
-        render(
+        await render(
             <ProcessResourceModal
                 force
                 isOpen
@@ -289,13 +332,12 @@ describe('ProcessResourceModal', () => {
         expect(typeof keyboardOptions.onConfirm).toBe('function');
     });
 
-
     it('starts, reports and completes a durable processing job', async () => {
         const onClose = vi.fn();
         const onJobUpdate = vi.fn<(job: ResourceProcessingJob) => void>();
         const onProcessed = vi.fn();
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce(doneJob);
-        render(
+        await render(
             <ProcessResourceModal
                 force
                 isOpen
@@ -312,11 +354,11 @@ describe('ProcessResourceModal', () => {
         });
         await flushProcessing();
 
-        expect(startResourceProcessing).toHaveBeenCalledWith({
+        expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({
             force: true,
             resource_id: 'note-1',
             source_table_id: 'resources',
-        });
+        }));
         expect(fetchResourceProcessingStatus).toHaveBeenCalledWith(
             'job-1',
             'resources',
@@ -331,13 +373,12 @@ describe('ProcessResourceModal', () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
-
     it('continues a running job in the background when dismissed', async () => {
         const onClose = vi.fn();
         const onContinueInBackground = vi.fn<(
             job: ResourceProcessingJob,
         ) => void>();
-        render(
+        await render(
             <ProcessResourceModal
                 isOpen
                 noteId="note-1"
@@ -366,7 +407,6 @@ describe('ProcessResourceModal', () => {
         expect(onClose).toHaveBeenCalledOnce();
     });
 
-
     it('ignores a transient poll failure and surfaces a terminal partial job', async () => {
         const partialJob: ResourceProcessingJob = {
             ...runningJob,
@@ -377,7 +417,7 @@ describe('ProcessResourceModal', () => {
         vi.mocked(fetchResourceProcessingStatus)
             .mockRejectedValueOnce(new Error('Temporary gateway failure'))
             .mockResolvedValueOnce(partialJob);
-        render(
+        await render(
             <ProcessResourceModal
                 isOpen
                 noteId="note-1"
@@ -400,12 +440,11 @@ describe('ProcessResourceModal', () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
-
     it('localizes a missing Brain-table start error', async () => {
         vi.mocked(startResourceProcessing).mockRejectedValueOnce(
             new Error('No Brain table is configured'),
         );
-        render(
+        await render(
             <ProcessResourceModal
                 isOpen
                 noteId="note-1"
@@ -425,9 +464,8 @@ describe('ProcessResourceModal', () => {
         );
     });
 
-
-    it('does not render content while closed', () => {
-        render(
+    it('does not render content while closed', async () => {
+        await render(
             <ProcessResourceModal
                 isOpen={false}
                 noteId="note-1"

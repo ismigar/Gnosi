@@ -15,7 +15,7 @@ def _fresh_remote(rates):
     """Remote snapshot stamped 'now' so freshness checks never age out."""
     return {"source": "frankfurter.app",
             "fetched_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "rates": rates}
+            "rates": {"CNY": 7.0, **rates}}
 
 
 def _isolate(tmp: str, remote=None):
@@ -86,3 +86,17 @@ def test_unknown_currency_never_divides_by_zero():
         info = fx.rate_info("XXX")
         assert info["usd_rate"] == 1.0  # last-resort neutral rate
         assert fx.currency_to_usd(5.0, "XXX") == 5.0
+
+
+def test_legacy_fx_cache_refreshes_for_subscription_currencies():
+    snapshot = _fresh_remote({"EUR": .9, "GBP": .75, "JPY": 150, "CHF": .82, "USD": 1})
+    assert fx._is_fresh(snapshot)
+    del snapshot["rates"]["CNY"]
+    assert not fx._is_fresh(snapshot)
+
+
+def test_cny_uses_a_real_quote_when_available():
+    with tempfile.TemporaryDirectory() as tmp:
+        _isolate(tmp, remote=_fresh_remote({"CNY": 7.0}))
+        assert fx.rate_info("CNY")["usd_rate"] == 7.0
+        assert fx.currency_to_usd(70, "CNY") == 10

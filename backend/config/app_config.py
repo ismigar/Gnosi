@@ -180,7 +180,34 @@ def _merge_user_params(
     if user_params_path is None:
         return params, params_path
     try:
-        user_params = _CONFIG_YAML_CACHE.read(user_params_path, _CONFIG_YAML_LOADER)
+        from backend.domains.configuration.ai.model_bindings import (
+            detach_models, model_configuration_lock, route,
+        )
+
+        # Older installations could save deactivated routes while retaining
+        # their bot bindings. Repair the stored document before any consumer
+        # (including Settings and the runtime) can reuse those bindings. This
+        # does not replace the confirmation required for a new deactivation.
+        with model_configuration_lock:
+            user_params = _CONFIG_YAML_CACHE.read(user_params_path, _CONFIG_YAML_LOADER)
+            ai = user_params.get("ai")
+            if isinstance(ai, dict) and isinstance(ai.get("agents"), list):
+                disabled = {
+                    route(row) for row in (ai.get("models") or [])
+                    if isinstance(row, dict) and row.get("enabled") is False
+                }
+                agents, affected, _ = detach_models(ai["agents"], disabled)
+                if affected:
+                    from backend.utils.safe_io import safe_write_text
+
+                    ai["agents"] = agents
+                    safe_write_text(user_params_path, yaml.safe_dump(
+                        user_params, sort_keys=False, allow_unicode=True,
+                    ))
+                    from backend.domains.configuration.config_response_cache import configuration_response_cache
+
+                    configuration_response_cache.invalidate()
+                    log.info("Removed deactivated model bindings from %d bots", len(affected))
         return deep_merge(params, user_params), user_params_path
     except OSError as error:
         log.warning(

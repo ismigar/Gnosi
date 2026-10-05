@@ -106,6 +106,13 @@ def validate_model_strategies(
         if not isinstance(raw_agent, Mapping):
             raise ValueError("Every AI agent must be an object.")
         agent = dict(raw_agent)
+        from backend.domains.configuration.ai.model_bindings import detach_models, route
+        disabled = {route(dict(row)) for row in rows if row.get("enabled") is False}
+        if route(agent) in disabled:
+            raise ValueError("A disabled model cannot be assigned to a bot.")
+        _, affected, _ = detach_models([agent], disabled)
+        if affected:
+            raise ValueError("A disabled model cannot be assigned to a bot.")
         resolved = resolve_model_strategy(agent, rows)
         if resolved["decision_engine"] == "jev" and is_local_provider(agent.get("provider")):
             raise ValueError("Jev cannot receive requests from a local-only assistant.")

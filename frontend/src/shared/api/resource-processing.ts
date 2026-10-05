@@ -42,3 +42,10 @@ export async function fetchResourceProcessingStatus(
     }),
   );
 }
+
+export type ResourceProcessingEstimate = components['schemas']['LlmWikiEstimateResponse'];
+export async function estimateResourceProcessing(input: ResourceProcessingInput, signal?: AbortSignal): Promise<ResourceProcessingEstimate> {
+  return unwrapApiResult<ResourceProcessingEstimate, unknown>(await apiClient.POST('/api/vault/llm-wiki/estimate', {
+    body: input as GeneratedResourceProcessingInput, signal,
+  }));
+}

@@ -7,6 +7,19 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
 describe('offer previews', () => {
+    it('keeps the active paid route visible alongside a cheaper offer from another provider', () => {
+        const container = document.createElement('div');
+        const root = createRoot(container);
+        try {
+            act(() => { root.render(<ModelOfferList offers={['NVIDIA — €0', 'Other offer', 'OpenRouter — €1.50']}
+                isHighlighted={value => value.startsWith('OpenRouter')} renderOffer={value => <div key={value}>{value}</div>} />); });
+            expect(container.textContent).toContain('NVIDIA — €0');
+            expect(container.textContent).toContain('OpenRouter — €1.50');
+            expect(container.textContent).not.toContain('Other offer');
+        } finally {
+            act(() => { root.unmount(); });
+        }
+    });
     it('opens on hover, stays open over the preview, and dismisses with Escape or leaving', () => {
         vi.useFakeTimers();
         const container = document.createElement('section');

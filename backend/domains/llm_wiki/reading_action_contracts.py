@@ -16,21 +16,41 @@ NOTE = {
     "properties": {"title": TEXT, "body_md": TEXT, "source_segment_id": TEXT,
                    "citations": {"type": "array", "minItems": 1, "items": CITATION}},
 }
-PLAN = {
+PLAN: dict[str, Any] = {
     "type": "object", "required": ["notes", "coverage"],
+    "anyOf": [{"required": ["memory"]}, {"required": ["memory_updates"]}],
     "properties": {
+        "memory": {**TEXT, "description": "Updated global reading memory: retain the book's argument, qualifications, contradictions and links to earlier chunk ids, incorporating this plan."},
+        "memory_updates": {
+            "type": "array", "minItems": 1, "maxItems": 16,
+            "description": "Prefer targeted changes to the supplied global memory. old must match exactly once; empty old appends new. Unchanged memory is retained locally. Include new arguments, qualifications and cross-chunk links.",
+            "items": _object({"old": {"type": "string"}, "new": {"type": "string"}}, ["old", "new"]),
+        },
         "notes": {"type": "array", "items": NOTE},
         "coverage": {"type": "array", "items": _object({"segment_id": TEXT, "reason": TEXT}, ["segment_id", "reason"])},
         "warnings": {"type": "array", "items": {"type": "string"}},
         "reviewed": {"type": "boolean"},
     },
 }
+BATCH_PLAN = deepcopy(PLAN)
+BATCH_PLAN.pop("anyOf")
+BATCH_PLAN["additionalProperties"] = False
+BATCH_PLAN["properties"].pop("memory")
+BATCH_PLAN["properties"].pop("memory_updates")
+BATCH = _object({
+    "plans": {"type": "array", "minItems": 1, "maxItems": 4,
+              "items": _object({"chunk_id": TEXT, "plan": BATCH_PLAN}, ["chunk_id", "plan"])},
+    "memory": PLAN["properties"]["memory"],
+    "memory_updates": PLAN["properties"]["memory_updates"],
+}, ["plans"])
+BATCH["anyOf"] = [{"required": ["memory"]}, {"required": ["memory_updates"]}]
 ARGUMENT_SCHEMAS = {
     "index": _object({"offset": OFFSET, "limit": {"type": "integer", "minimum": 1, "maximum": 100}}, []),
     "read": _object({"chunk_id": TEXT}, ["chunk_id"]),
     "search": _object({"query": {**TEXT, "pattern": r"\S"}, "offset": OFFSET}, ["query"]),
     "remember": _object({"text": TEXT}, ["text"]),
     "save_plan": _object({"chunk_id": TEXT, "plan": PLAN}, ["chunk_id", "plan"]),
+    "save_batch": BATCH,
     "recall": _object({"chunk_id": TEXT}, ["chunk_id"]),
     "finish": _object({"summary": {"type": "string"}}, ["summary"]),
 }
@@ -62,9 +82,12 @@ def action_schemas(
     """Keep static actions compatible while making configured classification explicit."""
     arguments = deepcopy(ARGUMENT_SCHEMAS)
     if dimensions:
-        note = arguments["save_plan"]["properties"]["plan"]["properties"]["notes"]["items"]
-        note["properties"]["dimensions"] = dimension_schema(dimensions)
-        note["required"].append("dimensions")
+        plans = [arguments["save_plan"]["properties"]["plan"],
+                 arguments["save_batch"]["properties"]["plans"]["items"]["properties"]["plan"]]
+        for plan in plans:
+            note = plan["properties"]["notes"]["items"]
+            note["properties"]["dimensions"] = dimension_schema(dimensions)
+            note["required"].append("dimensions")
     action = deepcopy(ACTION_SCHEMA)
     action["properties"]["arguments"]["anyOf"] = list(arguments.values())
     return action, arguments

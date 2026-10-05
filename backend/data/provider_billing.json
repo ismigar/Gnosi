@@ -1,0 +1,588 @@
+{
+  "schema": 1,
+  "providers": {
+    "alibaba-token-plan": {
+      "kind": "subscription",
+      "source_url": "https://www.alibabacloud.com/help/en/model-studio/token-plan-personal-overview",
+      "checked_at": "2026-10-04",
+      "plans": [
+        {
+          "name": "Lite",
+          "monthly_fee": 8,
+          "currency": "USD",
+          "quota": 11500,
+          "quota_unit": "credits",
+          "quota_period": "month"
+        },
+        {
+          "name": "Essential",
+          "monthly_fee": 16,
+          "currency": "USD",
+          "quota": 25500,
+          "quota_unit": "credits",
+          "quota_period": "month"
+        },
+        {
+          "name": "Standard",
+          "monthly_fee": 25,
+          "currency": "USD",
+          "quota": 45000,
+          "quota_unit": "credits",
+          "quota_period": "month"
+        },
+        {
+          "name": "Pro",
+          "monthly_fee": 80,
+          "currency": "USD",
+          "quota": 180000,
+          "quota_unit": "credits",
+          "quota_period": "month"
+        }
+      ],
+      "notes": [
+        "regular_fee",
+        "credits_variable",
+        "interactive_only"
+      ],
+      "models": [
+        "auto",
+        "qwen3.8-max",
+        "qwen3.8-flash",
+        "qwen3.7-max",
+        "qwen3.7-plus",
+        "qwen3.6-flash",
+        "deepseek-v4.1-flash",
+        "deepseek-v4-pro",
+        "deepseek-v4-pro-0813",
+        "deepseek-v4-flash-0731",
+        "glm-5.3",
+        "glm-5.2"
+      ]
+    },
+    "alibaba-token-plan-cn": {
+      "kind": "subscription",
+      "source_url": "https://help.aliyun.com/zh/model-studio/token-plan-overview",
+      "checked_at": "2026-10-04",
+      "plans": [
+        {
+          "name": "Lite",
+          "monthly_fee": 60,
+          "currency": "CNY",
+          "quota": 11500,
+          "quota_unit": "credits",
+          "quota_period": "month"
+        },
+        {
+          "name": "Essential",
+          "monthly_fee": 120,
+          "currency": "CNY",
+          "quota": 25500,
+          "quota_unit": "credits",
+          "quota_period": "month"
+        },
+        {
+          "name": "Standard",
+          "monthly_fee": 180,
+          "currency": "CNY",
+          "quota": 45000,
+          "quota_unit": "credits",
+          "quota_period": "month"
+        },
+        {
+          "name": "Pro",
+          "monthly_fee": 600,
+          "currency": "CNY",
+          "quota": 180000,
+          "quota_unit": "credits",
+          "quota_period": "month"
+        }
+      ],
+      "notes": [
+        "regular_fee",
+        "credits_variable"
+      ]
+    },
+    "minimax-coding-plan": {
+      "kind": "subscription",
+      "source_url": "https://platform.minimax.io/docs/guides/pricing-token-plan",
+      "checked_at": "2026-10-04",
+      "plans": [
+        {
+          "name": "Plus",
+          "monthly_fee": 22,
+          "currency": "USD",
+          "quota": null,
+          "quota_unit": "usage",
+          "quota_period": "unknown"
+        },
+        {
+          "name": "Max",
+          "monthly_fee": 55,
+          "currency": "USD",
+          "quota": null,
+          "quota_unit": "usage",
+          "quota_period": "unknown"
+        },
+        {
+          "name": "Ultra",
+          "monthly_fee": 132,
+          "currency": "USD",
+          "quota": null,
+          "quota_unit": "usage",
+          "quota_period": "unknown"
+        }
+      ],
+      "notes": [
+        "rolling_limits",
+        "overage_possible"
+      ]
+    },
+    "minimax-cn-coding-plan": {
+      "kind": "subscription",
+      "source_url": "https://platform.minimax.cn/docs/guides/pricing-token-plan",
+      "checked_at": "2026-10-04",
+      "plans": [
+        {
+          "name": "Plus",
+          "monthly_fee": 49,
+          "currency": "CNY",
+          "quota": null,
+          "quota_unit": "usage",
+          "quota_period": "unknown"
+        },
+        {
+          "name": "Max",
+          "monthly_fee": 119,
+          "currency": "CNY",
+          "quota": null,
+          "quota_unit": "usage",
+          "quota_period": "unknown"
+        },
+        {
+          "name": "Ultra",
+          "monthly_fee": 469,
+          "currency": "CNY",
+          "quota": null,
+          "quota_unit": "usage",
+          "quota_period": "unknown"
+        }
+      ],
+      "notes": [
+        "rolling_limits"
+      ]
+    },
+    "zai-coding-plan": {
+      "kind": "subscription",
+      "source_url": "https://docs.z.ai/devpack/overview",
+      "checked_at": "2026-10-04",
+      "plans": [
+        {
+          "name": "Lite",
+          "monthly_fee": 18,
+          "currency": "USD",
+          "quota": 10000,
+          "quota_unit": "credits",
+          "quota_period": "week"
+        },
+        {
+          "name": "Pro",
+          "monthly_fee": null,
+          "currency": "USD",
+          "quota": 60000,
+          "quota_unit": "credits",
+          "quota_period": "week"
+        },
+        {
+          "name": "Max",
+          "monthly_fee": null,
+          "currency": "USD",
+          "quota": 140000,
+          "quota_unit": "credits",
+          "quota_period": "week"
+        }
+      ],
+      "notes": [
+        "rolling_limits",
+        "weekly_not_monthly"
+      ]
+    },
+    "scnet-token-plan": {
+      "kind": "subscription",
+      "source_url": "https://www.scnet.cn/ac/openapi/doc/2.0/moduleapi/plans/token-plan.html",
+      "checked_at": "2026-10-04",
+      "plans": [
+        {
+          "name": "Basic",
+          "monthly_fee": 50,
+          "currency": "CNY",
+          "quota": 60000,
+          "quota_unit": "credits",
+          "quota_period": "month"
+        },
+        {
+          "name": "Standard",
+          "monthly_fee": 185,
+          "currency": "CNY",
+          "quota": 240000,
+          "quota_unit": "credits",
+          "quota_period": "month"
+        },
+        {
+          "name": "Advanced",
+          "monthly_fee": 440,
+          "currency": "CNY",
+          "quota": 600000,
+          "quota_unit": "credits",
+          "quota_period": "month"
+        },
+        {
+          "name": "Flagship",
+          "monthly_fee": 1274,
+          "currency": "CNY",
+          "quota": 1800000,
+          "quota_unit": "credits",
+          "quota_period": "month"
+        }
+      ],
+      "notes": [
+        "regular_fee",
+        "credits_variable",
+        "interactive_only"
+      ]
+    },
+    "kimi-code-plan-global": {
+      "kind": "subscription",
+      "source_url": "https://www.kimi.com/code/docs/en/kimi-code/membership.html",
+      "checked_at": "2026-10-04",
+      "plans": [],
+      "notes": [
+        "rolling_limits",
+        "region_price_unknown"
+      ]
+    },
+    "kimi-code-plan-cn": {
+      "kind": "subscription",
+      "source_url": "https://www.kimi.com/code/docs/en/kimi-code/membership.html",
+      "checked_at": "2026-10-04",
+      "plans": [],
+      "notes": [
+        "rolling_limits"
+      ]
+    },
+    "opencode-go": {
+      "kind": "subscription",
+      "source_url": "https://opencode.ai/docs/go",
+      "checked_at": "2026-10-04",
+      "plans": [
+        {
+          "name": "Go",
+          "monthly_fee": 10,
+          "currency": "USD",
+          "quota": null,
+          "quota_unit": "usd",
+          "quota_period": "month"
+        },
+        {
+          "name": "Go Plus",
+          "monthly_fee": 40,
+          "currency": "USD",
+          "quota": null,
+          "quota_unit": "usd",
+          "quota_period": "month"
+        }
+      ],
+      "notes": [
+        "rolling_limits",
+        "coding_clients",
+        "full_allowance",
+        "no_cache_discount"
+      ],
+      "model_rates": {
+        "glm-5.3-flash": {
+          "input_units_per_million": 0.15,
+          "output_units_per_million": 0.5,
+          "quotas": [
+            60,
+            180
+          ]
+        },
+        "glm-5.3": {
+          "input_units_per_million": 1.4,
+          "output_units_per_million": 4.4,
+          "quotas": [
+            15,
+            120
+          ]
+        },
+        "glm-5.2": {
+          "input_units_per_million": 1.4,
+          "output_units_per_million": 4.4,
+          "quotas": [
+            60,
+            180
+          ]
+        },
+        "kimi-k3": {
+          "input_units_per_million": 3,
+          "output_units_per_million": 15,
+          "quotas": [
+            15,
+            60
+          ]
+        },
+        "kimi-k2.7-code": {
+          "input_units_per_million": 0.95,
+          "output_units_per_million": 4,
+          "quotas": [
+            60,
+            180
+          ]
+        },
+        "kimi-k2.6": {
+          "input_units_per_million": 0.95,
+          "output_units_per_million": 4,
+          "quotas": [
+            60,
+            240
+          ]
+        },
+        "longcat-2.0": {
+          "input_units_per_million": 0.3,
+          "output_units_per_million": 1.2,
+          "quotas": [
+            60,
+            240
+          ]
+        },
+        "mimo-v2.6-flash": {
+          "input_units_per_million": 0.14,
+          "output_units_per_million": 0.28,
+          "quotas": [
+            60,
+            120
+          ]
+        },
+        "mimo-v2.6-pro": {
+          "input_units_per_million": 0.435,
+          "output_units_per_million": 0.87,
+          "quotas": [
+            15,
+            60
+          ]
+        },
+        "mimo-v2.5": {
+          "input_units_per_million": 0.14,
+          "output_units_per_million": 0.28,
+          "quotas": [
+            60,
+            120
+          ]
+        },
+        "mimo-v2.5-pro": {
+          "input_units_per_million": 0.435,
+          "output_units_per_million": 0.87,
+          "quotas": [
+            15,
+            60
+          ]
+        },
+        "minimax-m3": {
+          "input_units_per_million": 0.3,
+          "output_units_per_million": 1.2,
+          "quotas": [
+            60,
+            180
+          ]
+        },
+        "minimax-m2.7": {
+          "input_units_per_million": 0.3,
+          "output_units_per_million": 1.2,
+          "quotas": [
+            60,
+            240
+          ]
+        },
+        "muse-spark-1.3-contributor": {
+          "input_units_per_million": 0.1,
+          "output_units_per_million": 0.2,
+          "quotas": [
+            60,
+            120
+          ]
+        },
+        "muse-spark-1.2-contributor": {
+          "input_units_per_million": 0.1,
+          "output_units_per_million": 0.2,
+          "quotas": [
+            60,
+            120
+          ]
+        },
+        "qwen3.8-max": {
+          "input_units_per_million": 2,
+          "output_units_per_million": 6,
+          "quotas": [
+            15,
+            60
+          ]
+        },
+        "qwen3.8-flash": {
+          "input_units_per_million": 0.15,
+          "output_units_per_million": 0.47,
+          "quotas": [
+            30,
+            90
+          ]
+        },
+        "hy4-preview": {
+          "input_units_per_million": 0.834,
+          "output_units_per_million": 2.501,
+          "quotas": [
+            30,
+            120
+          ]
+        },
+        "hy3": {
+          "input_units_per_million": 0.14,
+          "output_units_per_million": 0.58,
+          "quotas": [
+            60,
+            240
+          ]
+        }
+      }
+    },
+    "kenari": {
+      "kind": "unknown",
+      "source_url": "https://kenari.id/docs/langganan",
+      "checked_at": "2026-10-04",
+      "plans": [],
+      "notes": [
+        "optional_subscription",
+        "public_prices_missing"
+      ]
+    },
+    "umans-ai-coding-plan": {
+      "kind": "metered",
+      "source_url": "https://app.umans.ai/offers/code/docs",
+      "checked_at": "2026-10-04",
+      "plans": [],
+      "notes": [
+        "plans_retired"
+      ],
+      "model_rates": {
+        "umans-kimi-k3": {
+          "input_units_per_million": 3,
+          "output_units_per_million": 15
+        },
+        "umans-glm-5.3": {
+          "input_units_per_million": 1.4,
+          "output_units_per_million": 4.4
+        },
+        "umans-glm-5.3-flash": {
+          "input_units_per_million": 0.15,
+          "output_units_per_million": 0.5
+        },
+        "umans-deepseek-v4-flash-0731": {
+          "input_units_per_million": 0.14,
+          "output_units_per_million": 0.28
+        },
+        "umans-deepseek-v4.1-flash": {
+          "input_units_per_million": 0.15,
+          "output_units_per_million": 0.6
+        }
+      }
+    },
+    "openrouter": {
+      "kind": "metered",
+      "source_url": "https://openrouter.ai/docs/api-reference/limits",
+      "checked_at": "2026-10-04",
+      "plans": [],
+      "free_suffixes": [
+        ":free"
+      ]
+    },
+    "tencent-token-plan": {
+      "kind": "subscription",
+      "source_url": "https://cloud.tencent.com/document/product/1823/130060",
+      "checked_at": "2026-10-04",
+      "plans": [
+        {
+          "name": "Lite",
+          "monthly_fee": 28,
+          "currency": "CNY",
+          "quota": 560,
+          "quota_unit": "credits",
+          "quota_period": "month"
+        },
+        {
+          "name": "Standard",
+          "monthly_fee": 78,
+          "currency": "CNY",
+          "quota": 1560,
+          "quota_unit": "credits",
+          "quota_period": "month"
+        },
+        {
+          "name": "Pro",
+          "monthly_fee": 238,
+          "currency": "CNY",
+          "quota": 4760,
+          "quota_unit": "credits",
+          "quota_period": "month"
+        },
+        {
+          "name": "Max",
+          "monthly_fee": 468,
+          "currency": "CNY",
+          "quota": 9360,
+          "quota_unit": "credits",
+          "quota_period": "month"
+        }
+      ],
+      "notes": [
+        "regular_fee",
+        "interactive_only"
+      ],
+      "rate_source_url": "https://cloud.tencent.com/document/product/1823/133811",
+      "model_rates": {
+        "hy3": {
+          "input_units_per_million": [
+            16,
+            15.6,
+            14.875,
+            14.4
+          ],
+          "output_units_per_million": [
+            16,
+            15.6,
+            14.875,
+            14.4
+          ]
+        },
+        "hy3-preview": {
+          "input_units_per_million": [
+            16,
+            15.6,
+            14.875,
+            14.4
+          ],
+          "output_units_per_million": [
+            16,
+            15.6,
+            14.875,
+            14.4
+          ]
+        },
+        "hy3-202608": {
+          "input_units_per_million": 20,
+          "output_units_per_million": 80
+        },
+        "hy4-preview": {
+          "input_units_per_million": 120,
+          "output_units_per_million": 360
+        }
+      }
+    }
+  }
+}

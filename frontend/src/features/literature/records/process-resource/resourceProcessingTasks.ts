@@ -6,6 +6,10 @@ import { resourceProcessingError } from '../../../../shared/notifications/resour
 import { countTouchedPages, getPollingIdentifier, getStartErrorMessage, getTerminalProcessState, POLL_INTERVAL_MS, type ProcessResourceState } from './processResourceModel';
 
 export interface ResourceProcessingTask {
+    readonly reprocess?: boolean;
+    readonly budgetLimit?: number;
+    readonly batchSize?: number;
+    readonly estimateId?: string;
     readonly id: string;
     readonly noteId: string;
     readonly sourceTableId?: string;
@@ -16,7 +20,7 @@ export interface ResourceProcessingTask {
     readonly background: boolean;
 }
 
-type TaskInput = Pick<ResourceProcessingTask, 'noteId' | 'sourceTableId' | 'title'>;
+type TaskInput = Pick<ResourceProcessingTask, 'reprocess' | 'noteId' | 'sourceTableId' | 'title' | 'budgetLimit' | 'batchSize' | 'estimateId'>;
 interface Poller {
     timer?: ReturnType<typeof setInterval>;
     request?: AbortController;
@@ -89,7 +93,10 @@ export async function startResourceProcessingTask(input: TaskInput, force: boole
     publish();
     const current = (): boolean => pollers.get(id) === poller;
     try {
-        const response = await startResourceProcessing({ force: force && !previous, resource_id: input.noteId, source_table_id: input.sourceTableId });
+        const response = await startResourceProcessing({ force: force && (!previous || input.reprocess === true), resource_id: input.noteId, source_table_id: input.sourceTableId,
+            ...(input.budgetLimit !== undefined ? { max_cost_usd: input.budgetLimit } : {}),
+            ...(input.batchSize !== undefined ? { batch_size: input.batchSize } : {}),
+            ...(input.estimateId ? { estimate_id: input.estimateId } : {}) });
         if (!current()) return;
         if (applyJob(id, response.job, t)) return;
         const identifier = getPollingIdentifier(response, input.noteId);
@@ -111,9 +118,9 @@ export async function startResourceProcessingTask(input: TaskInput, force: boole
     } catch (error: unknown) {
         if (!current()) return;
         stop(id);
-        const message = getStartErrorMessage(error,
+        const message = resourceProcessingError(getStartErrorMessage(error,
             t('llm_wiki.error_no_brain_table', { defaultValue: 'No Brain table is configured. Create one in Settings → Plugins → LLM Wiki.' }),
-            t('llm_wiki.error_generic', { defaultValue: 'Error processing the resource' }));
+            t('llm_wiki.error_generic', { defaultValue: 'Error processing the resource' })), t);
         update(id, { state: 'error', error: message });
         toast.error(message);
     }

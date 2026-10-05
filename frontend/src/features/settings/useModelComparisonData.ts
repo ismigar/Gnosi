@@ -1,6 +1,7 @@
+import { GnosiApiError } from '../../shared/api/errors';
 import { INITIAL_DATA_STATE, modelComparisonDataReducer, type ModelComparisonDataState } from './model-comparison/modelComparisonDataState';
 import { useRegistryMutation } from './model-comparison/useRegistryMutation';
-import { useEffect, useMemo, useReducer, useRef } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import {
     comparisonRoutesForMode,
@@ -34,7 +35,18 @@ import {
 const signalIsAborted = (signal: AbortSignal): boolean => signal.aborted;
 
 
+export interface ModelDetachConfirmation {
+    readonly model: AiModelComparisonEntry;
+    readonly provider: string;
+    readonly revision: string;
+    readonly agents: readonly { id: string; name: string }[];
+    readonly routes: readonly { provider: string; model: string }[];
+}
+
 export interface ModelComparisonDataController {
+    readonly detachConfirmation: ModelDetachConfirmation | null;
+    readonly cancelDeactivation: () => void;
+    readonly confirmDeactivation: () => Promise<void>;
     readonly beginActivation: (model: AiModelComparisonEntry, preferredProvider?: string) => void;
     readonly changeSetupMode: (mode: ComparisonSetupMode) => void;
     readonly changeSetupProvider: (providerId: string) => void;
@@ -50,8 +62,6 @@ export interface ModelComparisonDataController {
     ) => readonly ResolvedComparisonRoute[];
     readonly saveArtificialAnalysisApiKey: () => Promise<void>;
     readonly setApiKeyInput: (value: string) => void;
-    readonly saveModelAlias: (entry: AiModelRegistryEntry, alias: string) => Promise<void>;
-    readonly setSetupAlias: (value: string) => void;
     readonly setSetupApiKey: (value: string) => void;
     readonly setSetupBaseUrl: (value: string) => void;
     readonly state: ModelComparisonDataState;
@@ -60,7 +70,9 @@ export interface ModelComparisonDataController {
 
 export function useModelComparisonData(
     isOpen: boolean,
+    onDetached?: (routes: readonly { provider: string; model: string }[]) => void,
 ): ModelComparisonDataController {
+    const [detachConfirmation, setDetachConfirmation] = useState<ModelDetachConfirmation | null>(null);
     const activationVersion = useRef(0);
     const [state, dispatch] = useReducer(
         modelComparisonDataReducer,
@@ -162,7 +174,6 @@ export function useModelComparisonData(
             ?? null;
         const provider = route ? providersById[route.provider] : null;
         return {
-            alias: state.registry.models.find(entry => entry.provider === route?.provider && entry.model_id === route.model_id)?.alias || '',
             apiKey: '',
             baseUrl: provider?.base_url ?? provider?.api ?? '',
             error: '',
@@ -208,7 +219,7 @@ export function useModelComparisonData(
         activationVersion.current += 1;
         if (!state.setup) return;
         dispatch({
-            setup: { ...setupForMode(state.setup.model, mode), alias: state.setup.alias },
+            setup: setupForMode(state.setup.model, mode),
             type: 'set-setup',
         });
     };
@@ -236,6 +247,7 @@ export function useModelComparisonData(
     const deactivateModel = async (
         model: AiModelComparisonEntry,
         provider = 'all',
+        confirmation?: ModelDetachConfirmation,
     ): Promise<void> => {
         dispatch({ modelId: model.id, type: 'set-busy-model' });
         dispatch({ message: null, type: 'set-action-message' });
@@ -245,7 +257,9 @@ export function useModelComparisonData(
                 return latest.map((entry, index) => (
                     indexes.has(index) ? { ...entry, enabled: false } : entry
                 ));
-            });
+            }, undefined, confirmation?.revision);
+            if (confirmation) onDetached?.(confirmation.routes);
+            setDetachConfirmation(null);
             dispatch({
                 message: {
                     key: 'model_disabled',
@@ -255,6 +269,16 @@ export function useModelComparisonData(
                 type: 'set-action-message',
             });
         } catch (error: unknown) {
+            if (error instanceof GnosiApiError && error.status === 409 && error.payload && typeof error.payload === 'object' && 'detail' in error.payload) {
+                const detail = error.payload.detail;
+                if (detail && typeof detail === 'object' && 'code' in detail && detail.code === 'model_in_use' && 'confirmation_revision' in detail && typeof detail.confirmation_revision === 'string' && 'agents' in detail && Array.isArray(detail.agents) && 'routes' in detail && Array.isArray(detail.routes)) {
+                    setDetachConfirmation({ model, provider, revision: detail.confirmation_revision,
+                        agents: detail.agents.filter((value: unknown): value is { id: string; name: string } => Boolean(value && typeof value === 'object' && 'id' in value && typeof value.id === 'string' && 'name' in value && typeof value.name === 'string')),
+                        routes: detail.routes.filter((value: unknown): value is { provider: string; model: string } => Boolean(value && typeof value === 'object' && 'provider' in value && typeof value.provider === 'string' && 'model' in value && typeof value.model === 'string')),
+                    });
+                    return;
+                }
+            }
             logError('ai-model-comparison-disable', error);
             dispatch({
                 message: { key: 'configuration_save_error', type: 'error' },
@@ -334,7 +358,7 @@ export function useModelComparisonData(
         dispatch({ patch: { error: '' }, type: 'patch-setup' });
         try {
             const newEntry: AiModelRegistryEntry =
-                { ...comparisonRouteToRegistryEntry(selectedRoute), alias: setup.alias?.trim() || '' };
+                comparisonRouteToRegistryEntry(selectedRoute);
             if (!provider.enabled || !provider.connected) {
                 await setAiProviderStatus(provider.id, { enabled: true });
             }
@@ -377,11 +401,9 @@ export function useModelComparisonData(
     };
 
     return {
-        saveModelAlias: async (entry, alias) => {
-            await saveRegistry(latest => latest.map(row => row.provider === entry.provider && row.model_id === entry.model_id
-                ? { ...row, alias: alias.trim() } : row));
-        },
-        setSetupAlias: value => { dispatch({ patch: { alias: value }, type: 'patch-setup' }); },
+        detachConfirmation,
+        cancelDeactivation: () => { setDetachConfirmation(null); },
+        confirmDeactivation: async () => { if (detachConfirmation) await deactivateModel(detachConfirmation.model, detachConfirmation.provider, detachConfirmation); },
         beginActivation,
         changeSetupMode,
         changeSetupProvider,

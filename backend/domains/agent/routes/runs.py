@@ -16,6 +16,9 @@ router = APIRouter(prefix="/api/agent/runs", tags=["Agent runs"], dependencies=[
     Depends(require_plugins("ai-platform")), Depends(bind_request_scope),
 ])
 
+from backend.domains.agent.routes.task_evaluations import router as task_evaluation_router
+router.include_router(task_evaluation_router)
+
 
 class TraceRetention(BaseModel):
     days: int = Field(default=30, ge=1, le=3650)

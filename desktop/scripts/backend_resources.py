@@ -237,6 +237,7 @@ DATA_FILES = (
     "backend/agent/behavior/system/repair.md",
 
     "backend/data/model_catalog.json",
+    "backend/data/provider_billing.json",
     "backend/domains/genograms/option_labels.json",
     "backend/config/stopwords.json",
     "config/stopwords.json",

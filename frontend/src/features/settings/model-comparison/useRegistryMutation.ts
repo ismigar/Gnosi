@@ -5,13 +5,14 @@ import type { ModelRegistryState } from '../modelComparison';
 /** Serialize edits and re-read persisted configuration before each change. */
 export function useRegistryMutation(onSaved: (registry: ModelRegistryState) => void) {
     const pending = useRef<Promise<void>>(Promise.resolve());
-    return (change: (models: readonly AiModelRegistryEntry[]) => readonly AiModelRegistryEntry[], isCurrent = () => true) => {
+    return (change: (models: readonly AiModelRegistryEntry[]) => readonly AiModelRegistryEntry[], isCurrent = () => true, detachAgentsRevision?: string) => {
         const operation = pending.current.then(async () => {
             if (!isCurrent()) return;
             const latest = await fetchAiModels();
             if (!isCurrent()) return;
             const models = [...change(latest.configured_models)];
             await updateAiModels({ models, budget: latest.budget,
+                ...(detachAgentsRevision ? { detach_agents_revision: detachAgentsRevision } : {}),
                 ...(latest.revision ? { expected_revision: latest.revision } : {}),
             });
             onSaved({ models, budget: latest.budget });

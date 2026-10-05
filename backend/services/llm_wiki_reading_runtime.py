@@ -29,7 +29,25 @@ class ReadingRuntime:
 
     def count_tokens(self, text: str) -> int:
         from backend.services.agent_context_budget import count_tokens
-        return count_tokens(text, self.model if self.snapshot.behavior_resources else "").tokens
+        from backend.services.agent_behavior import operation_input
+        from langchain_core.messages import HumanMessage
+
+        # The operation wraps the JSON reading prompt in another JSON envelope,
+        # then the central budget measures serialized messages. Counting only
+        # the raw prompt misses escaping and the repeated output schema, which
+        # can reject a whole-source delivery before its first model call.
+        try:
+            envelope = json.loads(text)
+        except ValueError:
+            envelope = None
+        schema = envelope.get("output_schema") if isinstance(envelope, dict) else None
+        request = AgentOperation(
+            skill_id=SKILL_ID, operation="knowledge.process-source.phase", input=text,
+            output_schema=schema if isinstance(schema, dict) else {"type": "object"},
+        )
+        message = HumanMessage(content=operation_input(request))
+        serialized = json.dumps([message.model_dump(mode="json")], ensure_ascii=False)
+        return count_tokens(serialized, self.model if self.snapshot.behavior_resources else "").tokens
 
     @property
     def identity(self) -> str:
@@ -44,6 +62,10 @@ class ReadingRuntime:
         return hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode()).hexdigest()
 
     @property
+    def reading_engine(self) -> str:
+        return "semantic" if self.snapshot.behavior_resources else "legacy"
+
+    @property
     def metadata(self) -> dict[str, object]:
         return {
             "agent_id": self.agent_id,
@@ -51,6 +73,7 @@ class ReadingRuntime:
             "model": self.model,
             "skill_id": SKILL_ID,
             "skill_version": SKILL_VERSION,
+            "reading_engine": self.reading_engine,
             "execution_revision": self.identity,
         }
 
@@ -88,9 +111,20 @@ class ReadingRuntime:
                 validate(answer)
             except (TypeError, KeyError) as error:
                 raise ValueError(str(error)) from error
-            return text
+            # Validation can restore an unambiguously omitted segment digest.
+            # Persist the canonical answer, not the provider's rejected spelling.
+            return json.dumps(answer, ensure_ascii=False)
         def repair(text: str, error: Exception) -> OutputRepair | None:
-            plan = build_reading_repair(prompt, text, error)
+            from backend.domains.llm_wiki.reading_dimension_repairs import build_dimension_repair
+            # A schema rejection can hide bad citations in the same draft.
+            # Collect both before spending another call on a full rewrite.
+            if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic":
+                from backend.domains.llm_wiki.semantic_repairs import build_semantic_repair
+                semantic_repair = build_semantic_repair(prompt, text)
+                return semantic_repair if semantic_repair is not None and self.count_tokens(semantic_repair.input) <= self.input_budget else None
+            plan = build_dimension_repair(prompt, text, validate)
+            if plan is None:
+                plan = build_reading_repair(prompt, text, error)
             if plan is not None and self.count_tokens(plan.input) > self.input_budget:
                 return None
             return plan
@@ -98,7 +132,17 @@ class ReadingRuntime:
             input=prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
             # A syntax correction can expose reference errors. Allow their one
             # immutable patch within the same finite operation deadline.
-            output_schema=schema, max_model_calls=3), snapshot=self.snapshot, output_validator=checked, output_repair=repair)
+            output_schema=schema, max_model_calls=2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3), snapshot=self.snapshot, output_validator=checked, output_repair=repair)
+        return result.result, result.model
+
+    def generate_prose(self, prompt: str, validate: Callable[[str], str], timeout: int) -> tuple[str, str]:
+        """Argument maps are prose; the application serializes their checkpoint."""
+        from backend.services.agent_execution import run_sync
+        if self.count_tokens(prompt) > self.input_budget:
+            raise RuntimeError("The reading input exceeds the selected model's context budget")
+        result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
+            input=prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
+            max_model_calls=2), snapshot=self.snapshot, output_validator=validate)
         return result.result, result.model
 
 
@@ -117,7 +161,9 @@ def prepare_reading_runtime(vault_root: str | Path) -> ReadingRuntime:
     instructions = snapshot_instruction_text(snapshot)
     window = _model_context_window(provider, model)
     from backend.services.agent_context_budget import count_tokens
-    budget = window - max(2_048, window // 4) - count_tokens(instructions, model if snapshot.behavior_resources else "").tokens - 512
+    from langchain_core.messages import SystemMessage
+    system = json.dumps([SystemMessage(content=instructions).model_dump(mode="json")], ensure_ascii=False)
+    budget = window - max(2_048, window // 4) - count_tokens(system, model if snapshot.behavior_resources else "").tokens - 512
     if budget < 4_000:
         raise RuntimeError("Choose a model with a larger context window for source reading")
     return ReadingRuntime(snapshot.agent_id, provider, model, instructions, budget, snapshot)

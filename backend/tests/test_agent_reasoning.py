@@ -76,14 +76,14 @@ def test_settings_validate_and_persist_effort_without_losing_other_agent_fields(
     agent = {"id": "sources", "provider": "openrouter", "model": LUNA,
              "reasoning_effort": "medium", "persona": "Preserve sources", "skill_ids": ["search"]}
     payload = {"ai": {"agents": [agent]}}
-    merged = {}
+    merged = {"ai": {"agents": [dict(agent)]}}
     settings._validate_agent_strategies(payload, merged)
     path = tmp_path / "settings.yaml"
     settings._write_config(path, merged)
     assert yaml.safe_load(path.read_text())["ai"]["agents"][0].items() >= agent.items()
     agent["reasoning_effort"] = "minimal"  # Luna does not support this gateway level.
     with pytest.raises(HTTPException) as error:
-        settings._validate_agent_strategies(payload, {})
+        settings._validate_agent_strategies(payload, {"ai": {"agents": [dict(agent)]}})
     assert error.value.status_code == 400
     assert yaml.safe_load(path.read_text())["ai"]["agents"][0]["reasoning_effort"] == "medium"
 
