@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({ preview: vi.fn(), run: vi.fn(), complete: vi.f
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('../../../shared/hooks/useActiveVaultId', () => ({ useActiveVaultId: () => 'vault' }));
 vi.mock('../../../shared/api/ai-activity', () => ({ previewTaskEvaluation: mocks.preview, runTaskEvaluation: mocks.run,
-    fetchTaskEvaluationSuite: mocks.suite, reviewTaskEvaluation: vi.fn() }));
+    fetchTaskEvaluationSuite: mocks.suite, exportPublicTaskEvaluation: vi.fn(), reviewTaskEvaluation: vi.fn() }));
 let root: Root;
 let container: HTMLDivElement;
 beforeEach(() => {
@@ -107,4 +107,14 @@ it('does not open setup when configuration actions are disabled', async () => {
     expect(container.querySelector<HTMLButtonElement>('button')?.disabled).toBe(true);
     await act(async () => { container.querySelector<HTMLButtonElement>('button')?.click(); await Promise.resolve(); });
     expect(configure).not.toHaveBeenCalled(); expect(mocks.run).not.toHaveBeenCalled();
+});
+it('allows opting out of shared reuse and requests a fresh cost preview before consent', async () => {
+    await mount(); await open();
+    expect(mocks.preview.mock.calls.at(-1)?.[0]).toMatchObject({ use_shared: true });
+    const toggle = container.querySelector<HTMLElement>('[role="switch"][aria-label="model_comparison.shared.reuse"]');
+    if (!toggle) throw new Error('Missing shared-result choice');
+    await act(async () => { toggle.click(); await Promise.resolve(); });
+    expect(mocks.preview.mock.calls.at(-1)?.[0]).toMatchObject({ use_shared: false, authorize_model_calls: false });
+    expect(container.querySelector<HTMLButtonElement>('button.btn-gnosi')?.disabled).toBe(true);
+    expect(mocks.run).not.toHaveBeenCalled();
 });

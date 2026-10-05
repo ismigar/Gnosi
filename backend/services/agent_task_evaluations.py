@@ -33,7 +33,7 @@ def _row(request: TaskEvaluationRequest, registry: list[dict[str, Any]]) -> dict
     return row
 
 
-def _cache(scope: ExecutionScope, request: TaskEvaluationRequest) -> dict[str, TaskCaseResult]:
+def _cache(scope: ExecutionScope, request: TaskEvaluationRequest, public_parameters: dict[str, Any] | None = None) -> dict[str, TaskCaseResult]:
     results: dict[str, TaskCaseResult] = {}
     if request.retest:
         return results
@@ -42,13 +42,22 @@ def _cache(scope: ExecutionScope, request: TaskEvaluationRequest) -> dict[str, T
         if (report.provider, report.model, report.version, report.mode) != (
                 request.provider, request.model, suite_version(request.suite), suite_mode(request.suite)):
             continue
+        if report.public_parameters is not None and report.public_parameters != public_parameters:
+            continue
         for case in report.cases:
+            # Reconsult the bank for shared evidence; withdrawal/disagreement must take effect.
+            if case.evidence_origin == 'shared':
+                continue
             if case.failure not in {'', 'contract_mismatch'}:
                 continue
             age = (datetime.now(timezone.utc) - datetime.fromisoformat(case.checked_at)).total_seconds()
             previous = results.get(case.id)
             if age >= 0 and (previous is None or (previous.checked_at, previous.reviewed_at) < (case.checked_at, case.reviewed_at)):
                 results[case.id] = case.model_copy(update={'reused_from': case.reused_from or report.id})
+    if request.use_shared and request.suite == 'work':
+        from backend.services.shared_task_evaluations import cached_cases
+        for identifier, case in cached_cases(request.provider, request.model, public_parameters).items():
+            results.setdefault(identifier, case)
     return results
 
 
@@ -58,10 +67,10 @@ def _bound(case: TaskCase, row: dict[str, Any], limit: int) -> float | None:
     return None if value is None else value * 1.1
 
 
-def plan(request: TaskEvaluationRequest, scope: ExecutionScope, registry: list[dict[str, Any]]) -> TaskEvaluationPlan:
+def plan(request: TaskEvaluationRequest, scope: ExecutionScope, registry: list[dict[str, Any]], public_parameters: dict[str, Any] | None = None) -> TaskEvaluationPlan:
     row = _row(request, registry)
     selected = selected_cases(request.tasks, request.suite)
-    cached = _cache(scope, request)
+    cached = _cache(scope, request, public_parameters)
     reused = [cached[case.id] for case in selected if case.id in cached]
     pending = [case for case in selected if case.id not in cached]
     limit = output_limit(request.suite)
@@ -119,16 +128,16 @@ def _result(case: TaskCase, response: Any, row: dict[str, Any], latency: int, fa
 
 
 def run(request: TaskEvaluationRequest, scope: ExecutionScope, registry: list[dict[str, Any]],
-        invoke: Callable[[str, str], Any]) -> TaskEvaluationReport:
+        invoke: Callable[[str, str], Any], public_parameters: dict[str, Any] | None = None) -> TaskEvaluationReport:
     if scope.role not in {'admin', 'owner'} or not request.authorize_model_calls:
         raise PermissionError('authorization_required')
     with _claim(scope, request):
-        return _run(request, scope, registry, invoke)
+        return _run(request, scope, registry, invoke, public_parameters)
 
 
 def _run(request: TaskEvaluationRequest, scope: ExecutionScope, registry: list[dict[str, Any]],
-         invoke: Callable[[str, str], Any]) -> TaskEvaluationReport:
-    preview = plan(request, scope, registry)
+         invoke: Callable[[str, str], Any], public_parameters: dict[str, Any] | None = None) -> TaskEvaluationReport:
+    preview = plan(request, scope, registry, public_parameters)
     if not preview.can_run:
         raise ValueError(preview.reason)
     identifier = uuid.uuid4().hex
@@ -140,7 +149,7 @@ def _run(request: TaskEvaluationRequest, scope: ExecutionScope, registry: list[d
     report = TaskEvaluationReport(id=identifier, agent_id=request.agent_id, provider=request.provider, model=request.model,
         created_at=_now(), tasks=list(dict.fromkeys(request.tasks)), cases=preview.reused_cases,
         reused_cases=len(preview.reused_cases), budget_usd=request.budget_usd,
-        version=suite_version(request.suite), mode=suite_mode(request.suite))
+        version=suite_version(request.suite), mode=suite_mode(request.suite), public_parameters=public_parameters)
     reading_budget.configure(request.budget_usd, identifier)
     try:
         with reading_budget.session(identifier):

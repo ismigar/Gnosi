@@ -126,3 +126,15 @@ export type ParameterReviewResponse = components['schemas']['ParameterReviewResp
 export async function reviewModelParameters(body: ParameterReviewRequest): Promise<ParameterReviewResponse> {
     return unwrapApiResult<ParameterReviewResponse, unknown>(await apiClient.POST('/api/ai/model-parameters/review', { body }));
 }
+
+export type SharedEvaluationBank = components['schemas']['SharedEvaluationBank'];
+export async function fetchSharedTaskEvaluations(signal?: AbortSignal, refresh = false): Promise<SharedEvaluationBank> {
+    return unwrapApiResult<SharedEvaluationBank, unknown>(await apiClient.GET('/api/agent/runs/shared-task-evaluations', {
+        params: { query: { refresh } }, signal,
+    }));
+}
+export async function exportPublicTaskEvaluation(reportId: string): Promise<Record<string, unknown>> {
+    return unwrapApiResult<Record<string, unknown>, unknown>(await apiClient.GET('/api/agent/runs/task-evaluations/{report_id}/public-export', {
+        params: { path: { report_id: reportId } },
+    }));
+}

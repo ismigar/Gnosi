@@ -5,6 +5,7 @@ import { useActiveVaultId } from '../../../shared/hooks/useActiveVaultId';
 import { previewTaskEvaluation, runTaskEvaluation, fetchTaskEvaluationSuite, type TaskEvaluationPlan, type TaskEvaluationRequest, type TaskEvaluationReport, type TaskEvaluationSuite } from '../../../shared/api/ai-activity';
 import { formatComparisonCost } from '../modelComparison';
 import type { TaskId } from './taskRecommendations';
+import { ModelTaskPublicExport } from './ModelTaskPublicExport';
 import { ModelTaskSampleResults } from './ModelTaskSampleResults';
 
 type EvaluationProps = {
@@ -42,6 +43,7 @@ function EvaluationSession({ agentId, provider, model, tasks, currency, active, 
     const isOpen = useRef(open);
     useLayoutEffect(() => { isOpen.current = open; }, [open]);
     const [budget, setBudget] = useState(String(Number((.05 * currency.usd_rate).toFixed(4))));
+    const [useShared, setUseShared] = useState(true);
     const [retest, setRetest] = useState(false);
     const [authorized, setAuthorized] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -68,7 +70,7 @@ function EvaluationSession({ agentId, provider, model, tasks, currency, active, 
             setPlan(null); setAuthorized(false); setError('');
             if (!open) return;
             const body: TaskEvaluationRequest = { agent_id: agentId, provider, model, tasks: JSON.parse(taskKey) as TaskId[],
-                budget_usd: limit, retest, authorize_model_calls: false, suite: 'work' };
+                budget_usd: limit, retest, authorize_model_calls: false, suite: 'work', use_shared: useShared };
             const [preview, samples] = await Promise.all([
                 active && valid ? previewTaskEvaluation(body, controller.signal) : Promise.resolve(null),
                 fetchTaskEvaluationSuite(controller.signal),
@@ -76,7 +78,7 @@ function EvaluationSession({ agentId, provider, model, tasks, currency, active, 
             if (!controller.signal.aborted) { setPlan(preview); setSuite(samples); setCheckedAt(Date.now()); }
         }).catch(() => { if (!controller.signal.aborted) setError('preview_error'); });
         return () => { controller.abort(); };
-    }, [open, active, valid, agentId, provider, model, taskKey, limit, retest, vault, revision]);
+    }, [open, active, valid, agentId, provider, model, taskKey, limit, retest, useShared, vault, revision]);
     const money = (usd: number) => formatComparisonCost(usd * currency.usd_rate, currency.symbol);
     const run = async () => {
         if (inFlight.current || !active || !authorized || !plan?.can_run || !valid) return;
@@ -84,7 +86,7 @@ function EvaluationSession({ agentId, provider, model, tasks, currency, active, 
         inFlight.current = true; setBusy(true); onBusyChange?.(true); setError(''); setStatus('');
         try {
             const report = await runTaskEvaluation({ agent_id: agentId, provider, model, tasks: [...tasks],
-                budget_usd: limit, retest, authorize_model_calls: true, suite: 'work' });
+                budget_usd: limit, retest, authorize_model_calls: true, suite: 'work', use_shared: useShared });
             if (!mounted.current || activeVault.current !== requestedVault) return;
             setStatus(report.status === 'completed' ? 'completed' : 'stopped');
             setLastReport(report);
@@ -121,6 +123,9 @@ function EvaluationSession({ agentId, provider, model, tasks, currency, active, 
                     <input className="gnosi-input" value={budget} disabled={busy} type="number" min="0.0001" step="0.01"
                         onChange={event => { setBudget(event.target.value); setAuthorized(false); }} />
                 </label>
+                <div className="agent-evaluation-lab__authorization"><span>{t('model_comparison.shared.reuse')}</span>
+                    <GnosiToggle label={t('model_comparison.shared.reuse')} active={useShared} disabled={busy}
+                        onChange={() => { setUseShared(value => !value); setAuthorized(false); }} /></div>
                 <div className="agent-evaluation-lab__authorization"><span>{t('model_comparison.tests.retest')}</span>
                     <GnosiToggle label={t('model_comparison.tests.retest')} active={retest} disabled={busy}
                         onChange={() => { setRetest(value => !value); setAuthorized(false); }} /></div>
@@ -130,6 +135,7 @@ function EvaluationSession({ agentId, provider, model, tasks, currency, active, 
                         cost: plan.maximum_cost_usd === null ? t('model_comparison.unknown_cost') : money(plan.maximum_cost_usd) })}</p>
                     {results.length > 0 && <ul>{results.map(item => <li key={item.id}>
                         {t(`model_comparison.tests.metrics.${item.metric}`)}: {t(item.passed ? 'agent_team.lab_pass' : 'agent_team.lab_fail')}
+                        {item.evidence_origin === 'shared' && ` · ${t('model_comparison.shared.case', { count: item.observations, users: item.contributors })}`}
                         {' · '}{item.checked_at.slice(0, 10)} · {(item.latency_ms / 1000).toFixed(2)} s
                         {' · '}{item.cost_usd == null ? t('model_comparison.unknown_cost') : money(item.cost_usd)}
                         {' '}{t(`model_comparison.tests.cost_${item.cost_source}`)}
@@ -153,6 +159,8 @@ function EvaluationSession({ agentId, provider, model, tasks, currency, active, 
             {lastReport && <p>{t('model_comparison.tests.summary', { calls: lastReport.model_calls, reused: lastReport.reused_cases,
                 cost: lastReport.cost_usd == null ? t('model_comparison.unknown_cost') : money(lastReport.cost_usd),
                 reserved: money(lastReport.reserved_usd) })}</p>}
+            <ModelTaskPublicExport key={JSON.stringify([lastReport?.id, results.map(item => item.reused_from)])}
+                reportIds={[...new Set([...(lastReport?.public_parameters ? [lastReport.id] : []), ...results.filter(item => item.evidence_origin !== 'shared' && item.reused_from).map(item => item.reused_from)])]} disabled={busy} />
             {error && <p role="alert">{t(`model_comparison.tests.${error}`)}</p>}
         </>}
     </details>;

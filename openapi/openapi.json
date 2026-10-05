@@ -32466,6 +32466,48 @@
         "title": "ShareListResponse",
         "type": "object"
       },
+      "SharedEvaluationBank": {
+        "properties": {
+          "fetched_at": {
+            "default": "",
+            "title": "Fetched At",
+            "type": "string"
+          },
+          "reports": {
+            "items": {
+              "$ref": "#/components/schemas/TaskEvaluationReport"
+            },
+            "title": "Reports",
+            "type": "array"
+          },
+          "repository_url": {
+            "default": "https://github.com/ismigar/ismigar.github.io/tree/main/data/model-evaluations",
+            "title": "Repository Url",
+            "type": "string"
+          },
+          "source_url": {
+            "default": "https://gnosi.temenosismael.org/data/model-evaluations/index.json",
+            "title": "Source Url",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "summaries": {
+            "items": {
+              "$ref": "#/components/schemas/SharedRouteSummary"
+            },
+            "title": "Summaries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "SharedEvaluationBank",
+        "type": "object"
+      },
       "SharedPageContentResponse": {
         "properties": {
           "content": {
@@ -32548,6 +32590,115 @@
           "page"
         ],
         "title": "SharedPageResponse",
+        "type": "object"
+      },
+      "SharedRouteSummary": {
+        "properties": {
+          "contributors": {
+            "title": "Contributors",
+            "type": "integer"
+          },
+          "cost_sources": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cost Sources",
+            "type": "array"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "inconclusive": {
+            "title": "Inconclusive",
+            "type": "integer"
+          },
+          "maximum_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Cost Usd"
+          },
+          "maximum_latency_ms": {
+            "title": "Maximum Latency Ms",
+            "type": "integer"
+          },
+          "median_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Cost Usd"
+          },
+          "median_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Latency Ms"
+          },
+          "minimum_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Cost Usd"
+          },
+          "minimum_latency_ms": {
+            "title": "Minimum Latency Ms",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "observations": {
+            "title": "Observations",
+            "type": "integer"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "integer"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "model",
+          "observations",
+          "contributors",
+          "passed",
+          "failed",
+          "inconclusive",
+          "median_latency_ms",
+          "median_cost_usd",
+          "cost_sources",
+          "minimum_latency_ms",
+          "maximum_latency_ms",
+          "minimum_cost_usd",
+          "maximum_cost_usd"
+        ],
+        "title": "SharedRouteSummary",
         "type": "object"
       },
       "SidebarPageInfo": {
@@ -34297,6 +34448,11 @@
             "title": "Checked At",
             "type": "string"
           },
+          "contributors": {
+            "default": 1,
+            "title": "Contributors",
+            "type": "integer"
+          },
           "cost_source": {
             "default": "unknown",
             "enum": [
@@ -34318,6 +34474,15 @@
             ],
             "title": "Cost Usd"
           },
+          "evidence_origin": {
+            "default": "local",
+            "enum": [
+              "local",
+              "shared"
+            ],
+            "title": "Evidence Origin",
+            "type": "string"
+          },
           "expected": {
             "title": "Expected"
           },
@@ -34337,6 +34502,11 @@
           "metric": {
             "title": "Metric",
             "type": "string"
+          },
+          "observations": {
+            "default": 1,
+            "title": "Observations",
+            "type": "integer"
           },
           "output": {
             "default": "",
@@ -34597,6 +34767,18 @@
             "title": "Provider",
             "type": "string"
           },
+          "public_parameters": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Parameters"
+          },
           "reserved_usd": {
             "default": 0,
             "title": "Reserved Usd",
@@ -34729,6 +34911,11 @@
             "minItems": 1,
             "title": "Tasks",
             "type": "array"
+          },
+          "use_shared": {
+            "default": true,
+            "title": "Use Shared",
+            "type": "boolean"
           }
         },
         "required": [
@@ -39260,6 +39447,129 @@
         ]
       }
     },
+    "/api/agent/runs/shared-task-evaluations": {
+      "get": {
+        "operationId": "shared_bank_api_agent_runs_shared_task_evaluations_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedEvaluationBank"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Shared Bank",
+        "tags": [
+          "Agent runs"
+        ]
+      }
+    },
     "/api/agent/runs/task-evaluation-suite": {
       "get": {
         "operationId": "suite_api_agent_runs_task_evaluation_suite_get",
@@ -39739,6 +40049,130 @@
           }
         },
         "summary": "Preview",
+        "tags": [
+          "Agent runs"
+        ]
+      }
+    },
+    "/api/agent/runs/task-evaluations/{report_id}/public-export": {
+      "get": {
+        "operationId": "public_export_api_agent_runs_task_evaluations__report_id__public_export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Public Export Api Agent Runs Task Evaluations  Report Id  Public Export Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Public Export",
         "tags": [
           "Agent runs"
         ]

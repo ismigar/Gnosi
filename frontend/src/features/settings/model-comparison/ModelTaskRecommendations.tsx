@@ -3,7 +3,7 @@ import './ModelTaskRecommendations.css';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AiModelComparison, AiModelComparisonEntry, AiModelRegistryEntry } from '../../../shared/api/ai';
-import { fetchAgentRuns, fetchRoleEvaluations, fetchTaskEvaluations, fetchTaskEvaluationSuite, type AgentExecutionRun, type RoleEvaluationReport, type TaskEvaluationReport, type TaskEvaluationSuite } from '../../../shared/api/ai-activity';
+import { fetchAgentRuns, fetchRoleEvaluations, fetchTaskEvaluations, fetchTaskEvaluationSuite, fetchSharedTaskEvaluations, type SharedEvaluationBank, type AgentExecutionRun, type RoleEvaluationReport, type TaskEvaluationReport, type TaskEvaluationSuite } from '../../../shared/api/ai-activity';
 import { useActiveVaultId } from '../../../shared/hooks/useActiveVaultId';
 import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
 import { formatComparisonCost } from '../modelComparison';
@@ -11,6 +11,7 @@ import { ModelPriceOffer } from './ModelPriceOffer';
 import { recommendTask, TASKS, taskMinimum, type Candidate, type TaskId } from './taskRecommendations';
 import { operationalEvidence } from './operationalEvidence';
 import { ModelTaskEvaluation } from './ModelTaskEvaluation';
+import { SharedTaskBankPanel } from './SharedTaskBankPanel';
 import { ModelTaskEvaluationChooser } from './ModelTaskEvaluationChooser';
 
 export interface TaskRecommendationDraft {
@@ -53,13 +54,14 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
     useEffect(() => { onDraftChange?.({ manual, taskId, input, output, context, minimum, budget, attempts }); },
         [manual, taskId, input, output, context, minimum, budget, attempts, onDraftChange]);
     const [reload, setReload] = useState(0);
-    const [evidence, setEvidence] = useState<{ vault: string; reports: RoleEvaluationReport[]; runs: AgentExecutionRun[]; taskReports: TaskEvaluationReport[]; suite?: TaskEvaluationSuite; error: boolean; checkedAt: number }>({ vault: '', reports: [], runs: [], taskReports: [], error: false, checkedAt: 0 });
+    const [evidence, setEvidence] = useState<{ vault: string; reports: RoleEvaluationReport[]; runs: AgentExecutionRun[]; taskReports: TaskEvaluationReport[]; suite?: TaskEvaluationSuite; shared?: SharedEvaluationBank; error: boolean; checkedAt: number }>({ vault: '', reports: [], runs: [], taskReports: [], error: false, checkedAt: 0 });
     useEffect(() => {
         const controller = new AbortController();
-        void Promise.allSettled([fetchRoleEvaluations(controller.signal), fetchAgentRuns(controller.signal), fetchTaskEvaluations(controller.signal), fetchTaskEvaluationSuite(controller.signal)]).then(([reports, runs, taskReports, suite]) => {
+        void Promise.allSettled([fetchRoleEvaluations(controller.signal), fetchAgentRuns(controller.signal), fetchTaskEvaluations(controller.signal), fetchTaskEvaluationSuite(controller.signal), fetchSharedTaskEvaluations(controller.signal)]).then(([reports, runs, taskReports, suite, shared]) => {
             if (!controller.signal.aborted) setEvidence({ vault, checkedAt: Date.now(),
                 reports: reports.status === 'fulfilled' ? reports.value : [], runs: runs.status === 'fulfilled' ? runs.value : [],
                 taskReports: taskReports.status === 'fulfilled' ? taskReports.value : [], suite: suite.status === 'fulfilled' ? suite.value : undefined,
+                shared: shared.status === 'fulfilled' ? shared.value : undefined,
                 error: reports.status === 'rejected' || runs.status === 'rejected' || taskReports.status === 'rejected' || suite.status === 'rejected' });
         });
         return () => { controller.abort(); };
@@ -75,7 +77,7 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
         task, tasks: !manual && detected.length ? detected : undefined, needsTools: !manual && botDemand?.needsTools, input: number(input), output: number(output), context: !manual && detected.length ? Math.max(number(context), ...detected.map(item => item.context)) : number(context),
         minimumQuality: number(minimum), budgetUsd: budget.trim() ? number(budget) / feed.currency.usd_rate : null,
         attempts: number(attempts),
-    }, reports, evidence.checkedAt, evidence.vault === vault && evidence.suite ? { reports: evidence.taskReports, suite: evidence.suite } : undefined);
+    }, reports, evidence.checkedAt, evidence.vault === vault && evidence.suite ? { reports: [...(evidence.shared?.reports ?? []), ...evidence.taskReports], suite: evidence.suite } : undefined);
     const choices: { candidate: Candidate | undefined; kinds: string[] }[] = [];
     for (const [kind, candidate] of [['balanced', result.balanced], ['cheapest', result.cheapest], ['quality', result.quality]] as const) {
         const match = candidate && choices.find(choice => choice.candidate?.offer.route.provider === candidate.offer.route.provider
@@ -115,6 +117,7 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             <p>{t(`model_comparison.recommend.why_${kinds[0] === 'balanced' && candidate.taskChecks?.complete ? 'balanced_checked' : kinds[0] ?? 'balanced'}`)}</p>
             <p>{t('model_comparison.tests.evidence', { measured: candidate.taskChecks?.cases.length ?? 0, total: candidate.taskChecks?.expected ?? 0 })}</p>
             <p>{t(candidate.taskChecks?.complete ? 'model_comparison.recommend.checked' : 'model_comparison.recommend.catalogue')}</p>
+            {Boolean(candidate.taskChecks?.cases.some(item => item.evidence_origin === 'shared')) && <p>{t('model_comparison.shared.candidate')}</p>}
             {candidate.taskChecks?.stale && <p>{t('model_comparison.tests.old_result')}</p>}
             <details><summary>{t('model_comparison.workspace.evidence')}</summary>
             {candidate.report && <p>{t('model_comparison.recommend.synthetic', { count: candidate.report.cases.length, date: candidate.report.created_at.slice(0, 10) })}</p>}
@@ -155,6 +158,9 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             {botDemand.unknown.length > 0 && <p role="status">{t('model_comparison.workspace.unknown_skills', { names: botDemand.unknown.join(', ') })}</p>}
             {manual && <p role="status">{t('model_comparison.workspace.manual_warning')}</p>}
         </div>}
+        <SharedTaskBankPanel currency={feed.currency} bank={evidence.vault === vault ? evidence.shared : undefined} onRefresh={() => {
+            void fetchSharedTaskEvaluations(undefined, true).then(() => { setReload(value => value + 1); }).catch(() => { setReload(value => value + 1); });
+        }} />
         {botId && <ModelTaskEvaluationChooser agentId={botId} currentRoute={currentRoute} registry={registry} models={models}
             tasks={(!manual && detected.length ? detected : [task]).map(item => item.id)} currency={feed.currency}
             onComplete={() => { setReload(value => value + 1); }} />}

@@ -5665,6 +5665,32 @@
       "configure_to_test": "Configurar para probar",
       "setup_help": "Primero configura y activa esta oferta. Al terminar se abrirá el panel de pruebas. No se asigna al bot ni se ejecutan pruebas automáticamente.",
       "run_help": "Para ejecutar la prueba: revisa el límite de gasto, autoriza las llamadas y pulsa «Ejecutar solo las pruebas pendientes». Abrir este panel no genera gasto."
+    },
+    "shared": {
+      "title": "Banco compartido de pruebas",
+      "help": "Consulta pública de muestras revisadas. Abrir el banco no ejecuta modelos ni publica tus datos.",
+      "ready": "Catálogo público disponible.",
+      "cached": "Se utiliza la copia local; no se ha podido confirmar la actualización del sitio.",
+      "unavailable": "El banco aún no está publicado o no está disponible. Las pruebas locales siguen funcionando.",
+      "updated": "Copia consultada: {{date}}",
+      "requirements": "Solo se reutilizan casos equivalentes de al menos dos personas diferentes, sin desacuerdo y con las revisiones necesarias. Son evidencias de la comunidad, no pruebas ejecutadas con tu bot.",
+      "cost_help": "El coste y tiempo de otras personas son orientativos; tu tarifa, conexión y cuota pueden ser diferentes. Los errores de conexión y respuestas truncadas son incidencias, no errores de calidad.",
+      "repository": "Consultar el repositorio y las aportaciones revisadas",
+      "empty": "Aún no hay aportaciones revisadas. No se muestran resultados inventados.",
+      "counts": "{{count}} observaciones de {{users}} personas: {{passed}} comprobaciones automáticas superadas, {{failed}} fallidas y {{inconclusive}} no concluyentes.",
+      "latency": "Tiempo mediano observado: {{seconds}} s; rango {{minimum}}–{{maximum}} s.",
+      "candidate": "Incluye muestras compartidas compatibles y revisadas. Puedes desactivar su reutilización y comprobar el modelo localmente.",
+      "reuse": "Reutilizar resultados compartidos compatibles",
+      "case": "Compartido: {{count}} observaciones de {{users}} personas",
+      "contribute": "Preparar una aportación al banco público",
+      "export_help": "Prepara solo los resultados nuevos de muestras públicas. Se omiten el bot, vault, credenciales, notas de revisión y documentos personales. No se envía nada automáticamente.",
+      "attempt": "Intento guardado",
+      "inspect": "Revisar la exportación",
+      "export_error": "Este intento no se puede exportar: puede ser antiguo, usar un endpoint propio o no contener resultados públicos nuevos con la configuración registrada.",
+      "public_warning": "El archivo incluye modelo, respuestas a muestras públicas, fechas, tiempos, coste y veredictos. Revísalo antes de aportarlo; al publicarlo en el repositorio será público.",
+      "download": "Descargar el archivo revisable",
+      "contribution_guide": "Cómo aportarlo mediante una PR",
+      "cost": "Coste mediano observado: {{median}}; rango {{minimum}}–{{maximum}}."
     }
   },
   "tags": {

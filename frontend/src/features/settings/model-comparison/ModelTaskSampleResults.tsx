@@ -31,7 +31,7 @@ function SampleResult({ item, suite, busy, onReviewed }: {
         <p>{t('model_comparison.tests.deliverable')}</p><pre>{item.output}</pre>
         {item.requires_review && <p>{t('model_comparison.tests.review_help')}</p>}
         {item.review_note && <p>{item.review_note}</p>}
-        {item.requires_review && item.passed && item.reused_from && <>
+        {item.requires_review && item.passed && item.reused_from && item.evidence_origin !== 'shared' && <>
             <label>{t('model_comparison.tests.review_note')}<textarea className="gnosi-input" value={note}
                 maxLength={2000} disabled={busy || saving} onChange={event => { setNote(event.target.value); }} /></label>
             <div className="model-task-choice__actions">

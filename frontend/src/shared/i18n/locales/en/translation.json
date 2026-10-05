@@ -6772,6 +6772,32 @@
       "configure_to_test": "Set up to test",
       "setup_help": "First set up and activate this offer. The test panel will then open. This does not assign it to the bot or run tests automatically.",
       "run_help": "To run the test: review the spending limit, authorize model calls and select “Run pending checks only”. Opening this panel incurs no cost."
+    },
+    "shared": {
+      "title": "Shared test bank",
+      "help": "Read public, reviewed work samples. Opening the bank does not run models or publish your data.",
+      "ready": "Public catalogue available.",
+      "cached": "Using the local copy; the latest website version could not be confirmed.",
+      "unavailable": "The bank is not published yet or is unavailable. Local tests still work.",
+      "updated": "Copy fetched: {{date}}",
+      "requirements": "Only equivalent cases from at least two different contributors, without disagreement and with required reviews, are reused. These are community observations, not tests run with your bot.",
+      "cost_help": "Other contributors’ costs and timings are indicative; your rates, connection and quota can differ. Connection failures and truncated responses are incidents, not quality failures.",
+      "repository": "View the repository and reviewed contributions",
+      "empty": "No reviewed contributions yet. No invented results are shown.",
+      "counts": "{{count}} observations from {{users}} contributors: {{passed}} automatic checks passed, {{failed}} failed and {{inconclusive}} inconclusive.",
+      "latency": "Observed median time: {{seconds}} s; range {{minimum}}–{{maximum}} s.",
+      "candidate": "Includes compatible, reviewed shared samples. You can disable reuse and test the model locally.",
+      "reuse": "Reuse compatible shared results",
+      "case": "Shared: {{count}} observations from {{users}} contributors",
+      "contribute": "Prepare a public-bank contribution",
+      "export_help": "Prepare only new results from public work samples. Bot, vault, credentials, review notes and personal documents are omitted. Nothing is sent automatically.",
+      "attempt": "Saved attempt",
+      "inspect": "Inspect the export",
+      "export_error": "This attempt cannot be exported: it may be old, use a custom endpoint, or contain no new public-sample results with recorded settings.",
+      "public_warning": "The file includes the model, public-sample outputs, dates, timings, costs and verdicts. Inspect it before contributing; it becomes public when published in the repository.",
+      "download": "Download the reviewable file",
+      "contribution_guide": "How to contribute through a PR",
+      "cost": "Observed median cost: {{median}}; range {{minimum}}–{{maximum}}."
     }
   },
   "relation_item": {

@@ -49,3 +49,13 @@ it('connection errors remain inconclusive rather than quality failures', () => {
     const report = checked({ cases: checked().cases?.map(item => ({ ...item, passed: false, failure: 'TimeoutError' })) });
     expect(taskEvidence({ suite, reports: [report] }, 'p', 'near', ['book'], now)).toMatchObject({ complete: false, failed: false });
 });
+it('keeps local evidence ahead of newer shared observations', () => {
+    const local = checked();
+    const community = checked({ id: 'shared', cases: local.cases?.map(item => ({ ...item, passed: true, failure: '',
+        evidence_origin: 'shared', observations: 2, contributors: 2, checked_at: '2026-10-04T18:00:00Z' })) });
+    for (const reports of [[community, local], [local, community]]) {
+        const result = taskEvidence({ suite, reports }, 'p', 'near', ['translate'], now);
+        expect(result.failed).toBe(true);
+        expect(result.cases[0]?.evidence_origin).toBe('local');
+    }
+});

@@ -16,6 +16,7 @@ class TaskEvaluationRequest(BaseModel):
     authorize_model_calls: bool = False
     retest: bool = False
     suite: SuiteKind = 'basic'
+    use_shared: bool = True
 
 
 class TaskCaseResult(BaseModel):
@@ -36,6 +37,9 @@ class TaskCaseResult(BaseModel):
     review: Literal['pending', 'accepted', 'rejected', 'not_required'] = 'not_required'
     review_note: str = ''
     reviewed_at: str = ''
+    evidence_origin: Literal['local', 'shared'] = 'local'
+    observations: int = 1
+    contributors: int = 1
 
 
 class TaskEvaluationReport(BaseModel):
@@ -55,6 +59,7 @@ class TaskEvaluationReport(BaseModel):
     cost_usd: float | None = None
     status: Literal['completed', 'stopped'] = 'completed'
     stop_reason: str = ''
+    public_parameters: dict[str, Any] | None = None
 
 
 class TaskEvaluationPlan(BaseModel):

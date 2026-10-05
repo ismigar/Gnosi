@@ -10,6 +10,7 @@ import { ModelTaskRecommendations } from './ModelTaskRecommendations';
 
 const mocks = vi.hoisted(() => ({ reports: vi.fn(), runs: vi.fn(), invoke: vi.fn(), vault: 'vault-a' }));
 vi.mock('../../../shared/api/ai-activity', () => ({
+    fetchSharedTaskEvaluations: vi.fn().mockResolvedValue({ state: 'ready', reports: [], summaries: [] }),
     fetchTaskEvaluations: vi.fn().mockResolvedValue([]),
     fetchTaskEvaluationSuite: vi.fn().mockResolvedValue({ version: 'bot_tasks_v1', mode: 'diagnostic_default_512', criteria: [], max_age_days: 30, max_output_tokens: 512 }), fetchRoleEvaluations: mocks.reports, fetchAgentRuns: mocks.runs, runRoleEvaluation: mocks.invoke }));
 vi.mock('../../../shared/hooks/useActiveVaultId', () => ({ useActiveVaultId: () => mocks.vault }));

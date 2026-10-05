@@ -5665,6 +5665,32 @@
       "configure_to_test": "Configurar per provar",
       "setup_help": "Primer configura i activa aquesta oferta. En acabar s’obrirà el panell de proves. No s’assigna al bot ni s’executen proves automàticament.",
       "run_help": "Per executar la prova: revisa el límit de despesa, autoritza les crides i prem «Fer només les proves pendents». Obrir aquest panell no genera despesa."
+    },
+    "shared": {
+      "title": "Banc compartit de proves",
+      "help": "Consulta pública de mostres revisades. Obrir el banc no executa models ni publica dades teves.",
+      "ready": "Catàleg públic disponible.",
+      "cached": "S’utilitza la còpia local; no s’ha pogut confirmar l’actualització del web.",
+      "unavailable": "El banc encara no està publicat o no està disponible. Les proves locals continuen funcionant.",
+      "updated": "Còpia consultada: {{date}}",
+      "requirements": "Només es reutilitzen casos equivalents amb almenys dues persones diferents, sense desacord i amb les revisions necessàries. Són evidències de la comunitat, no proves executades amb el teu bot.",
+      "cost_help": "El cost i el temps d’altres persones són orientatius; la teva tarifa, connexió i quota poden ser diferents. Els errors de connexió i les respostes truncades són incidències, no errors de qualitat.",
+      "repository": "Consultar el repositori i les aportacions revisades",
+      "empty": "Encara no hi ha aportacions revisades. No es mostren resultats inventats.",
+      "counts": "{{count}} observacions de {{users}} persones: {{passed}} comprovacions automàtiques superades, {{failed}} fallides i {{inconclusive}} no concloents.",
+      "latency": "Temps medià observat: {{seconds}} s; rang {{minimum}}–{{maximum}} s.",
+      "candidate": "Inclou mostres compartides compatibles i revisades. Pots desactivar-ne la reutilització i comprovar el model localment.",
+      "reuse": "Reutilitzar resultats compartits compatibles",
+      "case": "Compartit: {{count}} observacions de {{users}} persones",
+      "contribute": "Preparar una aportació al banc públic",
+      "export_help": "Prepara només els resultats nous de les mostres públiques. S’ometen el bot, el vault, les credencials, les notes de revisió i els documents personals. No s’envia res automàticament.",
+      "attempt": "Intent desat",
+      "inspect": "Revisar l’exportació",
+      "export_error": "Aquest intent no es pot exportar: pot ser antic, usar un endpoint propi o no contenir cap resultat nou de les mostres públiques amb la configuració registrada.",
+      "public_warning": "El fitxer inclou el model, les respostes a les mostres públiques, dates, temps, cost i veredictes. Revisa’l abans d’aportar-lo; en publicar-lo al repositori serà públic.",
+      "download": "Descarregar el fitxer revisable",
+      "contribution_guide": "Com aportar-lo mitjançant una PR",
+      "cost": "Cost medià observat: {{median}}; rang {{minimum}}–{{maximum}}."
     }
   },
   "tags": {

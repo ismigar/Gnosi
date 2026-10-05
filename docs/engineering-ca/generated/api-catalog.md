@@ -9,7 +9,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 ## Resum
 
 - Encaminadors registrats: **39**
-- Operacions descobertes: **325**
+- Operacions descobertes: **327**
 - Mòduls de rutes no registrats: **10**
 
 ## Registre d’encaminadors
@@ -361,6 +361,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `PUT` | `/option-catalogs/{name}` | `put_option_catalog` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Creates or replaces a shared catalog. Body: ``{options: [...]}``. | [`backend/domains/vault/tables/routes.py:388`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L388) |
 | `GET` | `/schema` | `get_schema` | — | [Depends(get_workspace_context)] | Get schema | [`backend/domains/vault/tables/routes.py:538`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L538) |
 | `POST` | `/schema` | `save_schema` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Legacy route to save schemas per folder. | [`backend/domains/vault/tables/routes.py:521`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L521) |
+| `GET` | `/shared-task-evaluations` | `shared_bank` | — | — | Shared bank | [`backend/domains/agent/routes/task_evaluations.py:106`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/task_evaluations.py#L106) |
 | `GET` | `/skills/{skill_id}/package` | `export_learning_package` | — | Depends(require_role('viewer')) | Export procedure, explicit examples and text resources, never private memory. | [`backend/domains/configuration/agent/learning_routes.py:141`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_routes.py#L141) |
 | `GET` | `/tables` | `list_tables` | — | [Depends(get_workspace_context)] | List tables | [`backend/domains/vault/tables/routes.py:98`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L98) |
 | `POST` | `/tables` | `create_table` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Create table | [`backend/domains/vault/tables/routes.py:118`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L118) |
@@ -370,11 +371,12 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `POST` | `/tables/{table_id}/options/rename` | `rename_table_option` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Renames an option in the catalog AND in all rows that use it (the | [`backend/domains/vault/tables/routes.py:339`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L339) |
 | `GET` | `/tables/{table_id}/options/usage` | `table_option_usage` | — | [Depends(get_workspace_context)] | Usage counter per option (how many rows use each value) — feeds | [`backend/domains/vault/tables/routes.py:324`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L324) |
 | `PATCH` | `/tables/{table_id}/properties/{field_id}` | `patch_table_property` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Renames or updates non-structural attributes of a property identified | [`backend/domains/vault/tables/routes.py:242`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L242) |
-| `GET` | `/task-evaluation-suite` | `suite` | — | — | Suite | [`backend/domains/agent/routes/task_evaluations.py:17`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/task_evaluations.py#L17) |
-| `GET` | `/task-evaluations` | `reports` | — | — | Reports | [`backend/domains/agent/routes/task_evaluations.py:46`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/task_evaluations.py#L46) |
-| `POST` | `/task-evaluations` | `run` | — | — | Run | [`backend/domains/agent/routes/task_evaluations.py:62`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/task_evaluations.py#L62) |
-| `POST` | `/task-evaluations/preview` | `preview` | — | — | Preview | [`backend/domains/agent/routes/task_evaluations.py:52`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/task_evaluations.py#L52) |
-| `POST` | `/task-evaluations/{report_id}/review` | `review` | — | — | Review | [`backend/domains/agent/routes/task_evaluations.py:87`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/task_evaluations.py#L87) |
+| `GET` | `/task-evaluation-suite` | `suite` | — | — | Suite | [`backend/domains/agent/routes/task_evaluations.py:18`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/task_evaluations.py#L18) |
+| `GET` | `/task-evaluations` | `reports` | — | — | Reports | [`backend/domains/agent/routes/task_evaluations.py:47`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/task_evaluations.py#L47) |
+| `POST` | `/task-evaluations` | `run` | — | — | Run | [`backend/domains/agent/routes/task_evaluations.py:65`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/task_evaluations.py#L65) |
+| `POST` | `/task-evaluations/preview` | `preview` | — | — | Preview | [`backend/domains/agent/routes/task_evaluations.py:53`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/task_evaluations.py#L53) |
+| `GET` | `/task-evaluations/{report_id}/public-export` | `public_export` | — | — | Public export | [`backend/domains/agent/routes/task_evaluations.py:119`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/task_evaluations.py#L119) |
+| `POST` | `/task-evaluations/{report_id}/review` | `review` | — | — | Review | [`backend/domains/agent/routes/task_evaluations.py:95`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/task_evaluations.py#L95) |
 | `GET` | `/usage/dashboard` | `usage_dashboard` | — | [Depends(bind_request_scope)] | Usage dashboard | [`backend/domains/configuration/ai/usage_routes.py:15`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/usage_routes.py#L15) |
 | `GET` | `/usage/export` | `usage_export` | — | [Depends(bind_request_scope)] | Usage export | [`backend/domains/configuration/ai/usage_routes.py:23`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/usage_routes.py#L23) |
 | `GET` | `/usage/requests` | `usage_requests` | — | [Depends(bind_request_scope)] | Usage requests | [`backend/domains/configuration/ai/usage_routes.py:19`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/usage_routes.py#L19) |

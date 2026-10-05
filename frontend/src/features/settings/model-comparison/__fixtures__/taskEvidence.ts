@@ -8,10 +8,10 @@ export const checked = (change: Partial<TaskEvaluationReport> = {}): TaskEvaluat
     created_at: '2026-10-04T12:00:00Z', tasks: ['book', 'translate'], model_calls: 2, reused_cases: 0,
     budget_usd: .05, reserved_usd: 0, status: 'completed', stop_reason: '', cost_usd: .001,
     cases: [{ id: 'citation', metric: 'citation_fidelity', tasks: ['book', 'retrieve'], passed: true, failure: '',
-        checked_at: '2026-10-04T12:00:00Z', latency_ms: 100, cost_usd: .0005, cost_source: 'estimated', reused_from: '',
+        checked_at: '2026-10-04T12:00:00Z', latency_ms: 100, cost_usd: .0005, cost_source: 'estimated', reused_from: '', evidence_origin: 'local', observations: 1, contributors: 1,
         output: '', task_prompt: '', requires_review: false, review: 'not_required', review_note: '', reviewed_at: '' },
     { id: 'translation', metric: 'translation_fidelity', tasks: ['translate'], passed: false, failure: 'contract_mismatch',
-        checked_at: '2026-10-04T12:00:00Z', latency_ms: 150, cost_usd: .0005, cost_source: 'estimated', reused_from: '',
+        checked_at: '2026-10-04T12:00:00Z', latency_ms: 150, cost_usd: .0005, cost_source: 'estimated', reused_from: '', evidence_origin: 'local', observations: 1, contributors: 1,
         output: '', task_prompt: '', requires_review: false, review: 'not_required', review_note: '', reviewed_at: '' }],
     ...change,
 });

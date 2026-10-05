@@ -9,6 +9,7 @@ from backend.services.agent_task_evaluation_models import (
     TaskReviewRequest,
 )
 from backend.services import agent_task_evaluations as evaluations
+from backend.services.shared_task_evaluations import SharedEvaluationBank
 
 router = APIRouter()
 
@@ -51,8 +52,10 @@ def reports() -> list[dict[str, Any]]:
 @router.post('/task-evaluations/preview', response_model=TaskEvaluationPlan)
 def preview(payload: TaskEvaluationRequest) -> TaskEvaluationPlan:
     try:
-        registry, _ = _configuration(payload)
-        return evaluations.plan(payload, current_scope(), registry)
+        registry, config = _configuration(payload)
+        from backend.services.shared_task_evaluations import public_parameters
+        parameters = public_parameters(payload.provider, payload.model, config.get('base_url')) if payload.suite == 'work' else None
+        return evaluations.plan(payload, current_scope(), registry, parameters)
     except (ValueError, PermissionError) as exc:
         raise HTTPException(status_code=403 if isinstance(exc, PermissionError) else 409,
                             detail=f'task_evaluation.{exc}') from exc
@@ -64,20 +67,25 @@ async def run(payload: TaskEvaluationRequest) -> TaskEvaluationReport:
     from backend.services.agent_diagnostics import invoke_diagnostic
     from langchain_core.messages import HumanMessage
     try:
-        registry, _ = _configuration(payload)
+        registry, config = _configuration(payload)
+        from backend.services.shared_task_evaluations import public_parameters
+        parameters = public_parameters(payload.provider, payload.model, config.get('base_url')) if payload.suite == 'work' else None
         scope = current_scope()
 
         def invoke(parent: str, prompt: str) -> Any:
             # Revalidate before each paid call, without assigning the candidate
             # to the bot or loading private instructions, memories or documents.
             live_registry, config = _configuration(payload)
-            evaluations.plan(payload, scope, live_registry)
+            live_parameters = public_parameters(payload.provider, payload.model, config.get('base_url')) if payload.suite == 'work' else None
+            if live_parameters != parameters:
+                raise ValueError('evaluation_configuration_changed')
+            evaluations.plan(payload, scope, live_registry, live_parameters)
             from backend.services.agent_work_samples import output_limit
             client = build_diagnostic_client(payload.provider, payload.model, config, max_output=output_limit(payload.suite))
             return invoke_diagnostic(client, [HumanMessage(content=prompt)], provider=payload.provider,
                 model=payload.model, parent_run_id=parent, agent_id=payload.agent_id, metadata_only=True)
 
-        return await asyncio.to_thread(evaluations.run, payload, scope, registry, invoke)
+        return await asyncio.to_thread(evaluations.run, payload, scope, registry, invoke, parameters)
     except (ValueError, PermissionError) as exc:
         raise HTTPException(status_code=403 if isinstance(exc, PermissionError) else 409,
                             detail=f'task_evaluation.{exc}') from exc
@@ -92,3 +100,33 @@ def review(report_id: str, payload: TaskReviewRequest) -> TaskEvaluationReport:
     except (ValueError, PermissionError) as exc:
         raise HTTPException(status_code=403 if isinstance(exc, PermissionError) else 409,
                             detail=f'task_evaluation.{exc}') from exc
+
+
+@router.get('/shared-task-evaluations', response_model=SharedEvaluationBank)
+def shared_bank(refresh: bool = False) -> SharedEvaluationBank:
+    from backend.services.shared_task_evaluations import load_bank
+    revalidate_scope(current_scope())
+    bank = load_bank(refresh=True, force=refresh)
+    from backend.services.agent_team_runtime import _config
+    from backend.services.shared_task_evaluations import public_parameters
+    config = _config()
+    bank.reports = [report for report in bank.reports if report.public_parameters == public_parameters(
+        report.provider, report.model, config.get('providers', {}).get(report.provider, {}).get('base_url'))]
+    return bank
+
+
+@router.get('/task-evaluations/{report_id}/public-export')
+def public_export(report_id: str) -> dict[str, Any]:
+    from backend.services.agent_team_store import list_artifacts
+    from backend.services.shared_task_evaluations import export_report
+    scope = current_scope()
+    revalidate_scope(scope)
+    if scope.role not in {'owner', 'admin'}:
+        raise HTTPException(status_code=403, detail='task_evaluation.authorization_required')
+    raw = next((item for item in list_artifacts(scope, 'task_evaluation') if item.get('id') == report_id), None)
+    if raw is None:
+        raise HTTPException(status_code=404, detail='task_evaluation.report_unavailable')
+    try:
+        return export_report(TaskEvaluationReport.model_validate(raw))
+    except (ValueError, TypeError, KeyError) as exc:
+        raise HTTPException(status_code=409, detail='task_evaluation.not_exportable') from exc

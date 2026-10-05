@@ -236,6 +236,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/runs/shared-task-evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Shared Bank */
+        get: operations["shared_bank_api_agent_runs_shared_task_evaluations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/runs/task-evaluation-suite": {
         parameters: {
             query?: never;
@@ -265,6 +282,23 @@ export interface paths {
         put?: never;
         /** Run */
         post: operations["run_api_agent_runs_task_evaluations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/task-evaluations/{report_id}/public-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Export */
+        get: operations["public_export_api_agent_runs_task_evaluations__report_id__public_export_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -23068,6 +23102,30 @@ export interface components {
              */
             permission: string;
         };
+        /** SharedEvaluationBank */
+        SharedEvaluationBank: {
+            /**
+             * Fetched At
+             * @default
+             */
+            fetched_at: string;
+            /** Reports */
+            reports?: components["schemas"]["TaskEvaluationReport"][];
+            /**
+             * Repository Url
+             * @default https://github.com/ismigar/ismigar.github.io/tree/main/data/model-evaluations
+             */
+            repository_url: string;
+            /**
+             * Source Url
+             * @default https://gnosi.temenosismael.org/data/model-evaluations/index.json
+             */
+            source_url: string;
+            /** State */
+            state: string;
+            /** Summaries */
+            summaries?: components["schemas"]["SharedRouteSummary"][];
+        };
         /** SharedPageContentResponse */
         SharedPageContentResponse: {
             /** Content */
@@ -23090,6 +23148,37 @@ export interface components {
             permission: string;
             /** Token */
             token: string;
+        };
+        /** SharedRouteSummary */
+        SharedRouteSummary: {
+            /** Contributors */
+            contributors: number;
+            /** Cost Sources */
+            cost_sources: string[];
+            /** Failed */
+            failed: number;
+            /** Inconclusive */
+            inconclusive: number;
+            /** Maximum Cost Usd */
+            maximum_cost_usd: number | null;
+            /** Maximum Latency Ms */
+            maximum_latency_ms: number;
+            /** Median Cost Usd */
+            median_cost_usd: number | null;
+            /** Median Latency Ms */
+            median_latency_ms: number | null;
+            /** Minimum Cost Usd */
+            minimum_cost_usd: number | null;
+            /** Minimum Latency Ms */
+            minimum_latency_ms: number;
+            /** Model */
+            model: string;
+            /** Observations */
+            observations: number;
+            /** Passed */
+            passed: number;
+            /** Provider */
+            provider: string;
         };
         /** ShareLinkResponse */
         ShareLinkResponse: {
@@ -23747,6 +23836,11 @@ export interface components {
             /** Checked At */
             checked_at: string;
             /**
+             * Contributors
+             * @default 1
+             */
+            contributors: number;
+            /**
              * Cost Source
              * @default unknown
              * @enum {string}
@@ -23754,6 +23848,12 @@ export interface components {
             cost_source: "reported" | "estimated" | "unknown";
             /** Cost Usd */
             cost_usd?: number | null;
+            /**
+             * Evidence Origin
+             * @default local
+             * @enum {string}
+             */
+            evidence_origin: "local" | "shared";
             /** Expected */
             expected?: unknown;
             /**
@@ -23767,6 +23867,11 @@ export interface components {
             latency_ms: number;
             /** Metric */
             metric: string;
+            /**
+             * Observations
+             * @default 1
+             */
+            observations: number;
             /**
              * Output
              * @default
@@ -23895,6 +24000,10 @@ export interface components {
             model_calls: number;
             /** Provider */
             provider: string;
+            /** Public Parameters */
+            public_parameters?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Reserved Usd
              * @default 0
@@ -23955,6 +24064,11 @@ export interface components {
             suite: "basic" | "work";
             /** Tasks */
             tasks: ("classify" | "extract" | "book" | "retrieve" | "code" | "workflow" | "analyse" | "translate" | "write" | "calendar" | "research" | "synthesize")[];
+            /**
+             * Use Shared
+             * @default true
+             */
+            use_shared: boolean;
         };
         /** TaskEvaluationSuite */
         TaskEvaluationSuite: {
@@ -25783,6 +25897,44 @@ export interface operations {
             };
         };
     };
+    shared_bank_api_agent_runs_shared_task_evaluations_get: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedEvaluationBank"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     suite_api_agent_runs_task_evaluation_suite_get: {
         parameters: {
             query?: {
@@ -25884,6 +26036,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskEvaluationReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_export_api_agent_runs_task_evaluations__report_id__public_export_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                report_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

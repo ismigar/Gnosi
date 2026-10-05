@@ -20,8 +20,11 @@ export function taskEvidence(stored: StoredTaskEvidence | undefined, provider: s
             if (!criterion || !Number.isFinite(age) || age < 0
                 || !['', 'contract_mismatch'].includes(item.failure)) continue;
             const previous = selected.get(item.id);
-            if (!previous || Date.parse(previous.checked_at) < Date.parse(item.checked_at)
-                || (previous.checked_at === item.checked_at && (previous.reviewed_at || '') < (item.reviewed_at || ''))) selected.set(item.id, item);
+            const sameOrigin = (previous?.evidence_origin === 'shared') === (item.evidence_origin === 'shared');
+            const newer = !previous || Date.parse(previous.checked_at) < Date.parse(item.checked_at)
+                || (previous.checked_at === item.checked_at && (previous.reviewed_at || '') < (item.reviewed_at || ''));
+            if (!previous || (previous.evidence_origin === 'shared' && item.evidence_origin !== 'shared')
+                || (sameOrigin && newer)) selected.set(item.id, item);
         }
     }
     const cases = [...selected.values()];

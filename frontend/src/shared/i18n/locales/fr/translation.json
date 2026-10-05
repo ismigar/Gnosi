@@ -5665,6 +5665,32 @@
       "configure_to_test": "Configurer pour tester",
       "setup_help": "Configurez et activez d’abord cette offre. Le panneau de tests s’ouvrira ensuite. Cela ne l’affecte pas au bot et ne lance aucun test automatiquement.",
       "run_help": "Pour lancer le test : vérifiez le plafond de dépense, autorisez les appels et sélectionnez « Exécuter uniquement les tests manquants ». Ouvrir ce panneau n’entraîne aucun coût."
+    },
+    "shared": {
+      "title": "Banque de tests partagés",
+      "help": "Consultez des exemples publics évalués. Ouvrir la banque ne lance aucun modèle et ne publie pas vos données.",
+      "ready": "Catalogue public disponible.",
+      "cached": "La copie locale est utilisée ; la mise à jour du site n’a pas pu être confirmée.",
+      "unavailable": "La banque n’est pas encore publiée ou est indisponible. Les tests locaux restent disponibles.",
+      "updated": "Copie consultée : {{date}}",
+      "requirements": "Seuls les cas équivalents provenant d’au moins deux personnes différentes, sans désaccord et avec les évaluations requises, sont réutilisés. Ce sont des observations communautaires, pas des tests exécutés avec votre bot.",
+      "cost_help": "Les coûts et délais des autres personnes sont indicatifs ; vos tarifs, connexion et quota peuvent différer. Les erreurs de connexion et réponses tronquées sont des incidents, pas des échecs de qualité.",
+      "repository": "Consulter le dépôt et les contributions évaluées",
+      "empty": "Aucune contribution évaluée pour le moment. Aucun résultat inventé n’est affiché.",
+      "counts": "{{count}} observations de {{users}} personnes : {{passed}} contrôles automatiques réussis, {{failed}} échoués et {{inconclusive}} non concluants.",
+      "latency": "Durée médiane observée : {{seconds}} s ; plage {{minimum}}–{{maximum}} s.",
+      "candidate": "Inclut des exemples partagés compatibles et évalués. Vous pouvez désactiver leur réutilisation et tester le modèle localement.",
+      "reuse": "Réutiliser les résultats partagés compatibles",
+      "case": "Partagé : {{count}} observations de {{users}} personnes",
+      "contribute": "Préparer une contribution à la banque publique",
+      "export_help": "Préparez uniquement les nouveaux résultats des exemples publics. Bot, vault, identifiants, notes d’évaluation et documents personnels sont omis. Rien n’est envoyé automatiquement.",
+      "attempt": "Tentative enregistrée",
+      "inspect": "Examiner l’export",
+      "export_error": "Cette tentative ne peut pas être exportée : elle peut être ancienne, utiliser un endpoint personnalisé ou ne contenir aucun nouveau résultat public avec les réglages enregistrés.",
+      "public_warning": "Le fichier contient modèle, réponses aux exemples publics, dates, durées, coûts et verdicts. Examinez-le avant de contribuer ; sa publication dans le dépôt le rend public.",
+      "download": "Télécharger le fichier à examiner",
+      "contribution_guide": "Comment contribuer par une PR",
+      "cost": "Coût médian observé : {{median}} ; plage {{minimum}}–{{maximum}}."
     }
   },
   "tags": {
