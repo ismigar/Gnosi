@@ -175,9 +175,10 @@ def process_resource(
         resolved_config,
         metadata,
     )
-    if dependencies.expected_reading_identity and dependencies.expected_reading_identity != fingerprint(
-        [dependencies.execution_revision, sources.chunks, ai_dimensions, brain_index]
-    ):
+    from backend.domains.llm_wiki.reading_identity import reading_identity
+    identity = (reading_identity(dependencies.execution_revision, sources.chunks, ai_dimensions, brain_index)
+                if dependencies.semantic_reading else fingerprint([dependencies.execution_revision, sources.chunks, ai_dimensions, brain_index]))
+    if dependencies.expected_reading_identity and dependencies.expected_reading_identity != identity:
         raise RuntimeError("reading_estimate_changed")
     reading_revision = fingerprint([dependencies.execution_revision, source_title, language,
                                     source_dimensions, ai_dimensions, brain_index, sources.chunks,

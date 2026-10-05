@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-10-05
 source_paths:
+  - backend/domains/llm_wiki/reading_identity.py
+  - backend/domains/llm_wiki/semantic_map_windows.py
   - backend/domains/llm_wiki/semantic_reading.py
   - backend/domains/llm_wiki/semantic_contracts.py
   - backend/domains/llm_wiki/semantic_context.py
@@ -1531,3 +1533,7 @@ Les tests de régression hors ligne couvrent la transmission complète d’une s
 Les cartes de l’argumentation et les synthèses conjointes des notes sont demandées sous forme de texte brut limité, sans schéma de sortie JSON. Gnosi les sérialise dans les checkpoints. Les réponses vides, les enveloppes JSON, les blocs de code et les cartes dépassant la capacité de contexte réservée sont rejetés dans la limite existante de deux appels. L’interprétation et la révision conservent leurs contrats structurés stricts et la validation des preuves. Cela évite de payer pour réparer la ponctuation JSON autour de la prose ; cela ne certifie pas la qualité sémantique de la carte.
 
 La demande de 2 000 tokens est un objectif de synthèse. Les cartes complètes plus longues qui tiennent dans la capacité de contexte réservée sont conservées sans relire les sources ; le calcul préalable réserve de l’espace pour les cartes plus grandes conservées.
+
+La version 2 de l’identité de lecture normalise les clés des dictionnaires et l’ordre de l’index des connaissances. Les limites des connaissances et des catalogues de relations sont appliquées après un tri stable, afin qu’un rechargement ne sélectionne pas un sous-ensemble arbitraire différent. Les composants de l’identité sont enregistrés pour le diagnostic ; l’ordre des sources, le texte, les classifications et la politique d’exécution restent significatifs. Les cartes de prose complètes ont leur propre identité fondée sur le matériau exact, le titre, la langue et la politique d’exécution figée, indépendamment de la classification et du contexte de connaissances. Elles peuvent être réutilisées même si les notes provisoires doivent être régénérées. Les anciens caches de cartes exigent une preuve explicite d’une réponse complète du fournisseur avant leur migration.
+
+Les opérations de cartes de prose réservent au maximum 8 192 tokens de sortie. Les métadonnées natives de limite de sortie rejettent le texte incomplet avant son enregistrement comme carte complète ou une réparation de format renvoyant toute la source. Seule une fenêtre tronquée contenant du texte de réponse est divisée ; les fenêtres voisines complètes et les décisions de division sont conservées après une interruption. Les cartes sans texte de réponse et les fenêtres indivisibles s’arrêtent. La réduction doit diminuer le matériau ou le nombre de cartes et sa profondeur est finie. La progression de la vue d’ensemble avance à la fin des fenêtres de sources ; ces cartes sont distinctes des fragments de notes extraits.

@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-10-05
 source_paths:
+  - backend/domains/llm_wiki/reading_identity.py
+  - backend/domains/llm_wiki/semantic_map_windows.py
   - backend/domains/llm_wiki/semantic_reading.py
   - backend/domains/llm_wiki/semantic_contracts.py
   - backend/domains/llm_wiki/semantic_context.py
@@ -1336,3 +1338,7 @@ Offline regression cases cover complete long-source delivery, joint review, attr
 Argument maps and joint-note syntheses are requested as bounded plain text, with no JSON output schema. Gnosi serializes them into checkpoints. Empty answers, JSON envelopes, code fences and maps exceeding reserved context capacity are rejected within the existing two-call allowance. Interpretation and review retain their strict structured contracts and evidence validation. This avoids paying to repair JSON punctuation around prose; it does not certify the map’s semantic quality.
 
 The 2,000-token request is a synthesis target. Longer complete maps that fit the reserved context capacity are retained without rereading the sources; preflight reserves for the larger retained maps.
+
+Reading identity version 2 canonicalizes mapping keys and knowledge-index order. Knowledge and relation catalog limits are applied after stable sorting, so a reload cannot select a different arbitrary subset. Identity components are recorded for diagnosis; source order, text, classifications and execution policy remain significant. Complete prose maps have their own identity based on the exact material, title, language and frozen execution policy, independent of classification and knowledge context. They can be reused even when draft notes need regeneration. Older map caches require explicit evidence of a complete provider response before migration.
+
+Prose-map operations reserve at most 8,192 output tokens. Native output-limit metadata rejects incomplete text before it can be saved as a complete map or sent through a full-source format repair. Only a truncated window with answer text is split; complete sibling windows and the split decisions survive interruption. Maps without answer text or unsplittable windows stop. Reduction must decrease material or map count and has a finite depth. Overview progress advances as source windows complete; these maps are distinct from extracted note fragments.

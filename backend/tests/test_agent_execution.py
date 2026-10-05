@@ -82,7 +82,8 @@ def install_workflow(monkeypatch, answers):
     class Application:
         async def astream(self, inputs, **kwargs):
             calls.append(inputs)
-            yield {"operation": {"messages": [AIMessage(content=answers[len(calls)-1])]}}
+            answer = answers[len(calls)-1]
+            yield {"operation": {"messages": [answer if isinstance(answer, AIMessage) else AIMessage(content=answer)]}}
         def compile(self):
             return self
     async def create(*args, **kwargs):
@@ -868,3 +869,29 @@ def test_monthly_block_respects_toggle_before_transport(runtime, monkeypatch, en
         finally:
             execution._run.reset(token)
     assert store.read(scope, 'monthly-budget').model_calls == (0 if enforce else 1)
+
+
+def test_reading_prose_truncation_stops_before_format_repair_or_checkpoint(runtime, monkeypatch):
+    from backend.domains.llm_wiki.semantic_map_windows import MapOutputLimit
+    scope, snapshot = runtime
+    calls = install_workflow(monkeypatch, [AIMessage(content='A plausible but incomplete map.', response_metadata={'finish_reason': 'length'})])
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation='knowledge.process-source.phase',
+        input='original sources', options={'reading_prose': True}, max_model_calls=2)
+    with execution_scope(scope), pytest.raises(MapOutputLimit):
+        asyncio.run(execution.execute_operation(request, snapshot=snapshot, output_validator=lambda text: text))
+    assert len(calls) == 1
+    assert store.list_runs(scope)[0].status == 'failed'
+
+
+def test_prose_map_output_reservation_is_smaller_and_frozen(runtime, monkeypatch):
+    _, snapshot = runtime
+    captured = {}
+    async def workflow(*args, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(compile=lambda: 'compiled'), {}
+    monkeypatch.setattr('backend.agent.factory.create_agent_workflow', workflow)
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation='knowledge.process-source.phase',
+        input='sources', options={'reading_prose': True})
+    asyncio.run(execution._operation_application(request, snapshot, {}, None))
+    assert captured['operation_max_output_tokens'] == 8192
+    assert captured['prepared_agent_data'] is snapshot.profile

@@ -192,7 +192,7 @@ def _load_brain_index(brain_table_id: str, source_page_id: str = "") -> List[Dic
             )
     except Exception as exc:  # noqa: BLE001
         logger.warning("llm_wiki could not load the Brain index: %s", exc)
-    return out[:300]
+    return sorted(out, key=lambda row: (str(row["id"]), str(row["title"])))[:300]
 
 
 # ---------------------------------------------------------------------------

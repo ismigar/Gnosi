@@ -13,7 +13,7 @@ def phase_estimate(runtime: Any, chunks: list[dict[str, object]], remaining: lis
                    dimensions: list[dict[str, object]], saved: dict[str, Any], batch_size: int) -> dict[str, Any]:
     budget = runtime.input_budget
     overview_count = len(overview_groups(chunks, runtime.count_tokens, budget))
-    overview = max(0, overview_count - len(saved.get("maps", [])))
+    overview = max(0, overview_count - len(saved.get("overview_complete", {})))
     # Summary reduction levels depend on the actual generated maps. Count their
     # maximum requested size here; no paid call is made by the estimate.
     map_size = max(350, min(2000, budget // 24))

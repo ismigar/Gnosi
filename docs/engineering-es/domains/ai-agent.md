@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-10-05
 source_paths:
+  - backend/domains/llm_wiki/reading_identity.py
+  - backend/domains/llm_wiki/semantic_map_windows.py
   - backend/domains/llm_wiki/semantic_reading.py
   - backend/domains/llm_wiki/semantic_contracts.py
   - backend/domains/llm_wiki/semantic_context.py
@@ -1508,3 +1510,7 @@ Las regresiones sin conexión cubren la entrega completa de una fuente larga, la
 Los mapas del argumento y las síntesis conjuntas de notas se solicitan como texto plano limitado, sin esquema de salida JSON. Gnosi los serializa en los checkpoints. Las respuestas vacías, las envolturas JSON, los bloques de código y los mapas que superan la capacidad de contexto reservada se rechazan dentro del límite existente de dos llamadas. La interpretación y la revisión mantienen los contratos estructurados estrictos y la validación de evidencias. Esto evita pagar por reparar la puntuación JSON alrededor de la prosa; no certifica la calidad semántica del mapa.
 
 La petición de 2.000 tokens es un objetivo de síntesis. Los mapas completos más largos que caben en la capacidad de contexto reservada se conservan sin volver a leer las fuentes; el cálculo previo reserva espacio para los mapas más grandes conservados.
+
+La versión 2 de la identidad de lectura normaliza las claves de los diccionarios y el orden del índice de conocimiento. Los límites de conocimiento y catálogos de relaciones se aplican después de una ordenación estable, de modo que una recarga no puede seleccionar un subconjunto arbitrario diferente. Los componentes de la identidad se guardan para el diagnóstico; el orden de las fuentes, el texto, las clasificaciones y la política de ejecución siguen siendo relevantes. Los mapas de prosa completos tienen una identidad propia basada en el material exacto, el título, el idioma y la política de ejecución fijada, independiente de la clasificación y el contexto de conocimiento. Se pueden reutilizar aunque sea necesario regenerar las notas provisionales. Las cachés de mapas antiguos requieren evidencia explícita de una respuesta completa del proveedor antes de migrarlas.
+
+Las operaciones de mapas de prosa reservan como máximo 8.192 tokens de salida. Los metadatos nativos del límite de salida rechazan el texto incompleto antes de guardarlo como mapa completo o reparar su formato enviando de nuevo toda la fuente. Solo se divide una ventana truncada que contenga texto de respuesta; las ventanas hermanas completas y las decisiones de división se conservan tras una interrupción. Los mapas sin texto de respuesta o las ventanas que no pueden dividirse se detienen. La reducción debe disminuir el material o el número de mapas y tiene una profundidad finita. El progreso de la visión general avanza al completar las ventanas de fuentes; estos mapas son distintos de los fragmentos de notas extraídos.

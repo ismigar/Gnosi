@@ -15,6 +15,7 @@ from backend.services import reading_budget
 from backend.services.ai_usage_dashboard import currency_context
 from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, reduce_batch
 from backend.domains.llm_wiki.semantic_context import state_progress
+from backend.domains.llm_wiki.reading_identity import reading_identity
 
 
 def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_root: Path,
@@ -27,9 +28,10 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     chunks = reading_chunks(origins, budget=reading_chunk_budget(runtime.input_budget), count=runtime.count_tokens)
     _, dimensions = llm_wiki._dimension_context(llm_wiki_config.load_config(), source_table, source_config, metadata)
     index = llm_wiki._load_brain_index(brain_table_id, resource_id)
-    identity = fingerprint([runtime.identity, chunks, dimensions, index])
-    previous = llm_wiki_storage.get_job_status(resource_id, str(source_table.get("id") or ""))
     semantic = getattr(runtime, "reading_engine", "legacy") == "semantic"
+    identity = (reading_identity(runtime.identity, chunks, dimensions, index) if semantic else
+                fingerprint([runtime.identity, chunks, dimensions, index]))
+    previous = llm_wiki_storage.get_job_status(resource_id, str(source_table.get("id") or ""))
     saved, previous_plans = _saved_state(previous, identity, semantic, force, source_title, language)
     batch_size = batch_limit(batch_size, saved)
     remaining = [chunk for chunk in chunks if str(chunk["id"]) not in saved.get("plans", {})]
@@ -109,7 +111,7 @@ def _saved_state(previous: dict[str, Any], identity: str, semantic: bool, force:
             if isinstance(checkpoint, dict) and isinstance(checkpoint.get("plans"), dict):
                 previous_plans = max(previous_plans, len(checkpoint["plans"]))
             if (isinstance(checkpoint, dict) and checkpoint.get("identity") == identity
-                    and (not semantic or (checkpoint.get("engine") == 1
+                    and (not semantic or (checkpoint.get("engine") == 2
                          and checkpoint.get("reading_context") == fingerprint([source_title, language])))):
                 plans = checkpoint.get("plans", {})
                 if isinstance(plans, dict) and (not saved or state_progress(checkpoint) > state_progress(saved)):

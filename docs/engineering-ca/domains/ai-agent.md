@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-10-05
 source_paths:
+  - backend/domains/llm_wiki/reading_identity.py
+  - backend/domains/llm_wiki/semantic_map_windows.py
   - backend/domains/llm_wiki/semantic_reading.py
   - backend/domains/llm_wiki/semantic_contracts.py
   - backend/domains/llm_wiki/semantic_context.py
@@ -1442,3 +1444,7 @@ Les regressions sense connexió cobreixen l’entrega completa d’una font llar
 Els mapes d’argument i les síntesis conjuntes de notes es demanen com a text pla limitat, sense esquema de sortida JSON. Gnosi els serialitza als checkpoints. Les respostes buides, els embolcalls JSON, els blocs de codi i els mapes que superen la capacitat de context reservada es rebutgen dins del límit existent de dues crides. La interpretació i la revisió mantenen els contractes estructurats estrictes i la validació d’evidències. Això evita pagar per reparar la puntuació JSON al voltant de la prosa; no certifica la qualitat semàntica del mapa.
 
 La petició de 2.000 tokens és un objectiu de síntesi. Els mapes complets més llargs que caben a la capacitat de context reservada es conserven sense tornar a llegir les fonts; el càlcul previ reserva espai per als mapes més grans conservats.
+
+La versió 2 de la identitat de lectura normalitza les claus dels diccionaris i l’ordre de l’índex de coneixement. Els límits de coneixement i catàlegs de relacions s’apliquen després d’una ordenació estable, de manera que una recàrrega no pot seleccionar un subconjunt arbitrari diferent. Els components de la identitat es desen per al diagnòstic; l’ordre de les fonts, el text, les classificacions i la política d’execució continuen sent rellevants. Els mapes de prosa complets tenen una identitat pròpia basada en el material exacte, el títol, la llengua i la política d’execució fixada, independent de la classificació i el context de coneixement. Es poden reutilitzar encara que calgui regenerar les notes provisionals. Les memòries cau de mapes antics requereixen evidència explícita d’una resposta completa del proveïdor abans de migrar-les.
+
+Les operacions de mapes de prosa reserven com a màxim 8.192 tokens de sortida. Les metadades natives del límit de sortida rebutgen el text incomplet abans de desar-lo com a mapa complet o reparar-ne el format tornant a enviar tota la font. Només es divideix una finestra tallada que contingui text de resposta; les finestres germanes completes i les decisions de divisió es conserven després d’una interrupció. Els mapes sense text de resposta o les finestres que no es poden dividir s’aturen. La reducció ha de disminuir el material o el nombre de mapes i té una profunditat finita. El progrés de la visió general avança quan es completen les finestres de fonts; aquests mapes són diferents dels fragments de notes extrets.

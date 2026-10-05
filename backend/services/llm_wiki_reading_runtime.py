@@ -142,7 +142,7 @@ class ReadingRuntime:
             raise RuntimeError("The reading input exceeds the selected model's context budget")
         result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
             input=prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
-            max_model_calls=2), snapshot=self.snapshot, output_validator=validate)
+            options={"reading_prose": True}, max_model_calls=2), snapshot=self.snapshot, output_validator=validate)
         return result.result, result.model
 
 

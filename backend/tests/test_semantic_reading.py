@@ -318,3 +318,67 @@ def test_prose_map_that_exceeds_reserved_context_capacity_is_not_accepted():
     with pytest.raises(ValueError, match='reserved context capacity'):
         reader.run()
     assert not checkpoints['new', 'semantic-state']['maps']
+
+
+def test_resume_identity_ignores_dictionary_order_and_knowledge_index_order():
+    reader, _, checkpoints = setup()
+    reader.brain_index = [{'id': 'b', 'title': 'Second'}, {'id': 'a', 'title': 'First'}]
+    reader.run()
+    resumed, calls, _ = setup(checkpoints=checkpoints, resume='new', generate=lambda _: pytest.fail('paid repeat'))
+    resumed.chunks = [dict(reversed(list(c.items()))) for c in resumed.chunks]
+    resumed.brain_index = [{'title': 'First', 'id': 'a'}, {'title': 'Second', 'id': 'b'}]
+    resumed.run()
+    assert not calls
+
+
+def test_complete_source_map_survives_changed_knowledge_context_but_notes_do_not():
+    reader, _, checkpoints = setup()
+    calls = []
+    def prose(prompt, validator, timeout):
+        calls.append(json.loads(prompt))
+        return validator('The author rejects the opponent’s position and preserves qualifications.'), 'test-model'
+    reader.dependencies.generate_prose = prose
+    reader.run()
+    resumed, interpretations, _ = setup(checkpoints=checkpoints, resume='new')
+    resumed.brain_index = [{'id': 'new-knowledge', 'title': 'A newly edited idea'}]
+    resumed.dependencies.generate_prose = prose
+    before = len(calls)
+    resumed.run()
+    assert all('passages' not in item for request in calls[before:] for item in request['material'] if isinstance(item, dict))
+    assert any(c['phase'] == 'interpret' for c in interpretations)
+
+
+def test_map_window_truncation_splits_and_resumes_without_repeating_complete_sibling():
+    from backend.domains.llm_wiki.semantic_map_windows import MapOutputLimit
+    reader, _, checkpoints = setup()
+    successful = []
+    interrupted = False
+    def prose(prompt, validator, timeout):
+        nonlocal interrupted
+        request = json.loads(prompt); material = request['material']
+        if material and isinstance(material[0], dict) and 'passages' in material[0]:
+            if len(material) == 8:
+                raise MapOutputLimit(True)
+            if 'Argument 4:' in material[0]['passages'][0]['text'] and not interrupted:
+                interrupted = True
+                raise RuntimeError('budget_pause')
+            successful.append(material[0]['passages'][0]['text'])
+        return validator('The argument develops through opposing positions and a qualified conclusion.'), 'test-model'
+    reader.dependencies.generate_prose = prose
+    with pytest.raises(RuntimeError, match='budget_pause'):
+        reader.run()
+    assert len(successful) == 1
+    resumed, _, _ = setup(checkpoints=checkpoints, resume='new')
+    resumed.dependencies.generate_prose = prose
+    result, _ = resumed.run()
+    assert len(result['notes']) == 8 and len(successful) == 2
+    assert successful[0] != successful[1]
+
+
+@pytest.mark.parametrize('metadata', [{'finish_reason': 'length'}, {'stop_reason': 'max_tokens'},
+                                    {'incomplete_details': {'reason': 'max_output_tokens'}}])
+def test_incomplete_prose_is_rejected_even_when_it_looks_like_complete_text(metadata):
+    from backend.domains.llm_wiki.semantic_map_windows import ensure_complete, MapOutputLimit
+    with pytest.raises(MapOutputLimit):
+        ensure_complete('A plausible argument map.', metadata)
+    ensure_complete('A complete argument map.', {'finish_reason': 'stop'})

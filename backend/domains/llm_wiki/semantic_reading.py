@@ -12,25 +12,29 @@ from typing import Any
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
 from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, reduce_batch
+from backend.domains.llm_wiki.reading_identity import reading_identity, identity_parts, map_identity
+from backend.domains.llm_wiki.semantic_map_windows import map_windows
 from backend.domains.llm_wiki.semantic_context import chunk_view, groups, overview_groups, reading_context, source_view, state_progress
 from backend.domains.llm_wiki.semantic_contracts import (
     MAP_SCHEMA, bind_interpretation, fields, interpretation_schema, validate_schema,
 )
 
-ENGINE_VERSION = 1
+ENGINE_VERSION = 2
 
 
 class SemanticReader:
     def __init__(self, reader: ContextualReader) -> None:
         self.reader = reader
         self.deps = reader.dependencies
-        identity = fingerprint([self.deps.execution_revision, reader.chunks, reader.dimensions, reader.brain_index])
+        identity = reading_identity(self.deps.execution_revision, reader.chunks, reader.dimensions, reader.brain_index)
         self.state: dict[str, Any] = {"engine": ENGINE_VERSION, "identity": identity, "plans": {},
+                                      "identity_parts": identity_parts(self.deps.execution_revision, reader.chunks, reader.dimensions, reader.brain_index),
                                       "maps": [], "observations": {}, "reviewed_groups": {}, "step": 0,
                                       "reading_context": fingerprint([reader.title, reader.language])}
         resolve_candidates = self.deps.resume_candidates
         candidates = ([reader.resume_job_id] if resolve_candidates is None else
                       resolve_candidates(reader.resume_job_id)) if reader.resume_job_id else []
+        self.resume_map_jobs = candidates
         selected_resume = False
         for candidate in candidates:
             saved = self.deps.load_checkpoint(candidate, "semantic-state")
@@ -81,7 +85,7 @@ class SemanticReader:
         prompt = encoded({"reading_engine": "semantic", "phase": "overview", "resource": self.reader.title,
             "language": self.reader.language, "material": material, "summary_max_tokens": limit,
             "instruction": "Return the argument map as plain text, without JSON, an outer object or code fences. Map substantive claims, reasoning, attributed voices, developments, disagreements, qualifications and open questions across ALL supplied material, including the ending. Bibliographic metadata alone is not an argument map. Preserve document boundaries. Do not invent reference IDs; original text remains authoritative."})
-        identity = fingerprint([self.state["identity"], prompt])
+        identity = map_identity(self.deps.execution_revision, self.reader.title, self.reader.language, material)
         def validate(text: str) -> str:
             clean = text.strip()
             if not clean or clean.startswith(("{", "```")):
@@ -89,8 +93,10 @@ class SemanticReader:
             if self.deps.count_tokens(clean) > max(2000, self.reader.budget // 8):
                 raise ValueError("The argument map exceeds its reserved context capacity")
             return clean
-        cached = self.deps.load_checkpoint(self.reader.resume_job_id, key) if self.reader.resume_job_id else None
-        if isinstance(cached, dict) and cached.get("identity") == identity:
+        cached = next((value for job in self.resume_map_jobs
+                       if isinstance(value := self.deps.load_checkpoint(job, key), dict)
+                       and value.get("identity") == identity and value.get("complete") is True), None)
+        if isinstance(cached, dict):
             text, model = validate(str(cached["summary"])), str(cached["model"])
         else:
             if self.deps.count_tokens(prompt) > self.reader.budget:
@@ -103,7 +109,7 @@ class SemanticReader:
             text = validate(text)
         self.reader.models.append(model)
         if self.reader.job_id:
-            self.deps.save_checkpoint(self.reader.job_id, key, {"identity": identity, "summary": text, "model": model})
+            self.deps.save_checkpoint(self.reader.job_id, key, {"identity": identity, "summary": text, "model": model, "complete": True})
         self.state["step"] += 1
         self.save()
         return text
@@ -114,17 +120,25 @@ class SemanticReader:
             batches = groups(summaries, self.deps.count_tokens, self.reader.budget // 3)
             if len(batches) == len(summaries):
                 raise RuntimeError("Global reading maps cannot fit the selected model's context budget")
-            summaries = [self.summarize(f"{key}-{level}-{i}", batch) for i, batch in enumerate(batches)]
+            before = self.deps.count_tokens(encoded(summaries))
+            following = [summary for i, batch in enumerate(batches)
+                         for summary in map_windows(self, f"{key}-{level}-{i}", batch)]
+            if level >= 8 or (len(following) >= len(summaries) and self.deps.count_tokens(encoded(following)) >= before):
+                raise RuntimeError("Global argument-map reduction made no progress; saved maps are retained")
+            summaries = following
             level += 1
         return summaries[0] if summaries else "No proposed reading notes."
 
     def overview(self) -> str:
         self.reader.phase("overview", 10)
         batches = overview_groups(self.reader.chunks, self.deps.count_tokens, self.reader.budget)
+        completed = self.state.setdefault("overview_complete", {})
         for index, material in enumerate(batches):
-            if index >= len(self.state["maps"]):
-                self.state["maps"].append(self.summarize(f"semantic-overview-{index}", material))
+            if str(index) not in completed:
+                completed[str(index)] = map_windows(self, f"semantic-overview-{index}", material)
+                self.state["maps"] = [summary for i in range(len(batches)) for summary in completed.get(str(i), [])]
                 self.save()
+            self.reader.phase("overview", 10 + round(10 * (index + 1) / len(batches)))
         if not self.state.get("global_map"):
             self.state["global_map"] = self.combine("semantic-global-map", self.state["maps"])
             self.save()
@@ -175,8 +189,8 @@ class SemanticReader:
             notes = [n for c in self.reader.chunks for n in records(self.state["plans"][str(c["id"])].get("notes"))]
             material = [{"title": n["title"], "body_md": n["body_md"]} for n in notes]
             material.extend({"title": "Reading observations", "body_md": encoded(value)} for value in self.state["observations"].values())
-            summaries = [self.summarize(f"semantic-note-map-{i}", batch)
-                         for i, batch in enumerate(groups(material, self.deps.count_tokens, self.reader.budget // 3))]
+            summaries = [summary for i, batch in enumerate(groups(material, self.deps.count_tokens, self.reader.budget // 3))
+                         for summary in map_windows(self, f"semantic-note-map-{i}", batch)]
             self.state["notes_map"] = self.combine("semantic-all-notes", summaries)
             self.save()
         return str(self.state["notes_map"])
