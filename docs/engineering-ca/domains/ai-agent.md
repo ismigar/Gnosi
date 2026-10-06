@@ -1483,3 +1483,13 @@ La recuperació de la revisió també reconeix un objecte JSON tallat dins d’u
 Una resposta completa del proveïdor no és un veredicte de qualitat. La revisió conjunta inclou passatges originals adjacents complets entre pàgines i diagnòstics explícits de la prosa. Els enllaços numèrics interns sense resoldre, les notes al peu sense definició i la barreja corrupta d’alfabets sense suport rebutgen tot el lot revisat, incloses les notes sense canvis. La resposta declara els defectes pendents; si n’hi ha, el procés s’atura abans de publicar i conserva les interpretacions i els mapes pagats. Les revisions i els plans reduïts anteriors no poden eludir aquest contracte d’acceptació versionat. Les comprovacions mecàniques no certifiquen la veritat semàntica.
 
 El ressaltat del PDF exigeix trobar la cita completa, amb coordenades dels caràcters originals i normalització només dels espais de maquetació. Admet cites curtes; les coincidències repetides requereixen identificar el passatge original. Es rebutgen les coincidències només de l’inici i s’eliminen els ressaltats gestionats que ja no es poden verificar quan l’adjunt està disponible. Les pàgines que només contenen imatges i les ambigüitats no resoltes continuen sent errors explícits, sense inventar coordenades. Els processos acabats amb observacions mostren un avís de revisió en lloc d’un indicador d’èxit sense reserves; les observacions repetides es mostren una sola vegada.
+
+
+La versió 2 de la revisió de qualitat també proporciona al revisor les observacions
+anteriors de l’extracció. Els avisos originals es conserven als punts de represa
+i a l’historial del pla revisat; els avisos actuals indiquen les limitacions que
+la revisió encara detecta. Els avisos de passatges sense notes revisables
+continuen pendents. La tasca i el manifest de la font distingeixen una revisió
+acabada de l’acceptació: qualsevol avís pendent de lectura, extracció o cites
+manté `reviewed` a fals i `quality_status` a `needs_review`. No s’esborren avisos
+silenciosament per obtenir un estat d’èxit.

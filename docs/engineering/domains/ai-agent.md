@@ -1376,3 +1376,12 @@ Review recovery also recognizes a JSON object cut off inside a string or at the 
 A completed provider response is not a quality verdict. Joint review includes full adjacent original passages across page boundaries and explicit prose diagnostics. Unresolved internal numeric links, undefined footnotes and unsupported mixed-script corruption reject the complete reviewed batch, including unchanged notes. Review responses explicitly list unresolved defects; a nonempty list stops before publication while preserving paid interpretations and maps. Earlier review checkpoints and reduced plans cannot bypass this versioned acceptance contract. These mechanical checks do not certify semantic truth.
 
 PDF highlighting requires a complete quote match, with native character coordinates and whitespace-only layout normalization. Short quotes are supported; repeated occurrences require an identifiable original passage. Prefix-only matches are rejected, and previously managed but now unverifiable highlights are removed when the attachment is available. Image-only pages and unresolved ambiguity remain explicit failures rather than fabricated geometry. Finished jobs retaining observations display a review warning instead of an unqualified success indicator; repeated observations are displayed once.
+
+
+Quality review version 2 also supplies earlier extraction observations to the
+reviewer. The original draft warnings remain in checkpoints and reviewed-plan
+history; current warnings contain the limitations still found during review.
+Warnings on passages without reviewable notes remain pending. The job and source
+manifest distinguish a completed review from acceptance: any remaining reading,
+extraction or citation warning keeps `reviewed` false and `quality_status` at
+`needs_review`. This does not silently erase warnings to obtain a success state.

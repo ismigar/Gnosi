@@ -39,6 +39,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_pdf_extraction_cache.py
   - backend/tests/test_llm_wiki_source_sections.py
   - frontend/src/features/vault/properties/sourceSectionRelations.test.ts
   - backend/tests/test_llm_wiki_recovery.py
@@ -388,3 +389,20 @@ Schema updates preserve existing notes and do not launch processing. Explicit
 reprocessing assigns sections and marks removed sections stale while retaining
 historic relations. The application derives assignments from verified source
 segments, including when it resumes a reviewed checkpoint.
+
+
+### Stable PDF evidence and citation lookup
+
+PDF extraction is cached locally using the complete file-byte SHA-256, extractor
+version and a checksum of the ordered text and locators. Estimate and processing
+share this extraction, so repeating OCR cannot invalidate saved reading work for
+an unchanged PDF. Concurrent cache misses share one extraction. Changed bytes,
+corrupt entries, failed OCR and files modified during extraction cannot reuse or
+publish the cache. Missing OCR on image pages is an explicit extraction failure;
+blank pages remain allowed. Native rendering resources close even after failure.
+This cache preserves evidence, not a certificate of OCR accuracy.
+
+Citation geometry caches its native-character text index once per page and per
+synchronization. Indexes never survive a synchronization or cross attachments.
+Full-span, exact-letter and ambiguity checks remain unchanged; only repeated
+native character scans are eliminated.

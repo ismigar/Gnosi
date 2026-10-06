@@ -6,6 +6,8 @@ import unicodedata
 
 from backend.domains.llm_wiki.chunking import records
 
+REVIEW_QUALITY_VERSION = 2
+
 
 def prose_issues(note: dict[str, object], evidence: list[dict[str, object]], language: str = "") -> list[str]:
     """Reject leaked transport references, undefined footnotes and mixed-script corruption."""

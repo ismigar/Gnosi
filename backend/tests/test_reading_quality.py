@@ -101,3 +101,28 @@ def test_preflight_prices_revalidation_of_legacy_reviews_at_the_saved_batch_limi
     estimate = phase_estimate(engine.deps, engine.reader.chunks, [], [], state, 4)
     assert estimate['phase_calls']['interpretation'] == 0
     assert estimate['phase_calls']['review'] >= 4
+
+
+def test_review_reassesses_prior_warnings_and_keeps_original_checkpoint_for_audit():
+    from copy import deepcopy
+    from backend.tests.test_semantic_review_parallel import prepared
+    from backend.tests.test_semantic_reading import response
+    seen = []
+    def generate(request):
+        answer = response(request)
+        if request['phase'] == 'verify':
+            seen.extend(w for n in request['notes'] for w in n['prior_observations'])
+            answer['assessment'] = 'The next original completes the sentence; the old truncation warning is resolved.'
+            answer['warnings'] = ['Original claim is explicitly tentative.']
+        return answer
+    engine, gm, nm, _, _ = prepared(generate, count=2, size=2)
+    old_warning = 'The text may end mid-sentence.'
+    for plan in engine.state['plans'].values():
+        plan['warnings'] = [old_warning, old_warning]
+    original = deepcopy(engine.state['plans'])
+    result = engine.review(gm, nm)
+    assert seen == [old_warning, old_warning]
+    assert engine.state['plans'] == original
+    assert all(p['prior_warnings'] == [old_warning] for _, p in result)
+    assert all(p['warnings'] == ['Original claim is explicitly tentative.'] for _, p in result)
+    assert old_warning not in engine.reader.warnings

@@ -15,7 +15,7 @@ from backend.data.db import get_engine_for_path
 from backend.models.pdf_annotation import PdfAnnotation
 from backend.services.context_vars import get_active_vault_path
 from backend.utils.open_values import iterable_values
-from backend.domains.llm_wiki.pdf_quote_matching import normalized_pdf_span
+from backend.domains.llm_wiki.pdf_quote_matching import PageTextIndex, index_page
 
 logger = get_logger(__name__)
 
@@ -117,6 +117,7 @@ def _find_quote_position_in_document(
     page_number: int,
     quote: str,
     context: str = "",
+    page_indexes: dict[int, PageTextIndex] | None = None,
 ) -> Optional[dict[str, object]]:
     page_index = page_number - 1
     if page_index < 0 or page_index >= len(document):
@@ -132,7 +133,12 @@ def _find_quote_position_in_document(
             finally:
                 searcher.close()
             if not match or repeated:
-                match = normalized_pdf_span(text_page, quote, context)
+                cached = page_indexes.get(page_index) if page_indexes is not None else None
+                if cached is None:
+                    cached = index_page(text_page)
+                    if page_indexes is not None:
+                        page_indexes[page_index] = cached
+                match = cached.find(quote, context)
             if not match:
                 continue
             start, count = match
@@ -251,6 +257,7 @@ def _resolve_annotation_candidates(
     resolved: dict[str, tuple[_CitationCandidate, dict[str, object]]] = {}
     warnings: list[str] = []
     documents: dict[str, _PdfDocument] = {}
+    indexes: dict[str, dict[int, PageTextIndex]] = {}
     resolver: PositionResolver
     if position_resolver is None:
         pypdfium2 = _load_pdfium()
@@ -263,7 +270,8 @@ def _resolve_annotation_candidates(
             if document is None:
                 document = pypdfium2.open_document(path_key)
                 documents[path_key] = document
-            return _find_quote_position_in_document(document, page_number, quote, candidate["context"])
+            return _find_quote_position_in_document(document, page_number, quote, candidate["context"],
+                                                    indexes.setdefault(path_key, {}))
 
         resolver = cached_resolver
     else:

@@ -1572,3 +1572,13 @@ La récupération de la révision reconnaît aussi un objet JSON interrompu dans
 Une réponse complète du fournisseur ne constitue pas un verdict de qualité. La révision commune inclut les passages originaux adjacents complets entre les pages et des diagnostics explicites du texte. Les liens numériques internes non résolus, les notes de bas de page sans définition et les mélanges corrompus d’alphabets sans justification entraînent le rejet du lot entier, y compris les notes inchangées. La réponse déclare les défauts restants ; leur présence arrête la publication en conservant les interprétations et les cartes déjà payées. Les révisions et les plans réduits antérieurs ne peuvent contourner ce contrat d’acceptation versionné. Les contrôles mécaniques ne certifient pas la vérité sémantique.
 
 Le surlignage du PDF exige une correspondance avec la citation complète, les coordonnées natives des caractères et la normalisation des seuls espaces de mise en page. Les citations courtes sont admises ; les occurrences répétées exigent un passage original identifiable. Les correspondances limitées au début sont rejetées et les surlignages gérés devenus invérifiables sont supprimés lorsque la pièce jointe est disponible. Les pages constituées uniquement d’images et les ambiguïtés non résolues restent des erreurs explicites, sans coordonnées inventées. Les traitements terminés avec des observations affichent un avertissement de révision au lieu d’un succès sans réserve ; les observations répétées sont affichées une seule fois.
+
+
+La version 2 de la vérification de qualité fournit également au réviseur les
+observations antérieures de l’extraction. Les avertissements initiaux restent
+dans les points de reprise et l’historique du plan révisé ; les avertissements
+actuels décrivent les limites encore constatées. Ceux des passages sans notes
+révisables restent en attente. La tâche et le manifeste distinguent une révision
+terminée de son acceptation : tout avertissement de lecture, d’extraction ou de
+citation maintient `reviewed` à faux et `quality_status` à `needs_review`.
+Les avertissements ne sont pas effacés silencieusement pour obtenir un succès.

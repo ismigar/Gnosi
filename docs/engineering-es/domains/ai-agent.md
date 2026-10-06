@@ -1549,3 +1549,13 @@ La recuperación de la revisión también reconoce un objeto JSON cortado dentro
 Una respuesta completa del proveedor no es un veredicto de calidad. La revisión conjunta incluye pasajes originales adyacentes completos entre páginas y diagnósticos explícitos de la prosa. Los enlaces numéricos internos sin resolver, las notas al pie sin definición y la mezcla corrupta de alfabetos sin respaldo rechazan todo el lote revisado, incluidas las notas sin cambios. La respuesta declara los defectos pendientes; si los hay, el proceso se detiene antes de publicar y conserva las interpretaciones y los mapas pagados. Las revisiones y los planes reducidos anteriores no pueden eludir este contrato de aceptación versionado. Las comprobaciones mecánicas no certifican la verdad semántica.
 
 El resaltado del PDF exige encontrar la cita completa, con coordenadas de los caracteres originales y normalización únicamente de los espacios de maquetación. Admite citas cortas; las coincidencias repetidas requieren identificar el pasaje original. Se rechazan las coincidencias de solo el principio y se eliminan los resaltados gestionados que ya no se pueden verificar cuando el adjunto está disponible. Las páginas que solo contienen imágenes y las ambigüedades no resueltas siguen siendo errores explícitos, sin inventar coordenadas. Los procesos terminados con observaciones muestran un aviso de revisión en lugar de un indicador de éxito sin reservas; las observaciones repetidas se muestran una sola vez.
+
+
+La versión 2 de la revisión de calidad también proporciona al revisor las
+observaciones anteriores de la extracción. Los avisos originales se conservan
+en los puntos de reanudación y el historial del plan revisado; los avisos actuales
+indican las limitaciones que todavía detecta la revisión. Los avisos de pasajes
+sin notas revisables siguen pendientes. La tarea y el manifiesto de la fuente
+distinguen una revisión terminada de su aceptación: cualquier aviso pendiente
+de lectura, extracción o citas mantiene `reviewed` en falso y `quality_status`
+en `needs_review`. No se borran avisos silenciosamente para obtener un éxito.

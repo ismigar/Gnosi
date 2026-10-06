@@ -39,6 +39,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_pdf_extraction_cache.py
   - backend/tests/test_llm_wiki_source_sections.py
   - frontend/src/features/vault/properties/sourceSectionRelations.test.ts
   - backend/tests/test_llm_wiki_recovery.py
@@ -354,3 +355,22 @@ La actualización del esquema conserva las notas y no inicia procesamiento.
 El reprocesamiento explícito asigna apartados y marca los desaparecidos como
 antiguos, conservando las relaciones históricas. La aplicación deriva las
 asignaciones de segmentos verificados, también al reanudar un punto revisado.
+
+
+### Evidencia PDF estable y búsqueda de citas
+
+La extracción PDF se guarda localmente con el SHA-256 de todos los bytes del
+archivo, la versión del extractor y una suma de comprobación del texto ordenado
+y sus localizadores. La estimación y el procesamiento comparten la extracción:
+repetir el OCR no invalida la lectura guardada de un PDF sin cambios. Las
+solicitudes simultáneas comparten una sola extracción. Los bytes modificados,
+las entradas corruptas, el OCR fallido y los archivos que cambian durante la
+extracción no pueden reutilizar ni publicar esta caché. La falta de OCR en
+páginas con imágenes es un error explícito; las páginas en blanco son válidas.
+Los recursos nativos se cierran incluso ante errores. La caché conserva la
+evidencia, pero no certifica la precisión del OCR.
+
+La geometría de citas indexa los caracteres nativos una sola vez por página y
+sincronización. Los índices no se comparten entre archivos ni sobreviven a la
+sincronización. Se mantienen las comprobaciones de la cita completa, las letras
+exactas y la ambigüedad; solo se elimina la lectura repetida de los caracteres.

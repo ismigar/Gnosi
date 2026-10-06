@@ -7,9 +7,8 @@ from typing import TYPE_CHECKING
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.semantic_context import source_view
 from backend.domains.llm_wiki.semantic_contracts import semantic_note
-from backend.domains.llm_wiki.reading_quality import adjacent_originals, prose_issues
+from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION, adjacent_originals, prose_issues
 
-REVIEW_QUALITY_VERSION = 1
 
 if TYPE_CHECKING:
     from backend.domains.llm_wiki.semantic_reading import SemanticReader
@@ -31,6 +30,9 @@ def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> lis
     entries: list[dict[str, object]] = []
     destinations = []
     for ci, (chunk, plan) in enumerate(reviewed):
+        if records(plan.get("notes")):
+            plan["prior_warnings"] = list(dict.fromkeys(str(w) for w in plan.get("warnings", []) if isinstance(w, str)))
+            plan["warnings"] = []
         for ni, note in enumerate(records(plan.get("notes"))):
             primary = {**next(s for s in records(chunk.get("segments")) if s["id"] == note["source_segment_id"]),
                        "origin_label": chunk.get("origin_label")}
@@ -39,6 +41,7 @@ def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> lis
             support = list({encoded(s): s for s in [*support, *neighbours.get(str(primary["id"]), [])]}.values())
             entries.append({"note": semantic_note(note, reader.dimensions), "primary": source_view(primary),
                             "support": [source_view(s) for s in support],
+                            "prior_observations": plan.get("prior_warnings", []),
                             "validation_issues": prose_issues(note, [primary, *support], reader.language)})
             destinations.append((ci, ni, note, primary, [primary, *support]))
     from backend.domains.llm_wiki.semantic_review_execution import review_batches
@@ -48,6 +51,8 @@ def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> lis
             updated[ni] = note
             reviewed[ci][1]["notes"] = updated
         for ci in {target[0] for target in batch.targets}:
+            warnings = engine.state["reviewed_groups"][batch.key]["warnings"]
+            reviewed[ci][1]["warnings"] = list(dict.fromkeys([*reviewed[ci][1]["warnings"], *warnings]))
             evidence = [*records(reviewed[ci][1].get("evidence_segments")), *batch.evidence]
             reviewed[ci][1]["evidence_segments"] = list({encoded(s): s for s in evidence}.values())
     for chunk, plan in reviewed:

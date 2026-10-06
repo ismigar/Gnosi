@@ -50,3 +50,25 @@ def test_previously_guessed_highlight_is_removed_when_full_quote_cannot_be_verif
     report = sync_generated_pdf_annotations(notes, [_origin(pdf)], 'book', session=session)
     assert report['matched'] == 0 and report['removed'] == 1
     assert session.query(PdfAnnotation).count() == 0
+
+
+def test_page_index_is_built_once_per_document_during_highlight_sync(tmp_path, monkeypatch):
+    from backend.services import llm_wiki_pdf_annotations as annotations
+    from backend.tests.test_llm_wiki_pdf_annotations import _session, _origin, _citation
+    calls = []
+    original = annotations.index_page
+    def measured(page):
+        calls.append(True)
+        return original(page)
+    monkeypatch.setattr(annotations, 'index_page', measured)
+    pdf = _demo_pdf(tmp_path)
+    quotes = [
+        'Persistent cita tion highlights span multiple lines',
+        'in this port able PDF fixture',
+        'Persistent citation highlights span multiple lines invented ending',
+    ]
+    notes = [{'citations': [{**_citation(), 'quote': quote} for quote in quotes]}]
+    for _ in range(2):
+        report = annotations.sync_generated_pdf_annotations(notes, [_origin(pdf)], 'book', session=_session())
+        assert report['matched'] == 2 and len(report['warnings']) == 1
+    assert len(calls) == 2  # Fresh per-sync indexes cannot outlive changed PDF bytes.

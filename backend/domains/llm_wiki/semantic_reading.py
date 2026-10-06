@@ -5,6 +5,8 @@ boundary. Every paid phase remains inside the governed runtime and budget.
 """
 from __future__ import annotations
 
+from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION
+
 from copy import deepcopy
 from collections.abc import Callable
 from typing import Any
@@ -30,7 +32,7 @@ class SemanticReader:
         identity = reading_identity(self.deps.execution_revision, reader.chunks, reader.dimensions, reader.brain_index)
         self.state: dict[str, Any] = {"engine": ENGINE_VERSION, "identity": identity, "plans": {},
                                       "identity_parts": identity_parts(self.deps.execution_revision, reader.chunks, reader.dimensions, reader.brain_index),
-                                      "maps": [], "observations": {}, "reviewed_groups": {}, "step": 0, "review_quality_version": 1,
+                                      "maps": [], "observations": {}, "reviewed_groups": {}, "step": 0, "review_quality_version": REVIEW_QUALITY_VERSION,
                                       "reading_context": fingerprint([reader.title, reader.language])}
         resolve_candidates = self.deps.resume_candidates
         candidates = ([reader.resume_job_id] if resolve_candidates is None else
@@ -224,7 +226,7 @@ class SemanticReader:
         self.state["completed"] = True
         self.save()
         return {"summary": global_map, "notes": notes, "warnings": self.reader.warnings,
-                "reviewed": True, "quality_review_version": 1,
+                "reviewed": True, "quality_review_version": REVIEW_QUALITY_VERSION,
                 "coverage": [{**row, "chunk_id": c["id"]} for c, p in reviewed for row in records(p["coverage"])]}, self.reader.models
 
 

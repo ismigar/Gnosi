@@ -39,6 +39,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_pdf_extraction_cache.py
   - backend/tests/test_llm_wiki_source_sections.py
   - frontend/src/features/vault/properties/sourceSectionRelations.test.ts
   - backend/tests/test_llm_wiki_recovery.py
@@ -393,3 +394,23 @@ La mise à jour du schéma conserve les notes et ne lance aucun traitement.
 Le retraitement explicite attribue les sections et marque celles disparues comme
 anciennes, tout en conservant les relations historiques. L'application dérive
 les attributions des segments vérifiés, y compris lors d'une reprise révisée.
+
+
+### Preuves PDF stables et recherche de citations
+
+L’extraction PDF est conservée localement avec le SHA-256 de tous les octets du
+fichier, la version de l’extracteur et une somme de contrôle du texte ordonné et
+de ses localisateurs. L’estimation et le traitement partagent cette extraction :
+répéter l’OCR ne rend pas invalide une lecture enregistrée si le PDF est inchangé.
+Les demandes simultanées partagent une seule extraction. Des octets modifiés, des
+entrées corrompues, un échec de l’OCR ou un fichier modifié pendant l’extraction
+empêchent la réutilisation et l’enregistrement du cache. L’absence d’OCR sur les
+pages contenant des images est une erreur explicite ; les pages blanches restent
+acceptées. Les ressources natives sont fermées même en cas d’échec. Le cache
+conserve les preuves sans certifier la précision de l’OCR.
+
+La géométrie des citations indexe les caractères natifs une seule fois par page
+et par synchronisation. Les index ne passent pas d’un fichier à un autre et ne
+survivent pas à la synchronisation. Les contrôles de citation intégrale, de
+lettres exactes et d’ambiguïté restent identiques ; seules les lectures répétées
+des caractères sont éliminées.

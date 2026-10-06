@@ -1,6 +1,7 @@
 """Full-span PDF matching with explicit ambiguity; never accept a quote prefix."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Protocol
 
 
@@ -36,7 +37,20 @@ def unique_span(text: str, quote: str, context: str = "") -> tuple[int, int] | N
     return matches[0] if len(matches) == 1 else None
 
 
-def normalized_pdf_span(page: TextPage, quote: str, context: str = "") -> tuple[int, int] | None:
+@dataclass(frozen=True)
+class PageTextIndex:
+    text: str
+    indices: tuple[int, ...]
+
+    def find(self, quote: str, context: str = "") -> tuple[int, int] | None:
+        span = unique_span(self.text, quote, context)
+        if span is None:
+            return None
+        first, last = self.indices[span[0]], self.indices[span[1] - 1]
+        return first, last - first + 1
+
+
+def index_page(page: TextPage) -> PageTextIndex:
     # PDFium text-string offsets can differ from character-list offsets.
     # Read individual native characters so rectangle indices stay exact.
     text, indices = [], []
@@ -44,8 +58,8 @@ def normalized_pdf_span(page: TextPage, quote: str, context: str = "") -> tuple[
         value = compact(page.get_text_range(index, 1))
         text.append(value)
         indices.extend([index] * len(value))
-    span = unique_span("".join(text), quote, context)
-    if span is None:
-        return None
-    first, last = indices[span[0]], indices[span[1] - 1]
-    return first, last - first + 1
+    return PageTextIndex("".join(text), tuple(indices))
+
+
+def normalized_pdf_span(page: TextPage, quote: str, context: str = "") -> tuple[int, int] | None:
+    return index_page(page).find(quote, context)

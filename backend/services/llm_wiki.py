@@ -640,6 +640,8 @@ def start_ingest(
                 model=report["model"],
                 warnings=report["warnings"],
                 reviewed=report.get("reviewed", False),
+                review_completed=report.get("review_completed", False),
+                quality_status=report.get("quality_status", "needs_review"),
                 coverage=report.get("coverage", []),
                 index_report=index_report,
             )

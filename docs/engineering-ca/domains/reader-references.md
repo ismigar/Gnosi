@@ -39,6 +39,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_pdf_extraction_cache.py
   - backend/tests/test_llm_wiki_source_sections.py
   - frontend/src/features/vault/properties/sourceSectionRelations.test.ts
   - backend/tests/test_llm_wiki_recovery.py
@@ -409,3 +410,22 @@ L'actualització de l'esquema preserva les notes i no inicia cap processament.
 El reprocessament explícit assigna apartats i marca els desapareguts com a antics,
 conservant les relacions històriques. L'aplicació deriva les assignacions dels
 segments verificats, també quan reprèn un punt de control revisat.
+
+
+### Evidència PDF estable i cerca de cites
+
+L’extracció PDF es desa localment amb el SHA-256 de tots els bytes del fitxer,
+la versió de l’extractor i una suma de comprovació del text ordenat i els
+localitzadors. L’estimació i el processament comparteixen l’extracció: repetir
+l’OCR no invalida una lectura desada si el PDF no ha canviat. Les peticions
+simultànies comparteixen una sola extracció. Els bytes modificats, les entrades
+corruptes, l’OCR fallit i els fitxers que canvien durant l’extracció no poden
+reutilitzar ni publicar aquesta memòria cau. L’absència d’OCR en pàgines amb
+imatges és un error explícit; les pàgines en blanc són vàlides. Els recursos
+natius es tanquen també quan hi ha errors. La memòria cau conserva l’evidència,
+però no certifica la precisió de l’OCR.
+
+La geometria de cites indexa els caràcters natius una sola vegada per pàgina i
+sincronització. Els índexs no es comparteixen entre fitxers ni sobreviuen a la
+sincronització. Es mantenen les comprovacions de la cita sencera, de les lletres
+exactes i de l’ambigüitat; només s’elimina la lectura repetida dels caràcters.
