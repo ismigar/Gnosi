@@ -109,8 +109,9 @@ export function restoreResourceProcessingTask(input: TaskInput, job: ResourcePro
     if (!state || state === 'done' || (input.reprocess && state !== 'running')
         || tasks.some(task => task.id === id && task.state === 'running')) return;
     stop(id);
+    const previous = tasks.find(task => task.id === id);
     tasks = [...tasks.filter(task => task.id !== id), { ...input, id, job, state,
-        error: state === 'error' ? resourceProcessingError(job.error, t) : '', background: input.background ?? false }];
+        error: state === 'error' ? resourceProcessingError(job.error, t) : '', background: input.background ?? previous?.background ?? false }];
     publish();
     if (state === 'running') {
         const poller: Poller = {};

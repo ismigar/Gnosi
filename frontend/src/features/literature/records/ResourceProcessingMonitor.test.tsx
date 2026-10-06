@@ -213,12 +213,17 @@ describe('resource processing corner monitor', () => {
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
         closeDialog();
-        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({ ...runningJob, phase: 'partial', running: false, error: 'Provider unavailable' });
+        const interrupted = { ...runningJob, phase: 'partial', running: false, error: 'Provider unavailable' };
+        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce(interrupted);
         await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
         expect(container.querySelector('.resource-processing-monitor')?.textContent).toContain('Processing needs attention');
         expect(vi.getTimerCount()).toBe(0);
+        vi.mocked(findResumableResourceProcessing).mockResolvedValue(interrupted);
         act(() => { container.querySelector<HTMLButtonElement>('.resource-processing-card-open')?.click(); });
+        await flushProcessing();
         expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Provider unavailable');
+        expect(getResourceProcessingTasks()[0]?.background).toBe(true);
+        vi.mocked(findResumableResourceProcessing).mockResolvedValue(null);
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce(doneJob);
         await flushProcessing();
         act(() => { buttonWithText('Retry').click(); });
