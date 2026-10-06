@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-05
+last_verified: 2026-10-06
 source_paths:
   - frontend/src/shared/api/resource-processing.ts
   - frontend/src/features/literature/records/process-resource/useProcessResourceController.ts
@@ -14,6 +14,7 @@ source_paths:
   - backend/domains/llm_wiki/semantic_context.py
   - backend/domains/llm_wiki/semantic_review.py
   - backend/domains/llm_wiki/semantic_repairs.py
+  - backend/domains/llm_wiki/semantic_quote_selection.py
   - backend/services/reading_semantic_estimate.py
   - backend/tests/test_semantic_reading.py
   - backend/services/agent_task_cases.py
@@ -1457,7 +1458,7 @@ Els mapes de fonts complets que superen l’objectiu de 2.000 tokens es conserve
 
 L’objectiu més breu demanat al segon intent de reducció deixa marge; l’acceptació continua utilitzant la mateixa capacitat del mapa. Una resposta completa entre aquest objectiu i la capacitat és vàlida. La represa també converteix els esborranys complets compatibles que ja hi caben en checkpoints de resultat sense cap altra crida al model, inclosos els desats per reintents anteriors més estrictes. Els esborranys buits, incomplets, incompatibles o encara massa llargs no poden eludir la validació. No es retalla cap text de la font i es conserven el pressupost i el màxim de dues crides.
 
-Les reparacions d’interpretació inclouen ara diagnòstics d’evidències per nota i fragments numerats que cobreixen els originals subministrats sencers. La reparació selecciona identificadors locals de cites en lloc de tornar-les a copiar; Gnosi restaura el text original exacte abans d’aplicar les mateixes comprovacions d’esquema, passatge principal i cites. Les evidències només de context, ambigües, buides o inventades continuen sent invàlides. Els passatges vàlids i la memòria semàntica es mantenen immutables. Només canvia el format de la reparació: es conserven els checkpoints de lectura, el màxim de dues crides i el pressupost. Els errors de cites utilitzen el missatge d’evidències traduït existent i conserven els detalls tècnics.
+La interpretació i la revisió conjunta seleccionen identificadors locals de cites entre fragments numerats que cobreixen els originals subministrats sencers, des de la primera resposta del model. Gnosi restaura el text exacte abans de les mateixes comprovacions d’esquema, passatge principal i cites; una correcció de sintaxi utilitza les mateixes opcions. El pressupost d’entrada inclou el catàleg numerat i els espais en blanc es mantenen units a les evidències originals. Les reparacions d’interpretació inclouen diagnòstics per nota i conserven els passatges vàlids i la memòria semàntica. La memòria cau de l’operació conserva el contracte validat de selecció, mentre que els checkpoints de lectura mantenen cites literals, de manera que la feina completada compatible es pot reutilitzar. Les evidències només de context, ambigües, buides o inventades continuen sent invàlides. El màxim de dues crides i el pressupost no canvien. Els errors de cites utilitzen el missatge d’evidències traduït existent i conserven els detalls tècnics.
 
 La versió 2 de la identitat de lectura normalitza les claus dels diccionaris i l’ordre de l’índex de coneixement. Els límits de coneixement i catàlegs de relacions s’apliquen després d’una ordenació estable, de manera que una recàrrega no pot seleccionar un subconjunt arbitrari diferent. Els components de la identitat es desen per al diagnòstic; l’ordre de les fonts, el text, les classificacions i la política d’execució continuen sent rellevants. Els mapes de prosa complets tenen una identitat pròpia basada en el material exacte, el títol, la llengua i la política d’execució fixada, independent de la classificació i el context de coneixement. Es poden reutilitzar encara que calgui regenerar les notes provisionals. Les memòries cau de mapes antics requereixen evidència explícita d’una resposta completa del proveïdor abans de migrar-les.
 

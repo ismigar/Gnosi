@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-05
+last_verified: 2026-10-06
 source_paths:
   - frontend/src/shared/api/resource-processing.ts
   - frontend/src/features/literature/records/process-resource/useProcessResourceController.ts
@@ -14,6 +14,7 @@ source_paths:
   - backend/domains/llm_wiki/semantic_context.py
   - backend/domains/llm_wiki/semantic_review.py
   - backend/domains/llm_wiki/semantic_repairs.py
+  - backend/domains/llm_wiki/semantic_quote_selection.py
   - backend/services/reading_semantic_estimate.py
   - backend/tests/test_semantic_reading.py
   - backend/services/agent_task_cases.py
@@ -1350,7 +1351,7 @@ Complete source maps that exceed the 2,000-token target remain preserved in chec
 
 The shorter target requested on the second contraction attempt leaves headroom; acceptance still uses the unchanged map capacity. A complete answer between that target and the capacity is valid. Resuming also promotes compatible complete drafts already within capacity into result checkpoints without another model call, including drafts saved by older stricter retries. Empty, incomplete, incompatible or still oversized drafts cannot bypass validation. No source text is cut, and the spending cap and two-call allowance remain unchanged.
 
-Interpretation repairs now include per-note evidence diagnostics and numbered spans covering the complete supplied originals. The repair selects local quote IDs instead of retyping quotations; Gnosi restores the exact original text before applying the unchanged schema, primary-passage and citation checks. Context-only, ambiguous, blank or invented evidence remains invalid. Valid passages and semantic memory stay immutable. This changes only the repair transport, preserving existing reading checkpoints, the two-call allowance and the spending limit. Citation failures use the existing localized evidence message, with technical details retained.
+Interpretation and joint review select local quote IDs from numbered spans covering the complete supplied originals, beginning with the first model response. Gnosi restores the exact text before the unchanged schema, primary-passage and citation checks; a syntax correction uses the same choices. Input budgeting includes the numbered catalog, and whitespace stays attached to original evidence. Interpretation repairs include per-note diagnostics and retain valid passages and semantic memory. The operation cache keeps its validated selection contract while reading checkpoints retain literal citations, so compatible completed work remains reusable. Context-only, ambiguous, blank or invented evidence remains invalid. The two-call allowance and spending limit are unchanged. Citation failures use the existing localized evidence message, with technical details retained.
 
 Reading identity version 2 canonicalizes mapping keys and knowledge-index order. Knowledge and relation catalog limits are applied after stable sorting, so a reload cannot select a different arbitrary subset. Identity components are recorded for diagnosis; source order, text, classifications and execution policy remain significant. Complete prose maps have their own identity based on the exact material, title, language and frozen execution policy, independent of classification and knowledge context. They can be reused even when draft notes need regeneration. Older map caches require explicit evidence of a complete provider response before migration.
 

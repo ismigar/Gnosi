@@ -11,6 +11,19 @@ from backend.domains.llm_wiki.semantic_contracts import obj, validate_schema
 from backend.services.agent_output_repair import OutputRepair
 
 
+def original_spans(text: str) -> list[str]:
+    """Keep whitespace attached to evidence instead of offering blank choices."""
+    spans: list[str] = []
+    for part in re.split(r"(?<=[.!?])(?=\s)|(?<=\n)(?=\S)", text):
+        if not part:
+            continue
+        if spans and (not part.strip() or not spans[-1].strip()):
+            spans[-1] += part
+        else:
+            spans.append(part)
+    return spans
+
+
 def quote_choices(sources: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[int, str], list[int]]:
     """Index complete original text in contiguous spans; never synthesize a quote."""
     catalog: list[dict[str, Any]] = []
@@ -22,11 +35,10 @@ def quote_choices(sources: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], 
         if identity not in identities:
             identities[identity] = len(catalog) + 1
             spans = []
-            for text in re.split(r"(?<=[.!?])(?=\s)|(?<=\n)(?=\S)", str(source["text"])):
-                if text:
-                    number = len(quotes) + 1
-                    quotes[number] = text
-                    spans.append({"quote_id": number, "text": text})
+            for text in original_spans(str(source["text"])):
+                number = len(quotes) + 1
+                quotes[number] = text
+                spans.append({"quote_id": number, "text": text})
             catalog.append({"source": identities[identity],
                             **{k: v for k, v in source.items() if k != "text"}, "quotes": spans})
         source_ids.append(identities[identity])

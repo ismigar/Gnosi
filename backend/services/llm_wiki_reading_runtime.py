@@ -93,6 +93,7 @@ class ReadingRuntime:
     def generate_structured(self, prompt: str, validate: Callable[[dict[str, object]], None], timeout: int) -> tuple[str, str]:
         from backend.services.agent_execution import run_sync
         from backend.domains.llm_wiki.reading_repairs import build_reading_repair
+        from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
         from backend.services.agent_output_repair import OutputRepair
         if self.count_tokens(prompt) > self.input_budget:
             raise RuntimeError("The reading input exceeds the selected model's context budget")
@@ -103,24 +104,36 @@ class ReadingRuntime:
         schema = envelope.get("output_schema") if isinstance(envelope, dict) else None
         if not isinstance(schema, dict):
             schema = {"type": "object"}
+        selection = quote_selection(envelope) if isinstance(envelope, dict) else None
+        operation_prompt = selection.input if selection else prompt
+        schema = selection.schema if selection else schema
+        if self.count_tokens(operation_prompt) > self.input_budget:
+            raise RuntimeError("The reading input exceeds the selected model's context budget")
         def checked(text: str) -> str:
-            answer = json.loads(text)
+            answer = json.loads(selection.restore(text) if selection else text)
             if not isinstance(answer, dict):
                 raise ValueError("Return a JSON object")
             try:
                 validate(answer)
             except (TypeError, KeyError) as error:
                 raise ValueError(str(error)) from error
-            # Validation can restore an unambiguously omitted segment digest.
-            # Persist the canonical answer, not the provider's rejected spelling.
-            return json.dumps(answer, ensure_ascii=False)
+            # Legacy validation can restore an omitted segment digest. Selection
+            # operations keep their numeric contract in the operation cache;
+            # the reader receives literal citations after the operation returns.
+            return text if selection else json.dumps(answer, ensure_ascii=False)
         def repair(text: str, error: Exception) -> OutputRepair | None:
             from backend.domains.llm_wiki.reading_dimension_repairs import build_dimension_repair
             # A schema rejection can hide bad citations in the same draft.
             # Collect both before spending another call on a full rewrite.
             if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic":
                 from backend.domains.llm_wiki.semantic_repairs import build_semantic_repair
-                semantic_repair = build_semantic_repair(prompt, text)
+                try:
+                    draft = selection.restore(text) if selection else text
+                except ValueError:
+                    return None
+                semantic_repair = build_semantic_repair(prompt, draft)
+                if semantic_repair is not None and selection:
+                    semantic_repair = selection.repair(semantic_repair)
                 return semantic_repair if semantic_repair is not None and self.count_tokens(semantic_repair.input) <= self.input_budget else None
             plan = build_dimension_repair(prompt, text, validate)
             if plan is None:
@@ -129,11 +142,11 @@ class ReadingRuntime:
                 return None
             return plan
         result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
-            input=prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
-            # A syntax correction can expose reference errors. Allow their one
-            # immutable patch within the same finite operation deadline.
+            input=operation_prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
+            # Literal choices apply even when the second call repairs syntax.
+            # Keep corrections inside the same call allowance and deadline.
             output_schema=schema, max_model_calls=2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3), snapshot=self.snapshot, output_validator=checked, output_repair=repair)
-        return result.result, result.model
+        return selection.restore(result.result) if selection else result.result, result.model
 
     def generate_prose(self, prompt: str, validate: Callable[[str], str], timeout: int) -> tuple[str, str]:
         """Argument maps are prose; the application serializes their checkpoint."""

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-05
+last_verified: 2026-10-06
 source_paths:
   - frontend/src/shared/api/resource-processing.ts
   - frontend/src/features/literature/records/process-resource/useProcessResourceController.ts
@@ -14,6 +14,7 @@ source_paths:
   - backend/domains/llm_wiki/semantic_context.py
   - backend/domains/llm_wiki/semantic_review.py
   - backend/domains/llm_wiki/semantic_repairs.py
+  - backend/domains/llm_wiki/semantic_quote_selection.py
   - backend/services/reading_semantic_estimate.py
   - backend/tests/test_semantic_reading.py
   - backend/services/agent_task_cases.py
@@ -1523,7 +1524,7 @@ Los mapas completos de fuentes que superan el objetivo de 2.000 tokens se conser
 
 El objetivo más breve solicitado en el segundo intento de reducción deja margen; la aceptación sigue utilizando la misma capacidad del mapa. Una respuesta completa entre ese objetivo y la capacidad es válida. La reanudación también convierte los borradores completos compatibles que ya caben en checkpoints de resultado sin otra llamada al modelo, incluidos los guardados por reintentos anteriores más estrictos. Los borradores vacíos, incompletos, incompatibles o todavía demasiado largos no pueden eludir la validación. No se recorta ningún texto de la fuente y se mantienen el presupuesto y el máximo de dos llamadas.
 
-Las reparaciones de interpretación incluyen ahora diagnósticos de evidencias por nota y fragmentos numerados que cubren íntegramente los originales suministrados. La reparación selecciona identificadores locales de citas en lugar de volver a copiarlas; Gnosi restaura el texto original exacto antes de aplicar las mismas comprobaciones de esquema, pasaje principal y citas. Las evidencias solo de contexto, ambiguas, vacías o inventadas siguen siendo inválidas. Los pasajes válidos y la memoria semántica permanecen inmutables. Solo cambia el formato de la reparación: se conservan los checkpoints de lectura, el máximo de dos llamadas y el presupuesto. Los errores de citas utilizan el mensaje de evidencias traducido existente y conservan los detalles técnicos.
+La interpretación y la revisión conjunta seleccionan identificadores locales de citas entre fragmentos numerados que cubren íntegramente los originales suministrados, desde la primera respuesta del modelo. Gnosi restaura el texto exacto antes de las mismas comprobaciones de esquema, pasaje principal y citas; una corrección de sintaxis utiliza las mismas opciones. El presupuesto de entrada incluye el catálogo numerado y los espacios en blanco permanecen unidos a las evidencias originales. Las reparaciones de interpretación incluyen diagnósticos por nota y conservan los pasajes válidos y la memoria semántica. La caché de la operación conserva el contrato validado de selección, mientras que los checkpoints de lectura mantienen citas literales, por lo que el trabajo completado compatible se puede reutilizar. Las evidencias solo de contexto, ambiguas, vacías o inventadas siguen siendo inválidas. El máximo de dos llamadas y el presupuesto no cambian. Los errores de citas utilizan el mensaje de evidencias traducido existente y conservan los detalles técnicos.
 
 La versión 2 de la identidad de lectura normaliza las claves de los diccionarios y el orden del índice de conocimiento. Los límites de conocimiento y catálogos de relaciones se aplican después de una ordenación estable, de modo que una recarga no puede seleccionar un subconjunto arbitrario diferente. Los componentes de la identidad se guardan para el diagnóstico; el orden de las fuentes, el texto, las clasificaciones y la política de ejecución siguen siendo relevantes. Los mapas de prosa completos tienen una identidad propia basada en el material exacto, el título, el idioma y la política de ejecución fijada, independiente de la clasificación y el contexto de conocimiento. Se pueden reutilizar aunque sea necesario regenerar las notas provisionales. Las cachés de mapas antiguos requieren evidencia explícita de una respuesta completa del proveedor antes de migrarlas.
 

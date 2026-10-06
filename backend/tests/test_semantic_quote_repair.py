@@ -51,6 +51,7 @@ def test_choices_preserve_every_original_character_and_source_metadata(text):
     assert source == before and indices == [1, 1] and len(catalog) == 1
     assert ''.join(row['text'] for row in catalog[0]['quotes']) == text
     assert all(value in text for value in quotes.values())
+    assert all(value.strip() for value in quotes.values())
     assert catalog[0]['location'] == source['location'] and catalog[0]['document'] == 'Original'
 
 
@@ -153,10 +154,18 @@ def test_quote_selection_uses_the_same_governed_runtime_and_two_call_allowance(m
         assert request.max_model_calls == 2 and request.timeout_seconds == 240
         assert request.resume_requires_parent and request.operation == 'knowledge.process-source.phase'
         assert snapshot is runtime.snapshot
+        wire = json.loads(request.input)
+        draft = deepcopy(answer)
+        for index, passage in enumerate(draft['passages']):
+            source = wire['source_quotes'][wire['primary_passages'][index]['source'] - 1]
+            for note in passage['notes']:
+                note.pop('quotes')
+                note['quote_ids'] = [quote['quote_id'] for quote in source['quotes']]
+        draft['passages'][0]['notes'][0]['quote_ids'] = draft['passages'][1]['notes'][0]['quote_ids']
         calls.append('interpret')
         with pytest.raises(ValueError) as rejected:
-            output_validator(encoded(answer))
-        repair = output_repair(encoded(answer), rejected.value)
+            output_validator(encoded(draft))
+        repair = output_repair(encoded(draft), rejected.value)
         assert repair is not None and runtime.count_tokens(repair.input) <= runtime.input_budget
         payload = json.loads(repair.input)
         calls.append('repair')
@@ -166,4 +175,6 @@ def test_quote_selection_uses_the_same_governed_runtime_and_two_call_allowance(m
     result, model = runtime.generate_structured(encoded(prompt),
         lambda value: bind_interpretation(value, reader.chunks, primary, []), 240)
     assert calls == ['interpret', 'repair'] and model == 'test-model'
-    assert json.loads(result)['passages'][1] == answer['passages'][1]
+    preserved = json.loads(result)['passages'][1]['notes'][0]
+    assert ''.join(preserved.pop('quotes')) == primary[1]['text']
+    assert preserved == {key: value for key, value in answer['passages'][1]['notes'][0].items() if key != 'quotes'}

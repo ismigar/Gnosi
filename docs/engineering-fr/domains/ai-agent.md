@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-05
+last_verified: 2026-10-06
 source_paths:
   - frontend/src/shared/api/resource-processing.ts
   - frontend/src/features/literature/records/process-resource/useProcessResourceController.ts
@@ -14,6 +14,7 @@ source_paths:
   - backend/domains/llm_wiki/semantic_context.py
   - backend/domains/llm_wiki/semantic_review.py
   - backend/domains/llm_wiki/semantic_repairs.py
+  - backend/domains/llm_wiki/semantic_quote_selection.py
   - backend/services/reading_semantic_estimate.py
   - backend/tests/test_semantic_reading.py
   - backend/services/agent_task_cases.py
@@ -1546,7 +1547,7 @@ Les cartes complètes des sources dépassant l’objectif de 2 000 tokens sont c
 
 La cible plus courte demandée lors de la seconde tentative de réduction laisse une marge ; l’acceptation utilise toujours la même capacité de la carte. Une réponse complète entre cette cible et la capacité est valide. La reprise transforme aussi les brouillons complets compatibles qui respectent déjà la capacité en checkpoints de résultat sans nouvel appel au modèle, y compris ceux enregistrés par des tentatives antérieures plus strictes. Les brouillons vides, incomplets, incompatibles ou encore trop longs ne peuvent pas contourner la validation. Aucun texte source n’est coupé et le budget ainsi que le maximum de deux appels restent inchangés.
 
-Les réparations d’interprétation incluent désormais des diagnostics de preuves par note et des passages numérotés couvrant intégralement les originaux fournis. La réparation sélectionne des identifiants locaux de citations au lieu de les recopier ; Gnosi restaure le texte original exact avant d’appliquer les mêmes contrôles du schéma, du passage principal et des citations. Les preuves uniquement contextuelles, ambiguës, vides ou inventées restent invalides. Les passages valides et la mémoire sémantique demeurent immuables. Seul le format de réparation change : les checkpoints de lecture, le maximum de deux appels et le budget sont conservés. Les erreurs de citations utilisent le message de preuves traduit existant et conservent les détails techniques.
+L’interprétation et la révision conjointe sélectionnent des identifiants locaux de citations parmi des passages numérotés couvrant intégralement les originaux fournis, dès la première réponse du modèle. Gnosi restaure le texte exact avant les mêmes contrôles du schéma, du passage principal et des citations ; une correction de syntaxe utilise les mêmes choix. Le budget d’entrée inclut le catalogue numéroté et les espaces restent attachés aux preuves originales. Les réparations d’interprétation incluent des diagnostics par note et conservent les passages valides et la mémoire sémantique. Le cache de l’opération conserve le contrat de sélection validé, tandis que les checkpoints de lecture gardent les citations littérales, permettant de réutiliser le travail terminé compatible. Les preuves uniquement contextuelles, ambiguës, vides ou inventées restent invalides. Le maximum de deux appels et le budget restent inchangés. Les erreurs de citations utilisent le message de preuves traduit existant et conservent les détails techniques.
 
 La version 2 de l’identité de lecture normalise les clés des dictionnaires et l’ordre de l’index des connaissances. Les limites des connaissances et des catalogues de relations sont appliquées après un tri stable, afin qu’un rechargement ne sélectionne pas un sous-ensemble arbitraire différent. Les composants de l’identité sont enregistrés pour le diagnostic ; l’ordre des sources, le texte, les classifications et la politique d’exécution restent significatifs. Les cartes de prose complètes ont leur propre identité fondée sur le matériau exact, le titre, la langue et la politique d’exécution figée, indépendamment de la classification et du contexte de connaissances. Elles peuvent être réutilisées même si les notes provisoires doivent être régénérées. Les anciens caches de cartes exigent une preuve explicite d’une réponse complète du fournisseur avant leur migration.
 
