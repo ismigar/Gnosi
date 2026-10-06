@@ -5,6 +5,8 @@ import json
 import pytest
 
 from backend.domains.llm_wiki.semantic_map_windows import MapOutputLimit
+from backend.domains.llm_wiki.contextual_reading import fingerprint
+from backend.domains.llm_wiki.semantic_map_reduction import compact, map_limit, REDUCTION_VERSION
 from backend.domains.llm_wiki.semantic_reading import SemanticReader
 from backend.tests.test_semantic_reading import setup
 
@@ -45,6 +47,82 @@ def test_long_complete_draft_is_compressed_once_without_resending_original_maps(
     resumed, new_calls, _ = engine_with_prose(lambda _: pytest.fail('paid synthesis repeated'), checkpoints=checkpoints, resume='new')
     assert 'uncertainty' in resumed.combine('global', originals)
     assert not new_calls
+
+
+@pytest.mark.parametrize('prose', [True, False])
+def test_retry_accepts_complete_map_within_capacity_even_when_above_shorter_target(prose):
+    draft = 'The author qualifies the opponent’s claim; evidence remains uncertain. ' * 60
+    answer = ('A disputed claim remains attributed to the opponent, with a qualified conclusion. ' * 18).strip()
+    replies = iter([draft, answer])
+    if prose:
+        engine, calls, checkpoints = engine_with_prose(lambda _: next(replies))
+    else:
+        reader, calls, checkpoints = setup(generate=lambda _: {'summary': next(replies)})
+        engine = SemanticReader(reader)
+    originals = ['Original argument A', 'Original argument B']
+    assert engine.combine('global', originals) == answer
+    assert len(calls) == 2 and calls[1]['material'] == [draft.strip() if prose else draft]
+    assert calls[1]['summary_max_tokens'] < engine.deps.count_tokens(answer) <= map_limit(engine.reader.budget)
+    assert checkpoints['new', 'global-bounded-v1-0-0-result']['summary'] == answer
+
+
+@pytest.mark.parametrize('model', [None, 'saved-model'])
+@pytest.mark.parametrize('framed_count', [False, True])
+def test_resume_promotes_old_complete_draft_that_already_fits_without_paid_call(model, framed_count):
+    engine, calls, checkpoints = engine_with_prose(lambda _: pytest.fail('paid synthesis repeated'), resume='saved')
+    if framed_count:
+        from types import SimpleNamespace
+        from backend.services.llm_wiki_reading_runtime import ReadingRuntime
+        runtime = ReadingRuntime('test-agent', 'openrouter', 'unknown-tokenizer', '', engine.reader.budget,
+                                 SimpleNamespace(behavior_resources=True))
+        engine.deps.count_tokens = runtime.count_tokens
+    material = ['Original argument A', 'Original argument B']
+    answer = ('A complete synthesis preserves attributed disagreements and unresolved qualifications. ' * 18).strip()
+    key = 'global-bounded-v1-0-0'
+    identity = fingerprint([REDUCTION_VERSION, engine.deps.execution_revision, engine.reader.title,
+                            engine.reader.language, material, map_limit(engine.reader.budget)])
+    checkpoints['saved', key + '-draft'] = {'identity': identity, 'summary': answer, 'complete': True}
+    if model:
+        checkpoints['saved', key + '-draft']['model'] = model
+    assert engine.combine('global', material) == answer and not calls
+    assert engine.reader.models == ([model] if model else [])
+    assert checkpoints['new', key + '-result']['summary'] == answer
+    # The new result remains sufficient even if the old job is unavailable.
+    del checkpoints['saved', key + '-draft']
+    resumed, again, _ = engine_with_prose(lambda _: pytest.fail('paid synthesis repeated'), checkpoints=checkpoints, resume='new')
+    resumed.reader.job_id = 'later'
+    assert resumed.combine('global', material) == answer and not again
+
+
+@pytest.mark.parametrize('invalid', ['identity', 'incomplete', 'empty', 'oversized'])
+def test_resume_checks_draft_identity_completeness_and_capacity(invalid):
+    engine, calls, checkpoints = engine_with_prose(lambda _: 'A complete qualified synthesis.', resume='saved')
+    material = ['Original argument A', 'Original argument B']
+    identity = fingerprint([REDUCTION_VERSION, engine.deps.execution_revision, engine.reader.title,
+                            engine.reader.language, material, map_limit(engine.reader.budget)])
+    draft = {'identity': identity, 'summary': 'An attributed claim with uncertainty. ' * 30, 'complete': True}
+    if invalid == 'identity':
+        draft['identity'] = 'different-policy-or-material'
+    elif invalid == 'incomplete':
+        draft['complete'] = False
+    elif invalid == 'empty':
+        draft['summary'] = '   '
+    else:
+        draft['summary'] = str(draft['summary']) * 3
+    checkpoints['saved', 'global-draft'] = draft
+    assert compact(engine, 'global', material) == 'A complete qualified synthesis.'
+    assert len(calls) == 1
+    assert calls[0]['material'] == ([draft['summary']] if invalid == 'oversized' else material)
+
+
+def test_retry_still_rejects_complete_maps_above_capacity_and_retains_draft():
+    draft = 'An attributed but overlong synthesis with unresolved qualifications. ' * 60
+    engine, calls, checkpoints = engine_with_prose(lambda _: draft)
+    with pytest.raises(RuntimeError, match='reading_map_synthesis_incomplete'):
+        engine.combine('global', ['Original argument A', 'Original argument B'])
+    assert len(calls) == 2
+    assert checkpoints['new', 'global-bounded-v1-0-0-draft']['summary'] == draft.strip()
+    assert not any(key.endswith('-result') for _, key in checkpoints)
 
 
 def test_repeated_truncation_stops_after_two_calls_without_recursive_expansion():

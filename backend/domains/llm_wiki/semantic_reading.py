@@ -68,12 +68,14 @@ class SemanticReader:
         return result
 
     def summarize(self, key: str, material: object, *, bounded: bool = False, maximum: int | None = None) -> str:
+        # A retry requests extra headroom; the shared map capacity remains
+        # the acceptance boundary for a complete answer.
         limit = min(map_limit(self.reader.budget), maximum) if maximum is not None else map_limit(self.reader.budget)
         if getattr(self.deps, "generate_prose", None):
             return self.prose_map(key, material, limit, bounded=bounded)
         def validate(answer: dict[str, object]) -> None:
             validate_schema(answer, MAP_SCHEMA)
-            if bounded and self.deps.count_tokens(str(answer["summary"])) > limit:
+            if bounded and self.deps.count_tokens(str(answer["summary"])) > map_limit(self.reader.budget):
                 raise MapSizeLimit(str(answer["summary"]))
             if self.deps.count_tokens(str(answer["summary"])) > max(2000, self.reader.budget // 8):
                 raise ValueError("The argument map exceeds its reserved context capacity")
@@ -106,7 +108,7 @@ class SemanticReader:
             clean = text.strip()
             if not clean or clean.startswith(("{", "```")):
                 raise ValueError("Return a nonempty argument map as plain text, without JSON or code fences")
-            if bounded and self.deps.count_tokens(clean) > limit:
+            if bounded and self.deps.count_tokens(clean) > map_limit(self.reader.budget):
                 raise MapSizeLimit(clean)
             if self.deps.count_tokens(clean) > max(2000, self.reader.budget // 8):
                 raise ValueError("The argument map exceeds its reserved context capacity")
