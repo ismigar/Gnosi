@@ -23,6 +23,18 @@ def token_bound(text: str) -> int:
     return len(text.encode("utf-8"))
 
 
+def compact_structured_input(prompt: str) -> str:
+    """Remove transport whitespace only; evidence and saved contracts stay exact."""
+    payload = json.loads(prompt)
+    payload.pop("output_schema", None)
+    payload["instruction"] = str(payload.get("instruction", "")) + (
+        " Serialize the JSON response without indentation or whitespace outside string values."
+        " Preserve all substantive content, explanations, qualifications and evidence selections;"
+        " this is a formatting preference, not a request to shorten the content."
+    )
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
 @dataclass
 class ReadingRuntime:
     agent_id: str
@@ -112,9 +124,7 @@ class ReadingRuntime:
         if selection:
             # The operation envelope and provider binding already carry the
             # full contract. Keep canonical checkpoints/repair input unchanged.
-            transport = json.loads(operation_prompt)
-            transport.pop("output_schema")
-            operation_prompt = json.dumps(transport, ensure_ascii=False)
+            operation_prompt = compact_structured_input(operation_prompt)
         if self.count_tokens(operation_prompt, output_schema=schema) > self.input_budget:
             raise RuntimeError("The reading input exceeds the selected model's context budget")
         def checked(text: str) -> str:
@@ -168,9 +178,7 @@ class ReadingRuntime:
             semantic_repair = build_semantic_repair(prompt, draft)
             if semantic_repair is not None and selection:
                 semantic_repair = selection.repair(semantic_repair)
-                transport = json.loads(semantic_repair.input)
-                transport.pop("output_schema", None)
-                semantic_repair = OutputRepair(json.dumps(transport, ensure_ascii=False),
+                semantic_repair = OutputRepair(compact_structured_input(semantic_repair.input),
                                               semantic_repair.output_schema, semantic_repair.restore)
             return semantic_repair if semantic_repair is not None and self.count_tokens(
                 semantic_repair.input, output_schema=semantic_repair.output_schema) <= self.input_budget else None

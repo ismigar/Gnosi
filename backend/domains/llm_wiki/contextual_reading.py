@@ -37,6 +37,7 @@ class ContextualReader:
     resume_job_id: str = ""
     models: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    report_progress: bool = True
 
     @property
     def budget(self) -> int:
@@ -48,7 +49,7 @@ class ContextualReader:
                    for origin in self.origins for segment in records(origin.get("segments")))
 
     def phase(self, phase: str, progress: int | None = None) -> None:
-        if self.job_id:
+        if self.job_id and self.report_progress:
             fields: dict[str, object] = {"phase": phase}
             if progress is not None:
                 fields["progress"] = progress

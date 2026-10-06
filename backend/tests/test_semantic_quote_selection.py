@@ -9,7 +9,7 @@ import pytest
 from backend.domains.llm_wiki.chunking import encoded
 from backend.domains.llm_wiki.semantic_contracts import bind_interpretation, bind_review, review_schema
 from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
-from backend.services.llm_wiki_reading_runtime import ReadingRuntime
+from backend.services.llm_wiki_reading_runtime import ReadingRuntime, compact_structured_input
 from backend.tests.test_agent_execution import install_workflow, runtime as runtime
 from backend.tests.test_semantic_quote_repair import repair_case, selected_answer
 
@@ -92,7 +92,7 @@ def test_catalog_overhead_is_checked_before_any_model_call(monkeypatch):
     assert runtime.count_tokens(selection.input) > runtime.count_tokens(original)
     compact = json.loads(selection.input)
     compact.pop('output_schema')
-    runtime.input_budget = runtime.count_tokens(encoded(compact), output_schema=selection.schema) - 1
+    runtime.input_budget = runtime.count_tokens(compact_structured_input(selection.input), output_schema=selection.schema) - 1
     monkeypatch.setattr('backend.services.agent_execution.run_sync', lambda *args, **kwargs: pytest.fail('paid call'))
     with pytest.raises(RuntimeError, match='context budget'):
         runtime.generate_structured(original, lambda _: None, 240)
@@ -274,3 +274,15 @@ def test_governed_operation_repairs_then_reuses_checked_numeric_cache(runtime, m
     assert 'output_schema' not in prompt
     assert 'source_segment_id' not in selection.input
     assert execution._run.get() == ''
+
+
+def test_compact_transport_preserves_every_evidence_character_and_response_value():
+    _, _, request, answer, selection = selection_case()
+    before = json.loads(selection.input)
+    compact = json.loads(compact_structured_input(selection.input))
+    assert compact.pop('instruction').startswith(before.pop('instruction'))
+    before.pop('output_schema')
+    assert compact == before
+    assert selection.restore(json.dumps(answer, ensure_ascii=False, indent=2)) == selection.restore(
+        json.dumps(answer, ensure_ascii=False, separators=(',', ':')))
+    assert request['output_schema']

@@ -269,7 +269,9 @@ def test_overview_and_joint_review_are_priced_without_inference():
     assert estimate['input_token_bound'] > sum(len(s['text']) for s in reader.origins[0]['segments'])
 
 
-def test_review_output_reduction_and_restart_retain_every_completed_group():
+def test_review_output_reduction_and_restart_retain_every_completed_group(monkeypatch):
+    # Keep the serial recovery reference; the parallel suite checks saved peers.
+    monkeypatch.setattr('backend.domains.llm_wiki.semantic_review_execution.REVIEW_WORKERS', 1)
     from backend.tests.test_reading_batch_recovery import exhausted
     reviewing = 0
     def generate(request):
