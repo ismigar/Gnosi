@@ -15,7 +15,7 @@ from backend.data.db import get_engine_for_path
 from backend.models.pdf_annotation import PdfAnnotation
 from backend.services.context_vars import get_active_vault_path
 from backend.utils.open_values import iterable_values
-from backend.domains.llm_wiki.pdf_quote_matching import PageTextIndex, index_page
+from backend.domains.llm_wiki.pdf_quote_matching import PageTextIndex, index_page, reconcile_unknown_characters
 
 logger = get_logger(__name__)
 
@@ -118,6 +118,7 @@ def _find_quote_position_in_document(
     quote: str,
     context: str = "",
     page_indexes: dict[int, PageTextIndex] | None = None,
+    original_page_text: Callable[[int], str] | None = None,
 ) -> Optional[dict[str, object]]:
     page_index = page_number - 1
     if page_index < 0 or page_index >= len(document):
@@ -136,6 +137,8 @@ def _find_quote_position_in_document(
                 cached = page_indexes.get(page_index) if page_indexes is not None else None
                 if cached is None:
                     cached = index_page(text_page)
+                    if "\ufffe" in cached.text and original_page_text is not None:
+                        cached = reconcile_unknown_characters(cached, original_page_text(page_index))
                     if page_indexes is not None:
                         page_indexes[page_index] = cached
                 match = cached.find(quote, context)
@@ -171,12 +174,24 @@ def _find_quote_position_in_document(
     return None
 
 
+def _original_page_reader(pdf_path: Path) -> Callable[[int], str]:
+    from pypdf import PdfReader
+    reader: PdfReader | None = None
+    def read(page_index: int) -> str:
+        nonlocal reader
+        if reader is None:
+            reader = PdfReader(str(pdf_path))
+        return str(reader.pages[page_index].extract_text() or "")
+    return read
+
+
 def _find_quote_position(pdf_path: Path, page_number: int, quote: str) -> Optional[dict[str, object]]:
     """Resolve one citation to Zotero-compatible PDF coordinates."""
     pypdfium2 = _load_pdfium()
     document = pypdfium2.open_document(str(pdf_path))
     try:
-        return _find_quote_position_in_document(document, page_number, quote)
+        return _find_quote_position_in_document(document, page_number, quote,
+                                                original_page_text=_original_page_reader(pdf_path))
     finally:
         document.close()
 
@@ -258,6 +273,7 @@ def _resolve_annotation_candidates(
     warnings: list[str] = []
     documents: dict[str, _PdfDocument] = {}
     indexes: dict[str, dict[int, PageTextIndex]] = {}
+    original_readers: dict[str, Callable[[int], str]] = {}
     resolver: PositionResolver
     if position_resolver is None:
         pypdfium2 = _load_pdfium()
@@ -270,8 +286,9 @@ def _resolve_annotation_candidates(
             if document is None:
                 document = pypdfium2.open_document(path_key)
                 documents[path_key] = document
+                original_readers[path_key] = _original_page_reader(pdf_path)
             return _find_quote_position_in_document(document, page_number, quote, candidate["context"],
-                                                    indexes.setdefault(path_key, {}))
+                                                    indexes.setdefault(path_key, {}), original_readers[path_key])
 
         resolver = cached_resolver
     else:

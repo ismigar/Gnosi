@@ -374,3 +374,9 @@ La geometría de citas indexa los caracteres nativos una sola vez por página y
 sincronización. Los índices no se comparten entre archivos ni sobreviven a la
 sincronización. Se mantienen las comprobaciones de la cita completa, las letras
 exactas y la ambigüedad; solo se elimina la lectura repetida de los caracteres.
+
+Si PDFium devuelve un glifo desconocido U+FFFE, un segundo decodificador PDF
+puede recuperarlo solo si toda la página normalizada tiene la misma longitud y
+todos los demás caracteres coinciden. El valor no se deduce de la cita solicitada;
+cualquier otra diferencia impide la recuperación. Se conservan los índices de
+geometría nativos originales.

@@ -1582,3 +1582,14 @@ révisables restent en attente. La tâche et le manifeste distinguent une révis
 terminée de son acceptation : tout avertissement de lecture, d’extraction ou de
 citation maintient `reviewed` à faux et `quality_status` à `needs_review`.
 Les avertissements ne sont pas effacés silencieusement pour obtenir un succès.
+
+Les exclusions prévues par la politique s’appliquent aussi à la révision
+conjointe. Le réviseur peut exclure une note avec une justification explicite
+fondée sur la source si le passage sort de la politique active ou ne permet pas
+une note substantielle. L’application conserve le passage dans la couverture et
+le contexte, enregistre la raison, rejette les positions invalides ou répétées
+et garde le brouillon initial et le point de reprise. Les notes gérées déjà
+publiées deviennent obsolètes, mais leur texte et les modifications manuelles
+restent conservés. Les exclusions ne permettent pas d’abandonner des idées
+substantielles pour éviter leur correction. La version 3 de qualité invalide les
+décisions de révision antérieures tout en réutilisant les brouillons et cartes.

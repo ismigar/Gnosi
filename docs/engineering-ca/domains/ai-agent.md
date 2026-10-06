@@ -1493,3 +1493,13 @@ continuen pendents. La tasca i el manifest de la font distingeixen una revisió
 acabada de l’acceptació: qualsevol avís pendent de lectura, extracció o cites
 manté `reviewed` a fals i `quality_status` a `needs_review`. No s’esborren avisos
 silenciosament per obtenir un estat d’èxit.
+
+Les exclusions de la política també s’apliquen durant la revisió conjunta. El
+revisor pot excloure una nota amb una justificació explícita basada en la font
+quan el passatge queda fora de la política activa o no permet una nota
+substantiva. L’aplicació conserva el passatge a la cobertura i el context, desa
+el motiu, rebutja posicions invàlides o repetides i reté l’esborrany original i el
+punt de represa. Les notes gestionades ja publicades queden obsoletes, però se’n
+conserven el text i les edicions manuals. No es poden descartar idees substantives
+per evitar corregir-les. La versió 3 de qualitat invalida decisions de revisió
+anteriors i reutilitza els esborranys i els mapes de la font.

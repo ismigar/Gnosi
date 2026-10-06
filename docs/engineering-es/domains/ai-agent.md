@@ -1559,3 +1559,13 @@ sin notas revisables siguen pendientes. La tarea y el manifiesto de la fuente
 distinguen una revisión terminada de su aceptación: cualquier aviso pendiente
 de lectura, extracción o citas mantiene `reviewed` en falso y `quality_status`
 en `needs_review`. No se borran avisos silenciosamente para obtener un éxito.
+
+Las exclusiones de la política también se aplican durante la revisión conjunta.
+El revisor puede excluir una nota con una justificación explícita basada en la
+fuente si el pasaje queda fuera de la política activa o no permite una nota
+sustantiva. La aplicación conserva el pasaje en la cobertura y el contexto,
+guarda el motivo, rechaza posiciones inválidas o repetidas y retiene el borrador
+original y el punto de reanudación. Las notas gestionadas ya publicadas quedan
+obsoletas, pero se conservan su texto y las ediciones manuales. No se permite
+descartar ideas sustantivas para evitar corregirlas. La versión 3 de calidad
+invalida decisiones de revisión anteriores y reutiliza borradores y mapas.

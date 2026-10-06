@@ -429,3 +429,9 @@ La geometria de cites indexa els caràcters natius una sola vegada per pàgina i
 sincronització. Els índexs no es comparteixen entre fitxers ni sobreviuen a la
 sincronització. Es mantenen les comprovacions de la cita sencera, de les lletres
 exactes i de l’ambigüitat; només s’elimina la lectura repetida dels caràcters.
+
+Si PDFium retorna un glif desconegut U+FFFE, un segon descodificador PDF el pot
+recuperar només si tota la pàgina normalitzada té la mateixa longitud i tots els
+altres caràcters coincideixen. El valor no es dedueix de la cita sol·licitada;
+qualsevol altra diferència impedeix la recuperació. Es conserven els índexs de
+geometria natius originals.

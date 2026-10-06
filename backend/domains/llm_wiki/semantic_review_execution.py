@@ -65,7 +65,7 @@ def prepare_batch(engine: SemanticReader, entries: list[dict[str, object]], dest
         "brain_notes": reader.relevant_index(encoded(batch), [target[3] for target in targets],
                                               maximum=8, limit=auxiliary_limit(reader.budget, 12, 4000)),
         "properties": fields(reader.dimensions),
-        "instruction": "Reassess every prior_observation against the original evidence; retain in warnings only limitations still present and relevant to the supplied notes. Explain resolved observations in assessment. Review EVERY supplied note against its original evidence and the joint map of ALL notes. Correct false attribution, missing caveats, contradicted conclusions and unsupported links. Brain notes are current navigation candidates, never source evidence: reassess proposed connections and remove unsupported ones. Full adjacent originals are supplied as support: read them before declaring a page-ending sentence incomplete. Correct all validation_issues, undefined footnotes, leaked numeric source links and corrupt language. Return only changed notes with their one-based position; unchanged notes are retained by the application. Preserve distinct ideas. Do not remove notes or change workflow state. New quotes must be exact originals and include the note's own primary passage. In unresolved_issues list each note with a remaining defect or missing evidence that prevents a reliable interpretation; do not bury defects in warnings. Warnings describe only limitations genuinely present in the original, not unfinished corrections. An empty changes list means you found no needed correction, not that accuracy is guaranteed.",
+        "instruction": "Reassess every prior_observation against the original evidence; retain in warnings only limitations still present and relevant to the supplied notes. Explain resolved observations in assessment. Review EVERY supplied note against its original evidence and the joint map of ALL notes. Correct false attribution, missing caveats, contradicted conclusions and unsupported links. Brain notes are current navigation candidates, never source evidence: reassess proposed connections and remove unsupported ones. Full adjacent originals are supplied as support: read them before declaring a page-ending sentence incomplete. Correct all validation_issues, undefined footnotes, leaked numeric source links and corrupt language. Return only changed notes with their one-based position; unchanged notes are retained by the application. Preserve distinct substantive ideas. You may omit a note only when the active reading policy excludes its original passage or the supplied source cannot support any substantive note (for example isolated metadata or a detached connector). Give a specific source-grounded omit_reason; never omit substantive content to avoid correcting it, and never change workflow state. Excluded passages remain covered and available as context. New quotes must be exact originals and include the note's own primary passage. In unresolved_issues list each note with a remaining defect or missing evidence that prevents a reliable interpretation; do not bury defects in warnings. Warnings describe only limitations genuinely present in the original, not unfinished corrections. An empty changes list means you found no needed correction, not that accuracy is guaranteed.",
     }
     return ReviewBatch(offset, batch, targets, retrieved, payload, review_schema(len(batch), reader.dimensions, require_resolution=True), fingerprint(batch))
 
@@ -78,7 +78,7 @@ def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, o
         from backend.domains.llm_wiki.semantic_contracts import validate_schema
         validate_schema(answer, batch.schema)
         notes = bind_review(answer, batch.evidence_targets, worker.dimensions, shared_evidence=batch.evidence)
-        validate_reviewed_prose(notes, batch.evidence, worker.language)
+        validate_reviewed_prose([n for n in notes if "_review_omission" not in n], batch.evidence, worker.language)
     answer = worker.ask(f"semantic-review-{batch.key[:20]}", "verify",
                         {"reading_engine": "semantic", **batch.payload, "output_schema": batch.schema},
                         validate, batch.schema)
@@ -159,7 +159,7 @@ def review_batches(engine: SemanticReader, entries: list[dict[str, object]], des
         for batch in batches:
             answer = engine.state["reviewed_groups"][batch.key]
             validated = bind_review(answer, batch.evidence_targets, engine.reader.dimensions, shared_evidence=batch.evidence)
-            validate_reviewed_prose(validated, batch.evidence, engine.reader.language)
+            validate_reviewed_prose([n for n in validated if "_review_omission" not in n], batch.evidence, engine.reader.language)
             if answer.get("unresolved_issues"):
                 raise RuntimeError("reading_quality_unresolved: " + encoded(answer["unresolved_issues"]))
             engine.reader.warnings.extend(str(w) for w in answer["warnings"])

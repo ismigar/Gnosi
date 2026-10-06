@@ -1385,3 +1385,13 @@ Warnings on passages without reviewable notes remain pending. The job and source
 manifest distinguish a completed review from acceptance: any remaining reading,
 extraction or citation warning keeps `reviewed` false and `quality_status` at
 `needs_review`. This does not silently erase warnings to obtain a success state.
+
+Policy exclusions also apply during joint review. A reviewer can exclude a note
+with an explicit source-grounded reason when its original passage is outside the
+active reading policy or cannot support a substantive note. The application keeps
+the passage in coverage and context, records the reason, rejects invalid or
+repeated note positions, and retains the original draft and review checkpoint.
+Already published managed notes become stale while their text and manual edits
+are preserved. Exclusions never authorize silently dropping substantive ideas to
+avoid corrections. Review quality version 3 invalidates older review decisions
+while reusing source drafts and maps.

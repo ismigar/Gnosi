@@ -414,3 +414,9 @@ et par synchronisation. Les index ne passent pas d’un fichier à un autre et n
 survivent pas à la synchronisation. Les contrôles de citation intégrale, de
 lettres exactes et d’ambiguïté restent identiques ; seules les lectures répétées
 des caractères sont éliminées.
+
+Si PDFium renvoie un glyphe inconnu U+FFFE, un second décodeur PDF peut le
+récupérer uniquement si toute la page normalisée a la même longueur et si tous
+les autres caractères concordent. La valeur ne vient jamais de la citation
+demandée ; toute autre différence empêche la récupération. Les indices de
+la géométrie native d’origine sont conservés.

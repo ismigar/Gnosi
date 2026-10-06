@@ -46,7 +46,8 @@ class QuoteSelection:
                 passage["notes"] = [restore_note(note, self.quotes) for note in passage["notes"]]
             answer["passages"] = passages
         else:
-            answer["changes"] = [{"note": i + 1, "replacement": self._review_note(note)}
+            answer["changes"] = [{"note": i + 1, **({"omit_reason": note["omit_reason"]} if "omit_reason" in note
+                                  else {"replacement": self._review_note(note)})}
                                  for i in range(len(self.primary_ids))
                                  if (note := answer["changes"][f"note_{i + 1}"]) is not None]
         return encoded(answer)
@@ -86,7 +87,8 @@ def selection_contract(schema: dict[str, Any], phase: str, primary_ids: list[lis
     else:
         note, definitions = shared_note_schema(result["properties"]["changes"]["items"]["properties"]["replacement"])
         result["properties"]["changes"] = obj({f"note_{i + 1}": {"anyOf": [
-            {"type": "null"}, primary_note_schema(note, identifiers, quote_count)]}
+            {"type": "null"}, obj({"omit_reason": {"type": "string", "minLength": 1}}),
+            primary_note_schema(note, identifiers, quote_count)]}
             for i, identifiers in enumerate(primary_ids)})
     result["$defs"] = definitions
     return result
@@ -129,7 +131,7 @@ def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
     payload["source_quotes"] = catalog
     payload["instruction"] = str(payload.get("instruction", "")) + (
         " Return passages by their named passage_N keys, not array positions. In review, return each"
-        " note_N key with a replacement or null to keep that note unchanged. Each note requires"
+        " note_N key with a replacement, null to retain it, or an omit_reason object to exclude it with a source-grounded explanation under the active reading policy. Each note requires"
         " primary_quote_ids selected ONLY from its own primary source, as enumerated in its schema."
         " Additional evidence goes in context_quote_ids; context never replaces primary evidence."
         " All IDs are global source_quotes IDs; never renumber them. The spans retain the complete"

@@ -406,3 +406,8 @@ Citation geometry caches its native-character text index once per page and per
 synchronization. Indexes never survive a synchronization or cross attachments.
 Full-span, exact-letter and ambiguity checks remain unchanged; only repeated
 native character scans are eliminated.
+
+When PDFium returns an unknown U+FFFE glyph, a second PDF decoder can restore
+it only if the complete normalized page has the same length and every other
+character agrees. Values never come from the requested quote; any other mismatch
+rejects reconciliation. The original native geometry indices are preserved.

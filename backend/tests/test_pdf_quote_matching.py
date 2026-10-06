@@ -72,3 +72,30 @@ def test_page_index_is_built_once_per_document_during_highlight_sync(tmp_path, m
         report = annotations.sync_generated_pdf_annotations(notes, [_origin(pdf)], 'book', session=_session())
         assert report['matched'] == 2 and len(report['warnings']) == 1
     assert len(calls) == 2  # Fresh per-sync indexes cannot outlive changed PDF bytes.
+
+
+def test_unknown_glyph_recovery_requires_full_page_agreement():
+    from backend.domains.llm_wiki.pdf_quote_matching import PageTextIndex, reconcile_unknown_characters
+    native = PageTextIndex('greco\ufffecatólicos', tuple(range(15)))
+    recovered = reconcile_unknown_characters(native, 'greco-católicos')
+    assert recovered.find('greco-católicos') == (0, 15)
+    assert recovered.indices is native.indices
+    assert reconcile_unknown_characters(native, 'greco-católicos altered') is native
+    assert reconcile_unknown_characters(native, 'greco-católicas') is native
+    assert reconcile_unknown_characters(native, 'greco\ufffdcatólicos') is native
+    # A known, different character is never treated as an unknown glyph.
+    different = PageTextIndex('grecocatólicos', tuple(range(14)))
+    assert reconcile_unknown_characters(different, 'greco-católicos') is different
+
+
+def test_unknown_native_glyph_uses_independent_page_text_not_requested_quote(tmp_path, monkeypatch):
+    from backend.services import llm_wiki_pdf_annotations as annotations
+    from backend.domains.llm_wiki.pdf_quote_matching import PageTextIndex
+    index = annotations.index_page
+    def unmapped(page):
+        original = index(page)
+        return PageTextIndex(original.text.replace('portable', 'p\ufffertable'), original.indices)
+    monkeypatch.setattr(annotations, 'index_page', unmapped)
+    pdf = _demo_pdf(tmp_path)
+    assert annotations._find_quote_position(pdf, 1, 'in this port able PDF fixture') is not None
+    assert annotations._find_quote_position(pdf, 1, 'in this part able PDF fixture') is None

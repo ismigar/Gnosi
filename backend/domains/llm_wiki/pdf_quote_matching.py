@@ -63,3 +63,18 @@ def index_page(page: TextPage) -> PageTextIndex:
 
 def normalized_pdf_span(page: TextPage, quote: str, context: str = "") -> tuple[int, int] | None:
     return index_page(page).find(quote, context)
+
+
+def reconcile_unknown_characters(index: PageTextIndex, extracted_page: str) -> PageTextIndex:
+    """Use an independent PDF decoder only when the entire page aligns exactly.
+
+    PDFium may emit U+FFFE for a mapped glyph. Never guess its value from a
+    requested quote: another PDF decoder must agree on every other character
+    and on the complete page length. Native geometry indices remain unchanged.
+    """
+    text = compact(extracted_page)
+    if len(text) != len(index.text) or any(char in text for char in ("\ufffe", "\ufffd")):
+        return index
+    if any(a != b and a != "\ufffe" for a, b in zip(index.text, text, strict=True)):
+        return index
+    return PageTextIndex(text, index.indices)

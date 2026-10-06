@@ -56,6 +56,17 @@ def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> lis
             evidence = [*records(reviewed[ci][1].get("evidence_segments")), *batch.evidence]
             reviewed[ci][1]["evidence_segments"] = list({encoded(s): s for s in evidence}.values())
     for chunk, plan in reviewed:
+        omitted = [n for n in records(plan.get("notes")) if "_review_omission" in n]
+        plan["notes"] = [n for n in records(plan.get("notes")) if "_review_omission" not in n]
+        plan["review_omissions"] = [{"title": n["title"], "segment_id": n["source_segment_id"],
+                                    "reason": n["_review_omission"]} for n in omitted]
+        retained = {n["source_segment_id"] for n in records(plan["notes"])}
+        coverage = records(plan["coverage"])
+        for row in coverage:
+            reasons = [str(n["_review_omission"]) for n in omitted if n["source_segment_id"] == row["segment_id"]]
+            if reasons and row["segment_id"] not in retained:
+                row["reason"] = "Excluded during review: " + "; ".join(dict.fromkeys(reasons))
+        plan["coverage"] = coverage
         from backend.domains.llm_wiki.reading_contracts import validate_notes
         from backend.domains.llm_wiki.reading_action_contracts import validate_note_dimensions
         validate_notes(plan, records(chunk.get("segments")), records(plan.get("evidence_segments")))

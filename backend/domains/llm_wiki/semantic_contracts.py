@@ -44,9 +44,13 @@ def review_schema(size: int, dimensions: list[dict[str, object]], *, require_res
     replacement = note_schema(dimensions)
     # Optional for older literal checkpoints; never emitted by the model schema.
     replacement["properties"]["quote_source_keys"] = {"type": "array", "items": TEXT}
+    change = obj({"note": {"type": "integer", "minimum": 1, "maximum": size},
+                  "replacement": replacement, "omit_reason": TEXT})
+    change["required"] = ["note"]
+    change["oneOf"] = [{"required": ["replacement"], "not": {"required": ["omit_reason"]}},
+                       {"required": ["omit_reason"], "not": {"required": ["replacement"]}}]
     return obj({"assessment": TEXT, "changes": {"type": "array", "maxItems": size,
-                "items": obj({"note": {"type": "integer", "minimum": 1, "maximum": size},
-                              "replacement": replacement})}, "warnings": TEXTS,
+                "items": change}, "warnings": TEXTS,
                 **({"unresolved_issues": TEXTS} if require_resolution else {})})
 
 
@@ -125,6 +129,9 @@ def bind_review(answer: dict[str, object], targets: list[tuple[dict[str, object]
         if index in seen:
             raise ValueError("Review each changed note once")
         seen.add(index)
+        if "omit_reason" in change:
+            result[index]["_review_omission"] = change["omit_reason"]
+            continue
         _, primary, evidence = targets[index]
         replacement = record(change["replacement"])
         # Keep the original evidence scope for already validated literal caches.

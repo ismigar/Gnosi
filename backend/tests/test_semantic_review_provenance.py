@@ -218,3 +218,38 @@ def test_unrelated_invalid_output_keeps_normal_repair_instead_of_incomplete_spli
         json.loads(invalid)
     runtime = ReadingRuntime('test', 'test', 'fake', '', 1_000_000, SimpleNamespace(behavior_resources=True))
     assert runtime._repair_structured('', {'reading_engine': 'semantic'}, selection, lambda _: None, invalid, error.value) is None
+
+
+def test_policy_omission_keeps_primary_coverage_and_original_draft_history():
+    from backend.tests.test_semantic_reading import response
+    def generate(request):
+        answer = response(request)
+        if request['phase'] == 'verify':
+            selection = quote_selection(request)
+            raw = {'assessment': 'The first primary is an editorial credit, excluded by policy.',
+                   'changes': {'note_1': {'omit_reason': 'Editorial metadata only, excluded by the reading policy.'},
+                               'note_2': None}, 'warnings': [], 'unresolved_issues': []}
+            return json.loads(selection.restore(encoded(raw)))
+        return answer
+    engine, gm, nm, _, checkpoints = prepared(generate, count=2, size=2)
+    plans = deepcopy(engine.state['plans'])
+    result = engine.review(gm, nm)
+    assert not result[0][1]['notes']
+    assert len(result[1][1]['notes']) == 1
+    assert result[0][1]['coverage'][0]['reason'].startswith('Excluded during review: Editorial metadata')
+    assert result[0][1]['review_omissions'][0]['segment_id'] == result[0][0]['segments'][0]['id']
+    assert engine.state['plans'] == plans
+    assert len(checkpoints['new', 'semantic-state']['reviewed_groups']) == 1
+    engine.deps.generate_structured = lambda *args: pytest.fail('Repeat paid review')
+    assert engine.review(gm, nm) == result
+
+
+@pytest.mark.parametrize('changes', [
+    [{'note': 1, 'omit_reason': ''}],
+    [{'note': 4, 'omit_reason': 'Out of range'}],
+    [{'note': 1, 'omit_reason': 'Metadata'}, {'note': 1, 'omit_reason': 'Duplicate'}],
+])
+def test_invalid_or_repeated_policy_omissions_are_rejected(changes):
+    _, _, targets = review_case()
+    with pytest.raises(ValueError):
+        bind_review({'assessment': 'Reviewed.', 'changes': changes, 'warnings': []}, targets, [])
