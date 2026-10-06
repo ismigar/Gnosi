@@ -10,6 +10,8 @@ export function resourceProcessingError(error: string | null | undefined, t: TFu
     }
     if (error?.includes('Invalid reading plan:')) return t('llm_wiki.error_reading_evidence');
     if (error?.includes('memory_edit_anchor_required')) return t('llm_wiki.error_reading_memory');
+    if (error?.includes('reading_map_synthesis_incomplete')) return t('llm_wiki.error_map_synthesis');
+    if (error?.trim() === 'Connection error.' || error?.includes('OpenAIConnectionError:')) return t('llm_wiki.error_provider_connection');
     for (const key of ['reading_budget_exhausted', 'reading_budget_pending_cost', 'reading_budget_unknown_price_or_output_limit', 'reading_estimate_changed', 'reading_checkpoint_incompatible']) {
         if (error?.includes(key)) return t(`llm_wiki.${key}`);
     }

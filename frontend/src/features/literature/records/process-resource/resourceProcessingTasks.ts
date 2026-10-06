@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import type { TFunction } from 'i18next';
-import { fetchResourceProcessingStatus, findActiveResourceProcessing, startResourceProcessing, type ResourceProcessingJob } from '../../../../shared/api/resource-processing';
+import { fetchResourceProcessingStatus, findResumableResourceProcessing, startResourceProcessing, type ResourceProcessingJob } from '../../../../shared/api/resource-processing';
 import { toast } from '../../../../shared/notifications/toast';
 import { resourceProcessingError } from '../../../../shared/notifications/resourceProcessingError';
 import { countTouchedPages, getPollingIdentifier, getStartErrorMessage, getTerminalProcessState, POLL_INTERVAL_MS, type ProcessResourceState } from './processResourceModel';
@@ -20,7 +20,7 @@ export interface ResourceProcessingTask {
     readonly background: boolean;
 }
 
-type TaskInput = Pick<ResourceProcessingTask, 'reprocess' | 'noteId' | 'sourceTableId' | 'title' | 'budgetLimit' | 'batchSize' | 'estimateId'>;
+type TaskInput = Pick<ResourceProcessingTask, 'reprocess' | 'noteId' | 'sourceTableId' | 'title' | 'budgetLimit' | 'batchSize' | 'estimateId'> & { readonly background?: boolean };
 interface Poller {
     timer?: ReturnType<typeof setInterval>;
     request?: AbortController;
@@ -98,14 +98,25 @@ function watch(id: string, identifier: string, sourceTableId: string | undefined
 export async function discoverResourceProcessingTask(input: TaskInput, t: TFunction, signal: AbortSignal): Promise<void> {
     const id = processingTaskId(input.noteId, input.sourceTableId);
     if (tasks.some(task => task.id === id && task.state === 'running')) return;
-    const job = await findActiveResourceProcessing(input.noteId, input.sourceTableId, signal);
+    const job = await findResumableResourceProcessing(input.noteId, input.sourceTableId, signal);
     if (!job || signal.aborted || tasks.some(task => task.id === id && task.state === 'running')) return;
+    restoreResourceProcessingTask(input, job, t);
+}
+
+export function restoreResourceProcessingTask(input: TaskInput, job: ResourceProcessingJob, t: TFunction): void {
+    const id = processingTaskId(input.noteId, input.sourceTableId);
+    const state = job.running ? 'running' : getTerminalProcessState(job);
+    if (!state || state === 'done' || (input.reprocess && state !== 'running')
+        || tasks.some(task => task.id === id && task.state === 'running')) return;
     stop(id);
-    const poller: Poller = {};
-    pollers.set(id, poller);
-    tasks = [...tasks.filter(task => task.id !== id), { ...input, id, job, state: 'running', error: '', background: false }];
+    tasks = [...tasks.filter(task => task.id !== id), { ...input, id, job, state,
+        error: state === 'error' ? resourceProcessingError(job.error, t) : '', background: input.background ?? false }];
     publish();
-    watch(id, job.job_id || input.noteId, input.sourceTableId, t, poller, false);
+    if (state === 'running') {
+        const poller: Poller = {};
+        pollers.set(id, poller);
+        watch(id, job.job_id || input.noteId, input.sourceTableId, t, poller, false);
+    }
 }
 
 export async function startResourceProcessingTask(input: TaskInput, force: boolean, t: TFunction): Promise<void> {

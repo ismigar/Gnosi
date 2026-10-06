@@ -30,7 +30,7 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
         const discover = async (): Promise<void> => {
             if (pending || !active()) return;
             pending = true;
-            try { await discoverResourceProcessingTask({ noteId, sourceTableId, title }, t, request.signal); }
+            try { await discoverResourceProcessingTask({ noteId, sourceTableId, title, reprocess }, t, request.signal); }
             catch { /* Retry discovery while the dialog remains open. */ }
             finally {
                 pending = false;
@@ -41,7 +41,7 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
         if (hasTask) return () => { request.abort(); };
         const timer = setInterval(() => { void discover(); }, POLL_INTERVAL_MS);
         return () => { request.abort(); clearInterval(timer); };
-    }, [isOpen, taskState, hasTask, noteId, sourceTableId, title, t, statusKey]);
+    }, [isOpen, taskState, hasTask, noteId, sourceTableId, title, reprocess, t, statusKey]);
     const needsEstimate = isOpen && !checkingStatus && (!task || task.state === 'error');
     const estimateKey = useMemo(() => Symbol(JSON.stringify([isOpen, noteId, sourceTableId, processingForce, reprocess, batchSize, hasTask, taskState])), [isOpen, noteId, sourceTableId, processingForce, reprocess, batchSize, hasTask, taskState]);
     const [preflight, setPreflight] = useState<{ key: symbol; result: ResourceProcessingEstimate | null; error: string } | null>(null);

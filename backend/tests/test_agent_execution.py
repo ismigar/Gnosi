@@ -895,3 +895,18 @@ def test_prose_map_output_reservation_is_smaller_and_frozen(runtime, monkeypatch
     asyncio.run(execution._operation_application(request, snapshot, {}, None))
     assert captured['operation_max_output_tokens'] == 8192
     assert captured['prepared_agent_data'] is snapshot.profile
+
+
+def test_oversized_complete_synthesis_is_returned_to_the_reader_without_full_source_format_repair(runtime, monkeypatch):
+    from backend.domains.llm_wiki.semantic_map_reduction import MapSizeLimit
+    scope, snapshot = runtime
+    draft = 'The author qualifies the opponent; uncertainty remains. ' * 50
+    calls = install_workflow(monkeypatch, [AIMessage(content=draft, response_metadata={'finish_reason': 'stop'})])
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation='knowledge.process-source.phase',
+        input='complete source maps', options={'reading_prose': True}, max_model_calls=1)
+    def validate(text):
+        raise MapSizeLimit(text)
+    with execution_scope(scope), pytest.raises(MapSizeLimit) as caught:
+        asyncio.run(execution.execute_operation(request, snapshot=snapshot, output_validator=validate))
+    assert caught.value.text == draft and len(calls) == 1
+    assert store.list_runs(scope)[0].status == 'failed'

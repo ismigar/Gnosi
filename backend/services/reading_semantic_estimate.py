@@ -7,6 +7,7 @@ from typing import Any
 from backend.domains.llm_wiki.chunking import encoded
 from backend.domains.llm_wiki.semantic_context import chunk_view, groups, overview_groups
 from backend.domains.llm_wiki.semantic_contracts import interpretation_schema
+from backend.domains.llm_wiki.semantic_map_reduction import map_limit, reduction_groups
 
 
 def phase_estimate(runtime: Any, chunks: list[dict[str, object]], remaining: list[dict[str, object]],
@@ -16,14 +17,21 @@ def phase_estimate(runtime: Any, chunks: list[dict[str, object]], remaining: lis
     overview = max(0, overview_count - len(saved.get("overview_complete", {})))
     # Summary reduction levels depend on the actual generated maps. Count their
     # maximum requested size here; no paid call is made by the estimate.
-    map_size = max(350, min(2000, budget // 24))
+    map_size = map_limit(budget)
     fan_in = max(2, budget // (3 * (map_size + 512)))
     synthesis = 0
     count = overview_count
+    if saved.get("maps") and not overview:
+        maps = saved["maps"]
+        # Existing full source maps are preserved, but only their bounded
+        # syntheses recur in interpretation/review. Price the first contraction
+        # from the actual saved window sizes, not the original window count.
+        count = len(reduction_groups(maps, runtime.count_tokens, budget // 3))
+        synthesis = count if len(maps) > 1 or runtime.count_tokens(maps[0]) > map_size else 0
     while count > 1:
         count = math.ceil(count / fan_in)
         synthesis += count
-    if saved.get("global_map"):
+    if saved.get("global_map") and runtime.count_tokens(saved["global_map"]) <= map_size:
         synthesis = 0
     extract = len(groups([chunk_view(c) for c in remaining], runtime.count_tokens, budget // 5, batch_size))
     source = sum(len(encoded(chunk_view(c)).encode()) for c in chunks)
@@ -33,12 +41,12 @@ def phase_estimate(runtime: Any, chunks: list[dict[str, object]], remaining: lis
     review = max(0, math.ceil((2 * source + expected_notes) / max(1, budget // 3)) - len(saved.get("reviewed_groups", {})))
     calls = overview + synthesis + extract + note_maps + review
     schema = interpretation_schema(1, dimensions)
-    # The requested summary length is a target, not a discard threshold.
-    # Reserve for both retained source and joint-note maps in a review prompt.
-    repeated = calls * (2 * len(runtime.instructions.encode()) + 3 * len(encoded(schema).encode()) + 2 * max(2000, budget // 8) + 2048)
+    # Full source maps stay in checkpoints. Only the two contracted navigation
+    # maps recur in interpretation/review; originals remain separately priced.
+    repeated = calls * (2 * len(runtime.instructions.encode()) + 3 * len(encoded(schema).encode()) + 2 * map_size + 2048)
     inputs = 2 * pending + (source if overview else 0) + 2 * source * bool(review) + expected_notes * bool(note_maps) + repeated
     return {"planned_calls": calls, "memory_restore_calls": 0, "input_token_bound": inputs,
             "output_tokens_assumed": pending // 2 + map_size * (overview + synthesis + note_maps) + 512 * (extract + review),
-            "output_token_bound": 16384 * calls,
+            "output_token_bound": 8192 * (overview + synthesis + note_maps) + 16384 * (extract + review),
             "reading_engine": "semantic", "phase_calls": {"overview": overview + synthesis, "interpretation": extract,
                                                             "joint_map": note_maps, "review": review}}

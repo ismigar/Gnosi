@@ -12,6 +12,7 @@ from backend.services.agent_execution_scope import execution_scope
 
 @pytest.fixture
 def configured(monkeypatch, tmp_path):
+    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path / "data"))
     principal = {"id": "builtin.llm-wiki.default", "managed_by": "builtin:llm-wiki", "enabled": True, "provider": "openai", "model": "fixture",
                  "persona": "Personal reading style", "context": "Research context", "skill_ids": [SKILL_ID]}
     ai = {"agents": [principal, {"id": "personal", "model": "different"}], "active_agent_id": "personal", "providers": {"openai": {"enabled": True}}}
@@ -162,3 +163,13 @@ def test_prose_argument_map_stays_governed_without_a_json_output_schema(configur
     with pytest.raises(RuntimeError, match='context budget'):
         runtime.generate_prose('x' * (runtime.input_budget + 1), validator, 240)
     execute.assert_not_called()
+
+
+def test_bounded_map_reduction_does_not_repeat_sources_for_generic_format_repair(configured, tmp_path):
+    _, _, execute = configured
+    runtime = prepare_reading_runtime(tmp_path)
+    runtime.generate_prose(json.dumps({'map_contract': 'bounded-reduction-v1', 'material': ['Complete maps']}), str.strip, 240)
+    request = execute.call_args.args[0]
+    assert request.max_model_calls == 1
+    assert request.output_schema is None and request.options['reading_prose']
+    assert request.resume_requires_parent and execute.call_args.kwargs['snapshot'] == runtime.snapshot

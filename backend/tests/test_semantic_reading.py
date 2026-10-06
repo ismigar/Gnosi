@@ -305,11 +305,13 @@ def test_useful_prose_map_above_target_is_retained_without_format_repair():
     def prose(prompt, validator, timeout):
         request = json.loads(prompt); calls.append(request)
         assert request['summary_max_tokens'] == 2000
-        return validator(long_map), 'test-model'
+        return validator(response(request)['summary'] if request.get('map_contract') else long_map), 'test-model'
     reader.dependencies.generate_prose = prose
     reader.run()
-    assert len(calls) == 2
-    assert checkpoints['new', 'semantic-state']['global_map'] == long_map.strip()
+    assert len(calls) == 4
+    assert checkpoints['new', 'semantic-overview-0']['summary'] == long_map.strip()
+    assert token_bound(checkpoints['new', 'semantic-state']['global_map']) <= 2000
+    assert token_bound(checkpoints['new', 'semantic-state']['notes_map']) <= 2000
 
 
 def test_prose_map_that_exceeds_reserved_context_capacity_is_not_accepted():

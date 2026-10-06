@@ -6797,6 +6797,8 @@
     "error_output_limit": "La réponse du modèle a été interrompue par la limite de sortie. La progression est enregistrée. Vérifiez la taille du lot et l’estimation avant de reprendre.",
     "error_details": "Détails techniques",
     "error_provider_timeout": "Le fournisseur d’IA n’a pas répondu à temps. Réessayez pour reprendre la progression enregistrée.",
+    "error_provider_connection": "La connexion au fournisseur d’IA a échoué. Le traitement est interrompu et la progression enregistrée est conservée.",
+    "error_map_synthesis": "Le modèle n’a pas pu terminer une synthèse globale assez concise. Le traitement est arrêté et les cartes enregistrées sont conservées.",
     "error_no_brain_table": "Aucune table du Connaissance n’est configurée. Créez-en une dans Paramètres → Extensions → LLM Wiki.",
     "running_hint": "Vous pouvez fermer ; suivez la progression dans le coin de la fenêtre.",
     "inbox_button": "Boîte",
