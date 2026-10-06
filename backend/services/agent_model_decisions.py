@@ -139,9 +139,9 @@ def decide_with_jev(
     }
     # UTF-8 bytes are a conservative token estimate, also covering the criteria.
     estimated_tokens = len(json.dumps(body, ensure_ascii=False).encode("utf-8"))
-    cap = budget.get("cost_cap_usd")
+    cap = float(budget.get("cost_cap_usd") or 0)
     estimated_cost = estimated_tokens * JEV_INPUT_USD_PER_MILLION / 1_000_000
-    if cap is not None and float(budget.get("spent_usd") or 0) + estimated_cost >= float(cap):
+    if budget.get("enforce_block") and cap > 0 and float(budget.get("spent_usd") or 0) + estimated_cost >= cap:
         return ModelDecision(status="budget_limit")
     from backend.services.agent_execution import reserve_decision_call
 
