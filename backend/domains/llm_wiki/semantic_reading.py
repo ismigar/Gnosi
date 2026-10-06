@@ -14,6 +14,7 @@ from backend.domains.llm_wiki.contextual_reading import ContextualReader, finger
 from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, reduce_batch
 from backend.domains.llm_wiki.reading_identity import reading_identity, identity_parts, map_identity
 from backend.domains.llm_wiki.semantic_map_windows import map_windows
+from backend.domains.llm_wiki.semantic_map_reduction import MapSizeLimit, map_limit, reduce_maps
 from backend.domains.llm_wiki.semantic_context import chunk_view, groups, overview_groups, reading_context, source_view, state_progress
 from backend.domains.llm_wiki.semantic_contracts import (
     MAP_SCHEMA, bind_interpretation, fields, interpretation_schema, validate_schema,
@@ -66,30 +67,46 @@ class SemanticReader:
         self.save()
         return result
 
-    def summarize(self, key: str, material: object) -> str:
-        limit = max(350, min(2000, self.reader.budget // 24))
+    def summarize(self, key: str, material: object, *, bounded: bool = False, maximum: int | None = None) -> str:
+        limit = min(map_limit(self.reader.budget), maximum) if maximum is not None else map_limit(self.reader.budget)
         if getattr(self.deps, "generate_prose", None):
-            return self.prose_map(key, material, limit)
+            return self.prose_map(key, material, limit, bounded=bounded)
         def validate(answer: dict[str, object]) -> None:
             validate_schema(answer, MAP_SCHEMA)
+            if bounded and self.deps.count_tokens(str(answer["summary"])) > limit:
+                raise MapSizeLimit(str(answer["summary"]))
             if self.deps.count_tokens(str(answer["summary"])) > max(2000, self.reader.budget // 8):
                 raise ValueError("The argument map exceeds its reserved context capacity")
         answer = self.ask(key, "overview", {"material": material, "summary_max_tokens": limit,
-            "instruction": "Map the argument, attributed voices, definitions, developments, disagreements and unresolved questions. Include the ending. Preserve document boundaries and qualifications. Do not invent reference IDs; original text remains authoritative."}, MAP_SCHEMA, validate)
+            **({"map_contract": "bounded-reduction-v1"} if bounded else {}),
+            "instruction": self.map_instruction(limit, bounded)}, MAP_SCHEMA, validate)
         return str(answer["summary"])
 
-    def prose_map(self, key: str, material: object, limit: int) -> str:
+    @staticmethod
+    def map_instruction(limit: int, bounded: bool) -> str:
+        return (f"Write one concise argument map within {limit} estimated tokens. "
+            "Preserve the central claims, reasoning, attribution, disagreements, caveats, unanswered questions and the ending. "
+            "Merge repetition and omit illustrative detail before omitting qualifications. Preserve document boundaries. "
+            "Do not invent reference IDs; original passages remain authoritative and available for detailed interpretation. "
+            + ("This is a reduction of existing maps: produce one shorter synthesis of ALL inputs, not a list of expanded summaries. "
+               if bounded else "Map ALL supplied source material; bibliographic metadata alone is not an argument map. "))
+
+    def prose_map(self, key: str, material: object, limit: int, *, bounded: bool = False) -> str:
         from backend.domains.llm_wiki.recovery import call_with_retry
         generate = self.deps.generate_prose
         assert generate is not None
         prompt = encoded({"reading_engine": "semantic", "phase": "overview", "resource": self.reader.title,
             "language": self.reader.language, "material": material, "summary_max_tokens": limit,
-            "instruction": "Return the argument map as plain text, without JSON, an outer object or code fences. Map substantive claims, reasoning, attributed voices, developments, disagreements, qualifications and open questions across ALL supplied material, including the ending. Bibliographic metadata alone is not an argument map. Preserve document boundaries. Do not invent reference IDs; original text remains authoritative."})
-        identity = map_identity(self.deps.execution_revision, self.reader.title, self.reader.language, material)
+            **({"map_contract": "bounded-reduction-v1"} if bounded else {}),
+            "instruction": "Return plain text, without JSON, an outer object or code fences. " + self.map_instruction(limit, bounded)})
+        identity = map_identity(self.deps.execution_revision, self.reader.title, self.reader.language,
+                               ["bounded-reduction-v1", limit, material] if bounded else material)
         def validate(text: str) -> str:
             clean = text.strip()
             if not clean or clean.startswith(("{", "```")):
                 raise ValueError("Return a nonempty argument map as plain text, without JSON or code fences")
+            if bounded and self.deps.count_tokens(clean) > limit:
+                raise MapSizeLimit(clean)
             if self.deps.count_tokens(clean) > max(2000, self.reader.budget // 8):
                 raise ValueError("The argument map exceeds its reserved context capacity")
             return clean
@@ -115,19 +132,7 @@ class SemanticReader:
         return text
 
     def combine(self, key: str, summaries: list[str]) -> str:
-        level = 0
-        while len(summaries) > 1:
-            batches = groups(summaries, self.deps.count_tokens, self.reader.budget // 3)
-            if len(batches) == len(summaries):
-                raise RuntimeError("Global reading maps cannot fit the selected model's context budget")
-            before = self.deps.count_tokens(encoded(summaries))
-            following = [summary for i, batch in enumerate(batches)
-                         for summary in map_windows(self, f"{key}-{level}-{i}", batch)]
-            if level >= 8 or (len(following) >= len(summaries) and self.deps.count_tokens(encoded(following)) >= before):
-                raise RuntimeError("Global argument-map reduction made no progress; saved maps are retained")
-            summaries = following
-            level += 1
-        return summaries[0] if summaries else "No proposed reading notes."
+        return reduce_maps(self, key, summaries)
 
     def overview(self) -> str:
         self.reader.phase("overview", 10)
@@ -139,7 +144,8 @@ class SemanticReader:
                 self.state["maps"] = [summary for i in range(len(batches)) for summary in completed.get(str(i), [])]
                 self.save()
             self.reader.phase("overview", 10 + round(10 * (index + 1) / len(batches)))
-        if not self.state.get("global_map"):
+        if (not self.state.get("global_map")
+                or self.deps.count_tokens(str(self.state["global_map"])) > map_limit(self.reader.budget)):
             self.state["global_map"] = self.combine("semantic-global-map", self.state["maps"])
             self.save()
         return str(self.state["global_map"])
@@ -185,7 +191,8 @@ class SemanticReader:
             self.save()
 
     def note_map(self) -> str:
-        if not self.state.get("notes_map"):
+        if (not self.state.get("notes_map")
+                or self.deps.count_tokens(str(self.state["notes_map"])) > map_limit(self.reader.budget)):
             notes = [n for c in self.reader.chunks for n in records(self.state["plans"][str(c["id"])].get("notes"))]
             material = [{"title": n["title"], "body_md": n["body_md"]} for n in notes]
             material.extend({"title": "Reading observations", "body_md": encoded(value)} for value in self.state["observations"].values())
