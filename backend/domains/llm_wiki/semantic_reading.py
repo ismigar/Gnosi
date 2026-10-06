@@ -85,6 +85,7 @@ class SemanticReader:
     @staticmethod
     def map_instruction(limit: int, bounded: bool) -> str:
         return (f"Write one concise argument map within {limit} estimated tokens. "
+            f"Use at most {max(40, limit // 12)} words, since the application estimates tokens conservatively. "
             "Preserve the central claims, reasoning, attribution, disagreements, caveats, unanswered questions and the ending. "
             "Merge repetition and omit illustrative detail before omitting qualifications. Preserve document boundaries. "
             "Do not invent reference IDs; original passages remain authoritative and available for detailed interpretation. "
