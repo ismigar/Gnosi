@@ -49,6 +49,12 @@ def prepare_batch(engine: SemanticReader, entries: list[dict[str, object]], dest
     previous_size = engine.state.get("reviewed_ranges", {}).get(str(offset))
     if previous_size and fingerprint(entries[offset:offset + previous_size]) in engine.state["reviewed_groups"]:
         batch = entries[offset:offset + previous_size]
+    else:
+        for start, size in engine.state.get("reviewed_ranges", {}).items():
+            position = int(start)
+            if (offset < position < offset + len(batch)
+                    and fingerprint(entries[position:position + size]) in engine.state["reviewed_groups"]):
+                batch = batch[:position - offset]
     targets = destinations[offset:offset + len(batch)]
     original = [{**s, "origin_label": c.get("origin_label")} for c in reader.chunks for s in records(c.get("segments"))]
     retrieved = relevant(original, encoded(batch), engine.deps.count_tokens, reader.budget // 10)

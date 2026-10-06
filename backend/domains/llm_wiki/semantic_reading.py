@@ -11,7 +11,7 @@ from typing import Any
 
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
-from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, reduce_batch
+from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, reduce_batch, resume_incomplete_review
 from backend.domains.llm_wiki.reading_identity import reading_identity, identity_parts, map_identity
 from backend.domains.llm_wiki.semantic_map_windows import map_windows
 from backend.domains.llm_wiki.semantic_map_reduction import MapSizeLimit, map_limit, reduce_maps
@@ -46,7 +46,9 @@ class SemanticReader:
                 self.state = deepcopy(saved)
                 reader.resume_job_id = candidate
                 if self.deps.resume_job_status:
-                    reduce_batch(self.state, str(self.deps.resume_job_status(candidate).get("error") or ""))
+                    error = str(self.deps.resume_job_status(candidate).get("error") or "")
+                    reduce_batch(self.state, error)
+                    resume_incomplete_review(self.state, error)
         reader.models.extend(self.state.get("models", []))
         self.save()
 

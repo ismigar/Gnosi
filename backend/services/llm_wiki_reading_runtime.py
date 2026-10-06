@@ -160,11 +160,14 @@ class ReadingRuntime:
         from backend.domains.llm_wiki.reading_dimension_repairs import build_dimension_repair
         from backend.domains.llm_wiki.reading_repairs import build_reading_repair
         from backend.services.agent_output_repair import OutputRepair
-        if selection and selection.phase == "interpret" and isinstance(error, json.JSONDecodeError):
+        if selection and isinstance(error, json.JSONDecodeError):
             # Some providers report stop even when a long structured answer
-            # ends inside a value. Retrying the complete batch repeats all
+            # ends inside a value, including short review prefixes. Retrying
+            # the complete batch repeats all
             # originals; let the reader split it inside the same book cap.
-            if len(text.encode()) >= 4096 and error.pos >= len(text.rstrip()) - 1:
+            incomplete = error.msg.startswith("Unterminated string") or error.pos >= len(text.rstrip()) - 1
+            review_started = selection.phase == "verify" and text.lstrip().startswith("{")
+            if incomplete and (len(text.encode()) >= 4096 or review_started):
                 from backend.domains.llm_wiki.reading_batch_recovery import IncompleteReadingBatch
                 raise IncompleteReadingBatch() from error
         # A schema rejection can hide bad citations in the same draft.

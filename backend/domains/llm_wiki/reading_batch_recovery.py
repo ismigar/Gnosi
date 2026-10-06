@@ -6,7 +6,7 @@ from typing import Any
 
 
 class IncompleteReadingBatch(ValueError):
-    """A substantial structured answer ended before its JSON was complete."""
+    """A structured answer ended before its JSON was complete."""
 
     def __init__(self) -> None:
         super().__init__("reading_batch_response_incomplete")
@@ -54,3 +54,12 @@ def reduce_batch(state: dict[str, Any], error: Exception | str) -> bool:
         return False
     state["batch_size_limit"] = limit
     return True
+
+
+def resume_incomplete_review(state: dict[str, Any], error: str) -> None:
+    """Older interrupted reviews recorded the parser error before split recovery."""
+    limit = state.get("review_size_limit")
+    if ((state.get("last_action") or {}).get("phase") == "verify"
+            and error.startswith("Unterminated string starting at:")
+            and type(limit) is int and limit > 1):
+        state["review_size_limit"] = max(1, limit // 2)
