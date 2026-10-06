@@ -370,7 +370,7 @@ def test_resume_identity_ignores_dictionary_order_and_knowledge_index_order():
     assert not calls
 
 
-def test_complete_source_map_survives_changed_knowledge_context_but_notes_do_not():
+def test_changed_knowledge_context_retains_drafts_but_repeats_every_review():
     reader, _, checkpoints = setup()
     calls = []
     def prose(prompt, validator, timeout):
@@ -384,7 +384,11 @@ def test_complete_source_map_survives_changed_knowledge_context_but_notes_do_not
     before = len(calls)
     resumed.run()
     assert all('passages' not in item for request in calls[before:] for item in request['material'] if isinstance(item, dict))
-    assert any(c['phase'] == 'interpret' for c in interpretations)
+    assert not any(c['phase'] == 'interpret' for c in interpretations)
+    reviews = [c for c in interpretations if c['phase'] == 'verify']
+    assert sum(len(c['notes']) for c in reviews) == 8
+    assert all(c['brain_notes'] == [{**resumed.brain_index[0], 'type': None}] for c in reviews)
+    assert len(calls) == before
 
 
 def test_map_window_truncation_splits_and_resumes_without_repeating_complete_sibling():

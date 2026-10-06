@@ -96,3 +96,34 @@ def test_incompatible_checkpoint_and_stale_estimate_cannot_launch_worker(monkeyp
     actions.start_source_process('book', source_table_id='sources', estimate_id='current', force=True)
     assert start.call_args.kwargs['force'] is True
     assert start.call_args.kwargs['expected_reading_identity'] == 'identity'
+
+
+def test_changed_knowledge_preflight_reuses_drafts_but_prices_all_reviews(monkeypatch):
+    from copy import deepcopy
+    from backend.domains.llm_wiki.reading_identity import identity_parts, canonical_hash
+    from backend.services.reading_semantic_estimate import phase_estimate
+    parts = identity_parts('same-policy', [], [], [{'id': 'new-knowledge'}])
+    old_parts = {**parts, 'knowledge': 'old-index'}
+    checkpoint = {'engine': 2, 'identity': canonical_hash(old_parts), 'identity_parts': old_parts,
+                  'reading_context': fingerprint(['Book', 'Catalan']), 'plans': {'one': {'notes': [{'body_md': 'Qualified idea'}]}},
+                  'maps': ['Map'], 'global_map': 'Map', 'notes_map': 'Map', 'overview_complete': {'0': ['Map']},
+                  'reviewed_groups': {'old': {}}, 'reviewed_ranges': {'0': 1}, 'review_quality_version': 1, 'completed': True}
+    original = deepcopy(checkpoint)
+    monkeypatch.setattr(estimate.llm_wiki_storage, 'resume_checkpoint_jobs', lambda _: ['old'])
+    monkeypatch.setattr(estimate.llm_wiki_storage, 'load_checkpoint', lambda *_: checkpoint)
+    monkeypatch.setattr(estimate.llm_wiki_storage, 'get_job_status', lambda *_: {})
+    saved, count = estimate._saved_state({'phase': 'partial', 'job_id': 'old'}, canonical_hash(parts), True, False,
+                                       'Book', 'Catalan', parts)
+    assert count == 1 and saved['plans'] == checkpoint['plans']
+    assert saved['reviewed_groups'] == {} and saved['completed'] is False
+    costs = phase_estimate(SimpleNamespace(input_budget=100000, count_tokens=len, instructions='Policy'), [], [], [], saved, 4)
+    assert costs['phase_calls']['review'] >= 1 and costs['phase_calls']['interpretation'] == 0
+    assert checkpoint == original
+    for field in ['execution', 'sources', 'classification']:
+        changed = {**parts, field: 'changed'}
+        rejected, _ = estimate._saved_state({'phase': 'partial', 'job_id': 'old'}, canonical_hash(changed), True, False,
+                                           'Book', 'Catalan', changed)
+        assert not rejected
+    rejected, _ = estimate._saved_state({'phase': 'partial', 'job_id': 'old'}, canonical_hash(parts), True, False,
+                                       'Book', 'French', parts)
+    assert not rejected

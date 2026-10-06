@@ -19,6 +19,9 @@ def prose_issues(note: dict[str, object], evidence: list[dict[str, object]], lan
         issues.append("Undefined Markdown footnotes; supply their definitions or use the selected citation list.")
     originals = "\n".join(str(s.get("text", "")) for s in evidence)
     latin_output = language.casefold() in {"catalan", "català", "ca", "spanish", "español", "es", "english", "en", "french", "français", "fr"}
+    if language == "the main language detected in the source":
+        source_letters = [unicodedata.name(char, "") for char in originals if char.isalpha()]
+        latin_output = bool(source_letters) and all("LATIN" in name for name in source_letters)
     # Detect foreign letters embedded inside a Latin word, not legitimate
     # multilingual quotations, names or languages written in another script.
     for word in re.findall(r"[^\W\d_]+", text):

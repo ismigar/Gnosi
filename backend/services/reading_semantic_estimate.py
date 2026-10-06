@@ -51,7 +51,7 @@ def phase_estimate(runtime: Any, chunks: list[dict[str, object]], remaining: lis
     # Full source maps stay in checkpoints. Only the two contracted navigation
     # maps recur in interpretation/review; originals remain separately priced.
     repeated = calls * (2 * len(runtime.instructions.encode()) + 3 * len(encoded(schema).encode()) + 2 * map_size + 2048)
-    inputs = 2 * pending + (source if overview else 0) + 2 * source * bool(review) + expected_notes * bool(note_maps) + repeated
+    inputs = 2 * pending + (source if overview else 0) + 2 * source * bool(review) + expected_notes * bool(note_maps) + repeated + 4000 * review
     return {"planned_calls": calls, "memory_restore_calls": 0, "input_token_bound": inputs,
             "output_tokens_assumed": pending // 2 + map_size * (overview + synthesis + note_maps) + 512 * (extract + review),
             "output_token_bound": 8192 * (overview + synthesis + note_maps) + 16384 * (extract + review),

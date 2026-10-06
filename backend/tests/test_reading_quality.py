@@ -22,6 +22,13 @@ def test_valid_links_defined_footnotes_and_multilingual_originals_are_preserved(
     assert not prose_issues({'body_md': '한국어로 쓴 글'}, [], 'Korean')
 
 
+def test_automatic_source_language_rejects_foreign_script_in_latin_originals():
+    note = {'body_md': 'Es 해석과란 mútuament.'}
+    original = [{'text': 'La interpretación debe seguir la fuente.'}]
+    assert prose_issues(note, original, 'the main language detected in the source')
+    assert not prose_issues({'body_md': '한국어로 쓴 글'}, original, 'Korean')
+
+
 def test_review_sees_full_adjacent_continuation_across_page_boundaries():
     engine, gm, nm, calls, _ = prepared(count=3)
     chunks = engine.reader.chunks

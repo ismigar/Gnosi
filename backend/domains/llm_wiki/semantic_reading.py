@@ -12,7 +12,7 @@ from typing import Any
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
 from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, reduce_batch, resume_incomplete_review
-from backend.domains.llm_wiki.reading_identity import reading_identity, identity_parts, map_identity
+from backend.domains.llm_wiki.reading_identity import reading_identity, identity_parts, map_identity, resume_semantic_state
 from backend.domains.llm_wiki.semantic_map_windows import map_windows
 from backend.domains.llm_wiki.semantic_map_reduction import MapSizeLimit, map_limit, reduce_maps
 from backend.domains.llm_wiki.semantic_context import auxiliary_limit, chunk_view, groups, overview_groups, reading_context, source_view, state_progress
@@ -38,9 +38,9 @@ class SemanticReader:
         self.resume_map_jobs = candidates
         selected_resume = False
         for candidate in candidates:
-            saved = self.deps.load_checkpoint(candidate, "semantic-state")
-            if (isinstance(saved, dict) and saved.get("identity") == identity and saved.get("engine") == ENGINE_VERSION
-                    and saved.get("reading_context") == self.state["reading_context"]
+            saved = resume_semantic_state(self.deps.load_checkpoint(candidate, "semantic-state"),
+                                          identity, self.state["identity_parts"], self.state["reading_context"])
+            if (saved is not None
                     and (not selected_resume or state_progress(saved) > state_progress(self.state))):
                 selected_resume = True
                 self.state = deepcopy(saved)

@@ -10,7 +10,7 @@ from typing import Any, TYPE_CHECKING
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
 from backend.domains.llm_wiki.reading_batch_recovery import _has_answer_tokens
-from backend.domains.llm_wiki.semantic_context import groups, relevant, source_view
+from backend.domains.llm_wiki.semantic_context import auxiliary_limit, groups, relevant, source_view
 from backend.domains.llm_wiki.semantic_contracts import bind_review, fields, review_schema
 from backend.domains.llm_wiki.reading_quality import validate_reviewed_prose
 
@@ -62,8 +62,10 @@ def prepare_batch(engine: SemanticReader, entries: list[dict[str, object]], dest
     payload: dict[str, object] = {
         "global_map": global_map, "all_notes_map": notes_map, "notes": batch,
         "retrieved_originals": [source_view(s) for s in retrieved],
+        "brain_notes": reader.relevant_index(encoded(batch), [target[3] for target in targets],
+                                              maximum=8, limit=auxiliary_limit(reader.budget, 12, 4000)),
         "properties": fields(reader.dimensions),
-        "instruction": "Review EVERY supplied note against its original evidence and the joint map of ALL notes. Correct false attribution, missing caveats, contradicted conclusions and unsupported links. Full adjacent originals are supplied as support: read them before declaring a page-ending sentence incomplete. Correct all validation_issues, undefined footnotes, leaked numeric source links and corrupt language. Return only changed notes with their one-based position; unchanged notes are retained by the application. Preserve distinct ideas. Do not remove notes or change workflow state. New quotes must be exact originals and include the note's own primary passage. In unresolved_issues list each note with a remaining defect or missing evidence that prevents a reliable interpretation; do not bury defects in warnings. Warnings describe only limitations genuinely present in the original, not unfinished corrections. An empty changes list means you found no needed correction, not that accuracy is guaranteed.",
+        "instruction": "Review EVERY supplied note against its original evidence and the joint map of ALL notes. Correct false attribution, missing caveats, contradicted conclusions and unsupported links. Brain notes are current navigation candidates, never source evidence: reassess proposed connections and remove unsupported ones. Full adjacent originals are supplied as support: read them before declaring a page-ending sentence incomplete. Correct all validation_issues, undefined footnotes, leaked numeric source links and corrupt language. Return only changed notes with their one-based position; unchanged notes are retained by the application. Preserve distinct ideas. Do not remove notes or change workflow state. New quotes must be exact originals and include the note's own primary passage. In unresolved_issues list each note with a remaining defect or missing evidence that prevents a reliable interpretation; do not bury defects in warnings. Warnings describe only limitations genuinely present in the original, not unfinished corrections. An empty changes list means you found no needed correction, not that accuracy is guaranteed.",
     }
     return ReviewBatch(offset, batch, targets, retrieved, payload, review_schema(len(batch), reader.dimensions, require_resolution=True), fingerprint(batch))
 
