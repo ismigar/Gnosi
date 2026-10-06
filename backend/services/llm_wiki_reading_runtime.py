@@ -95,8 +95,6 @@ class ReadingRuntime:
         from backend.domains.llm_wiki.reading_repairs import build_reading_repair
         from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
         from backend.services.agent_output_repair import OutputRepair
-        if self.count_tokens(prompt) > self.input_budget:
-            raise RuntimeError("The reading input exceeds the selected model's context budget")
         try:
             envelope = json.loads(prompt)
         except ValueError:
@@ -128,7 +126,7 @@ class ReadingRuntime:
             if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic":
                 from backend.domains.llm_wiki.semantic_repairs import build_semantic_repair
                 try:
-                    draft = selection.restore(text) if selection else text
+                    draft = selection.draft_for_repair(text) if selection else text
                 except ValueError:
                     return None
                 semantic_repair = build_semantic_repair(prompt, draft)
@@ -141,11 +139,18 @@ class ReadingRuntime:
             if plan is not None and self.count_tokens(plan.input) > self.input_budget:
                 return None
             return plan
-        result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
-            input=operation_prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
-            # Literal choices apply even when the second call repairs syntax.
-            # Keep corrections inside the same call allowance and deadline.
-            output_schema=schema, max_model_calls=2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3), snapshot=self.snapshot, output_validator=checked, output_repair=repair)
+        import jsonschema
+        try:
+            result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
+                input=operation_prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
+                # Literal choices apply even when the second call repairs syntax.
+                # Keep corrections inside the same call allowance and deadline.
+                output_schema=schema, max_model_calls=2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3), snapshot=self.snapshot, output_validator=checked, output_repair=repair)
+        except jsonschema.ValidationError as error:
+            if selection and {"primary_quote_ids", "context_quote_ids"}.intersection(error.absolute_path):
+                from backend.services.structured_output_diagnostics import repair_diagnostic
+                raise ValueError("Invalid reading plan: " + repair_diagnostic(error)) from error
+            raise
         return selection.restore(result.result) if selection else result.result, result.model
 
     def generate_prose(self, prompt: str, validate: Callable[[str], str], timeout: int) -> tuple[str, str]:

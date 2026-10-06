@@ -27,15 +27,28 @@ def repair_case(quote='The author doubts certainty.'):
 
 
 def patch_for(answer, payload, quote_ids=None):
-    repairs = []
+    repairs = {}
     for passage in payload['passages']:
         source = next(s for s in payload['source_quotes'] if s['source'] == passage['primary_source'])
         value = deepcopy(answer['passages'][passage['passage'] - 1])
         for note in value['notes']:
             note.pop('quotes')
-            note['quote_ids'] = quote_ids if quote_ids is not None else [source['quotes'][0]['quote_id']]
-        repairs.append({'passage': passage['passage'], 'value': value})
+            note['primary_quote_ids'] = quote_ids if quote_ids is not None else [source['quotes'][0]['quote_id']]
+            note['context_quote_ids'] = []
+        repairs[f"passage_{passage['passage']}"] = value
     return {'repairs': repairs}
+
+
+def selected_answer(answer, payload):
+    result = deepcopy(answer)
+    for index, passage in enumerate(result['passages']):
+        source = payload['source_quotes'][payload['primary_passages'][f'passage_{index + 1}']['source'] - 1]
+        for note in passage['notes']:
+            note.pop('quotes')
+            note['primary_quote_ids'] = [quote['quote_id'] for quote in source['quotes']]
+            note['context_quote_ids'] = []
+    result['passages'] = {f'passage_{i + 1}': value for i, value in enumerate(result['passages'])}
+    return result
 
 
 @pytest.mark.parametrize('text', [
@@ -88,9 +101,9 @@ def test_repair_cannot_forge_or_rewrite_a_quote(invalid_choice):
 def test_repair_rejects_free_text_instead_of_the_selection_contract():
     _, _, _, answer, repair, payload = repair_case()
     patch = patch_for(answer, payload)
-    note = patch['repairs'][0]['value']['notes'][0]
+    note = patch['repairs']['passage_1']['notes'][0]
     note['quotes'] = ['the author doubts certainty.']
-    del note['quote_ids']
+    del note['primary_quote_ids']
     with pytest.raises(ValueError):
         repair.restore(encoded(patch))
 
@@ -104,7 +117,7 @@ def test_whitespace_does_not_count_as_supporting_evidence():
 def test_context_quote_alone_does_not_ground_a_primary_note():
     _, _, _, answer, repair, payload = repair_case()
     context = next(s for s in payload['source_quotes'] if s['source'] != payload['passages'][0]['primary_source'])
-    with pytest.raises(ValueError, match='own primary passage'):
+    with pytest.raises(ValueError, match='primary_quote_ids'):
         repair.restore(encoded(patch_for(answer, payload, [context['quotes'][0]['quote_id']])))
 
 
@@ -126,19 +139,19 @@ def test_selected_context_quote_must_identify_one_original():
     payload = json.loads(repair.input)
     patch = patch_for(answer, payload)
     ambiguous = next(q['quote_id'] for source in payload['source_quotes'] for q in source['quotes'] if q['text'] == 'Shared evidence.')
-    patch['repairs'][0]['value']['notes'][0]['quote_ids'].append(ambiguous)
+    patch['repairs']['passage_1']['notes'][0]['context_quote_ids'].append(ambiguous)
     with pytest.raises(ValueError, match='identifying one supplied original'):
         repair.restore(encoded(patch))
 
 
-def test_partial_repair_cannot_change_a_valid_passage_or_duplicate_a_patch():
+def test_partial_repair_cannot_change_a_valid_passage_or_omit_a_patch():
     _, _, _, answer, repair, payload = repair_case()
     patch = patch_for(answer, payload)
-    patch['repairs'][0]['passage'] = 2
+    patch['repairs']['passage_2'] = patch['repairs'].pop('passage_1')
     with pytest.raises(ValueError):
         repair.restore(encoded(patch))
     patch = patch_for(answer, payload)
-    patch['repairs'].append(deepcopy(patch['repairs'][0]))
+    patch['repairs'].clear()
     with pytest.raises(ValueError):
         repair.restore(encoded(patch))
 
@@ -155,13 +168,8 @@ def test_quote_selection_uses_the_same_governed_runtime_and_two_call_allowance(m
         assert request.resume_requires_parent and request.operation == 'knowledge.process-source.phase'
         assert snapshot is runtime.snapshot
         wire = json.loads(request.input)
-        draft = deepcopy(answer)
-        for index, passage in enumerate(draft['passages']):
-            source = wire['source_quotes'][wire['primary_passages'][index]['source'] - 1]
-            for note in passage['notes']:
-                note.pop('quotes')
-                note['quote_ids'] = [quote['quote_id'] for quote in source['quotes']]
-        draft['passages'][0]['notes'][0]['quote_ids'] = draft['passages'][1]['notes'][0]['quote_ids']
+        draft = selected_answer(answer, wire)
+        draft['passages']['passage_1']['notes'][0]['primary_quote_ids'] = draft['passages']['passage_2']['notes'][0]['primary_quote_ids']
         calls.append('interpret')
         with pytest.raises(ValueError) as rejected:
             output_validator(encoded(draft))

@@ -15,6 +15,7 @@ source_paths:
   - backend/domains/llm_wiki/semantic_review.py
   - backend/domains/llm_wiki/semantic_repairs.py
   - backend/domains/llm_wiki/semantic_quote_selection.py
+  - backend/domains/llm_wiki/semantic_quote_contracts.py
   - backend/services/reading_semantic_estimate.py
   - backend/tests/test_semantic_reading.py
   - backend/services/agent_task_cases.py
@@ -1352,6 +1353,8 @@ Complete source maps that exceed the 2,000-token target remain preserved in chec
 The shorter target requested on the second contraction attempt leaves headroom; acceptance still uses the unchanged map capacity. A complete answer between that target and the capacity is valid. Resuming also promotes compatible complete drafts already within capacity into result checkpoints without another model call, including drafts saved by older stricter retries. Empty, incomplete, incompatible or still oversized drafts cannot bypass validation. No source text is cut, and the spending cap and two-call allowance remain unchanged.
 
 Interpretation and joint review select local quote IDs from numbered spans covering the complete supplied originals, beginning with the first model response. Gnosi restores the exact text before the unchanged schema, primary-passage and citation checks; a syntax correction uses the same choices. Input budgeting includes the numbered catalog, and whitespace stays attached to original evidence. Interpretation repairs include per-note diagnostics and retain valid passages and semantic memory. The operation cache keeps its validated selection contract while reading checkpoints retain literal citations, so compatible completed work remains reusable. Context-only, ambiguous, blank or invented evidence remains invalid. The two-call allowance and spending limit are unchanged. Citation failures use the existing localized evidence message, with technical details retained.
+
+Interpretations use named `passage_N` entries; review uses `note_N` entries with a replacement or null to retain the original. Each entry requires nonempty `primary_quote_ids` enumerated exclusively from its own source. Additional `context_quote_ids` cannot replace primary evidence. Partial repairs enforce the same constraints. Shared field definitions bound schema growth. Local validation rejects shifted passages and wrong-source choices before binding; saved reading plans remain compatible.
 
 Reading identity version 2 canonicalizes mapping keys and knowledge-index order. Knowledge and relation catalog limits are applied after stable sorting, so a reload cannot select a different arbitrary subset. Identity components are recorded for diagnosis; source order, text, classifications and execution policy remain significant. Complete prose maps have their own identity based on the exact material, title, language and frozen execution policy, independent of classification and knowledge context. They can be reused even when draft notes need regeneration. Older map caches require explicit evidence of a complete provider response before migration.
 

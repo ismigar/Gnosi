@@ -11,7 +11,7 @@ from backend.domains.llm_wiki.semantic_contracts import bind_interpretation, bin
 from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
 from backend.services.llm_wiki_reading_runtime import ReadingRuntime
 from backend.tests.test_agent_execution import install_workflow, runtime as runtime
-from backend.tests.test_semantic_quote_repair import repair_case
+from backend.tests.test_semantic_quote_repair import repair_case, selected_answer
 
 
 def selection_case():
@@ -19,11 +19,7 @@ def selection_case():
     selection = quote_selection(request)
     assert selection is not None
     payload = json.loads(selection.input)
-    for index, passage in enumerate(answer['passages']):
-        source = payload['source_quotes'][payload['primary_passages'][index]['source'] - 1]
-        for note in passage['notes']:
-            note.pop('quotes')
-            note['quote_ids'] = [quote['quote_id'] for quote in source['quotes']]
+    answer = selected_answer(answer, payload)
     return reader, primary, request, answer, selection
 
 
@@ -48,7 +44,7 @@ def test_first_response_keeps_complete_originals_and_returns_only_literal_citati
 @pytest.mark.parametrize('choice', [0, -1, 999999, True, '1', 'rewritten quote'])
 def test_first_response_rejects_unknown_or_noninteger_choices(choice):
     _, _, _, answer, selection = selection_case()
-    answer['passages'][0]['notes'][0]['quote_ids'] = [choice]
+    answer['passages']['passage_1']['notes'][0]['primary_quote_ids'] = [choice]
     with pytest.raises(ValueError):
         selection.restore(encoded(answer))
 
@@ -56,10 +52,10 @@ def test_first_response_rejects_unknown_or_noninteger_choices(choice):
 def test_first_response_rejects_free_text_and_context_only_support():
     reader, primary, _, answer, selection = selection_case()
     wrong = deepcopy(answer)
-    wrong['passages'][0]['notes'][0]['quotes'] = [primary[0]['text']]
+    wrong['passages']['passage_1']['notes'][0]['quotes'] = [primary[0]['text']]
     with pytest.raises(ValueError):
         selection.restore(encoded(wrong))
-    answer['passages'][0]['notes'][0]['quote_ids'] = answer['passages'][1]['notes'][0]['quote_ids']
+    answer['passages']['passage_1']['notes'][0]['primary_quote_ids'] = answer['passages']['passage_2']['notes'][0]['primary_quote_ids']
     with pytest.raises(ValueError, match='primary'):
         bind_interpretation(json.loads(selection.restore(encoded(answer))), reader.chunks, primary, [])
 
@@ -76,14 +72,17 @@ def test_joint_review_uses_literal_choices_and_retains_the_canonical_note_contra
     payload = json.loads(selection.input)
     replacement = deepcopy(literal)
     replacement.pop('quotes')
-    replacement['quote_ids'] = [payload['source_quotes'][0]['quotes'][0]['quote_id']]
-    result = {'assessment': 'Checked attribution.', 'changes': [{'note': 1, 'replacement': replacement}], 'warnings': []}
+    replacement['primary_quote_ids'] = [payload['source_quotes'][0]['quotes'][0]['quote_id']]
+    replacement['context_quote_ids'] = []
+    result = {'assessment': 'Checked attribution.', 'changes': {'note_1': replacement}, 'warnings': []}
     notes = bind_review(json.loads(selection.restore(encoded(result))), targets, [])
     assert notes[0]['citations'][0]['quote'] == 'the author doubts certainty.'
     assert request == before
-    result['changes'][0]['replacement']['quote_ids'] = [payload['source_quotes'][1]['quotes'][0]['quote_id']]
+    result['changes']['note_1']['primary_quote_ids'] = [payload['source_quotes'][1]['quotes'][0]['quote_id']]
     with pytest.raises(ValueError, match='primary'):
         bind_review(json.loads(selection.restore(encoded(result))), targets, [])
+    result['changes']['note_1'] = None
+    assert json.loads(selection.restore(encoded(result)))['changes'] == []
 
 
 def test_catalog_overhead_is_checked_before_any_model_call(monkeypatch):
@@ -97,7 +96,84 @@ def test_catalog_overhead_is_checked_before_any_model_call(monkeypatch):
         runtime.generate_structured(original, lambda _: None, 240)
 
 
-@pytest.mark.parametrize('fault', ['none', 'syntax', 'source', 'unknown_choice'])
+def test_named_passages_keep_source_order_and_cannot_be_shifted_or_omitted():
+    _, primary, _, answer, selection = selection_case()
+    answer['passages'] = dict(reversed(list(answer['passages'].items())))
+    restored = json.loads(selection.restore(encoded(answer)))
+    assert ''.join(restored['passages'][0]['notes'][0]['quotes']) == primary[0]['text']
+    shifted = deepcopy(answer)
+    shifted['passages']['passage_1'], shifted['passages']['passage_2'] = (
+        shifted['passages']['passage_2'], shifted['passages']['passage_1'])
+    with pytest.raises(ValueError, match='primary_quote_ids'):
+        selection.restore(encoded(shifted))
+    answer['passages'].pop('passage_1')
+    with pytest.raises(ValueError, match='required'):
+        selection.restore(encoded(answer))
+
+
+def test_context_can_supplement_but_never_replace_a_primary_quote():
+    reader, primary, _, answer, selection = selection_case()
+    note = answer['passages']['passage_1']['notes'][0]
+    note['context_quote_ids'] = answer['passages']['passage_2']['notes'][0]['primary_quote_ids']
+    restored = json.loads(selection.restore(encoded(answer)))
+    assert bind_interpretation(restored, reader.chunks, primary, [])
+    note['primary_quote_ids'] = []
+    with pytest.raises(ValueError, match='primary_quote_ids'):
+        selection.restore(encoded(answer))
+
+
+def test_schema_constrains_every_primary_on_the_provider_transport():
+    from backend.domains.agent.structured_output import constrain_output
+    from backend.domains.llm_wiki.semantic_repairs import build_semantic_repair
+    class Model:
+        def bind(self, **kwargs):
+            return kwargs
+    _, _, request, answer, selection = selection_case()
+    answer['passages']['passage_1']['notes'][0]['primary_quote_ids'] = answer['passages']['passage_2']['notes'][0]['primary_quote_ids']
+    repair = build_semantic_repair(encoded(request), selection.draft_for_repair(encoded(answer)))
+    for schema in [selection.schema, repair.output_schema]:
+        bound = constrain_output(Model(), 'openrouter', schema)
+        assert bound['response_format']['type'] == 'json_schema'
+        assert bound['response_format']['json_schema']['strict'] is True
+        assert bound['response_format']['json_schema']['schema'] == schema
+        assert schema['$defs']['reading_note_properties'] == request['output_schema']['properties']['passages']['items']['properties']['notes']['items']['properties']['properties']
+
+
+def test_shifted_last_four_of_fourteen_passages_are_all_diagnosed_and_repaired_locally():
+    from backend.tests.test_semantic_reading import setup, response
+    from backend.domains.llm_wiki.semantic_contracts import interpretation_schema
+    from backend.domains.llm_wiki.semantic_context import source_view
+    from backend.domains.llm_wiki.semantic_repairs import build_semantic_repair
+    from backend.tests.test_semantic_quote_repair import patch_for
+    reader, _, _ = setup(count=14)
+    primary = [s for c in reader.chunks for s in c['segments']]
+    request = {'reading_engine': 'semantic', 'phase': 'interpret',
+               'primary_passages': [source_view(s) for s in primary], 'output_schema': interpretation_schema(14, [])}
+    selection = quote_selection(request)
+    answer = selected_answer(response(request), json.loads(selection.input))
+    before = deepcopy(answer)
+    for destination, source in [(11, 12), (12, 13), (13, 14), (14, 3)]:
+        answer['passages'][f'passage_{destination}'] = deepcopy(before['passages'][f'passage_{source}'])
+    with pytest.raises(ValueError):
+        selection.restore(encoded(answer))
+    rejected = selection.draft_for_repair(encoded(answer))
+    repair = build_semantic_repair(encoded(request), rejected)
+    payload = json.loads(repair.input)
+    assert [row['passage'] for row in payload['passages']] == [11, 12, 13, 14]
+    patch = patch_for(json.loads(rejected), payload)
+    for key, passage in patch['repairs'].items():
+        for field in ['title', 'body_md']:
+            passage['notes'][0][field] = before['passages'][key]['notes'][0][field]
+    bad_patch = deepcopy(patch)
+    bad_patch['repairs']['passage_11']['notes'][0]['primary_quote_ids'] = selection.primary_ids[9]
+    with pytest.raises(ValueError, match='primary_quote_ids'):
+        repair.restore(encoded(bad_patch))
+    fixed = json.loads(selection.restore(selection.repair(repair).restore(encoded(patch))))
+    assert bind_interpretation(fixed, reader.chunks, primary, [])
+    assert fixed['passages'][:10] == json.loads(selection.restore(encoded(before)))['passages'][:10]
+
+
+@pytest.mark.parametrize('fault', ['none', 'syntax', 'source', 'unknown_choice', 'source_again'])
 def test_governed_operation_repairs_then_reuses_checked_numeric_cache(runtime, monkeypatch, fault):
     from backend.services import agent_execution as execution, agent_execution_store as store
     from backend.services.agent_execution_scope import execution_scope
@@ -114,24 +190,34 @@ def test_governed_operation_repairs_then_reuses_checked_numeric_cache(runtime, m
     responses = [encoded(answer)]
     if fault == 'syntax':
         responses.insert(0, '{"passages": [')
-    if fault in {'source', 'unknown_choice'}:
+    if fault in {'source', 'source_again', 'unknown_choice'}:
         draft = deepcopy(answer)
-        draft['passages'][0]['notes'][0]['quote_ids'] = (
-            answer['passages'][1]['notes'][0]['quote_ids'] if fault == 'source' else [999999])
+        draft['passages']['passage_1']['notes'][0]['primary_quote_ids'] = (
+            answer['passages']['passage_2']['notes'][0]['primary_quote_ids'] if fault.startswith('source') else [999999])
         responses.insert(0, encoded(draft))
-        if fault == 'source':
+        if fault.startswith('source'):
             from backend.domains.llm_wiki.semantic_repairs import build_semantic_repair
             from backend.tests.test_semantic_quote_repair import patch_for
-            canonical = selection.restore(encoded(draft))
+            canonical = selection.draft_for_repair(encoded(draft))
             repair = build_semantic_repair(encoded(request), canonical)
-            patch = encoded(patch_for(json.loads(canonical), json.loads(repair.input)))
+            values = patch_for(json.loads(canonical), json.loads(repair.input))
+            if fault == 'source_again':
+                values['repairs']['passage_1']['notes'][0]['primary_quote_ids'] = selection.primary_ids[1]
+            patch = encoded(values)
             responses[1] = patch
-            expected = encoded(json.loads(repair.restore(patch)))
+            if fault == 'source':
+                expected = encoded(json.loads(repair.restore(patch)))
     calls = install_workflow(monkeypatch, responses)
     validate = lambda value: bind_interpretation(value, source_reader.chunks, primary, [])
     with execution_scope(scope):
         frozen = execution.create_job_run(snapshot, 'same-book-job', 'knowledge.process-source')
         reader = ReadingRuntime(snapshot.agent_id, 'test', 'fake', '', 1_000_000, frozen)
+        if fault == 'source_again':
+            with pytest.raises(ValueError, match='Invalid reading plan:.*primary_quote_ids'):
+                reader.generate_structured(encoded(request), validate, 240)
+            failed = [run for run in store.list_runs(scope) if run.operation == 'knowledge.process-source.phase']
+            assert len(calls) == 2 and len(failed) == 1 and failed[0].status == 'failed' and not failed[0].result
+            return
         text, model = reader.generate_structured(encoded(request), validate, 240)
         again, _ = reader.generate_structured(encoded(request), validate, 240)
         runs = [run for run in store.list_runs(scope) if run.operation == 'knowledge.process-source.phase']
