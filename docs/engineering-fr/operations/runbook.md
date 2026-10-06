@@ -1064,3 +1064,20 @@ enseignements portables, étayés par le code et les tests. Corrigez
 l’implémentation et ajoutez des tests de non-régression ciblés lorsque c’est
 justifié. Une récupération effectuée uniquement dans le terminal, sans
 vérification ni documentation, ne constitue pas une réparation opérationnelle complète.
+
+## Régénération du logo de l’application
+
+`frontend/public/favicon.svg` est le logo canonique de Gnosi. Le G blanc possède
+une courbe inférieure droite sans prolongement vertical descendant. Conservez
+ce logo sous forme de tracés vectoriels afin que les icônes des releases ne dépendent pas des polices installées.
+
+Après avoir modifié le SVG, installez `desktop/scripts/requirements-icons.txt` dans
+un environnement Python et exécutez `python desktop/scripts/generate-icons.py` depuis
+la racine du dépôt. Sur macOS, le processus Python doit pouvoir trouver Cairo
+(pour une installation Homebrew, `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib`).
+
+Le générateur actualise les ressources PNG/ICNS/ICO de bureau, les PNG de la PWA
+et le favicon ICO, les icônes du captureur web (16, 32, 48, 128 et 512 pixels)
+et celles du complément Word (16, 32, 64 et 80 pixels). Enregistrez ensemble le SVG canonique
+et toutes les ressources générées dans le dépôt avant de préparer une release.
+Les icônes illustrées des fonctionnalités ne sont pas dérivées du logo de l’application.
