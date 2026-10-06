@@ -31,6 +31,12 @@ class ReviewBatch:
     key: str
 
     @property
+    def evidence(self) -> list[dict[str, object]]:
+        # Every original offered in the shared catalog remains available when
+        # a replacement cites another note's primary or supporting passage.
+        return [s for _, _, _, _, sources in self.targets for s in sources] + self.retrieved
+
+    @property
     def evidence_targets(self) -> list[tuple[dict[str, object], dict[str, object], list[dict[str, object]]]]:
         return [(n, p, [*e, *self.retrieved]) for _, _, n, p, e in self.targets]
 
@@ -60,7 +66,7 @@ def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, o
     # progress, warnings and the final note order belong to the coordinator.
     worker = replace(reader, models=[], warnings=[], report_progress=False)
     def validate(answer: dict[str, object]) -> None:
-        bind_review(answer, batch.evidence_targets, worker.dimensions)
+        bind_review(answer, batch.evidence_targets, worker.dimensions, shared_evidence=batch.evidence)
     answer = worker.ask(f"semantic-review-{batch.key[:20]}", "verify",
                         {"reading_engine": "semantic", **batch.payload, "output_schema": batch.schema},
                         validate, batch.schema)
@@ -138,7 +144,7 @@ def review_batches(engine: SemanticReader, entries: list[dict[str, object]], des
             continue
         for batch in batches:
             answer = engine.state["reviewed_groups"][batch.key]
-            validated = bind_review(answer, batch.evidence_targets, engine.reader.dimensions)
+            validated = bind_review(answer, batch.evidence_targets, engine.reader.dimensions, shared_evidence=batch.evidence)
             engine.reader.warnings.extend(str(w) for w in answer["warnings"])
             yield batch, validated
         offset = end

@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from backend.domains.llm_wiki.chunking import encoded
+from backend.domains.llm_wiki.semantic_context import source_view
 from backend.domains.llm_wiki.semantic_contracts import bind_interpretation, bind_review, review_schema
 from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
 from backend.services.llm_wiki_reading_runtime import ReadingRuntime, compact_structured_input
@@ -65,8 +66,8 @@ def test_joint_review_uses_literal_choices_and_retains_the_canonical_note_contra
     literal = json.loads(selection.restore(encoded(answer)))['passages'][0]['notes'][0]
     targets = [(literal, primary[0], primary)]
     request = {'reading_engine': 'semantic', 'phase': 'verify', 'output_schema': review_schema(1, []),
-               'notes': [{'note': literal, 'primary': {'text': primary[0]['text']},
-                          'support': [{'text': primary[1]['text']}]}], 'retrieved_originals': []}
+               'notes': [{'note': literal, 'primary': source_view(primary[0]),
+                          'support': [source_view(primary[1])]}], 'retrieved_originals': []}
     before = deepcopy(request)
     selection = quote_selection(request)
     payload = json.loads(selection.input)

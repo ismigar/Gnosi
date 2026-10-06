@@ -4,7 +4,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import TYPE_CHECKING
 
-from backend.domains.llm_wiki.chunking import records
+from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.semantic_context import source_view
 from backend.domains.llm_wiki.semantic_contracts import semantic_note
 
@@ -32,7 +32,9 @@ def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> lis
             updated = records(reviewed[ci][1]["notes"])
             updated[ni] = note
             reviewed[ci][1]["notes"] = updated
-            reviewed[ci][1]["evidence_segments"] = [*records(reviewed[ci][1].get("evidence_segments")), *batch.retrieved]
+        for ci in {target[0] for target in batch.targets}:
+            evidence = [*records(reviewed[ci][1].get("evidence_segments")), *batch.evidence]
+            reviewed[ci][1]["evidence_segments"] = list({encoded(s): s for s in evidence}.values())
     for chunk, plan in reviewed:
         from backend.domains.llm_wiki.reading_contracts import validate_notes
         from backend.domains.llm_wiki.reading_action_contracts import validate_note_dimensions

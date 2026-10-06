@@ -9,6 +9,8 @@ import jsonschema
 from backend.domains.llm_wiki.chunking import record, records
 from backend.domains.llm_wiki.reading_action_contracts import dimension_schema, validate_note_dimensions
 from backend.domains.llm_wiki.reading_contracts import validate_notes
+from backend.domains.llm_wiki.semantic_context import source_view
+from backend.domains.llm_wiki.semantic_quote_contracts import source_key
 
 
 def obj(properties: dict[str, Any]) -> dict[str, Any]:
@@ -38,9 +40,12 @@ def interpretation_schema(size: int, dimensions: list[dict[str, object]]) -> dic
 
 
 def review_schema(size: int, dimensions: list[dict[str, object]]) -> dict[str, Any]:
+    replacement = note_schema(dimensions)
+    # Optional for older literal checkpoints; never emitted by the model schema.
+    replacement["properties"]["quote_source_keys"] = {"type": "array", "items": TEXT}
     return obj({"assessment": TEXT, "changes": {"type": "array", "maxItems": size,
                 "items": obj({"note": {"type": "integer", "minimum": 1, "maximum": size},
-                              "replacement": note_schema(dimensions)})}, "warnings": TEXTS})
+                              "replacement": replacement})}, "warnings": TEXTS})
 
 
 def validate_schema(answer: dict[str, object], schema: dict[str, Any]) -> None:
@@ -56,8 +61,14 @@ def bind_note(value: dict[str, object], primary: dict[str, object], evidence: li
     """Never fix or guess a quote. Prefer its known primary; reject ambiguous support."""
     citations = []
     quotes = value.get("quotes", [])
-    for quote in quotes if isinstance(quotes, list) else []:
-        if isinstance(quote, str) and quote in str(primary["text"]):
+    keys = value.get("quote_source_keys")
+    if keys is not None and (not isinstance(keys, list) or not isinstance(quotes, list) or len(keys) != len(quotes)):
+        raise ValueError("Each selected quote must retain its supplied source")
+    for index, quote in enumerate(quotes if isinstance(quotes, list) else []):
+        if isinstance(keys, list):
+            matches = [s for s in [primary, *evidence] if source_key(source_view(s)) == keys[index]
+                       and isinstance(quote, str) and quote in str(s["text"])]
+        elif isinstance(quote, str) and quote in str(primary["text"]):
             matches = [primary]
         else:
             matches = [s for s in evidence if isinstance(quote, str) and quote in str(s["text"])]
@@ -102,7 +113,7 @@ def semantic_note(note: dict[str, object], dimensions: list[dict[str, object]]) 
 
 
 def bind_review(answer: dict[str, object], targets: list[tuple[dict[str, object], dict[str, object], list[dict[str, object]]]],
-                dimensions: list[dict[str, object]]) -> list[dict[str, object]]:
+                dimensions: list[dict[str, object]], *, shared_evidence: list[dict[str, object]] | None = None) -> list[dict[str, object]]:
     validate_schema(answer, review_schema(len(targets), dimensions))
     result = [deepcopy(note) for note, _, _ in targets]
     seen = set()
@@ -112,5 +123,10 @@ def bind_review(answer: dict[str, object], targets: list[tuple[dict[str, object]
             raise ValueError("Review each changed note once")
         seen.add(index)
         _, primary, evidence = targets[index]
-        result[index] = bind_note(record(change["replacement"]), primary, evidence, dimensions)
+        replacement = record(change["replacement"])
+        # Keep the original evidence scope for already validated literal caches.
+        # New selected citations can use the whole catalog with explicit binding.
+        if "quote_source_keys" in replacement and shared_evidence is not None:
+            evidence = shared_evidence
+        result[index] = bind_note(replacement, primary, evidence, dimensions)
     return result
