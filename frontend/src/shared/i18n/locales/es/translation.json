@@ -6787,6 +6787,8 @@
     "phase_error": "Error",
     "pages_touched": "{{count}} páginas",
     "done_title": "Recurso procesado",
+    "done_with_warnings": "Guardado con observaciones pendientes de revisar",
+    "reading_quality_unresolved": "La revisión ha detectado problemas de contenido o falta de contexto. La lectura no se puede dar por validada. Las notas y el trabajo guardado se conservan.",
     "done_toast": "{{count}} páginas del Conocimiento actualizadas",
     "created": "Creadas",
     "updated": "Enriquecidas",

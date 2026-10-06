@@ -6787,6 +6787,8 @@
     "phase_error": "Error",
     "pages_touched": "{{count}} pàgines",
     "done_title": "Recurs processat",
+    "done_with_warnings": "Desat amb observacions pendents de revisar",
+    "reading_quality_unresolved": "La revisió ha detectat problemes de contingut o manca de context. La lectura no es pot donar per validada. Les notes i el treball desat es conserven.",
     "done_toast": "{{count}} pàgines del Coneixement actualitzades",
     "created": "Creades",
     "updated": "Enriquides",

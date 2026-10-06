@@ -6228,6 +6228,8 @@
     "phase_error": "Error",
     "pages_touched": "{{count}} pages",
     "done_title": "Resource processed",
+    "done_with_warnings": "Saved with observations to review",
+    "reading_quality_unresolved": "The review found content defects or missing context. The reading cannot be considered validated. Notes and saved work are retained.",
     "done_toast": "{{count}} Knowledge pages updated",
     "created": "Created",
     "updated": "Enriched",

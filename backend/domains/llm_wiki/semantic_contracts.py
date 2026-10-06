@@ -11,6 +11,7 @@ from backend.domains.llm_wiki.reading_action_contracts import dimension_schema, 
 from backend.domains.llm_wiki.reading_contracts import validate_notes
 from backend.domains.llm_wiki.semantic_context import source_view
 from backend.domains.llm_wiki.semantic_quote_contracts import source_key
+from backend.domains.llm_wiki.reading_quality import validate_reviewed_prose
 
 
 def obj(properties: dict[str, Any]) -> dict[str, Any]:
@@ -39,13 +40,14 @@ def interpretation_schema(size: int, dimensions: list[dict[str, object]]) -> dic
                 "themes": TEXTS, "questions": TEXTS, "contradictions": TEXTS, "warnings": TEXTS})
 
 
-def review_schema(size: int, dimensions: list[dict[str, object]]) -> dict[str, Any]:
+def review_schema(size: int, dimensions: list[dict[str, object]], *, require_resolution: bool = False) -> dict[str, Any]:
     replacement = note_schema(dimensions)
     # Optional for older literal checkpoints; never emitted by the model schema.
     replacement["properties"]["quote_source_keys"] = {"type": "array", "items": TEXT}
     return obj({"assessment": TEXT, "changes": {"type": "array", "maxItems": size,
                 "items": obj({"note": {"type": "integer", "minimum": 1, "maximum": size},
-                              "replacement": replacement})}, "warnings": TEXTS})
+                              "replacement": replacement})}, "warnings": TEXTS,
+                **({"unresolved_issues": TEXTS} if require_resolution else {})})
 
 
 def validate_schema(answer: dict[str, object], schema: dict[str, Any]) -> None:
@@ -100,6 +102,7 @@ def bind_interpretation(answer: dict[str, object], chunks: list[dict[str, object
             notes.extend(bind_note(n, segment, evidence, dimensions) for n in records(passage["notes"]))
             coverage.append({"segment_id": segment["id"], "reason": passage["reason"]})
         plan: dict[str, object] = {"notes": notes, "coverage": coverage, "warnings": answer["warnings"], "evidence_segments": evidence}
+        validate_reviewed_prose(notes, evidence)
         validate_notes(plan, records(chunk.get("segments")), evidence)
         plans[str(chunk["id"])] = plan
     return plans
@@ -114,7 +117,7 @@ def semantic_note(note: dict[str, object], dimensions: list[dict[str, object]]) 
 
 def bind_review(answer: dict[str, object], targets: list[tuple[dict[str, object], dict[str, object], list[dict[str, object]]]],
                 dimensions: list[dict[str, object]], *, shared_evidence: list[dict[str, object]] | None = None) -> list[dict[str, object]]:
-    validate_schema(answer, review_schema(len(targets), dimensions))
+    validate_schema(answer, review_schema(len(targets), dimensions, require_resolution="unresolved_issues" in answer))
     result = [deepcopy(note) for note, _, _ in targets]
     seen = set()
     for change in records(answer["changes"]):

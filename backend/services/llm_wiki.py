@@ -176,6 +176,10 @@ def _load_brain_index(brain_table_id: str, source_page_id: str = "") -> List[Dic
             meta = llm_wiki_storage.page_metadata(page)
             if meta.get("is_template"):
                 continue
+            if source_page_id and str(meta.get("llm_wiki_resource_id") or "") == source_page_id:
+                # Generated output is not independent evidence for its own
+                # revision, and must not evict prior context from the 300 rows.
+                continue
             out.append(
                 {
                     "id": str(getattr(page, "id", "") or meta.get("id") or ""),

@@ -30,7 +30,7 @@ class SemanticReader:
         identity = reading_identity(self.deps.execution_revision, reader.chunks, reader.dimensions, reader.brain_index)
         self.state: dict[str, Any] = {"engine": ENGINE_VERSION, "identity": identity, "plans": {},
                                       "identity_parts": identity_parts(self.deps.execution_revision, reader.chunks, reader.dimensions, reader.brain_index),
-                                      "maps": [], "observations": {}, "reviewed_groups": {}, "step": 0,
+                                      "maps": [], "observations": {}, "reviewed_groups": {}, "step": 0, "review_quality_version": 1,
                                       "reading_context": fingerprint([reader.title, reader.language])}
         resolve_candidates = self.deps.resume_candidates
         candidates = ([reader.resume_job_id] if resolve_candidates is None else
@@ -224,7 +224,8 @@ class SemanticReader:
         self.state["completed"] = True
         self.save()
         return {"summary": global_map, "notes": notes, "warnings": self.reader.warnings,
-                "reviewed": True, "coverage": [{**row, "chunk_id": c["id"]} for c, p in reviewed for row in records(p["coverage"])]}, self.reader.models
+                "reviewed": True, "quality_review_version": 1,
+                "coverage": [{**row, "chunk_id": c["id"]} for c, p in reviewed for row in records(p["coverage"])]}, self.reader.models
 
 
 def run_semantic(reader: ContextualReader) -> tuple[dict[str, object], list[str]]:

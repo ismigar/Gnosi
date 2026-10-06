@@ -94,7 +94,7 @@ def test_shared_batch_originals_are_validated_persisted_and_reused_without_anoth
         value.update(primary_quote_ids=[selection.primary_ids[0][0]],
                      context_quote_ids=[selection.primary_ids[1][0]])
         answer = selection.restore(encoded({'assessment': 'Cross-checked.',
-            'changes': {'note_1': value, 'note_2': None}, 'warnings': []}))
+            'changes': {'note_1': value, 'note_2': None}, 'warnings': [], 'unresolved_issues': []}))
         validator(json.loads(answer))
         calls.append(request)
         return answer, 'offline'

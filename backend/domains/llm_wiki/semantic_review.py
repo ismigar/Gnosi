@@ -7,6 +7,9 @@ from typing import TYPE_CHECKING
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.semantic_context import source_view
 from backend.domains.llm_wiki.semantic_contracts import semantic_note
+from backend.domains.llm_wiki.reading_quality import adjacent_originals, prose_issues
+
+REVIEW_QUALITY_VERSION = 1
 
 if TYPE_CHECKING:
     from backend.domains.llm_wiki.semantic_reading import SemanticReader
@@ -14,7 +17,17 @@ if TYPE_CHECKING:
 
 def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> list[tuple[dict[str, object], dict[str, object]]]:
     reader = engine.reader
+    if engine.state.get("review_quality_version") != REVIEW_QUALITY_VERSION:
+        # Retain the paid interpretations and maps, but an earlier review did
+        # not check prose integrity or unresolved evidence. Never certify it.
+        engine.state["previous_reviewed_groups"] = engine.state.get("reviewed_groups", {})
+        engine.state["reviewed_groups"] = {}
+        engine.state["reviewed_ranges"] = {}
+        engine.state["review_quality_version"] = REVIEW_QUALITY_VERSION
+        engine.state["completed"] = False
+        engine.save()
     reviewed = [(chunk, deepcopy(engine.state["plans"][str(chunk["id"])])) for chunk in reader.chunks]
+    neighbours = adjacent_originals(reader.chunks)
     entries: list[dict[str, object]] = []
     destinations = []
     for ci, (chunk, plan) in enumerate(reviewed):
@@ -23,8 +36,10 @@ def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> lis
                        "origin_label": chunk.get("origin_label")}
             cited = {c["segment_id"] for c in records(note.get("citations"))}
             support = [s for s in records(plan.get("evidence_segments")) if s["id"] in cited and s != primary]
+            support = list({encoded(s): s for s in [*support, *neighbours.get(str(primary["id"]), [])]}.values())
             entries.append({"note": semantic_note(note, reader.dimensions), "primary": source_view(primary),
-                            "support": [source_view(s) for s in support]})
+                            "support": [source_view(s) for s in support],
+                            "validation_issues": prose_issues(note, [primary, *support], reader.language)})
             destinations.append((ci, ni, note, primary, [primary, *support]))
     from backend.domains.llm_wiki.semantic_review_execution import review_batches
     for batch, validated in review_batches(engine, entries, destinations, global_map, notes_map):

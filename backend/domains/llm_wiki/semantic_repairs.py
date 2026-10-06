@@ -10,6 +10,7 @@ from backend.domains.llm_wiki.chunking import encoded, record, records
 from backend.domains.llm_wiki.semantic_contracts import obj, validate_schema
 from backend.domains.llm_wiki.semantic_quote_contracts import primary_note_schema, restore_note, shared_note_schema
 from backend.services.agent_output_repair import OutputRepair
+from backend.domains.llm_wiki.reading_quality import prose_issues
 
 
 def original_spans(text: str) -> list[str]:
@@ -98,8 +99,9 @@ def passage_errors(passage: Any, schema: dict[str, Any], primary: dict[str, Any]
         validate_schema(record(passage), schema)
     except ValueError as error:
         return [str(error)]
-    errors = []
+    errors: list[str] = []
     for index, note in enumerate(records(passage.get("notes"))):
+        errors.extend(f"notes[{index}]: {issue}" for issue in prose_issues(note, context))
         quotes = cast(list[str], note["quotes"])
         if not any(q.strip() and q in primary["text"] for q in quotes):
             errors.append(f"notes[{index}]: needs supporting evidence from its own primary passage")

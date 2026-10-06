@@ -3,6 +3,9 @@ import type { TFunction } from 'i18next';
 const PROVIDER_TIMEOUT = 'The AI provider did not respond in time. Retry to resume saved progress.';
 
 export function resourceProcessingError(error: string | null | undefined, t: TFunction): string {
+    if (error?.includes('reading_quality_unresolved') || error?.includes('Reading quality validation failed')) {
+        return t('llm_wiki.reading_quality_unresolved');
+    }
     if (error?.includes('agent_empty_result') || error?.includes('reading_batch_response_incomplete')) {
         return t('llm_wiki.error_provider_incomplete');
     }

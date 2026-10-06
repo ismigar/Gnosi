@@ -6787,6 +6787,8 @@
     "phase_error": "Erreur",
     "pages_touched": "{{count}} pages",
     "done_title": "Ressource traitée",
+    "done_with_warnings": "Enregistré avec des observations à vérifier",
+    "reading_quality_unresolved": "La révision a détecté des défauts de contenu ou un manque de contexte. La lecture ne peut pas être considérée comme validée. Les notes et le travail enregistré sont conservés.",
     "done_toast": "{{count}} pages du Connaissance mises à jour",
     "created": "Créées",
     "updated": "Enrichies",

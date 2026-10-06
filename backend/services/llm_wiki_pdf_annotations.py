@@ -15,6 +15,7 @@ from backend.data.db import get_engine_for_path
 from backend.models.pdf_annotation import PdfAnnotation
 from backend.services.context_vars import get_active_vault_path
 from backend.utils.open_values import iterable_values
+from backend.domains.llm_wiki.pdf_quote_matching import normalized_pdf_span
 
 logger = get_logger(__name__)
 
@@ -37,6 +38,10 @@ class _PdfTextPage(Protocol):
     def get_rect(self, index: int) -> tuple[float, float, float, float]: ...
 
     def close(self) -> object: ...
+
+    def count_chars(self) -> int: ...
+
+    def get_text_range(self, index: int = 0, count: int = -1) -> str: ...
 
 
 class _PdfPage(Protocol):
@@ -73,6 +78,7 @@ class _CitationCandidate(TypedDict):
     pdf_path: Path
     page: int
     quote: str
+    context: str
 
 
 PositionResolver = Callable[[Path, int, str], Optional[dict[str, object]]]
@@ -89,20 +95,9 @@ def _normalized_text(value: object) -> str:
     return " ".join(str(value or "").split()).strip()
 
 
-def _shorten_at_word_boundary(text: str, limit: int) -> str:
-    if len(text) <= limit:
-        return text
-    shortened = text[:limit]
-    last_space = shortened.rfind(" ")
-    return (shortened[:last_space] if last_space >= max(16, limit // 2) else shortened).strip()
-
-
 def _search_queries(quote: str) -> list[str]:
     normalized = _normalized_text(quote)
-    candidates = [normalized]
-    for limit in (120, 96, 72, 48, 32):
-        candidates.append(_shorten_at_word_boundary(normalized, limit))
-    return list(dict.fromkeys(candidate for candidate in candidates if len(candidate) >= 12))
+    return [normalized] if normalized else []
 
 
 def _managed_key(resource_id: str, citation: dict[str, object]) -> str:
@@ -121,6 +116,7 @@ def _find_quote_position_in_document(
     document: _PdfDocument,
     page_number: int,
     quote: str,
+    context: str = "",
 ) -> Optional[dict[str, object]]:
     page_index = page_number - 1
     if page_index < 0 or page_index >= len(document):
@@ -132,8 +128,11 @@ def _find_quote_position_in_document(
             searcher = text_page.search(query, match_case=False)
             try:
                 match = searcher.get_next()
+                repeated = searcher.get_next() if match else None
             finally:
                 searcher.close()
+            if not match or repeated:
+                match = normalized_pdf_span(text_page, quote, context)
             if not match:
                 continue
             start, count = match
@@ -207,6 +206,9 @@ def _citation_candidates(
                 "pdf_path": Path(str(origin.get("_annotation_pdf_path") or "")),
                 "page": page_number,
                 "quote": quote,
+                "context": next((str(segment.get("text") or "")
+                                 for segment in iterable_values(origin.get("segments") or [])
+                                 if isinstance(segment, dict) and segment.get("id") == citation.get("segment_id")), ""),
             }
     return candidates
 
@@ -261,7 +263,7 @@ def _resolve_annotation_candidates(
             if document is None:
                 document = pypdfium2.open_document(path_key)
                 documents[path_key] = document
-            return _find_quote_position_in_document(document, page_number, quote)
+            return _find_quote_position_in_document(document, page_number, quote, candidate["context"])
 
         resolver = cached_resolver
     else:
@@ -384,8 +386,11 @@ def sync_generated_pdf_annotations(
 ) -> dict[str, object]:
     """Upsert managed citation highlights and remove only obsolete managed ones."""
     candidates = _citation_candidates(notes, origins, resource_id)
-    desired_keys = set(candidates)
     resolved, warnings = _resolve_annotation_candidates(candidates, position_resolver)
+    # Do not retain a previously guessed prefix highlight when full evidence
+    # matching now fails. Unavailable attachments preserve prior annotations.
+    desired_keys = set(resolved) | {key for key, item in candidates.items()
+                                    if not item["pdf_path"].is_file() or not item["source_uri"]}
     active_session, owns_session = _annotation_session(session)
     try:
         created, updated, removed = _persist_managed_annotations(

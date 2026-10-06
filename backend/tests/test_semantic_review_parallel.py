@@ -130,7 +130,7 @@ def test_governed_review_children_keep_parent_scope_and_cancellation(runtime, mo
             barrier.wait(timeout=5)
             yield {'operation': {'messages': [AIMessage(content=json.dumps({
                 'assessment': 'Checked full evidence and both maps.',
-                'changes': {'note_1': None, 'note_2': None}, 'warnings': []}))]}}
+                'changes': {'note_1': None, 'note_2': None}, 'warnings': [], 'unresolved_issues': []}))]}}
     async def factory(*args, **kwargs):
         assert not kwargs['operation_team_help']
         return Application(), {'provider': 'test', 'model': 'fake'}

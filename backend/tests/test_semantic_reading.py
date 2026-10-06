@@ -18,7 +18,8 @@ def response(request):
     if request['phase'] == 'overview':
         return {'summary': 'The opponent claims knowledge is innate; the author rejects this in the conclusion. Uncertainty remains.'}
     if request['phase'] == 'verify':
-        return {'assessment': 'Checked attribution against the conclusion and all proposed notes.', 'changes': [], 'warnings': []}
+        return {'assessment': 'Checked attribution against the conclusion and all proposed notes.', 'changes': [], 'warnings': [],
+                **({'unresolved_issues': []} if 'unresolved_issues' in request['output_schema']['properties'] else {})}
     return {'passages': [{'reason': 'Substantive idea with attribution.', 'notes': [{
         'title': p['text'], 'body_md': p['text'], 'quotes': [p['text']], 'properties': {}}]}
         for p in request['primary_passages']], 'themes': ['Knowledge'], 'questions': ['What evidence is sufficient?'],

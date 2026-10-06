@@ -12,6 +12,7 @@ from backend.domains.llm_wiki.contextual_reading import ContextualReader, finger
 from backend.domains.llm_wiki.reading_batch_recovery import _has_answer_tokens
 from backend.domains.llm_wiki.semantic_context import groups, relevant, source_view
 from backend.domains.llm_wiki.semantic_contracts import bind_review, fields, review_schema
+from backend.domains.llm_wiki.reading_quality import validate_reviewed_prose
 
 if TYPE_CHECKING:
     from backend.domains.llm_wiki.semantic_reading import SemanticReader
@@ -62,9 +63,9 @@ def prepare_batch(engine: SemanticReader, entries: list[dict[str, object]], dest
         "global_map": global_map, "all_notes_map": notes_map, "notes": batch,
         "retrieved_originals": [source_view(s) for s in retrieved],
         "properties": fields(reader.dimensions),
-        "instruction": "Review EVERY supplied note against its original evidence and the joint map of ALL notes. Correct false attribution, missing caveats, contradicted conclusions and unsupported links. Return only changed notes with their one-based position; unchanged notes are retained by the application. Preserve distinct ideas. Do not remove notes or change workflow state. New quotes must be exact originals and include the note's own primary passage. An empty changes list means you found no needed correction, not that accuracy is guaranteed.",
+        "instruction": "Review EVERY supplied note against its original evidence and the joint map of ALL notes. Correct false attribution, missing caveats, contradicted conclusions and unsupported links. Full adjacent originals are supplied as support: read them before declaring a page-ending sentence incomplete. Correct all validation_issues, undefined footnotes, leaked numeric source links and corrupt language. Return only changed notes with their one-based position; unchanged notes are retained by the application. Preserve distinct ideas. Do not remove notes or change workflow state. New quotes must be exact originals and include the note's own primary passage. In unresolved_issues list each note with a remaining defect or missing evidence that prevents a reliable interpretation; do not bury defects in warnings. Warnings describe only limitations genuinely present in the original, not unfinished corrections. An empty changes list means you found no needed correction, not that accuracy is guaranteed.",
     }
-    return ReviewBatch(offset, batch, targets, retrieved, payload, review_schema(len(batch), reader.dimensions), fingerprint(batch))
+    return ReviewBatch(offset, batch, targets, retrieved, payload, review_schema(len(batch), reader.dimensions, require_resolution=True), fingerprint(batch))
 
 
 def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, object], list[str]]:
@@ -72,10 +73,15 @@ def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, o
     # progress, warnings and the final note order belong to the coordinator.
     worker = replace(reader, models=[], warnings=[], report_progress=False)
     def validate(answer: dict[str, object]) -> None:
-        bind_review(answer, batch.evidence_targets, worker.dimensions, shared_evidence=batch.evidence)
+        from backend.domains.llm_wiki.semantic_contracts import validate_schema
+        validate_schema(answer, batch.schema)
+        notes = bind_review(answer, batch.evidence_targets, worker.dimensions, shared_evidence=batch.evidence)
+        validate_reviewed_prose(notes, batch.evidence, worker.language)
     answer = worker.ask(f"semantic-review-{batch.key[:20]}", "verify",
                         {"reading_engine": "semantic", **batch.payload, "output_schema": batch.schema},
                         validate, batch.schema)
+    if answer["unresolved_issues"]:
+        raise RuntimeError("reading_quality_unresolved: " + encoded(answer["unresolved_issues"]))
     return answer, worker.models
 
 
@@ -151,6 +157,9 @@ def review_batches(engine: SemanticReader, entries: list[dict[str, object]], des
         for batch in batches:
             answer = engine.state["reviewed_groups"][batch.key]
             validated = bind_review(answer, batch.evidence_targets, engine.reader.dimensions, shared_evidence=batch.evidence)
+            validate_reviewed_prose(validated, batch.evidence, engine.reader.language)
+            if answer.get("unresolved_issues"):
+                raise RuntimeError("reading_quality_unresolved: " + encoded(answer["unresolved_issues"]))
             engine.reader.warnings.extend(str(w) for w in answer["warnings"])
             yield batch, validated
         offset = end

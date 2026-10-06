@@ -37,8 +37,15 @@ def phase_estimate(runtime: Any, chunks: list[dict[str, object]], remaining: lis
     source = sum(len(encoded(chunk_view(c)).encode()) for c in chunks)
     pending = sum(len(encoded(chunk_view(c)).encode()) for c in remaining)
     expected_notes = source // 2
+    known_notes = [note for plan in saved.get("plans", {}).values() for note in plan.get("notes", [])]
+    if known_notes:
+        expected_notes = max(expected_notes, len(encoded(known_notes).encode()))
     note_maps = math.ceil(expected_notes / max(1, budget // 3)) + 1 if not saved.get("notes_map") else 0
-    review = max(0, math.ceil((2 * source + expected_notes) / max(1, budget // 3)) - len(saved.get("reviewed_groups", {})))
+    planned_reviews = math.ceil((2 * source + expected_notes) / max(1, budget // 3))
+    if known_notes and saved.get("review_size_limit"):
+        planned_reviews = max(planned_reviews, math.ceil(len(known_notes) / max(1, saved["review_size_limit"])))
+    valid_reviews = len(saved.get("reviewed_groups", {})) if saved.get("review_quality_version") == 1 else 0
+    review = max(0, planned_reviews - valid_reviews)
     calls = overview + synthesis + extract + note_maps + review
     schema = interpretation_schema(1, dimensions)
     # Full source maps stay in checkpoints. Only the two contracted navigation
