@@ -98,9 +98,11 @@ export function ModelBudget({ context }: Props) {
         </div>
         <GnosiToggle
           active={enforceBlock}
-          onChange={(val) => {
-            setEnforceBlock(Boolean(val));
-            void saveAiBudget(monthlyCostCap, Boolean(val));
+          label={t('settings.ai.enforce_block_title', 'Bloquejar l\'accés en superar el límit')}
+          onChange={() => {
+            const nextEnforceBlock = !enforceBlock;
+            setEnforceBlock(nextEnforceBlock);
+            void saveAiBudget(monthlyCostCap, nextEnforceBlock);
           }}
         />
       </div>

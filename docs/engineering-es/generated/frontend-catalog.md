@@ -48,7 +48,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1172 | 129815 | 38 |
+| `features` | 1172 | 129817 | 38 |
 | `generated` | 2 | 49837 | 510 |
 | `shared` | 279 | 32645 | 440 |
 
@@ -596,7 +596,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/global-settings/JevConnection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/JevConnection.tsx) | 52 | `JevConnection` | — |
 | [`frontend/src/features/settings/global-settings/LanguagePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/LanguagePanel.tsx) | 55 | `LanguagePanel` | — |
 | [`frontend/src/features/settings/global-settings/MailAccountForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/MailAccountForm.tsx) | 199 | `MailAccountForm` | — |
-| [`frontend/src/features/settings/global-settings/ModelBudget.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/ModelBudget.tsx) | 109 | `ModelBudget` | — |
+| [`frontend/src/features/settings/global-settings/ModelBudget.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/ModelBudget.tsx) | 111 | `ModelBudget` | — |
 | [`frontend/src/features/settings/global-settings/ModelConsumption.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/ModelConsumption.tsx) | 10 | `ModelConsumption` | — |
 | [`frontend/src/features/settings/global-settings/PasswordInput.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/PasswordInput.tsx) | 44 | `PasswordInput` | — |
 | [`frontend/src/features/settings/global-settings/ReaderPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/ReaderPanel.tsx) | 217 | `ReaderPanel` | — |

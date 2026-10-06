@@ -8,6 +8,7 @@ import type { GlobalSettingsModalProps } from './types';
 import { resetApiTestStorage } from '../../../../tests/api-request';
 import { hydrateDraft, settingsAgents, settingsIntegrations } from './settingsDocuments';
 import { GlobalSettingsView } from './GlobalSettingsView';
+import { ModelBudget } from './ModelBudget';
 import { readStorage, themeKey, snippetsKey } from './settingsStorage';
 import { queryClient } from '../../../shared/api/query-client';
 import { settingsPanelLoaders } from './settingsPanelLoaders';
@@ -59,16 +60,18 @@ let configResponse: (() => Promise<Response>) | undefined;
 let tableResponse: (() => Promise<Response>) | undefined;
 let databaseRows: { id: string; name: string }[];
 let integrationPayload: Record<string, unknown>;
+let savedBudget: unknown;
 
 function snapshot(): SettingsController {
   if (!current) throw new Error('Controller not mounted');
   return current;
 }
 function LocationProbe() { const location = useLocation(); return <output data-testid="location">{location.pathname + location.search}</output>; }
-function Harness(props: GlobalSettingsModalProps & { showView?: boolean; showAgents?: boolean }) {
+function Harness(props: GlobalSettingsModalProps & { showView?: boolean; showAgents?: boolean; showBudget?: boolean }) {
   const controller = useGlobalSettingsController(props);
   useLayoutEffect(() => { current = controller; });
   if (props.showAgents) return <AgentsPanel context={controller} />;
+  if (props.showBudget) return <ModelBudget context={controller} />;
   return props.showView ? <MemoryRouter><GlobalSettingsView context={controller} /><LocationProbe /></MemoryRouter> : null;
 }
 async function mount(props: Partial<GlobalSettingsModalProps> = {}) {
@@ -104,6 +107,7 @@ beforeEach(() => {
   tableResponse = undefined;
   databaseRows = [];
   integrationPayload = { mail_accounts: [], contacts: [], calendars: [], extension: { keep: true } };
+  savedBudget = { ...budget };
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -114,6 +118,7 @@ beforeEach(() => {
     const body: unknown = text ? JSON.parse(text) : null;
     requests.push({ path, search: new URL(request.url).search, method: request.method, body });
     if (rejectWrites && request.method !== 'GET') return Response.json({ detail: 'Fixture failure' }, { status: 500 });
+    if (path === '/api/ai/models' && request.method !== 'GET' && body && typeof body === 'object' && 'budget' in body) savedBudget = body.budget;
     if (path === '/api/config/editor' && request.method === 'GET' && configResponse) return configResponse();
     if (path === '/api/vault/tables' && tableResponse) return tableResponse();
     const payloads: Record<string, unknown> = {
@@ -121,9 +126,9 @@ beforeEach(() => {
       '/api/integrations': integrationPayload,
       '/api/identity': { full_name: 'Fixture identity', email: 'fixture@example.invalid', address: null },
       '/api/ai/catalog': { config: { providers: { fixture: { enabled: true } } }, catalog: { providers: [] } },
-      '/api/ai/models': { configured_models: [model], models: [model], budget, currency: usage.currency },
+      '/api/ai/models': { configured_models: [model], models: [model], budget: savedBudget, currency: usage.currency },
       '/api/ai/model-comparison': { models: [] },
-      '/api/ai/usage': usage,
+      '/api/ai/usage': { ...usage, budget: savedBudget },
       '/api/vault/tables': [],
       '/api/vault/databases': databaseRows,
       '/api/graph': { nodes: [], edges: [] },
@@ -440,6 +445,31 @@ describe('settings controller persistence contracts', () => {
     await mount({ initialTab: 'ai' });
     await act(async () => { await snapshot().saveAiBudget('5.25', true); });
     expect(writes().find(request => request.path === '/api/ai/models')?.body).toEqual({ models: [model], budget: { ...budget, monthly_cost_cap: 5.25, enforce_block: true } });
+  });
+  it.each(['click', ' ', 'Enter'])('persists both monthly blocking states with %s and restores them on reopening', async activation => {
+    savedBudget = { ...budget, enforce_block: true };
+    const reopen = async () => {
+      act(() => { root.render(null); });
+      await act(async () => { root.render(<Harness isOpen onClose={vi.fn()} initialTab="ai" showBudget />); await Promise.resolve(); });
+    };
+    await reopen();
+    for (const enabled of [false, true]) {
+      const toggle = container.querySelector<HTMLElement>('[role="switch"]');
+      if (!toggle) throw new Error('Missing monthly blocking switch');
+      expect(toggle.getAttribute('aria-checked')).toBe(String(!enabled));
+      requests = [];
+      await act(async () => {
+        if (activation === 'click') toggle.click();
+        else toggle.dispatchEvent(new KeyboardEvent('keydown', { key: activation, bubbles: true, cancelable: true }));
+        await Promise.resolve();
+      });
+      expect(writes()).toEqual([{ path: '/api/ai/models', search: '', method: 'PUT', body: {
+        models: [model], budget: { ...budget, enforce_block: enabled },
+      } }]);
+      await reopen();
+      expect(container.querySelector('[role="switch"]')?.getAttribute('aria-checked')).toBe(String(enabled));
+      expect(snapshot().enforceBlock).toBe(enabled);
+    }
   });
   it('keeps newsletter routing and clears editors when switching tabs', async () => {
     await mount({ initialTab: 'newsletters' });
