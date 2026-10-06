@@ -930,3 +930,20 @@ machine details and development directives in `WorkspaceTools`; publish only
 portable lessons with source and test evidence. Fix implementation and add
 focused regression coverage when warranted. A terminal-only recovery without
 verification or documentation does not complete an operational repair.
+
+## Regenerating the application mark
+
+`frontend/public/favicon.svg` is the canonical Gnosi mark. Its white G has a
+curved lower-right bowl without a downward vertical spur. Keep this mark as
+vector paths so release icons do not depend on installed system fonts.
+
+After changing the SVG, install `desktop/scripts/requirements-icons.txt` in a
+Python environment and run `python desktop/scripts/generate-icons.py` from the
+repository root. On macOS, Cairo must be discoverable by the Python process
+(for a Homebrew installation, `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib`).
+
+The generator updates desktop PNG/ICNS/ICO resources, PWA PNGs and favicon ICO,
+web clipper icons (16, 32, 48, 128 and 512 pixels), and Word add-in icons
+(16, 32, 64 and 80 pixels). Commit the canonical SVG and all generated assets
+together before packaging a release. The separate illustrated feature icons
+are not derived from the application mark.
