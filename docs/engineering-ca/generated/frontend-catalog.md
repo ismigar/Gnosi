@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1172 | 129814 | 38 |
+| `features` | 1172 | 129815 | 38 |
 | `generated` | 2 | 49837 | 510 |
 | `shared` | 279 | 32644 | 440 |
 
@@ -314,7 +314,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/literature/records/process-resource/ProcessResourcePreflight.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ProcessResourcePreflight.tsx) | 69 | `ProcessResourcePreflight` | — |
 | [`frontend/src/features/literature/records/process-resource/ResourceProcessingMonitor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ResourceProcessingMonitor.tsx) | 69 | `ResourceProcessingMonitor` | — |
 | [`frontend/src/features/literature/records/process-resource/processResourceModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/processResourceModel.ts) | 115 | `NO_BRAIN_TABLE_ERROR`, `PHASE_LABELS`, `POLL_INTERVAL_MS`, `countTouchedPages`, `getPollingIdentifier`, `getProcessPhase`, `getProgressPercent`, `getStartErrorMessage`, `getTerminalProcessState`, `isProviderRateLimit` | — |
-| [`frontend/src/features/literature/records/process-resource/resourceProcessingTasks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/resourceProcessingTasks.ts) | 152 | `discoverResourceProcessingTask`, `dismissResourceProcessingTask`, `getResourceProcessingTasks`, `processingTaskId`, `resetResourceProcessingTasks`, `restoreResourceProcessingTask`, `setResourceProcessingBackground`, `startResourceProcessingTask`, `subscribeResourceProcessingTasks`, `useResourceProcessingTasks` | — |
+| [`frontend/src/features/literature/records/process-resource/resourceProcessingTasks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/resourceProcessingTasks.ts) | 153 | `discoverResourceProcessingTask`, `dismissResourceProcessingTask`, `getResourceProcessingTasks`, `processingTaskId`, `resetResourceProcessingTasks`, `restoreResourceProcessingTask`, `setResourceProcessingBackground`, `startResourceProcessingTask`, `subscribeResourceProcessingTasks`, `useResourceProcessingTasks` | — |
 | [`frontend/src/features/literature/records/process-resource/useProcessResourceController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/useProcessResourceController.ts) | 101 | `useProcessResourceController` | — |
 | [`frontend/src/features/literature/records/reference-import-export/referenceImportModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/reference-import-export/referenceImportModel.ts) | 27 | `duplicateReferenceBreakdown`, `referenceExportFilename` | — |
 | [`frontend/src/features/literature/records/resourceTemplateSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/resourceTemplateSelection.ts) | 83 | `resolveResourceDocumentType`, `selectResourceTemplate` | — |
