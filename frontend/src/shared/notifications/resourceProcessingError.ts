@@ -8,7 +8,8 @@ export function resourceProcessingError(error: string | null | undefined, t: TFu
         const reasoning = /reasoning_tokens=(\d+)/u.exec(error)?.[1];
         return t(total && reasoning === total ? 'llm_wiki.error_reasoning_output_limit' : 'llm_wiki.error_output_limit');
     }
-    if (error?.includes('Invalid reading plan:')) return t('llm_wiki.error_reading_evidence');
+    if (['Invalid reading plan:', 'Quote must occur verbatim in the supplied original', 'Invalid repaired passage:']
+        .some(message => error?.includes(message))) return t('llm_wiki.error_reading_evidence');
     if (error?.includes('memory_edit_anchor_required')) return t('llm_wiki.error_reading_memory');
     if (error?.includes('reading_map_synthesis_incomplete')) return t('llm_wiki.error_map_synthesis');
     if (error?.trim() === 'Connection error.' || error?.includes('OpenAIConnectionError:')) return t('llm_wiki.error_provider_connection');

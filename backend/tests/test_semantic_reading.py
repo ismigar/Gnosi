@@ -178,7 +178,9 @@ def test_partial_repair_preserves_valid_passages_and_semantic_memory():
     assert repair
     payload = json.loads(repair.input)
     assert len(payload['passages']) == 1 and payload['passages'][0]['passage'] == 2
-    fixed = deepcopy(answer['passages'][1]); fixed['notes'][0]['quotes'] = [primary[1]['text']]
+    fixed = deepcopy(answer['passages'][1]); fixed['notes'][0].pop('quotes')
+    source = next(s for s in payload['source_quotes'] if s['source'] == payload['passages'][0]['primary_source'])
+    fixed['notes'][0]['quote_ids'] = [q['quote_id'] for q in source['quotes']]
     restored = json.loads(repair.restore(encoded({'repairs': [{'passage': 2, 'value': fixed}]})))
     assert restored['passages'][0] == before['passages'][0]
     assert restored['questions'] == before['questions'] and answer == before

@@ -50,7 +50,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `app` | 21 | 2657 | 0 |
 | `features` | 1172 | 129815 | 38 |
 | `generated` | 2 | 49837 | 510 |
-| `shared` | 279 | 32644 | 440 |
+| `shared` | 279 | 32645 | 440 |
 
 ## app
 
@@ -1456,7 +1456,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/shared/i18n/locales/registry.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/i18n/locales/registry.ts) | 263 | `FALLBACK_LOCALE`, `applyDocumentLocale`, `applyLocaleMetadata`, `availableLocales`, `buildLocaleRegistry`, `canonicalizeLocale`, `getIntlLocale`, `getLocaleMeta`, `loadLocaleResource`, `resolveLocale` | — |
 | [`frontend/src/shared/i18n/useLocaleSettings.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/i18n/useLocaleSettings.ts) | 76 | `useLocaleSettings` | — |
 | [`frontend/src/shared/notifications/notifyError.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/notifications/notifyError.ts) | 204 | `_persistNotification`, `logError`, `notifyError`, `notifyInfo`, `notifySuccess` | — |
-| [`frontend/src/shared/notifications/resourceProcessingError.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/notifications/resourceProcessingError.ts) | 22 | `resourceProcessingError` | — |
+| [`frontend/src/shared/notifications/resourceProcessingError.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/notifications/resourceProcessingError.ts) | 23 | `resourceProcessingError` | — |
 | [`frontend/src/shared/notifications/toast.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/notifications/toast.ts) | 185 | `toast` | — |
 | [`frontend/src/shared/page-search/GlobalSearchModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/page-search/GlobalSearchModal.tsx) | 450 | `GlobalSearchModal` | — |
 | [`frontend/src/shared/page-search/global-search-modal/GlobalSearchResults.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/page-search/global-search-modal/GlobalSearchResults.tsx) | 103 | `GlobalSearchResults` | — |
