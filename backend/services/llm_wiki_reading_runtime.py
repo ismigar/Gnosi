@@ -7,6 +7,11 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from collections.abc import Callable
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.domains.llm_wiki.semantic_quote_selection import QuoteSelection
+    from backend.services.agent_output_repair import OutputRepair
 
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation
 
@@ -27,7 +32,7 @@ class ReadingRuntime:
     input_budget: int
     snapshot: AgentExecutionSnapshot
 
-    def count_tokens(self, text: str) -> int:
+    def count_tokens(self, text: str, *, output_schema: dict[str, object] | None = None) -> int:
         from backend.services.agent_context_budget import count_tokens
         from backend.services.agent_behavior import operation_input
         from langchain_core.messages import HumanMessage
@@ -40,7 +45,7 @@ class ReadingRuntime:
             envelope = json.loads(text)
         except ValueError:
             envelope = None
-        schema = envelope.get("output_schema") if isinstance(envelope, dict) else None
+        schema = output_schema if output_schema is not None else envelope.get("output_schema") if isinstance(envelope, dict) else None
         request = AgentOperation(
             skill_id=SKILL_ID, operation="knowledge.process-source.phase", input=text,
             output_schema=schema if isinstance(schema, dict) else {"type": "object"},
@@ -92,7 +97,6 @@ class ReadingRuntime:
 
     def generate_structured(self, prompt: str, validate: Callable[[dict[str, object]], None], timeout: int) -> tuple[str, str]:
         from backend.services.agent_execution import run_sync
-        from backend.domains.llm_wiki.reading_repairs import build_reading_repair
         from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
         from backend.services.agent_output_repair import OutputRepair
         try:
@@ -105,7 +109,13 @@ class ReadingRuntime:
         selection = quote_selection(envelope) if isinstance(envelope, dict) else None
         operation_prompt = selection.input if selection else prompt
         schema = selection.schema if selection else schema
-        if self.count_tokens(operation_prompt) > self.input_budget:
+        if selection:
+            # The operation envelope and provider binding already carry the
+            # full contract. Keep canonical checkpoints/repair input unchanged.
+            transport = json.loads(operation_prompt)
+            transport.pop("output_schema")
+            operation_prompt = json.dumps(transport, ensure_ascii=False)
+        if self.count_tokens(operation_prompt, output_schema=schema) > self.input_budget:
             raise RuntimeError("The reading input exceeds the selected model's context budget")
         def checked(text: str) -> str:
             answer = json.loads(selection.restore(text) if selection else text)
@@ -120,25 +130,7 @@ class ReadingRuntime:
             # the reader receives literal citations after the operation returns.
             return text if selection else json.dumps(answer, ensure_ascii=False)
         def repair(text: str, error: Exception) -> OutputRepair | None:
-            from backend.domains.llm_wiki.reading_dimension_repairs import build_dimension_repair
-            # A schema rejection can hide bad citations in the same draft.
-            # Collect both before spending another call on a full rewrite.
-            if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic":
-                from backend.domains.llm_wiki.semantic_repairs import build_semantic_repair
-                try:
-                    draft = selection.draft_for_repair(text) if selection else text
-                except ValueError:
-                    return None
-                semantic_repair = build_semantic_repair(prompt, draft)
-                if semantic_repair is not None and selection:
-                    semantic_repair = selection.repair(semantic_repair)
-                return semantic_repair if semantic_repair is not None and self.count_tokens(semantic_repair.input) <= self.input_budget else None
-            plan = build_dimension_repair(prompt, text, validate)
-            if plan is None:
-                plan = build_reading_repair(prompt, text, error)
-            if plan is not None and self.count_tokens(plan.input) > self.input_budget:
-                return None
-            return plan
+            return self._repair_structured(prompt, envelope, selection, validate, text, error)
         import jsonschema
         try:
             result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
@@ -152,6 +144,42 @@ class ReadingRuntime:
                 raise ValueError("Invalid reading plan: " + repair_diagnostic(error)) from error
             raise
         return selection.restore(result.result) if selection else result.result, result.model
+
+    def _repair_structured(self, prompt: str, envelope: Any, selection: QuoteSelection | None,
+                           validate: Callable[[dict[str, object]], None], text: str, error: Exception) -> OutputRepair | None:
+        from backend.domains.llm_wiki.reading_dimension_repairs import build_dimension_repair
+        from backend.domains.llm_wiki.reading_repairs import build_reading_repair
+        from backend.services.agent_output_repair import OutputRepair
+        if selection and selection.phase == "interpret" and isinstance(error, json.JSONDecodeError):
+            # Some providers report stop even when a long structured answer
+            # ends inside a value. Retrying the complete batch repeats all
+            # originals; let the reader split it inside the same book cap.
+            if len(text.encode()) >= 4096 and error.pos >= len(text.rstrip()) - 1:
+                from backend.domains.llm_wiki.reading_batch_recovery import IncompleteReadingBatch
+                raise IncompleteReadingBatch() from error
+        # A schema rejection can hide bad citations in the same draft.
+        # Collect both before spending another call on a full rewrite.
+        if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic":
+            from backend.domains.llm_wiki.semantic_repairs import build_semantic_repair
+            try:
+                draft = selection.draft_for_repair(text) if selection else text
+            except ValueError:
+                return None
+            semantic_repair = build_semantic_repair(prompt, draft)
+            if semantic_repair is not None and selection:
+                semantic_repair = selection.repair(semantic_repair)
+                transport = json.loads(semantic_repair.input)
+                transport.pop("output_schema", None)
+                semantic_repair = OutputRepair(json.dumps(transport, ensure_ascii=False),
+                                              semantic_repair.output_schema, semantic_repair.restore)
+            return semantic_repair if semantic_repair is not None and self.count_tokens(
+                semantic_repair.input, output_schema=semantic_repair.output_schema) <= self.input_budget else None
+        plan = build_dimension_repair(prompt, text, validate)
+        if plan is None:
+            plan = build_reading_repair(prompt, text, error)
+        if plan is not None and self.count_tokens(plan.input) > self.input_budget:
+            return None
+        return plan
 
     def generate_prose(self, prompt: str, validate: Callable[[str], str], timeout: int) -> tuple[str, str]:
         """Argument maps are prose; the application serializes their checkpoint."""

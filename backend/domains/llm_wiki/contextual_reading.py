@@ -297,7 +297,8 @@ class ContextualReader:
         raise AssertionError("unreachable")
 
     def relevant_index(
-        self, global_map: str, primary: list[dict[str, object]]
+        self, global_map: str, primary: list[dict[str, object]], *, maximum: int | None = None,
+        limit: int | None = None,
     ) -> list[dict[str, object]]:
         terms = set(re.findall(r"\w+", (global_map + encoded(primary)).casefold()))
         ranked = sorted(
@@ -308,8 +309,10 @@ class ContextualReader:
         )
         result: list[dict[str, object]] = []
         for item in ranked:
+            if maximum is not None and len(result) >= maximum:
+                break
             compact = {key: item.get(key) for key in ("id", "title", "type")}
-            if self.dependencies.count_tokens(encoded(result + [compact])) > self.budget // 12:
+            if self.dependencies.count_tokens(encoded(result + [compact])) > (self.budget // 12 if limit is None else limit):
                 continue
             result.append(compact)
         return result

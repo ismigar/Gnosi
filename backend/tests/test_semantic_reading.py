@@ -101,6 +101,37 @@ def test_interruption_after_one_batch_keeps_it_and_resumes_remaining_only():
     assert calls[0]['phase'] == 'interpret'
 
 
+def test_incomplete_output_splits_only_unsaved_batch_and_preserves_completed_work():
+    from backend.domains.llm_wiki.reading_batch_recovery import IncompleteReadingBatch
+    batches = []
+    def generate(request):
+        if request['phase'] == 'interpret':
+            size = len(request['primary_passages'])
+            batches.append(size)
+            if len(batches) == 2:
+                raise IncompleteReadingBatch()
+        return response(request)
+    reader, _, checkpoints = setup(generate=generate)
+    result, _ = reader.run()
+    assert batches == [4, 4, 2, 2]
+    assert len(result['coverage']) == 8
+    assert len(checkpoints['new', 'semantic-state']['plans']) == 8
+    assert checkpoints['new', 'semantic-state']['batch_size_limit'] == 2
+
+
+def test_semantic_link_candidates_use_small_ranked_navigation_without_changing_index():
+    reader, calls, _ = setup()
+    reader.brain_index = [{'id': str(i), 'title': f'Unrelated item {i}', 'type': 'concept'} for i in range(200)]
+    reader.brain_index.append({'id': 'relevant', 'title': 'Innate knowledge and experience', 'type': 'concept'})
+    original = deepcopy(reader.brain_index)
+    reader.run()
+    for call in calls:
+        if call['phase'] == 'interpret':
+            assert len(call['brain_notes']) <= 8
+            assert call['brain_notes'][0]['id'] == 'relevant'
+    assert reader.brain_index == original
+
+
 @pytest.mark.parametrize('change', ['revision', 'language'])
 def test_incompatible_policy_or_language_does_not_reuse_partial_work(change):
     reader, _, checkpoints = setup()

@@ -18,6 +18,8 @@ describe('resource processing errors', () => {
         expect(resourceProcessingError('Invalid repaired passage: notes[0]: needs supporting evidence from its own primary passage', i18n.t)).toBe(translation.llm_wiki.error_reading_evidence);
         expect(resourceProcessingError('memory_edit_anchor_required: old must match exactly once in memory', i18n.t)).toBe(translation.llm_wiki.error_reading_memory);
         expect(resourceProcessingError('Connection error.', i18n.t)).toBe(translation.llm_wiki.error_provider_connection);
+        expect(resourceProcessingError('agent_empty_result', i18n.t)).toBe(translation.llm_wiki.error_provider_incomplete);
+        expect(resourceProcessingError('reading_batch_response_incomplete', i18n.t)).toBe(translation.llm_wiki.error_provider_incomplete);
         expect(resourceProcessingError('reading_map_synthesis_incomplete: saved maps are retained', i18n.t)).toBe(translation.llm_wiki.error_map_synthesis);
         expect(resourceProcessingError('', i18n.t)).toBe(translation.llm_wiki.error_generic);
         expect(resourceProcessingError('Provider unavailable (503)', i18n.t)).toBe('Provider unavailable (503)');

@@ -6798,6 +6798,7 @@
     "error_details": "Detalls tècnics",
     "error_provider_timeout": "El proveïdor d’IA no ha respost a temps. Torna-ho a provar per reprendre el progrés desat.",
     "error_provider_connection": "La connexió amb el proveïdor d’IA ha fallat. El processament està interromput i el progrés desat es conserva.",
+    "error_provider_incomplete": "El model ha retornat una resposta buida o incompleta. Els fragments validats estan desats. Pots reprendre la lectura amb un lot més petit.",
     "error_map_synthesis": "El model no ha pogut acabar una síntesi global prou breu. El processament s’ha aturat i els mapes desats es conserven.",
     "error_no_brain_table": "No hi ha cap taula del Coneixement configurada. Crea'n una a Configuració → Connectors → LLM Wiki.",
     "running_hint": "Pots tancar; segueix el progrés al racó de la finestra.",

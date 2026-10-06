@@ -6239,6 +6239,7 @@
     "error_details": "Technical details",
     "error_provider_timeout": "The AI provider did not respond in time. Retry to resume saved progress.",
     "error_provider_connection": "The connection to the AI provider failed. Processing is interrupted and saved progress is retained.",
+    "error_provider_incomplete": "The model returned an empty or incomplete response. Validated fragments are saved. You can resume reading with a smaller batch.",
     "error_map_synthesis": "The model could not complete a concise global synthesis. Processing stopped and saved maps are retained.",
     "error_no_brain_table": "No Knowledge table is configured. Create one in Settings → Plugins → LLM Wiki.",
     "running_hint": "You can close; follow progress in the corner of the window.",

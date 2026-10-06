@@ -6798,6 +6798,7 @@
     "error_details": "Detalles técnicos",
     "error_provider_timeout": "El proveedor de IA no ha respondido a tiempo. Vuelve a intentarlo para reanudar el progreso guardado.",
     "error_provider_connection": "La conexión con el proveedor de IA ha fallado. El procesamiento está interrumpido y el progreso guardado se conserva.",
+    "error_provider_incomplete": "El modelo ha devuelto una respuesta vacía o incompleta. Los fragmentos validados están guardados. Puedes reanudar la lectura con un lote más pequeño.",
     "error_map_synthesis": "El modelo no ha podido completar una síntesis global suficientemente breve. El procesamiento se ha detenido y se conservan los mapas guardados.",
     "error_no_brain_table": "No hay ninguna tabla del Conocimiento configurada. Crea una en Ajustes → Complementos → LLM Wiki.",
     "running_hint": "Puedes cerrar; sigue el progreso en la esquina de la ventana.",

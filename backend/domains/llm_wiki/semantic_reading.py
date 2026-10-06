@@ -15,7 +15,7 @@ from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, reduce_
 from backend.domains.llm_wiki.reading_identity import reading_identity, identity_parts, map_identity
 from backend.domains.llm_wiki.semantic_map_windows import map_windows
 from backend.domains.llm_wiki.semantic_map_reduction import MapSizeLimit, map_limit, reduce_maps
-from backend.domains.llm_wiki.semantic_context import chunk_view, groups, overview_groups, reading_context, source_view, state_progress
+from backend.domains.llm_wiki.semantic_context import auxiliary_limit, chunk_view, groups, overview_groups, reading_context, source_view, state_progress
 from backend.domains.llm_wiki.semantic_contracts import (
     MAP_SCHEMA, bind_interpretation, fields, interpretation_schema, validate_schema,
 )
@@ -162,10 +162,12 @@ class SemanticReader:
             bind_interpretation(answer, selected, evidence, self.reader.dimensions)
         from backend.domains.llm_wiki.semantic_context import relevant
         observations: list[dict[str, object]] = [{"text": encoded(value)} for value in self.state["observations"].values()]
-        selected_memory = relevant(observations, encoded([source_view(s) for s in primary]), self.deps.count_tokens, self.reader.budget // 20)
+        selected_memory = relevant(observations, encoded([source_view(s) for s in primary]), self.deps.count_tokens,
+                                   auxiliary_limit(self.reader.budget, 20, 4000))
         payload = {"global_map": global_map, "related_observations": selected_memory, "documents": [c.get("origin_label") for c in selected],
                    "primary_passages": [source_view({**s, "origin_label": c.get("origin_label")}) for c in selected for s in records(c.get("segments"))], "properties": fields(self.reader.dimensions),
-                   "brain_notes": self.reader.relevant_index("", primary), **context,
+                   "brain_notes": self.reader.relevant_index("", primary, maximum=8,
+                                                           limit=auxiliary_limit(self.reader.budget, 12, 4000)), **context,
                    "instruction": "Interpret each primary passage in the supplied order. Return exactly one passages entry per primary passage, with substantive atomic reading notes or a concrete omission reason. Each note needs an exact quote from its own primary passage. Context clarifies interpretation, not additional extraction. Preserve qualifications and distinct voices; connect supported ideas with [[wikilinks]]. Record themes, unresolved questions and contradictions; do not edit previous memory or choose workflow actions."}
         key = "semantic-extract-" + fingerprint([c["id"] for c in selected])[:20]
         answer = self.ask(key, "interpret", payload, schema, validate)

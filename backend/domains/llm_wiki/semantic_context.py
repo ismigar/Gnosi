@@ -10,6 +10,11 @@ from typing import Any
 from backend.domains.llm_wiki.chunking import encoded, records
 
 
+def auxiliary_limit(budget: int, divisor: int, maximum: int) -> int:
+    """Bound recurring navigation context independently of a large model window."""
+    return min(budget // divisor, maximum)
+
+
 def source_view(segment: dict[str, object]) -> dict[str, object]:
     return {"text": segment["text"], "location": segment.get("locator", {}), "document": segment.get("origin_label", "")}
 
@@ -67,10 +72,10 @@ def reading_context(chunks: list[dict[str, object]], selected: list[dict[str, ob
     excluded.update(s["id"] for s in neighbours)
     originals = [{**s, "origin_label": c.get("origin_label")} for c in chunks for s in records(c.get("segments"))
                  if s["id"] not in excluded]
-    retrieved = relevant(originals, query, count, budget // 10)
+    retrieved = relevant(originals, query, count, auxiliary_limit(budget, 10, 8000))
     prior = [dict(n, text=str(n.get("title", "")) + " " + str(n.get("body_md", "")))
              for plan in plans.values() for n in records(plan.get("notes"))]
-    notes = relevant(prior, query, count, budget // 12)
+    notes = relevant(prior, query, count, auxiliary_limit(budget, 12, 6000))
     return {"evidence": [*primary, *neighbours, *retrieved],
             "neighbours": [source_view(s) for s in neighbours],
             "retrieved_originals": [source_view(s) for s in retrieved],

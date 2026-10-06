@@ -90,10 +90,52 @@ def test_catalog_overhead_is_checked_before_any_model_call(monkeypatch):
     runtime = ReadingRuntime('test', 'test', 'fake', '', 1_000_000, SimpleNamespace(behavior_resources=True))
     original = encoded(request)
     assert runtime.count_tokens(selection.input) > runtime.count_tokens(original)
-    runtime.input_budget = runtime.count_tokens(original)
+    compact = json.loads(selection.input)
+    compact.pop('output_schema')
+    runtime.input_budget = runtime.count_tokens(encoded(compact), output_schema=selection.schema) - 1
     monkeypatch.setattr('backend.services.agent_execution.run_sync', lambda *args, **kwargs: pytest.fail('paid call'))
     with pytest.raises(RuntimeError, match='context budget'):
         runtime.generate_structured(original, lambda _: None, 240)
+
+
+def test_semantic_transport_sends_schema_separately_and_preserves_literal_validation(monkeypatch):
+    _, _, request, answer, selection = selection_case()
+    runtime = ReadingRuntime('test', 'test', 'fake', '', 1_000_000, SimpleNamespace(behavior_resources=True))
+    captured = []
+    def execute(operation, **kwargs):
+        captured.append(operation)
+        assert 'output_schema' not in json.loads(operation.input)
+        assert operation.output_schema == selection.schema
+        kwargs['output_validator'](encoded(answer))
+        return SimpleNamespace(result=encoded(answer), model='fake')
+    monkeypatch.setattr('backend.services.agent_execution.run_sync', execute)
+    result, _ = runtime.generate_structured(encoded(request), lambda _: None, 240)
+    assert result == selection.restore(encoded(answer))
+    assert runtime.count_tokens(captured[0].input, output_schema=captured[0].output_schema) < runtime.count_tokens(selection.input)
+    assert request['output_schema']  # The canonical reader and repair contract remains intact.
+
+
+def test_long_incomplete_semantic_answer_requests_smaller_batch_without_full_rewrite(runtime, monkeypatch):
+    from backend.services import agent_execution as execution
+    from backend.services.agent_execution_scope import execution_scope
+    from backend.domains.llm_wiki.reading_batch_recovery import IncompleteReadingBatch
+    _, _, request, answer, _ = selection_case()
+    answer['passages']['passage_1']['notes'][0]['body_md'] = 'A substantive qualified interpretation. ' * 200
+    incomplete = encoded(answer)[:-1]
+    calls = install_workflow(monkeypatch, [incomplete])
+    scope, snapshot = runtime
+    from backend.domains.llm_wiki.reading_skill import SKILL_ID
+    from backend.services.agent_skill_catalog import resolve_agent_runtime
+    resolved = resolve_agent_runtime({})
+    snapshot.skill_ids.append(SKILL_ID)
+    monkeypatch.setattr('backend.services.agent_skill_catalog.resolve_agent_runtime', lambda *args, **kwargs:
+        replace(resolved, active_skill_ids=tuple(snapshot.skill_ids)))
+    with execution_scope(scope):
+        frozen = execution.create_job_run(snapshot, 'incomplete-book-job', 'knowledge.process-source')
+        reader = ReadingRuntime(snapshot.agent_id, 'test', 'fake', '', 1_000_000, frozen)
+        with pytest.raises(IncompleteReadingBatch):
+            reader.generate_structured(encoded(request), lambda _: None, 240)
+    assert len(calls) == 1
 
 
 def test_named_passages_keep_source_order_and_cannot_be_shifted_or_omitted():
@@ -226,7 +268,9 @@ def test_governed_operation_repairs_then_reuses_checked_numeric_cache(runtime, m
     assert selection.restore(runs[0].result) == expected
     if fault != 'source':
         assert calls[0]['messages'][0].content == calls[-1]['messages'][0].content
-    prompt = json.loads(json.loads(calls[0]['messages'][0].content)['input'])
-    assert prompt['source_quotes'] and 'quote_ids' in encoded(prompt['output_schema'])
+    envelope = json.loads(calls[0]['messages'][0].content)
+    prompt = json.loads(envelope['input'])
+    assert prompt['source_quotes'] and 'quote_ids' in encoded(envelope['output_schema'])
+    assert 'output_schema' not in prompt
     assert 'source_segment_id' not in selection.input
     assert execution._run.get() == ''
