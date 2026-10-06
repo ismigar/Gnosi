@@ -15,7 +15,7 @@ from unittest.mock import Mock
 
 import httpx
 import pytest
-from openai import APIStatusError, RateLimitError
+from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 
 from backend.domains.llm_wiki import recovery
 from backend.services import llm_wiki, llm_wiki_storage
@@ -209,6 +209,55 @@ def test_permanent_errors_are_not_retried(clock: Clock, error: Exception) -> Non
 def test_other_transient_provider_errors_recover(clock: Clock, error: Exception) -> None:
     call = Mock(side_effect=[error, "ok"])
     assert recovery.call_with_retry(call, on_wait=Mock(), on_attempt=Mock()) == "ok"
+    assert clock.waits == [5]
+
+
+def sdk_connection_error() -> APIConnectionError:
+    """Reproduce the installed SDK/LangChain chain, including its httpx2 transport."""
+    import httpx2
+    from langchain_openai.chat_models.base import OpenAIConnectionError
+
+    request = httpx2.Request("POST", "https://provider.invalid/chat")
+    transport = httpx2.ReadError("", request=request)
+    sdk = APIConnectionError(request=request)
+    sdk.__cause__ = transport
+    error = OpenAIConnectionError(request=request)
+    error.__cause__ = sdk
+    return error
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_sdk_connection_failure_retries_same_phase(clock: Clock, wrapped: bool) -> None:
+    error = sdk_connection_error()
+    call = Mock(side_effect=[error if wrapped else error.__cause__, "saved result"])
+    waiting, attempting = Mock(), Mock()
+    assert recovery.call_with_retry(call, on_wait=waiting, on_attempt=attempting) == "saved result"
+    assert clock.waits == [5]
+    assert call.call_args_list[0].args == call.call_args_list[1].args == (240,)
+    waiting.assert_called_once_with()
+    assert attempting.call_count == 2
+
+
+def test_persistent_sdk_connection_failure_stops_at_retry_limit(clock: Clock) -> None:
+    error = sdk_connection_error()
+    call = Mock(side_effect=error)
+    with pytest.raises(APIConnectionError) as raised:
+        recovery.call_with_retry(call, on_wait=Mock(), on_attempt=Mock())
+    assert raised.value is error
+    assert call.call_count == 5
+    assert clock.waits == [5, 10, 20, 40]
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_sdk_timeout_recovers_and_has_a_readable_message(clock: Clock, wrapped: bool) -> None:
+    import httpx2
+    from langchain_openai.chat_models.base import OpenAITimeoutError
+
+    request = httpx2.Request("POST", "https://provider.invalid/chat")
+    error = OpenAITimeoutError(request) if wrapped else APITimeoutError(request)
+    call = Mock(side_effect=[error, "saved result"])
+    assert recovery.processing_error_message(error) == recovery.PROVIDER_TIMEOUT_MESSAGE
+    assert recovery.call_with_retry(call, on_wait=Mock(), on_attempt=Mock()) == "saved result"
     assert clock.waits == [5]
 
 

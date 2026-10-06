@@ -838,6 +838,11 @@ HTTP et `retry-after-ms` ; un délai supérieur au budget disponible met fin à 
 tentative au lieu de relancer l’appel trop tôt. Les erreurs d’authentification,
 de validation et les quotas de facturation explicitement épuisés ne déclenchent
 pas de nouvel essai, et aucun changement automatique de fournisseur n’a lieu.
+Les erreurs de connexion et de délai sont reconnues par leurs types du SDK,
+y compris les enveloppes LangChain des fournisseurs compatibles avec OpenAI
+utilisant `httpx2`. Chaque tentative réserve son coût dans le budget de lecture
+existant ; les frais antérieurs inconnus restent réservés. Les délais du SDK
+utilisent le message traduit signalant que le fournisseur n’a pas répondu.
 La tâche durable expose `phase: retrying` pendant les attentes. La boîte de
 dialogue de traitement continue d’interroger l’état, explique les limites de
 requêtes et propose de réessayer lorsque la tâche s’arrête.

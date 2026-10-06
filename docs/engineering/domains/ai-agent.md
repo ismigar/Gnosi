@@ -719,6 +719,10 @@ seconds). Exponential backoff includes jitter and honors `Retry-After` seconds,
 HTTP dates and `retry-after-ms`; a cooldown beyond the budget stops the attempt
 instead of retrying early. Authentication, validation and explicit exhausted
 billing quotas are not retried, and no provider is switched automatically.
+Connection and timeout failures are recognized by their SDK types, including
+LangChain wrappers over OpenAI-compatible providers using `httpx2`. Each retry
+reserves its own cost within the existing reading budget; an earlier unknown
+charge remains reserved. SDK timeouts use the localized provider-timeout message.
 The durable job exposes `phase: retrying` during waits. The processing dialog
 keeps polling, explains rate limits and offers a retry when the job stops.
 Successful fragment plans are checkpointed with their exact prompt hash and

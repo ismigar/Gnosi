@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 55 |
 | `config` | 13 | 1382 |
 | `data` | 2 | 214 |
-| `domains` | 508 | 105581 |
+| `domains` | 508 | 105584 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2301 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **940 modules** and **185444 source lines**.
+Total: **940 modules** and **185447 source lines**.
 
 ## agent
 
@@ -368,7 +368,7 @@ Total: **940 modules** and **185444 source lines**.
 | [`backend/domains/llm_wiki/reading_references.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_references.py) | 57 | 0 | 4 | 0 | 1 | Restore only unambiguous omitted segment digests; never rewrite evidence. |
 | [`backend/domains/llm_wiki/reading_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_repairs.py) | 126 | 0 | 6 | 0 | 0 | Repair rejected references without asking a model to rewrite valid notes. |
 | [`backend/domains/llm_wiki/reading_skill.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_skill.py) | 31 | 0 | 0 | 0 | 0 | The process-source skill's shared, versioned reading methodology. |
-| [`backend/domains/llm_wiki/recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/recovery.py) | 128 | 0 | 4 | 0 | 2 | Bounded retries for one Brain planning call, without provider switching. |
+| [`backend/domains/llm_wiki/recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/recovery.py) | 131 | 0 | 4 | 0 | 2 | Bounded retries for one Brain planning call, without provider switching. |
 | [`backend/domains/llm_wiki/search_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/search_index.py) | 373 | 3 | 14 | 0 | 11 | Typed rebuildable lexical and vector indexes for LLM Wiki. |
 | [`backend/domains/llm_wiki/section_assignment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/section_assignment.py) | 91 | 0 | 5 | 0 | 3 | Single, source-scoped section relations and their derived filter ancestry. |
 | [`backend/domains/llm_wiki/semantic_context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_context.py) | 82 | 0 | 8 | 0 | 1 | Deterministic grouping and lexical retrieval over immutable reading evidence. |

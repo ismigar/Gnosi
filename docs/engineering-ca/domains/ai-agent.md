@@ -772,6 +772,11 @@ respecta `Retry-After` en segons, les dates HTTP i `retry-after-ms`; si el perí
 d’espera supera el límit disponible, l’intent s’atura en lloc de reintentar abans
 d’hora. No es reintenten els errors d’autenticació, de validació ni les quotes de
 facturació explícitament exhaurides, i no es canvia de proveïdor automàticament.
+Els errors de connexió i temps d’espera es reconeixen pels tipus de l’SDK,
+inclosos els embolcalls de LangChain per a proveïdors compatibles amb OpenAI que
+usen `httpx2`. Cada reintent reserva el seu cost dins del pressupost de lectura
+existent; els càrrecs anteriors desconeguts continuen reservats. Els temps
+d’espera de l’SDK fan servir el missatge traduït del proveïdor que no ha respost.
 El treball durable exposa `phase: retrying` durant les esperes. El diàleg de
 processament continua consultant l’estat, explica els límits de peticions i
 ofereix un nou intent quan el treball s’atura.

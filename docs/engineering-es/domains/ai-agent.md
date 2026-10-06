@@ -827,6 +827,11 @@ las fechas HTTP y `retry-after-ms`; si el período de espera supera el límite
 disponible, el intento se detiene en lugar de reintentar antes de tiempo. No se
 reintentan los errores de autenticación, de validación ni las cuotas de
 facturación explícitamente agotadas, y no se cambia de proveedor automáticamente.
+Los errores de conexión y tiempo de espera se reconocen por sus tipos del SDK,
+incluidos los envoltorios de LangChain para proveedores compatibles con OpenAI
+que usan `httpx2`. Cada reintento reserva su coste dentro del presupuesto de
+lectura existente; los cargos anteriores desconocidos siguen reservados. Los
+tiempos de espera del SDK usan el mensaje traducido del proveedor que no responde.
 El trabajo duradero expone `phase: retrying` durante las esperas. El diálogo de
 procesamiento sigue consultando el estado, explica los límites de peticiones y
 ofrece un nuevo intento cuando el trabajo se detiene.
