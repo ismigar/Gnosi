@@ -365,7 +365,10 @@ def _collect_existing_notes(
         if str(metadata.get("llm_wiki_resource_id") or "") == source_page_id:
             existing.managed_for_resource.append(page)
             key = str(metadata.get("llm_wiki_key") or "")
-            if key:
+            path = dependencies.page_path(page)
+            previous = existing.by_key.get(key)
+            if key and path and path.is_file() and (previous is None or
+                    _managed_candidate_priority(page, dependencies) < _managed_candidate_priority(previous, dependencies)):
                 existing.by_key[key] = page
         elif (
             source_page_id in dependencies.fonts_ids(metadata)
@@ -385,6 +388,11 @@ def _collect_existing_notes(
                 continue
             existing.legacy_by_position.setdefault(position, []).append(page)
     return existing
+
+
+def _managed_candidate_priority(page: object, dependencies: WritingDependencies) -> tuple[bool, str]:
+    metadata = dependencies.page_metadata(page)
+    return bool(metadata.get("llm_wiki_stale")), str(dependencies.page_path(page))
 
 
 def _existing_page(
@@ -436,7 +444,8 @@ def _mark_stale_notes(context: _WriteContext, active_keys: set[str]) -> None:
     for page in context.existing.managed_for_resource:
         metadata = context.dependencies.page_metadata(page)
         key = str(metadata.get("llm_wiki_key") or "")
-        if not key or key in active_keys or metadata.get("llm_wiki_stale"):
+        canonical_active = key in active_keys and page is context.existing.by_key.get(key)
+        if not key or canonical_active or metadata.get("llm_wiki_stale"):
             continue
         path = context.dependencies.page_path(page)
         if not path or not path.exists():

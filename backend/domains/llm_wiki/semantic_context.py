@@ -8,6 +8,12 @@ from collections.abc import Callable
 from typing import Any
 
 from backend.domains.llm_wiki.chunking import encoded, records
+from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION
+
+
+def auxiliary_limit(budget: int, divisor: int, maximum: int) -> int:
+    """Bound recurring navigation context independently of a large model window."""
+    return min(budget // divisor, maximum)
 
 
 def source_view(segment: dict[str, object]) -> dict[str, object]:
@@ -59,7 +65,7 @@ def relevant(values: list[dict[str, object]], query: str, count: Callable[[str],
 
 def reading_context(chunks: list[dict[str, object]], selected: list[dict[str, object]],
                     plans: dict[str, Any], count: Callable[[str], int], budget: int) -> dict[str, object]:
-    primary = [s for c in selected for s in records(c.get("segments"))]
+    primary = [{**s, "origin_label": c.get("origin_label")} for c in selected for s in records(c.get("segments"))]
     query = " ".join(str(s["text"]) for s in primary)
     excluded = {s["id"] for s in primary}
     neighbours = list({str(s["id"]): {**s, "origin_label": c.get("origin_label")} for c in selected
@@ -67,10 +73,10 @@ def reading_context(chunks: list[dict[str, object]], selected: list[dict[str, ob
     excluded.update(s["id"] for s in neighbours)
     originals = [{**s, "origin_label": c.get("origin_label")} for c in chunks for s in records(c.get("segments"))
                  if s["id"] not in excluded]
-    retrieved = relevant(originals, query, count, budget // 10)
+    retrieved = relevant(originals, query, count, auxiliary_limit(budget, 10, 8000))
     prior = [dict(n, text=str(n.get("title", "")) + " " + str(n.get("body_md", "")))
              for plan in plans.values() for n in records(plan.get("notes"))]
-    notes = relevant(prior, query, count, budget // 12)
+    notes = relevant(prior, query, count, auxiliary_limit(budget, 12, 6000))
     return {"evidence": [*primary, *neighbours, *retrieved],
             "neighbours": [source_view(s) for s in neighbours],
             "retrieved_originals": [source_view(s) for s in retrieved],
@@ -78,5 +84,8 @@ def reading_context(chunks: list[dict[str, object]], selected: list[dict[str, ob
 
 
 def state_progress(state: dict[str, Any]) -> tuple[int, ...]:
-    return (len(state.get("plans", {})), len(state.get("reviewed_groups", {})),
+    # Obsolete reviews are discarded before acceptance; they cannot outrank
+    # reusable current reviews simply because an older job finished more batches.
+    reviews = len(state.get("reviewed_groups", {})) if state.get("review_quality_version") == REVIEW_QUALITY_VERSION else 0
+    return (len(state.get("plans", {})), reviews,
             int(bool(state.get("notes_map"))), int(bool(state.get("global_map"))), len(state.get("maps", [])))

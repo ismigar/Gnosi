@@ -3,6 +3,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from agent.model_router import (  # noqa: E402
@@ -111,20 +113,29 @@ def test_usage_store_roundtrip():
 # Money cap (monthly spend ceiling in USD, injected by the caller)
 # ---------------------------------------------------------------------------
 
-def test_over_cap_restricts_to_free_models():
-    d = route_model("Analitza a fons l'arquitectura", is_available=ALL_UP,
-                    budget={"cost_cap_usd": 10.0, "spent_usd": 10.0})
-    model = next(m for m in DEFAULT_REGISTRY if m["model_id"] == d["model_id"])
-    assert model["is_local"] is True
-    assert d["reason"] == "budget_cap→free"
+@pytest.mark.parametrize("enforce", [False, True])
+@pytest.mark.parametrize("manual", [None, {"provider": "openai", "model_id": "gpt-4o"}])
+def test_over_cap_respects_blocking_for_automatic_and_manual_routes(enforce, manual):
+    paid = [row for row in DEFAULT_REGISTRY if not row["is_local"]]
+    d = route_model("Analitza a fons l'arquitectura", registry=paid, is_available=ALL_UP, manual=manual,
+                    budget={"cost_cap_usd": 10.0, "spent_usd": 10.0, "enforce_block": enforce})
+    assert bool(d["model_id"]) is not enforce
+    assert (d["reason"] == "budget_exhausted") is enforce
 
 
 def test_over_cap_without_free_models_reports_exhausted():
     paid_only = [m for m in DEFAULT_REGISTRY if not m["is_local"]]
     d = route_model("hola", registry=paid_only, is_available=ALL_UP,
-                    budget={"cost_cap_usd": 5.0, "spent_usd": 7.5})
+                    budget={"cost_cap_usd": 5.0, "spent_usd": 7.5, "enforce_block": True})
     assert d["provider"] is None
     assert d["reason"] == "budget_exhausted"
+
+
+@pytest.mark.parametrize("enforce", [False, True])
+def test_zero_cap_never_blocks_paid_models(enforce):
+    d = route_model("hola", registry=[row for row in DEFAULT_REGISTRY if not row["is_local"]], is_available=ALL_UP,
+                    budget={"cost_cap_usd": 0, "spent_usd": 7.5, "enforce_block": enforce})
+    assert d["model_id"]
 
 
 def test_near_cap_behaves_budget_tight():

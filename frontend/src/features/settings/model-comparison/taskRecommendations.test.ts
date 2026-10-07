@@ -72,6 +72,21 @@ it('does not hide a checked specialist outside the top five catalogue points', (
     expect((result.quality?.quality ?? 0) - (result.balanced?.quality ?? 0)).toBeGreaterThan(5);
 });
 
+it('keeps old successes as history without giving them preference over current checked work', () => {
+    const old = checked({ model: 'cheap', cases: checked().cases?.map(item => ({ ...item, checked_at: '2026-08-01T00:00:00Z' })) });
+    const result = recommendTask([high, near, cheap], peers, 'p', request, [], now, { suite, reports: [old, checked()] });
+    expect(result.balanced?.model.id).toBe('near');
+    expect(result.cheapest?.model.id).toBe('cheap');
+    expect(result.cheapest?.taskChecks).toMatchObject({ complete: true, current: false, stale: true });
+});
+
+it('requires structured output on the exact book-processing route', () => {
+    const textOnly = { ...high, routes: [{ ...firstRoute(high), tags: [], tool_call: false }] };
+    expect(compare([textOnly]).excluded.capabilities).toBe(1);
+    const retrieval = TASKS.find(task => task.id === 'retrieve');
+    expect(compare([textOnly], { task: retrieval }).count).toBe(1);
+});
+
 it('reuses evidence only for the selected functions and prefers checked offers', () => {
     const stored = { suite, reports: [checked({ created_at: '2026-10-03T12:00:00Z', cases: checked().cases?.map(item => ({ ...item, checked_at: '2026-10-03T12:00:00Z' })) })] };
     const translate = TASKS.find(task => task.id === 'translate');

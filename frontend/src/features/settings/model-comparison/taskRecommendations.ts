@@ -9,7 +9,7 @@ type Metric = 'intelligence' | 'coding' | 'agentic';
 export const TASKS = [
     { id: 'classify', role: 'worker', input: 10000, output: 2000, context: 16000, tools: false, structured: true, weights: { intelligence: 1 } },
     { id: 'extract', role: 'administrative', input: 20000, output: 4000, context: 32000, tools: false, structured: true, weights: { intelligence: 1 } },
-    { id: 'book', role: 'documentalist', input: 200000, output: 10000, context: 32000, tools: false, structured: false, weights: { intelligence: 1 } },
+    { id: 'book', role: 'documentalist', input: 200000, output: 10000, context: 32000, tools: false, structured: true, weights: { intelligence: 1 } },
     { id: 'retrieve', role: 'documentalist', input: 50000, output: 4000, context: 64000, tools: false, structured: false, weights: { intelligence: 1 } },
     { id: 'code', role: 'allrounder', input: 30000, output: 6000, context: 48000, tools: true, structured: false, weights: { intelligence: .4, coding: .6 } },
     { id: 'workflow', role: 'director', input: 50000, output: 8000, context: 64000, tools: true, structured: false, weights: { intelligence: .4, agentic: .6 } },
@@ -144,7 +144,7 @@ export function recommendTask(models: readonly Model[], peers: readonly Model[],
             seen.add(identity);
             const successes = report?.cases.filter(c => c.passed).length ?? 0;
             const costs = report?.cases.map(c => c.cost_usd) ?? [];
-            const timingCases = checks.complete && !checks.stale
+            const timingCases = checks.current
                 && checks.cases.every(item => Number.isFinite(item.latency_ms) && item.latency_ms > 0)
                 ? checks.cases : [];
             candidates.push({ model: variant?.model ?? model, offer, quality, report, variantCount, taskChecks: checks,
@@ -162,7 +162,7 @@ export function recommendTask(models: readonly Model[], peers: readonly Model[],
     // global top-score window would overprovision routine bots and hide a
     // cheaper specialist even after it passed every relevant check.
     // Without checks this is only a provisional, cost-based suggestion.
-    const checked = candidates.filter(candidate => candidate.taskChecks?.complete);
+    const checked = candidates.filter(candidate => candidate.taskChecks?.current);
     const pool = checked.length ? checked : candidates;
     // All timings must cover the same current suite/mode and requested cases.
     // Missing/old timings never become zero or an invented speed penalty.

@@ -1049,7 +1049,8 @@ def test_connection_queue_is_the_canonical_graph_overlay(monkeypatch, tmp_path: 
     assert llm_wiki_suggestions.list_graph_edges() == []
 
 
-def test_matching_checkpoint_resumes_writing_without_another_llm_call(monkeypatch, tmp_path: Path):
+@pytest.mark.parametrize("pending", [False, True])
+def test_matching_checkpoint_resumes_writing_without_another_llm_call(monkeypatch, tmp_path: Path, pending):
     origin = _origin("A grounded idea that was already planned.")
     segment_id = origin["segments"][0]["id"]
     plan = {
@@ -1120,7 +1121,7 @@ def test_matching_checkpoint_resumes_writing_without_another_llm_call(monkeypatc
             "removed": 0,
             "matched": 0,
             "requested": 0,
-            "warnings": [],
+            "warnings": ["Unresolved citation."] if pending else [],
         },
     )
     monkeypatch.setattr(llm_wiki.llm_wiki_storage, "load_manifest", lambda *_args: {})
@@ -1168,6 +1169,11 @@ def test_matching_checkpoint_resumes_writing_without_another_llm_call(monkeypatc
     assert report["model"] == "stored-model"
     assert report["updated"] == ["Stored atomic idea"]
     assert manifests[0]["managed_keys"] == ["stable-key"]
+    assert report["review_completed"] is True
+    assert report["reviewed"] is (not pending)
+    assert report["quality_status"] == ("needs_review" if pending else "validated")
+    assert manifests[0]["reviewed"] is (not pending)
+    assert manifests[0]["quality_status"] == report["quality_status"]
 
 
 def test_jobs_snapshots_and_manifests_are_persistent(monkeypatch, tmp_path: Path):

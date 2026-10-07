@@ -5,17 +5,19 @@ boundary. Every paid phase remains inside the governed runtime and budget.
 """
 from __future__ import annotations
 
+from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION
+
 from copy import deepcopy
 from collections.abc import Callable
 from typing import Any
 
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
-from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, reduce_batch
-from backend.domains.llm_wiki.reading_identity import reading_identity, identity_parts, map_identity
+from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, reduce_batch, resume_incomplete_review
+from backend.domains.llm_wiki.reading_identity import reading_identity, identity_parts, map_identity, resume_semantic_state
 from backend.domains.llm_wiki.semantic_map_windows import map_windows
 from backend.domains.llm_wiki.semantic_map_reduction import MapSizeLimit, map_limit, reduce_maps
-from backend.domains.llm_wiki.semantic_context import chunk_view, groups, overview_groups, reading_context, source_view, state_progress
+from backend.domains.llm_wiki.semantic_context import auxiliary_limit, chunk_view, groups, overview_groups, reading_context, source_view, state_progress
 from backend.domains.llm_wiki.semantic_contracts import (
     MAP_SCHEMA, bind_interpretation, fields, interpretation_schema, validate_schema,
 )
@@ -30,7 +32,7 @@ class SemanticReader:
         identity = reading_identity(self.deps.execution_revision, reader.chunks, reader.dimensions, reader.brain_index)
         self.state: dict[str, Any] = {"engine": ENGINE_VERSION, "identity": identity, "plans": {},
                                       "identity_parts": identity_parts(self.deps.execution_revision, reader.chunks, reader.dimensions, reader.brain_index),
-                                      "maps": [], "observations": {}, "reviewed_groups": {}, "step": 0,
+                                      "maps": [], "observations": {}, "reviewed_groups": {}, "step": 0, "review_quality_version": REVIEW_QUALITY_VERSION,
                                       "reading_context": fingerprint([reader.title, reader.language])}
         resolve_candidates = self.deps.resume_candidates
         candidates = ([reader.resume_job_id] if resolve_candidates is None else
@@ -38,15 +40,17 @@ class SemanticReader:
         self.resume_map_jobs = candidates
         selected_resume = False
         for candidate in candidates:
-            saved = self.deps.load_checkpoint(candidate, "semantic-state")
-            if (isinstance(saved, dict) and saved.get("identity") == identity and saved.get("engine") == ENGINE_VERSION
-                    and saved.get("reading_context") == self.state["reading_context"]
+            saved = resume_semantic_state(self.deps.load_checkpoint(candidate, "semantic-state"),
+                                          identity, self.state["identity_parts"], self.state["reading_context"])
+            if (saved is not None
                     and (not selected_resume or state_progress(saved) > state_progress(self.state))):
                 selected_resume = True
                 self.state = deepcopy(saved)
                 reader.resume_job_id = candidate
                 if self.deps.resume_job_status:
-                    reduce_batch(self.state, str(self.deps.resume_job_status(candidate).get("error") or ""))
+                    error = str(self.deps.resume_job_status(candidate).get("error") or "")
+                    reduce_batch(self.state, error)
+                    resume_incomplete_review(self.state, error)
         reader.models.extend(self.state.get("models", []))
         self.save()
 
@@ -68,12 +72,14 @@ class SemanticReader:
         return result
 
     def summarize(self, key: str, material: object, *, bounded: bool = False, maximum: int | None = None) -> str:
+        # A retry requests extra headroom; the shared map capacity remains
+        # the acceptance boundary for a complete answer.
         limit = min(map_limit(self.reader.budget), maximum) if maximum is not None else map_limit(self.reader.budget)
         if getattr(self.deps, "generate_prose", None):
             return self.prose_map(key, material, limit, bounded=bounded)
         def validate(answer: dict[str, object]) -> None:
             validate_schema(answer, MAP_SCHEMA)
-            if bounded and self.deps.count_tokens(str(answer["summary"])) > limit:
+            if bounded and self.deps.count_tokens(str(answer["summary"])) > map_limit(self.reader.budget):
                 raise MapSizeLimit(str(answer["summary"]))
             if self.deps.count_tokens(str(answer["summary"])) > max(2000, self.reader.budget // 8):
                 raise ValueError("The argument map exceeds its reserved context capacity")
@@ -106,7 +112,7 @@ class SemanticReader:
             clean = text.strip()
             if not clean or clean.startswith(("{", "```")):
                 raise ValueError("Return a nonempty argument map as plain text, without JSON or code fences")
-            if bounded and self.deps.count_tokens(clean) > limit:
+            if bounded and self.deps.count_tokens(clean) > map_limit(self.reader.budget):
                 raise MapSizeLimit(clean)
             if self.deps.count_tokens(clean) > max(2000, self.reader.budget // 8):
                 raise ValueError("The argument map exceeds its reserved context capacity")
@@ -152,6 +158,10 @@ class SemanticReader:
         return str(self.state["global_map"])
 
     def interpret(self, selected: list[dict[str, object]], global_map: str) -> dict[str, Any]:
+        # Chunks own the document label; their stored segment records need not
+        # duplicate it. Bind exactly the same source view as the model receives.
+        selected = [{**chunk, "segments": [{**segment, "origin_label": chunk.get("origin_label")}
+                     for segment in records(chunk.get("segments"))]} for chunk in selected]
         context = reading_context(self.reader.chunks, selected, self.state["plans"], self.deps.count_tokens, self.reader.budget)
         primary = [s for c in selected for s in records(c.get("segments"))]
         evidence = records(context.pop("evidence"))
@@ -160,10 +170,12 @@ class SemanticReader:
             bind_interpretation(answer, selected, evidence, self.reader.dimensions)
         from backend.domains.llm_wiki.semantic_context import relevant
         observations: list[dict[str, object]] = [{"text": encoded(value)} for value in self.state["observations"].values()]
-        selected_memory = relevant(observations, encoded([source_view(s) for s in primary]), self.deps.count_tokens, self.reader.budget // 20)
+        selected_memory = relevant(observations, encoded([source_view(s) for s in primary]), self.deps.count_tokens,
+                                   auxiliary_limit(self.reader.budget, 20, 4000))
         payload = {"global_map": global_map, "related_observations": selected_memory, "documents": [c.get("origin_label") for c in selected],
                    "primary_passages": [source_view({**s, "origin_label": c.get("origin_label")}) for c in selected for s in records(c.get("segments"))], "properties": fields(self.reader.dimensions),
-                   "brain_notes": self.reader.relevant_index("", primary), **context,
+                   "brain_notes": self.reader.relevant_index("", primary, maximum=8,
+                                                           limit=auxiliary_limit(self.reader.budget, 12, 4000)), **context,
                    "instruction": "Interpret each primary passage in the supplied order. Return exactly one passages entry per primary passage, with substantive atomic reading notes or a concrete omission reason. Each note needs an exact quote from its own primary passage. Context clarifies interpretation, not additional extraction. Preserve qualifications and distinct voices; connect supported ideas with [[wikilinks]]. Record themes, unresolved questions and contradictions; do not edit previous memory or choose workflow actions."}
         key = "semantic-extract-" + fingerprint([c["id"] for c in selected])[:20]
         answer = self.ask(key, "interpret", payload, schema, validate)
@@ -218,7 +230,8 @@ class SemanticReader:
         self.state["completed"] = True
         self.save()
         return {"summary": global_map, "notes": notes, "warnings": self.reader.warnings,
-                "reviewed": True, "coverage": [{**row, "chunk_id": c["id"]} for c, p in reviewed for row in records(p["coverage"])]}, self.reader.models
+                "reviewed": True, "quality_review_version": REVIEW_QUALITY_VERSION,
+                "coverage": [{**row, "chunk_id": c["id"]} for c, p in reviewed for row in records(p["coverage"])]}, self.reader.models
 
 
 def run_semantic(reader: ContextualReader) -> tuple[dict[str, object], list[str]]:

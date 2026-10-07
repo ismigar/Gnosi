@@ -5,6 +5,13 @@ import re
 from typing import Any
 
 
+class IncompleteReadingBatch(ValueError):
+    """A structured answer ended before its JSON was complete."""
+
+    def __init__(self) -> None:
+        super().__init__("reading_batch_response_incomplete")
+
+
 def batch_limit(requested: int, state: dict[str, Any]) -> int:
     limit = state.get("batch_size_limit", 4)
     return max(1, min(4, requested, limit if type(limit) is int else 4))
@@ -19,6 +26,8 @@ def delivered_batch_size(state: dict[str, Any]) -> int:
 
 
 def _has_answer_tokens(error: Exception | str) -> bool:
+    if isinstance(error, IncompleteReadingBatch) or error == "reading_batch_response_incomplete":
+        return True
     from openai import LengthFinishReasonError
     if isinstance(error, LengthFinishReasonError):
         usage = error.completion.usage
@@ -45,3 +54,12 @@ def reduce_batch(state: dict[str, Any], error: Exception | str) -> bool:
         return False
     state["batch_size_limit"] = limit
     return True
+
+
+def resume_incomplete_review(state: dict[str, Any], error: str) -> None:
+    """Older interrupted reviews recorded the parser error before split recovery."""
+    limit = state.get("review_size_limit")
+    if ((state.get("last_action") or {}).get("phase") == "verify"
+            and error.startswith("Unterminated string starting at:")
+            and type(limit) is int and limit > 1):
+        state["review_size_limit"] = max(1, limit // 2)

@@ -9,6 +9,7 @@ from collections.abc import Callable, Mapping
 from typing import TypeVar
 
 import httpx
+from openai import APIConnectionError, APITimeoutError
 
 from backend.config.logger_config import get_logger
 from backend.utils.http_retry import retry_after_seconds
@@ -37,8 +38,8 @@ PROVIDER_TIMEOUT_MESSAGE = (
 
 def processing_error_message(error: Exception) -> str:
     """TimeoutError often has no text; never persist an unexplained failure."""
-    if isinstance(error, (TimeoutError, httpx.TimeoutException)) or isinstance(
-        error.__cause__, (TimeoutError, httpx.TimeoutException)
+    if isinstance(error, (TimeoutError, httpx.TimeoutException, APITimeoutError)) or isinstance(
+        error.__cause__, (TimeoutError, httpx.TimeoutException, APITimeoutError)
     ):
         return PROVIDER_TIMEOUT_MESSAGE
     return str(error).strip() or type(error).__name__
@@ -65,7 +66,9 @@ def _can_retry(error: Exception) -> bool:
         status = getattr(getattr(error, "response", None), "status_code", None)
     if isinstance(status, int):
         return status in _TRANSIENT_STATUSES
-    transport_errors = (TimeoutError, ConnectionError, httpx.TimeoutException, httpx.NetworkError)
+    # LangChain preserves the SDK exception type but wraps its transport cause.
+    # The SDK can use httpx2, whose errors are not instances of httpx errors.
+    transport_errors = (TimeoutError, ConnectionError, httpx.TimeoutException, httpx.NetworkError, APIConnectionError)
     return isinstance(error, transport_errors) or isinstance(error.__cause__, transport_errors)
 
 

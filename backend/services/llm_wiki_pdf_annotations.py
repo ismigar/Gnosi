@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import threading
 from pathlib import Path
 from typing import Callable, Optional, Protocol, TypedDict
 
@@ -15,12 +16,14 @@ from backend.data.db import get_engine_for_path
 from backend.models.pdf_annotation import PdfAnnotation
 from backend.services.context_vars import get_active_vault_path
 from backend.utils.open_values import iterable_values
+from backend.domains.llm_wiki.pdf_quote_matching import PageTextIndex, index_page, reconcile_unknown_characters
 
 logger = get_logger(__name__)
 
 _ANNOTATION_COLOR = "#ffd400"
 _MANAGED_PREFIX = "llm-wiki"
 _ZOTERO_BLOB_PREFIX = "__ZOTERO_JSON__"
+_READING_GEOMETRY_LOCK = threading.Lock()
 
 
 class _PdfSearcher(Protocol):
@@ -37,6 +40,10 @@ class _PdfTextPage(Protocol):
     def get_rect(self, index: int) -> tuple[float, float, float, float]: ...
 
     def close(self) -> object: ...
+
+    def count_chars(self) -> int: ...
+
+    def get_text_range(self, index: int = 0, count: int = -1) -> str: ...
 
 
 class _PdfPage(Protocol):
@@ -73,6 +80,7 @@ class _CitationCandidate(TypedDict):
     pdf_path: Path
     page: int
     quote: str
+    context: str
 
 
 PositionResolver = Callable[[Path, int, str], Optional[dict[str, object]]]
@@ -89,20 +97,9 @@ def _normalized_text(value: object) -> str:
     return " ".join(str(value or "").split()).strip()
 
 
-def _shorten_at_word_boundary(text: str, limit: int) -> str:
-    if len(text) <= limit:
-        return text
-    shortened = text[:limit]
-    last_space = shortened.rfind(" ")
-    return (shortened[:last_space] if last_space >= max(16, limit // 2) else shortened).strip()
-
-
 def _search_queries(quote: str) -> list[str]:
     normalized = _normalized_text(quote)
-    candidates = [normalized]
-    for limit in (120, 96, 72, 48, 32):
-        candidates.append(_shorten_at_word_boundary(normalized, limit))
-    return list(dict.fromkeys(candidate for candidate in candidates if len(candidate) >= 12))
+    return [normalized] if normalized else []
 
 
 def _managed_key(resource_id: str, citation: dict[str, object]) -> str:
@@ -121,6 +118,9 @@ def _find_quote_position_in_document(
     document: _PdfDocument,
     page_number: int,
     quote: str,
+    context: str = "",
+    page_indexes: dict[int, PageTextIndex] | None = None,
+    original_page_text: Callable[[int], str] | None = None,
 ) -> Optional[dict[str, object]]:
     page_index = page_number - 1
     if page_index < 0 or page_index >= len(document):
@@ -132,8 +132,18 @@ def _find_quote_position_in_document(
             searcher = text_page.search(query, match_case=False)
             try:
                 match = searcher.get_next()
+                repeated = searcher.get_next() if match else None
             finally:
                 searcher.close()
+            if not match or repeated:
+                cached = page_indexes.get(page_index) if page_indexes is not None else None
+                if cached is None:
+                    cached = index_page(text_page)
+                    if "\ufffe" in cached.text and original_page_text is not None:
+                        cached = reconcile_unknown_characters(cached, original_page_text(page_index))
+                    if page_indexes is not None:
+                        page_indexes[page_index] = cached
+                match = cached.find(quote, context)
             if not match:
                 continue
             start, count = match
@@ -166,12 +176,24 @@ def _find_quote_position_in_document(
     return None
 
 
+def _original_page_reader(pdf_path: Path) -> Callable[[int], str]:
+    from pypdf import PdfReader
+    reader: PdfReader | None = None
+    def read(page_index: int) -> str:
+        nonlocal reader
+        if reader is None:
+            reader = PdfReader(str(pdf_path))
+        return str(reader.pages[page_index].extract_text() or "")
+    return read
+
+
 def _find_quote_position(pdf_path: Path, page_number: int, quote: str) -> Optional[dict[str, object]]:
     """Resolve one citation to Zotero-compatible PDF coordinates."""
     pypdfium2 = _load_pdfium()
     document = pypdfium2.open_document(str(pdf_path))
     try:
-        return _find_quote_position_in_document(document, page_number, quote)
+        return _find_quote_position_in_document(document, page_number, quote,
+                                                original_page_text=_original_page_reader(pdf_path))
     finally:
         document.close()
 
@@ -207,6 +229,9 @@ def _citation_candidates(
                 "pdf_path": Path(str(origin.get("_annotation_pdf_path") or "")),
                 "page": page_number,
                 "quote": quote,
+                "context": next((str(segment.get("text") or "")
+                                 for segment in iterable_values(origin.get("segments") or [])
+                                 if isinstance(segment, dict) and segment.get("id") == citation.get("segment_id")), ""),
             }
     return candidates
 
@@ -249,6 +274,8 @@ def _resolve_annotation_candidates(
     resolved: dict[str, tuple[_CitationCandidate, dict[str, object]]] = {}
     warnings: list[str] = []
     documents: dict[str, _PdfDocument] = {}
+    indexes: dict[str, dict[int, PageTextIndex]] = {}
+    original_readers: dict[str, Callable[[int], str]] = {}
     resolver: PositionResolver
     if position_resolver is None:
         pypdfium2 = _load_pdfium()
@@ -261,7 +288,9 @@ def _resolve_annotation_candidates(
             if document is None:
                 document = pypdfium2.open_document(path_key)
                 documents[path_key] = document
-            return _find_quote_position_in_document(document, page_number, quote)
+                original_readers[path_key] = _original_page_reader(pdf_path)
+            return _find_quote_position_in_document(document, page_number, quote, candidate["context"],
+                                                    indexes.setdefault(path_key, {}), original_readers[path_key])
 
         resolver = cached_resolver
     else:
@@ -374,6 +403,39 @@ def _persist_managed_annotations(
     return created, updated, removed
 
 
+def reading_citation_issues(
+    notes: list[dict[str, object]], origins: list[dict[str, object]],
+) -> list[list[str]]:
+    """Check full PDF geometry before review accepts notes, without writing highlights.
+
+    Match each citation against its original segment and share page indexes
+    across the batch. PDFium is serialized because reviews run concurrently.
+    """
+    segments = {str(segment["id"]): (origin, segment) for origin in origins
+                for segment in iterable_values(origin.get("segments") or []) if isinstance(segment, dict)}
+    groups = []
+    for note in notes:
+        citations = []
+        for citation in iterable_values(note.get("citations") or []):
+            if not isinstance(citation, dict):
+                continue
+            original = segments.get(str(citation.get("segment_id")))
+            if original is not None:
+                origin, segment = original
+                citations.append({**citation, "origin_id": origin["origin_id"], "locator": segment["locator"]})
+        groups.append(_citation_candidates([{"citations": citations}], origins, "reading-review"))
+    candidates = {key: value for group in groups for key, value in group.items()}
+    if not candidates:
+        return [[] for _ in notes]
+    with _READING_GEOMETRY_LOCK:
+        resolved, _ = _resolve_annotation_candidates(candidates, None)
+    return [[f"PDF citation on page {item['page']} cannot be located as one complete, unambiguous highlight: "
+             f"{item['quote']!r}. Select a meaningful exact original quote that can be located, or remove this"
+             " redundant citation while retaining the note's substantive evidence. Do not discard the idea"
+             " or invent evidence to bypass this check."
+             for key, item in group.items() if key not in resolved] for group in groups]
+
+
 def sync_generated_pdf_annotations(
     notes: list[dict[str, object]],
     origins: list[dict[str, object]],
@@ -384,8 +446,11 @@ def sync_generated_pdf_annotations(
 ) -> dict[str, object]:
     """Upsert managed citation highlights and remove only obsolete managed ones."""
     candidates = _citation_candidates(notes, origins, resource_id)
-    desired_keys = set(candidates)
     resolved, warnings = _resolve_annotation_candidates(candidates, position_resolver)
+    # Do not retain a previously guessed prefix highlight when full evidence
+    # matching now fails. Unavailable attachments preserve prior annotations.
+    desired_keys = set(resolved) | {key for key, item in candidates.items()
+                                    if not item["pdf_path"].is_file() or not item["source_uri"]}
     active_session, owns_session = _annotation_session(session)
     try:
         created, updated, removed = _persist_managed_annotations(

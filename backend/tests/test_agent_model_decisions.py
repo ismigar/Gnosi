@@ -125,10 +125,19 @@ def test_budget_constraints_apply_before_jev_and_to_fallbacks(agent, registry):
     result = choose(agent, registry, selector=selector, budget={"cost_cap_usd": 10, "spent_usd": 8})
     assert result["selected"]["model"] == "small"
     assert result["fallback_models"] == []
-    result = choose(agent, registry, selector=selector, budget={"cost_cap_usd": 10, "spent_usd": 10})
+    result = choose(agent, registry, selector=selector, budget={"cost_cap_usd": 10, "spent_usd": 10, "enforce_block": True})
     assert result["selected"]["model"] == ""
     assert result["fallback_models"] == []
     selector.assert_not_called()
+
+
+@pytest.mark.parametrize("mode", ["adaptive", "resilient"])
+@pytest.mark.parametrize("cap,enforce,blocked", [(10, False, False), (10, True, True), (0, True, False)])
+def test_monthly_blocking_controls_paid_candidates_and_fallbacks(agent, registry, mode, cap, enforce, blocked):
+    agent["model_strategy"].update(mode=mode, decision_engine="rules")
+    result = choose(agent, registry[:2], budget={"cost_cap_usd": cap, "spent_usd": 12, "enforce_block": enforce})
+    assert bool(result["selected"]["model"]) is not blocked
+    assert len(result["fallback_models"]) == (0 if blocked else 1)
 
 
 def test_unavailable_primary_does_not_bypass_policy(agent, registry):
@@ -239,8 +248,24 @@ def test_disabled_missing_credentials_and_cap_prevent_network(monkeypatch, regis
     key.assert_not_called()
     assert decisions.decide_with_jev("hello", registry[:2], provider_config={}, budget={}).status == "missing_credentials"
     key.return_value = "fake"
-    assert decisions.decide_with_jev("hello", registry[:2], provider_config={}, budget={"cost_cap_usd": 0}).status == "budget_limit"
+    assert decisions.decide_with_jev("hello", registry[:2], provider_config={}, budget={"cost_cap_usd": .000001, "enforce_block": True}).status == "budget_limit"
     network.assert_not_called()
+
+
+@pytest.mark.parametrize("cap,enforce,blocked", [(1, False, False), (1, True, True), (0, True, False)])
+def test_selector_transport_respects_monthly_blocking(jev_transport, registry, cap, enforce, blocked):
+    install, recorded = jev_transport
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return httpx.Response(200, json=response_payload())
+
+    install(handler)
+    result = decisions.decide_with_jev("hello", registry[:2], provider_config={},
+                                     budget={"cost_cap_usd": cap, "spent_usd": 2, "enforce_block": enforce})
+    assert result.status == ("budget_limit" if blocked else "selected")
+    assert len(requests) == recorded.call_count == (0 if blocked else 1)
 
 
 def test_runtime_wires_policy_limits_and_adapter(monkeypatch, registry, agent):

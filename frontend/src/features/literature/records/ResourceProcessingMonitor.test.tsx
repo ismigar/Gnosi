@@ -23,7 +23,7 @@ vi.mock('../../../shared/hooks/useModalKeyboard', () => ({
 
 
 vi.mock('../../../shared/notifications/toast', () => ({
-    toast: { error: vi.fn(), success: vi.fn() },
+    toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }),
 }));
 
 
@@ -161,6 +161,20 @@ function closeDialog(): void {
 }
 
 describe('resource processing corner monitor', () => {
+    it('does not announce unqualified success when a finished job retains observations', async () => {
+        await render(<ProcessingScreen />);
+        act(() => { buttonWithText('Process').click(); });
+        await flushProcessing();
+        closeDialog();
+        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({ ...doneJob, warnings: ['Missing PDF highlight', 'Missing PDF highlight'] });
+        await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+        expect(container.querySelector('.resource-processing-monitor')?.textContent).toContain('Saved with observations to review');
+        expect(toast.success).not.toHaveBeenCalled();
+        expect(toast).toHaveBeenCalled();
+        act(() => { container.querySelector<HTMLButtonElement>('.resource-processing-card-open')?.click(); });
+        expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Saved with observations to review');
+        expect(container.querySelectorAll('[role="dialog"] li')).toHaveLength(1);
+    });
     it('minimizes, updates and reopens details without starting a second job', async () => {
         await render(<ProcessingScreen />);
         act(() => { buttonWithText('Process').click(); });

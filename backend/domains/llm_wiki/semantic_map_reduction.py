@@ -43,28 +43,42 @@ class MapSizeLimit(ValueError):
         super().__init__("The argument-map synthesis must fit its requested estimated token limit")
 
 
+def saved_map(engine: SemanticReader, key: str, identity: str, maximum: int | None = None) -> dict[str, Any] | None:
+    """Reuse only complete, matching text; optionally require it to fit now."""
+    for job in [engine.reader.job_id, *engine.resume_map_jobs]:
+        value = engine.deps.load_checkpoint(job, key)
+        if not isinstance(value, dict) or value.get("identity") != identity or value.get("complete") is not True:
+            continue
+        summary = value.get("summary")
+        if not isinstance(summary, str) or not summary.strip():
+            continue
+        if maximum is None or engine.deps.count_tokens(summary) <= maximum:
+            return value
+    return None
+
+
 def compact(engine: SemanticReader, key: str, material: list[Any]) -> str:
     """At most two calls; retain complete drafts and reject truncated ones."""
     from backend.domains.llm_wiki.contextual_reading import fingerprint
+    limit = map_limit(engine.reader.budget)
     contract = fingerprint([REDUCTION_VERSION, engine.deps.execution_revision,
-                            engine.reader.title, engine.reader.language, material, map_limit(engine.reader.budget)])
-    for job in [engine.reader.job_id, *engine.resume_map_jobs]:
-        result = engine.deps.load_checkpoint(job, key + "-result")
-        if (isinstance(result, dict) and result.get("identity") == contract and result.get("complete") is True
-                and engine.deps.count_tokens(str(result.get("summary", ""))) <= map_limit(engine.reader.budget)
-                and str(result.get("summary", "")).strip()):
-            if result.get("model"):
-                engine.reader.models.append(str(result["model"]))
-            return str(result["summary"])
+                            engine.reader.title, engine.reader.language, material, limit])
     draft_key = key + "-draft"
-    cached = next((value for job in [engine.reader.job_id, *engine.resume_map_jobs]
-                   if isinstance(value := engine.deps.load_checkpoint(job, draft_key), dict)
-                   and value.get("identity") == contract and value.get("complete") is True), None)
+    # Older retries rejected drafts above their shorter request target even
+    # when they fitted the map's actual capacity. Keep that complete work.
+    result = saved_map(engine, key + "-result", contract, limit) or saved_map(engine, draft_key, contract, limit)
+    if result is not None:
+        if result.get("model"):
+            engine.reader.models.append(str(result["model"]))
+        if engine.reader.job_id:
+            engine.deps.save_checkpoint(engine.reader.job_id, key + "-result", result)
+        return str(result["summary"])
+    cached = saved_map(engine, draft_key, contract)
     candidate = [str(cached["summary"])] if isinstance(cached, dict) else material
     for attempt in range(1 if isinstance(cached, dict) else 0, 2):
         try:
             summary = engine.summarize(key + f"-attempt-{attempt}", candidate, bounded=True,
-                                       maximum=max(350, map_limit(engine.reader.budget) // 2) if attempt else None)
+                                       maximum=max(350, limit // 2) if attempt else None)
             if engine.reader.job_id:
                 engine.deps.save_checkpoint(engine.reader.job_id, key + "-result",
                     {"identity": contract, "summary": summary, "complete": True, "model": engine.reader.models[-1]})

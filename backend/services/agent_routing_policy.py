@@ -42,13 +42,12 @@ def eligible_routes(
 def constrain_budget(
     candidates: list[dict[str, Any]], budget: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
-    cap = budget.get("cost_cap_usd")
+    cap = float(budget.get("cost_cap_usd") or 0)
     spent = float(budget.get("spent_usd") or 0)
-    if cap is not None and spent >= float(cap):
-        if budget.get("enforce_block"):
-            return []
-        return [row for row in candidates if model_cost(row) == 0]
-    near_cap = cap is not None and spent >= 0.8 * float(cap)
+    over_cap = cap > 0 and spent >= cap
+    if over_cap and budget.get("enforce_block"):
+        return []
+    near_cap = cap > 0 and not over_cap and spent >= 0.8 * cap
     remaining = budget.get("remaining_tokens")
     below = budget.get("prefer_local_below", 0)
     tight = near_cap or bool(budget.get("prefer_local")) or (
