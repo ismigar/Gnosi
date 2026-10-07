@@ -280,6 +280,16 @@ File endpoints validate containment and handle cloud hydration. Persistent
 annotation identifiers prevent a generated quote from duplicating every time a
 document is reopened.
 
+Resource processing retains complete citations in reading notes and selects a
+sparse subset for PDF highlighting. A local relevance heuristic compares each
+whole quotation with its note's title and body, preferring direct primary
+evidence. Highlights cover at most 15% of a page's text, with at most two
+nonoverlapping quotations from distinct source passages. These are ceilings,
+not quotas; unsuitable or long quotations stay in the notes without a highlight.
+Full citation geometry is validated independently of this display selection.
+Synchronizing again removes only obsolete highlights managed by that resource;
+manual annotations and other resources' annotations remain intact.
+
 File properties open PDF and EPUB attachments in the internal reader through
 the shared file-opening action. Vault-relative paths are converted to served
 asset URLs; local links and external document URLs use the same reader route.

@@ -17,6 +17,11 @@ from backend.models.pdf_annotation import PdfAnnotation
 from backend.services.context_vars import get_active_vault_path
 from backend.utils.open_values import iterable_values
 from backend.domains.llm_wiki.pdf_quote_matching import PageTextIndex, index_page, reconcile_unknown_characters
+from backend.domains.llm_wiki.pdf_highlight_selection import (
+    MAX_HIGHLIGHTS_PER_PAGE,
+    MAX_HIGHLIGHT_TEXT_FRACTION,
+    highlight_priority,
+)
 
 logger = get_logger(__name__)
 
@@ -81,6 +86,8 @@ class _CitationCandidate(TypedDict):
     page: int
     quote: str
     context: str
+    segment_id: str
+    priority: float
 
 
 PositionResolver = Callable[[Path, int, str], Optional[dict[str, object]]]
@@ -169,6 +176,9 @@ def _find_quote_position_in_document(
                 "rects": rects,
                 "sort_index": sort_index,
                 "matched_text": query,
+                "start": start,
+                "count": count,
+                "page_text_length": text_page.count_chars(),
             }
     finally:
         text_page.close()
@@ -223,12 +233,23 @@ def _citation_candidates(
             if not origin or not quote or page_number < 1:
                 continue
             key = _managed_key(resource_id, citation)
+            priority = highlight_priority(
+                quote,
+                str(note.get("title") or ""),
+                str(note.get("body_md") or ""),
+                primary=citation.get("segment_id") == note.get("source_segment_id"),
+            )
+            if key in candidates:
+                candidates[key]["priority"] = max(candidates[key]["priority"], priority)
+                continue
             candidates[key] = {
                 "managed_key": key,
                 "source_uri": str(origin.get("_annotation_source_uri") or ""),
                 "pdf_path": Path(str(origin.get("_annotation_pdf_path") or "")),
                 "page": page_number,
                 "quote": quote,
+                "segment_id": str(citation.get("segment_id") or ""),
+                "priority": priority,
                 "context": next((str(segment.get("text") or "")
                                  for segment in iterable_values(origin.get("segments") or [])
                                  if isinstance(segment, dict) and segment.get("id") == citation.get("segment_id")), ""),
@@ -322,6 +343,63 @@ def _resolve_annotation_candidates(
         for document in documents.values():
             document.close()
     return resolved, warnings
+
+
+def _select_annotation_highlights(
+    resolved: dict[str, tuple[_CitationCandidate, dict[str, object]]],
+) -> dict[str, tuple[_CitationCandidate, dict[str, object]]]:
+    """Choose a few relevant spans without equating evidence coverage to ink.
+
+    Limits are ceilings, never quotas. A page can have no suitable highlight.
+    Coordinates eliminate overlaps even when two notes cite the same passage
+    under different segment identities. Whole quotations and caveats survive.
+    """
+    pages: dict[tuple[str, int], list[tuple[str, _CitationCandidate, dict[str, object]]]] = {}
+    for key, (candidate, position) in resolved.items():
+        pages.setdefault((candidate["source_uri"], candidate["page"]), []).append(
+            (key, candidate, position)
+        )
+    selected: dict[str, tuple[_CitationCandidate, dict[str, object]]] = {}
+    for items in pages.values():
+        lengths = [position.get("page_text_length") for _, _, position in items]
+        page_length = max((length for length in lengths if isinstance(length, int)), default=0)
+        if not page_length:
+            # Injected geometry adapters may only provide rectangles. Original
+            # contexts and distinct evidence give a conservative lower bound.
+            page_length = max(
+                max(len(candidate["context"]) for _, candidate, _ in items),
+                sum(len(quote) for quote in {candidate["quote"] for _, candidate, _ in items}),
+            )
+        budget = int(page_length * MAX_HIGHLIGHT_TEXT_FRACTION)
+        kept: list[tuple[_CitationCandidate, dict[str, object]]] = []
+        used = 0
+        for key, candidate, position in sorted(
+            items, key=lambda item: (-item[1]["priority"], str(item[2]["sort_index"]), item[0])
+        ):
+            if candidate["priority"] <= 0 or used + len(candidate["quote"]) > budget:
+                continue
+            if any(
+                candidate["segment_id"] == previous["segment_id"]
+                or _positions_overlap(position, previous_position)
+                for previous, previous_position in kept
+            ):
+                continue
+            selected[key] = (candidate, position)
+            kept.append((candidate, position))
+            used += len(candidate["quote"])
+            if len(kept) == MAX_HIGHLIGHTS_PER_PAGE:
+                break
+    return selected
+
+
+def _positions_overlap(left: dict[str, object], right: dict[str, object]) -> bool:
+    for a in iterable_values(left.get("rects") or []):
+        for b in iterable_values(right.get("rects") or []):
+            if (isinstance(a, (list, tuple)) and isinstance(b, (list, tuple))
+                    and min(a[2], b[2]) > max(a[0], b[0])
+                    and min(a[3], b[3]) > max(a[1], b[1])):
+                return True
+    return False
 
 
 def _annotation_session(session: Optional[Session]) -> tuple[Session, bool]:
@@ -444,9 +522,11 @@ def sync_generated_pdf_annotations(
     session: Optional[Session] = None,
     position_resolver: Optional[PositionResolver] = None,
 ) -> dict[str, object]:
-    """Upsert managed citation highlights and remove only obsolete managed ones."""
+    """Keep sparse key-idea highlights while retaining all evidence in the notes."""
     candidates = _citation_candidates(notes, origins, resource_id)
-    resolved, warnings = _resolve_annotation_candidates(candidates, position_resolver)
+    with _READING_GEOMETRY_LOCK:
+        matched, warnings = _resolve_annotation_candidates(candidates, position_resolver)
+    resolved = _select_annotation_highlights(matched)
     # Do not retain a previously guessed prefix highlight when full evidence
     # matching now fails. Unavailable attachments preserve prior annotations.
     desired_keys = set(resolved) | {key for key, item in candidates.items()
@@ -470,7 +550,9 @@ def sync_generated_pdf_annotations(
         "created": created,
         "updated": updated,
         "removed": removed,
-        "matched": len(resolved),
+        "matched": len(matched),
         "requested": len(candidates),
+        "citation_matches": len(matched),
+        "selected": len(resolved),
         "warnings": warnings,
     }

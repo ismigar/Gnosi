@@ -278,6 +278,18 @@ Le lecteur Zotero intégré affiche les PDF et EPUB. Gnosi gère le pont qui loc
 
 Les endpoints de fichiers vérifient le confinement et gèrent l'hydratation cloud. Les identifiants persistants des annotations empêchent de dupliquer une citation générée à chaque réouverture du document.
 
+Le traitement conserve toutes les citations dans les notes et sélectionne un
+sous-ensemble à surligner dans le PDF. Une heuristique locale compare chaque
+citation complète au titre et au corps de sa note et privilégie les preuves
+principales. Le surlignage couvre au maximum 15% du texte d'une page, avec au
+plus deux citations sans chevauchement issues de passages distincts. Ce sont
+des plafonds, sans quota obligatoire ; les citations longues ou peu adaptées
+restent dans les notes sans surlignage. La géométrie de toutes les citations
+est validée indépendamment de cette sélection visuelle. Une nouvelle
+synchronisation retire uniquement les anciens surlignages gérés par la
+ressource, en conservant les annotations manuelles et celles des autres
+ressources.
+
 Les propriétés de fichier ouvrent les pièces jointes PDF et EPUB dans le lecteur
 interne avec l’action partagée d’ouverture. Les chemins relatifs au vault sont
 convertis en URL de ressources servies ; les liens locaux et les URL externes de
