@@ -289,12 +289,12 @@ def _extract_path(path: Path, input_order: int, *, label: str = "") -> list[dict
 
 
 def _extract_pdf(path: Path) -> list[dict[str, object]]:
-    return document_domain.extract_pdf(
-        path,
-        run_tesseract=_run_tesseract,
-        temporary_root=_temporary_root,
-        logger=logger,
-    )
+    from backend.config.data_dir import resolve_data_dir
+    from backend.domains.llm_wiki.pdf_extraction_cache import extract_cached_pdf
+
+    return extract_cached_pdf(path, resolve_data_dir() / "llm_wiki" / "pdf-extractions",
+                              lambda: document_domain.extract_pdf(path, run_tesseract=_run_tesseract,
+                                                                  temporary_root=_temporary_root, logger=logger))
 
 
 def _extract_docx(path: Path) -> list[dict[str, object]]:
@@ -718,9 +718,9 @@ def _embedded_media_url(content: bytes, base_url: str, *, xml: bool = False) -> 
 
 def _temporary_root() -> Path:
     """Keep extraction temporaries in local Gnosi data, never in the vault."""
-    from backend.domains.vault.pages.runtime import get_p
+    from backend.config.data_dir import resolve_data_dir
 
-    root = Path(get_p("LOCAL_DATA")) / "llm_wiki" / "tmp"
+    root = resolve_data_dir() / "llm_wiki" / "tmp"
     root.mkdir(parents=True, exist_ok=True)
     return root
 

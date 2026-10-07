@@ -7,12 +7,13 @@ import type { AiModelComparison, AiModelComparisonEntry } from '../../../shared/
 import ca from '../../../shared/i18n/locales/ca/translation.json';
 import type { Candidate } from './taskRecommendations';
 import { ModelTaskRecommendations } from './ModelTaskRecommendations';
+import { checked, suite } from './__fixtures__/taskEvidence';
 
-const mocks = vi.hoisted(() => ({ reports: vi.fn(), runs: vi.fn(), invoke: vi.fn(), vault: 'vault-a' }));
+const mocks = vi.hoisted(() => ({ reports: vi.fn(), runs: vi.fn(), invoke: vi.fn(), taskReports: vi.fn(), suite: vi.fn(), vault: 'vault-a' }));
 vi.mock('../../../shared/api/ai-activity', () => ({
     fetchSharedTaskEvaluations: vi.fn().mockResolvedValue({ state: 'ready', reports: [], summaries: [] }),
-    fetchTaskEvaluations: vi.fn().mockResolvedValue([]),
-    fetchTaskEvaluationSuite: vi.fn().mockResolvedValue({ version: 'bot_tasks_v1', mode: 'diagnostic_default_512', criteria: [], max_age_days: 30, max_output_tokens: 512 }), fetchRoleEvaluations: mocks.reports, fetchAgentRuns: mocks.runs, runRoleEvaluation: mocks.invoke }));
+    fetchTaskEvaluations: mocks.taskReports,
+    fetchTaskEvaluationSuite: mocks.suite, fetchRoleEvaluations: mocks.reports, fetchAgentRuns: mocks.runs, runRoleEvaluation: mocks.invoke }));
 vi.mock('../../../shared/hooks/useActiveVaultId', () => ({ useActiveVaultId: () => mocks.vault }));
 const i18n = createInstance();
 const models = [1, 2, 3].map(value => ({ id: String(value), name: `Model ${String(value)}`, intelligence: value,
@@ -29,6 +30,7 @@ beforeAll(async () => {
 });
 beforeEach(() => {
     vi.clearAllMocks(); mocks.vault = 'vault-a'; mocks.reports.mockResolvedValue([]); mocks.runs.mockResolvedValue([]);
+    mocks.taskReports.mockResolvedValue([]); mocks.suite.mockResolvedValue({ ...suite, criteria: [] });
     container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
 });
 afterEach(() => { act(() => { root.unmount(); }); container.remove(); });
@@ -57,8 +59,20 @@ it('presents three explained choices with currency, retry allowance and pending 
     expect(container.textContent).toContain('no tres costos acumulats');
     expect(container.textContent).toContain('0.38 €'); // Two attempts, EUR FX.
     expect(container.textContent).toContain('comprensió global, cobertura i fidelitat');
+    expect(container.textContent).toContain('cites literals amb la font correcta, continuïtat entre passatges');
     expect(container.textContent).not.toContain('model_comparison.recommend.');
     expect(mocks.reports).toHaveBeenCalledTimes(1); expect(mocks.runs).toHaveBeenCalledTimes(1);
+    expect(mocks.invoke).not.toHaveBeenCalled();
+});
+
+it.each([false, true])('marks only recent complete evidence as checked (stale=%s) without model calls', async stale => {
+    mocks.suite.mockResolvedValue(suite);
+    const checkedAt = new Date(Date.now() - (stale ? 31 : 1) * 86400000).toISOString();
+    mocks.taskReports.mockResolvedValue([checked({ model: '3', cases: checked().cases?.map(item => ({ ...item, checked_at: checkedAt })) })]);
+    await render();
+    expect(container.textContent.includes('Mostres de treball recents comprovades')).toBe(!stale);
+    expect(container.textContent.includes('Proposta provisional')).toBe(stale);
+    if (stale) expect(container.textContent).toContain('es conserva com a historial');
     expect(mocks.invoke).not.toHaveBeenCalled();
 });
 it('updates suggestions and explains exclusions when the execution budget is too low', async () => {

@@ -18,7 +18,8 @@ def response(request):
     if request['phase'] == 'overview':
         return {'summary': 'The opponent claims knowledge is innate; the author rejects this in the conclusion. Uncertainty remains.'}
     if request['phase'] == 'verify':
-        return {'assessment': 'Checked attribution against the conclusion and all proposed notes.', 'changes': [], 'warnings': []}
+        return {'assessment': 'Checked attribution against the conclusion and all proposed notes.', 'changes': [], 'warnings': [],
+                **({'unresolved_issues': []} if 'unresolved_issues' in request['output_schema']['properties'] else {})}
     return {'passages': [{'reason': 'Substantive idea with attribution.', 'notes': [{
         'title': p['text'], 'body_md': p['text'], 'quotes': [p['text']], 'properties': {}}]}
         for p in request['primary_passages']], 'themes': ['Knowledge'], 'questions': ['What evidence is sufficient?'],
@@ -101,6 +102,37 @@ def test_interruption_after_one_batch_keeps_it_and_resumes_remaining_only():
     assert calls[0]['phase'] == 'interpret'
 
 
+def test_incomplete_output_splits_only_unsaved_batch_and_preserves_completed_work():
+    from backend.domains.llm_wiki.reading_batch_recovery import IncompleteReadingBatch
+    batches = []
+    def generate(request):
+        if request['phase'] == 'interpret':
+            size = len(request['primary_passages'])
+            batches.append(size)
+            if len(batches) == 2:
+                raise IncompleteReadingBatch()
+        return response(request)
+    reader, _, checkpoints = setup(generate=generate)
+    result, _ = reader.run()
+    assert batches == [4, 4, 2, 2]
+    assert len(result['coverage']) == 8
+    assert len(checkpoints['new', 'semantic-state']['plans']) == 8
+    assert checkpoints['new', 'semantic-state']['batch_size_limit'] == 2
+
+
+def test_semantic_link_candidates_use_small_ranked_navigation_without_changing_index():
+    reader, calls, _ = setup()
+    reader.brain_index = [{'id': str(i), 'title': f'Unrelated item {i}', 'type': 'concept'} for i in range(200)]
+    reader.brain_index.append({'id': 'relevant', 'title': 'Innate knowledge and experience', 'type': 'concept'})
+    original = deepcopy(reader.brain_index)
+    reader.run()
+    for call in calls:
+        if call['phase'] == 'interpret':
+            assert len(call['brain_notes']) <= 8
+            assert call['brain_notes'][0]['id'] == 'relevant'
+    assert reader.brain_index == original
+
+
 @pytest.mark.parametrize('change', ['revision', 'language'])
 def test_incompatible_policy_or_language_does_not_reuse_partial_work(change):
     reader, _, checkpoints = setup()
@@ -178,12 +210,15 @@ def test_partial_repair_preserves_valid_passages_and_semantic_memory():
     assert repair
     payload = json.loads(repair.input)
     assert len(payload['passages']) == 1 and payload['passages'][0]['passage'] == 2
-    fixed = deepcopy(answer['passages'][1]); fixed['notes'][0]['quotes'] = [primary[1]['text']]
-    restored = json.loads(repair.restore(encoded({'repairs': [{'passage': 2, 'value': fixed}]})))
+    fixed = deepcopy(answer['passages'][1]); fixed['notes'][0].pop('quotes')
+    source = next(s for s in payload['source_quotes'] if s['source'] == payload['passages'][0]['primary_source'])
+    fixed['notes'][0]['primary_quote_ids'] = [q['quote_id'] for q in source['quotes']]
+    fixed['notes'][0]['context_quote_ids'] = []
+    restored = json.loads(repair.restore(encoded({'repairs': {'passage_2': fixed}})))
     assert restored['passages'][0] == before['passages'][0]
     assert restored['questions'] == before['questions'] and answer == before
     with pytest.raises(ValueError):
-        repair.restore(encoded({'repairs': [{'passage': 1, 'value': fixed}]}))
+        repair.restore(encoded({'repairs': {'passage_1': fixed}}))
 
 
 def test_long_source_maps_all_sections_and_all_notes_before_review():
@@ -235,7 +270,9 @@ def test_overview_and_joint_review_are_priced_without_inference():
     assert estimate['input_token_bound'] > sum(len(s['text']) for s in reader.origins[0]['segments'])
 
 
-def test_review_output_reduction_and_restart_retain_every_completed_group():
+def test_review_output_reduction_and_restart_retain_every_completed_group(monkeypatch):
+    # Keep the serial recovery reference; the parallel suite checks saved peers.
+    monkeypatch.setattr('backend.domains.llm_wiki.semantic_review_execution.REVIEW_WORKERS', 1)
     from backend.tests.test_reading_batch_recovery import exhausted
     reviewing = 0
     def generate(request):
@@ -333,7 +370,7 @@ def test_resume_identity_ignores_dictionary_order_and_knowledge_index_order():
     assert not calls
 
 
-def test_complete_source_map_survives_changed_knowledge_context_but_notes_do_not():
+def test_changed_knowledge_context_retains_drafts_but_repeats_every_review():
     reader, _, checkpoints = setup()
     calls = []
     def prose(prompt, validator, timeout):
@@ -347,7 +384,11 @@ def test_complete_source_map_survives_changed_knowledge_context_but_notes_do_not
     before = len(calls)
     resumed.run()
     assert all('passages' not in item for request in calls[before:] for item in request['material'] if isinstance(item, dict))
-    assert any(c['phase'] == 'interpret' for c in interpretations)
+    assert not any(c['phase'] == 'interpret' for c in interpretations)
+    reviews = [c for c in interpretations if c['phase'] == 'verify']
+    assert sum(len(c['notes']) for c in reviews) == 8
+    assert all(c['brain_notes'] == [{**resumed.brain_index[0], 'type': None}] for c in reviews)
+    assert len(calls) == before
 
 
 def test_map_window_truncation_splits_and_resumes_without_repeating_complete_sibling():
@@ -384,3 +425,28 @@ def test_incomplete_prose_is_rejected_even_when_it_looks_like_complete_text(meta
     with pytest.raises(MapOutputLimit):
         ensure_complete('A plausible argument map.', metadata)
     ensure_complete('A complete argument map.', {'finish_reason': 'stop'})
+
+
+@pytest.mark.parametrize('candidates', [['older', 'recent'], ['recent', 'older']])
+def test_resume_prefers_partial_current_review_over_completed_obsolete_review(monkeypatch, candidates):
+    from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION
+    monkeypatch.setattr('backend.domains.llm_wiki.semantic_review_execution.REVIEW_WORKERS', 1)
+    reader, initial_calls, checkpoints = setup(count=80)
+    reader.run()
+    full = checkpoints['new', 'semantic-state']
+    assert len(full['reviewed_groups']) > 1
+    old = deepcopy(full)
+    old['review_quality_version'] = REVIEW_QUALITY_VERSION - 1
+    recent = deepcopy(full)
+    first_key = next(iter(recent['reviewed_groups']))
+    recent.update(reviewed_groups={first_key: recent['reviewed_groups'][first_key]},
+                  reviewed_ranges={'0': recent['reviewed_ranges']['0']},
+                  review_sources={first_key: recent['review_sources'][first_key]}, completed=False)
+    saved = {('older', 'semantic-state'): old, ('recent', 'semantic-state'): recent}
+    resumed, calls, _ = setup(count=80, checkpoints=saved, resume='recent')
+    resumed.dependencies.resume_candidates = lambda _: candidates
+    result, _ = resumed.run()
+    retained = {n['note']['title'] for n in next(c for c in initial_calls if c['phase'] == 'verify')['notes']}
+    assert len(result['notes']) == 80
+    assert calls and all(c['phase'] == 'verify' for c in calls)
+    assert all(n['note']['title'] not in retained for c in calls for n in c['notes'])

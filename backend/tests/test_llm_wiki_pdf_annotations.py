@@ -93,6 +93,20 @@ def test_pdfium_resolves_multiline_quote_to_real_pdf_rectangles(tmp_path: Path):
     assert position["sort_index"].startswith("00000|")
 
 
+def test_reading_geometry_check_reports_ambiguous_quotes_before_publication_without_writing(tmp_path, monkeypatch):
+    from copy import deepcopy
+    import pytest
+    origin = {**_origin(_demo_pdf(tmp_path)), 'segments': [
+        {'id': 'segment-1', 'text': _TEST_QUOTE, 'locator': {'page': 1, 'paragraph': 1}}]}
+    notes = [{'citations': [{'segment_id': 'segment-1', 'quote': quote}]} for quote in ['in', _TEST_QUOTE]]
+    before = deepcopy((notes, origin))
+    monkeypatch.setattr(llm_wiki_pdf_annotations, '_annotation_session', lambda *_: pytest.fail('read-only check wrote annotations'))
+    issues = llm_wiki_pdf_annotations.reading_citation_issues(notes, [origin])
+    assert len(issues[0]) == 1 and 'unambiguous highlight' in issues[0][0]
+    assert issues[1] == []
+    assert (notes, origin) == before
+
+
 def test_managed_highlights_are_idempotent_and_preserve_manual_annotations(tmp_path: Path):
     session = _session()
     pdf_path = _demo_pdf(tmp_path)

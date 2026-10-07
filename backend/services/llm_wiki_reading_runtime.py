@@ -7,6 +7,11 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from collections.abc import Callable
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.domains.llm_wiki.semantic_quote_selection import QuoteSelection
+    from backend.services.agent_output_repair import OutputRepair
 
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation
 
@@ -18,6 +23,18 @@ def token_bound(text: str) -> int:
     return len(text.encode("utf-8"))
 
 
+def compact_structured_input(prompt: str) -> str:
+    """Remove transport whitespace only; evidence and saved contracts stay exact."""
+    payload = json.loads(prompt)
+    payload.pop("output_schema", None)
+    payload["instruction"] = str(payload.get("instruction", "")) + (
+        " Serialize the JSON response without indentation or whitespace outside string values."
+        " Preserve all substantive content, explanations, qualifications and evidence selections;"
+        " this is a formatting preference, not a request to shorten the content."
+    )
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
 @dataclass
 class ReadingRuntime:
     agent_id: str
@@ -27,7 +44,7 @@ class ReadingRuntime:
     input_budget: int
     snapshot: AgentExecutionSnapshot
 
-    def count_tokens(self, text: str) -> int:
+    def count_tokens(self, text: str, *, output_schema: dict[str, object] | None = None) -> int:
         from backend.services.agent_context_budget import count_tokens
         from backend.services.agent_behavior import operation_input
         from langchain_core.messages import HumanMessage
@@ -40,7 +57,7 @@ class ReadingRuntime:
             envelope = json.loads(text)
         except ValueError:
             envelope = None
-        schema = envelope.get("output_schema") if isinstance(envelope, dict) else None
+        schema = output_schema if output_schema is not None else envelope.get("output_schema") if isinstance(envelope, dict) else None
         request = AgentOperation(
             skill_id=SKILL_ID, operation="knowledge.process-source.phase", input=text,
             output_schema=schema if isinstance(schema, dict) else {"type": "object"},
@@ -92,10 +109,8 @@ class ReadingRuntime:
 
     def generate_structured(self, prompt: str, validate: Callable[[dict[str, object]], None], timeout: int) -> tuple[str, str]:
         from backend.services.agent_execution import run_sync
-        from backend.domains.llm_wiki.reading_repairs import build_reading_repair
+        from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
         from backend.services.agent_output_repair import OutputRepair
-        if self.count_tokens(prompt) > self.input_budget:
-            raise RuntimeError("The reading input exceeds the selected model's context budget")
         try:
             envelope = json.loads(prompt)
         except ValueError:
@@ -103,37 +118,84 @@ class ReadingRuntime:
         schema = envelope.get("output_schema") if isinstance(envelope, dict) else None
         if not isinstance(schema, dict):
             schema = {"type": "object"}
+        selection = quote_selection(envelope) if isinstance(envelope, dict) else None
+        operation_prompt = selection.input if selection else prompt
+        schema = selection.schema if selection else schema
+        if selection:
+            # The operation envelope and provider binding already carry the
+            # full contract. Keep canonical checkpoints/repair input unchanged.
+            operation_prompt = compact_structured_input(operation_prompt)
+        if self.count_tokens(operation_prompt, output_schema=schema) > self.input_budget:
+            raise RuntimeError("The reading input exceeds the selected model's context budget")
         def checked(text: str) -> str:
-            answer = json.loads(text)
+            answer = json.loads(selection.restore(text) if selection else text)
             if not isinstance(answer, dict):
                 raise ValueError("Return a JSON object")
             try:
                 validate(answer)
             except (TypeError, KeyError) as error:
                 raise ValueError(str(error)) from error
-            # Validation can restore an unambiguously omitted segment digest.
-            # Persist the canonical answer, not the provider's rejected spelling.
-            return json.dumps(answer, ensure_ascii=False)
+            # Legacy validation can restore an omitted segment digest. Selection
+            # operations keep their numeric contract in the operation cache;
+            # the reader receives literal citations after the operation returns.
+            return text if selection else json.dumps(answer, ensure_ascii=False)
         def repair(text: str, error: Exception) -> OutputRepair | None:
-            from backend.domains.llm_wiki.reading_dimension_repairs import build_dimension_repair
-            # A schema rejection can hide bad citations in the same draft.
-            # Collect both before spending another call on a full rewrite.
-            if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic":
-                from backend.domains.llm_wiki.semantic_repairs import build_semantic_repair
-                semantic_repair = build_semantic_repair(prompt, text)
-                return semantic_repair if semantic_repair is not None and self.count_tokens(semantic_repair.input) <= self.input_budget else None
-            plan = build_dimension_repair(prompt, text, validate)
-            if plan is None:
-                plan = build_reading_repair(prompt, text, error)
-            if plan is not None and self.count_tokens(plan.input) > self.input_budget:
+            return self._repair_structured(prompt, envelope, selection, validate, text, error)
+        import jsonschema
+        try:
+            result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
+                input=operation_prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
+                # Literal choices apply even when the second call repairs syntax.
+                # Keep corrections inside the same call allowance and deadline.
+                output_schema=schema, max_model_calls=2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3), snapshot=self.snapshot, output_validator=checked, output_repair=repair)
+        except jsonschema.ValidationError as error:
+            if selection and {"primary_quote_ids", "context_quote_ids"}.intersection(error.absolute_path):
+                from backend.services.structured_output_diagnostics import repair_diagnostic
+                raise ValueError("Invalid reading plan: " + repair_diagnostic(error)) from error
+            raise
+        return selection.restore(result.result) if selection else result.result, result.model
+
+    def _repair_structured(self, prompt: str, envelope: Any, selection: QuoteSelection | None,
+                           validate: Callable[[dict[str, object]], None], text: str, error: Exception) -> OutputRepair | None:
+        from backend.domains.llm_wiki.reading_dimension_repairs import build_dimension_repair
+        from backend.domains.llm_wiki.reading_repairs import build_reading_repair
+        from backend.services.agent_output_repair import OutputRepair
+        if selection and isinstance(error, json.JSONDecodeError):
+            # Some providers report stop even when a long structured answer
+            # ends inside a value, including short review prefixes. Retrying
+            # the complete batch repeats all
+            # originals; let the reader split it inside the same book cap.
+            incomplete = error.msg.startswith("Unterminated string") or error.pos >= len(text.rstrip()) - 1
+            review_started = selection.phase == "verify" and text.lstrip().startswith("{")
+            if incomplete and (len(text.encode()) >= 4096 or review_started):
+                from backend.domains.llm_wiki.reading_batch_recovery import IncompleteReadingBatch
+                raise IncompleteReadingBatch() from error
+        # A schema rejection can hide bad citations in the same draft.
+        # Collect both before spending another call on a full rewrite.
+        if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic":
+            from backend.domains.llm_wiki.semantic_repairs import build_semantic_repair
+            semantic_repair: OutputRepair | None
+            try:
+                if selection and selection.phase == "verify":
+                    semantic_repair = selection.review_repair(text, error)
+                else:
+                    draft = selection.draft_for_repair(text) if selection else text
+                    semantic_repair = build_semantic_repair(prompt, draft)
+                    if semantic_repair is not None and selection:
+                        semantic_repair = selection.repair(semantic_repair)
+            except ValueError:
                 return None
-            return plan
-        result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
-            input=prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
-            # A syntax correction can expose reference errors. Allow their one
-            # immutable patch within the same finite operation deadline.
-            output_schema=schema, max_model_calls=2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3), snapshot=self.snapshot, output_validator=checked, output_repair=repair)
-        return result.result, result.model
+            if semantic_repair is not None:
+                semantic_repair = OutputRepair(compact_structured_input(semantic_repair.input),
+                                              semantic_repair.output_schema, semantic_repair.restore)
+            return semantic_repair if semantic_repair is not None and self.count_tokens(
+                semantic_repair.input, output_schema=semantic_repair.output_schema) <= self.input_budget else None
+        plan = build_dimension_repair(prompt, text, validate)
+        if plan is None:
+            plan = build_reading_repair(prompt, text, error)
+        if plan is not None and self.count_tokens(plan.input) > self.input_budget:
+            return None
+        return plan
 
     def generate_prose(self, prompt: str, validate: Callable[[str], str], timeout: int) -> tuple[str, str]:
         """Argument maps are prose; the application serializes their checkpoint."""

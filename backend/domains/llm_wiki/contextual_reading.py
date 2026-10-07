@@ -37,6 +37,7 @@ class ContextualReader:
     resume_job_id: str = ""
     models: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    report_progress: bool = True
 
     @property
     def budget(self) -> int:
@@ -48,7 +49,7 @@ class ContextualReader:
                    for origin in self.origins for segment in records(origin.get("segments")))
 
     def phase(self, phase: str, progress: int | None = None) -> None:
-        if self.job_id:
+        if self.job_id and self.report_progress:
             fields: dict[str, object] = {"phase": phase}
             if progress is not None:
                 fields["progress"] = progress
@@ -83,11 +84,11 @@ class ContextualReader:
                 prompt,
             ]
         )
-        saved = (
-            self.dependencies.load_checkpoint(self.resume_job_id, key)
-            if self.resume_job_id
-            else None
-        )
+        # A sibling may settle a reservation while this batch is retrying in
+        # the SAME job. Reuse its evidence-request rounds as well as prior jobs.
+        saved = next((value for job in dict.fromkeys([self.job_id, self.resume_job_id]) if job
+                      if isinstance(value := self.dependencies.load_checkpoint(job, key), dict)
+                      and value.get("identity") == identity), None)
         if isinstance(saved, dict) and saved.get("identity") == identity:
             answer = saved.get("answer")
             if isinstance(answer, dict):
@@ -297,7 +298,8 @@ class ContextualReader:
         raise AssertionError("unreachable")
 
     def relevant_index(
-        self, global_map: str, primary: list[dict[str, object]]
+        self, global_map: str, primary: list[dict[str, object]], *, maximum: int | None = None,
+        limit: int | None = None,
     ) -> list[dict[str, object]]:
         terms = set(re.findall(r"\w+", (global_map + encoded(primary)).casefold()))
         ranked = sorted(
@@ -308,8 +310,10 @@ class ContextualReader:
         )
         result: list[dict[str, object]] = []
         for item in ranked:
+            if maximum is not None and len(result) >= maximum:
+                break
             compact = {key: item.get(key) for key in ("id", "title", "type")}
-            if self.dependencies.count_tokens(encoded(result + [compact])) > self.budget // 12:
+            if self.dependencies.count_tokens(encoded(result + [compact])) > (self.budget // 12 if limit is None else limit):
                 continue
             result.append(compact)
         return result

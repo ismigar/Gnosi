@@ -75,7 +75,8 @@ function applyJob(id: string, job: ResourceProcessingJob, t: TFunction): boolean
     update(id, { ...(unavailable ? {} : { job }), state, error });
     if (state === 'running') return false;
     stop(id);
-    if (state === 'done') toast.success(t('llm_wiki.done_toast', { count: countTouchedPages(job), defaultValue: '{{count}} Brain pages updated' }));
+    if (state === 'done' && job.warnings?.length) toast(t('llm_wiki.done_with_warnings', { defaultValue: 'Saved with observations to review' }));
+    else if (state === 'done') toast.success(t('llm_wiki.done_toast', { count: countTouchedPages(job), defaultValue: '{{count}} Brain pages updated' }));
     else toast.error(error);
     return true;
 }

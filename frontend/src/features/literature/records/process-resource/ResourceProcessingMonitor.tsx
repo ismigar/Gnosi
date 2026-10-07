@@ -26,14 +26,15 @@ function ProcessingCard({ task, onOpen }: { readonly task: ResourceProcessingTas
     const phase = getProcessPhase(task.job);
     const progress = getProgressPercent(task.job);
     const running = task.state === 'running';
-    const Icon = running ? Loader2 : task.state === 'done' ? CheckCircle2 : AlertTriangle;
+    const needsReview = (task.job?.warnings?.length ?? 0) > 0;
+    const Icon = running ? Loader2 : task.state === 'done' && !needsReview ? CheckCircle2 : AlertTriangle;
     const status = running ? t(`llm_wiki.phase_${phase.key}`, phase.defaultLabel)
-        : task.state === 'done' ? t('llm_wiki.done_title', 'Resource processed')
+        : task.state === 'done' ? needsReview ? t('llm_wiki.done_with_warnings', 'Saved with observations to review') : t('llm_wiki.done_title', 'Resource processed')
             : t('llm_wiki.background_error', 'Processing needs attention');
     return <article className="resource-processing-card">
         <button type="button" className="resource-processing-card-open" onClick={onOpen}
             aria-label={t('llm_wiki.background_open', { defaultValue: 'Show processing details: {{title}}', title: task.title || t('llm_wiki.modal_title') })}>
-            <Icon size={18} aria-hidden="true" className={running ? 'animate-spin text-[var(--gnosi-primary)]' : task.state === 'done' ? 'text-green-500' : 'text-red-500'} />
+            <Icon size={18} aria-hidden="true" className={running ? 'animate-spin text-[var(--gnosi-primary)]' : task.state === 'done' && !needsReview ? 'text-green-500' : 'text-[var(--status-warning)]'} />
             <span className="resource-processing-card-content">
                 <span className="resource-processing-card-title">{task.title || t('llm_wiki.modal_title', 'Process resource into the Brain')}</span>
                 <span className="resource-processing-card-status" role="status">{status}</span>

@@ -93,14 +93,8 @@ def classify_request(message: str, *, has_images: bool = False,
 
 
 # Above this fraction of the monthly cost cap the router behaves as
-# budget-tight (prefer local/cheap) before hard-stopping at the cap itself.
+# budget-tight (prefer local/cheap); the cap blocks only when requested.
 _NEAR_CAP_RATIO = 0.8
-
-
-def _is_free(model: Dict[str, Any]) -> bool:
-    """Models that cost nothing to run (local, or 0-priced remote)."""
-    return bool(model.get("is_local")) or (
-        not model.get("cost_in") and not model.get("cost_out"))
 
 
 def _quota_exhausted(model: Dict[str, Any], usage: Dict[str, int]) -> bool:
@@ -134,7 +128,7 @@ def route_model(
                  "prefer_local_below": int} → if few paid tokens remain, it degrades to local.
       Money cap (both INJECTED, cf. `budget_status`): {"cost_cap_usd": float,
       "spent_usd": float} → ≥80% of the cap prefers cheap/local, at/over the cap
-      only zero-cost models remain (reason "budget_exhausted" if none).
+      routing stops only with `enforce_block` (reason "budget_exhausted").
     - `manual`: {provider, model_id} → forces a model (manual mode), if available.
     Returns {provider, model_id, reason, estimated_cost_per_1k}.
 
@@ -144,6 +138,12 @@ def route_model(
     budget = budget or {}
     features = classify_request(message, has_images=has_images, context_tokens=context_tokens)
 
+    cap_usd = float(budget.get("cost_cap_usd") or 0)
+    spent_usd = float(budget.get("spent_usd") or 0)
+    over_cap = cap_usd > 0 and spent_usd >= cap_usd
+    if over_cap and budget.get("enforce_block"):
+        return {"provider": None, "model_id": None, "reason": "budget_exhausted"}
+
     # Manual mode: respects the choice if the provider is alive
     if manual and manual.get("model_id"):
         if is_available(manual.get("provider", "")):
@@ -152,11 +152,7 @@ def route_model(
     # Tight budget → prefer local (cost 0).
     remaining = budget.get("remaining_tokens")
     below = budget.get("prefer_local_below", 0)
-    # Money cap (injected by the caller: cap in USD + USD spent this period)
-    cap_usd = budget.get("cost_cap_usd") or 0
-    spent_usd = budget.get("spent_usd") or 0
-    over_cap = bool(cap_usd) and spent_usd >= cap_usd
-    near_cap = bool(cap_usd) and not over_cap and spent_usd >= _NEAR_CAP_RATIO * cap_usd
+    near_cap = cap_usd > 0 and not over_cap and spent_usd >= _NEAR_CAP_RATIO * cap_usd
     budget_tight = bool(budget.get("prefer_local")) or near_cap or (
         remaining is not None and below and remaining <= below)
 
@@ -180,16 +176,6 @@ def route_model(
     if not candidates:
         return {"provider": None, "model_id": None, "reason": "cap proveïdor disponible"}
 
-    # Spend cap reached → only zero-cost models survive; with none available
-    # the caller degrades gracefully (503 on one-shot endpoints).
-    if over_cap:
-        if budget.get("enforce_block"):
-            return {"provider": None, "model_id": None, "reason": "budget_exhausted"}
-        free = [m for m in candidates if _is_free(m)]
-        if not free:
-            return {"provider": None, "model_id": None, "reason": "budget_exhausted"}
-        candidates = free
-
     desired = features["desired_quality"]
 
     def score(m: Dict[str, Any]) -> tuple[float, ...]:
@@ -203,9 +189,7 @@ def route_model(
         return (q_gap, avg_cost, m.get("priority", 999))
 
     best = sorted(candidates, key=score)[0]
-    if over_cap:
-        reason = "budget_cap→free"
-    elif budget_tight and best.get("is_local"):
+    if budget_tight and best.get("is_local"):
         reason = "budget→local"
     elif budget_tight:
         reason = "budget→barat"

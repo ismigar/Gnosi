@@ -60,7 +60,8 @@ export function ProcessResourceModalView({
     const progress = getProgressPercent(job);
     const created = job?.created ?? [];
     const updated = job?.updated ?? [];
-    const warnings = job?.warnings ?? [];
+    const warnings = [...new Set(job?.warnings ?? [])];
+    const ResultIcon = warnings.length ? AlertTriangle : CheckCircle2;
 
     return (
         <div
@@ -173,16 +174,16 @@ export function ProcessResourceModalView({
                     ) : null}
 
                     {state === 'done' ? (
-                        <div className="flex items-start gap-3 rounded-lg border border-green-500/30 bg-green-500/5 p-3">
-                            <CheckCircle2
-                                className="text-green-500 shrink-0 mt-0.5"
+                        <div className={`flex items-start gap-3 rounded-lg border p-3 ${warnings.length ? 'border-[var(--status-warning)]' : 'border-green-500/30 bg-green-500/5'}`}>
+                            <ResultIcon
+                                className={`shrink-0 mt-0.5 ${warnings.length ? 'text-[var(--status-warning)]' : 'text-green-500'}`}
                                 size={18}
                             />
                             <div className="text-xs text-[var(--text-secondary)]">
                                 <div className="text-sm font-semibold text-[var(--text-primary)] mb-1">
                                     {translate(
-                                        'done_title',
-                                        'Resource processed',
+                                        warnings.length ? 'done_with_warnings' : 'done_title',
+                                        warnings.length ? 'Saved with observations to review' : 'Resource processed',
                                     )}
                                 </div>
                                 {created.length > 0 ? (

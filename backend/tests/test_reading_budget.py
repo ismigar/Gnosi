@@ -120,6 +120,48 @@ def test_sdk_hidden_retries_disabled_and_failed_request_retains_reservation():
     assert len(calls) == 1
 
 
+@pytest.mark.parametrize('limit,recovers', [(.03, False), (.10, True)])
+@pytest.mark.parametrize('asynchronous', [False, True])
+def test_connection_recovery_reserves_each_attempt_and_preserves_unknown_cost(monkeypatch, limit, recovers, asynchronous):
+    import asyncio
+    from backend.domains.llm_wiki import recovery
+
+    waits, calls = [], []
+    monkeypatch.setattr(recovery, 'time', SimpleNamespace(monotonic=lambda: 0, sleep=waits.append))
+    monkeypatch.setattr(recovery, 'random', SimpleNamespace(uniform=lambda *_args: 0))
+    def response(request):
+        calls.append(request)
+        if len(calls) == 1:
+            raise httpx.ReadError('connection lost while receiving the response', request=request)
+        return httpx.Response(200, json={'id': 'gen-offline-retry', 'object': 'chat.completion', 'created': 1, 'model': 'test',
+            'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': 'saved notes'}, 'finish_reason': 'stop'}],
+            'usage': {'prompt_tokens': 10, 'completion_tokens': 3, 'total_tokens': 13, 'cost': .001}})
+    identifier = budget.configure(limit)
+    async def invoke_async():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(response)) as client:
+            model = instrument(ChatOpenAI(model='test', api_key='fake', base_url='https://test.invalid',
+                max_tokens=16384, http_async_client=client), 'openrouter', 'test')
+            return await model.ainvoke('source')
+    with httpx.Client(transport=httpx.MockTransport(response)) as client:
+        model = instrument(ChatOpenAI(model='test', api_key='fake', base_url='https://test.invalid',
+            max_tokens=16384, http_client=client), 'openrouter', 'test')
+        def run():
+            return recovery.call_with_retry(lambda _timeout: asyncio.run(invoke_async()) if asynchronous else model.invoke('source'),
+                on_wait=lambda: None, on_attempt=lambda: None)
+        with budget.session(identifier):
+            if recovers:
+                assert run().content == 'saved notes'
+            else:
+                with pytest.raises(budget.ReadingBudgetError, match='reading_budget_pending_cost'):
+                    run()
+    assert waits == [5]
+    assert len(calls) == (2 if recovers else 1)
+    status = budget.status(identifier)
+    assert status['limit_usd'] == limit
+    assert status['reserved_usd'] > 0
+    assert status['spent_usd'] == (.001 if recovers else 0)
+
+
 def test_unknown_tariff_or_unbounded_output_fails_closed():
     with budget.session(budget.configure(.50)):
         for parameters, rates in [({}, {'cost_in': 1, 'cost_out': 1}), ({'max_tokens': 1}, None),

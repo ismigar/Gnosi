@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from backend.domains.llm_wiki.chunking import encoded, records
-from backend.domains.llm_wiki.contextual_reading import fingerprint
-from backend.domains.llm_wiki.semantic_context import groups, relevant, source_view
-from backend.domains.llm_wiki.reading_batch_recovery import _has_answer_tokens
-from backend.domains.llm_wiki.semantic_contracts import bind_review, fields, review_schema, semantic_note
+from backend.domains.llm_wiki.semantic_context import source_view
+from backend.domains.llm_wiki.semantic_contracts import semantic_note
+from backend.domains.llm_wiki.reading_quality import REVALIDATABLE_REVIEW_VERSIONS, REVIEW_QUALITY_VERSION, adjacent_originals, prose_issues
+
 
 if TYPE_CHECKING:
     from backend.domains.llm_wiki.semantic_reading import SemanticReader
@@ -16,61 +16,63 @@ if TYPE_CHECKING:
 
 def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> list[tuple[dict[str, object], dict[str, object]]]:
     reader = engine.reader
+    if engine.state.get("review_quality_version") != REVIEW_QUALITY_VERSION:
+        # Retain the paid interpretations and maps, but an earlier review did
+        # not check prose integrity or unresolved evidence. Never certify it.
+        engine.state["previous_reviewed_groups"] = deepcopy(engine.state.get("reviewed_groups", {}))
+        if engine.state.get("review_quality_version") not in REVALIDATABLE_REVIEW_VERSIONS:
+            engine.state["reviewed_groups"] = {}
+            engine.state["reviewed_ranges"] = {}
+            engine.state["review_sources"] = {}
+        engine.state["review_quality_version"] = REVIEW_QUALITY_VERSION
+        engine.state["completed"] = False
+        engine.save()
     reviewed = [(chunk, deepcopy(engine.state["plans"][str(chunk["id"])])) for chunk in reader.chunks]
-    entries = []
+    neighbours = adjacent_originals(reader.chunks)
+    entries: list[dict[str, object]] = []
     destinations = []
     for ci, (chunk, plan) in enumerate(reviewed):
+        plan["prior_warnings"] = list(dict.fromkeys(str(w) for w in plan.get("warnings", []) if isinstance(w, str)))
+        plan["warnings"] = []
         for ni, note in enumerate(records(plan.get("notes"))):
             primary = {**next(s for s in records(chunk.get("segments")) if s["id"] == note["source_segment_id"]),
                        "origin_label": chunk.get("origin_label")}
             cited = {c["segment_id"] for c in records(note.get("citations"))}
             support = [s for s in records(plan.get("evidence_segments")) if s["id"] in cited and s != primary]
+            support = list({encoded(s): s for s in [*support, *neighbours.get(str(primary["id"]), [])]}.values())
             entries.append({"note": semantic_note(note, reader.dimensions), "primary": source_view(primary),
-                            "support": [source_view(s) for s in support]})
+                            "support": [source_view(s) for s in support],
+                            "prior_observations": plan.get("prior_warnings", []),
+                            "validation_issues": prose_issues(note, [primary, *support], reader.language)})
             destinations.append((ci, ni, note, primary, [primary, *support]))
-    offset = 0
-    while offset < len(entries):
-        maximum = engine.state.get("review_size_limit", len(entries))
-        batch = groups(entries[offset:], engine.deps.count_tokens, reader.budget // 3, maximum)[0]
-        previous_size = engine.state.get("reviewed_ranges", {}).get(str(offset))
-        if previous_size and fingerprint(entries[offset:offset + previous_size]) in engine.state["reviewed_groups"]:
-            batch = entries[offset:offset + previous_size]
-        targets = destinations[offset:offset + len(batch)]
-        original = [{**s, "origin_label": c.get("origin_label")} for c in reader.chunks for s in records(c.get("segments"))]
-        retrieved = relevant(original, encoded(batch), engine.deps.count_tokens, reader.budget // 10)
-        evidence_targets = [(n, p, [*e, *retrieved]) for _, _, n, p, e in targets]
-        key = fingerprint(batch)
-        reader.phase("reviewing", 55 + round(18 * offset / max(1, len(entries))))
-        if key not in engine.state["reviewed_groups"]:
-            schema = review_schema(len(batch), reader.dimensions)
-            def validate(answer: dict[str, object]) -> None:
-                bind_review(answer, evidence_targets, reader.dimensions)
-            try:
-                answer = engine.ask(f"semantic-review-{key[:20]}", "verify", {
-                    "global_map": global_map, "all_notes_map": notes_map, "notes": batch,
-                    "retrieved_originals": [source_view(s) for s in retrieved],
-                    "properties": fields(reader.dimensions),
-                    "instruction": "Review EVERY supplied note against its original evidence and the joint map of ALL notes. Correct false attribution, missing caveats, contradicted conclusions and unsupported links. Return only changed notes with their one-based position; unchanged notes are retained by the application. Preserve distinct ideas. Do not remove notes or change workflow state. New quotes must be exact originals and include the note's own primary passage. An empty changes list means you found no needed correction, not that accuracy is guaranteed."}, schema, validate)
-            except Exception as error:
-                if len(batch) <= 1 or not _has_answer_tokens(error):
-                    raise
-                engine.state["review_size_limit"] = max(1, len(batch) // 2)
-                engine.save()
-                continue
-            engine.state["reviewed_groups"][key] = answer
-            engine.state.setdefault("reviewed_ranges", {})[str(offset)] = len(batch)
-            engine.save()
-        answer = engine.state["reviewed_groups"][key]
-        validated = bind_review(answer, evidence_targets, reader.dimensions)
-        reader.warnings.extend(str(w) for w in answer["warnings"])
-        for (ci, ni, _, _, _), note in zip(targets, validated, strict=True):
+    citation_check = getattr(engine.deps, "citation_issues", None)
+    if citation_check:
+        issues = citation_check([target[2] for target in destinations], reader.origins)
+        for entry, findings in zip(entries, issues, strict=True):
+            entry["validation_issues"] = [*cast(list[str], entry["validation_issues"]), *findings]
+    from backend.domains.llm_wiki.semantic_review_execution import review_batches
+    for batch, validated in review_batches(engine, entries, destinations, global_map, notes_map):
+        for (ci, ni, _, _, _), note in zip(batch.targets, validated, strict=True):
             updated = records(reviewed[ci][1]["notes"])
             updated[ni] = note
             reviewed[ci][1]["notes"] = updated
-            # Preserve newly retrieved supporting originals for the reducer.
-            reviewed[ci][1]["evidence_segments"] = [*records(reviewed[ci][1].get("evidence_segments")), *retrieved]
-        offset += len(batch)
+        for ci in {target[0] for target in batch.targets}:
+            warnings = engine.state["reviewed_groups"][batch.key]["warnings"]
+            reviewed[ci][1]["warnings"] = list(dict.fromkeys([*reviewed[ci][1]["warnings"], *warnings]))
+            evidence = [*records(reviewed[ci][1].get("evidence_segments")), *batch.evidence]
+            reviewed[ci][1]["evidence_segments"] = list({encoded(s): s for s in evidence}.values())
     for chunk, plan in reviewed:
+        omitted = [n for n in records(plan.get("notes")) if "_review_omission" in n]
+        plan["notes"] = [n for n in records(plan.get("notes")) if "_review_omission" not in n]
+        plan["review_omissions"] = [{"title": n["title"], "segment_id": n["source_segment_id"],
+                                    "reason": n["_review_omission"]} for n in omitted]
+        retained = {n["source_segment_id"] for n in records(plan["notes"])}
+        coverage = records(plan["coverage"])
+        for row in coverage:
+            reasons = [str(n["_review_omission"]) for n in omitted if n["source_segment_id"] == row["segment_id"]]
+            if reasons and row["segment_id"] not in retained:
+                row["reason"] = "Excluded during review: " + "; ".join(dict.fromkeys(reasons))
+        plan["coverage"] = coverage
         from backend.domains.llm_wiki.reading_contracts import validate_notes
         from backend.domains.llm_wiki.reading_action_contracts import validate_note_dimensions
         validate_notes(plan, records(chunk.get("segments")), records(plan.get("evidence_segments")))

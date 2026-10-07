@@ -1,3 +1,4 @@
+import { resetBrowserTestStorage } from '../../../../tests/browser-storage';
 import { act, type ComponentProps } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -73,7 +74,7 @@ describe('VaultGallery', () => {
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);
-        window.sessionStorage.clear();
+        resetBrowserTestStorage('session');
     });
 
     afterEach(() => {

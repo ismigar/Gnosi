@@ -357,3 +357,30 @@ def test_explicit_assignments_override_defaults_and_clear_old_values_on_reproces
     assert saved[1]["Summary"] is None
     assert saved[1]["Tags"] == ["Manual tag"]
     assert saved[1]["Done"] is False and saved[1]["Score"] == 0
+
+
+@pytest.mark.parametrize('reverse', [False, True])
+def test_duplicate_and_missing_registry_notes_cannot_create_another_active_copy(tmp_path: Path, reverse: bool) -> None:
+    pages = []
+    for name in ['a', 'b', 'orphan']:
+        path = tmp_path / f'{name}.md'
+        if name != 'orphan':
+            path.write_text(f'Personal text for {name}')
+        pages.append(_Page(name, path, {'id': name, 'llm_wiki_key': 'key', 'llm_wiki_resource_id': 'source'}))
+    by_path = {p.path: p for p in pages}
+    saved = {}
+    def save(path, metadata, body):
+        saved[path.name] = (dict(metadata), body)
+    dependencies = replace(_dependencies(tmp_path),
+        get_pages_for_table=lambda _: list(reversed(pages)) if reverse else pages,
+        parse_frontmatter=lambda content, path: (dict(by_path[path].metadata), content),
+        save_page_md=save)
+    result = writing.apply_plan({'notes': [{'title': 'Corrected', 'managed_key': 'key', 'body_md': 'Supported idea'}]},
+                               'source', 'Source', 'brain', dependencies=dependencies)
+    assert result == {'created': [], 'created_ids': [], 'updated': ['Corrected']}
+    assert set(saved) == {'a.md', 'b.md'}
+    assert saved['a.md'][0]['llm_wiki_stale'] is False
+    assert 'Personal text for a' in saved['a.md'][1] and 'Supported idea' in saved['a.md'][1]
+    assert saved['b.md'][0]['llm_wiki_stale'] is True
+    assert saved['b.md'][1] == 'Personal text for b'
+    assert not (tmp_path / 'orphan.md').exists()

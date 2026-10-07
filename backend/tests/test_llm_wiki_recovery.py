@@ -15,7 +15,7 @@ from unittest.mock import Mock
 
 import httpx
 import pytest
-from openai import APIStatusError, RateLimitError
+from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 
 from backend.domains.llm_wiki import recovery
 from backend.services import llm_wiki, llm_wiki_storage
@@ -212,6 +212,55 @@ def test_other_transient_provider_errors_recover(clock: Clock, error: Exception)
     assert clock.waits == [5]
 
 
+def sdk_connection_error() -> APIConnectionError:
+    """Reproduce the installed SDK/LangChain chain, including its httpx2 transport."""
+    import httpx2
+    from langchain_openai.chat_models.base import OpenAIConnectionError
+
+    request = httpx2.Request("POST", "https://provider.invalid/chat")
+    transport = httpx2.ReadError("", request=request)
+    sdk = APIConnectionError(request=request)
+    sdk.__cause__ = transport
+    error = OpenAIConnectionError(request=request)
+    error.__cause__ = sdk
+    return error
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_sdk_connection_failure_retries_same_phase(clock: Clock, wrapped: bool) -> None:
+    error = sdk_connection_error()
+    call = Mock(side_effect=[error if wrapped else error.__cause__, "saved result"])
+    waiting, attempting = Mock(), Mock()
+    assert recovery.call_with_retry(call, on_wait=waiting, on_attempt=attempting) == "saved result"
+    assert clock.waits == [5]
+    assert call.call_args_list[0].args == call.call_args_list[1].args == (240,)
+    waiting.assert_called_once_with()
+    assert attempting.call_count == 2
+
+
+def test_persistent_sdk_connection_failure_stops_at_retry_limit(clock: Clock) -> None:
+    error = sdk_connection_error()
+    call = Mock(side_effect=error)
+    with pytest.raises(APIConnectionError) as raised:
+        recovery.call_with_retry(call, on_wait=Mock(), on_attempt=Mock())
+    assert raised.value is error
+    assert call.call_count == 5
+    assert clock.waits == [5, 10, 20, 40]
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_sdk_timeout_recovers_and_has_a_readable_message(clock: Clock, wrapped: bool) -> None:
+    import httpx2
+    from langchain_openai.chat_models.base import OpenAITimeoutError
+
+    request = httpx2.Request("POST", "https://provider.invalid/chat")
+    error = OpenAITimeoutError(request) if wrapped else APITimeoutError(request)
+    call = Mock(side_effect=[error, "saved result"])
+    assert recovery.processing_error_message(error) == recovery.PROVIDER_TIMEOUT_MESSAGE
+    assert recovery.call_with_retry(call, on_wait=Mock(), on_attempt=Mock()) == "saved result"
+    assert clock.waits == [5]
+
+
 @pytest.fixture
 def ingest(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     """Exercise the real ingestion and job storage using two small source chunks."""
@@ -405,11 +454,12 @@ def test_failed_resume_carries_reused_fragments_into_the_next_job(monkeypatch, c
 
 
 @pytest.mark.parametrize("force", [False, True])
+@pytest.mark.parametrize("pending_quality", [False, True])
 @pytest.mark.parametrize("failure,expected_error", [
     (provider_error(), "Rate limit"),
     (TimeoutError(), recovery.PROVIDER_TIMEOUT_MESSAGE),
 ])
-def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, tmp_path, force, failure, expected_error) -> None:
+def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, tmp_path, force, pending_quality, failure, expected_error) -> None:
     _run, _apply, _chunks = ingest
     from backend.services import agent_execution, agent_execution_store
     from backend.services.agent_execution_models import AgentExecutionSnapshot, ExecutionScope
@@ -431,7 +481,7 @@ def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, t
     monkeypatch.setattr("backend.services.llm_wiki_generation.generate_text", generate)
     kwargs = dict(
         source_table_id="sources", source_table={"id": "sources"},
-        source_config={"table_id": "sources"},
+        source_config={"table_id": "sources"}, max_cost_usd=1.0,
     )
     first = llm_wiki.start_ingest("resource", "Book", {}, "", "brain", tmp_path, **kwargs)
     status = llm_wiki_storage.get_job_status(str(first["job_id"]))
@@ -439,11 +489,47 @@ def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, t
     assert status["running"] is False
     assert status["progress"] == 37
     assert expected_error in status["error"]
+    if pending_quality:
+        llm_wiki_storage.finish_job(str(first['job_id']), phase='done', quality_status='needs_review')
+        assert llm_wiki_storage.get_job_status(str(first['job_id']))['phase'] == 'partial'
     generate = Mock(side_effect=[answer("one"), answer("two")])
     monkeypatch.setattr("backend.services.llm_wiki_generation.generate_text", generate)
     second = llm_wiki.start_ingest("resource", "Book", {}, "", "brain", tmp_path, force=force, **kwargs)
     assert generate.call_count == (2 if force else 1)
-    assert llm_wiki_storage.get_job_status(str(second["job_id"]))["phase"] == "done"
+    second_status = llm_wiki_storage.get_job_status(str(second["job_id"]))
+    assert second_status["phase"] == "done"
+    assert (second_status['budget_id'] == status['budget_id']) is not force
+
+
+def test_quality_pending_status_remains_resumable_after_restart_without_rewriting_audit(ingest, monkeypatch):
+    job = llm_wiki_storage.create_job('sources', 'resource')
+    identifier = str(job['job_id'])
+    llm_wiki_storage.finish_job(identifier, phase='done', quality_status='needs_review',
+                               budget_id='original-budget', warnings=['Unresolved citation'], chunks_done=191)
+    raw = llm_wiki_storage._job_path(identifier).read_bytes()
+    monkeypatch.setattr(llm_wiki_storage, '_JOBS', {})
+    for lookup, table in [(identifier, ''), ('resource', 'sources')]:
+        status = llm_wiki_storage.get_job_status(lookup, table)
+        assert status['phase'] == 'partial' and not status['running']
+        assert status['budget_id'] == 'original-budget' and status['chunks_done'] == 191
+        assert status['warnings'] == ['Unresolved citation']
+    assert llm_wiki_storage._job_path(identifier).read_bytes() == raw
+
+
+@pytest.mark.parametrize('version', [None, -1, 'current'])
+def test_completed_semantic_acceptance_is_versioned_without_forcing_a_new_budget(ingest, version):
+    from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION
+    job = llm_wiki_storage.create_job('sources', 'resource')
+    identifier = str(job['job_id'])
+    current = version == 'current'
+    llm_wiki_storage.finish_job(identifier, phase='done', reading_engine='semantic',
+        quality_status='validated', reviewed=True, budget_id='original',
+        quality_review_version=REVIEW_QUALITY_VERSION if current else version)
+    status = llm_wiki_storage.get_job_status(identifier)
+    assert status['phase'] == ('done' if current else 'partial')
+    assert status['reviewed'] is current
+    assert status['quality_status'] == ('validated' if current else 'needs_review')
+    assert status['budget_id'] == 'original'
 
 
 @pytest.mark.parametrize("error,expected", [

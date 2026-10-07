@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Callable
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Protocol
 
@@ -24,18 +25,22 @@ TemporaryRoot = Callable[[], Path]
 
 class _PillowImage(Protocol):
     def save(self, path: str) -> object: ...
+    def close(self) -> None: ...
 
 
 class _PdfBitmap(Protocol):
     def to_pil(self) -> _PillowImage: ...
+    def close(self) -> None: ...
 
 
 class _PdfPage(Protocol):
     def render(self, *, scale: float) -> _PdfBitmap: ...
+    def close(self) -> None: ...
 
 
 class _PdfDocument(Protocol):
     def __getitem__(self, page_index: int) -> _PdfPage: ...
+    def close(self) -> None: ...
 
 
 def extract_pdf(
@@ -54,29 +59,44 @@ def extract_pdf(
     section: dict[str, object] = {}
     segments: list[Segment] = []
     pdfium: _PdfDocument | None = None
-    for page_number, page in enumerate(reader.pages, start=1):
-        if page_number in headings:
-            section = headings[page_number]
-        text = str(page.extract_text() or "").strip()
-        if len(re.sub(r"\s+", "", text)) < 30 and shutil.which("tesseract"):
-            try:
-                if pdfium is None:
-                    import pypdfium2  # type: ignore[import-untyped]  # Third-party adapter lacks py.typed.
+    with ExitStack() as resources:
+        for page_number, page in enumerate(reader.pages, start=1):
+            if page_number in headings:
+                section = headings[page_number]
+            text = str(page.extract_text() or "").strip()
+            if len(re.sub(r"\s+", "", text)) < 30 and shutil.which("tesseract"):
+                try:
+                    if pdfium is None:
+                        import pypdfium2  # type: ignore[import-untyped]  # Third-party adapter lacks py.typed.
 
-                    pdfium = pypdfium2.PdfDocument(str(path))
-                with tempfile.NamedTemporaryFile(suffix=".png", dir=temporary_root()) as tmp:
-                    image = pdfium[page_number - 1].render(scale=2.0).to_pil()
-                    image.save(tmp.name)
-                    text = run_tesseract(Path(tmp.name))
-            except Exception as error:
-                logger.warning("llm_wiki PDF OCR failed on page %s: %s", page_number, error)
-        for paragraph_number, paragraph in enumerate(split_paragraphs(text), start=1):
-            segments.append(
-                {
-                    "text": paragraph,
-                    "locator": {"page": page_number, "paragraph": paragraph_number, **section},
-                }
-            )
+                        pdfium = pypdfium2.PdfDocument(str(path))
+                        resources.callback(pdfium.close)
+                    with ExitStack() as rendered:
+                        pdf_page = pdfium[page_number - 1]
+                        rendered.callback(pdf_page.close)
+                        bitmap = pdf_page.render(scale=2.0)
+                        rendered.callback(bitmap.close)
+                        image = bitmap.to_pil()
+                        rendered.callback(image.close)
+                        with tempfile.NamedTemporaryFile(suffix=".png", dir=temporary_root()) as tmp:
+                            image.save(tmp.name)
+                            recognized = run_tesseract(Path(tmp.name))
+                        if recognized.strip():
+                            text = recognized
+                        elif not text and page.images:
+                            raise RuntimeError("OCR returned no text for an image page")
+                except Exception as error:
+                    logger.warning("llm_wiki PDF OCR failed on page %s: %s", page_number, error)
+                    raise RuntimeError(f"PDF OCR incomplete on page {page_number}: {error}") from error
+            elif not text and page.images:
+                raise RuntimeError(f"PDF OCR is required on page {page_number}, but Tesseract is unavailable")
+            for paragraph_number, paragraph in enumerate(split_paragraphs(text), start=1):
+                segments.append(
+                    {
+                        "text": paragraph,
+                        "locator": {"page": page_number, "paragraph": paragraph_number, **section},
+                    }
+                )
     return segments
 
 

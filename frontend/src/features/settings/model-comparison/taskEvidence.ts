@@ -28,10 +28,13 @@ export function taskEvidence(stored: StoredTaskEvidence | undefined, provider: s
         }
     }
     const cases = [...selected.values()];
-    const accepted = (item: typeof cases[number]) => item.passed && (!item.requires_review || item.review === 'accepted');
-    const complete = criteria.length > 0 && cases.length === criteria.length && cases.every(accepted);
-    return { cases, expected: criteria.length, complete,
-        stale: cases.some(item => now - Date.parse(item.checked_at) > (stored?.suite.max_age_days ?? 30) * 86400000),
+    // The suite owns review requirements, not a potentially incomplete saved row.
+    const accepted = (item: typeof cases[number]) => item.passed && item.review !== 'rejected'
+        && (!(item.requires_review || criteria.find(criterion => criterion.id === item.id)?.requires_review) || item.review === 'accepted');
+    const covered = tasks.length > 0 && tasks.every(task => criteria.some(criterion => criterion.tasks.includes(task)));
+    const complete = covered && criteria.length > 0 && cases.length === criteria.length && cases.every(accepted);
+    const stale = cases.some(item => now - Date.parse(item.checked_at) > (stored?.suite.max_age_days ?? 30) * 86400000);
+    return { cases, expected: criteria.length, complete, current: complete && !stale, stale,
         failed: cases.some(item => !item.passed || item.review === 'rejected'),
         tasks: tasks.map(task => {
             const required = criteria.filter(criterion => criterion.tasks.includes(task));

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION
+
 import logging
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -114,6 +116,7 @@ class IngestionDependencies:
     batch_size: int = 1
     max_action_steps: int = 64
     execution_metadata: dict[str, object] | None = None
+    citation_issues: Callable[[list[dict[str, object]], list[dict[str, object]]], list[list[str]]] | None = None
     input_budget: int = 24000
     count_tokens: Callable[[str], int] = lambda text: len(text.encode("utf-8"))
 
@@ -226,6 +229,7 @@ def process_resource(
         dependencies,
     )
     sources.warnings.extend(str(w) for w in iterable_values(plan.get("warnings", [])) if isinstance(w, str))
+    sources.warnings[:] = list(dict.fromkeys(sources.warnings))
     model = next((item for item in reversed(models) if item), "")
     report = _build_report(
         sources,
@@ -237,7 +241,10 @@ def process_resource(
     )
     report["execution"] = dependencies.execution_metadata or {}
     report["coverage"] = plan.get("coverage", [])
-    report["reviewed"] = plan.get("reviewed", False)
+    report["review_completed"] = plan.get("reviewed", False)
+    report["quality_review_version"] = plan.get("quality_review_version")
+    report["reviewed"] = bool(report["review_completed"] and not sources.warnings)
+    report["quality_status"] = "validated" if report["reviewed"] else "needs_review"
     _save_manifest(
         resolved_table_id,
         source_page_id,
@@ -323,7 +330,8 @@ def _resolve_plan(
     if (checkpoint_plan and checkpoint_hashes == current_hashes
             and resume_checkpoint is not None
             and resume_checkpoint.get("reading_revision") == reading_revision
-            and checkpoint_plan.get("reviewed") is True):
+            and checkpoint_plan.get("reviewed") is True
+            and (not dependencies.semantic_reading or checkpoint_plan.get("quality_review_version") == REVIEW_QUALITY_VERSION)):
         model = str(resume_checkpoint.get("model") or "") if resume_checkpoint else ""
         if job_id:
             dependencies.update_job(
@@ -444,6 +452,9 @@ def _save_manifest(
             "warnings": sources.warnings,
             "execution": report.get("execution", {}),
             "reviewed": report.get("reviewed", False),
+            "review_completed": report.get("review_completed", False),
+            "quality_review_version": report.get("quality_review_version"),
+            "quality_status": report["quality_status"],
             "coverage": report.get("coverage", []),
         }
     )

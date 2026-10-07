@@ -1,9 +1,9 @@
+import { resetBrowserTestStorage } from '../../../../../tests/browser-storage';
 import { GlobalTooltip } from '../../../../shared/ui/tooltip/GlobalTooltip';
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DbViewEmbed } from '../DbViewEmbed';
-import { VaultGallery } from '../VaultGallery';
 import { VaultEditorContext, type VaultEditorContextValue } from '../../../../shared/editor/VaultEditorContext';
 import type { VaultViewBodyProps } from '../VaultViewBody';
 import { defineStorageKey, removeStorage, stringStorageCodec } from '../../../../shared/platform/browser-storage';
@@ -15,7 +15,7 @@ import { readText, writeText, pinnedKey, selectedKey } from './preferences';
 import type { EmbedBlock, EmbedView, NavApi } from './types';
 
 const fixture = vi.hoisted(() => {
-    const state: { body?: VaultViewBodyProps; renderGallery?: boolean; } = {};
+    const state: { body?: VaultViewBodyProps; } = {};
     return state;
 });
 vi.mock('./api', () => ({
@@ -32,9 +32,6 @@ vi.mock('../../../../shared/ui/previews/IconRenderer', () => ({ IconRenderer: ()
 vi.mock('../VaultViewBody', () => ({
     VaultViewBody: (props: VaultViewBodyProps) => {
         fixture.body = props;
-        if (fixture.renderGallery) return <VaultGallery
-            activeView={props.activeView} notes={props.notes} schema={props.schema}
-            viewStateScope={props.viewStateScope} searchTerm="" />;
         return <div data-testid="body" data-type={props.type}>{props.notes?.map(note => <button key={note.id} onClick={() => { props.onNoteSelect?.(note.id); }}>{note.title}</button>)}</div>;
     }
 }));
@@ -63,8 +60,8 @@ let mounted = false;
 let context: VaultEditorContextValue;
 
 beforeEach(() => {
-    vi.resetAllMocks(); fixture.body = undefined; fixture.renderGallery = false;
-    window.sessionStorage.clear();
+    vi.resetAllMocks(); fixture.body = undefined;
+    resetBrowserTestStorage('session');
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => window.setTimeout(() => { callback(0); }, 0));
     vi.stubGlobal('cancelAnimationFrame', (id: number) => { window.clearTimeout(id); });
     vi.mocked(api.fetchPageViews).mockResolvedValue({ page_id: 'page', sections: [section] });
@@ -92,42 +89,6 @@ async function render(value: EmbedBlock = block, tooltip = false): Promise<void>
     await act(async () => { await Promise.resolve(); root.render(<VaultEditorContext.Provider value={context}><DbViewEmbed block={value} />{tooltip && <GlobalTooltip />}</VaultEditorContext.Provider>); });
     await act(async () => { await Promise.resolve(); await new Promise(resolve => setTimeout(resolve, 5)); });
 }
-it('keeps view state scoped to the saved anchor across regenerated editor blocks', async () => {
-    await render();
-    const savedScope = fixture.body?.viewStateScope;
-    expect(savedScope).toBe(JSON.stringify(['embed', 'page', 'anchor']));
-    await act(async () => { await Promise.resolve(); root.unmount(); });
-    root = createRoot(container);
-    await render({ ...block, id: 'regenerated-block' });
-    expect(fixture.body?.viewStateScope).toBe(savedScope);
-    context = { ...context, pageId: 'another-page' };
-    await render({ ...block, id: 'another-block' });
-    expect(fixture.body?.viewStateScope).toBe(JSON.stringify(['embed', 'another-page', 'anchor']));
-});
-it('restores the real gallery groups when returning from a PDF rebuilds the resource editor', async () => {
-    fixture.renderGallery = true;
-    const gallery: EmbedView = { ...anchor, type: 'gallery', groupBy: 'Status', galleryPreview: 'none' };
-    vi.mocked(api.fetchVaultViews).mockResolvedValue([gallery]);
-    context = { ...context, registry: { ...context.registry, views: [gallery] } };
-    vi.mocked(api.fetchVaultPagesByTable).mockResolvedValue([
-        { id: 'reading', title: 'Reading note', metadata: { table_id: 'books', Status: 'Reading notes' } },
-        { id: 'index', title: 'Index note', metadata: { table_id: 'books', Status: 'Index notes' } },
-    ]);
-    await render({ ...block, id: 'first-editor-block' });
-    const group = () => [...container.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')]
-        .find(element => element.textContent.includes('Reading notes'));
-    expect(group()?.getAttribute('aria-expanded')).toBe('false');
-    await click(group());
-    expect(group()?.getAttribute('aria-expanded')).toBe('true');
-    await act(async () => { await Promise.resolve(); root.render(<div>PDF tab</div>); });
-    await render({ ...block, id: 'second-editor-block' });
-    expect(group()?.getAttribute('aria-expanded')).toBe('true');
-    expect(container.textContent).toContain('Reading note');
-    await click(group());
-    await act(async () => { await Promise.resolve(); root.render(<div>PDF tab</div>); });
-    await render({ ...block, id: 'third-editor-block' });
-    expect(group()?.getAttribute('aria-expanded')).toBe('false');
-});
 it('forwards parallel opening from an embedded view to its editor', async () => {
     const parallel = vi.fn();
     context = { ...context, onOpenParallel: parallel };

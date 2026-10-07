@@ -1,3 +1,5 @@
+import { emitCancelableAppEvent } from '../../../shared/platform/app-events';
+import { resetBrowserTestStorage } from '../../../../tests/browser-storage';
 import { act, useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchBrainTableStatus } from '../../../shared/api/brain';
@@ -23,7 +25,7 @@ vi.mock('../views/GalleryCardPreview', () => ({
   GalleryOpenButton: () => null,
   GalleryContentPreview: ({ note }: { note: GalleryNote }) => <a href="#citation" data-citation={note.id} onClick={event => {
     event.preventDefault();
-    window.dispatchEvent(new CustomEvent('gnosi:open-pdf', { detail: { src: 'Assets/book.pdf', title: 'Book', location: { page: 6 } }, cancelable: true }));
+    emitCancelableAppEvent('gnosi:open-pdf', { documentKey: 'Assets/book.pdf', kind: 'pdf', src: 'Assets/book.pdf', title: 'Book', location: { pageNumber: 6 } });
   }}>p. 6</a>,
 }));
 vi.mock('./EditorPane', () => ({ EditorPane: TestEditorPane }));
@@ -49,8 +51,7 @@ function required(selector: string): HTMLElement {
 async function click(element: HTMLElement) { await act(async () => { element.click(); await Promise.resolve(); }); }
 beforeEach(() => {
   vi.clearAllMocks();
-  window.localStorage.clear();
-  window.sessionStorage.clear();
+  resetBrowserTestStorage('local', 'session');
   installApiDefaults();
   vi.mocked(fetchBrainTableStatus).mockRejectedValue(new Error('disabled fixture'));
   vi.mocked(fetchReferenceTable).mockRejectedValue(new Error('disabled fixture'));

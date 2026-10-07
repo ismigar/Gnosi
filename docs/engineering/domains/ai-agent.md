@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-05
+last_verified: 2026-10-06
 source_paths:
   - frontend/src/shared/api/resource-processing.ts
   - frontend/src/features/literature/records/process-resource/useProcessResourceController.ts
@@ -14,6 +14,8 @@ source_paths:
   - backend/domains/llm_wiki/semantic_context.py
   - backend/domains/llm_wiki/semantic_review.py
   - backend/domains/llm_wiki/semantic_repairs.py
+  - backend/domains/llm_wiki/semantic_quote_selection.py
+  - backend/domains/llm_wiki/semantic_quote_contracts.py
   - backend/services/reading_semantic_estimate.py
   - backend/tests/test_semantic_reading.py
   - backend/services/agent_task_cases.py
@@ -719,6 +721,10 @@ seconds). Exponential backoff includes jitter and honors `Retry-After` seconds,
 HTTP dates and `retry-after-ms`; a cooldown beyond the budget stops the attempt
 instead of retrying early. Authentication, validation and explicit exhausted
 billing quotas are not retried, and no provider is switched automatically.
+Connection and timeout failures are recognized by their SDK types, including
+LangChain wrappers over OpenAI-compatible providers using `httpx2`. Each retry
+reserves its own cost within the existing reading budget; an earlier unknown
+charge remains reserved. SDK timeouts use the localized provider-timeout message.
 The durable job exposes `phase: retrying` during waits. The processing dialog
 keeps polling, explains rate limits and offers a retry when the job stops.
 Successful fragment plans are checkpointed with their exact prompt hash and
@@ -1224,7 +1230,7 @@ Settings → Plugins → AI → Consumption reports only Gnosi usage across all 
 
 `backend/services/ai_usage_dashboard.py` serves `/api/ai/usage/dashboard`, `/api/ai/usage/requests` and `/api/ai/usage/export` under the existing workspace permissions. Decimal USD amounts are converted to the Settings currency with exchange-rate provenance. Unknown, partial and estimated consumption remain distinct from zero and load errors. Existing monthly JSON totals are backed up and imported once, preserving provider, model and amount without inventing request dates or agents. They appear only in intervals covering their complete month; detailed request history begins with ledger activation.
 
-The current-month spending control uses the same ledger and sums all providers independently of dashboard dates and filters. It shows the configured cap, spent amount and remaining budget in the Settings currency. A zero or empty cap means unlimited. Agent and team guards reject new calls at the cap only when blocking is enabled; other routing constraints still apply. `backend/tests/test_ai_consumption.py` covers provider separation, cost quality, streaming, idempotency, migration, currency and current-month/filter consistency; agent and team tests cover blocking on and off.
+The current-month spending control uses the same ledger and sums all providers independently of dashboard dates and filters. It shows the configured cap, spent amount and remaining budget in the Settings currency. A zero or empty cap means unlimited. Agent and team guards reject new calls at the cap only when blocking is enabled. With blocking disabled, paid models and optional model-selection requests remain eligible above the cap. Automatic, adaptive, resilient and manual routes share this policy; zero or absent caps never block a selector. Availability, token quotas, context limits and individual reading budgets still apply. `backend/tests/test_ai_consumption.py` covers provider separation, cost quality, streaming, idempotency, migration, currency and current-month/filter consistency; agent and team tests cover blocking on and off.
 
 
 Quoted equality filters keep the literal resource title in Catalan, Spanish, English, and French, including `donde` and `où`. Explicit field assignments such as `set estat to "En revisió"` or `définis estat sur "En revisió"` use the complete verified inventory and require confirmation before writing. Negated or explanatory wording does not authorize an update. These deterministic flows do not establish model suitability.
@@ -1276,7 +1282,7 @@ Explicit authorization and a positive budget (default 0.05 USD, converted to the
 
 Automatic checks verify the specified factual and structural contract, not prose quality. Open-ended work requires human acceptance or rejection after reviewing fidelity, coverage, clarity and usefulness against the source. Review comments and dates are saved in the same scoped report without model calls. A pending review cannot count as complete evidence. Rejection excludes the route for the relevant functions. Human acceptance cannot override failed factual checks. Review requires owner/admin access and cannot modify another user's evidence or an actively running report.
 
-Reuse requires the same user, workspace, vault, exact provider/model, suite version and inference mode. The work-suite version hashes prompts, expected data and review requirements, so changed test sets cannot borrow old evidence. Results no longer expire automatically: 30 days is an age-warning policy, not a validity measurement or paid-retest trigger. Original dates are retained across reuse. Providers can silently revise a model; the warning invites an explicit retest when that matters. Only missing cases run unless the user requests repetition. Shared results and human reviews are reusable across bots with matching functions. Checks and reviews never assign or activate models. Concurrent checks of the same route are rejected.
+Reuse requires the same user, workspace, vault, exact provider/model, suite version and inference mode. The work-suite version hashes prompts, expected data and review requirements, so changed test sets cannot borrow old evidence. Results remain stored and reusable without automatic paid retests. After 30 days, successful evidence no longer earns current checked status or recommendation priority; the age threshold is an advisory policy, not a measurement of validity. Original dates are retained across reuse. Providers can silently revise a model; the warning invites an explicit retest when that matters. Only missing cases run unless the user requests repetition. Shared results and human reviews are reusable across bots with matching functions. Checks and reviews never assign or activate models. Concurrent checks of the same route are rejected.
 
 ```text
 GET  /api/agent/runs/task-evaluation-suite
@@ -1336,7 +1342,7 @@ Each interpretation returns ordered passage results with ideas, exact quotations
 
 Larger source windows contribute to a hierarchical argument map, including the ending. Local neighbours and lexical retrieval across all original passages supply context during interpretation. Prior notes, themes, questions and contradictions are stored as structured checkpoint data, and pertinent entries are selected for later reading. Every note and all observations contribute to the joint map. Review examines every proposed note with original evidence and both maps, returning sparse corrections; unchanged notes are retained locally. Exact citations establish provenance, not semantic correctness. Lexical retrieval and generated maps may miss nuance and are not a substitute for human judgment.
 
-`semantic-state` checkpoints retain maps, validated plans, observations and completed reviews. Reuse requires matching execution policy, original chunks, configured fields, knowledge context, title and language. Legacy action checkpoints remain preserved but cannot be silently imported after the skill change; preflight exposes their incompatibility and requires explicit reprocessing. No update starts a book job, changes its model or increases its spending limit. Preflight includes overview, interpretation, joint synthesis and review; note volume and repair needs are estimates, while the existing durable budget gates every actual call.
+`semantic-state` checkpoints retain maps, validated plans, observations and completed reviews. Reuse requires matching execution policy, original chunks, configured fields, title and language. When only the knowledge index changes, paid source-grounded drafts and maps remain reusable, but every note must be reviewed again with current connection candidates; previous reviews cannot certify those drafts. Legacy action checkpoints remain preserved but cannot be silently imported after the skill change; preflight exposes their incompatibility and requires explicit reprocessing. No update starts a book job, changes its model or increases its spending limit. Preflight includes overview, interpretation, joint synthesis and review; note volume and repair needs are estimates, while the existing durable budget gates every actual call.
 
 Offline regression cases cover complete long-source delivery, joint review, attribution corrections, exact quotation binding, configured property types, partial repair, output-driven batch reduction, checkpoint reuse and interruption. They validate orchestration and invariants, not a live model's understanding of a whole book.
 
@@ -1344,8 +1350,99 @@ Argument maps and joint-note syntheses are requested as bounded plain text, with
 
 Complete source maps that exceed the 2,000-token target remain preserved in checkpoints. The recurring global argument map and joint-note map must fit at most 2,000 estimated tokens (less for small contexts). Each contraction returns one shorter complete synthesis from all its inputs and permits at most two governed calls. A complete oversized draft is saved and compressed using only that draft; a truncated synthesis retries once from complete input maps and never branches into more synthesis windows. A second failure stops with progress retained. Versioned contraction checkpoints include frozen execution policy, title, language and exact material; completed groups survive interruption. Preflight prices the actual saved source maps for the first contraction and only bounded navigation maps in recurring context. Originals, exact quotations, attribution checks and full note review remain authoritative; a shorter map is not proof of semantic completeness.
 
+The shorter target requested on the second contraction attempt leaves headroom; acceptance still uses the unchanged map capacity. A complete answer between that target and the capacity is valid. Resuming also promotes compatible complete drafts already within capacity into result checkpoints without another model call, including drafts saved by older stricter retries. Empty, incomplete, incompatible or still oversized drafts cannot bypass validation. No source text is cut, and the spending cap and two-call allowance remain unchanged.
+
+Interpretation and joint review select local quote IDs from numbered spans covering the complete supplied originals, beginning with the first model response. Gnosi restores the exact text before the unchanged schema, primary-passage and citation checks; a syntax correction uses the same choices. Input budgeting includes the numbered catalog, and whitespace stays attached to original evidence. Interpretation repairs include per-note diagnostics and retain valid passages and semantic memory. The operation cache keeps its validated selection contract while reading checkpoints retain literal citations, so compatible completed work remains reusable. Context-only, ambiguous, blank or invented evidence remains invalid. The two-call allowance and spending limit are unchanged. Citation failures use the existing localized evidence message, with technical details retained.
+
+Interpretations use named `passage_N` entries; review uses `note_N` entries with a replacement or null to retain the original. Each entry requires nonempty `primary_quote_ids` enumerated exclusively from its own source. Additional `context_quote_ids` cannot replace primary evidence. Partial repairs enforce the same constraints. Shared field definitions bound schema growth. Local validation rejects shifted passages and wrong-source choices before binding; saved reading plans remain compatible.
+
 Reading identity version 2 canonicalizes mapping keys and knowledge-index order. Knowledge and relation catalog limits are applied after stable sorting, so a reload cannot select a different arbitrary subset. Identity components are recorded for diagnosis; source order, text, classifications and execution policy remain significant. Complete prose maps have their own identity based on the exact material, title, language and frozen execution policy, independent of classification and knowledge context. They can be reused even when draft notes need regeneration. Older map caches require explicit evidence of a complete provider response before migration.
 
 Prose-map operations reserve at most 8,192 output tokens. Native output-limit metadata rejects incomplete text before it can be saved as a complete map or sent through a full-source format repair. Only original source windows and joint-note input windows with answer text may split; complete siblings and split decisions survive interruption. Hierarchical synthesis never splits truncated output and must contract within a finite number of levels. Overview progress advances as source windows complete; these maps are distinct from extracted note fragments.
 
 The resource-processing dialog discovers a durable running or interrupted job on opening before enabling a paid start. Opening a source page restores interrupted work to the existing corner monitor, including after reload, rather than implying successful completion. Restoring status does not start a job, emit a success notification or mark notes as created. While an idle confirmation remains open it checks for externally started work and attaches that job without another start. The shared task store owns polling after closing or navigating; discovery is abortable, does not overlap requests and cannot overwrite a pending local start. Completed historical jobs do not block explicit new processing. The dialog shows phase, percentage and localized connection/synthesis failures, with technical details available. Notes are persisted only after source interpretation and grounded review complete.
+
+During interpretation, recurring auxiliary context is bounded independently of the model window: retrieved originals use at most 8,000 estimated tokens, related notes 6,000, and observations 4,000, with proportionally smaller bounds on small models. Complete primary passages, neighbours, global maps and exact citation validation remain available. Structured semantic requests keep the schema in the operation/provider contract without another copy inside the reading input; partial repairs use the same transport. A substantial JSON answer ending before completion causes the reader to halve only the unsaved batch instead of requesting a full rewrite. Delivery can shrink from four fragments to two and then one; single-fragment failures stop. Each new attempt still reserves its own cost within the original book budget. Validated plans, source identities, complete maps and checkpoint lineage remain reusable. Smaller prompts do not establish a guaranteed provider latency. Link navigation is limited to the eight highest-ranked existing notes within 4,000 estimated tokens, without modifying the stored knowledge index.
+
+Independent source-grounded review groups now run at most two at a time through `semantic_review_execution.py`. Interpretation remains ordered. Each group retains the same complete original evidence, global map, joint note map, schema and validation as serial execution. Separate copied execution contexts inherit the authenticated vault, parent cancellation and the same atomic book-budget reservations. A single coordinator saves every successful group, including when its peer fails, and applies corrections in source order. Failed oversized groups shrink without repeating saved neighbouring groups. A reservation blocked by its peer can be retried once that wave has made progress; a wave without progress pauses. Structured transport requests compact JSON formatting only, preserving string contents, notes, explanations, qualifications and evidence choices. Canonical checkpoint identities stay compatible; pretty-printed responses remain valid. Offline serial/parallel and recorded-response replays establish context and data equivalence, not identical stochastic model judgments or a promised whole-book speedup.
+
+Review quote selections retain application-generated source fingerprints alongside the exact copied text. Binding checks both that fingerprint and literal containment against the supplied originals, so repeated wording cannot silently change attribution. The shared review catalog includes every note’s primary and supporting passages; selected cross-note evidence remains available during validation and is saved with the reviewed plan. Legacy checkpoints retain their original per-note evidence scope. Unknown sources, rewritten text, misaligned selections and replacements without their own primary evidence still fail; no quote or substantive correction is dropped to complete a review.
+
+Review recovery also recognizes a JSON object cut off inside a string or at the end of input, even when a provider reports a normal stop and returns only a short prefix. It halves the unfinished group within the same budget instead of buying another full rewrite; a single-note failure stops. Older interrupted reviews with that exact parser error resume at a smaller saved size. Splits stop at already validated range boundaries, including odd group sizes, so a successful neighbouring group is never partially reviewed again. No incomplete response is accepted or completed locally.
+
+
+### Reading quality acceptance
+
+A completed provider response is not a quality verdict. Joint review includes full adjacent original passages across page boundaries and explicit prose diagnostics. Unresolved internal numeric links, undefined footnotes and unsupported mixed-script corruption reject the complete reviewed batch, including unchanged notes. Review responses explicitly list unresolved defects; a nonempty list stops before publication while preserving paid interpretations and maps. Earlier review checkpoints and reduced plans cannot bypass this versioned acceptance contract. These mechanical checks do not certify semantic truth.
+
+PDF highlighting requires a complete quote match, with native character coordinates and whitespace-only layout normalization. Short quotes are supported; repeated occurrences require an identifiable original passage. Prefix-only matches are rejected, and previously managed but now unverifiable highlights are removed when the attachment is available. Image-only pages and unresolved ambiguity remain explicit failures rather than fabricated geometry. Finished jobs retaining observations display a review warning instead of an unqualified success indicator; repeated observations are displayed once.
+
+
+Quality review version 2 also supplies earlier extraction observations to the
+reviewer. The original draft warnings remain in checkpoints and reviewed-plan
+history; current warnings contain the limitations still found during review.
+Warnings on passages without reviewable notes remain pending. The job and source
+manifest distinguish a completed review from acceptance: any remaining reading,
+extraction or citation warning keeps `reviewed` false and `quality_status` at
+`needs_review`. This does not silently erase warnings to obtain a success state.
+
+Policy exclusions also apply during joint review. A reviewer can exclude a note
+with an explicit source-grounded reason when its original passage is outside the
+active reading policy or cannot support a substantive note. The application keeps
+the passage in coverage and context, records the reason, rejects invalid or
+repeated note positions, and retains the original draft and review checkpoint.
+Already published managed notes become stale while their text and manual edits
+are preserved. Exclusions never authorize silently dropping substantive ideas to
+avoid corrections. Review quality version 3 invalidates older review decisions
+while reusing source drafts and maps.
+
+Quality review version 4 scopes each batch to its supplied notes while retaining
+the two book-wide maps as fallible navigation. The reviewer can request complete
+original pages or source-language searches for a specific note through
+`evidence_requests`, with at most two evidence rounds. Search results are bounded
+whole passages, never silently shortened originals; explicit pages either fit
+in full or stop the batch. Provisional corrections cannot publish notes or waive
+final prose, quotation or unresolved-issue checks. Each round is checkpointed and
+reused during same-job budget retries as well as restarts. Successful reviews
+retain source fingerprints for the additional originals, which are revalidated
+before reuse. Older review decisions are invalidated while source drafts and
+maps remain reusable. The repair estimate includes these optional rounds and
+their format repairs; every call still uses the same cumulative book limit.
+
+Provider transport omits the unsupported array uniqueness keyword for evidence requests; canonical validation still rejects duplicate page numbers locally.
+
+Quality review version 5 sends unresolved semantic defects through the governed
+output validator. The existing single corrective call receives the specific
+failure and can correct notes, explain a policy exclusion, or request originals.
+It does not gain extra format-repair attempts, and unresolved results still stop
+publication. Versioned phase keys prevent older accepted-but-unresolved responses
+from bypassing this correction boundary; original interpretations remain reusable.
+
+OpenRouter generation metadata can remain unavailable after a response completes. The metadata-only confirmer now retries after 2, 10, 30, 120 and 300 seconds, with at most six GETs in total. Two background workers share a bounded queue of 128 outstanding confirmations; delayed retries do not occupy workers or block newer lookups, and duplicate scheduling of an outstanding call is ignored. Only a matching provider-reported total settles a reservation. Exhausted retries retain the pending cost; they never repeat model requests, clear an unknown charge or raise the book limit.
+
+Interpretation and its bounded repairs now retain the immutable source fingerprint for every selected quote, as review already did. Restoring text must not discard an unambiguous source choice merely because the same words also occur in another paragraph. The partial-repair round trip preserves both original characters and the selected source; unsupported source substitutions and changed originals remain invalid. Older literal checkpoints stay compatible, but ambiguous context quotations without provenance still fail rather than being assigned by guesswork.
+
+Before interpretation, each stored primary segment inherits its document label from its parent chunk. The prompt, complete evidence collection and citation binder use that same source view; document labels are not assumed to be duplicated in stored segments. The complete-reader regression exercises this handoff as well as individual quote restoration.
+
+Quality review version 6 checks PDF citation geometry before review and before accepting each corrected batch, using shared page indexes and serialized PDFium access. Unlocatable or ambiguous quotations become precise corrective feedback while the substantive note must be preserved. Review warnings now enter the same bounded correction path as unresolved issues: attribution and qualified source uncertainty belong in the notes and assessment, while unresolved reading defects block acceptance. Prior observations from excluded passages remain in the audit checkpoint rather than resurfacing unchanged as final warnings. The existing interpretations and maps remain reusable; older reviews are repeated under the new quality boundary.
+
+A finished write with pending quality findings is exposed as a partial, resumable job, including historical records after an application restart. Status, preflight and execution therefore reuse the same checkpoints and accumulated budget without requiring a forced restart; the persisted audit record is unchanged.
+
+Quality review version 7 flags residual processing-boundary caveats in final note prose for source-grounded correction. This wording check is not a semantic truth classifier: it never reconstructs the source or removes qualifications automatically. Drafts remain reusable, while final review must express the supported meaning or request genuinely missing originals. Job and manifest acceptance records now carry the review version; a legacy or obsolete semantic acceptance becomes resumable without rewriting its audit record or resetting its budget.
+
+A bounded corrective review amends its preceding proposal. Null changes retain prior corrections and exclusions, while explicit replacements can change or revert them; the merged result still passes every evidence, prose and PDF geometry check before acceptance. This prevents a sparse second response from silently restoring defective original drafts. Diagnostic note numbers retain their original positions even when another note is excluded. The correction budget and quality version remain unchanged.
+
+Resume selection counts reviewed groups only when their quality version matches the current acceptance rules. An older completed review must not displace newer partial accepted work with the same source coverage; obsolete review counts otherwise cause avoidable paid repetition. Original maps and interpretations remain reusable under their existing identity checks.
+
+Quality review version 8 also detects final prose that describes the available text as cut off or a supplied sentence as lacking a complete explanation. Version 7 decisions can migrate without paid repetition only after each batch passes the current full schema, evidence, prose and citation checks. A rejected cached decision is retained in the audit; only that batch is reviewed again with its failure as feedback. Older semantic review policies still require a fresh review. Persistence ignores missing registry paths when selecting an existing managed note, selects one deterministic active copy per key, and marks other copies superseded without deleting their files or personal text.
+
+The missing-continuation check includes inconclusive-sentence wording and explicit claims that the supplied text does not contain its continuation. It still routes these findings to original-grounded review and never removes the qualification automatically.
+
+
+### Profile-specific reading evidence
+
+Book candidates must declare structured output or tool calling on the exact provider route. Their authored work sample checks literal quotes and source attribution, a sentence continued in the next passage, correction of an injected foreign word, a changed thesis and conflicting voices. The short Catalan synthesis still requires human review for language, length, fidelity and coverage; fixed data checks do not certify prose quality or a complete book. Changing the fixture changes its suite version and prevents reuse of previous passes.
+
+A profile receives current checked status only if every detected task has criteria and every criterion has a recent accepted result. Review requirements come from the suite even if a saved row omits them. Older results remain visible, and known contract failures or human rejections still exclude the affected route until superseded. No model is blacklisted by name, and infrastructure failures are not treated as model-quality failures. Opening recommendations, changing the fixtures or losing current status never runs paid tests or changes a profile’s assigned model.
+
+Citation Markdown and source locator formatting live in `backend/domains/llm_wiki/citation_rendering.py`. The `backend/services/llm_wiki.py` facade preserves its existing helper exports, source links and timestamp formatting. Settings controller tests keep mutable HTTP fixtures separate from their persistence assertions; the suite still exercises both budget switch states and reopening.

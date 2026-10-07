@@ -15,7 +15,7 @@ from backend.services import reading_budget
 from backend.services.ai_usage_dashboard import currency_context
 from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, reduce_batch
 from backend.domains.llm_wiki.semantic_context import state_progress
-from backend.domains.llm_wiki.reading_identity import reading_identity
+from backend.domains.llm_wiki.reading_identity import reading_identity, identity_parts, resume_semantic_state
 
 
 def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_root: Path,
@@ -32,7 +32,8 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     identity = (reading_identity(runtime.identity, chunks, dimensions, index) if semantic else
                 fingerprint([runtime.identity, chunks, dimensions, index]))
     previous = llm_wiki_storage.get_job_status(resource_id, str(source_table.get("id") or ""))
-    saved, previous_plans = _saved_state(previous, identity, semantic, force, source_title, language)
+    parts = identity_parts(runtime.identity, chunks, dimensions, index) if semantic else {}
+    saved, previous_plans = _saved_state(previous, identity, semantic, force, source_title, language, parts)
     batch_size = batch_limit(batch_size, saved)
     remaining = [chunk for chunk in chunks if str(chunk["id"]) not in saved.get("plans", {})]
     # Same context bound as automatic delivery; conservative fixed full memory
@@ -80,8 +81,10 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     low = high = None
     if priced and rates:
         low = (input_bound*float(rates["cost_in"])+output_assumed*float(rates["cost_out"]))/1_000_000
-        # Semantic phases permit one repair; legacy phases permit two.
-        high = (2 if semantic else 3)*(input_bound*float(rates["cost_in"])+output_bound*float(rates["cost_out"]))/1_000_000*1.10
+        # Include bounded evidence rounds as well as each call's format repair.
+        repair_input = input_bound + semantic_cost.get("evidence_input_token_bound", 0)
+        repair_output = output_bound + semantic_cost.get("evidence_output_token_bound", 0)
+        high = (2 if semantic else 3)*(repair_input*float(rates["cost_in"])+repair_output*float(rates["cost_out"]))/1_000_000*1.10
     budget = None
     if not force and previous.get("budget_id"):
         budget = reading_budget.status(str(previous["budget_id"]))
@@ -99,7 +102,7 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
 
 
 def _saved_state(previous: dict[str, Any], identity: str, semantic: bool, force: bool,
-                 source_title: str, language: str) -> tuple[dict[str, Any], int]:
+                 source_title: str, language: str, parts: dict[str, str] | None = None) -> tuple[dict[str, Any], int]:
     saved: dict[str, Any] = {}
     previous_plans = 0
     if not force and previous.get("phase") in {llm_wiki.PHASE_PARTIAL, llm_wiki.PHASE_ERROR}:
@@ -110,6 +113,8 @@ def _saved_state(previous: dict[str, Any], identity: str, semantic: bool, force:
             checkpoint = llm_wiki_storage.load_checkpoint(job_id, "semantic-state") if semantic else legacy
             if isinstance(checkpoint, dict) and isinstance(checkpoint.get("plans"), dict):
                 previous_plans = max(previous_plans, len(checkpoint["plans"]))
+            if semantic:
+                checkpoint = resume_semantic_state(checkpoint, identity, parts or {}, fingerprint([source_title, language]))
             if (isinstance(checkpoint, dict) and checkpoint.get("identity") == identity
                     and (not semantic or (checkpoint.get("engine") == 2
                          and checkpoint.get("reading_context") == fingerprint([source_title, language])))):
