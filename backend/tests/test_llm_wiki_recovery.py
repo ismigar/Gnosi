@@ -454,11 +454,12 @@ def test_failed_resume_carries_reused_fragments_into_the_next_job(monkeypatch, c
 
 
 @pytest.mark.parametrize("force", [False, True])
+@pytest.mark.parametrize("pending_quality", [False, True])
 @pytest.mark.parametrize("failure,expected_error", [
     (provider_error(), "Rate limit"),
     (TimeoutError(), recovery.PROVIDER_TIMEOUT_MESSAGE),
 ])
-def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, tmp_path, force, failure, expected_error) -> None:
+def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, tmp_path, force, pending_quality, failure, expected_error) -> None:
     _run, _apply, _chunks = ingest
     from backend.services import agent_execution, agent_execution_store
     from backend.services.agent_execution_models import AgentExecutionSnapshot, ExecutionScope
@@ -480,7 +481,7 @@ def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, t
     monkeypatch.setattr("backend.services.llm_wiki_generation.generate_text", generate)
     kwargs = dict(
         source_table_id="sources", source_table={"id": "sources"},
-        source_config={"table_id": "sources"},
+        source_config={"table_id": "sources"}, max_cost_usd=1.0,
     )
     first = llm_wiki.start_ingest("resource", "Book", {}, "", "brain", tmp_path, **kwargs)
     status = llm_wiki_storage.get_job_status(str(first["job_id"]))
@@ -488,11 +489,31 @@ def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, t
     assert status["running"] is False
     assert status["progress"] == 37
     assert expected_error in status["error"]
+    if pending_quality:
+        llm_wiki_storage.finish_job(str(first['job_id']), phase='done', quality_status='needs_review')
+        assert llm_wiki_storage.get_job_status(str(first['job_id']))['phase'] == 'partial'
     generate = Mock(side_effect=[answer("one"), answer("two")])
     monkeypatch.setattr("backend.services.llm_wiki_generation.generate_text", generate)
     second = llm_wiki.start_ingest("resource", "Book", {}, "", "brain", tmp_path, force=force, **kwargs)
     assert generate.call_count == (2 if force else 1)
-    assert llm_wiki_storage.get_job_status(str(second["job_id"]))["phase"] == "done"
+    second_status = llm_wiki_storage.get_job_status(str(second["job_id"]))
+    assert second_status["phase"] == "done"
+    assert (second_status['budget_id'] == status['budget_id']) is not force
+
+
+def test_quality_pending_status_remains_resumable_after_restart_without_rewriting_audit(ingest, monkeypatch):
+    job = llm_wiki_storage.create_job('sources', 'resource')
+    identifier = str(job['job_id'])
+    llm_wiki_storage.finish_job(identifier, phase='done', quality_status='needs_review',
+                               budget_id='original-budget', warnings=['Unresolved citation'], chunks_done=191)
+    raw = llm_wiki_storage._job_path(identifier).read_bytes()
+    monkeypatch.setattr(llm_wiki_storage, '_JOBS', {})
+    for lookup, table in [(identifier, ''), ('resource', 'sources')]:
+        status = llm_wiki_storage.get_job_status(lookup, table)
+        assert status['phase'] == 'partial' and not status['running']
+        assert status['budget_id'] == 'original-budget' and status['chunks_done'] == 191
+        assert status['warnings'] == ['Unresolved citation']
+    assert llm_wiki_storage._job_path(identifier).read_bytes() == raw
 
 
 @pytest.mark.parametrize("error,expected", [

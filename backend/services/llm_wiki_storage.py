@@ -332,6 +332,11 @@ def get_job_status(identifier: str, source_table_id: str = "") -> dict[str, obje
                 "error": job.get("error")
                 or "The previous backend process stopped before the job finished.",
             }
+        if job.get("phase") == "done" and job.get("quality_status") == "needs_review":
+            # Older jobs finished writing but still failed acceptance. Expose
+            # the existing resumable state everywhere (UI, estimate and worker)
+            # without rewriting their audit record or creating a fresh budget.
+            job = {**job, "phase": "partial"}
         return deepcopy(job)
 
 
