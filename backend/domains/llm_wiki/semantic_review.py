@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, cast
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.semantic_context import source_view
 from backend.domains.llm_wiki.semantic_contracts import semantic_note
-from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION, adjacent_originals, prose_issues
+from backend.domains.llm_wiki.reading_quality import REVALIDATABLE_REVIEW_VERSIONS, REVIEW_QUALITY_VERSION, adjacent_originals, prose_issues
 
 
 if TYPE_CHECKING:
@@ -19,10 +19,11 @@ def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> lis
     if engine.state.get("review_quality_version") != REVIEW_QUALITY_VERSION:
         # Retain the paid interpretations and maps, but an earlier review did
         # not check prose integrity or unresolved evidence. Never certify it.
-        engine.state["previous_reviewed_groups"] = engine.state.get("reviewed_groups", {})
-        engine.state["reviewed_groups"] = {}
-        engine.state["reviewed_ranges"] = {}
-        engine.state["review_sources"] = {}
+        engine.state["previous_reviewed_groups"] = deepcopy(engine.state.get("reviewed_groups", {}))
+        if engine.state.get("review_quality_version") not in REVALIDATABLE_REVIEW_VERSIONS:
+            engine.state["reviewed_groups"] = {}
+            engine.state["reviewed_ranges"] = {}
+            engine.state["review_sources"] = {}
         engine.state["review_quality_version"] = REVIEW_QUALITY_VERSION
         engine.state["completed"] = False
         engine.save()

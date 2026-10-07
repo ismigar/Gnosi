@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 2 | 55 |
 | `config` | 13 | 1382 |
 | `data` | 2 | 214 |
-| `domains` | 515 | 106560 |
+| `domains` | 515 | 106593 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2301 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **947 modules** and **186600 source lines**.
+Total: **947 modules** and **186633 source lines**.
 
 ## agent
 
@@ -367,7 +367,7 @@ Total: **947 modules** and **186600 source lines**.
 | [`backend/domains/llm_wiki/reading_identity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_identity.py) | 49 | 0 | 5 | 0 | 1 | Stable reading identities: preserve source order, ignore mapping insertion order. |
 | [`backend/domains/llm_wiki/reading_memory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_memory.py) | 56 | 0 | 2 | 0 | 1 | Reconstruct global reading memory from all plans in a legacy checkpoint. |
 | [`backend/domains/llm_wiki/reading_memory_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_memory_repairs.py) | 63 | 1 | 3 | 0 | 1 | Require an explicit memory correction while preserving the original draft. |
-| [`backend/domains/llm_wiki/reading_quality.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_quality.py) | 69 | 0 | 3 | 0 | 2 | Mechanical publication checks; these do not certify semantic correctness. |
+| [`backend/domains/llm_wiki/reading_quality.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_quality.py) | 73 | 0 | 3 | 0 | 2 | Mechanical publication checks; these do not certify semantic correctness. |
 | [`backend/domains/llm_wiki/reading_references.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_references.py) | 57 | 0 | 4 | 0 | 1 | Restore only unambiguous omitted segment digests; never rewrite evidence. |
 | [`backend/domains/llm_wiki/reading_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_repairs.py) | 126 | 0 | 6 | 0 | 0 | Repair rejected references without asking a model to rewrite valid notes. |
 | [`backend/domains/llm_wiki/reading_skill.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_skill.py) | 31 | 0 | 0 | 0 | 0 | The process-source skill's shared, versioned reading methodology. |
@@ -382,12 +382,12 @@ Total: **947 modules** and **186600 source lines**.
 | [`backend/domains/llm_wiki/semantic_quote_selection.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_quote_selection.py) | 168 | 1 | 2 | 0 | 1 | Use immutable quote choices on the first call and every correction alike. |
 | [`backend/domains/llm_wiki/semantic_reading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_reading.py) | 238 | 1 | 1 | 0 | 0 | Application-directed reading: interpret text, then verify it as a whole. |
 | [`backend/domains/llm_wiki/semantic_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_repairs.py) | 122 | 0 | 4 | 0 | 2 | One bounded repair of invalid passage interpretations; preserve valid work. |
-| [`backend/domains/llm_wiki/semantic_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_review.py) | 82 | 0 | 1 | 0 | 0 | Source-grounded joint review with sparse semantic replacements, never a rewrite loop. |
+| [`backend/domains/llm_wiki/semantic_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_review.py) | 83 | 0 | 1 | 0 | 0 | Source-grounded joint review with sparse semantic replacements, never a rewrite loop. |
 | [`backend/domains/llm_wiki/semantic_review_evidence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_review_evidence.py) | 92 | 0 | 5 | 0 | 1 | Bounded local evidence lookup; requests never invent or shorten originals. |
-| [`backend/domains/llm_wiki/semantic_review_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_review_execution.py) | 225 | 1 | 7 | 0 | 0 | Two independent reviews with one coordinator and inherited spending scope. |
+| [`backend/domains/llm_wiki/semantic_review_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_review_execution.py) | 244 | 1 | 8 | 0 | 1 | Two independent reviews with one coordinator and inherited spending scope. |
 | [`backend/domains/llm_wiki/source_sections.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/source_sections.py) | 99 | 0 | 1 | 0 | 1 | Persist source-owned section rows through the existing Vault page writer. |
 | [`backend/domains/llm_wiki/source_structure.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/source_structure.py) | 112 | 1 | 6 | 0 | 5 | Original heading paths, independent of note order and evidence locators. |
-| [`backend/domains/llm_wiki/writing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/writing.py) | 505 | 5 | 13 | 0 | 2 | Typed, deterministic persistence for generated LLM Wiki reading notes. |
+| [`backend/domains/llm_wiki/writing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/writing.py) | 514 | 5 | 14 | 0 | 2 | Typed, deterministic persistence for generated LLM Wiki reading notes. |
 | [`backend/domains/mail/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail domain. |
 | [`backend/domains/mail/cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/cache.py) | 109 | 2 | 7 | 0 | 1 | Bounded process-local mail caches. |
 | [`backend/domains/mail/composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/composition.py) | 18 | 0 | 0 | 0 | 0 | Deterministic composition of the mail router. |

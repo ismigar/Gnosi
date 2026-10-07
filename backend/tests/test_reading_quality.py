@@ -206,3 +206,34 @@ def test_pdf_geometry_findings_reach_review_and_unchanged_bad_citations_cannot_p
         with pytest.raises(ValueError, match='ambiguous PDF citation'):
             engine.review(gm, nm)
         assert not checkpoints['new', 'semantic-state']['reviewed_groups']
+
+
+@pytest.mark.parametrize('body', [
+    'El texto disponible queda truncado, así que no se reconstruye la continuación.',
+    'La frase sobre el complement queda sense una explicació completa en el fragment disponible.',
+    'The original is cut off before the conclusion.',
+])
+def test_missing_text_and_explanation_caveats_require_source_grounded_correction(body):
+    assert prose_issues({'body_md': body}, [{'text': 'A complete original with its continuation.'}], 'Catalan')
+
+
+def test_revalidation_reuses_sound_version_seven_batches_and_retries_only_defective_one():
+    engine, gm, nm, calls, checkpoints = prepared(count=4, size=2)
+    engine.review(gm, nm)
+    state = checkpoints['new', 'semantic-state']
+    state['review_quality_version'] = 7
+    key = next(iter(state['reviewed_groups']))
+    original = next(iter(state['plans'].values()))['notes'][0]
+    replacement = {k: original[k] for k in ['title', 'body_md']}
+    replacement.update(quotes=[original['citations'][0]['quote']], properties={})
+    replacement['body_md'] = 'El texto disponible queda truncado, así que no se reconstruye la continuación.'
+    state['reviewed_groups'][key]['changes'] = [{'note': 1, 'replacement': replacement}]
+    old_groups = deepcopy(state['reviewed_groups'])
+    resumed, new_calls, _ = setup(count=4, checkpoints=checkpoints, resume='new')
+    result, _ = resumed.run()
+    assert len(result['notes']) == 4
+    reviews = [c for c in new_calls if c['phase'] == 'verify']
+    assert len(reviews) == 1 and len(reviews[0]['notes']) == 2
+    assert 'prior_review_failure' in reviews[0]
+    assert checkpoints['new', 'semantic-state']['invalidated_review_groups'][key]['answer'] == old_groups[key]
+    assert all('truncado' not in n['body_md'] for n in result['notes'])

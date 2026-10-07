@@ -171,7 +171,7 @@ def recover_wave(engine: SemanticReader, failures: list[tuple[ReviewBatch, Excep
 
 
 def run_wave(engine: SemanticReader, batches: list[ReviewBatch]) -> bool:
-    pending = [batch for batch in batches if batch.key not in engine.state["reviewed_groups"]]
+    pending = [checked for batch in batches if (checked := revalidate_saved_batch(engine, batch)) is not None]
     if not pending:
         return True
     engine.state.update(last_action={"phase": "verify"}, last_result={})
@@ -194,6 +194,25 @@ def run_wave(engine: SemanticReader, batches: list[ReviewBatch]) -> bool:
     # Drain both calls and save every successful result before propagating any
     # failure. Never abandon paid work or enqueue a third review in this wave.
     return recover_wave(engine, failures, completed)
+
+
+def revalidate_saved_batch(engine: SemanticReader, batch: ReviewBatch) -> ReviewBatch | None:
+    """Reuse only accepted evidence; retain rejected decisions for the audit."""
+    from jsonschema import ValidationError
+    answer = engine.state["reviewed_groups"].get(batch.key)
+    if answer is None:
+        return batch
+    saved_sources = engine.state.get("review_sources", {}).get(batch.key)
+    if saved_sources is not None:
+        batch = replace(batch, retrieved=evidence_lookup.restore(evidence_lookup.originals(engine.reader.chunks), saved_sources))
+    try:
+        validate_answer(answer, batch, engine.reader)
+    except (ValueError, TypeError, KeyError, ValidationError) as error:
+        engine.state.setdefault("invalidated_review_groups", {})[batch.key] = {"answer": answer, "error": str(error)}
+        del engine.state["reviewed_groups"][batch.key]
+        engine.save()
+        return replace(batch, payload={**batch.payload, "prior_review_failure": str(error)})
+    return None
 
 
 def review_batches(engine: SemanticReader, entries: list[dict[str, object]], destinations: list[Target],
