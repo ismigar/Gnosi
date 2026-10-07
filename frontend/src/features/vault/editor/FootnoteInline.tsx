@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../../../shared/ui/createPanePortal';
 import { useTranslation } from 'react-i18next';
 
 /**

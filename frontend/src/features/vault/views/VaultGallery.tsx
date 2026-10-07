@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -15,6 +15,7 @@ import { VaultBulkActionsBar, type BulkActionTemplate } from '../../../shared/re
 import { VaultViewToolbar } from '../../../shared/record-views/VaultViewToolbar';
 import { getFieldType, getSchemaFieldNames, resolveViewFilters, resolveViewSorts } from '../../../shared/records/model/schemaUtils';
 import { useTitlePreview } from '../../../shared/editor/useTitlePreview';
+import { defineStorageKey, jsonStorageCodec, readStorage, writeStorage } from '../../../shared/platform/browser-storage';
 import { isMainView } from './viewConstants';
 import { VaultGalleryCard } from './vault-gallery/VaultGalleryCard';
 import { VaultGallerySections } from './vault-gallery/VaultGallerySections';
@@ -58,6 +59,7 @@ interface VaultGalleryProps {
     readonly schema?: GallerySchema;
     readonly searchTerm?: string;
     readonly templates?: readonly BulkActionTemplate[];
+    readonly viewStateScope?: string;
 }
 
 
@@ -65,7 +67,7 @@ export function VaultGallery(props: VaultGalleryProps) {
     const activeView = props.activeView ?? {};
     const groupBy = galleryGroupField(activeView);
     return <VaultGalleryContent
-        key={`${activeView.id ?? 'view'}:${groupBy}`}
+        key={JSON.stringify([props.viewStateScope, activeView.id ?? 'view', groupBy])}
         {...props}
         activeView={activeView}
     />;
@@ -92,12 +94,26 @@ function VaultGalleryContent({
     schema = {},
     searchTerm: externalSearchTerm,
     templates = [],
+    viewStateScope,
 }: VaultGalleryProps) {
     const { t } = useTranslation();
     const localeSettings = useLocaleSettings();
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
     const [showSearch, setShowSearch] = useState(false);
-    const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
+    const groupBy = galleryGroupField(activeView);
+    const groupsStorageKey = useMemo(() => viewStateScope ? defineStorageKey(
+        `gnosi:gallery-groups:${JSON.stringify([viewStateScope, activeView.id ?? 'view', groupBy])}`,
+        jsonStorageCodec((value): value is string[] => Array.isArray(value)
+            && value.every((group): group is string => typeof group === 'string')),
+        'session',
+    ) : undefined, [viewStateScope, activeView.id, groupBy]);
+    const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(
+        groupsStorageKey ? readStorage(groupsStorageKey) ?? [] : [],
+    ));
+    // Preserve deliberate folds and keyboard changes across editor reloads too.
+    useEffect(() => {
+        if (groupsStorageKey) writeStorage(groupsStorageKey, Array.from(expandedGroups));
+    }, [expandedGroups, groupsStorageKey]);
     const searchTerm = externalSearchTerm ?? internalSearchTerm;
     const view = useMemo<VaultViewConfig>(() => ({
         filters: requireFilterNodes(resolveViewFilters(activeView)),

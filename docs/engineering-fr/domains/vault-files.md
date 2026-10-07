@@ -35,6 +35,11 @@ tests:
   - backend/tests/test_handwriting_download.py
   - backend/tests/test_vault_selector_authorization.py
   - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
+  - frontend/src/features/vault/dashboard/DashboardContent.test.tsx
+  - frontend/src/features/vault/dashboard/DocumentPane.test.tsx
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
+  - frontend/src/shared/ui/PanePortal.test.tsx
+  - frontend/src/shared/records/hooks/keyboardSubscriptions.test.tsx
   - backend/tests/test_drupal_connector_discovery_contract.py
   - backend/tests/test_drupal_connector_http_contract.py
   - backend/tests/test_drupal_connector_native_contract.py
@@ -793,6 +798,25 @@ limitées aux métadonnées omettent le corps ; les formules par défaut préser
 les valeurs imbriquées des relations et des plugins. Les tests de régression
 couvrent ces transmissions, ainsi que les identifiants des options du schéma,
 l'identité des lignes de table et les extensions de métadonnées inconnues.
+
+### Continuité des onglets de documents
+
+Les onglets ouverts de page, tableau et PDF conservent leurs vues montées après
+la première visite, même lorsqu'un document passe entre le panneau principal et
+les panneaux divisés. Fermer un onglet libère sa vue. Revenir du PDF d'une
+citation restaure le focus sur la carte d'origine de la galerie et les positions
+de défilement imbriquées sans défiler lors de la prise de focus ; la navigation
+par flèches reprend depuis cette carte. Les défilements de mise en page en
+attente ne peuvent pas remplacer la position enregistrée, et une entrée au
+clavier ou au pointeur annule toute frame de restauration restante.
+
+Les panneaux masqués sont inertes. Leurs raccourcis globaux de sélection,
+d'édition et de navigation cèdent aux panneaux visibles, et leurs menus rendus
+dans des portails sont masqués avec l'onglet propriétaire. L'expansion des
+groupes de galerie est conservée par session, page et vue d'ancrage enregistrée,
+plutôt que par les identifiants de bloc régénérés de l'éditeur. Cet état
+d'interaction ne modifie ni le contenu des pages, ni les définitions de vues
+enregistrées, ni les ETags.
 
 ## Points de vérification
 

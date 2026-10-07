@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../../../../shared/ui/createPanePortal';
 import { subscribeWindowEvent, subscribeDocumentEvent, eventTargetIsWithin } from '../../../../shared/platform/browser-events';
 import type { RelationOption } from './types';
 

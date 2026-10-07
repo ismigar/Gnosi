@@ -1,6 +1,7 @@
 import { forwardRef, useLayoutEffect, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../../../../shared/ui/createPanePortal';
 import { subscribeWindowEvent } from '../../../../shared/platform/browser-events';
+import { usePaneVisibility } from '../../../../shared/ui/PaneVisibility';
 
 interface CellDropdownPortalProps {
   readonly anchorRef: RefObject<HTMLElement | null>;
@@ -20,8 +21,10 @@ export const CellDropdownPortal = forwardRef<HTMLDivElement, CellDropdownPortalP
   { anchorRef, className = '', maxHeight = 240, children },
   ref,
 ) {
+  const visible = usePaneVisibility();
   const [pos, setPos] = useState<CSSProperties | null>(null);
   useLayoutEffect(() => {
+    if (!visible) return undefined;
     let raf = 0;
     const compute = () => {
       const el = anchorRef.current;
@@ -52,9 +55,9 @@ export const CellDropdownPortal = forwardRef<HTMLDivElement, CellDropdownPortalP
       stopScroll();
       stopResize();
     };
-  }, [anchorRef, maxHeight]);
+  }, [anchorRef, maxHeight, visible]);
 
-  if (!pos) return null;
+  if (!visible || !pos) return null;
   return createPortal(
     <div
       ref={ref}

@@ -70,6 +70,7 @@ export interface VaultViewBodyProps {
     readonly searchTerm?: string;
     readonly templates?: readonly Readonly<Record<string, unknown>>[];
     readonly type?: string;
+    readonly viewStateScope?: string;
 }
 
 const ignoreNoteSelect = (): void => {};
@@ -123,6 +124,7 @@ export function VaultViewBody({
     onFocusShell,
     feedDensity = 'comfortable',
     feedGroupMode = 'none',
+    viewStateScope,
 }: VaultViewBodyProps) {
     const { t: translate } = useTranslation();
     const t = type.toLowerCase();
@@ -186,6 +188,7 @@ export function VaultViewBody({
         body = (
             <VaultGallery
                 {...common}
+                viewStateScope={viewStateScope}
                 registerNavApi={registerNavApi}
                 onExitTop={onExitTop}
                 onExitBottom={onExitBottom}

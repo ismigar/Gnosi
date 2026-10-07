@@ -19,6 +19,9 @@ export function EmbedBody({ model, registerNavApi, focusShell }: { model: EmbedM
         idToTitle: ctx.idToTitle,
         allNotes: allRows,
         activeView: embeddedView,
+        // Markdown hydration regenerates editor block IDs on every tab return.
+        // Use the saved anchor view, as the embed's other preferences do.
+        viewStateScope: ctx.pageId && model.viewId ? JSON.stringify(['embed', ctx.pageId, model.viewId]) : undefined,
         // Maximum cap on the embedded table/list height: below that, it grows with
         // the content (without empty space); above that it scrolls internally.
         maxHeight: heightMode === 'content' ? 'none' : `${String(heightPercent)}vh`,

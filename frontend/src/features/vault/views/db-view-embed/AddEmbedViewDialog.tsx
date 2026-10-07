@@ -1,5 +1,5 @@
 import { useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../../../../shared/ui/createPanePortal';
 import { Plus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useModalKeyboard } from '../../../../shared/hooks/useModalKeyboard';

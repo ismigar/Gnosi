@@ -5,7 +5,7 @@ import {
   useState,
   type KeyboardEvent,
 } from 'react';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../ui/createPanePortal';
 import { useTranslation } from 'react-i18next';
 import { FileText } from 'lucide-react';
 

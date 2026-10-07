@@ -73,6 +73,7 @@ describe('VaultGallery', () => {
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);
+        window.sessionStorage.clear();
     });
 
     afterEach(() => {
@@ -220,6 +221,49 @@ describe('VaultGallery', () => {
         act(() => { header.click(); });
         expect(container.textContent).toContain('42');
         expect(container.querySelector('input[type="checkbox"]')).not.toBeNull();
+    });
+
+    it('restores expanded and deliberately folded groups after visiting a PDF tab', () => {
+        const gallery = <VaultGallery viewStateScope="resource-1:block-1"
+            activeView={{ id: 'notes', groupBy: 'Status', galleryPreview: 'none' }}
+            notes={[
+                { id: 'n1', title: 'Reading note', metadata: { Status: 'Reading' } },
+                { id: 'n2', title: 'Index note', metadata: { Status: 'Index' } },
+            ]} searchTerm="" />;
+        act(() => { root.render(gallery); });
+        const headers = () => Array.from(container.querySelectorAll<HTMLButtonElement>('button[aria-expanded]'));
+        act(() => { headers().forEach(header => { header.click(); }); });
+        act(() => { headers()[0]?.click(); });
+        const expected = headers().map(header => header.getAttribute('aria-expanded'));
+        expect(expected).toEqual(['false', 'true']);
+        act(() => { root.render(<div>PDF tab</div>); });
+        act(() => { root.render(gallery); });
+        expect(headers().map(header => header.getAttribute('aria-expanded'))).toEqual(expected);
+        expect(container.querySelectorAll('input[type="checkbox"]')).toHaveLength(1);
+    });
+
+    it('keeps expansion separate for resources, embedded blocks, views and grouping fields', () => {
+        const render = (scope: string, id = 'notes', groupBy = 'Status') => {
+            act(() => { root.render(<VaultGallery viewStateScope={scope}
+                activeView={{ id, groupBy, galleryPreview: 'none' }}
+                notes={[{ id: 'n1', title: 'Note', metadata: { Status: 'Reading', Kind: 'Reading' } }]}
+                searchTerm="" />); });
+        };
+        const header = () => container.querySelector<HTMLButtonElement>('button[aria-expanded]');
+        render('resource-1:block-1');
+        act(() => { header()?.click(); });
+        expect(header()?.getAttribute('aria-expanded')).toBe('true');
+        for (const [scope, id, groupBy] of [
+            ['resource-2:block-1', 'notes', 'Status'],
+            ['resource-1:block-2', 'notes', 'Status'],
+            ['resource-1:block-1', 'other-view', 'Status'],
+            ['resource-1:block-1', 'notes', 'Kind'],
+        ] as const) {
+            render(scope, id, groupBy);
+            expect(header()?.getAttribute('aria-expanded')).toBe('false');
+        }
+        render('resource-1:block-1');
+        expect(header()?.getAttribute('aria-expanded')).toBe('true');
     });
 
     it('passes valid templates unchanged and clears selection after applying one', () => {

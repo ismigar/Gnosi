@@ -5,7 +5,7 @@ import {
     useState,
     type KeyboardEvent,
 } from 'react';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../../../shared/ui/createPanePortal';
 import { Check, Loader2, RefreshCw, Sparkles, X } from 'lucide-react';
 
 import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';

@@ -5,7 +5,7 @@ import {
     useState,
     type MouseEvent,
 } from 'react';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../../../../shared/ui/createPanePortal';
 import {
     ChevronDown,
     Copy,

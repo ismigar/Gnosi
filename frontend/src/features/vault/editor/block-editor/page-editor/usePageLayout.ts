@@ -7,9 +7,11 @@ import { getScrollableAncestor } from '../domSizing';
 import { toast } from '../../../../../shared/notifications/toast';
 import { useCallback } from 'react';
 import { useEffect } from 'react';
+import { usePaneVisibility } from '../../../../../shared/ui/PaneVisibility';
 import type { usePageEditorState } from './usePageEditorState';
 type Input = Pick<ReturnType<typeof usePageEditorState>, 'spellEnabled' | 'metadataRef' | 'metadata' | 'contentRef' | 'setContentWidth' | 'editorApiRef' | 'compactPanelCloseTimerRef' | 'setCompactPanelPreview' | 'setIsPropertiesOpen' | 'setIsLinksInfoOpen' | 'headerHoverRef' | 'setIsPageHeaderCompact' | 'noteFilename' | 'setIsFocusMode' | 'titleInputRef' | 'historyOpenSignal' | 'setIsHistoryOpen' | 't'>;
 export function usePageLayout(state: Input) {
+  const visible = usePaneVisibility();
   const { spellEnabled, metadataRef, metadata, contentRef, setContentWidth, editorApiRef, compactPanelCloseTimerRef, setCompactPanelPreview, setIsPropertiesOpen, setIsLinksInfoOpen, headerHoverRef, setIsPageHeaderCompact, noteFilename, setIsFocusMode, titleInputRef, historyOpenSignal, setIsHistoryOpen, t } = state;
 
   useEffect(() => { writeStorage(spellEnabledKey, spellEnabled ? '1' : '0'); }, [spellEnabled]);
@@ -111,14 +113,14 @@ export function usePageLayout(state: Input) {
   }, [contentRef, headerHoverRef, noteFilename, setIsPageHeaderCompact]);
 
   useEffect(() => {
-    const toggleFocusMode = () => { setIsFocusMode((current) => !current); };
+    const toggleFocusMode = () => { if (visible) setIsFocusMode((current) => !current); };
     const stop = subscribeAppSignal('gnosi:toggle-focus-mode', toggleFocusMode);
     try {
       document.documentElement.dataset.vaultContrast = readStorage(vaultContrastKey) || 'normal';
       document.documentElement.dataset.vaultText = readStorage(vaultTextSizeKey) || 'normal';
     } catch { /* noop */ }
     return stop;
-  }, [setIsFocusMode]);
+  }, [setIsFocusMode, visible]);
 
 
   useEffect(() => {
