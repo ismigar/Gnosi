@@ -115,7 +115,7 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             <strong>{candidate.model.name}</strong>
             <ModelPriceOffer offer={candidate.offer} field="monthly_cost" label={candidate.offer.route.provider_name || candidate.offer.route.provider} currency={feed.currency} active={false} />
             <p>{t('model_comparison.recommend.score', { score: candidate.quality })}</p>
-            <p>{t(`model_comparison.recommend.why_${kinds[0] === 'balanced' && candidate.taskChecks?.complete ? 'balanced_checked' : kinds[0] ?? 'balanced'}`)}</p>
+            <p>{t(`model_comparison.recommend.why_${kinds[0] === 'balanced' && candidate.taskChecks?.current ? 'balanced_checked' : kinds[0] ?? 'balanced'}`)}</p>
             {kinds.includes('balanced') && result.balancedUsesTiming && <p>{t('model_comparison.recommend.time_balance')}</p>}
             <p>{candidate.sampleLatency !== null
                 ? t('model_comparison.recommend.measured_time', { seconds: (candidate.sampleLatency / 1000).toFixed(1), count: candidate.timingCases })
@@ -125,7 +125,7 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
                     seconds: reading(candidate).medianMs === null ? '—' : ((reading(candidate).medianMs ?? 0) / 1000).toFixed(1), failed: reading(candidate).failed })}
             </p>}
             <p>{t('model_comparison.tests.evidence', { measured: candidate.taskChecks?.cases.length ?? 0, total: candidate.taskChecks?.expected ?? 0 })}</p>
-            <p>{t(candidate.taskChecks?.complete ? 'model_comparison.recommend.checked' : 'model_comparison.recommend.catalogue')}</p>
+            <p>{t(candidate.taskChecks?.current ? 'model_comparison.recommend.checked' : 'model_comparison.recommend.catalogue')}</p>
             {Boolean(candidate.taskChecks?.cases.some(item => item.evidence_origin === 'shared')) && <p>{t('model_comparison.shared.candidate')}</p>}
             {candidate.taskChecks?.stale && <p>{t('model_comparison.tests.old_result')}</p>}
             <details><summary>{t('model_comparison.workspace.evidence')}</summary>
@@ -191,6 +191,7 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             <p className="settings-desc">{t('model_comparison.recommend.help')}</p>
         </details>
         {evidence.vault === vault && evidence.error && <p role="alert">{t('model_comparison.recommend.evidence_error')}</p>}
+        {demands.some(item => item.id === 'book') && <p className="settings-desc">{t('model_comparison.recommend.book_requirements')}</p>}
         {!valid ? <p role="alert">{t('model_comparison.recommend.invalid')}</p> : <>
             {sameOffer && <p className="model-configuration-banner">{t('model_comparison.recommend.same_offer')}</p>}
             <div className="model-task-recommendations__choices">{choices.map(choice => render(choice.candidate, choice.kinds))}</div>

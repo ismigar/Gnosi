@@ -8,8 +8,22 @@ it('retains dated evidence without forcing calls, flags age and rejects a differ
     if (!first) throw new Error('Missing case');
     report.cases = [{ ...first, checked_at: '2026-08-01T00:00:00Z' }];
     const stored = { reports: [report], suite };
-    expect(taskEvidence(stored, 'p', 'near', ['book'], now)).toMatchObject({ complete: true, stale: true });
+    expect(taskEvidence(stored, 'p', 'near', ['book'], now)).toMatchObject({ complete: true, current: false, stale: true });
     expect(taskEvidence({ ...stored, suite: { ...suite, version: 'different' } }, 'p', 'near', ['book'], now).complete).toBe(false);
+});
+
+it('cannot certify a profile if its suite has no criteria for one of its duties', () => {
+    const stored = { suite, reports: [checked()] };
+    expect(taskEvidence(stored, 'p', 'near', ['book', 'code'], now))
+        .toMatchObject({ complete: false, current: false, failed: false });
+});
+
+it('enforces the suite review requirement even if the saved row omits it', () => {
+    const reviewedSuite = { ...suite, criteria: suite.criteria.map(item => ({ ...item, requires_review: true })) };
+    const report = checked();
+    expect(taskEvidence({ suite: reviewedSuite, reports: [report] }, 'p', 'near', ['book'], now).current).toBe(false);
+    report.cases = report.cases?.map(item => ({ ...item, review: 'accepted' }));
+    expect(taskEvidence({ suite: reviewedSuite, reports: [report] }, 'p', 'near', ['book'], now).current).toBe(true);
 });
 
 it('requires human acceptance of open-ended work and reuses the latest review', () => {

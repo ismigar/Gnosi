@@ -49,7 +49,9 @@ CHAPTERS = '''[C01] L'assaig defensa inicialment centralitzar les decisions i re
 [C10] La narradora proposa una coordinació comuna amb decisions locals i revisió mensual.
 [C11] El Nord introdueix revisió compartida. Encara no hi ha un segon període complet de dades.
 [C12] La conclusió abandona la centralització inicial: adopta coordinació comuna, veu local i revisió compartida.
-[C13] El llibre no demostra que aquest sistema sigui universalment superior; demana una nova avaluació.'''
+[C13] El llibre no demostra que aquest sistema sigui universalment superior; demana una nova avaluació.
+[C14] En el seguiment, la revisió compartida no va resoldre
+[C15] totes les discrepàncies: en quedaven dues de pendents.'''
 
 TIMELINE = '''[E01, 2026-10-01] Taller previst el 05/10/2026 a les 10:00 +02:00, durada 90 minuts.
 [E02, 2026-10-02] El taller s'ajorna al 06/10/2026, mateixa hora i durada.
@@ -73,12 +75,23 @@ WORK_CASES = (
            'Extreu només factures emeses, sense duplicats. JSON {"invoices":[{"id", "total_eur", "paid", "due"}]}; due YYYY-MM-DD o null.',
            {'invoices': [{'id': '018', 'total_eur': 48.4, 'paid': False, 'due': '2026-10-08'},
                          {'id': '019', 'total_eur': 121.0, 'paid': True, 'due': None}]}),
-    sample('book_map', 'book', 'cross_section_comprehension', 'Mapa d’un assaig amb canvi de tesi', CHAPTERS,
+    sample('book_map', 'book', 'cross_section_comprehension', 'Lectura amb canvi de tesi, cites i continuació', CHAPTERS,
            'JSON {"initial_source", "final_source", "position_changed", "north_unanswered", "correction_source", '
-           '"failure_claim_by", "author_agrees", "universal_superiority", "summary"}. summary: síntesi de 80–150 paraules amb referències.',
+           '"failure_claim_by", "author_agrees", "universal_superiority", "remaining_disagreements", '
+           '"literal_quotes":[{"source", "quote"}], "repaired_note", "summary"}. '
+           'Uneix C14 i C15 per obtenir remaining_disagreements. literal_quotes: copia literalment el text complet '
+           'de C07 i C12, sense les etiquetes i en aquest ordre; no parafrasegis ni barregis les fonts. '
+           'repaired_note: corregeix només la paraula coreana de l’esborrany «La conclusió conserva la veu 관점.» '
+           'usant la paraula que segueix «veu» a C12. summary: síntesi en català de 80–150 paraules amb referències. '
+           'La revisió humana ha de comprovar idioma, brevetat, canvi de tesi, atribució, continuïtat i límits '
+           'contra les fonts; tenir JSON vàlid no demostra una lectura correcta.',
            {'initial_source': 'C01', 'final_source': 'C12', 'position_changed': True, 'north_unanswered': 12,
             'correction_source': 'C07', 'failure_claim_by': 'Pau', 'author_agrees': False,
-            'universal_superiority': False}, True),
+            'universal_superiority': False, 'remaining_disagreements': 2,
+            'literal_quotes': [
+                {'source': 'C07', 'quote': 'El primer registre del Nord deia 10 peticions sense resposta; la revisió confirma 12.'},
+                {'source': 'C12', 'quote': 'La conclusió abandona la centralització inicial: adopta coordinació comuna, veu local i revisió compartida.'}],
+            'repaired_note': 'La conclusió conserva la veu local.'}, True),
     sample('source_retrieval', 'retrieve', 'citation_fidelity', 'Recuperació de passatges i contradiccions', CHAPTERS,
            'JSON {"unanswered", "sources", "east_result"}. unanswered: recompte revisat del Nord; '
            'sources: font de la xifra original i de la correcció; east_result: nombre o null.',

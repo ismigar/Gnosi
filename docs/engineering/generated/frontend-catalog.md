@@ -48,7 +48,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1172 | 129820 | 38 |
+| `features` | 1172 | 129824 | 38 |
 | `generated` | 2 | 49837 | 510 |
 | `shared` | 279 | 32651 | 440 |
 
@@ -644,7 +644,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx) | 167 | `ModelTaskEvaluation` | — |
 | [`frontend/src/features/settings/model-comparison/ModelTaskEvaluationChooser.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskEvaluationChooser.tsx) | 33 | `ModelTaskEvaluationChooser` | — |
 | [`frontend/src/features/settings/model-comparison/ModelTaskPublicExport.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskPublicExport.tsx) | 51 | `ModelTaskPublicExport` | — |
-| [`frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx) | 202 | `ModelTaskRecommendations` | — |
+| [`frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx) | 203 | `ModelTaskRecommendations` | — |
 | [`frontend/src/features/settings/model-comparison/ModelTaskSampleResults.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskSampleResults.tsx) | 53 | `ModelTaskSampleResults` | — |
 | [`frontend/src/features/settings/model-comparison/SharedTaskBankPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/SharedTaskBankPanel.tsx) | 31 | `SharedTaskBankPanel` | — |
 | [`frontend/src/features/settings/model-comparison/__fixtures__/taskEvidence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/__fixtures__/taskEvidence.ts) | 17 | `checked`, `now`, `suite` | — |
@@ -659,7 +659,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/model-comparison/modelRouteCosts.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelRouteCosts.ts) | 73 | `comparisonPrices`, `comparisonRouteCosts`, `knownPrice`, `routeHasPrice`, `routePriceValue` | — |
 | [`frontend/src/features/settings/model-comparison/operationalEvidence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/operationalEvidence.ts) | 26 | `operationalEvidence`, `readingTimings` | — |
 | [`frontend/src/features/settings/model-comparison/routeRoleAssessments.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/routeRoleAssessments.ts) | 46 | `routeRoleAssessments` | — |
-| [`frontend/src/features/settings/model-comparison/taskEvidence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/taskEvidence.ts) | 41 | `taskEvidence` | — |
+| [`frontend/src/features/settings/model-comparison/taskEvidence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/taskEvidence.ts) | 44 | `taskEvidence` | — |
 | [`frontend/src/features/settings/model-comparison/taskRecommendations.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/taskRecommendations.ts) | 175 | `TASKS`, `recommendTask`, `taskMinimum` | — |
 | [`frontend/src/features/settings/model-comparison/useRegistryMutation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/useRegistryMutation.ts) | 23 | `useRegistryMutation` | — |
 | [`frontend/src/features/settings/modelComparison.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/modelComparison.ts) | 494 | `COMPARISON_MODE_KEYS`, `COMPARISON_PROFILE_KEYS`, `INITIAL_COMPARISON_UI_STATE`, `PROFILE_ICONS`, `comparisonProvidersById`, `filteredComparisonModels`, `formatComparisonContext`, `formatComparisonCost`, `formatComparisonMetric`, `formatTokenCountInput`, `isAbortError`, `isFiniteMetric`, `modelComparisonColumns`, `modelComparisonErrorCode`, `modelComparisonUiReducer`, `modelMetricAvailability`, `modelMonthlyCost`, `normalizeTokenCountInput`, `parseNonNegativeNumber` | — |
