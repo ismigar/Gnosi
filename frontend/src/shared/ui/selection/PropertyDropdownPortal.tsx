@@ -1,12 +1,15 @@
 import { useLayoutEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { subscribeWindowEvent } from '../../platform/browser-events';
+import { usePaneVisibility } from '../PaneVisibility';
 import type { PropertyDropdownPortalProps } from './types';
 
 export const PropertyDropdownPortal = ({ anchorRef, children, zIndex = 'var(--z-popover)' }: PropertyDropdownPortalProps) => {
+    const visible = usePaneVisibility();
     const [position, setPosition] = useState<CSSProperties | null>(null);
 
     useLayoutEffect(() => {
+        if (!visible) return undefined;
         let frame = 0;
         const updatePosition = () => {
             const anchor = anchorRef.current;
@@ -36,9 +39,9 @@ export const PropertyDropdownPortal = ({ anchorRef, children, zIndex = 'var(--z-
             stopScroll();
             stopResize();
         };
-    }, [anchorRef]);
+    }, [anchorRef, visible]);
 
-    if (!position) return null;
+    if (!visible || !position) return null;
     return createPortal(
         <div
             data-property-dropdown

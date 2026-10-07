@@ -4,6 +4,7 @@ import { dispatchWindowEvent } from '../../platform/browser-events';
 import { mountTestComponent } from '../../../../tests/mount-react';
 import { useKeyboardScroll } from '../../hooks/useKeyboardScroll';
 import { useVaultSelectionShortcuts, type VaultSelectionShortcutsOptions } from './useVaultSelectionShortcuts';
+import { PaneVisibilityContext } from '../../ui/PaneVisibility';
 
 interface HarnessProps extends VaultSelectionShortcutsOptions {
   scrollEnabled?: boolean;
@@ -37,6 +38,27 @@ function scrollTarget(container: HTMLElement) {
 }
 
 describe('native keyboard hook ownership', () => {
+  it('keeps hidden document selections and scroll untouched by global shortcuts', () => {
+    const selectAll = vi.fn(); const clearSelection = vi.fn(); const onDeleteSelected = vi.fn();
+    const tree = (visible: boolean) => <PaneVisibilityContext.Provider value={visible}>
+      <Harness enabled scrollEnabled {...{ selectAll, clearSelection, onDeleteSelected }} />
+    </PaneVisibilityContext.Provider>;
+    const mounted = mountTestComponent(tree(true));
+    const { scrollBy } = scrollTarget(mounted.container);
+    key('a', { ctrlKey: true });
+    expect(selectAll).toHaveBeenCalledOnce();
+    mounted.render(tree(false));
+    expect(key('a', { ctrlKey: true }).defaultPrevented).toBe(false);
+    key('Delete'); key('Escape'); key('ArrowDown');
+    expect(selectAll).toHaveBeenCalledOnce();
+    expect(onDeleteSelected).not.toHaveBeenCalled();
+    expect(clearSelection).not.toHaveBeenCalled();
+    expect(scrollBy).not.toHaveBeenCalled();
+    mounted.render(tree(true));
+    key('Delete'); key('ArrowDown');
+    expect(onDeleteSelected).toHaveBeenCalledOnce();
+    expect(scrollBy).toHaveBeenCalledOnce();
+  });
   it('preserves all scroll shortcuts, cancellation and configured distances', () => {
     const mounted = mountTestComponent(<Harness scrollEnabled />);
     const { scrollBy, scrollTo } = scrollTarget(mounted.container);

@@ -110,8 +110,7 @@ function VaultGalleryContent({
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(
         groupsStorageKey ? readStorage(groupsStorageKey) ?? [] : [],
     ));
-    // A PDF tab unmounts the resource editor. Restore each embedded view's own
-    // groups on return, including deliberate folds and keyboard changes.
+    // Preserve deliberate folds and keyboard changes across editor reloads too.
     useEffect(() => {
         if (groupsStorageKey) writeStorage(groupsStorageKey, Array.from(expandedGroups));
     }, [expandedGroups, groupsStorageKey]);

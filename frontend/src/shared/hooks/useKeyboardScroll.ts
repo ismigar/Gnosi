@@ -1,6 +1,7 @@
 import { useEffect, type RefObject } from 'react';
 import { subscribeWindowEvent } from '../platform/browser-events';
 import { canKeyboardScroll } from './keyboardScroll';
+import { usePaneVisibility } from '../ui/PaneVisibility';
 
 
 export interface KeyboardScrollOptions {
@@ -14,8 +15,9 @@ export function useKeyboardScroll(
   scrollContainerRef: RefObject<HTMLElement | null> | null | undefined,
   { enabled = true, modalOpen = false, step = 80 }: KeyboardScrollOptions = {},
 ): void {
+  const visible = usePaneVisibility();
   useEffect(() => {
-    if (!enabled || modalOpen) return undefined;
+    if (!visible || !enabled || modalOpen) return undefined;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = scrollContainerRef?.current;
@@ -44,5 +46,5 @@ export function useKeyboardScroll(
     };
 
     return subscribeWindowEvent('keydown', handleKeyDown);
-  }, [enabled, modalOpen, step, scrollContainerRef]);
+  }, [visible, enabled, modalOpen, step, scrollContainerRef]);
 }

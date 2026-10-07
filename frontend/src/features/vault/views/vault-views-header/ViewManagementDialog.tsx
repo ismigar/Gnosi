@@ -1,6 +1,6 @@
 import { usePlugins } from '../../../../shared/plugins/usePlugins';
 import { PEOPLE_TABLE_ID } from '../../../genograms';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../../../../shared/ui/PanePortal';
 import type { CSSProperties } from 'react';
 import {
     closestCenter,

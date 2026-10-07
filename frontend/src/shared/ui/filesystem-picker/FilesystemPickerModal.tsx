@@ -1,4 +1,4 @@
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../PanePortal';
 
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { FilesystemPickerPanel } from './filesystem-picker/FilesystemPickerPanel';

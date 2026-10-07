@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../../../shared/ui/PanePortal';
 import { MoreHorizontal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 

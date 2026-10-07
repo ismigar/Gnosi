@@ -4,6 +4,7 @@ import { VaultEditorContext } from '../../../../shared/editor/VaultEditorContext
 import { decodeContext } from './decode';
 import { subscribeAppEvent } from '../../../../shared/platform/app-events';
 import { subscribeWindowEvent } from '../../../../shared/platform/browser-events';
+import { usePaneVisibility } from '../../../../shared/ui/PaneVisibility';
 import { useEmbedState } from './useEmbedState';
 import { useEmbedPreferences } from './useEmbedPreferences';
 import { useEmbedLoad } from './useEmbedLoad';
@@ -13,6 +14,7 @@ import { useEmbedTabActions } from './useEmbedTabActions';
 import { createBodyAdapters } from './body-adapters';
 import type { DbViewEmbedProps } from './types';
 export function useEmbedController({ block }: DbViewEmbedProps) {
+    const visible = usePaneVisibility();
     const { t } = useTranslation();
     const sourceContext = useContext(VaultEditorContext);
     const ctx = useMemo(() => decodeContext(sourceContext), [sourceContext]);
@@ -30,9 +32,9 @@ export function useEmbedController({ block }: DbViewEmbedProps) {
         const stopSaved = subscribeAppEvent('gnosi:invalidatePreview', ({ pageId }) => {
             if (pageId !== identity.pageId) reload();
         });
-        const stopFocus = subscribeWindowEvent('focus', reload);
-        return () => { stopSaved(); stopFocus(); };
-    }, [identity.pageId, reload]);
+        const stopFocus = visible ? subscribeWindowEvent('focus', reload) : undefined;
+        return () => { stopSaved(); stopFocus?.(); };
+    }, [identity.pageId, reload, visible]);
     const actions = useEmbedRecordActions({ ...inputs, ...derived, reload });
     const tabs = useEmbedTabActions({ ...inputs, ...derived });
     const model = { ...inputs, ...derived, ...actions, ...tabs, reload };

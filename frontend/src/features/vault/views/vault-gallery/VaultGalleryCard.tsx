@@ -95,6 +95,7 @@ export function VaultGalleryCard({
     const fullWidth = cardSize === 'full';
     return (
         <div
+            data-pane-focus-return={note.id}
             style={showProperties && !fullWidth ? { minHeight: showCover ? (cardSize === 'small' ? '13rem' : cardSize === 'large' ? '21rem' : '17rem') : '9rem' } : undefined}
             className={`group relative flex flex-col ${fullWidth ? 'overflow-clip' : 'overflow-hidden'} rounded-xl border bg-[var(--bg-primary)] shadow-sm outline-none transition-all hover:shadow-md focus:border-[var(--gnosi-primary)] focus:ring-2 focus:ring-[var(--gnosi-primary)] ${embeddedPreview ? galleryCardHeightClass(cardSize) : ''} ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
             onClick={() => {

@@ -4,6 +4,7 @@ import {
     useState,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import { usePaneVisibility } from '../../../../shared/ui/PaneVisibility';
 
 import { logError } from '../../../../shared/notifications/notifyError';
 import { toast } from '../../../../shared/notifications/toast';
@@ -32,6 +33,7 @@ export function useRichLinkInsert({
     onClose,
     uploadFile,
 }: UseRichLinkInsertOptions) {
+    const visible = usePaneVisibility();
     const { t } = useTranslation();
     const [tab, setTab] = useState<RichLinkTab>('url');
     const [url, setUrl] = useState('');
@@ -49,6 +51,7 @@ export function useRichLinkInsert({
     const [dragOver, setDragOver] = useState(false);
 
     useEffect(() => {
+        if (!visible) return undefined;
         const onKeyDown = (event: KeyboardEvent): void => {
             if (event.key === 'Escape') {
                 onClose();
@@ -85,7 +88,7 @@ export function useRichLinkInsert({
         return () => {
             document.removeEventListener('keydown', onKeyDown);
         };
-    }, [onClose, tab]);
+    }, [onClose, tab, visible]);
 
     const insertInlineLink = useCallback((href: string, label = ''): void => {
         if (!editor) return;

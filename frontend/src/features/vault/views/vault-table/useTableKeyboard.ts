@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { subscribeWindowEvent } from '../../../../shared/platform/browser-events';
+import { usePaneVisibility } from '../../../../shared/ui/PaneVisibility';
 import { getFieldType } from '../../../../shared/records/model/schemaUtils';
 import { keyboardOwnership } from './keyboardOwnership';
 import type { TableInputs } from './tableInputs';
@@ -74,6 +75,7 @@ export function useTableKeyboard({
   selectedIdsRef,
   titlePreviewRef,
 }: Inputs) {
+  const visible = usePaneVisibility();
   const handleCopyCellsRef = useLatestRef(handleCopyCells);
   const handlePasteCellsRef = useLatestRef(handlePasteCells);
   const moveCursorRef = useLatestRef(moveCursor);
@@ -115,6 +117,7 @@ export function useTableKeyboard({
   }, [claimKeyboard, gridColumnsRef, navRowsRef, registerNavApi, rowVirtualizer, setActiveCell, setAnchorCell]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (!visible) return;
       if (e.defaultPrevented) return; // already handled upstream (e.g. modal scroll)
       if (document.body.classList.contains('gnosi-modal-open')) return;
       if (keyboardOwnership.owner !== gridInstanceIdRef.current) return;
@@ -209,6 +212,6 @@ export function useTableKeyboard({
     };
     const unsubscribeonKey = subscribeWindowEvent('keydown', onKey);
     return () => { unsubscribeonKey(); };
-  }, [activeCellRef, beginEditActiveRef, clearActiveCellsRef, editingCellRef, gridInstanceIdRef, handleCopyCellsRef, handlePasteCellsRef, moveCursorRef, onEscapeRef, onExitBottomRef, onExitTopRef, rowActionsRef, schemaRef, selectedIdsRef, setActiveCell, setAnchorCell, tableContainerRef, tableEdgeRef, titlePreviewRef]);
+  }, [visible, activeCellRef, beginEditActiveRef, clearActiveCellsRef, editingCellRef, gridInstanceIdRef, handleCopyCellsRef, handlePasteCellsRef, moveCursorRef, onEscapeRef, onExitBottomRef, onExitTopRef, rowActionsRef, schemaRef, selectedIdsRef, setActiveCell, setAnchorCell, tableContainerRef, tableEdgeRef, titlePreviewRef]);
   return { onExitTopRef };
 }

@@ -6,7 +6,7 @@ import {
     type CSSProperties,
     type MouseEvent,
 } from 'react';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../../../../shared/ui/PanePortal';
 import { GripVertical, Lock, MoreHorizontal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSortable } from '@dnd-kit/sortable';

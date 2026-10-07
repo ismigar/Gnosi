@@ -5,7 +5,9 @@ import { subscribeDocumentEvent, eventTargetIsWithin } from '../../../../shared/
 import { emitAppEvent, subscribeAppSignal } from './events';
 import { toggleContrast, toggleTextSize } from './preferences';
 import type { ViewActionsProps } from './types';
+import { usePaneVisibility } from '../../../../shared/ui/PaneVisibility';
 export function ViewTools({ onToggleGroup, groupMode = 'none', presets = [], onExportPresets, onImportPresets, onApplyPreset, onRenamePreset, onDeletePreset, loadDuration = null }: ViewActionsProps) {
+    const visible = usePaneVisibility();
     const { t } = useTranslation();
     const [showTools, setShowTools] = useState(false);
     const toolsRef = useRef<HTMLDivElement | null>(null);
@@ -15,7 +17,7 @@ export function ViewTools({ onToggleGroup, groupMode = 'none', presets = [], onE
             if (toolsRef.current && !eventTargetIsWithin(toolsRef.current, event.target)) setShowTools(false);
         });
     }, [showTools]);
-    useEffect(() => subscribeAppSignal('gnosi:open-view-tools', () => { setShowTools(true); }), []);
+    useEffect(() => subscribeAppSignal('gnosi:open-view-tools', () => { if (visible) setShowTools(true); }), [visible]);
     return (<div className="relative" ref={toolsRef}>
         <button
             type="button"

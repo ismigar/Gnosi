@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent } from 'react';
 import { subscribeWindowEvent } from '../../../../../shared/platform/browser-events';
+import { usePaneVisibility } from '../../../../../shared/ui/PaneVisibility';
 import type { EditorEffectsInputs } from './types';
 
 export function citeShortcutAllowed(event: KeyboardEvent, wrapper: HTMLElement | null): boolean {
@@ -11,11 +12,12 @@ export function citeShortcutAllowed(event: KeyboardEvent, wrapper: HTMLElement |
 }
 
 export function useCiteShortcut({ editor, editorWrapperRef, setIsCitePickerOpen }: Pick<EditorEffectsInputs, 'editor' | 'editorWrapperRef' | 'setIsCitePickerOpen'>) {
+    const visible = usePaneVisibility();
     const open = useEffectEvent(() => { setIsCitePickerOpen(true); });
     useEffect(() => subscribeWindowEvent('keydown', (event) => {
-        if (!citeShortcutAllowed(event, editorWrapperRef.current)) return;
+        if (!visible || !citeShortcutAllowed(event, editorWrapperRef.current)) return;
         event.preventDefault();
         event.stopPropagation();
         open();
-    }, true), [editor, editorWrapperRef]);
+    }, true), [editor, editorWrapperRef, visible]);
 }

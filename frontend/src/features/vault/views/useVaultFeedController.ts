@@ -19,6 +19,7 @@ import {
   updateVaultSummarySettings,
 } from '../../../shared/api/vault-summary';
 import { subscribeWindowEvent } from '../../../shared/platform/browser-events';
+import { usePaneVisibility } from '../../../shared/ui/PaneVisibility';
 import { requireFilterNodes } from '../../../shared/filtering/filterContracts';
 import { getFieldType, resolveViewFilters, resolveViewSorts, withResolvedSystemDates } from '../../../shared/records/model/schemaUtils';
 import { useTitlePreview } from '../../../shared/editor/useTitlePreview';
@@ -76,6 +77,7 @@ export function useVaultFeedController({
   searchTerm = '',
   templates = [],
 }: VaultFeedProps) {
+  const visible = usePaneVisibility();
   const { i18n, t } = useTranslation();
   const localeSettings = useLocaleSettings();
   const settings = resolveVaultFeedSettings(activeView);
@@ -135,11 +137,11 @@ export function useVaultFeedController({
   ));
 
   useEffect(() => subscribeWindowEvent('keydown', (event) => {
-    if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'k') {
+    if (visible && (event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'k') {
       event.preventDefault();
       setIsCommandOpen(true);
     }
-  }), []);
+  }), [visible]);
 
   useEffect(() => {
     if (settings.summaryModel) return undefined;
@@ -179,7 +181,7 @@ export function useVaultFeedController({
   }, [previewIndex, sortedNotes]);
 
   useEffect(() => {
-    if (!previewNote) return undefined;
+    if (!visible || !previewNote) return undefined;
     return subscribeWindowEvent('keydown', (event) => {
       if (
         event.target instanceof HTMLInputElement
@@ -195,7 +197,7 @@ export function useVaultFeedController({
         setPreviewId('');
       }
     });
-  }, [movePreview, previewNote]);
+  }, [visible, movePreview, previewNote]);
 
   const summarizePreview = async (): Promise<void> => {
     if (!previewNote || !summaryModel) return;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { subscribeWindowEvent } from '../../../../shared/platform/browser-events';
+import { usePaneVisibility } from '../../../../shared/ui/PaneVisibility';
 import { emitAppEvent } from './events';
 import { decodeNavApi } from './decode';
 import type { NavApi } from './types';
@@ -7,6 +8,7 @@ import type { EmbedInputs } from './inputs';
 import type { EmbedDerived } from './useEmbedDerived';
 import type { EmbedRecordActions } from './useEmbedRecordActions';
 export function useEmbedNavigation({ ctx, block, handleCreate, handleOpenConfig, tableId, viewType, toggleFeedDensity, setShowSearch }: EmbedInputs & EmbedDerived & EmbedRecordActions) {
+    const visible = usePaneVisibility();
     const { onOpenPageViewModal } = ctx;
     const tableNavApiRef = useRef<NavApi | null>(null);
     // Outer container of the embed. When the view is NOT table/list (feed,
@@ -49,6 +51,7 @@ export function useEmbedNavigation({ ctx, block, handleCreate, handleOpenConfig,
         }
     }, [ctx, block?.id]);
     useEffect(() => {
+        if (!visible) return undefined;
         const handleShortcut = (event: KeyboardEvent) => {
             const target = event.target;
             const embed = embedContainerRef.current;
@@ -100,7 +103,7 @@ export function useEmbedNavigation({ ctx, block, handleCreate, handleOpenConfig,
         onOpenPageViewModal,
         tableId,
         toggleFeedDensity,
-        viewType, isInEditor, setShowSearch,
+        viewType, isInEditor, setShowSearch, visible,
     ]);
     useEffect(() => {
         if (!ctx.registerEmbedNav || !block?.id) return undefined;

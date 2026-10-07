@@ -3,7 +3,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type RefObject,
 } from 'react';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../../../../shared/ui/PanePortal';
 import { useTranslation } from 'react-i18next';
 import {
   Check,
