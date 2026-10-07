@@ -295,6 +295,16 @@ Els endpoints de fitxers validen el confinament i gestionen la hidratació del
 núvol. Els identificadors persistents d'anotació impedeixen duplicar una cita
 generada cada vegada que es reobre el document.
 
+El processament conserva totes les cites a les notes i en selecciona un
+subconjunt per ressaltar al PDF. Una heurística local compara cada cita completa
+amb el títol i el cos de la nota, donant preferència a l'evidència principal.
+Es ressalta com a màxim el 15% del text d'una pàgina, amb un màxim de dues cites
+sense solapaments i de passatges diferents. Són límits, no quotes obligatòries;
+les cites llargues o poc adequades continuen a les notes sense ressaltat.
+La validació de la geometria de totes les cites és independent d'aquesta
+selecció visual. Tornar a sincronitzar elimina només els ressaltats obsolets
+gestionats pel recurs; conserva les anotacions manuals i les d'altres recursos.
+
 Les propietats de fitxer obren els adjunts PDF i EPUB al lector intern amb
 l’acció compartida d’obertura. Els camins relatius al vault es converteixen en
 URL d’actius servits; els enllaços locals i els URL externs de documents utilitzen
