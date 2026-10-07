@@ -1417,3 +1417,5 @@ failure and can correct notes, explain a policy exclusion, or request originals.
 It does not gain extra format-repair attempts, and unresolved results still stop
 publication. Versioned phase keys prevent older accepted-but-unresolved responses
 from bypassing this correction boundary; original interpretations remain reusable.
+
+OpenRouter generation metadata can remain unavailable after a response completes. The metadata-only confirmer now retries after 2, 10, 30, 120 and 300 seconds, with at most six GETs in total. Two background workers share a bounded queue of 128 outstanding confirmations; delayed retries do not occupy workers or block newer lookups, and duplicate scheduling of an outstanding call is ignored. Only a matching provider-reported total settles a reservation. Exhausted retries retain the pending cost; they never repeat model requests, clear an unknown charge or raise the book limit.

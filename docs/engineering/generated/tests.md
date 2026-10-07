@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
 | Vitest | 627 | 2732 |
-| pytest | 643 | 4728 |
+| pytest | 644 | 4731 |
 
 ## Files
 
@@ -733,6 +733,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_ai_model_registry_api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ai_model_registry_api.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_ai_registry_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ai_registry_contract.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_ai_timeout.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ai_timeout.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_ai_usage_delayed_billing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ai_usage_delayed_billing.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_analytics_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_analytics_api_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_api_compatibility.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_api_compatibility.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_app_async_boundaries.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_app_async_boundaries.py) | 3 | Python AST |

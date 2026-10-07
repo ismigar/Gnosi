@@ -1619,3 +1619,5 @@ réparation du format, et les résultats non résolus bloquent toujours la publi
 Les clés de phase versionnées empêchent les anciennes réponses acceptées malgré
 leurs défauts de contourner cette limite ; les interprétations originales restent
 réutilisables.
+
+Les métadonnées de facturation d’OpenRouter peuvent rester indisponibles après la fin d’une réponse. La confirmation, limitée aux métadonnées, est réessayée après 2, 10, 30, 120 et 300 secondes, avec au maximum six GET au total. Deux travailleurs en arrière-plan partagent une file limitée à 128 confirmations en attente ; les délais n’occupent pas les travailleurs et ne bloquent pas les nouvelles consultations, et un appel déjà en attente n’est pas ajouté deux fois. Seul un montant confirmé par le fournisseur et associé au même identifiant solde une réservation. Après épuisement des tentatives, le coût reste en attente ; aucun appel au modèle n’est répété, aucun coût inconnu n’est annulé et le plafond du livre n’est pas augmenté.

@@ -1527,3 +1527,5 @@ originals. No obté més intents de reparació de format, i els resultats penden
 continuen impedint la publicació. Les claus de fase versionades eviten que les
 respostes antigues acceptades amb defectes eludeixin aquest límit de correcció;
 les interpretacions originals es poden reutilitzar.
+
+Les metadades de facturació d’OpenRouter poden continuar indisponibles després d’acabar una resposta. La confirmació, que només consulta metadades, es reintenta al cap de 2, 10, 30, 120 i 300 segons, amb un màxim de sis GET en total. Dos treballadors en segon pla comparteixen una cua limitada a 128 confirmacions pendents; l’espera dels reintents no ocupa treballadors ni bloqueja consultes noves, i no es duplica una crida ja pendent. Només un import confirmat pel proveïdor i amb la mateixa identitat liquida una reserva. Quan s’esgoten els reintents, el cost continua pendent; no es repeteix la crida al model, no s’anul·la un càrrec desconegut ni s’augmenta el límit del llibre.

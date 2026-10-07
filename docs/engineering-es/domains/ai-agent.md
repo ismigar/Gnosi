@@ -1594,3 +1594,5 @@ política o pedir originales. No obtiene más intentos de reparación de formato
 y los resultados pendientes siguen impidiendo la publicación. Las claves de fase
 versionadas evitan que las respuestas anteriores aceptadas con defectos eludan
 este límite de corrección; las interpretaciones originales se pueden reutilizar.
+
+Los metadatos de facturación de OpenRouter pueden seguir indisponibles después de terminar una respuesta. La confirmación, que solo consulta metadatos, se reintenta tras 2, 10, 30, 120 y 300 segundos, con un máximo de seis GET en total. Dos trabajadores en segundo plano comparten una cola limitada a 128 confirmaciones pendientes; la espera de los reintentos no ocupa trabajadores ni bloquea consultas nuevas, y no se duplica una llamada ya pendiente. Solo un importe confirmado por el proveedor y con la misma identidad liquida una reserva. Al agotarse los reintentos, el coste sigue pendiente; no se repite la llamada al modelo, no se anula un cargo desconocido ni se aumenta el límite del libro.
