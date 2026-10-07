@@ -28,6 +28,8 @@ def _demo_pdf(tmp_path: Path) -> Path:
         for text_value, y_position in (
             ("Persistent citation highlights span multiple lines", 700),
             ("in this portable PDF fixture", 680),
+            *[("Ordinary surrounding prose supplies context for selective reading without highlighting everything.",
+               650 - index * 20) for index in range(6)],
         ):
             text_object = pdfium_c.FPDFPageObj_NewTextObj(
                 document.raw,
@@ -155,6 +157,105 @@ def test_managed_highlights_are_idempotent_and_preserve_manual_annotations(tmp_p
     remaining = session.query(PdfAnnotation).all()
     assert removed["removed"] == 1
     assert remaining == [manual]
+
+
+def test_sparse_highlights_preserve_full_evidence_and_remove_previous_saturation(tmp_path):
+    """A heavily cited page must retain readable prose and its complete notes."""
+    from copy import deepcopy
+
+    session = _session()
+    pdf_path = _demo_pdf(tmp_path)
+    quotes = [
+        "Listening to the Spirit requires personal responsibility for the search for truth.",
+        "Faith cannot be reduced to blind obedience to the ecclesiastical institution.",
+        "The written word alone cannot replace a living search for understanding.",
+        "A historical example offers further context for this account of the tradition.",
+        "The paragraph supplies another illustration within the wider discussion of authority.",
+        "An additional reference situates this idea in its historical context and tradition.",
+    ]
+    notes = [
+        {"title": "Personal responsibility in listening to the Spirit", "source_segment_id": "segment-0",
+         "body_md": "Faith requires responsibility and listening, beyond blind institutional obedience.",
+         "citations": [{**_citation(), "quote": quote, "segment_id": f"segment-{index}"}
+                       for index, quote in enumerate(quotes)]}
+    ]
+    before = deepcopy(notes)
+    raw = llm_wiki_pdf_annotations._citation_candidates(notes, [_origin(pdf_path)], "resource-1")
+    for key, candidate in raw.items():
+        session.add(PdfAnnotation(managed_key=key, source_uri=candidate["source_uri"],
+                                  page=1, type="highlight", text=candidate["quote"]))
+    manual = PdfAnnotation(source_uri="file:///Library/demo.pdf", page=1, type="highlight", text="My choice")
+    unrelated = PdfAnnotation(managed_key="llm-wiki:other-resource:key", source_uri="file:///Library/demo.pdf",
+                              page=1, type="highlight", text="Other resource")
+    session.add_all([manual, unrelated])
+    session.commit()
+
+    def resolve(_path, _page, quote):
+        index = quotes.index(quote)
+        return {"page_index": 0, "rects": [[0, index * 15, 300, index * 15 + 10]],
+                "sort_index": f"00000|{index:06}|00000", "page_text_length": 1200}
+
+    report = llm_wiki_pdf_annotations.sync_generated_pdf_annotations(
+        notes, [_origin(pdf_path)], "resource-1", session=session, position_resolver=resolve,
+    )
+    kept = session.query(PdfAnnotation).filter(PdfAnnotation.managed_key.like("llm-wiki:resource-1:%")).all()
+    assert len(kept) == 2
+    assert sum(len(item.text) for item in kept) <= 0.15 * 1200
+    assert {item.text for item in kept} == set(quotes[:2])
+    assert report["removed"] == 4 and report["citation_matches"] == 6
+    assert notes == before
+    assert session.get(PdfAnnotation, manual.id) is manual
+    assert session.get(PdfAnnotation, unrelated.id) is unrelated
+
+
+def test_highlights_deduplicate_overlapping_quotes_from_distinct_source_segments(tmp_path):
+    pdf_path = _demo_pdf(tmp_path)
+    notes = [{"citations": [{**_citation(), "segment_id": f"segment-{i}"} for i in range(6)]}]
+    session = _session()
+    report = llm_wiki_pdf_annotations.sync_generated_pdf_annotations(
+        notes, [_origin(pdf_path)], "resource-1", session=session,
+    )
+    assert report["citation_matches"] == 6
+    assert report["selected"] == 1
+
+
+def test_unsuitable_quotes_leave_page_unmarked_and_still_require_full_citation_geometry(tmp_path):
+    pdf_path = _demo_pdf(tmp_path)
+    quote = " ".join([_TEST_QUOTE] * 8)
+    origin = {**_origin(pdf_path), "segments": [
+        {"id": "segment-1", "text": quote, "locator": {"page": 1}}]}
+    notes = [{"citations": [{**_citation(), "quote": quote}]}]
+    session = _session()
+    calls = []
+
+    def resolve(_path, _page, value):
+        calls.append(value)
+        return {"page_index": 0, "rects": [[0, 0, 100, 10]], "sort_index": "00000|000000|00000",
+                "page_text_length": 5000}
+
+    report = llm_wiki_pdf_annotations.sync_generated_pdf_annotations(
+        notes, [origin], "resource-1", session=session, position_resolver=resolve,
+    )
+    assert report["selected"] == 0 and report["citation_matches"] == 1
+    assert calls == [quote]  # A display limit must never weaken evidence checks.
+    assert session.query(PdfAnnotation).count() == 0
+    assert llm_wiki_pdf_annotations.reading_citation_issues(notes, [origin])[0]
+
+
+def test_unavailable_pdf_preserves_previously_generated_highlights(tmp_path):
+    pdf_path = tmp_path / "unavailable.pdf"
+    session = _session()
+    notes = [{"citations": [_citation()]}]
+    key = llm_wiki_pdf_annotations._managed_key("resource-1", _citation())
+    saved = PdfAnnotation(managed_key=key, source_uri="file:///Library/demo.pdf",
+                          page=1, type="highlight", text=_TEST_QUOTE)
+    session.add(saved)
+    session.commit()
+    report = llm_wiki_pdf_annotations.sync_generated_pdf_annotations(
+        notes, [_origin(pdf_path)], "resource-1", session=session,
+    )
+    assert report["removed"] == 0
+    assert session.get(PdfAnnotation, saved.id) is saved
 
 
 def test_alembic_migration_adds_unique_managed_key_column(tmp_path: Path):

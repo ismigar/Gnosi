@@ -249,6 +249,17 @@ El lector Zotero incluido muestra contenido PDF y EPUB. Gnosi posee el puente qu
 
 Los endpoints de archivos validan el confinamiento de rutas y gestionan la hidratación de archivos en la nube. Los identificadores persistentes de anotaciones evitan duplicar una cita generada cada vez que se reabre un documento.
 
+El procesamiento conserva todas las citas en las notas y selecciona un
+subconjunto para resaltar en el PDF. Una heurística local compara cada cita
+completa con el título y el cuerpo de su nota, dando preferencia a la evidencia
+principal. Se resalta como máximo el 15% del texto de cada página, con un máximo
+de dos citas sin solapamientos y de pasajes distintos. Son límites, no cuotas
+obligatorias; las citas largas o poco adecuadas permanecen en las notas sin
+resaltado. La geometría de todas las citas se valida independientemente de
+esta selección visual. Sincronizar de nuevo elimina solo los resaltados
+obsoletos gestionados por el recurso y conserva las anotaciones manuales y
+las de otros recursos.
+
 Las propiedades de archivo abren los adjuntos PDF y EPUB en el lector interno
 mediante la acción compartida de apertura. Las rutas relativas al vault se
 convierten en URL de activos servidos; los enlaces locales y los URL externos de

@@ -37,16 +37,17 @@ def test_native_character_indices_survive_pdfium_inserted_text():
 
 
 def test_previously_guessed_highlight_is_removed_when_full_quote_cannot_be_verified(tmp_path):
-    from backend.services.llm_wiki_pdf_annotations import sync_generated_pdf_annotations
+    from backend.services.llm_wiki_pdf_annotations import sync_generated_pdf_annotations, _managed_key
     from backend.tests.test_llm_wiki_pdf_annotations import _session, _origin, _citation
     from backend.models.pdf_annotation import PdfAnnotation
     session = _session()
     pdf = _demo_pdf(tmp_path)
     citation = {**_citation(), 'quote': _TEST_QUOTE + ' invented ending'}
     notes = [{'citations': [citation]}]
-    legacy_position = {'page_index': 0, 'rects': [[1, 1, 2, 2]], 'sort_index': '00000|000000|00000'}
-    sync_generated_pdf_annotations(notes, [_origin(pdf)], 'book', session=session,
-                                   position_resolver=lambda *args: legacy_position)
+    session.add(PdfAnnotation(managed_key=_managed_key('book', citation),
+                              source_uri=_origin(pdf)['_annotation_source_uri'], page=1,
+                              type='highlight', text=citation['quote']))
+    session.commit()
     report = sync_generated_pdf_annotations(notes, [_origin(pdf)], 'book', session=session)
     assert report['matched'] == 0 and report['removed'] == 1
     assert session.query(PdfAnnotation).count() == 0
