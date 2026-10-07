@@ -1584,3 +1584,5 @@ validarse antes de reutilizarlos. Se invalidan las revisiones anteriores, pero
 se conservan los borradores y los mapas. La estimación con reparaciones incluye
 estas rondas opcionales y sus reparaciones de formato; todas las llamadas
 comparten el límite acumulado del libro.
+
+El formato enviado al proveedor omite la restricción de unicidad de listas no admitida para las peticiones de evidencia; la validación canónica sigue rechazando localmente los números de página duplicados.

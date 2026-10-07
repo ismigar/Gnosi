@@ -149,12 +149,19 @@ def test_wire_contract_requires_requests_and_preserves_exact_citations(monkeypat
     def generate(prompt, validate, timeout):
         request = json.loads(prompt)
         selection = quote_selection(request)
+        # Reproduce Upstage's real schema rejection before producing a response.
+        if '"uniqueItems"' in encoded(selection.schema):
+            raise RuntimeError("Invalid schema for response_format: uniqueItems is not supported")
         raw = {'assessment': 'Checked this batch only.', 'changes': {'note_1': None, 'note_2': None},
                'warnings': [], 'unresolved_issues': []}
         with pytest.raises(ValueError, match='evidence_requests'):
             selection.restore(encoded(raw))
         raw['evidence_requests'] = []
         answer = selection.restore(encoded(raw)); validate(json.loads(answer))
+        raw['evidence_requests'] = [request_evidence('', [8, 8])]
+        duplicate = json.loads(selection.restore(encoded(raw)))
+        with pytest.raises(ValueError, match='non-unique'):
+            validate(duplicate)
         assert 'other batches cover the other notes' in request['instruction']
         assert 'active skill\'s inclusion/exclusion' in request['instruction']
         assert request['available_originals']['sections']

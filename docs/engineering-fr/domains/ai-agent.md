@@ -1608,3 +1608,5 @@ les empreintes des originaux supplémentaires, revérifiées avant réutilisatio
 Les anciennes révisions sont invalidées, mais les brouillons et les cartes sont
 conservés. L'estimation avec réparations inclut ces tours facultatifs et leurs
 réparations de format ; tous les appels partagent le plafond cumulé du livre.
+
+Le format envoyé au fournisseur omet la contrainte d’unicité des listes non prise en charge pour les demandes de preuves ; la validation canonique rejette toujours localement les numéros de page en double.

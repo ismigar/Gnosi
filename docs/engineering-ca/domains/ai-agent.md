@@ -1517,3 +1517,5 @@ dels originals addicionals, que es tornen a validar abans de reutilitzar-los.
 S'invaliden les revisions antigues, però es conserven els esborranys i els mapes.
 L'estimació amb reparacions inclou aquestes rondes opcionals i les seves
 reparacions de format; totes les crides comparteixen el límit acumulat del llibre.
+
+El format enviat al proveïdor omet la restricció d’unicitat de llistes no admesa per a les peticions d’evidència; la validació canònica continua rebutjant localment els números de pàgina duplicats.

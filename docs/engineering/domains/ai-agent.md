@@ -1408,3 +1408,5 @@ retain source fingerprints for the additional originals, which are revalidated
 before reuse. Older review decisions are invalidated while source drafts and
 maps remain reusable. The repair estimate includes these optional rounds and
 their format repairs; every call still uses the same cumulative book limit.
+
+Provider transport omits the unsupported array uniqueness keyword for evidence requests; canonical validation still rejects duplicate page numbers locally.

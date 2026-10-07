@@ -87,6 +87,10 @@ def selection_contract(schema: dict[str, Any], phase: str, primary_ids: list[lis
     else:
         if "evidence_requests" in result["properties"]:
             result["required"].append("evidence_requests")
+            # Upstage's strict output subset rejects uniqueItems. Keep that
+            # constraint in the canonical validator, outside provider transport.
+            pages = result["properties"]["evidence_requests"]["items"]["properties"]["pages"]
+            pages.pop("uniqueItems", None)
         note, definitions = shared_note_schema(result["properties"]["changes"]["items"]["properties"]["replacement"])
         result["properties"]["changes"] = obj({f"note_{i + 1}": {"anyOf": [
             {"type": "null"}, obj({"omit_reason": {"type": "string", "minLength": 1}}),

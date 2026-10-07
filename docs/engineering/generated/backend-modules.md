@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 2 | 55 |
 | `config` | 13 | 1382 |
 | `data` | 2 | 214 |
-| `domains` | 515 | 106453 |
+| `domains` | 515 | 106457 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2301 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **947 modules** and **186410 source lines**.
+Total: **947 modules** and **186414 source lines**.
 
 ## agent
 
@@ -379,7 +379,7 @@ Total: **947 modules** and **186410 source lines**.
 | [`backend/domains/llm_wiki/semantic_map_reduction.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_map_reduction.py) | 118 | 1 | 5 | 0 | 4 | Contract summaries without recursively splitting summaries into more calls. |
 | [`backend/domains/llm_wiki/semantic_map_windows.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_map_windows.py) | 51 | 1 | 3 | 0 | 0 | Split only incomplete map windows, preserving complete cached siblings. |
 | [`backend/domains/llm_wiki/semantic_quote_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_quote_contracts.py) | 52 | 0 | 5 | 0 | 2 | Constrain primary evidence before generation without duplicating field schemas. |
-| [`backend/domains/llm_wiki/semantic_quote_selection.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_quote_selection.py) | 146 | 1 | 2 | 0 | 1 | Use immutable quote choices on the first call and every correction alike. |
+| [`backend/domains/llm_wiki/semantic_quote_selection.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_quote_selection.py) | 150 | 1 | 2 | 0 | 1 | Use immutable quote choices on the first call and every correction alike. |
 | [`backend/domains/llm_wiki/semantic_reading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_reading.py) | 234 | 1 | 1 | 0 | 0 | Application-directed reading: interpret text, then verify it as a whole. |
 | [`backend/domains/llm_wiki/semantic_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_repairs.py) | 111 | 0 | 4 | 0 | 2 | One bounded repair of invalid passage interpretations; preserve valid work. |
 | [`backend/domains/llm_wiki/semantic_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_review.py) | 78 | 0 | 1 | 0 | 0 | Source-grounded joint review with sparse semantic replacements, never a rewrite loop. |
