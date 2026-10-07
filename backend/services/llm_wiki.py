@@ -17,7 +17,6 @@ from collections.abc import Callable, Iterable
 from functools import partial, wraps
 from pathlib import Path
 from typing import Dict, List, Optional, Protocol, cast, ParamSpec, TypeVar
-from urllib.parse import urlencode
 
 from backend.config.logger_config import get_logger
 from backend.domains.llm_wiki import dimensions as llm_wiki_dimensions
@@ -25,6 +24,12 @@ from backend.domains.llm_wiki import ingestion as llm_wiki_ingestion
 from backend.domains.llm_wiki import legacy_ports
 from backend.domains.llm_wiki import planning as llm_wiki_planning
 from backend.domains.llm_wiki import writing as llm_wiki_writing
+from backend.domains.llm_wiki.citation_rendering import (
+    format_timestamp as _format_timestamp,
+    locator_label as _locator_label,
+    parse_page as _parse_page,
+    render_citations as _render_citations,
+)
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.registry.records import RecordReader
 from backend.domains.vault.registry.state import RegistryData
@@ -43,7 +48,7 @@ from backend.services import (
 from backend.services import (
     llm_wiki_storage as llm_wiki_storage,
 )
-from backend.utils.open_values import float_value, iterable_values, length_value
+from backend.utils.open_values import iterable_values, length_value
 
 logger = get_logger(__name__)
 
@@ -254,56 +259,6 @@ def _validate_ai_dimensions(
 
 def _today() -> str:
     return dt.date.today().isoformat()
-
-
-def _parse_page(locator: str) -> Optional[int]:
-    if not locator:
-        return None
-    match = re.search(r"(?:p{1,2}\.?|p[àa]g\.?|page|pl?\.?)\s*(\d{1,5})", locator, re.IGNORECASE)
-    if not match:
-        match = re.search(r"\b(\d{1,5})\b", locator)
-    if not match:
-        return None
-    try:
-        page = int(match.group(1))
-        return page if page > 0 else None
-    except ValueError:
-        return None
-
-
-def _render_citations(
-    citations: object,
-    _source_title: str,
-    source_id: str,
-    source_table_id: str = "",
-) -> str:
-    if not isinstance(citations, list) or not citations:
-        return ""
-    lines = ["", "### Cites", ""]
-    for citation in citations:
-        if not isinstance(citation, dict):
-            continue
-        quote = str(citation.get("quote") or "").strip()
-        if not quote:
-            continue
-        locator = citation.get("locator") or {}
-        if isinstance(locator, str):
-            page = _parse_page(locator)
-            locator = {"page": page} if page else {"label": locator}
-        params = {
-            "res": source_id,
-            "table": source_table_id,
-            "snapshot": citation.get("snapshot_id") or "",
-            "segment": citation.get("segment_id") or "",
-            "origin": citation.get("origin_id") or "",
-        }
-        for key in ("page", "chapter", "paragraph", "line_start", "line_end", "start", "end"):
-            value = locator.get(key)
-            if value not in (None, ""):
-                params[key] = value
-        jump = f"[{_locator_label(locator)}](gnosi-cite:?{urlencode(params)})"
-        lines.extend([f"> {quote} — {jump}", ""])
-    return "\n".join(lines) if len(lines) > 3 else ""
 
 
 def _base_note_metadata(
@@ -765,34 +720,6 @@ def _metadata_property_value(
     prop: dict[str, object],
 ) -> object:
     return llm_wiki_dimensions.metadata_property_value(metadata, prop)
-
-
-def _locator_label(locator: dict[str, object]) -> str:
-    if locator.get("page"):
-        label = f"p. {locator['page']}"
-        if locator.get("paragraph"):
-            label += f", ¶ {locator['paragraph']}"
-        return label
-    if locator.get("chapter"):
-        label = str(locator["chapter"])
-        if locator.get("paragraph"):
-            label += f", ¶ {locator['paragraph']}"
-        return label
-    if locator.get("line_start"):
-        end = locator.get("line_end") or locator["line_start"]
-        return f"l. {locator['line_start']}–{end}"
-    if locator.get("start") is not None:
-        return _format_timestamp(float_value(locator.get("start") or 0))
-    if locator.get("image"):
-        return str(locator["image"])
-    return str(locator.get("label") or "fragment")
-
-
-def _format_timestamp(seconds: float) -> str:
-    total = max(0, int(seconds))
-    hours, remainder = divmod(total, 3600)
-    minutes, secs = divmod(remainder, 60)
-    return f"{hours}:{minutes:02d}:{secs:02d}" if hours else f"{minutes}:{secs:02d}"
 
 
 def _normalized_text(value: object) -> str:

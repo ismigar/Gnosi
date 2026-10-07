@@ -1,3 +1,4 @@
+import { agent, budget, configuration, createSettingsApiFixture, model, type SettingsApiFixture } from './__fixtures__/settingsController';
 import { AgentsPanel } from './AgentsPanel';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import React, { act, useLayoutEffect } from 'react';
@@ -44,23 +45,10 @@ vi.mock('../../literature/settings/ResourcesPluginConfig', () => ({
   default: () => <div data-testid="resources-plugin-editor">Fixture references editor</div>,
 }));
 
-const model = { provider: 'fixture', model_id: 'fixture-model', enabled: true, supports_tools: true, context_window: 32000, custom_capability: ['read'] };
-const budget = { monthly_cost_cap: 2, enforce_block: false, preserved_policy: 'fixture' };
-const usage = { budget, cap_ccy: 2, cap_usd: 2, currency: { symbol: '€', usd_rate: 1 }, over_cap: false, per_model: [], period: '2026-08', ratio: 0, spent_ccy: 0, spent_usd: 0 };
-const account = { mail_server: 'fixture.invalid', mail_port: 110, mail_ssl: 'starttls', email: 'fixture@example.invalid', password_set: true, delete_after_ingest: true };
-const agent = { id: 'fixture-agent', name: 'Fixture agent', provider: 'fixture', model: 'fixture-model', skill_ids: ['fixture-skill'], protected_extension: { keep: true } };
-const configuration = { settings: { workspace_name: 'Fixture', theme: 'dark', custom_setting: 'keep' }, ai: { agents: [agent], active_agent_id: 'fixture-agent', providers: { fixture: { enabled: true, credential_ref: '__keychain__:fixture' } } }, graph: {}, paths: {} };
-interface RecordedRequest { path: string; search: string; method: string; body: unknown }
-let requests: RecordedRequest[];
+let api: SettingsApiFixture;
 let root: Root;
 let container: HTMLDivElement;
 let current: SettingsController | undefined;
-let rejectWrites: boolean;
-let configResponse: (() => Promise<Response>) | undefined;
-let tableResponse: (() => Promise<Response>) | undefined;
-let databaseRows: { id: string; name: string }[];
-let integrationPayload: Record<string, unknown>;
-let savedBudget: unknown;
 
 function snapshot(): SettingsController {
   if (!current) throw new Error('Controller not mounted');
@@ -80,7 +68,7 @@ async function mount(props: Partial<GlobalSettingsModalProps> = {}) {
 async function advance(milliseconds = 800) {
   await act(async () => { await vi.advanceTimersByTimeAsync(milliseconds); });
 }
-function writes() { return requests.filter(request => request.method !== 'GET'); }
+function writes() { return api.requests.filter(request => request.method !== 'GET'); }
 
 beforeAll(async () => {
   // These integration cases render real editors. Transform their module graphs
@@ -101,49 +89,11 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   resetApiTestStorage();
-  requests = [];
-  rejectWrites = false;
-  configResponse = undefined;
-  tableResponse = undefined;
-  databaseRows = [];
-  integrationPayload = { mail_accounts: [], contacts: [], calendars: [], extension: { keep: true } };
-  savedBudget = { ...budget };
+  api = createSettingsApiFixture();
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
-  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => {
-    const request = input instanceof Request ? input : new Request(input, init);
-    const path = new URL(request.url).pathname;
-    const text = request.method === 'GET' ? '' : await request.clone().text();
-    const body: unknown = text ? JSON.parse(text) : null;
-    requests.push({ path, search: new URL(request.url).search, method: request.method, body });
-    if (rejectWrites && request.method !== 'GET') return Response.json({ detail: 'Fixture failure' }, { status: 500 });
-    if (path === '/api/ai/models' && request.method !== 'GET' && body && typeof body === 'object' && 'budget' in body) savedBudget = body.budget;
-    if (path === '/api/config/editor' && request.method === 'GET' && configResponse) return configResponse();
-    if (path === '/api/vault/tables' && tableResponse) return tableResponse();
-    const payloads: Record<string, unknown> = {
-      '/api/config/editor': configuration,
-      '/api/integrations': integrationPayload,
-      '/api/identity': { full_name: 'Fixture identity', email: 'fixture@example.invalid', address: null },
-      '/api/ai/catalog': { config: { providers: { fixture: { enabled: true } } }, catalog: { providers: [] } },
-      '/api/ai/models': { configured_models: [model], models: [model], budget: savedBudget, currency: usage.currency },
-      '/api/ai/model-comparison': { models: [] },
-      '/api/ai/usage': { ...usage, budget: savedBudget },
-      '/api/vault/tables': [],
-      '/api/vault/databases': databaseRows,
-      '/api/graph': { nodes: [], edges: [] },
-      '/api/auth/google/status': { configured: false },
-      '/api/reader/sources': [],
-      '/api/reader/newsletter-account': account,
-      '/api/social/networks': [{ id: 'mastodon', name: 'Mastodon', icon: '🐘', enabled: true }],
-      '/api/social/streams': [],
-      '/api/credentials/deepl_api_key': { has_value: true },
-      '/api/env': { SOFTCATALA_API_URL: 'https://fixture.invalid/translate' },
-    };
-    if (request.method !== 'GET') return Response.json({ status: 'success', success: true, ...account });
-    if (!(path in payloads)) throw new Error(`Unexpected fixture request ${path}`);
-    return Response.json(payloads[path]);
-  }));
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(api.fetch));
 });
 afterEach(() => {
   act(() => { root.unmount(); });
@@ -187,15 +137,15 @@ describe('settings controller persistence contracts', () => {
       snapshot().setAddAccountType('calendar');
     });
     const draftBefore = snapshot().draft;
-    integrationPayload = {
-      ...integrationPayload,
+    api.integrationPayload = {
+      ...api.integrationPayload,
       calendars: [{ id: 'google_fixture', provider: 'google', email: 'user+calendar@example.test' }],
     };
     await act(async () => {
       dispatchWindowEvent(new Event('focus'));
       await Promise.resolve();
     });
-    expect(snapshot().integrations.calendars).toEqual(integrationPayload.calendars);
+    expect(snapshot().integrations.calendars).toEqual(api.integrationPayload.calendars);
     expect(snapshot().activeTab).toBe('calendar');
     expect(snapshot().addAccountEmail).toBe('user+calendar@example.test');
     expect(snapshot().addAccountType).toBe('calendar');
@@ -221,7 +171,7 @@ describe('settings controller persistence contracts', () => {
     const extra = { ...agent, id: 'extra', name: 'Saved profile' };
     act(() => { snapshot().setDraft(previous => ({ ...previous, ai: { ...previous.ai, agents: [agent, extra] } })); });
     await advance();
-    requests = [];
+    api.requests = [];
     act(() => { snapshot().handleDeleteAIAgent(extra); });
     expect(snapshot().confirmConfig.title).toBe('settings.ai.assistant.delete_profile_title');
     expect(snapshot().draft.ai.agents).toHaveLength(2);
@@ -317,18 +267,18 @@ describe('settings controller persistence contracts', () => {
       await advance();
     };
     await setOpen(true);
-    expect(requests.map(request => request.path).sort()).toEqual([
+    expect(api.requests.map(request => request.path).sort()).toEqual([
       '/api/config/editor', '/api/identity', '/api/integrations',
     ]);
     expect(snapshot().draft.identity.full_name).toBe('Fixture identity');
     expect(writes()).toEqual([]);
 
     await setOpen(false);
-    configResponse = () => Promise.resolve(Response.json({
+    api.configResponse = () => Promise.resolve(Response.json({
       ...configuration, settings: { ...configuration.settings, workspace_name: 'Changed elsewhere' },
     }));
     await setOpen(true);
-    expect(requests.filter(request => request.method === 'GET').map(request => request.path).sort()).toEqual([
+    expect(api.requests.filter(request => request.method === 'GET').map(request => request.path).sort()).toEqual([
       '/api/config/editor', '/api/config/editor', '/api/identity', '/api/identity', '/api/integrations', '/api/integrations',
     ]);
     expect(snapshot().draft.settings.workspace_name).toBe('Changed elsewhere');
@@ -337,35 +287,35 @@ describe('settings controller persistence contracts', () => {
   it('loads plugin settings without requesting auxiliary data for other sections', async () => {
     await mount({ initialTab: 'plugins' });
     await advance();
-    expect(requests.map(request => request.path).sort()).toEqual([
+    expect(api.requests.map(request => request.path).sort()).toEqual([
       '/api/config/editor', '/api/identity', '/api/integrations',
     ]);
     expect(writes()).toEqual([]);
     act(() => { snapshot().setActiveTab('calendar'); });
     await advance();
-    expect(requests.some(request => request.path === '/api/vault/tables')).toBe(true);
+    expect(api.requests.some(request => request.path === '/api/vault/tables')).toBe(true);
     act(() => { snapshot().setActiveTab('plugins'); });
     act(() => { snapshot().setActiveTab('calendar'); });
     await advance();
-    expect(requests.filter(request => request.path === '/api/vault/tables')).toHaveLength(1);
+    expect(api.requests.filter(request => request.path === '/api/vault/tables')).toHaveLength(1);
     expect(writes()).toEqual([]);
   });
   it('loads databases while tables are still pending and keeps their result if tables fail', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    databaseRows = [{ id: 'fixture-database', name: 'Fixture database' }];
+    api.databaseRows = [{ id: 'fixture-database', name: 'Fixture database' }];
     let release: ((response: Response) => void) | undefined;
-    tableResponse = () => new Promise(resolve => { release = resolve; });
+    api.tableResponse = () => new Promise(resolve => { release = resolve; });
     await mount({ initialTab: 'calendar' });
     await advance();
-    expect(requests.filter(request => request.path === '/api/vault/tables')).toHaveLength(1);
-    expect(requests.filter(request => request.path === '/api/vault/databases')).toHaveLength(1);
-    expect(snapshot().databases).toEqual(databaseRows);
+    expect(api.requests.filter(request => request.path === '/api/vault/tables')).toHaveLength(1);
+    expect(api.requests.filter(request => request.path === '/api/vault/databases')).toHaveLength(1);
+    expect(snapshot().databases).toEqual(api.databaseRows);
     await act(async () => {
       release?.(Response.json({ detail: 'Temporary table failure' }, { status: 503 }));
       await Promise.resolve();
     });
     await advance();
-    expect(snapshot().databases).toEqual(databaseRows);
+    expect(snapshot().databases).toEqual(api.databaseRows);
     expect(writes()).toEqual([]);
   });
   it.each(['general', 'appearance', 'language', 'mail', 'reader', 'graph', 'ai'])('renders the %s pane in the original modal shell', async initialTab => {
@@ -387,7 +337,7 @@ describe('settings controller persistence contracts', () => {
     expect(snapshot().draft.identity.address).toBeNull();
     expect(readStorage(themeKey)).toBe('dark');
     expect(writes()).toEqual([]);
-    expect(requests.some(request => request.path === '/api/ai/catalog')).toBe(false);
+    expect(api.requests.some(request => request.path === '/api/ai/catalog')).toBe(false);
     act(() => { snapshot().setDraft(previous => ({ ...previous, settings: { ...previous.settings, workspace_name: 'Changed' } })); });
     await advance();
     expect(writes().map(request => request.path)).toEqual(['/api/config', '/api/integrations/bulk', '/api/identity']);
@@ -397,7 +347,7 @@ describe('settings controller persistence contracts', () => {
   });
   it('does not save during or after slow initial configuration loading', async () => {
     let release: ((response: Response) => void) | undefined;
-    configResponse = () => new Promise(resolve => { release = resolve; });
+    api.configResponse = () => new Promise(resolve => { release = resolve; });
     await mount();
     await advance(1600);
     expect(writes()).toEqual([]);
@@ -425,7 +375,7 @@ describe('settings controller persistence contracts', () => {
     await mount({ onClose: close });
     await advance();
     act(() => { snapshot().setDraft(previous => ({ ...previous, settings: { ...previous.settings, workspace_name: 'Failed save' } })); });
-    rejectWrites = true;
+    api.rejectWrites = true;
     await act(async () => { await snapshot().handleClose(); });
     expect(close).toHaveBeenCalledOnce();
     expect(snapshot().isSaving).toBe(false);
@@ -436,7 +386,7 @@ describe('settings controller persistence contracts', () => {
     act(() => { snapshot().setNewsletterAccount(previous => ({ ...previous, mail_server: 'other.invalid' })); });
     await advance();
     expect(writes().find(request => request.path === '/api/reader/newsletter-account')?.body).toEqual({ mail_server: 'other.invalid', mail_port: 110, mail_ssl: 'starttls', email: 'fixture@example.invalid', delete_after_ingest: true });
-    requests = [];
+    api.requests = [];
     act(() => { snapshot().setNewsletterAccount(previous => ({ ...previous, password: 'new-fixture-password' })); snapshot().setNewsletterPasswordDirty(true); });
     await advance();
     expect(writes().find(request => request.path === '/api/reader/newsletter-account')?.body).toMatchObject({ password: 'new-fixture-password' });
@@ -447,7 +397,7 @@ describe('settings controller persistence contracts', () => {
     expect(writes().find(request => request.path === '/api/ai/models')?.body).toEqual({ models: [model], budget: { ...budget, monthly_cost_cap: 5.25, enforce_block: true } });
   });
   it.each(['click', ' ', 'Enter'])('persists both monthly blocking states with %s and restores them on reopening', async activation => {
-    savedBudget = { ...budget, enforce_block: true };
+    api.savedBudget = { ...budget, enforce_block: true };
     const reopen = async () => {
       act(() => { root.render(null); });
       await act(async () => { root.render(<Harness isOpen onClose={vi.fn()} initialTab="ai" showBudget />); await Promise.resolve(); });
@@ -457,7 +407,7 @@ describe('settings controller persistence contracts', () => {
       const toggle = container.querySelector<HTMLElement>('[role="switch"]');
       if (!toggle) throw new Error('Missing monthly blocking switch');
       expect(toggle.getAttribute('aria-checked')).toBe(String(!enabled));
-      requests = [];
+      api.requests = [];
       await act(async () => {
         if (activation === 'click') toggle.click();
         else toggle.dispatchEvent(new KeyboardEvent('keydown', { key: activation, bubbles: true, cancelable: true }));
@@ -494,7 +444,7 @@ describe('settings controller persistence contracts', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     await mount({ initialTab: 'social' });
     const previous = snapshot().socialNetworks;
-    rejectWrites = true;
+    api.rejectWrites = true;
     await act(async () => { await snapshot().saveSocialNetworks(previous.map(network => ({ ...network, enabled: false }))); });
     expect(snapshot().socialNetworks).toEqual(previous);
   });
@@ -509,7 +459,7 @@ describe('settings controller persistence contracts', () => {
     await mount({ initialTab: 'translate' });
     await advance(1600);
     expect(writes()).toEqual([]);
-    expect(requests.some(request => request.path.startsWith('/api/credentials') || request.path === '/api/env')).toBe(false);
+    expect(api.requests.some(request => request.path.startsWith('/api/credentials') || request.path === '/api/env')).toBe(false);
   });
   it('validates dynamic documents and preserves plugin and provider extensions', async () => {
     await mount({ isOpen: false });

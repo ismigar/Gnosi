@@ -48,7 +48,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1172 | 129824 | 38 |
+| `features` | 1173 | 129886 | 55 |
 | `generated` | 2 | 49837 | 510 |
 | `shared` | 279 | 32651 | 440 |
 
@@ -607,6 +607,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/settings/global-settings/SocialPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SocialPanel.tsx) | 127 | `SocialPanel` | — |
 | [`frontend/src/features/settings/global-settings/TranslationPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/TranslationPanel.tsx) | 15 | `TranslationPanel` | — |
 | [`frontend/src/features/settings/global-settings/WorkspacePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/WorkspacePanel.tsx) | 27 | `WorkspacePanel` | — |
+| [`frontend/src/features/settings/global-settings/__fixtures__/settingsController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/__fixtures__/settingsController.ts) | 62 | `agent`, `budget`, `configuration`, `createSettingsApiFixture`, `model` | `/api/ai/catalog`, `/api/ai/model-comparison`, `/api/ai/models`, `/api/ai/usage`, `/api/auth/google/status`, `/api/config/editor`, `/api/credentials/deepl_api_key`, `/api/env`, `/api/graph`, `/api/identity`, `/api/integrations`, `/api/reader/newsletter-account`, `/api/reader/sources`, `/api/social/networks`, `/api/social/streams`, `/api/vault/databases`, `/api/vault/tables` |
 | [`frontend/src/features/settings/global-settings/accountProviders.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/accountProviders.ts) | 24 | `accountProviderForEmail`, `isCompleteAccountEmail` | — |
 | [`frontend/src/features/settings/global-settings/agentModelStrategy.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/agentModelStrategy.ts) | 50 | `MAX_ALTERNATIVES`, `compatibleAlternatives`, `isLocalModelProvider`, `modelRouteKey`, `readModelStrategy`, `reconcileModelStrategy` | — |
 | [`frontend/src/features/settings/global-settings/aiOperationsBridge.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/aiOperationsBridge.ts) | 56 | `automationResources`, `operationResources` | — |
