@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
 | Vitest | 627 | 2732 |
-| pytest | 645 | 4744 |
+| pytest | 645 | 4745 |
 
 ## Files
 
@@ -1124,7 +1124,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_semantic_map_reduction.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_semantic_map_reduction.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_semantic_quote_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_semantic_quote_repair.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_semantic_quote_selection.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_semantic_quote_selection.py) | 13 | Python AST |
-| pytest | [`backend/tests/test_semantic_reading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_semantic_reading.py) | 23 | Python AST |
+| pytest | [`backend/tests/test_semantic_reading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_semantic_reading.py) | 24 | Python AST |
 | pytest | [`backend/tests/test_semantic_review_evidence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_semantic_review_evidence.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_semantic_review_parallel.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_semantic_review_parallel.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_semantic_review_provenance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_semantic_review_provenance.py) | 12 | Python AST |

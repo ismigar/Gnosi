@@ -8,6 +8,7 @@ from collections.abc import Callable
 from typing import Any
 
 from backend.domains.llm_wiki.chunking import encoded, records
+from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION
 
 
 def auxiliary_limit(budget: int, divisor: int, maximum: int) -> int:
@@ -83,5 +84,8 @@ def reading_context(chunks: list[dict[str, object]], selected: list[dict[str, ob
 
 
 def state_progress(state: dict[str, Any]) -> tuple[int, ...]:
-    return (len(state.get("plans", {})), len(state.get("reviewed_groups", {})),
+    # Obsolete reviews are discarded before acceptance; they cannot outrank
+    # reusable current reviews simply because an older job finished more batches.
+    reviews = len(state.get("reviewed_groups", {})) if state.get("review_quality_version") == REVIEW_QUALITY_VERSION else 0
+    return (len(state.get("plans", {})), reviews,
             int(bool(state.get("notes_map"))), int(bool(state.get("global_map"))), len(state.get("maps", [])))

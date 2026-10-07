@@ -425,3 +425,28 @@ def test_incomplete_prose_is_rejected_even_when_it_looks_like_complete_text(meta
     with pytest.raises(MapOutputLimit):
         ensure_complete('A plausible argument map.', metadata)
     ensure_complete('A complete argument map.', {'finish_reason': 'stop'})
+
+
+@pytest.mark.parametrize('candidates', [['older', 'recent'], ['recent', 'older']])
+def test_resume_prefers_partial_current_review_over_completed_obsolete_review(monkeypatch, candidates):
+    from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION
+    monkeypatch.setattr('backend.domains.llm_wiki.semantic_review_execution.REVIEW_WORKERS', 1)
+    reader, initial_calls, checkpoints = setup(count=80)
+    reader.run()
+    full = checkpoints['new', 'semantic-state']
+    assert len(full['reviewed_groups']) > 1
+    old = deepcopy(full)
+    old['review_quality_version'] = REVIEW_QUALITY_VERSION - 1
+    recent = deepcopy(full)
+    first_key = next(iter(recent['reviewed_groups']))
+    recent.update(reviewed_groups={first_key: recent['reviewed_groups'][first_key]},
+                  reviewed_ranges={'0': recent['reviewed_ranges']['0']},
+                  review_sources={first_key: recent['review_sources'][first_key]}, completed=False)
+    saved = {('older', 'semantic-state'): old, ('recent', 'semantic-state'): recent}
+    resumed, calls, _ = setup(count=80, checkpoints=saved, resume='recent')
+    resumed.dependencies.resume_candidates = lambda _: candidates
+    result, _ = resumed.run()
+    retained = {n['note']['title'] for n in next(c for c in initial_calls if c['phase'] == 'verify')['notes']}
+    assert len(result['notes']) == 80
+    assert calls and all(c['phase'] == 'verify' for c in calls)
+    assert all(n['note']['title'] not in retained for c in calls for n in c['notes'])

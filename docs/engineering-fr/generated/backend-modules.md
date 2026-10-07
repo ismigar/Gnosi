@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 55 |
 | `config` | 13 | 1382 |
 | `data` | 2 | 214 |
-| `domains` | 515 | 106556 |
+| `domains` | 515 | 106560 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2301 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **947 modules** and **186596 source lines**.
+Total: **947 modules** and **186600 source lines**.
 
 ## agent
 
@@ -374,7 +374,7 @@ Total: **947 modules** and **186596 source lines**.
 | [`backend/domains/llm_wiki/recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/recovery.py) | 131 | 0 | 4 | 0 | 2 | Bounded retries for one Brain planning call, without provider switching. |
 | [`backend/domains/llm_wiki/search_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/search_index.py) | 373 | 3 | 14 | 0 | 11 | Typed rebuildable lexical and vector indexes for LLM Wiki. |
 | [`backend/domains/llm_wiki/section_assignment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/section_assignment.py) | 91 | 0 | 5 | 0 | 3 | Single, source-scoped section relations and their derived filter ancestry. |
-| [`backend/domains/llm_wiki/semantic_context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_context.py) | 87 | 0 | 9 | 0 | 2 | Deterministic grouping and lexical retrieval over immutable reading evidence. |
+| [`backend/domains/llm_wiki/semantic_context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_context.py) | 91 | 0 | 9 | 0 | 2 | Deterministic grouping and lexical retrieval over immutable reading evidence. |
 | [`backend/domains/llm_wiki/semantic_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_contracts.py) | 154 | 0 | 10 | 0 | 1 | Small interpretation contracts; the application binds all persistent identities. |
 | [`backend/domains/llm_wiki/semantic_map_reduction.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_map_reduction.py) | 118 | 1 | 5 | 0 | 4 | Contract summaries without recursively splitting summaries into more calls. |
 | [`backend/domains/llm_wiki/semantic_map_windows.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_map_windows.py) | 51 | 1 | 3 | 0 | 0 | Split only incomplete map windows, preserving complete cached siblings. |
