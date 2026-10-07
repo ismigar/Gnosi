@@ -642,6 +642,7 @@ def start_ingest(
                 warnings=report["warnings"],
                 reviewed=report.get("reviewed", False),
                 review_completed=report.get("review_completed", False),
+                quality_review_version=report.get("quality_review_version"),
                 quality_status=report.get("quality_status", "needs_review"),
                 coverage=report.get("coverage", []),
                 index_report=index_report,

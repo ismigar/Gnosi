@@ -242,6 +242,7 @@ def process_resource(
     report["execution"] = dependencies.execution_metadata or {}
     report["coverage"] = plan.get("coverage", [])
     report["review_completed"] = plan.get("reviewed", False)
+    report["quality_review_version"] = plan.get("quality_review_version")
     report["reviewed"] = bool(report["review_completed"] and not sources.warnings)
     report["quality_status"] = "validated" if report["reviewed"] else "needs_review"
     _save_manifest(
@@ -452,6 +453,7 @@ def _save_manifest(
             "execution": report.get("execution", {}),
             "reviewed": report.get("reviewed", False),
             "review_completed": report.get("review_completed", False),
+            "quality_review_version": report.get("quality_review_version"),
             "quality_status": report["quality_status"],
             "coverage": report.get("coverage", []),
         }

@@ -6,7 +6,10 @@ import unicodedata
 
 from backend.domains.llm_wiki.chunking import records
 
-REVIEW_QUALITY_VERSION = 6
+REVIEW_QUALITY_VERSION = 7
+
+_SOURCE_BOUNDARY = re.compile(r"\b(?:fragment\w*|passatg\w*|pasaj\w*|passage\w*|excerpt\w*|cita\w*|oraci[oó]n|frase|sentence)\b", re.I)
+_UNFINISHED = re.compile(r"\b(?:incomplet\w*|trunc\w*|tronqu\w*|interrump\w*|interromp\w*|cortad\w*|cort[ae]\w*|tallat\w*|coup[ée]\w*|mitad|meitat|cut\s+(?:off|short)|missing\s+continuation)\b", re.I)
 
 
 def prose_issues(note: dict[str, object], evidence: list[dict[str, object]], language: str = "") -> list[str]:
@@ -20,6 +23,16 @@ def prose_issues(note: dict[str, object], evidence: list[dict[str, object]], lan
     if references - definitions:
         issues.append("Undefined Markdown footnotes; supply their definitions or use the selected citation list.")
     originals = "\n".join(str(s.get("text", "")) for s in evidence)
+    # A final reading note explains the source, not an unfinished processing
+    # boundary. This flags residual wording for source-grounded correction;
+    # it never reconstructs or deletes the uncertain claim automatically.
+    if language and any(_SOURCE_BOUNDARY.search(sentence) and _UNFINISHED.search(sentence)
+                        and sentence.casefold() not in originals.casefold()
+                        for sentence in re.split(r"(?<=[.!?])\s+|\n+", str(note.get("body_md", "")))):
+        issues.append("Residual processing-boundary caveat in the note. Read the complete adjacent originals and"
+            " express the supported meaning, preserving author attribution and substantive uncertainty. Do not"
+            " merely remove the caveat while leaving its claim unexamined. If the continuation is genuinely"
+            " unavailable, request its pages or report an unresolved issue instead of accepting this note.")
     latin_output = language.casefold() in {"catalan", "català", "ca", "spanish", "español", "es", "english", "en", "french", "français", "fr"}
     if language == "the main language detected in the source":
         source_letters = [unicodedata.name(char, "") for char in originals if char.isalpha()]

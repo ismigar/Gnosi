@@ -516,6 +516,22 @@ def test_quality_pending_status_remains_resumable_after_restart_without_rewritin
     assert llm_wiki_storage._job_path(identifier).read_bytes() == raw
 
 
+@pytest.mark.parametrize('version', [None, -1, 'current'])
+def test_completed_semantic_acceptance_is_versioned_without_forcing_a_new_budget(ingest, version):
+    from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION
+    job = llm_wiki_storage.create_job('sources', 'resource')
+    identifier = str(job['job_id'])
+    current = version == 'current'
+    llm_wiki_storage.finish_job(identifier, phase='done', reading_engine='semantic',
+        quality_status='validated', reviewed=True, budget_id='original',
+        quality_review_version=REVIEW_QUALITY_VERSION if current else version)
+    status = llm_wiki_storage.get_job_status(identifier)
+    assert status['phase'] == ('done' if current else 'partial')
+    assert status['reviewed'] is current
+    assert status['quality_status'] == ('validated' if current else 'needs_review')
+    assert status['budget_id'] == 'original'
+
+
 @pytest.mark.parametrize("error,expected", [
     (TimeoutError(), recovery.PROVIDER_TIMEOUT_MESSAGE),
     (httpx.ReadTimeout(""), recovery.PROVIDER_TIMEOUT_MESSAGE),

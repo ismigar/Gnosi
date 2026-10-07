@@ -29,6 +29,43 @@ def test_automatic_source_language_rejects_foreign_script_in_latin_originals():
     assert not prose_issues({'body_md': '한국어로 쓴 글'}, original, 'Korean')
 
 
+@pytest.mark.parametrize('body', [
+    'La cita final del fragmento queda incompleta, por lo que no se le atribuye contenido adicional.',
+    'El fragmento se interrumpe antes de completar quién determina esa meta.',
+    'La frase queda interrompuda, però el passatge següent la completa.',
+    'The excerpt is cut off, so its continuation is unknown.',
+    'Le passage est tronqué et ne permet pas de conclure.',
+])
+def test_final_notes_must_resolve_processing_boundary_caveats_against_originals(body):
+    assert prose_issues({'body_md': body}, [{'text': 'Complete original and its continuation.'}], 'Spanish')
+    # Draft interpretation can still be checkpointed for the contextual review.
+    assert not prose_issues({'body_md': body}, [], '')
+
+
+def test_substantive_uncertainty_and_actual_source_observations_are_not_processing_defects():
+    note = 'Halík describe la unidad histórica como imperfecta e incompleta y formula una esperanza provisional.'
+    assert not prose_issues({'body_md': note}, [], 'Spanish')
+    original = 'La frase queda incompleta deliberadamente.'
+    assert not prose_issues({'body_md': original}, [{'text': original}], 'Spanish')
+
+
+def test_contextual_review_rewrites_boundary_caveat_using_the_available_continuation():
+    def generate(request):
+        answer = response(request)
+        if request['phase'] == 'verify':
+            assert any('processing-boundary' in issue for issue in request['notes'][0]['validation_issues'])
+            assert request['notes'][0]['support']
+            note = request['notes'][0]['note']
+            answer['changes'] = [{'note': 1, 'replacement': {**note,
+                'body_md': 'The author rejects the opponent’s claim of innate knowledge against experience.'}}]
+        return answer
+    engine, gm, nm, _, _ = prepared(generate, count=2, size=2)
+    plan = next(iter(engine.state['plans'].values()))
+    plan['notes'][0]['body_md'] = 'The excerpt is cut off, so the conclusion cannot be established.'
+    reviewed = engine.review(gm, nm)
+    assert 'rejects' in reviewed[0][1]['notes'][0]['body_md']
+
+
 def test_review_sees_full_adjacent_continuation_across_page_boundaries():
     engine, gm, nm, calls, _ = prepared(count=3)
     chunks = engine.reader.chunks
@@ -40,10 +77,11 @@ def test_review_sees_full_adjacent_continuation_across_page_boundaries():
                for s in first['support'])
 
 
-def test_unchanged_corrupt_note_cannot_pass_review_or_be_marked_complete():
+@pytest.mark.parametrize('body', ['Not resolved [[42]].', 'The excerpt is cut off, so its conclusion is unknown.'])
+def test_unchanged_corrupt_note_cannot_pass_review_or_be_marked_complete(body):
     engine, gm, nm, calls, checkpoints = prepared(count=2)
     plan = next(iter(engine.state['plans'].values()))
-    plan['notes'][0]['body_md'] = 'Not resolved [[42]].'
+    plan['notes'][0]['body_md'] = body
     with pytest.raises(ValueError, match='Reading quality validation failed'):
         engine.review(gm, nm)
     assert not engine.state.get('completed')

@@ -332,11 +332,14 @@ def get_job_status(identifier: str, source_table_id: str = "") -> dict[str, obje
                 "error": job.get("error")
                 or "The previous backend process stopped before the job finished.",
             }
-        if job.get("phase") == "done" and job.get("quality_status") == "needs_review":
+        from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION
+        stale_review = (job.get("reading_engine") == "semantic"
+                        and job.get("quality_review_version") != REVIEW_QUALITY_VERSION)
+        if job.get("phase") == "done" and (job.get("quality_status") == "needs_review" or stale_review):
             # Older jobs finished writing but still failed acceptance. Expose
             # the existing resumable state everywhere (UI, estimate and worker)
             # without rewriting their audit record or creating a fresh budget.
-            job = {**job, "phase": "partial"}
+            job = {**job, "phase": "partial", "quality_status": "needs_review", "reviewed": False}
         return deepcopy(job)
 
 
