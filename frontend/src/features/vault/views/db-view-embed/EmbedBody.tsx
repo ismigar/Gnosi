@@ -19,6 +19,7 @@ export function EmbedBody({ model, registerNavApi, focusShell }: { model: EmbedM
         idToTitle: ctx.idToTitle,
         allNotes: allRows,
         activeView: embeddedView,
+        viewStateScope: ctx.pageId && block?.id ? JSON.stringify(['embed', ctx.pageId, block.id]) : undefined,
         // Maximum cap on the embedded table/list height: below that, it grows with
         // the content (without empty space); above that it scrolls internally.
         maxHeight: heightMode === 'content' ? 'none' : `${String(heightPercent)}vh`,

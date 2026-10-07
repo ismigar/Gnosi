@@ -69,6 +69,7 @@ describe('dashboard to view data preservation', () => {
       controller.setVisibleTableRecordsById({ table: pages });
     });
     const body = probe.mock.lastCall?.[0];
+    expect(body?.viewStateScope).toBe(JSON.stringify(['table', 'table', mode]));
     expect(body?.notes).toHaveLength(1);
     expect(body?.notes?.[0]).toBe(page);
     expect(body?.allNotes).toBe(pages);

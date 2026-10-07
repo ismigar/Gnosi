@@ -84,6 +84,13 @@ async function render(value: EmbedBlock = block, tooltip = false): Promise<void>
     await act(async () => { await Promise.resolve(); root.render(<VaultEditorContext.Provider value={context}><DbViewEmbed block={value} />{tooltip && <GlobalTooltip />}</VaultEditorContext.Provider>); });
     await act(async () => { await Promise.resolve(); await new Promise(resolve => setTimeout(resolve, 5)); });
 }
+it('scopes view state to the resource and embedded block', async () => {
+    await render();
+    expect(fixture.body?.viewStateScope).toBe(JSON.stringify(['embed', 'page', 'block']));
+    context = { ...context, pageId: 'another-page' };
+    await render({ ...block, id: 'another-block' });
+    expect(fixture.body?.viewStateScope).toBe(JSON.stringify(['embed', 'another-page', 'another-block']));
+});
 it('forwards parallel opening from an embedded view to its editor', async () => {
     const parallel = vi.fn();
     context = { ...context, onOpenParallel: parallel };
