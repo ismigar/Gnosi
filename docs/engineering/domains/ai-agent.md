@@ -1410,3 +1410,10 @@ maps remain reusable. The repair estimate includes these optional rounds and
 their format repairs; every call still uses the same cumulative book limit.
 
 Provider transport omits the unsupported array uniqueness keyword for evidence requests; canonical validation still rejects duplicate page numbers locally.
+
+Quality review version 5 sends unresolved semantic defects through the governed
+output validator. The existing single corrective call receives the specific
+failure and can correct notes, explain a policy exclusion, or request originals.
+It does not gain extra format-repair attempts, and unresolved results still stop
+publication. Versioned phase keys prevent older accepted-but-unresolved responses
+from bypassing this correction boundary; original interpretations remain reusable.

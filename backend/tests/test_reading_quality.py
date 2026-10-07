@@ -58,7 +58,7 @@ def test_explicit_unresolved_evidence_stops_before_publication():
             answer['unresolved_issues'] = ['note_1: the cited conclusion cannot be established from this evidence.']
         return answer
     reader, _, checkpoints = setup(count=2, generate=generate)
-    with pytest.raises(RuntimeError, match='reading_quality_unresolved'):
+    with pytest.raises(ValueError, match='reading_quality_unresolved'):
         reader.run()
     state = checkpoints['new', 'semantic-state']
     assert state['plans'] and not state.get('completed') and not state['reviewed_groups']

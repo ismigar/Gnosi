@@ -1519,3 +1519,11 @@ L'estimació amb reparacions inclou aquestes rondes opcionals i les seves
 reparacions de format; totes les crides comparteixen el límit acumulat del llibre.
 
 El format enviat al proveïdor omet la restricció d’unicitat de llistes no admesa per a les peticions d’evidència; la validació canònica continua rebutjant localment els números de pàgina duplicats.
+
+La revisió de qualitat versió 5 passa els defectes semàntics pendents pel validador
+de sortida governat. L’única crida correctiva existent rep el problema concret i
+pot corregir notes, explicar una exclusió prevista per la política o demanar
+originals. No obté més intents de reparació de format, i els resultats pendents
+continuen impedint la publicació. Les claus de fase versionades eviten que les
+respostes antigues acceptades amb defectes eludeixin aquest límit de correcció;
+les interpretacions originals es poden reutilitzar.

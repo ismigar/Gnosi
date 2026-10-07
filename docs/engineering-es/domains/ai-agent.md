@@ -1586,3 +1586,11 @@ estas rondas opcionales y sus reparaciones de formato; todas las llamadas
 comparten el límite acumulado del libro.
 
 El formato enviado al proveedor omite la restricción de unicidad de listas no admitida para las peticiones de evidencia; la validación canónica sigue rechazando localmente los números de página duplicados.
+
+La revisión de calidad versión 5 pasa los defectos semánticos pendientes por el
+validador de salida gobernado. La única llamada correctiva existente recibe el
+problema concreto y puede corregir notas, explicar una exclusión prevista por la
+política o pedir originales. No obtiene más intentos de reparación de formato,
+y los resultados pendientes siguen impidiendo la publicación. Las claves de fase
+versionadas evitan que las respuestas anteriores aceptadas con defectos eludan
+este límite de corrección; las interpretaciones originales se pueden reutilizar.

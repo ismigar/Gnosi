@@ -12,7 +12,7 @@ from backend.domains.llm_wiki.contextual_reading import ContextualReader, finger
 from backend.domains.llm_wiki.reading_batch_recovery import _has_answer_tokens
 from backend.domains.llm_wiki.semantic_context import auxiliary_limit, groups, relevant, source_view
 from backend.domains.llm_wiki.semantic_contracts import bind_review, fields, review_schema
-from backend.domains.llm_wiki.reading_quality import validate_reviewed_prose
+from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION, validate_reviewed_prose
 from backend.domains.llm_wiki import semantic_review_evidence as evidence_lookup
 
 if TYPE_CHECKING:
@@ -85,6 +85,16 @@ def validate_answer(answer: dict[str, object], batch: ReviewBatch, reader: Conte
     notes = bind_review(answer, batch.evidence_targets, reader.dimensions, shared_evidence=batch.evidence)
     if not requests:
         validate_reviewed_prose([n for n in notes if "_review_omission" not in n], batch.evidence, reader.language)
+        if answer.get("unresolved_issues"):
+            # Report semantic non-resolution INSIDE the governed validator, so
+            # its existing single correction can act on the actual diagnosis.
+            # The prior implementation accepted the operation, then stopped
+            # outside the repair boundary without offering any correction.
+            raise ValueError("reading_quality_unresolved: " + encoded(answer["unresolved_issues"]) +
+                " This review is unfinished. Correct the affected notes, use a source-grounded exclusion only as allowed"
+                " by the active policy, or request the particular missing originals in evidence_requests."
+                " Do not merely clear this list or move unfinished corrections into warnings."
+                " Keep source uncertainty qualified in the note; do not invent a resolution.")
 
 
 def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, object], list[str], list[dict[str, object]]]:
@@ -93,7 +103,7 @@ def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, o
     worker = replace(reader, models=[], warnings=[], report_progress=False)
     seen: set[str] = set()
     for round_number in range(evidence_lookup.MAX_EVIDENCE_ROUNDS + 1):
-        answer = worker.ask(f"semantic-review-{batch.key[:20]}-evidence-{round_number}", "verify",
+        answer = worker.ask(f"semantic-review-{batch.key[:20]}-v{REVIEW_QUALITY_VERSION}-evidence-{round_number}", "verify",
                             {"reading_engine": "semantic", **batch.payload, "output_schema": batch.schema},
                             lambda value: validate_answer(value, batch, worker), batch.schema)
         requests = records(answer.get("evidence_requests"))

@@ -10,6 +10,7 @@ from backend.domains.llm_wiki.chunking import encoded
 from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
 from backend.tests.test_semantic_reading import response, setup
 from backend.tests.test_semantic_review_parallel import prepared
+from backend.tests.test_agent_execution import runtime as runtime, install_workflow
 
 
 def request_evidence(query='Argument 7', pages=None):
@@ -168,3 +169,43 @@ def test_wire_contract_requires_requests_and_preserves_exact_citations(monkeypat
         return answer, 'offline'
     engine.deps.generate_structured = generate
     assert len(engine.review(gm, nm)) == 8
+
+
+@pytest.mark.parametrize('corrected', [True, False])
+def test_unresolved_review_gets_one_governed_correction_and_stops_on_remaining_defects(runtime, monkeypatch, corrected):
+    from dataclasses import replace
+    from backend.services import agent_execution as governed
+    from backend.services.agent_execution_scope import execution_scope
+    from backend.services.llm_wiki_reading_runtime import ReadingRuntime
+    from backend.domains.llm_wiki.reading_skill import SKILL_ID
+    from backend.services.agent_skill_catalog import resolve_agent_runtime
+    scope, snapshot = runtime
+    resolved = resolve_agent_runtime({})
+    snapshot.skill_ids.append(SKILL_ID)
+    monkeypatch.setattr('backend.services.agent_skill_catalog.resolve_agent_runtime', lambda *args, **kwargs:
+        replace(resolved, active_skill_ids=tuple(snapshot.skill_ids)))
+    initial = {'assessment': 'The first note needs correction.', 'changes': {'note_1': None, 'note_2': None},
+               'warnings': [], 'unresolved_issues': ['note_1: unsupported attribution'], 'evidence_requests': []}
+    final = deepcopy(initial)
+    if corrected:
+        final.update(unresolved_issues=[], assessment='Corrected the unsupported attribution against the original.')
+        final['changes']['note_1'] = {'title': 'Qualified claim', 'body_md': 'The opponent claims innate knowledge; experience contradicts this.',
+                                    'properties': {}, 'primary_quote_ids': [1], 'context_quote_ids': []}
+    calls = install_workflow(monkeypatch, [encoded(initial), encoded(final)])
+    engine, gm, nm, _, checkpoints = prepared(count=2, size=2)
+    with execution_scope(scope):
+        frozen = governed.create_job_run(snapshot, 'quality-repair-parent', 'knowledge.process-source')
+        reader = ReadingRuntime(snapshot.agent_id, 'test', 'fake', '', 1_000_000, frozen)
+        engine.deps.generate_structured = reader.generate_structured
+        with governed.operation_session(frozen):
+            if corrected:
+                result = engine.review(gm, nm)
+                assert result[0][1]['notes'][0]['title'] == 'Qualified claim'
+                assert len(checkpoints['new', 'semantic-state']['reviewed_groups']) == 1
+            else:
+                with pytest.raises(ValueError, match='reading_quality_unresolved'):
+                    engine.review(gm, nm)
+                assert not checkpoints['new', 'semantic-state']['reviewed_groups']
+    assert len(calls) == 2
+    feedback = str(calls[1]['messages'][-1].content)
+    assert 'unsupported attribution' in feedback and 'evidence_requests' in feedback

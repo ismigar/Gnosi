@@ -1610,3 +1610,12 @@ conservés. L'estimation avec réparations inclut ces tours facultatifs et leurs
 réparations de format ; tous les appels partagent le plafond cumulé du livre.
 
 Le format envoyé au fournisseur omet la contrainte d’unicité des listes non prise en charge pour les demandes de preuves ; la validation canonique rejette toujours localement les numéros de page en double.
+
+La révision de qualité version 5 transmet les défauts sémantiques non résolus au
+validateur de sortie gouverné. L’unique appel correctif existant reçoit le problème
+précis et peut corriger les notes, expliquer une exclusion prévue par la politique
+ou demander des originaux. Il ne reçoit pas de tentatives supplémentaires de
+réparation du format, et les résultats non résolus bloquent toujours la publication.
+Les clés de phase versionnées empêchent les anciennes réponses acceptées malgré
+leurs défauts de contourner cette limite ; les interprétations originales restent
+réutilisables.
