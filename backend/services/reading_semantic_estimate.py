@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION
+from backend.domains.llm_wiki.semantic_review_evidence import MAX_EVIDENCE_ROUNDS
 
 import math
 from typing import Any
@@ -55,6 +56,9 @@ def phase_estimate(runtime: Any, chunks: list[dict[str, object]], remaining: lis
     repeated = calls * (2 * len(runtime.instructions.encode()) + 3 * len(encoded(schema).encode()) + 2 * map_size + 2048)
     inputs = 2 * pending + (source if overview else 0) + 2 * source * bool(review) + expected_notes * bool(note_maps) + repeated + 4000 * review
     return {"planned_calls": calls, "memory_restore_calls": 0, "input_token_bound": inputs,
+            "evidence_round_calls": MAX_EVIDENCE_ROUNDS * review,
+            "evidence_input_token_bound": MAX_EVIDENCE_ROUNDS * review * budget,
+            "evidence_output_token_bound": MAX_EVIDENCE_ROUNDS * review * 16384,
             "output_tokens_assumed": pending // 2 + map_size * (overview + synthesis + note_maps) + 512 * (extract + review),
             "output_token_bound": 8192 * (overview + synthesis + note_maps) + 16384 * (extract + review),
             "reading_engine": "semantic", "phase_calls": {"overview": overview + synthesis, "interpretation": extract,

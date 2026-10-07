@@ -1593,3 +1593,18 @@ publiées deviennent obsolètes, mais leur texte et les modifications manuelles
 restent conservés. Les exclusions ne permettent pas d’abandonner des idées
 substantielles pour éviter leur correction. La version 3 de qualité invalide les
 décisions de révision antérieures tout en réutilisant les brouillons et cartes.
+
+La révision de qualité version 4 limite chaque lot aux notes fournies et conserve
+les deux cartes globales comme repères faillibles. Le réviseur peut demander des
+pages originales complètes ou des recherches dans la langue de la source pour
+une note précise au moyen de `evidence_requests`, avec deux tours au maximum.
+Les recherches renvoient des passages entiers dans la limite disponible, sans
+raccourcir les originaux ; les pages explicites doivent tenir en entier, sinon
+le lot s'arrête. Les corrections provisoires ne publient aucune note et ne
+contournent pas les contrôles finaux du texte, des citations ou des problèmes
+non résolus. Chaque tour est sauvegardé et réutilisé lors des nouvelles tentatives
+budgétaires du même travail et des reprises. Les révisions réussies conservent
+les empreintes des originaux supplémentaires, revérifiées avant réutilisation.
+Les anciennes révisions sont invalidées, mais les brouillons et les cartes sont
+conservés. L'estimation avec réparations inclut ces tours facultatifs et leurs
+réparations de format ; tous les appels partagent le plafond cumulé du livre.

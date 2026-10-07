@@ -1395,3 +1395,16 @@ Already published managed notes become stale while their text and manual edits
 are preserved. Exclusions never authorize silently dropping substantive ideas to
 avoid corrections. Review quality version 3 invalidates older review decisions
 while reusing source drafts and maps.
+
+Quality review version 4 scopes each batch to its supplied notes while retaining
+the two book-wide maps as fallible navigation. The reviewer can request complete
+original pages or source-language searches for a specific note through
+`evidence_requests`, with at most two evidence rounds. Search results are bounded
+whole passages, never silently shortened originals; explicit pages either fit
+in full or stop the batch. Provisional corrections cannot publish notes or waive
+final prose, quotation or unresolved-issue checks. Each round is checkpointed and
+reused during same-job budget retries as well as restarts. Successful reviews
+retain source fingerprints for the additional originals, which are revalidated
+before reuse. Older review decisions are invalidated while source drafts and
+maps remain reusable. The repair estimate includes these optional rounds and
+their format repairs; every call still uses the same cumulative book limit.

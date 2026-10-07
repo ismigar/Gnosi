@@ -1569,3 +1569,18 @@ original y el punto de reanudación. Las notas gestionadas ya publicadas quedan
 obsoletas, pero se conservan su texto y las ediciones manuales. No se permite
 descartar ideas sustantivas para evitar corregirlas. La versión 3 de calidad
 invalida decisiones de revisión anteriores y reutiliza borradores y mapas.
+
+La revisión de calidad versión 4 limita cada lote a sus notas y conserva los
+dos mapas globales como orientación falible. El revisor puede pedir páginas
+originales completas o búsquedas en la lengua de la fuente para una nota concreta
+mediante `evidence_requests`, con un máximo de dos rondas. Las búsquedas devuelven
+pasajes enteros dentro del límite, sin acortar los originales; las páginas
+explícitas deben caber completas o el lote se detiene. Las correcciones
+provisionales no publican notas ni eluden las comprobaciones finales de prosa,
+citas o problemas pendientes. Cada ronda se guarda y reutiliza tanto en
+reintentos de presupuesto del mismo trabajo como al reanudarlo. Las revisiones
+correctas conservan las huellas de los originales adicionales, que vuelven a
+validarse antes de reutilizarlos. Se invalidan las revisiones anteriores, pero
+se conservan los borradores y los mapas. La estimación con reparaciones incluye
+estas rondas opcionales y sus reparaciones de formato; todas las llamadas
+comparten el límite acumulado del libro.

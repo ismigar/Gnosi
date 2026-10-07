@@ -6,7 +6,7 @@ import unicodedata
 
 from backend.domains.llm_wiki.chunking import records
 
-REVIEW_QUALITY_VERSION = 3
+REVIEW_QUALITY_VERSION = 4
 
 
 def prose_issues(note: dict[str, object], evidence: list[dict[str, object]], language: str = "") -> list[str]:

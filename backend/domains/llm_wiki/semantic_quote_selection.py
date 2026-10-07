@@ -85,6 +85,8 @@ def selection_contract(schema: dict[str, Any], phase: str, primary_ids: list[lis
             choices[f"passage_{i + 1}"] = value
         result["properties"]["passages"] = obj(choices)
     else:
+        if "evidence_requests" in result["properties"]:
+            result["required"].append("evidence_requests")
         note, definitions = shared_note_schema(result["properties"]["changes"]["items"]["properties"]["replacement"])
         result["properties"]["changes"] = obj({f"note_{i + 1}": {"anyOf": [
             {"type": "null"}, obj({"omit_reason": {"type": "string", "minLength": 1}}),

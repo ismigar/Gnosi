@@ -40,7 +40,8 @@ def interpretation_schema(size: int, dimensions: list[dict[str, object]]) -> dic
                 "themes": TEXTS, "questions": TEXTS, "contradictions": TEXTS, "warnings": TEXTS})
 
 
-def review_schema(size: int, dimensions: list[dict[str, object]], *, require_resolution: bool = False) -> dict[str, Any]:
+def review_schema(size: int, dimensions: list[dict[str, object]], *, require_resolution: bool = False,
+                  allow_requests: bool = False) -> dict[str, Any]:
     replacement = note_schema(dimensions)
     # Optional for older literal checkpoints; never emitted by the model schema.
     replacement["properties"]["quote_source_keys"] = {"type": "array", "items": TEXT}
@@ -49,9 +50,17 @@ def review_schema(size: int, dimensions: list[dict[str, object]], *, require_res
     change["required"] = ["note"]
     change["oneOf"] = [{"required": ["replacement"], "not": {"required": ["omit_reason"]}},
                        {"required": ["omit_reason"], "not": {"required": ["replacement"]}}]
-    return obj({"assessment": TEXT, "changes": {"type": "array", "maxItems": size,
+    result = obj({"assessment": TEXT, "changes": {"type": "array", "maxItems": size,
                 "items": change}, "warnings": TEXTS,
                 **({"unresolved_issues": TEXTS} if require_resolution else {})})
+    if allow_requests:
+        # Optional for literal adapters; the model-facing contract requires it.
+        result["properties"]["evidence_requests"] = {"type": "array", "maxItems": 8, "items": obj({
+            "note": {"type": "integer", "minimum": 1, "maximum": size}, "reason": TEXT,
+            "document": {"type": "string"}, "query": {"type": "string"},
+            "pages": {"type": "array", "maxItems": 4, "uniqueItems": True,
+                      "items": {"type": "integer", "minimum": 1}}})}
+    return result
 
 
 def validate_schema(answer: dict[str, object], schema: dict[str, Any]) -> None:
@@ -121,7 +130,8 @@ def semantic_note(note: dict[str, object], dimensions: list[dict[str, object]]) 
 
 def bind_review(answer: dict[str, object], targets: list[tuple[dict[str, object], dict[str, object], list[dict[str, object]]]],
                 dimensions: list[dict[str, object]], *, shared_evidence: list[dict[str, object]] | None = None) -> list[dict[str, object]]:
-    validate_schema(answer, review_schema(len(targets), dimensions, require_resolution="unresolved_issues" in answer))
+    validate_schema(answer, review_schema(len(targets), dimensions, require_resolution="unresolved_issues" in answer,
+                                          allow_requests="evidence_requests" in answer))
     result = [deepcopy(note) for note, _, _ in targets]
     seen = set()
     for change in records(answer["changes"]):

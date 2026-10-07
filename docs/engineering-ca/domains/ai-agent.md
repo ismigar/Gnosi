@@ -1503,3 +1503,17 @@ punt de represa. Les notes gestionades ja publicades queden obsoletes, però se�
 conserven el text i les edicions manuals. No es poden descartar idees substantives
 per evitar corregir-les. La versió 3 de qualitat invalida decisions de revisió
 anteriors i reutilitza els esborranys i els mapes de la font.
+
+La revisió de qualitat versió 4 limita cada lot a les notes que rep i conserva
+els dos mapes globals com a orientació fal·lible. El revisor pot demanar pàgines
+originals completes o cerques en la llengua de la font per a una nota concreta
+mitjançant `evidence_requests`, amb un màxim de dues rondes. Les cerques retornen
+passatges sencers dins del límit, sense escurçar els originals; les pàgines
+explícites hi han de cabre completes o el lot s'atura. Les correccions provisionals
+no publiquen notes ni eviten les comprovacions finals de prosa, cites o problemes
+pendents. Cada ronda es desa i es reutilitza tant en reintents de pressupost del
+mateix treball com en represes. Les revisions reeixides conserven les empremtes
+dels originals addicionals, que es tornen a validar abans de reutilitzar-los.
+S'invaliden les revisions antigues, però es conserven els esborranys i els mapes.
+L'estimació amb reparacions inclou aquestes rondes opcionals i les seves
+reparacions de format; totes les crides comparteixen el límit acumulat del llibre.

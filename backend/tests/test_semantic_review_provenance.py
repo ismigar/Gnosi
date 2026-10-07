@@ -94,7 +94,7 @@ def test_shared_batch_originals_are_validated_persisted_and_reused_without_anoth
         value.update(primary_quote_ids=[selection.primary_ids[0][0]],
                      context_quote_ids=[selection.primary_ids[1][0]])
         answer = selection.restore(encoded({'assessment': 'Cross-checked.',
-            'changes': {'note_1': value, 'note_2': None}, 'warnings': [], 'unresolved_issues': []}))
+            'changes': {'note_1': value, 'note_2': None}, 'warnings': [], 'unresolved_issues': [], 'evidence_requests': []}))
         validator(json.loads(answer))
         calls.append(request)
         return answer, 'offline'
@@ -228,7 +228,7 @@ def test_policy_omission_keeps_primary_coverage_and_original_draft_history():
             selection = quote_selection(request)
             raw = {'assessment': 'The first primary is an editorial credit, excluded by policy.',
                    'changes': {'note_1': {'omit_reason': 'Editorial metadata only, excluded by the reading policy.'},
-                               'note_2': None}, 'warnings': [], 'unresolved_issues': []}
+                               'note_2': None}, 'warnings': [], 'unresolved_issues': [], 'evidence_requests': []}
             return json.loads(selection.restore(encoded(raw)))
         return answer
     engine, gm, nm, _, checkpoints = prepared(generate, count=2, size=2)

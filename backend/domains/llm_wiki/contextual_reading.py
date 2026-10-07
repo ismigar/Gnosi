@@ -84,11 +84,11 @@ class ContextualReader:
                 prompt,
             ]
         )
-        saved = (
-            self.dependencies.load_checkpoint(self.resume_job_id, key)
-            if self.resume_job_id
-            else None
-        )
+        # A sibling may settle a reservation while this batch is retrying in
+        # the SAME job. Reuse its evidence-request rounds as well as prior jobs.
+        saved = next((value for job in dict.fromkeys([self.job_id, self.resume_job_id]) if job
+                      if isinstance(value := self.dependencies.load_checkpoint(job, key), dict)
+                      and value.get("identity") == identity), None)
         if isinstance(saved, dict) and saved.get("identity") == identity:
             answer = saved.get("answer")
             if isinstance(answer, dict):

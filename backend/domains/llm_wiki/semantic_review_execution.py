@@ -13,6 +13,7 @@ from backend.domains.llm_wiki.reading_batch_recovery import _has_answer_tokens
 from backend.domains.llm_wiki.semantic_context import auxiliary_limit, groups, relevant, source_view
 from backend.domains.llm_wiki.semantic_contracts import bind_review, fields, review_schema
 from backend.domains.llm_wiki.reading_quality import validate_reviewed_prose
+from backend.domains.llm_wiki import semantic_review_evidence as evidence_lookup
 
 if TYPE_CHECKING:
     from backend.domains.llm_wiki.semantic_reading import SemanticReader
@@ -57,42 +58,70 @@ def prepare_batch(engine: SemanticReader, entries: list[dict[str, object]], dest
                     and fingerprint(entries[position:position + size]) in engine.state["reviewed_groups"]):
                 batch = batch[:position - offset]
     targets = destinations[offset:offset + len(batch)]
-    original = [{**s, "origin_label": c.get("origin_label")} for c in reader.chunks for s in records(c.get("segments"))]
-    retrieved = relevant(original, encoded(batch), engine.deps.count_tokens, reader.budget // 10)
+    original = evidence_lookup.originals(reader.chunks)
+    present = {s["id"] for _, _, _, _, sources in targets for s in sources}
+    retrieved = relevant([s for s in original if s["id"] not in present], encoded(batch), engine.deps.count_tokens,
+                         auxiliary_limit(reader.budget, 10, 8000))
     payload: dict[str, object] = {
         "global_map": global_map, "all_notes_map": notes_map, "notes": batch,
+        "available_originals": evidence_lookup.catalog(original, engine.deps.count_tokens, auxiliary_limit(reader.budget, 12, 6000)),
         "retrieved_originals": [source_view(s) for s in retrieved],
         "brain_notes": reader.relevant_index(encoded(batch), [target[3] for target in targets],
                                               maximum=8, limit=auxiliary_limit(reader.budget, 12, 4000)),
         "properties": fields(reader.dimensions),
         "instruction": "Reassess every prior_observation against the original evidence; retain in warnings only limitations still present and relevant to the supplied notes. Explain resolved observations in assessment. Review EVERY supplied note against its original evidence and the joint map of ALL notes. Correct false attribution, missing caveats, contradicted conclusions and unsupported links. Brain notes are current navigation candidates, never source evidence: reassess proposed connections and remove unsupported ones. Full adjacent originals are supplied as support: read them before declaring a page-ending sentence incomplete. Correct all validation_issues, undefined footnotes, leaked numeric source links and corrupt language. Return only changed notes with their one-based position; unchanged notes are retained by the application. Preserve distinct substantive ideas. You may omit a note only when the active reading policy excludes its original passage or the supplied source cannot support any substantive note (for example isolated metadata or a detached connector). Give a specific source-grounded omit_reason; never omit substantive content to avoid correcting it, and never change workflow state. Excluded passages remain covered and available as context. New quotes must be exact originals and include the note's own primary passage. In unresolved_issues list each note with a remaining defect or missing evidence that prevents a reliable interpretation; do not bury defects in warnings. Warnings describe only limitations genuinely present in the original, not unfinished corrections. An empty changes list means you found no needed correction, not that accuracy is guaranteed.",
     }
-    return ReviewBatch(offset, batch, targets, retrieved, payload, review_schema(len(batch), reader.dimensions, require_resolution=True), fingerprint(batch))
+    payload["instruction"] = evidence_lookup.REVIEW_CONTEXT_INSTRUCTION + str(payload["instruction"])
+    return ReviewBatch(offset, batch, targets, retrieved, payload,
+                       review_schema(len(batch), reader.dimensions, require_resolution=True, allow_requests=True), fingerprint(batch))
 
 
-def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, object], list[str]]:
+def validate_answer(answer: dict[str, object], batch: ReviewBatch, reader: ContextualReader) -> None:
+    from backend.domains.llm_wiki.semantic_contracts import validate_schema
+    validate_schema(answer, batch.schema)
+    requests = records(answer.get("evidence_requests"))
+    if any(not str(r["query"]).strip() and not r["pages"] for r in requests):
+        raise ValueError("Evidence requests need a query or concrete pages")
+    notes = bind_review(answer, batch.evidence_targets, reader.dimensions, shared_evidence=batch.evidence)
+    if not requests:
+        validate_reviewed_prose([n for n in notes if "_review_omission" not in n], batch.evidence, reader.language)
+
+
+def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, object], list[str], list[dict[str, object]]]:
     # Only this isolated reader writes its unique phase checkpoint. Shared state,
     # progress, warnings and the final note order belong to the coordinator.
     worker = replace(reader, models=[], warnings=[], report_progress=False)
-    def validate(answer: dict[str, object]) -> None:
-        from backend.domains.llm_wiki.semantic_contracts import validate_schema
-        validate_schema(answer, batch.schema)
-        notes = bind_review(answer, batch.evidence_targets, worker.dimensions, shared_evidence=batch.evidence)
-        validate_reviewed_prose([n for n in notes if "_review_omission" not in n], batch.evidence, worker.language)
-    answer = worker.ask(f"semantic-review-{batch.key[:20]}", "verify",
-                        {"reading_engine": "semantic", **batch.payload, "output_schema": batch.schema},
-                        validate, batch.schema)
-    if answer["unresolved_issues"]:
-        raise RuntimeError("reading_quality_unresolved: " + encoded(answer["unresolved_issues"]))
-    return answer, worker.models
+    seen: set[str] = set()
+    for round_number in range(evidence_lookup.MAX_EVIDENCE_ROUNDS + 1):
+        answer = worker.ask(f"semantic-review-{batch.key[:20]}-evidence-{round_number}", "verify",
+                            {"reading_engine": "semantic", **batch.payload, "output_schema": batch.schema},
+                            lambda value: validate_answer(value, batch, worker), batch.schema)
+        requests = records(answer.get("evidence_requests"))
+        if not requests:
+            if answer["unresolved_issues"]:
+                raise RuntimeError("reading_quality_unresolved: " + encoded(answer["unresolved_issues"]))
+            return answer, worker.models, batch.retrieved
+        identity = fingerprint(requests)
+        if round_number == evidence_lookup.MAX_EVIDENCE_ROUNDS or identity in seen:
+            raise RuntimeError("reading_quality_unresolved: evidence requests did not converge: " + encoded(requests))
+        seen.add(identity)
+        found, reports = evidence_lookup.retrieve(evidence_lookup.originals(reader.chunks), requests, batch.evidence,
+                                                  reader.dependencies.count_tokens, reader.budget // 4)
+        retrieved = list({str(s["id"]): s for s in [*batch.retrieved, *found]}.values())
+        batch = replace(batch, retrieved=retrieved, payload={**batch.payload,
+            "retrieved_originals": [source_view(s) for s in retrieved], "evidence_lookup": reports,
+            "provisional_review": answer, "evidence_rounds_remaining": evidence_lookup.MAX_EVIDENCE_ROUNDS - round_number - 1})
+    raise AssertionError("unreachable")
 
 
-def store_result(engine: SemanticReader, batch: ReviewBatch, result: tuple[dict[str, object], list[str]]) -> None:
-    answer, models = result
+def store_result(engine: SemanticReader, batch: ReviewBatch,
+                 result: tuple[dict[str, object], list[str], list[dict[str, object]]]) -> None:
+    answer, models, retrieved = result
     engine.reader.models.extend(models)
     engine.state["step"] += 1
     engine.state["reviewed_groups"][batch.key] = answer
     engine.state.setdefault("reviewed_ranges", {})[str(batch.offset)] = len(batch.entries)
+    engine.state.setdefault("review_sources", {})[batch.key] = evidence_lookup.references(retrieved)
     engine.save()
 
 
@@ -157,6 +186,9 @@ def review_batches(engine: SemanticReader, entries: list[dict[str, object]], des
         if not run_wave(engine, batches):
             continue
         for batch in batches:
+            saved_sources = engine.state.get("review_sources", {}).get(batch.key)
+            if saved_sources is not None:
+                batch = replace(batch, retrieved=evidence_lookup.restore(evidence_lookup.originals(engine.reader.chunks), saved_sources))
             answer = engine.state["reviewed_groups"][batch.key]
             validated = bind_review(answer, batch.evidence_targets, engine.reader.dimensions, shared_evidence=batch.evidence)
             validate_reviewed_prose([n for n in validated if "_review_omission" not in n], batch.evidence, engine.reader.language)

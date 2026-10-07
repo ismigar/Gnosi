@@ -22,6 +22,7 @@ def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> lis
         engine.state["previous_reviewed_groups"] = engine.state.get("reviewed_groups", {})
         engine.state["reviewed_groups"] = {}
         engine.state["reviewed_ranges"] = {}
+        engine.state["review_sources"] = {}
         engine.state["review_quality_version"] = REVIEW_QUALITY_VERSION
         engine.state["completed"] = False
         engine.save()

@@ -81,8 +81,10 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     low = high = None
     if priced and rates:
         low = (input_bound*float(rates["cost_in"])+output_assumed*float(rates["cost_out"]))/1_000_000
-        # Semantic phases permit one repair; legacy phases permit two.
-        high = (2 if semantic else 3)*(input_bound*float(rates["cost_in"])+output_bound*float(rates["cost_out"]))/1_000_000*1.10
+        # Include bounded evidence rounds as well as each call's format repair.
+        repair_input = input_bound + semantic_cost.get("evidence_input_token_bound", 0)
+        repair_output = output_bound + semantic_cost.get("evidence_output_token_bound", 0)
+        high = (2 if semantic else 3)*(repair_input*float(rates["cost_in"])+repair_output*float(rates["cost_out"]))/1_000_000*1.10
     budget = None
     if not force and previous.get("budget_id"):
         budget = reading_budget.status(str(previous["budget_id"]))
