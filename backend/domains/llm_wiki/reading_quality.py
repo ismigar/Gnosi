@@ -49,7 +49,8 @@ def prose_issues(note: dict[str, object], evidence: list[dict[str, object]], lan
 
 def validate_reviewed_prose(notes: list[dict[str, object]], evidence: list[dict[str, object]], language: str = "") -> None:
     failures = [f"note_{i + 1}: {'; '.join(issues)}"
-                for i, note in enumerate(notes) if (issues := prose_issues(note, evidence, language))]
+                for i, note in enumerate(notes) if "_review_omission" not in note
+                and (issues := prose_issues(note, evidence, language))]
     if failures:
         raise ValueError("Reading quality validation failed: " + " | ".join(failures))
 

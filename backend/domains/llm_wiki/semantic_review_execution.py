@@ -90,11 +90,12 @@ def validate_answer(answer: dict[str, object], batch: ReviewBatch, reader: Conte
         raise ValueError("Evidence requests need a query or concrete pages")
     notes = bind_review(answer, batch.evidence_targets, reader.dimensions, shared_evidence=batch.evidence)
     if not requests:
-        retained = [n for n in notes if "_review_omission" not in n]
-        validate_reviewed_prose(retained, batch.evidence, reader.language)
+        retained = [(i, n) for i, n in enumerate(notes) if "_review_omission" not in n]
+        validate_reviewed_prose(notes, batch.evidence, reader.language)
         citation_check = getattr(reader.dependencies, "citation_issues", None)
         if citation_check:
-            issues = [issue for group in citation_check(retained, reader.origins) for issue in group]
+            issues = [f"note_{i + 1}: {issue}" for (i, _), group in zip(
+                retained, citation_check([n for _, n in retained], reader.origins), strict=True) for issue in group]
             if issues:
                 raise ValueError("reading_quality_unresolved: " + encoded(issues))
         unresolved = [*cast(list[str], answer.get("unresolved_issues", [])), *cast(list[str], answer.get("warnings", []))]

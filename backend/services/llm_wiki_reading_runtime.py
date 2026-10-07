@@ -174,13 +174,18 @@ class ReadingRuntime:
         # Collect both before spending another call on a full rewrite.
         if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic":
             from backend.domains.llm_wiki.semantic_repairs import build_semantic_repair
+            semantic_repair: OutputRepair | None
             try:
-                draft = selection.draft_for_repair(text) if selection else text
+                if selection and selection.phase == "verify":
+                    semantic_repair = selection.review_repair(text, error)
+                else:
+                    draft = selection.draft_for_repair(text) if selection else text
+                    semantic_repair = build_semantic_repair(prompt, draft)
+                    if semantic_repair is not None and selection:
+                        semantic_repair = selection.repair(semantic_repair)
             except ValueError:
                 return None
-            semantic_repair = build_semantic_repair(prompt, draft)
-            if semantic_repair is not None and selection:
-                semantic_repair = selection.repair(semantic_repair)
+            if semantic_repair is not None:
                 semantic_repair = OutputRepair(compact_structured_input(semantic_repair.input),
                                               semantic_repair.output_schema, semantic_repair.restore)
             return semantic_repair if semantic_repair is not None and self.count_tokens(

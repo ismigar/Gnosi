@@ -55,6 +55,28 @@ class QuoteSelection:
     def _review_note(self, note: dict[str, Any]) -> dict[str, Any]:
         return restore_note(note, self.quotes, self.quote_sources)
 
+    def review_repair(self, text: str, error: Exception) -> OutputRepair:
+        """A corrective review amends its candidate, never silently undoes it."""
+        candidate = json.loads(text)
+        validate_schema(candidate, self.schema)
+        payload = json.loads(self.input)
+        payload.update(proposed_review=candidate, validation_error=str(error))
+        payload["instruction"] += (
+            " This is a correction of proposed_review. Retain its substantive corrections and exclusions."
+            " In this correction, null in changes keeps that note's proposed change, including a proposed"
+            " exclusion; it does not restore the original draft. Supply an explicit replacement or omission"
+            " to amend a proposal. To revert an earlier change, return the original note explicitly with"
+            " its selected original quotes. Address the reported defects and retain all valid work."
+            " Gnosi merges the amendment with proposed_review and validates the complete result.")
+        def restore(raw: str) -> str:
+            amendment = json.loads(raw)
+            validate_schema(amendment, self.schema)
+            amendment["changes"] = {key: candidate["changes"][key] if value is None else value
+                                    for key, value in amendment["changes"].items()}
+            validate_schema(amendment, self.schema)
+            return encoded(amendment)
+        return OutputRepair(encoded(payload), self.schema, restore)
+
     def repair(self, plan: OutputRepair) -> OutputRepair:
         # The existing partial repair restores literal notes. Convert them back
         # to this operation's transport so cache validation uses the same schema.

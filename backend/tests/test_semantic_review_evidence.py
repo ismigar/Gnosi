@@ -211,3 +211,37 @@ def test_unresolved_review_gets_one_governed_correction_and_stops_on_remaining_d
     assert len(calls) == 2
     feedback = str(calls[1]['messages'][-1].content)
     assert 'unsupported attribution' in feedback and 'evidence_requests' in feedback
+
+
+def test_governed_review_correction_keeps_successful_changes_from_the_first_answer(runtime, monkeypatch):
+    from dataclasses import replace
+    from backend.services import agent_execution as governed
+    from backend.services.agent_execution_scope import execution_scope
+    from backend.services.llm_wiki_reading_runtime import ReadingRuntime
+    from backend.domains.llm_wiki.reading_skill import SKILL_ID
+    from backend.services.agent_skill_catalog import resolve_agent_runtime
+    scope, snapshot = runtime
+    resolved = resolve_agent_runtime({})
+    snapshot.skill_ids.append(SKILL_ID)
+    monkeypatch.setattr('backend.services.agent_skill_catalog.resolve_agent_runtime', lambda *args, **kwargs:
+        replace(resolved, active_skill_ids=tuple(snapshot.skill_ids)))
+    def note(title, body, quote):
+        return {'title': title, 'body_md': body, 'properties': {}, 'primary_quote_ids': [quote], 'context_quote_ids': []}
+    initial = {'assessment': 'Corrected both notes.', 'changes': {
+        'note_1': note('Preserved correction', 'The author rejects the opponent’s claim against experience.', 1),
+        'note_2': note('Needs correction', 'The excerpt is cut off, so the conclusion cannot be established.', 2)},
+        'warnings': [], 'unresolved_issues': [], 'evidence_requests': []}
+    amendment = {**deepcopy(initial), 'changes': {'note_1': None,
+        'note_2': note('Completed correction', 'Experience contradicts the opponent’s claim.', 2)}}
+    calls = install_workflow(monkeypatch, [encoded(initial), encoded(amendment)])
+    engine, gm, nm, _, _ = prepared(count=2, size=2)
+    with execution_scope(scope):
+        frozen = governed.create_job_run(snapshot, 'review-amendment-parent', 'knowledge.process-source')
+        reader = ReadingRuntime(snapshot.agent_id, 'test', 'fake', '', 1_000_000, frozen)
+        engine.deps.generate_structured = reader.generate_structured
+        with governed.operation_session(frozen):
+            result = engine.review(gm, nm)
+    assert [plan['notes'][0]['title'] for _, plan in result] == ['Preserved correction', 'Completed correction']
+    assert len(calls) == 2
+    feedback = str(calls[1]['messages'][-1].content)
+    assert 'proposed_review' in feedback and 'Preserved correction' in feedback

@@ -49,6 +49,13 @@ def test_substantive_uncertainty_and_actual_source_observations_are_not_processi
     assert not prose_issues({'body_md': original}, [{'text': original}], 'Spanish')
 
 
+def test_diagnostics_keep_original_note_positions_after_policy_exclusions():
+    with pytest.raises(ValueError, match='note_2:') as error:
+        validate_reviewed_prose([{'_review_omission': 'Policy exclusion', 'body_md': '[[12]]'},
+            {'body_md': 'The excerpt is cut off.'}], [], 'English')
+    assert 'note_1:' not in str(error.value)
+
+
 def test_contextual_review_rewrites_boundary_caveat_using_the_available_continuation():
     def generate(request):
         answer = response(request)
