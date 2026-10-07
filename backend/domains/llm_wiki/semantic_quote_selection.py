@@ -43,7 +43,7 @@ class QuoteSelection:
         if self.phase == "interpret":
             passages = [answer["passages"][f"passage_{i + 1}"] for i in range(len(self.primary_ids))]
             for passage in passages:
-                passage["notes"] = [restore_note(note, self.quotes) for note in passage["notes"]]
+                passage["notes"] = [restore_note(note, self.quotes, self.quote_sources) for note in passage["notes"]]
             answer["passages"] = passages
         else:
             answer["changes"] = [{"note": i + 1, **({"omit_reason": note["omit_reason"]} if "omit_reason" in note
@@ -53,11 +53,7 @@ class QuoteSelection:
         return encoded(answer)
 
     def _review_note(self, note: dict[str, Any]) -> dict[str, Any]:
-        value = restore_note(note, self.quotes)
-        if self.quote_sources:
-            value["quote_source_keys"] = [self.quote_sources[number] for number in
-                                          [*note["primary_quote_ids"], *note["context_quote_ids"]]]
-        return value
+        return restore_note(note, self.quotes, self.quote_sources)
 
     def repair(self, plan: OutputRepair) -> OutputRepair:
         # The existing partial repair restores literal notes. Convert them back
@@ -66,7 +62,7 @@ class QuoteSelection:
             answer = json.loads(plan.restore(raw))
             passages = answer["passages"]
             for i, passage in enumerate(passages):
-                passage["notes"] = [select_note(note, self.quotes, self.primary_ids[i]) for note in passage["notes"]]
+                passage["notes"] = [select_note(note, self.quotes, self.primary_ids[i], self.quote_sources) for note in passage["notes"]]
             answer["passages"] = {f"passage_{i + 1}": passage for i, passage in enumerate(passages)}
             validate_schema(answer, self.schema)
             return encoded(answer)
@@ -116,7 +112,7 @@ def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
     sources.extend(payload.get("retrieved_originals", []))
     catalog, quotes, source_ids = quote_choices(sources)
     quote_sources = {q["quote_id"]: source_key(source) for source, identifier in zip(sources, source_ids, strict=True)
-                     for q in catalog[identifier - 1]["quotes"]} if phase == "verify" else {}
+                     for q in catalog[identifier - 1]["quotes"]}
     identities = iter(source_ids)
     if phase == "interpret":
         payload["primary_passages"] = {f"passage_{i + 1}": {"source": next(identities)}

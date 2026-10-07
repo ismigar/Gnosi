@@ -8,7 +8,7 @@ from typing import Any, cast
 
 from backend.domains.llm_wiki.chunking import encoded, record, records
 from backend.domains.llm_wiki.semantic_contracts import obj, validate_schema
-from backend.domains.llm_wiki.semantic_quote_contracts import primary_note_schema, restore_note, shared_note_schema
+from backend.domains.llm_wiki.semantic_quote_contracts import primary_note_schema, restore_note, shared_note_schema, source_key
 from backend.services.agent_output_repair import OutputRepair
 from backend.domains.llm_wiki.reading_quality import prose_issues
 
@@ -64,6 +64,8 @@ def build_semantic_repair(prompt: str, text: str) -> OutputRepair | None:
     except (ValueError, TypeError, KeyError):
         return None
     catalog, quotes, source_ids = quote_choices(context)
+    quote_sources = {q["quote_id"]: source_key(source) for source, identifier in zip(context, source_ids, strict=True)
+                     for q in catalog[identifier - 1]["quotes"]}
     note, definitions = shared_note_schema(schema["properties"]["notes"]["items"])
     choices = {}
     for i in bad:
@@ -85,7 +87,7 @@ def build_semantic_repair(prompt: str, text: str) -> OutputRepair | None:
         result = deepcopy(answer)
         for index in bad:
             value = deepcopy(patch["repairs"][f"passage_{index + 1}"])
-            value["notes"] = [restore_note(note, quotes) for note in value["notes"]]
+            value["notes"] = [restore_note(note, quotes, quote_sources) for note in value["notes"]]
             diagnostics = passage_errors(value, schema, primary[index], context)
             if diagnostics:
                 raise ValueError("Invalid repaired passage: " + "; ".join(diagnostics))
@@ -103,9 +105,18 @@ def passage_errors(passage: Any, schema: dict[str, Any], primary: dict[str, Any]
     for index, note in enumerate(records(passage.get("notes"))):
         errors.extend(f"notes[{index}]: {issue}" for issue in prose_issues(note, context))
         quotes = cast(list[str], note["quotes"])
-        if not any(q.strip() and q in primary["text"] for q in quotes):
+        keys = note.get("quote_source_keys")
+        if keys is not None and (not isinstance(keys, list) or len(keys) != len(quotes)):
+            errors.append(f"notes[{index}]: each selected quote must retain its supplied source")
+            continue
+        if not any(q.strip() and q in primary["text"] and (keys is None or keys[i] == source_key(primary))
+                   for i, q in enumerate(quotes)):
             errors.append(f"notes[{index}]: needs supporting evidence from its own primary passage")
         for position, quote in enumerate(quotes):
-            if not quote.strip() or (quote not in primary["text"] and len({encoded(s) for s in context if quote in s["text"]}) != 1):
+            if keys is not None:
+                valid = len({source_key(s) for s in context if source_key(s) == keys[position] and quote in s["text"]}) == 1
+            else:
+                valid = quote in primary["text"] or len({encoded(s) for s in context if quote in s["text"]}) == 1
+            if not quote.strip() or not valid:
                 errors.append(f"notes[{index}].quotes[{position}]: not a verbatim quote identifying one supplied original")
     return errors

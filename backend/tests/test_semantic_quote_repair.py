@@ -33,6 +33,7 @@ def patch_for(answer, payload, quote_ids=None):
         value = deepcopy(answer['passages'][passage['passage'] - 1])
         for note in value['notes']:
             note.pop('quotes')
+            note.pop('quote_source_keys', None)
             note['primary_quote_ids'] = quote_ids if quote_ids is not None else [source['quotes'][0]['quote_id']]
             note['context_quote_ids'] = []
         repairs[f"passage_{passage['passage']}"] = value
@@ -45,6 +46,7 @@ def selected_answer(answer, payload):
         source = payload['source_quotes'][payload['primary_passages'][f'passage_{index + 1}']['source'] - 1]
         for note in passage['notes']:
             note.pop('quotes')
+            note.pop('quote_source_keys', None)
             note['primary_quote_ids'] = [quote['quote_id'] for quote in source['quotes']]
             note['context_quote_ids'] = []
     result['passages'] = {f'passage_{i + 1}': value for i, value in enumerate(result['passages'])}
@@ -128,7 +130,7 @@ def test_valid_quote_from_another_primary_is_available_as_additional_context():
     assert build_semantic_repair(encoded(request), encoded(answer)) is None
 
 
-def test_selected_context_quote_must_identify_one_original():
+def test_selected_context_quote_retains_its_identified_original():
     _, _, request, answer, _, _ = repair_case()
     request['neighbours'] = [
         {'text': 'Shared evidence. One conclusion.', 'location': {'page': 3}},
@@ -140,8 +142,11 @@ def test_selected_context_quote_must_identify_one_original():
     patch = patch_for(answer, payload)
     ambiguous = next(q['quote_id'] for source in payload['source_quotes'] for q in source['quotes'] if q['text'] == 'Shared evidence.')
     patch['repairs']['passage_1']['notes'][0]['context_quote_ids'].append(ambiguous)
-    with pytest.raises(ValueError, match='identifying one supplied original'):
-        repair.restore(encoded(patch))
+    from backend.domains.llm_wiki.semantic_quote_contracts import source_key
+    result = json.loads(repair.restore(encoded(patch)))
+    repaired_note = result['passages'][0]['notes'][0]
+    assert repaired_note['quotes'][-1] == 'Shared evidence.'
+    assert repaired_note['quote_source_keys'][-1] == source_key(request['neighbours'][0])
 
 
 def test_partial_repair_cannot_change_a_valid_passage_or_omit_a_patch():
@@ -185,4 +190,5 @@ def test_quote_selection_uses_the_same_governed_runtime_and_two_call_allowance(m
     assert calls == ['interpret', 'repair'] and model == 'test-model'
     preserved = json.loads(result)['passages'][1]['notes'][0]
     assert ''.join(preserved.pop('quotes')) == primary[1]['text']
+    assert preserved.pop('quote_source_keys')
     assert preserved == {key: value for key, value in answer['passages'][1]['notes'][0].items() if key != 'quotes'}

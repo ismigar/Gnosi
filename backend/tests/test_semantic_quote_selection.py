@@ -73,6 +73,7 @@ def test_joint_review_uses_literal_choices_and_retains_the_canonical_note_contra
     payload = json.loads(selection.input)
     replacement = deepcopy(literal)
     replacement.pop('quotes')
+    replacement.pop('quote_source_keys')
     replacement['primary_quote_ids'] = [payload['source_quotes'][0]['quotes'][0]['quote_id']]
     replacement['context_quote_ids'] = []
     result = {'assessment': 'Checked attribution.', 'changes': {'note_1': replacement}, 'warnings': []}

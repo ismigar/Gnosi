@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
 | Vitest | 627 | 2732 |
-| pytest | 644 | 4731 |
+| pytest | 645 | 4733 |
 
 ## Archivos
 
@@ -1120,6 +1120,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_schema_crash_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_schema_crash_recovery.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_schema_migrations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_schema_migrations.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_semantic_context_limits.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_semantic_context_limits.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_semantic_interpretation_provenance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_semantic_interpretation_provenance.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_semantic_map_reduction.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_semantic_map_reduction.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_semantic_quote_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_semantic_quote_repair.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_semantic_quote_selection.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_semantic_quote_selection.py) | 13 | Python AST |

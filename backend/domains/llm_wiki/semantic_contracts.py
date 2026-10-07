@@ -29,9 +29,13 @@ def fields(dimensions: list[dict[str, object]]) -> list[dict[str, object]]:
 
 
 def note_schema(dimensions: list[dict[str, object]]) -> dict[str, Any]:
-    return obj({"title": TEXT, "body_md": TEXT,
-                "quotes": {"type": "array", "minItems": 1, "items": TEXT},
-                "properties": dimension_schema(fields(dimensions))})
+    result = obj({"title": TEXT, "body_md": TEXT,
+                  "quotes": {"type": "array", "minItems": 1, "items": TEXT},
+                  "properties": dimension_schema(fields(dimensions))})
+    # Application-owned provenance; optional for older literal checkpoints and
+    # stripped from model-facing contracts before ID selection is requested.
+    result["properties"]["quote_source_keys"] = {"type": "array", "items": TEXT}
+    return result
 
 
 def interpretation_schema(size: int, dimensions: list[dict[str, object]]) -> dict[str, Any]:
@@ -43,8 +47,6 @@ def interpretation_schema(size: int, dimensions: list[dict[str, object]]) -> dic
 def review_schema(size: int, dimensions: list[dict[str, object]], *, require_resolution: bool = False,
                   allow_requests: bool = False) -> dict[str, Any]:
     replacement = note_schema(dimensions)
-    # Optional for older literal checkpoints; never emitted by the model schema.
-    replacement["properties"]["quote_source_keys"] = {"type": "array", "items": TEXT}
     change = obj({"note": {"type": "integer", "minimum": 1, "maximum": size},
                   "replacement": replacement, "omit_reason": TEXT})
     change["required"] = ["note"]
