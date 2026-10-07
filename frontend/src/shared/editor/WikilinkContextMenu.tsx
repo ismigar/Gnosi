@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../ui/createPanePortal';
 import { ArrowRight, Columns2, ExternalLink, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 

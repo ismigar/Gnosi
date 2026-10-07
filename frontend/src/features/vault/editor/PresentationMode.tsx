@@ -4,6 +4,7 @@ import { X, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 import { VaultMarkdown } from '../../../shared/editor/VaultMarkdown';
 import i18n from '../../../shared/i18n/i18n';
 import { subscribeWindowEvent } from '../../../shared/platform/browser-events';
+import { usePaneVisibility } from '../../../shared/ui/PaneVisibility';
 
 /**
  * PresentationMode
@@ -52,6 +53,7 @@ export default function PresentationMode({ isOpen, ...session }: PresentationMod
 }
 
 function PresentationSession({ onClose, markdown = '' }: Omit<PresentationModeProps, 'isOpen'>) {
+    const visible = usePaneVisibility();
     const { t } = useTranslation();
     const slides = useMemo(() => splitSlides(markdown), [markdown]);
     const [idx, setIdx] = useState(0);
@@ -64,13 +66,14 @@ function PresentationSession({ onClose, markdown = '' }: Omit<PresentationModePr
     }, []);
 
     useEffect(() => {
+        if (!visible) return undefined;
         const onKey = (event: KeyboardEvent): void => {
             if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') { event.preventDefault(); next(); }
             else if (event.key === 'ArrowLeft' || event.key === 'PageUp') { event.preventDefault(); prev(); }
             else if (event.key === 'Escape') { event.preventDefault(); onClose(); }
         };
         return subscribeWindowEvent('keydown', onKey);
-    }, [next, prev, onClose]);
+    }, [next, prev, onClose, visible]);
 
     const goFullscreen = (): void => {
         const element = document.getElementById('gnosi-presentation');

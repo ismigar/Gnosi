@@ -35,6 +35,11 @@ tests:
   - backend/tests/test_handwriting_download.py
   - backend/tests/test_vault_selector_authorization.py
   - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
+  - frontend/src/features/vault/dashboard/DashboardContent.test.tsx
+  - frontend/src/features/vault/dashboard/DocumentPane.test.tsx
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
+  - frontend/src/shared/ui/PanePortal.test.tsx
+  - frontend/src/shared/records/hooks/keyboardSubscriptions.test.tsx
   - backend/tests/test_drupal_connector_discovery_contract.py
   - backend/tests/test_drupal_connector_http_contract.py
   - backend/tests/test_drupal_connector_native_contract.py
@@ -778,6 +783,25 @@ metadatos omiten el cuerpo; las fórmulas de valores predeterminados conservan l
 valores anidados de relaciones y plugins. Las pruebas de regresión cubren estos
 traspasos, además de los identificadores de opciones del esquema, la identidad
 de las filas de las tablas y las extensiones de metadatos desconocidas.
+
+### Continuidad de las pestañas de documentos
+
+Las pestañas abiertas de página, tabla y PDF conservan sus vistas montadas
+tras la primera visita, también cuando un documento pasa entre el panel
+principal y los paneles divididos. Cerrar una pestaña libera su vista. Volver
+del PDF de una cita restaura el foco en la tarjeta de origen de la galería y las
+posiciones de desplazamiento anidadas sin desplazar al dar el foco; la
+navegación con flechas continúa desde esa tarjeta. Los desplazamientos pendientes
+del layout no pueden sustituir la posición guardada, y una entrada de teclado o
+puntero cancela cualquier frame de restauración pendiente.
+
+Los paneles ocultos son inertes. Sus atajos globales de selección, edición y
+navegación ceden a los paneles visibles, y sus menús renderizados en portales se
+ocultan con la pestaña propietaria. La expansión de los grupos de galería se
+guarda por sesión, página y vista de anclaje guardada, en lugar de los
+identificadores de bloque regenerados del editor. Este estado de interacción no
+modifica el contenido de las páginas, las definiciones de vista guardadas ni
+los ETags.
 
 ## Aspectos que verificar
 

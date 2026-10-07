@@ -1,6 +1,6 @@
 import type { KeyboardEvent } from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../ui/createPanePortal';
 import { ExternalLink, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 

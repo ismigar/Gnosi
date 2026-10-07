@@ -12,11 +12,13 @@ import { toast } from '../../../../../shared/notifications/toast';
 import { useCallback } from 'react';
 import { useEffect } from 'react';
 import { hasOpenModal } from '../../../../../shared/hooks/useModalKeyboard';
+import { usePaneVisibility } from '../../../../../shared/ui/PaneVisibility';
 import type { usePageProperties } from './usePageProperties';
 import type { usePageEditorState } from './usePageEditorState';
 import type { usePageMetadata } from './usePageMetadata';
 type Input = Pick<ReturnType<typeof usePageProperties>, 'getPropOptions' | 'getPropValue' | 'navProps' | 'propIndexByName'> & Pick<ReturnType<typeof usePageEditorState>, 'idToTitle' | 'allNotes' | 'metadata' | 'propClipboardRef' | 't' | 'isEditor' | 'activeProp' | 'setActiveProp' | 'isPropertiesOpen' | 'propertiesPanelRef' | 'titleInputRef' | 'editorApiRef' | 'didAutofocusTitleRef' | 'setIsPropertiesOpen' | 'linksHeaderRef' | 'propertiesHeaderRef' | 'setIsLinksInfoOpen'> & Pick<ReturnType<typeof usePageMetadata>, 'handleMetaChange'>;
 export function usePropertyNavigation(state: Input) {
+  const visible = usePaneVisibility();
   const { getPropOptions, getPropValue, idToTitle, allNotes, metadata, navProps, propClipboardRef, t, isEditor, handleMetaChange, activeProp, propIndexByName, setActiveProp, isPropertiesOpen, propertiesPanelRef, titleInputRef, editorApiRef, didAutofocusTitleRef, setIsPropertiesOpen, linksHeaderRef, propertiesHeaderRef, setIsLinksInfoOpen } = state;
 
 
@@ -81,6 +83,7 @@ export function usePropertyNavigation(state: Input) {
   useEffect(() => {
     if (!activeProp || !isPropertiesOpen) return undefined;
     const frame = requestAnimationFrame(() => {
+      if (propertiesPanelRef.current?.closest('[inert]')) return;
       focusPropertyRow(propertiesPanelRef.current || document, activeProp);
     });
     return () => { cancelAnimationFrame(frame); };
@@ -209,7 +212,7 @@ export function usePropertyNavigation(state: Input) {
 
   // Keyboard listener for the properties panel (at window level).
   useEffect(() => {
-    if (!activeProp || !isPropertiesOpen) return undefined;
+    if (!visible || !activeProp || !isPropertiesOpen) return undefined;
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (hasOpenModal()) return;
       const el = document.activeElement;
@@ -242,6 +245,6 @@ export function usePropertyNavigation(state: Input) {
       }
     };
     return subscribeWindowEvent('keydown', onKey);
-  }, [activeProp, isPropertiesOpen, setIsPropertiesOpen, copyPropValue, pastePropValue, movePropCursor, propIndexByName, navProps, focusTitle, focusBody, setActiveProp, propertiesHeaderRef]);
+  }, [visible, activeProp, isPropertiesOpen, setIsPropertiesOpen, copyPropValue, pastePropValue, movePropCursor, propIndexByName, navProps, focusTitle, focusBody, setActiveProp, propertiesHeaderRef]);
   return { propCoercionCtx, copyPropValue, pastePropValue, movePropCursor, focusTitle, focusBody, selectAndFocusProp, navigateUpFromBody, handlePropertiesHeaderKeyDown, handleLinksHeaderKeyDown, openPropertiesNav };
 }

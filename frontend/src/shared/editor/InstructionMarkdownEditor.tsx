@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../ui/createPanePortal';
 import { useTranslation } from 'react-i18next';
 import { Code2, Maximize2, Minimize2 } from 'lucide-react';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';

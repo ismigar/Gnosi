@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { subscribeWindowEvent } from '../../platform/browser-events';
+import { usePaneVisibility } from '../../ui/PaneVisibility';
 
 
 export interface VaultSelectionShortcutsOptions {
@@ -25,8 +26,9 @@ export function useVaultSelectionShortcuts({
   onDeleteSelected,
   enabled = true,
 }: VaultSelectionShortcutsOptions): void {
+  const visible = usePaneVisibility();
   useEffect(() => {
-    if (!enabled) return undefined;
+    if (!enabled || !visible) return undefined;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === 'a') {
@@ -47,5 +49,5 @@ export function useVaultSelectionShortcuts({
     };
 
     return subscribeWindowEvent('keydown', handleKeyDown);
-  }, [selectAll, clearSelection, onDeleteSelected, enabled]);
+  }, [selectAll, clearSelection, onDeleteSelected, enabled, visible]);
 }

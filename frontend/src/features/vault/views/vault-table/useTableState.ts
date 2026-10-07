@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { subscribeWindowEvent } from '../../../../shared/platform/browser-events';
+import { usePaneVisibility } from '../../../../shared/ui/PaneVisibility';
 import type { TitlePreviewController } from '../../../../shared/editor/useTitlePreview';
 import { useTitlePreview } from '../../../../shared/editor/useTitlePreview';
 import type { TableInputs } from './tableInputs';
@@ -9,6 +10,7 @@ import { useLatestRef } from './useLatestRef';
 type Inputs = Pick<TableInputs, 'activeView' | 'onNoteSelect' | 'searchTermProp'>;
 
 export function useTableState({ activeView, onNoteSelect, searchTermProp }: Inputs) {
+  const visible = usePaneVisibility();
   const ROWS_BATCH_SIZE = 50;
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => ({
     title: 250,
@@ -38,11 +40,11 @@ export function useTableState({ activeView, onNoteSelect, searchTermProp }: Inpu
   const [fileDeletePrompt, setFileDeletePrompt] = useState<FileDeletePrompt | null>(null);
   const [fileDeleteBusy, setFileDeleteBusy] = useState(false);
   useEffect(() => {
-    if (!fileDeletePrompt) return undefined;
+    if (!visible || !fileDeletePrompt) return undefined;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !fileDeleteBusy) setFileDeletePrompt(null); };
     const unsubscribeonKey = subscribeWindowEvent('keydown', onKey);
     return () => { unsubscribeonKey(); };
-  }, [fileDeletePrompt, fileDeleteBusy]);
+  }, [visible, fileDeletePrompt, fileDeleteBusy]);
   const [aggregations, setAggregations] = useState<Record<string, string>>({});
   const [internalSearchTerm] = useState('');
   const searchTerm = searchTermProp !== undefined ? searchTermProp : internalSearchTerm;

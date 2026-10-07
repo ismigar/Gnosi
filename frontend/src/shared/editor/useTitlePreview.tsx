@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import { DeferredPageHoverCard } from './page-hover-card/DeferredPageHoverCard';
+import { usePaneVisibility } from '../ui/PaneVisibility';
 
 
 const HOVER_OPEN_DELAY = 350;
@@ -49,6 +50,7 @@ export interface TitlePreviewController {
 export function useTitlePreview({
   onOpenPage,
 }: TitlePreviewOptions = {}): TitlePreviewController {
+  const visible = usePaneVisibility();
   const [active, setActive] = useState<TitlePreviewActiveState | null>(null);
   const openTimer = useRef<number | null>(null);
   const closeTimer = useRef<number | null>(null);
@@ -105,7 +107,7 @@ export function useTitlePreview({
     },
   }), [openHover, scheduleClose]);
 
-  const preview = active ? (
+  const preview = visible && active ? (
     <Suspense fallback={null}>
       <DeferredPageHoverCard
         pageId={active.pageId}

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState, type MouseEvent } from 'react';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../createPanePortal';
 
 const PREVIEW_SIZE = 320;
 const VIEWPORT_MARGIN = 8;

@@ -35,6 +35,11 @@ tests:
   - backend/tests/test_handwriting_download.py
   - backend/tests/test_vault_selector_authorization.py
   - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
+  - frontend/src/features/vault/dashboard/DashboardContent.test.tsx
+  - frontend/src/features/vault/dashboard/DocumentPane.test.tsx
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
+  - frontend/src/shared/ui/PanePortal.test.tsx
+  - frontend/src/shared/records/hooks/keyboardSubscriptions.test.tsx
   - backend/tests/test_drupal_connector_discovery_contract.py
   - backend/tests/test_drupal_connector_http_contract.py
   - backend/tests/test_drupal_connector_native_contract.py
@@ -664,6 +669,22 @@ editor, preventing stale parent content from replacing an unsaved edit.
 Metadata-only saves omit the body; default formulas preserve nested relation
 and plugin values. Regression tests cover these handoffs alongside schema
 option identifiers, table row identity and unknown metadata extensions.
+
+### Document tab continuity
+
+Open page, table and PDF tabs retain their mounted document views after their
+first visit, including when a document moves between primary and split panes.
+Closing a tab releases its view. Returning from a citation's PDF restores the
+originating gallery card's focus and nested scroll positions without scrolling
+on focus; arrow navigation continues from that card. Pending layout scrolls
+cannot overwrite the saved position, and keyboard or pointer input cancels any
+remaining restoration frame.
+
+Hidden panes are inert. Their global selection, editing and navigation shortcuts
+yield to visible panes, and their portaled menus are hidden with the owning tab.
+Gallery group expansion is session-scoped by page and saved anchor view rather
+than regenerated editor block IDs. This interaction state does not change page
+content, saved view definitions or ETags.
 
 ## Verification focus
 

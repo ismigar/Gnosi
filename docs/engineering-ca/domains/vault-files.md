@@ -35,6 +35,11 @@ tests:
   - backend/tests/test_handwriting_download.py
   - backend/tests/test_vault_selector_authorization.py
   - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
+  - frontend/src/features/vault/dashboard/DashboardContent.test.tsx
+  - frontend/src/features/vault/dashboard/DocumentPane.test.tsx
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
+  - frontend/src/shared/ui/PanePortal.test.tsx
+  - frontend/src/shared/records/hooks/keyboardSubscriptions.test.tsx
   - backend/tests/test_drupal_connector_discovery_contract.py
   - backend/tests/test_drupal_connector_http_contract.py
   - backend/tests/test_drupal_connector_native_contract.py
@@ -774,6 +779,24 @@ de metadades ometen el cos; les fórmules per defecte preserven els valors niats
 de relacions i plugins. Les proves de regressió cobreixen aquests traspassos,
 a més dels identificadors d'opció de l'esquema, la identitat de les files de
 taula i les extensions de metadades desconegudes.
+
+### Continuïtat de les pestanyes de documents
+
+Les pestanyes obertes de pàgina, taula i PDF conserven les seves vistes muntades
+després de la primera visita, també quan un document passa entre el panell
+principal i els panells dividits. Tancar una pestanya allibera la seva vista.
+Tornar del PDF d'una cita restaura el focus a la targeta d'origen de la galeria i
+les posicions dels scrolls niats sense desplaçar-se en donar el focus; la
+navegació amb fletxes continua des d'aquella targeta. Els desplaçaments pendents
+del layout no poden substituir la posició desada, i una entrada de teclat o
+punter cancel·la qualsevol frame de restauració pendent.
+
+Els panells ocults són inerts. Les seves dreceres globals de selecció, edició i
+navegació cedeixen als panells visibles, i els menús renderitzats en portals
+s'oculten amb la pestanya propietària. L'expansió dels grups de galeria es desa
+per sessió, pàgina i vista d'ancoratge desada, en lloc dels identificadors de
+bloc regenerats de l'editor. Aquest estat d'interacció no modifica el contingut
+de les pàgines, les definicions de vista desades ni els ETags.
 
 ## Aspectes que cal verificar
 

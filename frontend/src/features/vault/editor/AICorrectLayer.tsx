@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AICorrectionEditorPort } from './spell-check-layer/correctionEditorPort';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../../../shared/ui/createPanePortal';
 import toast from 'react-hot-toast';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import { ConfirmModal } from '../../../shared/ui/dialogs/ConfirmModal';
 import { correctAiContent } from '../../../shared/api/ai';
 import { subscribeAppEvent } from '../../../shared/platform/app-events';
 import { subscribeDocumentEvent } from '../../../shared/platform/browser-events';
+import { usePaneVisibility } from '../../../shared/ui/PaneVisibility';
 
 
 interface ButtonPosition {
@@ -28,6 +29,7 @@ interface AICorrectLayerProps<DocumentBlock, ParsedBlock> {
  * `gnosi:ai-correct-page` event. Reuses `POST /api/ai/correct`.
  */
 export default function AICorrectLayer<DocumentBlock, ParsedBlock>({ editor, lang }: AICorrectLayerProps<DocumentBlock, ParsedBlock>) {
+    const visible = usePaneVisibility();
     const { t } = useTranslation();
     const [btn, setBtn] = useState<ButtonPosition | null>(null);
     const [busy, setBusy] = useState(false);
@@ -108,13 +110,13 @@ export default function AICorrectLayer<DocumentBlock, ParsedBlock>({ editor, lan
     // opens the confirmation modal (an action that replaces all the content).
     useEffect(() => {
         return subscribeAppEvent('gnosi:ai-correct-page', () => {
-            setConfirmOpen(true);
+            if (visible) setConfirmOpen(true);
         });
-    }, []);
+    }, [visible]);
 
     // Shows the floating button when there is a selection within the editor.
     useEffect(() => {
-        if (!editor) return undefined;
+        if (!visible || !editor) return undefined;
         const onUp = (): void => {
             setTimeout(() => {
                 if (busyRef.current) return;
@@ -136,7 +138,7 @@ export default function AICorrectLayer<DocumentBlock, ParsedBlock>({ editor, lan
             unsubscribeMouse();
             unsubscribeKeyboard();
         };
-    }, [editor]);
+    }, [editor, visible]);
 
     return (
         <>

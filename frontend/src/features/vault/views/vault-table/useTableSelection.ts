@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react';
 import { useVaultSelection } from '../../../../shared/records/hooks/useVaultSelection';
 import { useVaultSelectionShortcuts } from '../../../../shared/records/hooks/useVaultSelectionShortcuts';
 import { subscribeWindowEvent } from '../../../../shared/platform/browser-events';
+import { usePaneVisibility } from '../../../../shared/ui/PaneVisibility';
 import type { TableInputs } from './tableInputs';
 import { useLatestRef } from './useLatestRef';
 import type { useTableData } from './useTableData';
@@ -22,6 +23,7 @@ export function useTableSelection({
   editingCell,
   onNoteSelect,
 }: Inputs) {
+  const visible = usePaneVisibility();
   const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(sortedNotes);
   const lastSelectedId = [...selectedIds].at(-1) ?? null;
   const selectedIdsRef = useLatestRef<Set<string> | null>(selectedIds);
@@ -50,6 +52,7 @@ export function useTableSelection({
     enabled: !editingCell,
   });
   useEffect(() => {
+    if (!visible) return undefined;
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
         if (lastSelectedId) {
@@ -60,6 +63,6 @@ export function useTableSelection({
     };
     const unsubscribehandleKeyDown = subscribeWindowEvent('keydown', handleKeyDown);
     return () => { unsubscribehandleKeyDown(); };
-  }, [lastSelectedId, onNoteSelect]);
+  }, [visible, lastSelectedId, onNoteSelect]);
   return { selectedIds, isSelected, toggleSelect, selectAll, clearSelection, selectedIdsRef, handleBulkDelete, handleApplyTemplate };
 }

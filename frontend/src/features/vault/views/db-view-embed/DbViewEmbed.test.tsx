@@ -1,3 +1,4 @@
+import { resetBrowserTestStorage } from '../../../../../tests/browser-storage';
 import { GlobalTooltip } from '../../../../shared/ui/tooltip/GlobalTooltip';
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -34,6 +35,9 @@ vi.mock('../VaultViewBody', () => ({
         return <div data-testid="body" data-type={props.type}>{props.notes?.map(note => <button key={note.id} onClick={() => { props.onNoteSelect?.(note.id); }}>{note.title}</button>)}</div>;
     }
 }));
+vi.mock('../../../../shared/i18n/useLocaleSettings', () => ({
+    useLocaleSettings: () => ({ currencyCode: 'EUR', dateFormat: 'locale', dateLocale: 'en-US', decimalSymbol: '.', numberLocale: 'en-US' }),
+}));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, fallback?: unknown) => {
     if (key === 'views_header.filtered_records_count' && fallback && typeof fallback === 'object' && 'count' in fallback && 'total' in fallback) {
         return `${String(fallback.count)} of ${String(fallback.total)} records`;
@@ -57,6 +61,7 @@ let context: VaultEditorContextValue;
 
 beforeEach(() => {
     vi.resetAllMocks(); fixture.body = undefined;
+    resetBrowserTestStorage('session');
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => window.setTimeout(() => { callback(0); }, 0));
     vi.stubGlobal('cancelAnimationFrame', (id: number) => { window.clearTimeout(id); });
     vi.mocked(api.fetchPageViews).mockResolvedValue({ page_id: 'page', sections: [section] });

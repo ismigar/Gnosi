@@ -29,6 +29,7 @@
 import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import { subscribeWindowEvent } from '../platform/browser-events';
+import { usePaneVisibility } from '../ui/PaneVisibility';
 
 export interface ModalKeyboardOptions {
     readonly closeOnEscape?: boolean;
@@ -85,6 +86,7 @@ export function useModalKeyboard({
     closeOnEscape = true,
     trapFocus = false,
 }: ModalKeyboardOptions): void {
+    const visible = usePaneVisibility();
     const onCloseRef = useRef(onClose);
     const onConfirmRef = useRef(onConfirm);
     const confirmDisabledRef = useRef(confirmDisabled);
@@ -101,7 +103,7 @@ export function useModalKeyboard({
     });
 
     useEffect(() => {
-        if (!isOpen) return undefined;
+        if (!isOpen || !visible) return undefined;
 
         // Only the top modal owns keyboard events.
         const layer = pushModalLayer(containerRef);
@@ -236,11 +238,11 @@ export function useModalKeyboard({
             const focusIsLoose = !active
                 || active === document.body
                 || (panelEl ? panelEl.contains(active) : false);
-            if (wasTop && focusIsLoose && previouslyFocused instanceof HTMLElement && previouslyFocused.isConnected) {
+            if (wasTop && focusIsLoose && previouslyFocused instanceof HTMLElement && previouslyFocused.isConnected && !previouslyFocused.closest('[inert]')) {
                 try { previouslyFocused.focus({ preventScroll: true }); } catch { /* element is gone */ }
             }
         };
-    }, [isOpen, containerRef, trapFocus]);
+    }, [isOpen, visible, containerRef, trapFocus]);
 }
 
 export default useModalKeyboard;

@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { createPanePortal as createPortal } from '../../../../shared/ui/createPanePortal';
 
 import { useModalKeyboard } from '../../../../shared/hooks/useModalKeyboard';
 import { browserDocumentBody } from '../../../../shared/platform/browser-events';
