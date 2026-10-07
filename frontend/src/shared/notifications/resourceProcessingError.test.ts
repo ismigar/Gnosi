@@ -15,6 +15,8 @@ describe('resource processing errors', () => {
         )).toBe(translation.llm_wiki.error_provider_timeout);
         expect(resourceProcessingError('Invalid reading plan: Account for every primary segment', i18n.t)).toBe(translation.llm_wiki.error_reading_evidence);
         expect(resourceProcessingError('memory_edit_anchor_required: old must match exactly once in memory', i18n.t)).toBe(translation.llm_wiki.error_reading_memory);
+        expect(resourceProcessingError('Connection error.', i18n.t)).toBe(translation.llm_wiki.error_provider_connection);
+        expect(resourceProcessingError('reading_map_synthesis_incomplete: saved maps are retained', i18n.t)).toBe(translation.llm_wiki.error_map_synthesis);
         expect(resourceProcessingError('', i18n.t)).toBe(translation.llm_wiki.error_generic);
         expect(resourceProcessingError('Provider unavailable (503)', i18n.t)).toBe('Provider unavailable (503)');
         expect(resourceProcessingError('Could not parse response content as the length limit was reached - CompletionUsage(completion_tokens=16384, completion_tokens_details=CompletionTokensDetails(reasoning_tokens=16384))', i18n.t))

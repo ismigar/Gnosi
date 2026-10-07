@@ -4,12 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
     estimateResourceProcessing,
+    findResumableResourceProcessing,
     fetchResourceProcessingStatus,
     startResourceProcessing,
     type ResourceProcessingJob,
     type ResourceProcessingStart,
 } from '../../../shared/api/resource-processing';
 import { ProcessResourceModal } from './ProcessResourceModal';
+import { toast } from '../../../shared/notifications/toast';
 import { getResourceProcessingTasks, resetResourceProcessingTasks } from './process-resource/resourceProcessingTasks';
 
 
@@ -27,6 +29,7 @@ vi.mock('../../../shared/notifications/toast', () => ({
 
 vi.mock('../../../shared/api/resource-processing', () => ({
     estimateResourceProcessing: vi.fn(),
+    findResumableResourceProcessing: vi.fn(),
     fetchResourceProcessingStatus: vi.fn(),
     startResourceProcessing: vi.fn(),
 }));
@@ -100,6 +103,7 @@ beforeEach(() => {
     document.body.appendChild(container);
     root = createRoot(container);
     vi.mocked(estimateResourceProcessing).mockResolvedValue({ estimate_id: 'estimate-1', provider: 'test', model: 'test-model', currency: 'USD', priced: true, chunks_total: 8, saved_chunks: 0, incompatible_saved_chunks: 0, remaining_chunks: 8, batch_size: 4, planned_calls: 3, memory_restore_calls: 0, source_token_bound: 1000, input_token_bound: 4000, output_tokens_assumed: 1000, output_token_bound: 49152, cost_usd: 0.02, cost_with_repairs_usd: 0.1, budget: null, warnings: [] });
+    vi.mocked(findResumableResourceProcessing).mockResolvedValue(null);
     vi.mocked(startResourceProcessing).mockResolvedValue(started);
     vi.mocked(fetchResourceProcessingStatus).mockResolvedValue(runningJob);
 });
@@ -209,12 +213,17 @@ describe('resource processing corner monitor', () => {
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
         closeDialog();
-        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({ ...runningJob, phase: 'partial', running: false, error: 'Provider unavailable' });
+        const interrupted = { ...runningJob, phase: 'partial', running: false, error: 'Provider unavailable' };
+        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce(interrupted);
         await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
         expect(container.querySelector('.resource-processing-monitor')?.textContent).toContain('Processing needs attention');
         expect(vi.getTimerCount()).toBe(0);
+        vi.mocked(findResumableResourceProcessing).mockResolvedValue(interrupted);
         act(() => { container.querySelector<HTMLButtonElement>('.resource-processing-card-open')?.click(); });
+        await flushProcessing();
         expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Provider unavailable');
+        expect(getResourceProcessingTasks()[0]?.background).toBe(true);
+        vi.mocked(findResumableResourceProcessing).mockResolvedValue(null);
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce(doneJob);
         await flushProcessing();
         act(() => { buttonWithText('Retry').click(); });
@@ -234,5 +243,60 @@ describe('resource processing corner monitor', () => {
         expect(getResourceProcessingTasks()).toEqual([]);
         expect(fetchResourceProcessingStatus).not.toHaveBeenCalled();
         expect(vi.getTimerCount()).toBe(0);
+    });
+});
+
+
+describe('existing backend resource jobs', () => {
+    it('shows an already running job on opening without starting or estimating another', async () => {
+        vi.mocked(findResumableResourceProcessing).mockResolvedValue(runningJob);
+        await render(<ProcessingScreen />);
+        await flushProcessing();
+        expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Planning notes');
+        expect(getResourceProcessingTasks()[0]?.job?.progress).toBe(25);
+        expect(startResourceProcessing).not.toHaveBeenCalled();
+        expect(estimateResourceProcessing).not.toHaveBeenCalled();
+        closeDialog();
+        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({ ...runningJob, progress: 60 });
+        await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+        expect(container.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('60');
+    });
+
+    it('restores a failed durable job after reopening instead of suggesting completion or a new start', async () => {
+        vi.mocked(findResumableResourceProcessing).mockResolvedValue({
+            ...runningJob, running: false, phase: 'error', error: 'Connection error.', created: [], updated: [],
+        });
+        const processed = vi.fn();
+        await render(<ProcessResourceModal isOpen noteId="note-1" title="Book" sourceTableId="resources"
+            onClose={vi.fn()} onProcessed={processed} />);
+        await flushProcessing();
+        expect(container.textContent).toContain('llm_wiki.error_provider_connection');
+        expect(container.textContent).toContain('Connection error.');
+        expect(startResourceProcessing).not.toHaveBeenCalled();
+        expect(processed).not.toHaveBeenCalled();
+        expect(toast.success).not.toHaveBeenCalled();
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('attaches a job that starts externally while the confirmation stays open', async () => {
+        await render(<ProcessingScreen />);
+        expect(buttonWithText('Process')).toBeDefined();
+        vi.mocked(findResumableResourceProcessing).mockResolvedValue(runningJob);
+        await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+        expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Planning notes');
+        expect(startResourceProcessing).not.toHaveBeenCalled();
+        expect(getResourceProcessingTasks()[0]?.job?.job_id).toBe('job-1');
+    });
+
+    it('does not register a late discovery after the dialog closes', async () => {
+        let complete!: (job: ResourceProcessingJob | null) => void;
+        vi.mocked(findResumableResourceProcessing).mockReturnValueOnce(new Promise(resolve => { complete = resolve; }));
+        await render(<ProcessingScreen />);
+        expect(buttonWithText('Process').disabled).toBe(true);
+        closeDialog();
+        complete(runningJob);
+        await flushProcessing();
+        expect(getResourceProcessingTasks()).toEqual([]);
+        expect(startResourceProcessing).not.toHaveBeenCalled();
     });
 });

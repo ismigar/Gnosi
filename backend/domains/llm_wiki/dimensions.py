@@ -133,7 +133,7 @@ def dimension_options(
                 "value": (f"[[{getattr(page, 'title', '')}|{getattr(page, 'id', '')}]]"),
                 "id": str(getattr(page, "id", "") or ""),
             }
-            for page in list(pages_for_table(target_id) or [])[:150]
+            for page in sorted(pages_for_table(target_id) or [], key=lambda page: str(getattr(page, "id", "")))[:150]
             if getattr(page, "title", None) and getattr(page, "id", None)
         ]
     return [{"label": item["label"], "value": item["value"]} for item in categorical_options(prop)]

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useVaultHome } from './useVaultHome';
 import { fetchResourceProcessingStatus } from '../../../shared/api/resource-processing';
+import { restoreResourceProcessingTask } from '../../literature';
 import type { DashboardActions } from './useDashboardActions';
 export function usePageToolbar(context: DashboardActions) {
     const home = useVaultHome(context);
@@ -37,6 +38,8 @@ export function usePageToolbar(context: DashboardActions) {
         fetchResourceProcessingStatus(currentOpenPageId, openPageTableId).then((job) => {
             if (!alive || job.phase === 'idle')
                 return;
+            restoreResourceProcessingTask({ noteId: currentOpenPageId, sourceTableId: openPageTableId,
+                title: currentOpenPage.title, background: true }, job, t);
             setLlmWikiJobs((current) => ({
                 ...current,
                 [openPageTableId]: {
@@ -48,7 +51,7 @@ export function usePageToolbar(context: DashboardActions) {
             console.warn('Could not load the LLM Wiki status for the open resource:', error);
         });
         return () => { alive = false; };
-    }, [currentOpenPageId, isPluginEnabled, llmWikiSourceConfig, openPageTableId, setLlmWikiJobs]);
+    }, [currentOpenPageId, currentOpenPage?.title, isPluginEnabled, llmWikiSourceConfig, openPageTableId, setLlmWikiJobs, t]);
     const llmWikiResourceJob = llmWikiJobs[openPageTableId || '']?.[currentOpenPage?.id || ''] || null;
     const llmWikiResourceRunning = Boolean(llmWikiResourceJob?.running);
     const llmWikiResourceRetryable = ['partial', 'error'].includes(llmWikiResourceJob?.phase || '');

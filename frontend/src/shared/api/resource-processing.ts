@@ -44,6 +44,10 @@ export async function fetchResourceProcessingStatus(
 }
 
 export type ResourceProcessingEstimate = components['schemas']['LlmWikiEstimateResponse'];
+export async function findResumableResourceProcessing(itemId: string, sourceTableId = '', signal?: AbortSignal): Promise<ResourceProcessingJob | null> {
+  const job = await fetchResourceProcessingStatus(itemId, sourceTableId, signal);
+  return job.phase !== 'idle' && (job.running || job.phase === 'error' || job.phase === 'partial') ? job : null;
+}
 export async function estimateResourceProcessing(input: ResourceProcessingInput, signal?: AbortSignal): Promise<ResourceProcessingEstimate> {
   return unwrapApiResult<ResourceProcessingEstimate, unknown>(await apiClient.POST('/api/vault/llm-wiki/estimate', {
     body: input as GeneratedResourceProcessingInput, signal,

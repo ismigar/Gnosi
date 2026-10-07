@@ -6797,6 +6797,8 @@
     "error_output_limit": "La respuesta del modelo ha quedado incompleta al alcanzar el límite de salida. El progreso está guardado. Revisa el lote y la estimación antes de reanudar.",
     "error_details": "Detalles técnicos",
     "error_provider_timeout": "El proveedor de IA no ha respondido a tiempo. Vuelve a intentarlo para reanudar el progreso guardado.",
+    "error_provider_connection": "La conexión con el proveedor de IA ha fallado. El procesamiento está interrumpido y el progreso guardado se conserva.",
+    "error_map_synthesis": "El modelo no ha podido completar una síntesis global suficientemente breve. El procesamiento se ha detenido y se conservan los mapas guardados.",
     "error_no_brain_table": "No hay ninguna tabla del Conocimiento configurada. Crea una en Ajustes → Complementos → LLM Wiki.",
     "running_hint": "Puedes cerrar; sigue el progreso en la esquina de la ventana.",
     "inbox_button": "Buzón",

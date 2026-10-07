@@ -366,6 +366,9 @@ async def _operation_response(application: Any, inputs: dict[str, Any], request:
                     # Responses API models return typed content blocks. Their
                     # Python representation is not the model's JSON answer.
                     text = str(message.text)
+                    if request.operation == "knowledge.process-source.phase" and request.options.get("reading_prose"):
+                        from backend.domains.llm_wiki.semantic_map_windows import ensure_complete
+                        ensure_complete(text, getattr(message, "response_metadata", {}) or {})
     # Keep source evidence for a format repair. Dropping these messages makes
     # the repair repeat the original read and spend its last call on a tool.
     inputs["messages"].extend(tool_history)
@@ -387,7 +390,8 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         operation_team_help=request.operation != "knowledge.process-source.phase",
         # Reading returns one bounded action, never the whole book. Avoid a
         # provider-default reservation of 65,536 output tokens for each step.
-        operation_max_output_tokens=(16_384 if request.operation == "knowledge.process-source.phase" else None),
+        operation_max_output_tokens=((8192 if request.options.get("reading_prose") else 16384)
+                                     if request.operation == "knowledge.process-source.phase" else None),
         operation_default_reasoning_effort=("low" if request.operation == "knowledge.process-source.phase"
                                             and not snapshot.profile.get("reasoning_effort") else None),
         output_schema=request.output_schema,

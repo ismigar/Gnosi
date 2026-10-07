@@ -6,6 +6,7 @@ import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
 import { toast } from '../../../shared/notifications/toast';
 import {
     estimateResourceProcessing,
+    findResumableResourceProcessing,
     fetchResourceProcessingStatus,
     startResourceProcessing,
     type ResourceProcessingJob,
@@ -26,6 +27,7 @@ vi.mock('../../../shared/notifications/toast', () => ({
 
 vi.mock('../../../shared/api/resource-processing', () => ({
     estimateResourceProcessing: vi.fn(),
+    findResumableResourceProcessing: vi.fn(),
     fetchResourceProcessingStatus: vi.fn(),
     startResourceProcessing: vi.fn(),
 }));
@@ -94,6 +96,7 @@ beforeEach(() => {
     document.body.appendChild(container);
     root = createRoot(container);
     vi.mocked(estimateResourceProcessing).mockResolvedValue({ estimate_id: 'estimate-1', provider: 'test', model: 'test-model', currency: 'USD', priced: true, chunks_total: 8, saved_chunks: 0, incompatible_saved_chunks: 0, remaining_chunks: 8, batch_size: 4, planned_calls: 3, memory_restore_calls: 0, source_token_bound: 1000, input_token_bound: 4000, output_tokens_assumed: 1000, output_token_bound: 49152, cost_usd: 0.02, cost_with_repairs_usd: 0.1, budget: null, warnings: [] });
+    vi.mocked(findResumableResourceProcessing).mockResolvedValue(null);
     vi.mocked(startResourceProcessing).mockResolvedValue(started);
     vi.mocked(fetchResourceProcessingStatus).mockResolvedValue(runningJob);
 });

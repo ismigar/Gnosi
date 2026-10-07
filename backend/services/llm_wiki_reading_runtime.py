@@ -140,9 +140,15 @@ class ReadingRuntime:
         from backend.services.agent_execution import run_sync
         if self.count_tokens(prompt) > self.input_budget:
             raise RuntimeError("The reading input exceeds the selected model's context budget")
+        try:
+            envelope = json.loads(prompt)
+        except ValueError:
+            envelope = None
+        bounded = isinstance(envelope, dict) and envelope.get("map_contract") == "bounded-reduction-v1"
         result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
             input=prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
-            max_model_calls=2), snapshot=self.snapshot, output_validator=validate)
+            options={"reading_prose": True}, max_model_calls=1 if bounded else 2),
+            snapshot=self.snapshot, output_validator=validate)
         return result.result, result.model
 
 
