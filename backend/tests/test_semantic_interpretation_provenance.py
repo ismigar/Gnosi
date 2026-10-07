@@ -10,6 +10,7 @@ from backend.domains.llm_wiki.semantic_contracts import bind_interpretation
 from backend.domains.llm_wiki.semantic_quote_contracts import select_note, source_key
 from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
 from backend.tests.test_semantic_quote_repair import repair_case, selected_answer
+from backend.tests.test_semantic_reading import response, setup
 
 
 def repeated_context():
@@ -55,3 +56,25 @@ def test_interpretation_provenance_cannot_replace_primary_or_accept_changed_evid
     context[0]['text'] = 'Edited source with no matching evidence.'
     with pytest.raises(ValueError, match='identify one source passage'):
         bind_interpretation(restored, reader.chunks, [*primary, *context], [])
+
+
+def test_complete_reader_binds_document_labels_inherited_from_chunks():
+    def generate(request):
+        answer = response(request)
+        if request['phase'] == 'interpret':
+            selection = quote_selection(request)
+            assert selection is not None
+            wire = selected_answer(answer, json.loads(selection.input))
+            # Also cite a different delivered primary as context, exercising
+            # the document labels on the complete evidence collection.
+            wire['passages']['passage_1']['notes'][0]['context_quote_ids'] = selection.primary_ids[1]
+            return json.loads(selection.restore(encoded(wire)))
+        return answer
+    reader, _, _ = setup(count=4, generate=generate)
+    before = deepcopy(reader.chunks)
+    assert reader.chunks[0]['origin_label']
+    assert 'origin_label' not in reader.chunks[0]['segments'][0]
+    result, _ = reader.run()
+    assert result['reviewed'] and len(result['notes']) == 4
+    assert reader.chunks == before
+    assert result['notes'][0]['citations'][1]['segment_id'] == reader.chunks[1]['segments'][0]['id']

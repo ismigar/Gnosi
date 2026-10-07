@@ -158,6 +158,10 @@ class SemanticReader:
         return str(self.state["global_map"])
 
     def interpret(self, selected: list[dict[str, object]], global_map: str) -> dict[str, Any]:
+        # Chunks own the document label; their stored segment records need not
+        # duplicate it. Bind exactly the same source view as the model receives.
+        selected = [{**chunk, "segments": [{**segment, "origin_label": chunk.get("origin_label")}
+                     for segment in records(chunk.get("segments"))]} for chunk in selected]
         context = reading_context(self.reader.chunks, selected, self.state["plans"], self.deps.count_tokens, self.reader.budget)
         primary = [s for c in selected for s in records(c.get("segments"))]
         evidence = records(context.pop("evidence"))

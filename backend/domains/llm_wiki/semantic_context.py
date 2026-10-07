@@ -64,7 +64,7 @@ def relevant(values: list[dict[str, object]], query: str, count: Callable[[str],
 
 def reading_context(chunks: list[dict[str, object]], selected: list[dict[str, object]],
                     plans: dict[str, Any], count: Callable[[str], int], budget: int) -> dict[str, object]:
-    primary = [s for c in selected for s in records(c.get("segments"))]
+    primary = [{**s, "origin_label": c.get("origin_label")} for c in selected for s in records(c.get("segments"))]
     query = " ".join(str(s["text"]) for s in primary)
     excluded = {s["id"] for s in primary}
     neighbours = list({str(s["id"]): {**s, "origin_label": c.get("origin_label")} for c in selected
