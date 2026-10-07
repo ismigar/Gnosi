@@ -212,6 +212,10 @@ def test_pdf_geometry_findings_reach_review_and_unchanged_bad_citations_cannot_p
     'El texto disponible queda truncado, así que no se reconstruye la continuación.',
     'La frase sobre el complement queda sense una explicació completa en el fragment disponible.',
     'The original is cut off before the conclusion.',
+    'El pasaje disponible termina con una frase inconclusa, por lo que no permite reconstruir la continuación.',
+    'El fragmento no contiene la continuación de su respuesta, así que no permite determinar lo que rescata.',
+    'The supplied text does not include the continuation.',
+    'Le texte ne contient pas la continuation.',
 ])
 def test_missing_text_and_explanation_caveats_require_source_grounded_correction(body):
     assert prose_issues({'body_md': body}, [{'text': 'A complete original with its continuation.'}], 'Catalan')
