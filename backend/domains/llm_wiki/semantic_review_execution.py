@@ -5,7 +5,7 @@ from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextvars import copy_context
 from dataclasses import dataclass, replace
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, cast
 
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
@@ -72,6 +72,12 @@ def prepare_batch(engine: SemanticReader, entries: list[dict[str, object]], dest
         "instruction": "Reassess every prior_observation against the original evidence; retain in warnings only limitations still present and relevant to the supplied notes. Explain resolved observations in assessment. Review EVERY supplied note against its original evidence and the joint map of ALL notes. Correct false attribution, missing caveats, contradicted conclusions and unsupported links. Brain notes are current navigation candidates, never source evidence: reassess proposed connections and remove unsupported ones. Full adjacent originals are supplied as support: read them before declaring a page-ending sentence incomplete. Correct all validation_issues, undefined footnotes, leaked numeric source links and corrupt language. Return only changed notes with their one-based position; unchanged notes are retained by the application. Preserve distinct substantive ideas. You may omit a note only when the active reading policy excludes its original passage or the supplied source cannot support any substantive note (for example isolated metadata or a detached connector). Give a specific source-grounded omit_reason; never omit substantive content to avoid correcting it, and never change workflow state. Excluded passages remain covered and available as context. New quotes must be exact originals and include the note's own primary passage. In unresolved_issues list each note with a remaining defect or missing evidence that prevents a reliable interpretation; do not bury defects in warnings. Warnings describe only limitations genuinely present in the original, not unfinished corrections. An empty changes list means you found no needed correction, not that accuracy is guaranteed.",
     }
     payload["instruction"] = evidence_lookup.REVIEW_CONTEXT_INSTRUCTION + str(payload["instruction"])
+    payload["instruction"] = str(payload["instruction"]) + (" Treat warnings as unresolved reading defects that block acceptance."
+        " Put author attribution, qualified uncertainty and resolved observations in the notes and assessment,"
+        " not in warnings. Independent external fact-checking is outside this source-reading task: faithfully"
+        " attribute claims and retain their caveats. A page boundary is not missing evidence when its continuation"
+        " is supplied; read it or request the complete pages before claiming that the argument is unavailable."
+        " Correct every citation validation issue, including redundant isolated words selected as quotations.")
     return ReviewBatch(offset, batch, targets, retrieved, payload,
                        review_schema(len(batch), reader.dimensions, require_resolution=True, allow_requests=True), fingerprint(batch))
 
@@ -84,17 +90,26 @@ def validate_answer(answer: dict[str, object], batch: ReviewBatch, reader: Conte
         raise ValueError("Evidence requests need a query or concrete pages")
     notes = bind_review(answer, batch.evidence_targets, reader.dimensions, shared_evidence=batch.evidence)
     if not requests:
-        validate_reviewed_prose([n for n in notes if "_review_omission" not in n], batch.evidence, reader.language)
-        if answer.get("unresolved_issues"):
+        retained = [n for n in notes if "_review_omission" not in n]
+        validate_reviewed_prose(retained, batch.evidence, reader.language)
+        citation_check = getattr(reader.dependencies, "citation_issues", None)
+        if citation_check:
+            issues = [issue for group in citation_check(retained, reader.origins) for issue in group]
+            if issues:
+                raise ValueError("reading_quality_unresolved: " + encoded(issues))
+        unresolved = [*cast(list[str], answer.get("unresolved_issues", [])), *cast(list[str], answer.get("warnings", []))]
+        if unresolved:
             # Report semantic non-resolution INSIDE the governed validator, so
             # its existing single correction can act on the actual diagnosis.
             # The prior implementation accepted the operation, then stopped
             # outside the repair boundary without offering any correction.
-            raise ValueError("reading_quality_unresolved: " + encoded(answer["unresolved_issues"]) +
+            raise ValueError("reading_quality_unresolved: " + encoded(unresolved) +
                 " This review is unfinished. Correct the affected notes, use a source-grounded exclusion only as allowed"
                 " by the active policy, or request the particular missing originals in evidence_requests."
                 " Do not merely clear this list or move unfinished corrections into warnings."
-                " Keep source uncertainty qualified in the note; do not invent a resolution.")
+                " Keep source uncertainty and author attribution qualified in the note; do not invent a resolution."
+                " Describe resolved findings in assessment. Warnings are for unresolved reading defects, not"
+                " a request for independent external fact-checking of correctly attributed source claims.")
 
 
 def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, object], list[str], list[dict[str, object]]]:

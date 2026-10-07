@@ -491,6 +491,7 @@ def process_resource(
         reduce_plans=_validate_and_reduce_plans,
         apply_plan=_apply_plan,
         sync_annotations=llm_wiki_pdf_annotations.sync_generated_pdf_annotations,
+        citation_issues=llm_wiki_pdf_annotations.reading_citation_issues,
         load_manifest=llm_wiki_storage.load_manifest,
         save_manifest=llm_wiki_storage.save_manifest,
         clock=time.time,

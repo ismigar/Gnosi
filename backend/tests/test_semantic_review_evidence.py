@@ -172,7 +172,8 @@ def test_wire_contract_requires_requests_and_preserves_exact_citations(monkeypat
 
 
 @pytest.mark.parametrize('corrected', [True, False])
-def test_unresolved_review_gets_one_governed_correction_and_stops_on_remaining_defects(runtime, monkeypatch, corrected):
+@pytest.mark.parametrize('diagnostic_field', ['unresolved_issues', 'warnings'])
+def test_unresolved_review_gets_one_governed_correction_and_stops_on_remaining_defects(runtime, monkeypatch, corrected, diagnostic_field):
     from dataclasses import replace
     from backend.services import agent_execution as governed
     from backend.services.agent_execution_scope import execution_scope
@@ -185,10 +186,11 @@ def test_unresolved_review_gets_one_governed_correction_and_stops_on_remaining_d
     monkeypatch.setattr('backend.services.agent_skill_catalog.resolve_agent_runtime', lambda *args, **kwargs:
         replace(resolved, active_skill_ids=tuple(snapshot.skill_ids)))
     initial = {'assessment': 'The first note needs correction.', 'changes': {'note_1': None, 'note_2': None},
-               'warnings': [], 'unresolved_issues': ['note_1: unsupported attribution'], 'evidence_requests': []}
+               'warnings': [], 'unresolved_issues': [], 'evidence_requests': []}
+    initial[diagnostic_field] = ['note_1: unsupported attribution']
     final = deepcopy(initial)
     if corrected:
-        final.update(unresolved_issues=[], assessment='Corrected the unsupported attribution against the original.')
+        final.update(unresolved_issues=[], warnings=[], assessment='Corrected the unsupported attribution against the original.')
         final['changes']['note_1'] = {'title': 'Qualified claim', 'body_md': 'The opponent claims innate knowledge; experience contradicts this.',
                                     'properties': {}, 'primary_quote_ids': [1], 'context_quote_ids': []}
     calls = install_workflow(monkeypatch, [encoded(initial), encoded(final)])

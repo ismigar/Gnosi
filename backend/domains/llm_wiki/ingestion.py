@@ -116,6 +116,7 @@ class IngestionDependencies:
     batch_size: int = 1
     max_action_steps: int = 64
     execution_metadata: dict[str, object] | None = None
+    citation_issues: Callable[[list[dict[str, object]], list[dict[str, object]]], list[list[str]]] | None = None
     input_budget: int = 24000
     count_tokens: Callable[[str], int] = lambda text: len(text.encode("utf-8"))
 

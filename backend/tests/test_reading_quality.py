@@ -112,8 +112,7 @@ def test_review_reassesses_prior_warnings_and_keeps_original_checkpoint_for_audi
         answer = response(request)
         if request['phase'] == 'verify':
             seen.extend(w for n in request['notes'] for w in n['prior_observations'])
-            answer['assessment'] = 'The next original completes the sentence; the old truncation warning is resolved.'
-            answer['warnings'] = ['Original claim is explicitly tentative.']
+            answer['assessment'] = 'The next original completes the sentence; the old truncation warning is resolved. The source claim remains explicitly tentative in the note.'
         return answer
     engine, gm, nm, _, _ = prepared(generate, count=2, size=2)
     old_warning = 'The text may end mid-sentence.'
@@ -124,5 +123,41 @@ def test_review_reassesses_prior_warnings_and_keeps_original_checkpoint_for_audi
     assert seen == [old_warning, old_warning]
     assert engine.state['plans'] == original
     assert all(p['prior_warnings'] == [old_warning] for _, p in result)
-    assert all(p['warnings'] == ['Original claim is explicitly tentative.'] for _, p in result)
+    assert all(p['warnings'] == [] for _, p in result)
     assert old_warning not in engine.reader.warnings
+
+
+def test_excluded_passage_observations_remain_in_audit_without_resurfacing_as_final_defects():
+    from backend.tests.test_semantic_review_parallel import prepared
+    engine, gm, nm, _, _ = prepared(count=2, size=2)
+    excluded = engine.state['plans'][str(engine.reader.chunks[0]['id'])]
+    excluded.update(notes=[], warnings=['Bibliographic metadata is excluded by the reading policy.'])
+    original = dict(excluded)
+    result = engine.review(gm, nm)
+    assert excluded == original
+    assert result[0][1]['prior_warnings'] == original['warnings']
+    assert not result[0][1]['warnings'] and not engine.reader.warnings
+
+
+@pytest.mark.parametrize('corrected', [True, False])
+def test_pdf_geometry_findings_reach_review_and_unchanged_bad_citations_cannot_pass(corrected):
+    from backend.tests.test_semantic_review_parallel import prepared
+    from backend.tests.test_semantic_reading import response
+    def generate(request):
+        answer = response(request)
+        if request['phase'] == 'verify':
+            assert 'ambiguous PDF citation' in request['notes'][0]['validation_issues']
+            if corrected:
+                note = request['notes'][0]['note']
+                answer['changes'] = [{'note': 1, 'replacement': {**note, 'quotes': ['innate knowledge']}}]
+        return answer
+    engine, gm, nm, _, checkpoints = prepared(generate, count=1, size=1)
+    engine.deps.citation_issues = lambda notes, origins: [
+        [] if n['citations'][0]['quote'] == 'innate knowledge' else ['ambiguous PDF citation'] for n in notes]
+    if corrected:
+        result = engine.review(gm, nm)
+        assert result[0][1]['notes'][0]['citations'][0]['quote'] == 'innate knowledge'
+    else:
+        with pytest.raises(ValueError, match='ambiguous PDF citation'):
+            engine.review(gm, nm)
+        assert not checkpoints['new', 'semantic-state']['reviewed_groups']

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.semantic_context import source_view
@@ -31,9 +31,8 @@ def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> lis
     entries: list[dict[str, object]] = []
     destinations = []
     for ci, (chunk, plan) in enumerate(reviewed):
-        if records(plan.get("notes")):
-            plan["prior_warnings"] = list(dict.fromkeys(str(w) for w in plan.get("warnings", []) if isinstance(w, str)))
-            plan["warnings"] = []
+        plan["prior_warnings"] = list(dict.fromkeys(str(w) for w in plan.get("warnings", []) if isinstance(w, str)))
+        plan["warnings"] = []
         for ni, note in enumerate(records(plan.get("notes"))):
             primary = {**next(s for s in records(chunk.get("segments")) if s["id"] == note["source_segment_id"]),
                        "origin_label": chunk.get("origin_label")}
@@ -45,6 +44,11 @@ def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> lis
                             "prior_observations": plan.get("prior_warnings", []),
                             "validation_issues": prose_issues(note, [primary, *support], reader.language)})
             destinations.append((ci, ni, note, primary, [primary, *support]))
+    citation_check = getattr(engine.deps, "citation_issues", None)
+    if citation_check:
+        issues = citation_check([target[2] for target in destinations], reader.origins)
+        for entry, findings in zip(entries, issues, strict=True):
+            entry["validation_issues"] = [*cast(list[str], entry["validation_issues"]), *findings]
     from backend.domains.llm_wiki.semantic_review_execution import review_batches
     for batch, validated in review_batches(engine, entries, destinations, global_map, notes_map):
         for (ci, ni, _, _, _), note in zip(batch.targets, validated, strict=True):

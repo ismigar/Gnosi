@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import threading
 from pathlib import Path
 from typing import Callable, Optional, Protocol, TypedDict
 
@@ -22,6 +23,7 @@ logger = get_logger(__name__)
 _ANNOTATION_COLOR = "#ffd400"
 _MANAGED_PREFIX = "llm-wiki"
 _ZOTERO_BLOB_PREFIX = "__ZOTERO_JSON__"
+_READING_GEOMETRY_LOCK = threading.Lock()
 
 
 class _PdfSearcher(Protocol):
@@ -399,6 +401,39 @@ def _persist_managed_annotations(
             removed += 1
     session.commit()
     return created, updated, removed
+
+
+def reading_citation_issues(
+    notes: list[dict[str, object]], origins: list[dict[str, object]],
+) -> list[list[str]]:
+    """Check full PDF geometry before review accepts notes, without writing highlights.
+
+    Match each citation against its original segment and share page indexes
+    across the batch. PDFium is serialized because reviews run concurrently.
+    """
+    segments = {str(segment["id"]): (origin, segment) for origin in origins
+                for segment in iterable_values(origin.get("segments") or []) if isinstance(segment, dict)}
+    groups = []
+    for note in notes:
+        citations = []
+        for citation in iterable_values(note.get("citations") or []):
+            if not isinstance(citation, dict):
+                continue
+            original = segments.get(str(citation.get("segment_id")))
+            if original is not None:
+                origin, segment = original
+                citations.append({**citation, "origin_id": origin["origin_id"], "locator": segment["locator"]})
+        groups.append(_citation_candidates([{"citations": citations}], origins, "reading-review"))
+    candidates = {key: value for group in groups for key, value in group.items()}
+    if not candidates:
+        return [[] for _ in notes]
+    with _READING_GEOMETRY_LOCK:
+        resolved, _ = _resolve_annotation_candidates(candidates, None)
+    return [[f"PDF citation on page {item['page']} cannot be located as one complete, unambiguous highlight: "
+             f"{item['quote']!r}. Select a meaningful exact original quote that can be located, or remove this"
+             " redundant citation while retaining the note's substantive evidence. Do not discard the idea"
+             " or invent evidence to bypass this check."
+             for key, item in group.items() if key not in resolved] for group in groups]
 
 
 def sync_generated_pdf_annotations(
