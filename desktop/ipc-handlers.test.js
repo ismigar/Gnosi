@@ -9,7 +9,7 @@ const { normalizeMenuLabels, createApplicationMenuTemplate } = require('./applic
 const { buildMacInstallerUrl, getUpdateInstallMode } = require('./update-policy');
 
 const CHANNELS = [
-  'get-app-version', 'choose-vault-container', 'set-application-menu', 'get-update-status', 'get-backend-url',
+  'get-app-version', 'choose-vault-container', 'pick-filesystem', 'set-application-menu', 'get-update-status', 'get-backend-url',
   'download-update', 'get-backend-status', 'install-update', 'open-form-filler',
 ];
 
@@ -123,7 +123,7 @@ for (const [name, corrupt] of [
   });
 }
 
-for (const channel of CHANNELS.filter(channel => !['set-application-menu', 'open-form-filler'].includes(channel))) {
+for (const channel of CHANNELS.filter(channel => !['set-application-menu', 'open-form-filler', 'pick-filesystem'].includes(channel))) {
   test(`${channel} rejects extra arguments before reading state or acting`, async () => {
     const f = fixture();
     for (const args of [[undefined], [null], [{}], ['bad'], [0, false]]) {
@@ -132,6 +132,19 @@ for (const channel of CHANNELS.filter(channel => !['set-application-menu', 'open
     }
   });
 }
+
+test('filesystem picker forwards typed modes, multiple selection and cancellation', async () => {
+  const options = { mode: 'any', multiple: true, title: 'Tria un fitxer', initialPath: '/Users/ada',
+    fileLabel: 'Fitxer', folderLabel: 'Carpeta', cancelLabel: 'Cancel·la' };
+  for (const response of [{ canceled: true, entries: [] }, { canceled: false, entries: [{ path: '/Users/ada/a.pdf', isDir: false }] }]) {
+    const f = fixture({ overrides: { pickFilesystem: async value => { assert.deepEqual(value, options); return response; } } });
+    assert.deepEqual(await f.invoke('pick-filesystem', options), response);
+  }
+  const f = fixture();
+  for (const invalid of [null, {}, { ...options, mode: 'shell' }, { ...options, multiple: 'yes' }]) {
+    await assert.rejects(async () => f.invoke('pick-filesystem', invalid), /Invalid/);
+  }
+});
 
 test('menu defaults, omitted envelope, blank labels and locale labels preserve the existing normalizer', async () => {
   const installed = [];

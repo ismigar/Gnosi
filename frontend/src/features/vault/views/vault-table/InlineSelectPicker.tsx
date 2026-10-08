@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
 import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -91,7 +92,7 @@ export const InlineSelectPicker = ({
                 {optionColors[opt] && (
                   <span className="shrink-0 w-2 h-2 rounded-full" style={{ backgroundColor: optionChipStyle(optionColors[opt])?.color }} />
                 )}
-                {idToTitle[opt] || opt}
+                {pageReferenceTitle(opt, idToTitle)}
               </span>
               {onDeleteOption && (
                 <span

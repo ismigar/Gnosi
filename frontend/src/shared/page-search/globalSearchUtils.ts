@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../records/pageReferenceTitle';
 import {
     normalizeForSearch,
     type FilterValue,
@@ -95,7 +96,7 @@ export function mergeGlobalSearchNotes<Note extends SearchNote>(
         if (!id || knownIds.has(id)) return;
         merged.push({
             id,
-            title: stringifySearchValue(title || id),
+            title: pageReferenceTitle(id, globalIndex || {}, title),
             metadata: {},
             folder: '',
         });

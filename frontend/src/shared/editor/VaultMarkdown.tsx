@@ -9,6 +9,8 @@ import 'katex/dist/katex.min.css';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import { openCitation } from '../resources/fileResource';
 import { WikilinkInline } from './WikilinkInline';
+import { stripManagedBlockMarkers } from './managedMarkdownUtils';
+import { remarkHideComments } from './remarkHideComments';
 import {
     parseVaultMarkdownBlocks,
     type VaultMarkdownBlock,
@@ -45,7 +47,7 @@ interface VaultMarkdownProps {
 }
 
 
-const MARKDOWN_PLUGINS = [remarkGfm, remarkMath];
+const MARKDOWN_PLUGINS = [remarkGfm, remarkMath, remarkHideComments];
 const REHYPE_PLUGINS = [rehypeKatex];
 const HEADING_CLASSES: Readonly<Partial<Record<number, string>>> = {
     1: 'text-2xl font-bold',
@@ -225,7 +227,7 @@ export function VaultMarkdown({
     return (
         <>
             {renderVaultBlocks(
-                parseVaultMarkdownBlocks(md),
+                parseVaultMarkdownBlocks(stripManagedBlockMarkers(md)),
                 'root',
                 renderMarkdown,
                 t('editor.block_type_toggle', 'Toggle'),

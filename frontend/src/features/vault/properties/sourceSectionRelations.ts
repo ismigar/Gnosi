@@ -1,3 +1,5 @@
+import { readablePageTitle } from '../../../shared/records/pageReferenceTitle';
+
 interface SectionNote {
     id: string;
     title?: string;
@@ -37,5 +39,5 @@ export function sourceSectionOptions<T extends SectionNote>(
 
 export function sourceSectionTitle(note: SectionNote, scoped: boolean): string {
     const path = note.metadata?.llm_wiki_section_display_path || note.metadata?.llm_wiki_section_path;
-    return scoped && typeof path === 'string' ? path : note.title || note.id;
+    return readablePageTitle(scoped && typeof path === 'string' ? path : note.title || note.id);
 }

@@ -3,13 +3,14 @@ const test = require('node:test');
 const { loadMainRuntime, senderEvent } = require('./test-helpers/main-runtime.cjs');
 
 const CHANNELS = [
-  'get-app-version', 'choose-vault-container', 'set-application-menu', 'get-update-status', 'get-backend-url',
+  'get-app-version', 'choose-vault-container', 'pick-filesystem', 'set-application-menu', 'get-update-status', 'get-backend-url',
   'download-update', 'get-backend-status', 'install-update', 'open-form-filler',
 ];
 const FORM = { url: 'https://example.invalid/form', profile: { email: 'fixture@example.invalid' } };
 
 function argumentsFor(channel) {
   if (channel === 'open-form-filler') return [FORM];
+  if (channel === 'pick-filesystem') return [{ mode: 'file', multiple: false, title: 'File', fileLabel: 'File', folderLabel: 'Folder', cancelLabel: 'Cancel' }];
   if (channel === 'set-application-menu') return [{ labels: { settings: 'Configuració' } }];
   return [];
 }

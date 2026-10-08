@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../../../shared/records/pageReferenceTitle';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -25,7 +26,7 @@ export const SingleSelectPill = ({ value, onChange, options, idToTitle, placehol
                 className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg cursor-pointer hover:border-[var(--gnosi-primary)]/50 transition-all shadow-sm"
             >
                 <div className="w-2 h-2 rounded-full bg-[var(--gnosi-primary)]/60"></div>
-                <span className="text-xs font-semibold text-[var(--text-primary)]">{idToTitle[value] || value || placeholder}</span>
+                <span className="text-xs font-semibold text-[var(--text-primary)]">{value ? pageReferenceTitle(value, idToTitle) : placeholder}</span>
                 <ChevronDown size={14} className={`text-[var(--text-tertiary)]/60 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </div>
             {isOpen && (
@@ -38,7 +39,7 @@ export const SingleSelectPill = ({ value, onChange, options, idToTitle, placehol
                             className={`p-2.5 text-sm rounded-lg cursor-pointer transition-colors flex items-center gap-3 ${value === opt ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
                         >
                             <div className={`w-1.5 h-1.5 rounded-full ${value === opt ? 'bg-[var(--gnosi-primary)]' : 'bg-[var(--text-tertiary)]/30'}`}></div>
-                            {idToTitle[opt] || opt}
+                            {pageReferenceTitle(opt, idToTitle)}
                         </div>
                     ))}
                 </div>

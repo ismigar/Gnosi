@@ -30,7 +30,8 @@ interface BrainInboxProps {
 
 
 export function BrainInbox({ onAccepted, open: controlledOpen, onOpenChange }: BrainInboxProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const locale = i18n.resolvedLanguage || i18n.language;
     const tb = (
         key: string,
         fallback: string,
@@ -47,6 +48,8 @@ export function BrainInbox({ onAccepted, open: controlledOpen, onOpenChange }: B
     };
     const [items, setItems] = useState<BrainSuggestion[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadedLocale, setLoadedLocale] = useState<string>();
+    const displayLoading = loading || (open && loadedLocale !== locale);
     const [error, setError] = useState(false);
     const [busy, setBusy] = useState('');
     const modalRef = useRef<HTMLDivElement>(null);
@@ -57,10 +60,13 @@ export function BrainInbox({ onAccepted, open: controlledOpen, onOpenChange }: B
             if (request.signal.aborted) return;
             setLoading(true);
             setError(false);
-            return fetchBrainSuggestions(request.signal);
+            return fetchBrainSuggestions(request.signal, open ? locale : undefined);
         })
             .then((response) => {
-                if (!request.signal.aborted && response) setItems(response.suggestions);
+                if (!request.signal.aborted && response) {
+                    setItems(response.suggestions);
+                    setLoadedLocale(open ? locale : undefined);
+                }
             })
             .catch(() => {
                 if (!request.signal.aborted) setError(true);
@@ -69,7 +75,7 @@ export function BrainInbox({ onAccepted, open: controlledOpen, onOpenChange }: B
                 if (!request.signal.aborted) setLoading(false);
             });
         return () => { request.abort(); };
-    }, [open]);
+    }, [open, locale]);
 
     useModalKeyboard({
         isOpen: open,
@@ -160,19 +166,19 @@ export function BrainInbox({ onAccepted, open: controlledOpen, onOpenChange }: B
                                     "These proposals do not modify any note. Permanent notes remain manual.",
                                 )}
                             </p>
-                            {loading && (
+                            {displayLoading && (
                                 <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
                                     <Loader2 size={14} className="animate-spin" />
                                     {tb('loading', "Loading connections…")}
                                 </div>
                             )}
                             {error && <p role="alert" className="text-sm text-[var(--status-error)]">{tb('load_error', 'Connections could not be loaded. Close this panel and try again.')}</p>}
-                            {!loading && !error && items.length === 0 && (
+                            {!displayLoading && !error && items.length === 0 && (
                                 <p className="text-sm text-[var(--text-tertiary)]">
                                     {tb('empty', "No pending connections. New ones are proposed after processing or auditing the Brain.")}
                                 </p>
                             )}
-                            {!loading && !error && items.map((suggestion) => (
+                            {!displayLoading && !error && items.map((suggestion) => (
                                 <article
                                     key={suggestion.id}
                                     className="rounded-lg border border-[var(--border-primary)] p-4 space-y-3"

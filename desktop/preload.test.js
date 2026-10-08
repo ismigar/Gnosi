@@ -44,7 +44,7 @@ test('exposes only the named application methods, never generic IPC primitives',
   assert.deepEqual(Object.keys(api).sort(), [
     'chooseVaultContainer', 'downloadUpdate', 'getAppVersion', 'getBackendStatus', 'getBackendURL',
     'getUpdateStatus', 'installUpdate', 'onOpenSettings', 'onUpdateStatus',
-    'openFormFiller', 'removeOpenSettingsListener', 'removeUpdateListener',
+    'openFormFiller', 'pickFilesystem', 'removeOpenSettingsListener', 'removeUpdateListener',
     'setApplicationMenu',
   ].sort());
   for (const method of Object.values(api)) assert.equal(typeof method, 'function');

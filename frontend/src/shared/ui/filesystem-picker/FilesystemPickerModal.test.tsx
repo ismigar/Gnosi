@@ -132,6 +132,7 @@ describe('FilesystemPickerModal', () => {
         removeStorage(FILESYSTEM_PICKER_LAST_PATH_KEY);
         delete reactTestGlobal.IS_REACT_ACT_ENVIRONMENT;
         vi.useRealTimers();
+        vi.unstubAllGlobals();
     });
 
     async function renderPicker(
@@ -156,6 +157,30 @@ describe('FilesystemPickerModal', () => {
         });
         return { onSelect, onSelectMany };
     }
+
+    it('uses the desktop native panel directly, including multiple files and folders', async () => {
+        const entries = [{ path: '/Users/ada/a.pdf', isDir: false }, { path: '/Users/ada/Archive', isDir: true }];
+        const picker = vi.fn().mockResolvedValue({ canceled: false, entries });
+        vi.stubGlobal('electronAPI', { pickFilesystem: picker });
+        const onClose = vi.fn();
+        const onSelectMany = vi.fn();
+        await renderPicker({ mode: 'any', onClose, onSelectMany, initialQuery: 'report' });
+        expect(picker).toHaveBeenCalledOnce();
+        expect(picker).toHaveBeenCalledWith(expect.objectContaining({ mode: 'any', multiple: true }));
+        expect(onSelectMany).toHaveBeenCalledWith(entries);
+        expect(onClose).toHaveBeenCalledOnce();
+        expect(testState.browseFilesystem).not.toHaveBeenCalled();
+        expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    });
+
+    it('closes after native cancellation without choosing a path or showing the internal browser', async () => {
+        vi.stubGlobal('electronAPI', { pickFilesystem: vi.fn().mockResolvedValue({ canceled: true, entries: [] }) });
+        const onClose = vi.fn();
+        const { onSelect } = await renderPicker({ onClose });
+        expect(onSelect).not.toHaveBeenCalled();
+        expect(onClose).toHaveBeenCalledOnce();
+        expect(testState.browseFilesystem).not.toHaveBeenCalled();
+    });
 
     it('returns a browsed file through the existing single-selection contract', async () => {
         const { onSelect } = await renderPicker();

@@ -476,6 +476,7 @@ def _index_rendering_dependencies() -> llm_wiki_index_rendering.RenderingDepende
         role_resource_index=ROLE_RESOURCE_INDEX,
         role_dimension_index=ROLE_DIMENSION_INDEX,
         role_general_index=ROLE_GENERAL_INDEX,
+        resolve_title=_resolve_page_title,
     )
 
 
@@ -694,6 +695,12 @@ def _read_page(path: Optional[Path]) -> tuple[PageMetadata, str]:
 
 def _brain_pages(brain_table_id: object) -> list[object]:
     return llm_wiki_legacy_ports.table_pages(brain_table_id)
+
+
+def _resolve_page_title(page_id: str) -> str:
+    if not page_id:
+        return ""
+    return str(llm_wiki_legacy_ports.id_title_index().get(page_id) or "")
 
 
 def _table(table_id: object) -> Optional[dict[str, object]]:

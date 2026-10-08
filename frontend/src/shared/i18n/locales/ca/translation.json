@@ -6858,7 +6858,11 @@
       "review": "Revisar Cervell",
       "report_title": "Revisió del Cervell",
       "results": "Veure la revisió",
-      "unavailable": "Revisa la taula i les fonts configurades a Configuració → Connectors → Cervell abans de continuar."
+      "unavailable": "Revisa la taula i les fonts configurades a Configuració → Connectors → Cervell abans de continuar.",
+      "show_more": "Mostra més notes",
+      "details_unavailable": "No hi ha detalls disponibles. Torna a executar la revisió.",
+      "duplicate_keys": "{{count}} claus de processament duplicades",
+      "stale_managed": "{{count}} notes generades pendents d’actualització"
     },
     "budget_available": "Disponible dins del límit: {{amount}}. El procés es pausa abans d’una crida que no hi càpiga i desa el progrés.",
     "estimate_over_budget": "El càlcul supera el pressupost disponible. Si comences, pot quedar feina pendent; el límit no s’augmenta automàticament.",

@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
 import { NumberValue } from '../../../../shared/records/NumberValue';
 import { Calendar, CheckSquare, Clock, Link as LinkIcon, Unlock } from 'lucide-react';
 import { filenameFromTarget } from '../../../../shared/resources/fileResource';
@@ -119,7 +120,7 @@ export function CellValue({ model, value, type, noteId, field, originalMetaKey }
           {predecessorIds.length > 0 && (
             <span
               className="text-[var(--text-tertiary)] ml-0.5"
-              title={predecessorIds.map((id) => idToTitle[id] || id).join(', ')}
+              title={predecessorIds.map((id) => pageReferenceTitle(id, idToTitle)).join(', ')}
             >
               · {t('vault_date.period_predecessor_count', {
                 count: predecessorIds.length,
@@ -159,7 +160,7 @@ export function CellValue({ model, value, type, noteId, field, originalMetaKey }
                 style={chipStyle || undefined}
                 title={it}
               >
-                {idToTitle[it] || (it.length > 20 ? it.substring(0, 8) + '...' : it)}
+                {pageReferenceTitle(it, idToTitle)}
               </span>
             );
           })}

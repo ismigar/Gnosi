@@ -5,6 +5,8 @@ import { VaultEditorContext } from '../../../../shared/editor/VaultEditorContext
 import { fetchVaultPage } from '../../../../shared/api/vaults';
 import { extractSectionPreview, markdownToPlainText } from './markdownPreview';
 import { isRequestCancelled } from './media';
+import { usePageReferenceTitle } from '../../../../shared/records/usePageReferenceTitle';
+import { readablePageTitle } from '../../../../shared/records/pageReferenceTitle';
 
 interface TransclusionProps { readonly block: { readonly props: { readonly target?: string; readonly alias?: string; readonly section?: string } }; }
 
@@ -26,7 +28,8 @@ export const TransclusionEmbed = forwardRef<HTMLDivElement, TransclusionProps>((
         return byTitle?.[0] || null;
     }, [target, idToTitle]);
 
-    const displayTitle = alias || idToTitle[resolvedId || ''] || target || t('editor.transclusion');
+    const referenceTitle = usePageReferenceTitle(resolvedId || target, idToTitle, alias, t('editor.transclusion'));
+    const displayTitle = alias ? readablePageTitle(alias, idToTitle) : referenceTitle;
     const [preview, setPreview] = useState('');
 
     useEffect(() => {

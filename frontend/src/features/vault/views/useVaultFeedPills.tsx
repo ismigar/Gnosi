@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../shared/records/pageReferenceTitle';
 import { NumberValue } from '../../../shared/records/NumberValue';
 import { Calendar, CheckSquare, Link as LinkIcon } from 'lucide-react';
 import { useCallback } from 'react';
@@ -103,7 +104,7 @@ export function useVaultFeedPills({
       ...idToTitle,
       ...Object.fromEntries(related.map((note) => [
         note.id,
-        feedNoteTitle(note) || idToTitle[note.id] || note.id,
+        pageReferenceTitle(note.id, idToTitle, feedNoteTitle(note)),
       ])),
     };
   }, [allNotes, idToTitle, schema]);

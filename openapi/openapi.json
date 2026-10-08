@@ -87017,6 +87017,22 @@
         "operationId": "knowledge_llm_wiki_list_suggestions_llm_wiki_suggestions_get",
         "parameters": [
           {
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Locale"
+            }
+          },
+          {
             "in": "header",
             "name": "x-workspace-id",
             "required": false,
@@ -94417,6 +94433,22 @@
         "description": "Return pending read-only connection proposals for the Brain inbox.",
         "operationId": "llm_wiki_list_suggestions_api_vault_llm_wiki_suggestions_get",
         "parameters": [
+          {
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Locale"
+            }
+          },
           {
             "in": "header",
             "name": "x-workspace-id",

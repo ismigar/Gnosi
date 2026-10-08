@@ -79,6 +79,12 @@ def table_by_id(table_id: object) -> dict[str, object] | None:
     return get_table(table_id)
 
 
+def id_title_index() -> dict[str, str]:
+    from backend.domains.vault.links.runtime import build_id_title_index
+
+    return build_id_title_index()
+
+
 def mark_resource_processed(page_id: str, processed_at: str) -> None:
     from backend.api import vault_routes
 

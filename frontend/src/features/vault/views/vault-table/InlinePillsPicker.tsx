@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
 import { Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -69,7 +70,7 @@ export const InlinePillsPicker = ({
           <RelationItem
             key={val}
             relationId={val}
-            title={idToTitle[val] || val}
+            title={pageReferenceTitle(val, idToTitle)}
             onOpen={onOpenRelation}
             onRemove={onRemoveRelation ? async () => {
               const removed = await onRemoveRelation(val);
@@ -80,7 +81,7 @@ export const InlinePillsPicker = ({
           />
         ) : (
           <span key={val} className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] border border-[var(--gnosi-primary)]/20 whitespace-nowrap">
-            {idToTitle[val] || (val.length > 16 ? val.substring(0, 8) + '…' : val)}
+            {pageReferenceTitle(val, idToTitle)}
             <X size={9} className="cursor-pointer hover:text-red-500 shrink-0" onMouseDown={e => { e.preventDefault(); toggle(val); }} />
           </span>
         ))}
@@ -108,7 +109,7 @@ export const InlinePillsPicker = ({
                 {optionColors[opt] && (
                   <span className="shrink-0 w-2 h-2 rounded-full" style={{ backgroundColor: optionChipStyle(optionColors[opt])?.color }} />
                 )}
-                {idToTitle[opt] || opt}
+                {pageReferenceTitle(opt, idToTitle)}
               </span>
               {onDeleteOption && (
                 <span

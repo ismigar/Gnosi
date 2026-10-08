@@ -26,9 +26,24 @@ export interface BackendStatus {
 export type DesktopSubscription = () => void;
 export type ApplicationMenuLabels = Readonly<Record<string, string>>;
 
+export interface FilesystemPickOptions {
+  readonly mode: 'file' | 'folder' | 'any';
+  readonly multiple: boolean;
+  readonly title: string;
+  readonly initialPath?: string;
+  readonly fileLabel: string;
+  readonly folderLabel: string;
+  readonly cancelLabel: string;
+}
+export interface FilesystemPickResult {
+  readonly canceled: boolean;
+  readonly entries: readonly { readonly path: string; readonly isDir: boolean }[];
+}
+
 /** Exact wire arguments, including the existing preload envelopes. */
 export interface DesktopRequestMap {
   'choose-vault-container': { args: []; result: boolean };
+  'pick-filesystem': { args: [options: FilesystemPickOptions]; result: FilesystemPickResult };
   'get-app-version': { args: []; result: string };
   'get-backend-status': { args: []; result: BackendStatus };
   'get-backend-url': { args: []; result: string };
@@ -80,6 +95,7 @@ export interface FormFillerDependencies {
 /** Main owns mutable state, menu construction, backend IO and native actions. */
 export interface DesktopIpcDependencies extends FormFillerDependencies {
   readonly chooseVaultContainer?: () => Promise<boolean>;
+  readonly pickFilesystem?: (options: FilesystemPickOptions) => Promise<FilesystemPickResult>;
   readonly ipcMain: Pick<Electron.IpcMain, 'handle'>;
   readonly mainWindows: ReadonlySet<Pick<Electron.BrowserWindow, 'isDestroyed' | 'webContents'>>;
   readonly isDev: boolean;
@@ -97,6 +113,7 @@ export interface DesktopIpcDependencies extends FormFillerDependencies {
 
 export interface GnosiElectronApi {
   readonly chooseVaultContainer: DesktopInvoke<'choose-vault-container'>;
+  readonly pickFilesystem: DesktopInvoke<'pick-filesystem'>;
   readonly getAppVersion: DesktopInvoke<'get-app-version'>;
   readonly getBackendStatus: DesktopInvoke<'get-backend-status'>;
   readonly getBackendURL: DesktopInvoke<'get-backend-url'>;

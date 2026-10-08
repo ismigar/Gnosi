@@ -16,6 +16,7 @@ const reactTestGlobal = globalThis as typeof globalThis & {
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
+        i18n: { resolvedLanguage: 'ca', language: 'ca' },
         t: (key: string, options?: { readonly defaultValue?: string }) => options?.defaultValue ?? key,
     }),
 }));

@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../shared/records/pageReferenceTitle';
 import { Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -30,11 +31,11 @@ export function PlanningAssignments({ controller }: PlanningAssignmentsProps) {
             <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
                 <select style={SELECT_STYLE} value={draft.project_id} aria-label={tp('planning_select_project', 'Select project')} onChange={(event) => { controller.setAssignmentDraft({ ...draft, project_id: event.target.value }); }}>
                     <option value="">{tp('planning_select_project', 'Select project')}</option>
-                    {controller.sortedProjects.map((project) => <option key={project.id} value={project.id}>{project.title || project.id}</option>)}
+                    {controller.sortedProjects.map((project) => <option key={project.id} value={project.id}>{pageReferenceTitle(project.id, {}, project.title)}</option>)}
                 </select>
                 <select style={SELECT_STYLE} value={draft.task_id} aria-label={tp('planning_select_task', 'Select task')} onChange={(event) => { controller.setAssignmentDraft({ ...draft, task_id: event.target.value }); }}>
                     <option value="">{tp('planning_select_task', 'Select task')}</option>
-                    {controller.sortedTasks.map((task) => <option key={task.id} value={task.id}>{task.title || task.id}</option>)}
+                    {controller.sortedTasks.map((task) => <option key={task.id} value={task.id}>{pageReferenceTitle(task.id, {}, task.title)}</option>)}
                 </select>
                 <select style={SELECT_STYLE} value={draft.resource_id} aria-label={tp('planning_select_resource', 'Select resource')} onChange={(event) => { controller.setAssignmentDraft({ ...draft, resource_id: event.target.value }); }}>
                     <option value="">{tp('planning_select_resource', 'Select resource')}</option>

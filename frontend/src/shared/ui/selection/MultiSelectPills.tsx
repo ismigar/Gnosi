@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../records/pageReferenceTitle';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { ChevronDown, Plus, Search, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -57,7 +58,7 @@ export const MultiSelectPills = ({
     // doesn't usually type accents, and without this, the option/relation wouldn't appear.
     const foldedTerm = foldAccents(searchTerm);
     const filteredOptions = optionKeys.filter(opt =>
-        foldAccents(idToTitle[opt] || opt).includes(foldedTerm) &&
+        foldAccents(pageReferenceTitle(opt, idToTitle)).includes(foldedTerm) &&
         (single || !currentValues.includes(opt))
     );
     const canCreate = Boolean(
@@ -165,8 +166,8 @@ export const MultiSelectPills = ({
                     const chip = optionChipStyle(optionColorByKey[propertyKey(val)]);
                     return (
                     <span key={propertyKey(val)} style={chip || undefined} className="flex max-w-full items-center gap-1.5 px-2.5 py-1 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-full text-xs font-medium text-[var(--text-secondary)] shadow-sm">
-                        <span className="min-w-0 [overflow-wrap:anywhere]">{idToTitle[propertyKey(val)] || val}{missing ? ` · ${unavailableLabel}` : ''}</span>
-                        <button type="button" disabled={disabled || currentValues.length <= minimum} aria-label={`${t('common.delete', 'Delete')}: ${String(idToTitle[propertyKey(val)] || val)}`} title={t('common.delete', "Delete")} className="flex shrink-0 items-center cursor-pointer hover:text-[var(--status-error)] transition-colors" onClick={(e) => { e.stopPropagation(); toggleValue(val); }}>
+                        <span className="min-w-0 [overflow-wrap:anywhere]">{pageReferenceTitle(String(val), idToTitle)}{missing ? ` · ${unavailableLabel}` : ''}</span>
+                        <button type="button" disabled={disabled || currentValues.length <= minimum} aria-label={`${t('common.delete', 'Delete')}: ${pageReferenceTitle(String(val), idToTitle)}`} title={t('common.delete', "Delete")} className="flex shrink-0 items-center cursor-pointer hover:text-[var(--status-error)] transition-colors" onClick={(e) => { e.stopPropagation(); toggleValue(val); }}>
                             <X size={10} />
                         </button>
                     </span>
@@ -214,7 +215,7 @@ export const MultiSelectPills = ({
                                         {Boolean(optionColorByKey[opt]) && (
                                             <span className="shrink-0 w-2 h-2 rounded-full" style={{ backgroundColor: optionColorHex(optionColorByKey[opt]) }} />
                                         )}
-                                        <span className="truncate">{idToTitle[opt] || opt}</span>
+                                        <span className="truncate">{pageReferenceTitle(opt, idToTitle)}</span>
                                     </span>
                                     <span className="flex items-center gap-1 shrink-0">
                                         {onDeleteOption && (

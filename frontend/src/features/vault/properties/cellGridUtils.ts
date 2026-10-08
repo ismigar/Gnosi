@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../shared/records/pageReferenceTitle';
 /**
  * cellGridUtils.js
  *
@@ -108,14 +109,14 @@ export function serializeCellForClipboard(
     if (Array.isArray(value)) {
         return value.map((item) => {
             const key = cellText(item);
-            return idToTitle[key] ?? cellText(item);
+            return pageReferenceTitle(key, idToTitle);
         }).filter(Boolean).join(', ');
     }
 
     if (typeof value === 'boolean') return value ? 'true' : 'false';
 
     const key = cellText(value);
-    return idToTitle[key] ?? key;
+    return pageReferenceTitle(key, idToTitle);
 }
 
 /**
@@ -232,7 +233,7 @@ export function coerceValueForField(
             const titleToId: Record<string, string> = {};
             for (const note of relatedNotes) {
                 const normalizedTitle = cellText(
-                    note.title ?? idToTitle[note.id] ?? note.id,
+                    pageReferenceTitle(note.id, idToTitle, note.title ?? ''),
                 ).trim().toLowerCase();
                 titleToId[normalizedTitle] = note.id;
             }

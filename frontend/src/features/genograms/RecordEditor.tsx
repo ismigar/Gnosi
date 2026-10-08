@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../shared/records/pageReferenceTitle';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { createVaultPage, patchVaultPage, fetchVaultPages } from '../../shared/api/vaults';
@@ -24,7 +25,7 @@ export function RecordEditor({ target, network, onClose, onSaved }: Props) {
   useEffect(() => {
     let active = true;
     void fetchVaultPages({ limit: 1000 }).then(rows => {
-      if (active && genogramRequestContext().vaultId === context.current) setSources(rows.map(p => ({ id: p.id, title: p.title || p.id })));
+      if (active && genogramRequestContext().vaultId === context.current) setSources(rows.map(p => ({ id: p.id, title: pageReferenceTitle(p.id, {}, p.title) })));
     }).catch(() => {});
     return () => { active = false; };
   }, []);
