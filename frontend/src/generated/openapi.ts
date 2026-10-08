@@ -5961,7 +5961,7 @@ export interface paths {
         /**
          * Set Brain Table
          * @description Designate an existing table as the Brain and guarantee its
-         *     knowledge schema (note type, sources, verification status, and more).
+         *     knowledge schema (note type, idea classification, sources, and more).
          */
         post: operations["set_brain_table_api_vault_brain_table_post"];
         /**
@@ -7118,7 +7118,7 @@ export interface paths {
         /**
          * Knowledge Set Brain Table
          * @description Designate an existing table as the Brain and guarantee its
-         *     knowledge schema (note type, sources, verification status, and more).
+         *     knowledge schema (note type, idea classification, sources, and more).
          */
         post: operations["knowledge_set_brain_table_brain_table_post"];
         /**

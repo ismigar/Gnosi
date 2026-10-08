@@ -357,7 +357,11 @@ def _classification_result(value: object, idea: RegistryData) -> RegistryData:
 
 
 def build_changes(
-    vault: Path, data: dict[str, object], cache: dict[str, object]
+    vault: Path,
+    data: dict[str, object],
+    cache: dict[str, object],
+    *,
+    defer_classification: bool = False,
 ) -> tuple[list[dict[str, object]], dict[str, object]]:
     _check_inventory(vault, data)
     table, config, registry = (_record(data, k) for k in ("table", "config", "registry"))
@@ -367,7 +371,7 @@ def build_changes(
     notes = {str(n["id"]): n for n in _rows(data, "notes")}
     results = _record(cache, "results") if cache else {}
     expected = {ident for ident, n in notes.items() if n["action"] == "classify"}
-    if not expected.issubset(results):
+    if not defer_classification and not expected.issubset(results):
         raise ValueError("Complete classification before applying the migration")
     registry["tables"] = [
         cleaned_table if t.get("id") == table.get("id") else t for t in _tables(registry)
@@ -392,7 +396,7 @@ def build_changes(
         if note:
             if status and _field_value(metadata, status) is None:
                 metadata[str(status["name"])] = STATUS_DRAFT
-            if note["action"] == "classify":
+            if note["action"] == "classify" and not defer_classification:
                 result = _classification_result(results[str(row["id"])], idea)
                 for alias in [idea.get("id"), *iterable_values(idea.get("aliases") or [])]:
                     if alias != idea.get("name"):
@@ -429,7 +433,11 @@ def build_changes(
                 if item:
                     changes.append(item)
             else:
-                counts[str(note["action"])] += 1
+                counts[
+                    "pending_classification"
+                    if note["action"] == "classify"
+                    else str(note["action"])
+                ] += 1
         # Embedded view definitions also store property IDs in metadata.
         pruned = prune_references(metadata, identifiers, removed - identifiers)
         assert is_record(pruned)
@@ -461,7 +469,9 @@ def main() -> None:
     parser.add_argument("--vault", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument(
-        "--action", choices=("preview", "classify", "apply", "rollback"), default="preview"
+        "--action",
+        choices=("preview", "classify", "apply", "retire", "rollback"),
+        default="preview",
     )
     args = parser.parse_args()
     vault, output = args.vault.resolve(), args.output.resolve()
@@ -484,6 +494,8 @@ def main() -> None:
         )
         return
     data = files.read_json(preview_path)
+    if data.get("vault") != str(vault) or data.get("version") != MIGRATION_VERSION:
+        raise ValueError("Migration preview belongs to another vault or version")
     if args.action == "classify":
         os.environ.update(
             DIGITAL_BRAIN_VAULT_PATH=str(vault),
@@ -498,14 +510,22 @@ def main() -> None:
         return
     if plan_path.exists():
         plan = files.read_json(plan_path)
+        if plan.get("mode") != args.action:
+            raise ValueError("Use a new output directory for a different migration phase")
         changes, report = _rows(plan, "changes"), _record(plan, "report")
     else:
         cache_path = output / "classification-cache.json"
         changes, report = build_changes(
-            vault, data, files.read_json(cache_path) if cache_path.exists() else {}
+            vault,
+            data,
+            files.read_json(cache_path) if cache_path.exists() else {},
+            defer_classification=args.action == "retire",
         )
         safe_write_json(
-            plan_path, {"changes": changes, "report": report}, indent=2, ensure_ascii=False
+            plan_path,
+            {"changes": changes, "report": report, "mode": args.action},
+            indent=2,
+            ensure_ascii=False,
         )
     journal = files.apply(vault, output, changes)
     safe_write_json(

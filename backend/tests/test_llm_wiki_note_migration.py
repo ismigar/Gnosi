@@ -318,3 +318,26 @@ def test_migration_preserves_crlf_body_bytes(tmp_path: Path) -> None:
     changes, _ = migration.build_changes(vault, migration.inventory(vault), _cache())
     files.apply(vault, output, changes)
     assert files.frontmatter(files.read_markdown(path))[1].encode() == body.encode()
+
+
+def test_field_retirement_can_defer_classification_without_fabricating_labels(
+    tmp_path: Path,
+) -> None:
+    vault, output = _fixture(tmp_path)
+    data = migration.inventory(vault)
+    changes, report = migration.build_changes(vault, data, {}, defer_classification=True)
+    assert report["counts"] == {"pending_classification": 2, "manual": 1}
+    files.apply(vault, output, changes)
+    assert (
+        files.frontmatter(files.read_markdown(vault / "BD/Brain/concept.md"))[0]["Idea"]
+        == "Concept"
+    )
+    assert (
+        "llm_wiki_idea_classification"
+        not in files.read_json(vault / ".gnosi/llm_wiki/pages/concept.json")["metadata"]
+    )
+    assert {n["id"]: n["action"] for n in migration.inventory(vault)["notes"]} == {
+        "concept": "classify",
+        "empty": "classify",
+        "manual": "manual",
+    }
