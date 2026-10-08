@@ -1,4 +1,5 @@
 import type { BlockEditorPageLink } from '../../../../../shared/api/block-editor';
+import { pageReferenceTitle, readablePageTitle } from '../../../../../shared/records/pageReferenceTitle';
 import { legacyText, previewTitle } from './valueBoundaries';
 import { extractOutgoingPageLinks } from '../outgoingLinks';
 import { fetchBlockEditorBacklinks } from '../../../../../shared/api/block-editor';
@@ -15,7 +16,7 @@ import { useMemo } from 'react';
 import type { usePageEditorState } from './usePageEditorState';
 type Input = Pick<ReturnType<typeof usePageEditorState>, 'setLiveOutgoingLinks' | 'initialContent' | 'idToTitle' | 'noteFilename' | 'liveOutgoingLinks' | 't' | 'incomingLinks' | 'relatedPages' | 'unlinkedMentions' | 'onOpenParallel' | 'metadata' | 'showKnowledgePanels' | 'setIncomingLinks' | 'setRelatedPages' | 'setIncomingLinksLoading' | 'setUnlinkedMentions' | 'setUnlinkedMentionsLoading' | 'setLinkMentionsBusy' | 'onRefreshNotes'>;
 export function usePageLinks(state: Input) {
-  const { setLiveOutgoingLinks, initialContent, idToTitle, noteFilename, liveOutgoingLinks, t, incomingLinks, relatedPages, unlinkedMentions, onOpenParallel, metadata, showKnowledgePanels, setIncomingLinks, setRelatedPages, setIncomingLinksLoading, setUnlinkedMentions, setUnlinkedMentionsLoading, setLinkMentionsBusy, onRefreshNotes } = state;
+  const { setLiveOutgoingLinks, initialContent, idToTitle, noteFilename, liveOutgoingLinks, t, incomingLinks, relatedPages, unlinkedMentions, onOpenParallel, showKnowledgePanels, setIncomingLinks, setRelatedPages, setIncomingLinksLoading, setUnlinkedMentions, setUnlinkedMentionsLoading, setLinkMentionsBusy, onRefreshNotes } = state;
 
 
   useEffect(() => {
@@ -34,9 +35,9 @@ export function usePageLinks(state: Input) {
     ].map(section => ({
       ...section,
       count: section.items.length,
-      previewItems: section.items.slice(0, 4).map(toTitle).filter(Boolean),
+      previewItems: section.items.slice(0, 4).map(item => readablePageTitle(toTitle(item), idToTitle, t('editor.untitled'))).filter(Boolean),
     }));
-  }, [incomingLinks, outgoingLinks, relatedPages, t, unlinkedMentions]);
+  }, [incomingLinks, outgoingLinks, relatedPages, t, unlinkedMentions, idToTitle]);
 
 
   const openLinkedPage = useCallback((pageId: string | null | undefined) => {
@@ -46,45 +47,9 @@ export function usePageLinks(state: Input) {
   }, [onOpenParallel]);
 
 
-  const formatIncomingDisambiguator = useCallback((pageId: string | null | undefined) => {
-    const safeId = (pageId || '').trim();
-    if (!safeId) return 'no-id';
-    if (safeId.length <= 14) return safeId;
-    return `${safeId.slice(0, 8)}...${safeId.slice(-4)}`;
-  }, []);
-
-
-  const incomingTitleCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const link of incomingLinks) {
-      const normalized = (link.title || '').trim().toLowerCase();
-      if (!normalized) continue;
-      counts.set(normalized, (counts.get(normalized) || 0) + 1);
-    }
-    return counts;
-  }, [incomingLinks]);
-
-
-  const currentTitleNormalized = useMemo(() => {
-    return (metadata.title || '').trim().toLowerCase();
-  }, [metadata.title]);
-
-
   const formatIncomingLinkLabel = useCallback((link: BlockEditorPageLink) => {
-    const title = (link.title || '').trim();
-    const id = (link.id || '').trim();
-    if (!title) return id || 'untitled';
-
-    const normalized = title.toLowerCase();
-    const repeatedTitle = (incomingTitleCounts.get(normalized) || 0) > 1;
-    const sameTitleAsCurrent = Boolean(currentTitleNormalized) && normalized === currentTitleNormalized;
-
-    if (repeatedTitle || sameTitleAsCurrent) {
-      return `${title} (${formatIncomingDisambiguator(id)})`;
-    }
-
-    return title;
-  }, [incomingTitleCounts, currentTitleNormalized, formatIncomingDisambiguator]);
+    return pageReferenceTitle(link.id, idToTitle, link.title, t('editor.untitled'));
+  }, [idToTitle, t]);
 
 
   useEffect(() => {
@@ -115,12 +80,12 @@ export function usePageLinks(state: Input) {
         const relationsDedup = new Map<string, BlockEditorPageLink>();
         const addRelation = (id: string, title: string) => {
           if (!id || id === selfId || relationsDedup.has(id)) return;
-          relationsDedup.set(id, { id, title: (title || idToTitle[id] || id) });
+          relationsDedup.set(id, { id, title: pageReferenceTitle(id, idToTitle, title) });
         };
         for (const item of Array.isArray(backlinksRes) ? backlinksRes : []) {
           const id = (item.id || '').trim();
           if (!id || id === selfId) continue;
-          const title = (item.title || idToTitle[id] || id);
+          const title = pageReferenceTitle(id, idToTitle, item.title);
           if (item.kind === 'relation') {
             addRelation(id, title);
           } else if (!incomingDedup.has(id)) {
@@ -221,7 +186,7 @@ export function usePageLinks(state: Input) {
         if (!id || id === (noteFilename || '').trim() || dedup.has(id)) continue;
         dedup.set(id, {
           id,
-          title: (item.title || idToTitle[id] || id),
+          title: pageReferenceTitle(id, idToTitle, item.title),
         });
       }
       setIncomingLinks(Array.from(dedup.values()).sort((a, b) => a.title.localeCompare(b.title)));
@@ -233,5 +198,5 @@ export function usePageLinks(state: Input) {
       setLinkMentionsBusy(false);
     }
   }, [noteFilename, setLinkMentionsBusy, setUnlinkedMentions, setIncomingLinks, onRefreshNotes, t, idToTitle]);
-  return { outgoingLinks, compactLinkPreviewSections, openLinkedPage, formatIncomingDisambiguator, incomingTitleCounts, currentTitleNormalized, formatIncomingLinkLabel, handleLinkMentions };
+  return { outgoingLinks, compactLinkPreviewSections, openLinkedPage, formatIncomingLinkLabel, handleLinkMentions };
 }

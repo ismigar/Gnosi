@@ -1,8 +1,13 @@
+import { pageReferenceId, pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
+import { citationParamsFromHref } from '../../../../shared/resources/citationDeepLink';
+
 export interface OutgoingPageLink { readonly id: string; readonly title: string; readonly resolved: boolean; }
 
 export const normalizeLinkedPageRef = (rawRef: string) => {
     const source = rawRef.trim();
     if (!source) return '';
+    const citation = citationParamsFromHref(source);
+    if (citation) return citation.get('res') || '';
 
     const decoded = (() => {
         try {
@@ -51,7 +56,7 @@ export const extractOutgoingPageLinks = (markdown: string | null | undefined, id
         if (bucket.has(safeId)) return;
         bucket.set(safeId, {
             id: safeId,
-            title: (idToTitle[safeId] || fallbackTitle || safeId),
+            title: pageReferenceTitle(safeId, idToTitle, fallbackTitle),
             resolved: true,
         });
     };
@@ -68,7 +73,7 @@ export const extractOutgoingPageLinks = (markdown: string | null | undefined, id
         const baseTarget = (rawTarget.split('|')[0]?.split('#')[0] ?? '').trim();
         if (!baseTarget) continue;
 
-        const normalizedRef = normalizeLinkedPageRef(baseTarget);
+        const normalizedRef = normalizeLinkedPageRef(pageReferenceId(`[[${rawTarget}]]`));
         const byId = idToTitle[normalizedRef] ? normalizedRef : '';
         const byTitle = titleToId[baseTarget.toLowerCase()] || '';
         const resolvedId = byId || byTitle;
@@ -82,20 +87,20 @@ export const extractOutgoingPageLinks = (markdown: string | null | undefined, id
         if (!unresolved.has(key)) {
             unresolved.set(key, {
                 id: '',
-                title: baseTarget,
+                title: pageReferenceTitle(`[[${rawTarget}]]`, idToTitle),
                 resolved: false,
             });
         }
     }
 
-    const mdRegex = /\[[^\]]*\]\(([^)]+)\)/g;
+    const mdRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
     for (const match of body.matchAll(mdRegex)) {
         // Exclude Markdown images `![alt](src)`: the `!` immediately before
         // of the bracket marks an IMAGE, not a link to a page. Without this,
         // an image with a relative path or `file://` (which doesn't pass the filter
         // http/`/` further below) was added as an outgoing link that was NOT resolved.
         if (match.index > 0 && body[match.index - 1] === '!') continue;
-        const rawRef = (match[1] || '').trim();
+        const rawRef = (match[2] || '').trim();
         if (!rawRef) continue;
 
         const normalizedRef = normalizeLinkedPageRef(rawRef);
@@ -105,8 +110,8 @@ export const extractOutgoingPageLinks = (markdown: string | null | undefined, id
         const byTitle = titleToId[normalizedRef.toLowerCase()] || '';
         const resolvedId = byId || byTitle;
 
-        if (resolvedId) {
-            addResolved(resolved, resolvedId, normalizedRef);
+        if (resolvedId || citationParamsFromHref(rawRef)) {
+            addResolved(resolved, resolvedId || normalizedRef, match[1] || '');
             continue;
         }
 
@@ -118,7 +123,7 @@ export const extractOutgoingPageLinks = (markdown: string | null | undefined, id
         if (!unresolved.has(key)) {
             unresolved.set(key, {
                 id: '',
-                title: normalizedRef,
+                title: pageReferenceTitle(normalizedRef, idToTitle, match[1] || ''),
                 resolved: false,
             });
         }

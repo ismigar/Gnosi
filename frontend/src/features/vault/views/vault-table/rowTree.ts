@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
 import { readGroupFieldValue } from '../groupFieldValue';
 import { normalizeOptions } from '../../../../shared/records/model/optionCatalogUtils';
 import { getFieldConfig, type VaultSchema } from '../../../../shared/records/model/schemaUtils';
@@ -57,7 +58,7 @@ export function buildTableGroupMetadata(
     optionOrder: options.map(option => option.name),
     colorMap: Object.fromEntries(options.map(option => [option.name, option.color])),
     labelMap: relationDatabase
-      ? Object.fromEntries(related.map(note => [note.id, note.title || idToTitle[note.id] || note.id]))
+      ? Object.fromEntries(related.map(note => [note.id, pageReferenceTitle(note.id, idToTitle, note.title)]))
       : null,
   };
 }

@@ -13,6 +13,8 @@ from fastapi.params import Depends as DependsParameter
 
 from backend.domains.vault.links.api.dependencies import LinkApiDependencies
 from backend.domains.vault.links.index_service import LINK_INDEX_SCHEMA_VERSION
+from backend.domains.vault.links.parsing import normalize_ref
+from backend.domains.vault.links.titles import readable_title
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.links.schemas import (
     LinkIndexRebuildResponse,
@@ -50,6 +52,7 @@ def _fallback_candidate_targets(
     if not base:
         return candidates
     candidates.add(base)
+    candidates.add(normalize_ref(text))
     patterns = (
         r"(?:https?://[^/]+)?/(?:vault/page|@[^/]+/knowledge/(?:page|dashboard))/([^/?#]+)",
         r"(?:https?://[^/]+)?/(?:api/vault|api/v1/vaults/[^/]+/knowledge)/pages/([^/?#]+)",
@@ -171,7 +174,8 @@ def _outlinks(page_id: str, dependencies: LinkApiDependencies) -> dict[str, obje
                 stem_to_ids.setdefault(Path(path).stem.strip().lower(), set()).add(candidate_id)
         by_lower: dict[str, set[str]] = {}
         for raw in refs:
-            by_lower.setdefault(raw.lower(), set()).add(raw)
+            normalized = normalize_ref(raw)
+            by_lower.setdefault(normalized.lower(), set()).add(normalized)
         target_kind: dict[str, str] = {}
         unresolved: dict[str, str] = {}
         for lower, variants in by_lower.items():
@@ -205,7 +209,8 @@ def _outlinks(page_id: str, dependencies: LinkApiDependencies) -> dict[str, obje
             metadata = view.page_meta_by_id.get(target_id) or {}
             entry = {
                 "id": target_id,
-                "title": str(metadata.get("title") or target_id),
+                "title": readable_title(str(metadata.get("title") or target_id),
+                    lambda identifier: str((view.page_meta_by_id.get(identifier) or {}).get("title") or "")),
             }
             (relations if kind == "relation" else links).append(entry)
     links.sort(key=lambda item: item["title"].lower())
@@ -291,6 +296,9 @@ def register_routes(
                     if item["id"] not in seen_ids and item["id"] != target_id:
                         seen_ids.add(item["id"])
                         results.append(dict(item))
+        for result in results:
+            result["title"] = readable_title(str(result.get("title") or result.get("id") or ""),
+                lambda identifier: str((view.page_meta_by_id.get(identifier) or {}).get("title") or ""))
         return sorted(results, key=lambda item: str(item.get("title") or ""))
 
     def get_outlinks(id: str) -> dict[str, object]:

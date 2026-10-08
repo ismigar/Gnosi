@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
 import { useCallback, useEffect, useState } from 'react';
 import { insertOrUpdateBlockForSlashMenu } from '@blocknote/core/extensions';
 import { fetchLinkPreview } from '../../../../shared/api/links';
@@ -38,7 +39,7 @@ export function useLinkPaste(editor: GnosiEditor, idToTitle: Readonly<Record<str
             if (anchor) editor.setTextCursorPosition(anchor.id, 'start');
             if (mode === 'bookmark') insertOrUpdateBlockForSlashMenu(editor, { type: 'linkcard', props: { url: context.url } });
             else if (mode === 'embed') insertOrUpdateBlockForSlashMenu(editor, { type: 'embed', props: { url: context.url, caption: '' } });
-            else if (mode === 'mention' && context.internalPageId) editor.insertInlineContent([{ type: 'wikilink', props: { target: context.internalPageId, title: idToTitle[context.internalPageId] || context.internalPageId } }]);
+            else if (mode === 'mention' && context.internalPageId) editor.insertInlineContent([{ type: 'wikilink', props: { target: context.internalPageId, title: pageReferenceTitle(context.internalPageId, idToTitle) } }]);
             else {
                 const title = preview?.url === context.url ? preview.title : '';
                 const label = mode === 'mention' ? title || compactUrlLabel(context.url) : context.url;

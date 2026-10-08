@@ -49,9 +49,10 @@ export { invalidateLlmWikiConfig };
 
 export async function fetchBrainSuggestions(
   signal?: AbortSignal,
+  locale?: string,
 ): Promise<BrainSuggestionList> {
   return unwrapApiResult<BrainSuggestionList, unknown>(
-    await apiClient.GET('/api/vault/llm-wiki/suggestions', { signal }),
+    await apiClient.GET('/api/vault/llm-wiki/suggestions', { signal, params: { query: { locale } } }),
   );
 }
 

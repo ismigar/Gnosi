@@ -1,4 +1,6 @@
-import { useState, type MouseEvent } from 'react';
+import { useContext, useState, type MouseEvent } from 'react';
+import { VaultEditorContext } from '../../../shared/editor/VaultEditorContext';
+import { usePageReferenceTitle } from '../../../shared/records/usePageReferenceTitle';
 import { ExternalLink, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -21,7 +23,8 @@ export function RelationItem({
 }: RelationItemProps) {
     const { t } = useTranslation();
     const [isRemoving, setIsRemoving] = useState(false);
-    const fullTitle = String(title || relationId || t('common.untitled', 'Untitled'));
+    const { idToTitle } = useContext(VaultEditorContext);
+    const fullTitle = usePageReferenceTitle(relationId, idToTitle, String(title || ''), t('common.untitled', 'Untitled'));
 
     const stopAndOpen = (event: MouseEvent<HTMLButtonElement>) => {
         event.preventDefault();

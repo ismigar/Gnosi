@@ -14,6 +14,20 @@ function readEmptyArgs(...args) {
   return [];
 }
 
+/** @param {unknown[]} args @returns {import('./ipc-contract').DesktopRequestArgs<'pick-filesystem'>} */
+function readFilesystemPickArgs(...args) {
+  if (args.length !== 1 || !isRecord(args[0])) throw new TypeError('Invalid filesystem picker arguments');
+  const input = args[0];
+  if (input.mode !== 'file' && input.mode !== 'folder' && input.mode !== 'any') throw new TypeError('Invalid picker mode');
+  if (typeof input.multiple !== 'boolean' || typeof input.title !== 'string'
+    || typeof input.fileLabel !== 'string' || typeof input.folderLabel !== 'string'
+    || typeof input.cancelLabel !== 'string'
+    || (input.initialPath !== undefined && typeof input.initialPath !== 'string')) throw new TypeError('Invalid picker options');
+  return [{ mode: input.mode, multiple: input.multiple, title: input.title,
+    fileLabel: input.fileLabel, folderLabel: input.folderLabel, cancelLabel: input.cancelLabel,
+    ...(input.initialPath === undefined ? {} : { initialPath: input.initialPath }) }];
+}
+
 /**
  * Omitted labels retain main's locale/default fallback. Normalization and
  * translated menu construction stay in main; supplied values must be strings.
@@ -182,6 +196,10 @@ function registerIpcHandlers(dependencies) {
   /** @type {import('./ipc-contract').DesktopRequestHandlers} */
   const handlers = {
     'choose-vault-container': () => dependencies.chooseVaultContainer?.() ?? false,
+    'pick-filesystem': options => {
+      if (!dependencies.pickFilesystem) throw new Error('Native filesystem picker unavailable');
+      return dependencies.pickFilesystem(options);
+    },
     'get-app-version': () => dependencies.getAppVersion(),
     'set-application-menu': (payload = {}) => {
       dependencies.installApplicationMenu(payload.labels, payload.locale);
@@ -257,6 +275,7 @@ function registerIpcHandlers(dependencies) {
 
   handle('get-app-version', readEmptyArgs);
   handle('choose-vault-container', readEmptyArgs);
+  handle('pick-filesystem', readFilesystemPickArgs);
   handle('set-application-menu', readMenuArgs);
   handle('get-update-status', readEmptyArgs);
   handle('get-backend-url', readEmptyArgs);

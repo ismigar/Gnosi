@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
 import { NumberValue } from '../../../../shared/records/NumberValue';
 import type { ReactNode } from 'react';
 import { Calendar, CheckSquare, Link as LinkIcon } from 'lucide-react';
@@ -117,7 +118,7 @@ export function VaultGalleryPropertyValue({
                 className="block max-w-full truncate whitespace-nowrap rounded-sm bg-[var(--gnosi-primary)]/10 px-1.5 text-[10px] font-medium text-[var(--gnosi-primary)]"
                 title={item}
             >
-                {idToTitle[item] ?? (item.length > 20 ? `${item.slice(0, 8)}…` : item)}
+                {pageReferenceTitle(item, idToTitle)}
             </span>)}
             {items.length > 2 ? <span className="text-[10px] text-[var(--text-tertiary)]">
                 +{items.length - 2}
@@ -153,7 +154,7 @@ export function VaultGalleryPropertyValue({
                     });
                 } : undefined}
                 relationId={relationId}
-                title={String(displayMap[relationId] ?? relationId)}
+                title={pageReferenceTitle(relationId, idToTitle, displayMap[relationId])}
             />)}
         </div>;
     }

@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
 import type { TFunction } from 'i18next';
 
 import {
@@ -358,7 +359,7 @@ export function createPlanningPeriodModel({
     };
     const selectedPredecessors = period.predecessorIds.map((id) => ({
         id,
-        title: idToTitle[id] || id,
+        title: pageReferenceTitle(id, idToTitle),
     }));
     const summaryStart = periodInputValue(period.start);
     const summaryEnd = periodInputValue(period.end, true);

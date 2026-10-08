@@ -59,6 +59,22 @@ function readBoolean(value) {
   return value;
 }
 
+/** @param {unknown} value @returns {import('./ipc-contract').FilesystemPickResult} */
+function readFilesystemPick(value) {
+  if (!isRecord(value) || typeof value.canceled !== 'boolean' || !Array.isArray(value.entries)) {
+    throw new TypeError('Invalid native picker response');
+  }
+  /** @type {import('./ipc-contract').FilesystemPickResult['entries'][number][]} */
+  const entries = [];
+  for (const entry of value.entries) {
+    if (!isRecord(entry) || typeof entry.path !== 'string' || typeof entry.isDir !== 'boolean') {
+      throw new TypeError('Invalid native picker entry');
+    }
+    entries.push({ path: entry.path, isDir: entry.isDir });
+  }
+  return { canceled: value.canceled, entries };
+}
+
 /** @param {unknown} value @returns {import('./ipc-contract').BackendStatus} */
 function readBackendStatus(value) {
   if (!isRecord(value) || typeof value.running !== 'boolean') {
@@ -105,6 +121,7 @@ function subscribe(channel, listener) {
 /** @type {import('./ipc-contract').GnosiElectronApi} */
 const electronAPI = {
   chooseVaultContainer: () => invoke('choose-vault-container', readBoolean),
+  pickFilesystem: options => invoke('pick-filesystem', readFilesystemPick, options),
   getAppVersion: () => invoke('get-app-version', readString),
   getBackendStatus: () => invoke('get-backend-status', readBackendStatus),
   // Backend base URL for the collaboration WebSocket (see main.js IPC). HTTP

@@ -1,4 +1,5 @@
 import type { components, operations } from '../../generated/openapi';
+import { readablePageTitleIndex } from '../records/pageReferenceTitle';
 import { bootstrapQueryKeys } from './bootstrap-query-keys';
 import { fetchCachedQuery, invalidateCachedQuery } from './cached-query';
 import { apiClient } from './client';
@@ -415,9 +416,9 @@ export async function openVaultResource(
 export async function fetchVaultGlobalIndex(
   signal?: AbortSignal,
 ): Promise<VaultGlobalIndex> {
-  return unwrapApiResult<VaultGlobalIndex, unknown>(
+  return readablePageTitleIndex(unwrapApiResult<VaultGlobalIndex, unknown>(
     await apiClient.GET('/api/vault/global-index', { signal }),
-  );
+  ));
 }
 
 

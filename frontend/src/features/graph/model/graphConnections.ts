@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../shared/records/pageReferenceTitle';
 import type Graph from 'graphology';
 
 import { applyFilters, type FilterGraph } from '../../../shared/graph/filtering/graphFilters';
@@ -82,7 +83,7 @@ export function getVisibleConnectionGroups(
     if (!groups.has(source)) {
       groups.set(source, {
         id: source,
-        label: sourceAttrs.label || source,
+        label: pageReferenceTitle(source, {}, sourceAttrs.label),
         url: sourceAttrs.url,
         targets: [],
       });
@@ -91,7 +92,7 @@ export function getVisibleConnectionGroups(
     if (!group) return;
     group.targets.push({
       id,
-      label: targetAttrs.label || target,
+      label: pageReferenceTitle(target, {}, targetAttrs.label),
       url: targetAttrs.url,
       type: getConnectionType(attrs),
       directed: Boolean(attrs.directed),

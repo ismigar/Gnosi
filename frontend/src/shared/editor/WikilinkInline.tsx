@@ -15,6 +15,8 @@ import {
 import { WikilinkContextMenu } from './WikilinkContextMenu';
 import { VaultEditorContext } from './VaultEditorContext';
 import type { ContextMenuPosition } from './wikilink-context-menu/wikilinkContextMenuModel';
+import { readablePageTitle } from '../records/pageReferenceTitle';
+import { usePageReferenceTitle } from '../records/usePageReferenceTitle';
 import {
     isUuidTarget,
     resolveWikilinkTarget,
@@ -97,6 +99,11 @@ export const WikilinkInline = ({
 
     // Local synchronous resolution (for the hover preview, which can't be async).
     const resolvedId = resolveWikilinkTargetLocal(target, idToTitle);
+    const referenceTitle = usePageReferenceTitle(resolvedId || target || '', idToTitle,
+        typeof title === 'string' ? title : '');
+    const displayTitle = typeof title === 'string'
+        ? (title === target || isUuidTarget(title) ? referenceTitle : readablePageTitle(title, idToTitle))
+        : title;
 
     const callOpen = useCallback(async (mode: WikilinkOpenMode): Promise<void> => {
         if (!target) return;
@@ -237,7 +244,7 @@ export const WikilinkInline = ({
                 onMouseLeave={handleMouseLeave}
                 style={{ pointerEvents: 'auto' }}
             >
-                {title}
+                {displayTitle}
             </span>
             {hoverActive && resolvedId && !menuPos && (
                 <WikilinkHoverPreview

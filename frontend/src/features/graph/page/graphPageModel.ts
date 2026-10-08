@@ -1,4 +1,5 @@
 import Graph from 'graphology';
+import { pageReferenceTitle } from '../../../shared/records/pageReferenceTitle';
 
 import type { ConfigurationDocument } from '../../../shared/api/configuration';
 import type {
@@ -158,7 +159,7 @@ export function graphNodeAttributes(node: VaultGraphNode): GraphNodeAttributes {
   attributes.cluster = optionalString(node.cluster);
   attributes.database_id = optionalString(node.database_id);
   attributes.kind = node.kind;
-  attributes.label = node.label;
+  attributes.label = pageReferenceTitle(String(node.key), {}, node.label);
   attributes.metadata = filterRecord(node.metadata);
   attributes.path = node.path;
   attributes.table_id = optionalString(node.table_id);

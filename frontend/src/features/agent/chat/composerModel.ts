@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../shared/records/pageReferenceTitle';
 import type { AgentChatMention } from '../model/agentChatMentionUtils';
 import { visibleMentionToken } from '../model/agentChatMentionUtils';
 import { isRecord, stringifyLooseValue } from '../model/agentChatMessageTypes';
@@ -33,7 +34,7 @@ export function mentionMenuReducer(state: MentionMenuState, action: MentionMenuA
 export function catalogMentions(value: unknown, type: 'page' | 'table' | 'database', subtitle: string): CatalogMention[] {
   if (!Array.isArray(value)) return [];
   return value.filter(isRecord).map((item) => {
-    const label = stringifyLooseValue((type === 'page' ? item.title || item.name : item.name || item.title) || item.id);
+    const label = pageReferenceTitle(stringifyLooseValue(item.id), {}, type === 'page' ? item.title || item.name : item.name || item.title);
     const id = stringifyLooseValue(item.id);
     return { id, type, label, subtitle, search: `${type === 'database' ? 'database bd' : type} ${label} ${id}`.toLowerCase() };
   });

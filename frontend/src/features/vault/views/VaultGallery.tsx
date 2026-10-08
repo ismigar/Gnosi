@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../shared/records/pageReferenceTitle';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
@@ -149,7 +150,7 @@ function VaultGalleryContent({
         activeView,
         {
             ...idToTitle,
-            ...Object.fromEntries(allNotes.map(note => [note.id, String(note.title ?? idToTitle[note.id] ?? note.id)])),
+            ...Object.fromEntries(allNotes.map(note => [note.id, pageReferenceTitle(note.id, idToTitle, note.title ?? '')])),
             ...(getFieldType(schema, galleryGroupField(activeView)) === 'checkbox'
                 ? { true: t('common.yes', 'Yes'), false: t('common.no', 'No') } : {}),
         },

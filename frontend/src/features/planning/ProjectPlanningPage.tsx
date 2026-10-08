@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../shared/records/pageReferenceTitle';
 import { RefreshButton } from '../../shared/ui/actions/RefreshButton';
 import { useState, type ComponentType } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -124,7 +125,7 @@ export default function ProjectPlanningPage() {
     const tasks = schedule?.tasks || [];
     const ganttNotes = tasks.map((task) => ({
         id: task.id,
-        title: task.title ?? task.id,
+        title: pageReferenceTitle(task.id, {}, task.title),
         metadata: { Schedule: { start: task.start, end: task.end } },
     }));
     const createBaseline = async () => {
@@ -164,7 +165,7 @@ export default function ProjectPlanningPage() {
             >
                 <select disabled={!projectReady} value={selectedProjectId} onChange={(event) => {
                     setProjectId(event.target.value);
-                }} aria-label={t('planning_page.project', 'Project')} className="gnosi-button gnosi-button--secondary max-w-56 bg-[var(--bg-primary)] text-sm">{visibleProjects.length === 0 ? <option value="default">{t('planning_page.default_project', 'Default project')}</option> : visibleProjects.map((project) => <option key={project.id} value={project.id}>{project.title || project.id}</option>)}</select>
+                }} aria-label={t('planning_page.project', 'Project')} className="gnosi-button gnosi-button--secondary max-w-56 bg-[var(--bg-primary)] text-sm">{visibleProjects.length === 0 ? <option value="default">{t('planning_page.default_project', 'Default project')}</option> : visibleProjects.map((project) => <option key={project.id} value={project.id}>{pageReferenceTitle(project.id, {}, project.title)}</option>)}</select>
                 <RefreshButton loading={loading} label={t('planning_page.refresh', 'Refresh')} onClick={() => void load()} />
             </AppHeader>
         <div className="mx-auto w-full max-w-7xl flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
@@ -175,7 +176,7 @@ export default function ProjectPlanningPage() {
                 <article className="gnosi-panel p-4"><AlertTriangle size={18} /><p className="mt-2 text-sm text-[var(--text-tertiary)]">{t('planning_page.warnings', 'Warnings')}</p><strong className="text-2xl">{diagnostics.length + (allocation?.warnings.length ?? 0)}</strong></article>
             </section>
             <section className="gnosi-panel p-4"><h2 className="mb-3 text-lg font-medium">{t('planning_page.schedule', 'Schedule')}</h2>{loading ? <p role="status" aria-live="polite">{t('common.loading', 'Loading...')}</p> : <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left text-sm"><thead><tr className="border-b"><th className="p-2">{t('planning_page.task', 'Task')}</th><th className="p-2">{t('planning_page.start', 'Start')}</th><th className="p-2">{t('planning_page.finish', 'Finish')}</th><th className="p-2">{t('planning_page.slack', 'Slack')}</th></tr></thead><tbody>{tasks.map((task) => <tr className="border-b" key={task.id}><td className={task.critical ? 'p-2 font-semibold text-red-600' : 'p-2'}>{task.title}</td><td className="p-2">{task.start}</td><td className="p-2">{task.end}</td><td className="p-2">{task.freeSlackMinutes}</td></tr>)}</tbody></table></div>}</section>
-            {tasks.length > 0 && <section className="h-[620px] overflow-hidden rounded border bg-[var(--bg-primary)]"><PlanningTimeline notes={ganttNotes} schema={{ Schedule: 'period' }} activeView={{ dateField: 'Schedule', endDateField: 'Schedule' }} idToTitle={Object.fromEntries(tasks.map((task) => [task.id, task.title ?? task.id]))} /></section>}
+            {tasks.length > 0 && <section className="h-[620px] overflow-hidden rounded border bg-[var(--bg-primary)]"><PlanningTimeline notes={ganttNotes} schema={{ Schedule: 'period' }} activeView={{ dateField: 'Schedule', endDateField: 'Schedule' }} idToTitle={Object.fromEntries(tasks.map((task) => [task.id, pageReferenceTitle(task.id, {}, task.title)]))} /></section>}
             <section className="grid gap-4 lg:grid-cols-2"><article className="gnosi-panel p-4"><h2 className="mb-3 text-lg font-medium">{t('planning_page.baselines', 'Baselines')}</h2><div className="flex flex-wrap gap-2"><input value={baselineName} onChange={(event) => {
                 setBaselineName(event.target.value);
             }} placeholder={t('planning_page.baseline_name', 'Baseline name')} aria-label={t('planning_page.baseline_name', 'Baseline name')} className="min-h-10 min-w-0 flex-1 rounded border bg-[var(--bg-primary)] px-2" /><button onClick={() => void createBaseline()} className="gnosi-button gnosi-button--secondary">{t('planning_page.create', 'Create')}</button></div><ul className="mt-3 text-sm">{baselines.map((baseline) => <li key={baseline.id}>{baseline.name} · r{baseline.scheduleRevision}</li>)}</ul></article><article className="gnosi-panel p-4"><h2 className="mb-3 text-lg font-medium">{t('planning_page.worklogs', 'Work logs')}</h2><div className="grid grid-cols-1 gap-2 sm:grid-cols-3"><select value={worklog.task_id} onChange={(event) => {

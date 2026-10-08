@@ -16,6 +16,14 @@ afterEach(() => {
 
 
 describe('Brain inbox API', () => {
+  it.each(['ca', 'en', 'es', 'fr'])('requests connection text in the active %s locale', async locale => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ suggestions: [] }));
+    vi.stubGlobal('fetch', fetchMock);
+    await fetchBrainSuggestions(undefined, locale);
+    const request = fetchMock.mock.calls[0]?.[0];
+    if (!(request instanceof Request)) throw new Error('Expected a Request');
+    expect(new URL(request.url).searchParams.get('locale')).toBe(locale);
+  });
   it('loads the migrated LLM Wiki configuration and runtime maps', async () => {
     const response = {
       config: { brain_table_id: 'brain-1', source_tables: [] },

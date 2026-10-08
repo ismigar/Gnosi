@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -28,7 +29,7 @@ export function PlanningPredecessorPicker({
     }), []);
 
     const visibleCandidates = model.candidates.filter((candidate) => {
-        const title = candidate.title || idToTitle[candidate.id] || candidate.id;
+        const title = pageReferenceTitle(candidate.id, idToTitle, candidate.title);
         return title.toLocaleLowerCase().includes(search.toLocaleLowerCase());
     });
 
@@ -150,7 +151,7 @@ export function PlanningPredecessorPicker({
                                         {model.period.predecessorIds.includes(candidate.id) ? '✓' : ''}
                                     </span>
                                     <span className="truncate">
-                                        {candidate.title || idToTitle[candidate.id] || candidate.id}
+                                        {pageReferenceTitle(candidate.id, idToTitle, candidate.title)}
                                     </span>
                                 </div>
                             ))}

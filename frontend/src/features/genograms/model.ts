@@ -52,5 +52,6 @@ export function boxNumbers(value: string): [number, number, number, number] {
 }
 
 export function personOptionLabel(person: Person, people: Person[]): string {
-  return people.filter(p => p.title === person.title).length > 1 ? `${person.title} (${person.birth_date || person.alias || person.id.slice(0, 8)})` : person.title;
+  const matching = people.filter(p => p.title === person.title);
+  return matching.length > 1 ? `${person.title} (${person.birth_date || person.alias || String(matching.findIndex(p => p.id === person.id) + 1)})` : person.title;
 }

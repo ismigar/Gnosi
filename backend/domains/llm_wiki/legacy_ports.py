@@ -79,6 +79,13 @@ def table_by_id(table_id: object) -> dict[str, object] | None:
     return get_table(table_id)
 
 
+def id_title_index() -> dict[str, str]:
+    from backend.api import vault_routes
+
+    build = cast(Callable[[], dict[str, str]], vault_routes._build_id_title_index)
+    return build()
+
+
 def mark_resource_processed(page_id: str, processed_at: str) -> None:
     from backend.api import vault_routes
 

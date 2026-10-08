@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
 import { BrainCircuit, Columns2, ExternalLink, Globe, Languages, Link as LinkIcon, Loader2, Send, Sparkles, Trash2, Zap } from 'lucide-react';
 import { checkActionRequires } from '../../../../shared/records/model/optionCatalogUtils';
 import type { TableNote } from './types';
@@ -41,7 +42,7 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
       >
         <input
           type="checkbox"
-          aria-label={t('table.select_row', { title: note.title || note.id })}
+          aria-label={t('table.select_row', { title: pageReferenceTitle(note.id, {}, note.title) })}
           checked={isSelected(note.id)}
           onChange={(e) => { toggleSelect(note.id, { shiftKey: 'shiftKey' in e && Boolean(e.shiftKey) }); }}
           className="w-3.5 h-3.5 rounded border-[var(--border-primary)] text-indigo-600 focus:ring-indigo-500 cursor-pointer"

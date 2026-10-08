@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../shared/records/pageReferenceTitle';
 type VaultContextScalar = string | number | boolean | null | undefined;
 
 
@@ -78,7 +79,7 @@ export function vaultAgentContextRefs({
       id: stableRef('vault-page', pageId),
       type: 'page',
       ref: pageId,
-      label: String(page?.title || page?.name || pageId),
+      label: pageReferenceTitle(pageId, {}, page?.title || page?.name),
     });
   }
   if (tableId) {
@@ -86,7 +87,7 @@ export function vaultAgentContextRefs({
       id: stableRef('vault-table', tableId),
       type: 'table',
       ref: tableId,
-      label: String(table?.name || table?.title || tableId),
+      label: pageReferenceTitle(tableId, {}, table?.name || table?.title),
       ...(viewId
         ? {
             scope: {

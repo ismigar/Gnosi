@@ -483,6 +483,30 @@ function setupIPC() {
   let choosingContainer = false;
   registerIpcHandlers({
     ipcMain, mainWindows, isDev,
+    pickFilesystem: async options => {
+      const owner = getPreferredMainWindow();
+      let mode = options.mode;
+      // Windows and Linux native panels offer either files or directories.
+      if (mode === 'any' && process.platform !== 'darwin') {
+        const choice = { type: 'question', message: options.title,
+          buttons: [options.fileLabel, options.folderLabel, options.cancelLabel],
+          defaultId: 0, cancelId: 2 };
+        const answer = owner ? await dialog.showMessageBox(owner, choice) : await dialog.showMessageBox(choice);
+        if (answer.response === 2) return { canceled: true, entries: [] };
+        mode = answer.response === 1 ? 'folder' : 'file';
+      }
+      const properties = mode === 'folder' ? ['openDirectory']
+        : mode === 'any' ? ['openFile', 'openDirectory'] : ['openFile'];
+      if (options.multiple && mode !== 'folder') properties.push('multiSelections');
+      const pickerOptions = { title: options.title, properties,
+        ...(options.initialPath && path.isAbsolute(options.initialPath) ? { defaultPath: options.initialPath } : {}) };
+      const selection = owner ? await dialog.showOpenDialog(owner, pickerOptions) : await dialog.showOpenDialog(pickerOptions);
+      if (selection.canceled) return { canceled: true, entries: [] };
+      const entries = await Promise.all(selection.filePaths.map(async selectedPath => ({
+        path: selectedPath, isDir: (await fs.promises.stat(selectedPath)).isDirectory(),
+      })));
+      return { canceled: false, entries };
+    },
     chooseVaultContainer: async () => {
       if (choosingContainer) return false;
       choosingContainer = true;

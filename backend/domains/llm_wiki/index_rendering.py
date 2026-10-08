@@ -8,6 +8,7 @@ from typing import Protocol
 
 from backend.domains.llm_wiki.brain_fields import role_value
 from backend.domains.vault.registry.records import RecordReader
+from backend.domains.vault.links.titles import reference_title
 from backend.services.field_resolver import get_meta_value
 from backend.utils.open_values import iterable_values
 
@@ -46,6 +47,7 @@ class RenderingDependencies:
     role_resource_index: str
     role_dimension_index: str
     role_general_index: str
+    resolve_title: Callable[[str], str] = lambda _identifier: ""
 
 
 def upsert_resource_index(
@@ -121,10 +123,10 @@ def rebuild_dimension_indexes(
     output: list[dict[str, object]] = []
     ordered_groups = sorted(
         grouped.items(),
-        key=lambda pair: _value_label(pair[1]["value"]).casefold(),
+        key=lambda pair: reference_title(pair[1]["value"], dependencies.resolve_title).casefold(),
     )
     for value_key, item in ordered_groups:
-        label = _value_label(item["value"])
+        label = reference_title(item["value"], dependencies.resolve_title)
         content = _dimension_content(
             item, dependencies, dependencies.table(brain_table_id) or {}, config
         )

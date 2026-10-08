@@ -560,10 +560,12 @@ async def llm_wiki_lint(suggest: bool = _legacy.Query(default=False)) -> LintRep
     response_model=BrainSuggestionListResponse,
     response_model_exclude_unset=True,
 )
-async def llm_wiki_list_suggestions() -> dict[str, list[dict[str, object]]]:
+async def llm_wiki_list_suggestions(locale: str | None = None) -> dict[str, list[dict[str, object]]]:
     """Return pending read-only connection proposals for the Brain inbox."""
     from backend.services import llm_wiki_suggestions
 
+    if locale:
+        return {"suggestions": await _legacy.asyncio.to_thread(llm_wiki_suggestions.localized_queue, locale)}
     return {"suggestions": await _legacy.asyncio.to_thread(llm_wiki_suggestions.load_queue)}
 
 
