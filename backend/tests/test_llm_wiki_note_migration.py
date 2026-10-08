@@ -277,7 +277,7 @@ def test_classification_cache_resumes_per_note_without_resetting_budget(
     vault, output = _fixture(tmp_path)
     calls = []
 
-    def generate(prompt, **_options):
+    def generate(_operation, prompt, **_options):
         notes = json.loads(prompt)["data"]["notes"]
         calls.append([note["id"] for note in notes])
         return SimpleNamespace(
