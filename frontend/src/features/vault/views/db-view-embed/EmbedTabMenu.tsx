@@ -1,5 +1,5 @@
 import { useLayoutEffect, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
-import { PanePortal } from '../../../../shared/ui/PanePortal';
+import { createPanePortal } from '../../../../shared/ui/PanePortal';
 import { browserDocumentBody, subscribeWindowEvent } from '../../../../shared/platform/browser-events';
 
 export function EmbedTabMenu({ anchorRef, opensUpward, onClose, children }: {
@@ -29,12 +29,12 @@ export function EmbedTabMenu({ anchorRef, opensUpward, onClose, children }: {
         return () => { stopScroll(); stopResize(); };
     }, [anchorRef, opensUpward]);
     if (!position) return null;
-    return <PanePortal container={browserDocumentBody()}>
+    return createPanePortal(<>
         <div className="fixed inset-0 z-[var(--z-overlay)]" onClick={event => { event.stopPropagation(); onClose(); }} />
         <div data-embed-tab-menu
             className="fixed z-[var(--z-popover)] overflow-y-auto rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1 text-xs text-[var(--text-primary)] font-normal"
             style={position}>
             {children}
         </div>
-    </PanePortal>;
+    </>, browserDocumentBody());
 }
