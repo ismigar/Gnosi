@@ -15,7 +15,9 @@ def test_relation_dimension_labels_use_the_current_page_title():
 
 
 def test_reference_titles_use_the_real_vault_index_port(monkeypatch):
+    from backend.api import vault_routes  # Initialize the public composition first, as at app startup.
     from backend.domains.vault.links import runtime
+    assert vault_routes is not None
     monkeypatch.setattr(runtime, "build_id_title_index", lambda: {ID: "Filosofia i espiritualitat"})
     assert llm_wiki_indices._resolve_page_title(ID) == "Filosofia i espiritualitat"
 
