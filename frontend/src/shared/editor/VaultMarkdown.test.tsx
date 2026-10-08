@@ -11,6 +11,13 @@ vi.mock('react-i18next', () => ({
 }));
 
 describe('VaultMarkdown', () => {
+    it('hides other internal HTML comments while retaining literal comments in code', () => {
+        const html = renderToStaticMarkup(<VaultMarkdown md={'<!-- gnosi-view:def hidden -->\nVisible text\n<!-- another hidden marker -->\n\n```html\n<!-- literal example -->\n```'} />);
+        expect(html).toContain('Visible text');
+        expect(html).toContain('literal example');
+        expect(html).not.toContain('gnosi-view:def');
+        expect(html).not.toContain('another hidden marker');
+    });
     it('hides processing boundary comments while preserving the visible Markdown and links', () => {
         const md = '<!-- gnosi:llm-wiki:start resource:source:record -->\n1. [[note|A note]]\n<!-- gnosi:llm-wiki:end resource:source:record -->';
         const html = renderToStaticMarkup(<VaultMarkdown md={md} />);
