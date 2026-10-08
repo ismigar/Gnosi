@@ -11,8 +11,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 636 | 2765 |
-| pytest | 648 | 4765 |
+| Vitest | 636 | 2766 |
+| pytest | 650 | 4781 |
 
 ## Files
 
@@ -222,7 +222,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/features/plugin-management/PluginSettingsPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/PluginSettingsPanel.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/plugin-management/PluginsSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/PluginsSettings.test.tsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.test.tsx) | 0 | call-pattern estimate |
-| Vitest | [`frontend/src/features/plugin-management/plugins-settings/LlmWikiFieldAssignments.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiFieldAssignments.test.tsx) | 2 | call-pattern estimate |
+| Vitest | [`frontend/src/features/plugin-management/plugins-settings/LlmWikiFieldAssignments.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiFieldAssignments.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/plugin-management/plugins-settings/llmWikiModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/llmWikiModel.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/plugin-management/plugins-settings/pluginSettingsOrder.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/pluginSettingsOrder.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.test.tsx) | 8 | call-pattern estimate |
@@ -931,8 +931,10 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_llm_wiki_dimension_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_dimension_repairs.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_extraction_domains.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_extraction_domains.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_field_assignments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_field_assignments.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_llm_wiki_idea_classification.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_idea_classification.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_lint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_lint.py) | 3 | Python AST |
-| pytest | [`backend/tests/test_llm_wiki_lint_edge_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_lint_edge_contracts.py) | 16 | Python AST |
+| pytest | [`backend/tests/test_llm_wiki_lint_edge_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_lint_edge_contracts.py) | 15 | Python AST |
+| pytest | [`backend/tests/test_llm_wiki_note_migration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_note_migration.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_pdf_annotations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_pdf_annotations.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_processing_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_processing_domain_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_reading_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_reading_contracts.py) | 3 | Python AST |
