@@ -11,8 +11,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 631 | 2749 |
-| pytest | 646 | 4754 |
+| Vitest | 635 | 2763 |
+| pytest | 648 | 4765 |
 
 ## Fitxers
 
@@ -94,6 +94,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/agent/chat/useChatMessageActions.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatMessageActions.test.tsx) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/useChatPanelState.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatPanelState.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/inbox/BrainInbox.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/inbox/BrainInbox.test.tsx) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/features/agent/inbox/BrainReviewFindings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/inbox/BrainReviewFindings.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/model/agentChatAgentUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatAgentUtils.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/model/agentChatKeyboardUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatKeyboardUtils.test.ts) | 0 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/model/agentChatMentionUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatMentionUtils.test.ts) | 2 | call-pattern estimate |
@@ -383,6 +384,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/vault/editor/block-editor/markdownPreview.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/markdownPreview.test.ts) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/media.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/media.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/modeHandoff.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/modeHandoff.test.tsx) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/editor/block-editor/outgoingLinks.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/outgoingLinks.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/page-editor/pageContracts.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/pageContracts.test.ts) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/page-editor/pageEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/pageEditor.test.tsx) | 25 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/page-editor/pageProperties.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/pageProperties.test.tsx) | 10 | call-pattern estimate |
@@ -570,7 +572,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/shared/editor/InstructionMarkdownEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/InstructionMarkdownEditor.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/InstructionRichEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/InstructionRichEditor.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/PageHoverCard.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/PageHoverCard.test.tsx) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/shared/editor/VaultMarkdown.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultMarkdown.test.tsx) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/editor/VaultMarkdown.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultMarkdown.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/WikilinkContextMenu.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/WikilinkContextMenu.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/WikilinkHoverPreview.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/WikilinkHoverPreview.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/WikilinkInline.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/WikilinkInline.test.tsx) | 3 | call-pattern estimate |
@@ -636,6 +638,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/shared/records/model/schemaUtils.systemDates.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaUtils.systemDates.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/records/model/schemaUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaUtils.test.ts) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/records/model/viewHeight.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/viewHeight.test.ts) | 0 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/records/pageReferenceTitle.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/pageReferenceTitle.test.ts) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/records/usePageReferenceTitle.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/usePageReferenceTitle.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/resources/citationDeepLink.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/citationDeepLink.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/resources/documentSourceIdentity.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/documentSourceIdentity.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/resources/fileResource.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResource.test.ts) | 5 | call-pattern estimate |
@@ -647,7 +651,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/shared/ui/PanePortal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/PanePortal.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/ui/avatars/ContactAvatar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/avatars/ContactAvatar.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/ui/avatars/ContactPhotosProvider.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/avatars/ContactPhotosProvider.test.tsx) | 2 | call-pattern estimate |
-| Vitest | [`frontend/src/shared/ui/filesystem-picker/FilesystemPickerModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/filesystem-picker/FilesystemPickerModal.test.tsx) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/ui/filesystem-picker/FilesystemPickerModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/filesystem-picker/FilesystemPickerModal.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/ui/loading/GraphLoadingState.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/loading/GraphLoadingState.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/ui/navigation/panelKeyboardNavigation.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/navigation/panelKeyboardNavigation.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/ui/previews/VaultAssetImage.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/previews/VaultAssetImage.test.tsx) | 3 | call-pattern estimate |
@@ -926,7 +930,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_llm_wiki_dimension_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_dimension_repairs.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_extraction_domains.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_extraction_domains.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_field_assignments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_field_assignments.py) | 5 | Python AST |
-| pytest | [`backend/tests/test_llm_wiki_lint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_lint.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_llm_wiki_lint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_lint.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_lint_edge_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_lint_edge_contracts.py) | 16 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_pdf_annotations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_pdf_annotations.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_processing_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_processing_domain_contract.py) | 5 | Python AST |
@@ -940,7 +944,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_llm_wiki_source_sections.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_source_sections.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_storage_open_metadata_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_storage_open_metadata_contract.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_v2.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_v2.py) | 37 | Python AST |
-| pytest | [`backend/tests/test_llm_wiki_writing_open_metadata_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_writing_open_metadata_contract.py) | 12 | Python AST |
+| pytest | [`backend/tests/test_llm_wiki_writing_open_metadata_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_writing_open_metadata_contract.py) | 13 | Python AST |
 | pytest | [`backend/tests/test_lookup_normalizers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_lookup_normalizers.py) | 17 | Python AST |
 | pytest | [`backend/tests/test_mail_ai_draft_failures.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_ai_draft_failures.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_mail_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_api_contract.py) | 3 | Python AST |
@@ -1028,6 +1032,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_page_index_scope_refresh.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_index_scope_refresh.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_page_metadata_open_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_metadata_open_contract.py) | 16 | Python AST |
 | pytest | [`backend/tests/test_page_preview_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_preview_contract.py) | 11 | Python AST |
+| pytest | [`backend/tests/test_page_reference_titles.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_reference_titles.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_page_section_upsert.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_section_upsert.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_page_sidecar.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_sidecar.py) | 16 | Python AST |
 | pytest | [`backend/tests/test_page_version_force.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_version_force.py) | 2 | Python AST |
@@ -1148,6 +1153,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_startup_vault.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_startup_vault.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_status_catalog_isolation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_status_catalog_isolation.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_structured_output_diagnostics.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_structured_output_diagnostics.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_suggestion_localization.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_suggestion_localization.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_sync_comment_bootstrap.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sync_comment_bootstrap.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_sync_comment_open_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sync_comment_open_contract.py) | 15 | Python AST |
 | pytest | [`backend/tests/test_synced_block_route_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_synced_block_route_contract.py) | 3 | Python AST |
