@@ -80,10 +80,9 @@ def table_by_id(table_id: object) -> dict[str, object] | None:
 
 
 def id_title_index() -> dict[str, str]:
-    from backend.api import vault_routes
+    from backend.domains.vault.links.runtime import build_id_title_index
 
-    build = cast(Callable[[], dict[str, str]], vault_routes._build_id_title_index)
-    return build()
+    return build_id_title_index()
 
 
 def mark_resource_processed(page_id: str, processed_at: str) -> None:
