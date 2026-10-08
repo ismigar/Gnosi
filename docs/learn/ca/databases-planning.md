@@ -22,6 +22,8 @@ Un Vault amb escriptura. Les vistes generals formen part del coneixement; la pro
 
 Per llegir les notes seguides, obre la configuració de la galeria i tria **Mida de les targetes → Ample complet** i **Previsualització → Contingut**. Les targetes ocupen tot l’ample de la vista, queden una sota l’altra i creixen segons el text. En una galeria agrupada, **Espai** desplega el grup enfocat i entra a la primera nota; **Esc** des d’una nota torna a la capçalera del grup i el plega. Un segon **Esc** torna a la vista. El clic a la capçalera continua plegant i desplegant el grup.
 
+Al **cronograma**, tria **Dia**, **Setmana** o **Mes**, **Avui** o **Enquadra el projecte**. Pots ajustar l’amplada dels títols i plegar les fases. Amb un període o camps d’inici i final editables, arrossega el cos d’una barra per moure la tasca i els extrems per allargar-la o escurçar-la. Arrossega el punt de connexió del final d’una tasca fins a la barra d’una successora per afegir una dependència de final a inici. Els canvis es desen als registres compartits amb la taula; les successores afectades es recalculen, encara que estiguin ocultes pels filtres. Els cicles es rebutgen. **Desfés el canvi del cronograma** restaura l’última operació durant la sessió de la vista. **Esc** cancel·la un arrossegament. Amb una barra enfocada, les fletxes la mouen i **Majúscules + fletxa** ajusta el final. Els registres sense dates mostren **Defineix les dates**; les fites tenen forma de rombe.
+
 ## Resultat esperat {#expected-result}
 
 Pots consultar els registres en diferents vistes i explicar la data calculada d’una tasca.

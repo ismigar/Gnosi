@@ -83,19 +83,23 @@ export function predecessorsFor(
     note: TimelineRecord,
     enhancedPeriod: boolean,
     dateField: string | undefined,
+    predecessorField = 'predecessor_ids',
 ): readonly string[] {
     if (enhancedPeriod && dateField) {
         const value = note.metadata?.[dateField] ?? '';
         const period = parsePeriod(value);
         if (period.version >= 2) return period.predecessorIds;
     }
-    const value = note.metadata?.predecessor_ids;
-    if (!Array.isArray(value)) return [];
-    return value
-        .map((entry) => typeof entry === 'string' ? entry : '')
-        .filter(Boolean);
+    const values = [note.metadata?.[predecessorField], ...(predecessorField === 'predecessor_ids' ? [] : [note.metadata?.predecessor_ids])];
+    return [...new Set(values.flatMap(value => Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string' && Boolean(entry)) : []))];
 }
 
+
+export function resolvePredecessorField(schema: TimelineSchema, configured: unknown, readers: TimelineSchemaReaders): string {
+    if (typeof configured === 'string' && readers.fieldType(schema, configured) === 'relation') return configured;
+    const aliases = new Set(['predecessors', 'predecessor', 'predecessores', 'predecessora', 'predecessors', 'antecessores', 'antecessora', 'antecesores', 'predecesseurs']);
+    return readers.fieldEntries(schema).find(([field, type]) => type === 'relation' && aliases.has(foldKey(field)))?.[0] ?? 'predecessor_ids';
+}
 
 export function buildTimelineTicks(
     start: Date,
@@ -164,7 +168,8 @@ function dateRangeForNote(
     dateField: string | undefined,
     endDateField: string | undefined,
     readers: TimelineSchemaReaders,
-): { readonly end: Date; readonly start: Date } | null {
+): { readonly end: Date; readonly start: Date; readonly hasDates: boolean } | null {
+    let hasDates = !dateField;
     let startValue: unknown = note.last_modified;
     let endValue: unknown = null;
     if (dateField) {
@@ -182,6 +187,7 @@ function dateRangeForNote(
             const period = parsePeriod(rawStart);
             if (period.start && !Number.isNaN(parseVaultDate(period.start).getTime())) {
                 startValue = period.start;
+                hasDates = true;
             }
             if (period.end && !Number.isNaN(parseVaultDate(period.end).getTime())) {
                 endValue = period.end;
@@ -189,6 +195,7 @@ function dateRangeForNote(
         } else {
             if (rawStart && !Number.isNaN(parseVaultDateValue(rawStart).getTime())) {
                 startValue = rawStart;
+                hasDates = true;
             }
             const rawEnd = endDateField ? note.metadata?.[endDateField] : undefined;
             if (endDateField && rawEnd) {
@@ -208,7 +215,7 @@ function dateRangeForNote(
     if (Number.isNaN(end.getTime()) || end < start) {
         end = new Date(start.getTime() + DAY_MS);
     }
-    return { start, end };
+    return { start, end, hasDates };
 }
 
 
@@ -247,8 +254,8 @@ function addHierarchy(
     const summarize = (note: TimelineChartNote, seen: Set<string>) => {
         if (seen.has(note.id)) return { start: note.start, end: note.end };
         seen.add(note.id);
-        let start = note.start;
-        let end = note.end;
+        let start = note.hasDates === false ? new Date(8640000000000000) : note.start;
+        let end = note.hasDates === false ? new Date(-8640000000000000) : note.end;
         const descendants = children.get(note.id) ?? [];
         for (const child of descendants) {
             const span = summarize(child, seen);
@@ -258,8 +265,9 @@ function addHierarchy(
         summarized.set(note.id, {
             ...note,
             isParent: descendants.length > 0,
-            summaryEnd: end,
-            summaryStart: start,
+            summaryEnd: end.getTime() === -8640000000000000 ? note.end : end,
+            summaryStart: start.getTime() === 8640000000000000 ? note.start : start,
+            hasDates: note.hasDates !== false || descendants.some(child => summarized.get(child.id)?.hasDates),
         });
         return { start, end };
     };
@@ -281,6 +289,8 @@ function addHierarchy(
         for (const child of descendants) pushTree(child, depth + 1);
     };
     for (const root of orderedRoots) pushTree(root, 0);
+    // Keep malformed/cyclic parent relations visible instead of losing records.
+    for (const note of processedNotes) if (!seen.has(note.id)) pushTree(note, 0);
     return flat;
 }
 
@@ -304,11 +314,13 @@ export function buildTimelineChart({
 }): TimelineChartModel {
     const processed = notes.flatMap((note) => {
         const range = dateRangeForNote(note, schema, dateField, endDateField, readers);
-        return range ? [{ ...note, ...range, depth: 0 }] : [];
+        const fallback = new Date();
+        return [{ ...note, ...(range ?? { start: fallback, end: fallback, hasDates: false }), depth: 0 }];
     });
     if (processed.length === 0) return { chartData: [], timeScale: null };
-    const minDate = new Date(Math.min(...processed.map(({ start }) => start.getTime())));
-    const maxDate = new Date(Math.max(...processed.map(({ end }) => end.getTime())));
+    const dated = processed.filter(note => note.hasDates);
+    const minDate = new Date(dated.length ? Math.min(...dated.map(({ start }) => start.getTime())) : Date.now());
+    const maxDate = new Date(dated.length ? Math.max(...dated.map(({ end }) => end.getTime())) : minDate);
     const chartEnd = new Date(maxDate.getTime());
     const padding = timelineUnit === 'hours' ? 60 * 60 * 1000
         : timelineUnit === 'days' ? DAY_MS : 365 * DAY_MS;

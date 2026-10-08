@@ -186,7 +186,7 @@ describe('useVaultTimelineController open contracts', () => {
         render({ ...scheduleProps, notes, onUpdateNote });
         act(() => { controller().setSelectingPredecessorFor('dependent'); });
         await act(async () => { await controller().handleAddPredecessor('dependent', 'predecessor'); });
-        expect(onUpdateNote.mock.calls.map(([id]) => id)).toEqual(['dependent', 'dependent', 'successor']);
+        expect(onUpdateNote.mock.calls.map(([id]) => id)).toEqual(['dependent', 'successor']);
         const patch: unknown = onUpdateNote.mock.calls[0]?.[1];
         if (!patch || typeof patch !== 'object' || !('metadata' in patch)
             || !patch.metadata || typeof patch.metadata !== 'object'
@@ -197,8 +197,9 @@ describe('useVaultTimelineController open contracts', () => {
         expect(patch.metadata.self).toBe(metadata);
         expect(metadata.predecessor_ids).toBeUndefined();
         expect(controller().selectingPredecessorFor).toBeNull();
-        expect(onUpdateNote.mock.calls[1]).toEqual(['dependent', {
-            metadata: { Start: '2024-01-05', End: '2024-01-06' },
+        expect(onUpdateNote.mock.calls[0]?.[1].metadata).toMatchObject({ Start: '2024-01-05', End: '2024-01-06' });
+        expect(onUpdateNote.mock.calls[1]).toEqual(['successor', {
+            metadata: { Start: '2024-01-06', End: '2024-01-07' },
         }]);
     });
 
@@ -220,11 +221,12 @@ describe('useVaultTimelineController open contracts', () => {
             .mockReturnValueOnce(saved).mockReturnValue(undefined);
         render({ ...scheduleProps, onUpdateNote });
         act(() => { controller().setSelectingPredecessorFor('dependent'); });
-        const pending = controller().handleAddPredecessor('dependent', 'predecessor');
+        let pending: Promise<void> = Promise.resolve();
+        act(() => { pending = controller().handleAddPredecessor('dependent', 'predecessor'); });
         expect(onUpdateNote).toHaveBeenCalledTimes(1);
         expect(controller().selectingPredecessorFor).toBe('dependent');
         await act(async () => { finishSave(new Map()); await pending; });
-        expect(onUpdateNote).toHaveBeenCalledTimes(3);
+        expect(onUpdateNote).toHaveBeenCalledTimes(2);
         expect(controller().selectingPredecessorFor).toBeNull();
     });
 
@@ -253,17 +255,20 @@ describe('useVaultTimelineController open contracts', () => {
         expect(logError).not.toHaveBeenCalled();
     });
 
-    it('logs date-update rejection, stops successors and closes the saved dependency picker', async () => {
+    it('rolls back an already saved dependency if a successor save fails and keeps the picker open', async () => {
         const failure = new Error('date rejected');
         const onUpdateNote = vi.fn<NonNullable<VaultTimelineProps['onUpdateNote']>>()
             .mockReturnValueOnce(Symbol('saved'))
-            .mockImplementationOnce(() => Promise.reject(failure));
+            .mockRejectedValueOnce(failure).mockResolvedValue(undefined);
         render({ ...scheduleProps, onUpdateNote });
         act(() => { controller().setSelectingPredecessorFor('dependent'); });
-        await act(async () => { await controller().handleAddPredecessor('dependent', 'predecessor'); });
-        expect(onUpdateNote).toHaveBeenCalledTimes(2);
-        expect(logError).toHaveBeenCalledWith('timeline-date-update', failure);
-        expect(controller().selectingPredecessorFor).toBeNull();
+        await act(async () => { await expect(controller().handleAddPredecessor('dependent', 'predecessor')).rejects.toBe(failure); });
+        expect(onUpdateNote.mock.calls.map(([id]) => id)).toEqual(['dependent', 'successor', 'dependent']);
+        expect(onUpdateNote.mock.calls[2]?.[1].metadata).toMatchObject({ Start: '2024-01-02', End: '2024-01-03', predecessor_ids: null });
+        expect(controller().selectingPredecessorFor).toBe('dependent');
+        expect(controller().saving).toBe(false);
+        expect(controller().canUndo).toBe(false);
+        expect(logError).not.toHaveBeenCalled();
     });
 
     it('reads an enhanced period with open fields without modifying the input object', async () => {
@@ -284,4 +289,62 @@ describe('useVaultTimelineController open contracts', () => {
         expect(period.predecessorIds).toEqual([]);
         expect(period.self).toBe(period);
     });
+    it('honors the latest of multiple predecessors when adding another connection', async () => {
+        const onUpdateNote = vi.fn<NonNullable<VaultTimelineProps['onUpdateNote']>>();
+        render({ ...scheduleProps, onUpdateNote, notes: [
+            ...schedulingNotes,
+            { id: 'later', metadata: { Start: '2024-01-09', End: '2024-01-10' } },
+            { id: 'dependent', metadata: { Start: '2024-01-10', End: '2024-01-12', predecessor_ids: ['later'] } },
+        ].filter((note, index, all) => all.map(candidate => candidate.id).lastIndexOf(note.id) === index) });
+        await act(async () => { await controller().handleAddPredecessor('dependent', 'predecessor'); });
+        expect(onUpdateNote.mock.calls[0]?.[1].metadata).toMatchObject({ Start: '2024-01-10', End: '2024-01-12', predecessor_ids: ['later', 'predecessor'] });
+    });
+
+    it('rejects self and transitive cycles at the scheduling boundary', async () => {
+        const onUpdateNote = vi.fn<NonNullable<VaultTimelineProps['onUpdateNote']>>();
+        render({ ...scheduleProps, onUpdateNote });
+        await act(async () => {
+            await expect(controller().handleAddPredecessor('dependent', 'dependent')).rejects.toThrow('timeline.dependency_cycle');
+            await expect(controller().handleAddPredecessor('dependent', 'successor')).rejects.toThrow('timeline.dependency_cycle');
+        });
+        expect(onUpdateNote).not.toHaveBeenCalled();
+    });
+
+    it('serializes a new period dependency without losing dates, existing connections or progress', async () => {
+        plugins.enhancedPeriod = true;
+        const onUpdateNote = vi.fn<NonNullable<VaultTimelineProps['onUpdateNote']>>();
+        render({ activeView: { dateField: 'Period' }, schema: { Period: 'period', Period_config: { skip_non_working_days: false } }, onUpdateNote,
+            notes: [
+                { id: 'first', metadata: { Period: { start: '2024-01-01', end: '2024-01-02' } } },
+                { id: 'next', metadata: { Period: { start: '2024-01-03', end: '2024-01-04' } } },
+                { id: 'task', metadata: { Period: { start: '2024-01-02', end: '2024-01-03', durationValue: 1, durationUnit: 'days', percentComplete: 35, predecessorIds: ['first'] } } },
+            ],
+        });
+        await act(async () => { await controller().handleAddPredecessor('task', 'next'); });
+        expect(onUpdateNote.mock.calls[0]?.[1].metadata.Period).toMatchObject({ start: '2024-01-04T09:00', end: '2024-01-04T17:00', percentComplete: 35,
+            predecessorIds: ['first', 'next'], dependencies: [{ predecessorId: 'first', type: 'FS', lagMinutes: 0 }, { predecessorId: 'next', type: 'FS', lagMinutes: 0 }] });
+    });
+
+    it('propagates converging dependency branches until every successor respects the latest finish', async () => {
+        const onUpdateNote = vi.fn<NonNullable<VaultTimelineProps['onUpdateNote']>>();
+        render({ ...scheduleProps, onUpdateNote, notes: [
+            { id: 'root', metadata: { Start: '2024-01-01', End: '2024-01-02' } },
+            { id: 'short', metadata: { Start: '2024-01-02', End: '2024-01-03', predecessor_ids: ['root'] } },
+            { id: 'join', metadata: { Start: '2024-01-05', End: '2024-01-06', predecessor_ids: ['short', 'long'] } },
+            { id: 'tail', metadata: { Start: '2024-01-06', End: '2024-01-07', predecessor_ids: ['join'] } },
+            { id: 'long', metadata: { Start: '2024-01-02', End: '2024-01-05', predecessor_ids: ['root'] } },
+        ] });
+        await act(async () => { await controller().updateDates('root', new Date('2024-01-06T00:00'), new Date('2024-01-07T00:00')); });
+        expect(onUpdateNote.mock.calls.find(([id]) => id === 'join')?.[1].metadata).toMatchObject({ Start: '2024-01-10', End: '2024-01-11' });
+        expect(onUpdateNote.mock.calls.find(([id]) => id === 'tail')?.[1].metadata).toMatchObject({ Start: '2024-01-11', End: '2024-01-12' });
+        expect(new Set(onUpdateNote.mock.calls.map(([id]) => id)).size).toBe(onUpdateNote.mock.calls.length);
+    });
+
+    it('updates an existing predecessor relation column so it is visible in the table', async () => {
+        const onUpdateNote = vi.fn<NonNullable<VaultTimelineProps['onUpdateNote']>>();
+        render({ ...scheduleProps, schema: { Start: 'date', End: 'date', Predecessores: 'relation' }, onUpdateNote });
+        await act(async () => { await controller().handleAddPredecessor('dependent', 'predecessor'); });
+        expect(onUpdateNote.mock.calls[0]?.[1].metadata).toMatchObject({ Predecessores: ['predecessor'], Start: '2024-01-05', End: '2024-01-06' });
+    });
+
 });

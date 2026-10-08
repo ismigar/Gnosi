@@ -36,6 +36,8 @@ export interface TimelinePatch {
 
 
 export interface VaultTimelineProps {
+    readonly allNotes?: readonly TimelineNote[];
+    readonly maxHeight?: number | string | null;
     readonly activeView?: TimelineView;
     readonly idToTitle?: Readonly<Record<string, string>>;
     readonly notes?: readonly TimelineNote[];
@@ -71,10 +73,12 @@ export interface TimelineScale {
     readonly end: Date;
     readonly start: Date;
     readonly ticks: readonly TimelineTick[];
+    readonly months?: readonly TimelineTick[];
 }
 
 
 export interface TimelineChartNote extends TimelineRecord {
+    readonly hasDates?: boolean;
     readonly depth: number;
     readonly end: Date;
     readonly isParent?: boolean;
@@ -112,13 +116,32 @@ export interface TimelineSchemaReaders {
 
 
 export interface TimelineController {
+    readonly canEditDates: boolean;
+    readonly canEditDependencies: boolean;
+    readonly viewportWidth: number;
+    readonly columnWidth: number;
+    readonly setColumnWidth: (width: number) => void;
+    readonly visibleNotes: readonly TimelineChartNote[];
+    readonly collapsedIds: ReadonlySet<string>;
+    readonly toggleCollapsed: (id: string) => void;
+    readonly fitProject: () => void;
+    readonly goToDate: (date: Date) => void;
+    readonly goToToday: () => void;
+    readonly updateDates: (id: string, start: Date, end: Date) => Promise<void>;
+    readonly undo: () => Promise<void>;
+    readonly canUndo: boolean;
+    readonly saving: boolean;
+    readonly timelineUnit: TimelineUnit;
     readonly activeFiltersCount: number;
     readonly activeSortsCount: number;
     readonly calculatePosition: (date: Date) => number;
     readonly chartData: readonly TimelineChartNote[];
     readonly clearSelection: () => void;
     readonly externalSearch: boolean;
+    readonly formatShortDate: (date: Date) => string;
     readonly formatTimelineDate: (date: Date) => string;
+    readonly getProgress: (note: TimelineChartNote) => number;
+    readonly getStatus: (note: TimelineChartNote) => string;
     readonly getBarColor: (note: TimelineChartNote) => string;
     readonly getPredecessors: (note: TimelineRecord) => readonly string[];
     readonly handleAddPredecessor: (

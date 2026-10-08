@@ -129,16 +129,16 @@ describe('VaultTimeline', () => {
 
         const text = container.textContent;
         expect(text.indexOf('Parent task')).toBeLessThan(text.indexOf('Child task'));
-        const childLabel = Array.from(container.querySelectorAll<HTMLSpanElement>('span'))
+        const childLabel = Array.from(container.querySelectorAll<HTMLButtonElement>('button'))
             .find((element) => element.textContent === 'Child task');
         if (!childLabel) throw new Error('Child task label not rendered');
-        const childRowLabel = childLabel.closest<HTMLDivElement>('div.w-64');
-        expect(childRowLabel?.style.paddingLeft).toBe('32px');
+        const childRowLabel = childLabel.closest<HTMLDivElement>('[data-timeline-row] > div');
+        expect(childRowLabel?.style.paddingLeft).toBe('24px');
         act(() => {
             childRowLabel?.click();
         });
         expect(onNoteSelect).not.toHaveBeenCalled();
-        act(() => { childRowLabel?.querySelector<HTMLButtonElement>('button')?.click(); });
+        act(() => { childRowLabel?.querySelector<HTMLButtonElement>('button[aria-label="common.open"]')?.click(); });
         expect(onNoteSelect).toHaveBeenCalledWith('child');
     });
 
@@ -176,7 +176,7 @@ describe('VaultTimeline', () => {
         if (!filters || !sorts || !settings) throw new Error('Missing real toolbar controls');
         expect(filters.textContent).toBe('1');
         expect(sorts.textContent).toBe('1');
-        expect(Array.from(container.querySelectorAll('div.w-64.cursor-pointer span.truncate'))
+        expect(Array.from(container.querySelectorAll('[data-timeline-row] > div:first-child button.block.truncate:first-child'))
             .map(label => label.textContent)).toEqual(['Beta', 'Alpha']);
         act(() => { filters.click(); sorts.click(); settings.click(); });
         expect(onEditSchema.mock.calls).toEqual([['filters'], ['sorts'], ['settings']]);
@@ -195,14 +195,14 @@ describe('VaultTimeline', () => {
         const input = container.querySelector<HTMLInputElement>('input[placeholder="Search..."]');
         if (!input) throw new Error('Missing search input');
         setInputValue(input, 'Beta');
-        expect(Array.from(container.querySelectorAll('div.w-64.cursor-pointer span.truncate'))
+        expect(Array.from(container.querySelectorAll('[data-timeline-row] > div:first-child button.block.truncate:first-child'))
             .map(label => label.textContent)).toEqual(['Beta']);
         expect(input.value).toBe('Beta');
         const close = input.parentElement?.querySelector('button');
         if (!close) throw new Error('Missing clear-search button');
         act(() => { close.click(); });
         expect(container.querySelector('input[placeholder="Search..."]')).toBeNull();
-        expect(container.querySelectorAll('div.w-64.cursor-pointer')).toHaveLength(2);
+        expect(container.querySelectorAll('[data-timeline-row] > div:first-child')).toHaveLength(2);
         const reopen = container.querySelector<HTMLButtonElement>('button[title="Search"]');
         if (!reopen) throw new Error('Missing search toggle after closing');
         act(() => { reopen.click(); });
@@ -225,15 +225,15 @@ describe('VaultTimeline', () => {
         };
         act(() => { button('New record').click(); });
         expect(onCreateRecord).toHaveBeenCalledTimes(1);
-        const grid = container.querySelector<HTMLDivElement>('div.relative.flex-1[style]');
-        expect(grid?.style.minWidth).toBe('3000px');
-        act(() => { button('Dia').click(); });
-        expect(grid?.style.minWidth).toBe('12000px');
-        act(() => { button('Set').click(); });
-        expect(grid?.style.minWidth).toBe('6000px');
-        act(() => { button('Mes').click(); });
-        expect(grid?.style.minWidth).toBe('3000px');
-        const scrollContainer = container.querySelector('div.custom-scrollbar.overflow-x-auto');
+        const grid = container.querySelector<HTMLDivElement>('[data-timeline-track]');
+        expect(grid?.style.width).toBe('680px');
+        act(() => { button('day').click(); });
+        expect(Number.parseFloat(grid?.style.width ?? '')).toBeGreaterThan(680);
+        act(() => { button('week').click(); });
+        expect(grid?.style.width).toBe('680px');
+        act(() => { button('month').click(); });
+        expect(grid?.style.width).toBe('680px');
+        const scrollContainer = container.querySelector('div.custom-scrollbar.overflow-auto');
         if (!scrollContainer) throw new Error('Missing timeline scroll container');
         const scrollBy = vi.fn<(options: ScrollToOptions) => void>();
         Object.defineProperty(scrollContainer, 'scrollBy', { configurable: true, value: scrollBy });
@@ -258,13 +258,14 @@ describe('VaultTimeline', () => {
         expect(container.querySelector('button[title="Search"]')).toBeNull();
         expect(container.querySelector('button[title="Filters"]')).toBeNull();
         expect(container.querySelector('button[title="View settings"]')).toBeNull();
-        expect(container.querySelector('svg.lucide-chevron-left')).toBeNull();
+        expect(container.querySelector('svg.lucide-chevron-left')).not.toBeNull();
+        expect(container.textContent).toContain('Fit project');
         expect(container.textContent).not.toContain('New record');
-        expect(Array.from(container.querySelectorAll('div.w-64.cursor-pointer span.truncate'))
+        expect(Array.from(container.querySelectorAll('[data-timeline-row] > div:first-child button.block.truncate:first-child'))
             .map(label => label.textContent)).toEqual(['Beta']);
         act(() => { root.render(<VaultTimeline {...props} searchTerm="" />); });
         expect(container.querySelector('button[title="Search"]')).toBeNull();
-        expect(container.querySelectorAll('div.w-64.cursor-pointer')).toHaveLength(2);
+        expect(container.querySelectorAll('[data-timeline-row] > div:first-child')).toHaveLength(2);
     });
 
     it('keeps optional config and creation actions absent without losing filters or sort', () => {
@@ -291,14 +292,14 @@ describe('VaultTimeline', () => {
         act(() => {
             root.render(<VaultTimeline notes={notes} searchTerm="" />);
         });
-        const labels = container.querySelectorAll<HTMLDivElement>('div.w-64.cursor-pointer');
+        const labels = container.querySelectorAll<HTMLDivElement>('[data-timeline-row] > div:first-child');
         expect(labels).toHaveLength(7);
         expect(labels[0]?.textContent).toContain('27');
-        for (const index of [1, 2, 3, 4]) {
-            expect(labels[index]?.textContent).toContain('Sense Títol');
+        for (const index of [2, 3, 4, 5]) {
+            expect(labels[index]?.textContent).toContain('Untitled');
         }
         expect(labels[5]?.textContent).not.toContain('true');
-        expect(labels[5]?.textContent).not.toContain('Sense Títol');
+        expect(labels[1]?.textContent).toContain('0');
         expect(labels[6]?.textContent).toContain('72');
         act(() => {
             for (const label of labels) label.click();
@@ -369,7 +370,7 @@ describe('VaultTimeline', () => {
             />);
         });
 
-        const dependentLabel = Array.from(container.querySelectorAll<HTMLSpanElement>('span'))
+        const dependentLabel = Array.from(container.querySelectorAll<HTMLButtonElement>('button'))
             .find((element) => element.textContent === 'Dependent');
         const dependentRow = dependentLabel?.closest<HTMLDivElement>('div.group');
         const addButton = dependentRow?.querySelector<HTMLButtonElement>(
@@ -392,15 +393,12 @@ describe('VaultTimeline', () => {
             'dependent',
             {
                 metadata: {
-                    End: '2024-01-03',
-                    Start: '2024-01-02',
+                    End: '2024-01-06',
+                    Start: '2024-01-05',
                     predecessor_ids: ['predecessor'],
                 },
             },
         ]);
-        expect(onUpdateNote.mock.calls[1]).toEqual([
-            'dependent',
-            { metadata: { End: '2024-01-06', Start: '2024-01-05' } },
-        ]);
+        expect(onUpdateNote).toHaveBeenCalledTimes(1);
     });
 });

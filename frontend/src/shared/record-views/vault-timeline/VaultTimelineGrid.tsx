@@ -1,233 +1,117 @@
-import type { ChangeEvent, MouseEvent } from 'react';
-import { Calendar, ExternalLink, FileText, Plus } from 'lucide-react';
+import { useRef, useState, type ChangeEvent } from 'react';
+import { Calendar, ChevronDown, ChevronRight, ExternalLink, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
-import type {
-    TimelineChartNote,
-    TimelineController,
-} from './types';
-
+import { TimelineBar } from './TimelineBar';
+import { timelineTitle } from './timelineLabels';
+import { TimelineDependencies, TIMELINE_ROW_HEIGHT } from './TimelineDependencies';
+import { useTimelineDrag } from './useTimelineDrag';
+import type { TimelineChartNote, TimelineController, TimelineTick } from './types';
 
 interface TimelineGridProps {
     readonly controller: TimelineController;
     readonly onNoteSelect?: (noteId: string) => void;
 }
 
-
-interface TimelineRowProps extends TimelineGridProps {
-    readonly note: TimelineChartNote;
+function compactTitle(note: TimelineChartNote, controller: TimelineController, fallback: string): string {
+    const title = timelineTitle(note.title, fallback);
+    const index = controller.chartData.findIndex(candidate => candidate.id === note.id);
+    const parent = controller.chartData.slice(0, index).reverse().find(candidate => candidate.depth < note.depth);
+    const parentTitle = parent ? timelineTitle(parent.title, '') : '';
+    let shared = 0;
+    while (shared < title.length && shared < parentTitle.length && title[shared] === parentTitle[shared]) shared += 1;
+    const prefix = title.slice(0, shared);
+    const boundary = Math.max(prefix.lastIndexOf(': '), prefix.lastIndexOf(' · '), prefix.lastIndexOf(' - '));
+    return note.depth > 0 && boundary >= 4 ? title.slice(boundary).replace(/^[:·\s-]+/, '') : title;
 }
 
-
-function percent(value: number): string {
-    return `${String(value)}%`;
+function HeaderTicks({ ticks, controller, upper = false }: { readonly ticks: readonly TimelineTick[]; readonly controller: TimelineController; readonly upper?: boolean }) {
+    return <>{ticks.map((tick, index) => {
+        const left = controller.calculatePosition(tick.at);
+        const next = ticks[index + 1]?.at ?? controller.timeScale?.end;
+        const width = next ? controller.calculatePosition(next) - left : 0;
+        return <div key={tick.at.getTime()} className={`absolute flex h-8 items-center truncate border-r border-[var(--border-primary)] px-2 text-[11px] ${upper ? 'top-0 font-semibold text-[var(--text-primary)]' : 'bottom-0 text-[var(--text-secondary)]'}`}
+            style={{ left: `${String(left)}%`, width: `${String(width)}%` }} title={tick.label}>{width / 100 * Number.parseFloat(controller.scaleMinWidth) >= 24 ? tick.label : ''}</div>;
+    })}</>;
 }
-
-
-function TimelineRow({ controller, note, onNoteSelect }: TimelineRowProps) {
-    const { t } = useTranslation();
-    const barStart = note.isParent ? note.summaryStart ?? note.start : note.start;
-    const barEnd = note.isParent ? note.summaryEnd ?? note.end : note.end;
-    const startPosition = controller.calculatePosition(barStart);
-    const endPosition = controller.calculatePosition(barEnd);
-    const width = Math.max(endPosition - startPosition, 0.5);
-    const predecessors = controller.getPredecessors(note);
-    const selected = controller.isSelected(note.id);
-    const stopPropagation = (event: MouseEvent<HTMLLabelElement>): void => {
-        event.stopPropagation();
-    };
-    const toggleSelection = (event: ChangeEvent<HTMLInputElement>): void => {
-        const nativeEvent = event.nativeEvent;
-        const isShift = 'shiftKey' in nativeEvent && nativeEvent.shiftKey === true;
-        controller.toggleSelect(note.id, isShift);
-    };
-
-    return <div className="group flex h-12 border-b border-[var(--border-primary)] transition-colors hover:bg-[var(--bg-secondary)]/50">
-        <div
-            className={`sticky left-0 z-10 flex w-64 shrink-0 cursor-pointer items-center gap-2 overflow-hidden border-r border-[var(--border-primary)] pr-4 ${selected
-                ? 'bg-[var(--gnosi-primary)]/10'
-                : 'bg-[var(--bg-primary)]'}`}
-            style={{ paddingLeft: `${String(16 + note.depth * 16)}px` }}
-        >
-            <button type="button" aria-label={t('common.open')} onClick={(event) => { event.stopPropagation(); onNoteSelect?.(note.id); }} className="shrink-0 p-1">
-                <ExternalLink size={14} />
-            </button>
-            {note.depth > 0 ? <span
-                aria-hidden="true"
-                className="shrink-0 select-none font-mono text-[10px] text-[var(--text-tertiary)]"
-            >└</span> : null}
-            <label
-                className="inline-flex cursor-pointer items-center"
-                onClick={stopPropagation}
-            >
-                <input
-                    checked={selected}
-                    className="h-3.5 w-3.5 cursor-pointer rounded border-[var(--border-primary)] bg-[var(--bg-secondary)] text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)]"
-                    onChange={toggleSelection}
-                    type="checkbox"
-                />
-            </label>
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-xs">
-                <FileText className="text-[var(--text-tertiary)]" size={14} />
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col">
-                <span
-                    className={`${note.isParent ? 'font-bold' : 'font-semibold'} truncate text-xs text-[var(--text-primary)] transition-colors group-hover:text-[var(--gnosi-primary)]`}
-                    {...controller.titlePreview.getTitleProps(note.id)}
-                >
-                    {note.title || 'Sense Títol'}
-                </span>
-                <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-medium text-[var(--text-tertiary)]">
-                        {controller.formatTimelineDate(note.start)}
-                    </span>
-                </div>
-            </div>
-            <button
-                className="p-1 text-[var(--gnosi-primary)] opacity-0 transition-all hover:rounded hover:bg-[var(--gnosi-primary)]/10 group-hover:opacity-100"
-                onClick={(event) => {
-                    event.stopPropagation();
-                    controller.setSelectingPredecessorFor(note.id);
-                }}
-                title={t('timeline.add_predecessor', 'Add predecessor')}
-                type="button"
-            >
-                <Plus size={12} />
-            </button>
-        </div>
-        <div
-            className="relative flex h-full flex-1 items-center px-0"
-            style={{ minWidth: controller.scaleMinWidth }}
-        >
-            {predecessors.map((predecessorId) => {
-                const predecessor = controller.chartData.find(
-                    ({ id }) => id === predecessorId,
-                );
-                if (!predecessor) return null;
-                const predecessorEnd = controller.calculatePosition(predecessor.end);
-                if (predecessorEnd > startPosition) return null;
-                return <div
-                    className="pointer-events-none absolute h-px bg-indigo-200/50"
-                    key={`${note.id}-${predecessorId}`}
-                    style={{
-                        left: percent(predecessorEnd),
-                        width: percent(startPosition - predecessorEnd),
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                    }}
-                />;
-            })}
-            {note.isParent ? <div
-                className="group/bar absolute h-2 cursor-pointer rounded-[2px]"
-                style={{
-                    left: percent(startPosition),
-                    width: percent(width),
-                    minWidth: '24px',
-                    backgroundColor: 'var(--text-secondary)',
-                }}
-            >
-                <span
-                    aria-hidden="true"
-                    className="absolute -left-[1px] top-[3px] h-2 w-2 rotate-45 bg-[var(--text-secondary)]"
-                />
-                <span
-                    aria-hidden="true"
-                    className="absolute -right-[1px] top-[3px] h-2 w-2 rotate-45 bg-[var(--text-secondary)]"
-                />
-                <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-3 -translate-x-1/2 whitespace-nowrap rounded border border-[var(--border-primary)] bg-[var(--bg-tertiary)] px-3 py-2 text-[10px] font-medium text-[var(--text-primary)] opacity-0 shadow-xl transition-opacity group-hover/bar:opacity-100">
-                    <strong>{note.title}</strong><br />
-                    {controller.formatTimelineDate(barStart)} - {' '}
-                    {controller.formatTimelineDate(barEnd)}
-                </div>
-            </div> : <div
-                className="group/bar absolute flex h-6 cursor-pointer items-center overflow-hidden rounded-md border border-black/10 px-2 shadow-sm transition-all hover:scale-y-105 hover:brightness-110 dark:border-white/10"
-                onClick={() => { onNoteSelect?.(note.id); }}
-                style={{
-                    left: percent(startPosition),
-                    width: percent(width),
-                    minWidth: '60px',
-                    backgroundColor: controller.getBarColor(note),
-                }}
-            >
-                <div className="flex min-w-0 items-center gap-1 text-white">
-                    <span className="truncate whitespace-nowrap text-[10px] font-bold">
-                        {note.title || 'Note'}
-                    </span>
-                </div>
-                <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 -translate-x-1/2 whitespace-nowrap rounded border border-[var(--border-primary)] bg-[var(--bg-tertiary)] px-3 py-2 text-[10px] font-medium text-[var(--text-primary)] opacity-0 shadow-xl transition-opacity group-hover/bar:opacity-100">
-                    <strong>{note.title}</strong><br />
-                    {controller.formatTimelineDate(note.start)} - {' '}
-                    {controller.formatTimelineDate(note.end)}
-                </div>
-            </div>}
-        </div>
-    </div>;
-}
-
 
 export function VaultTimelineGrid({ controller, onNoteSelect }: TimelineGridProps) {
     const { t } = useTranslation();
-    return <div className="flex flex-1 flex-col overflow-hidden">
-        <div
-            className="custom-scrollbar relative flex-1 overflow-x-auto overflow-y-auto bg-[var(--bg-primary)] pt-vault-header-top"
-            id={controller.scrollContainerId}
-        >
-            <div className="sticky top-0 z-10 flex h-10 min-w-full border-b border-[var(--border-primary)] bg-[var(--bg-secondary)] shadow-sm">
-                <div className="flex w-64 shrink-0 items-center border-r border-[var(--border-primary)] bg-[var(--bg-secondary)] px-4 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
+    const { drag, begin, consumeClick } = useTimelineDrag(controller);
+    const resizing = useRef<{ readonly x: number; readonly width: number } | null>(null);
+    const [scrollLeft, setScrollLeft] = useState(0);
+    const contentWidth = controller.columnWidth + Number.parseFloat(controller.scaleMinWidth);
+    const today = controller.calculatePosition(new Date());
+    return <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div id={controller.scrollContainerId} className="custom-scrollbar relative min-h-0 flex-1 overflow-auto bg-[var(--bg-primary)]" aria-busy={controller.saving} onScroll={event => { setScrollLeft(event.currentTarget.scrollLeft); }}>
+            <div className="sticky top-0 z-40 flex h-16 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]" style={{ width: contentWidth }}>
+                <div className="sticky left-0 z-50 flex shrink-0 items-center border-r border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 text-xs font-semibold text-[var(--text-secondary)]" style={{ width: controller.columnWidth }}>
                     {t('timeline.col_title', 'Record Title')}
+                    <button type="button" role="separator" aria-orientation="vertical" aria-label={t('timeline.resize_column', 'Resize title column')}
+                        aria-valuenow={controller.columnWidth} aria-valuemin={220} aria-valuemax={640}
+                        className="absolute inset-y-0 -right-1 z-50 w-2 cursor-col-resize touch-none hover:bg-[var(--gnosi-primary)]/30 focus-visible:bg-[var(--gnosi-primary)]/30"
+                        onPointerDown={event => { if (event.button !== 0) return; event.preventDefault(); resizing.current = { x: event.clientX, width: controller.columnWidth }; event.currentTarget.setPointerCapture(event.pointerId); }}
+                        onPointerMove={event => { if (resizing.current) controller.setColumnWidth(Math.max(220, Math.min(640, resizing.current.width + event.clientX - resizing.current.x))); }}
+                        onPointerUp={() => { resizing.current = null; }} onPointerCancel={() => { resizing.current = null; }}
+                        onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); controller.setColumnWidth(Math.max(220, Math.min(640, controller.columnWidth + (event.key === 'ArrowLeft' ? -20 : 20)))); } }} />
                 </div>
-                <div
-                    className="relative flex-1"
-                    style={{ minWidth: controller.scaleMinWidth }}
-                >
-                    {controller.timeScale?.ticks.map((tick, index, ticks) => {
-                        const left = controller.calculatePosition(tick.at);
-                        const next = ticks[index + 1]?.at ?? controller.timeScale?.end;
-                        const width = next
-                            ? controller.calculatePosition(next) - left : 0;
-                        return <div
-                            className="absolute flex h-full items-center truncate border-r border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 text-[10px] font-bold text-[var(--text-secondary)]"
-                            key={index}
-                            style={{ left: percent(left), width: percent(width) }}
-                        >
-                            {tick.label}
-                        </div>;
-                    })}
+                <div className="relative shrink-0" style={{ width: controller.scaleMinWidth }}>
+                    <HeaderTicks ticks={controller.timeScale?.months ?? []} controller={controller} upper />
+                    <HeaderTicks ticks={controller.timeScale?.ticks ?? []} controller={controller} />
                 </div>
             </div>
-            <div className="relative min-h-full min-w-full">
-                <div className="pointer-events-none absolute inset-0 flex">
-                    <div className="w-64 shrink-0 border-r border-[var(--border-primary)]" />
-                    <div
-                        className="relative flex-1"
-                        style={{ minWidth: controller.scaleMinWidth }}
-                    >
-                        {controller.timeScale?.ticks.map((tick, index) => <div
-                            className="absolute h-full border-r border-[var(--border-primary)]"
-                            key={index}
-                            style={{
-                                left: percent(controller.calculatePosition(tick.at)),
-                            }}
-                        />)}
-                    </div>
+            <div className="relative" style={{ width: contentWidth, minHeight: controller.visibleNotes.length * TIMELINE_ROW_HEIGHT }}>
+                <div className="pointer-events-none absolute inset-y-0" style={{ left: controller.columnWidth, width: controller.scaleMinWidth }}>
+                    {controller.timeScale?.ticks.map(tick => <div key={tick.at.getTime()} className="absolute h-full border-r border-[var(--border-primary)] opacity-60" style={{ left: `${String(controller.calculatePosition(tick.at))}%` }} />)}
+                    {today >= 0 && today <= 100 ? <div className="absolute z-[1] h-full border-l-2 border-[var(--gnosi-primary)] opacity-60" style={{ left: `${String(today)}%` }} title={t('timeline.today', 'Today')} /> : null}
                 </div>
-                <div className="relative z-0">
-                    {controller.chartData.map((note) => <TimelineRow
-                        controller={controller}
-                        key={note.id}
-                        note={note}
-                        onNoteSelect={onNoteSelect}
-                    />)}
-                </div>
+                <TimelineDependencies controller={controller} drag={drag} />
+                {controller.visibleNotes.map(note => {
+                    const title = compactTitle(note, controller, t('common.untitled', 'Untitled'));
+                    const selected = controller.isSelected(note.id);
+                    const dateStart = note.isParent ? note.summaryStart ?? note.start : note.start;
+                    const dateEnd = note.isParent ? note.summaryEnd ?? note.end : note.end;
+                    const rangeLabel = `${controller.formatTimelineDate(dateStart)} → ${controller.formatTimelineDate(dateEnd)}`;
+                    const toggleSelection = (event: ChangeEvent<HTMLInputElement>) => {
+                        const native = event.nativeEvent;
+                        controller.toggleSelect(note.id, 'shiftKey' in native && native.shiftKey === true);
+                    };
+                    return <div key={note.id} data-timeline-row={note.id} className={`group flex border-b border-[var(--border-primary)] hover:bg-[var(--bg-secondary)]/50 ${drag?.targetId === note.id && drag.mode === 'dependency' ? 'bg-[var(--gnosi-primary)]/10' : ''}`} style={{ height: TIMELINE_ROW_HEIGHT }}>
+                        <div className={`sticky left-0 z-20 flex shrink-0 items-center gap-1.5 border-r border-[var(--border-primary)] pr-2 ${selected ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}`}
+                            style={{ width: controller.columnWidth, paddingLeft: 12 + Math.min(note.depth, 8) * 12 }}>
+                            {note.isParent ? <button type="button" className="shrink-0 rounded p-1 hover:bg-[var(--bg-tertiary)]" aria-expanded={!controller.collapsedIds.has(note.id)} aria-label={t('timeline.toggle_group', 'Expand or collapse phase')} onClick={() => { controller.toggleCollapsed(note.id); }}>
+                                {controller.collapsedIds.has(note.id) ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                            </button> : <span className="w-5 shrink-0" />}
+                            <input type="checkbox" checked={selected} onChange={toggleSelection} aria-label={t('timeline.select_task', 'Select task')} className="h-3.5 w-3.5 shrink-0 accent-[var(--gnosi-primary)]" />
+                            <div className="min-w-0 flex-1">
+                                <button type="button" className={`block w-full truncate text-left text-xs text-[var(--text-primary)] hover:text-[var(--gnosi-primary)] ${note.isParent ? 'font-bold' : 'font-medium'}`}
+                                    {...controller.titlePreview.getTitleProps(note.id)} onClick={() => { onNoteSelect?.(note.id); }} title={timelineTitle(note.title, t('common.untitled', 'Untitled'))}><span className={`text-xs ${note.isParent ? 'font-bold' : 'font-medium'}`}>{title}</span></button>
+                                <button type="button" className="block w-full truncate text-left text-[10px] text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]" title={rangeLabel}
+                                    onClick={() => { if (note.hasDates === false) onNoteSelect?.(note.id); else controller.goToDate(dateStart); }}>
+                                    <span className="text-[10px]">{note.hasDates === false ? t('timeline.unscheduled', 'No dates') : `${controller.formatShortDate(dateStart)} → ${controller.formatShortDate(dateEnd)}`}</span>
+                                </button>
+                            </div>
+                            <div className="flex shrink-0 gap-0.5 opacity-0 focus-within:opacity-100 group-hover:opacity-100">
+                                <button type="button" aria-label={t('common.open')} onClick={() => { onNoteSelect?.(note.id); }} className="rounded p-1 hover:bg-[var(--bg-tertiary)]"><ExternalLink size={13} /></button>
+                                {controller.canEditDependencies && !note.isParent ? <button type="button" title={t('timeline.add_predecessor', 'Add predecessor')} aria-label={t('timeline.add_predecessor', 'Add predecessor')}
+                                    disabled={controller.saving} className="rounded p-1 text-[var(--gnosi-primary)] hover:bg-[var(--bg-tertiary)]" onClick={() => { controller.setSelectingPredecessorFor(note.id); }}><Plus size={13} /></button> : null}
+                            </div>
+                        </div>
+                        <div data-timeline-track className="relative flex shrink-0 items-center" style={{ width: controller.scaleMinWidth }}>
+                            {note.hasDates !== false && (controller.calculatePosition(dateEnd) / 100 * Number.parseFloat(controller.scaleMinWidth) < scrollLeft
+                                || controller.calculatePosition(dateStart) / 100 * Number.parseFloat(controller.scaleMinWidth) > scrollLeft + controller.viewportWidth - controller.columnWidth) ? <button type="button"
+                                className="absolute z-10 max-w-40 truncate rounded border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2 py-1 text-[10px] text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)]"
+                                style={{ left: scrollLeft + 8 }} onClick={() => { controller.goToDate(dateStart); }}>
+                                {controller.calculatePosition(dateEnd) / 100 * Number.parseFloat(controller.scaleMinWidth) < scrollLeft ? '← ' : '→ '}<span className="text-[10px]">{controller.formatShortDate(dateStart)}</span>
+                            </button> : null}
+                            {note.hasDates === false ? <button type="button" className="px-4 text-xs text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]" onClick={() => { onNoteSelect?.(note.id); }}>{t('timeline.set_dates', 'Set dates')}</button>
+                                : <TimelineBar controller={controller} note={note} title={title} drag={drag} begin={begin} consumeClick={consumeClick} onNoteSelect={onNoteSelect} />}
+                        </div>
+                    </div>;
+                })}
+                {!controller.chartData.length ? <div className="sticky left-0 flex h-48 flex-col items-center justify-center gap-3 text-sm text-[var(--text-tertiary)]" style={{ width: controller.columnWidth + 320 }}>
+                    <Calendar size={32} strokeWidth={1} /><p>{t('timeline.no_data', 'No data to show in the timeline.')}</p>
+                </div> : null}
             </div>
         </div>
-        {controller.chartData.length === 0 ? <div className="flex h-64 w-full flex-col items-center justify-center text-[var(--text-tertiary)]">
-            <Calendar
-                className="mb-4 text-[var(--bg-tertiary)]"
-                size={48}
-                strokeWidth={1}
-            />
-            <p>{t('timeline.no_data', 'No data to show in the timeline.')}</p>
-        </div> : null}
     </div>;
 }
