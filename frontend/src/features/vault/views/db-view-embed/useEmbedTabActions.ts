@@ -36,11 +36,15 @@ export function useEmbedTabActions({ pageId, viewId, tableId, ctx, setTableViews
         onOpenViewConfig({ type: type, name: '', table_id: tableId }, (saved: unknown) => {
             const savedView = decodeView(saved);
             if (savedView.id) {
+                // The registry refresh can finish after this callback. Add the
+                // saved view now so its pinned tab and settings render immediately.
+                setTableViews(prev => [...prev.filter(view => view.id !== savedView.id), savedView]);
                 pinView(savedView.id);
                 setActiveViewId(savedView.id);
+                try { writeText(selectedKey(pageId, viewId), savedView.id); } catch { /* local fallback */ }
             }
         });
-    }, [tableId, onOpenViewConfig, pinView, setActiveViewId]);
+    }, [tableId, onOpenViewConfig, setTableViews, pinView, setActiveViewId, pageId, viewId]);
 
     const handleDeleteView = useCallback((v: EmbedView) => {
         if (!v.id) return;

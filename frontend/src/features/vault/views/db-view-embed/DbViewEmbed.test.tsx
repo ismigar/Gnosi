@@ -374,11 +374,13 @@ describe('embedded record and view actions', () => {
         await act(async () => { emitAppEvent('gnosi:invalidatePreview', { pageId: 'page' }); await Promise.resolve(); });
         expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(2);
     });
-    it('keeps source/template creation callbacks and pins a newly configured view', async () => {
+    it('shows and selects a newly saved view before the registry refresh completes', async () => {
         const createTemplate = vi.fn<(id: string) => void>();
         const createFromSource = vi.fn<(id: string) => void>();
         const configure = vi.fn<(...args: unknown[]) => void>((_input, save) => {
-            if (typeof save === 'function') Reflect.apply(save, undefined, [{ id: 'new-tab' }]);
+            if (typeof save === 'function') Reflect.apply(save, undefined, [{
+                ...other, id: 'new-tab', name: 'New named view',
+            }]);
         });
         context = { ...context, referenceTableId: 'books', onCreateTemplate: createTemplate, onCreateFromSource: createFromSource, onOpenViewConfig: configure };
         await render(); await click(button('New record options')); await click(button('New template'));
@@ -389,6 +391,12 @@ describe('embedded record and view actions', () => {
         await click(button('Create a new view'));
         expect(configure).toHaveBeenCalledWith({ type: 'table', name: '', table_id: 'books' }, expect.any(Function));
         expect(api.updateVaultView).toHaveBeenCalledWith('anchor', { tabs: ['other', 'new-tab'] });
+        const newTab = [...container.querySelectorAll('span')].find(span => span.textContent === 'New named view');
+        expect(newTab).toBeDefined();
+        expect(newTab?.parentElement?.className).toContain('font-semibold');
+        expect(fixture.body?.type).toBe('feed');
+        expect(fixture.body?.notes?.map(note => note.id)).toEqual(['b']);
+        expect(readText(selectedKey('page', 'anchor'))).toBe('new-tab');
     });
     it('duplicates all view options but removes main/default identity before pinning', async () => {
         vi.mocked(api.createVaultView).mockResolvedValue({ id: 'copy' });
