@@ -1,4 +1,5 @@
 import { emitAppEvent } from '../../../../../shared/platform/app-events';
+import { readablePageTitle } from '../../../../../shared/records/pageReferenceTitle';
 import { FileText } from 'lucide-react';
 import { IconRenderer } from '../../../../../shared/ui/previews/IconRenderer';
 import { Link2 } from 'lucide-react';
@@ -23,8 +24,8 @@ export function CompactPageHeader({ context }: { context: PageEditorController }
         >
           {metadata.icon ? <IconRenderer icon={metadata.icon} size={18} /> : <FileText size={18} />}
         </button>
-        <span className="vault-page-compact-header__title" title={metadata.title || t('editor.untitled')}>
-          {metadata.title || t('editor.untitled')}
+        <span className="vault-page-compact-header__title" title={readablePageTitle(metadata.title || '', context.idToTitle, t('editor.untitled'))}>
+          {readablePageTitle(metadata.title || '', context.idToTitle, t('editor.untitled'))}
         </span>
       </div>
       <div className="vault-page-compact-header__actions">

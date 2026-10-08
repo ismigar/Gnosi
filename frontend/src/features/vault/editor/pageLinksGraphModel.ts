@@ -1,3 +1,5 @@
+import { readablePageTitle } from '../../../shared/records/pageReferenceTitle';
+
 type ConnectionKind = 'outgoing' | 'incoming' | 'relation';
 
 const KIND_ORDER: readonly ConnectionKind[] = [
@@ -91,12 +93,13 @@ export function buildPageLinksGraphModel({
   const addItems = (items: unknown, kind: ConnectionKind): void => {
     const safeItems: readonly unknown[] = Array.isArray(items) ? items : [];
     for (const item of safeItems) {
-      const title = String(
+      const rawTitle = String(
         readPageLinkValue(item, 'title') ||
           readPageLinkValue(item, 'id') ||
           '',
       ).trim();
-      if (!title) continue;
+      if (!rawTitle) continue;
+      const title = readablePageTitle(rawTitle);
       const key = connectionKey(item, kind);
       const existing = nodesByKey.get(key);
       if (existing) {

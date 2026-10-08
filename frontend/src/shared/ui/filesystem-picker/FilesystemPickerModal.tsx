@@ -7,6 +7,7 @@ import type {
     FilesystemPickerMode,
 } from './filesystem-picker/filesystemPickerTypes';
 import { useFilesystemPicker } from './filesystem-picker/useFilesystemPicker';
+import { NativeFilesystemPicker } from './NativeFilesystemPicker';
 
 interface OpenFilesystemPickerModalProps {
     readonly initialPath: string;
@@ -72,6 +73,10 @@ export function FilesystemPickerModal({
     preferNative = true,
 }: FilesystemPickerModalProps) {
     if (!isOpen) return null;
+    const nativePicker = window.electronAPI?.pickFilesystem;
+    if (nativePicker) return <NativeFilesystemPicker
+        isOpen picker={nativePicker} initialPath={initialPath} mode={mode}
+        onClose={onClose} onSelect={onSelect} onSelectMany={onSelectMany} />;
     return (
         <OpenFilesystemPickerModal
             initialPath={initialPath}

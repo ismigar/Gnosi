@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
 import { NumberValue } from '../../../../shared/records/NumberValue';
 import type { ComponentProps, ReactNode } from 'react';
 import { GalleryOpenButton } from '../GalleryCardPreview';
@@ -118,7 +119,7 @@ function renderCardValue(
                 className="rounded bg-[var(--gnosi-primary)]/10 px-1.5 py-0.5 text-[var(--gnosi-primary)]"
                 key={item}
             >
-                {idToTitle[item] ?? (item.length > 16 ? `${item.slice(0, 8)}…` : item)}
+                {pageReferenceTitle(item, idToTitle)}
             </span>)}
             {items.length > 4 ? <span className="text-[var(--text-tertiary)]">
                 +{String(items.length - 4)}
@@ -138,12 +139,12 @@ function renderCardValue(
                         onUpdate: (pageId, patch) => onUpdateNote(pageId, patch),
                         pageId: note.id,
                         relationId,
-                        relationTitle: idToTitle[relationId] ?? relationId,
+                        relationTitle: pageReferenceTitle(relationId, idToTitle),
                         value: relationValues,
                     });
                 } : undefined}
                 relationId={relationId}
-                title={idToTitle[relationId] ?? relationId}
+                title={pageReferenceTitle(relationId, idToTitle)}
             />)}
         </span>;
     }

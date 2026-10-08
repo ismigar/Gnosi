@@ -27,6 +27,7 @@ from backend.utils.open_values import iterable_values
 logger = get_logger(__name__)
 
 _lock = threading.Lock()
+_localization_lock = threading.Lock()
 
 QUEUE_FILENAME = "llm_wiki_suggestions.json"
 
@@ -57,6 +58,36 @@ def load_queue() -> List[Dict[str, object]]:
         raise
     except Exception:  # noqa: BLE001
         return []
+
+
+def localized_queue(locale: str) -> List[Dict[str, object]]:
+    """Return cached display captions in the active UI language."""
+    from backend.domains.llm_wiki.suggestion_localization import locale_code, translated_text, translate_batch
+    from backend.services.agent_execution import generate_for
+    code = locale_code(locale)
+    with _localization_lock:
+        items = load_queue()
+        missing = [item for item in items if translated_text(item, code) is None]
+        if missing:
+            translations = translate_batch(missing, code, lambda prompt: generate_for("knowledge", prompt, timeout=120)[0])
+            originals = {str(item["id"]): (item.get("title"), item.get("why")) for item in missing}
+            with _lock:
+                # A proposal dismissed while translating must remain dismissed.
+                current = load_queue()
+                for item in current:
+                    identifier = str(item["id"])
+                    if identifier in translations and (item.get("title"), item.get("why")) == originals[identifier]:
+                        cache = item.get("localizations")
+                        item["localizations"] = {**(cache if isinstance(cache, dict) else {}), code: translations[identifier]}
+                _save_queue(current)
+                items = current
+        output = []
+        for item in items:
+            text = translated_text(item, code)
+            if text is None:
+                raise ValueError("Proposal changed while translating; retry the display request")
+            output.append({**item, **text})
+        return output
 
 
 def _save_queue(items: List[Dict[str, object]]) -> None:
@@ -154,7 +185,7 @@ def _suggest_prompt(reading_notes: List[Dict[str, str]], language: str) -> str:
 
 
 def generate_suggestions(
-    brain_table_id: str, language: str = "English", focus_ids: Optional[List[str]] = None
+    brain_table_id: str, language: str | None = None, focus_ids: Optional[List[str]] = None
 ) -> int:
     """Run the LLM pass over the Brain's reading notes and queue proposals.
 
@@ -164,6 +195,11 @@ def generate_suggestions(
     caller's flow.
     """
     try:
+        from backend.domains.llm_wiki.suggestion_localization import LANGUAGES, locale_code
+        from backend.services import llm_wiki_config
+        locale = locale_code(str(llm_wiki_config.load_config().get("ui_locale") or "en"))
+        language = language or LANGUAGES[locale]
+        locale = next((code for code, name in LANGUAGES.items() if name.casefold() == language.casefold()), locale)
         notes = _reading_notes_digest(brain_table_id)
         if len(notes) < 2:
             return 0
@@ -174,6 +210,8 @@ def generate_suggestions(
 
         raw, _model = generate_text(_suggest_prompt(notes, language), timeout=120)
         parsed = _parse_suggestions(raw, {n["id"] for n in notes}, {n["id"]: n for n in notes})
+        for suggestion in parsed:
+            suggestion["source_locale"] = locale
         if focus_ids:
             focus = set(focus_ids)
             parsed = [s for s in parsed if focus & set(iterable_values(s["member_ids"]))]

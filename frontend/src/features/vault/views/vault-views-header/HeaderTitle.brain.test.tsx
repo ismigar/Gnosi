@@ -9,7 +9,7 @@ vi.mock('../../../../shared/api/plugins', () => ({ fetchPluginLlmWikiConfig: api
 vi.mock('../../../../shared/api/brain', () => ({ fetchBrainSuggestions: api.suggestions, dismissBrainSuggestion: api.dismiss }));
 vi.mock('../../../../shared/editor/WikilinkInline', () => ({ WikilinkInline: ({ title }: { readonly title: string }) => <span>{title}</span> }));
 vi.mock('../../../literature/records/ReferenceImportExport', () => ({ ReferenceImportExport: () => null }));
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, options?: { readonly defaultValue?: string; readonly count?: number }) =>
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ i18n: { resolvedLanguage: 'ca', language: 'ca' }, t: (key: string, options?: { readonly defaultValue?: string; readonly count?: number }) =>
     options?.defaultValue ?? `${key}${options?.count === undefined ? '' : `:${String(options.count)}`}` }) }));
 
 let root: Root;

@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../../../shared/records/pageReferenceTitle';
 import { MultiSelectPills as SharedMultiSelectPills } from '../../../../../shared/ui/selection/MultiSelectPills';
 import { readPropertyValues, propertyKey } from './values';
 import { RelationItem } from '../../../properties/RelationItem';
@@ -10,11 +11,11 @@ export function MultiSelectPills({ relationItems, onOpenRelation, onRemoveRelati
     // disabled combobox would also mark the navigation button as disabled.
     if (relationItems && props.disabled) return <div className="flex flex-wrap gap-1.5 px-2 py-1 min-w-0">
         {values.length ? values.map(value => <RelationItem key={propertyKey(value)} relationId={propertyKey(value)}
-            title={props.idToTitle[propertyKey(value)] || value} onOpen={onOpenRelation ?? undefined} />)
+            title={pageReferenceTitle(propertyKey(value), props.idToTitle)} onOpen={onOpenRelation ?? undefined} />)
             : <span className="text-sm text-[var(--text-tertiary)]">{props.placeholder}</span>}
     </div>;
     return <SharedMultiSelectPills {...props} renderValue={relationItems ? value => (
-        <RelationItem relationId={propertyKey(value)} title={props.idToTitle[propertyKey(value)] || value}
+        <RelationItem relationId={propertyKey(value)} title={pageReferenceTitle(propertyKey(value), props.idToTitle)}
             onOpen={onOpenRelation ?? undefined}
             onRemove={onRemoveRelation ? async id => { await onRemoveRelation(id); } : undefined} />
     ) : undefined} />;

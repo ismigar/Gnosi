@@ -40730,7 +40730,9 @@ export interface operations {
     };
     knowledge_llm_wiki_list_suggestions_llm_wiki_suggestions_get: {
         parameters: {
-            query?: never;
+            query?: {
+                locale?: string | null;
+            };
             header?: {
                 authorization?: string | null;
                 "x-user-id"?: string | null;
@@ -43056,7 +43058,9 @@ export interface operations {
     };
     llm_wiki_list_suggestions_api_vault_llm_wiki_suggestions_get: {
         parameters: {
-            query?: never;
+            query?: {
+                locale?: string | null;
+            };
             header?: {
                 authorization?: string | null;
                 "x-user-id"?: string | null;

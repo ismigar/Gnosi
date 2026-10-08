@@ -1,3 +1,4 @@
+import { pageReferenceTitle } from '../../../shared/records/pageReferenceTitle';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Clock, Search, Trash2, Undo2 } from 'lucide-react';
@@ -334,7 +335,7 @@ export function VaultTrashView({ onAfterChange }: VaultTrashViewProps) {
                     ? t(
                         'trash.purge_confirm_message',
                         '"{{title}}" will be permanently deleted and cannot be recovered.',
-                        { title: purgeTarget.title || purgeTarget.id },
+                        { title: pageReferenceTitle(purgeTarget.id, {}, purgeTarget.title) },
                     )
                     : ''}
                 confirmText={t('common.delete', 'Delete')}

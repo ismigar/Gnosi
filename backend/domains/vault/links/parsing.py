@@ -23,13 +23,15 @@ def normalize_ref(raw_ref: str) -> str:
     text = str(raw_ref or "").strip()
     if not text:
         return ""
+    if text.startswith(("gnosi-cite:", "https://gnosi-cite.local/")):
+        return urllib.parse.parse_qs(urllib.parse.urlsplit(text).query).get("res", [""])[0]
     try:
         text = urllib.parse.unquote(text)
     except Exception:
         pass
     base = text.split("#", 1)[0].strip()
     match = re.search(
-        r"(?:https?://[^/]+)?/(?:api/)?vault/(?:page|pages)/([^/?#]+)",
+        r"(?:https?://[^/]+)?/(?:(?:api/)?vault/(?:page|pages)|@[^/]+/knowledge/(?:page|dashboard)|api/v1/vaults/[^/]+/knowledge/pages)/([^/?#]+)",
         base,
         re.IGNORECASE,
     )
