@@ -28,16 +28,17 @@ export function ViewSort({
 >) {
     return (<>                    {activeTab === 'sort' && (
         <div>
-            <div className="flex justify-between items-center mb-3">
-                <p className="text-xs text-[var(--text-secondary)]">
+            <div className="flex justify-between items-center gap-3 mb-3">
+                <p className="min-w-0 text-xs text-[var(--text-secondary)]">
                     {t('view.sort_intro', "Priority sorting: the first criterion rules, the rest break ties. With no criteria, rows sort by title ascending.")}
                 </p>
                 <button
+                    type="button"
                     onClick={addSort}
                     disabled={!selectedTable}
-                    className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/20 disabled:opacity-40"
+                    className="btn-gnosi btn-gnosi-secondary shrink-0 whitespace-nowrap"
                 >
-                    <Plus size={12} />
+                    <Plus size={12} className="shrink-0" />
                     {t('view.add_sort', "Add criterion")}
                 </button>
             </div>
