@@ -197,7 +197,7 @@ export function VaultViewBody({
             />
         );
     } else if (t === 'timeline') {
-        body = <VaultTimeline {...common} onUpdateNote={onUpdateNote} />;
+        body = <VaultTimeline {...common} allNotes={allNotes} maxHeight={maxHeight} onUpdateNote={onUpdateNote} />;
     } else if (t === 'chart') {
         body = <VaultChart notes={viewFilteredNotes} schema={schema} activeView={activeView} />;
     } else if (t === 'feed') {

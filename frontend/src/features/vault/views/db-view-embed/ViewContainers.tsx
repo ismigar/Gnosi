@@ -12,7 +12,7 @@ export function EmbeddedViewBox({ children, viewType, heightMode, heightPercent 
 }) {
     // Tables own horizontal scrolling, sticky columns and their vertical cap.
     // Isolate their sticky cells so they cannot cover the embed toolbar menus.
-    const className = viewType === 'table' || viewType === 'list' ? tableClass
+    const className = viewType === 'table' || viewType === 'list' || viewType === 'timeline' ? tableClass
         : heightMode === 'content' ? contentClass : limitedClass;
     // Keep the same element/component identity when changing height: expanded
     // groups, selection and keyboard focus belong to the existing child view.

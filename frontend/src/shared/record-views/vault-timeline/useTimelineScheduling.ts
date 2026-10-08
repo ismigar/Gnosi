@@ -1,302 +1,132 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { addPeriodDuration, formatLocalDateTime, nextWorkingInstant, parsePeriod, serializePeriod } from '../../dates/projectPlanning';
+import { predecessorCandidates } from './timelineModel';
+import { buildDateMetadata, dateValue, type SchedulingOptions } from './schedulingModel';
+import type { TimelineChartNote, TimelinePatch } from './types';
 
-import { logError } from '../../notifications/notifyError';
-import {
-    addPeriodDuration,
-    formatLocalDateTime,
-    nextWorkingInstant,
-    parsePeriod,
-    periodDurationFromBoundaries,
-    serializePeriod,
-    withPeriodBoundaries,
-    workingDurationDays,
-} from '../../dates/projectPlanning';
+interface Save { readonly id: string; readonly patch: TimelinePatch; readonly before: TimelinePatch; }
 
-import type {
-    TimelineChartNote,
-    TimelineNote,
-    TimelinePatch,
-    TimelineRecord,
-    TimelineSchema,
-    TimelineSchemaReaders,
-    TimelineUnit,
-} from './types';
-
-
-type PlanningSettings = NonNullable<Parameters<typeof nextWorkingInstant>[1]>;
-type UpdateNote = (noteId: string, patch: TimelinePatch) => unknown;
-
-
-interface SchedulingOptions {
-    readonly chartData: readonly TimelineChartNote[];
-    readonly dateField: string | undefined;
-    readonly endDateField: string | undefined;
-    readonly enhancedPeriod: boolean;
-    readonly notes: readonly TimelineNote[];
-    readonly onUpdateNote: UpdateNote | undefined;
-    readonly planningSettings: PlanningSettings;
-    readonly predecessors: (note: TimelineRecord) => readonly string[];
-    readonly readers: TimelineSchemaReaders;
-    readonly schema: TimelineSchema;
-    readonly skipNonWorkingDays: boolean;
-    readonly timelineUnit: TimelineUnit;
+function moveEnd(note: TimelineChartNote, start: Date, options: SchedulingOptions): Date {
+    const period = parsePeriod(dateValue(note, options.dateField));
+    const duration = period.durationValue ?? period.durationDays;
+    if (options.enhancedPeriod && duration !== null) {
+        return new Date(addPeriodDuration(formatLocalDateTime(start), duration,
+            period.durationValue !== null ? period.durationUnit ?? options.timelineUnit : 'days',
+            options.planningSettings, options.skipNonWorkingDays));
+    }
+    if (options.timelineUnit === 'days') {
+        const days = (Date.UTC(note.end.getFullYear(), note.end.getMonth(), note.end.getDate())
+            - Date.UTC(note.start.getFullYear(), note.start.getMonth(), note.start.getDate())) / 86400000;
+        const end = new Date(start);
+        end.setDate(end.getDate() + days);
+        return end;
+    }
+    return new Date(start.getTime() + note.end.getTime() - note.start.getTime());
 }
 
-
-interface SchedulingController {
-    readonly addPredecessor: (
-        noteId: string,
-        predecessorId: string,
-    ) => Promise<void>;
+function minimumStart(note: TimelineChartNote, collection: ReadonlyMap<string, TimelineChartNote>, options: SchedulingOptions): Date | null {
+    const ends = options.predecessors(note).flatMap(id => {
+        const predecessor = collection.get(id);
+        return predecessor?.hasDates !== false && predecessor ? [predecessor.end.getTime()] : [];
+    });
+    if (!ends.length) return null;
+    const end = new Date(Math.max(...ends));
+    return options.enhancedPeriod ? new Date(nextWorkingInstant(formatLocalDateTime(end), options.planningSettings, options.skipNonWorkingDays)) : end;
 }
 
-
-function dateValue(note: TimelineRecord, dateField: string | undefined): unknown {
-    return dateField ? note.metadata?.[dateField] ?? '' : '';
-}
-
-
-function pad(value: number): string {
-    return String(value).padStart(2, '0');
-}
-
-
-function formatDay(date: Date): string {
-    return `${String(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-
-function formatForField(
-    date: Date,
-    field: string,
-    schema: TimelineSchema,
-    readers: TimelineSchemaReaders,
-): string {
-    return readers.fieldType(schema, field) === 'datetime'
-        ? `${formatDay(date)}T${pad(date.getHours())}:${pad(date.getMinutes())}`
-        : formatDay(date);
-}
-
-
-function buildDateMetadata(
-    target: TimelineRecord,
-    start: Date,
-    end: Date,
-    options: Omit<SchedulingOptions, 'chartData' | 'notes' | 'onUpdateNote' | 'predecessors'>,
-): Readonly<Record<string, unknown>> {
-    const {
-        dateField,
-        endDateField,
-        enhancedPeriod,
-        planningSettings,
-        readers,
-        schema,
-        skipNonWorkingDays,
-        timelineUnit,
-    } = options;
-    const metadata: Record<string, unknown> = {};
-    if (dateField) {
-        if (readers.fieldType(schema, dateField) === 'period') {
-            if (enhancedPeriod) {
-                const next = parsePeriod(withPeriodBoundaries(
-                    dateValue(target, dateField),
-                    formatLocalDateTime(start),
-                    formatLocalDateTime(end),
-                    { startMode: 'manual', endMode: 'manual' },
-                ));
-                next.durationValue = periodDurationFromBoundaries(
-                    next.start,
-                    next.end,
-                    timelineUnit,
-                    planningSettings,
-                    skipNonWorkingDays,
-                );
-                next.durationUnit = timelineUnit;
-                next.durationDays = workingDurationDays(
-                    next.start,
-                    next.end,
-                    planningSettings,
-                    skipNonWorkingDays,
-                );
-                metadata[dateField] = serializePeriod(next);
-            } else {
-                metadata[dateField] = `${formatDay(start)}/${formatDay(end)}`;
-            }
-        } else {
-            metadata[dateField] = formatForField(start, dateField, schema, readers);
+/** Relax the whole dependency graph, including records hidden by view filters. */
+function schedule(root: TimelineChartNote, options: SchedulingOptions): TimelineChartNote[] {
+    const collection = new Map(options.chartData.map(note => [note.id, note]));
+    collection.set(root.id, root);
+    const minimum = minimumStart(root, collection, options);
+    if (minimum && root.start < minimum) {
+        root = { ...root, start: minimum, end: moveEnd(root, minimum, options) };
+        collection.set(root.id, root);
+    }
+    const changed = new Map([[root.id, root]]);
+    const queue = [root.id];
+    for (let guard = 0; queue.length && guard <= options.chartData.length ** 2; guard += 1) {
+        const id = queue.shift();
+        for (const note of collection.values()) {
+            if (!id || note.id === root.id || note.hasDates === false || !options.predecessors(note).includes(id)) continue;
+            const start = minimumStart(note, collection, options);
+            if (!start || note.start >= start) continue;
+            const updated = { ...note, start, end: moveEnd(note, start, options) };
+            collection.set(note.id, updated);
+            changed.set(note.id, updated);
+            queue.push(note.id);
         }
     }
-    if (endDateField && readers.fieldType(schema, endDateField) !== 'period') {
-        metadata[endDateField] = formatForField(end, endDateField, schema, readers);
-    }
-    return metadata;
+    if (queue.length) throw new Error('timeline.dependency_cycle');
+    return [...changed.values()];
 }
 
-
-function recalculateSuccessors(
-    updatedNoteId: string,
-    newEnd: Date,
-    allNotes: readonly TimelineChartNote[],
-    options: SchedulingOptions,
-    visited = new Set([updatedNoteId]),
-): TimelineChartNote[] {
-    const affected: TimelineChartNote[] = [];
-    if (!allNotes.some((note) => note.id === updatedNoteId)) return affected;
-    const successors = allNotes.filter(
-        (note) => options.predecessors(note).includes(updatedNoteId),
-    );
-    for (const successor of successors) {
-        if (visited.has(successor.id)) continue;
-        const normalizedStart = options.enhancedPeriod
-            ? nextWorkingInstant(
-                formatLocalDateTime(newEnd),
-                options.planningSettings,
-                options.skipNonWorkingDays,
-            )
-            : newEnd;
-        const minimumStart = new Date(normalizedStart);
-        if (successor.start >= minimumStart) continue;
-        const nextStart = new Date(minimumStart);
-        const period = parsePeriod(dateValue(successor, options.dateField));
-        const duration = period.durationValue ?? period.durationDays;
-        const unit = period.durationValue !== null
-            ? period.durationUnit ?? options.timelineUnit
-            : 'days';
-        const scheduledEnd = options.enhancedPeriod && duration !== null
-            ? addPeriodDuration(
-                normalizedStart,
-                duration,
-                unit,
-                options.planningSettings,
-                options.skipNonWorkingDays,
-            )
-            : '';
-        const nextEnd = scheduledEnd
-            ? new Date(scheduledEnd)
-            : new Date(
-                minimumStart.getTime()
-                + successor.end.getTime()
-                - successor.start.getTime(),
-            );
-        const updated = { ...successor, start: nextStart, end: nextEnd };
-        affected.push(updated);
-        visited.add(successor.id);
-        const updatedCollection = allNotes.map(
-            (note) => note.id === successor.id ? updated : note,
-        );
-        affected.push(...recalculateSuccessors(
-            successor.id,
-            nextEnd,
-            updatedCollection,
-            options,
-            visited,
-        ));
-    }
-    return Array.from(
-        new Map(affected.map((note) => [note.id, note])).values(),
-    );
-}
-
-
-export function useTimelineScheduling(
-    options: SchedulingOptions,
-): SchedulingController {
-    const updateDates = useCallback(async (
-        noteId: string,
-        newStart: Date,
-        newEnd: Date,
-    ): Promise<void> => {
-        if (!options.onUpdateNote) return;
-        const root = options.chartData.find((note) => note.id === noteId);
-        if (!root) return;
-        const successors = recalculateSuccessors(
-            noteId,
-            newEnd,
-            options.chartData,
-            options,
-        );
-        try {
-            await options.onUpdateNote(noteId, {
-                metadata: buildDateMetadata(root, newStart, newEnd, options),
-            });
-            for (const successor of successors) {
-                await options.onUpdateNote(successor.id, {
-                    metadata: buildDateMetadata(
-                        successor,
-                        successor.start,
-                        successor.end,
-                        options,
-                    ),
-                });
-            }
-        } catch (error) {
-            logError('timeline-date-update', error);
-        }
-    }, [options]);
-
-    const addPredecessor = useCallback(async (
-        noteId: string,
-        predecessorId: string,
-    ): Promise<void> => {
-        const note = options.notes.find((candidate) => candidate.id === noteId);
-        if (!note || !options.onUpdateNote) return;
-        const predecessorIds = [...options.predecessors(note)];
-        if (predecessorIds.includes(predecessorId)) return;
-        predecessorIds.push(predecessorId);
-        const predecessor = options.chartData.find(
-            (candidate) => candidate.id === predecessorId,
-        );
-        const current = options.chartData.find((candidate) => candidate.id === noteId);
-        if (options.enhancedPeriod && options.dateField) {
-            const next = parsePeriod(dateValue(note, options.dateField));
-            next.predecessorIds = predecessorIds;
-            if (predecessor) {
-                next.start = nextWorkingInstant(
-                    formatLocalDateTime(predecessor.end),
-                    options.planningSettings,
-                    options.skipNonWorkingDays,
-                );
-                next.startMode = 'auto';
-                const duration = next.durationValue ?? next.durationDays;
-                const unit = next.durationValue !== null
-                    ? next.durationUnit ?? options.timelineUnit
-                    : 'days';
-                if (duration !== null) {
-                    next.end = addPeriodDuration(
-                        next.start,
-                        duration,
-                        unit,
-                        options.planningSettings,
-                        options.skipNonWorkingDays,
-                    );
-                    next.endMode = 'auto';
-                }
-            }
-            await options.onUpdateNote(noteId, {
-                metadata: { [options.dateField]: serializePeriod(next) },
-            });
-            return;
-        }
-        await options.onUpdateNote(noteId, {
-            metadata: { ...note.metadata, predecessor_ids: predecessorIds },
+export function useTimelineScheduling(options: SchedulingOptions) {
+    const [history, setHistory] = useState<readonly (readonly Save[])[]>([]);
+    const [saving, setSaving] = useState(false);
+    const lock = useRef(false);
+    const saveBatch = useCallback(async (changes: readonly { readonly id: string; readonly metadata: Readonly<Record<string, unknown>> }[], remember = true) => {
+        if (!options.onUpdateNote || lock.current) return;
+        lock.current = true;
+        setSaving(true);
+        const saves: Save[] = changes.map(change => {
+            const note = options.notes.find(candidate => candidate.id === change.id);
+            const before = Object.fromEntries(Object.keys(change.metadata).filter(key => change.metadata[key] !== note?.metadata?.[key]).map(key => [key, note?.metadata?.[key] ?? null]));
+            return { id: change.id, patch: { metadata: change.metadata }, before: { metadata: before } };
         });
-        if (predecessor && current && current.start < predecessor.end) {
-            const duration = current.end.getTime() - current.start.getTime();
-            const start = new Date(predecessor.end);
-            const end = new Date(start.getTime() + duration);
-            await updateDates(noteId, start, end);
+        const completed: Save[] = [];
+        try {
+            for (const save of saves) { await options.onUpdateNote(save.id, save.patch); completed.push(save); }
+            if (remember && saves.length) setHistory(current => [...current.slice(-19), saves]);
+        } catch (error) {
+            const rollbackErrors: unknown[] = [];
+            for (const saved of completed.reverse()) {
+                try { await options.onUpdateNote(saved.id, saved.before); } catch (rollbackError) { rollbackErrors.push(rollbackError); }
+            }
+            if (rollbackErrors.length) throw new AggregateError([error, ...rollbackErrors], 'timeline.partial_save', { cause: error });
+            throw error;
+        } finally { lock.current = false; setSaving(false); }
+    }, [options]);
+    const updateDates = useCallback(async (id: string, start: Date, end: Date) => {
+        const note = options.chartData.find(candidate => candidate.id === id);
+        if (!note || !Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end < start) return;
+        const updated = schedule({ ...note, start, end, hasDates: true }, options);
+        await saveBatch(updated.map(target => ({ id: target.id, metadata: buildDateMetadata(target, target.start, target.end, options) })));
+    }, [options, saveBatch]);
+    const addPredecessor = useCallback(async (id: string, predecessorId: string) => {
+        const note = options.notes.find(candidate => candidate.id === id);
+        if (!note || !options.onUpdateNote || options.predecessors(note).includes(predecessorId)) return;
+        if (id === predecessorId || (options.chartData.some(candidate => candidate.id === predecessorId)
+            && !predecessorCandidates(id, options.chartData, options.predecessors).some(candidate => candidate.id === predecessorId))) {
+            throw new Error('timeline.dependency_cycle');
         }
-    }, [options, updateDates]);
-
-    return { addPredecessor };
+        const metadata: Record<string, unknown> = {};
+        if (options.enhancedPeriod && options.dateField) {
+            const period = parsePeriod(dateValue(note, options.dateField));
+            period.dependencies.push({ predecessorId, type: 'FS', lagMinutes: 0 });
+            period.predecessorIds.push(predecessorId);
+            metadata[options.dateField] = serializePeriod(period);
+        } else metadata[options.predecessorField ?? 'predecessor_ids'] = [...options.predecessors(note), predecessorId];
+        const current = options.chartData.find(candidate => candidate.id === id);
+        const changes = current && current.hasDates !== false ? schedule({ ...current, metadata: { ...note.metadata, ...metadata } }, options)
+            .map(target => ({ id: target.id, metadata: { ...(target.id === id ? note.metadata : {}), ...buildDateMetadata(target, target.start, target.end, options),
+                ...(target.id === id && !options.enhancedPeriod ? metadata : {}) } }))
+            : [{ id, metadata }];
+        await saveBatch(changes);
+    }, [options, saveBatch]);
+    const undo = useCallback(async () => {
+        const last = history.at(-1);
+        if (!last || lock.current) return;
+        await saveBatch([...last].reverse().map(save => ({ id: save.id, metadata: save.before.metadata })), false);
+        setHistory(current => current.slice(0, -1));
+    }, [history, saveBatch]);
+    return { addPredecessor, updateDates, undo, canUndo: history.length > 0, saving };
 }
 
-
-export function planningSettingsFrom(value: unknown): PlanningSettings {
+export function planningSettingsFrom(value: unknown): SchedulingOptions['planningSettings'] {
     return isPlanningSettings(value) ? value : {};
 }
 
-
-function isPlanningSettings(value: unknown): value is PlanningSettings {
+function isPlanningSettings(value: unknown): value is SchedulingOptions['planningSettings'] {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

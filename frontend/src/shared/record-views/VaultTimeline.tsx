@@ -12,6 +12,8 @@ export type { VaultTimelineProps } from './vault-timeline/types';
 
 export function VaultTimeline({
     activeView = {},
+    allNotes,
+    maxHeight,
     idToTitle = {},
     notes = [],
     onApplyTemplate,
@@ -28,6 +30,7 @@ export function VaultTimeline({
     const { t } = useTranslation();
     const controller = useVaultTimelineController({
         activeView,
+        allNotes,
         notes,
         onDeletePage,
         onDeleteSelected,
@@ -36,7 +39,7 @@ export function VaultTimeline({
         schema,
         searchTerm,
     });
-    return <div className="relative flex h-full w-full flex-col overflow-hidden bg-[var(--bg-primary)]">
+    return <div className="relative flex min-h-64 w-full flex-col overflow-hidden bg-[var(--bg-primary)]" style={{ height: maxHeight === 'none' ? 'auto' : maxHeight ?? 'min(65vh, 720px)' }}>
         <VaultTimelineControls
             controller={controller}
             idToTitle={idToTitle}
@@ -51,7 +54,7 @@ export function VaultTimeline({
             controller={controller}
             onNoteSelect={onNoteSelect}
         />
-        <div className="flex items-center justify-between border-t border-[var(--border-primary)] bg-[var(--bg-primary)] px-6 py-2 text-[10px] font-medium text-[var(--text-tertiary)]">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[var(--border-primary)] bg-[var(--bg-primary)] px-3 py-2 text-[10px] font-medium text-[var(--text-tertiary)]">
             <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1.5">
                     <div className="h-2.5 w-2.5 rounded bg-[var(--gnosi-primary)]" />
@@ -61,15 +64,15 @@ export function VaultTimeline({
                     <ArrowRight size={10} />
                     <span>{t(
                         'timeline.active_deps',
-                        'Active dependencies ({{count}} records)',
-                        { count: controller.chartData.length },
+                        '{{count}} dependencies',
+                        { count: controller.chartData.reduce((count, note) => count + controller.getPredecessors(note).length, 0) },
                     )}</span>
                 </div>
             </div>
             <div>
                 {t(
                     'timeline.footer_hint',
-                    'Interactive timeline with automatic dependencies.',
+                    'Drag tasks to move them, their edges to resize them, and the connection point to link a successor.',
                 )}
             </div>
         </div>
