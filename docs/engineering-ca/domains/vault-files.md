@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-09-14
+last_verified: 2026-10-08
 source_paths:
+  - backend/domains/llm_wiki
+  - backend/services/llm_wiki_suggestions.py
+  - frontend/src/shared/ui/filesystem-picker
+  - desktop/ipc-handlers.js
   - backend/domains/vault/pages/creation_recovery.py
   - backend/domains/vault/pages/creation_inputs.py
   - backend/services/handwriting_download.py
@@ -30,6 +34,11 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_page_reference_titles.py
+  - backend/tests/test_suggestion_localization.py
+  - frontend/src/shared/records/pageReferenceTitle.test.ts
+  - frontend/src/features/agent/inbox/BrainReviewFindings.test.tsx
+  - desktop/main-filesystem-picker.test.js
   - backend/tests/test_page_creation_recovery_executor.py
   - backend/tests/test_page_creation_index_reconciliation.py
   - backend/tests/test_handwriting_download.py
@@ -820,3 +829,17 @@ Les peticions de creació persisteixen un rebut privat i checkpoints abans dels 
 El vault efectiu seleccionat per capçalera, query o cookie és també la identitat emprada per l’autorització. Un vault explícitament inexistent, sense accés o sense muntar falla sense recórrer a un altre vault.
 
 Obrir el canvas de dibuix no descarrega ni carrega automàticament un model d’OCR. L’estat distingeix pesos absents, descàrrega, descarregat, càrrega, cancel·lació i error. La cancel·lació queda limitada al propietari i afecta la transferència, no una inferència activa. Els fitxers només es fan visibles a la caché després de verificar-ne la mida i el checksum; s’eliminen els fitxers parcials. La interfície mostra la mida transferida i l’estat traduït. Les proves sintètiques de transferència i canvas verifiquen aquests contractes, però no la precisió amb manuscrits reals ni fitxers del núvol sense materialitzar.
+
+## Notes generades, referències llegibles i revisió del Coneixement
+
+El processament de recursos crea notes de lectura amb l'estat `Esborrany` i les dates canòniques de creació i modificació de la taula. El reprocessament conserva la data de creació i l'estat de treball existent, actualitza la modificació i manté els identificadors estables i el text escrit per l'usuari.
+
+Els enllaços interns mostren els títols actuals de les pàgines als editors, relacions, taules, galeries, kanban, cerca, grafs, mencions i predecessors de planificació. El resolutor compartit admet identificadors, rutes de pàgina, els dos ordres de wikilink i cites de recursos `gnosi-cite:`. Les referències desconegudes mostren un text provisional localitzat mentre es carrega el títol. Els índexs de relacions conserven les claus gestionades i els identificadors desats amb etiquetes llegibles.
+
+Les previsualitzacions de lectura oculten els comentaris HTML de processament, inclosos els límits `<!-- ... -->`. Els comentaris literals dels blocs de codi i del codi en línia continuen visibles; el Markdown desat es conserva.
+
+Les connexions del Coneixement demanen els textos en l'idioma actiu mitjançant el paràmetre de consulta opcional `locale`. L'agent del Coneixement tradueix només els títols i les explicacions i desa cada idioma per proposta. Les evidències i els identificadors de les notes es conserven. La lectura de la memòria cau evita noves crides al model, i una proposta descartada durant la traducció no es restaura.
+
+El diàleg de revisió agrupa les notes i els recursos afectats en categories desplegables amb enllaços per títol i lots de vint entrades. Obrir un resultat tanca el diàleg i obre el registre. La comprovació de notes òrfenes reconeix tant `[[id|title]]` com `[[title|id]]`. La revisió no reprocessa recursos automàticament ni crea notes permanents.
+
+A l'escriptori, la selecció de fitxers i carpetes utilitza la capacitat IPC fiable i validada `pick-filesystem` i el diàleg natiu del sistema operatiu. Cancel·lar tanca el selector sense aplicar cap selecció; les seleccions múltiples conserven el tipus de fitxer o carpeta de cada ruta. Windows i Linux mostren primer una tria nativa entre fitxers i carpetes per a la selecció combinada. El navegador de fitxers intern continua disponible per als clients web sense el pont d'escriptori.

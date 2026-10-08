@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-09-14
+last_verified: 2026-10-08
 source_paths:
+  - backend/domains/llm_wiki
+  - backend/services/llm_wiki_suggestions.py
+  - frontend/src/shared/ui/filesystem-picker
+  - desktop/ipc-handlers.js
   - backend/domains/vault/pages/creation_recovery.py
   - backend/domains/vault/pages/creation_inputs.py
   - backend/services/handwriting_download.py
@@ -30,6 +34,11 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_page_reference_titles.py
+  - backend/tests/test_suggestion_localization.py
+  - frontend/src/shared/records/pageReferenceTitle.test.ts
+  - frontend/src/features/agent/inbox/BrainReviewFindings.test.tsx
+  - desktop/main-filesystem-picker.test.js
   - backend/tests/test_page_creation_recovery_executor.py
   - backend/tests/test_page_creation_index_reconciliation.py
   - backend/tests/test_handwriting_download.py
@@ -706,3 +715,17 @@ Page-creation requests persist a private receipt and checkpoints before replayab
 The effective vault selected by header, query or cookie is also the identity used by authorization. An explicitly missing, unauthorized or unmounted vault fails without falling back to another vault.
 
 Opening the drawing canvas does not automatically download or load an OCR model. Status distinguishes missing weights, downloading, downloaded, loading, cancellation and failure. Download cancellation is scoped to its owner and applies to transfer, not active inference. Files become cache-visible only after size and checksum verification; partial files are removed. The UI shows transferred size and localized status. Synthetic transfer and canvas tests verify these contracts, not recognition accuracy on real handwriting or cloud files that are not materialized.
+
+## Generated knowledge notes, readable references, and review
+
+Resource processing creates reading notes with `Esborrany` status and the table's canonical creation and modification dates. Reprocessing retains the creation date and an existing workflow status, refreshes modification time, and keeps stable page IDs and user-written content.
+
+Internal links display current page titles in editors, relations, tables, galleries, kanban, search, graphs, mentions, and planning predecessors. The shared resolver accepts IDs, page routes, both wikilink orders, and `gnosi-cite:` resource links. Unknown references show a localized placeholder while their titles load. Derived relation indexes keep their managed keys and stored IDs while using readable labels.
+
+Read-only previews hide HTML processing comments, including `<!-- ... -->` boundaries. Literal comments in fenced and inline code remain visible; stored Markdown is unchanged.
+
+Knowledge connections request their captions in the active UI locale through the optional `locale` query parameter. The Knowledge agent translates only proposal titles and explanations, and caches each locale per proposal. Source evidence and member IDs remain intact. Cached reads avoid another model call, and a proposal dismissed during translation is not restored.
+
+The review dialog groups affected notes and resources into expandable finding categories with title links and batches of twenty entries. Opening a finding closes the dialog and opens its record. The orphan check recognizes both `[[id|title]]` and `[[title|id]]`. Reviewing never automatically reprocesses a resource or creates a permanent note.
+
+Desktop file and folder selection uses the trusted, validated `pick-filesystem` IPC capability and the operating system's native dialog. Cancellation closes the picker without applying a selection; multiple selections retain each path's file or directory kind. Windows and Linux first use a native choice between file and folder modes for combined selection. The in-app filesystem browser remains available to browser clients without the desktop bridge.

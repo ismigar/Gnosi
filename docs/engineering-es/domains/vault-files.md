@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-09-14
+last_verified: 2026-10-08
 source_paths:
+  - backend/domains/llm_wiki
+  - backend/services/llm_wiki_suggestions.py
+  - frontend/src/shared/ui/filesystem-picker
+  - desktop/ipc-handlers.js
   - backend/domains/vault/pages/creation_recovery.py
   - backend/domains/vault/pages/creation_inputs.py
   - backend/services/handwriting_download.py
@@ -30,6 +34,11 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_page_reference_titles.py
+  - backend/tests/test_suggestion_localization.py
+  - frontend/src/shared/records/pageReferenceTitle.test.ts
+  - frontend/src/features/agent/inbox/BrainReviewFindings.test.tsx
+  - desktop/main-filesystem-picker.test.js
   - backend/tests/test_page_creation_recovery_executor.py
   - backend/tests/test_page_creation_index_reconciliation.py
   - backend/tests/test_handwriting_download.py
@@ -826,3 +835,17 @@ Las peticiones de creación persisten un recibo privado y checkpoints antes de l
 El vault efectivo seleccionado por cabecera, query o cookie es también la identidad usada para la autorización. Un vault explícitamente inexistente, sin acceso o sin montar falla sin recurrir a otro vault.
 
 Abrir el canvas de dibujo no descarga ni carga automáticamente un modelo OCR. El estado distingue pesos ausentes, descarga, descargado, carga, cancelación y error. La cancelación queda limitada al propietario y afecta a la transferencia, no a una inferencia activa. Los archivos solo se hacen visibles en la caché tras verificar su tamaño y checksum; los archivos parciales se eliminan. La interfaz muestra el tamaño transferido y el estado traducido. Las pruebas sintéticas de transferencia y canvas verifican estos contratos, pero no la precisión con manuscritos reales ni archivos de nube sin materializar.
+
+## Notas generadas, referencias legibles y revisión del Conocimiento
+
+El procesamiento de recursos crea notas de lectura con el estado `Esborrany` y las fechas canónicas de creación y modificación de la tabla. El reprocesamiento conserva la fecha de creación y el estado de trabajo existente, actualiza la modificación y mantiene los identificadores estables y el texto del usuario.
+
+Los enlaces internos muestran los títulos actuales en editores, relaciones, tablas, galerías, kanban, búsqueda, grafos, menciones y predecesores de planificación. El resolutor compartido admite identificadores, rutas de página, ambos órdenes de wikilink y citas de recursos `gnosi-cite:`. Las referencias desconocidas muestran un texto provisional localizado mientras se carga su título. Los índices de relaciones conservan sus claves gestionadas e identificadores guardados con etiquetas legibles.
+
+Las previsualizaciones de lectura ocultan los comentarios HTML de procesamiento, incluidos los límites `<!-- ... -->`. Los comentarios literales de bloques de código y código en línea siguen visibles; el Markdown guardado se conserva.
+
+Las conexiones del Conocimiento solicitan sus textos en el idioma activo mediante el parámetro de consulta opcional `locale`. El agente del Conocimiento traduce solo títulos y explicaciones y guarda cada idioma por propuesta. Se conservan las evidencias y los identificadores de las notas. Las lecturas de caché evitan otra llamada al modelo y una propuesta descartada durante la traducción no se restaura.
+
+El diálogo de revisión agrupa notas y recursos afectados en categorías desplegables con enlaces por título y lotes de veinte entradas. Abrir un resultado cierra el diálogo y abre su registro. La comprobación de notas huérfanas reconoce tanto `[[id|title]]` como `[[title|id]]`. La revisión no reprocesa recursos automáticamente ni crea notas permanentes.
+
+En el escritorio, la selección de archivos y carpetas utiliza la capacidad IPC fiable y validada `pick-filesystem` y el diálogo nativo del sistema operativo. Cancelar cierra el selector sin aplicar una selección; las selecciones múltiples conservan el tipo de archivo o carpeta de cada ruta. Windows y Linux muestran primero una elección nativa entre archivos y carpetas para la selección combinada. El navegador interno sigue disponible para clientes web sin el puente de escritorio.

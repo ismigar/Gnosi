@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-09-14
+last_verified: 2026-10-08
 source_paths:
+  - backend/domains/llm_wiki
+  - backend/services/llm_wiki_suggestions.py
+  - frontend/src/shared/ui/filesystem-picker
+  - desktop/ipc-handlers.js
   - backend/domains/vault/pages/creation_recovery.py
   - backend/domains/vault/pages/creation_inputs.py
   - backend/services/handwriting_download.py
@@ -30,6 +34,11 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_page_reference_titles.py
+  - backend/tests/test_suggestion_localization.py
+  - frontend/src/shared/records/pageReferenceTitle.test.ts
+  - frontend/src/features/agent/inbox/BrainReviewFindings.test.tsx
+  - desktop/main-filesystem-picker.test.js
   - backend/tests/test_page_creation_recovery_executor.py
   - backend/tests/test_page_creation_index_reconciliation.py
   - backend/tests/test_handwriting_download.py
@@ -841,3 +850,17 @@ Les demandes de création enregistrent un reçu privé et des checkpoints avant 
 Le vault effectif sélectionné par en-tête, query ou cookie est également l’identité utilisée par l’autorisation. Un vault explicitement absent, non autorisé ou non monté échoue sans se rabattre sur un autre vault.
 
 L’ouverture du canvas de dessin ne télécharge ni ne charge automatiquement un modèle OCR. L’état distingue poids absents, téléchargement, téléchargé, chargement, annulation et échec. L’annulation est limitée au propriétaire et concerne le transfert, pas une inférence active. Les fichiers ne deviennent visibles dans le cache qu’après vérification de leur taille et checksum ; les fichiers partiels sont supprimés. L’interface affiche la taille transférée et l’état traduit. Les essais synthétiques de transfert et de canvas vérifient ces contrats, sans attester la précision sur des manuscrits réels ni les fichiers cloud non matérialisés.
+
+## Notes générées, références lisibles et révision des connaissances
+
+Le traitement des ressources crée des notes de lecture avec le statut `Esborrany` et les dates canoniques de création et de modification de la table. Le retraitement conserve la date de création et le statut de travail existant, actualise la modification et préserve les identifiants stables et le texte de l'utilisateur.
+
+Les liens internes affichent les titres actuels dans les éditeurs, relations, tables, galeries, kanban, recherches, graphes, mentions et prédécesseurs de planification. Le résolveur partagé accepte les identifiants, routes de page, deux ordres de wikilink et citations de ressources `gnosi-cite:`. Les références inconnues affichent un texte provisoire localisé pendant le chargement du titre. Les index de relations conservent leurs clés gérées et identifiants enregistrés avec des libellés lisibles.
+
+Les aperçus de lecture masquent les commentaires HTML de traitement, dont les délimiteurs `<!-- ... -->`. Les commentaires littéraux dans les blocs de code et le code en ligne restent visibles ; le Markdown enregistré est préservé.
+
+Les connexions des connaissances demandent leurs textes dans la langue active via le paramètre de requête facultatif `locale`. L'agent des connaissances traduit uniquement les titres et explications et met en cache chaque langue par proposition. Les preuves et identifiants des notes sont conservés. Les lectures du cache évitent un nouvel appel au modèle et une proposition rejetée pendant la traduction n'est pas restaurée.
+
+Le dialogue de révision regroupe les notes et ressources concernées en catégories dépliables avec des liens par titre et des lots de vingt entrées. Ouvrir un résultat ferme le dialogue et ouvre son enregistrement. La vérification des notes orphelines reconnaît `[[id|title]]` et `[[title|id]]`. La révision ne retraite pas automatiquement les ressources et ne crée pas de note permanente.
+
+Sur le bureau, la sélection des fichiers et dossiers utilise la capacité IPC fiable et validée `pick-filesystem` et le dialogue natif du système. Annuler ferme le sélecteur sans appliquer de sélection ; les sélections multiples conservent le type de fichier ou dossier de chaque chemin. Windows et Linux proposent d'abord un choix natif entre fichiers et dossiers pour la sélection combinée. Le navigateur interne reste disponible aux clients web sans le pont de bureau.
