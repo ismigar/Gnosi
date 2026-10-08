@@ -3,13 +3,34 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+import hashlib
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from copy import deepcopy
 
 import jsonschema
 
 from backend.domains.llm_wiki.idea_classification import IDEA_DESCRIPTION
 from backend.domains.vault.registry.records import is_record
 from backend.services.agent_behavior import task_input
+
+
+@contextmanager
+def execution_session() -> Iterator[None]:
+    """Bind the local owner and keep the classifier's data within its supplied notes."""
+    from backend.services.agent_execution import operation_session, prepare_snapshot
+    from backend.services.agent_execution_scope import personal_scheduler_scope
+    from backend.services.agent_operation_catalog import skill_id
+
+    with personal_scheduler_scope(origin="button"):
+        snapshot = prepare_snapshot(skill_id("knowledge"))
+        profile = deepcopy(snapshot.profile)
+        profile.update(context="", context_refs=[], _execution_reviewed_memory=[])
+        profile["team"] = {**profile.get("team", {}), "enabled": False}
+        revision = hashlib.sha256((snapshot.revision + ":supplied-notes-only").encode()).hexdigest()
+        scoped = snapshot.model_copy(update={"profile": profile, "revision": revision})
+        with operation_session(scoped):
+            yield
 
 
 def batches(notes: list[dict[str, object]], maximum: int = 15) -> list[list[dict[str, object]]]:

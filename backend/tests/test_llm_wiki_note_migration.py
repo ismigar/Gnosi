@@ -1,7 +1,7 @@
 """A disposable vault proves retirement, selective repair, conflict detection and rollback."""
 
 import json
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,6 +10,7 @@ import pytest
 
 from backend.api import vault_routes
 from backend.domains.llm_wiki import migration_files as files
+from backend.domains.llm_wiki import classification_repair
 from backend.domains.llm_wiki import note_migration as migration
 from backend.domains.llm_wiki.field_retirement import retire_schema
 from backend.domains.vault.registry.state import RegistryData
@@ -141,6 +142,65 @@ def test_preview_is_read_only_and_distinguishes_manual_classifications(tmp_path:
         "manual": "manual",
     }
     assert before == {p: p.read_bytes() for p in vault.rglob("*") if p.is_file()}
+
+
+def test_cli_scoped_preview_preserves_other_resource_and_all_integrity_guards(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    vault, output = _fixture(tmp_path)
+    side = vault / ".gnosi/llm_wiki/pages/empty.json"
+    state = files.read_json(side)
+    state["metadata"]["llm_wiki_resource_id"] = "another-book"
+    state["metadata"]["llm_wiki_resource_title"] = "Another book"
+    side.write_text(json.dumps(state))
+    monkeypatch.setattr("sys.argv", ["migration", "--vault", str(vault), "--output", str(output),
+                                   "--resource-id", "book", "--action", "preview"])
+    migration.main()
+    data = files.read_json(output / "preview.json")
+    assert {n["id"] for n in data["notes"]} == {"concept", "manual"}
+    assert len(data["rows"]) == 4 and data["resources"] == {"Book": 2}
+    changes, _ = migration.build_changes(vault, data, _cache())
+    files.apply(vault, output, changes)
+    assert files.frontmatter((vault / "BD/Brain/empty.md").read_text())[0]["Idea"] is None
+    assert "llm_wiki_idea_classification" not in files.read_json(side)["metadata"]
+
+
+def test_classifier_binds_owner_and_excludes_attached_context_without_changing_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from backend.services import agent_execution, agent_execution_scope
+    from backend.services.agent_execution_models import AgentExecutionSnapshot, ExecutionScope
+
+    snapshot = AgentExecutionSnapshot(
+        scope=ExecutionScope(user_id="owner", workspace_id="personal", role="owner", vault_path=str(tmp_path)),
+        agent_id="knowledge", profile={"id": "knowledge", "provider": "configured", "model": "selected",
+            "context": "Other private notes", "context_refs": [{"type": "table", "ref": "other"}],
+            "_execution_reviewed_memory": [{"text": "Other memory"}], "team": {"enabled": True}},
+        skill_ids=["core.gnosi-operation-knowledge"], instructions=["Classify by meaning"],
+        catalog_revision="1", revision="original",
+    )
+    original = deepcopy(snapshot)
+    events = []
+    @contextmanager
+    def owner_scope(**kwargs):
+        events.append("owner")
+        assert kwargs == {"origin": "button"}
+        yield
+    @contextmanager
+    def operation(scoped):
+        assert events == ["owner"]
+        assert scoped.profile["context"] == "" and scoped.profile["context_refs"] == []
+        assert scoped.profile["_execution_reviewed_memory"] == [] and not scoped.profile["team"]["enabled"]
+        assert scoped.profile["provider"] == "configured" and scoped.profile["model"] == "selected"
+        assert scoped.instructions == snapshot.instructions and scoped.revision != snapshot.revision
+        events.append("operation")
+        yield
+    monkeypatch.setattr(agent_execution_scope, "personal_scheduler_scope", owner_scope)
+    monkeypatch.setattr(agent_execution, "prepare_snapshot", lambda _skill: snapshot)
+    monkeypatch.setattr(agent_execution, "operation_session", operation)
+    with classification_repair.execution_session():
+        assert events == ["owner", "operation"]
+    assert snapshot == original
 
 
 def test_full_migration_preserves_content_manual_values_and_is_idempotent(tmp_path: Path) -> None:

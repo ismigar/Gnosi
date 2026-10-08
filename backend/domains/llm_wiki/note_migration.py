@@ -468,12 +468,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--vault", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--resource-id", help="Limit preview's reading-note classification to this resource")
     parser.add_argument(
         "--action",
         choices=("preview", "classify", "apply", "retire", "rollback"),
         default="preview",
     )
     args = parser.parse_args()
+    if args.resource_id and args.action != "preview":
+        raise ValueError("Select the resource when creating the preview; subsequent actions reuse it")
     vault, output = args.vault.resolve(), args.output.resolve()
     if output.is_relative_to(vault):
         raise ValueError("Keep migration backups and reports outside the synced vault")
@@ -481,6 +484,15 @@ def main() -> None:
     preview_path = output / "preview.json"
     if args.action == "preview":
         data = inventory(vault)
+        if args.resource_id:
+            selected = [n for n in _rows(data, "notes") if n["resource_id"] == args.resource_id]
+            if not selected:
+                raise ValueError("The selected resource has no generated reading notes")
+            data.update(
+                notes=selected,
+                resources=dict(Counter(str(n["resource_title"]) for n in selected)),
+                resource_id=args.resource_id,
+            )
         safe_write_json(preview_path, data, indent=2, ensure_ascii=False, default=str)
         print(
             json.dumps(
@@ -502,7 +514,8 @@ def main() -> None:
             VAULT_HOST_PATH=str(vault),
             GNOSI_DISABLE_SCHEDULER="1",
         )
-        _classify(vault, output, data)
+        with classification_repair.execution_session():
+            _classify(vault, output, data)
         return
     plan_path = output / "changes.json"
     if args.action == "rollback":
