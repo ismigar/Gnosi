@@ -6858,7 +6858,11 @@
       "review": "Vérifier le Cerveau",
       "report_title": "Vérification du Cerveau",
       "results": "Voir la vérification",
-      "unavailable": "Vérifiez la table et les sources dans Paramètres → Extensions → Cerveau avant de continuer."
+      "unavailable": "Vérifiez la table et les sources dans Paramètres → Extensions → Cerveau avant de continuer.",
+      "show_more": "Afficher plus de notes",
+      "details_unavailable": "Les détails sont indisponibles. Relancez la révision.",
+      "duplicate_keys": "{{count}} clés de traitement en double",
+      "stale_managed": "{{count}} notes générées en attente de mise à jour"
     },
     "budget_available": "Disponible dans la limite : {{amount}}. Le traitement se met en pause avant un appel qui dépasserait le solde et conserve la progression.",
     "estimate_over_budget": "Le calcul dépasse le budget disponible. Le traitement peut rester incomplet ; la limite n’est pas augmentée automatiquement.",

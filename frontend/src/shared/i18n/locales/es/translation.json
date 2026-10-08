@@ -6858,7 +6858,11 @@
       "review": "Revisar Cerebro",
       "report_title": "Revisión del Cerebro",
       "results": "Ver la revisión",
-      "unavailable": "Revisa la tabla y las fuentes configuradas en Configuración → Complementos → Cerebro antes de continuar."
+      "unavailable": "Revisa la tabla y las fuentes configuradas en Configuración → Complementos → Cerebro antes de continuar.",
+      "show_more": "Mostrar más notas",
+      "details_unavailable": "No hay detalles disponibles. Vuelve a ejecutar la revisión.",
+      "duplicate_keys": "{{count}} claves de procesamiento duplicadas",
+      "stale_managed": "{{count}} notas generadas pendientes de actualización"
     },
     "budget_available": "Disponible dentro del límite: {{amount}}. El proceso se pausa antes de una llamada que no quepa y guarda el progreso.",
     "estimate_over_budget": "El cálculo supera el presupuesto disponible. Si empiezas, puede quedar trabajo pendiente; el límite no se aumenta automáticamente.",

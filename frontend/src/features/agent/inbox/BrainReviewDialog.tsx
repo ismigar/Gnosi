@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import type { PluginLlmWikiMaintenanceResponse } from '../../../shared/api/plugins';
 import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
 import { browserDocumentBody } from '../../../shared/platform/browser-events';
+import { BrainReviewFindings } from './BrainReviewFindings';
 
 interface BrainReviewDialogProps {
     readonly busy: boolean;
@@ -41,12 +42,18 @@ export function BrainReviewDialog({ busy, semantic, error, lint, onClose, onRetr
                 </div>}
                 {lint && <div role="status" className="space-y-3">
                     <p className="font-semibold text-[var(--text-primary)]">{t('settings.plugins.llm_wiki_lint_summary', { count: lint.note_count })}</p>
-                    <ul className="list-disc pl-5 space-y-1">
-                        <li>{t('settings.plugins.llm_wiki_lint_orphans', { count: lint.counts.orphans ?? 0 })}</li>
-                        <li>{t('settings.plugins.llm_wiki_lint_cites', { count: lint.counts.broken_cites ?? 0 })}</li>
-                        <li>{t('settings.plugins.llm_wiki_lint_indexes', { count: lint.counts.index_drift ?? 0 })}</li>
-                        <li>{t('settings.plugins.llm_wiki_lint_reprocess', { count: lint.counts.reprocess ?? 0 })}</li>
-                    </ul>
+                    {[
+                        ['orphans', 'settings.plugins.llm_wiki_lint_orphans'],
+                        ['broken_cites', 'settings.plugins.llm_wiki_lint_cites'],
+                        ['index_drift', 'settings.plugins.llm_wiki_lint_indexes'],
+                        ['reprocess', 'settings.plugins.llm_wiki_lint_reprocess'],
+                        ['stale', 'settings.plugins.llm_wiki_lint_stale'],
+                        ['missing_xref', 'settings.plugins.llm_wiki_lint_xref'],
+                        ['duplicate_keys', 'llm_wiki.tools.duplicate_keys'],
+                        ['stale_managed', 'llm_wiki.tools.stale_managed'],
+                    ].map(([key = '', translation = '']) => <BrainReviewFindings
+                        key={key} label={t(translation, { count: lint.counts[key] ?? 0 })}
+                        count={lint.counts[key] ?? 0} value={lint[key]} onClose={onClose} />)}
                 </div>}
             </div>
         </div>
