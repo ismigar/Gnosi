@@ -377,6 +377,7 @@ async def _operation_response(application: Any, inputs: dict[str, Any], request:
 
 async def _operation_application(request: AgentOperation, snapshot: AgentExecutionSnapshot, ai: Any, runtime: Any) -> tuple[Any, Any]:
     from backend.agent.factory import create_agent_workflow
+    classifying_notes = request.operation == "knowledge" and request.data.get("task") == "knowledge.classify"
     workflow, selection = await create_agent_workflow(
         [], None, agent_id=snapshot.agent_id, user_message=operation_input(request),
         timeout=request.timeout_seconds, active_skill_ids=snapshot.skill_ids,
@@ -387,11 +388,12 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         # The durable reader owns the book loop. Each phase asks its frozen
         # model for one bounded result; a team handoff cannot run that loop
         # from a conversation or switch its source-processing executor.
-        operation_team_help=request.operation != "knowledge.process-source.phase",
+        operation_team_help=request.operation != "knowledge.process-source.phase" and not classifying_notes,
         # Reading returns one bounded action, never the whole book. Avoid a
         # provider-default reservation of 65,536 output tokens for each step.
         operation_max_output_tokens=((8192 if request.options.get("reading_prose") else 16384)
-                                     if request.operation == "knowledge.process-source.phase" else None),
+                                     if request.operation == "knowledge.process-source.phase"
+                                     else 4096 if classifying_notes else None),
         operation_default_reasoning_effort=("low" if request.operation == "knowledge.process-source.phase"
                                             and not snapshot.profile.get("reasoning_effort") else None),
         output_schema=request.output_schema,

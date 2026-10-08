@@ -897,6 +897,20 @@ def test_prose_map_output_reservation_is_smaller_and_frozen(runtime, monkeypatch
     assert captured['prepared_agent_data'] is snapshot.profile
 
 
+def test_existing_note_classification_has_bounded_output_and_no_team_handoff(runtime, monkeypatch):
+    _, snapshot = runtime
+    captured = {}
+    async def workflow(*args, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(compile=lambda: 'compiled'), {}
+    monkeypatch.setattr('backend.agent.factory.create_agent_workflow', workflow)
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation='knowledge',
+        data={'task': 'knowledge.classify', 'data': {'notes': []}})
+    asyncio.run(execution._operation_application(request, snapshot, {}, None))
+    assert captured['operation_max_output_tokens'] == 4096
+    assert captured['operation_team_help'] is False
+
+
 def test_oversized_complete_synthesis_is_returned_to_the_reader_without_full_source_format_repair(runtime, monkeypatch):
     from backend.domains.llm_wiki.semantic_map_reduction import MapSizeLimit
     scope, snapshot = runtime
