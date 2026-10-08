@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
 
@@ -12,7 +13,10 @@ from backend.domains.llm_wiki.field_catalogs import catalog_value
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
+from backend.domains.vault.tables.catalogs.roles import ROLE_STATUS, find_role_prop
+from backend.domains.vault.tables.catalogs.seeds import STATUS_DRAFT
 from backend.services.plugin_fields import bindings
+from backend.services.table_system_dates import stamp_system_dates
 from backend.utils.open_values import integer_value, iterable_values
 
 
@@ -234,6 +238,11 @@ def _apply_note(
         return "updated", title, ""
     identifier = context.dependencies.uuid_factory()
     metadata["id"] = identifier
+    table: RegistryData = {"properties": list(context.props_by_id.values())}
+    status = find_role_prop(table, ROLE_STATUS)
+    if status and status.get("name"):
+        metadata[str(status["name"])] = STATUS_DRAFT
+    stamp_system_dates(metadata, table, is_create=True)
     path = context.dependencies.get_unique_filepath(context.brain_dir, title, ".md")
     portable = context.dependencies.prepare_managed_markdown(metadata)
     context.dependencies.save_page_md(
@@ -430,6 +439,7 @@ def _update_existing_page(
         str(getattr(page, "id", "") or old_metadata.get("id") or ""),
     )
     old_metadata.update(metadata)
+    _stamp_existing_dates(old_metadata, path, dependencies)
     portable = dependencies.prepare_managed_markdown(old_metadata)
     dependencies.save_page_md(
         path,
@@ -438,6 +448,22 @@ def _update_existing_page(
     )
     dependencies.register_page_in_index(path)
     return True
+
+
+def _stamp_existing_dates(
+    metadata: PageMetadata,
+    path: Path,
+    dependencies: WritingDependencies,
+) -> None:
+    table = dependencies.table_by_id(str(metadata.get("table_id") or ""))
+    stat = path.stat()
+    created = getattr(stat, "st_birthtime", 0) or stat.st_ctime
+    stamp_system_dates(
+        metadata,
+        table,
+        is_create=False,
+        created_fallback=datetime.fromtimestamp(created, timezone.utc).isoformat(),
+    )
 
 
 def _mark_stale_notes(context: _WriteContext, active_keys: set[str]) -> None:
@@ -459,6 +485,7 @@ def _mark_stale_notes(context: _WriteContext, active_keys: set[str]) -> None:
             str(getattr(page, "id", "") or old_metadata.get("id") or ""),
         )
         old_metadata["llm_wiki_stale"] = True
+        _stamp_existing_dates(old_metadata, path, context.dependencies)
         context.dependencies.save_page_md(
             path,
             context.dependencies.prepare_managed_markdown(old_metadata),
