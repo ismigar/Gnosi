@@ -1,9 +1,12 @@
+import { useRef } from 'react';
+import { EmbedTabMenu } from './EmbedTabMenu';
 import { MoreHorizontal, Settings, Edit2, Copy, X, Trash2 } from 'lucide-react';
 import { writeText, selectedKey } from './preferences';
 import { legacyText } from './decode';
 import type { EmbedModel } from './useEmbedController';
 export function EmbedTabs({ model }: { model: EmbedModel ;}) {
     const { visibleTabs, activeViewId, viewId, setActiveViewId, pageId, handleRenameView, t, tabMenuFor, decideMenuDir, setTabMenuFor, menuUp, handleConfigureView, handleDuplicateView, handleUnpinView, handleDeleteView } = model;
+    const menuAnchorRef = useRef<HTMLButtonElement | null>(null);
     if (visibleTabs.length <= 1) return null;
     return (<div className="relative z-30 flex flex-wrap items-center gap-0.5 border-b border-[var(--border-primary)] mb-2">
         {visibleTabs.map(v => {
@@ -23,7 +26,7 @@ export function EmbedTabs({ model }: { model: EmbedModel ;}) {
                     <span>{v.name || v.heading || t('views_header.default_view_name', "View")}</span>
                     <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); decideMenuDir(e); setTabMenuFor(m => m === v.id ? null : v.id); }}
+                        onClick={(e) => { e.stopPropagation(); menuAnchorRef.current = e.currentTarget; decideMenuDir(e); setTabMenuFor(m => m === v.id ? null : v.id); }}
                         className={`${tabMenuFor === v.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} text-[var(--text-tertiary)] hover:text-[var(--text-primary)]`}
                         title={tabMenuFor != null ? '' : t('views_header.view_options', "View options")}
                         aria-expanded={tabMenuFor === v.id}
@@ -32,9 +35,7 @@ export function EmbedTabs({ model }: { model: EmbedModel ;}) {
                         <MoreHorizontal size={13} />
                     </button>
                     {tabMenuFor === v.id && (
-                        <>
-                            <div className="fixed inset-0 z-[55]" onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); }} />
-                            <div className={`absolute z-[60] left-0 ${menuUp ? "bottom-full mb-1" : "top-full mt-1"} w-56 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1 text-[var(--text-primary)] font-normal`}>
+                        <EmbedTabMenu anchorRef={menuAnchorRef} opensUpward={menuUp} onClose={() => { setTabMenuFor(null); }}>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleConfigureView(v); }}
                                     className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
@@ -75,8 +76,7 @@ export function EmbedTabs({ model }: { model: EmbedModel ;}) {
                                         </button>
                                     </>
                                 )}
-                            </div>
-                        </>
+                        </EmbedTabMenu>
                     )}
                 </div>
             );
