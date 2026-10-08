@@ -33,7 +33,6 @@ from backend.domains.vault.tables.catalogs.core import get_prop_options
 from backend.domains.vault.tables.catalogs.roles import ROLE_STATUS, find_role_prop
 from backend.domains.vault.tables.catalogs.seeds import STATUS_DRAFT
 from backend.services.table_system_dates import stamp_system_dates
-from backend.utils.metadata_io import read_metadata_text
 from backend.utils.open_values import iterable_values
 from backend.utils.safe_io import safe_write_json
 
@@ -93,7 +92,7 @@ def inventory(vault: Path) -> dict[str, object]:
     notes: list[dict[str, object]] = []
     resources: Counter[str] = Counter()
     for path in sorted(_folder(vault, registry, table).rglob("*.md")):
-        text = read_metadata_text(path, encoding="utf-8")
+        text = files.read_markdown(path)
         metadata, body = files.frontmatter(text)
         if metadata.get("table_id") != table.get("id"):
             continue
@@ -220,7 +219,7 @@ def _configured_assignment(
     original: RegistryData = {}
     if mode == "source" and source_table:
         for path in _folder(vault, registry, source_table).rglob("*.md"):
-            metadata, _body = files.frontmatter(read_metadata_text(path, encoding="utf-8"))
+            metadata, _body = files.frontmatter(files.read_markdown(path))
             if metadata.get("id") == note["resource_id"]:
                 original = metadata
                 break
@@ -346,6 +345,17 @@ def _classify(vault: Path, output: Path, data: dict[str, object]) -> dict[str, o
     return cache
 
 
+def _classification_result(value: object, idea: RegistryData) -> RegistryData:
+    if not is_record(value):
+        raise ValueError("Invalid cached classification")
+    allowed = {option["name"] for option in get_prop_options(idea)}
+    if value.get("value") is not None and value.get("value") not in allowed:
+        raise ValueError("Cached classification is outside the current catalog")
+    if not isinstance(value.get("reason"), str) or not str(value["reason"]).strip():
+        raise ValueError("Cached classification has no justification")
+    return value
+
+
 def build_changes(
     vault: Path, data: dict[str, object], cache: dict[str, object]
 ) -> tuple[list[dict[str, object]], dict[str, object]]:
@@ -374,7 +384,7 @@ def build_changes(
     status = find_role_prop(cleaned_table, ROLE_STATUS)
     for row in _rows(data, "rows"):
         path = vault / str(row["path"])
-        metadata, body = files.frontmatter(read_metadata_text(path, encoding="utf-8"))
+        metadata, body = files.frontmatter(files.read_markdown(path))
         original = dict(metadata)
         for name in removed:
             metadata.pop(name, None)
@@ -383,13 +393,7 @@ def build_changes(
             if status and _field_value(metadata, status) is None:
                 metadata[str(status["name"])] = STATUS_DRAFT
             if note["action"] == "classify":
-                result = results[str(row["id"])]
-                assert is_record(result)
-                allowed = {option["name"] for option in get_prop_options(idea)}
-                if result.get("value") is not None and result.get("value") not in allowed:
-                    raise ValueError("Cached classification is outside the current catalog")
-                if not isinstance(result.get("reason"), str) or not str(result["reason"]).strip():
-                    raise ValueError("Cached classification has no justification")
+                result = _classification_result(results[str(row["id"])], idea)
                 for alias in [idea.get("id"), *iterable_values(idea.get("aliases") or [])]:
                     if alias != idea.get("name"):
                         metadata.pop(alias, None)

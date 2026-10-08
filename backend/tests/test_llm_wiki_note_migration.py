@@ -1,8 +1,10 @@
 """A disposable vault proves retirement, selective repair, conflict detection and rollback."""
 
 import json
+from contextlib import nullcontext
 from copy import deepcopy
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -265,3 +267,54 @@ def test_repair_honors_explicit_assignment_without_a_model(
     note = next(n for n in data["notes"] if n["id"] == "concept")
     result = migration._configured_assignment(vault, data, note)
     assert result["value"] == value and result["method"] == mode and result["run_ids"] == []
+
+
+def test_classification_cache_resumes_per_note_without_resetting_budget(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from backend.services import agent_execution, llm_wiki_storage, reading_budget
+
+    vault, output = _fixture(tmp_path)
+    calls = []
+
+    def generate(prompt, **_options):
+        notes = json.loads(prompt)["data"]["notes"]
+        calls.append([note["id"] for note in notes])
+        return SimpleNamespace(
+            run_id="synthetic",
+            result=json.dumps(
+                {
+                    "classifications": [
+                        {"id": note["id"], "values": ["Concept"], "reason": "One proposition"}
+                        for note in notes
+                    ]
+                }
+            ),
+        )
+
+    monkeypatch.setattr(agent_execution, "generate_result_for", generate)
+    monkeypatch.setattr(
+        llm_wiki_storage, "get_job_status", lambda *_args: {"budget_id": "existing-budget"}
+    )
+    monkeypatch.setattr(reading_budget, "status", lambda key: {"id": key, "remaining_usd": 1})
+    monkeypatch.setattr(reading_budget, "session", lambda _key: nullcontext())
+    monkeypatch.setattr(
+        reading_budget, "configure", lambda *_args: pytest.fail("Must retain existing budget")
+    )
+    migration._classify(vault, output, migration.inventory(vault))
+    migration._classify(vault, output, migration.inventory(vault))
+    assert calls == [["concept", "empty"]]
+    path = vault / "BD/Brain/empty.md"
+    path.write_text(path.read_text() + "Another substantive claim.\n")
+    migration._classify(vault, output, migration.inventory(vault))
+    assert calls == [["concept", "empty"], ["empty"]]
+
+
+def test_migration_preserves_crlf_body_bytes(tmp_path: Path) -> None:
+    vault, output = _fixture(tmp_path)
+    path = vault / "BD/Brain/concept.md"
+    path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+    _meta, body = files.frontmatter(files.read_markdown(path))
+    changes, _ = migration.build_changes(vault, migration.inventory(vault), _cache())
+    files.apply(vault, output, changes)
+    assert files.frontmatter(files.read_markdown(path))[1].encode() == body.encode()

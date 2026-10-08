@@ -12,7 +12,7 @@ import yaml
 
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
-from backend.utils.metadata_io import read_metadata_text
+from backend.utils.metadata_io import read_metadata_bytes, read_metadata_text
 from backend.utils.safe_io import safe_write_json, safe_write_text
 
 
@@ -44,6 +44,11 @@ def frontmatter(text: str) -> tuple[RegistryData, str]:
     return dict(metadata), "".join(lines[end + 1 :])
 
 
+def read_markdown(path: Path) -> str:
+    """Keep CRLF and literal evidence bytes while hydrating cloud metadata."""
+    return read_metadata_bytes(path).decode("utf-8")
+
+
 def markdown(metadata: RegistryData, body: str) -> str:
     return "---\n" + yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False) + "---\n" + body
 
@@ -64,22 +69,26 @@ def change(vault: Path, path: Path, text: str) -> dict[str, object] | None:
     }
 
 
-def apply(vault: Path, output: Path, changes: list[dict[str, object]]) -> dict[str, object]:
-    """All comparisons precede mutation; a verified archive survives interruption."""
-    journal_path = output / "apply-journal.json"
-    journal = read_json(journal_path) if journal_path.exists() else {}
-    if journal and journal.get("plan_sha256") != digest(json_text(changes).encode()):
-        raise ValueError("Migration journal belongs to a different plan")
+def _verify_sources(vault: Path, changes: list[dict[str, object]], *, resume: bool) -> None:
     for item in changes:
         path = (vault / str(item["path"])).resolve()
         if not path.is_relative_to(vault.resolve()):
             raise ValueError("Migration target escapes the vault")
         actual = digest(path.read_bytes()) if path.exists() else None
         permitted = {item["before_sha256"]}
-        if journal:
+        if resume:
             permitted.add(item["after_sha256"])
         if actual not in permitted:
             raise ValueError(f"File changed after preview: {item['path']}")
+
+
+def apply(vault: Path, output: Path, changes: list[dict[str, object]]) -> dict[str, object]:
+    """All comparisons precede mutation; a verified archive survives interruption."""
+    journal_path = output / "apply-journal.json"
+    journal = read_json(journal_path) if journal_path.exists() else {}
+    if journal and journal.get("plan_sha256") != digest(json_text(changes).encode()):
+        raise ValueError("Migration journal belongs to a different plan")
+    _verify_sources(vault, changes, resume=bool(journal))
     archive = output / "vault-before.tar.gz"
     if journal and files_digest(archive) != journal.get("backup_sha256"):
         raise ValueError("Migration backup changed after verification")

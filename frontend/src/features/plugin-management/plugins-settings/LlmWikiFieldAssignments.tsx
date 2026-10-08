@@ -32,7 +32,7 @@ export function LlmWikiFieldAssignments({ brainTable, draft, source, properties,
     const selectedIds = [...new Set([...(source.assignment_field_ids ?? draft.index_field_ids),
         ...(ideaId && brainTable.properties.some(prop => prop.id === ideaId) ? [ideaId] : [])])];
     const protectedIds = new Set(['note_type', 'position', 'section'].map(role => draft.brain_roles[role]));
-    brainTable.properties.forEach(prop => { if (prop.role === 'status' || ['created_time', 'last_edited_time', 'created_by', 'last_edited_by'].includes(prop.type)) protectedIds.add(prop.id); });
+    brainTable.properties.forEach(prop => { if (['status', 'created', 'modified'].includes(prop.role ?? '') || ['created_time', 'last_edited_time', 'created_by', 'last_edited_by'].includes(prop.type)) protectedIds.add(prop.id); });
     draft.source_tables.forEach(item => { protectedIds.add(item.relation_property_id); });
     const ids = selectedIds.filter(id => !protectedIds.has(id));
     const available = sortFieldItems(brainTable.properties.filter(prop => !protectedIds.has(prop.id)

@@ -7,6 +7,7 @@ from backend.domains.llm_wiki.field_catalogs import catalog_value
 from backend.domains.vault.registry.records import RecordReader, is_record
 from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.tables.catalogs.roles import ROLE_STATUS, prop_role
+from backend.services.table_system_dates import property_role as system_date_role
 from backend.utils.open_values import iterable_values
 
 CLASSIFICATION_VERSION = 1
@@ -26,6 +27,7 @@ def processing_owned(prop: RecordReader) -> bool:
     roles = config.get("plugin_roles") if is_record(config) else None
     return (
         prop_role(prop) == ROLE_STATUS
+        or system_date_role(prop) is not None
         or prop.get("type") in {"created_time", "last_edited_time", "created_by", "last_edited_by"}
         or (is_record(roles) and str(roles.get("llm-wiki") or "") in RETIRED_ROLES)
     )
