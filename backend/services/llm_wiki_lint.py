@@ -59,6 +59,10 @@ def _outbound_targets(body: str) -> tuple[set[str], set[str]]:
     for m in _WIKILINK_RE.finditer(body or ""):
         title = (m.group(1) or "").strip()
         ident = (m.group(2) or "").strip()
+        # Generated inline links store [[id|title]]; relation metadata may use
+        # [[title|id]]. Both formats retain the same page identity.
+        if re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", title, re.IGNORECASE):
+            title, ident = ident, title
         if ident:
             ids.add(_canonical_id(ident))
         if title:

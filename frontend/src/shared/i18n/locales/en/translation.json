@@ -6298,7 +6298,11 @@
       "review": "Review Knowledge",
       "report_title": "Knowledge review",
       "results": "View review",
-      "unavailable": "Check the table and sources in Settings → Plugins → Knowledge before continuing."
+      "unavailable": "Check the table and sources in Settings → Plugins → Knowledge before continuing.",
+      "show_more": "Show more notes",
+      "details_unavailable": "Details are unavailable. Run the review again.",
+      "duplicate_keys": "{{count}} duplicate processing keys",
+      "stale_managed": "{{count}} generated notes awaiting an update"
     },
     "budget_available": "Available within your limit: {{amount}}. Processing pauses before a call that cannot fit and saves progress.",
     "estimate_over_budget": "The calculation exceeds your available budget. Starting may only complete part of the work; your limit is not raised automatically.",

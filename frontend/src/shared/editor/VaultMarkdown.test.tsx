@@ -11,6 +11,13 @@ vi.mock('react-i18next', () => ({
 }));
 
 describe('VaultMarkdown', () => {
+    it('hides processing boundary comments while preserving the visible Markdown and links', () => {
+        const md = '<!-- gnosi:llm-wiki:start resource:source:record -->\n1. [[note|A note]]\n<!-- gnosi:llm-wiki:end resource:source:record -->';
+        const html = renderToStaticMarkup(<VaultMarkdown md={md} />);
+        expect(html).toContain('A note');
+        expect(html).not.toContain('gnosi:llm-wiki');
+        expect(md).toContain('<!-- gnosi:llm-wiki:start');
+    });
     it('renders custom toggle fences as interactive disclosure sections', () => {
         const html = renderToStaticMarkup(
             <VaultMarkdown

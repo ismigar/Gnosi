@@ -6,6 +6,13 @@ from backend.domains.llm_wiki.lint_contracts import LintNote
 from backend.services import llm_wiki_lint as lint
 
 
+def test_managed_index_links_do_not_leave_their_reading_notes_orphaned():
+    ident = "9c05e9c1-dd54-470f-bac9-ff59cbd70bd4"
+    for body in (f"[[{ident}|A note]]", f"[[A note|{ident}]]", f"[[{ident}]]"):
+        ids, _titles = lint._outbound_targets(body)
+        assert lint._canonical_id(ident) in ids
+
+
 def _note(
     note_id: str,
     title: str,
