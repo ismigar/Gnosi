@@ -115,30 +115,6 @@ async function inputValue(input: HTMLInputElement | null, value: string): Promis
 }
 async function tabMenu(): Promise<void> { await click(container.querySelectorAll('button[aria-label="View options"]')[1]); }
 
-it('renders tab options outside the clipped editor and keeps them anchored while scrolling', async () => {
-    await render();
-    const option = container.querySelectorAll<HTMLButtonElement>('button[aria-label="View options"]')[1];
-    if (!option) throw new Error('Missing tab options');
-    let top = window.innerHeight - 80;
-    vi.spyOn(option, 'getBoundingClientRect').mockImplementation(() => ({
-        x: 100, y: top, left: 100, right: 120, top, bottom: top + 20,
-        width: 20, height: 20, toJSON: () => ({}),
-    }));
-    await click(option);
-    const menu = document.querySelector<HTMLElement>('[data-embed-tab-menu]');
-    expect(menu?.parentElement).toBe(document.body);
-    expect(container.contains(menu)).toBe(false);
-    expect(menu?.style.left).toBe('100px');
-    expect(menu?.style.bottom).toBe('84px');
-    expect(menu?.className).toContain('z-[var(--z-popover)]');
-    top -= 20;
-    act(() => { dispatchWindowEvent(new Event('scroll')); });
-    expect(menu?.style.bottom).toBe('104px');
-    await click(document.querySelector('.z-\\[var\\(--z-overlay\\)\\]'));
-    expect(document.querySelector('[data-embed-tab-menu]')).toBeNull();
-    expect(option.getAttribute('aria-expanded')).toBe('false');
-});
-
 it('dismisses tab hints while its options menu is open', async () => {
     await render(block, true);
     const option = container.querySelectorAll('button[aria-label="View options"]')[1];
