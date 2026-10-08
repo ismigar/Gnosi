@@ -8,13 +8,23 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
 
-from backend.domains.llm_wiki.brain_fields import role_id, role_value
+from backend.domains.llm_wiki.brain_fields import role_value
 from backend.domains.llm_wiki.field_catalogs import catalog_value
+from backend.domains.llm_wiki.idea_classification import (
+    RETIRED_ROLES,
+    assignment_ids,
+    classification_property,
+    legacy_classification,
+    processing_owned,
+    properties,
+    provenance,
+)
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.tables.catalogs.roles import ROLE_STATUS, find_role_prop
 from backend.domains.vault.tables.catalogs.seeds import STATUS_DRAFT
+from backend.services.field_resolver import get_meta_value
 from backend.services.plugin_fields import bindings
 from backend.services.table_system_dates import stamp_system_dates
 from backend.utils.open_values import integer_value, iterable_values
@@ -87,6 +97,7 @@ class _WriteContext:
     config: dict[str, object]
     source_dimensions: dict[str, object]
     assignment_ids: list[str]
+    assignment_modes: dict[str, str]
     explicit_assignments: bool
     props_by_id: dict[str, RegistryData]
     role_names: dict[str, str]
@@ -137,15 +148,9 @@ def apply_plan(
         config=resolved_config,
         source_dimensions=resolved_source_dimensions,
         explicit_assignments="assignment_field_ids" in resolved_source_config,
-        assignment_ids=[
-            str(value)
-            for value in iterable_values(
-                resolved_source_config.get(
-                    "assignment_field_ids", resolved_config.get("index_field_ids")
-                )
-                or []
-            )
-        ],
+        assignment_ids=assignment_ids(resolved_config, resolved_source_config, brain_table),
+        assignment_modes={str(key): str(_mapping(value).get("mode") or "ai")
+                          for key, value in _mapping(resolved_source_config.get("dimension_mappings")).items()},
         props_by_id=props_by_id,
         role_names=role_names,
         relation_name=relation_name,
@@ -197,6 +202,12 @@ def _apply_note(
     if not title or not managed_key:
         return None
     active_keys.add(managed_key)
+    idea = classification_property({"properties": list(context.props_by_id.values())}, context.config)
+    if idea and str(idea["id"]) not in _mapping(note.get("dimensions")) and str(idea["id"]) not in context.source_dimensions:
+        legacy = legacy_classification(note, idea)
+        if legacy is None:
+            raise ValueError("Missing idea classification; complete the saved reading plan before writing")
+        note["dimensions"] = {**_mapping(note.get("dimensions")), str(idea["id"]): legacy}
     metadata = _build_note_metadata(note, title, managed_key, context)
     context.dependencies.apply_dimensions(
         metadata,
@@ -207,8 +218,13 @@ def _apply_note(
                 context.source_dimensions,
             ),
         },
-        context.props_by_id,
+        {key: prop for key, prop in context.props_by_id.items() if not processing_owned(prop)},
     )
+    if idea:
+        metadata["llm_wiki_idea_classification"] = provenance(
+            str(idea["id"]), metadata.get(str(idea["name"])),
+            str(note.get("classification_reason") or "Explicit configured or legacy classification"),
+            method=context.assignment_modes.get(str(idea["id"]), "ai"))
     # Structural provenance is application-owned, including when an old field
     # assignment attempts to override it.
     section_prop = next((prop for prop in context.props_by_id.values()
@@ -302,8 +318,6 @@ def _replace_role_metadata(
     for fallback_name, role in (
         ("Tipus", "idea_type"),
         ("Posició", "position"),
-        ("Estat de verificació", "verification"),
-        ("Última revisió", "last_reviewed"),
         ("Tags", "tags"),
     ):
         if context.role_names.get(role) and context.role_names[role] != fallback_name:
@@ -325,32 +339,8 @@ def _apply_role_values(
     position: int,
     context: _WriteContext,
 ) -> None:
-    if context.role_names.get("idea_type"):
-        idea_type = str(note.get("type") or "").strip().lower()
-        semantic = (
-            idea_type if idea_type in {"entitat", "concepte", "resum", "síntesi"} else "concepte"
-        )
-        prop = context.props_by_id.get(
-            role_id(
-                {"properties": list(context.props_by_id.values())},
-                context.config,
-                "idea_type",
-            )
-        )
-        metadata[context.role_names["idea_type"]] = catalog_value(prop, semantic)
     if context.role_names.get("position"):
         metadata[context.role_names["position"]] = position
-    if context.role_names.get("verification"):
-        prop = context.props_by_id.get(
-            role_id(
-                {"properties": list(context.props_by_id.values())},
-                context.config,
-                "verification",
-            )
-        )
-        metadata[context.role_names["verification"]] = catalog_value(prop, "provisional")
-    if context.role_names.get("last_reviewed"):
-        metadata[context.role_names["last_reviewed"]] = context.dependencies.today()
     tags_name = context.role_names.get("tags")
     tags_id = str(_mapping(context.config.get("brain_roles")).get("tags") or "")
     if tags_name and tags_id in iterable_values(context.config.get("index_field_ids") or []):
@@ -438,6 +428,7 @@ def _update_existing_page(
         old_metadata,
         str(getattr(page, "id", "") or old_metadata.get("id") or ""),
     )
+    _preserve_user_fields(old_metadata, metadata, dependencies)
     old_metadata.update(metadata)
     _stamp_existing_dates(old_metadata, path, dependencies)
     portable = dependencies.prepare_managed_markdown(old_metadata)
@@ -448,6 +439,28 @@ def _update_existing_page(
     )
     dependencies.register_page_in_index(path)
     return True
+
+
+def _preserve_user_fields(old: PageMetadata, incoming: PageMetadata, dependencies: WritingDependencies) -> None:
+    table = dependencies.table_by_id(str(incoming.get("table_id") or old.get("table_id") or "")) or {}
+    for prop in properties(table):
+        name = str(prop.get("name") or "")
+        if processing_owned(prop):
+            for key in (name, str(prop.get("id") or ""), *iterable_values(prop.get("aliases") or [])):
+                incoming.pop(key, None)
+                if str(bindings(prop).get("llm-wiki") or "") in RETIRED_ROLES:
+                    old.pop(key, None)
+    idea = classification_property(table, dependencies.load_config())
+    if not idea:
+        return
+    name = str(idea.get("name") or "")
+    current = get_meta_value(old, table, str(idea.get("id") or ""))
+    baseline = old.get("llm_wiki_idea_classification")
+    manually_set = (is_record(baseline) and current != baseline.get("value")) or (
+        not is_record(baseline) and current not in (None, "", catalog_value(idea, "concepte")))
+    if manually_set:
+        incoming[name] = current
+        incoming.pop("llm_wiki_idea_classification", None)
 
 
 def _stamp_existing_dates(

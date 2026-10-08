@@ -34,6 +34,8 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_llm_wiki_idea_classification.py
+  - backend/tests/test_llm_wiki_note_migration.py
   - backend/tests/test_page_reference_titles.py
   - backend/tests/test_suggestion_localization.py
   - frontend/src/shared/records/pageReferenceTitle.test.ts
@@ -831,6 +833,12 @@ El vault efectiu seleccionat per capçalera, query o cookie és també la identi
 Obrir el canvas de dibuix no descarrega ni carrega automàticament un model d’OCR. L’estat distingeix pesos absents, descàrrega, descarregat, càrrega, cancel·lació i error. La cancel·lació queda limitada al propietari i afecta la transferència, no una inferència activa. Els fitxers només es fan visibles a la caché després de verificar-ne la mida i el checksum; s’eliminen els fitxers parcials. La interfície mostra la mida transferida i l’estat traduït. Les proves sintètiques de transferència i canvas verifiquen aquests contractes, però no la precisió amb manuscrits reals ni fitxers del núvol sense materialitzar.
 
 ## Notes generades, referències llegibles i revisió del Coneixement
+
+El tipus d’idea és una assignació per IA per defecte mitjançant l’ID de propietat, independent dels camps d’índex. El contracte existent de dimensions transmet les etiquetes traduïdes permeses i una justificació breu `classification_reason`; els valors buits representen una abstenció explicada. Les assignacions explícites copiades, fixes i buides tenen prioritat. La interpretació, la revisió i el desament conserven el valor, i `llm_wiki_idea_classification` en registra la versió, el mètode i la procedència. El reprocessament preserva els valors modificats manualment. La classificació antiga absent s’ha de completar, sense aplicar Concepte implícitament.
+
+El Cervell ja no crea, vincula ni omple l’estat de verificació o la data d’última revisió. L’estat de treball i les dates del sistema pertanyen a l’aplicació; les assignacions del recurs no els poden sobreescriure. Les notes de lectura noves són esborranys. L’estat existent i la data de creació es conserven en reprocessar. Es retira la categoria de notes antigues basada en dates; l’API conserva `stale` com a llista buida i el recompte a zero per compatibilitat. Les notes generades substituïdes continuen sent una incidència diferent.
+
+L’ordre explícita de migració és `python -m backend.domains.llm_wiki.note_migration --vault /path/vault --output /private/report --action preview`. Les accions `classify`, `apply` i `rollback` separen el treball governat del model de la modificació de dades. La simulació només llegeix; la classificació reutilitza els resultats de notes que no han canviat i els pressupostos de lectura existents sense reiniciar la despesa. L’aplicació retira els camps i les referències en vistes i configuració per ID i rol, conserva el cos i les altres metadades, verifica una còpia comprimida, compara cada original abans d’escriure i registra el progrés per recuperar-se. Les còpies i els informes han de quedar fora del vault sincronitzat i de Git. La migració d’esquema registra `note_fields_revision` i repetir-la és idempotent.
 
 El processament de recursos crea notes de lectura amb l'estat `Esborrany` i les dates canòniques de creació i modificació de la taula. El reprocessament conserva la data de creació i l'estat de treball existent, actualitza la modificació i manté els identificadors estables i el text escrit per l'usuari.
 

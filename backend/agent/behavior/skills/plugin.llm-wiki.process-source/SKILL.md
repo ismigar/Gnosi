@@ -61,6 +61,14 @@ explain material uncertainty. Gnosi applies configured copied and fixed fields,
 source sections, positions and provenance; do not invent them or override them
 with free-form tags.
 
+For the idea_type property, classify the function of the note: Entity concerns
+a concrete person, institution or object; Concept develops one idea or
+proposition; Summary condenses an argument; Synthesis integrates several
+supported ideas. Use the supplied localized labels. Do not force a distribution
+among these categories. When the function is ambiguous, return an empty value
+and explain the abstention in classification_reason. Otherwise explain the
+choice briefly in that field. Workflow status and system dates belong to Gnosi.
+
 For an overview or synthesis, preserve the argument across ALL supplied material,
 including its ending, disagreements, caveats and document boundaries. Compress
 repetition rather than qualifications. Do not impose an artificial unified thesis.

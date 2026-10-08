@@ -139,7 +139,7 @@ def test_load_notes_normalizes_values_and_omits_incomplete_pages(
             "body": body,
             "out_ids": {"ab12"},
             "out_titles": {"other note", "title only"},
-            "review": "2026-05-03T20:30:00Z",
+            "review": "",
             "note_type": "lectura",
             "managed_key": "7",
             "managed_role": " resource-index ",
@@ -147,7 +147,7 @@ def test_load_notes_normalizes_values_and_omits_incomplete_pages(
             "source_table_id": "42",
             "resource_id": "",
         },
-        _note("27", "Fallback", review="2026-08-30", note_type="permanent"),
+        _note("27", "Fallback", review="", note_type="permanent"),
         _note("default", "Defaults", review="", note_type=""),
         _note(" ", " ", review="", note_type=""),
     ]
@@ -230,35 +230,7 @@ def test_inbound_collisions_resolve_to_last_note_in_input_order() -> None:
     assert lint._inbound_note_ids([notes[0], *reversed(notes[1:])]) == {"a-b", "first-title"}
 
 
-@pytest.mark.parametrize(
-    ("value", "expected"),
-    [
-        ("", None),
-        ("invalid", None),
-        ("2026-02-30", None),
-        (" 2026-08-31", None),
-        ("2026-08-31", 0),
-        ("2026-08-31T23:59:59-11:00", 0),
-        ("2026-09-01", -1),
-        ("2026-05-03", 120),
-        ("2026-05-02", 121),
-        ("2024-02-29", 914),
-    ],
-)
-def test_days_since_uses_calendar_date_prefix_and_fixed_today(
-    monkeypatch: pytest.MonkeyPatch,
-    value: str,
-    expected: int | None,
-) -> None:
-    original_date = datetime.date
-    with monkeypatch.context() as patch:
-        patch.setattr(datetime, "date", _FixedDate)
-        result = lint._days_since(value)
-    assert datetime.date is original_date
-    assert result == expected
-
-
-def test_stale_boundary_is_strict_and_missing_invalid_dates_remain_distinct(
+def test_retired_review_dates_never_produce_stale_findings(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     notes = [
@@ -273,11 +245,7 @@ def test_stale_boundary_is_strict_and_missing_invalid_dates_remain_distinct(
     with monkeypatch.context() as patch:
         patch.setattr(datetime, "date", _FixedDate)
         findings = lint._stale_findings(notes)
-    assert findings == [
-        {"id": "old", "title": "Old", "review": "2026-05-02", "days": 121},
-        {"id": "missing", "title": "Missing", "review": None, "days": None},
-        {"id": "invalid", "title": "Invalid", "review": "broken", "days": None},
-    ]
+    assert findings == []
 
 
 def test_mentions_respect_word_boundaries_literal_titles_and_explicit_links() -> None:
@@ -607,7 +575,7 @@ def test_full_report_preserves_exact_records_source_order_and_input_ownership(
     assert report == {
         "note_count": 3,
         "orphans": [{"id": "beta", "title": "Beta Concept"}],
-        "stale": [{"id": "alpha", "title": "Alpha Concept", "review": None, "days": None}],
+        "stale": [],
         "missing_xref": [
             {
                 "id": "alpha",
@@ -639,7 +607,7 @@ def test_full_report_preserves_exact_records_source_order_and_input_ownership(
         "index_drift": [{"source_table_id": "sources", "resource_id": "r"}],
         "counts": {
             "orphans": 1,
-            "stale": 1,
+            "stale": 0,
             "missing_xref": 1,
             "reprocess": len(expected_sources),
             "duplicate_keys": 1,

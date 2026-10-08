@@ -15,6 +15,9 @@ COPY_TYPES = {"files", "file", "attachment", "attachments", "image", "autoria", 
 
 def is_assignable(prop: RecordReader) -> bool:
     """Calculated fields and the generated page title are owned by the application."""
+    from backend.domains.llm_wiki.idea_classification import processing_owned
+    if processing_owned(prop):
+        return False
     config = prop.get("config")
     if isinstance(config, dict) and config.get("source_sections"):
         return False

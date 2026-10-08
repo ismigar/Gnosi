@@ -151,7 +151,7 @@ def normalize_brain_page_contract(
     normalized = to_response_names(metadata, brain_table)
     metadata.clear()
     metadata.update(normalized)
-    for role in ("idea_type", "verification"):
+    for role in ("idea_type",):
         field_id = role_id(brain_table, config, role)
         prop = next(
             (

@@ -11,18 +11,17 @@ see :mod:`backend.services.llm_wiki_storage`.
 
 from __future__ import annotations
 
-from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
-
 import json
 import re
 import threading
 import unicodedata
 from copy import deepcopy
 from pathlib import Path
-from typing import Callable, Iterable, Optional, TypeGuard, cast
+from typing import Iterable, Optional, TypeGuard
 
 from backend.domains.vault.registry.records import RecordReader, is_record
 from backend.domains.vault.registry.state import RegistryData
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
 from backend.utils.open_values import get_value, integer_value, item_value, iterable_values
 
 Config = dict[str, object]
@@ -266,7 +265,16 @@ def normalize_config(raw: object, *, reference_table_id: str = "") -> Config:
         for key, value in (roles.items() if isinstance(roles, dict) else [])
         if str(key).strip() and str(value or "").strip()
     }
-    index_ids = _unique_strings(data.get("index_field_ids"))
+    from backend.domains.llm_wiki.idea_classification import RETIRED_ROLES
+    retired_ids = {value for key, value in roles.items() if key in RETIRED_ROLES}
+    roles = {key: value for key, value in roles.items() if key not in RETIRED_ROLES}
+    for source in sources:
+        if "assignment_field_ids" in source:
+            source["assignment_field_ids"] = [value for value in iterable_values(source["assignment_field_ids"]) if value not in retired_ids]
+        mappings = source["dimension_mappings"]
+        if isinstance(mappings, dict):
+            source["dimension_mappings"] = {key: value for key, value in mappings.items() if key not in retired_ids}
+    index_ids = [value for value in _unique_strings(data.get("index_field_ids")) if value not in retired_ids]
     ui_locale = str(data.get("ui_locale") or "en").split("-", 1)[0].lower()
     if ui_locale not in {"ca", "en", "es", "fr"}:
         ui_locale = "en"
@@ -281,6 +289,7 @@ def normalize_config(raw: object, *, reference_table_id: str = "") -> Config:
         "index_field_ids": index_ids,
         "brain_roles": roles,
         "source_contract_revision": _revision(data.get("source_contract_revision")),
+        "note_fields_revision": _revision(data.get("note_fields_revision")),
         "configured": bool(data.get("configured") or brain_id or sources),
     }
 

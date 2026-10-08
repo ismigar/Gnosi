@@ -5,11 +5,19 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
-
+from backend.domains.llm_wiki.field_assignments import (
+    canonical_scalar,
+    field_value_schema,
+    is_assignable,
+)
+from backend.domains.llm_wiki.idea_classification import (
+    IDEA_DESCRIPTION,
+    assignment_ids,
+    classification_property,
+)
+from backend.domains.llm_wiki.options import categorical_options
 from backend.domains.vault.registry.records import RecordReader
 from backend.utils.open_values import iterable_values
-from backend.domains.llm_wiki.field_assignments import canonical_scalar, field_value_schema, is_assignable
-from backend.domains.llm_wiki.options import categorical_options
 
 TableLookup = Callable[[str], RecordReader | None]
 PagesForTable = Callable[[str], Iterable[object]]
@@ -48,8 +56,8 @@ def build_dimension_context(
     ai_specs: list[dict[str, object]] = []
     raw_mappings = source_config.get("dimension_mappings") or {}
     mappings = raw_mappings if isinstance(raw_mappings, dict) else {}
-    raw_field_ids = source_config.get("assignment_field_ids", config.get("index_field_ids")) or []
-    field_ids = raw_field_ids if isinstance(raw_field_ids, list) else []
+    field_ids = assignment_ids(config, source_config, brain_table)
+    idea = classification_property(brain_table, config)
     for raw_field_id in field_ids:
         field_id = str(raw_field_id)
         prop = brain_props.get(field_id)
@@ -75,7 +83,10 @@ def build_dimension_context(
         ):
             continue
         if options or field_value_schema(str(prop.get("type") or "")):
-            ai_specs.append(_ai_spec(field_id, prop, options))
+            spec = _ai_spec(field_id, prop, options)
+            if idea and field_id == idea.get("id"):
+                spec.update(role="idea_type", description=IDEA_DESCRIPTION)
+            ai_specs.append(spec)
     return mapped, ai_specs
 
 

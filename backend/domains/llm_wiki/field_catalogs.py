@@ -12,21 +12,14 @@ IDEA_LABELS = {
     "es": ("Entidad", "Concepto", "Resumen", "Síntesis"),
     "fr": ("Entité", "Concept", "Résumé", "Synthèse"),
 }
-VERIFICATION_LABELS = {
-    "ca": ("Provisional", "Verificat", "Per revisar", "Refutat"),
-    "en": ("Provisional", "Verified", "Needs review", "Refuted"),
-    "es": ("Provisional", "Verificado", "Por revisar", "Refutado"),
-    "fr": ("Provisoire", "Vérifié", "À revoir", "Réfuté"),
-}
 SEMANTIC_KEYS = {
     "idea_type": ("entitat", "concepte", "resum", "síntesi"),
-    "verification": ("provisional", "verified", "needs_review", "refuted"),
 }
 
 
 def ensure_catalog(prop: RegistryData, role: str, locale: str) -> None:
     """Seed missing semantic choices while preserving explicit existing labels."""
-    labels = {"idea_type": IDEA_LABELS, "verification": VERIFICATION_LABELS}.get(role)
+    labels = {"idea_type": IDEA_LABELS}.get(role)
     if labels is None:
         return
     config = prop.get("config")

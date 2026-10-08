@@ -34,6 +34,8 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_llm_wiki_idea_classification.py
+  - backend/tests/test_llm_wiki_note_migration.py
   - backend/tests/test_page_reference_titles.py
   - backend/tests/test_suggestion_localization.py
   - frontend/src/shared/records/pageReferenceTitle.test.ts
@@ -852,6 +854,12 @@ Le vault effectif sélectionné par en-tête, query ou cookie est également l�
 L’ouverture du canvas de dessin ne télécharge ni ne charge automatiquement un modèle OCR. L’état distingue poids absents, téléchargement, téléchargé, chargement, annulation et échec. L’annulation est limitée au propriétaire et concerne le transfert, pas une inférence active. Les fichiers ne deviennent visibles dans le cache qu’après vérification de leur taille et checksum ; les fichiers partiels sont supprimés. L’interface affiche la taille transférée et l’état traduit. Les essais synthétiques de transfert et de canvas vérifient ces contrats, sans attester la précision sur des manuscrits réels ni les fichiers cloud non matérialisés.
 
 ## Notes générées, références lisibles et révision des connaissances
+
+Le type d’idée est une affectation par IA par défaut selon l’ID de propriété, indépendamment des champs d’index. Le contrat existant des dimensions transmet les libellés traduits autorisés et une brève justification `classification_reason` ; les valeurs vides représentent une abstention expliquée. Les affectations explicites copiées, fixes ou vides sont prioritaires. L’interprétation, la révision et l’enregistrement conservent la valeur, et `llm_wiki_idea_classification` enregistre sa version, sa méthode et sa provenance. Le retraitement préserve les valeurs modifiées manuellement. Une classification ancienne absente doit être complétée, sans appliquer Concept implicitement.
+
+Le Cerveau ne crée, ne lie et ne renseigne plus l’état de vérification ni la date de dernière révision. L’état de travail et les dates système appartiennent à l’application ; les affectations de la ressource ne peuvent pas les écraser. Les nouvelles notes de lecture sont des brouillons. L’état existant et la date de création sont conservés lors du retraitement. La catégorie des notes anciennes fondée sur les dates est retirée ; l’API conserve `stale` comme liste vide avec un compteur nul pour compatibilité. Les notes générées remplacées restent un signalement distinct.
+
+La commande explicite de migration est `python -m backend.domains.llm_wiki.note_migration --vault /path/vault --output /private/report --action preview`. Les actions `classify`, `apply` et `rollback` séparent le travail gouverné du modèle de la modification des données. La simulation ne fait que lire ; la classification réutilise les résultats des notes inchangées et les budgets de lecture existants sans réinitialiser les dépenses. L’application retire les champs et les références des vues et de la configuration par ID et rôle, conserve le corps et les autres métadonnées, vérifie une sauvegarde compressée, compare chaque original avant écriture et journalise la progression pour la reprise. Les sauvegardes et rapports doivent rester hors du vault synchronisé et de Git. La migration du schéma enregistre `note_fields_revision` et son exécution répétée est idempotente.
 
 Le traitement des ressources crée des notes de lecture avec le statut `Esborrany` et les dates canoniques de création et de modification de la table. Le retraitement conserve la date de création et le statut de travail existant, actualise la modification et préserve les identifiants stables et le texte de l'utilisateur.
 

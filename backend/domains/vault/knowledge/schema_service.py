@@ -43,26 +43,6 @@ _BRAIN_SCHEMA_DEFINITIONS: list[tuple[str, str, dict[str, str]]] = [
         "relation",
         {"ca": "Basada en", "en": "Based on", "es": "Basada en", "fr": "Basée sur"},
     ),
-    (
-        "verification",
-        "select",
-        {
-            "ca": "Estat de verificació",
-            "en": "Verification status",
-            "es": "Estado de verificación",
-            "fr": "État de vérification",
-        },
-    ),
-    (
-        "last_reviewed",
-        "date",
-        {
-            "ca": "Última revisió",
-            "en": "Last reviewed",
-            "es": "Última revisión",
-            "fr": "Dernière révision",
-        },
-    ),
     ("areas", "multi_select", {"ca": "Àrees", "en": "Areas", "es": "Áreas", "fr": "Domaines"}),
     (
         "tags",
@@ -85,20 +65,6 @@ _BRAIN_ROLE_SPECS: dict[str, tuple[set[str], str]] = {
         "select",
     ),
     "position": ({"posicio", "position", "ordre"}, "number"),
-    "verification": (
-        {
-            "estatdeverificacio",
-            "verificationstatus",
-            "estadodeverificacion",
-            "etatdeverification",
-            "estat",
-        },
-        "select",
-    ),
-    "last_reviewed": (
-        {"ultimarevisio", "lastreviewed", "reviewdate", "ultimarevision", "derniererevision"},
-        "date",
-    ),
     "areas": ({"arees", "area", "areas", "domaines"}, "multi_select"),
     "tags": ({"tags", "etiquetes", "etiquetas", "etiquettes"}, "multi_select"),
 }

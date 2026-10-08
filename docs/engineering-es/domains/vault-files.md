@@ -34,6 +34,8 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_llm_wiki_idea_classification.py
+  - backend/tests/test_llm_wiki_note_migration.py
   - backend/tests/test_page_reference_titles.py
   - backend/tests/test_suggestion_localization.py
   - frontend/src/shared/records/pageReferenceTitle.test.ts
@@ -837,6 +839,12 @@ El vault efectivo seleccionado por cabecera, query o cookie es también la ident
 Abrir el canvas de dibujo no descarga ni carga automáticamente un modelo OCR. El estado distingue pesos ausentes, descarga, descargado, carga, cancelación y error. La cancelación queda limitada al propietario y afecta a la transferencia, no a una inferencia activa. Los archivos solo se hacen visibles en la caché tras verificar su tamaño y checksum; los archivos parciales se eliminan. La interfaz muestra el tamaño transferido y el estado traducido. Las pruebas sintéticas de transferencia y canvas verifican estos contratos, pero no la precisión con manuscritos reales ni archivos de nube sin materializar.
 
 ## Notas generadas, referencias legibles y revisión del Conocimiento
+
+El tipo de idea es una asignación por IA predeterminada mediante el ID de propiedad, independiente de los campos de índice. El contrato existente de dimensiones transmite las etiquetas traducidas permitidas y una justificación breve `classification_reason`; los valores vacíos representan una abstención explicada. Las asignaciones explícitas copiadas, fijas y vacías tienen prioridad. La interpretación, la revisión y el guardado conservan el valor, y `llm_wiki_idea_classification` registra su versión, método y procedencia. El reprocesamiento preserva los valores modificados manualmente. La clasificación antigua ausente debe completarse, sin aplicar Concepto implícitamente.
+
+El Cerebro ya no crea, vincula ni rellena el estado de verificación o la fecha de última revisión. El estado de trabajo y las fechas del sistema pertenecen a la aplicación; las asignaciones del recurso no pueden sobrescribirlos. Las nuevas notas de lectura son borradores. El estado existente y la fecha de creación se conservan al reprocesar. Se retira la categoría de notas antiguas basada en fechas; la API conserva `stale` como lista vacía y el recuento a cero por compatibilidad. Las notas generadas sustituidas siguen siendo una incidencia diferente.
+
+La orden explícita de migración es `python -m backend.domains.llm_wiki.note_migration --vault /path/vault --output /private/report --action preview`. Las acciones `classify`, `apply` y `rollback` separan el trabajo gobernado del modelo de la modificación de datos. La simulación solo lee; la clasificación reutiliza los resultados de notas sin cambios y los presupuestos de lectura existentes sin reiniciar el gasto. La aplicación retira los campos y referencias en vistas y configuración por ID y rol, conserva el cuerpo y las demás propiedades, verifica una copia comprimida, compara cada original antes de escribir y registra el progreso para recuperarse. Las copias e informes deben quedar fuera del vault sincronizado y de Git. La migración de esquema registra `note_fields_revision` y repetirla es idempotente.
 
 El procesamiento de recursos crea notas de lectura con el estado `Esborrany` y las fechas canónicas de creación y modificación de la tabla. El reprocesamiento conserva la fecha de creación y el estado de trabajo existente, actualiza la modificación y mantiene los identificadores estables y el texto del usuario.
 

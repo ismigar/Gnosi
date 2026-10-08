@@ -8,12 +8,15 @@ from dataclasses import dataclass
 
 from fastapi import HTTPException
 
+from backend.domains.llm_wiki.field_assignments import (
+    canonical_scalar,
+    field_value_schema,
+    is_assignable,
+)
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
 from backend.services import llm_wiki_config, llm_wiki_indices
-from backend.domains.llm_wiki.field_assignments import canonical_scalar, field_value_schema, is_assignable
 from backend.utils.open_values import get_value, iterable_values, set_value
-
 
 Config = dict[str, object]
 Table = RegistryData
@@ -225,7 +228,7 @@ def _prepare_source(
     mappings = prepared.get("dimension_mappings") or {}
     assignment_ids = prepared.get("assignment_field_ids", requested_index_ids)
     protected = {str(value) for role, value in dependencies.infer_brain_roles(brain).items()
-                 if role in {"note_type", "position", "verification", "last_reviewed"}}
+                 if role in {"note_type", "position"}}
     protected.add(str(prepared.get("relation_property_id") or ""))
     protected.update(pid for pid, prop in brain_properties.items()
                      if prop.get("type") == "relation" and prop.get("relation_database_id") == source_id)

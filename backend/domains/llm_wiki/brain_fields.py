@@ -10,19 +10,6 @@ from backend.utils.open_values import iterable_values
 LEGACY_NAMES = {
     "idea_type": ("Tipus", "Idea type", "Tipus d’idea", "Tipo de idea", "Type d’idée"),
     "position": ("Posició", "Position", "position", "Posición"),
-    "verification": (
-        "Estat de verificació",
-        "Verification status",
-        "Estado de verificación",
-        "État de vérification",
-    ),
-    "last_reviewed": (
-        "Última revisió",
-        "última revisió",
-        "Last reviewed",
-        "Última revisión",
-        "Dernière révision",
-    ),
 }
 
 

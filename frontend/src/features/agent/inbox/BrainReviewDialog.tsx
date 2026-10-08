@@ -47,7 +47,6 @@ export function BrainReviewDialog({ busy, semantic, error, lint, onClose, onRetr
                         ['broken_cites', 'settings.plugins.llm_wiki_lint_cites'],
                         ['index_drift', 'settings.plugins.llm_wiki_lint_indexes'],
                         ['reprocess', 'settings.plugins.llm_wiki_lint_reprocess'],
-                        ['stale', 'settings.plugins.llm_wiki_lint_stale'],
                         ['missing_xref', 'settings.plugins.llm_wiki_lint_xref'],
                         ['duplicate_keys', 'llm_wiki.tools.duplicate_keys'],
                         ['stale_managed', 'llm_wiki.tools.stale_managed'],

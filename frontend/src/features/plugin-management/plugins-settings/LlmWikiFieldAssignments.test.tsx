@@ -58,3 +58,18 @@ it('keeps a numeric zero and an explicitly empty assignment list', () => {
     const draft = normalizeLlmWikiDraft(serializeLlmWikiDraft({ ...EMPTY_LLM_WIKI_DRAFT, source_tables: [latest] }));
     expect(draft.source_tables[0]?.assignment_field_ids).toEqual([]);
 });
+
+it('classifies idea type by default, supports explicit abstention, and protects workflow status', () => {
+    const update = vi.fn((updater: (source: LlmWikiSource) => LlmWikiSource) => { latest = updater(initial); });
+    act(() => { root.render(<LlmWikiFieldAssignments
+        brainTable={{ ...brain, properties: [...brain.properties,
+            { id: 'idea', name: 'Idea', type: 'select' }, { id: 'state', name: 'Workflow', type: 'status', role: 'status' }] }}
+        draft={{ ...EMPTY_LLM_WIKI_DRAFT, brain_roles: { idea_type: 'idea' } }}
+        source={{ ...initial, assignment_field_ids: ['state'] }} properties={[]} serverState={null} updateSource={update} />); });
+    expect(host.querySelector<HTMLSelectElement>('select[aria-label="Idea: Assignment"]')?.value).toBe('ai');
+    expect(host.querySelector('option[value="state"]')).toBeNull();
+    expect(host.querySelector('select[aria-label="Workflow: Assignment"]')).toBeNull();
+    select('Idea: Assignment', 'empty');
+    expect(latest.assignment_field_ids).toEqual(['idea']);
+    expect(latest.dimension_mappings.idea?.mode).toBe('empty');
+});

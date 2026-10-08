@@ -28,9 +28,13 @@ interface Props {
 export function LlmWikiFieldAssignments({ brainTable, draft, source, properties, serverState, updateSource }: Props) {
     const { t } = useTranslation();
     const tp = (key: string, fallback: string): string => t(`settings.plugins.${key}`, { defaultValue: fallback });
-    const ids = source.assignment_field_ids ?? draft.index_field_ids;
-    const protectedIds = new Set(['note_type', 'position', 'section', 'verification', 'last_reviewed'].map(role => draft.brain_roles[role]));
+    const ideaId = typeof draft.brain_roles.idea_type === 'string' ? draft.brain_roles.idea_type : '';
+    const selectedIds = [...new Set([...(source.assignment_field_ids ?? draft.index_field_ids),
+        ...(ideaId && brainTable.properties.some(prop => prop.id === ideaId) ? [ideaId] : [])])];
+    const protectedIds = new Set(['note_type', 'position', 'section'].map(role => draft.brain_roles[role]));
+    brainTable.properties.forEach(prop => { if (prop.role === 'status' || ['created_time', 'last_edited_time', 'created_by', 'last_edited_by'].includes(prop.type)) protectedIds.add(prop.id); });
     draft.source_tables.forEach(item => { protectedIds.add(item.relation_property_id); });
+    const ids = selectedIds.filter(id => !protectedIds.has(id));
     const available = sortFieldItems(brainTable.properties.filter(prop => !protectedIds.has(prop.id)
         && !(prop.type === 'relation' && draft.source_tables.some(item => item.table_id === prop.relation_database_id))
         && !['id', 'title', 'table_id', 'parent_id', 'note_type'].includes(prop.name.toLowerCase()) && !prop.name.toLowerCase().startsWith('llm_wiki_')
@@ -61,7 +65,8 @@ export function LlmWikiFieldAssignments({ brainTable, draft, source, properties,
             return <div key={id} style={{ borderTop: '1px solid var(--border-primary)', paddingTop: 10, marginTop: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <strong style={{ flex: 1, fontSize: 12 }}>{prop?.name ?? id}</strong>
-                    <button type="button" className="btn-gnosi" aria-label={`${tp('llm_wiki_remove_field', 'Remove field')}: ${prop?.name ?? id}`} onClick={() => {
+                    <button type="button" className="btn-gnosi" aria-label={`${id === ideaId ? tp('llm_wiki_map_empty', 'Leave empty') : tp('llm_wiki_remove_field', 'Remove field')}: ${prop?.name ?? id}`} onClick={() => {
+                        if (id === ideaId) { change(id, { mode: 'empty', source_property_id: '', fixed_value: null }); return; }
                         updateSource(item => ({ ...item, assignment_field_ids: ids.filter(value => value !== id), dimension_mappings: Object.fromEntries(Object.entries(item.dimension_mappings).filter(([key]) => key !== id)) }));
                     }}><Trash2 size={14} /></button>
                 </div>

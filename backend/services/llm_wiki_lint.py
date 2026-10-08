@@ -7,7 +7,6 @@ DETERMINISTIC (no LLM, no API key needed) so the lint always runs:
   * orphans        — notes no other note links to (isolated knowledge).
   * missing_xref   — a note mentions another note's title in prose but doesn't
                      `[[link]]` it (a cross-reference that drifted).
-  * stale          — notes whose «Última revisió» is old or missing.
   * reprocess      — resources modified after their last successful ingest.
   * duplicate_keys — managed reading notes sharing a provenance key.
   * stale_managed  — superseded managed notes deliberately retained.
@@ -24,7 +23,6 @@ import re
 
 from backend.config.logger_config import get_logger
 from backend.domains.llm_wiki import legacy_ports
-from backend.domains.llm_wiki.brain_fields import role_value
 from backend.domains.llm_wiki.lint_contracts import (
     BrokenCitation,
     DuplicateManagedKey,
@@ -38,9 +36,6 @@ from backend.domains.llm_wiki.lint_contracts import (
 )
 
 logger = get_logger(__name__)
-
-# A note is "stale" if it hasn't been reviewed in this many days (or ever).
-STALE_DAYS = 120
 
 # Cap the mention scan so a huge wiki doesn't produce an unusable wall of noise.
 _MAX_MENTION_FINDINGS = 100
@@ -89,9 +84,6 @@ def _read_body(path: str | None) -> str:
 
 def _load_notes(brain_table_id: str) -> list[LintNote]:
     from backend.services import llm_wiki_config, llm_wiki_storage
-
-    config = llm_wiki_config.load_config()
-    table = legacy_ports.table_by_id(brain_table_id) or {}
     notes: list[LintNote] = []
     for p in legacy_ports.table_pages(brain_table_id):
         meta = llm_wiki_storage.page_metadata(p)
@@ -110,7 +102,7 @@ def _load_notes(brain_table_id: str) -> list[LintNote]:
                 "body": body,
                 "out_ids": ids,
                 "out_titles": titles,
-                "review": str(role_value(meta, table, config, "last_reviewed") or "").strip(),
+                "review": "",  # Deprecated compatibility projection; no review-date field.
                 "note_type": llm_wiki_config.metadata_note_type(meta),
                 "managed_key": str(meta.get("llm_wiki_key") or ""),
                 "managed_role": str(meta.get("llm_wiki_role") or ""),
@@ -120,18 +112,6 @@ def _load_notes(brain_table_id: str) -> list[LintNote]:
             }
         )
     return notes
-
-
-def _days_since(iso_date: str) -> int | None:
-    if not iso_date:
-        return None
-    import datetime
-
-    try:
-        d = datetime.date.fromisoformat(iso_date[:10])
-    except ValueError:
-        return None
-    return (datetime.date.today() - d).days
 
 
 def _inbound_note_ids(notes: list[LintNote]) -> set[str]:
@@ -162,22 +142,8 @@ def _orphan_findings(notes: list[LintNote]) -> list[NoteFinding]:
 
 
 def _stale_findings(notes: list[LintNote]) -> list[StaleFinding]:
-    """Return knowledge notes whose review date is missing or old."""
-    stale: list[StaleFinding] = []
-    for note in notes:
-        days = _days_since(note["review"])
-        if note["note_type"] not in {"lectura", "permanent"}:
-            continue
-        if note["review"] == "" or days is None or days > STALE_DAYS:
-            stale.append(
-                {
-                    "id": note["id"],
-                    "title": note["title"],
-                    "review": note["review"] or None,
-                    "days": days,
-                }
-            )
-    return stale
+    """Deprecated response key retained empty for older clients."""
+    return []
 
 
 def _missing_cross_references(notes: list[LintNote]) -> list[MissingCrossReference]:

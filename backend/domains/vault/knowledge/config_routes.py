@@ -7,9 +7,6 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from backend.domains.configuration import llm_wiki as _llm_wiki_configuration
-from backend.domains.vault.pages.foundation_values import PageMetadata
-from backend.domains.vault.registry.records import RecordReader
-from backend.utils.open_values import get_value, integer_value, iterable_values, set_value
 from backend.domains.vault.knowledge.contracts import (
     BrainTableClearResponse,
     BrainTableCreateRequest,
@@ -22,6 +19,9 @@ from backend.domains.vault.knowledge.contracts import (
     LlmWikiCreatedSettingsResponse,
     LlmWikiSettingsResponse,
 )
+from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import RecordReader
+from backend.utils.open_values import get_value, integer_value, iterable_values, set_value
 
 if TYPE_CHECKING:
     from backend.api import vault_routes as _legacy
@@ -71,7 +71,7 @@ async def set_brain_table(
     payload: BrainTableSelectionRequest = _legacy.Body(...),
 ) -> dict[str, object]:
     """Designate an existing table as the Brain and guarantee its
-    knowledge schema (note type, sources, verification status, and more)."""
+    knowledge schema (note type, idea classification, sources, and more)."""
     from backend.services import llm_wiki_config as bw
 
     payload_data = _contract_payload(payload)
