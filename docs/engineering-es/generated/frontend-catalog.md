@@ -48,7 +48,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1177 | 130136 | 55 |
+| `features` | 1178 | 130176 | 55 |
 | `generated` | 2 | 49841 | 510 |
 | `shared` | 286 | 32861 | 440 |
 
@@ -1129,6 +1129,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/views/db-view-embed/AddEmbedViewDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/AddEmbedViewDialog.tsx) | 53 | `AddEmbedViewDialog` | — |
 | [`frontend/src/features/vault/views/db-view-embed/EmbedBody.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/EmbedBody.tsx) | 70 | `EmbedBody` | — |
 | [`frontend/src/features/vault/views/db-view-embed/EmbedDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/EmbedDialogs.tsx) | 51 | `EmbedDialogs` | — |
+| [`frontend/src/features/vault/views/db-view-embed/EmbedTabMenu.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/EmbedTabMenu.tsx) | 40 | `EmbedTabMenu` | — |
 | [`frontend/src/features/vault/views/db-view-embed/EmbedTabs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/EmbedTabs.tsx) | 85 | `EmbedTabs` | — |
 | [`frontend/src/features/vault/views/db-view-embed/EmbedToolbar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/EmbedToolbar.tsx) | 63 | `EmbedToolbar` | — |
 | [`frontend/src/features/vault/views/db-view-embed/GraphRender.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/GraphRender.tsx) | 128 | `GraphRender` | — |
