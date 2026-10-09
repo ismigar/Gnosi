@@ -148,7 +148,7 @@ export function LlmWikiConfig({ onOpenAISettings }: PluginConfigProps = {}) {
                 onConfirm={controller.createBrain}
                 isDestructive={false}
                 title={tp('llm_wiki_create_confirm_title', 'Create a standard Brain?')}
-                message={tp('llm_wiki_create_confirm_message', 'A table will be created with note type, areas, tags, position, and verification fields, plus the General index, Schema, and Log. No existing table will be removed or modified.')}
+                message={tp('llm_wiki_create_confirm_message', 'A table will be created with note type, idea type, areas, tags, and position fields, plus the General index, Schema, and Log. No existing table will be removed or modified.')}
                 confirmText={tp('llm_wiki_create_confirm', 'Create Brain')}
             />
         </>

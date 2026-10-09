@@ -38,6 +38,9 @@ source_paths:
 tests:
   - frontend/src/features/vault/dashboard/Dashboard.document-controls.test.tsx
   - frontend/src/features/vault/navigation/VaultShell.test.tsx
+
+  - backend/tests/test_llm_wiki_idea_classification.py
+  - backend/tests/test_llm_wiki_note_migration.py
   - backend/tests/test_page_reference_titles.py
   - backend/tests/test_suggestion_localization.py
   - frontend/src/shared/records/pageReferenceTitle.test.ts
@@ -836,6 +839,12 @@ Obrir el canvas de dibuix no descarrega ni carrega automàticament un model d’
 
 ## Notes generades, referències llegibles i revisió del Coneixement
 
+El tipus d’idea és una assignació per IA per defecte mitjançant l’ID de propietat, independent dels camps d’índex. El contracte existent de dimensions transmet les etiquetes traduïdes permeses i una justificació breu `classification_reason`; els valors buits representen una abstenció explicada. Les assignacions explícites copiades, fixes i buides tenen prioritat. La interpretació, la revisió i el desament conserven el valor, i `llm_wiki_idea_classification` en registra la versió, el mètode i la procedència. El reprocessament preserva els valors modificats manualment. La classificació antiga absent s’ha de completar, sense aplicar Concepte implícitament.
+
+El Cervell ja no crea, vincula ni omple l’estat de verificació o la data d’última revisió. L’estat de treball i les dates del sistema pertanyen a l’aplicació; les assignacions del recurs no els poden sobreescriure. Les notes de lectura noves són esborranys. L’estat existent i la data de creació es conserven en reprocessar. Es retira la categoria de notes antigues basada en dates; l’API conserva `stale` com a llista buida i el recompte a zero per compatibilitat. Les notes generades substituïdes continuen sent una incidència diferent.
+
+L’ordre explícita de migració és `python -m backend.domains.llm_wiki.note_migration --vault /path/vault --output /private/report --action preview`. Les accions `classify`, `apply` i `rollback` separen el treball governat del model de la modificació de dades. La simulació només llegeix; la classificació reutilitza els resultats de notes que no han canviat i els pressupostos de lectura existents sense reiniciar la despesa. L’aplicació retira els camps i les referències en vistes i configuració per ID i rol, conserva el cos i les altres metadades, verifica una còpia comprimida, compara cada original abans d’escriure i registra el progrés per recuperar-se. Les còpies i els informes han de quedar fora del vault sincronitzat i de Git. La migració d’esquema registra `note_fields_revision` i repetir-la és idempotent. L’acció opcional `retire` aplica només la retirada de camps i la neteja de l’estat de treball, informa de la classificació pendent i no crida cap model; cal usar una carpeta de sortida diferent per a cada fase aplicada.
+
 El processament de recursos crea notes de lectura amb l'estat `Esborrany` i les dates canòniques de creació i modificació de la taula. El reprocessament conserva la data de creació i l'estat de treball existent, actualitza la modificació i manté els identificadors estables i el text escrit per l'usuari.
 
 Els enllaços interns mostren els títols actuals de les pàgines als editors, relacions, taules, galeries, kanban, cerca, grafs, mencions i predecessors de planificació. El resolutor compartit admet identificadors, rutes de pàgina, els dos ordres de wikilink i cites de recursos `gnosi-cite:`. Les referències desconegudes mostren un text provisional localitzat mentre es carrega el títol. Els índexs de relacions conserven les claus gestionades i els identificadors desats amb etiquetes llegibles.
@@ -849,3 +858,5 @@ El diàleg de revisió agrupa les notes i els recursos afectats en categories de
 A l'escriptori, la selecció de fitxers i carpetes utilitza la capacitat IPC fiable i validada `pick-filesystem` i el diàleg natiu del sistema operatiu. Cancel·lar tanca el selector sense aplicar cap selecció; les seleccions múltiples conserven el tipus de fitxer o carpeta de cada ruta. Windows i Linux mostren primer una tria nativa entre fitxers i carpetes per a la selecció combinada. El navegador de fitxers intern continua disponible per als clients web sense el pont d'escriptori.
 
 La capçalera d’un sol document només mostra Tancar pestanya quan l’identificador actiu correspon a una pestanya oberta. Conservar una pestanya inactiva no ha de mostrar l’acció de tancar a la pantalla de benvinguda. Els controls d’obertura i cerca continuen disponibles i tancar l’última pestanya activa elimina el seu botó de tancar.
+
+Afegiu `--resource-id <id>` a `preview` per classificar només un recurs; les accions posteriors reutilitzen aquesta selecció desada. La classificació vincula el propietari personal verificat, exclou els contextos adjunts i les memòries revisades, desactiva les delegacions i reserva com a màxim 4.096 tokens de sortida per lot sense canviar els límits de despesa.

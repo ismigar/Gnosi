@@ -68,6 +68,7 @@ def test_generated_notes_start_as_drafts_and_keep_creation_on_reprocess(
         save_page_md=lambda path, metadata, body: saved.append(dict(metadata)),
     )
     writing.apply_plan({"notes": [note]}, "source", "Source", "brain",
+                       source_config={"assignment_field_ids": ["state"]}, source_dimensions={"state": "Acabada"},
                        dependencies=dependencies)
     original = saved[-1]
     assert original["Workflow"] == "Esborrany"
@@ -84,6 +85,7 @@ def test_generated_notes_start_as_drafts_and_keep_creation_on_reprocess(
         parse_frontmatter=lambda content, path: (dict(original), "User text"),
     )
     result = writing.apply_plan({"notes": [note]}, "source", "Source", "brain",
+                               source_config={"assignment_field_ids": ["state"]}, source_dimensions={"state": "Acabada"},
                                dependencies=dependencies)
     assert result["updated"] == ["Reading"] and not result["created"]
     assert saved[-1]["Workflow"] == "Revisat"

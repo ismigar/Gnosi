@@ -36,6 +36,7 @@ export interface VaultProperty {
     readonly name: string;
     readonly relation_database_id?: string;
     readonly type: string;
+    readonly role?: string;
 }
 
 export interface VaultTable {
@@ -86,6 +87,7 @@ function normalizeProperty(value: unknown): VaultProperty | null {
         id: value.id,
         name: optionalString(value.name) ?? value.id,
         relation_database_id: optionalString(value.relation_database_id),
+        role: optionalString(value.role) ?? optionalString(value.system_date_role) ?? (isRecord(value.config) ? optionalString(value.config.role) : undefined),
         type: optionalString(value.type) ?? '',
     };
 }

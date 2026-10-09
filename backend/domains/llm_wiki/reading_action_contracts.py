@@ -88,6 +88,9 @@ def action_schemas(
             note = plan["properties"]["notes"]["items"]
             note["properties"]["dimensions"] = dimension_schema(dimensions)
             note["required"].append("dimensions")
+            if any(spec.get("role") == "idea_type" for spec in dimensions):
+                note["properties"]["classification_reason"] = TEXT
+                note["required"].append("classification_reason")
     action = deepcopy(ACTION_SCHEMA)
     action["properties"]["arguments"]["anyOf"] = list(arguments.values())
     return action, arguments
@@ -107,6 +110,10 @@ def validate_note_dimensions(
             continue  # The reading contract reports malformed notes.
         try:
             jsonschema.validate(note.get("dimensions"), schema, format_checker=jsonschema.FormatChecker())
+            if any(spec.get("role") == "idea_type" for spec in dimensions):
+                explanation = note.get("classification_reason")
+                if not isinstance(explanation, str) or not explanation.strip():
+                    raise ValueError(f"notes[{index}].classification_reason: explain the classification or abstention")
         except jsonschema.ValidationError as error:
             raise ValueError(
                 f"notes[{index}].dimensions: {error.message}. Return every configured field "

@@ -207,7 +207,7 @@ def test_full_schema_upgrade_preserves_a_same_named_custom_field(monkeypatch: py
     monkeypatch.setattr(facade, "registry_mutation", nullcontext)
     monkeypatch.setattr(facade, "load_registry", lambda: registry)
     monkeypatch.setattr(facade, "save_registry", lambda value: None)
-    assert schema_service.ensure_brain_table_schema("brain", "ca") == 9
+    assert schema_service.ensure_brain_table_schema("brain", "ca") == 7
     assert schema_service.ensure_brain_table_schema("brain", "ca") == 0
     assert custom == {"id": "custom", "name": "Apartat", "type": "text"}
     relation = next(p for p in brain["properties"] if p.get("config", {}).get("source_sections"))

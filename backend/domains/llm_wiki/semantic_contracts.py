@@ -7,11 +7,14 @@ from typing import Any
 import jsonschema
 
 from backend.domains.llm_wiki.chunking import record, records
-from backend.domains.llm_wiki.reading_action_contracts import dimension_schema, validate_note_dimensions
+from backend.domains.llm_wiki.reading_action_contracts import (
+    dimension_schema,
+    validate_note_dimensions,
+)
 from backend.domains.llm_wiki.reading_contracts import validate_notes
+from backend.domains.llm_wiki.reading_quality import validate_reviewed_prose
 from backend.domains.llm_wiki.semantic_context import source_view
 from backend.domains.llm_wiki.semantic_quote_contracts import source_key
-from backend.domains.llm_wiki.reading_quality import validate_reviewed_prose
 
 
 def obj(properties: dict[str, Any]) -> dict[str, Any]:
@@ -24,7 +27,7 @@ MAP_SCHEMA = obj({"summary": TEXT})
 
 
 def fields(dimensions: list[dict[str, object]]) -> list[dict[str, object]]:
-    return [{**{key: spec[key] for key in ("name", "type", "multiple", "allowed_labels", "value_schema") if key in spec},
+    return [{**{key: spec[key] for key in ("name", "type", "multiple", "allowed_labels", "value_schema", "role", "description") if key in spec},
              "field_id": f"property_{i + 1}"} for i, spec in enumerate(dimensions)]
 
 
@@ -32,6 +35,9 @@ def note_schema(dimensions: list[dict[str, object]]) -> dict[str, Any]:
     result = obj({"title": TEXT, "body_md": TEXT,
                   "quotes": {"type": "array", "minItems": 1, "items": TEXT},
                   "properties": dimension_schema(fields(dimensions))})
+    if any(spec.get("role") == "idea_type" for spec in dimensions):
+        result["properties"]["classification_reason"] = TEXT
+        result["required"].append("classification_reason")
     # Application-owned provenance; optional for older literal checkpoints and
     # stripped from model-facing contracts before ID selection is requested.
     result["properties"]["quote_source_keys"] = {"type": "array", "items": TEXT}
@@ -97,6 +103,8 @@ def bind_note(value: dict[str, object], primary: dict[str, object], evidence: li
     note = {"title": value.get("title"), "body_md": value.get("body_md"),
             "source_segment_id": primary["id"], "citations": citations,
             "dimensions": {str(spec["field_id"]): properties.get(f"property_{i + 1}") for i, spec in enumerate(dimensions)}}
+    if "classification_reason" in value:
+        note["classification_reason"] = value["classification_reason"]
     plan: dict[str, object] = {"notes": [note], "coverage": [{"segment_id": primary["id"], "reason": "interpreted"}]}
     validate_notes(plan, [primary], evidence)
     validate_note_dimensions(plan, dimensions)
@@ -126,6 +134,8 @@ def bind_interpretation(answer: dict[str, object], chunks: list[dict[str, object
 def semantic_note(note: dict[str, object], dimensions: list[dict[str, object]]) -> dict[str, object]:
     stored = record(note.get("dimensions"))
     return {"title": note["title"], "body_md": note["body_md"],
+            **({"classification_reason": str(note.get("classification_reason") or "Classification requires review")}
+               if any(spec.get("role") == "idea_type" for spec in dimensions) else {}),
             "quotes": [c["quote"] for c in records(note.get("citations"))],
             "properties": {f"property_{i + 1}": stored.get(str(spec["field_id"]), []) for i, spec in enumerate(dimensions)}}
 

@@ -48,9 +48,9 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1178 | 130176 | 55 |
+| `features` | 1178 | 130182 | 55 |
 | `generated` | 2 | 49841 | 510 |
-| `shared` | 292 | 33095 | 440 |
+| `shared` | 293 | 33123 | 440 |
 
 ## app
 
@@ -131,7 +131,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/agent/chat/useChatSessionSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatSessionSelection.ts) | 51 | `useChatSessionSelection`, `useSessionMessageBinding` | — |
 | [`frontend/src/features/agent/chat/useNotebookConversation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useNotebookConversation.ts) | 33 | `useNotebookConversation` | — |
 | [`frontend/src/features/agent/inbox/BrainInbox.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/inbox/BrainInbox.tsx) | 251 | `BrainInbox` | — |
-| [`frontend/src/features/agent/inbox/BrainReviewDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/inbox/BrainReviewDialog.tsx) | 61 | `BrainReviewDialog` | — |
+| [`frontend/src/features/agent/inbox/BrainReviewDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/inbox/BrainReviewDialog.tsx) | 60 | `BrainReviewDialog` | — |
 | [`frontend/src/features/agent/inbox/BrainReviewFindings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/inbox/BrainReviewFindings.tsx) | 38 | `BrainReviewFindings` | — |
 | [`frontend/src/features/agent/inbox/BrainTools.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/inbox/BrainTools.tsx) | 148 | `BrainTools` | — |
 | [`frontend/src/features/agent/inbox/brainReviewFindingsModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/inbox/brainReviewFindingsModel.ts) | 20 | `reviewFindings` | — |
@@ -480,7 +480,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/plugin-management/plugins-settings/DailyNotesConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/DailyNotesConfig.tsx) | 127 | `DailyNotesConfig` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.tsx) | 14 | `LlmWikiAgentSettings` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/LlmWikiConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiConfig.tsx) | 156 | `LlmWikiConfig` | — |
-| [`frontend/src/features/plugin-management/plugins-settings/LlmWikiFieldAssignments.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiFieldAssignments.tsx) | 114 | `LlmWikiFieldAssignments` | — |
+| [`frontend/src/features/plugin-management/plugins-settings/LlmWikiFieldAssignments.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiFieldAssignments.tsx) | 119 | `LlmWikiFieldAssignments` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/LlmWikiSourceCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiSourceCard.tsx) | 101 | `LlmWikiSourceCard` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/PlanningAssignments.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/PlanningAssignments.tsx) | 89 | `PlanningAssignments` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/PlanningCalendarsResources.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/PlanningCalendarsResources.tsx) | 110 | `PlanningCalendarsResources` | — |
@@ -496,7 +496,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/plugin-management/plugins-settings/WebClipperConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/WebClipperConfig.tsx) | 167 | `WebClipperConfig` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/llmWikiModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/llmWikiModel.ts) | 204 | `EMPTY_LLM_WIKI_DRAFT`, `detectLlmWikiSource`, `isLlmWikiDraftComplete`, `normalizeFieldName`, `normalizeLlmWikiDraft`, `serializeLlmWikiDraft` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/loadLlmWikiSettings.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/loadLlmWikiSettings.ts) | 27 | `loadLlmWikiSettings` | — |
-| [`frontend/src/features/plugin-management/plugins-settings/pluginSettingsModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/pluginSettingsModel.ts) | 211 | `SELECT_STYLE`, `apiErrorMessage`, `isNewerVersion`, `isPluginSection`, `isRecord`, `lifecycleConflict`, `normalizeBuiltinPlugins`, `normalizeVaultTables`, `numberSetting`, `readPendingPluginId`, `settingsRecord`, `sortPluginsByName`, `stringArraySetting`, `stringSetting` | — |
+| [`frontend/src/features/plugin-management/plugins-settings/pluginSettingsModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/pluginSettingsModel.ts) | 213 | `SELECT_STYLE`, `apiErrorMessage`, `isNewerVersion`, `isPluginSection`, `isRecord`, `lifecycleConflict`, `normalizeBuiltinPlugins`, `normalizeVaultTables`, `numberSetting`, `readPendingPluginId`, `settingsRecord`, `sortPluginsByName`, `stringArraySetting`, `stringSetting` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/projectPlanningModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/projectPlanningModel.ts) | 107 | `EMPTY_ASSIGNMENT`, `EMPTY_RESOURCE`, `holidayRowsForYear`, `isValidIsoDate`, `planningAssignment` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/thirdPartyModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/thirdPartyModel.ts) | 67 | `downloadBlob` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.ts) | 185 | `useLlmWikiController` | — |
@@ -1485,20 +1485,21 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/plugins/usePluginHost.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/plugins/usePluginHost.ts) | 50 | `reloadPlugins`, `usePluginHost` | — |
 | [`frontend/src/shared/plugins/usePlugins.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/plugins/usePlugins.ts) | 272 | `PLUGIN_BOOTSTRAP_TIMEOUT_MS`, `reloadPluginState`, `usePlugins` | — |
 | [`frontend/src/shared/record-views/VaultBulkActionsBar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/VaultBulkActionsBar.tsx) | 153 | `VaultBulkActionsBar` | — |
-| [`frontend/src/shared/record-views/VaultTimeline.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/VaultTimeline.tsx) | 81 | `VaultTimeline` | — |
+| [`frontend/src/shared/record-views/VaultTimeline.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/VaultTimeline.tsx) | 58 | `VaultTimeline` | — |
 | [`frontend/src/shared/record-views/VaultViewToolbar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/VaultViewToolbar.tsx) | 113 | `VaultViewToolbar` | — |
 | [`frontend/src/shared/record-views/vault-timeline/TimelineBar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/TimelineBar.tsx) | 68 | `TimelineBar` | — |
 | [`frontend/src/shared/record-views/vault-timeline/TimelineDependencies.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/TimelineDependencies.tsx) | 39 | `TIMELINE_ROW_HEIGHT`, `TimelineDependencies` | — |
 | [`frontend/src/shared/record-views/vault-timeline/VaultTimelineControls.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/VaultTimelineControls.tsx) | 167 | `VaultTimelineControls` | — |
+| [`frontend/src/shared/record-views/vault-timeline/VaultTimelineFooter.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/VaultTimelineFooter.tsx) | 48 | `VaultTimelineFooter` | — |
 | [`frontend/src/shared/record-views/vault-timeline/VaultTimelineGrid.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/VaultTimelineGrid.tsx) | 117 | `VaultTimelineGrid` | — |
 | [`frontend/src/shared/record-views/vault-timeline/schedulingModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/schedulingModel.ts) | 119 | `buildDateMetadata`, `dateValue` | — |
 | [`frontend/src/shared/record-views/vault-timeline/timelineLabels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineLabels.ts) | 10 | `timelineErrorKey`, `timelineTitle` | — |
 | [`frontend/src/shared/record-views/vault-timeline/timelineModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineModel.ts) | 390 | `buildBarColorResolver`, `buildTimelineChart`, `buildTimelineTicks`, `predecessorCandidates`, `predecessorsFor`, `resolvePredecessorField`, `resolveTimelineDateFields`, `timelinePosition`, `timelineUnitFromConfig` | — |
 | [`frontend/src/shared/record-views/vault-timeline/timelineScale.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineScale.ts) | 92 | `calendarScale`, `scaleWidth`, `shiftTimelineDate` | — |
-| [`frontend/src/shared/record-views/vault-timeline/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/types.ts) | 172 | — | — |
+| [`frontend/src/shared/record-views/vault-timeline/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/types.ts) | 174 | — | — |
 | [`frontend/src/shared/record-views/vault-timeline/useTimelineDrag.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useTimelineDrag.ts) | 92 | `useTimelineDrag` | — |
 | [`frontend/src/shared/record-views/vault-timeline/useTimelineScheduling.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useTimelineScheduling.ts) | 132 | `planningSettingsFrom`, `useTimelineScheduling` | — |
-| [`frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.ts) | 326 | `useVaultTimelineController` | — |
+| [`frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.ts) | 327 | `useVaultTimelineController` | — |
 | [`frontend/src/shared/records/NumberValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/NumberValue.tsx) | 19 | `NumberValue` | — |
 | [`frontend/src/shared/records/hooks/useVaultSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/hooks/useVaultSelection.ts) | 78 | `useVaultSelection` | — |
 | [`frontend/src/shared/records/hooks/useVaultSelectionShortcuts.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/hooks/useVaultSelectionShortcuts.ts) | 53 | `useVaultSelectionShortcuts` | — |
