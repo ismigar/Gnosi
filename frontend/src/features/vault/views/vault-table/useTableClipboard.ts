@@ -32,11 +32,11 @@ type Inputs = Pick<ReturnType<typeof useTableNavigation>,
   & Pick<ReturnType<typeof useTableColumns>, 'gridColumns'>
   & Pick<ReturnType<typeof useTableSelection>, 'selectedIds'>
   & Pick<ReturnType<typeof useTableData>, 'sortedNotes'>
-  & Pick<ReturnType<typeof useTableState>, 'clipboardRef'>
+  & Pick<ReturnType<typeof useTableState>, 'clipboardRef' | 'selectedCells'>
   & Pick<TableInputs, 'idToTitle' | 'schema' | 'onCellSaved' | 'onUpdateView' | 'activeView'>
   & Pick<ReturnType<typeof useTableIdentity>, 't'>
   & Pick<ReturnType<typeof useTableSave>, 'propagateToParent'>
-  & Pick<ReturnType<typeof useTableOptimistic>, 'setOptimisticPatches'>
+  & Pick<ReturnType<typeof useTableOptimistic>, 'setOptimisticPatches' | 'setOptimisticTitles'>
   & Pick<ReturnType<typeof useTableOptions>, 'getAvailableOptions'>
   & Pick<ReturnType<typeof useTableMedia>, 'getRelationContext'>;
 
@@ -48,11 +48,13 @@ export function useTableClipboard({
   selectedIds,
   sortedNotes,
   clipboardRef,
+  selectedCells,
   idToTitle,
   t,
   schema,
   propagateToParent,
   setOptimisticPatches,
+  setOptimisticTitles,
   onCellSaved,
   onUpdateView,
   activeView,
@@ -80,7 +82,7 @@ export function useTableClipboard({
       const cols = [];
       for (let c = c0;c <= c1;c++) {
         const col = gridColumns[c];
-        if (!col) continue;
+        if (!col || (selectedCells.length && !selectedCells.some(cell => cell.rowId === note.id && cell.field === col.key))) continue;
         if (col.key === 'title') {
           cols.push({ rowId: note.id, field: 'title', type: 'text', value: note.title ?? '' });
           continue;
@@ -88,10 +90,10 @@ export function useTableClipboard({
         const metaKey = getMetaKey(note, col.key);
         cols.push({ rowId: note.id, field: col.key, type: col.type, value: note.metadata?.[metaKey] });
       }
-      rows.push(cols);
+      if (cols.length) rows.push(cols);
     }
     return rows;
-  }, [selectionRect, navRows, gridColumns, noteById]);
+  }, [selectionRect, navRows, gridColumns, noteById, selectedCells]);
   const handleCopyCells = useCallback(() => {
     const cells = getRangeCells();
     if (cells.length === 0 || (cells[0]?.length ?? 0) === 0) return;
@@ -130,16 +132,24 @@ export function useTableClipboard({
     setOptimisticPatches(prev => {
       const next = new Map(prev);
       for (const u of finalUpdates) {
+        if (u.field === 'title') continue;
         const existing = next.get(u.id) || {};
         next.set(u.id, { ...existing, [u.key]: u.newValue });
       }
       return next;
     });
 
-    const byPage = new Map<string, MetadataPatch>();
+    const titleUpdates = finalUpdates.filter(u => u.field === 'title');
+    if (titleUpdates.length) setOptimisticTitles(prev => {
+      const next = new Map(prev);
+      for (const u of titleUpdates) next.set(u.id, displayString(u.newValue));
+      return next;
+    });
+    const byPage = new Map<string, { title?: string; metadata?: MetadataPatch }>();
     for (const u of finalUpdates) {
       const m = byPage.get(u.id) || {};
-      m[u.key] = u.newValue;
+      if (u.field === 'title') m.title = displayString(u.newValue);
+      else { m.metadata ??= {}; m.metadata[u.key] = u.newValue; }
       byPage.set(u.id, m);
     }
     const pageEntries = [...byPage.entries()];
@@ -148,21 +158,26 @@ export function useTableClipboard({
     const failedPageIds = new Set<string>();
     for (let i = 0;i < pageEntries.length;i += CHUNK) {
       const slice = pageEntries.slice(i, i + CHUNK);
-      const results = await Promise.allSettled(slice.map(([id, metadata]) =>
+      const results = await Promise.allSettled(slice.map(([id, patch]) =>
         transportFetch(`/api/vault/pages/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ metadata }),
+          body: JSON.stringify(patch),
         }).then(r => { if (!r.ok) throw new Error(`HTTP ${String(r.status)}`); })
       ));
       results.forEach((res, j) => { if (res.status === 'rejected') failedPageIds.add((slice[j]?.[0] ?? '')); });
     }
 
     if (failedPageIds.size > 0) {
+      if (titleUpdates.length) setOptimisticTitles(prev => {
+        const next = new Map(prev);
+        for (const u of titleUpdates) if (failedPageIds.has(u.id)) next.delete(u.id);
+        return next;
+      });
       setOptimisticPatches(prev => {
         const next = new Map(prev);
         for (const u of finalUpdates) {
-          if (!failedPageIds.has(u.id)) continue;
+          if (u.field === 'title' || !failedPageIds.has(u.id)) continue;
           const existing = next.get(u.id);
           if (!existing) continue;
           const { [u.key]: _removed, ...rest } = existing;
@@ -175,11 +190,11 @@ export function useTableClipboard({
     }
 
     const succeeded = finalUpdates.filter(u => !failedPageIds.has(u.id));
-    await propagateBulkToParents(succeeded);
+    await propagateBulkToParents(succeeded.filter(u => u.field !== 'title'));
 
     if (onCellSaved) onCellSaved();
     else if (onUpdateView) onUpdateView(activeView);
-  }, [setOptimisticPatches, propagateBulkToParents, onCellSaved, onUpdateView, activeView, t]);
+  }, [setOptimisticPatches, setOptimisticTitles, propagateBulkToParents, onCellSaved, onUpdateView, activeView, t]);
   const coercionCtxFor = useCallback((col: GridColumn, note?: TableNote) => {
     if (col.type === 'select' || col.type === 'status' || col.type === 'multi_select') {
       return { options: getAvailableOptions(col.key, col.type), idToTitle };
@@ -189,15 +204,15 @@ export function useTableClipboard({
     }
     return {};
   }, [getAvailableOptions, idToTitle, getRelationContext]);
-  const handlePasteCells = useCallback(async () => {
+  const handlePasteCells = useCallback(async (clipboardText?: string) => {
     if (!selectionRect) return;
     let source = clipboardRef.current;
     let srcMatrix = source?.matrix ?? null;
     try {
       const clipboard = tableClipboard();
-      if (clipboard?.readText) {
-        const text = await clipboard.readText();
-        if (text !== source?.text) { srcMatrix = parseClipboardMatrix(text); source = null; }
+      if (clipboardText !== undefined || clipboard?.readText) {
+        const text = clipboardText ?? await clipboard?.readText?.();
+        if (text !== undefined && text !== source?.text) { srcMatrix = parseClipboardMatrix(text); source = null; }
       }
     } catch { /* An internal copy still works when system clipboard access is denied. */ }
     if (!srcMatrix) return;
@@ -208,7 +223,7 @@ export function useTableClipboard({
     const rect = computePasteRect(srcRows, srcCols, selectionRect, navRows.length, gridColumns.length);
     const updates = [];
     let skipped = 0;
-    const targetRows = selectedIds.size > 0
+    const targetRows = selectedIds.size > 0 && !selectedCells.length
       ? selectedTargets
       : Array.from({ length: rect.r1 - rect.r0 + 1 }, (_, index) => ({ id: navRows[rect.r0 + index]?.id ?? '', index: rect.r0 + index }));
     for (const [targetIndex, target] of targetRows.entries()) {
@@ -217,10 +232,15 @@ export function useTableClipboard({
       if (!note) continue;
       for (let c = rect.c0;c <= rect.c1;c++) {
         const col = gridColumns[c];
-        if (!col) continue;
-        if (col.key === 'title' || !isPasteableType(col.type)) continue;
+        if (!col || (selectedCells.length && !selectedCells.some(cell => cell.rowId === note.id && cell.field === col.key))) continue;
+        if (col.key !== 'title' && !isPasteableType(col.type)) continue;
         const sourceRow = targetIndex % srcRows, sourceColumn = (c - rect.c0) % srcCols;
         let raw = srcMatrix[sourceRow]?.[sourceColumn];
+        if (col.key === 'title') {
+          const title = displayString(raw).trim();
+          if (title && title !== note.title) updates.push({ id: note.id, key: 'title', field: 'title', newValue: title });
+          continue;
+        }
         if (isCellFormula(raw) && source?.origin) raw = translateFormula(raw, r - source.origin.row - sourceRow, c - source.origin.column - sourceColumn);
         const res = isCellFormula(raw) && supportsCellFormula(col.type)
           ? { value: raw, skip: false } : coerceValueForField(raw, col.type, coercionCtxFor(col, note));
@@ -232,7 +252,7 @@ export function useTableClipboard({
     }
     await applyBulkCellUpdates(updates);
     if (skipped > 0) toast(t('table.paste_skipped', { count: skipped, defaultValue: `${String(skipped)} cel·la(es) ometa(es) (tipus incompatible)` }));
-  }, [selectionRect, clipboardRef, navRows, gridColumns, applyBulkCellUpdates, t, noteById, coercionCtxFor, selectedIds, selectedTargets]);
+  }, [selectionRect, clipboardRef, navRows, gridColumns, applyBulkCellUpdates, t, noteById, coercionCtxFor, selectedIds, selectedTargets, selectedCells]);
   const clearActiveCells = useCallback(() => {
     const rect = selectionRectRef.current;
     if (!rect) return;
@@ -246,7 +266,7 @@ export function useTableClipboard({
       if (!note) continue;
       for (let c = rect.c0;c <= rect.c1;c++) {
         const col = cols[c];
-        if (!col || !isPasteableType(col.type)) continue;
+        if (!col || !isPasteableType(col.type) || (selectedCells.length && !selectedCells.some(cell => cell.rowId === note.id && cell.field === col.key))) continue;
         const empty = (col.type === 'multi_select' || col.type === 'relation') ? [] : (col.type === 'checkbox' ? false : '');
         const metaKey = getMetaKey(note, col.key);
         if (sameCellValue(note.metadata?.[metaKey], empty)) continue;
@@ -254,7 +274,7 @@ export function useTableClipboard({
       }
     }
     void applyBulkCellUpdates(updates);
-  }, [selectionRectRef, navRowsRef, gridColumnsRef, applyBulkCellUpdates, noteById]);
+  }, [selectionRectRef, navRowsRef, gridColumnsRef, applyBulkCellUpdates, noteById, selectedCells]);
   const fillDown = useCallback(async () => {
     if (!selectionRect) return;
     const { r0, r1, c0, c1 } = selectionRect;

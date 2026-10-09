@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1182 | 130784 | 55 |
+| `features` | 1183 | 130905 | 55 |
 | `generated` | 2 | 49841 | 510 |
 | `shared` | 296 | 33275 | 440 |
 
@@ -1189,7 +1189,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/views/vault-table/InlineSelectPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/InlineSelectPicker.tsx) | 126 | `InlineSelectPicker` | — |
 | [`frontend/src/features/vault/views/vault-table/NewSubitemRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/NewSubitemRow.tsx) | 70 | `createNewSubitemRenderer` | — |
 | [`frontend/src/features/vault/views/vault-table/RowActions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/RowActions.tsx) | 231 | `RowActions` | — |
-| [`frontend/src/features/vault/views/vault-table/RowTitleCell.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/RowTitleCell.tsx) | 152 | `RowTitleCell` | — |
+| [`frontend/src/features/vault/views/vault-table/RowTitleCell.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/RowTitleCell.tsx) | 155 | `RowTitleCell` | — |
 | [`frontend/src/features/vault/views/vault-table/SortableColumnTh.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/SortableColumnTh.tsx) | 55 | `SortableColumnTh` | — |
 | [`frontend/src/features/vault/views/vault-table/TableActionDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableActionDialogs.tsx) | 87 | `TableActionDialogs` | — |
 | [`frontend/src/features/vault/views/vault-table/TableBody.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableBody.tsx) | 98 | `TableBody` | — |
@@ -1197,9 +1197,9 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/views/vault-table/TableFormulaBar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableFormulaBar.tsx) | 49 | `TableFormulaBar` | — |
 | [`frontend/src/features/vault/views/vault-table/TableGroups.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableGroups.tsx) | 122 | `createGroupRenderers` | — |
 | [`frontend/src/features/vault/views/vault-table/TableHeader.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableHeader.tsx) | 198 | `TableHeader` | — |
-| [`frontend/src/features/vault/views/vault-table/TableLayout.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableLayout.tsx) | 144 | `TableLayout` | — |
+| [`frontend/src/features/vault/views/vault-table/TableLayout.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableLayout.tsx) | 143 | `TableLayout` | — |
 | [`frontend/src/features/vault/views/vault-table/TableMediaDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableMediaDialog.tsx) | 72 | `TableMediaDialog` | — |
-| [`frontend/src/features/vault/views/vault-table/TableRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableRow.tsx) | 132 | `createRowRenderer` | — |
+| [`frontend/src/features/vault/views/vault-table/TableRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableRow.tsx) | 135 | `createRowRenderer` | — |
 | [`frontend/src/features/vault/views/vault-table/cellValues.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/cellValues.ts) | 30 | `cellNode`, `metadataDate`, `tableCell`, `tableClipboard`, `tableText` | — |
 | [`frontend/src/features/vault/views/vault-table/fieldConfig.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/fieldConfig.ts) | 72 | `assignmentConfig`, `displayString`, `getTableFieldConfig`, `isRecord`, `nestedRecords`, `resourceJobs` | — |
 | [`frontend/src/features/vault/views/vault-table/keyboardOwnership.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/keyboardOwnership.ts) | 2 | `keyboardOwnership` | — |
@@ -1215,7 +1215,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/views/vault-table/useLatestRef.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useLatestRef.ts) | 8 | `useLatestRef` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableActions.ts) | 118 | `useTableActions` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableAggregation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableAggregation.ts) | 73 | `useTableAggregation` | — |
-| [`frontend/src/features/vault/views/vault-table/useTableClipboard.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableClipboard.ts) | 286 | `useTableClipboard` | — |
+| [`frontend/src/features/vault/views/vault-table/useTableClipboard.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableClipboard.ts) | 306 | `useTableClipboard` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableColumnInteractions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableColumnInteractions.ts) | 75 | `useTableColumnInteractions` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableColumns.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableColumns.ts) | 59 | `useTableColumns` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableController.ts) | 76 | `useTableController` | — |
@@ -1227,15 +1227,16 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/views/vault-table/useTableInput.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableInput.ts) | 59 | `useTableInput` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableKeyboard.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableKeyboard.ts) | 223 | `useTableKeyboard` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableMedia.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableMedia.ts) | 142 | `useTableMedia` | `/api/vault/assets/`, `/api/vault/open-resource` |
-| [`frontend/src/features/vault/views/vault-table/useTableNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableNavigation.ts) | 287 | `useTableNavigation` | — |
+| [`frontend/src/features/vault/views/vault-table/useTableNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableNavigation.ts) | 296 | `useTableNavigation` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableOptimistic.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableOptimistic.ts) | 119 | `useTableOptimistic` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableOptions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableOptions.ts) | 126 | `useTableOptions` | — |
 | [`frontend/src/features/vault/views/vault-table/useTablePlugins.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTablePlugins.ts) | 51 | `useTablePlugins` | — |
+| [`frontend/src/features/vault/views/vault-table/useTablePointerSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTablePointerSelection.ts) | 82 | `useTablePointerSelection` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableResources.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableResources.ts) | 59 | `useTableResources` | `/api/vault/open-resource` |
 | [`frontend/src/features/vault/views/vault-table/useTableRows.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableRows.ts) | 96 | `useTableRows` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableSave.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableSave.ts) | 178 | `useTableSave` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableSelection.ts) | 68 | `useTableSelection` | — |
-| [`frontend/src/features/vault/views/vault-table/useTableState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableState.ts) | 60 | `useTableState` | — |
+| [`frontend/src/features/vault/views/vault-table/useTableState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableState.ts) | 65 | `useTableState` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableValues.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableValues.ts) | 81 | `useTableValues` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableVirtualizer.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableVirtualizer.ts) | 15 | `useTableVirtualizer` | — |
 | [`frontend/src/features/vault/views/vault-view-body/table-contract.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-view-body/table-contract.ts) | 127 | `tableNotes`, `tableRecordFocus`, `tableTemplates`, `tableView` | — |
