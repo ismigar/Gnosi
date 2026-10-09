@@ -28,12 +28,16 @@ source_paths:
   - backend/services/vault_templates.py
   - backend/api/vault_templates_routes.py
   - frontend/src/features/vault/VaultDashboard.tsx
+  - frontend/src/features/vault/dashboard/Dashboard.tsx
+  - frontend/src/features/vault/navigation/VaultShell.tsx
   - frontend/src/features/vault
   - frontend/src/shared/editor
   - frontend/src/shared/records
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - frontend/src/features/vault/dashboard/Dashboard.document-controls.test.tsx
+  - frontend/src/features/vault/navigation/VaultShell.test.tsx
   - backend/tests/test_page_reference_titles.py
   - backend/tests/test_suggestion_localization.py
   - frontend/src/shared/records/pageReferenceTitle.test.ts
@@ -729,3 +733,5 @@ Knowledge connections request their captions in the active UI locale through the
 The review dialog groups affected notes and resources into expandable finding categories with title links and batches of twenty entries. Opening a finding closes the dialog and opens its record. The orphan check recognizes both `[[id|title]]` and `[[title|id]]`. Reviewing never automatically reprocesses a resource or creates a permanent note.
 
 Desktop file and folder selection uses the trusted, validated `pick-filesystem` IPC capability and the operating system's native dialog. Cancellation closes the picker without applying a selection; multiple selections retain each path's file or directory kind. Windows and Linux first use a native choice between file and folder modes for combined selection. The in-app filesystem browser remains available to browser clients without the desktop bridge.
+
+The single-document header exposes Close tab only when its active ID matches an open tab. Remembering one inactive tab must not show a close action on the welcome screen. Opening/searching controls remain available, and closing the final active tab removes its close control.
