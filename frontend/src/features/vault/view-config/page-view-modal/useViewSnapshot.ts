@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import type { useViewStateResult } from './useViewState';
 
 export function useViewSnapshot({
-    heading, headingLevel, sourceTableId, viewName,
+    heading, headingLevel, sourceTableId, viewName, displayTitle,
     visibleProperties, joins, viewType, filterTree,
     sorts, resultSnapshot, resultSnapshotLimit, heightMode, heightPercent, cardSize,
     galleryPreview, coverField, imageFit, groupBy,
@@ -17,6 +17,7 @@ export function useViewSnapshot({
     | 'headingLevel'
     | 'sourceTableId'
     | 'viewName'
+    | 'displayTitle'
     | 'visibleProperties'
     | 'joins'
     | 'viewType'
@@ -56,7 +57,7 @@ export function useViewSnapshot({
         heading,
         headingLevel,
         sourceTableId,
-        viewName,
+        viewName, displayTitle,
         visibleProperties,
         joins,
         viewType,
@@ -88,7 +89,7 @@ export function useViewSnapshot({
         selectedExistingViewId,
         editScope,
         pinnedViewIds: [...modalPinnedViewIds].sort(),
-    }), [heading, headingLevel, sourceTableId, viewName, visibleProperties, joins,
+    }), [heading, headingLevel, sourceTableId, viewName, displayTitle, visibleProperties, joins,
         viewType, filterTree, sorts, resultSnapshot, resultSnapshotLimit, heightMode, heightPercent, cardSize,
         galleryPreview, coverField, imageFit, groupBy, groupSort, groupSortDir,
         dateField, endDateField, calendarView, colorField, rowHeight, feedPillLimit,

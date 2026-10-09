@@ -23,7 +23,7 @@ export function EmbedTabs({ model }: { model: EmbedModel ;}) {
                     onDoubleClick={() => { handleRenameView(v); }}
                     title={tabMenuFor != null ? '' : t('views_header.tab_tooltip', "Click to switch · double-click to rename")}
                 >
-                    <span>{v.name || v.heading || t('views_header.default_view_name', "View")}</span>
+                    <span>{v.displayTitle?.trim() || v.name || v.heading || t('views_header.default_view_name', "View")}</span>
                     <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); menuAnchorRef.current = e.currentTarget; decideMenuDir(e); setTabMenuFor(m => m === v.id ? null : v.id); }}

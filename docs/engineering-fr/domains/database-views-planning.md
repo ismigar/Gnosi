@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-10-09
 source_paths:
+  - frontend/src/shared/filtering/exposedFilters.ts
+  - frontend/src/shared/filtering/useExposedFilters.ts
+  - frontend/src/features/vault/views/ExposedFilters.tsx
   - frontend/src/shared/records/hooks/useViewSearch.ts
   - frontend/src/features/vault/views/ViewSearchScope.tsx
   - frontend/src/features/vault/dashboard/useContentCreation.ts
@@ -33,11 +36,19 @@ source_paths:
   - frontend/src/features/vault/editor/BlockEditor.tsx
   - frontend/src/features/vault/properties/VaultDateProperty.ts
   - frontend/src/shared/record-views/VaultTimeline.tsx
+  - frontend/src/shared/record-views/vault-timeline
   - frontend/src/features/vault/VaultDashboard.tsx
   - frontend/src/features/planning
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/shared/filtering/exposedFilters.test.ts
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx
+  - backend/tests/test_exposed_view_configuration.py
+  - frontend/src/shared/record-views/VaultTimeline.test.tsx
+  - frontend/src/shared/record-views/VaultTimeline.interactions.test.tsx
+  - frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx
+  - frontend/src/shared/record-views/vault-timeline/timelineScale.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
   - frontend/src/features/vault/dashboard/TablePane.test.tsx
   - frontend/src/features/vault/dashboard/creationFlow.test.tsx
@@ -403,8 +414,6 @@ ne sont jamais fusionnées automatiquement dans le catalogue global.
 Tests : `backend/tests/test_status_catalog_isolation.py` et
 `frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.
 
-
-
 ## Chronologie interactive des enregistrements
 
 La chronologie des enregistrements utilise des limites de calendrier localisées, une colonne de titres fixe et redimensionnable, des phases repliables et une vue du projet adaptée à la fenêtre. Glissez une barre pour déplacer la tâche, une extrémité pour ajuster ses dates ou le point de connexion final sur une tâche suivante pour créer une dépendance de fin à début. Le contrôleur enregistre la période ou les champs de début et de fin avec le même callback de métadonnées que le tableau, conserve la progression et les dépendances de la période et reconnaît les colonnes de relation des prédécesseurs. La planification inclut les enregistrements masqués par les filtres, refuse les cycles et propage les branches convergentes selon le prédécesseur qui termine le plus tard. Chaque enregistrement sauvegarde ensemble la dépendance et les dates calculées ; les opérations échouées restaurent les écritures terminées lorsque possible et signalent les restaurations incomplètes. Annuler restaure les champs modifiés pendant la session de la vue. Les chronologies intégrées conservent leurs contrôles de zoom et de navigation et gèrent leur limite de défilement. Les flèches déplacent la barre focalisée, Maj+flèche ajuste sa fin et Échap annule le glissement.
@@ -414,3 +423,32 @@ Le pied de la chronologie est séparé du défilement vertical des lignes et res
 Le sélecteur propose jour, semaine, mois et année ; la vue annuelle aligne des années complètes avec des colonnes mensuelles. Les tâches parentes peuvent réduire et restaurer toutes les sous-tâches imbriquées.
 
 Cliquez sur une ligne de dépendance, ou donnez-lui le focus et appuyez sur Entrée/Suppr, pour ouvrir le dialogue de suppression partagé. La confirmation supprime uniquement ce prédécesseur de la période ou de la relation, conserve les dates et les détails des autres liaisons, actualise le tableau et permet d’annuler. Les chronologies en lecture seule ne proposent pas cette action.
+
+## Titres affichés et filtres exposés
+
+Les vues enregistrées ont un `displayTitle` facultatif indépendant du `name`
+du catalogue. Les sélecteurs d’insertion conservent le nom long ; les titres
+et onglets des vues intégrées utilisent le titre court lorsqu’il est défini,
+avec les titres et noms existants comme solution de repli. Le champ s’applique
+à tous les types de vue et est conservé dans le registre, les sections locales,
+les copies et l’enregistrement automatique du dialogue.
+
+L’action Renommer, y compris le double clic sur un onglet intégré, modifie
+uniquement `displayTitle` et reprend le titre affiché actuel. Le nom du catalogue
+se modifie dans Configurer. La vue principale permet ce changement de présentation
+tout en conservant son verrou de suppression.
+
+Chaque règle peut activer `exposed: true`. Son contrôle de valeur, adapté au type
+de champ, et un interrupteur apparaissent au-dessus des vues intégrées et des
+tables. Les modifications appartiennent à l’instance montée et à la configuration
+de la page ou de l’onglet actif, jamais au registre enregistré. Réinitialiser
+rétablit les valeurs enregistrées. Les groupes AND/OR et les règles fixes sont
+préservés ; les groupes désactivés sont supprimés sans transformer les branches OR
+en correspondances. La recherche dans toute la table désactive temporairement
+les contrôles. Le compteur utilise les mêmes filtres temporaires que les résultats.
+L’enregistrement des modifications de disposition conserve les filtres d’origine.
+Zéro, faux et les limites de période sont conservés lors de la sérialisation.
+
+La couverture de régression comprend `exposedFilters.test.ts`, `PageViewModal.test.tsx`,
+`DbViewEmbed.test.tsx`, `TablePane.test.tsx` et
+`backend/tests/test_exposed_view_configuration.py`.

@@ -87,6 +87,9 @@ export function ViewActionMenu({
                         <Settings size={13} />
                         {t('views_header.configure')}
                     </ActionButton>
+
+                </>
+            )}
                     <ActionButton
                         action="rename"
                         onAction={onAction}
@@ -98,8 +101,6 @@ export function ViewActionMenu({
                         <Edit2 size={13} />
                         {t('views_header.rename')}
                     </ActionButton>
-                </>
-            )}
             <ActionButton
                 action="duplicate"
                 onAction={onAction}

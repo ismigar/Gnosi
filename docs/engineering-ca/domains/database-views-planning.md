@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-10-09
 source_paths:
+  - frontend/src/shared/filtering/exposedFilters.ts
+  - frontend/src/shared/filtering/useExposedFilters.ts
+  - frontend/src/features/vault/views/ExposedFilters.tsx
   - frontend/src/shared/records/hooks/useViewSearch.ts
   - frontend/src/features/vault/views/ViewSearchScope.tsx
   - frontend/src/features/vault/dashboard/useContentCreation.ts
@@ -33,11 +36,19 @@ source_paths:
   - frontend/src/features/vault/editor/BlockEditor.tsx
   - frontend/src/features/vault/properties/VaultDateProperty.ts
   - frontend/src/shared/record-views/VaultTimeline.tsx
+  - frontend/src/shared/record-views/vault-timeline
   - frontend/src/features/vault/VaultDashboard.tsx
   - frontend/src/features/planning
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/shared/filtering/exposedFilters.test.ts
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx
+  - backend/tests/test_exposed_view_configuration.py
+  - frontend/src/shared/record-views/VaultTimeline.test.tsx
+  - frontend/src/shared/record-views/VaultTimeline.interactions.test.tsx
+  - frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx
+  - frontend/src/shared/record-views/vault-timeline/timelineScale.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
   - frontend/src/features/vault/dashboard/TablePane.test.tsx
   - frontend/src/features/vault/dashboard/creationFlow.test.tsx
@@ -400,8 +411,6 @@ automàticament amb el catàleg global.
 Proves: `backend/tests/test_status_catalog_isolation.py` i
 `frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.
 
-
-
 ## Cronograma interactiu de registres
 
 El cronograma de registres fa servir límits del calendari traduïts, una columna de títols fixa i ajustable, fases plegables i una visió del projecte adaptada a la finestra. Arrossega una barra per moure la tasca, un extrem per ajustar-ne les dates o el punt de connexió final fins a una successora per crear una dependència de final a inici. El controlador desa el període o els camps d’inici i final amb el mateix callback de metadades que la taula, conserva el progrés i les dependències del període i reconeix les columnes de relació de predecessores. La programació inclou els registres ocults pels filtres, rebutja cicles i propaga les branques convergents segons la predecessora que acaba més tard. Cada registre desa conjuntament la dependència i les dates resultants; si una operació falla, es restauren els canvis completats quan és possible i s’informa de les restauracions incompletes. Desfer restaura els camps canviats durant la sessió de la vista. Els cronogrames incrustats mantenen els controls de zoom i navegació i gestionen el seu límit de desplaçament. Les fletxes mouen la barra enfocada, Majúscules+fletxa ajusta el final i Escape cancel·la l’arrossegament.
@@ -411,3 +420,29 @@ El peu del cronograma és fora del desplaçament vertical de les files i es mant
 El selector d’escala ofereix dia, setmana, mes i any; la vista d’any alinea anys complets amb columnes mensuals. Les tasques mare poden plegar i recuperar totes les subtasques imbricades.
 
 Clica una línia de dependència, o enfoca-la i prem Enter/Suprimeix, per obrir el diàleg d’eliminació compartit. La confirmació elimina només aquella predecessora del període o la relació, conserva les dates i els detalls de les altres connexions, actualitza la taula i permet desfer. Els cronogrames de només lectura no ofereixen aquesta acció.
+
+## Títols visibles i filtres exposats
+
+Les vistes tenen un `displayTitle` opcional independent del `name` del catàleg.
+La llista d’inserció conserva el nom llarg; les capçaleres i pestanyes inserides
+mostren el títol curt quan està definit. Si és buit, es conserva el comportament
+anterior. El camp funciona en tots els tipus de vista i es conserva tant al
+registre com a les seccions locals i al desament automàtic del diàleg.
+
+L’acció «Reanomenar», inclòs el doble clic a les pestanyes inserides, modifica
+només `displayTitle` i parteix del títol visible actual. El nom del catàleg
+s’edita a «Configurar». La vista principal també permet canviar aquest títol
+i conserva el bloqueig de supressió.
+
+Cada regla de filtre pot activar `exposed: true`. El control del valor, adaptat
+al tipus de camp, i un interruptor apareixen sobre les vistes inserides i les
+vistes de taula. Els canvis són temporals per a aquella instància i configuració
+de pàgina o pestanya; «Restableix els filtres» recupera els valors desats.
+Es respecten els grups AND/OR i les regles fixes. La cerca a tota la taula
+desactiva temporalment els controls. El recompte segueix els resultats filtrats
+i els canvis de disposició no desen els filtres temporals. Es conserven el zero,
+els booleans i el límit del període en serialitzar els filtres.
+
+La cobertura de regressió inclou `exposedFilters.test.ts`, `PageViewModal.test.tsx`,
+`DbViewEmbed.test.tsx`, `TablePane.test.tsx` i
+`backend/tests/test_exposed_view_configuration.py`.

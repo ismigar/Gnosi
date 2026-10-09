@@ -23,9 +23,10 @@ export function EmbedDialogs({ model }: { model: EmbedModel ;}) {
             isOpen={renameView != null}
             onClose={() => { setRenameView(null); }}
             onSubmit={doRename}
-            title={t('views_header.rename_view_title', "Rename view")}
-            label={t('views_header.new_view_name_label', "New view name")}
-            defaultValue={renameView ? (renameView.name || renameView.heading || '') : ''}
+            title={t('view.rename_display_title', 'Rename display title')}
+            label={t('view.display_title', 'Display title')}
+            message={t('view.rename_display_title_hint')}
+            defaultValue={renameView ? (renameView.displayTitle?.trim() || renameView.name || renameView.heading || '') : ''}
             confirmText={t('common.rename', "Rename")}
             cancelText={t('common.cancel', "Cancel")}
         />
