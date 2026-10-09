@@ -58,8 +58,8 @@ export function OverflowViewRow({
                     size: 13,
                     className: 'shrink-0',
                 })}
-                <span className="truncate flex-1 min-w-0" title={view.name ?? undefined}>
-                    {view.name}
+                <span className="truncate flex-1 min-w-0" title={view.displayTitle?.trim() || view.name || undefined}>
+                    {view.displayTitle?.trim() || view.name}
                 </span>
                 {isPrimaryView && (
                     <span

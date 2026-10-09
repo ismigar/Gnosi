@@ -164,3 +164,30 @@ describe('distinct existing creation contracts', () => {
     expect(vault.createVaultDatabase).not.toHaveBeenCalled();
   });
 });
+
+
+describe('view display title rename', () => {
+  it('starts from the visible title and sends a title-only patch', async () => {
+    const view = { id: 'tasks-board', table_id: 'table', name: 'Tasks per project - Kanban', displayTitle: 'Kanban', type: 'board' };
+    await harness.run(controller => {
+      controller.setRegistry(previous => ({ ...previous, views: [...previous.views, view] }));
+    });
+    await harness.run(controller => { controller.handleRenameView(view); });
+    expect(harness.current.promptModal.inputValue).toBe('Kanban');
+    expect(harness.container.querySelector('h3')?.textContent).toBe('view.rename_display_title');
+    await name('  Board  ');
+    await submit();
+    expect(views.updateVaultView).toHaveBeenCalledExactlyOnceWith(view.id, { displayTitle: 'Board' });
+    expect(views.createVaultView).not.toHaveBeenCalled();
+    expect(view.name).toBe('Tasks per project - Kanban');
+  });
+  it('keeps the catalog name when materializing a virtual main view', async () => {
+    const view = { id: 'default', table_id: 'table', name: 'Catalog name', type: 'table', is_main: true };
+    const catalogName = harness.current.buildMainViewBody('table').name;
+    await harness.run(controller => { controller.handleRenameView(view); });
+    await name('Short title');
+    await submit();
+    expect(views.createVaultView).toHaveBeenCalledWith(expect.objectContaining({ name: catalogName, displayTitle: 'Short title', is_main: true }));
+    expect(views.updateVaultView).not.toHaveBeenCalled();
+  });
+});

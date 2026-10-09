@@ -200,8 +200,8 @@ export function useViewActions(context: Context) {
             return;
         setPromptModal({
             isOpen: true,
-            defaultTitle: view.name || '',
-            inputValue: view.name || '',
+            defaultTitle: view.displayTitle?.trim() || view.name || '',
+            inputValue: view.displayTitle?.trim() || view.name || '',
             isView: true,
             isRename: true,
             targetView: view,

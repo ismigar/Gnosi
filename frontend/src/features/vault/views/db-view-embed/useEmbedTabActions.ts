@@ -85,9 +85,10 @@ export function useEmbedTabActions({ pageId, viewId, tableId, ctx, setTableViews
         const v = renameView;
         setRenameView(null);
         if (!v?.id) return;
-        if (!name || name === (v.name || v.heading)) return;
+        const displayTitle = name.trim();
+        if (!displayTitle || displayTitle === (v.displayTitle?.trim() || v.name || v.heading)) return;
         try {
-            await updateVaultView(v.id, { ...v, name });
+            await updateVaultView(v.id, { displayTitle });
             await refetchTableViews();
         } catch (e) { reportEmbedError('rename view failed', e); }
     }, [renameView, setRenameView, refetchTableViews]);

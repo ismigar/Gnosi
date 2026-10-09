@@ -2,6 +2,9 @@
 status: implemented
 last_verified: 2026-10-09
 source_paths:
+  - frontend/src/shared/filtering/exposedFilters.ts
+  - frontend/src/shared/filtering/useExposedFilters.ts
+  - frontend/src/features/vault/views/ExposedFilters.tsx
   - frontend/src/shared/records/hooks/useViewSearch.ts
   - frontend/src/features/vault/views/ViewSearchScope.tsx
   - frontend/src/features/vault/dashboard/useContentCreation.ts
@@ -39,6 +42,9 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/shared/filtering/exposedFilters.test.ts
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx
+  - backend/tests/test_exposed_view_configuration.py
   - frontend/src/shared/record-views/VaultTimeline.test.tsx
   - frontend/src/shared/record-views/VaultTimeline.interactions.test.tsx
   - frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx
@@ -359,3 +365,28 @@ The record timeline uses localized calendar boundaries, a resizable sticky title
 The timeline footer is outside the vertical row scroller and stays visible while the containing page scrolls. Its persistent horizontal scrollbar synchronizes with the timeline in both directions, including navigation controls and task dragging.
 
 The scale selector supports day, week, month and year views; year view aligns complete calendar years and shows monthly columns. Parent tasks can collapse and restore all nested subtasks.
+
+## Display titles and exposed filters
+
+Saved views have an optional `displayTitle` independent of the catalog `name`.
+Insertion pickers retain the catalog name; embedded headings and tabs use the
+short title when present, with existing headings and names as the fallback.
+The setting applies to every view type and round-trips through registry views,
+inline sections, copying and modal autosave.
+
+The Rename action (including embedded tab double-click) edits only `displayTitle`
+and starts from the current visible title. Catalog names remain editable in Configure.
+Main views permit this presentation change while retaining their deletion lock.
+
+Each filter rule can opt into `exposed: true`. Its typed value control and an
+enable switch appear above embedded views and table panes. Overrides belong to
+the mounted view and active page/tab configuration, never to the saved registry.
+Reset restores the saved defaults. Nested AND/OR groups and fixed rules remain
+intact; disabled groups are removed without turning OR branches into matches.
+Whole-table search temporarily disables the controls. Result counts use the same
+runtime filters as the body, and saving layout changes preserves the original
+filter configuration. Zero, false and period boundaries survive serialization.
+
+Regression coverage includes `exposedFilters.test.ts`, `PageViewModal.test.tsx`,
+`DbViewEmbed.test.tsx`, `TablePane.test.tsx` and
+`backend/tests/test_exposed_view_configuration.py`.

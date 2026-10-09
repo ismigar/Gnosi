@@ -1,3 +1,4 @@
+import { GnosiToggle } from '../../../../shared/ui/settings/SettingsPrimitives';
 import { normalizeOptions } from '../../../../shared/records/model/optionCatalogUtils';
 import { NO_VALUE_OPS } from './constants';
 import { RelationValuePicker } from './RelationValuePicker';
@@ -98,17 +99,13 @@ export function FilterValueControl({ rule, meta, relOpts, onValue, t }: { rule: 
     if (ftype === 'checkbox') {
         // Checked = filters for marked records ('true'); unmarked = for not
         // checked ('false', which the engine also matches with empty values).
-        const checked = rule.value === 'true';
+        const checked = rule.value === 'true' || rule.value === true;
         return (
-            <label className={`${inputCls} flex items-center gap-2 cursor-pointer`}>
-                <input
-                    type="checkbox"
-                    className="accent-[var(--gnosi-primary)] cursor-pointer"
-                    checked={checked}
-                    onChange={e => { onValue(e.target.checked ? 'true' : 'false'); }}
-                />
+            <div className={`${inputCls} flex items-center gap-2`}>
+                <GnosiToggle active={checked} label={t('view.checked', 'Checked')}
+                    onChange={() => { onValue(checked ? 'false' : 'true'); }} />
                 <span className="text-[var(--text-secondary)]">{checked ? t('view.checked', "Checked") : t('view.unchecked', "Unchecked")}</span>
-            </label>
+            </div>
         );
     }
     if (['number', 'currency', 'percent', 'formula', 'rollup'].includes(ftype || '')) {

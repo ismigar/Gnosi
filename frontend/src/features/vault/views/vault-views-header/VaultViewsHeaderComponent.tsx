@@ -36,7 +36,7 @@ export function VaultViewsHeader({
     onReorderViews,
     onSetDefaultTemplate,
     onViewSelect,
-    recordCount,
+    recordCount, filteredRecordCount,
     referenceTableId,
     searchTerm,
     searchScope = 'view',
@@ -46,14 +46,14 @@ export function VaultViewsHeader({
     templates = [],
     views,
 }: VaultViewsHeaderProps) {
-    const viewRecordCount = useMemo(() => activeViewRecordCount(
+    const viewRecordCount = useMemo(() => filteredRecordCount ?? activeViewRecordCount(
         notes,
         views,
         activeViewId,
         recordCount,
         searchTerm,
         searchScope,
-    ), [activeViewId, notes, recordCount, views, searchTerm, searchScope]);
+    ), [activeViewId, notes, recordCount, filteredRecordCount, views, searchTerm, searchScope]);
     const tabViews = useMemo(() => visibleTabViews(views), [views]);
     const handleViewAction = useCallback((
         view: HeaderView,

@@ -4443,6 +4443,14 @@
     "title_edit": "Edita la vista de BD"
   },
   "view": {
+    "rename_display_title": "Reanomenar el títol visible",
+    "rename_display_title_hint": "Canvia el títol que es mostra a la vista. El nom del catàleg es pot editar a Configurar.",
+    "display_title": "Títol visible",
+    "catalog_name_hint": "Nom per trobar la vista al catàleg i a la llista de vistes per inserir.",
+    "display_title_hint": "Títol curt que es mostra a la vista inserida. Deixa’l buit per mantenir el títol actual.",
+    "expose_filter": "Exposar",
+    "exposed_filters": "Filtres exposats",
+    "reset_exposed_filters": "Restableix els filtres",
     "height_label": "Alçada dins de la pàgina",
     "height_limited": "Limitada",
     "height_content": "Segons el contingut",

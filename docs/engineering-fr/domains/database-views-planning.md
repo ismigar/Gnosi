@@ -2,6 +2,9 @@
 status: implemented
 last_verified: 2026-10-09
 source_paths:
+  - frontend/src/shared/filtering/exposedFilters.ts
+  - frontend/src/shared/filtering/useExposedFilters.ts
+  - frontend/src/features/vault/views/ExposedFilters.tsx
   - frontend/src/shared/records/hooks/useViewSearch.ts
   - frontend/src/features/vault/views/ViewSearchScope.tsx
   - frontend/src/features/vault/dashboard/useContentCreation.ts
@@ -39,6 +42,9 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/shared/filtering/exposedFilters.test.ts
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx
+  - backend/tests/test_exposed_view_configuration.py
   - frontend/src/shared/record-views/VaultTimeline.test.tsx
   - frontend/src/shared/record-views/VaultTimeline.interactions.test.tsx
   - frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx
@@ -415,3 +421,32 @@ La chronologie des enregistrements utilise des limites de calendrier localisées
 Le pied de la chronologie est séparé du défilement vertical des lignes et reste visible lorsque la page qui le contient défile. La barre horizontale persistante se synchronise avec la chronologie dans les deux sens, y compris avec les contrôles de navigation et le déplacement des tâches.
 
 Le sélecteur propose jour, semaine, mois et année ; la vue annuelle aligne des années complètes avec des colonnes mensuelles. Les tâches parentes peuvent réduire et restaurer toutes les sous-tâches imbriquées.
+
+## Titres affichés et filtres exposés
+
+Les vues enregistrées ont un `displayTitle` facultatif indépendant du `name`
+du catalogue. Les sélecteurs d’insertion conservent le nom long ; les titres
+et onglets des vues intégrées utilisent le titre court lorsqu’il est défini,
+avec les titres et noms existants comme solution de repli. Le champ s’applique
+à tous les types de vue et est conservé dans le registre, les sections locales,
+les copies et l’enregistrement automatique du dialogue.
+
+L’action Renommer, y compris le double clic sur un onglet intégré, modifie
+uniquement `displayTitle` et reprend le titre affiché actuel. Le nom du catalogue
+se modifie dans Configurer. La vue principale permet ce changement de présentation
+tout en conservant son verrou de suppression.
+
+Chaque règle peut activer `exposed: true`. Son contrôle de valeur, adapté au type
+de champ, et un interrupteur apparaissent au-dessus des vues intégrées et des
+tables. Les modifications appartiennent à l’instance montée et à la configuration
+de la page ou de l’onglet actif, jamais au registre enregistré. Réinitialiser
+rétablit les valeurs enregistrées. Les groupes AND/OR et les règles fixes sont
+préservés ; les groupes désactivés sont supprimés sans transformer les branches OR
+en correspondances. La recherche dans toute la table désactive temporairement
+les contrôles. Le compteur utilise les mêmes filtres temporaires que les résultats.
+L’enregistrement des modifications de disposition conserve les filtres d’origine.
+Zéro, faux et les limites de période sont conservés lors de la sérialisation.
+
+La couverture de régression comprend `exposedFilters.test.ts`, `PageViewModal.test.tsx`,
+`DbViewEmbed.test.tsx`, `TablePane.test.tsx` et
+`backend/tests/test_exposed_view_configuration.py`.

@@ -2,6 +2,9 @@
 status: implemented
 last_verified: 2026-10-09
 source_paths:
+  - frontend/src/shared/filtering/exposedFilters.ts
+  - frontend/src/shared/filtering/useExposedFilters.ts
+  - frontend/src/features/vault/views/ExposedFilters.tsx
   - frontend/src/shared/records/hooks/useViewSearch.ts
   - frontend/src/features/vault/views/ViewSearchScope.tsx
   - frontend/src/features/vault/dashboard/useContentCreation.ts
@@ -39,6 +42,9 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/shared/filtering/exposedFilters.test.ts
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx
+  - backend/tests/test_exposed_view_configuration.py
   - frontend/src/shared/record-views/VaultTimeline.test.tsx
   - frontend/src/shared/record-views/VaultTimeline.interactions.test.tsx
   - frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx
@@ -405,3 +411,32 @@ El cronograma de registros utiliza límites del calendario traducidos, una colum
 El pie del cronograma está fuera del desplazamiento vertical de las filas y permanece visible al desplazar la página que lo contiene. La barra horizontal persistente se sincroniza con el cronograma en ambos sentidos, incluidos los controles de navegación y el arrastre de tareas.
 
 El selector de escala ofrece día, semana, mes y año; la vista anual alinea años completos con columnas mensuales. Las tareas principales pueden contraer y recuperar todas las subtareas anidadas.
+
+## Títulos visibles y filtros expuestos
+
+Las vistas guardadas tienen un `displayTitle` opcional independiente del `name`
+del catálogo. Los selectores de inserción mantienen el nombre largo; los títulos
+y pestañas de las vistas insertadas usan el título corto cuando está definido,
+con los títulos y nombres anteriores como alternativa. El campo funciona en
+todos los tipos de vista y se conserva en el registro, las secciones locales,
+las copias y el guardado automático del diálogo.
+
+La acción Renombrar, incluido el doble clic en una pestaña insertada, modifica
+solo `displayTitle` y parte del título visible actual. El nombre del catálogo
+se edita en Configurar. La vista principal permite este cambio de presentación
+y mantiene el bloqueo de eliminación.
+
+Cada regla puede activar `exposed: true`. Su control de valor, adaptado al tipo
+de campo, y un interruptor aparecen encima de las vistas insertadas y de tabla.
+Los cambios pertenecen a la instancia montada y a la configuración de la página
+o pestaña activa; nunca al registro guardado. Restablecer recupera los valores
+guardados. Se mantienen los grupos AND/OR y las reglas fijas; los grupos
+desactivados se eliminan sin convertir las ramas OR en coincidencias.
+La búsqueda en toda la tabla desactiva temporalmente los controles. El recuento
+usa los mismos filtros temporales que los resultados. Guardar cambios de diseño
+conserva los filtros originales. Cero, falso y los límites de período se
+conservan durante la serialización.
+
+La cobertura de regresión incluye `exposedFilters.test.ts`, `PageViewModal.test.tsx`,
+`DbViewEmbed.test.tsx`, `TablePane.test.tsx` y
+`backend/tests/test_exposed_view_configuration.py`.

@@ -3736,6 +3736,14 @@
     "title_edit": "Modifier la vue de BD"
   },
   "view": {
+    "rename_display_title": "Renommer le titre affiché",
+    "rename_display_title_hint": "Modifiez le titre affiché dans la vue. Le nom du catalogue peut être modifié dans Configurer.",
+    "display_title": "Titre affiché",
+    "catalog_name_hint": "Nom utilisé pour retrouver la vue dans le catalogue et la liste d’insertion.",
+    "display_title_hint": "Titre court affiché dans la vue intégrée. Laissez vide pour conserver le titre actuel.",
+    "expose_filter": "Exposer",
+    "exposed_filters": "Filtres exposés",
+    "reset_exposed_filters": "Réinitialiser les filtres",
     "height_label": "Hauteur dans la page",
     "height_limited": "Limitée",
     "height_content": "Selon le contenu",
