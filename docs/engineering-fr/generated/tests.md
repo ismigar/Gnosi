@@ -11,7 +11,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 638 | 2779 |
+| Vitest | 639 | 2783 |
 | pytest | 648 | 4765 |
 
 ## Fichiers
@@ -319,6 +319,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/vault/content/insert-content/insertContentModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/content/insert-content/insertContentModel.test.ts) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/BrowseDialogs.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/BrowseDialogs.test.tsx) | 0 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/CreationRecoveryPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/CreationRecoveryPanel.test.tsx) | 7 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/dashboard/Dashboard.document-controls.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/Dashboard.document-controls.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/DashboardContent.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/DashboardContent.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/DocumentPane.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/DocumentPane.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/TablePane.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/TablePane.test.tsx) | 0 | call-pattern estimate |

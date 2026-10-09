@@ -720,7 +720,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/dashboard/ConfigurationDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/ConfigurationDialogs.tsx) | 79 | `ConfigurationDialogs` | — |
 | [`frontend/src/features/vault/dashboard/ConfirmationDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/ConfirmationDialogs.tsx) | 108 | `ConfirmationDialogs` | — |
 | [`frontend/src/features/vault/dashboard/CreationRecoveryPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/CreationRecoveryPanel.tsx) | 117 | `CreationRecoveryPanel` | — |
-| [`frontend/src/features/vault/dashboard/Dashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/Dashboard.tsx) | 58 | `Dashboard`, `function` | — |
+| [`frontend/src/features/vault/dashboard/Dashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/Dashboard.tsx) | 56 | `Dashboard`, `function` | — |
 | [`frontend/src/features/vault/dashboard/DashboardContent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/DashboardContent.tsx) | 117 | `DashboardContent` | — |
 | [`frontend/src/features/vault/dashboard/DashboardSidebar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/DashboardSidebar.tsx) | 154 | `DashboardSidebar` | — |
 | [`frontend/src/features/vault/dashboard/DashboardWelcome.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/DashboardWelcome.tsx) | 28 | `DashboardWelcome` | — |
@@ -966,7 +966,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/navigation/RecentModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/RecentModal.tsx) | 221 | `RecentModal` | — |
 | [`frontend/src/features/vault/navigation/TagsModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/TagsModal.tsx) | 187 | `TagsModal`, `function` | — |
 | [`frontend/src/features/vault/navigation/VaultDocumentTabs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/VaultDocumentTabs.tsx) | 223 | `VaultDocumentTabs` | — |
-| [`frontend/src/features/vault/navigation/VaultShell.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/VaultShell.tsx) | 262 | `VaultShell` | — |
+| [`frontend/src/features/vault/navigation/VaultShell.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/VaultShell.tsx) | 264 | `VaultShell` | — |
 | [`frontend/src/features/vault/navigation/VaultSidebar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/VaultSidebar.tsx) | 24 | `VaultSidebar` | — |
 | [`frontend/src/features/vault/navigation/VaultTagsView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/VaultTagsView.tsx) | 167 | `VaultTagsView` | — |
 | [`frontend/src/features/vault/navigation/VaultTrashView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/VaultTrashView.tsx) | 348 | `VaultTrashView` | — |

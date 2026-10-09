@@ -115,4 +115,18 @@ describe('interactive timeline and its shared table records', () => {
         expect(find('[data-timeline-task="milestone"]').style.width).toBe('0px');
         expect(container.textContent).not.toContain('2040');
     });
+    it('keeps the footer outside vertical rows and synchronizes the persistent horizontal scrollbar', () => {
+        act(() => { root.render(<Harness />); });
+        const body = find('.custom-scrollbar');
+        const footer = find('[data-timeline-footer]');
+        const horizontal = find('[data-timeline-horizontal-scroll]');
+        expect(body.contains(footer)).toBe(false);
+        expect(body.style.overflowX).toBe('hidden');
+        act(() => { body.scrollTop = 500; body.scrollLeft = 200; body.dispatchEvent(new Event('scroll', { bubbles: true })); });
+        expect(horizontal.scrollLeft).toBe(200);
+        act(() => { horizontal.scrollLeft = 80; horizontal.dispatchEvent(new Event('scroll', { bubbles: true })); });
+        expect(body.scrollLeft).toBe(80);
+        expect(footer.isConnected).toBe(true);
+    });
+
 });

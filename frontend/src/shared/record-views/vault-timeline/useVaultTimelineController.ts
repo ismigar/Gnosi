@@ -74,6 +74,7 @@ export function useVaultTimelineController({
     const [zoomLevel, changeZoom] = useState<TimelineZoom>('month');
     const [fitted, setFitted] = useState(true);
     const [columnWidth, setColumnWidth] = useState(320);
+    const [scrollLeft, setScrollLeft] = useState(0);
     const [viewportWidth, setViewportWidth] = useState(1000);
     const [focusDate, setFocusDate] = useState<Date | null>(null);
     const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(new Set());
@@ -286,7 +287,7 @@ export function useVaultTimelineController({
     return {
         canEditDates: Boolean(onUpdateNote && dateField && (readers.fieldType(schema, dateField) === 'period' || (endDateField && endDateField !== dateField))),
         canEditDependencies: Boolean(onUpdateNote),
-        viewportWidth, columnWidth, setColumnWidth, visibleNotes, collapsedIds, toggleCollapsed,
+        scrollLeft, setScrollLeft, viewportWidth, columnWidth, setColumnWidth, visibleNotes, collapsedIds, toggleCollapsed,
         fitProject, goToDate, goToToday: () => { goToDate(new Date()); },
         updateDates: scheduling.updateDates, undo: scheduling.undo,
         canUndo: scheduling.canUndo, saving: scheduling.saving, timelineUnit,

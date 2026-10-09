@@ -5475,7 +5475,8 @@
     "duration_hours_many": "{{count}} hours",
     "duration_days_many": "{{count}} days",
     "duration_years_many": "{{count}} years",
-    "partial_save": "Some changes could not be restored. Check the dates of the affected tasks."
+    "partial_save": "Some changes could not be restored. Check the dates of the affected tasks.",
+    "horizontal_scroll": "Horizontal timeline scroll"
   },
   "home": {
     "subtitle": "Your knowledge ecosystem",

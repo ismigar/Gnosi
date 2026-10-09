@@ -118,6 +118,8 @@ export interface TimelineSchemaReaders {
 export interface TimelineController {
     readonly canEditDates: boolean;
     readonly canEditDependencies: boolean;
+    readonly scrollLeft: number;
+    readonly setScrollLeft: (left: number) => void;
     readonly viewportWidth: number;
     readonly columnWidth: number;
     readonly setColumnWidth: (width: number) => void;

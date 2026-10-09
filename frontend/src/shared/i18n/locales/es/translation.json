@@ -6023,7 +6023,8 @@
     "duration_hours_many": "{{count}} horas",
     "duration_days_many": "{{count}} días",
     "duration_years_many": "{{count}} años",
-    "partial_save": "No se han podido restaurar todos los cambios. Revisa las fechas de las tareas afectadas."
+    "partial_save": "No se han podido restaurar todos los cambios. Revisa las fechas de las tareas afectadas.",
+    "horizontal_scroll": "Desplazamiento horizontal del cronograma"
   },
   "home": {
     "subtitle": "Tu ecosistema de conocimiento",
