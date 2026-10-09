@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useRef, type ChangeEvent } from 'react';
 import { Calendar, ChevronDown, ChevronRight, ExternalLink, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { TimelineBar } from './TimelineBar';
@@ -38,11 +38,11 @@ export function VaultTimelineGrid({ controller, onNoteSelect }: TimelineGridProp
     const { t } = useTranslation();
     const { drag, begin, consumeClick } = useTimelineDrag(controller);
     const resizing = useRef<{ readonly x: number; readonly width: number } | null>(null);
-    const [scrollLeft, setScrollLeft] = useState(0);
+    const { scrollLeft } = controller;
     const contentWidth = controller.columnWidth + Number.parseFloat(controller.scaleMinWidth);
     const today = controller.calculatePosition(new Date());
     return <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div id={controller.scrollContainerId} className="custom-scrollbar relative min-h-0 flex-1 overflow-auto bg-[var(--bg-primary)]" aria-busy={controller.saving} onScroll={event => { setScrollLeft(event.currentTarget.scrollLeft); }}>
+        <div id={controller.scrollContainerId} className="custom-scrollbar relative min-h-0 flex-1 overflow-auto bg-[var(--bg-primary)]" style={{ overflowX: 'hidden', overflowY: 'auto' }} aria-busy={controller.saving} onScroll={event => { controller.setScrollLeft(event.currentTarget.scrollLeft); }}>
             <div className="sticky top-0 z-40 flex h-16 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]" style={{ width: contentWidth }}>
                 <div className="sticky left-0 z-50 flex shrink-0 items-center border-r border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 text-xs font-semibold text-[var(--text-secondary)]" style={{ width: controller.columnWidth }}>
                     {t('timeline.col_title', 'Record Title')}
