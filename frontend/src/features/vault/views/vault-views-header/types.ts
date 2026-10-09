@@ -20,6 +20,7 @@ export interface HeaderView {
     readonly is_main?: boolean | null;
     readonly locked?: boolean | null;
     readonly name?: string | null;
+    readonly displayTitle?: string | null;
     readonly order?: number | null;
     readonly table_id?: string | null;
     readonly type?: string | null;
@@ -77,6 +78,7 @@ export interface VaultViewsHeaderProps {
     readonly onSetDefaultTemplate?: ((template: HeaderTemplate) => unknown) | null;
     readonly onViewSelect?: ((viewId: string) => unknown) | null;
     readonly recordCount: number;
+    readonly filteredRecordCount?: number;
     readonly referenceTableId?: string | null;
     readonly searchTerm: string;
     readonly searchScope?: ViewSearchScope;

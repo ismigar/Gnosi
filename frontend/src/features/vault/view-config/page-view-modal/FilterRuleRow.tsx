@@ -1,4 +1,5 @@
 import { Trash2 } from 'lucide-react';
+import { GnosiToggle } from '../../../../shared/ui/settings/SettingsPrimitives';
 import { FILTER_OPERATORS } from './constants';
 import { FilterValueControl } from './FilterValueControl';
 import type { FilterRule, FilterContext } from './types';
@@ -9,7 +10,7 @@ export function FilterRuleRow({ rule, onChange, onRemove, ctx }: { rule: FilterR
     const isRelation = meta?.type === 'relation' && !!meta.relation_database_id;
     const relOpts = isRelation ? relationCache[meta.relation_database_id || ''] : null;
     return (
-        <div className="flex gap-2 items-center">
+        <div className="flex flex-wrap gap-2 items-center">
             <select
                 className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] flex-1"
                 value={rule.field}
@@ -54,6 +55,11 @@ export function FilterRuleRow({ rule, onChange, onRemove, ctx }: { rule: FilterR
                 ))}
             </select>
             <FilterValueControl rule={rule} meta={meta} relOpts={relOpts} onValue={v => { onChange({ ...rule, value: v }); }} t={t} />
+            <span className="flex items-center gap-1 text-xs text-[var(--text-secondary)]">
+                <GnosiToggle active={rule.exposed === true} label={t('view.expose_filter')}
+                    onChange={() => { onChange({ ...rule, exposed: !rule.exposed }); }} />
+                {t('view.expose_filter')}
+            </span>
             <button
                 onClick={onRemove}
                 className="text-[var(--text-tertiary)] hover:text-red-500 p-1"

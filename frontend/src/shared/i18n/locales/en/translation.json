@@ -4413,6 +4413,14 @@
     "title_edit": "Edit database view"
   },
   "view": {
+    "rename_display_title": "Rename display title",
+    "rename_display_title_hint": "Change the title shown in the view. You can edit the catalog name in Configure.",
+    "display_title": "Display title",
+    "catalog_name_hint": "Name used to find this view in the catalog and insertion list.",
+    "display_title_hint": "Short title shown in the embedded view. Leave blank to keep the current title.",
+    "expose_filter": "Expose",
+    "exposed_filters": "Exposed filters",
+    "reset_exposed_filters": "Reset filters",
     "height_label": "Height within a page",
     "height_limited": "Limited",
     "height_content": "Fit content",

@@ -80,3 +80,24 @@ describe('dashboard to view data preservation', () => {
     expect(body?.notes?.[0]?.extension).toBe(page.extension);
   });
 });
+
+it('keeps exposed values temporary when another view setting is saved', async () => {
+  harness = await renderController('table/table/view/main', controller => <TablePane dashboard={controller} tableId="table" mode="tab" />);
+  const filterTree = { conjunction: 'and', rules: [{ field: 'title', operator: 'contains', value: 'Open', exposed: true }] };
+  await harness.run(controller => {
+    controller.setRegistry(previous => ({ ...previous, views: [{ id: 'filtered', name: 'Filtered', table_id: 'table', type: 'table', filterTree }] }));
+    controller.setActiveViewId('filtered');
+  });
+  const input = harness.container.querySelector<HTMLInputElement>('fieldset input');
+  if (!input) throw new Error('Missing exposed filter');
+  await harness.run(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, 'Closed');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  const body = probe.mock.lastCall?.[0];
+  expect(body?.activeView?.filterTree).toEqual({ conjunction: 'and', rules: [{ ...filterTree.rules[0], value: 'Closed' }] });
+  const save = vi.spyOn(harness.current, 'handleUpdateView').mockResolvedValue(undefined);
+  await body?.onUpdateView?.({ ...body.activeView, columnWidths: { title: 220 } });
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ filterTree, columnWidths: { title: 220 } }));
+  expect(harness.current.registry.views.find(view => view.id === 'filtered')?.filterTree).toEqual(filterTree);
+});

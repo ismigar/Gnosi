@@ -450,7 +450,8 @@ describe('embedded record and view actions', () => {
         expect(document.body.textContent).toContain('Linked page'); expect(api.deleteVaultView).not.toHaveBeenCalled();
         await click(button('Delete')); expect(api.deleteVaultView).toHaveBeenCalledWith('other');
     });
-    it('renames the full registry view and opens config with a synthetic block', async () => {
+    it('renames only the visible title and opens config with a synthetic block', async () => {
+        context = { ...context, registry: { ...context.registry, views: [anchor, { ...other, displayTitle: 'Feed' }] } };
         await render(); await tabMenu(); await click(button('Configure'));
         expect(openConfig).toHaveBeenCalledTimes(1);
         expect(openConfig.mock.calls[0]).toMatchObject(['books', {
@@ -463,8 +464,16 @@ describe('embedded record and view actions', () => {
         }]);
         await tabMenu(); await click(button('Rename'));
         await act(async () => { await Promise.resolve(); await new Promise(resolve => setTimeout(resolve, 5)); });
+        expect(document.querySelector<HTMLInputElement>('input[type="text"]')?.value).toBe('Feed');
+        vi.mocked(api.fetchVaultViews).mockResolvedValue([anchor, { ...other, displayTitle: 'Renamed' }]);
         await inputValue(document.querySelector('input[type="text"]'), 'Renamed'); await click(button('Rename'));
-        expect(api.updateVaultView).toHaveBeenCalledWith('other', expect.objectContaining({ name: 'Renamed', plugin: { keep: true } }));
+        expect(api.updateVaultView).toHaveBeenCalledExactlyOnceWith('other', { displayTitle: 'Renamed' });
+        expect(container.textContent).toContain('Renamed');
+        expect(other.name).toBe('Other');
+        const tab = container.querySelectorAll('button[aria-label="View options"]')[1]?.parentElement;
+        if (!tab) throw new Error('Missing renamed tab');
+        await act(async () => { tab.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await Promise.resolve(); });
+        expect(document.querySelector<HTMLInputElement>('input[type="text"]')?.value).toBe('Renamed');
     });
     it('reports successful and already-deleted ids for global undo, excluding failures', async () => {
         await render();

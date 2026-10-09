@@ -56,7 +56,7 @@ export function ConfirmationDialogs(dashboard: DashboardController) {
         className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200"
       >
         <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">
-          {promptModal.isRename ? t('common.rename_view', { name: promptModal.targetView?.name }) :
+          {promptModal.isRename ? t('view.rename_display_title') :
             (promptModal.isView ? t('common.new_view') :
               (promptModal.isDrawing ? t('common.new_drawing') :
                 (promptModal.isDashboard ? t('common.new_dashboard') :
@@ -66,9 +66,11 @@ export function ConfirmationDialogs(dashboard: DashboardController) {
         </h3>
         <div className="mb-6">
           <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
-            {promptModal.isRename ? t('common.prompt_new_name') : t('common.prompt_name')}
+            {promptModal.isRename ? t('view.display_title') : t('common.prompt_name')}
           </label>
+          {promptModal.isRename && <p className="mb-2 text-xs text-[var(--text-tertiary)]">{t('view.rename_display_title_hint')}</p>}
           <input
+            aria-label={promptModal.isRename ? t('view.display_title') : t('common.prompt_name')}
             autoFocus
             type="text"
             value={promptModal.inputValue}

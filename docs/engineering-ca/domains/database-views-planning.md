@@ -2,6 +2,9 @@
 status: implemented
 last_verified: 2026-10-09
 source_paths:
+  - frontend/src/shared/filtering/exposedFilters.ts
+  - frontend/src/shared/filtering/useExposedFilters.ts
+  - frontend/src/features/vault/views/ExposedFilters.tsx
   - frontend/src/shared/records/hooks/useViewSearch.ts
   - frontend/src/features/vault/views/ViewSearchScope.tsx
   - frontend/src/features/vault/dashboard/useContentCreation.ts
@@ -39,6 +42,9 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/shared/filtering/exposedFilters.test.ts
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx
+  - backend/tests/test_exposed_view_configuration.py
   - frontend/src/shared/record-views/VaultTimeline.test.tsx
   - frontend/src/shared/record-views/VaultTimeline.interactions.test.tsx
   - frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx
@@ -412,3 +418,29 @@ El cronograma de registres fa servir límits del calendari traduïts, una column
 El peu del cronograma és fora del desplaçament vertical de les files i es manté visible quan es desplaça la pàgina que el conté. La barra horitzontal persistent se sincronitza amb el cronograma en tots dos sentits, també amb els controls de navegació i l’arrossegament de tasques.
 
 El selector d’escala ofereix dia, setmana, mes i any; la vista d’any alinea anys complets amb columnes mensuals. Les tasques mare poden plegar i recuperar totes les subtasques imbricades.
+
+## Títols visibles i filtres exposats
+
+Les vistes tenen un `displayTitle` opcional independent del `name` del catàleg.
+La llista d’inserció conserva el nom llarg; les capçaleres i pestanyes inserides
+mostren el títol curt quan està definit. Si és buit, es conserva el comportament
+anterior. El camp funciona en tots els tipus de vista i es conserva tant al
+registre com a les seccions locals i al desament automàtic del diàleg.
+
+L’acció «Reanomenar», inclòs el doble clic a les pestanyes inserides, modifica
+només `displayTitle` i parteix del títol visible actual. El nom del catàleg
+s’edita a «Configurar». La vista principal també permet canviar aquest títol
+i conserva el bloqueig de supressió.
+
+Cada regla de filtre pot activar `exposed: true`. El control del valor, adaptat
+al tipus de camp, i un interruptor apareixen sobre les vistes inserides i les
+vistes de taula. Els canvis són temporals per a aquella instància i configuració
+de pàgina o pestanya; «Restableix els filtres» recupera els valors desats.
+Es respecten els grups AND/OR i les regles fixes. La cerca a tota la taula
+desactiva temporalment els controls. El recompte segueix els resultats filtrats
+i els canvis de disposició no desen els filtres temporals. Es conserven el zero,
+els booleans i el límit del període en serialitzar els filtres.
+
+La cobertura de regressió inclou `exposedFilters.test.ts`, `PageViewModal.test.tsx`,
+`DbViewEmbed.test.tsx`, `TablePane.test.tsx` i
+`backend/tests/test_exposed_view_configuration.py`.

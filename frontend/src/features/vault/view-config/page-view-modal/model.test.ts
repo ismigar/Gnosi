@@ -28,7 +28,7 @@ describe('PageViewModal persisted configuration models', () => {
         const clean = sanitizeFilterTree(treeFromSource(source));
         expect(clean).toEqual({
             conjunction: 'or', rules: [
-                { field: 'status', operator: 'is_empty', value: null },
+                { field: 'status', operator: 'is_empty', value: null, periodPart: 'end' },
                 { conjunction: 'and', rules: [{ field: 'owner', operator: 'equals', value: 'this' }] },
             ]
         });
@@ -43,7 +43,7 @@ describe('PageViewModal persisted configuration models', () => {
         copy.rules.push({ field: 'extra', operator: 'equals', value: 'x' });
         expect(tree.rules).toHaveLength(1);
         expect(tree.rules[0]).toMatchObject(raw.filters[0] || {});
-        expect(flatAndRules(sanitizeFilterTree(tree))).toEqual([{ field: 'date', operator: 'equals', value: 'today' }]);
+        expect(flatAndRules(sanitizeFilterTree(tree))).toEqual([{ field: 'date', operator: 'equals', value: 'today', periodPart: 'end' }]);
         expect(sanitizeFilterTree(emptyFilterTree())).toEqual({ conjunction: 'and', rules: [] });
     });
 
@@ -85,8 +85,21 @@ describe('PageViewModal persisted configuration models', () => {
 
     it('keeps DOM string coercion for the supported JSON filter values', () => {
         expect(inputValue(null)).toBe('');
-        expect(inputValue(0)).toBe('');
+        expect(inputValue(0)).toBe('0');
+        expect(inputValue(false)).toBe('false');
         expect(inputValue(['alpha', 'beta'])).toBe('alpha,beta');
         expect(inputValue({ nom: 'Ana' })).toBe('[object Object]');
     });
+});
+
+it('keeps exposed controls, period boundaries, false and zero through serialization', () => {
+    const tree = sanitizeFilterTree(treeFromSource({ filters: [
+        { field: 'done', operator: 'equals', value: false, exposed: true },
+        { field: 'amount', operator: 'equals', value: 0, exposed: true },
+        { field: 'period', operator: 'equals', value: 'today', periodPart: 'end', exposed: true },
+    ] }));
+    const restored = decodeView(JSON.parse(JSON.stringify({ filterTree: tree })));
+    expect(restored.filterTree).toEqual(tree);
+    expect(collectLeafRules(restored.filterTree).map(rule => rule.value)).toEqual([false, 0, 'today']);
+    expect(collectLeafRules(restored.filterTree).every(rule => rule.exposed)).toBe(true);
 });

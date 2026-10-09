@@ -36,11 +36,12 @@ export function sanitizeFilterTree(node: FilterNode, isRoot = true): FilterNode 
         return !isRoot && rules.length === 0 ? null : group;
     }
     if (!node.field) return null;
-    // Keep the historical persisted shape: periodPart and extension keys are
-    // editor-only here, while filters in loaded state retain their extra keys.
+    // Preserve exposed controls and typed values through both persistence paths.
     return {
         field: node.field, operator: node.operator || 'equals',
-        value: NO_VALUE_OPS.includes(node.operator) ? null : (node.value || '')
+        value: NO_VALUE_OPS.includes(node.operator) ? null : (node.value ?? ''),
+        ...(node.periodPart ? { periodPart: node.periodPart } : {}),
+        ...(node.exposed === true ? { exposed: true } : {})
     };
 }
 

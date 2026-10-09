@@ -17,6 +17,7 @@ export function useViewState({
     const [headingLevel, setHeadingLevel] = useState(1);
     const [sourceTableId, setSourceTableId] = useState(preselectedTableId);
     const [viewName, setViewName] = useState('');
+    const [displayTitle, setDisplayTitle] = useState('');
     const [visibleProperties, setVisibleProperties] = useState<VisibleProperty[]>([]);
     // Multi-table joins on top of the base table (`sourceTableId`). Each item:
     //   { tableId, type: 'inner'|'left'|'right', leftField, rightField }
@@ -107,7 +108,7 @@ export function useViewState({
     return {
         activeTab, setActiveTab, heading, setHeading,
         headingLevel, setHeadingLevel, sourceTableId, setSourceTableId,
-        viewName, setViewName, visibleProperties, setVisibleProperties,
+        viewName, setViewName, displayTitle, setDisplayTitle, visibleProperties, setVisibleProperties,
         joins, setJoins, discoveredFields, setDiscoveredFields,
         discoveredByTable, setDiscoveredByTable, viewType, setViewType,
         filterTree, setFilterTree, sorts, setSorts,
