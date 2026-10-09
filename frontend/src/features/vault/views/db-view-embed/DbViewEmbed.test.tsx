@@ -200,7 +200,7 @@ describe('embedded view data and editor navigation', () => {
             await render();
             expect(fixture.body?.maxHeight).toBe('45vh');
             expect(fixture.body?.activeView).toMatchObject({ heightPercent: 45 });
-            if (type !== 'table' && type !== 'list' && type !== 'timeline') {
+            if (type !== 'table' && type !== 'list' && type !== 'timeline' && type !== 'board') {
                 expect(container.querySelector('[data-testid="body"]')?.parentElement?.style.maxHeight).toBe('45vh');
             }
         },
@@ -540,22 +540,4 @@ describe('embedded record and view actions', () => {
         await act(async () => { await Promise.resolve(); emitAppEvent('gnosi:open-view-tools'); });
         expect(container.querySelector('[role="dialog"]')).not.toBeNull();
     });
-});
-
-
-it('renders saved tab order before the anchor and retains it after a reload', async () => {
-    writeText(pinnedKey('page', 'anchor'), JSON.stringify(['other', 'anchor']));
-    await render();
-    const tabNames = () => [...container.querySelectorAll('button[aria-label="View options"]')]
-        .map(button => button.parentElement?.querySelector('span')?.textContent);
-    expect(tabNames()).toEqual(['Other', 'Main']);
-    context = { ...context, viewSectionNonce: 1 };
-    await render();
-    expect(tabNames()).toEqual(['Other', 'Main']);
-});
-
-it('keeps explicitly unpinned registry tabs hidden on reload', async () => {
-    writeText(pinnedKey('page', 'anchor'), JSON.stringify(['anchor']));
-    await render();
-    expect(container.querySelectorAll('button[aria-label="View options"]')).toHaveLength(0);
 });

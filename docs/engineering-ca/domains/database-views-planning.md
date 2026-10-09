@@ -2,6 +2,9 @@
 status: implemented
 last_verified: 2026-10-09
 source_paths:
+  - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
+  - frontend/src/shared/record-views/pinnedViewOrder.ts
+  - frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx
   - frontend/src/shared/filtering/exposedFilters.ts
   - frontend/src/shared/filtering/useExposedFilters.ts
   - frontend/src/features/vault/views/ExposedFilters.tsx
@@ -42,6 +45,7 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/view-config/PageViewModal.pinned-order.test.tsx
   - frontend/src/shared/filtering/exposedFilters.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx
   - backend/tests/test_exposed_view_configuration.py
@@ -411,6 +415,8 @@ automàticament amb el catàleg global.
 Proves: `backend/tests/test_status_catalog_isolation.py` i
 `frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.
 
+El desament de l’esquema conserva les opcions, referències, valors predeterminats, grups i vincles de connectors dins del `config` canònic del camp. Un catàleg d’estats propi buit es desa com a `options: []`; els estats bàsics només inicialitzen catàlegs inexistents i no es recuperen després d’eliminar-los. Es manté la inicialització dels estats requerits per les funcions de traducció o publicació activades.
+
 ## Cronograma interactiu de registres
 
 El cronograma de registres fa servir límits del calendari traduïts, una columna de títols fixa i ajustable, fases plegables i una visió del projecte adaptada a la finestra. Arrossega una barra per moure la tasca, un extrem per ajustar-ne les dates o el punt de connexió final fins a una successora per crear una dependència de final a inici. El controlador desa el període o els camps d’inici i final amb el mateix callback de metadades que la taula, conserva el progrés i les dependències del període i reconeix les columnes de relació de predecessores. La programació inclou els registres ocults pels filtres, rebutja cicles i propaga les branques convergents segons la predecessora que acaba més tard. Cada registre desa conjuntament la dependència i les dates resultants; si una operació falla, es restauren els canvis completats quan és possible i s’informa de les restauracions incompletes. Desfer restaura els camps canviats durant la sessió de la vista. Els cronogrames incrustats mantenen els controls de zoom i navegació i gestionen el seu límit de desplaçament. Les fletxes mouen la barra enfocada, Majúscules+fletxa ajusta el final i Escape cancel·la l’arrossegament.
@@ -446,3 +452,7 @@ els booleans i el límit del període en serialitzar els filtres.
 La cobertura de regressió inclou `exposedFilters.test.ts`, `PageViewModal.test.tsx`,
 `DbViewEmbed.test.tsx`, `TablePane.test.tsx` i
 `backend/tests/test_exposed_view_configuration.py`.
+
+La pestanya General del diàleg de vistes incrustades ofereix controls per pujar i baixar les pestanyes fixades, inclosa la vista àncora. L’àncora continua visible i no es pot desmarcar. El diàleg mostra les vistes fixades en l’ordre desat abans de les disponibles, i el bloc mostra les pestanyes en aquest mateix ordre. Les preferències del bloc es desen per pàgina i vista àncora a l’emmagatzematge local del navegador; les pestanyes del registre només aporten els valors per defecte quan no hi ha cap preferència del bloc. En reobrir o recarregar es conserven tant l’ordre triat com les vistes desmarcades.
+
+Els taulers Kanban incrustats gestionen el límit d’alçada i el desplaçament en els dos eixos. La barra horitzontal queda dins de l’àrea limitada perquè totes les columnes siguin accessibles; els taulers amb alçada segons el contingut creixen sense límit vertical.

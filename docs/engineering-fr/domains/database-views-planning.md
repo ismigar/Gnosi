@@ -2,6 +2,9 @@
 status: implemented
 last_verified: 2026-10-09
 source_paths:
+  - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
+  - frontend/src/shared/record-views/pinnedViewOrder.ts
+  - frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx
   - frontend/src/shared/filtering/exposedFilters.ts
   - frontend/src/shared/filtering/useExposedFilters.ts
   - frontend/src/features/vault/views/ExposedFilters.tsx
@@ -42,6 +45,7 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/view-config/PageViewModal.pinned-order.test.tsx
   - frontend/src/shared/filtering/exposedFilters.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx
   - backend/tests/test_exposed_view_configuration.py
@@ -414,6 +418,8 @@ ne sont jamais fusionnées automatiquement dans le catalogue global.
 Tests : `backend/tests/test_status_catalog_isolation.py` et
 `frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.
 
+La sauvegarde du schéma conserve les options, références, valeurs par défaut, groupes et liens des connecteurs dans le `config` canonique du champ. Un catalogue local de statuts vide est enregistré comme `options: []` ; les statuts de base initialisent uniquement les catalogues absents et ne sont pas restaurés après leur suppression. Les statuts requis par les fonctions de traduction ou de publication activées conservent leur initialisation existante.
+
 ## Chronologie interactive des enregistrements
 
 La chronologie des enregistrements utilise des limites de calendrier localisées, une colonne de titres fixe et redimensionnable, des phases repliables et une vue du projet adaptée à la fenêtre. Glissez une barre pour déplacer la tâche, une extrémité pour ajuster ses dates ou le point de connexion final sur une tâche suivante pour créer une dépendance de fin à début. Le contrôleur enregistre la période ou les champs de début et de fin avec le même callback de métadonnées que le tableau, conserve la progression et les dépendances de la période et reconnaît les colonnes de relation des prédécesseurs. La planification inclut les enregistrements masqués par les filtres, refuse les cycles et propage les branches convergentes selon le prédécesseur qui termine le plus tard. Chaque enregistrement sauvegarde ensemble la dépendance et les dates calculées ; les opérations échouées restaurent les écritures terminées lorsque possible et signalent les restaurations incomplètes. Annuler restaure les champs modifiés pendant la session de la vue. Les chronologies intégrées conservent leurs contrôles de zoom et de navigation et gèrent leur limite de défilement. Les flèches déplacent la barre focalisée, Maj+flèche ajuste sa fin et Échap annule le glissement.
@@ -452,3 +458,7 @@ Zéro, faux et les limites de période sont conservés lors de la sérialisation
 La couverture de régression comprend `exposedFilters.test.ts`, `PageViewModal.test.tsx`,
 `DbViewEmbed.test.tsx`, `TablePane.test.tsx` et
 `backend/tests/test_exposed_view_configuration.py`.
+
+L’onglet Général du dialogue des vues intégrées propose des commandes pour monter et descendre les onglets épinglés, y compris la vue d’ancrage. L’ancre reste visible et ne peut pas être désépinglée. Le dialogue affiche les vues épinglées dans l’ordre enregistré avant les vues disponibles, et le bloc affiche les onglets dans ce même ordre. Les préférences du bloc sont enregistrées par page et vue d’ancrage dans le stockage local du navigateur ; les onglets du registre fournissent les valeurs par défaut uniquement en l’absence de préférences du bloc. La réouverture ou le rechargement conserve l’ordre choisi et les retraits explicites.
+
+Les tableaux Kanban intégrés gèrent leur limite de hauteur et le défilement sur les deux axes. La barre horizontale reste dans la zone limitée pour rendre toutes les colonnes accessibles ; les tableaux dont la hauteur suit le contenu grandissent sans limite verticale.

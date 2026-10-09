@@ -2,6 +2,9 @@
 status: implemented
 last_verified: 2026-10-09
 source_paths:
+  - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
+  - frontend/src/shared/record-views/pinnedViewOrder.ts
+  - frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx
   - frontend/src/shared/filtering/exposedFilters.ts
   - frontend/src/shared/filtering/useExposedFilters.ts
   - frontend/src/features/vault/views/ExposedFilters.tsx
@@ -42,6 +45,7 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/view-config/PageViewModal.pinned-order.test.tsx
   - frontend/src/shared/filtering/exposedFilters.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx
   - backend/tests/test_exposed_view_configuration.py
@@ -404,6 +408,8 @@ no se fusionan automáticamente con el catálogo global.
 Pruebas: `backend/tests/test_status_catalog_isolation.py` y
 `frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.
 
+El guardado del esquema conserva las opciones, referencias, valores predeterminados, grupos y vínculos de conectores en el `config` canónico del campo. Un catálogo propio de estados vacío se guarda como `options: []`; los estados básicos solo inicializan catálogos inexistentes y no se restauran después de eliminarlos. Se mantiene la inicialización de los estados requeridos por las funciones de traducción o publicación activadas.
+
 ## Cronograma interactivo de registros
 
 El cronograma de registros utiliza límites del calendario traducidos, una columna de títulos fija y ajustable, fases plegables y una vista del proyecto adaptada a la ventana. Arrastra una barra para mover la tarea, un extremo para ajustar sus fechas o el punto de conexión final hasta una sucesora para crear una dependencia de final a inicio. El controlador guarda el período o los campos de inicio y final con el mismo callback de metadatos de la tabla, conserva el progreso y las dependencias del período y reconoce las columnas de relación de predecesoras. La programación incluye registros ocultos por filtros, rechaza ciclos y propaga ramas convergentes según la predecesora que termina más tarde. Cada registro guarda conjuntamente la dependencia y las fechas resultantes; las operaciones fallidas restauran los cambios completados cuando es posible e informan de restauraciones incompletas. Deshacer restaura los campos modificados durante la sesión de la vista. Los cronogramas incrustados mantienen sus controles de zoom y navegación y gestionan su límite de desplazamiento. Las flechas mueven la barra enfocada, Mayúsculas+flecha ajusta el final y Escape cancela el arrastre.
@@ -442,3 +448,7 @@ conservan durante la serialización.
 La cobertura de regresión incluye `exposedFilters.test.ts`, `PageViewModal.test.tsx`,
 `DbViewEmbed.test.tsx`, `TablePane.test.tsx` y
 `backend/tests/test_exposed_view_configuration.py`.
+
+La pestaña General del diálogo de vistas insertadas ofrece controles para subir y bajar las pestañas fijadas, incluida la vista ancla. El ancla permanece visible y no se puede desmarcar. El diálogo muestra las vistas fijadas en el orden guardado antes de las disponibles, y el bloque muestra las pestañas en ese mismo orden. Las preferencias del bloque se guardan por página y vista ancla en el almacenamiento local del navegador; las pestañas del registro solo aportan los valores predeterminados cuando no hay ninguna preferencia del bloque. Al reabrir o recargar se conservan tanto el orden elegido como las vistas desmarcadas.
+
+Los tableros Kanban insertados gestionan el límite de altura y el desplazamiento en ambos ejes. La barra horizontal queda dentro del área limitada para que todas las columnas sean accesibles; los tableros con altura según el contenido crecen sin límite vertical.
