@@ -11,7 +11,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 644 | 2829 |
+| Vitest | 645 | 2832 |
 | pytest | 651 | 4787 |
 
 ## Fitxers
@@ -373,6 +373,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/editor-effects/toggleTree.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/toggleTree.test.ts) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/editor-effects/transfers.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/transfers.test.tsx) | 7 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/editor/block-editor/editor-effects/useToggleKeyboard.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/useToggleKeyboard.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/editor-view/EditorModals.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-view/EditorModals.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/editor-view/EditorView.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-view/EditorView.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/editor-view/linkSuggestions.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-view/linkSuggestions.test.ts) | 8 | call-pattern estimate |

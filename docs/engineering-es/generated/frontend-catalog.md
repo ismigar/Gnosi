@@ -48,7 +48,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1183 | 130905 | 55 |
+| `features` | 1184 | 130959 | 55 |
 | `generated` | 2 | 49841 | 510 |
 | `shared` | 296 | 33275 | 440 |
 
@@ -835,8 +835,9 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/editor/block-editor/editor-effects/useAreaHeadings.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/useAreaHeadings.ts) | 65 | `areaHeadingRules`, `belongsToAreas`, `useAreaHeadings` | — |
 | [`frontend/src/features/vault/editor/block-editor/editor-effects/useCiteShortcut.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/useCiteShortcut.ts) | 23 | `citeShortcutAllowed`, `useCiteShortcut` | — |
 | [`frontend/src/features/vault/editor/block-editor/editor-effects/useEditorDrop.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/useEditorDrop.ts) | 54 | `useEditorDrop` | — |
-| [`frontend/src/features/vault/editor/block-editor/editor-effects/useEditorEffects.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/useEditorEffects.ts) | 16 | `useEditorEffects` | — |
+| [`frontend/src/features/vault/editor/block-editor/editor-effects/useEditorEffects.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/useEditorEffects.ts) | 18 | `useEditorEffects` | — |
 | [`frontend/src/features/vault/editor/block-editor/editor-effects/useEmbedNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/useEmbedNavigation.ts) | 56 | `useEditorEmbedNavigation` | — |
+| [`frontend/src/features/vault/editor/block-editor/editor-effects/useToggleKeyboard.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/useToggleKeyboard.ts) | 52 | `useToggleKeyboard` | — |
 | [`frontend/src/features/vault/editor/block-editor/editor-effects/useTogglePersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/useTogglePersistence.ts) | 48 | `useTogglePersistence` | — |
 | [`frontend/src/features/vault/editor/block-editor/editor-view/EditorModals.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-view/EditorModals.tsx) | 41 | `EditorModals` | — |
 | [`frontend/src/features/vault/editor/block-editor/editor-view/EditorSuggestions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-view/EditorSuggestions.tsx) | 15 | `EditorSuggestions` | — |

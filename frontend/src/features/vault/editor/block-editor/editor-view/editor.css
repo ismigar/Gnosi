@@ -286,3 +286,9 @@ body.gnosi-toggle-nesting .prosemirror-dropcursor-block,
 body.gnosi-toggle-nesting .prosemirror-dropcursor-inline {
     display: none !important;
 }
+
+.bn-toggle-button:focus-visible {
+    outline: 2px solid var(--gnosi-primary);
+    outline-offset: 2px;
+    border-radius: 3px;
+}

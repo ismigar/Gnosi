@@ -4000,6 +4000,8 @@
     "height_percent": "Hauteur maximale de la fenêtre (%)"
   },
   "editor": {
+    "expand_section": "Développer la section",
+    "collapse_section": "Replier la section",
     "toggle_focus_mode": "Activer ou désactiver le mode concentration",
     "toggle_high_contrast": "Alterner le contraste renforcé",
     "toggle_large_text": "Alterner le texte agrandi",
