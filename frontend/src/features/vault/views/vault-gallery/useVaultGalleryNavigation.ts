@@ -156,6 +156,7 @@ export function useVaultGalleryNavigation({
         } else if (event.key === 'Escape') {
             event.preventDefault();
             event.stopPropagation();
+            if (onFocusShell) { onFocusShell(); return; }
             let firstCardIndex = 0;
             for (const [headerIndex, section] of (groupedSections ?? []).entries()) {
                 if (!expandedGroups.has(section.id)) continue;
@@ -171,7 +172,7 @@ export function useVaultGalleryNavigation({
                 }
                 firstCardIndex = endCardIndex;
             }
-            (onFocusShell ?? onExitTop)?.();
+            onExitTop?.();
         }
     }, [expandedGroups, focusGroupHeaderAt, groupedSections, moveByArrow, onExitTop, onFocusShell, onNoteSelect, openKeyboardPreview, setExpandedGroups]);
 

@@ -1,4 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+import { isCellFormula, supportsCellFormula, translateFormula } from './spreadsheetFormula';
+import type { useTableSelection } from './useTableSelection';
 import { notifyError } from '../../../../shared/notifications/notifyError';
 import { toast } from '../../../../shared/notifications/toast';
 import { transportFetch } from '../../../../shared/api/transports';
@@ -9,6 +11,7 @@ import { getMetaKey } from './metadata';
 import { tableClipboard } from './cellValues';
 import type { TableInputs } from './tableInputs';
 import type { CellUpdate, GridColumn, MetadataPatch, TableNote } from './types';
+import type { useTableData } from './useTableData';
 import type { useTableColumns } from './useTableColumns';
 import type { useTableIdentity } from './useTableIdentity';
 import type { useTableMedia } from './useTableMedia';
@@ -27,6 +30,8 @@ type Inputs = Pick<ReturnType<typeof useTableNavigation>,
   | 'gridColumnsRef'
 >
   & Pick<ReturnType<typeof useTableColumns>, 'gridColumns'>
+  & Pick<ReturnType<typeof useTableSelection>, 'selectedIds'>
+  & Pick<ReturnType<typeof useTableData>, 'sortedNotes'>
   & Pick<ReturnType<typeof useTableState>, 'clipboardRef'>
   & Pick<TableInputs, 'idToTitle' | 'schema' | 'onCellSaved' | 'onUpdateView' | 'activeView'>
   & Pick<ReturnType<typeof useTableIdentity>, 't'>
@@ -40,6 +45,8 @@ export function useTableClipboard({
   navRows,
   noteById,
   gridColumns,
+  selectedIds,
+  sortedNotes,
   clipboardRef,
   idToTitle,
   t,
@@ -55,6 +62,12 @@ export function useTableClipboard({
   navRowsRef,
   gridColumnsRef,
 }: Inputs) {
+  const selectedTargets = useMemo(() => {
+    const visibleIndexes = new Map(navRows.map((row, index) => [row.id, index]));
+    const ordered = new Map([...navRows, ...sortedNotes, ...noteById.values()].map(row => [row.id, row]));
+    return Array.from(ordered.values()).flatMap((row, index) => selectedIds.has(row.id)
+      ? [{ id: row.id, index: visibleIndexes.get(row.id) ?? index }] : []);
+  }, [navRows, sortedNotes, noteById, selectedIds]);
   const getRangeCells = useCallback(() => {
     if (!selectionRect) return [];
     const { r0, c0, r1, c1 } = selectionRect;
@@ -82,13 +95,13 @@ export function useTableClipboard({
   const handleCopyCells = useCallback(() => {
     const cells = getRangeCells();
     if (cells.length === 0 || (cells[0]?.length ?? 0) === 0) return;
-    clipboardRef.current = { matrix: cells.map(row => row.map(c => c.value)) };
     const tsv = cells.map(row => row.map(c => serializeCellForClipboard(c.value, c.type, idToTitle)).join('\t')).join('\n');
+    clipboardRef.current = { matrix: cells.map(row => row.map(c => c.value)), text: tsv, origin: { row: selectionRect?.r0 ?? 0, column: selectionRect?.c0 ?? 0 } };
     const clipboard = tableClipboard();
     if (clipboard?.writeText) void clipboard.writeText(tsv).catch(() => { });
     const n = cells.length * (cells[0]?.length ?? 0);
     toast.success(t('table.cells_copied', { count: n, defaultValue: `${String(n)} cel·la(es) copiada(es)` }));
-  }, [clipboardRef, getRangeCells, idToTitle, t]);
+  }, [clipboardRef, getRangeCells, idToTitle, t, selectionRect]);
   const propagateBulkToParents = useCallback(async (succeeded: readonly CellUpdate[]) => {
     const groups = new Map<string, { parentId: string; field: string; overrides: Map<string, unknown>; sampleChild: string; sampleValue: unknown; }>(); // `${parentId}::${field}` → { parentId, field, overrides, sampleChild, sampleValue }
     for (const u of succeeded) {
@@ -178,14 +191,16 @@ export function useTableClipboard({
   }, [getAvailableOptions, idToTitle, getRelationContext]);
   const handlePasteCells = useCallback(async () => {
     if (!selectionRect) return;
-    let srcMatrix = clipboardRef.current?.matrix || null;
-    if (!srcMatrix) {
-      let text;
-      try { const clipboard = tableClipboard(); if (!clipboard?.readText) return; text = await clipboard.readText(); } catch { return; }
-      const parsed = parseClipboardMatrix(text);
-      if (parsed.length === 0) return;
-      srcMatrix = parsed;
-    }
+    let source = clipboardRef.current;
+    let srcMatrix = source?.matrix ?? null;
+    try {
+      const clipboard = tableClipboard();
+      if (clipboard?.readText) {
+        const text = await clipboard.readText();
+        if (text !== source?.text) { srcMatrix = parseClipboardMatrix(text); source = null; }
+      }
+    } catch { /* An internal copy still works when system clipboard access is denied. */ }
+    if (!srcMatrix) return;
     const srcRows = srcMatrix.length;
     const srcCols = srcMatrix[0]?.length || 0;
     if (srcRows === 0 || srcCols === 0) return;
@@ -193,17 +208,22 @@ export function useTableClipboard({
     const rect = computePasteRect(srcRows, srcCols, selectionRect, navRows.length, gridColumns.length);
     const updates = [];
     let skipped = 0;
-    for (let r = rect.r0;r <= rect.r1;r++) {
-      const navRow = navRows[r];
-      if (!navRow) continue;
-      const note = noteById.get(navRow.id);
+    const targetRows = selectedIds.size > 0
+      ? selectedTargets
+      : Array.from({ length: rect.r1 - rect.r0 + 1 }, (_, index) => ({ id: navRows[rect.r0 + index]?.id ?? '', index: rect.r0 + index }));
+    for (const [targetIndex, target] of targetRows.entries()) {
+      const r = target.index;
+      const note = noteById.get(target.id);
       if (!note) continue;
       for (let c = rect.c0;c <= rect.c1;c++) {
         const col = gridColumns[c];
         if (!col) continue;
-        if (!isPasteableType(col.type)) continue;
-        const raw = srcMatrix[(r - rect.r0) % srcRows]?.[(c - rect.c0) % srcCols];
-        const res = coerceValueForField(raw, col.type, coercionCtxFor(col, note));
+        if (col.key === 'title' || !isPasteableType(col.type)) continue;
+        const sourceRow = targetIndex % srcRows, sourceColumn = (c - rect.c0) % srcCols;
+        let raw = srcMatrix[sourceRow]?.[sourceColumn];
+        if (isCellFormula(raw) && source?.origin) raw = translateFormula(raw, r - source.origin.row - sourceRow, c - source.origin.column - sourceColumn);
+        const res = isCellFormula(raw) && supportsCellFormula(col.type)
+          ? { value: raw, skip: false } : coerceValueForField(raw, col.type, coercionCtxFor(col, note));
         if (res.skip) { skipped++; continue; }
         const metaKey = getMetaKey(note, col.key);
         if (sameCellValue(note.metadata?.[metaKey], res.value)) continue;
@@ -212,7 +232,7 @@ export function useTableClipboard({
     }
     await applyBulkCellUpdates(updates);
     if (skipped > 0) toast(t('table.paste_skipped', { count: skipped, defaultValue: `${String(skipped)} cel·la(es) ometa(es) (tipus incompatible)` }));
-  }, [selectionRect, clipboardRef, navRows, gridColumns, applyBulkCellUpdates, t, noteById, coercionCtxFor]);
+  }, [selectionRect, clipboardRef, navRows, gridColumns, applyBulkCellUpdates, t, noteById, coercionCtxFor, selectedIds, selectedTargets]);
   const clearActiveCells = useCallback(() => {
     const rect = selectionRectRef.current;
     if (!rect) return;
@@ -235,5 +255,32 @@ export function useTableClipboard({
     }
     void applyBulkCellUpdates(updates);
   }, [selectionRectRef, navRowsRef, gridColumnsRef, applyBulkCellUpdates, noteById]);
-  return { handleCopyCells, handlePasteCells, clearActiveCells };
+  const fillDown = useCallback(async () => {
+    if (!selectionRect) return;
+    const { r0, r1, c0, c1 } = selectionRect;
+    const sourceRow = navRows[r0];
+    const sourceNote = sourceRow ? noteById.get(sourceRow.id) : undefined;
+    if (!sourceNote) return;
+    const updates: CellUpdate[] = [];
+    const destinations = selectedIds.size ? selectedTargets : navRows;
+    for (const [index, row] of destinations.entries()) {
+      const visibleIndex = navRows.findIndex(visible => visible.id === row.id);
+      const r = visibleIndex < 0 ? ('index' in row ? row.index : index) : visibleIndex;
+      if (row.id === sourceNote.id || (selectedIds.size ? !selectedIds.has(row.id) : r <= r0 || r > r1)) continue;
+      const note = noteById.get(row.id);
+      if (!note) continue;
+      for (let c = c0; c <= c1; c++) {
+        const column = gridColumns[c];
+        if (!column || column.key === 'title' || !isPasteableType(column.type)) continue;
+        const raw = sourceNote.metadata?.[getMetaKey(sourceNote, column.key)];
+        const result = isCellFormula(raw) && supportsCellFormula(column.type)
+          ? { value: translateFormula(raw, r - r0, 0), skip: false }
+          : coerceValueForField(raw, column.type, coercionCtxFor(column, note));
+        const key = getMetaKey(note, column.key);
+        if (!result.skip && !sameCellValue(note.metadata?.[key], result.value)) updates.push({ id: note.id, key, field: column.key, newValue: result.value });
+      }
+    }
+    await applyBulkCellUpdates(updates);
+  }, [selectionRect, navRows, noteById, selectedIds, gridColumns, coercionCtxFor, applyBulkCellUpdates, selectedTargets]);
+  return { handleCopyCells, handlePasteCells, clearActiveCells, fillDown };
 }

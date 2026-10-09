@@ -1,3 +1,4 @@
+import { TableFormulaBar } from './TableFormulaBar';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { NotebookTabs } from 'lucide-react';
@@ -67,6 +68,8 @@ export function TableLayout({ model }: { model: TableController; }) {
           />
         )}
 
+        {!isListView && <TableFormulaBar model={model} />}
+
         {/* `maxHeight`: adaptive mode (embed). The scroller takes the height
                     of the content and only scrolls once it exceeds the maximum —
                     virtualization keeps working because max-height is a real
@@ -75,7 +78,17 @@ export function TableLayout({ model }: { model: TableController; }) {
         <div
           ref={tableContainerRef}
           data-vault-table-scroll
-          onPointerDownCapture={claimKeyboard}
+          tabIndex={-1}
+          onFocus={claimKeyboard}
+          onKeyDown={event => {
+            if (event.target !== event.currentTarget || model.activeCell || event.key !== 'Enter') return;
+            const first = model.navRows[0];
+            if (first) { event.preventDefault(); model.setActiveCell({ rowId: first.id, field: 'title' }); }
+          }}
+          onPointerDownCapture={event => {
+            claimKeyboard();
+            if (event.target instanceof Element && !event.target.closest('input, textarea, select, button, a, [contenteditable="true"]')) event.currentTarget.focus({ preventScroll: true });
+          }}
           style={maxHeight ? { maxHeight } : undefined}
           className={`bg-[var(--bg-primary)] overflow-auto custom-scrollbar ${maxHeight ? '' : 'flex-1'} ${isEmbedded ? `${activeCell ? 'ring-1 ring-[var(--gnosi-primary)]/30' : ''} transition-all` : 'border-none shadow-none'} ${isListView ? 'border-none shadow-none' : ''}`}>
 

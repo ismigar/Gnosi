@@ -1,3 +1,6 @@
+import { RecordViewFrame } from './RecordViewFrame';
+import type { TableNavApi } from './vault-table/types';
+import { matchesFilters, matchesSearch } from '../../../shared/filtering/vaultFilters';
 import { useMemo, useRef, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GraphViewer } from '../../../shared/graph/viewer/GraphViewer';
@@ -57,10 +60,19 @@ export function VaultGraph({
     onNodeClick,
 }: VaultGraphProps) {
     const { t } = useTranslation();
+    const navigation = useRef<TableNavApi | null>(null);
     const viewerRef = useRef<VaultGraphViewerHandle | null>(null);
     const graphQuery = useVaultGraphData();
     const graphData = graphQuery.data || null;
     const loading = graphQuery.isLoading;
+    const records = useMemo(() => (graphData?.nodes ?? []).filter(node => {
+        if (['table', 'database', 'view', 'unresolved'].includes(node.kind.toLowerCase())) return false;
+        const nodeTable = node.table_id || node.database_table_id || node.metadata.table_id || node.metadata.database_table_id;
+        const nodeDatabase = node.database_id || node.metadata.database_id;
+        const wiki = node.kind === 'Wiki' || (!nodeDatabase && (!nodeTable || nodeTable === '__wiki__'));
+        if (tableId === 'wiki' ? !wiki : tableId && nodeTable !== tableId) return false;
+        return matchesSearch(node, searchTerm) && matchesFilters(node, view.filters ?? []);
+    }).map(node => ({ id: String(node.key), title: node.label })), [graphData, tableId, searchTerm, view.filters]);
 
     // Retry the graph itself; this embedded view uses the explicit options below.
     const fetchData = async (): Promise<void> => {
@@ -108,6 +120,7 @@ export function VaultGraph({
     }
 
     return (
+        <RecordViewFrame records={records} navigation={navigation} onOpen={id => { void onNodeClick?.(id); }}>
         <div className="flex-1 relative overflow-hidden bg-white dark:bg-gray-950">
             <GraphViewer {...graphViewerProps} />
 
@@ -174,5 +187,6 @@ export function VaultGraph({
                 </div>
             )}
         </div>
+        </RecordViewFrame>
     );
 }

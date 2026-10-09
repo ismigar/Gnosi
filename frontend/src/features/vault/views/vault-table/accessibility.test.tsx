@@ -14,7 +14,7 @@ import fr from '../../../../shared/i18n/locales/fr/translation.json';
 it.each(['ca','en','es','fr'])('names selection and column aggregation in %s, preserving actions',async lang=>{
  const i18n=createInstance();await i18n.init({lng:lang,resources:{ca:{translation:ca},en:{translation:en},es:{translation:es},fr:{translation:fr}},interpolation:{escapeValue:false}});
  const selectAll=vi.fn(),toggleSelect=vi.fn(),setAggregations=vi.fn();
- const model={t:i18n.t,selectedIds:new Set(['a']),sortedNotes:[{id:'a'},{id:'b'}],selectAll,clearSelection:vi.fn(),schema:{},openHeaderHelp:{},columnWidths:{},activeSort:{field:'title',direction:'asc'},dynamicColumns:[['Score','number']],showModifiedColumn:true,aggregations:{},setAggregations,calculateAggregation:()=>'',isSelected:()=>false,toggleSelect,tableFunctionalities:[],hasOpenableResource:()=>false,onNoteSelect:vi.fn()} as unknown as TableController;
+ const model={navRowIndexById:new Map([['a',0],['source',0]]),t:i18n.t,selectedIds:new Set(['a']),sortedNotes:[{id:'a'},{id:'b'}],selectAll,clearSelection:vi.fn(),schema:{},openHeaderHelp:{},columnWidths:{},activeSort:{field:'title',direction:'asc'},dynamicColumns:[['Score','number']],showModifiedColumn:true,aggregations:{},setAggregations,calculateAggregation:()=>'',isSelected:()=>false,toggleSelect,tableFunctionalities:[],hasOpenableResource:()=>false,onNoteSelect:vi.fn()} as unknown as TableController;
  const view=mountTestComponent(<table><TableHeader model={{...model,dynamicColumns:[]}}/><tbody><tr className="group/row"><RowActions model={model} note={{id:'a',title:'Alpha'}} isChild={false}/></tr></tbody><TableFooter model={model}/></table>);
  const boxes=view.container.querySelectorAll('input');const all=boxes[0],row=boxes[1];if(!all||!row)throw new Error('Missing selection controls');
  expect(all.getAttribute('aria-label')).toBe(i18n.t('table.select_all_rows'));expect(all.getAttribute('aria-label')).not.toBe('table.select_all_rows');expect(all.indeterminate).toBe(true);
@@ -30,7 +30,7 @@ it.each([
 ] as const)('resumes table-row %s status without discarding saved work (processed=%s)', async (phase, processed, force) => {
  const i18n=createInstance(); await i18n.init({lng:'en',resources:{en:{translation:en}},interpolation:{escapeValue:false}});
  const setPendingAction=vi.fn();
- const model={t:i18n.t,i18n,selectedIds:new Set(),isSelected:()=>false,toggleSelect:vi.fn(),tableFunctionalities:[],hasOpenableResource:()=>false,onNoteSelect:vi.fn(),setPendingAction,isLlmWikiTable:true,llmWikiTableId:'resources',llmWikiJobs:{resources:{source:{phase,running:false}}},llmWikiConfig:{processed_resources:{}}} as unknown as TableController;
+ const model={navRowIndexById:new Map([['a',0],['source',0]]),t:i18n.t,i18n,selectedIds:new Set(),isSelected:()=>false,toggleSelect:vi.fn(),tableFunctionalities:[],hasOpenableResource:()=>false,onNoteSelect:vi.fn(),setPendingAction,isLlmWikiTable:true,llmWikiTableId:'resources',llmWikiJobs:{resources:{source:{phase,running:false}}},llmWikiConfig:{processed_resources:{}}} as unknown as TableController;
  const note={id:'source',title:'Book',metadata:processed?{'Processat pel Cervell':'2026-09-28'}:{}};
  const view=mountTestComponent(<table><tbody><tr><RowActions model={model} note={note} isChild={false}/></tr></tbody></table>);
  const label=i18n.t(phase==='partial'||phase==='error'?'table.reprocess_resource_error':processed?'table.reprocess_resource':'table.process_resource',{date:'2026-09-28'});

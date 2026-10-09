@@ -85,7 +85,22 @@ describe('VaultGraph', () => {
     let container: HTMLDivElement;
     let root: Root;
 
+    it('navigates only visible table records and exits to the graph shell', () => {
+        const node = { id: 'a', key: 'a', label: 'Alpha', kind: 'Note', table_id: 'table-a', database_id: null, metadata: {}, cluster: null, color: '', path: '', size: 8 };
+        graphData.nodes.push(node, { ...node, id: 'b', key: 'b', table_id: 'other' });
+        const open = vi.fn();
+        act(() => { root.render(<VaultGraph tableId="table-a" onNodeClick={open} />); });
+        const shell = container.querySelector<HTMLElement>('[data-record-view-shell]');
+        if (!shell) throw new Error('Missing graph shell');
+        const key = (value: string) => { act(() => { shell.dispatchEvent(new KeyboardEvent('keydown', { key: value, bubbles: true, cancelable: true })); }); };
+        shell.focus(); key('Enter'); key('ArrowDown'); key('Enter');
+        expect(open).toHaveBeenCalledExactlyOnceWith('a');
+        key('Escape'); expect(document.activeElement).toBe(shell);
+        expect(container.querySelector('[role="status"]')).toBeNull();
+    });
+
     beforeEach(() => {
+        graphData.nodes.length = 0;
         reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
         container = document.createElement('div');
         document.body.appendChild(container);
