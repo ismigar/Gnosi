@@ -550,8 +550,11 @@
     "remove_favorite": "Treu dels favorits"
   },
   "table": {
-    "sort_column_asc": "Ordena {{column}} ascendentment",
-    "sort_column_desc": "Ordena {{column}} descendentment",
+    "column_header_hint": "{{column}}: clic per ordenar; doble clic per seleccionar tota la columna",
+    "move_column": "Mou la columna {{column}}",
+    "sorted_column_asc": "Ordenada per {{column}} en ordre ascendent",
+    "sorted_column_desc": "Ordenada per {{column}} en ordre descendent",
+    "sort_save_error": "No s’ha pogut desar l’ordenació",
     "keyboard_navigation": "Navegació pels registres: Enter per entrar, fletxes per moure’s i Esc per sortir",
     "formula_input": "Valor o fórmula",
     "formula_hint": "Escriu =SUM(B1:B3) o =[Preu]*[Quantitat]. Enter desa; Esc cancel·la. A1 segueix l’ordre de files i columnes de la vista; [Camp] referencia la mateixa fila.",

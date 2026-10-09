@@ -1,6 +1,8 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { CSSProperties, MouseEventHandler, ReactNode } from 'react';
+import { GripVertical } from 'lucide-react';
+import type { useColumnHeaderActions } from './useColumnHeaderActions';
+import type { CSSProperties, ReactNode } from 'react';
 
 interface SortableColumnThProps {
   readonly id: string;
@@ -9,13 +11,15 @@ interface SortableColumnThProps {
   readonly width: CSSProperties['width'];
   readonly className: string;
   readonly handleClassName: string;
-  readonly onHeaderClick: MouseEventHandler<HTMLDivElement>;
+  readonly headerProps: ReturnType<ReturnType<typeof useColumnHeaderActions>>;
+  readonly dragLabel: string;
   readonly resizeHandle: ReactNode;
   readonly children: ReactNode;
 }
 
 // Sortable data-column header (dnd-kit, same pattern as VaultDocumentTabs).
-// The drag handle is the inner label div, NOT the whole th: the resize handle
+// Only the dedicated grip starts dragging; the label owns sorting and selection.
+// The grip is separate from the resize handle: the resize handle
 // (a sibling passed via `resizeHandle`) never starts a column reorder. When
 // `disabled` (canReorderColumns false) no listeners/attributes are attached, so
 // the header behaves as a plain click-to-sort cell.
@@ -26,7 +30,8 @@ export function SortableColumnTh({
   width,
   className,
   handleClassName,
-  onHeaderClick,
+  headerProps,
+  dragLabel,
   resizeHandle,
   children,
 }: SortableColumnThProps) {
@@ -45,12 +50,13 @@ export function SortableColumnTh({
       }}
       className={`${className} ${isDragging ? 'opacity-40' : ''}`}
     >
-      <div
-        {...(disabled ? {} : { ...attributes, ...listeners })}
-        className={handleClassName}
-        onClick={onHeaderClick}
-      >
-        {children}
+      <div className="flex items-center gap-1">
+        {!disabled && <button type="button" {...attributes} {...listeners} aria-label={dragLabel}
+          onClick={event => { event.stopPropagation(); }}
+          className="shrink-0 cursor-grab text-[var(--text-tertiary)] hover:text-[var(--text-primary)] active:cursor-grabbing">
+          <GripVertical size={12} />
+        </button>}
+        <div {...headerProps} className={handleClassName}>{children}</div>
       </div>
       {resizeHandle}
     </th>
