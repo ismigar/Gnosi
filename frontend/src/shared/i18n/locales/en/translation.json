@@ -598,6 +598,11 @@
     "remove_favorite": "Remove from favorites"
   },
   "table": {
+    "keyboard_navigation": "Record navigation: Enter to enter, arrows to move, Esc to exit",
+    "formula_input": "Value or formula",
+    "formula_hint": "Type =SUM(B1:B3) or =[Price]*[Quantity]. Enter saves; Esc cancels. A1 follows the view’s row and column order; [Field] references the same row.",
+    "fill_down": "Fill down",
+    "fill_down_hint": "Copy the first row of the range to the other selected rows (⌘/Ctrl+D)",
     "new_record": "New record",
     "templates": "Templates",
     "default_label": "Def.",

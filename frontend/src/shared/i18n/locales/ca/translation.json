@@ -550,6 +550,11 @@
     "remove_favorite": "Treu dels favorits"
   },
   "table": {
+    "keyboard_navigation": "Navegació pels registres: Enter per entrar, fletxes per moure’s i Esc per sortir",
+    "formula_input": "Valor o fórmula",
+    "formula_hint": "Escriu =SUM(B1:B3) o =[Preu]*[Quantitat]. Enter desa; Esc cancel·la. A1 segueix l’ordre de files i columnes de la vista; [Camp] referencia la mateixa fila.",
+    "fill_down": "Omple avall",
+    "fill_down_hint": "Copia la primera fila del rang a les altres files seleccionades (⌘/Ctrl+D)",
     "new_record": "Nou registre",
     "templates": "Plantilles",
     "default_label": "Predet.",

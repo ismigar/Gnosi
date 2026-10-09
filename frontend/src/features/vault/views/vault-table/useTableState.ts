@@ -30,7 +30,7 @@ export function useTableState({ activeView, onNoteSelect, searchTermProp }: Inpu
   const [activeCell, setActiveCell] = useState<TableCell | null>(null);
   const [anchorCell, setAnchorCell] = useState<TableCell | null>(null);
   const [editInitial, setEditInitial] = useState<string | null>(null);
-  const clipboardRef = useRef<{ matrix: unknown[][]; } | null>(null);
+  const clipboardRef = useRef<{ matrix: unknown[][]; text?: string; origin?: { row: number; column: number }; } | null>(null);
   const activeCellRef = useLatestRef<TableCell | null>(activeCell);
   const anchorCellRef = useLatestRef<TableCell | null>(anchorCell);
   const editingCellRef = useLatestRef<EditingCell | null>(editingCell);

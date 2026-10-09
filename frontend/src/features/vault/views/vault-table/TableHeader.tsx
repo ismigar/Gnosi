@@ -1,3 +1,4 @@
+import { columnLabel } from './spreadsheetFormula';
 import { ArrowDown, ArrowUp, Calendar, CheckSquare, Tag, Type } from 'lucide-react';
 import { getTableFieldConfig } from './fieldConfig';
 import { SortableColumnTh } from './SortableColumnTh';
@@ -52,6 +53,7 @@ export function TableHeader({ model }: { model: TableController; }) {
           >
             <div className="flex items-center justify-between cursor-pointer overflow-hidden text-[var(--text-secondary)]" onClick={() => { handleSort('title'); }}>
               <div className="flex items-center gap-1.5 truncate">
+                <span className="text-[10px] text-[var(--text-tertiary)]">A</span>
                 <span className="truncate">{titleKey === 'title' ? t('table.note_name') : titleKey}</span>
                 {titleDesc && (
                   <button
@@ -101,7 +103,7 @@ export function TableHeader({ model }: { model: TableController; }) {
           </th>
         );
       })()}
-      {dynamicColumns.map(([key, type]) => {
+      {dynamicColumns.map(([key, type], columnIndex) => {
         const fieldCfg = getTableFieldConfig(schema, key);
         const desc = fieldCfg.description;
         const isHelpOpen = !!openHeaderHelp[key];
@@ -129,6 +131,7 @@ export function TableHeader({ model }: { model: TableController; }) {
               {type === 'date' && <Calendar size={14} className="text-[var(--text-tertiary)] shrink-0" />}
               {(type === 'status' || type === 'select') && <Type size={14} className="text-[var(--text-tertiary)] shrink-0" />}
               {(type === 'multi_select' || type === 'relation') && <Tag size={14} className="text-[var(--text-tertiary)] shrink-0" />}
+              <span className="text-[10px] text-[var(--text-tertiary)]">{columnLabel(columnIndex + 1)}</span>
               <span className="truncate">{key}</span>
               {desc && (
                 <button

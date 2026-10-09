@@ -15,7 +15,7 @@ import type { useTableRows } from './useTableRows';
 import type { useTableSelection } from './useTableSelection';
 import type { useTableState } from './useTableState';
 
-type Inputs = Pick<ReturnType<typeof useTableClipboard>, 'handleCopyCells' | 'handlePasteCells' | 'clearActiveCells'>
+type Inputs = Pick<ReturnType<typeof useTableClipboard>, 'handleCopyCells' | 'handlePasteCells' | 'clearActiveCells' | 'fillDown'>
   & Pick<ReturnType<typeof useTableCursor>, 'moveCursor' | 'beginEditActive'>
   & Pick<TableInputs,
     'schema'
@@ -44,6 +44,7 @@ type Inputs = Pick<ReturnType<typeof useTableClipboard>, 'handleCopyCells' | 'ha
 
 export function useTableKeyboard({
   handleCopyCells,
+  fillDown,
   handlePasteCells,
   moveCursor,
   beginEditActive,
@@ -76,6 +77,7 @@ export function useTableKeyboard({
   titlePreviewRef,
 }: Inputs) {
   const visible = usePaneVisibility();
+  const fillDownRef = useLatestRef(fillDown);
   const handleCopyCellsRef = useLatestRef(handleCopyCells);
   const handlePasteCellsRef = useLatestRef(handlePasteCells);
   const moveCursorRef = useLatestRef(moveCursor);
@@ -106,7 +108,7 @@ export function useTableKeyboard({
       {
         rowVirtualizer.scrollToIndex(row.descriptorIndex, { align: which === 'last' ? 'end' : 'start' });
       }
-      try { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); } catch { /* noop */ }
+      tableContainerRef.current?.focus({ preventScroll: true });
       return true;
     };
     registerNavApi({
@@ -114,7 +116,7 @@ export function useTableKeyboard({
       focusLastCell: () => focusEdge('last'),
     });
     return () => { registerNavApi(null); };
-  }, [claimKeyboard, gridColumnsRef, navRowsRef, registerNavApi, rowVirtualizer, setActiveCell, setAnchorCell]);
+  }, [tableContainerRef, claimKeyboard, gridColumnsRef, navRowsRef, registerNavApi, rowVirtualizer, setActiveCell, setAnchorCell]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!visible) return;
@@ -130,10 +132,10 @@ export function useTableKeyboard({
       const inputType = el ? (el.getAttribute('type') || '') : '';
       const isTextInput = (tag === 'INPUT' && !['checkbox', 'radio', 'button', 'submit'].includes(inputType)) || tag === 'TEXTAREA' || (el instanceof HTMLElement && el.isContentEditable);
       if (isTextInput) return;
-      if (tag === 'TD' && (e.key === ' ' || e.key === 'Enter')) return;
 
       const meta = e.metaKey || e.ctrlKey;
       if (meta && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); handleCopyCellsRef.current(); return; }
+      if (meta && e.key.toLowerCase() === 'd') { e.preventDefault(); void fillDownRef.current(); return; }
       if (meta && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); void handlePasteCellsRef.current(); return; }
       if (meta && (e.key === 'Backspace' || e.key === 'Delete')) {
         const { onDeletePage, noteById } = rowActionsRef.current;
@@ -144,6 +146,7 @@ export function useTableKeyboard({
         return;
       }
       if (meta) return; // leaves ⌘A/⌘O to its own listeners
+      if (e.target instanceof Element && e.target.closest('button, a, input, select')) return;
 
       if (e.altKey && !e.shiftKey) {
         const { noteById, onNoteSelect, onOpenParallel, hasOpenableResource, handleOpenExternalResource } = rowActionsRef.current;
@@ -174,6 +177,7 @@ export function useTableKeyboard({
         case 'ArrowRight': e.preventDefault(); moveCursorRef.current(0, 1, e.shiftKey); break;
         case 'Tab': e.preventDefault(); moveCursorRef.current(0, e.shiftKey ? -1 : 1, false); break;
         case 'Enter': e.preventDefault(); beginEditActiveRef.current(null); break;
+        case 'F2': e.preventDefault(); beginEditActiveRef.current(null); break;
         case ' ':
           e.preventDefault(); // prevents page scroll while navigating between cells
           if (getFieldType(schemaRef.current, cell.field) === 'checkbox') { beginEditActiveRef.current(null); break; }
@@ -191,6 +195,8 @@ export function useTableKeyboard({
           e.preventDefault();
           setActiveCell(null);
           setAnchorCell(null);
+          keyboardOwnership.owner = null;
+          tableContainerRef.current?.closest<HTMLElement>('[data-record-view-shell]')?.focus();
           if (onEscapeRef.current) {
             onEscapeRef.current();
           }
@@ -212,6 +218,6 @@ export function useTableKeyboard({
     };
     const unsubscribeonKey = subscribeWindowEvent('keydown', onKey);
     return () => { unsubscribeonKey(); };
-  }, [visible, activeCellRef, beginEditActiveRef, clearActiveCellsRef, editingCellRef, gridInstanceIdRef, handleCopyCellsRef, handlePasteCellsRef, moveCursorRef, onEscapeRef, onExitBottomRef, onExitTopRef, rowActionsRef, schemaRef, selectedIdsRef, setActiveCell, setAnchorCell, tableContainerRef, tableEdgeRef, titlePreviewRef]);
+  }, [visible, fillDownRef, activeCellRef, beginEditActiveRef, clearActiveCellsRef, editingCellRef, gridInstanceIdRef, handleCopyCellsRef, handlePasteCellsRef, moveCursorRef, onEscapeRef, onExitBottomRef, onExitTopRef, rowActionsRef, schemaRef, selectedIdsRef, setActiveCell, setAnchorCell, tableContainerRef, tableEdgeRef, titlePreviewRef]);
   return { onExitTopRef };
 }

@@ -117,6 +117,7 @@ export function useTableCursor({
     if (extend) { if (!currentAnchor && prev) setAnchorCell(prev); }
     else setAnchorCell(null);
     setActiveCell({ rowId: target.id, field: col.key });
+    tableContainerRef.current?.focus({ preventScroll: true });
   }, [activeCellRef, anchorCellRef, navRowsRef, gridColumnsRef, navRowIndexByIdRef, colIndexByKeyRef, sortedNotes.length, visibleRowsCount, handleLoadMoreRows, tableContainerRef, setAnchorCell, setActiveCell, rowVirtualizer, columnWidthsRef]);
   const beginEditActive = useCallback((initialChar: string | null = null) => {
     const cell = activeCellRef.current;
@@ -175,9 +176,10 @@ export function useTableCursor({
     if (!target) return;
     setAnchorCell(null);
     setActiveCell({ rowId: target.id, field });
+    tableContainerRef.current?.focus({ preventScroll: true });
     {
       rowVirtualizer.scrollToIndex(target.descriptorIndex, { align: 'auto' });
     }
-  }, [navRowIndexById, colIndexByKey, navRows, setAnchorCell, setActiveCell, rowVirtualizer]);
+  }, [tableContainerRef, navRowIndexById, colIndexByKey, navRows, setAnchorCell, setActiveCell, rowVirtualizer]);
   return { moveCursor, beginEditActive, saveTitle, advanceCursorAfterEdit };
 }
