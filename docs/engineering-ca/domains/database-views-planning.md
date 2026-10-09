@@ -422,6 +422,8 @@ El peu del cronograma és fora del desplaçament vertical de les files i es mant
 
 El selector d’escala ofereix dia, setmana, mes i any; la vista d’any alinea anys complets amb columnes mensuals. Les tasques mare poden plegar i recuperar totes les subtasques imbricades.
 
+Clica una línia de dependència, o enfoca-la i prem Enter/Suprimeix, per obrir el diàleg d’eliminació compartit. La confirmació elimina només aquella predecessora del període o la relació, conserva les dates i els detalls de les altres connexions, actualitza la taula i permet desfer. Els cronogrames de només lectura no ofereixen aquesta acció.
+
 ## Títols visibles i filtres exposats
 
 Les vistes tenen un `displayTitle` opcional independent del `name` del catàleg.

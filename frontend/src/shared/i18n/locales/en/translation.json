@@ -5485,7 +5485,11 @@
     "duration_years_many": "{{count}} years",
     "partial_save": "Some changes could not be restored. Check the dates of the affected tasks.",
     "horizontal_scroll": "Horizontal timeline scroll",
-    "zoom_year": "Year"
+    "zoom_year": "Year",
+    "dependencies": "Task dependencies",
+    "dependency_link": "Dependency: {{from}} → {{to}}",
+    "remove_dependency": "Remove dependency",
+    "remove_dependency_hint": "Task dates will be preserved. You can undo this change."
   },
   "home": {
     "subtitle": "Your knowledge ecosystem",

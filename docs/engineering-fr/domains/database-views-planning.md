@@ -425,6 +425,8 @@ Le pied de la chronologie est séparé du défilement vertical des lignes et res
 
 Le sélecteur propose jour, semaine, mois et année ; la vue annuelle aligne des années complètes avec des colonnes mensuelles. Les tâches parentes peuvent réduire et restaurer toutes les sous-tâches imbriquées.
 
+Cliquez sur une ligne de dépendance, ou donnez-lui le focus et appuyez sur Entrée/Suppr, pour ouvrir le dialogue de suppression partagé. La confirmation supprime uniquement ce prédécesseur de la période ou de la relation, conserve les dates et les détails des autres liaisons, actualise le tableau et permet d’annuler. Les chronologies en lecture seule ne proposent pas cette action.
+
 ## Titres affichés et filtres exposés
 
 Les vues enregistrées ont un `displayTitle` facultatif indépendant du `name`

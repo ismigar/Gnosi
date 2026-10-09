@@ -114,13 +114,33 @@ export function useTimelineScheduling(options: SchedulingOptions) {
             : [{ id, metadata }];
         await saveBatch(changes);
     }, [options, saveBatch]);
+
+    const removePredecessor = useCallback(async (id: string, predecessorId: string) => {
+        const note = options.notes.find(candidate => candidate.id === id);
+        if (!note || !options.onUpdateNote || !options.predecessors(note).includes(predecessorId)) return;
+        const metadata: Record<string, unknown> = {};
+        if (options.enhancedPeriod && options.dateField) {
+            const period = parsePeriod(dateValue(note, options.dateField));
+            period.dependencies = period.dependencies.filter(dependency => dependency.predecessorId !== predecessorId);
+            for (const remaining of options.predecessors(note).filter(value => value !== predecessorId)) {
+                if (!period.dependencies.some(dependency => dependency.predecessorId === remaining)) period.dependencies.push({ predecessorId: remaining, type: 'FS', lagMinutes: 0 });
+            }
+            period.predecessorIds = period.dependencies.map(dependency => dependency.predecessorId);
+            metadata[options.dateField] = serializePeriod(period);
+        }
+        for (const field of new Set([options.predecessorField ?? 'predecessor_ids', 'predecessor_ids'])) {
+            const value = note.metadata?.[field];
+            if (Array.isArray(value) && value.includes(predecessorId)) metadata[field] = value.filter(entry => entry !== predecessorId);
+        }
+        if (Object.keys(metadata).length) await saveBatch([{ id, metadata }]);
+    }, [options, saveBatch]);
     const undo = useCallback(async () => {
         const last = history.at(-1);
         if (!last || lock.current) return;
         await saveBatch([...last].reverse().map(save => ({ id: save.id, metadata: save.before.metadata })), false);
         setHistory(current => current.slice(0, -1));
     }, [history, saveBatch]);
-    return { addPredecessor, updateDates, undo, canUndo: history.length > 0, saving };
+    return { addPredecessor, removePredecessor, updateDates, undo, canUndo: history.length > 0, saving };
 }
 
 export function planningSettingsFrom(value: unknown): SchedulingOptions['planningSettings'] {

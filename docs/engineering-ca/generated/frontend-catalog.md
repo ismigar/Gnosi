@@ -48,9 +48,9 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1179 | 130315 | 55 |
+| `features` | 1179 | 130322 | 55 |
 | `generated` | 2 | 49841 | 510 |
-| `shared` | 296 | 33211 | 440 |
+| `shared` | 296 | 33273 | 440 |
 
 ## app
 
@@ -1140,7 +1140,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx) | 21 | `EmbeddedViewBox` | — |
 | [`frontend/src/features/vault/views/db-view-embed/ViewTools.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/ViewTools.tsx) | 99 | `ViewTools` | — |
 | [`frontend/src/features/vault/views/db-view-embed/api.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/api.ts) | 55 | `apiErrorDetail`, `apiErrorStatus`, `applyVaultTemplate`, `createEmbeddedVaultPage`, `createPageInTable`, `createVaultView`, `deleteVaultPage`, `deleteVaultView`, `fetchPageViews`, `fetchVaultPage`, `fetchVaultPagesByTable`, `fetchVaultViewUsage`, `fetchVaultViews`, `patchEmbeddedVaultPageMetadata`, `patchPageMetadata`, `patchSectionConfig`, `updateVaultView`, `upsertPageView` | — |
-| [`frontend/src/features/vault/views/db-view-embed/body-adapters.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/body-adapters.ts) | 99 | `createBodyAdapters` | — |
+| [`frontend/src/features/vault/views/db-view-embed/body-adapters.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/body-adapters.ts) | 106 | `createBodyAdapters` | — |
 | [`frontend/src/features/vault/views/db-view-embed/decode.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/decode.ts) | 95 | `columns`, `decodeContext`, `decodeNavApi`, `decodeRow`, `decodeRows`, `decodeView`, `decodeViews`, `isFilterGroup`, `isRecord`, `legacyText`, `metadata`, `presets`, `text` | — |
 | [`frontend/src/features/vault/views/db-view-embed/diagnostics.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/diagnostics.ts) | 4 | `reportEmbedError` | — |
 | [`frontend/src/features/vault/views/db-view-embed/events.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/events.ts) | 10 | — | — |
@@ -1492,18 +1492,18 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/record-views/VaultViewToolbar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/VaultViewToolbar.tsx) | 113 | `VaultViewToolbar` | — |
 | [`frontend/src/shared/record-views/pinnedViewOrder.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/pinnedViewOrder.ts) | 11 | `orderedPinnedViews` | — |
 | [`frontend/src/shared/record-views/vault-timeline/TimelineBar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/TimelineBar.tsx) | 68 | `TimelineBar` | — |
-| [`frontend/src/shared/record-views/vault-timeline/TimelineDependencies.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/TimelineDependencies.tsx) | 39 | `TIMELINE_ROW_HEIGHT`, `TimelineDependencies` | — |
+| [`frontend/src/shared/record-views/vault-timeline/TimelineDependencies.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/TimelineDependencies.tsx) | 77 | `TIMELINE_ROW_HEIGHT`, `TimelineDependencies` | — |
 | [`frontend/src/shared/record-views/vault-timeline/VaultTimelineControls.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/VaultTimelineControls.tsx) | 167 | `VaultTimelineControls` | — |
 | [`frontend/src/shared/record-views/vault-timeline/VaultTimelineFooter.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/VaultTimelineFooter.tsx) | 48 | `VaultTimelineFooter` | — |
 | [`frontend/src/shared/record-views/vault-timeline/VaultTimelineGrid.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/VaultTimelineGrid.tsx) | 117 | `VaultTimelineGrid` | — |
 | [`frontend/src/shared/record-views/vault-timeline/schedulingModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/schedulingModel.ts) | 119 | `buildDateMetadata`, `dateValue` | — |
 | [`frontend/src/shared/record-views/vault-timeline/timelineLabels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineLabels.ts) | 10 | `timelineErrorKey`, `timelineTitle` | — |
-| [`frontend/src/shared/record-views/vault-timeline/timelineModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineModel.ts) | 390 | `buildBarColorResolver`, `buildTimelineChart`, `buildTimelineTicks`, `predecessorCandidates`, `predecessorsFor`, `resolvePredecessorField`, `resolveTimelineDateFields`, `timelinePosition`, `timelineUnitFromConfig` | — |
+| [`frontend/src/shared/record-views/vault-timeline/timelineModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineModel.ts) | 392 | `buildBarColorResolver`, `buildTimelineChart`, `buildTimelineTicks`, `predecessorCandidates`, `predecessorsFor`, `resolvePredecessorField`, `resolveTimelineDateFields`, `timelinePosition`, `timelineUnitFromConfig` | — |
 | [`frontend/src/shared/record-views/vault-timeline/timelineScale.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineScale.ts) | 95 | `calendarScale`, `scaleWidth`, `shiftTimelineDate` | — |
-| [`frontend/src/shared/record-views/vault-timeline/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/types.ts) | 174 | — | — |
+| [`frontend/src/shared/record-views/vault-timeline/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/types.ts) | 175 | — | — |
 | [`frontend/src/shared/record-views/vault-timeline/useTimelineDrag.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useTimelineDrag.ts) | 92 | `useTimelineDrag` | — |
-| [`frontend/src/shared/record-views/vault-timeline/useTimelineScheduling.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useTimelineScheduling.ts) | 132 | `planningSettingsFrom`, `useTimelineScheduling` | — |
-| [`frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.ts) | 327 | `useVaultTimelineController` | — |
+| [`frontend/src/shared/record-views/vault-timeline/useTimelineScheduling.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useTimelineScheduling.ts) | 152 | `planningSettingsFrom`, `useTimelineScheduling` | — |
+| [`frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.ts) | 328 | `useVaultTimelineController` | — |
 | [`frontend/src/shared/records/NumberValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/NumberValue.tsx) | 19 | `NumberValue` | — |
 | [`frontend/src/shared/records/hooks/useVaultSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/hooks/useVaultSelection.ts) | 78 | `useVaultSelection` | — |
 | [`frontend/src/shared/records/hooks/useVaultSelectionShortcuts.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/hooks/useVaultSelectionShortcuts.ts) | 53 | `useVaultSelectionShortcuts` | — |
