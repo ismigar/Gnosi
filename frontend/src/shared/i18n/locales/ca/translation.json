@@ -6023,7 +6023,8 @@
     "duration_days_many": "{{count}} dies",
     "duration_years_many": "{{count}} anys",
     "partial_save": "No s’han pogut restaurar tots els canvis. Revisa les dates de les tasques afectades.",
-    "horizontal_scroll": "Desplaçament horitzontal del cronograma"
+    "horizontal_scroll": "Desplaçament horitzontal del cronograma",
+    "zoom_year": "Any"
   },
   "home": {
     "subtitle": "El teu ecosistema de coneixement",

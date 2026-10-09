@@ -6023,7 +6023,8 @@
     "duration_days_many": "{{count}} jours",
     "duration_years_many": "{{count}} ans",
     "partial_save": "Certaines modifications n’ont pas pu être restaurées. Vérifiez les dates des tâches concernées.",
-    "horizontal_scroll": "Défilement horizontal de la chronologie"
+    "horizontal_scroll": "Défilement horizontal de la chronologie",
+    "zoom_year": "Année"
   },
   "home": {
     "subtitle": "Votre écosystème de connaissances",
