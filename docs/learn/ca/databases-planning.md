@@ -24,6 +24,8 @@ Per llegir les notes seguides, obre la configuració de la galeria i tria **Mida
 
 Al **cronograma**, tria **Dia**, **Setmana** o **Mes**, **Any**, **Avui** o **Enquadra el projecte**. Pots ajustar l’amplada dels títols i plegar les fases. Amb un període o camps d’inici i final editables, arrossega el cos d’una barra per moure la tasca i els extrems per allargar-la o escurçar-la. Arrossega el punt de connexió del final d’una tasca fins a la barra d’una successora per afegir una dependència de final a inici. Els canvis es desen als registres compartits amb la taula; les successores afectades es recalculen, encara que estiguin ocultes pels filtres. Els cicles es rebutgen. **Desfés el canvi del cronograma** restaura l’última operació durant la sessió de la vista. **Esc** cancel·la un arrossegament. Amb una barra enfocada, les fletxes la mouen i **Majúscules + fletxa** ajusta el final. Els registres sense dates mostren **Defineix les dates**; les fites tenen forma de rombe.
 
+Per eliminar una dependència, clica la línia que connecta les tasques i confirma **Elimina la dependència**. Les dates es conserven i pots desfer el canvi.
+
 ## Resultat esperat {#expected-result}
 
 Pots consultar els registres en diferents vistes i explicar la data calculada d’una tasca.

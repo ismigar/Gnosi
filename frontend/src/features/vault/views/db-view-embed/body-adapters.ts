@@ -6,7 +6,7 @@ import type { EmbedInputs } from './inputs';
 import type { EmbedDerived } from './useEmbedDerived';
 import type { EmbedRecordActions } from './useEmbedRecordActions';
 import type { EmbedTabActions } from './useEmbedTabActions';
-import type { Column } from './types';
+import type { Column, EmbedRow } from './types';
 import type { VaultViewPage } from '../../../../shared/records/hooks/useVaultViewData';
 function decodeViewUpdate(value: unknown) {
     const source = isRecord(value) ? value : {};
@@ -14,7 +14,7 @@ function decodeViewUpdate(value: unknown) {
     const sort = Array.isArray(source.sort) ? decodeView({ sorts: source.sort }).sorts : view.sort;
     return { ...view, sort, visibleProperties: Array.isArray(source.visibleProperties) ? source.visibleProperties.filter((key: unknown): key is string => typeof key === 'string') : undefined };
 }
-export function createBodyAdapters({ ctx, table, handleOpenConfig, templates, handleCreate, reload, pageId, view, activeViewId, columns, columnSpec, tableId, setView, tableViews, refetchTableViews }: EmbedInputs & EmbedDerived & EmbedRecordActions & EmbedTabActions & { reload: () => void ;}) {
+export function createBodyAdapters({ ctx, table, handleOpenConfig, templates, handleCreate, reload, pageId, view, activeViewId, columns, columnSpec, tableId, setView, setRawRecords, setTableRecords, tableViews, refetchTableViews }: EmbedInputs & EmbedDerived & EmbedRecordActions & EmbedTabActions & { reload: () => void ;}) {
     const onEditSchemaAdapter = (type?: string) => {
         if (type === 'filters' || type === 'sorts') handleOpenConfig();
         else if (ctx.onEditSchema && table) ctx.onEditSchema(table);
@@ -92,7 +92,14 @@ export function createBodyAdapters({ ctx, table, handleOpenConfig, templates, ha
     };
     const onUpdateNoteAdapter = async (id: unknown, patch: unknown) => {
         if (typeof id !== 'string') return;
-        await patchPageMetadata(id, metadata(isRecord(patch) && patch.metadata ? patch.metadata : patch));
+        const savedMetadata = metadata(isRecord(patch) && patch.metadata ? patch.metadata : patch);
+        await patchPageMetadata(id, savedMetadata);
+        // Show the committed change immediately; the background reload can be
+        // delayed by section, table and join reads. Keep both search sources in sync.
+        const applySaved = (records: EmbedRow[]) => records.map(record => record.id === id
+            ? { ...record, metadata: { ...record.metadata, ...savedMetadata } } : record);
+        setRawRecords(applySaved);
+        setTableRecords(applySaved);
         reload();
     };
     return { onEditSchemaAdapter, onCreateRecordAdapter, onDeletePageAdapter, onDeleteSelectedAdapter, onApplyTemplateAdapter, onUpdateViewAdapter, onUpdateNoteAdapter };

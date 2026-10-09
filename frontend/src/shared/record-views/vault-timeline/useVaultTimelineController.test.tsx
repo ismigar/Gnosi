@@ -347,4 +347,34 @@ describe('useVaultTimelineController open contracts', () => {
         expect(onUpdateNote.mock.calls[0]?.[1].metadata).toMatchObject({ Predecessores: ['predecessor'], Start: '2024-01-05', End: '2024-01-06' });
     });
 
+    it('removes a rich period dependency without changing boundaries, progress or other connection types', async () => {
+        plugins.enhancedPeriod = true;
+        const onUpdateNote = vi.fn<NonNullable<VaultTimelineProps['onUpdateNote']>>();
+        render({ activeView: { dateField: 'Period' }, schema: { Period: 'period' }, onUpdateNote,
+            notes: [{ id: 'task', metadata: { Period: { start: '2024-01-02', end: '2024-01-03', percentComplete: 35,
+                dependencies: [{ predecessorId: 'first', type: 'FS', lagMinutes: 0 }, { predecessorId: 'other', type: 'SS', lagMinutes: 60 }] } } }],
+        });
+        await act(async () => { await controller().removePredecessor('task', 'first'); });
+        expect(onUpdateNote.mock.calls[0]?.[1].metadata.Period).toMatchObject({ start: '2024-01-02', end: '2024-01-03', percentComplete: 35,
+            predecessorIds: ['other'], dependencies: [{ predecessorId: 'other', type: 'SS', lagMinutes: 60 }] });
+    });
+
+    it('removes a connection from both its relation column and legacy IDs without losing other predecessors', async () => {
+        const onUpdateNote = vi.fn<NonNullable<VaultTimelineProps['onUpdateNote']>>();
+        render({ ...scheduleProps, schema: { Start: 'date', End: 'date', Predecessores: 'relation' }, onUpdateNote,
+            notes: [{ id: 'task', metadata: { Start: '2024-01-02', End: '2024-01-03', Predecessores: ['first', 'other'], predecessor_ids: ['first'] } }],
+        });
+        await act(async () => { await controller().removePredecessor('task', 'first'); });
+        expect(onUpdateNote.mock.calls).toEqual([['task', { metadata: { Predecessores: ['other'], predecessor_ids: [] } }]]);
+    });
+
+    it('keeps failed dependency removal undoable state empty and propagates the save error', async () => {
+        const failure = new Error('save failed');
+        const onUpdateNote = vi.fn<NonNullable<VaultTimelineProps['onUpdateNote']>>().mockRejectedValue(failure);
+        render({ ...scheduleProps, onUpdateNote });
+        await act(async () => { await expect(controller().removePredecessor('successor', 'dependent')).rejects.toBe(failure); });
+        expect(controller().canUndo).toBe(false);
+        expect(controller().saving).toBe(false);
+    });
+
 });

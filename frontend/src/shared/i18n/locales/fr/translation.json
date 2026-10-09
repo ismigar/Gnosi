@@ -6032,7 +6032,11 @@
     "duration_years_many": "{{count}} ans",
     "partial_save": "Certaines modifications n’ont pas pu être restaurées. Vérifiez les dates des tâches concernées.",
     "horizontal_scroll": "Défilement horizontal de la chronologie",
-    "zoom_year": "Année"
+    "zoom_year": "Année",
+    "dependencies": "Dépendances des tâches",
+    "dependency_link": "Dépendance : {{from}} → {{to}}",
+    "remove_dependency": "Supprimer la dépendance",
+    "remove_dependency_hint": "Les dates des tâches seront conservées. Vous pouvez annuler cette modification."
   },
   "home": {
     "subtitle": "Votre écosystème de connaissances",

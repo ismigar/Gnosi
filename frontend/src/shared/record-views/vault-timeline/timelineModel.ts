@@ -88,7 +88,9 @@ export function predecessorsFor(
     if (enhancedPeriod && dateField) {
         const value = note.metadata?.[dateField] ?? '';
         const period = parsePeriod(value);
-        if (period.version >= 2) return period.predecessorIds;
+        if (period.version >= 2 || period.dependencies.length || period.predecessorIds.length) {
+            return [...new Set([...period.predecessorIds, ...period.dependencies.map(dependency => dependency.predecessorId)])];
+        }
     }
     const values = [note.metadata?.[predecessorField], ...(predecessorField === 'predecessor_ids' ? [] : [note.metadata?.predecessor_ids])];
     return [...new Set(values.flatMap(value => Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string' && Boolean(entry)) : []))];

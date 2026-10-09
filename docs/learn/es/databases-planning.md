@@ -24,6 +24,8 @@ Para leer las notas seguidas, abre la configuración de la galería y elige **Ta
 
 En el **cronograma**, elige **Día**, **Semana**, **Mes**, **Año**, **Hoy** o **Encuadra el proyecto**. Ajusta el ancho de los títulos y contrae las fases. Con un período o campos de inicio y final editables, arrastra una barra para mover la tarea y sus extremos para alargarla o acortarla. Arrastra el punto de conexión del final de una tarea hasta la barra de una sucesora para añadir una dependencia de final a inicio. Los cambios se guardan en los registros compartidos con la tabla; las sucesoras afectadas se recalculan aunque estén ocultas por filtros. Se rechazan los ciclos. **Deshacer el cambio del cronograma** restaura la última operación durante la sesión de la vista. **Esc** cancela un arrastre. Con una barra enfocada, las flechas la mueven y **Mayúsculas + flecha** ajusta el final. Los registros sin fechas muestran **Define las fechas**; los hitos tienen forma de rombo.
 
+Para eliminar una dependencia, haz clic en la línea que conecta las tareas y confirma **Eliminar dependencia**. Se conservan las fechas y puedes deshacer el cambio.
+
 ## Resultado esperado {#expected-result}
 
 Puedes consultar registros en distintas vistas y explicar la fecha calculada de una tarea.
