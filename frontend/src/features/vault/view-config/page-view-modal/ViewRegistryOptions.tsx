@@ -1,4 +1,7 @@
-import { Trash2 } from 'lucide-react';
+import { orderedPinnedViews } from '../../../../shared/record-views/pinnedViewOrder';
+import { GnosiToggle } from '../../../../shared/ui/settings/SettingsPrimitives';
+import '../../../settings/styles/settings-controls.css';
+import { ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 import type { ModalInput } from './useViewController';
 import type { useViewStateResult } from './useViewState';
 import type { useViewActionsResult } from './useViewActions';
@@ -24,43 +27,71 @@ export function ViewRegistryOptions({
     | 'saveToTableViews'
     | 'setSaveToTableViews'
 >) {
+    const anchorId = selectedExistingViewId || 'default';
+    const pinnedViews = orderedPinnedViews(existingViews, anchorId, modalPinnedViewIds);
+    const orderedViews = [...pinnedViews, ...existingViews.filter(v => v.id !== anchorId && !modalPinnedViewIds.has(v.id))];
+    const moveView = (id: string, offset: number) => {
+        const ids = pinnedViews.map(v => v.id);
+        const index = ids.indexOf(id);
+        const target = index + offset;
+        if (index < 0 || target < 0 || target >= ids.length) return;
+        const targetId = ids[target];
+        if (!targetId) return;
+        ids[index] = targetId;
+        ids[target] = id;
+        setModalPinnedViewIds(new Set(ids));
+    };
     return (<>                            {!isTableMode && sourceTableId && existingViews.length > 0 && (
         <div className="border-t border-[var(--border-primary)] pt-4">
             <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-2">
                 {t('view.pinned_tabs', "Show tabs (views pinned to this block)")}
             </label>
+            <p className="text-xs text-[var(--text-tertiary)] mb-2">{t('view.pinned_order_hint', 'Use the arrows to change the tab order in this block.')}</p>
             <div className="space-y-1.5 max-h-36 overflow-y-auto border border-[var(--border-primary)] rounded-lg p-2.5 bg-[var(--bg-secondary)]">
-                {existingViews.map(v => {
+                {orderedViews.map(v => {
                     const isChecked = modalPinnedViewIds.has(v.id);
                     const isAnchor = v.id === selectedExistingViewId || (v.id === 'default' && !selectedExistingViewId);
+                    const pinnedIndex = pinnedViews.findIndex(view => view.id === v.id);
                     const canDelete = !v.is_main && v.id !== 'default';
                     return (
                         <div key={v.id} className="flex items-center justify-between gap-2 py-0.5">
-                            <label className="flex items-center gap-2 text-xs text-[var(--text-primary)] cursor-pointer select-none truncate min-w-0">
-                                <input
-                                    type="checkbox"
-                                    checked={isChecked || isAnchor}
+                            <div className="flex items-center gap-2 text-xs text-[var(--text-primary)] select-none min-w-0 flex-1">
+                                <GnosiToggle
+                                    active={isChecked || isAnchor}
                                     disabled={isAnchor}
-                                    onChange={e => {
-                                        const checked = e.target.checked;
+                                    label={v.name || t('view.unnamed', '(unnamed)')}
+                                    style={{ flexShrink: 0 }}
+                                    onChange={() => {
                                         setModalPinnedViewIds(prev => {
-                                            const next = new Set(prev);
-                                            if (checked) {
-                                                next.add(v.id);
-                                            } else {
-                                                next.delete(v.id);
-                                            }
+                                            const next = new Set(pinnedViews.map(view => view.id));
+                                            if (prev.has(v.id)) next.delete(v.id);
+                                            else next.add(v.id);
                                             return next;
                                         });
                                     }}
-                                    className="rounded text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)] shrink-0"
                                 />
                                 <span className="truncate">{v.name || t('view.unnamed', "(unnamed)")}</span>
                                 {v.type && <span className="text-[10px] text-[var(--text-tertiary)] shrink-0">· {v.type}</span>}
                                 {isAnchor && (
                                     <span className="text-[10px] text-[var(--text-tertiary)] italic shrink-0">{t('view.anchor_view', "(anchor view)")}</span>
                                 )}
-                            </label>
+                            </div>
+                            {(isChecked || isAnchor) && <div className="flex items-center shrink-0">
+                                <button type="button" disabled={pinnedIndex <= 0}
+                                    onClick={() => { moveView(v.id, -1); }}
+                                    aria-label={`${t('view.move_up', 'Up')}: ${v.name || t('view.unnamed', '(unnamed)')}`}
+                                    title={t('view.move_up', 'Up')}
+                                    className="p-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] rounded disabled:opacity-30 disabled:cursor-not-allowed">
+                                    <ArrowUp size={13} />
+                                </button>
+                                <button type="button" disabled={pinnedIndex === pinnedViews.length - 1}
+                                    onClick={() => { moveView(v.id, 1); }}
+                                    aria-label={`${t('view.move_down', 'Down')}: ${v.name || t('view.unnamed', '(unnamed)')}`}
+                                    title={t('view.move_down', 'Down')}
+                                    className="p-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] rounded disabled:opacity-30 disabled:cursor-not-allowed">
+                                    <ArrowDown size={13} />
+                                </button>
+                            </div>}
                             {canDelete && (
                                 <button
                                     type="button"
