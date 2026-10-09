@@ -416,3 +416,5 @@ Select a cell range by dragging or Shift-clicking; Ctrl/Cmd-click adds or remove
 Embedded tables explicitly own a noneditable grid boundary inside the rich-text editor. Cell pointer selection ignores editable ancestors outside that grid, transfers DOM focus into it, and allows Shift+arrows to expand or shrink the cell range before pasting; actual cell editors retain text selection.
 
 Selected table cells use an opaque accent-colored background mixed with the current theme surface and an inset contour on every cell. A thicker contour distinguishes the active cell. The same styling covers sticky title cells, rectangular ranges and disjoint selections in light and dark themes.
+
+Every table field header includes a small, always-visible sort button on its right, including the title and optional modification column. Selecting a new field starts ascending; repeated activation alternates ascending and descending through the existing saved-view sort callback. Icons show the current direction, localized tooltips describe the next action, and headers expose their sort state. Enter and Space activate the button without starting column reordering.

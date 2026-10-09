@@ -48,7 +48,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1184 | 130968 | 55 |
+| `features` | 1185 | 130986 | 55 |
 | `generated` | 2 | 49841 | 510 |
 | `shared` | 296 | 33275 | 440 |
 
@@ -1184,6 +1184,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/views/vault-table/CellDropdownPortal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/CellDropdownPortal.tsx) | 80 | `CellDropdownPortal` | — |
 | [`frontend/src/features/vault/views/vault-table/CellEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/CellEditor.tsx) | 160 | `CellEditor` | — |
 | [`frontend/src/features/vault/views/vault-table/CellValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/CellValue.tsx) | 262 | `CellValue` | — |
+| [`frontend/src/features/vault/views/vault-table/ColumnSortButton.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/ColumnSortButton.tsx) | 17 | `ColumnSortButton` | — |
 | [`frontend/src/features/vault/views/vault-table/FileDeleteDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/FileDeleteDialog.tsx) | 85 | `FileDeleteDialog` | `/api/vault/delete-physical-file` |
 | [`frontend/src/features/vault/views/vault-table/InfiniteLoadSentinel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/InfiniteLoadSentinel.tsx) | 48 | `InfiniteLoadSentinel` | — |
 | [`frontend/src/features/vault/views/vault-table/InlinePillsPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/InlinePillsPicker.tsx) | 138 | `InlinePillsPicker` | — |
@@ -1191,13 +1192,13 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/views/vault-table/NewSubitemRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/NewSubitemRow.tsx) | 70 | `createNewSubitemRenderer` | — |
 | [`frontend/src/features/vault/views/vault-table/RowActions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/RowActions.tsx) | 231 | `RowActions` | — |
 | [`frontend/src/features/vault/views/vault-table/RowTitleCell.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/RowTitleCell.tsx) | 156 | `RowTitleCell` | — |
-| [`frontend/src/features/vault/views/vault-table/SortableColumnTh.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/SortableColumnTh.tsx) | 55 | `SortableColumnTh` | — |
+| [`frontend/src/features/vault/views/vault-table/SortableColumnTh.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/SortableColumnTh.tsx) | 58 | `SortableColumnTh` | — |
 | [`frontend/src/features/vault/views/vault-table/TableActionDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableActionDialogs.tsx) | 87 | `TableActionDialogs` | — |
 | [`frontend/src/features/vault/views/vault-table/TableBody.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableBody.tsx) | 98 | `TableBody` | — |
 | [`frontend/src/features/vault/views/vault-table/TableFooter.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableFooter.tsx) | 80 | `TableFooter` | — |
 | [`frontend/src/features/vault/views/vault-table/TableFormulaBar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableFormulaBar.tsx) | 49 | `TableFormulaBar` | — |
 | [`frontend/src/features/vault/views/vault-table/TableGroups.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableGroups.tsx) | 122 | `createGroupRenderers` | — |
-| [`frontend/src/features/vault/views/vault-table/TableHeader.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableHeader.tsx) | 198 | `TableHeader` | — |
+| [`frontend/src/features/vault/views/vault-table/TableHeader.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableHeader.tsx) | 196 | `TableHeader` | — |
 | [`frontend/src/features/vault/views/vault-table/TableLayout.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableLayout.tsx) | 144 | `TableLayout` | — |
 | [`frontend/src/features/vault/views/vault-table/TableMediaDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableMediaDialog.tsx) | 72 | `TableMediaDialog` | — |
 | [`frontend/src/features/vault/views/vault-table/TableRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/TableRow.tsx) | 136 | `createRowRenderer` | — |

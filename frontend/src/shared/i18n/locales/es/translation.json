@@ -550,6 +550,8 @@
     "remove_favorite": "Quitar de favoritos"
   },
   "table": {
+    "sort_column_asc": "Ordena {{column}} ascendentemente",
+    "sort_column_desc": "Ordena {{column}} descendentemente",
     "keyboard_navigation": "Navegación por registros: Enter para entrar, flechas para moverse y Esc para salir",
     "formula_input": "Valor o fórmula",
     "formula_hint": "Escribe =SUM(B1:B3) o =[Precio]*[Cantidad]. Enter guarda; Esc cancela. A1 sigue el orden de filas y columnas de la vista; [Campo] referencia la misma fila.",

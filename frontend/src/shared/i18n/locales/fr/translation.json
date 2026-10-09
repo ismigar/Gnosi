@@ -3064,6 +3064,8 @@
   "reader_podcast_in_progress": "Déjà en cours…",
   "reader_podcast_error": "Erreur lors du lancement du podcast.",
   "table": {
+    "sort_column_asc": "Trier {{column}} par ordre croissant",
+    "sort_column_desc": "Trier {{column}} par ordre décroissant",
     "keyboard_navigation": "Navigation des enregistrements : Entrée pour entrer, flèches pour déplacer, Échap pour sortir",
     "formula_input": "Valeur ou formule",
     "formula_hint": "Saisissez =SUM(B1:B3) ou =[Prix]*[Quantité]. Entrée enregistre ; Échap annule. A1 suit l’ordre des lignes et colonnes de la vue ; [Champ] référence la même ligne.",
