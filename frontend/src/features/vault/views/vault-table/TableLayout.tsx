@@ -1,3 +1,4 @@
+import './tableSelection.css';
 import { useTablePointerSelection } from './useTablePointerSelection';
 import { TableFormulaBar } from './TableFormulaBar';
 import { DndContext, closestCenter } from '@dnd-kit/core';

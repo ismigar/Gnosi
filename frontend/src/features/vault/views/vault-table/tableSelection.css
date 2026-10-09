@@ -1,0 +1,9 @@
+/* An opaque, theme-aware fill keeps selected sticky cells and ranges visible. */
+[data-vault-table-scroll] td[data-grid-field][aria-selected="true"] {
+    background-color: color-mix(in srgb, var(--gnosi-primary) 22%, var(--bg-primary));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gnosi-primary) 65%, var(--border-primary));
+}
+
+[data-vault-table-scroll] td[data-grid-field][data-active-cell="true"] {
+    box-shadow: inset 0 0 0 3px var(--gnosi-primary);
+}
