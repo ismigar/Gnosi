@@ -33,6 +33,7 @@ type Inputs = Pick<ReturnType<typeof useTableRows>, 'rowDescriptors' | 'groupMet
     | 'activeCell'
     | 'anchorCell'
     | 'selectedCells'
+    | 'selectedColumn'
     | 'searchTerm'
     | 'activeCellRef'
   >
@@ -63,6 +64,7 @@ export function useTableNavigation({
   activeCell,
   anchorCell,
   selectedCells,
+  selectedColumn,
   activeView,
   searchTerm,
   sortSignature,
@@ -222,6 +224,10 @@ export function useTableNavigation({
     return m;
   }, [safeNotes]);
   const selectionRect = useMemo(() => {
+    if (selectedColumn && navRows.length) {
+      const column = colIndexByKey.get(selectedColumn);
+      if (column !== undefined) return { r0: 0, r1: navRows.length - 1, c0: column, c1: column };
+    }
     if (!activeCell) return null;
     const aRow = navRowIndexById.get(activeCell.rowId);
     const aCol = colIndexByKey.get(activeCell.field);
@@ -241,7 +247,7 @@ export function useTableNavigation({
       r0: Math.min(aRow, bRow), c0: Math.min(aCol, bCol),
       r1: Math.max(aRow, bRow), c1: Math.max(aCol, bCol),
     };
-  }, [activeCell, anchorCell, selectedCells, navRowIndexById, colIndexByKey]);
+  }, [activeCell, anchorCell, selectedCells, selectedColumn, navRows, navRowIndexById, colIndexByKey]);
   const selectionRectRef = useLatestRef<SelectionRect | null>(selectionRect);
   const getCellSelState = useCallback((rowId: string, field: string) => {
     if (!selectionRect) return { isActive: false, inRange: false };
@@ -286,7 +292,8 @@ export function useTableNavigation({
           rowVirtualizer.scrollToIndex(targetRow.descriptorIndex, { align: 'center' });
           requestAnimationFrame(() => {
             const selector = `[data-title-cell="${CSS.escape(focusTarget.rowId)}"]`;
-            tableContainerRef.current?.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+            if (focusTarget.field === 'title') tableContainerRef.current?.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+            else tableContainerRef.current?.focus({ preventScroll: true });
           });
         }
       }

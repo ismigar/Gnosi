@@ -598,8 +598,11 @@
     "remove_favorite": "Remove from favorites"
   },
   "table": {
-    "sort_column_asc": "Sort {{column}} ascending",
-    "sort_column_desc": "Sort {{column}} descending",
+    "column_header_hint": "{{column}}: click to sort; double-click to select the whole column",
+    "move_column": "Move column {{column}}",
+    "sorted_column_asc": "Sorted by {{column}} ascending",
+    "sorted_column_desc": "Sorted by {{column}} descending",
+    "sort_save_error": "Could not save the sort order",
     "keyboard_navigation": "Record navigation: Enter to enter, arrows to move, Esc to exit",
     "formula_input": "Value or formula",
     "formula_hint": "Type =SUM(B1:B3) or =[Price]*[Quantity]. Enter saves; Esc cancels. A1 follows the view’s row and column order; [Field] references the same row.",

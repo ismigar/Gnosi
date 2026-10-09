@@ -122,6 +122,10 @@ export function createRowRenderer(model: TableController, renderCellContent: Ret
 
         {showModifiedColumn && (
           <td
+            data-grid-row={note.id}
+            data-grid-field="last_modified"
+            aria-selected={getCellSelState(note.id, 'last_modified').inRange}
+            data-active-cell={getCellSelState(note.id, 'last_modified').isActive}
             style={{ width: columnWidths['last_modified'] || 150, maxWidth: columnWidths['last_modified'] || 150 }}
             className={`${rowPadClass} px-4 text-[var(--text-tertiary)] flex items-center gap-1.5 overflow-hidden truncate align-top ${isListView ? '' : 'border-l border-[var(--border-primary)]'}`}
           >
