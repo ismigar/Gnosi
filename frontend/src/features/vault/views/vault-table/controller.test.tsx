@@ -78,12 +78,12 @@ function mountController(extra: Partial<VaultTableProps> = {}, withCells = false
     const model = useTableController(input);
     const pointer = useTablePointerSelection(model);
     useLayoutEffect(() => { current = model; });
-    return <div data-vault-table-scroll ref={model.tableContainerRef} {...pointer}>
+    return <div contentEditable suppressContentEditableWarning><div contentEditable={false} data-vault-table-scroll tabIndex={-1} ref={model.tableContainerRef} {...pointer}>
       {withCells && <table><tbody>{model.navRows.map(row => <tr key={row.id}>
         {model.gridColumns.map(column => <td key={column.key} data-grid-row={row.id} data-grid-field={column.key}
           aria-selected={model.getCellSelState(row.id, column.key).inRange} />)}
       </tr>)}</tbody></table>}
-    </div>;
+    </div></div>;
   }
   const mounted = mountTestComponent(<Probe input={props} />);
   return {
@@ -437,5 +437,22 @@ it('pastes titles and metadata together and rolls back a rejected row', async ()
   expect(transportFetch).toHaveBeenCalledWith('/api/vault/pages/a', expect.objectContaining({ body: '{"title":"Renamed","metadata":{"Text":"Renamed"}}' }));
   expect(table.model().noteById.get('a')).toMatchObject({ title: 'Renamed', metadata: { Text: 'Renamed' } });
   expect(table.model().noteById.get('b')).toMatchObject({ title: 'Beta', metadata: { Text: 'beta' } });
+  table.unmount();
+});
+
+it('keeps keyboard range selection inside an embedded table under a contenteditable editor', async () => {
+  const table = mountController({ schema: { Score: 'number', Text: 'text' } }, true);
+  const cell = table.container.querySelector<HTMLElement>('[data-grid-row="a"][data-grid-field="Score"]');
+  if (!cell) throw new Error('Missing cell');
+  act(() => { table.model().setActiveCell({ rowId: 'a', field: 'Score' }); cell.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0, buttons: 1 })); });
+  expect(document.activeElement).toBe(table.model().tableContainerRef.current);
+  act(() => { table.model().tableContainerRef.current?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', shiftKey: true, bubbles: true, cancelable: true })); });
+  expect(table.model().getCellSelState('a', 'Score').inRange).toBe(true);
+  expect(table.model().getCellSelState('b', 'Score').inRange).toBe(true);
+  act(() => { table.model().tableContainerRef.current?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true, cancelable: true })); });
+  expect(table.model().getCellSelState('a', 'Text').inRange).toBe(true);
+  expect(table.model().getCellSelState('b', 'Text').inRange).toBe(true);
+  await act(async () => { await table.model().handlePasteCells('42'); });
+  expect(transportFetch).toHaveBeenCalledTimes(2);
   table.unmount();
 });

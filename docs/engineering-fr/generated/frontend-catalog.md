@@ -48,7 +48,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1184 | 130959 | 55 |
+| `features` | 1184 | 130963 | 55 |
 | `generated` | 2 | 49841 | 510 |
 | `shared` | 296 | 33275 | 440 |
 
@@ -1232,7 +1232,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/views/vault-table/useTableOptimistic.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableOptimistic.ts) | 119 | `useTableOptimistic` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableOptions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableOptions.ts) | 126 | `useTableOptions` | — |
 | [`frontend/src/features/vault/views/vault-table/useTablePlugins.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTablePlugins.ts) | 51 | `useTablePlugins` | — |
-| [`frontend/src/features/vault/views/vault-table/useTablePointerSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTablePointerSelection.ts) | 82 | `useTablePointerSelection` | — |
+| [`frontend/src/features/vault/views/vault-table/useTablePointerSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTablePointerSelection.ts) | 86 | `useTablePointerSelection` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableResources.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableResources.ts) | 59 | `useTableResources` | `/api/vault/open-resource` |
 | [`frontend/src/features/vault/views/vault-table/useTableRows.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableRows.ts) | 96 | `useTableRows` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableSave.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableSave.ts) | 178 | `useTableSave` | — |

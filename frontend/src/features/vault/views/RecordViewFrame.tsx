@@ -46,7 +46,7 @@ export function RecordViewFrame({ children, records, navigation, onOpen, onExit,
       if (event.defaultPrevented || event.nativeEvent.isComposing || event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target;
       if (!(target instanceof HTMLElement) || target.closest('[data-record-view-shell]') !== shell.current) return;
-      if (target.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return;
+      if (target.isContentEditable || target.closest('input, textarea, select, [role="dialog"]')) return;
       const atShell = target === event.currentTarget;
       if (event.key === 'Enter' && atShell) {
         event.preventDefault(); event.stopPropagation();
