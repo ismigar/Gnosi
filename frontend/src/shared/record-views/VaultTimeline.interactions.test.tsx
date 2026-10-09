@@ -145,4 +145,31 @@ describe('interactive timeline and its shared table records', () => {
         expect(writes).toHaveLength(0);
     });
 
+    it('removes a clicked connection, preserves task dates in the table and restores it with undo', async () => {
+        act(() => { root.render(<Harness />); });
+        const before = find('[data-table-record="b"]').textContent;
+        act(() => { find('[data-timeline-dependency="a->b"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+        const dialog = find('[role="dialog"]');
+        const remove = [...dialog.querySelectorAll('button')].find(button => button.textContent === 'Remove dependency');
+        if (!remove) throw new Error('Remove dependency action missing');
+        await act(async () => { remove.click(); await Promise.resolve(); });
+        expect(writes).toEqual([{ id: 'b', patch: { metadata: { predecessor_ids: [] } } }]);
+        expect(find('[data-table-record="b"]').textContent).toBe('2026-01-042026-01-05[]');
+        expect(container.querySelector('[data-timeline-dependency="a->b"]')).toBeNull();
+        expect(container.querySelector('[data-timeline-dependency="b->c"]')).not.toBeNull();
+        await act(async () => { find('button[aria-label="Undo timeline change"]').click(); await Promise.resolve(); });
+        expect(find('[data-table-record="b"]').textContent).toBe(before);
+        expect(container.querySelector('[data-timeline-dependency="a->b"]')).not.toBeNull();
+    });
+
+    it('does not remove a connection when its dialog is cancelled', () => {
+        act(() => { root.render(<Harness />); });
+        act(() => { find('[data-timeline-dependency="a->b"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+        const cancel = [...find('[role="dialog"]').querySelectorAll('button')].find(button => button.textContent === 'Cancel');
+        if (!cancel) throw new Error('Cancel action missing');
+        act(() => { cancel.click(); });
+        expect(writes).toHaveLength(0);
+        expect(container.querySelector('[data-timeline-dependency="a->b"]')).not.toBeNull();
+    });
+
 });

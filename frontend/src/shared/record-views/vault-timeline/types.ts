@@ -150,6 +150,7 @@ export interface TimelineController {
         noteId: string,
         predecessorId: string,
     ) => Promise<void>;
+    readonly removePredecessor: (noteId: string, predecessorId: string) => Promise<void>;
     readonly handleBulkDelete: () => void;
     readonly isSelected: (noteId: string) => boolean;
     readonly predecessorCandidates: readonly TimelineChartNote[];

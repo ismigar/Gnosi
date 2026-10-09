@@ -6024,7 +6024,11 @@
     "duration_years_many": "{{count}} anys",
     "partial_save": "No s’han pogut restaurar tots els canvis. Revisa les dates de les tasques afectades.",
     "horizontal_scroll": "Desplaçament horitzontal del cronograma",
-    "zoom_year": "Any"
+    "zoom_year": "Any",
+    "dependencies": "Dependències de les tasques",
+    "dependency_link": "Dependència: {{from}} → {{to}}",
+    "remove_dependency": "Elimina la dependència",
+    "remove_dependency_hint": "Es conservaran les dates de les tasques. Pots desfer aquest canvi."
   },
   "home": {
     "subtitle": "El teu ecosistema de coneixement",
