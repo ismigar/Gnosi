@@ -93,15 +93,15 @@ export function buildPayload(fields: Field[], enableTranslation: boolean) {
         // Option catalog for select/multi_select/status, in
         // rich {name,color,group} format. With `catalog_ref` (shared catalog)
         // the options live in the root registry and are NOT persisted to the
-        // field. If the list ends up empty, we don't write the key so that the
-        // field can keep deriving options from the existing values.
+        // field. An empty status list is explicit: omitting it would let the
+        // server seed the defaults again after the last option was deleted.
         if (OPTION_FIELD_TYPES.has(f.type)) {
             const catalogRef = (f.catalogRef || '').trim();
             if (catalogRef) {
                 config.catalog_ref = catalogRef;
             } else {
                 const cleaned = normalizeOptions(f.options);
-                if (cleaned.length > 0) {
+                if (cleaned.length > 0 || f.type === 'status') {
                     config.options = cleaned;
                 }
             }

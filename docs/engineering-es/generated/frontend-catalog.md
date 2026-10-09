@@ -50,7 +50,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `app` | 21 | 2657 | 0 |
 | `features` | 1179 | 130325 | 55 |
 | `generated` | 2 | 49841 | 510 |
-| `shared` | 296 | 33273 | 440 |
+| `shared` | 296 | 33275 | 440 |
 
 ## app
 
@@ -1515,7 +1515,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/records/model/pageClassification.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/pageClassification.ts) | 29 | `isCalendarPage` | — |
 | [`frontend/src/shared/records/model/schemaLanguageUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaLanguageUtils.ts) | 79 | `detectRecordSourceLang`, `getLanguageFieldName`, `normalizeLangCode` | — |
 | [`frontend/src/shared/records/model/schemaTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaTypes.ts) | 59 | — | — |
-| [`frontend/src/shared/records/model/schemaUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaUtils.ts) | 477 | `INTERNAL_METADATA_KEYS`, `buildSchemaFromTableProperties`, `buildTablePropertiesFromSchema`, `discoverFieldNamesFromRecords`, `getFieldConfig`, `getFieldId`, `getFieldNameById`, `getFieldType`, `getMetaValue`, `getSchemaFieldEntries`, `getSchemaFieldNames`, `isAppContent`, `normalizeSorts`, `resolveFieldRef`, `resolveSystemDateValue`, `resolveViewFilters`, `resolveViewSorts`, `setMetaValue`, `withResolvedSystemDates` | — |
+| [`frontend/src/shared/records/model/schemaUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaUtils.ts) | 479 | `INTERNAL_METADATA_KEYS`, `buildSchemaFromTableProperties`, `buildTablePropertiesFromSchema`, `discoverFieldNamesFromRecords`, `getFieldConfig`, `getFieldId`, `getFieldNameById`, `getFieldType`, `getMetaValue`, `getSchemaFieldEntries`, `getSchemaFieldNames`, `isAppContent`, `normalizeSorts`, `resolveFieldRef`, `resolveSystemDateValue`, `resolveViewFilters`, `resolveViewSorts`, `setMetaValue`, `withResolvedSystemDates` | — |
 | [`frontend/src/shared/records/model/viewHeight.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/viewHeight.ts) | 13 | `viewHeightMode`, `viewHeightPercent` | — |
 | [`frontend/src/shared/records/pageReferenceTitle.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/pageReferenceTitle.ts) | 66 | `pageReferenceId`, `pageReferenceTitle`, `readablePageTitle`, `readablePageTitleIndex` | — |
 | [`frontend/src/shared/records/usePageReferenceTitle.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/usePageReferenceTitle.ts) | 25 | `usePageReferenceTitle` | — |

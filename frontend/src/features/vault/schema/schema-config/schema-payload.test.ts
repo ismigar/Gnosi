@@ -26,6 +26,13 @@ import { validateSchema } from './validate-schema';
 import { normalizeTableFunctionalities } from '../../properties/tableFunctionalityUtils';
 
 describe('schema configuration persistence contracts', () => {
+    it('persists an explicitly empty local status catalog after deleting its last option', () => {
+        const fields = hydrateFields({ Status: 'status', Status_config: { id: 'fld_00000002', options: ['Open'] } }, null);
+        const status = fields[0];
+        if (!status) throw new Error('Missing status field');
+        status.options = [];
+        expect(buildPayload(fields, false).newSchemaObj.Status_config).toEqual({ id: 'fld_00000002', options: [] });
+    });
     it('keeps stable IDs, unmanaged plugin config, column order and visibility when renaming', () => {
         const extension = { nested: [1, 'opaque', false], plugin: 'sample' };
         const schema = {

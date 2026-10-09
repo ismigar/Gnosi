@@ -173,6 +173,21 @@ describe('schema option catalog contracts', () => {
         expect(save.mock.calls[0]?.[0].Tags_config).not.toHaveProperty('options');
     });
 
+    it('keeps a local status catalog empty after removing its final option and reopening', async () => {
+        const save = vi.fn<NonNullable<SchemaConfigModalProps['onSave']>>();
+        vi.mocked(schemaApi.fetchTableOptionUsage).mockResolvedValue({ counts: {} });
+        await modal.render({ currentSchema: { ...localSchema, Tags: 'status' }, onSave: save });
+        await click(removeButton('Open'));
+        await click(removeButton('Done'));
+        await advance();
+        const savedSchema = save.mock.calls.at(-1)?.[0];
+        expect(savedSchema?.Tags_config).toEqual({ id: 'fld_00000002', options: [] });
+        await modal.render({ isOpen: false });
+        await modal.render({ currentSchema: savedSchema, onSave: save });
+        expect([...document.querySelectorAll('input')].some(element => ['Open', 'Done'].includes(element.value))).toBe(false);
+        expect(schemaApi.updateOptionCatalog).not.toHaveBeenCalled();
+    });
+
     it('serializes consecutive record rewrites and keeps both options removed', async () => {
         let finishFirst: ((value: { files_changed: number }) => void) | undefined;
         vi.mocked(schemaApi.removeTableOption).mockImplementationOnce(() => new Promise(resolve => { finishFirst = resolve; }));
