@@ -45,7 +45,7 @@ export function TableLayout({ model }: { model: TableController; }) {
     titlePreview,
   } = model;
   return (
-    <div className={`w-full ${maxHeight ? '' : 'h-full overflow-hidden'} ${isEmbedded ? '' : 'bg-[var(--bg-primary)]'}`}>
+    <div contentEditable={false} className={`w-full ${maxHeight ? '' : 'h-full overflow-hidden'} ${isEmbedded ? '' : 'bg-[var(--bg-primary)]'}`}>
       <div className={`w-full ${maxHeight ? '' : 'h-full'} flex flex-col`}>
         {selectedIds.size > 0 && (
           <VaultBulkActionsBar

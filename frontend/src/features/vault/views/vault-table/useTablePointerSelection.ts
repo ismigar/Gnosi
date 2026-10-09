@@ -2,18 +2,24 @@ import { useRef, type ClipboardEvent, type MouseEvent, type PointerEvent, type D
 import type { TableCell } from './types';
 import type { TableController } from './useTableController';
 
-const interactive = 'input, textarea, select, button, a, [contenteditable="true"], [role="dialog"]';
+const interactive = 'input, textarea, select, button, a, [role="dialog"]';
 const same = (a: TableCell, b: TableCell) => a.rowId === b.rowId && a.field === b.field;
 
 /** Mouse selection belongs to cells; controls and the row gutter retain their actions. */
 export function useTablePointerSelection(model: TableController) {
   const start = useRef<TableCell | null>(null);
   const suppressClick = useRef(false);
+  const isInteractive = (target: Element) => {
+    if (target.closest(interactive)) return true;
+    const control = target.closest('[contenteditable="true"]');
+    return !!control && !!model.tableContainerRef.current?.contains(control);
+  };
   const cellAt = (target: EventTarget | null): TableCell | null => {
-    if (!(target instanceof Element) || target.closest(interactive)) return null;
+    if (!(target instanceof Element) || isInteractive(target)) return null;
     const element = target.closest<HTMLElement>('[data-grid-row][data-grid-field]');
     if (!element || element.closest('[data-vault-table-scroll]') !== model.tableContainerRef.current) return null;
-    return { rowId: element.dataset.gridRow!, field: element.dataset.gridField! };
+    const { gridRow: rowId, gridField: field } = element.dataset;
+    return rowId && field ? { rowId, field } : null;
   };
   const selected = () => {
     if (model.selectedCells.length) return model.selectedCells;
@@ -27,7 +33,7 @@ export function useTablePointerSelection(model: TableController) {
       start.current = null;
       suppressClick.current = false;
       model.claimKeyboard();
-      if (event.target instanceof Element && !event.target.closest(interactive)) event.currentTarget.focus({ preventScroll: true });
+      if (event.target instanceof Element && !isInteractive(event.target)) event.currentTarget.focus({ preventScroll: true });
       if (event.button !== 0 || event.pointerType === 'touch' || model.editingCell) return;
       const cell = cellAt(event.target);
       if (!cell) return;
@@ -72,7 +78,7 @@ export function useTablePointerSelection(model: TableController) {
       event.stopPropagation();
     },
     onPaste(event: ClipboardEvent<HTMLDivElement>) {
-      if (model.editingCell || (event.target instanceof Element && event.target.closest(interactive))) return;
+      if (model.editingCell || (event.target instanceof Element && isInteractive(event.target))) return;
       if (!model.selectionRect) return;
       event.preventDefault();
       event.stopPropagation();
