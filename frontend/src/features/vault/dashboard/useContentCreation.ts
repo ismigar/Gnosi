@@ -131,14 +131,14 @@ export function useContentCreation(context: Context) {
                     throw new Error("No view selected for renaming");
                 const viewId = view.id;
                 const isDefault = viewId === 'default' || !registry.views.find(v => v.id === viewId);
-                const updated = { ...view, name: title };
+                const updated = { displayTitle: title };
                 if (isDefault) {
                     const newView = {
                         ...view,
                         ...buildMainViewBody(view.table_id || activeTableId),
                         id: uuidv4(),
                         table_id: view.table_id || activeTableId,
-                        name: title,
+                        displayTitle: title,
                         order: 0,
                     };
                     await createVaultView(newView);

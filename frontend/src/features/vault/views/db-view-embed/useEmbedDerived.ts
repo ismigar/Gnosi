@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
+import { useExposedFilters } from '../../../../shared/filtering/useExposedFilters';
 import { buildSchemaFromTableProperties } from '../../../../shared/records/model/schemaUtils';
 import { useVaultViewData } from '../../../../shared/records/hooks/useVaultViewData';
 import { searchesWholeTable } from '../../../../shared/records/hooks/useViewSearch';
 import { normalizeVisibleColumns } from './joins';
-import { isFilterGroup } from './decode';
 import { applyFilterNode, multiKeySort, countRules } from './filter-model';
 import type { EmbedInputs } from './inputs';
 export function useEmbedDerived({ view, tableViews, activeViewId, headingProp, headingLevelProp, rawRecords, tableRecords, pageId, searchTerm, searchScope, ctx, t }: EmbedInputs) {
@@ -17,6 +17,8 @@ export function useEmbedDerived({ view, tableViews, activeViewId, headingProp, h
         return fromTab || view || null;
     }, [tableViews, activeViewId, view]);
 
+    const exposedFilters = useExposedFilters(effectiveView || {}, `${pageId || ""}:${activeViewId || effectiveView?.view_id || ''}`);
+    const runtimeTree = exposedFilters.filterTree;
     const columns = useMemo(
         () => effectiveView?.visibleProperties || effectiveView?.visible_properties || effectiveView?.columns || ['title'],
         [effectiveView],
@@ -39,13 +41,10 @@ export function useEmbedDerived({ view, tableViews, activeViewId, headingProp, h
     const viewType = rawType === 'db_view' ? 'table' : rawType;
     const activeFilterCount = useMemo(() => {
         if (wholeTable) return 0;
-        if (isFilterGroup(effectiveView?.filterTree)) {
-            return countRules(effectiveView.filterTree);
-        }
-        return effectiveView?.filters?.length || (effectiveView?.filter ? 1 : 0);
-    }, [effectiveView, wholeTable]);
-    // The title/heading is carried by the block's section (it doesn't change with the tab).
-    const displayHeading = headingProp || view?.heading;
+        return countRules(runtimeTree);
+    }, [runtimeTree, wholeTable]);
+    // An explicit display title follows the active tab; legacy headings stay intact.
+    const displayHeading = effectiveView?.displayTitle?.trim() || headingProp || view?.heading;
     const displayLevel = headingLevelProp || view?.heading_level || 1;
 
     // Derived rows: raw records filtered by the effective view (with the
@@ -55,20 +54,13 @@ export function useEmbedDerived({ view, tableViews, activeViewId, headingProp, h
         // Prefer the nested `filterTree` (complex AND/OR groups); fall back to the
         // legacy flat `filters`/`filter` (AND). Parity with the main view
         // (viewMatchesFilters) and the backend snapshot (resolve_rows).
-        const tree = isFilterGroup(effectiveView?.filterTree)
-            ? effectiveView.filterTree
-            : {
-                conjunction: 'and',
-                rules: (effectiveView?.filters && effectiveView.filters.length > 0)
-                    ? effectiveView.filters
-                    : (effectiveView?.filter ? [effectiveView.filter] : []),
-            };
+        const tree = runtimeTree;
         const filtered = wholeTable ? tableRecords : rawRecords.filter(r => applyFilterNode(r, pageId, tree));
         const sorts = (effectiveView?.sorts && effectiveView.sorts.length > 0)
             ? effectiveView.sorts
             : (effectiveView?.sort ? [effectiveView.sort] : []);
         return multiKeySort(filtered, sorts);
-    }, [rawRecords, tableRecords, effectiveView, pageId, wholeTable]);
+    }, [rawRecords, tableRecords, effectiveView, pageId, wholeTable, runtimeTree]);
     // Count exactly the same matches as the shared renderer, including title
     // phrases, structured authors, single characters, wildcards and regexes.
     const { sortedPages: rows } = useVaultViewData({
@@ -100,7 +92,7 @@ export function useEmbedDerived({ view, tableViews, activeViewId, headingProp, h
     // the embed (onEditSchema('filters'|'sorts') → handleOpenConfig).
     const embeddedView = useMemo(() => ({
         id: effectiveView?.id || effectiveView?.view_id || 'embedded',
-        name: effectiveView?.name || effectiveView?.heading || t('views_header.default_view_name', "View"),
+        name: effectiveView?.displayTitle?.trim() || effectiveView?.name || effectiveView?.heading || t('views_header.default_view_name', "View"),
         type: viewType === 'genogram' ? 'genogram' : viewType === 'list' ? 'list' : 'table',
         table_id: tableId,
         genogram: effectiveView?.genogram,
@@ -135,6 +127,6 @@ export function useEmbedDerived({ view, tableViews, activeViewId, headingProp, h
         yField: effectiveView?.yField || effectiveView?.y_field,
         aggregation: effectiveView?.aggregation,
     }), [effectiveView, viewType, columnsAsKeys, t, tableId]);
-    return { tableId, effectiveView, columns, columnSpec, columnsAsKeys, viewType, activeFilterCount, displayHeading, displayLevel, allRows, rows, table, embeddedSchema, embeddedView };
+    return { exposedFilters, tableId, effectiveView, columns, columnSpec, columnsAsKeys, viewType, activeFilterCount, displayHeading, displayLevel, allRows, rows, table, embeddedSchema, embeddedView };
 }
 export type EmbedDerived = ReturnType<typeof useEmbedDerived>;

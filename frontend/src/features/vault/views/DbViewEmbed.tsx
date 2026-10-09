@@ -1,4 +1,6 @@
 import { AlertCircle } from 'lucide-react';
+import { ExposedFilters } from './ExposedFilters';
+import { searchesWholeTable } from '../../../shared/records/hooks/useViewSearch';
 import { useEmbedController } from './db-view-embed/useEmbedController';
 import { useEmbedNavigation } from './db-view-embed/useEmbedNavigation';
 import { EmbedToolbar } from './db-view-embed/EmbedToolbar';
@@ -44,6 +46,7 @@ export function DbViewEmbed(props: DbViewEmbedProps) {
             className="mt-0 mb-4 min-w-0 w-full gnosi-view-embed-container rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/40">
             <EmbedToolbar model={model} />
             <EmbedTabs model={model} />
+            <ExposedFilters controls={model.exposedFilters} schema={model.embeddedSchema} disabled={searchesWholeTable(model.searchTerm, model.searchScope)} />
             <EmbedBody model={model} registerNavApi={registerNavApi} focusShell={focusShell} />
             <EmbedDialogs model={model} />
         </div>);

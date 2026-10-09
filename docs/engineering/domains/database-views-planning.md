@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-10-09
 source_paths:
+  - frontend/src/shared/filtering/exposedFilters.ts
+  - frontend/src/shared/filtering/useExposedFilters.ts
+  - frontend/src/features/vault/views/ExposedFilters.tsx
   - frontend/src/shared/records/hooks/useViewSearch.ts
   - frontend/src/features/vault/views/ViewSearchScope.tsx
   - frontend/src/features/vault/dashboard/useContentCreation.ts
@@ -33,11 +36,19 @@ source_paths:
   - frontend/src/features/vault/editor/BlockEditor.tsx
   - frontend/src/features/vault/properties/VaultDateProperty.ts
   - frontend/src/shared/record-views/VaultTimeline.tsx
+  - frontend/src/shared/record-views/vault-timeline
   - frontend/src/features/vault/VaultDashboard.tsx
   - frontend/src/features/planning
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/shared/filtering/exposedFilters.test.ts
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx
+  - backend/tests/test_exposed_view_configuration.py
+  - frontend/src/shared/record-views/VaultTimeline.test.tsx
+  - frontend/src/shared/record-views/VaultTimeline.interactions.test.tsx
+  - frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx
+  - frontend/src/shared/record-views/vault-timeline/timelineScale.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
   - frontend/src/features/vault/dashboard/TablePane.test.tsx
   - frontend/src/features/vault/dashboard/creationFlow.test.tsx
@@ -347,8 +358,6 @@ local status options are never merged into the global catalog automatically.
 Regression coverage: `backend/tests/test_status_catalog_isolation.py` and
 `frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.
 
-
-
 ## Interactive record timeline
 
 The record timeline uses localized calendar boundaries, a resizable sticky title column, collapsible phases and a viewport-sized project overview. Move a task by dragging its bar, resize either boundary, or drag its end connection point onto a successor to create a finish-to-start dependency. The controller writes the configured period or start/end fields through the same metadata callback used by the table, preserves period progress and existing dependencies, and recognizes predecessor relation columns. Scheduling considers all table records, including filtered-out successors, rejects dependency cycles and propagates converging branches against the latest predecessor finish. The dependency and resulting dates are saved together per record; failed batches restore completed writes where possible and report incomplete restoration. Undo restores changed fields during the current view session. Embedded timelines retain their own zoom and navigation controls and own their scroll cap. Keyboard arrows move a focused bar, Shift+arrow adjusts its end, and Escape cancels the current drag.
@@ -356,3 +365,28 @@ The record timeline uses localized calendar boundaries, a resizable sticky title
 The timeline footer is outside the vertical row scroller and stays visible while the containing page scrolls. Its persistent horizontal scrollbar synchronizes with the timeline in both directions, including navigation controls and task dragging.
 
 The scale selector supports day, week, month and year views; year view aligns complete calendar years and shows monthly columns. Parent tasks can collapse and restore all nested subtasks.
+
+## Display titles and exposed filters
+
+Saved views have an optional `displayTitle` independent of the catalog `name`.
+Insertion pickers retain the catalog name; embedded headings and tabs use the
+short title when present, with existing headings and names as the fallback.
+The setting applies to every view type and round-trips through registry views,
+inline sections, copying and modal autosave.
+
+The Rename action (including embedded tab double-click) edits only `displayTitle`
+and starts from the current visible title. Catalog names remain editable in Configure.
+Main views permit this presentation change while retaining their deletion lock.
+
+Each filter rule can opt into `exposed: true`. Its typed value control and an
+enable switch appear above embedded views and table panes. Overrides belong to
+the mounted view and active page/tab configuration, never to the saved registry.
+Reset restores the saved defaults. Nested AND/OR groups and fixed rules remain
+intact; disabled groups are removed without turning OR branches into matches.
+Whole-table search temporarily disables the controls. Result counts use the same
+runtime filters as the body, and saving layout changes preserves the original
+filter configuration. Zero, false and period boundaries survive serialization.
+
+Regression coverage includes `exposedFilters.test.ts`, `PageViewModal.test.tsx`,
+`DbViewEmbed.test.tsx`, `TablePane.test.tsx` and
+`backend/tests/test_exposed_view_configuration.py`.

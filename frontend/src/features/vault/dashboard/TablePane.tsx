@@ -1,3 +1,5 @@
+import { ExposedFilters } from '../views/ExposedFilters';
+import { useExposedFilters } from '../../../shared/filtering/useExposedFilters';
 import { VaultViewsHeader } from '../views/VaultViewsHeader';
 import { VaultViewBody } from '../views/VaultViewBody';
 import { VaultGraph } from '../views/VaultGraph';
@@ -23,17 +25,18 @@ export function TablePane({ dashboard: d, tableId, mode }: Props) {
   const views = d.getTableViews(tableId);
   // The catalog always supplies a virtual main view for an empty table.
   const first = views[0];
-  if (!first)
-    return null;
   const currentViewId = inline ? (d.activeViewId || 'default')
-    : d.activeTableId === tableId ? (d.activeViewId || first.id) : first.id;
+    : d.activeTableId === tableId ? (d.activeViewId || first?.id) : first?.id;
   const view = views.find(candidate => candidate.id === currentViewId) || first;
+  const exposedFilters = useExposedFilters(view || {}, `${tableId}:${view?.id || ''}`);
+  if (!view) return null;
   const { mergedView, mergedSchema } = prepareDashboardViewContext(view, table, d.registry.tables);
   const wholeTable = searchesWholeTable(d.searchTerm, d.searchScope);
-  const searchView = wholeTable ? { ...mergedView, filters: [], filterTree: undefined } : mergedView;
+  const searchView = { ...mergedView, filters: wholeTable ? [] : [exposedFilters.filterTree], filterTree: wholeTable ? undefined : exposedFilters.filterTree };
   const bodyNotes = wholeTable ? notes : applyDashboardJoins(notes, view.joins, d.pages, d.resolvePageTableId);
+  const resultCount = activeViewRecordCount(bodyNotes, [searchView], view.id, bodyNotes.length, d.searchTerm, d.searchScope);
   const noSearchResults = Boolean(d.searchTerm.trim()) && view.type !== 'graph' && view.type !== 'genogram'
-    && activeViewRecordCount(bodyNotes, [view], view.id, bodyNotes.length, d.searchTerm, d.searchScope) === 0;
+    && resultCount === 0;
   const selectTable = () => {
     if (!inline)
       d.setActiveTableId(tableId);
@@ -73,7 +76,8 @@ export function TablePane({ dashboard: d, tableId, mode }: Props) {
     onNodeClick={nodeId => { void d.loadPage(nodeId); }}
   />) : (<VaultViewBody
     {...bodyExtra}
-    {...tableBodyCallbacks(d, tableId, inline ? view.id : currentViewId, split)}
+    {...tableBodyCallbacks(d, tableId, view.id, split)}
+    onUpdateView={value => d.handleUpdateView({ ...readViewDraft(value), filters: view.filters, filterTree: view.filterTree })}
     type={mergedView.type}
     functionalities={table?.functionalities}
     notes={bodyNotes}
@@ -98,6 +102,7 @@ export function TablePane({ dashboard: d, tableId, mode }: Props) {
       {...headerExtra}
       tableName={table?.title || table?.name || d.t('common.table')}
       recordCount={notes.length}
+      filteredRecordCount={resultCount}
       notes={bodyNotes}
       referenceTableId={d.refTableId === tableId ? tableId : undefined}
       brainTableId={d.brainTableId === tableId ? tableId : undefined}
@@ -135,6 +140,7 @@ export function TablePane({ dashboard: d, tableId, mode }: Props) {
       templates={templates}
       {...(split ? { onClose: () => { d.setSplitTableIds(previous => previous.filter(id => id !== tableId)); } } : {})}
     />
+    <ExposedFilters controls={exposedFilters} schema={mergedSchema} disabled={wholeTable} />
     <div className={inline ? 'flex-1 overflow-hidden' : 'flex-1 overflow-hidden flex flex-col'}>
       {view.type === 'graph' ? inline ? <div className="h-full flex flex-col">{body}</div> : body
         : wrapper ? <div className={wrapper}>{body}</div> : body}

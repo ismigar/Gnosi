@@ -149,6 +149,9 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
                     const tv = registryViews.filter(involves);
                     const sectionAsView: EmbedView = {
                         id: section.view_id,
+                        displayTitle: section.displayTitle,
+                        filterTree: section.filterTree,
+                        filter: section.filter,
                         name: section.heading || t('views_header.default_view_name', "View"),
                         type: section.view_type || 'table',
                         table_id: tableId,

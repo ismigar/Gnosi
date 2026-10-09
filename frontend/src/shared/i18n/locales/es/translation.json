@@ -4389,6 +4389,14 @@
     "title_edit": "Editar la vista de BD"
   },
   "view": {
+    "rename_display_title": "Renombrar el título visible",
+    "rename_display_title_hint": "Cambia el título que se muestra en la vista. Puedes editar el nombre del catálogo en Configurar.",
+    "display_title": "Título visible",
+    "catalog_name_hint": "Nombre para encontrar la vista en el catálogo y en la lista de vistas para insertar.",
+    "display_title_hint": "Título corto que se muestra en la vista insertada. Déjalo vacío para mantener el título actual.",
+    "expose_filter": "Exponer",
+    "exposed_filters": "Filtros expuestos",
+    "reset_exposed_filters": "Restablecer filtros",
     "height_label": "Altura dentro de la página",
     "height_limited": "Limitada",
     "height_content": "Según el contenido",
