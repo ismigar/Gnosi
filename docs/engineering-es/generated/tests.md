@@ -11,7 +11,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 636 | 2765 |
+| Vitest | 638 | 2779 |
 | pytest | 648 | 4765 |
 
 ## Archivos
@@ -627,10 +627,12 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/shared/plugins/usePlugins.mutationVaultScope.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/plugins/usePlugins.mutationVaultScope.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/plugins/usePlugins.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/plugins/usePlugins.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/record-views/VaultBulkActionsBar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/VaultBulkActionsBar.test.tsx) | 5 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/record-views/VaultTimeline.interactions.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/VaultTimeline.interactions.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/record-views/VaultTimeline.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/VaultTimeline.test.tsx) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/record-views/VaultViewToolbar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/VaultViewToolbar.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/record-views/vault-timeline/timelineModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineModel.test.ts) | 9 | call-pattern estimate |
-| Vitest | [`frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx) | 9 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/record-views/vault-timeline/timelineScale.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineScale.test.ts) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx) | 14 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/records/NumberValue.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/NumberValue.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/records/hooks/keyboardSubscriptions.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/hooks/keyboardSubscriptions.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/records/hooks/useVaultViewData.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/hooks/useVaultViewData.test.tsx) | 2 | call-pattern estimate |

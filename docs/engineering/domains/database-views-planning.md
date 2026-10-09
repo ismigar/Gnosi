@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-10-09
 source_paths:
   - frontend/src/shared/records/hooks/useViewSearch.ts
   - frontend/src/features/vault/views/ViewSearchScope.tsx
@@ -33,11 +33,16 @@ source_paths:
   - frontend/src/features/vault/editor/BlockEditor.tsx
   - frontend/src/features/vault/properties/VaultDateProperty.ts
   - frontend/src/shared/record-views/VaultTimeline.tsx
+  - frontend/src/shared/record-views/vault-timeline
   - frontend/src/features/vault/VaultDashboard.tsx
   - frontend/src/features/planning
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/shared/record-views/VaultTimeline.test.tsx
+  - frontend/src/shared/record-views/VaultTimeline.interactions.test.tsx
+  - frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx
+  - frontend/src/shared/record-views/vault-timeline/timelineScale.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
   - frontend/src/features/vault/dashboard/TablePane.test.tsx
   - frontend/src/features/vault/dashboard/creationFlow.test.tsx
@@ -346,3 +351,7 @@ record editors and action-rule persistence all honor the explicit reference;
 local status options are never merged into the global catalog automatically.
 Regression coverage: `backend/tests/test_status_catalog_isolation.py` and
 `frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.
+
+## Interactive record timeline
+
+The record timeline uses localized calendar boundaries, a resizable sticky title column, collapsible phases and a viewport-sized project overview. Move a task by dragging its bar, resize either boundary, or drag its end connection point onto a successor to create a finish-to-start dependency. The controller writes the configured period or start/end fields through the same metadata callback used by the table, preserves period progress and existing dependencies, and recognizes predecessor relation columns. Scheduling considers all table records, including filtered-out successors, rejects dependency cycles and propagates converging branches against the latest predecessor finish. The dependency and resulting dates are saved together per record; failed batches restore completed writes where possible and report incomplete restoration. Undo restores changed fields during the current view session. Embedded timelines retain their own zoom and navigation controls and own their scroll cap. Keyboard arrows move a focused bar, Shift+arrow adjusts its end, and Escape cancels the current drag.
