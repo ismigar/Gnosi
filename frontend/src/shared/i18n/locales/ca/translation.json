@@ -550,6 +550,8 @@
     "remove_favorite": "Treu dels favorits"
   },
   "table": {
+    "sort_column_asc": "Ordena {{column}} ascendentment",
+    "sort_column_desc": "Ordena {{column}} descendentment",
     "keyboard_navigation": "Navegació pels registres: Enter per entrar, fletxes per moure’s i Esc per sortir",
     "formula_input": "Valor o fórmula",
     "formula_hint": "Escriu =SUM(B1:B3) o =[Preu]*[Quantitat]. Enter desa; Esc cancel·la. A1 segueix l’ordre de files i columnes de la vista; [Camp] referencia la mateixa fila.",
