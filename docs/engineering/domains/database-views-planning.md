@@ -414,3 +414,5 @@ Text and number cells accept formulas beginning with `=`, such as `=SUM(B1:B3)` 
 Select a cell range by dragging or Shift-clicking; Ctrl/Cmd-click adds or removes individual cells. Pasting a single value fills every selected writable cell, including nonadjacent cells, without changing the gaps between them. Native paste events also work, and titles use the title update endpoint contract. Changes are grouped into one request per record; a failed record restores its previous displayed values.
 
 Embedded tables explicitly own a noneditable grid boundary inside the rich-text editor. Cell pointer selection ignores editable ancestors outside that grid, transfers DOM focus into it, and allows Shift+arrows to expand or shrink the cell range before pasting; actual cell editors retain text selection.
+
+Selected table cells use an opaque accent-colored background mixed with the current theme surface and an inset contour on every cell. A thicker contour distinguishes the active cell. The same styling covers sticky title cells, rectangular ranges and disjoint selections in light and dark themes.

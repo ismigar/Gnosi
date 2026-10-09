@@ -75,6 +75,7 @@ export function createRowRenderer(model: TableController, renderCellContent: Ret
               data-grid-row={note.id}
               data-grid-field={key}
               aria-selected={sel.inRange}
+              data-active-cell={sel.isActive}
               style={{ width: columnWidths[key] || 180, maxWidth: columnWidths[key] || 180 }}
               className={`${rowPadClass} px-4 overflow-hidden truncate text-[var(--text-primary)] align-top ${sel.inRange ? 'bg-[var(--gnosi-primary)]/10' : 'hover:bg-[var(--bg-tertiary)]/50'} ${sel.isActive ? 'shadow-[inset_0_0_0_2px_var(--gnosi-primary)]' : ''}`}
               tabIndex={isCheckbox ? 0 : undefined}
