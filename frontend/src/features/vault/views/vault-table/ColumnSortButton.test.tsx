@@ -1,0 +1,23 @@
+import { act } from 'react';
+import { expect, it, vi } from 'vitest';
+import { createInstance } from 'i18next';
+import { mountTestComponent } from '../../../../../tests/mount-react';
+import { ColumnSortButton } from './ColumnSortButton';
+import type { TableController } from './useTableController';
+import ca from '../../../../shared/i18n/locales/ca/translation.json';
+import en from '../../../../shared/i18n/locales/en/translation.json';
+import es from '../../../../shared/i18n/locales/es/translation.json';
+import fr from '../../../../shared/i18n/locales/fr/translation.json';
+it.each(['ca', 'en', 'es', 'fr'])('names the next sort direction in %s and does not trigger the parent header', async lang => {
+    const i18n = createInstance(); await i18n.init({ lng: lang, resources: { ca: { translation: ca }, en: { translation: en }, es: { translation: es }, fr: { translation: fr } } });
+    const sort = vi.fn(), parent = vi.fn();
+    const model = { t: i18n.t, activeSort: { field: 'Score', direction: 'asc' }, handleSort: sort, onUpdateView: vi.fn() } as unknown as TableController;
+    const view = mountTestComponent(<div onClick={parent} onPointerDown={parent} onKeyDown={parent}><ColumnSortButton model={model} field="Score" label="Score" /></div>);
+    const button = view.container.querySelector('button'); if (!button) throw new Error('Missing sort button');
+    expect(button.getAttribute('aria-label')).toBe(i18n.t('table.sort_column_desc', { column: 'Score' }));
+    act(() => { button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })); button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); button.click(); });
+    expect(sort).toHaveBeenCalledExactlyOnceWith('Score'); expect(parent).not.toHaveBeenCalled();
+    view.render(<ColumnSortButton model={{ ...model, activeSort: { field: 'Score', direction: 'desc' } }} field="Score" label="Score" />);
+    expect(view.container.querySelector('button')?.getAttribute('aria-label')).toBe(i18n.t('table.sort_column_asc', { column: 'Score' }));
+    view.unmount();
+});

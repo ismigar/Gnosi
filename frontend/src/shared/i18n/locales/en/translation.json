@@ -598,6 +598,8 @@
     "remove_favorite": "Remove from favorites"
   },
   "table": {
+    "sort_column_asc": "Sort {{column}} ascending",
+    "sort_column_desc": "Sort {{column}} descending",
     "keyboard_navigation": "Record navigation: Enter to enter, arrows to move, Esc to exit",
     "formula_input": "Value or formula",
     "formula_hint": "Type =SUM(B1:B3) or =[Price]*[Quantity]. Enter saves; Esc cancels. A1 follows the view’s row and column order; [Field] references the same row.",

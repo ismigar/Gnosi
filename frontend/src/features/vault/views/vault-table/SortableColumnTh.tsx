@@ -4,6 +4,7 @@ import type { CSSProperties, MouseEventHandler, ReactNode } from 'react';
 
 interface SortableColumnThProps {
   readonly id: string;
+  readonly ariaSort?: 'ascending' | 'descending' | 'none';
   readonly disabled: boolean;
   readonly width: CSSProperties['width'];
   readonly className: string;
@@ -20,6 +21,7 @@ interface SortableColumnThProps {
 // the header behaves as a plain click-to-sort cell.
 export function SortableColumnTh({
   id,
+  ariaSort,
   disabled,
   width,
   className,
@@ -34,6 +36,7 @@ export function SortableColumnTh({
   return (
     <th
       ref={setNodeRef}
+      aria-sort={ariaSort}
       style={{
         width,
         transform: CSS.Transform.toString(transform),

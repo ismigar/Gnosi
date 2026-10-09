@@ -1,5 +1,6 @@
+import { ColumnSortButton } from './ColumnSortButton';
 import { columnLabel } from './spreadsheetFormula';
-import { ArrowDown, ArrowUp, Calendar, CheckSquare, Tag, Type } from 'lucide-react';
+import { Calendar, CheckSquare, Tag, Type } from 'lucide-react';
 import { getTableFieldConfig } from './fieldConfig';
 import { SortableColumnTh } from './SortableColumnTh';
 import type { TableController } from './useTableController';
@@ -48,6 +49,7 @@ export function TableHeader({ model }: { model: TableController; }) {
         const isTitleHelpOpen = !!openHeaderHelp[titleKey];
         return (
           <th
+            aria-sort={activeSort.field === 'title' ? activeSort.direction === 'asc' ? 'ascending' : 'descending' : 'none'}
             style={{ width: columnWidths['title'] || 250 }}
             className="py-3 px-4 sticky left-10 bg-[var(--bg-secondary)] z-40 border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] hover:bg-[var(--bg-tertiary)] transition-colors group relative"
           >
@@ -74,9 +76,7 @@ export function TableHeader({ model }: { model: TableController; }) {
                   </button>
                 )}
               </div>
-              {activeSort.field === 'title' && (
-                activeSort.direction === 'asc' ? <ArrowUp size={14} className="text-indigo-500 shrink-0" /> : <ArrowDown size={14} className="text-indigo-500 shrink-0" />
-              )}
+              <ColumnSortButton model={model} field="title" label={titleKey === 'title' ? t('table.note_name') : titleKey} />
             </div>
             {isTitleHelpOpen && titleDesc && (
               <div
@@ -111,6 +111,7 @@ export function TableHeader({ model }: { model: TableController; }) {
           <SortableColumnTh
             key={key}
             id={key}
+            ariaSort={activeSort.field === key ? activeSort.direction === 'asc' ? 'ascending' : 'descending' : 'none'}
             disabled={!canReorderColumns}
             width={columnWidths[key] || 180}
             className="py-3 px-4 hover:bg-[var(--bg-tertiary)] transition-colors group relative border-r border-[var(--border-primary)]"
@@ -152,9 +153,7 @@ export function TableHeader({ model }: { model: TableController; }) {
                 </button>
               )}
             </div>
-            {activeSort.field === key && (
-              activeSort.direction === 'asc' ? <ArrowUp size={14} className="text-indigo-500 shrink-0" /> : <ArrowDown size={14} className="text-indigo-500 shrink-0" />
-            )}
+            <ColumnSortButton model={model} field={key} label={key} />
             {isHelpOpen && desc && (
               <div
                 className="absolute left-0 top-full z-[100] mt-1 w-64 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] p-2.5 shadow-xl text-xs font-normal text-[var(--text-secondary)] normal-case whitespace-normal leading-relaxed animate-in fade-in zoom-in-95 duration-150 cursor-default"
@@ -178,14 +177,13 @@ export function TableHeader({ model }: { model: TableController; }) {
       })}
       {showModifiedColumn && (
         <th
+          aria-sort={activeSort.field === 'last_modified' ? activeSort.direction === 'asc' ? 'ascending' : 'descending' : 'none'}
           style={{ width: columnWidths['last_modified'] || 150 }}
           className="py-3 px-4 hover:bg-[var(--bg-tertiary)] transition-colors group relative border-l border-[var(--border-primary)] text-[var(--text-secondary)]"
         >
           <div className="flex items-center justify-between cursor-pointer overflow-hidden" onClick={() => { handleSort('last_modified'); }}>
             <span className="truncate">{t('table.modification')}</span>
-            {activeSort.field === 'last_modified' && (
-              activeSort.direction === 'asc' ? <ArrowUp size={14} className="text-indigo-500 shrink-0" /> : <ArrowDown size={14} className="text-indigo-500 shrink-0" />
-            )}
+            <ColumnSortButton model={model} field="last_modified" label={t('table.modification')} />
           </div>
           <div
             className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[var(--gnosi-primary)]/40 opacity-0 group-hover/table:opacity-100 z-30 transition-opacity"
