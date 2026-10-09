@@ -28,6 +28,8 @@ export function calendarScale(
         if (focus < start) { start.setTime(focus.getTime()); start.setHours(0, 0, 0, 0); }
         if (focus >= end) { end.setTime(focus.getTime()); end.setDate(end.getDate() + 7); }
     }
+    const yearView = zoom === 'year' && !fitted;
+    if (yearView) { start.setMonth(0, 1); end.setFullYear(end.getFullYear() + 1, 0, 1); }
     const spanDays = Math.max(1, (end.getTime() - start.getTime()) / DAY);
     const displayZoom = fitted ? (spanDays <= 45 ? 'week' : 'month') : zoom;
     const weekly = unit !== 'hours' && (displayZoom === 'week' || (displayZoom === 'month' && (!fitted || pixelWidth / spanDays * 7 >= 28)));
@@ -53,17 +55,18 @@ export function calendarScale(
     if (unit !== 'hours' && weekly) {
         cursor.setDate(cursor.getDate() - (cursor.getDay() + 6) % 7);
     }
+    const monthly = displayZoom === 'year' || (displayZoom === 'month' && !weekly);
     const hourStep = fitted ? Math.max(1, Math.ceil(spanDays * 24 / 12)) : 1;
     for (let guard = 0; cursor < end && guard < 4000; guard += 1) {
         const at = new Date(Math.max(start.getTime(), cursor.getTime()));
-        ticks.push({ at, label: new Intl.DateTimeFormat(locale, unit === 'hours'
+        ticks.push({ at, label: new Intl.DateTimeFormat(locale, unit === 'hours' && !yearView
             ? { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }
-            : displayZoom === 'month' && !weekly ? { month: 'short' } : { day: 'numeric' }).format(at) });
-        if (unit === 'hours') cursor.setHours(cursor.getHours() + hourStep);
-        else if (displayZoom === 'month' && !weekly) cursor.setMonth(cursor.getMonth() + 1);
+            : monthly ? { month: 'short' } : { day: 'numeric' }).format(at) });
+        if (unit === 'hours' && !yearView) cursor.setHours(cursor.getHours() + hourStep);
+        else if (monthly) cursor.setMonth(cursor.getMonth() + 1);
         else cursor.setDate(cursor.getDate() + (weekly ? 7 : 1));
     }
-    if (displayZoom === 'month' && !weekly && unit !== 'hours') {
+    if (monthly && (unit !== 'hours' || yearView)) {
         months.length = 0;
         const yearCursor = new Date(start);
         yearCursor.setMonth(0, 1);
@@ -79,7 +82,7 @@ export function scaleWidth(scale: TimelineScale | null, unit: TimelineUnit, zoom
     if (!scale || fitted) return Math.max(320, available);
     const days = (scale.end.getTime() - scale.start.getTime()) / DAY;
     const width = unit === 'years' ? days / 365 * 100
-        : unit === 'hours' ? days * 24 * 48 : days * (zoom === 'day' ? 40 : zoom === 'week' ? 18 : 6);
+        : zoom === 'year' ? days / 365 * 600 : unit === 'hours' ? days * 24 * 48 : days * (zoom === 'day' ? 40 : zoom === 'week' ? 18 : 6);
     return Math.max(available, Math.min(200000, width));
 }
 

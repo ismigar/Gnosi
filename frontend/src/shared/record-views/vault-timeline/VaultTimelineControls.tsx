@@ -15,7 +15,7 @@ import type {
 } from './types';
 
 
-const ZOOM_LEVELS: readonly TimelineZoom[] = ['day', 'week', 'month'];
+const ZOOM_LEVELS: readonly TimelineZoom[] = ['day', 'week', 'month', 'year'];
 
 
 interface VaultTimelineControlsProps {

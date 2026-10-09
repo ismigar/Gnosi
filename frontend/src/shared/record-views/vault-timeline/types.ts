@@ -10,7 +10,7 @@ import type { FieldFormatConfig } from '../../records/model/formatUtils';
 
 
 export type TimelineSchema = Readonly<Record<string, unknown>>;
-export type TimelineZoom = 'day' | 'week' | 'month';
+export type TimelineZoom = 'day' | 'week' | 'month' | 'year';
 export type TimelineUnit = 'hours' | 'days' | 'years';
 
 

@@ -27,4 +27,15 @@ describe('calendar timeline scale', () => {
         expect(shifted.getHours()).toBe(9);
         expect(date.getDate()).toBe(28);
     });
+    it('shows complete calendar years with twelve monthly columns in year view', () => {
+        const scale = calendarScale(range, 'days', 'year', 'ca-ES', false);
+        expect(scale?.start).toEqual(new Date('2026-01-01T00:00'));
+        expect(scale?.end).toEqual(new Date('2027-01-01T00:00'));
+        expect(scale?.months?.map(tick => tick.label)).toEqual(['2026']);
+        expect(scale?.ticks).toHaveLength(12);
+        expect(scale?.ticks[11]?.at.getMonth()).toBe(11);
+        expect(scaleWidth(scale, 'days', 'year', 320, false)).toBe(600);
+        expect(calendarScale(range, 'hours', 'year', 'ca-ES', false)?.ticks).toHaveLength(12);
+    });
+
 });

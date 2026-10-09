@@ -129,4 +129,20 @@ describe('interactive timeline and its shared table records', () => {
         expect(footer.isConnected).toBe(true);
     });
 
+    it('folds tasks with nested subtasks and restores all descendants when expanded', () => {
+        act(() => { root.render(<Harness notes={[
+            { id: 'phase', title: 'Phase', metadata: {} },
+            { ...initial[0], id: 'a', metadata: { ...initial[0]?.metadata, parent_id: 'phase' } },
+            { ...initial[1], id: 'b', metadata: { ...initial[1]?.metadata, parent_id: 'a' } },
+        ]} />); });
+        const collapse = find('[data-timeline-row="phase"] button[aria-expanded]');
+        act(() => { collapse.click(); });
+        expect(container.querySelector('[data-timeline-row="a"]')).toBeNull();
+        expect(container.querySelector('[data-timeline-row="b"]')).toBeNull();
+        act(() => { collapse.click(); });
+        expect(container.querySelector('[data-timeline-row="a"]')).not.toBeNull();
+        expect(container.querySelector('[data-timeline-row="b"]')).not.toBeNull();
+        expect(writes).toHaveLength(0);
+    });
+
 });
