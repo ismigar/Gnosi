@@ -28,6 +28,8 @@ source_paths:
   - backend/services/vault_templates.py
   - backend/api/vault_templates_routes.py
   - frontend/src/features/vault/VaultDashboard.tsx
+  - frontend/src/features/vault/dashboard/Dashboard.tsx
+  - frontend/src/features/vault/navigation/VaultShell.tsx
   - frontend/src/features/vault
   - frontend/src/shared/editor
   - frontend/src/shared/records
@@ -36,6 +38,9 @@ source_paths:
 tests:
   - backend/tests/test_llm_wiki_idea_classification.py
   - backend/tests/test_llm_wiki_note_migration.py
+
+  - frontend/src/features/vault/dashboard/Dashboard.document-controls.test.tsx
+  - frontend/src/features/vault/navigation/VaultShell.test.tsx
   - backend/tests/test_page_reference_titles.py
   - backend/tests/test_suggestion_localization.py
   - frontend/src/shared/records/pageReferenceTitle.test.ts
@@ -859,3 +864,5 @@ El diálogo de revisión agrupa notas y recursos afectados en categorías desple
 En el escritorio, la selección de archivos y carpetas utiliza la capacidad IPC fiable y validada `pick-filesystem` y el diálogo nativo del sistema operativo. Cancelar cierra el selector sin aplicar una selección; las selecciones múltiples conservan el tipo de archivo o carpeta de cada ruta. Windows y Linux muestran primero una elección nativa entre archivos y carpetas para la selección combinada. El navegador interno sigue disponible para clientes web sin el puente de escritorio.
 
 Añada `--resource-id <id>` a `preview` para clasificar solo un recurso; las acciones posteriores reutilizan esa selección guardada. La clasificación vincula al propietario personal verificado, excluye contextos adjuntos y memorias revisadas, desactiva las delegaciones y reserva como máximo 4096 tokens de salida por lote sin cambiar los límites de gasto.
+
+La cabecera de un solo documento muestra Cerrar pestaña únicamente cuando el identificador activo corresponde a una pestaña abierta. Conservar una pestaña inactiva no debe mostrar la acción de cerrar en la pantalla de bienvenida. Los controles de apertura y búsqueda siguen disponibles y cerrar la última pestaña activa elimina su botón de cierre.

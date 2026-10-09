@@ -28,6 +28,8 @@ source_paths:
   - backend/services/vault_templates.py
   - backend/api/vault_templates_routes.py
   - frontend/src/features/vault/VaultDashboard.tsx
+  - frontend/src/features/vault/dashboard/Dashboard.tsx
+  - frontend/src/features/vault/navigation/VaultShell.tsx
   - frontend/src/features/vault
   - frontend/src/shared/editor
   - frontend/src/shared/records
@@ -36,6 +38,9 @@ source_paths:
 tests:
   - backend/tests/test_llm_wiki_idea_classification.py
   - backend/tests/test_llm_wiki_note_migration.py
+
+  - frontend/src/features/vault/dashboard/Dashboard.document-controls.test.tsx
+  - frontend/src/features/vault/navigation/VaultShell.test.tsx
   - backend/tests/test_page_reference_titles.py
   - backend/tests/test_suggestion_localization.py
   - frontend/src/shared/records/pageReferenceTitle.test.ts
@@ -874,3 +879,5 @@ Le dialogue de révision regroupe les notes et ressources concernées en catégo
 Sur le bureau, la sélection des fichiers et dossiers utilise la capacité IPC fiable et validée `pick-filesystem` et le dialogue natif du système. Annuler ferme le sélecteur sans appliquer de sélection ; les sélections multiples conservent le type de fichier ou dossier de chaque chemin. Windows et Linux proposent d'abord un choix natif entre fichiers et dossiers pour la sélection combinée. Le navigateur interne reste disponible aux clients web sans le pont de bureau.
 
 Ajoutez `--resource-id <id>` à `preview` pour classer un seul document ; les actions suivantes réutilisent cette sélection enregistrée. La classification lie le propriétaire personnel vérifié, exclut les contextes joints et les mémoires révisées, désactive les délégations et réserve au maximum 4 096 tokens de sortie par lot sans modifier les plafonds de dépenses.
+
+L’en-tête d’un seul document affiche Fermer l’onglet uniquement lorsque l’identifiant actif correspond à un onglet ouvert. Conserver un onglet inactif ne doit pas afficher l’action de fermeture sur l’écran d’accueil. Les contrôles d’ouverture et de recherche restent disponibles, et fermer le dernier onglet actif supprime son bouton de fermeture.

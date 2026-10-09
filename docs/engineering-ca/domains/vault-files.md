@@ -28,6 +28,8 @@ source_paths:
   - backend/services/vault_templates.py
   - backend/api/vault_templates_routes.py
   - frontend/src/features/vault/VaultDashboard.tsx
+  - frontend/src/features/vault/dashboard/Dashboard.tsx
+  - frontend/src/features/vault/navigation/VaultShell.tsx
   - frontend/src/features/vault
   - frontend/src/shared/editor
   - frontend/src/shared/records
@@ -36,6 +38,9 @@ source_paths:
 tests:
   - backend/tests/test_llm_wiki_idea_classification.py
   - backend/tests/test_llm_wiki_note_migration.py
+
+  - frontend/src/features/vault/dashboard/Dashboard.document-controls.test.tsx
+  - frontend/src/features/vault/navigation/VaultShell.test.tsx
   - backend/tests/test_page_reference_titles.py
   - backend/tests/test_suggestion_localization.py
   - frontend/src/shared/records/pageReferenceTitle.test.ts
@@ -853,3 +858,5 @@ El diàleg de revisió agrupa les notes i els recursos afectats en categories de
 A l'escriptori, la selecció de fitxers i carpetes utilitza la capacitat IPC fiable i validada `pick-filesystem` i el diàleg natiu del sistema operatiu. Cancel·lar tanca el selector sense aplicar cap selecció; les seleccions múltiples conserven el tipus de fitxer o carpeta de cada ruta. Windows i Linux mostren primer una tria nativa entre fitxers i carpetes per a la selecció combinada. El navegador de fitxers intern continua disponible per als clients web sense el pont d'escriptori.
 
 Afegiu `--resource-id <id>` a `preview` per classificar només un recurs; les accions posteriors reutilitzen aquesta selecció desada. La classificació vincula el propietari personal verificat, exclou els contextos adjunts i les memòries revisades, desactiva les delegacions i reserva com a màxim 4.096 tokens de sortida per lot sense canviar els límits de despesa.
+
+La capçalera d’un sol document només mostra Tancar pestanya quan l’identificador actiu correspon a una pestanya oberta. Conservar una pestanya inactiva no ha de mostrar l’acció de tancar a la pantalla de benvinguda. Els controls d’obertura i cerca continuen disponibles i tancar l’última pestanya activa elimina el seu botó de tancar.

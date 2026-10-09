@@ -201,6 +201,7 @@ export const VaultShell = ({
                                 >
                                     <Plus size={16} />
                                 </button>
+                                {onCloseDocument && (
                                 <button
                                     type="button"
                                     onClick={onCloseDocument}
@@ -210,6 +211,7 @@ export const VaultShell = ({
                                 >
                                     <X size={16} />
                                 </button>
+                                )}
                             </>
                         )}
                         <button

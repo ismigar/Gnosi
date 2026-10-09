@@ -12,6 +12,7 @@ const ConfigurationDialogs = lazy(() => import('./ConfigurationDialogs').then(mo
 
 export default function Dashboard() {
   const dashboard = useDashboardController();
+  const activeDocument = dashboard.tabs.find(tab => tab.id === dashboard.activeTabId);
   const hasBrowseDialog = dashboard.isGlobalSearchOpen
     || dashboard.isPresentOpen
     || dashboard.isRecentOpen
@@ -42,10 +43,7 @@ export default function Dashboard() {
     canGoForward={dashboard.canGoForward}
     showDocumentControls={(dashboard.viewMode === 'editor' || dashboard.viewMode === 'drawing') && dashboard.tabs.length === 1}
     onNewDocument={() => { dispatchWindowEvent(new Event('gnosi:quick-open-document')); }}
-    onCloseDocument={() => {
-      if (dashboard.activeTabId)
-        dashboard.handleTabClose(dashboard.activeTabId);
-    }}
+    onCloseDocument={activeDocument ? () => { dashboard.handleTabClose(activeDocument.id); } : undefined}
   >
     <CreationRecoveryPanel onOpen={dashboard.loadPage} />
     <DashboardContent {...dashboard} />
