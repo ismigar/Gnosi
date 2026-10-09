@@ -1,3 +1,4 @@
+import { useTablePointerSelection } from './useTablePointerSelection';
 import { act, useLayoutEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mountTestComponent } from '../../../../../tests/mount-react';
@@ -70,13 +71,19 @@ it('table assignment functionality submits one evaluated batch instead of partia
     expect(patchVaultTablePage).not.toHaveBeenCalled();
   } finally { table.unmount(); }
 });
-function mountController(extra: Partial<VaultTableProps> = {}) {
+function mountController(extra: Partial<VaultTableProps> = {}, withCells = false) {
   let current: TableController | undefined;
   const props: VaultTableProps = { notes, schema, activeView: { id: 'fixture-view', table_id: 'fixture', sorts: [] }, onNoteSelect: vi.fn(), ...extra };
   function Probe({ input }: { input: VaultTableProps; }) {
     const model = useTableController(input);
+    const pointer = useTablePointerSelection(model);
     useLayoutEffect(() => { current = model; });
-    return <div ref={model.tableContainerRef} />;
+    return <div contentEditable suppressContentEditableWarning><div contentEditable={false} data-vault-table-scroll tabIndex={-1} ref={model.tableContainerRef} {...pointer}>
+      {withCells && <table><tbody>{model.navRows.map(row => <tr key={row.id}>
+        {model.gridColumns.map(column => <td key={column.key} data-grid-row={row.id} data-grid-field={column.key}
+          aria-selected={model.getCellSelState(row.id, column.key).inRange} />)}
+      </tr>)}</tbody></table>}
+    </div></div>;
   }
   const mounted = mountTestComponent(<Probe input={props} />);
   return {
@@ -185,7 +192,7 @@ describe('VaultTable controller contracts', () => {
     expect(vi.mocked(createVaultTablePage).mock.calls[0]?.[0]).toMatchObject({ title: 'New record', content: '', metadata: { table_id: 'fixture', database_table_id: 'fixture' } });
     expect(onNoteSelect).toHaveBeenCalledWith('created', { returnFocusId: 'created' });
   });
-  it('evaluates formula metadata and rollups without changing the ordinary aggregation fallback', () => {
+  it('evaluates formula metadata, rollups and ordinary numeric aggregates', () => {
     const table = mountController({ allNotes: notes, schema: { ...schema, Rollup: 'rollup', Rollup_config: { relationField: 'Ref', targetProperty: 'Score', aggregation: 'sum' } }, notes: notes.map(n => n.id === 'a' ? { ...n, metadata: { ...n.metadata, Ref: ['parent', 'b'] } } : n) });
     const alpha = table.model().noteById.get('a');
     if (!alpha) throw new Error('Missing alpha');
@@ -193,8 +200,7 @@ describe('VaultTable controller contracts', () => {
     expect(table.model().getCalculatedFieldValue('Rollup', alpha)).toBe(7);
     act(() => { table.model().setAggregations({ Formula: 'sum', Score: 'sum' }); });
     expect(table.model().calculateAggregation('Formula', 'formula')).toBe('20');
-    // Existing undefined -> default-null fallback: do not repair aggregation semantics in a type migration.
-    expect(table.model().calculateAggregation('Score', 'number')).toBe(0);
+    expect(table.model().calculateAggregation('Score', 'number')).toBe('10');
   });
   it('groups multi-cell paste into one PATCH per page and only rolls back the rejected page', async () => {
     vi.stubGlobal('navigator', { clipboard: { readText: vi.fn().mockResolvedValue('12\tchanged a\n15\tchanged b') } });
@@ -302,4 +308,151 @@ describe('VaultTable controller contracts', () => {
     expect(table.model().selectedIds).toEqual(new Set(['a', 'b']));
     expect(table.model().newRowTitle).toBe('Unsent');
   });
+});
+
+it('evaluates persisted cell formulas, recalculates dependencies and detects cycles', async () => {
+  const table = mountController({ notes: [
+    { id: 'one', title: 'One', metadata: { Score: 4, Text: '=[Score]*2' } },
+    { id: 'two', title: 'Two', metadata: { Score: '=[Text]', Text: '=[Score]' } },
+  ] });
+  const calculate = (id: string, field: string) => {
+    const note = table.model().noteById.get(id);
+    if (!note) throw new Error('Missing note');
+    return table.model().getCalculatedFieldValue(field, note, note.metadata?.[field]);
+  };
+  expect(calculate('one', 'Text')).toBe(8);
+  await act(async () => { await table.model().handleCellSave('one', 'Score', 7, 'Score'); });
+  expect(calculate('one', 'Text')).toBe(14);
+  expect(calculate('two', 'Score')).toBe('#CYCLE!');
+  table.unmount();
+});
+it('fills the selected range with relative formulas and preserves the source', async () => {
+  const table = mountController({ notes: [
+    { id: 'one', title: 'One', metadata: { Score: '=B1*2' } },
+    { id: 'two', title: 'Two', metadata: { Score: 0 } },
+    { id: 'three', title: 'Three', metadata: { Score: 0 } },
+  ] });
+  const rows = table.model().navRows;
+  act(() => { table.model().setAnchorCell({ rowId: rows[0]?.id ?? '', field: 'Score' }); table.model().setActiveCell({ rowId: rows[2]?.id ?? '', field: 'Score' }); });
+  await act(async () => { await table.model().fillDown(); });
+  expect(transportFetch).toHaveBeenCalledWith('/api/vault/pages/two', expect.objectContaining({ body: JSON.stringify({ metadata: { Score: '=B2*2' } }) }));
+  expect(transportFetch).toHaveBeenCalledWith('/api/vault/pages/three', expect.objectContaining({ body: JSON.stringify({ metadata: { Score: '=B3*2' } }) }));
+  table.unmount();
+});
+it('pastes into noncontiguous selected rows and uses fresh external clipboard text', async () => {
+  const readText = vi.fn().mockResolvedValue('external');
+  vi.stubGlobal('navigator', { clipboard: { readText, writeText: vi.fn().mockResolvedValue(undefined) } });
+  const table = mountController();
+  act(() => { table.model().setActiveCell({ rowId: 'a', field: 'Text' }); });
+  act(() => { table.model().handleCopyCells(); table.model().selectAll(['parent', 'b']); });
+  await act(async () => { await table.model().handlePasteCells(); });
+  expect(transportFetch).toHaveBeenCalledWith('/api/vault/pages/parent', expect.objectContaining({ body: JSON.stringify({ metadata: { Text: 'external' } }) }));
+  expect(transportFetch).toHaveBeenCalledWith('/api/vault/pages/b', expect.objectContaining({ body: JSON.stringify({ metadata: { Text: 'external' } }) }));
+  expect(transportFetch).toHaveBeenCalledTimes(2);
+  table.unmount();
+});
+
+it('resolves formula ranges and selected-row paste beyond the loaded batch', async () => {
+  const rows = Array.from({ length: 220 }, (_, index) => ({ id: `row-${String(index)}`, title: String(index).padStart(3, '0'), metadata: { Score: index, Text: index === 0 ? '=SUM(B1:B220)' : '' } }));
+  const table = mountController({ notes: rows, schema: { Score: 'number', Text: 'text' }, activeView: { id: 'large', sorts: [{ field: 'title', direction: 'asc' }] } });
+  const first = table.model().noteById.get('row-0');
+  if (!first) throw new Error('Missing first row');
+  expect(table.model().navRows.length).toBeLessThan(220);
+  expect(table.model().getCalculatedFieldValue('Text', first)).toBe(24090);
+  act(() => { table.model().setActiveCell({ rowId: 'row-0', field: 'Score' }); });
+  // Internal copies work when the system clipboard is unavailable.
+  vi.stubGlobal('navigator', { clipboard: { readText: vi.fn().mockRejectedValue(new Error('denied')) } });
+  act(() => { table.model().handleCopyCells(); table.model().selectAll(['row-219']); });
+  await act(async () => { await table.model().handlePasteCells(); });
+  expect(transportFetch).toHaveBeenCalledWith('/api/vault/pages/row-219', expect.objectContaining({ body: JSON.stringify({ metadata: { Score: 0 } }) }));
+  table.unmount();
+});
+
+it('keeps paste available when a row-selection checkbox has focus', async () => {
+  vi.stubGlobal('navigator', { clipboard: { readText: vi.fn().mockResolvedValue('42') } });
+  const table = mountController();
+  const checkbox = document.createElement('input'); checkbox.type = 'checkbox';
+  table.model().tableContainerRef.current?.append(checkbox);
+  act(() => { table.model().setActiveCell({ rowId: 'a', field: 'Score' }); table.model().selectAll(['b']); table.model().claimKeyboard(); });
+  checkbox.focus();
+  await act(async () => { checkbox.dispatchEvent(new KeyboardEvent('keydown', { key: 'v', ctrlKey: true, bubbles: true, cancelable: true })); await Promise.resolve(); });
+  expect(transportFetch).toHaveBeenCalledWith('/api/vault/pages/b', expect.objectContaining({ body: JSON.stringify({ metadata: { Score: 42 } }) }));
+  table.unmount();
+});
+
+
+it('broadcasts one value across a two-dimensional selection', async () => {
+  const table = mountController({ schema: { Score: 'number', Text: 'text' } });
+  act(() => { table.model().setActiveCell({ rowId: 'a', field: 'Score' }); table.model().setAnchorCell({ rowId: 'b', field: 'Text' }); });
+  await act(async () => { await table.model().handlePasteCells('42'); });
+  expect(transportFetch).toHaveBeenCalledTimes(2);
+  for (const id of ['a', 'b']) expect(table.model().noteById.get(id)?.metadata).toMatchObject({ Score: 42, Text: '42' });
+  table.unmount();
+});
+
+it('pastes only into modifier-selected cells and clears them on normal navigation', async () => {
+  const table = mountController({ schema: { Score: 'number', Text: 'text' } }, true);
+  act(() => { table.model().setActiveCell({ rowId: 'a', field: 'Score' }); });
+  const other = table.container.querySelector('[data-grid-row="b"][data-grid-field="Text"]');
+  if (!other) throw new Error('Missing target');
+  act(() => { other.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, buttons: 1, metaKey: true })); });
+  expect(table.model().selectedCells).toEqual([{ rowId: 'a', field: 'Score' }, { rowId: 'b', field: 'Text' }]);
+  expect(table.model().getCellSelState('a', 'Text').inRange).toBe(false);
+  await act(async () => { await table.model().handlePasteCells('42'); });
+  expect(table.model().noteById.get('a')?.metadata).toMatchObject({ Score: 42, Text: 'alpha' });
+  expect(table.model().noteById.get('b')?.metadata).toMatchObject({ Score: 5, Text: '42' });
+  act(() => { other.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, buttons: 1, ctrlKey: true })); });
+  expect(table.model().selectedCells).toEqual([{ rowId: 'a', field: 'Score' }]);
+  act(() => { table.model().moveCursor(1, 0, false); });
+  expect(table.model().selectedCells).toEqual([]);
+  table.unmount();
+});
+
+it('drags a range and handles native paste without system clipboard access', async () => {
+  const readText = vi.fn().mockResolvedValue('wrong');
+  vi.stubGlobal('navigator', { clipboard: { readText } });
+  const table = mountController({ schema: { Score: 'number', Text: 'text' } }, true);
+  const first = table.container.querySelector('[data-grid-row="a"][data-grid-field="Score"]');
+  const last = table.container.querySelector('[data-grid-row="b"][data-grid-field="Text"]');
+  if (!first || !last) throw new Error('Missing targets');
+  act(() => { first.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, buttons: 1 })); });
+  act(() => { last.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, cancelable: true, buttons: 1 })); });
+  expect(table.model().getCellSelState('a', 'Text').inRange).toBe(true);
+  const paste = new Event('paste', { bubbles: true, cancelable: true });
+  Object.defineProperty(paste, 'clipboardData', { value: { getData: () => '73' } });
+  await act(async () => { last.dispatchEvent(paste); await Promise.resolve(); });
+  expect(paste.defaultPrevented).toBe(true);
+  expect(readText).not.toHaveBeenCalled();
+  expect(transportFetch).toHaveBeenCalledTimes(2);
+  for (const id of ['a', 'b']) expect(table.model().noteById.get(id)?.metadata).toMatchObject({ Score: 73, Text: '73' });
+  table.unmount();
+});
+
+it('pastes titles and metadata together and rolls back a rejected row', async () => {
+  const table = mountController({ schema: { Text: 'text' } });
+  act(() => { table.model().setActiveCell({ rowId: 'a', field: 'title' }); table.model().setAnchorCell({ rowId: 'b', field: 'Text' }); });
+  vi.mocked(transportFetch).mockResolvedValueOnce(new Response('{}', { status: 200 })).mockResolvedValueOnce(new Response('{}', { status: 500 }));
+  await act(async () => { await table.model().handlePasteCells('Renamed'); });
+  expect(transportFetch).toHaveBeenCalledTimes(2);
+  expect(transportFetch).toHaveBeenCalledWith('/api/vault/pages/a', expect.objectContaining({ body: '{"title":"Renamed","metadata":{"Text":"Renamed"}}' }));
+  expect(table.model().noteById.get('a')).toMatchObject({ title: 'Renamed', metadata: { Text: 'Renamed' } });
+  expect(table.model().noteById.get('b')).toMatchObject({ title: 'Beta', metadata: { Text: 'beta' } });
+  table.unmount();
+});
+
+it('keeps keyboard range selection inside an embedded table under a contenteditable editor', async () => {
+  const table = mountController({ schema: { Score: 'number', Text: 'text' } }, true);
+  const cell = table.container.querySelector<HTMLElement>('[data-grid-row="a"][data-grid-field="Score"]');
+  if (!cell) throw new Error('Missing cell');
+  act(() => { table.model().setActiveCell({ rowId: 'a', field: 'Score' }); cell.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0, buttons: 1 })); });
+  expect(document.activeElement).toBe(table.model().tableContainerRef.current);
+  act(() => { table.model().tableContainerRef.current?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', shiftKey: true, bubbles: true, cancelable: true })); });
+  expect(table.model().getCellSelState('a', 'Score').inRange).toBe(true);
+  expect(table.model().getCellSelState('b', 'Score').inRange).toBe(true);
+  act(() => { table.model().tableContainerRef.current?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true, cancelable: true })); });
+  expect(table.model().getCellSelState('a', 'Text').inRange).toBe(true);
+  expect(table.model().getCellSelState('b', 'Text').inRange).toBe(true);
+  await act(async () => { await table.model().handlePasteCells('42'); });
+  expect(transportFetch).toHaveBeenCalledTimes(2);
+  table.unmount();
 });

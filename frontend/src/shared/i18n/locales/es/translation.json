@@ -550,6 +550,11 @@
     "remove_favorite": "Quitar de favoritos"
   },
   "table": {
+    "keyboard_navigation": "Navegación por registros: Enter para entrar, flechas para moverse y Esc para salir",
+    "formula_input": "Valor o fórmula",
+    "formula_hint": "Escribe =SUM(B1:B3) o =[Precio]*[Cantidad]. Enter guarda; Esc cancela. A1 sigue el orden de filas y columnas de la vista; [Campo] referencia la misma fila.",
+    "fill_down": "Rellenar abajo",
+    "fill_down_hint": "Copia la primera fila del rango a las demás filas seleccionadas (⌘/Ctrl+D)",
     "new_record": "Nuevo registro",
     "templates": "Plantillas",
     "default_label": "Predet.",
@@ -951,6 +956,8 @@
     "page_moved": "Página movida"
   },
   "editor": {
+    "expand_section": "Despliega la sección",
+    "collapse_section": "Pliega la sección",
     "toggle_focus_mode": "Activar o desactivar modo enfoque",
     "toggle_high_contrast": "Alternar contraste reforzado",
     "toggle_large_text": "Alternar texto ampliado",

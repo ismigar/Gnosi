@@ -75,7 +75,7 @@ export function VaultTimelineGrid({ controller, onNoteSelect }: TimelineGridProp
                         const native = event.nativeEvent;
                         controller.toggleSelect(note.id, 'shiftKey' in native && native.shiftKey === true);
                     };
-                    return <div key={note.id} data-timeline-row={note.id} className={`group flex border-b border-[var(--border-primary)] hover:bg-[var(--bg-secondary)]/50 ${drag?.targetId === note.id && drag.mode === 'dependency' ? 'bg-[var(--gnosi-primary)]/10' : ''}`} style={{ height: TIMELINE_ROW_HEIGHT }}>
+                    return <div key={note.id} data-record-id={note.id} tabIndex={-1} data-timeline-row={note.id} className={`focus:outline-2 focus:outline-[var(--gnosi-primary)] group flex border-b border-[var(--border-primary)] hover:bg-[var(--bg-secondary)]/50 ${drag?.targetId === note.id && drag.mode === 'dependency' ? 'bg-[var(--gnosi-primary)]/10' : ''}`} style={{ height: TIMELINE_ROW_HEIGHT }}>
                         <div className={`sticky left-0 z-20 flex shrink-0 items-center gap-1.5 border-r border-[var(--border-primary)] pr-2 ${selected ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}`}
                             style={{ width: controller.columnWidth, paddingLeft: 12 + Math.min(note.depth, 8) * 12 }}>
                             {note.isParent ? <button type="button" className="shrink-0 rounded p-1 hover:bg-[var(--bg-tertiary)]" aria-expanded={!controller.collapsedIds.has(note.id)} aria-label={t('timeline.toggle_group', 'Expand or collapse phase')} onClick={() => { controller.toggleCollapsed(note.id); }}>

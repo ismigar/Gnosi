@@ -57,6 +57,10 @@ export function RowTitleCell({ model, note, isChild, depth }: { model: TableCont
 
   return (<td
     data-title-cell={note.id}
+    data-grid-row={note.id}
+    data-grid-field="title"
+    aria-selected={titleSel.inRange}
+              data-active-cell={titleSel.isActive}
     tabIndex={-1}
     style={{ width: columnWidths['title'] || 250, maxWidth: columnWidths['title'] || 250 }}
     className={`${rowPadClass} px-4 font-medium text-[var(--text-primary)] sticky left-10 z-30 overflow-hidden align-top

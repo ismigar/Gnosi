@@ -9,8 +9,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Domini | Estat | Guia | Fitxers font | Fitxers de proves | Directives trobades |
 | --- | --- | --- | ---: | ---: | ---: |
 | `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 822 | 285 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1058 | 289 | 0 |
-| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 492 | 140 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1067 | 292 | 0 |
+| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 499 | 142 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 65 | 40 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 137 | 55 | 0 |
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 307 | 114 | 0 |

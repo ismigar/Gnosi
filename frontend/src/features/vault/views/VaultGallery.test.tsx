@@ -287,7 +287,7 @@ describe('VaultGallery', () => {
         expect(checkbox.checked).toBe(false);
     });
 
-    it.each([false, true])('enters a group with Space and folds it with Escape (already expanded: %s)', (expanded) => {
+    it.each([false, true])('enters a group with Space and exits with Escape (already expanded: %s)', (expanded) => {
         vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] });
         const onFocusShell = vi.fn();
         act(() => {
@@ -328,12 +328,11 @@ describe('VaultGallery', () => {
         const secondCard = document.activeElement;
         if (!secondCard) throw new Error('Second card not focused');
         press(secondCard, 'Escape');
-        expect(document.activeElement).toBe(readingHeader);
-        expect(readingHeader.getAttribute('aria-expanded')).toBe('false');
-        expect(indexHeader.getAttribute('aria-expanded')).toBe('true');
-        expect(onFocusShell).not.toHaveBeenCalled();
-        press(readingHeader, 'Escape');
         expect(onFocusShell).toHaveBeenCalledOnce();
+        expect(readingHeader.getAttribute('aria-expanded')).toBe('true');
+        expect(indexHeader.getAttribute('aria-expanded')).toBe('true');
+        press(readingHeader, 'ArrowLeft');
+        expect(readingHeader.getAttribute('aria-expanded')).toBe('false');
     });
 
     it('renders full-width cards in a single column with page scrolling for their content', () => {

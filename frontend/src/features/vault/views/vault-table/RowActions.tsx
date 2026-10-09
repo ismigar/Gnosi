@@ -34,6 +34,7 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
     onDeletePage,
   } = model;
   return (<td className={`w-10 px-2 sticky left-0 z-20 hover:z-50 text-center align-top pt-2.5 ${isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}`}>
+    {!isListView && <span className="block text-[10px] tabular-nums text-[var(--text-tertiary)]" data-row-number>{(model.navRowIndexById.get(note.id) ?? 0) + 1}</span>}
     <div className="flex items-center justify-center gap-1.5">
       {/* Selection checkbox */}
       <label

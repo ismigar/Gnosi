@@ -110,8 +110,10 @@ export function VaultFeedCard({
 
   return (
     <article
+        data-record-id={note.id}
+        tabIndex={-1}
       data-feed-note-id={note.id}
-      className={`vault-feed-card ${density === 'compact' ? 'vault-feed-card--compact' : ''} ${density === 'adaptive' ? 'vault-feed-card--adaptive' : ''} ${isRead ? 'is-read' : ''} group relative flex flex-col overflow-hidden rounded-2xl border bg-[var(--bg-primary)] shadow-sm transition-all hover:shadow-md ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
+      className={`focus:outline-2 focus:outline-[var(--gnosi-primary)] vault-feed-card ${density === 'compact' ? 'vault-feed-card--compact' : ''} ${density === 'adaptive' ? 'vault-feed-card--adaptive' : ''} ${isRead ? 'is-read' : ''} group relative flex flex-col overflow-hidden rounded-2xl border bg-[var(--bg-primary)] shadow-sm transition-all hover:shadow-md ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
     >
       <GalleryOpenButton pageId={note.id} onOpen={onOpen} />
       <label

@@ -3064,6 +3064,11 @@
   "reader_podcast_in_progress": "Déjà en cours…",
   "reader_podcast_error": "Erreur lors du lancement du podcast.",
   "table": {
+    "keyboard_navigation": "Navigation des enregistrements : Entrée pour entrer, flèches pour déplacer, Échap pour sortir",
+    "formula_input": "Valeur ou formule",
+    "formula_hint": "Saisissez =SUM(B1:B3) ou =[Prix]*[Quantité]. Entrée enregistre ; Échap annule. A1 suit l’ordre des lignes et colonnes de la vue ; [Champ] référence la même ligne.",
+    "fill_down": "Recopier vers le bas",
+    "fill_down_hint": "Copier la première ligne de la plage vers les autres lignes sélectionnées (⌘/Ctrl+D)",
     "add_files": "+ Fichiers",
     "add_image": "+ Image",
     "translate_row": "Traduire",
@@ -3995,6 +4000,8 @@
     "height_percent": "Hauteur maximale de la fenêtre (%)"
   },
   "editor": {
+    "expand_section": "Développer la section",
+    "collapse_section": "Replier la section",
     "toggle_focus_mode": "Activer ou désactiver le mode concentration",
     "toggle_high_contrast": "Alterner le contraste renforcé",
     "toggle_large_text": "Alterner le texte agrandi",

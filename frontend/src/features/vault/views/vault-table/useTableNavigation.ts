@@ -32,6 +32,7 @@ type Inputs = Pick<ReturnType<typeof useTableRows>, 'rowDescriptors' | 'groupMet
     | 'setActiveCell'
     | 'activeCell'
     | 'anchorCell'
+    | 'selectedCells'
     | 'searchTerm'
     | 'activeCellRef'
   >
@@ -61,6 +62,7 @@ export function useTableNavigation({
   tableContainerRef,
   activeCell,
   anchorCell,
+  selectedCells,
   activeView,
   searchTerm,
   sortSignature,
@@ -224,6 +226,13 @@ export function useTableNavigation({
     const aRow = navRowIndexById.get(activeCell.rowId);
     const aCol = colIndexByKey.get(activeCell.field);
     if (aRow == null || aCol == null) return null;
+    if (selectedCells.length) {
+      const positions = selectedCells.flatMap(cell => {
+        const r = navRowIndexById.get(cell.rowId), c = colIndexByKey.get(cell.field);
+        return r == null || c == null ? [] : [{ r, c }];
+      });
+      if (positions.length) return { r0: Math.min(...positions.map(p => p.r)), r1: Math.max(...positions.map(p => p.r)), c0: Math.min(...positions.map(p => p.c)), c1: Math.max(...positions.map(p => p.c)) };
+    }
     if (!anchorCell) return { r0: aRow, c0: aCol, r1: aRow, c1: aCol };
     const bRow = navRowIndexById.get(anchorCell.rowId);
     const bCol = colIndexByKey.get(anchorCell.field);
@@ -232,17 +241,17 @@ export function useTableNavigation({
       r0: Math.min(aRow, bRow), c0: Math.min(aCol, bCol),
       r1: Math.max(aRow, bRow), c1: Math.max(aCol, bCol),
     };
-  }, [activeCell, anchorCell, navRowIndexById, colIndexByKey]);
+  }, [activeCell, anchorCell, selectedCells, navRowIndexById, colIndexByKey]);
   const selectionRectRef = useLatestRef<SelectionRect | null>(selectionRect);
   const getCellSelState = useCallback((rowId: string, field: string) => {
     if (!selectionRect) return { isActive: false, inRange: false };
     const r = navRowIndexById.get(rowId);
     const c = colIndexByKey.get(field);
     if (r == null || c == null) return { isActive: false, inRange: false };
-    const inRange = r >= selectionRect.r0 && r <= selectionRect.r1 && c >= selectionRect.c0 && c <= selectionRect.c1;
+    const inRange = selectedCells.length ? selectedCells.some(cell => cell.rowId === rowId && cell.field === field) : r >= selectionRect.r0 && r <= selectionRect.r1 && c >= selectionRect.c0 && c <= selectionRect.c1;
     const isActive = !!activeCell && activeCell.rowId === rowId && activeCell.field === field;
     return { isActive, inRange };
-  }, [selectionRect, navRowIndexById, colIndexByKey, activeCell]);
+  }, [selectionRect, navRowIndexById, colIndexByKey, activeCell, selectedCells]);
   const initializedViewRef = useRef<string | null>(null);
   useEffect(() => {
     const viewKey = `${String(activeView?.id)}|${searchTerm}|${sortSignature}`;

@@ -746,3 +746,5 @@ Desktop file and folder selection uses the trusted, validated `pick-filesystem` 
 The single-document header exposes Close tab only when its active ID matches an open tab. Remembering one inactive tab must not show a close action on the welcome screen. Opening/searching controls remain available, and closing the final active tab removes its close control.
 
 Add `--resource-id <id>` to `preview` to classify only one resource; subsequent actions reuse that saved selection. Classification binds the verified personal owner, excludes attached context and reviewed memories, disables team handoffs, and reserves at most 4,096 output tokens per batch without changing budget limits.
+
+Toggle headings support Alt/Option+Enter while the caret is in the heading. The native disclosure button is reachable with Tab and activates with Enter or Space, with a visible focus outline, localized label and expanded state. Activation retains the caret or button focus and the existing saved expansion state. Plain Enter keeps its editing behavior; child paragraphs, embedded controls and composing input do not toggle an ancestor section.
