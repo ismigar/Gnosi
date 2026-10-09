@@ -1,3 +1,4 @@
+import { useTableSort } from './useTableSort';
 import { tableInputs } from './tableInputs';
 import type { VaultTableProps } from './types';
 import { useTableActions } from './useTableActions';
@@ -35,8 +36,10 @@ export function useTableController(props: VaultTableProps) {
   const withPlugins = { ...withState, ...plugins };
   const entry = useTableEntry(withPlugins);
   const withEntry = { ...withPlugins, ...entry };
-  const data = useTableData(withEntry);
-  const withData = { ...withEntry, ...data };
+  const sort = useTableSort(withEntry);
+  const withSort = { ...withEntry, ...sort };
+  const data = useTableData(withSort);
+  const withData = { ...withSort, ...data };
   const selection = useTableSelection(withData);
   const withSelection = { ...withData, ...selection };
   const rows = useTableRows(withSelection);

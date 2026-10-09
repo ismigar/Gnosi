@@ -88,7 +88,7 @@ export function useTableClipboard({
           continue;
         }
         const metaKey = getMetaKey(note, col.key);
-        cols.push({ rowId: note.id, field: col.key, type: col.type, value: note.metadata?.[metaKey] });
+        cols.push({ rowId: note.id, field: col.key, type: col.type, value: col.key === 'last_modified' ? note.last_modified : note.metadata?.[metaKey] });
       }
       if (cols.length) rows.push(cols);
     }

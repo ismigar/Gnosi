@@ -1,3 +1,4 @@
+import { notifyError } from '../../../../shared/notifications/notifyError';
 import { useTablePointerSelection } from './useTablePointerSelection';
 import { act, useLayoutEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,7 +11,6 @@ import { keyboardOwnership } from './keyboardOwnership';
 import type { TableNote, VaultTableProps } from './types';
 import { useTableController, type TableController } from './useTableController';
 import { CellButton } from './CellButton';
-
 const fixture = vi.hoisted(() => ({
   t: (key: string, fallback?: unknown): string => typeof fallback === 'string' ? fallback : key,
   isEnabled: () => false,
@@ -31,14 +31,12 @@ vi.mock('../../../../shared/api/brain', () => ({ fetchLlmWikiConfig: vi.fn() }))
 vi.mock('../../../../shared/api/vault-schema', () => ({ fetchOptionCatalogs: vi.fn(), removeTableOption: vi.fn() }));
 vi.mock('../../../../shared/notifications/notifyError', () => ({ notifyError: vi.fn() }));
 vi.mock('../../../../shared/notifications/toast', () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
-
 const schema = { Status: 'status', Score: 'number', Text: 'text', Period: 'period', Tags: 'multi_select', Ref: 'relation', Formula: 'formula', Formula_config: { formula: '{Score}*2' } };
 const notes: readonly TableNote[] = [
   { id: 'parent', title: 'Parent', metadata: { table_id: 'fixture', Status: 'Todo', Score: 2 } },
   { id: 'a', title: 'Alpha', metadata: { table_id: 'fixture', parent_id: 'parent', Status: 'Done', Score: 3, Text: 'alpha', Tags: ['a'], Ref: ['r'] } },
   { id: 'b', title: 'Beta', metadata: { table_id: 'fixture', parent_id: 'parent', Status: 'Todo', Score: 5, Text: 'beta' } },
 ];
-
 it('cell field buttons preserve zero, false and empty text when assigning values', async () => {
   const table = mountController({ schema: { ...schema, Apply: 'button', Apply_config: {
     button_action: 'set_fields', button_config: { assignments: [
@@ -55,7 +53,6 @@ it('cell field buttons preserve zero, false and empty text when assigning values
     expect(patchVaultTablePage).not.toHaveBeenCalled();
   } finally { button.unmount(); table.unmount(); }
 });
-
 it('table assignment functionality submits one evaluated batch instead of partial patches', async () => {
   const table = mountController();
   const note = notes[1];
@@ -101,7 +98,6 @@ beforeEach(() => {
   vi.mocked(transportFetch).mockResolvedValue(new Response('{}', { status: 200 }));
 });
 afterEach(() => { vi.restoreAllMocks(); });
-
 describe('VaultTable controller contracts', () => {
   it('keeps the public title column fixed and excludes button fields', () => {
     const table = mountController({ schema: { Title: 'title', Status: 'status', Act: 'button' }, activeView: { visibleProperties: ['title', 'Status', 'Act'] } });
@@ -309,7 +305,6 @@ describe('VaultTable controller contracts', () => {
     expect(table.model().newRowTitle).toBe('Unsent');
   });
 });
-
 it('evaluates persisted cell formulas, recalculates dependencies and detects cycles', async () => {
   const table = mountController({ notes: [
     { id: 'one', title: 'One', metadata: { Score: 4, Text: '=[Score]*2' } },
@@ -351,7 +346,6 @@ it('pastes into noncontiguous selected rows and uses fresh external clipboard te
   expect(transportFetch).toHaveBeenCalledTimes(2);
   table.unmount();
 });
-
 it('resolves formula ranges and selected-row paste beyond the loaded batch', async () => {
   const rows = Array.from({ length: 220 }, (_, index) => ({ id: `row-${String(index)}`, title: String(index).padStart(3, '0'), metadata: { Score: index, Text: index === 0 ? '=SUM(B1:B220)' : '' } }));
   const table = mountController({ notes: rows, schema: { Score: 'number', Text: 'text' }, activeView: { id: 'large', sorts: [{ field: 'title', direction: 'asc' }] } });
@@ -367,7 +361,6 @@ it('resolves formula ranges and selected-row paste beyond the loaded batch', asy
   expect(transportFetch).toHaveBeenCalledWith('/api/vault/pages/row-219', expect.objectContaining({ body: JSON.stringify({ metadata: { Score: 0 } }) }));
   table.unmount();
 });
-
 it('keeps paste available when a row-selection checkbox has focus', async () => {
   vi.stubGlobal('navigator', { clipboard: { readText: vi.fn().mockResolvedValue('42') } });
   const table = mountController();
@@ -379,8 +372,6 @@ it('keeps paste available when a row-selection checkbox has focus', async () => 
   expect(transportFetch).toHaveBeenCalledWith('/api/vault/pages/b', expect.objectContaining({ body: JSON.stringify({ metadata: { Score: 42 } }) }));
   table.unmount();
 });
-
-
 it('broadcasts one value across a two-dimensional selection', async () => {
   const table = mountController({ schema: { Score: 'number', Text: 'text' } });
   act(() => { table.model().setActiveCell({ rowId: 'a', field: 'Score' }); table.model().setAnchorCell({ rowId: 'b', field: 'Text' }); });
@@ -455,4 +446,54 @@ it('keeps keyboard range selection inside an embedded table under a contentedita
   await act(async () => { await table.model().handlePasteCells('42'); });
   expect(transportFetch).toHaveBeenCalledTimes(2);
   table.unmount();
+});
+
+it('sorts locally even without a view-save callback and follows external sort changes', () => {
+  const table = mountController();
+  act(() => { table.model().handleSort('Score'); });
+  expect(table.model().sortedNotes.map(note => note.id)).toEqual(['parent', 'a', 'b']); expect(table.model().activeSort).toMatchObject({ field: 'Score', direction: 'asc' });
+  act(() => { table.model().handleSort('Score'); });
+  expect(table.model().sortedNotes.map(note => note.id)).toEqual(['b', 'a', 'parent']); expect(table.model().activeSort).toMatchObject({ field: 'Score', direction: 'desc' });
+  table.rerender({ activeView: { id: 'fixture-view', table_id: 'fixture', sorts: [{ field: 'title', direction: 'asc' }] } }); expect(table.model().activeSort).toMatchObject({ field: 'title', direction: 'asc' }); table.unmount();
+});
+
+it('selects and pastes into the whole column beyond the initially loaded batch', async () => {
+  const rows = Array.from({ length: 220 }, (_, index) => ({ id: `column-${String(index)}`, title: String(index), metadata: { Score: index, Text: 'keep' } }));
+  const table = mountController({ notes: rows, schema: { Score: 'number', Text: 'text' } });
+  act(() => { table.model().selectColumn('Score'); });
+  expect(table.model().navRows).toHaveLength(220); expect(table.model().selectedColumn).toBe('Score');
+  expect(table.model().getCellSelState('column-219', 'Score').inRange).toBe(true);
+  expect(table.model().getCellSelState('column-219', 'Text').inRange).toBe(false);
+  await act(async () => { await table.model().handlePasteCells('42'); });
+  expect(transportFetch).toHaveBeenCalledTimes(219);
+  expect(table.model().noteById.get('column-219')?.metadata).toMatchObject({ Score: 42, Text: 'keep' });
+  act(() => { table.model().moveCursor(1, 0, false); }); expect(table.model().selectedColumn).toBeNull(); table.unmount();
+});
+
+it('selects the modification column without making its system date editable', async () => {
+  const table = mountController();
+  act(() => { table.model().selectColumn('last_modified'); });
+  act(() => { table.model().beginEditActive(); }); expect(table.model().selectedColumn).toBe('last_modified');
+  expect(table.model().getCellSelState('b', 'last_modified').inRange).toBe(true);
+  expect(table.model().editingCell).toBeNull();
+  await act(async () => { await table.model().handlePasteCells('2026-01-01'); });
+  expect(transportFetch).not.toHaveBeenCalled(); table.unmount();
+});
+
+it('shows the latest sort while serializing slow saves and restores saved order on failure', async () => {
+  let firstDone: (() => void) | undefined, secondDone: (() => void) | undefined;
+  const save = vi.fn().mockImplementationOnce(() => new Promise<void>(resolve => { firstDone = resolve; }))
+    .mockImplementationOnce(() => new Promise<void>(resolve => { secondDone = resolve; }));
+  const table = mountController({ onUpdateView: save });
+  await act(async () => { table.model().handleSort('Score'); await Promise.resolve(); });
+  act(() => { table.model().handleSort('Score'); }); expect(table.model().activeSort.direction).toBe('desc');
+  table.rerender({ activeView: { id: 'fixture-view', table_id: 'fixture', sorts: [{ field: 'Score', direction: 'asc' }] }, onUpdateView: save }); expect(table.model().activeSort.direction).toBe('desc');
+  expect(save).toHaveBeenCalledTimes(1);
+  await act(async () => { firstDone?.(); await Promise.resolve(); });
+  expect(save).toHaveBeenCalledTimes(2);
+  table.rerender({ activeView: { id: 'fixture-view', table_id: 'fixture', sorts: [{ field: 'Score', direction: 'desc' }] }, onUpdateView: save });
+  await act(async () => { secondDone?.(); await Promise.resolve(); }); expect(table.model().activeSort.direction).toBe('desc');
+  save.mockRejectedValueOnce(new Error('offline'));
+  await act(async () => { table.model().handleSort('Text'); await Promise.resolve(); }); expect(table.model().activeSort).toMatchObject({ field: 'Score', direction: 'desc' });
+  expect(notifyError).toHaveBeenCalledWith('table-sort-save', expect.any(Error), expect.any(String)); table.unmount();
 });
