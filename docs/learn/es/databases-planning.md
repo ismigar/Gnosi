@@ -22,6 +22,8 @@ Un Vault con escritura. Las vistas generales forman parte del conocimiento; la p
 
 Para leer las notas seguidas, abre la configuración de la galería y elige **Tamaño de las tarjetas → Ancho completo** y **Vista previa → Contenido**. Las tarjetas ocupan todo el ancho de la vista, quedan una debajo de otra y crecen según el texto. En una galería agrupada, **Espacio** despliega el grupo enfocado y entra en la primera nota; **Esc** desde una nota vuelve a la cabecera del grupo y lo pliega. Un segundo **Esc** vuelve a la vista. El clic en la cabecera sigue plegando y desplegando el grupo.
 
+En el **cronograma**, elige **Día**, **Semana**, **Mes**, **Año**, **Hoy** o **Encuadra el proyecto**. Ajusta el ancho de los títulos y contrae las fases. Con un período o campos de inicio y final editables, arrastra una barra para mover la tarea y sus extremos para alargarla o acortarla. Arrastra el punto de conexión del final de una tarea hasta la barra de una sucesora para añadir una dependencia de final a inicio. Los cambios se guardan en los registros compartidos con la tabla; las sucesoras afectadas se recalculan aunque estén ocultas por filtros. Se rechazan los ciclos. **Deshacer el cambio del cronograma** restaura la última operación durante la sesión de la vista. **Esc** cancela un arrastre. Con una barra enfocada, las flechas la mueven y **Mayúsculas + flecha** ajusta el final. Los registros sin fechas muestran **Define las fechas**; los hitos tienen forma de rombo.
+
 ## Resultado esperado {#expected-result}
 
 Puedes consultar registros en distintas vistas y explicar la fecha calculada de una tarea.

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-10-09
 source_paths:
   - frontend/src/shared/records/hooks/useViewSearch.ts
   - frontend/src/features/vault/views/ViewSearchScope.tsx
@@ -33,11 +33,16 @@ source_paths:
   - frontend/src/features/vault/editor/BlockEditor.tsx
   - frontend/src/features/vault/properties/VaultDateProperty.ts
   - frontend/src/shared/record-views/VaultTimeline.tsx
+  - frontend/src/shared/record-views/vault-timeline
   - frontend/src/features/vault/VaultDashboard.tsx
   - frontend/src/features/planning
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/shared/record-views/VaultTimeline.test.tsx
+  - frontend/src/shared/record-views/VaultTimeline.interactions.test.tsx
+  - frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx
+  - frontend/src/shared/record-views/vault-timeline/timelineScale.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
   - frontend/src/features/vault/dashboard/TablePane.test.tsx
   - frontend/src/features/vault/dashboard/creationFlow.test.tsx
@@ -402,3 +407,11 @@ persistance des règles respectent la référence explicite ; les options locale
 ne sont jamais fusionnées automatiquement dans le catalogue global.
 Tests : `backend/tests/test_status_catalog_isolation.py` et
 `frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.
+
+## Chronologie interactive des enregistrements
+
+La chronologie des enregistrements utilise des limites de calendrier localisées, une colonne de titres fixe et redimensionnable, des phases repliables et une vue du projet adaptée à la fenêtre. Glissez une barre pour déplacer la tâche, une extrémité pour ajuster ses dates ou le point de connexion final sur une tâche suivante pour créer une dépendance de fin à début. Le contrôleur enregistre la période ou les champs de début et de fin avec le même callback de métadonnées que le tableau, conserve la progression et les dépendances de la période et reconnaît les colonnes de relation des prédécesseurs. La planification inclut les enregistrements masqués par les filtres, refuse les cycles et propage les branches convergentes selon le prédécesseur qui termine le plus tard. Chaque enregistrement sauvegarde ensemble la dépendance et les dates calculées ; les opérations échouées restaurent les écritures terminées lorsque possible et signalent les restaurations incomplètes. Annuler restaure les champs modifiés pendant la session de la vue. Les chronologies intégrées conservent leurs contrôles de zoom et de navigation et gèrent leur limite de défilement. Les flèches déplacent la barre focalisée, Maj+flèche ajuste sa fin et Échap annule le glissement.
+
+Le pied de la chronologie est séparé du défilement vertical des lignes et reste visible lorsque la page qui le contient défile. La barre horizontale persistante se synchronise avec la chronologie dans les deux sens, y compris avec les contrôles de navigation et le déplacement des tâches.
+
+Le sélecteur propose jour, semaine, mois et année ; la vue annuelle aligne des années complètes avec des colonnes mensuelles. Les tâches parentes peuvent réduire et restaurer toutes les sous-tâches imbriquées.

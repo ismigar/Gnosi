@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { ArrowRight, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Plus, Undo2, Scan } from 'lucide-react';
 import { Trans, useTranslation } from 'react-i18next';
 
+import { notifyError } from '../../notifications/notifyError';
+import { timelineErrorKey, timelineTitle } from './timelineLabels';
 import { VaultBulkActionsBar } from '../VaultBulkActionsBar';
 import { VaultViewToolbar } from '../VaultViewToolbar';
 
@@ -13,7 +15,7 @@ import type {
 } from './types';
 
 
-const ZOOM_LEVELS: readonly TimelineZoom[] = ['day', 'week', 'month'];
+const ZOOM_LEVELS: readonly TimelineZoom[] = ['day', 'week', 'month', 'year'];
 
 
 interface VaultTimelineControlsProps {
@@ -32,33 +34,22 @@ interface VaultTimelineControlsProps {
 
 
 function ZoomActions({ controller }: { readonly controller: TimelineController }) {
-    return <div className="ml-4 flex items-center gap-2">
-        <button
-            className="rounded-md border border-[var(--border-primary)] p-1.5 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-tertiary)]"
-            onClick={() => { controller.scroll('left'); }}
-            type="button"
-        >
-            <ChevronLeft size={14} />
-        </button>
-        <button
-            className="rounded-md border border-[var(--border-primary)] p-1.5 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-tertiary)]"
-            onClick={() => { controller.scroll('right'); }}
-            type="button"
-        >
-            <ChevronRight size={14} />
-        </button>
-        <div className="ml-2 flex rounded-lg border border-[var(--border-primary)] bg-[var(--bg-tertiary)] p-1">
-            {ZOOM_LEVELS.map((level) => <button
-                className={`rounded px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider transition-all ${controller.zoomLevel === level
-                    ? 'bg-[var(--bg-primary)] text-[var(--gnosi-primary)] shadow-sm'
-                    : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}
-                key={level}
+    const { t } = useTranslation();
+    return <div className="flex flex-wrap items-center gap-1.5">
+        {(['left', 'right'] as const).map(direction => <button key={direction} className="rounded-md border border-[var(--border-primary)] p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]"
+            aria-label={t(`timeline.scroll_${direction}`, direction === 'left' ? 'Previous period' : 'Next period')}
+            onClick={() => { controller.scroll(direction); }} type="button">{direction === 'left' ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}</button>)}
+        <div className="flex rounded-md border border-[var(--border-primary)] bg-[var(--bg-tertiary)] p-0.5">
+            {ZOOM_LEVELS.map(level => <button key={level} type="button" aria-pressed={controller.zoomLevel === level}
                 onClick={() => { controller.setZoomLevel(level); }}
-                type="button"
-            >
-                {level === 'day' ? 'Dia' : level === 'week' ? 'Set' : 'Mes'}
-            </button>)}
+                className={`rounded px-2 py-1 text-xs ${controller.zoomLevel === level ? 'bg-[var(--bg-primary)] font-semibold text-[var(--gnosi-primary)]' : 'text-[var(--text-secondary)]'}`}>{t(`timeline.zoom_${level}`, level)}</button>)}
         </div>
+        <button type="button" className="rounded-md border border-[var(--border-primary)] px-2 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]" onClick={controller.goToToday}>{t('timeline.today', 'Today')}</button>
+        <button type="button" className="inline-flex items-center gap-1 rounded-md border border-[var(--border-primary)] px-2 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]" onClick={controller.fitProject}><Scan size={13} />{t('timeline.fit_project', 'Fit project')}</button>
+        {controller.canEditDependencies ? <button type="button" disabled={!controller.canUndo || controller.saving} aria-label={t('timeline.undo', 'Undo timeline change')} title={t('timeline.undo', 'Undo timeline change')}
+            className="rounded-md p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-30"
+            onClick={() => { void controller.undo().catch((error: unknown) => { notifyError('timeline-undo', error, t(timelineErrorKey(error))); }); }}><Undo2 size={15} /></button> : null}
+        {controller.saving ? <span role="status" className="text-xs text-[var(--text-tertiary)]">{t('timeline.saving', 'Saving…')}</span> : null}
     </div>;
 }
 
@@ -81,20 +72,21 @@ function PredecessorDialog({
                     components={{ bold: <strong /> }}
                     defaults="Choose which record must finish before <bold>{{name}}</bold> can start."
                     i18nKey="timeline.predecessor_prompt"
-                    values={{ name: idToTitle[targetId] }}
+                    values={{ name: idToTitle[targetId] ?? timelineTitle(controller.chartData.find(note => note.id === targetId)?.title, t('common.untitled', 'Untitled')) }}
                 />
             </p>
             <div className="max-h-64 overflow-y-auto rounded-lg border border-[var(--border-primary)]">
-                {controller.predecessorCandidates.map((note) => <button
+                {controller.predecessorCandidates.filter(note => !note.isParent).map((note) => <button
                     className="group flex w-full items-center justify-between border-b border-[var(--border-primary)] px-4 py-3 text-left transition-colors last:border-0 hover:bg-[var(--bg-secondary)]"
                     key={note.id}
                     onClick={() => {
-                        void controller.handleAddPredecessor(targetId, note.id);
+                        void controller.handleAddPredecessor(targetId, note.id).catch((error: unknown) => { notifyError('timeline-dependency', error, t(timelineErrorKey(error))); });
                     }}
                     type="button"
+                    disabled={controller.saving}
                 >
                     <span className="text-sm font-medium text-[var(--text-primary)] group-hover:text-[var(--gnosi-primary)]">
-                        {note.title || 'Sense Títol'}
+                        {timelineTitle(note.title, t('common.untitled', 'Untitled'))}
                     </span>
                     <span className="text-[10px] text-[var(--text-tertiary)]">
                         {t('timeline.until', 'Until {{date}}', {
@@ -109,7 +101,7 @@ function PredecessorDialog({
                     onClick={() => { controller.setSelectingPredecessorFor(null); }}
                     type="button"
                 >
-                    Cancel·lar
+                    {t('common.cancel', 'Cancel')}
                 </button>
             </div>
         </div>
@@ -131,7 +123,8 @@ export function VaultTimelineControls({
     const [showSearch, setShowSearch] = useState(false);
     return <>
         <PredecessorDialog controller={controller} idToTitle={idToTitle} />
-        {!controller.externalSearch ? <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[var(--border-primary)] p-2">
+            {!controller.externalSearch ?
             <VaultViewToolbar
                 activeFiltersCount={controller.activeFiltersCount}
                 activeSortsCount={controller.activeSortsCount}
@@ -142,10 +135,10 @@ export function VaultTimelineControls({
                 setSearchTerm={controller.setSearchTerm}
                 setShowSearch={setShowSearch}
                 showSearch={showSearch}
-            />
-            <div className="flex items-center gap-2">
+            /> : null}
+            <div className="flex flex-wrap items-center gap-2">
                 <ZoomActions controller={controller} />
-                {onCreateRecord ? <button
+                {onCreateRecord && !controller.externalSearch ? <button
                     className="btn-gnosi inline-flex items-center gap-1.5"
                     onClick={onCreateRecord}
                     type="button"
@@ -154,7 +147,7 @@ export function VaultTimelineControls({
                     {t('table.new_record', { defaultValue: 'New record' })}
                 </button> : null}
             </div>
-        </div> : null}
+        </div>
         {controller.selectedIds.size > 0 ? <VaultBulkActionsBar
             onApplyTemplate={onApplyTemplate ? (templateId) => {
                 onApplyTemplate(new Set(controller.selectedIds), templateId);

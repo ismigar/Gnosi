@@ -1,5 +1,8 @@
-import { useCallback, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
+import { calendarScale, scaleWidth } from './timelineScale';
+
+import { observeElementResize } from '../../platform/browser-events';
 import { useLocaleSettings } from '../../i18n/useLocaleSettings';
 import { useVaultSelection } from '../../records/hooks/useVaultSelection';
 import { useVaultSelectionShortcuts } from '../../records/hooks/useVaultSelectionShortcuts';
@@ -18,6 +21,7 @@ import {
     resolveViewFilters,
     resolveViewSorts,
 } from '../../records/model/schemaUtils';
+import { parsePeriod } from '../../dates/projectPlanning';
 import { useTitlePreview } from '../../editor/useTitlePreview';
 
 import {
@@ -26,6 +30,7 @@ import {
     predecessorCandidates,
     predecessorsFor,
     resolveTimelineDateFields,
+    resolvePredecessorField,
     timelinePosition,
     timelineUnitFromConfig,
 } from './timelineModel';
@@ -54,6 +59,7 @@ const readers: TimelineSchemaReaders = {
 
 export function useVaultTimelineController({
     activeView = {},
+    allNotes,
     notes = [],
     onDeletePage,
     onDeleteSelected,
@@ -65,7 +71,29 @@ export function useVaultTimelineController({
     const { isEnabled, getPluginSettings } = usePlugins();
     const localeSettings = useLocaleSettings();
     const scrollContainerId = useId();
-    const [zoomLevel, setZoomLevel] = useState<TimelineZoom>('month');
+    const [zoomLevel, changeZoom] = useState<TimelineZoom>('month');
+    const [fitted, setFitted] = useState(true);
+    const [columnWidth, setColumnWidth] = useState(320);
+    const [scrollLeft, setScrollLeft] = useState(0);
+    const [viewportWidth, setViewportWidth] = useState(1000);
+    const [focusDate, setFocusDate] = useState<Date | null>(null);
+    const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(new Set());
+    useEffect(() => {
+        const element = document.getElementById(scrollContainerId);
+        if (!element || typeof ResizeObserver === 'undefined') return;
+        return observeElementResize(element, entries => {
+            const width = entries[0]?.contentRect.width;
+            if (width) setViewportWidth(width);
+        });
+    }, [scrollContainerId]);
+    const setZoomLevel = useCallback((zoom: TimelineZoom) => { changeZoom(zoom); setFitted(false); }, []);
+    const toggleCollapsed = useCallback((id: string) => {
+        setCollapsedIds(current => {
+            const next = new Set(current);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    }, []);
     const [selectingPredecessorFor, setSelectingPredecessorFor] = useState<
         string | null
     >(null);
@@ -132,9 +160,10 @@ export function useVaultTimelineController({
         getPluginSettings('project-planning'),
     );
     const skipNonWorkingDays = fieldConfig.skip_non_working_days !== false;
+    const predecessorField = resolvePredecessorField(schema, activeView.predecessorField, readers);
     const getPredecessors = useCallback(
-        (note: TimelineRecord) => predecessorsFor(note, enhancedPeriod, dateField),
-        [dateField, enhancedPeriod],
+        (note: TimelineRecord) => predecessorsFor(note, enhancedPeriod, dateField, predecessorField),
+        [dateField, enhancedPeriod, predecessorField],
     );
     const chart = useMemo(() => buildTimelineChart({
         dateField,
@@ -152,28 +181,33 @@ export function useVaultTimelineController({
         sortedNotes,
         timelineUnit,
     ]);
+    const schedulingNotes = allNotes ?? notes;
+    const allChart = useMemo(() => buildTimelineChart({ dateField, endDateField, hasExplicitSorts: false,
+        notes: schedulingNotes, readers, schema, timelineUnit }), [dateField, endDateField, schedulingNotes, schema, timelineUnit]);
     const scheduleOptions = useMemo(() => ({
-        chartData: chart.chartData,
+        chartData: allChart.chartData,
         dateField,
         endDateField,
         enhancedPeriod,
-        notes,
+        notes: schedulingNotes,
         onUpdateNote,
         planningSettings,
         predecessors: getPredecessors,
+        predecessorField,
         readers,
         schema,
         skipNonWorkingDays,
         timelineUnit,
     }), [
-        chart.chartData,
+        allChart.chartData,
         dateField,
         endDateField,
         enhancedPeriod,
         getPredecessors,
-        notes,
+        schedulingNotes,
         onUpdateNote,
         planningSettings,
+        predecessorField,
         schema,
         skipNonWorkingDays,
         timelineUnit,
@@ -199,32 +233,64 @@ export function useVaultTimelineController({
             locale: fieldFormat.dateLocale,
         },
     ), [fieldFormat]);
+    const colorField = activeView.colorField || readers.fieldEntries(schema).find(([, type]) => type === 'status')?.[0] || '';
     const getBarColor = useMemo(
-        () => buildBarColorResolver(schema, activeView.colorField ?? '', readers),
-        [activeView.colorField, schema],
+        () => buildBarColorResolver(schema, colorField, readers),
+        [colorField, schema],
     );
+    const timeScale = useMemo(() => calendarScale(chart.timeScale, timelineUnit, zoomLevel,
+        localeSettings.dateLocale, fitted, focusDate, viewportWidth - columnWidth), [chart.timeScale, timelineUnit, zoomLevel, localeSettings.dateLocale, fitted, focusDate, viewportWidth, columnWidth]);
+    const visibleNotes = useMemo(() => {
+        let hiddenDepth: number | null = null;
+        const visible = [];
+        for (const note of chart.chartData) {
+            if (hiddenDepth !== null && note.depth > hiddenDepth) continue;
+            hiddenDepth = collapsedIds.has(note.id) ? note.depth : null;
+            visible.push(note);
+        }
+        return visible;
+    }, [chart.chartData, collapsedIds]);
+    const dateValueForProgress = (note: TimelineRecord) => dateField ? note.metadata?.[dateField] : null;
     const calculatePosition = useCallback((date: Date): number => (
-        chart.timeScale
-            ? timelinePosition(date, chart.timeScale.start, chart.timeScale.end)
+        timeScale
+            ? timelinePosition(date, timeScale.start, timeScale.end)
             : 0
-    ), [chart.timeScale]);
+    ), [timeScale]);
     const candidates = useMemo(() => predecessorCandidates(
         selectingPredecessorFor,
-        chart.chartData,
+        allChart.chartData,
         getPredecessors,
-    ), [chart.chartData, getPredecessors, selectingPredecessorFor]);
+    ), [allChart.chartData, getPredecessors, selectingPredecessorFor]);
     const scroll = useCallback((direction: 'left' | 'right'): void => {
         document.getElementById(scrollContainerId)?.scrollBy({
             left: direction === 'left' ? -300 : 300,
             behavior: 'smooth',
         });
     }, [scrollContainerId]);
-    const scaleMinWidth = timelineUnit === 'hours' ? '12000px'
-        : timelineUnit === 'years' ? '1800px'
-            : zoomLevel === 'day' ? '12000px'
-                : zoomLevel === 'week' ? '6000px' : '3000px';
+    const scaleMinWidth = `${String(scaleWidth(timeScale, timelineUnit, zoomLevel, viewportWidth - columnWidth, fitted))}px`;
+    const goToDate = useCallback((date: Date) => { setFocusDate(new Date(date)); setFitted(false); }, []);
+    useEffect(() => {
+        if (!focusDate || !timeScale) return;
+        const frame = requestAnimationFrame(() => {
+            const element = document.getElementById(scrollContainerId);
+            if (!element) return;
+            const position = timelinePosition(focusDate, timeScale.start, timeScale.end);
+            element.scrollTo({ left: Math.max(0, position / 100 * Number.parseFloat(scaleMinWidth) - (element.clientWidth - columnWidth) / 2), behavior: 'smooth' });
+        });
+        return () => { cancelAnimationFrame(frame); };
+    }, [focusDate, timeScale, scrollContainerId, scaleMinWidth, columnWidth]);
+    const fitProject = useCallback(() => {
+        setFitted(true); setFocusDate(null);
+        document.getElementById(scrollContainerId)?.scrollTo({ left: 0, behavior: 'smooth' });
+    }, [scrollContainerId]);
 
     return {
+        canEditDates: Boolean(onUpdateNote && dateField && (readers.fieldType(schema, dateField) === 'period' || (endDateField && endDateField !== dateField))),
+        canEditDependencies: Boolean(onUpdateNote),
+        scrollLeft, setScrollLeft, viewportWidth, columnWidth, setColumnWidth, visibleNotes, collapsedIds, toggleCollapsed,
+        fitProject, goToDate, goToToday: () => { goToDate(new Date()); },
+        updateDates: scheduling.updateDates, undo: scheduling.undo,
+        canUndo: scheduling.canUndo, saving: scheduling.saving, timelineUnit,
         activeFiltersCount: readers.filters(activeView).length,
         activeSortsCount: readers.sorts(activeView).length,
         calculatePosition,
@@ -232,7 +298,11 @@ export function useVaultTimelineController({
         clearSelection: selection.clearSelection,
         externalSearch: externalSearchTerm !== undefined,
         formatTimelineDate,
+        formatShortDate: date => new Intl.DateTimeFormat(localeSettings.dateLocale, timelineUnit === 'years' ? { year: 'numeric' }
+            : timelineUnit === 'hours' ? { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' } : { day: 'numeric', month: 'short' }).format(date),
         getBarColor,
+        getProgress: note => parsePeriod(dateValueForProgress(note)).percentComplete,
+        getStatus: note => { const value = typeof colorField === 'string' ? note.metadata?.[colorField] : null; return typeof value === 'string' ? value : ''; },
         getPredecessors,
         handleAddPredecessor,
         handleBulkDelete,
@@ -249,7 +319,7 @@ export function useVaultTimelineController({
         setSelectingPredecessorFor,
         setZoomLevel,
         sortedNotes,
-        timeScale: chart.timeScale,
+        timeScale,
         titlePreview,
         toggleSelect: selection.toggleSelect,
         zoomLevel,

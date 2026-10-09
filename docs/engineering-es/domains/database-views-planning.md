@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-10-09
 source_paths:
   - frontend/src/shared/records/hooks/useViewSearch.ts
   - frontend/src/features/vault/views/ViewSearchScope.tsx
@@ -33,11 +33,16 @@ source_paths:
   - frontend/src/features/vault/editor/BlockEditor.tsx
   - frontend/src/features/vault/properties/VaultDateProperty.ts
   - frontend/src/shared/record-views/VaultTimeline.tsx
+  - frontend/src/shared/record-views/vault-timeline
   - frontend/src/features/vault/VaultDashboard.tsx
   - frontend/src/features/planning
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/shared/record-views/VaultTimeline.test.tsx
+  - frontend/src/shared/record-views/VaultTimeline.interactions.test.tsx
+  - frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx
+  - frontend/src/shared/record-views/vault-timeline/timelineScale.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
   - frontend/src/features/vault/dashboard/TablePane.test.tsx
   - frontend/src/features/vault/dashboard/creationFlow.test.tsx
@@ -392,3 +397,11 @@ persistencia de reglas respetan la referencia explícita; las opciones locales
 no se fusionan automáticamente con el catálogo global.
 Pruebas: `backend/tests/test_status_catalog_isolation.py` y
 `frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.
+
+## Cronograma interactivo de registros
+
+El cronograma de registros utiliza límites del calendario traducidos, una columna de títulos fija y ajustable, fases plegables y una vista del proyecto adaptada a la ventana. Arrastra una barra para mover la tarea, un extremo para ajustar sus fechas o el punto de conexión final hasta una sucesora para crear una dependencia de final a inicio. El controlador guarda el período o los campos de inicio y final con el mismo callback de metadatos de la tabla, conserva el progreso y las dependencias del período y reconoce las columnas de relación de predecesoras. La programación incluye registros ocultos por filtros, rechaza ciclos y propaga ramas convergentes según la predecesora que termina más tarde. Cada registro guarda conjuntamente la dependencia y las fechas resultantes; las operaciones fallidas restauran los cambios completados cuando es posible e informan de restauraciones incompletas. Deshacer restaura los campos modificados durante la sesión de la vista. Los cronogramas incrustados mantienen sus controles de zoom y navegación y gestionan su límite de desplazamiento. Las flechas mueven la barra enfocada, Mayúsculas+flecha ajusta el final y Escape cancela el arrastre.
+
+El pie del cronograma está fuera del desplazamiento vertical de las filas y permanece visible al desplazar la página que lo contiene. La barra horizontal persistente se sincroniza con el cronograma en ambos sentidos, incluidos los controles de navegación y el arrastre de tareas.
+
+El selector de escala ofrece día, semana, mes y año; la vista anual alinea años completos con columnas mensuales. Las tareas principales pueden contraer y recuperar todas las subtareas anidadas.

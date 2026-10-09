@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-10-09
 source_paths:
   - frontend/src/shared/records/hooks/useViewSearch.ts
   - frontend/src/features/vault/views/ViewSearchScope.tsx
@@ -33,11 +33,16 @@ source_paths:
   - frontend/src/features/vault/editor/BlockEditor.tsx
   - frontend/src/features/vault/properties/VaultDateProperty.ts
   - frontend/src/shared/record-views/VaultTimeline.tsx
+  - frontend/src/shared/record-views/vault-timeline
   - frontend/src/features/vault/VaultDashboard.tsx
   - frontend/src/features/planning
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/shared/record-views/VaultTimeline.test.tsx
+  - frontend/src/shared/record-views/VaultTimeline.interactions.test.tsx
+  - frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx
+  - frontend/src/shared/record-views/vault-timeline/timelineScale.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
   - frontend/src/features/vault/dashboard/TablePane.test.tsx
   - frontend/src/features/vault/dashboard/creationFlow.test.tsx
@@ -399,3 +404,11 @@ respecten la referència explícita; les opcions locals no es fusionen
 automàticament amb el catàleg global.
 Proves: `backend/tests/test_status_catalog_isolation.py` i
 `frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.
+
+## Cronograma interactiu de registres
+
+El cronograma de registres fa servir límits del calendari traduïts, una columna de títols fixa i ajustable, fases plegables i una visió del projecte adaptada a la finestra. Arrossega una barra per moure la tasca, un extrem per ajustar-ne les dates o el punt de connexió final fins a una successora per crear una dependència de final a inici. El controlador desa el període o els camps d’inici i final amb el mateix callback de metadades que la taula, conserva el progrés i les dependències del període i reconeix les columnes de relació de predecessores. La programació inclou els registres ocults pels filtres, rebutja cicles i propaga les branques convergents segons la predecessora que acaba més tard. Cada registre desa conjuntament la dependència i les dates resultants; si una operació falla, es restauren els canvis completats quan és possible i s’informa de les restauracions incompletes. Desfer restaura els camps canviats durant la sessió de la vista. Els cronogrames incrustats mantenen els controls de zoom i navegació i gestionen el seu límit de desplaçament. Les fletxes mouen la barra enfocada, Majúscules+fletxa ajusta el final i Escape cancel·la l’arrossegament.
+
+El peu del cronograma és fora del desplaçament vertical de les files i es manté visible quan es desplaça la pàgina que el conté. La barra horitzontal persistent se sincronitza amb el cronograma en tots dos sentits, també amb els controls de navegació i l’arrossegament de tasques.
+
+El selector d’escala ofereix dia, setmana, mes i any; la vista d’any alinea anys complets amb columnes mensuals. Les tasques mare poden plegar i recuperar totes les subtasques imbricades.
