@@ -166,6 +166,7 @@ export function useViewInitialization({
                 setViewLoadStatus('loading');
                 setSelectedExistingViewId(vid);
                 const applyView = (v: ViewConfig) => {
+                    setModalPinnedViewIds(readPinnedViews(pageId, vid, Array.isArray(v.tabs) ? v.tabs.map(String) : []));
                     setSourceTableId(v.table_id || preselectedTableId || '');
                     setViewName(v.name || '');
                     setViewType(v.type || 'table');

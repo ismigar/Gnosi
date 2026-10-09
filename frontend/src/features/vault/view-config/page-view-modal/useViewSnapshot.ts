@@ -88,7 +88,7 @@ export function useViewSnapshot({
         saveToTableViews,
         selectedExistingViewId,
         editScope,
-        pinnedViewIds: [...modalPinnedViewIds].sort(),
+        pinnedViewIds: [...modalPinnedViewIds],
     }), [heading, headingLevel, sourceTableId, viewName, displayTitle, visibleProperties, joins,
         viewType, filterTree, sorts, resultSnapshot, resultSnapshotLimit, heightMode, heightPercent, cardSize,
         galleryPreview, coverField, imageFit, groupBy, groupSort, groupSortDir,

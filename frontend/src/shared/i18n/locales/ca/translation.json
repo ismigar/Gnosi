@@ -4602,6 +4602,7 @@
     "existing_hint": "Pots revisar / sobreescriure els camps a les pestanyes Camps, Filtres i Ordenació.",
     "existing_views_load_error": "No s'han pogut carregar les vistes existents. Pots crear-ne una de nova o tornar-ho a provar.",
     "pinned_tabs": "Mostrar pestanyes (vistes fixades a aquest bloc)",
+    "pinned_order_hint": "Fes servir les fletxes per canviar l’ordre de les pestanyes en aquest bloc.",
     "anchor_view": "(vista àncora)",
     "usage_count_one": "Aquesta vista ja s'usa a {{count}} pàgina.",
     "usage_count_other": "Aquesta vista ja s'usa a {{count}} pàgines.",

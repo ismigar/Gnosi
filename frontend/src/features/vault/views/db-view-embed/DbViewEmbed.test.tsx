@@ -492,3 +492,21 @@ describe('embedded record and view actions', () => {
         expect(container.querySelector('[role="dialog"]')).not.toBeNull();
     });
 });
+
+
+it('renders saved tab order before the anchor and retains it after a reload', async () => {
+    writeText(pinnedKey('page', 'anchor'), JSON.stringify(['other', 'anchor']));
+    await render();
+    const tabNames = () => [...container.querySelectorAll('button[aria-label="View options"]')]
+        .map(button => button.parentElement?.querySelector('span')?.textContent);
+    expect(tabNames()).toEqual(['Other', 'Main']);
+    context = { ...context, viewSectionNonce: 1 };
+    await render();
+    expect(tabNames()).toEqual(['Other', 'Main']);
+});
+
+it('keeps explicitly unpinned registry tabs hidden on reload', async () => {
+    writeText(pinnedKey('page', 'anchor'), JSON.stringify(['anchor']));
+    await render();
+    expect(container.querySelectorAll('button[aria-label="View options"]')).toHaveLength(0);
+});
