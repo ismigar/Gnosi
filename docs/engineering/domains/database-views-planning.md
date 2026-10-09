@@ -359,3 +359,5 @@ The record timeline uses localized calendar boundaries, a resizable sticky title
 The timeline footer is outside the vertical row scroller and stays visible while the containing page scrolls. Its persistent horizontal scrollbar synchronizes with the timeline in both directions, including navigation controls and task dragging.
 
 The scale selector supports day, week, month and year views; year view aligns complete calendar years and shows monthly columns. Parent tasks can collapse and restore all nested subtasks.
+
+Click a dependency line, or focus it and press Enter/Delete, to open the shared removal dialog. Confirming removes only that predecessor from the period or relation metadata, keeps dates and other connection details unchanged, updates the shared table and supports undo. Read-only timelines do not expose this action.

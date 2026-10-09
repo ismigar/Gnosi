@@ -405,3 +405,5 @@ El cronograma de registros utiliza límites del calendario traducidos, una colum
 El pie del cronograma está fuera del desplazamiento vertical de las filas y permanece visible al desplazar la página que lo contiene. La barra horizontal persistente se sincroniza con el cronograma en ambos sentidos, incluidos los controles de navegación y el arrastre de tareas.
 
 El selector de escala ofrece día, semana, mes y año; la vista anual alinea años completos con columnas mensuales. Las tareas principales pueden contraer y recuperar todas las subtareas anidadas.
+
+Haz clic en una línea de dependencia, o enfócala y pulsa Intro/Suprimir, para abrir el diálogo de eliminación compartido. La confirmación elimina únicamente esa predecesora del período o la relación, conserva las fechas y los detalles de las otras conexiones, actualiza la tabla y permite deshacer. Los cronogramas de solo lectura no ofrecen esta acción.

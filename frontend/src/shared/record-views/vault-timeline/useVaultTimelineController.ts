@@ -289,6 +289,7 @@ export function useVaultTimelineController({
         canEditDependencies: Boolean(onUpdateNote),
         scrollLeft, setScrollLeft, viewportWidth, columnWidth, setColumnWidth, visibleNotes, collapsedIds, toggleCollapsed,
         fitProject, goToDate, goToToday: () => { goToDate(new Date()); },
+        removePredecessor: scheduling.removePredecessor,
         updateDates: scheduling.updateDates, undo: scheduling.undo,
         canUndo: scheduling.canUndo, saving: scheduling.saving, timelineUnit,
         activeFiltersCount: readers.filters(activeView).length,

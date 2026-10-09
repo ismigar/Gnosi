@@ -24,6 +24,8 @@ Pour lire les notes à la suite, ouvrez les paramètres de la galerie et choisis
 
 Dans la **chronologie**, choisissez **Jour**, **Semaine**, **Mois**, **Année**, **Aujourd’hui** ou **Afficher tout le projet**. Redimensionnez la colonne des titres et réduisez les phases. Avec une période ou des champs de début et de fin modifiables, faites glisser une barre pour déplacer la tâche et ses extrémités pour l’allonger ou la raccourcir. Faites glisser le point de connexion à la fin d’une tâche sur la barre de la tâche suivante pour ajouter une dépendance de fin à début. Les modifications sont enregistrées dans les données partagées avec le tableau ; les tâches suivantes concernées sont recalculées même si les filtres les masquent. Les cycles sont refusés. **Annuler la modification du calendrier** restaure la dernière opération pendant la session de la vue. **Échap** annule un déplacement. Lorsqu’une barre a le focus, les flèches la déplacent et **Maj + flèche** ajuste la fin. Les tâches sans dates affichent **Définir les dates** ; les jalons sont des losanges.
 
+Pour supprimer une dépendance, cliquez sur la ligne reliant les tâches et confirmez **Supprimer la dépendance**. Les dates sont conservées et vous pouvez annuler la modification.
+
 ## Résultat attendu {#expected-result}
 
 Vous savez consulter les fiches sous différentes vues et expliquer la date calculée d’une tâche.

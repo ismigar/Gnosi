@@ -24,6 +24,8 @@ For continuous reading, open the gallery settings and choose **Card size → Ful
 
 In the **timeline**, choose **Day**, **Week**, **Month**, **Year**, **Today**, or **Fit project**. Resize the title column and collapse phases. With an editable period or start and end fields, drag a bar to move the task and its edges to extend or shorten it. Drag the connection point at the end of a task onto a successor’s bar to add a finish-to-start dependency. Changes are saved to the records shared with the table; affected successors are rescheduled even when hidden by filters. Cycles are rejected. **Undo timeline change** restores the last operation during the current view session. **Esc** cancels a drag. With a bar focused, arrow keys move it and **Shift + arrow** adjusts the end. Undated records show **Set dates**; milestones appear as diamonds.
 
+To remove a dependency, click the line connecting the tasks and confirm **Remove dependency**. Dates are preserved and you can undo the change.
+
 ## Expected result {#expected-result}
 
 You can view the same records as a table or a filtered view and explain a calculated task date.

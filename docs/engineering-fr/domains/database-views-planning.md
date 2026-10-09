@@ -415,3 +415,5 @@ La chronologie des enregistrements utilise des limites de calendrier localisées
 Le pied de la chronologie est séparé du défilement vertical des lignes et reste visible lorsque la page qui le contient défile. La barre horizontale persistante se synchronise avec la chronologie dans les deux sens, y compris avec les contrôles de navigation et le déplacement des tâches.
 
 Le sélecteur propose jour, semaine, mois et année ; la vue annuelle aligne des années complètes avec des colonnes mensuelles. Les tâches parentes peuvent réduire et restaurer toutes les sous-tâches imbriquées.
+
+Cliquez sur une ligne de dépendance, ou donnez-lui le focus et appuyez sur Entrée/Suppr, pour ouvrir le dialogue de suppression partagé. La confirmation supprime uniquement ce prédécesseur de la période ou de la relation, conserve les dates et les détails des autres liaisons, actualise le tableau et permet d’annuler. Les chronologies en lecture seule ne proposent pas cette action.
