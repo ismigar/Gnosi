@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-10-09
 source_paths:
+  - frontend/src/shared/record-views/pinnedViewOrder.ts
+  - frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx
   - frontend/src/shared/filtering/exposedFilters.ts
   - frontend/src/shared/filtering/useExposedFilters.ts
   - frontend/src/features/vault/views/ExposedFilters.tsx
@@ -42,6 +44,7 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/view-config/PageViewModal.pinned-order.test.tsx
   - frontend/src/shared/filtering/exposedFilters.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx
   - backend/tests/test_exposed_view_configuration.py
@@ -390,3 +393,5 @@ filter configuration. Zero, false and period boundaries survive serialization.
 Regression coverage includes `exposedFilters.test.ts`, `PageViewModal.test.tsx`,
 `DbViewEmbed.test.tsx`, `TablePane.test.tsx` and
 `backend/tests/test_exposed_view_configuration.py`.
+
+The General tab of the embedded view dialog provides up/down controls to order pinned tabs, including the anchor view. The anchor stays visible and cannot be unpinned. The dialog lists pinned views in their saved order before available views, and the embed renders the same order. Block preferences are stored per page and anchor view in local browser storage; registry tabs supply defaults only when no block preference exists. Reopening or reloading retains both the chosen order and explicit removals.

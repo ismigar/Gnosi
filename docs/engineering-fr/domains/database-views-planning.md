@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-10-09
 source_paths:
+  - frontend/src/shared/record-views/pinnedViewOrder.ts
+  - frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx
   - frontend/src/shared/filtering/exposedFilters.ts
   - frontend/src/shared/filtering/useExposedFilters.ts
   - frontend/src/features/vault/views/ExposedFilters.tsx
@@ -42,6 +44,7 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/view-config/PageViewModal.pinned-order.test.tsx
   - frontend/src/shared/filtering/exposedFilters.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx
   - backend/tests/test_exposed_view_configuration.py
@@ -450,3 +453,5 @@ Zéro, faux et les limites de période sont conservés lors de la sérialisation
 La couverture de régression comprend `exposedFilters.test.ts`, `PageViewModal.test.tsx`,
 `DbViewEmbed.test.tsx`, `TablePane.test.tsx` et
 `backend/tests/test_exposed_view_configuration.py`.
+
+L’onglet Général du dialogue des vues intégrées propose des commandes pour monter et descendre les onglets épinglés, y compris la vue d’ancrage. L’ancre reste visible et ne peut pas être désépinglée. Le dialogue affiche les vues épinglées dans l’ordre enregistré avant les vues disponibles, et le bloc affiche les onglets dans ce même ordre. Les préférences du bloc sont enregistrées par page et vue d’ancrage dans le stockage local du navigateur ; les onglets du registre fournissent les valeurs par défaut uniquement en l’absence de préférences du bloc. La réouverture ou le rechargement conserve l’ordre choisi et les retraits explicites.
