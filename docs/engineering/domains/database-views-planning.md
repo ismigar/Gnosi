@@ -366,6 +366,8 @@ The timeline footer is outside the vertical row scroller and stays visible while
 
 The scale selector supports day, week, month and year views; year view aligns complete calendar years and shows monthly columns. Parent tasks can collapse and restore all nested subtasks.
 
+Click a dependency line, or focus it and press Enter/Delete, to open the shared removal dialog. Confirming removes only that predecessor from the period or relation metadata, keeps dates and other connection details unchanged, updates the shared table and supports undo. Read-only timelines do not expose this action.
+
 ## Display titles and exposed filters
 
 Saved views have an optional `displayTitle` independent of the catalog `name`.

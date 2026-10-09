@@ -6032,7 +6032,11 @@
     "duration_years_many": "{{count}} años",
     "partial_save": "No se han podido restaurar todos los cambios. Revisa las fechas de las tareas afectadas.",
     "horizontal_scroll": "Desplazamiento horizontal del cronograma",
-    "zoom_year": "Año"
+    "zoom_year": "Año",
+    "dependencies": "Dependencias de las tareas",
+    "dependency_link": "Dependencia: {{from}} → {{to}}",
+    "remove_dependency": "Eliminar dependencia",
+    "remove_dependency_hint": "Se conservarán las fechas de las tareas. Puedes deshacer este cambio."
   },
   "home": {
     "subtitle": "Tu ecosistema de conocimiento",
