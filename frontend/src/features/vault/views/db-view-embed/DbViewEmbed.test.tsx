@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DbViewEmbed } from '../DbViewEmbed';
 import { VaultEditorContext, type VaultEditorContextValue } from '../../../../shared/editor/VaultEditorContext';
 import type { VaultViewBodyProps } from '../VaultViewBody';
+import { VaultTimeline } from '../../../../shared/record-views/VaultTimeline';
 import { defineStorageKey, removeStorage, stringStorageCodec } from '../../../../shared/platform/browser-storage';
 import { emitAppEvent } from './events';
 import { subscribeAppEvent } from '../../../../shared/platform/app-events';
@@ -15,7 +16,7 @@ import { readText, writeText, pinnedKey, selectedKey } from './preferences';
 import type { EmbedBlock, EmbedView, NavApi } from './types';
 
 const fixture = vi.hoisted(() => {
-    const state: { body?: VaultViewBodyProps; } = {};
+    const state: { body?: VaultViewBodyProps; timeline?: boolean; } = {};
     return state;
 });
 vi.mock('./api', () => ({
@@ -32,11 +33,15 @@ vi.mock('../../../../shared/ui/previews/IconRenderer', () => ({ IconRenderer: ()
 vi.mock('../VaultViewBody', () => ({
     VaultViewBody: (props: VaultViewBodyProps) => {
         fixture.body = props;
+        if (fixture.timeline) return <VaultTimeline notes={props.notes} allNotes={props.allNotes} schema={props.schema} activeView={props.activeView} onUpdateNote={props.onUpdateNote} />;
         return <div data-testid="body" data-type={props.type}>{props.notes?.map(note => <button key={note.id} onClick={() => { props.onNoteSelect?.(note.id); }}>{note.title}</button>)}</div>;
     }
 }));
 vi.mock('../../../../shared/i18n/useLocaleSettings', () => ({
     useLocaleSettings: () => ({ currencyCode: 'EUR', dateFormat: 'locale', dateLocale: 'en-US', decimalSymbol: '.', numberLocale: 'en-US' }),
+}));
+vi.mock('../../../../shared/plugins/usePlugins', () => ({
+    usePlugins: () => ({ isEnabled: () => false, getPluginSettings: () => ({}) }),
 }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, fallback?: unknown) => {
     if (key === 'views_header.filtered_records_count' && fallback && typeof fallback === 'object' && 'count' in fallback && 'total' in fallback) {
@@ -60,7 +65,7 @@ let mounted = false;
 let context: VaultEditorContextValue;
 
 beforeEach(() => {
-    vi.resetAllMocks(); fixture.body = undefined;
+    vi.resetAllMocks(); fixture.body = undefined; fixture.timeline = false;
     resetBrowserTestStorage('session');
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => window.setTimeout(() => { callback(0); }, 0));
     vi.stubGlobal('cancelAnimationFrame', (id: number) => { window.clearTimeout(id); });
@@ -355,6 +360,50 @@ describe('embedded record and view actions', () => {
         await inputValue(container.querySelector('input[placeholder="Search..."]'), 'newly saved title');
         expect(fixture.body?.notes?.map(note => note.id)).toEqual(['a']);
         expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(2);
+    });
+    it('reflects a saved dependency removal and undo while the background reload is pending', async () => {
+        fixture.timeline = true;
+        context = { ...context, registry: { ...context.registry,
+            tables: [{ id: 'books', properties: [{ name: 'Start', type: 'date' }, { name: 'End', type: 'date' }] }],
+            views: [{ ...anchor, type: 'timeline', dateField: 'Start', endDateField: 'End' }],
+        } };
+        const original = { table_id: 'books', Start: '2024-01-02', End: '2024-01-03', predecessor_ids: ['b'] };
+        vi.mocked(api.fetchVaultPagesByTable).mockResolvedValue([
+            { id: 'a', title: 'Alpha', metadata: original },
+            { id: 'b', title: 'Beta', metadata: { table_id: 'books', Start: '2024-01-01', End: '2024-01-02' } },
+        ]);
+        await render();
+        const untouched = fixture.body?.notes?.find(note => note.id === 'b');
+        let finishSave: () => void = () => { throw new Error('Save not started'); };
+        vi.mocked(api.patchPageMetadata).mockImplementationOnce(() => new Promise(resolve => {
+            finishSave = () => { resolve({ predecessor_ids: [] }); };
+        }));
+        vi.mocked(api.fetchVaultPagesByTable).mockReturnValue(new Promise(() => {}));
+        const edge = container.querySelector('[data-timeline-dependency="b->a"]');
+        expect(edge).not.toBeNull();
+        await click(edge);
+        await click(button('Remove dependency'));
+        expect(fixture.body?.notes?.find(note => note.id === 'a')?.metadata).toEqual(original);
+        await act(async () => { finishSave(); await Promise.resolve(); });
+        expect(fixture.body?.notes?.find(note => note.id === 'a')?.metadata).toEqual({ ...original, predecessor_ids: [] });
+        expect(container.querySelector('[data-timeline-dependency="b->a"]')).toBeNull();
+        expect(fixture.body?.notes?.find(note => note.id === 'b')).toBe(untouched);
+        expect(original.predecessor_ids).toEqual(['b']);
+        await click(button('Undo timeline change'));
+        expect(fixture.body?.notes?.find(note => note.id === 'a')?.metadata).toEqual(original);
+        expect(container.querySelector('[data-timeline-dependency="b->a"]')).not.toBeNull();
+    });
+    it('retains the displayed dependency when its save fails', async () => {
+        const original = { table_id: 'books', predecessor_ids: ['b'] };
+        vi.mocked(api.fetchVaultPagesByTable).mockResolvedValue([{ id: 'a', title: 'Alpha', metadata: original }]);
+        await render();
+        const failure = new Error('Save failed');
+        vi.mocked(api.patchPageMetadata).mockRejectedValue(failure);
+        await act(async () => {
+            await expect(fixture.body?.onUpdateNote?.('a', { metadata: { predecessor_ids: [] } })).rejects.toBe(failure);
+        });
+        expect(fixture.body?.notes?.find(note => note.id === 'a')?.metadata).toEqual(original);
+        expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(1);
     });
     it('refreshes a visible embed after a record is saved without clearing its search', async () => {
         await render();
