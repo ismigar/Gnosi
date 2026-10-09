@@ -57,7 +57,9 @@ def ensure_options_exist(prop: Metadata, wanted: list[Seed]) -> bool:
             option["group"] = group
         existing.append(option)
         names.add(name)
-    raw_options = config.get("options") or prop.get("options")
+    raw_options = (
+        config.get("options") if isinstance(config.get("options"), list) else prop.get("options")
+    )
     requires_normalization = (
         raw_options is not None and normalize_options(raw_options) != raw_options
     )
@@ -67,8 +69,13 @@ def ensure_options_exist(prop: Metadata, wanted: list[Seed]) -> bool:
     return True
 
 
-def _wanted_statuses(table: Metadata) -> list[Seed]:
-    wanted = list(BASE_STATUS_SEED)
+def _wanted_statuses(table: Metadata, prop: Metadata) -> list[Seed]:
+    # An explicit local list (including []) is the user's catalog. Base
+    # defaults initialize missing catalogs; they must not undo later edits.
+    configured = isinstance(get_prop_config(prop).get("options"), list) or isinstance(
+        prop.get("options"), list
+    )
+    wanted: list[Seed] = [] if configured else list(BASE_STATUS_SEED)
     if table.get("translation_enabled"):
         wanted.append((STATUS_TRANSLATED, "En curs"))
     if table.get("drupal_sync_enabled"):
@@ -94,7 +101,7 @@ def ensure_status_seed(table: Metadata) -> bool:
     prop = find_role_prop(table, ROLE_STATUS)
     if not prop:
         return False
-    changed = ensure_options_exist(prop, _wanted_statuses(table))
+    changed = ensure_options_exist(prop, _wanted_statuses(table, prop))
     return _ensure_status_groups(prop) or changed
 
 

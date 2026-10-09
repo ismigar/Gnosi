@@ -362,6 +362,8 @@ local status options are never merged into the global catalog automatically.
 Regression coverage: `backend/tests/test_status_catalog_isolation.py` and
 `frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.
 
+Schema saves keep catalog options, references, defaults, groups and plugin bindings in the canonical property `config`. An explicitly empty local status catalog is saved as `options: []`; base statuses initialize missing catalogs only and are not restored after a user removes them. Status values required by enabled translation or publishing features retain their existing seeding behavior.
+
 ## Interactive record timeline
 
 The record timeline uses localized calendar boundaries, a resizable sticky title column, collapsible phases and a viewport-sized project overview. Move a task by dragging its bar, resize either boundary, or drag its end connection point onto a successor to create a finish-to-start dependency. The controller writes the configured period or start/end fields through the same metadata callback used by the table, preserves period progress and existing dependencies, and recognizes predecessor relation columns. Scheduling considers all table records, including filtered-out successors, rejects dependency cycles and propagates converging branches against the latest predecessor finish. The dependency and resulting dates are saved together per record; failed batches restore completed writes where possible and report incomplete restoration. Undo restores changed fields during the current view session. Embedded timelines retain their own zoom and navigation controls and own their scroll cap. Keyboard arrows move a focused bar, Shift+arrow adjusts its end, and Escape cancels the current drag.
