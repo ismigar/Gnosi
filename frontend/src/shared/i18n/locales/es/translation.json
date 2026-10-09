@@ -956,6 +956,8 @@
     "page_moved": "Página movida"
   },
   "editor": {
+    "expand_section": "Despliega la sección",
+    "collapse_section": "Pliega la sección",
     "toggle_focus_mode": "Activar o desactivar modo enfoque",
     "toggle_high_contrast": "Alternar contraste reforzado",
     "toggle_large_text": "Alternar texto ampliado",

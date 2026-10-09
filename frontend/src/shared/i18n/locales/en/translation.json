@@ -997,6 +997,8 @@
     "page_moved": "Page moved"
   },
   "editor": {
+    "expand_section": "Expand section",
+    "collapse_section": "Collapse section",
     "toggle_focus_mode": "Toggle focus mode",
     "toggle_high_contrast": "Toggle high contrast",
     "toggle_large_text": "Toggle large text",
