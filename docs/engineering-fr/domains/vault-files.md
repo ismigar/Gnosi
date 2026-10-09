@@ -34,6 +34,8 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_llm_wiki_idea_classification.py
+  - backend/tests/test_llm_wiki_note_migration.py
   - backend/tests/test_page_reference_titles.py
   - backend/tests/test_suggestion_localization.py
   - frontend/src/shared/records/pageReferenceTitle.test.ts
@@ -853,6 +855,12 @@ L’ouverture du canvas de dessin ne télécharge ni ne charge automatiquement u
 
 ## Notes générées, références lisibles et révision des connaissances
 
+Le type d’idée est une affectation par IA par défaut selon l’ID de propriété, indépendamment des champs d’index. Le contrat existant des dimensions transmet les libellés traduits autorisés et une brève justification `classification_reason` ; les valeurs vides représentent une abstention expliquée. Les affectations explicites copiées, fixes ou vides sont prioritaires. L’interprétation, la révision et l’enregistrement conservent la valeur, et `llm_wiki_idea_classification` enregistre sa version, sa méthode et sa provenance. Le retraitement préserve les valeurs modifiées manuellement. Une classification ancienne absente doit être complétée, sans appliquer Concept implicitement.
+
+Le Cerveau ne crée, ne lie et ne renseigne plus l’état de vérification ni la date de dernière révision. L’état de travail et les dates système appartiennent à l’application ; les affectations de la ressource ne peuvent pas les écraser. Les nouvelles notes de lecture sont des brouillons. L’état existant et la date de création sont conservés lors du retraitement. La catégorie des notes anciennes fondée sur les dates est retirée ; l’API conserve `stale` comme liste vide avec un compteur nul pour compatibilité. Les notes générées remplacées restent un signalement distinct.
+
+La commande explicite de migration est `python -m backend.domains.llm_wiki.note_migration --vault /path/vault --output /private/report --action preview`. Les actions `classify`, `apply` et `rollback` séparent le travail gouverné du modèle de la modification des données. La simulation ne fait que lire ; la classification réutilise les résultats des notes inchangées et les budgets de lecture existants sans réinitialiser les dépenses. L’application retire les champs et les références des vues et de la configuration par ID et rôle, conserve le corps et les autres métadonnées, vérifie une sauvegarde compressée, compare chaque original avant écriture et journalise la progression pour la reprise. Les sauvegardes et rapports doivent rester hors du vault synchronisé et de Git. La migration du schéma enregistre `note_fields_revision` et son exécution répétée est idempotente. L’action facultative `retire` applique uniquement le retrait des champs et le nettoyage de l’état de travail, signale la classification en attente et ne sollicite aucun modèle ; utiliser un répertoire de sortie distinct pour chaque phase appliquée.
+
 Le traitement des ressources crée des notes de lecture avec le statut `Esborrany` et les dates canoniques de création et de modification de la table. Le retraitement conserve la date de création et le statut de travail existant, actualise la modification et préserve les identifiants stables et le texte de l'utilisateur.
 
 Les liens internes affichent les titres actuels dans les éditeurs, relations, tables, galeries, kanban, recherches, graphes, mentions et prédécesseurs de planification. Le résolveur partagé accepte les identifiants, routes de page, deux ordres de wikilink et citations de ressources `gnosi-cite:`. Les références inconnues affichent un texte provisoire localisé pendant le chargement du titre. Les index de relations conservent leurs clés gérées et identifiants enregistrés avec des libellés lisibles.
@@ -864,3 +872,5 @@ Les connexions des connaissances demandent leurs textes dans la langue active vi
 Le dialogue de révision regroupe les notes et ressources concernées en catégories dépliables avec des liens par titre et des lots de vingt entrées. Ouvrir un résultat ferme le dialogue et ouvre son enregistrement. La vérification des notes orphelines reconnaît `[[id|title]]` et `[[title|id]]`. La révision ne retraite pas automatiquement les ressources et ne crée pas de note permanente.
 
 Sur le bureau, la sélection des fichiers et dossiers utilise la capacité IPC fiable et validée `pick-filesystem` et le dialogue natif du système. Annuler ferme le sélecteur sans appliquer de sélection ; les sélections multiples conservent le type de fichier ou dossier de chaque chemin. Windows et Linux proposent d'abord un choix natif entre fichiers et dossiers pour la sélection combinée. Le navigateur interne reste disponible aux clients web sans le pont de bureau.
+
+Ajoutez `--resource-id <id>` à `preview` pour classer un seul document ; les actions suivantes réutilisent cette sélection enregistrée. La classification lie le propriétaire personnel vérifié, exclut les contextes joints et les mémoires révisées, désactive les délégations et réserve au maximum 4 096 tokens de sortie par lot sans modifier les plafonds de dépenses.

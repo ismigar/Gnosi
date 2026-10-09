@@ -34,6 +34,8 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_llm_wiki_idea_classification.py
+  - backend/tests/test_llm_wiki_note_migration.py
   - backend/tests/test_page_reference_titles.py
   - backend/tests/test_suggestion_localization.py
   - frontend/src/shared/records/pageReferenceTitle.test.ts
@@ -718,6 +720,12 @@ Opening the drawing canvas does not automatically download or load an OCR model.
 
 ## Generated knowledge notes, readable references, and review
 
+Idea type is a default AI assignment by property ID, independently of index fields. The existing dimension contract carries allowed localized labels and a brief `classification_reason`; empty values represent explained abstention. Explicit copied, fixed and empty assignments take precedence. Interpretation, review and persistence retain the value, and `llm_wiki_idea_classification` records its version, method and provenance. Reprocessing preserves a manually changed value. Missing legacy classification requires completion instead of an implicit Concept.
+
+The Brain no longer seeds, binds or writes verification status or last-review dates. Workflow status and system timestamps are application-owned; source assignments cannot overwrite them. New reading notes are drafts. Existing workflow states and creation dates survive reprocessing. The date-based stale-note category is retired; the API retains `stale` as an empty list and its count as zero for compatibility. Superseded managed notes remain a separate finding.
+
+The explicit migration command is `python -m backend.domains.llm_wiki.note_migration --vault /path/vault --output /private/report --action preview`. Actions `classify`, `apply` and `rollback` separate governed model work from data mutation. Preview is read-only; classification reuses unchanged per-note results and existing reading budgets without resetting spending. Apply removes retired fields and view/configuration references by ID and role, preserves note bodies and other metadata, verifies a compressed backup, compares every source before writing, and journals progress for recovery. Backups and reports must remain outside the synced vault and Git. The schema migration records `note_fields_revision` and repeated execution is idempotent. The optional `retire` action applies only field retirement and workflow cleanup, reports pending classification, and makes no model calls; use a separate output directory for each applied phase.
+
 Resource processing creates reading notes with `Esborrany` status and the table's canonical creation and modification dates. Reprocessing retains the creation date and an existing workflow status, refreshes modification time, and keeps stable page IDs and user-written content.
 
 Internal links display current page titles in editors, relations, tables, galleries, kanban, search, graphs, mentions, and planning predecessors. The shared resolver accepts IDs, page routes, both wikilink orders, and `gnosi-cite:` resource links. Unknown references show a localized placeholder while their titles load. Derived relation indexes keep their managed keys and stored IDs while using readable labels.
@@ -729,3 +737,5 @@ Knowledge connections request their captions in the active UI locale through the
 The review dialog groups affected notes and resources into expandable finding categories with title links and batches of twenty entries. Opening a finding closes the dialog and opens its record. The orphan check recognizes both `[[id|title]]` and `[[title|id]]`. Reviewing never automatically reprocesses a resource or creates a permanent note.
 
 Desktop file and folder selection uses the trusted, validated `pick-filesystem` IPC capability and the operating system's native dialog. Cancellation closes the picker without applying a selection; multiple selections retain each path's file or directory kind. Windows and Linux first use a native choice between file and folder modes for combined selection. The in-app filesystem browser remains available to browser clients without the desktop bridge.
+
+Add `--resource-id <id>` to `preview` to classify only one resource; subsequent actions reuse that saved selection. Classification binds the verified personal owner, excludes attached context and reviewed memories, disables team handoffs, and reserves at most 4,096 output tokens per batch without changing budget limits.

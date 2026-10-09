@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1178 | 130176 | 55 |
+| `features` | 1178 | 130182 | 55 |
 | `generated` | 2 | 49841 | 510 |
 | `shared` | 286 | 32861 | 440 |
 
@@ -131,7 +131,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/agent/chat/useChatSessionSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatSessionSelection.ts) | 51 | `useChatSessionSelection`, `useSessionMessageBinding` | — |
 | [`frontend/src/features/agent/chat/useNotebookConversation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useNotebookConversation.ts) | 33 | `useNotebookConversation` | — |
 | [`frontend/src/features/agent/inbox/BrainInbox.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/inbox/BrainInbox.tsx) | 251 | `BrainInbox` | — |
-| [`frontend/src/features/agent/inbox/BrainReviewDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/inbox/BrainReviewDialog.tsx) | 61 | `BrainReviewDialog` | — |
+| [`frontend/src/features/agent/inbox/BrainReviewDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/inbox/BrainReviewDialog.tsx) | 60 | `BrainReviewDialog` | — |
 | [`frontend/src/features/agent/inbox/BrainReviewFindings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/inbox/BrainReviewFindings.tsx) | 38 | `BrainReviewFindings` | — |
 | [`frontend/src/features/agent/inbox/BrainTools.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/inbox/BrainTools.tsx) | 148 | `BrainTools` | — |
 | [`frontend/src/features/agent/inbox/brainReviewFindingsModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/inbox/brainReviewFindingsModel.ts) | 20 | `reviewFindings` | — |
@@ -480,7 +480,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/plugin-management/plugins-settings/DailyNotesConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/DailyNotesConfig.tsx) | 127 | `DailyNotesConfig` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.tsx) | 14 | `LlmWikiAgentSettings` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/LlmWikiConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiConfig.tsx) | 156 | `LlmWikiConfig` | — |
-| [`frontend/src/features/plugin-management/plugins-settings/LlmWikiFieldAssignments.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiFieldAssignments.tsx) | 114 | `LlmWikiFieldAssignments` | — |
+| [`frontend/src/features/plugin-management/plugins-settings/LlmWikiFieldAssignments.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiFieldAssignments.tsx) | 119 | `LlmWikiFieldAssignments` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/LlmWikiSourceCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiSourceCard.tsx) | 101 | `LlmWikiSourceCard` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/PlanningAssignments.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/PlanningAssignments.tsx) | 89 | `PlanningAssignments` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/PlanningCalendarsResources.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/PlanningCalendarsResources.tsx) | 110 | `PlanningCalendarsResources` | — |
@@ -496,7 +496,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/plugin-management/plugins-settings/WebClipperConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/WebClipperConfig.tsx) | 167 | `WebClipperConfig` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/llmWikiModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/llmWikiModel.ts) | 204 | `EMPTY_LLM_WIKI_DRAFT`, `detectLlmWikiSource`, `isLlmWikiDraftComplete`, `normalizeFieldName`, `normalizeLlmWikiDraft`, `serializeLlmWikiDraft` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/loadLlmWikiSettings.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/loadLlmWikiSettings.ts) | 27 | `loadLlmWikiSettings` | — |
-| [`frontend/src/features/plugin-management/plugins-settings/pluginSettingsModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/pluginSettingsModel.ts) | 211 | `SELECT_STYLE`, `apiErrorMessage`, `isNewerVersion`, `isPluginSection`, `isRecord`, `lifecycleConflict`, `normalizeBuiltinPlugins`, `normalizeVaultTables`, `numberSetting`, `readPendingPluginId`, `settingsRecord`, `sortPluginsByName`, `stringArraySetting`, `stringSetting` | — |
+| [`frontend/src/features/plugin-management/plugins-settings/pluginSettingsModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/pluginSettingsModel.ts) | 213 | `SELECT_STYLE`, `apiErrorMessage`, `isNewerVersion`, `isPluginSection`, `isRecord`, `lifecycleConflict`, `normalizeBuiltinPlugins`, `normalizeVaultTables`, `numberSetting`, `readPendingPluginId`, `settingsRecord`, `sortPluginsByName`, `stringArraySetting`, `stringSetting` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/projectPlanningModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/projectPlanningModel.ts) | 107 | `EMPTY_ASSIGNMENT`, `EMPTY_RESOURCE`, `holidayRowsForYear`, `isValidIsoDate`, `planningAssignment` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/thirdPartyModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/thirdPartyModel.ts) | 67 | `downloadBlob` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.ts) | 185 | `useLlmWikiController` | — |

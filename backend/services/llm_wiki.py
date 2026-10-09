@@ -16,7 +16,7 @@ import uuid
 from collections.abc import Callable, Iterable
 from functools import partial, wraps
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol, cast, ParamSpec, TypeVar
+from typing import Dict, List, Optional, ParamSpec, Protocol, TypeVar
 
 from backend.config.logger_config import get_logger
 from backend.domains.llm_wiki import dimensions as llm_wiki_dimensions
@@ -25,9 +25,9 @@ from backend.domains.llm_wiki import legacy_ports
 from backend.domains.llm_wiki import planning as llm_wiki_planning
 from backend.domains.llm_wiki import writing as llm_wiki_writing
 from backend.domains.llm_wiki.citation_rendering import (
-    format_timestamp as _format_timestamp,
     locator_label as _locator_label,
-    parse_page as _parse_page,
+)
+from backend.domains.llm_wiki.citation_rendering import (
     render_citations as _render_citations,
 )
 from backend.domains.vault.pages.foundation_values import PageMetadata
@@ -97,7 +97,6 @@ def read_source(
     for name, value in (metadata or {}).items():
         if name in {"title", "id", "table_id"}:
             continue
-        value_text = str(value or "")
         lowered = str(name).casefold()
         if "url" in lowered:
             ptype = "url"
@@ -268,17 +267,11 @@ def _base_note_metadata(
     position: Optional[int] = None,
 ) -> PageMetadata:
     """Build metadata shared by every generated reading note."""
-    note_type = str(note.get("type") or "").strip().lower()
-    if note_type not in NOTE_TYPES:
-        note_type = "concepte"
     tags = note.get("tags")
     tags = [str(tag).strip() for tag in tags if str(tag).strip()] if isinstance(tags, list) else []
     metadata: PageMetadata = {
         "title": str(note.get("title") or "").strip(),
         "note_type": GENERATED_NOTE_TYPE,
-        "Tipus": note_type,
-        "Estat de verificació": "provisional",
-        "Última revisió": _today(),
         "Tags": tags,
     }
     if position is not None:

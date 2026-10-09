@@ -7,7 +7,7 @@ Keep interpretive policy here; the worker owns scheduling, evidence identities, 
 from backend.services.agent_behavior import resource as behavior_resource
 
 SKILL_ID = "plugin.llm-wiki.process-source"
-SKILL_VERSION = "5"
+SKILL_VERSION = "6"
 
 INSTRUCTIONS = behavior_resource('skills/plugin.llm-wiki.process-source/SKILL.md')
 
@@ -17,7 +17,6 @@ NOTE_CONTRACT: dict[str, object] = {
     "notes": [
         {
             "title": "One idea",
-            "type": "concepte",
             "body_md": "Reading note",
             "tags": [],
             "source_segment_id": "primary segment id",

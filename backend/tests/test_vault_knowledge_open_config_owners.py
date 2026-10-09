@@ -38,7 +38,7 @@ def test_normalized_config_retains_original_coercions_and_deduplication() -> Non
                            "language_property_id": "", "include_body": False,
                            "relation_property_id": "", "dimension_mappings": {}}],
         "index_field_ids": ["a", "2", "None"], "brain_roles": {"7": "id"},
-        "source_contract_revision": 0, "configured": True,
+        "source_contract_revision": 0, "note_fields_revision": 0, "configured": True,
     }
     assert value["target_table"] == " brain " and 7 in value
 

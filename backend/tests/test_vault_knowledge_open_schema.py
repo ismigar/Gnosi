@@ -47,7 +47,7 @@ def test_schema_dependency_keeps_late_registry_and_property_callbacks(
     monkeypatch.setattr(facade, "load_registry", lambda: registry)
     monkeypatch.setattr(facade, "save_registry", save)
     monkeypatch.setattr(schema, "_brain_property", new_property)
-    assert schema.ensure_brain_table_schema("brain", "ca") == 9
+    assert schema.ensure_brain_table_schema("brain", "ca") == 7
     assert events[0] == "enter" and events[-2:] == ["save", "exit"]
     events.clear()
     assert schema.ensure_brain_table_schema("brain", "ca") == 0

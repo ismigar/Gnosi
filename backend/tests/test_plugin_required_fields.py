@@ -20,7 +20,7 @@ from backend.services.plugin_fields import bind, preserve_required_properties
 def _field(role: str, name: str, field_type: str = "select") -> dict:
     prop = {"id": f"uuid-{role}", "name": name, "type": field_type}
     bind(prop, "llm-wiki", role)
-    if role in {"idea_type", "verification"}:
+    if role == "idea_type":
         ensure_catalog(prop, role, "ca")
     return prop
 
@@ -40,11 +40,11 @@ def test_localized_catalogs_and_renamed_fields_keep_their_roles(locale):
         load_registry=lambda: reg,
         save_registry=lambda value: saves.append(deepcopy(value)),
     )
-    assert ensure_brain_table_schema("brain", locale, {}, deps) == 8
+    assert ensure_brain_table_schema("brain", locale, {}, deps) == 6
     roles = schema._infer_brain_roles(table)
     for role, name, _ in facade._brain_schema(locale):
         prop = next(p for p in table["properties"] if p["name"] == name)
-        if role in {"idea_type", "verification"}:
+        if role == "idea_type":
             assert len(prop["config"]["options"]) == 4
         if role not in {"areas", "tags"}:
             prop["aliases"].append(prop["name"])
@@ -95,17 +95,17 @@ def test_required_property_replacements_fail_before_mutating_saved_schema(change
 
 
 def test_full_schema_rename_cannot_strip_required_bindings_or_catalog_mapping():
-    old = {"properties": [_field("verification", "Verification")]}
+    old = {"properties": [_field("idea_type", "Idea type")]}
     new = deepcopy(old)
-    new["properties"][0]["name"] = "Evidence review"
+    new["properties"][0]["name"] = "Idea classification"
     new["properties"][0]["config"].pop("plugin_roles")
     new["properties"][0]["config"].pop("plugin_option_values")
     preserve_required_properties(old, new)
-    assert new["properties"][0]["config"]["plugin_roles"] == {"llm-wiki": "verification"}
-    assert new["properties"][0]["config"]["plugin_option_values"]["provisional"] == "Provisional"
+    assert new["properties"][0]["config"]["plugin_roles"] == {"llm-wiki": "idea_type"}
+    assert new["properties"][0]["config"]["plugin_option_values"]["concepte"] == "Concepte"
 
 
-def test_generated_notes_write_catalog_values_and_dates_after_arbitrary_renames(tmp_path):
+def test_generated_notes_write_classification_and_omit_retired_fields_after_renames(tmp_path):
     from backend.domains.llm_wiki import writing
     from backend.tests.test_llm_wiki_writing_open_metadata_contract import _dependencies
 
@@ -130,13 +130,13 @@ def test_generated_notes_write_catalog_values_and_dates_after_arbitrary_renames(
         dependencies=deps,
     )
     assert saved[0]["Classification"] == "Síntesi"
-    assert saved[0]["Evidence"] == "Provisional"
+    assert "Evidence" not in saved[0]
     assert saved[0]["Order"] == 3
-    assert saved[0]["Reviewed on"] == "2026-01-01"
+    assert "Reviewed on" not in saved[0]
     assert "Tipus" not in saved[0] and "Última revisió" not in saved[0]
 
 
-def test_lint_reads_review_id_after_rename_not_last_edit_date(monkeypatch):
+def test_lint_ignores_retired_review_id_and_last_edit_date(monkeypatch):
     from backend.services import llm_wiki_config
     from backend.services import llm_wiki_lint as lint
 
@@ -155,7 +155,8 @@ def test_lint_reads_review_id_after_rename_not_last_edit_date(monkeypatch):
         },
     )
     monkeypatch.setattr(lint.legacy_ports, "table_pages", lambda _: [page])
-    assert lint._load_notes("brain")[0]["review"] == "2026-09-01"
+    notes = lint._load_notes("brain")
+    assert notes[0]["review"] == "" and lint._stale_findings(notes) == []
 
 
 def test_renaming_catalog_choice_preserves_writer_semantics():
@@ -163,14 +164,14 @@ def test_renaming_catalog_choice_preserves_writer_semantics():
     from backend.domains.vault.tables.catalogs.core import get_prop_options, set_prop_options
     from backend.domains.vault.tables.options import _rename_local_option
 
-    prop = _field("verification", "Evidence")
+    prop = _field("idea_type", "Idea classification")
     deps = SimpleNamespace(
         get_prop_options=get_prop_options,
         set_prop_options=set_prop_options,
         save_registry=lambda _: None,
     )
-    _rename_local_option({}, {}, prop, prop["config"], "Provisional", "Pending evidence", deps)
-    assert catalog_value(prop, "provisional") == "Pending evidence"
+    _rename_local_option({}, {}, prop, prop["config"], "Concepte", "My concept", deps)
+    assert catalog_value(prop, "concepte") == "My concept"
     preserve_required_properties({"properties": [prop]}, deepcopy({"properties": [prop]}))
     replacement = deepcopy(prop)
     replacement["config"]["options"] = []

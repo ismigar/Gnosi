@@ -85,9 +85,7 @@ def test_run_lint_preserves_all_finding_categories(
     report = lint.run_lint("brain", ["references"])
 
     assert report["orphans"] == [{"id": "beta-id", "title": "Beta Concept"}]
-    assert report["stale"] == [
-        {"id": "alpha-id", "title": "Alpha Concept", "review": None, "days": None}
-    ]
+    assert report["stale"] == []
     assert report["missing_xref"] == [
         {
             "id": "alpha-id",
@@ -111,7 +109,7 @@ def test_run_lint_preserves_all_finding_categories(
     assert report["index_drift"] == [{"source_table_id": "sources", "resource_id": "resource-1"}]
     assert report["counts"] == {
         "orphans": 1,
-        "stale": 1,
+        "stale": 0,
         "missing_xref": 1,
         "reprocess": 1,
         "duplicate_keys": 1,

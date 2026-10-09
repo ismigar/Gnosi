@@ -34,6 +34,8 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_llm_wiki_idea_classification.py
+  - backend/tests/test_llm_wiki_note_migration.py
   - backend/tests/test_page_reference_titles.py
   - backend/tests/test_suggestion_localization.py
   - frontend/src/shared/records/pageReferenceTitle.test.ts
@@ -838,6 +840,12 @@ Abrir el canvas de dibujo no descarga ni carga automáticamente un modelo OCR. E
 
 ## Notas generadas, referencias legibles y revisión del Conocimiento
 
+El tipo de idea es una asignación por IA predeterminada mediante el ID de propiedad, independiente de los campos de índice. El contrato existente de dimensiones transmite las etiquetas traducidas permitidas y una justificación breve `classification_reason`; los valores vacíos representan una abstención explicada. Las asignaciones explícitas copiadas, fijas y vacías tienen prioridad. La interpretación, la revisión y el guardado conservan el valor, y `llm_wiki_idea_classification` registra su versión, método y procedencia. El reprocesamiento preserva los valores modificados manualmente. La clasificación antigua ausente debe completarse, sin aplicar Concepto implícitamente.
+
+El Cerebro ya no crea, vincula ni rellena el estado de verificación o la fecha de última revisión. El estado de trabajo y las fechas del sistema pertenecen a la aplicación; las asignaciones del recurso no pueden sobrescribirlos. Las nuevas notas de lectura son borradores. El estado existente y la fecha de creación se conservan al reprocesar. Se retira la categoría de notas antiguas basada en fechas; la API conserva `stale` como lista vacía y el recuento a cero por compatibilidad. Las notas generadas sustituidas siguen siendo una incidencia diferente.
+
+La orden explícita de migración es `python -m backend.domains.llm_wiki.note_migration --vault /path/vault --output /private/report --action preview`. Las acciones `classify`, `apply` y `rollback` separan el trabajo gobernado del modelo de la modificación de datos. La simulación solo lee; la clasificación reutiliza los resultados de notas sin cambios y los presupuestos de lectura existentes sin reiniciar el gasto. La aplicación retira los campos y referencias en vistas y configuración por ID y rol, conserva el cuerpo y las demás propiedades, verifica una copia comprimida, compara cada original antes de escribir y registra el progreso para recuperarse. Las copias e informes deben quedar fuera del vault sincronizado y de Git. La migración de esquema registra `note_fields_revision` y repetirla es idempotente. La acción opcional `retire` aplica solo la retirada de campos y la limpieza del estado de trabajo, informa de la clasificación pendiente y no llama a ningún modelo; se debe usar una carpeta de salida diferente para cada fase aplicada.
+
 El procesamiento de recursos crea notas de lectura con el estado `Esborrany` y las fechas canónicas de creación y modificación de la tabla. El reprocesamiento conserva la fecha de creación y el estado de trabajo existente, actualiza la modificación y mantiene los identificadores estables y el texto del usuario.
 
 Los enlaces internos muestran los títulos actuales en editores, relaciones, tablas, galerías, kanban, búsqueda, grafos, menciones y predecesores de planificación. El resolutor compartido admite identificadores, rutas de página, ambos órdenes de wikilink y citas de recursos `gnosi-cite:`. Las referencias desconocidas muestran un texto provisional localizado mientras se carga su título. Los índices de relaciones conservan sus claves gestionadas e identificadores guardados con etiquetas legibles.
@@ -849,3 +857,5 @@ Las conexiones del Conocimiento solicitan sus textos en el idioma activo mediant
 El diálogo de revisión agrupa notas y recursos afectados en categorías desplegables con enlaces por título y lotes de veinte entradas. Abrir un resultado cierra el diálogo y abre su registro. La comprobación de notas huérfanas reconoce tanto `[[id|title]]` como `[[title|id]]`. La revisión no reprocesa recursos automáticamente ni crea notas permanentes.
 
 En el escritorio, la selección de archivos y carpetas utiliza la capacidad IPC fiable y validada `pick-filesystem` y el diálogo nativo del sistema operativo. Cancelar cierra el selector sin aplicar una selección; las selecciones múltiples conservan el tipo de archivo o carpeta de cada ruta. Windows y Linux muestran primero una elección nativa entre archivos y carpetas para la selección combinada. El navegador interno sigue disponible para clientes web sin el puente de escritorio.
+
+Añada `--resource-id <id>` a `preview` para clasificar solo un recurso; las acciones posteriores reutilizan esa selección guardada. La clasificación vincula al propietario personal verificado, excluye contextos adjuntos y memorias revisadas, desactiva las delegaciones y reserva como máximo 4096 tokens de salida por lote sin cambiar los límites de gasto.

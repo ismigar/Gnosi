@@ -80952,7 +80952,7 @@
         ]
       },
       "post": {
-        "description": "Designate an existing table as the Brain and guarantee its\nknowledge schema (note type, sources, verification status, and more).",
+        "description": "Designate an existing table as the Brain and guarantee its\nknowledge schema (note type, idea classification, sources, and more).",
         "operationId": "set_brain_table_api_vault_brain_table_post",
         "parameters": [
           {
@@ -88019,7 +88019,7 @@
         ]
       },
       "post": {
-        "description": "Designate an existing table as the Brain and guarantee its\nknowledge schema (note type, sources, verification status, and more).",
+        "description": "Designate an existing table as the Brain and guarantee its\nknowledge schema (note type, idea classification, sources, and more).",
         "operationId": "knowledge_set_brain_table_brain_table_post",
         "parameters": [
           {
