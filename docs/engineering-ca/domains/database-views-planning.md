@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-10-09
 source_paths:
+  - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
   - frontend/src/shared/record-views/pinnedViewOrder.ts
   - frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx
   - frontend/src/shared/filtering/exposedFilters.ts
@@ -451,3 +452,5 @@ La cobertura de regressió inclou `exposedFilters.test.ts`, `PageViewModal.test.
 `backend/tests/test_exposed_view_configuration.py`.
 
 La pestanya General del diàleg de vistes incrustades ofereix controls per pujar i baixar les pestanyes fixades, inclosa la vista àncora. L’àncora continua visible i no es pot desmarcar. El diàleg mostra les vistes fixades en l’ordre desat abans de les disponibles, i el bloc mostra les pestanyes en aquest mateix ordre. Les preferències del bloc es desen per pàgina i vista àncora a l’emmagatzematge local del navegador; les pestanyes del registre només aporten els valors per defecte quan no hi ha cap preferència del bloc. En reobrir o recarregar es conserven tant l’ordre triat com les vistes desmarcades.
+
+Els taulers Kanban incrustats gestionen el límit d’alçada i el desplaçament en els dos eixos. La barra horitzontal queda dins de l’àrea limitada perquè totes les columnes siguin accessibles; els taulers amb alçada segons el contingut creixen sense límit vertical.

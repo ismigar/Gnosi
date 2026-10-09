@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-10-09
 source_paths:
+  - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
   - frontend/src/shared/record-views/pinnedViewOrder.ts
   - frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx
   - frontend/src/shared/filtering/exposedFilters.ts
@@ -447,3 +448,5 @@ La cobertura de regresión incluye `exposedFilters.test.ts`, `PageViewModal.test
 `backend/tests/test_exposed_view_configuration.py`.
 
 La pestaña General del diálogo de vistas insertadas ofrece controles para subir y bajar las pestañas fijadas, incluida la vista ancla. El ancla permanece visible y no se puede desmarcar. El diálogo muestra las vistas fijadas en el orden guardado antes de las disponibles, y el bloque muestra las pestañas en ese mismo orden. Las preferencias del bloque se guardan por página y vista ancla en el almacenamiento local del navegador; las pestañas del registro solo aportan los valores predeterminados cuando no hay ninguna preferencia del bloque. Al reabrir o recargar se conservan tanto el orden elegido como las vistas desmarcadas.
+
+Los tableros Kanban insertados gestionan el límite de altura y el desplazamiento en ambos ejes. La barra horizontal queda dentro del área limitada para que todas las columnas sean accesibles; los tableros con altura según el contenido crecen sin límite vertical.

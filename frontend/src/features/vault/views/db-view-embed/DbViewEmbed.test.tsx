@@ -195,7 +195,7 @@ describe('embedded view data and editor navigation', () => {
             await render();
             expect(fixture.body?.maxHeight).toBe('45vh');
             expect(fixture.body?.activeView).toMatchObject({ heightPercent: 45 });
-            if (type !== 'table' && type !== 'list' && type !== 'timeline') {
+            if (type !== 'table' && type !== 'list' && type !== 'timeline' && type !== 'board') {
                 expect(container.querySelector('[data-testid="body"]')?.parentElement?.style.maxHeight).toBe('45vh');
             }
         },

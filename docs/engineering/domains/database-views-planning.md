@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-10-09
 source_paths:
+  - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
   - frontend/src/shared/record-views/pinnedViewOrder.ts
   - frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx
   - frontend/src/shared/filtering/exposedFilters.ts
@@ -397,3 +398,5 @@ Regression coverage includes `exposedFilters.test.ts`, `PageViewModal.test.tsx`,
 `backend/tests/test_exposed_view_configuration.py`.
 
 The General tab of the embedded view dialog provides up/down controls to order pinned tabs, including the anchor view. The anchor stays visible and cannot be unpinned. The dialog lists pinned views in their saved order before available views, and the embed renders the same order. Block preferences are stored per page and anchor view in local browser storage; registry tabs supply defaults only when no block preference exists. Reopening or reloading retains both the chosen order and explicit removals.
+
+Embedded Kanban boards own their height cap and both scroll axes. The horizontal scrollbar stays within the bounded viewport so every column remains accessible; content-height boards grow without a vertical cap.

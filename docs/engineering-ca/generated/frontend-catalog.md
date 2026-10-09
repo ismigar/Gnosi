@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1179 | 130322 | 55 |
+| `features` | 1179 | 130325 | 55 |
 | `generated` | 2 | 49841 | 510 |
 | `shared` | 296 | 33273 | 440 |
 
@@ -1120,7 +1120,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/views/VaultFeedReadingPane.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultFeedReadingPane.tsx) | 157 | `VaultFeedReadingPane` | — |
 | [`frontend/src/features/vault/views/VaultGallery.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultGallery.tsx) | 271 | `VaultGallery` | — |
 | [`frontend/src/features/vault/views/VaultGraph.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultGraph.tsx) | 178 | `VaultGraph` | — |
-| [`frontend/src/features/vault/views/VaultKanban.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultKanban.tsx) | 262 | `VaultKanban` | — |
+| [`frontend/src/features/vault/views/VaultKanban.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultKanban.tsx) | 265 | `VaultKanban` | — |
 | [`frontend/src/features/vault/views/VaultTable.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultTable.tsx) | 11 | `VaultTable` | — |
 | [`frontend/src/features/vault/views/VaultViewBody.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultViewBody.tsx) | 302 | `VaultViewBody` | — |
 | [`frontend/src/features/vault/views/VaultViewErrorBoundary.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultViewErrorBoundary.tsx) | 109 | `VaultViewErrorBoundary` | — |
