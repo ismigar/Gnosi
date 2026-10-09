@@ -11,7 +11,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 644 | 2825 |
+| Vitest | 644 | 2829 |
 | pytest | 651 | 4787 |
 
 ## Fichiers
@@ -477,7 +477,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/vault/views/vault-kanban/vaultKanbanModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-kanban/vaultKanbanModel.test.ts) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/accessibility.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/accessibility.test.tsx) | 0 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/cellValues.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/cellValues.test.ts) | 4 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/views/vault-table/controller.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/controller.test.tsx) | 29 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/views/vault-table/controller.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/controller.test.tsx) | 33 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/identityReset.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/identityReset.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/metadata.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/metadata.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/pickers.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/pickers.test.tsx) | 10 | call-pattern estimate |

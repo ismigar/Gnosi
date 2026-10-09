@@ -1,3 +1,4 @@
+import { useTablePointerSelection } from './useTablePointerSelection';
 import { TableFormulaBar } from './TableFormulaBar';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
@@ -13,6 +14,7 @@ import { TableMediaDialog } from './TableMediaDialog';
 import type { TableController } from './useTableController';
 
 export function TableLayout({ model }: { model: TableController; }) {
+  const pointerSelection = useTablePointerSelection(model);
   const {
     maxHeight,
     isEmbedded,
@@ -85,10 +87,7 @@ export function TableLayout({ model }: { model: TableController; }) {
             const first = model.navRows[0];
             if (first) { event.preventDefault(); model.setActiveCell({ rowId: first.id, field: 'title' }); }
           }}
-          onPointerDownCapture={event => {
-            claimKeyboard();
-            if (event.target instanceof Element && !event.target.closest('input, textarea, select, button, a, [contenteditable="true"]')) event.currentTarget.focus({ preventScroll: true });
-          }}
+          {...pointerSelection}
           style={maxHeight ? { maxHeight } : undefined}
           className={`bg-[var(--bg-primary)] overflow-auto custom-scrollbar ${maxHeight ? '' : 'flex-1'} ${isEmbedded ? `${activeCell ? 'ring-1 ring-[var(--gnosi-primary)]/30' : ''} transition-all` : 'border-none shadow-none'} ${isListView ? 'border-none shadow-none' : ''}`}>
 

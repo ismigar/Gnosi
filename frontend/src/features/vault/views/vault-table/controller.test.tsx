@@ -1,3 +1,4 @@
+import { useTablePointerSelection } from './useTablePointerSelection';
 import { act, useLayoutEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mountTestComponent } from '../../../../../tests/mount-react';
@@ -70,13 +71,19 @@ it('table assignment functionality submits one evaluated batch instead of partia
     expect(patchVaultTablePage).not.toHaveBeenCalled();
   } finally { table.unmount(); }
 });
-function mountController(extra: Partial<VaultTableProps> = {}) {
+function mountController(extra: Partial<VaultTableProps> = {}, withCells = false) {
   let current: TableController | undefined;
   const props: VaultTableProps = { notes, schema, activeView: { id: 'fixture-view', table_id: 'fixture', sorts: [] }, onNoteSelect: vi.fn(), ...extra };
   function Probe({ input }: { input: VaultTableProps; }) {
     const model = useTableController(input);
+    const pointer = useTablePointerSelection(model);
     useLayoutEffect(() => { current = model; });
-    return <div ref={model.tableContainerRef} />;
+    return <div data-vault-table-scroll ref={model.tableContainerRef} {...pointer}>
+      {withCells && <table><tbody>{model.navRows.map(row => <tr key={row.id}>
+        {model.gridColumns.map(column => <td key={column.key} data-grid-row={row.id} data-grid-field={column.key}
+          aria-selected={model.getCellSelState(row.id, column.key).inRange} />)}
+      </tr>)}</tbody></table>}
+    </div>;
   }
   const mounted = mountTestComponent(<Probe input={props} />);
   return {
@@ -370,5 +377,65 @@ it('keeps paste available when a row-selection checkbox has focus', async () => 
   checkbox.focus();
   await act(async () => { checkbox.dispatchEvent(new KeyboardEvent('keydown', { key: 'v', ctrlKey: true, bubbles: true, cancelable: true })); await Promise.resolve(); });
   expect(transportFetch).toHaveBeenCalledWith('/api/vault/pages/b', expect.objectContaining({ body: JSON.stringify({ metadata: { Score: 42 } }) }));
+  table.unmount();
+});
+
+
+it('broadcasts one value across a two-dimensional selection', async () => {
+  const table = mountController({ schema: { Score: 'number', Text: 'text' } });
+  act(() => { table.model().setActiveCell({ rowId: 'a', field: 'Score' }); table.model().setAnchorCell({ rowId: 'b', field: 'Text' }); });
+  await act(async () => { await table.model().handlePasteCells('42'); });
+  expect(transportFetch).toHaveBeenCalledTimes(2);
+  for (const id of ['a', 'b']) expect(table.model().noteById.get(id)?.metadata).toMatchObject({ Score: 42, Text: '42' });
+  table.unmount();
+});
+
+it('pastes only into modifier-selected cells and clears them on normal navigation', async () => {
+  const table = mountController({ schema: { Score: 'number', Text: 'text' } }, true);
+  act(() => { table.model().setActiveCell({ rowId: 'a', field: 'Score' }); });
+  const other = table.container.querySelector('[data-grid-row="b"][data-grid-field="Text"]');
+  if (!other) throw new Error('Missing target');
+  act(() => { other.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, buttons: 1, metaKey: true })); });
+  expect(table.model().selectedCells).toEqual([{ rowId: 'a', field: 'Score' }, { rowId: 'b', field: 'Text' }]);
+  expect(table.model().getCellSelState('a', 'Text').inRange).toBe(false);
+  await act(async () => { await table.model().handlePasteCells('42'); });
+  expect(table.model().noteById.get('a')?.metadata).toMatchObject({ Score: 42, Text: 'alpha' });
+  expect(table.model().noteById.get('b')?.metadata).toMatchObject({ Score: 5, Text: '42' });
+  act(() => { other.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, buttons: 1, ctrlKey: true })); });
+  expect(table.model().selectedCells).toEqual([{ rowId: 'a', field: 'Score' }]);
+  act(() => { table.model().moveCursor(1, 0, false); });
+  expect(table.model().selectedCells).toEqual([]);
+  table.unmount();
+});
+
+it('drags a range and handles native paste without system clipboard access', async () => {
+  const readText = vi.fn().mockResolvedValue('wrong');
+  vi.stubGlobal('navigator', { clipboard: { readText } });
+  const table = mountController({ schema: { Score: 'number', Text: 'text' } }, true);
+  const first = table.container.querySelector('[data-grid-row="a"][data-grid-field="Score"]');
+  const last = table.container.querySelector('[data-grid-row="b"][data-grid-field="Text"]');
+  if (!first || !last) throw new Error('Missing targets');
+  act(() => { first.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, buttons: 1 })); });
+  act(() => { last.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, cancelable: true, buttons: 1 })); });
+  expect(table.model().getCellSelState('a', 'Text').inRange).toBe(true);
+  const paste = new Event('paste', { bubbles: true, cancelable: true });
+  Object.defineProperty(paste, 'clipboardData', { value: { getData: () => '73' } });
+  await act(async () => { last.dispatchEvent(paste); await Promise.resolve(); });
+  expect(paste.defaultPrevented).toBe(true);
+  expect(readText).not.toHaveBeenCalled();
+  expect(transportFetch).toHaveBeenCalledTimes(2);
+  for (const id of ['a', 'b']) expect(table.model().noteById.get(id)?.metadata).toMatchObject({ Score: 73, Text: '73' });
+  table.unmount();
+});
+
+it('pastes titles and metadata together and rolls back a rejected row', async () => {
+  const table = mountController({ schema: { Text: 'text' } });
+  act(() => { table.model().setActiveCell({ rowId: 'a', field: 'title' }); table.model().setAnchorCell({ rowId: 'b', field: 'Text' }); });
+  vi.mocked(transportFetch).mockResolvedValueOnce(new Response('{}', { status: 200 })).mockResolvedValueOnce(new Response('{}', { status: 500 }));
+  await act(async () => { await table.model().handlePasteCells('Renamed'); });
+  expect(transportFetch).toHaveBeenCalledTimes(2);
+  expect(transportFetch).toHaveBeenCalledWith('/api/vault/pages/a', expect.objectContaining({ body: '{"title":"Renamed","metadata":{"Text":"Renamed"}}' }));
+  expect(table.model().noteById.get('a')).toMatchObject({ title: 'Renamed', metadata: { Text: 'Renamed' } });
+  expect(table.model().noteById.get('b')).toMatchObject({ title: 'Beta', metadata: { Text: 'beta' } });
   table.unmount();
 });

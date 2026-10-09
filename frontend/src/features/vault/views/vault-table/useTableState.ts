@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { subscribeWindowEvent } from '../../../../shared/platform/browser-events';
 import { usePaneVisibility } from '../../../../shared/ui/PaneVisibility';
 import type { TitlePreviewController } from '../../../../shared/editor/useTitlePreview';
@@ -27,7 +27,12 @@ export function useTableState({ activeView, onNoteSelect, searchTermProp }: Inpu
   const groupByField = activeView?.groupBy || '';
   const [, setIsDropdownOpen] = useState(false);
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
-  const [activeCell, setActiveCell] = useState<TableCell | null>(null);
+  const [activeCell, setRawActiveCell] = useState<TableCell | null>(null);
+  const [selectedCells, setSelectedCells] = useState<TableCell[]>([]);
+  const setActiveCell: Dispatch<SetStateAction<TableCell | null>> = useCallback(cell => {
+    setSelectedCells([]);
+    setRawActiveCell(cell);
+  }, []);
   const [anchorCell, setAnchorCell] = useState<TableCell | null>(null);
   const [editInitial, setEditInitial] = useState<string | null>(null);
   const clipboardRef = useRef<{ matrix: unknown[][]; text?: string; origin?: { row: number; column: number }; } | null>(null);
@@ -56,5 +61,5 @@ export function useTableState({ activeView, onNoteSelect, searchTermProp }: Inpu
   const [visibleRowsCount, setVisibleRowsCount] = useState(ROWS_BATCH_SIZE);
   const [bulkTranslateIds, setBulkTranslateIds] = useState<string[] | null>(null);
   const [openHeaderHelp, setOpenHeaderHelp] = useState<Record<string, boolean>>({});
-  return { ROWS_BATCH_SIZE, columnWidths, setColumnWidths, columnWidthsRef, rowHeight, rowPadClass, groupByField, setIsDropdownOpen, editingCell, setEditingCell, activeCell, setActiveCell, anchorCell, setAnchorCell, editInitial, setEditInitial, clipboardRef, activeCellRef, anchorCellRef, editingCellRef, titlePreview, titlePreviewRef, mediaPickerCell, setMediaPickerCell, fileDeletePrompt, setFileDeletePrompt, fileDeleteBusy, setFileDeleteBusy, aggregations, setAggregations, searchTerm, expandedRows, setExpandedRows, expandedGroups, setExpandedGroups, newSubitemTitle, setNewSubitemTitle, addingSubitemFor, setAddingSubitemFor, openingResourceId, setOpeningResourceId, visibleRowsCount, setVisibleRowsCount, bulkTranslateIds, setBulkTranslateIds, openHeaderHelp, setOpenHeaderHelp };
+  return { ROWS_BATCH_SIZE, columnWidths, setColumnWidths, columnWidthsRef, rowHeight, rowPadClass, groupByField, setIsDropdownOpen, editingCell, setEditingCell, activeCell, setActiveCell, selectedCells, setSelectedCells, anchorCell, setAnchorCell, editInitial, setEditInitial, clipboardRef, activeCellRef, anchorCellRef, editingCellRef, titlePreview, titlePreviewRef, mediaPickerCell, setMediaPickerCell, fileDeletePrompt, setFileDeletePrompt, fileDeleteBusy, setFileDeleteBusy, aggregations, setAggregations, searchTerm, expandedRows, setExpandedRows, expandedGroups, setExpandedGroups, newSubitemTitle, setNewSubitemTitle, addingSubitemFor, setAddingSubitemFor, openingResourceId, setOpeningResourceId, visibleRowsCount, setVisibleRowsCount, bulkTranslateIds, setBulkTranslateIds, openHeaderHelp, setOpenHeaderHelp };
 }
