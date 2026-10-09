@@ -46,6 +46,7 @@ export interface VaultKanbanProps {
     readonly idToTitle?: Readonly<Record<string, string>>;
     readonly isEmbedded?: boolean;
     readonly notes?: readonly KanbanNote[];
+    readonly maxHeight?: number | string | null;
     readonly onApplyTemplate?: (selectedIds: Set<string>, templateId: string) => void;
     readonly onCreateRecord?: () => void;
     readonly onDeletePage?: (pageId: string, title: KanbanNote['title']) => void;
@@ -85,6 +86,7 @@ export function VaultKanban({
     idToTitle = {},
     isEmbedded = false,
     notes = [],
+    maxHeight = null,
     onApplyTemplate,
     onCreateRecord,
     onDeletePage,
@@ -180,7 +182,8 @@ export function VaultKanban({
         }
     }, [canDrag, groupBy, onUpdateNote, pendingMoves, setDragOverStatus, setPendingMoves, visibleNotes]);
 
-    return <div className="flex h-full w-full flex-col overflow-hidden bg-[var(--bg-primary)]">
+    return <div className={`flex min-h-0 w-full flex-col overflow-hidden bg-[var(--bg-primary)] ${isEmbedded ? '' : 'h-full'}`}
+        style={isEmbedded && maxHeight != null ? { maxHeight } : undefined}>
         {externalSearchTerm === undefined ? <div className="flex items-center justify-between gap-2">
             <VaultViewToolbar
                 activeFiltersCount={resolveViewFilters(activeView).length}
@@ -213,7 +216,7 @@ export function VaultKanban({
             templates={templates}
             totalCount={visibleNotes.length}
         /> : null}
-        <div className={`custom-scrollbar flex-1 overflow-x-auto overflow-y-auto ${isEmbedded ? '' : 'px-4 pb-4 pt-vault-header-top md:px-6 md:pb-6'}`}>
+        <div className={`custom-scrollbar min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto ${isEmbedded ? '' : 'px-4 pb-4 pt-vault-header-top md:px-6 md:pb-6'}`}>
             {!isEmbedded ? <h1 className="sticky left-0 mb-6 flex items-center gap-3 text-2xl font-bold text-[var(--text-primary)]">
                 <Columns className="text-[var(--gnosi-primary)]" size={24} />
                 {typeof activeView.name === 'string'

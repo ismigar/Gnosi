@@ -183,7 +183,7 @@ export function VaultViewBody({
     } else if (t === 'board') {
         // `onUpdateNote` enables drag & drop of cards between columns
         // (writes the record's grouping field on drop).
-        body = <VaultKanban {...common} allNotes={allNotes} isEmbedded={isEmbedded} onUpdateNote={onUpdateNote} />;
+        body = <VaultKanban {...common} allNotes={allNotes} maxHeight={maxHeight} isEmbedded={isEmbedded} onUpdateNote={onUpdateNote} />;
     } else if (t === 'gallery') {
         body = (
             <VaultGallery

@@ -6,8 +6,8 @@ const key = (pageId: string, viewId: string) => defineStorageKey(
     `gnosi_embed_pinned_${pageId}_${viewId || 'default'}`, jsonStorageCodec(stringArray),
 );
 
-export function readPinnedViews(pageId: string, viewId: string): Set<string> {
-    return new Set(readStorage(key(pageId, viewId)) || []);
+export function readPinnedViews(pageId: string, viewId: string, fallback: readonly string[] = []): Set<string> {
+    return new Set(readStorage(key(pageId, viewId)) ?? fallback);
 }
 export function writePinnedViews(pageId: string, viewId: string, pins: ReadonlySet<string>): void {
     writeStorage(key(pageId, viewId), [...pins]);

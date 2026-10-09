@@ -1,3 +1,4 @@
+import { orderedPinnedViews } from '../../../../shared/record-views/pinnedViewOrder';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { VaultEditorContext } from '../../../../shared/editor/VaultEditorContext';
@@ -39,7 +40,7 @@ export function useEmbedController({ block }: DbViewEmbedProps) {
     const tabs = useEmbedTabActions({ ...inputs, ...derived });
     const model = { ...inputs, ...derived, ...actions, ...tabs, reload };
     const adapters = createBodyAdapters(model);
-    const visibleTabs = state.tableViews.filter(v => v.id === identity.viewId || (!!v.id && state.pinnedViewIds.has(v.id)));
+    const visibleTabs = orderedPinnedViews(state.tableViews, identity.viewId, state.pinnedViewIds);
     return { ...model, ...adapters, visibleTabs };
 }
 export type EmbedModel = ReturnType<typeof useEmbedController>;
