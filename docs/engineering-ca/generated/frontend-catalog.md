@@ -50,7 +50,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `app` | 21 | 2657 | 0 |
 | `features` | 1178 | 130182 | 55 |
 | `generated` | 2 | 49841 | 510 |
-| `shared` | 293 | 33123 | 440 |
+| `shared` | 293 | 33126 | 440 |
 
 ## app
 
@@ -1495,7 +1495,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/record-views/vault-timeline/schedulingModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/schedulingModel.ts) | 119 | `buildDateMetadata`, `dateValue` | — |
 | [`frontend/src/shared/record-views/vault-timeline/timelineLabels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineLabels.ts) | 10 | `timelineErrorKey`, `timelineTitle` | — |
 | [`frontend/src/shared/record-views/vault-timeline/timelineModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineModel.ts) | 390 | `buildBarColorResolver`, `buildTimelineChart`, `buildTimelineTicks`, `predecessorCandidates`, `predecessorsFor`, `resolvePredecessorField`, `resolveTimelineDateFields`, `timelinePosition`, `timelineUnitFromConfig` | — |
-| [`frontend/src/shared/record-views/vault-timeline/timelineScale.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineScale.ts) | 92 | `calendarScale`, `scaleWidth`, `shiftTimelineDate` | — |
+| [`frontend/src/shared/record-views/vault-timeline/timelineScale.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineScale.ts) | 95 | `calendarScale`, `scaleWidth`, `shiftTimelineDate` | — |
 | [`frontend/src/shared/record-views/vault-timeline/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/types.ts) | 174 | — | — |
 | [`frontend/src/shared/record-views/vault-timeline/useTimelineDrag.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useTimelineDrag.ts) | 92 | `useTimelineDrag` | — |
 | [`frontend/src/shared/record-views/vault-timeline/useTimelineScheduling.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useTimelineScheduling.ts) | 132 | `planningSettingsFrom`, `useTimelineScheduling` | — |
