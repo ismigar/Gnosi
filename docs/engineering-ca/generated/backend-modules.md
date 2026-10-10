@@ -24,11 +24,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 232 | 47029 |
+| `services` | 233 | 47090 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **963 modules** and **188866 source lines**.
+Total: **964 modules** and **188927 source lines**.
 
 ## agent
 
@@ -843,7 +843,7 @@ Total: **963 modules** and **188866 source lines**.
 | [`backend/services/agent_diagnostics.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_diagnostics.py) | 46 | 0 | 1 | 0 | 0 | Explicit model diagnostics using the common transport and usage ledger. |
 | [`backend/services/agent_document_work.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_document_work.py) | 160 | 0 | 5 | 0 | 1 | Shared, replayable read-only action loop for complete source synthesis. |
 | [`backend/services/agent_evidence_security.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_evidence_security.py) | 58 | 0 | 2 | 0 | 1 | Bounded semantic taint analysis for untrusted agent evidence. |
-| [`backend/services/agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution.py) | 630 | 0 | 24 | 5 | 8 | One principal-agent executor for application operations and graph streams. |
+| [`backend/services/agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution.py) | 631 | 0 | 24 | 5 | 8 | One principal-agent executor for application operations and graph streams. |
 | [`backend/services/agent_execution_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_models.py) | 77 | 4 | 0 | 0 | 0 | Transport-independent contracts for principal-agent operations. |
 | [`backend/services/agent_execution_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_scope.py) | 137 | 0 | 8 | 1 | 3 | Bind authenticated application scope before crossing threads or transports. |
 | [`backend/services/agent_execution_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_store.py) | 346 | 0 | 21 | 0 | 9 | Private, scope-bound execution records shared by every application entrypoint. |
@@ -878,16 +878,17 @@ Total: **963 modules** and **188866 source lines**.
 | [`backend/services/agent_task_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_task_evaluations.py) | 211 | 0 | 11 | 0 | 1 | Reuse scoped checks before spending; save each result before the next call. |
 | [`backend/services/agent_team_context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_context.py) | 94 | 0 | 5 | 0 | 1 | Small routing evidence; executors still receive the original conversation. |
 | [`backend/services/agent_team_continuation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_continuation.py) | 100 | 0 | 4 | 0 | 1 | Reuse a verified text specialist for narrowly unambiguous follow-up edits. |
-| [`backend/services/agent_team_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_contracts.py) | 178 | 0 | 10 | 0 | 2 | Local operation and output checks for the coordinator's untrusted plan. |
+| [`backend/services/agent_team_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_contracts.py) | 194 | 0 | 11 | 0 | 2 | Local operation and output checks for the coordinator's untrusted plan. |
 | [`backend/services/agent_team_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_evaluations.py) | 25 | 0 | 1 | 0 | 0 | Metadata-only measurements for comparing the same tasks across team policies. |
-| [`backend/services/agent_team_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_models.py) | 168 | 12 | 0 | 0 | 0 | Explicit, additive contracts for governed agent teams. |
+| [`backend/services/agent_team_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_models.py) | 169 | 12 | 0 | 0 | 0 | Explicit, additive contracts for governed agent teams. |
 | [`backend/services/agent_team_output.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_output.py) | 62 | 2 | 0 | 0 | 1 | Validate a delegated result before its run completes; repair without actions. |
 | [`backend/services/agent_team_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_planning.py) | 61 | 0 | 1 | 1 | 0 | Choose an existing route, a verified continuation, or a compact director plan. |
+| [`backend/services/agent_team_planning_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_planning_schema.py) | 39 | 0 | 2 | 0 | 1 | Minimize planning metadata without removing executable constraints. |
 | [`backend/services/agent_team_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_policy.py) | 126 | 0 | 6 | 0 | 2 | Model-free eligibility and economic routing. Labels never grant capabilities. |
 | [`backend/services/agent_team_resume.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_resume.py) | 45 | 0 | 1 | 1 | 0 | Resume a frozen team plan without regenerating or replaying completed work. |
 | [`backend/services/agent_team_retention.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_retention.py) | 35 | 0 | 2 | 0 | 0 | Reviewable retention evidence; task instructions never become permanent defaults. |
 | [`backend/services/agent_team_routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_routing.py) | 102 | 0 | 3 | 0 | 2 | Capability descriptions and intact conversation context for team routing. |
-| [`backend/services/agent_team_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_runtime.py) | 529 | 0 | 19 | 4 | 2 | Teams execute through the canonical executor, never through provider clients. |
+| [`backend/services/agent_team_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_runtime.py) | 533 | 0 | 19 | 4 | 2 | Teams execute through the canonical executor, never through provider clients. |
 | [`backend/services/agent_team_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_store.py) | 131 | 0 | 6 | 0 | 1 | Private team artifacts, scoped through the owning execution record. |
 | [`backend/services/agent_team_usage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_usage.py) | 77 | 0 | 3 | 0 | 1 | Report coordinated usage once, without counting job rollups a second time. |
 | [`backend/services/agent_tool_identity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_tool_identity.py) | 7 | 0 | 1 | 0 | 1 | Technical tool identities, independent of translated display labels. |

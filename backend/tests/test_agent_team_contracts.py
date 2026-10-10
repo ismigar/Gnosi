@@ -180,6 +180,15 @@ def test_array_choices_restrict_items_and_still_reject_other_values():
         output_schema(TeamPlan(response="hello", output_contract=contract))
 
 
+def test_array_choices_are_checked_against_subsequently_declared_object_items():
+    contract = TeamOutputContract(fields=[
+        TeamOutputField(path=["classifications"], type="array", choices=["array"]),
+        TeamOutputField(path=["classifications", "*", "id"], type="string"),
+    ])
+    with pytest.raises(ValueError, match="choices must match"):
+        output_schema(TeamPlan(response="hello", output_contract=contract))
+
+
 def prepare(fixture, monkeypatch, outputs):
     from backend.domains.agent import workflow
     fixture[1].profile["team"]["direct_routes"] = []

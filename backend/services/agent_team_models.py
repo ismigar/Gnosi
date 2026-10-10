@@ -80,7 +80,8 @@ class TeamTask(BaseModel):
     expected_result: str = Field(default="Satisfy the original output contract", max_length=4000)
     acceptance: list[str] = Field(default_factory=list, max_length=8)
     skill_ids: list[str] = Field(min_length=1, max_length=32)
-    depends_on: list[str] = Field(default_factory=list, max_length=3)
+    depends_on: list[str] = Field(default_factory=list, max_length=3,
+        description="Only IDs of earlier tasks; never this task's own ID. Use [] for a standalone task.")
     read_only: bool = True
     temporary: TemporaryAgentSpec | None = None
 

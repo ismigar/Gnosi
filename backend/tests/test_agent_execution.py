@@ -50,7 +50,7 @@ def test_migration_preserves_personal_brain_and_disabled_features():
     ('knowledge.process-source.phase', 'max', False, None),
     ('knowledge.process-source.phase', 'low', False, None),
     ('team.plan', None, False, 'one_step_lower'),
-    ('team.replan', None, False, 'one_step_lower'),
+    ('team.replan', None, False, None),
     ('team.plan', None, True, None),
     ('team.replan', None, True, None),
     ('team.plan', 'max', False, None),
@@ -60,7 +60,8 @@ def test_migration_preserves_personal_brain_and_disabled_features():
     ('writing', None, False, None),
     ('other.operation', None, False, None),
 ])
-def test_phase_scoped_default_reasoning_preserves_explicit_choices(monkeypatch, runtime, operation, effort, retry, expected):
+@pytest.mark.parametrize('economical', [True, False])
+def test_phase_scoped_default_reasoning_preserves_explicit_choices(monkeypatch, runtime, operation, effort, retry, expected, economical):
     _, snapshot = runtime
     if effort:
         snapshot.profile['reasoning_effort'] = effort
@@ -69,8 +70,10 @@ def test_phase_scoped_default_reasoning_preserves_explicit_choices(monkeypatch, 
         captured.update(kwargs)
         return SimpleNamespace(compile=lambda: 'compiled'), {}
     monkeypatch.setattr('backend.agent.factory.create_agent_workflow', workflow)
-    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation, input='source')
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation, input='source', options={'economical_planning': economical})
     asyncio.run(execution._operation_application(request, snapshot, {}, None, validation_retry=retry))
+    if operation == 'team.plan' and not economical:
+        expected = None
     assert captured['operation_default_reasoning_effort'] == expected
     assert snapshot.profile.get('reasoning_effort') == effort
     assert captured['prepared_agent_data'] is snapshot.profile
@@ -145,7 +148,7 @@ def test_planning_validation_fallback_keeps_contract_and_two_call_limit(
     monkeypatch.setattr(factory, 'create_agent_workflow', capture)
     schema = {'type': 'object', 'required': ['agent_id']}
     request = AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation,
-        input='Route this request', output_schema=schema, max_model_calls=2)
+        input='Route this request', output_schema=schema, max_model_calls=2, options={'economical_planning': True})
     def validate(text):
         if json.loads(text)['agent_id'] != 'worker':
             raise ValueError('agent_team_operation_executor_mismatch')
@@ -159,6 +162,8 @@ def test_planning_validation_fallback_keeps_contract_and_two_call_limit(
                 asyncio.run(execution.execute_operation(request, snapshot=snapshot, output_validator=validate))
             assert store.list_runs(scope)[0].status == 'failed'
     assert len(calls) == len(answers)
+    if operation == 'team.replan':
+        expected_efforts = [None] * len(expected_efforts)
     assert [c['operation_default_reasoning_effort'] for c in configurations] == (expected_efforts if provider == 'openrouter' else expected_efforts[:1])
     assert all(c['output_schema'] == schema and c['prepared_agent_data'] is snapshot.profile
                and c['timeout'] == request.timeout_seconds and not c['operation_read_tools']

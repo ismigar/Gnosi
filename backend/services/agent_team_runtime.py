@@ -160,6 +160,8 @@ def _validate_plan_result(text: str, *, allow_response: bool = False, members: l
 
 async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, text: str, schema: dict[str, Any] | None, operation: str, *, allow_response: bool = False, members: list[dict[str, Any]] | None = None) -> str:
     from backend.services.agent_execution import execute_operation, _operation_timeout
+    from backend.services.agent_team_planning_schema import compact_plan_schema, economical_planning
+    planning_data = json.loads(text or "{}") if operation in {"team.plan", "team.replan"} else {}
     if members is None and operation in {"team.plan", "team.replan"}:
         members = json.loads(text or "{}").get("members")
     required_operation = str(json.loads(text or "{}").get("required_operation") or "") if operation in {"team.plan", "team.replan"} else ""
@@ -189,6 +191,7 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
         if team_for(owner).temporary.enabled:
             identifiers.append("")
         schema["$defs"]["TeamTask"]["properties"]["agent_id"]["enum"] = identifiers or [""]
+        schema = compact_plan_schema(schema, temporary=team_for(owner).temporary.enabled)
     identifier = "phase:" + operation
     previous = next((p for p in artifacts.list_artifacts(scope, "phase", root_id) if p["id"] == identifier), None)
     if previous:
@@ -204,6 +207,7 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
     token = delegating.set(True)
     try:
         result = await execute_operation(AgentOperation(skill_id=TEAM_SKILL, operation=operation, input=text,
+            options={"economical_planning": allow_response and operation == "team.plan" and economical_planning(planning_data)},
             output_schema=schema, max_model_calls=2 if plan_validator or (operation == "team.synthesis" and schema is not None) else 1, parent_run_id=root_id, origin=snapshot.origin,
             timeout_seconds=_operation_timeout.get(), resume_requires_parent=True), snapshot=snapshot, output_validator=plan_validator)
         phase.update(status="completed", result=result.result)

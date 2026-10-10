@@ -109,7 +109,23 @@ def output_schema(plan: TeamPlan) -> dict[str, Any] | None:
                 _field_shape(child, field)
             current = child
     Draft202012Validator.check_schema(schema)
+    _validate_choices(schema)
     return schema
+
+
+def _validate_choices(node: dict[str, Any]) -> None:
+    # Array choices can precede the later declaration of an object's fields.
+    # Check the completed item shape before any provider receives the schema.
+    from backend.services.json_contracts import validate_json_value
+    try:
+        for choice in node.get("enum", []):
+            validate_json_value(choice, {key: value for key, value in node.items() if key != "enum"})
+    except ValidationError as error:
+        raise ValueError("agent_team_output_contract_invalid: choices must match the field type") from error
+    for child in node.get("properties", {}).values():
+        _validate_choices(child)
+    if isinstance(node.get("items"), dict):
+        _validate_choices(node["items"])
 
 
 def _field_shape(node: dict[str, Any], field: TeamOutputField) -> None:

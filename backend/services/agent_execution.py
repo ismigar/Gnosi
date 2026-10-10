@@ -399,7 +399,8 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         # effort. Explicit profile choices and specialist effort stay intact.
         operation_default_reasoning_effort=(None if snapshot.profile.get("reasoning_effort") else
             "low" if request.operation == "knowledge.process-source.phase" else
-            "one_step_lower" if request.operation in {"team.plan", "team.replan"} and not validation_retry else None),
+            "one_step_lower" if request.operation == "team.plan" and request.options.get("economical_planning")
+            and not validation_retry else None),
         output_schema=request.output_schema,
     )
     if workflow is None:
