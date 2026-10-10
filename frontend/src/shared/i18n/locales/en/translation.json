@@ -577,6 +577,7 @@
     "quick_search": "Quick Search",
     "favorite": "Favorite",
     "page_options": "Page options",
+    "free_width": "Free width",
     "open_quick_actions": "Open quick actions",
     "close_quick_actions": "Close quick actions",
     "stale_checkout": "Local preview is serving merged checkout {{checkout}}, behind origin/main.",

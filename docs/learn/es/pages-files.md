@@ -18,6 +18,10 @@ Un Vault activo con escritura. La IA es opcional; compartir y traducir requiere 
 
 5. Sal de la página y vuelve a abrirla para verificar el guardado automático. Recupérala con la búsqueda o la barra lateral y comprueba el enlace.
 
+## Tablas anchas {#wide-tables}
+
+En el menú **⋯** de la página, activa **Anchura libre** para que las tablas puedan expandirse y desplazarse horizontalmente. Los párrafos mantienen una anchura legible. La preferencia se recuerda por página en este dispositivo y no modifica el Markdown. Desactívala en el mismo menú para recuperar la visualización habitual.
+
 ## Resultado esperado {#expected-result}
 
 La nota contiene texto legible, un enlace y un adjunto accesible.

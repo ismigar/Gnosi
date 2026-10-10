@@ -529,6 +529,7 @@
     "quick_search": "Búsqueda rápida",
     "favorite": "Favorito",
     "page_options": "Opciones de página",
+    "free_width": "Anchura libre",
     "open_quick_actions": "Abrir acciones rápidas",
     "close_quick_actions": "Cerrar acciones rápidas",
     "stale_checkout": "La vista previa local sirve el checkout fusionado {{checkout}}, por detrás de origin/main.",

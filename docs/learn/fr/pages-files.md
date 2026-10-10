@@ -18,6 +18,10 @@ Un Vault actif accessible en écriture. L’IA est facultative ; partage et trad
 
 5. Quittez puis rouvrez la page pour vérifier l’enregistrement automatique. Retrouvez-la par la recherche ou la barre latérale et testez le lien.
 
+## Tableaux larges {#wide-tables}
+
+Dans le menu **⋯** de la page, activez **Largeur libre** pour permettre aux tableaux de s’étendre et de défiler horizontalement. Les paragraphes gardent une largeur lisible. Ce réglage est mémorisé pour chaque page sur cet appareil et ne modifie pas le Markdown. Désactivez-le dans le même menu pour retrouver la présentation habituelle.
+
 ## Résultat attendu {#expected-result}
 
 Votre note contient du texte lisible, un lien et une pièce jointe accessible.

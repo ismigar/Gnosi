@@ -3332,6 +3332,7 @@
     "quick_search": "Recherche rapide",
     "favorite": "Favori",
     "page_options": "Options de la page",
+    "free_width": "Largeur libre",
     "open_quick_actions": "Ouvrir les actions rapides",
     "close_quick_actions": "Fermer les actions rapides",
     "stale_checkout": "L’aperçu local utilise le checkout fusionné {{checkout}}, en retard sur origin/main.",
