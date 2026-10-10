@@ -18,7 +18,7 @@ Un Vault actiu amb permisos d’escriptura. La IA és opcional; compartir i trad
 
 5. Surt de la pàgina i torna-la a obrir per verificar el desament automàtic. Recupera-la amb la cerca o la barra lateral i comprova l’enllaç.
 
-## Taules amples {#wide-tables}
+### Taules amples
 
 Al menú **⋯** de la pàgina, activa **Amplada lliure** perquè les taules es puguin expandir i desplaçar horitzontalment. Els paràgrafs mantenen una amplada llegible. La preferència es recorda per pàgina en aquest dispositiu i no modifica el Markdown. Torna a desactivar-la al mateix menú per recuperar la visualització habitual.
 
