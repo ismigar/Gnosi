@@ -103,14 +103,18 @@ def _field_shape(node: dict[str, Any], field: TeamOutputField) -> None:
     if field.type == "object":
         node.setdefault("properties", {})
         node.setdefault("additionalProperties", False)
-    if field.choices:
+    if field.type == "array" and field.choices:
+        node.setdefault("items", {})["enum"] = field.choices
+        return
+    choices = field.choices or node.get("enum", [])
+    if choices:
         from backend.services.json_contracts import validate_json_value
         try:
-            for choice in field.choices:
+            for choice in choices:
                 validate_json_value(choice, {"type": field.type})
         except ValidationError as error:
             raise ValueError("agent_team_output_contract_invalid: choices must match the field type") from error
-        node["enum"] = field.choices
+        node["enum"] = choices
 
 
 def operation_skills(members: list[dict[str, Any]]) -> dict[str, str]:

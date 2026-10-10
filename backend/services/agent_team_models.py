@@ -93,7 +93,8 @@ class TeamOutputField(BaseModel):
     path: list[str] = Field(min_length=1, max_length=8, description="Exact property names; * selects an array item, e.g. [classifications, *, id].")
     type: JsonType
     required: bool = True
-    choices: list[str | int | float | bool | None] = Field(default_factory=list, max_length=64)
+    choices: list[str | int | float | bool | None] = Field(default_factory=list, max_length=64,
+        description="Explicitly allowed scalar values. On an array field these are allowed values for each item.")
 
 
 class TeamOutputContract(BaseModel):

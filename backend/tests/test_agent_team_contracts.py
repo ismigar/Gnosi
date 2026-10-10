@@ -147,6 +147,19 @@ def test_nested_array_contract_is_built_locally_with_exact_types():
         validate_json_value({"classifications": [{"id": "n1", "values": [False]}]}, schema)
 
 
+def test_array_choices_restrict_items_and_still_reject_other_values():
+    from backend.services.json_contracts import validate_json_value
+    from jsonschema import ValidationError
+    contract = TeamOutputContract(fields=[TeamOutputField(path=["values"], type="array", choices=["entity", "idea"])])
+    schema = output_schema(TeamPlan(response="hello", output_contract=contract))
+    validate_json_value({"values": ["entity"]}, schema)
+    with pytest.raises(ValidationError):
+        validate_json_value({"values": ["other"]}, schema)
+    contract.fields.append(TeamOutputField(path=["values", "*"], type="boolean"))
+    with pytest.raises(ValueError, match="choices must match"):
+        output_schema(TeamPlan(response="hello", output_contract=contract))
+
+
 def prepare(fixture, monkeypatch, outputs):
     from backend.domains.agent import workflow
     fixture[1].profile["team"]["direct_routes"] = []
