@@ -29,6 +29,7 @@ log = logging.getLogger(__name__)
 
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], operator.add]
+    user_request: str
     next: str
     turn_authorized_tool_names: Sequence[str]
     active_skill_ids: Sequence[str]

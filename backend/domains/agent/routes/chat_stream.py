@@ -107,7 +107,8 @@ async def _opening_events(
     if initial_phase:
         events.append(initial_phase)
     interpretation = state.turn_plan.get("interpretation") or {}
-    should_clarify = bool(
+    coordinated = state.llm_selection.get("mode") == "team"
+    should_clarify = not coordinated and bool(
         interpretation.get("clarification_required")
         or (
             interpretation.get("abstain")
@@ -156,7 +157,7 @@ async def _opening_events(
         state.metrics_emitted = True
         return events, True
 
-    deterministic_confirmation = await asyncio.to_thread(
+    deterministic_confirmation = None if coordinated else await asyncio.to_thread(
         _prepare_index_title_replacements,
         chat_req.message,
     )

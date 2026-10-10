@@ -179,6 +179,16 @@ def _bounded_model_messages(
     The current turn keeps complete assistant/tool protocol groups.
     """
     all_messages = list(messages)
+    # The generated assignment is part of this turn, even though it precedes
+    # the intact conversation. Reserve it before selecting older history.
+    if len(all_messages) >= 2 and all(
+        message.name == "team_assignment" for message in all_messages[:2]
+    ):
+        prefix = all_messages[:2]
+        remaining = max_chars - sum(len(_content_text(message)) for message in prefix)
+        if remaining <= 0:
+            raise RuntimeError("agent_current_turn_context_exceeded")
+        return [*prefix, *_bounded_model_messages(all_messages[2:], remaining)]
     from backend.services.agent_behavior import frozen_resources
     if frozen_resources.get():
         units = _protocol_units(all_messages)

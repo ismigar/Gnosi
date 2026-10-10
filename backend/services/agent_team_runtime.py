@@ -100,8 +100,8 @@ def execution_profile(snapshot: AgentExecutionSnapshot) -> dict[str, Any]:
     return current
 
 
-def _candidate(owner: dict[str, Any], scope: ExecutionScope, ids: list[str], skills: list[str], text: str, *, preferred: str = "", tools: bool = False) -> tuple[dict[str, Any] | None, str, float | None]:
-    ids = [identifier for identifier in ids if identifier != owner["id"]]
+def _candidate(owner: dict[str, Any], scope: ExecutionScope, ids: list[str], skills: list[str], text: str, *, preferred: str = "", tools: bool = False, allow_owner: bool = False) -> tuple[dict[str, Any] | None, str, float | None]:
+    ids = [identifier for identifier in ids if allow_owner or identifier != owner["id"]]
     from backend.agent.model_router import load_registry
     from backend.domains.agent.llm import _provider_is_available
     from backend.agent.model_router import UsageStore, budget_status
@@ -140,14 +140,18 @@ def _snapshot(profile: dict[str, Any], owner: dict[str, Any], root_id: str, scop
     return snapshot, runtime
 
 
-def _validate_plan_result(text: str) -> str:
-    TeamPlan.model_validate_json(text)
+def _validate_plan_result(text: str, *, allow_response: bool = False) -> str:
+    plan = TeamPlan.model_validate_json(text)
+    if plan.response and not allow_response:
+        raise ValueError("agent_team_operation_requires_tasks")
     return text
 
 
-async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, text: str, schema: dict[str, Any] | None, operation: str) -> str:
+async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, text: str, schema: dict[str, Any] | None, operation: str, *, allow_response: bool = False) -> str:
     from backend.services.agent_execution import execute_operation, _operation_timeout
-    plan_validator = _validate_plan_result if operation in {"team.plan", "team.replan"} else None
+    def validate(text: str) -> str:
+        return _validate_plan_result(text, allow_response=allow_response)
+    plan_validator = validate if operation in {"team.plan", "team.replan"} else None
     identifier = "phase:" + operation
     previous = next((p for p in artifacts.list_artifacts(scope, "phase", root_id) if p["id"] == identifier), None)
     if previous:
@@ -251,6 +255,7 @@ def _collect_task_event(event: dict[str, Any], outcome: dict[str, Any]) -> None:
                 outcome["confirmations"].append(marker)
             if getattr(message, "type", "") == "ai" and not getattr(message, "tool_calls", None):
                 outcome["result"] = str(message.content)
+                outcome["metadata"] = dict(getattr(message, "additional_kwargs", {}) or {})
 
 
 async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, scope: ExecutionScope, state: dict[str, Any], original: str, results: dict[str, Any], *, operation_mode: bool, refs: list[dict[str, Any]], allowed_ids: list[str] | None = None) -> dict[str, Any]:
@@ -260,12 +265,17 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
     from backend.services.agent_execution_trace import record
     team = team_for(owner)
     ids = allowed_ids if allowed_ids is not None else [m.agent_id for m in team.members if m.agent_id != team.director_id]
+    own_task = (not operation_mode and allowed_ids is None and task.agent_id == owner["id"]
+                and owner["id"] == _config().get("active_agent_id"))
+    if own_task:
+        ids = [*ids, owner["id"]]
     text = json.dumps({"original_request": original, "assignment": task.objective,
         "expected_result": task.expected_result, "acceptance": task.acceptance,
         "conversation_evidence": [str(m.content) for m in state.get("messages", []) if getattr(m, "type", "") in {"human", "ai"}],
         "completed_evidence": state.get("team_completed_evidence", []),
         "previous_results": {k: results[k]["result"] for k in task.depends_on}}, ensure_ascii=False)
-    selected, reason, cost = _candidate(owner, scope, ids, task.skill_ids, text, preferred=task.agent_id, tools=not operation_mode)
+    selected, reason, cost = _candidate(owner, scope, ids, task.skill_ids, text, preferred=task.agent_id,
+                                      tools=not operation_mode, allow_owner=own_task)
     temporary = False
     if selected is None and task.temporary is not None:
         selected = _temporary(task.temporary, owner, root_id, scope)
@@ -293,7 +303,9 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
             memory_user_id=scope.user_id, operation_mode=operation_mode)
         if workflow is None:
             raise RuntimeError("agent_team_executor_model_unavailable")
-        child_state = {**state, "messages": [HumanMessage(content=text)], "trace_id": child_id,
+        from backend.services.agent_team_routing import assignment_messages
+        child_messages = [HumanMessage(content=text)] if operation_mode else assignment_messages(state, task, original, results)
+        child_state = {**state, "messages": child_messages, "trace_id": child_id,
             "active_skill_ids": list(runtime.active_skill_ids), "current_user_role": scope.role,
             "turn_authorized_tool_names": [] if task.read_only or operation_mode else list(state.get("turn_authorized_tool_names") or [])}
         try:
@@ -334,9 +346,7 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
     if team_for(live) != team_for(owner):
         raise PermissionError("agent_team_configuration_changed")
     team = team_for(owner)
-    request_data: dict[str, Any] = {}
-    if operation_mode:
-        request_data = json.loads(original)
+    request_data: dict[str, Any] = json.loads(original) if operation_mode else {}
     operation = str(request_data.get("operation") or "").split(".")[0] if operation_mode else chat_operation(original)
     route = next((r for r in team.direct_routes if r.operation == operation), None)
     required = [skill_id(operation)] if route else []
@@ -353,18 +363,23 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
             skill_ids=required, read_only=operation_mode or bool(chat_operation(original)))], result_task="direct")
     else:
         record("team.route", {"mode": "director", "reason": reason})
-        member_ids = {m.agent_id for m in team.members if m.agent_id != owner["id"]}
-        members = [p for p in _config().get("agents", []) if p.get("id") in member_ids and p.get("enabled", True) and not p.get("plugin_suspended")]
-        roles = {m.agent_id: m.roles for m in team.members}
-        catalog = [{"id": p["id"], "name": p.get("name"), "roles": roles[p["id"]], "skills": p.get("skill_ids", []), "provider": p.get("provider"), "model": p.get("model")} for p in members]
+        from backend.services.agent_team_routing import planning_catalog
+        catalog = planning_catalog(owner, scope, original,
+                                   include_owner=not operation_mode and owner["id"] == _config().get("active_agent_id"))
         plan_data = {"request": original, "members": catalog, "temporary_policy": team.temporary.model_dump(),
-            "conversation_evidence": [str(m.content) for m in state.get("messages", []) if getattr(m, "type", "") in {"human", "ai"}]}
-        raw = await _phase(owner, root_id, scope, json.dumps(plan_data, ensure_ascii=False), TeamPlan.model_json_schema(), "team.plan")
+            "allow_direct_response": not operation_mode, "context_refs": refs,
+            "authorized_tool_names": list(state.get("turn_authorized_tool_names") or []),
+            "conversation_evidence": messages_to_dict(state.get("messages", []))}
+        raw = await _phase(owner, root_id, scope, json.dumps(plan_data, ensure_ascii=False), TeamPlan.model_json_schema(), "team.plan", allow_response=not operation_mode)
         plan = TeamPlan.model_validate_json(raw)
     if not saved:
         artifacts.put(scope, root_id, "plan", "plan", {"plan": plan.model_dump(), "original": original,
             "operation_mode": operation_mode, "state": {"turn_authorized_tool_names": state.get("turn_authorized_tool_names", []),
                 "current_user_role": scope.role}, "messages": messages_to_dict(state.get("messages", []))}, create_only=True)
+    _validate_plan_result(plan.model_dump_json(), allow_response=not operation_mode)
+    if plan.response:
+        record("team.response", {"executor": team.director_id, "mode": "direct_response"})
+        return {"messages": [AIMessage(content=plan.response)]}
     results: dict[str, Any] = {}
     pending = list(plan.tasks)
     while pending:
@@ -409,7 +424,8 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
         result = await _phase(owner, root_id, scope, json.dumps({"request": original, "results": synthesis_evidence,
             "phase": "synthesize the completed evidence; do not plan or execute actions"}, ensure_ascii=False),
             request_data.get("output_schema"), "team.synthesis")
-    return {"messages": [AIMessage(content=result)]}
+    metadata = {} if plan.synthesize else results[plan.result_task].get("metadata", {})
+    return {"messages": [AIMessage(content=result, additional_kwargs=metadata)]}
 
 
 async def repair_output(root_id: str, scope: ExecutionScope, text: str, error: str, request: AgentOperation) -> str:
@@ -435,14 +451,21 @@ async def repair_output(root_id: str, scope: ExecutionScope, text: str, error: s
 
 
 def build_team_workflow(profile: Any, *, operation_mode: bool, original: str) -> tuple[Any, dict[str, Any]] | None:
-    if delegating.get() or not team_for(profile.agent_data).enabled:
+    if delegating.get() or profile.agent_data.get("_team_execution") or not team_for(profile.agent_data).enabled:
         return None
     from backend.domains.agent.policy import AgentState
     from backend.services.agent_execution import snapshot_from_runtime
     from backend.services.agent_execution_scope import current_scope
     owner = copy.deepcopy(profile.agent_data)
     async def execute(state: AgentState) -> dict[str, Any]:
-        return await coordinate(owner, dict(state), operation_mode=operation_mode, original=original)
+        current = state.get("user_request") or next((str(m.content) for m in reversed(state["messages"]) if m.type == "human"), original)
+        result = await coordinate(owner, dict(state), operation_mode=operation_mode, original=current)
+        from backend.services.agent_execution import _run
+        from backend.services.agent_team_usage import team_usage
+        usage = team_usage(current_scope(), _run.get())
+        for message in result["messages"]:
+            message.additional_kwargs["gnosi_team_usage"] = usage
+        return result
     graph: StateGraph[Any, None, Any, Any] = StateGraph(AgentState)
     graph.add_node("team", execute)
     graph.add_edge(START, "team")
@@ -459,6 +482,7 @@ def build_team_workflow(profile: Any, *, operation_mode: bool, original: str) ->
         entries, _ = _runtime_tool_metadata(runtime)
         for item in entries:
             metadata[item["name"]] = {k: v for k, v in item.items() if not k.startswith("_")}
-    return graph, {"provider": "", "model": "", "mode": "team", "supports_tools": True,
+    return graph, {"provider": owner.get("provider", ""), "model": owner.get("model", ""), "mode": "team", "supports_tools": True,
+        "tool_count": len(metadata),
         "active_skill_ids": list(profile.resolved_runtime.active_skill_ids), "tools": list(metadata.values()),
         "context_refs": owner.get("context_refs", []), "team_owner_id": owner["id"]}

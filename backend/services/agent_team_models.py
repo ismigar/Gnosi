@@ -87,12 +87,19 @@ class TeamTask(BaseModel):
 
 class TeamPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    tasks: list[TeamTask] = Field(min_length=1, max_length=4)
-    result_task: str
+    tasks: list[TeamTask] = Field(default_factory=list, max_length=4)
+    result_task: str = ""
     synthesize: bool = False
+    response: str = Field(default="", max_length=12000)
 
     @model_validator(mode="after")
     def ordered_dag(self) -> TeamPlan:
+        if self.response.strip():
+            if self.tasks or self.result_task or self.synthesize:
+                raise ValueError("agent_team_response_must_be_standalone")
+            return self
+        if not self.tasks:
+            raise ValueError("agent_team_missing_tasks_or_response")
         seen: set[str] = set()
         for task in self.tasks:
             if task.id in seen or not set(task.depends_on).issubset(seen):

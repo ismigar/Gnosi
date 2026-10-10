@@ -53,7 +53,7 @@ Cada plugin de IA tiene un perfil editable en la misma lista que los personales,
 
 ## Principal y participación en el equipo
 
-Todos los bots, también los que participan en el equipo, siguen realizando sus tareas con el modelo, las instrucciones y las habilidades de su ficha. Pedir ayuda es opcional: el agente solo lo elige si necesita otra especialidad o trabajo coordinado. Lo decide antes de ejecutar herramientas; los encargos recibidos no se vuelven a delegar.
+Con el equipo activo, el principal interpreta cada petición del chat junto con la conversación y las fuentes seleccionadas, y elige al especialista según sus habilidades, herramientas y disponibilidad. Puede responder directamente a un saludo o una aclaración, o ejecutar una tarea de su especialidad. Los otros bots conservan el modelo, las instrucciones y las habilidades de su ficha; piden ayuda solo cuando hace falta y antes de ejecutar herramientas. Los encargos recibidos no se vuelven a delegar. Las órdenes dirigidas explícitamente a un bot y las acciones de los plugins conservan su ejecutor.
 
 El principal forma parte de la misma lista y coordina al equipo cuando hay otros bots que reciben encargos. En la ficha de los demás bots, **Participación en el equipo** permite elegir:
 
@@ -72,7 +72,7 @@ Con el foco en el texto o en un interruptor, las flechas arriba/abajo y las tecl
 
 
 
-Las asignaciones avanzadas y las rutas directas solo se aplican después de que un agente pida ayuda. Las rutas directas vinculan operaciones conocidas con ejecutores. El servidor comprueba disponibilidad, habilidades, contexto y límites antes de comparar el coste estimado del encargo. Un coste desconocido sigue siendo desconocido. Una ruta directa evita llamar al principal; una petición ambigua requiere un plan. Un resultado válido se entrega sin revisión automática del principal.
+Las asignaciones avanzadas y las rutas directas se aplican a la coordinación del principal y a las peticiones de ayuda de los otros bots. Las rutas directas asocian operaciones explícitas con listas de ejecutores. Las demás peticiones se planifican con el modelo del director, que dispone de descripciones de las capacidades y del contexto. El servidor comprueba el agente elegido, las habilidades, los permisos y los límites; un agente más barato no sustituye silenciosamente al especialista seleccionado. El coste sirve para elegir entre candidatos cuando no se ha seleccionado un ejecutor concreto. Un resultado válido se entrega sin una revisión adicional automática.
 
 Se permiten cuatro encargos, dos especialistas temporales y dos trabajos de lectura simultáneos. Las modificaciones se ejecutan secuencialmente. Las operaciones estructuradas admiten ocho llamadas totales dentro del presupuesto original. La reparación de formato tiene un intento y no repite acciones. Solo el trabajo de lectura se replantea automáticamente; los efectos inciertos requieren revisión.
 

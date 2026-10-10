@@ -101,7 +101,7 @@ class TeamHelp:
         if not run_id:
             raise RuntimeError("agent_team_execution_required")
         # Workflow instances can outlive a turn. Always take this turn's request.
-        original = next((str(m.content) for m in reversed(state["messages"]) if m.type == "human"), "")
+        original = state.get("user_request") or next((str(m.content) for m in reversed(state["messages"]) if m.type == "human"), "")
         evidence = list(state["messages"][:-1])
         saved = artifacts.list_artifacts(scope, "help", run_id)
         if saved and saved[0]["original"] != original:

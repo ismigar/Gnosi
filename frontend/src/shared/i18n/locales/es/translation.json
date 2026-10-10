@@ -8249,7 +8249,7 @@
     "completed_execution_only": "Ejecución completada con resultado; no certifica todos los criterios",
     "acceptance_not_certified": "Hay que contrastar los criterios particulares. Las instrucciones propuestas son genéricas y no copian contenido de la tarea.",
     "add_to_team": "Incorporar también el agente a este equipo",
-    "director_help": "Es el asistente principal y se utiliza por defecto en conversaciones nuevas. Trabaja con su propio modelo y coordina el equipo cuando hace falta ayuda. Puedes cambiarlo con «Hacer principal» en otra ficha.",
+    "director_help": "Es el principal y se utiliza por defecto en conversaciones nuevas. Con el equipo activo, interpreta cada petición y la asigna según las capacidades de los bots. Puedes cambiarlo con «Hacer principal» en otra ficha.",
     "participation": "Participación en el equipo",
     "participation_for": "Participación de {{name}} en el equipo",
     "participation_options": {

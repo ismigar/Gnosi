@@ -203,6 +203,11 @@ async def create_agent_workflow(
     )
     if profile is None:
         return None, {}
+    if not operation_mode and profile.target_id == profile.ai_cfg.get("active_agent_id"):
+        from backend.services.agent_team_runtime import build_team_workflow
+        coordinated = build_team_workflow(profile, operation_mode=False, original=user_message)
+        if coordinated is not None:
+            return coordinated
     from backend.domains.agent.team_help import optional_team_help
     team_help = (optional_team_help(profile.agent_data, operation_mode=operation_mode)
                  if not operation_mode or operation_team_help else None)

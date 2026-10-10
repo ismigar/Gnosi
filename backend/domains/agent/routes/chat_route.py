@@ -159,6 +159,7 @@ def _chat_inputs(
         additional_kwargs["gnosi_turn_id"] = chat_req.turn_id
     return {
         "messages": [HumanMessage(content=user_content, additional_kwargs=additional_kwargs)],
+        "user_request": chat_req.message,
         "turn_authorized_tool_names": sorted(authorized_tool_names),
         "active_skill_ids": list((llm_selection or {}).get("active_skill_ids") or []),
         "current_user_role": workspace_context.role,
@@ -398,6 +399,7 @@ async def chat_endpoint(
                 ),
             ),
         )
+        turn_timeout_seconds = TURN_TIMEOUT_SECONDS if (llm_selection or {}).get("mode") == "team" else turn_timeout_seconds
         inputs = _chat_inputs(
             chat_req=chat_req,
             workspace_context=workspace_context,

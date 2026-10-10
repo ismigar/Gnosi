@@ -153,6 +153,13 @@ def _message_events(
     untrusted_context_flags: list[str],
 ) -> list[str]:  # noqa: C901 - mirrors three provider message variants
     events: list[str] = []
+    team_usage = getattr(message, "additional_kwargs", {}).get("gnosi_team_usage")
+    if node_name == "team" and isinstance(team_usage, dict):
+        state.total_in_tok = int(team_usage["input_tokens"])
+        state.total_out_tok = int(team_usage["output_tokens"])
+        state.model_calls = int(team_usage["model_calls"])
+        state.tool_calls_count = int(team_usage["tool_calls"])
+        state.team_estimated_cost_usd = float(team_usage["estimated_cost_usd"])
     if turn_usage:
         state.total_in_tok += int(turn_usage[0])
         state.total_out_tok += int(turn_usage[1])

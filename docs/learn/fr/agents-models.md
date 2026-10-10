@@ -53,7 +53,7 @@ Chaque plugin d’IA possède un profil modifiable dans la même liste que les p
 
 ## Assistant principal et participation à l’équipe
 
-Tous les bots, y compris les membres de l’équipe, continuent à effectuer leurs tâches avec leur propre modèle, leurs instructions et leurs compétences. Demander de l’aide est facultatif : l’assistant le choisit seulement si une autre spécialité ou un travail coordonné est nécessaire. Il décide avant d’exécuter des outils ; les missions reçues ne peuvent pas être déléguées à nouveau.
+Lorsque l’équipe est active, l’assistant principal interprète chaque demande du chat avec la conversation et les sources sélectionnées, puis choisit un spécialiste selon ses compétences, ses outils et sa disponibilité. Il peut répondre directement à une salutation ou une clarification, ou exécuter une tâche relevant de sa spécialité. Les autres bots conservent leur modèle, leurs instructions et leurs compétences ; ils demandent de l’aide seulement si nécessaire et avant d’exécuter des outils. Les missions reçues ne peuvent pas être déléguées à nouveau. Les commandes adressées explicitement à un bot et les actions des plugins conservent leur exécutant.
 
 L’assistant principal appartient à la même liste et coordonne l’équipe lorsque d’autres bots reçoivent des tâches. Sur la fiche de chaque autre bot, **Participation à l’équipe** propose :
 
@@ -72,7 +72,7 @@ Lorsque le texte ou un interrupteur a le focus, les flèches haut/bas et les tou
 
 
 
-Les attributions avancées et les routes directes ne s’appliquent qu’après une demande d’aide. Les routes directes associent des opérations connues à des listes d’exécutants. Le serveur vérifie disponibilité, compétences, contexte et limites avant de comparer le coût estimé de la mission. Un coût inconnu reste inconnu. Une route directe évite l’appel à l’assistant principal ; une demande ambiguë nécessite un plan. Un résultat valide est livré sans révision automatique de l’assistant principal.
+Les attributions avancées et les routes directes s’appliquent à la coordination de l’assistant principal et aux demandes d’aide des autres bots. Les routes directes associent des opérations explicites à des listes d’exécutants. Les autres demandes sont planifiées avec le modèle du directeur, à partir des descriptions des capacités et du contexte. Le serveur vérifie l’agent choisi, les compétences, les autorisations et les limites ; un agent moins cher ne remplace pas silencieusement le spécialiste sélectionné. Le coût sert à choisir entre candidats lorsqu’aucun exécutant précis n’a été sélectionné. Un résultat valide est livré sans révision automatique supplémentaire.
 
 Les limites sont quatre missions, deux spécialistes temporaires et deux tâches de lecture simultanées. Les modifications s’exécutent successivement. Les opérations structurées disposent de huit appels au total dans le budget initial. Une seule correction de format est permise, sans répétition des actions. Seul le travail de lecture peut être replanifié automatiquement ; les effets incertains exigent une vérification.
 

@@ -8193,7 +8193,7 @@
     "completed_execution_only": "Execution completed with a result; does not certify every criterion",
     "acceptance_not_certified": "Specific acceptance criteria need review. Proposed instructions are generic and do not copy task content.",
     "add_to_team": "Also add the agent to this team",
-    "director_help": "This is the primary assistant, used by default in new conversations. It works with its own model and coordinates the team when help is needed. Use “Make primary” on another card to change it.",
+    "director_help": "This is the principal and the default for new conversations. With the team active, it interprets each request and assigns it according to the bots’ capabilities. You can change it using Make principal on another card.",
     "participation": "Team participation",
     "participation_for": "Team participation for {{name}}",
     "participation_options": {

@@ -8249,7 +8249,7 @@
     "completed_execution_only": "Exécution terminée avec résultat ; ne certifie pas tous les critères",
     "acceptance_not_certified": "Les critères particuliers nécessitent une vérification. Les instructions proposées sont génériques et ne copient pas le contenu de la tâche.",
     "add_to_team": "Ajouter aussi cet agent à cette équipe",
-    "director_help": "Cet assistant est le principal, utilisé par défaut dans les nouvelles conversations. Il travaille avec son propre modèle et coordonne l’équipe lorsque de l’aide est nécessaire. Utilisez « Définir comme principal » sur une autre fiche pour le changer.",
+    "director_help": "C’est l’assistant principal, utilisé par défaut dans les nouvelles conversations. Lorsque l’équipe est active, il interprète chaque demande et l’attribue selon les capacités des bots. Vous pouvez le changer avec « Définir comme principal » sur une autre fiche.",
     "participation": "Participation à l’équipe",
     "participation_for": "Participation de {{name}} à l’équipe",
     "participation_options": {
