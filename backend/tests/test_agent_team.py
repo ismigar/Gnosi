@@ -386,6 +386,9 @@ def optional_runtime(team_runtime, monkeypatch):
         "Complete the request", "Complete the request", "General", [], 32000, 24000,
         tuple(profile.resolved_runtime.active_skill_ids), tuple(profile.resolved_runtime.assigned_skill_ids), False))
     monkeypatch.setattr(runtime_tools, "_model_supports_tools", lambda *args: True)
+    # The fake model uses the agent ID as its name for call assertions; those
+    # IDs are not model-registry IDs. Match the 32k window supplied above.
+    monkeypatch.setattr(runtime_tools, "_model_context_window", lambda *args: 32000)
     monkeypatch.setattr(workflow_setup, "_model_supports_tools", lambda *args: True)
     monkeypatch.setattr(agent_execution_scope, "revalidate_scope", lambda scope: None)
     monkeypatch.setattr(factory, "create_agent_workflow", workflow.create_agent_workflow)

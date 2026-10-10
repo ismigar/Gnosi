@@ -34,6 +34,7 @@ def compact_catalog(catalog: list[dict[str, Any]]) -> dict[str, Any]:
             capabilities[identifier] = {
                 "name": capability["name"],
                 "description": excerpt(capability["description"], 180),
+                **({"application_operation": capability["application_operation"]} if capability.get("application_operation") else {}),
                 **({"canonical_id": capability["canonical_id"]} if identifier != capability["canonical_id"] else {}),
             }
         # Some runtime integrations only expose assigned IDs.

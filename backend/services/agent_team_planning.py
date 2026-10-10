@@ -18,6 +18,8 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
                        original: str, refs: list[dict[str, Any]], *, operation_mode: bool
                        ) -> tuple[TeamPlan, dict[str, Any], list[dict[str, Any]], DirectRoute | None, bool]:
     from backend.services.agent_operation_catalog import skill_id
+    from backend.services.agent_execution import _snapshot
+    from backend.services.agent_team_contracts import required_operation
     from backend.services.agent_team_runtime import _candidate, _config, _phase
     team = team_for(owner)
     operation = str(json.loads(original).get("operation") or "").split(".")[0] if operation_mode else chat_operation(original)
@@ -42,6 +44,11 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
                            prior_run_id=prior_run_id, planning_calls_avoided=1)
     else:
         data, sizes = planning_input(owner, state, original, catalog, refs, operation_mode=operation_mode)
+        snapshot = _snapshot.get()
+        operation_hint = required_operation(operation, snapshot.skill_ids if snapshot else []) if operation_mode else operation
+        if operation_hint:
+            data["required_operation"] = operation_hint
+            sizes["sent_context_chars"] = len(json.dumps(data, ensure_ascii=False, separators=(",", ":")))
         measurement.update(mode="director", reason=reason, **sizes)
         artifacts.put(scope, root_id, "routing", "routing", measurement)
         raw = await _phase(owner, root_id, scope, json.dumps(data, ensure_ascii=False, separators=(",", ":")),

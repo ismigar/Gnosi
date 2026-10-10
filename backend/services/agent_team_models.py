@@ -87,6 +87,11 @@ class TeamTask(BaseModel):
 
 class TeamPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    operation: str = Field(default="", max_length=128,
+        description="First identify the requested application_operation from the capability catalog. Empty only for dialogue or a custom capability without an application operation.")
+    response_kind: Literal["", "greeting", "clarification", "conversation", "unavailable"] = "conversation"
+    output_schema_json: str = Field(default="", max_length=8000,
+        description="For a requested JSON deliverable, encode its JSON Schema as a string, including exact required keys and value types. Empty for ordinary text or clarification.")
     tasks: list[TeamTask] = Field(default_factory=list, max_length=4)
     result_task: str = ""
     synthesize: bool = False

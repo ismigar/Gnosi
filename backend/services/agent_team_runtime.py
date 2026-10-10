@@ -141,13 +141,15 @@ def _snapshot(profile: dict[str, Any], owner: dict[str, Any], root_id: str, scop
     return snapshot, runtime
 
 
-def _validate_plan_result(text: str, *, allow_response: bool = False, members: list[dict[str, Any]] | None = None, owner_id: str = "") -> str:
+def _validate_plan_result(text: str, *, allow_response: bool = False, members: list[dict[str, Any]] | None = None, owner_id: str = "", required_operation: str = "") -> str:
     plan = TeamPlan.model_validate_json(text)
     if plan.response and not allow_response:
         raise ValueError("agent_team_operation_requires_tasks")
     if members is not None:
         from backend.services.agent_team_routing import validate_assignments
+        from backend.services.agent_team_contracts import validate_plan_contract
         validate_assignments(plan, members, owner_id)
+        validate_plan_contract(plan, members, owner_id, legacy_response="response_kind" not in json.loads(text), required_operation=required_operation)
     return text
 
 
@@ -155,11 +157,16 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
     from backend.services.agent_execution import execute_operation, _operation_timeout
     if members is None and operation in {"team.plan", "team.replan"}:
         members = json.loads(text or "{}").get("members")
+    required_operation = str(json.loads(text or "{}").get("required_operation") or "") if operation in {"team.plan", "team.replan"} else ""
     def validate(text: str) -> str:
-        return _validate_plan_result(text, allow_response=allow_response, members=members, owner_id=owner["id"])
+        return _validate_plan_result(text, allow_response=allow_response, members=members, owner_id=owner["id"], required_operation=required_operation)
     plan_validator = validate if operation in {"team.plan", "team.replan"} else None
     if plan_validator and schema is not None and members is not None:
         schema = copy.deepcopy(schema)
+        if allow_response:
+            from backend.services.agent_team_contracts import operation_skills
+            schema["required"] = list(dict.fromkeys([*schema.get("required", []), "operation", "response_kind", "output_schema_json"]))
+            schema["properties"]["operation"]["enum"] = ["", *sorted(set(operation_skills(members).values()))]
         identifiers = [member["id"] for member in members if member["available"]]
         if team_for(owner).temporary.enabled:
             identifiers.append("")
@@ -179,7 +186,7 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
     token = delegating.set(True)
     try:
         result = await execute_operation(AgentOperation(skill_id=TEAM_SKILL, operation=operation, input=text,
-            output_schema=schema, max_model_calls=2 if plan_validator else 1, parent_run_id=root_id, origin=snapshot.origin,
+            output_schema=schema, max_model_calls=2 if plan_validator or (operation == "team.synthesis" and schema is not None) else 1, parent_run_id=root_id, origin=snapshot.origin,
             timeout_seconds=_operation_timeout.get(), resume_requires_parent=True), snapshot=snapshot, output_validator=plan_validator)
         phase.update(status="completed", result=result.result)
         return result.result
@@ -271,7 +278,7 @@ def _collect_task_event(event: dict[str, Any], outcome: dict[str, Any]) -> None:
                 outcome["metadata"] = dict(getattr(message, "additional_kwargs", {}) or {})
 
 
-async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, scope: ExecutionScope, state: dict[str, Any], original: str, results: dict[str, Any], *, operation_mode: bool, refs: list[dict[str, Any]], allowed_ids: list[str] | None = None) -> dict[str, Any]:
+async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, scope: ExecutionScope, state: dict[str, Any], original: str, results: dict[str, Any], *, operation_mode: bool, refs: list[dict[str, Any]], allowed_ids: list[str] | None = None, output_schema: dict[str, Any] | None = None) -> dict[str, Any]:
     from backend.agent.factory import create_agent_workflow
     from backend.agent.action_confirmations import confirmation_context, current_confirmation_scope
     from backend.services.agent_execution import stream_workflow
@@ -282,8 +289,11 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
                 and owner["id"] == _config().get("active_agent_id"))
     if own_task:
         ids = [*ids, owner["id"]]
+    original_data = json.loads(original) if operation_mode else {"input": original}
     text = json.dumps({"original_request": original, "assignment": task.objective,
+        **({"original_input": original_data.get("input", original), "original_data": original_data.get("data", {})} if operation_mode else {}),
         "expected_result": task.expected_result, "acceptance": task.acceptance,
+        **({"output_schema": output_schema} if output_schema is not None else {}),
         "conversation_evidence": [str(m.content) for m in state.get("messages", []) if getattr(m, "type", "") in {"human", "ai"}],
         "completed_evidence": state.get("team_completed_evidence", []),
         "previous_results": {k: results[k]["result"] for k in task.depends_on}}, ensure_ascii=False)
@@ -317,7 +327,7 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
         if workflow is None:
             raise RuntimeError("agent_team_executor_model_unavailable")
         from backend.services.agent_team_routing import assignment_messages
-        child_messages = [HumanMessage(content=text)] if operation_mode else assignment_messages(state, task, original, results)
+        child_messages = [HumanMessage(content=text)] if operation_mode else assignment_messages({**state, "team_task_output_schema": output_schema}, task, original, results)
         child_state = {**state, "messages": child_messages, "trace_id": child_id,
             "active_skill_ids": list(runtime.active_skill_ids), "current_user_role": scope.role,
             "turn_authorized_tool_names": [] if task.read_only or operation_mode else list(state.get("turn_authorized_tool_names") or [])}
@@ -329,8 +339,12 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
                 "agent_id": owner["id"], "session_id": root_id}
         confirmation_scope = {**parent_confirmation_scope, "profile_id": selected["id"], "team_run_id": root_id, "team_owner_id": owner["id"], "team_task_key": key}
         outcome["confirmation_scope"] = confirmation_scope
+        application: Any = workflow.compile()
+        if output_schema is not None:
+            from backend.services.agent_team_output import CheckedTeamOutput
+            application = CheckedTeamOutput(application, output_schema, snapshot, root_id, text)
         with confirmation_context(**confirmation_scope):
-            async for event in stream_workflow(workflow.compile(), child_state, config={"recursion_limit": 12},
+            async for event in stream_workflow(application, child_state, config={"recursion_limit": 12},
                     origin=snapshot.origin, selection=selection, snapshot=snapshot, max_calls=8):
                 _collect_task_event(event, outcome)
         if not outcome["result"].strip() and not outcome["confirmations"]:
@@ -360,11 +374,15 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
         raise PermissionError("agent_team_configuration_changed")
     team = team_for(owner)
     request_data: dict[str, Any] = json.loads(original) if operation_mode else {}
+    from backend.services.agent_team_contracts import output_schema as plan_output_schema, required_operation
+    from backend.services.agent_team_output import TeamOutputContractError
     root_snapshot = _snapshot.get()
     refs = root_snapshot.profile.get("context_refs", []) if root_snapshot else []
     saved = artifacts.list_artifacts(scope, "plan", root_id)
     plan, state, catalog, route, direct = await prepare_plan(owner, scope, root_id, state, original, refs, operation_mode=operation_mode)
-    _validate_plan_result(plan.model_dump_json(), allow_response=not operation_mode, members=catalog, owner_id=owner["id"])
+    required = required_operation(str(request_data.get("operation") or ""), root_snapshot.skill_ids if root_snapshot else []) if operation_mode else ""
+    _validate_plan_result(plan.model_dump_json(), allow_response=not operation_mode, members=catalog, owner_id=owner["id"], required_operation=required)
+    result_schema = request_data.get("output_schema") if operation_mode else plan_output_schema(plan)
     if not saved:
         artifacts.put(scope, root_id, "plan", "plan", {"plan": plan.model_dump(), "original": original,
             "operation_mode": operation_mode, "state": {"turn_authorized_tool_names": state.get("turn_authorized_tool_names", []),
@@ -378,11 +396,12 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
         ready = [t for t in pending if set(t.depends_on).issubset(results)]
         task = ready[0]
         batch = [t for t in ready if t.read_only][:2] if task.read_only else [task]
-        outcomes = await asyncio.gather(*[_execute_task(t, owner, root_id, scope, state, original, results, operation_mode=operation_mode, refs=refs, allowed_ids=route.agent_ids if direct and route else None) for t in batch], return_exceptions=True)
+        outcomes = await asyncio.gather(*[_execute_task(t, owner, root_id, scope, state, original, results, operation_mode=operation_mode, refs=refs, allowed_ids=route.agent_ids if direct and route else None,
+            output_schema=result_schema if t.id == plan.result_task and not plan.synthesize else None) for t in batch], return_exceptions=True)
         failure = next((outcome for outcome in outcomes if isinstance(outcome, BaseException)), None)
         if failure is not None:
             # Never replan across a write or an uncertain action outcome.
-            if not direct and all(t.read_only for t in plan.tasks) and not artifacts.list_artifacts(scope, "replan", root_id):
+            if not direct and not isinstance(failure, TeamOutputContractError) and all(t.read_only for t in plan.tasks) and not artifacts.list_artifacts(scope, "replan", root_id):
                 remaining = 4 - len(artifacts.list_artifacts(scope, "task", root_id))
                 if remaining > 0 and isinstance(failure, (RuntimeError, ValueError)):
                     artifacts.put(scope, root_id, "replan", "replan", {"used": True}, create_only=True)
@@ -418,7 +437,7 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
         synthesis_evidence = {identifier: {key: value.get(key) for key in ("agent_id", "run_id", "status", "result")} for identifier, value in results.items()}
         result = await _phase(owner, root_id, scope, json.dumps({"request": original, "results": synthesis_evidence,
             "phase": "synthesize the completed evidence; do not plan or execute actions"}, ensure_ascii=False),
-            request_data.get("output_schema"), "team.synthesis")
+            result_schema, "team.synthesis")
     metadata = {} if plan.synthesize else dict(results[plan.result_task].get("metadata", {}))
     metadata.pop("gnosi_team_route", None)
     if not operation_mode:

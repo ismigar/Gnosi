@@ -65,6 +65,7 @@ def planning_catalog(owner: dict[str, Any], scope: ExecutionScope, original: str
             "canonical_id": entry.descriptor.id,
             "name": entry.descriptor.name,
             "description": entry.descriptor.description[:400],
+            "application_operation": entry.descriptor.metadata.get("application_operation", ""),
             "available": entry.available,
             "tool_ids": entry.descriptor.tool_ids,
         } for entry in runtime.skills]
@@ -93,6 +94,8 @@ def assignment_messages(state: dict[str, Any], task: TeamTask, original: str,
                   "acceptance": task.acceptance,
                   "completed_evidence": state.get("team_completed_evidence", []),
                   "previous_results": {key: results[key]["result"] for key in task.depends_on}}
+    if state.get("team_task_output_schema") is not None:
+        assignment["output_schema"] = state["team_task_output_schema"]
     messages = list(state.get("messages") or [HumanMessage(content=original)])
     return [SystemMessage(content=resource("system/team-assignment.md"), name="team_assignment"),
             AIMessage(content=json.dumps(assignment, ensure_ascii=False), name="team_assignment"), *messages]
