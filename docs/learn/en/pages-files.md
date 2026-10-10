@@ -18,6 +18,10 @@ An active Vault with write access. AI is optional; extra sharing and translation
 
 5. Leave the page and reopen it to verify autosave. Use search or the sidebar to return to it; follow the link to check the connection.
 
+### Wide tables
+
+In the page’s **⋯** menu, turn on **Free width** to let tables expand and scroll horizontally. Paragraphs keep a readable width. The preference is remembered for each page on this device and does not change the Markdown. Turn it off in the same menu to restore the usual layout.
+
 ## Expected result {#expected-result}
 
 Your note contains readable text, a link and an accessible attachment.

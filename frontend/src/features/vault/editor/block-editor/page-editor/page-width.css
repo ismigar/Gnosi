@@ -1,0 +1,23 @@
+/* Keep prose and the header readable; wide Markdown tables scroll in place. */
+.vault-page-editor--free-width .vault-page-body {
+  min-width: 0;
+}
+
+.vault-page-editor--free-width .bn-editor [data-content-type="table"] .tableWrapper {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.vault-page-editor--free-width .bn-editor [data-content-type="table"] table {
+  width: max-content !important;
+  max-width: none;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.vault-page-editor--free-width .bn-editor [data-content-type="table"] :is(th, td, p, .bn-inline-content) {
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
