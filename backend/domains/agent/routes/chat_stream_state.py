@@ -24,7 +24,7 @@ class AgentStreamState:
     metrics_emitted: bool = False
     model_calls: int = 0
     tool_calls_count: int = 0
-    team_estimated_cost_usd: float | None = None
+    team_usage: Dict[str, Any] | None = None
     last_phase: str = ""
     deadline_warned: bool = False
     stream_failed: bool = False
@@ -77,12 +77,13 @@ class AgentStreamState:
             "total_ms": total_ms,
             "input_tokens": self.total_in_tok,
             "output_tokens": self.total_out_tok,
-            "estimated_cost_usd": self.team_estimated_cost_usd if self.team_estimated_cost_usd is not None else round(
+            "estimated_cost_usd": self.team_usage.get("estimated_cost_usd") if self.team_usage is not None else round(
                 (self.total_in_tok * input_rate + self.total_out_tok * output_rate) / 1_000_000,
                 6,
             ),
             "model_calls": self.model_calls,
             "tool_calls": self.tool_calls_count,
+            **({"team_usage": self.team_usage} if self.team_usage is not None else {}),
             "budget": dict(budgets),
             "budget_exhausted": {
                 "model_calls": bool(

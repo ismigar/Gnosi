@@ -159,7 +159,7 @@ def _message_events(
         state.total_out_tok = int(team_usage["output_tokens"])
         state.model_calls = int(team_usage["model_calls"])
         state.tool_calls_count = int(team_usage["tool_calls"])
-        state.team_estimated_cost_usd = float(team_usage["estimated_cost_usd"])
+        state.team_usage = team_usage
     if turn_usage:
         state.total_in_tok += int(turn_usage[0])
         state.total_out_tok += int(turn_usage[1])

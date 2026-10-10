@@ -91,7 +91,8 @@ def test_history_attachments_and_selected_scope_survive_handoff(optional_runtime
     assert [m.content for m in messages if m.type == "human"] == [history[0].content, attachment]
     assert any(m.type == "ai" and m.content == history[1].content for m in messages)
     planner_messages = fixture[3]["_model_messages"][0][1]
-    assert any("view-id" in str(m.content) and "row-2" in str(m.content) for m in planner_messages)
+    assert any("view-id" in str(m.content) and "row_ids_count" in str(m.content) for m in planner_messages)
+    assert not any("row-2" in str(m.content) for m in planner_messages)
 
 
 @pytest.mark.parametrize("response", ["Bon dia!", "Quina vista vols modificar?", "Falta una eina per fer aquest canvi."])

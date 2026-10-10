@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { MessageDetailsData, MessageJobAction } from './messageDetailsModel';
+import { TeamUsageDetails } from './TeamUsageDetails';
 
 interface Props {
   readonly msg: MessageDetailsData;
@@ -37,10 +38,12 @@ export function MessageDetails({ msg, onJobAction, onFocusComposer }: Props) {
                         tools: msg.timings.tool_calls ?? 0,
                     })}</div>
                     {msg.timings.estimated_cost_usd !== undefined && (
-                        <div>{t('chat.timing_cost', 'Estimated cost: ${{amount}}', {
+                        <div>{t(msg.timings.team_cost_source === 'reported' ? 'chat.team_reported_cost' : 'chat.timing_cost',
+                            msg.timings.team_cost_source === 'reported' ? 'Reported cost: ${{amount}}' : 'Estimated cost: ${{amount}}', {
                             amount: (msg.timings.estimated_cost_usd || 0).toFixed(6),
                         })}</div>
                     )}
+                    <TeamUsageDetails metrics={msg.timings} />
                 </>
             )}
             {msg.explanation && (

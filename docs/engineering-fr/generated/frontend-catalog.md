@@ -48,7 +48,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1187 | 131076 | 55 |
+| `features` | 1189 | 131141 | 55 |
 | `generated` | 2 | 49841 | 510 |
 | `shared` | 296 | 33275 | 440 |
 
@@ -92,7 +92,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/agent/chat/ChatPanelView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ChatPanelView.tsx) | 185 | `ChatPanelView` | — |
 | [`frontend/src/features/agent/chat/ChatSessionList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ChatSessionList.tsx) | 55 | `ChatSessionList` | — |
 | [`frontend/src/features/agent/chat/ConfirmationReview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ConfirmationReview.tsx) | 75 | `ConfirmationReview` | — |
-| [`frontend/src/features/agent/chat/MessageDetails.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/MessageDetails.tsx) | 232 | `MessageDetails` | — |
+| [`frontend/src/features/agent/chat/MessageDetails.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/MessageDetails.tsx) | 235 | `MessageDetails` | — |
+| [`frontend/src/features/agent/chat/TeamUsageDetails.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/TeamUsageDetails.tsx) | 21 | `TeamUsageDetails` | — |
 | [`frontend/src/features/agent/chat/agentChatTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/agentChatTypes.ts) | 13 | — | — |
 | [`frontend/src/features/agent/chat/applyChatStreamEvent.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/applyChatStreamEvent.ts) | 52 | `applyChatStreamEvent` | — |
 | [`frontend/src/features/agent/chat/chatComposerTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/chatComposerTypes.ts) | 28 | — | — |
@@ -142,11 +143,12 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/agent/model/agentChatMentionUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatMentionUtils.ts) | 25 | `selectedMentionsInText`, `visibleMentionToken` | — |
 | [`frontend/src/features/agent/model/agentChatMessageTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatMessageTypes.ts) | 33 | `asLooseArray`, `isLooseArray`, `isRecord`, `recordValue`, `stringifyLooseValue` | — |
 | [`frontend/src/features/agent/model/agentChatMessageUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatMessageUtils.ts) | 26 | — | — |
-| [`frontend/src/features/agent/model/agentChatTiming.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatTiming.ts) | 383 | `boundedProcessingMs`, `boundedTurnMetrics`, `effectiveMessageTimingMs`, `processingSeconds`, `timedPayloadFromMessage` | — |
+| [`frontend/src/features/agent/model/agentChatTiming.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatTiming.ts) | 385 | `boundedProcessingMs`, `boundedTurnMetrics`, `effectiveMessageTimingMs`, `processingSeconds`, `timedPayloadFromMessage` | — |
 | [`frontend/src/features/agent/model/agentChatTransparency.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatTransparency.ts) | 357 | `boundedBudget`, `boundedCitations`, `boundedConflicts`, `boundedEvidenceSecurity`, `boundedExplanation`, `boundedFreshness`, `boundedJob`, `boundedPrivacy`, `boundedQuality`, `boundedTransparencyMetadata`, `boundedTurnPlan`, `boundedVerification`, `isRetryableErrorCode` | — |
 | [`frontend/src/features/agent/model/agentChatTurnIdentity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatTurnIdentity.ts) | 138 | `getTurnId`, `normalizeMessageTurnId` | — |
 | [`frontend/src/features/agent/model/agentConfirmationUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentConfirmationUtils.ts) | 103 | `CONFIRMATION_REFRESH_MS`, `agentChatStorageScope`, `confirmationForStorage`, `mergeConfirmationRecords`, `startConfirmationRefresh` | — |
 | [`frontend/src/features/agent/model/agentRuntimeStatus.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentRuntimeStatus.ts) | 74 | `deriveAgentRuntimeStatus` | — |
+| [`frontend/src/features/agent/model/agentTeamUsage.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentTeamUsage.ts) | 39 | `boundedTeamUsage` | — |
 | [`frontend/src/features/agent-context/AgentContextSources.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/AgentContextSources.tsx) | 170 | `AgentContextSources`, `function` | — |
 | [`frontend/src/features/agent-context/agent-context/AgentContextPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/agent-context/AgentContextPicker.tsx) | 301 | `AgentContextPicker` | — |
 | [`frontend/src/features/agent-context/agent-context/AgentContextReferenceList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/agent-context/AgentContextReferenceList.tsx) | 43 | `AgentContextReferenceList` | — |
