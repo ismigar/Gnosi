@@ -91,7 +91,7 @@ def execution_profile(snapshot: AgentExecutionSnapshot) -> dict[str, Any]:
         spec = TemporaryAgentSpec.model_validate(data["spec"])
         validate_temporary(spec, owner, snapshot.scope)
         return cast(dict[str, Any], data["profile"])
-    allowed = {team.director_id, *(m.agent_id for m in team.members)}
+    allowed = {owner["id"], team.director_id, *(m.agent_id for m in team.members)}
     if snapshot.agent_id not in allowed:
         raise PermissionError("agent_team_member_revoked")
     current = _profile(snapshot.agent_id)

@@ -136,10 +136,13 @@ def test_semantic_choice_is_not_replaced_by_a_cheaper_different_specialist():
     assert selected is None
 
 
-def test_principal_can_execute_its_own_specialty_without_recursing(optional_runtime, monkeypatch):
+@pytest.mark.parametrize("separate_director", [False, True])
+def test_principal_can_execute_its_own_specialty_without_recursing(optional_runtime, monkeypatch, separate_director):
     from backend.services import agent_team_runtime as teams
     from backend.agent import model_router
     fixture, bindings = optional_runtime
+    if separate_director:
+        fixture[1].profile["team"]["director_id"] = "worker"
     async def planned(*args, **kwargs):
         return plan_for("director").model_dump_json()
     monkeypatch.setattr(teams, "_phase", planned)
