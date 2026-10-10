@@ -85,6 +85,23 @@ def validate_title_view(scope: dict[str, Any]) -> None:
         raise ValueError("The active view changed after the title preview. Prepare it again.")
 
 
+def title_view_label(scope: dict[str, Any]) -> str:
+    from backend.domains.agent.context_storage import _table_view, _registry
+    view = _table_view(scope["table_id"], {"view_id": scope["view_id"]}) or {}
+    table: dict[str, Any] = next((table for table in _registry().get("tables", []) if table.get("id") == scope["table_id"]), {})
+    return " · ".join(str(value) for value in (table.get("name"), view.get("name")) if value)
+
+
+def current_title_instruction(messages: Any, state: Any, fallback: str) -> str:
+    """Read the server-preserved human wording, keeping attachments as data."""
+    original = str(state.get("user_request") or "")
+    if title_replacements(original) is not None:
+        return original
+    latest = next((message for message in reversed(messages) if getattr(message, "type", "") == "human"), None)
+    visible = str((getattr(latest, "additional_kwargs", {}) or {}).get("gnosi_visible_content") or "")
+    return visible if title_replacements(visible) is not None else fallback
+
+
 def replace_title(title: str, pairs: list[tuple[str, str]]) -> str:
     """Replace simultaneously; single letters match tokens or numeric prefixes.
 

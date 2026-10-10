@@ -332,7 +332,8 @@ class AgentWorkflowNodes:
     def _prepare_brain_turn(self, state: AgentState) -> BrainTurn:
         """Resolve context routing, planner policy and exact per-turn tool set."""
         messages = state["messages"]
-        latest_user = self._latest_user(messages)
+        from backend.domains.agent.title_replacements import current_title_instruction
+        latest_user = current_title_instruction(messages, state, self._latest_user(messages))
         request_mode = _request_mode(latest_user)
         authorized_names = _turn_authorized_tool_names(state)
         route = self._context_route(messages, latest_user, request_mode)

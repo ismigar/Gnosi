@@ -186,7 +186,9 @@ def bulk_update_rows(updates: List[Dict[str, Any]], view_scope: Optional[Dict[st
             validate_title_view(view_scope)
         except ValueError as error:
             return _json({"error": str(error)})
-    normalized = []
+    from backend.domains.agent.title_replacements import title_view_label
+    scope_label = title_view_label(view_scope) if view_scope is not None else ""
+    normalized: List[Dict[str, Any]] = []
     for update in updates:
         identifier = str(update.get("id") or update.get("title") or "").strip()
         properties = update.get("properties")
@@ -213,12 +215,13 @@ def bulk_update_rows(updates: List[Dict[str, Any]], view_scope: Optional[Dict[st
         {"updates": normalized, **({"view_scope": view_scope} if view_scope is not None else {})},
         {
             "count": len(normalized),
-            **({"view_scope": view_scope} if view_scope is not None else {}),
+            **({"table": scope_label} if scope_label else {}),
             "updates": [
                 {
                     "id": item["id"],
                     "title": item["title"],
-                    "properties": item["properties"],
+                    **({"from": item["title"], "to": item["properties"]["title"]}
+                       if set(item["properties"]) == {"title"} else {"properties": item["properties"]}),
                 }
                 for item in normalized
             ],
