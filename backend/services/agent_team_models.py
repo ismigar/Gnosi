@@ -85,13 +85,31 @@ class TeamTask(BaseModel):
     temporary: TemporaryAgentSpec | None = None
 
 
+JsonType = Literal["object", "array", "string", "number", "integer", "boolean", "null"]
+
+
+class TeamOutputField(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    path: list[str] = Field(min_length=1, max_length=8, description="Exact property names; * selects an array item, e.g. [classifications, *, id].")
+    type: JsonType
+    required: bool = True
+    choices: list[str | int | float | bool | None] = Field(default_factory=list, max_length=64)
+
+
+class TeamOutputContract(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: JsonType = "object"
+    fields: list[TeamOutputField] = Field(default_factory=list, max_length=64)
+    allow_extra_keys: bool = False
+
+
 class TeamPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
     operation: str = Field(default="", max_length=128,
         description="First identify the requested application_operation from the capability catalog. Empty only for dialogue or a custom capability without an application operation.")
     response_kind: Literal["", "greeting", "clarification", "conversation", "unavailable"] = "conversation"
-    output_schema_json: str = Field(default="", max_length=8000,
-        description="For a requested JSON deliverable, encode its JSON Schema as a string, including exact required keys and value types. Empty for ordinary text or clarification.")
+    output_contract: TeamOutputContract | None = Field(default=None,
+        description="Declare the requested JSON root type and field paths/types. Null for ordinary text or clarification. Use an object with value:number or value:boolean for typed table fields.")
     tasks: list[TeamTask] = Field(default_factory=list, max_length=4)
     result_task: str = ""
     synthesize: bool = False

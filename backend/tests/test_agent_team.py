@@ -101,6 +101,9 @@ def team_runtime(monkeypatch, tmp_path):
         response = responses.pop(0) if responses else '{"result":"done"}'
         return operation_workflow(FakeListChatModel(responses=[response]), "Complete the request", 32000), {"provider": p["provider"], "model": p["model"]}
     monkeypatch.setattr(factory, "create_agent_workflow", create)
+    # These graphs explicitly use 32k; their fake model names are not registry IDs.
+    from backend.domains.agent import runtime_tools
+    monkeypatch.setattr(runtime_tools, "_model_context_window", lambda *args: 32000)
     snapshot = AgentExecutionSnapshot(scope=scope, agent_id=owner["id"], profile=owner, skill_ids=[writing],
         instructions=["procedure"], catalog_revision="1", revision="1")
     return scope, snapshot, calls, config

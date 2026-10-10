@@ -80,7 +80,7 @@ def continuation_plan(owner: dict[str, Any], scope: ExecutionScope, state: dict[
 def remember_specialist(owner: dict[str, Any], scope: ExecutionScope, root_id: str, state: dict[str, Any],
                         plan: TeamPlan, catalog: list[dict[str, Any]], refs: list[dict[str, Any]],
                         result: str) -> dict[str, str]:
-    if len(plan.tasks) != 1 or plan.synthesize or plan.response or plan.output_schema_json:
+    if len(plan.tasks) != 1 or plan.synthesize or plan.response or plan.output_contract:
         return {}
     task = plan.tasks[0]
     if not task.read_only or task.temporary or task.agent_id == owner["id"]:

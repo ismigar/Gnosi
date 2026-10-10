@@ -165,7 +165,7 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
         schema = copy.deepcopy(schema)
         if allow_response:
             from backend.services.agent_team_contracts import operation_skills
-            schema["required"] = list(dict.fromkeys([*schema.get("required", []), "operation", "response_kind", "output_schema_json"]))
+            schema["required"] = list(schema["properties"])
             schema["properties"]["operation"]["enum"] = ["", *sorted(set(operation_skills(members).values()))]
         identifiers = [member["id"] for member in members if member["available"]]
         if team_for(owner).temporary.enabled:

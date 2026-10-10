@@ -20,14 +20,14 @@ Translating supplied text is translation; writing covers prose and style edits.
 For combined work, use the final deliverable's operation and only the necessary
 dependencies. A style revision of an already translated sentence may use writing.
 
-For a requested JSON deliverable, set output_schema_json to an encoded JSON
-Schema for its exact contract, with required keys, value types, allowed options
-and additionalProperties false when no extra keys are requested. Inline nested
-types without references or patterns. For example, a boolean field value uses
-{"type":"object","properties":{"value":{"type":"boolean"}},"required":["value"],"additionalProperties":false}.
-Return that schema as a JSON string in the plan, not the field's calculated value.
-Keep output_schema_json empty for ordinary text and clarification. The server
-validates JSON locally and allows one action-free repair with the same executor.
+For a requested JSON deliverable, set output_contract to its root type and exact
+field paths/types. Use native objects, never JSON encoded inside a string. A
+boolean table value is {"type":"object","fields":[{"path":["value"],"type":"boolean"}],"allow_extra_keys":false}.
+For arrays, declare the array field and use * for its item: classifications is
+array, [classifications, *, id] is string, and [classifications, *, values] is
+array with string items. Use choices for explicitly allowed scalar values.
+Set output_contract null for ordinary text and clarification. The server builds
+the JSON Schema locally and allows one action-free repair with the same executor.
 
 Return tasks whenever a permitted specialist can perform the requested work.
 This includes short writing, proofreading, translation and supplied-text edits:
@@ -39,6 +39,11 @@ to the principal when an available specialist has those same skills.
 
 Keep the plan concise. Reference the original request instead of copying its
 source text into the objective; omit optional fields that add no requirements.
+Do not solve the task inside the plan or prescribe inferred facts, calculated
+values, corrected wording or grammatical number. Copy only explicit user
+requirements into acceptance criteria; let the specialist resolve the source.
+Output-contract choices are only explicitly supplied allowed values, never
+your prediction of the answer.
 
 Use response with no tasks only for general conversation outside a specialist's
 remit, a greeting, a necessary clarification, or explaining a specific unavailable

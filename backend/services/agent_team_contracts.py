@@ -1,14 +1,12 @@
 """Local operation and output checks for the coordinator's untrusted plan."""
 from __future__ import annotations
 
-import json
-import math
 from typing import Any
 
-from jsonschema import Draft202012Validator, SchemaError
+from jsonschema import Draft202012Validator, ValidationError
 
 from backend.services.agent_operation_catalog import OPERATIONS, skill_id
-from backend.services.agent_team_models import TeamPlan
+from backend.services.agent_team_models import TeamPlan, TeamOutputField
 
 def required_operation(operation: str, active_skills: list[str]) -> str:
     """A plugin's operation prefix is not an application-skill assignment."""
@@ -17,38 +15,52 @@ def required_operation(operation: str, active_skills: list[str]) -> str:
 
 
 def output_schema(plan: TeamPlan) -> dict[str, Any] | None:
-    if not plan.output_schema_json:
+    contract = plan.output_contract
+    if contract is None:
         return None
-    try:
-        schema = json.loads(plan.output_schema_json)
-        if not isinstance(schema, dict) or not schema:
-            raise ValueError("output schema must be a nonempty object")
-        pending = [(schema, 0, True)]
-        nodes = 0
-        while pending:
-            item, depth, is_schema = pending.pop()
-            nodes += 1
-            if nodes > 256 or depth > 12:
-                raise ValueError("output schema exceeds local validation limits")
-            if isinstance(item, dict):
-                if is_schema and any(key in item for key in ("$ref", "$dynamicRef", "$recursiveRef", "$schema", "$id", "pattern", "patternProperties")):
-                    raise ValueError("output schema must inline its types without references or patterns")
-                for key, child in item.items():
-                    if is_schema and key in {"properties", "$defs", "definitions", "dependentSchemas"} and isinstance(child, dict):
-                        pending.extend((value, depth + 1, True) for value in child.values())
-                    elif is_schema and key in {"allOf", "anyOf", "oneOf", "prefixItems"} and isinstance(child, list):
-                        pending.extend((value, depth + 1, True) for value in child)
-                    else:
-                        subschema = is_schema and key in {"items", "additionalProperties", "unevaluatedItems", "unevaluatedProperties", "contains", "propertyNames", "not", "if", "then", "else", "contentSchema"}
-                        pending.append((child, depth + 1, subschema))
-            elif isinstance(item, list):
-                pending.extend((child, depth + 1, False) for child in item)
-            elif isinstance(item, float) and not math.isfinite(item):
-                raise ValueError("output schema must contain finite numbers")
-        Draft202012Validator.check_schema(schema)
-        return schema
-    except (ValueError, SchemaError, RecursionError) as error:
-        raise ValueError("agent_team_output_schema_invalid: " + str(error)[:300]) from error
+    schema: dict[str, Any] = {"type": contract.type}
+    if contract.type == "object":
+        schema.update(properties={}, additionalProperties=contract.allow_extra_keys)
+    for field in sorted(contract.fields, key=lambda value: len(value.path)):
+        current = schema
+        for index, part in enumerate(field.path):
+            if not part or len(part) > 256:
+                raise ValueError("agent_team_output_contract_invalid: invalid field path")
+            kind = current.get("type", "object")
+            if kind == "object":
+                current.setdefault("type", "object")
+                current.setdefault("additionalProperties", False)
+                child = current.setdefault("properties", {}).setdefault(part, {})
+                if field.required:
+                    required = current.setdefault("required", [])
+                    if part not in required:
+                        required.append(part)
+            elif kind == "array" and part == "*":
+                child = current.setdefault("items", {})
+            else:
+                raise ValueError("agent_team_output_contract_invalid: path crosses a scalar or needs an array *")
+            if index == len(field.path) - 1:
+                _field_shape(child, field)
+            current = child
+    Draft202012Validator.check_schema(schema)
+    return schema
+
+
+def _field_shape(node: dict[str, Any], field: TeamOutputField) -> None:
+    if node.get("type") and node["type"] != field.type:
+        raise ValueError("agent_team_output_contract_invalid: conflicting field types")
+    node["type"] = field.type
+    if field.type == "object":
+        node.setdefault("properties", {})
+        node.setdefault("additionalProperties", False)
+    if field.choices:
+        from backend.services.json_contracts import validate_json_value
+        try:
+            for choice in field.choices:
+                validate_json_value(choice, {"type": field.type})
+        except ValidationError as error:
+            raise ValueError("agent_team_output_contract_invalid: choices must match the field type") from error
+        node["enum"] = field.choices
 
 
 def operation_skills(members: list[dict[str, Any]]) -> dict[str, str]:
@@ -57,7 +69,7 @@ def operation_skills(members: list[dict[str, Any]]) -> dict[str, str]:
         for capability in member.get("capabilities", []):
             if capability["available"]:
                 operation = capability.get("application_operation") or known.get(capability["canonical_id"])
-                if operation:
+                if isinstance(operation, str) and operation:
                     known[capability["id"]] = operation
                     known[capability["canonical_id"]] = operation
     return known

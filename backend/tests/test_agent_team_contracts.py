@@ -5,7 +5,7 @@ import pytest
 from langchain_core.messages import AIMessage
 
 from backend.services.agent_team_contracts import output_schema, validate_plan_contract, required_operation
-from backend.services.agent_team_models import TeamPlan, TeamTask
+from backend.services.agent_team_models import TeamPlan, TeamTask, TeamOutputContract, TeamOutputField
 from backend.tests.test_agent_team import optional_runtime, team_runtime  # noqa: F401
 from backend.tests.test_principal_agent_routing import run_chat
 
@@ -19,7 +19,7 @@ def test_plugin_operation_prefix_does_not_borrow_an_application_skill():
 
 
 def table_plan():
-    return TeamPlan(operation="tables", output_schema_json=json.dumps(BOOLEAN),
+    return TeamPlan(operation="tables", output_contract=TeamOutputContract(fields=[TeamOutputField(path=["value"], type="boolean")]),
                     tasks=[TeamTask(id="field", agent_id="worker", objective="Compute the requested typed field",
                                     skill_ids=["core.gnosi-operation-tables"])], result_task="field")
 
@@ -65,16 +65,38 @@ def test_operation_checks_respect_personal_skill_aliases_and_server_operation():
         validate_plan_contract(plan, catalog, "director", required_operation="writing")
 
 
-@pytest.mark.parametrize("schema", [[], {"type": "nonsense"}, {"$ref": "https://example.test/schema"},
-                                     {"properties": {"value": {"pattern": "(a+)+"}}}])
-def test_model_generated_schemas_are_checked_locally_without_external_references(schema):
-    with pytest.raises(ValueError, match="output_schema_invalid"):
-        output_schema(TeamPlan(response="hello", output_schema_json=json.dumps(schema)))
+@pytest.mark.parametrize("invalid", [{"type": "nonsense"}, {"$ref": "https://example.test/schema"},
+                                      {"type": "string", "pattern": "(a+)+"}])
+def test_raw_schema_keywords_cannot_enter_the_typed_contract(invalid):
+    with pytest.raises(ValueError):
+        TeamPlan(response="hello", output_contract=invalid)
+
+
+def test_contract_rejects_scalar_paths_and_choices_of_the_wrong_type():
+    for contract in [TeamOutputContract(type="boolean", fields=[TeamOutputField(path=["value"], type="boolean")]),
+                     TeamOutputContract(fields=[TeamOutputField(path=["value"], type="number", choices=["bad"])])]:
+        with pytest.raises(ValueError, match="output_contract_invalid"):
+            output_schema(TeamPlan(response="hello", output_contract=contract))
 
 
 def test_reference_names_in_data_fields_are_not_schema_references():
-    schema = {"type": "object", "properties": {"$ref": {"type": "string"}}, "required": ["$ref"]}
-    assert output_schema(TeamPlan(response="hello", output_schema_json=json.dumps(schema))) == schema
+    contract = TeamOutputContract(fields=[TeamOutputField(path=["$ref"], type="string")])
+    assert output_schema(TeamPlan(response="hello", output_contract=contract))["properties"]["$ref"] == {"type": "string"}
+
+
+def test_nested_array_contract_is_built_locally_with_exact_types():
+    from backend.services.json_contracts import validate_json_value
+    from jsonschema import ValidationError
+    contract = TeamOutputContract(fields=[
+        TeamOutputField(path=["classifications"], type="array"),
+        TeamOutputField(path=["classifications", "*", "id"], type="string"),
+        TeamOutputField(path=["classifications", "*", "values"], type="array"),
+        TeamOutputField(path=["classifications", "*", "values", "*"], type="string", choices=["entity", "idea"]),
+    ])
+    schema = output_schema(TeamPlan(response="hello", output_contract=contract))
+    validate_json_value({"classifications": [{"id": "n1", "values": ["entity"]}]}, schema)
+    with pytest.raises(ValidationError):
+        validate_json_value({"classifications": [{"id": "n1", "values": [False]}]}, schema)
 
 
 def prepare(fixture, monkeypatch, outputs):
