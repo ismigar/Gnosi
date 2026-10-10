@@ -11,8 +11,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 646 | 2839 |
-| pytest | 655 | 4839 |
+| Vitest | 646 | 2841 |
+| pytest | 655 | 4840 |
 
 ## Archivos
 
@@ -388,7 +388,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/vault/editor/block-editor/modeHandoff.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/modeHandoff.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/outgoingLinks.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/outgoingLinks.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/page-editor/pageContracts.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/pageContracts.test.ts) | 6 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/editor/block-editor/page-editor/pageEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/pageEditor.test.tsx) | 25 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/editor/block-editor/page-editor/pageEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/pageEditor.test.tsx) | 27 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/page-editor/pageProperties.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/pageProperties.test.tsx) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/property-controls/MultiSelectPills.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/property-controls/MultiSelectPills.test.tsx) | 11 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/property-controls/PropertyDropdownPortal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/property-controls/PropertyDropdownPortal.test.tsx) | 4 | call-pattern estimate |
@@ -711,7 +711,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_agent_create_page_containment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_create_page_containment.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_agent_exact_actions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_exact_actions.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_agent_exact_inventory_filters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_exact_inventory_filters.py) | 19 | Python AST |
-| pytest | [`backend/tests/test_agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_execution.py) | 46 | Python AST |
+| pytest | [`backend/tests/test_agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_execution.py) | 47 | Python AST |
 | pytest | [`backend/tests/test_agent_factory_facade.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_factory_facade.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_agent_governance_response_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_governance_response_contracts.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_agent_help_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_help_repair.py) | 3 | Python AST |

@@ -44,13 +44,23 @@ def test_migration_preserves_personal_brain_and_disabled_features():
     assert migrate(migrated, {"ai-platform"}) == (migrated, False)
 
 
-@pytest.mark.parametrize('operation,effort,expected', [
-    ('knowledge.process-source.phase', None, 'low'),
-    ('knowledge.process-source.phase', 'max', None),
-    ('knowledge.process-source.phase', 'low', None),
-    ('other.operation', None, None),
+@pytest.mark.parametrize('operation,effort,retry,expected', [
+    ('knowledge.process-source.phase', None, False, 'low'),
+    ('knowledge.process-source.phase', None, True, 'low'),
+    ('knowledge.process-source.phase', 'max', False, None),
+    ('knowledge.process-source.phase', 'low', False, None),
+    ('team.plan', None, False, 'low'),
+    ('team.replan', None, False, 'low'),
+    ('team.plan', None, True, None),
+    ('team.replan', None, True, None),
+    ('team.plan', 'max', False, None),
+    ('team.plan', 'low', True, None),
+    ('team.synthesis', None, False, None),
+    ('team.repair', None, False, None),
+    ('writing', None, False, None),
+    ('other.operation', None, False, None),
 ])
-def test_only_reading_with_default_reasoning_requests_low(monkeypatch, runtime, operation, effort, expected):
+def test_phase_scoped_default_reasoning_preserves_explicit_choices(monkeypatch, runtime, operation, effort, retry, expected):
     _, snapshot = runtime
     if effort:
         snapshot.profile['reasoning_effort'] = effort
@@ -60,7 +70,7 @@ def test_only_reading_with_default_reasoning_requests_low(monkeypatch, runtime, 
         return SimpleNamespace(compile=lambda: 'compiled'), {}
     monkeypatch.setattr('backend.agent.factory.create_agent_workflow', workflow)
     request = AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation, input='source')
-    asyncio.run(execution._operation_application(request, snapshot, {}, None))
+    asyncio.run(execution._operation_application(request, snapshot, {}, None, validation_retry=retry))
     assert captured['operation_default_reasoning_effort'] == expected
     assert snapshot.profile.get('reasoning_effort') == effort
     assert captured['prepared_agent_data'] is snapshot.profile
@@ -107,6 +117,53 @@ def test_structured_repair_once_and_scope_isolation(runtime, monkeypatch):
         store.read(scope.model_copy(update={"user_id": "bob"}), result.run_id)
     with pytest.raises(LookupError):
         store.cancel(scope.model_copy(update={"vault_path": "/other"}), result.run_id)
+
+
+@pytest.mark.parametrize("operation", ["team.plan", "team.replan"])
+@pytest.mark.parametrize("provider", ["openrouter", "local"])
+@pytest.mark.parametrize("answers,effort,expected_efforts,completed", [
+    (['{"agent_id":"worker"}'], None, ['low'], True),
+    (['bad JSON', '{"agent_id":"worker"}'], None, ['low', None], True),
+    (['{"agent_id":"wrong"}', '{"agent_id":"worker"}'], None, ['low', None], True),
+    (['{"agent_id":"wrong"}', '{"agent_id":"wrong"}'], None, ['low', None], False),
+    (['{"agent_id":"wrong"}', '{"agent_id":"worker"}'], 'high', [None], True),
+])
+def test_planning_validation_fallback_keeps_contract_and_two_call_limit(
+    runtime, monkeypatch, operation, provider, answers, effort, expected_efforts, completed,
+):
+    from backend.agent import factory
+    scope, snapshot = runtime
+    if effort:
+        snapshot.profile['reasoning_effort'] = effort
+    calls = install_workflow(monkeypatch, answers)
+    original_factory = factory.create_agent_workflow
+    configurations = []
+    async def capture(*args, **kwargs):
+        configurations.append(kwargs)
+        application, selection = await original_factory(*args, **kwargs)
+        return application, {**selection, 'provider': provider}
+    monkeypatch.setattr(factory, 'create_agent_workflow', capture)
+    schema = {'type': 'object', 'required': ['agent_id']}
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation,
+        input='Route this request', output_schema=schema, max_model_calls=2)
+    def validate(text):
+        if json.loads(text)['agent_id'] != 'worker':
+            raise ValueError('agent_team_operation_executor_mismatch')
+        return text
+    with execution_scope(scope):
+        if completed:
+            result = asyncio.run(execution.execute_operation(request, snapshot=snapshot, output_validator=validate))
+            assert result.status == 'completed' and json.loads(result.result)['agent_id'] == 'worker'
+        else:
+            with pytest.raises(ValueError, match='agent_team_operation_executor_mismatch'):
+                asyncio.run(execution.execute_operation(request, snapshot=snapshot, output_validator=validate))
+            assert store.list_runs(scope)[0].status == 'failed'
+    assert len(calls) == len(answers)
+    assert [c['operation_default_reasoning_effort'] for c in configurations] == (expected_efforts if provider == 'openrouter' else expected_efforts[:1])
+    assert all(c['output_schema'] == schema and c['prepared_agent_data'] is snapshot.profile
+               and c['timeout'] == request.timeout_seconds and not c['operation_read_tools']
+               for c in configurations)
+    assert snapshot.profile.get('reasoning_effort') == effort
 
 
 @pytest.mark.parametrize("invalid", [
