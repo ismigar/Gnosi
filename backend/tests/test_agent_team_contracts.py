@@ -18,6 +18,28 @@ def test_plugin_operation_prefix_does_not_borrow_an_application_skill():
     assert required_operation("knowledge.classify", ["core.gnosi-operation-knowledge"]) == "knowledge"
 
 
+def test_native_planning_format_does_not_duplicate_the_schema_in_the_message():
+    from backend.services.agent_behavior import operation_input
+    from backend.services.agent_execution_models import AgentOperation
+    request = AgentOperation(skill_id="core.gnosi-coordination", operation="team.plan", input="original evidence",
+                             output_schema=TeamPlan.model_json_schema())
+    native = json.loads(operation_input(request, provider="openrouter"))
+    assert native["input"] == "original evidence" and "output_schema" not in native
+    assert json.loads(operation_input(request))["output_schema"] == request.output_schema
+    assert json.loads(operation_input(request, provider="local"))["output_schema"] == request.output_schema
+    assert request.output_schema == TeamPlan.model_json_schema()
+
+
+def test_dynamic_and_nonplanning_contracts_remain_in_the_prompt():
+    from backend.services.agent_behavior import operation_input
+    from backend.services.agent_execution_models import AgentOperation
+    request = AgentOperation(skill_id="core.gnosi-coordination", operation="team.plan", output_schema={"type": "object"})
+    assert "output_schema" in json.loads(operation_input(request, provider="openrouter"))
+    request.operation = "team.repair"
+    request.output_schema = BOOLEAN
+    assert "output_schema" in json.loads(operation_input(request, provider="openrouter"))
+
+
 def table_plan():
     return TeamPlan(operation="tables", output_contract=TeamOutputContract(fields=[TeamOutputField(path=["value"], type="boolean")]),
                     tasks=[TeamTask(id="field", agent_id="worker", objective="Compute the requested typed field",

@@ -440,7 +440,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     try:
         application, selection = await _operation_application(request, snapshot, ai, runtime)
         store.update(snapshot.scope, run_id, provider=str(selection.get("provider") or ""), model=str(selection.get("model") or ""))
-        messages: list[BaseMessage] = [HumanMessage(content=operation_input(request))]
+        messages: list[BaseMessage] = [HumanMessage(content=operation_input(request, provider=str(selection.get("provider") or "")))]
         deadline = time.monotonic() + request.timeout_seconds
         text = ""
         partial_repair: OutputRepair | None = None

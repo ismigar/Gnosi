@@ -24,11 +24,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 232 | 46912 |
+| `services` | 232 | 46917 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **963 modules** and **188739 source lines**.
+Total: **963 modules** and **188744 source lines**.
 
 ## agent
 
@@ -831,7 +831,7 @@ Total: **963 modules** and **188739 source lines**.
 | [`backend/services/academic_connectors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/academic_connectors.py) | 172 | 0 | 1 | 0 | 1 | Compatibility facade for typed academic connector adapters. |
 | [`backend/services/action_rules.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/action_rules.py) | 292 | 0 | 10 | 0 | 7 | Declarative action rules per table (`table.action_rules` block). |
 | [`backend/services/active_vault_middleware.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/active_vault_middleware.py) | 321 | 1 | 12 | 3 | 8 | Resolve canonical vault API routes and propagate the active vault context. |
-| [`backend/services/agent_behavior.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_behavior.py) | 67 | 0 | 8 | 0 | 2 | Readable, versioned behavior resources and data-only operation requests. |
+| [`backend/services/agent_behavior.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_behavior.py) | 72 | 0 | 8 | 0 | 2 | Readable, versioned behavior resources and data-only operation requests. |
 | [`backend/services/agent_behavior_bindings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_behavior_bindings.py) | 61 | 0 | 3 | 0 | 1 | Resolve assigned personal procedures without changing canonical permissions. |
 | [`backend/services/agent_cancellation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_cancellation.py) | 201 | 1 | 11 | 1 | 10 | Cooperative cancellation for streamed agent turns. |
 | [`backend/services/agent_capability_conformance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_capability_conformance.py) | 81 | 0 | 3 | 0 | 0 | Versioned conformance reporting for governed skills and tools. |
