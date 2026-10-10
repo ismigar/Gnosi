@@ -1,4 +1,5 @@
-import { ColumnSortButton } from './ColumnSortButton';
+import { useColumnHeaderActions } from './useColumnHeaderActions';
+import { ColumnSortIndicator } from './ColumnSortIndicator';
 import { columnLabel } from './spreadsheetFormula';
 import { Calendar, CheckSquare, Tag, Type } from 'lucide-react';
 import { getTableFieldConfig } from './fieldConfig';
@@ -6,6 +7,7 @@ import { SortableColumnTh } from './SortableColumnTh';
 import type { TableController } from './useTableController';
 
 export function TableHeader({ model }: { model: TableController; }) {
+  const headerProps = useColumnHeaderActions(model);
   const {
     selectedIds,
     sortedNotes,
@@ -15,13 +17,11 @@ export function TableHeader({ model }: { model: TableController; }) {
     schema,
     openHeaderHelp,
     columnWidths,
-    handleSort,
     setOpenHeaderHelp,
     activeSort,
     handleMouseDown,
     dynamicColumns,
     canReorderColumns,
-    columnDragJustEndedRef,
     showModifiedColumn,
   } = model;
   return (<thead className="bg-[var(--bg-primary)] text-[var(--text-secondary)] font-semibold select-none group/table sticky top-0 z-40">
@@ -53,7 +53,7 @@ export function TableHeader({ model }: { model: TableController; }) {
             style={{ width: columnWidths['title'] || 250 }}
             className="py-3 px-4 sticky left-10 bg-[var(--bg-secondary)] z-40 border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] hover:bg-[var(--bg-tertiary)] transition-colors group relative"
           >
-            <div className="flex items-center justify-between cursor-pointer overflow-hidden text-[var(--text-secondary)]" onClick={() => { handleSort('title'); }}>
+            <div className="flex items-center justify-between cursor-pointer overflow-hidden text-[var(--text-secondary)]" {...headerProps('title', titleKey === 'title' ? t('table.note_name') : titleKey)}>
               <div className="flex items-center gap-1.5 truncate">
                 <span className="text-[10px] text-[var(--text-tertiary)]">A</span>
                 <span className="truncate">{titleKey === 'title' ? t('table.note_name') : titleKey}</span>
@@ -76,11 +76,11 @@ export function TableHeader({ model }: { model: TableController; }) {
                   </button>
                 )}
               </div>
-              <ColumnSortButton model={model} field="title" label={titleKey === 'title' ? t('table.note_name') : titleKey} />
+              <ColumnSortIndicator model={model} field="title" label={titleKey === 'title' ? t('table.note_name') : titleKey} />
             </div>
             {isTitleHelpOpen && titleDesc && (
               <div
-                className="absolute left-0 top-full z-[100] mt-1 w-64 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] p-2.5 shadow-xl text-xs font-normal text-[var(--text-secondary)] normal-case whitespace-normal leading-relaxed animate-in fade-in zoom-in-95 duration-150 cursor-default"
+                data-column-help className="absolute left-0 top-full z-[100] mt-1 w-64 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] p-2.5 shadow-xl text-xs font-normal text-[var(--text-secondary)] normal-case whitespace-normal leading-relaxed animate-in fade-in zoom-in-95 duration-150 cursor-default"
                 onClick={(e) => { e.stopPropagation(); }}
               >
                 <div className="font-semibold text-[var(--text-primary)] mb-1 flex items-center justify-between">
@@ -115,11 +115,9 @@ export function TableHeader({ model }: { model: TableController; }) {
             disabled={!canReorderColumns}
             width={columnWidths[key] || 180}
             className="py-3 px-4 hover:bg-[var(--bg-tertiary)] transition-colors group relative border-r border-[var(--border-primary)]"
-            handleClassName={`flex items-center gap-1.5 justify-between overflow-hidden text-[var(--text-secondary)] ${canReorderColumns ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
-            onHeaderClick={() => {
-              if (columnDragJustEndedRef.current) return;
-              handleSort(key);
-            }}
+            handleClassName={`flex items-center gap-1.5 justify-between overflow-hidden text-[var(--text-secondary)] cursor-pointer flex-1 min-w-0`}
+            headerProps={headerProps(key, key)}
+            dragLabel={t('table.move_column', { column: key })}
             resizeHandle={
               <div
                 className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[var(--gnosi-primary)]/40 opacity-0 group-hover/table:opacity-100 z-30 transition-opacity"
@@ -153,10 +151,10 @@ export function TableHeader({ model }: { model: TableController; }) {
                 </button>
               )}
             </div>
-            <ColumnSortButton model={model} field={key} label={key} />
+            <ColumnSortIndicator model={model} field={key} label={key} />
             {isHelpOpen && desc && (
               <div
-                className="absolute left-0 top-full z-[100] mt-1 w-64 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] p-2.5 shadow-xl text-xs font-normal text-[var(--text-secondary)] normal-case whitespace-normal leading-relaxed animate-in fade-in zoom-in-95 duration-150 cursor-default"
+                data-column-help className="absolute left-0 top-full z-[100] mt-1 w-64 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] p-2.5 shadow-xl text-xs font-normal text-[var(--text-secondary)] normal-case whitespace-normal leading-relaxed animate-in fade-in zoom-in-95 duration-150 cursor-default"
                 onClick={(e) => { e.stopPropagation(); }}
               >
                 <div className="font-semibold text-[var(--text-primary)] mb-1 flex items-center justify-between">
@@ -181,9 +179,9 @@ export function TableHeader({ model }: { model: TableController; }) {
           style={{ width: columnWidths['last_modified'] || 150 }}
           className="py-3 px-4 hover:bg-[var(--bg-tertiary)] transition-colors group relative border-l border-[var(--border-primary)] text-[var(--text-secondary)]"
         >
-          <div className="flex items-center justify-between cursor-pointer overflow-hidden" onClick={() => { handleSort('last_modified'); }}>
-            <span className="truncate">{t('table.modification')}</span>
-            <ColumnSortButton model={model} field="last_modified" label={t('table.modification')} />
+          <div className="flex items-center justify-between cursor-pointer overflow-hidden" {...headerProps('last_modified', t('table.modification'))}>
+            <div className="flex items-center gap-1.5 truncate"><span className="text-[10px] text-[var(--text-tertiary)]">{columnLabel(dynamicColumns.length + 1)}</span><span className="truncate">{t('table.modification')}</span></div>
+            <ColumnSortIndicator model={model} field="last_modified" label={t('table.modification')} />
           </div>
           <div
             className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[var(--gnosi-primary)]/40 opacity-0 group-hover/table:opacity-100 z-30 transition-opacity"

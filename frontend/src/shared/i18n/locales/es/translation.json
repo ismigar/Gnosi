@@ -550,8 +550,11 @@
     "remove_favorite": "Quitar de favoritos"
   },
   "table": {
-    "sort_column_asc": "Ordena {{column}} ascendentemente",
-    "sort_column_desc": "Ordena {{column}} descendentemente",
+    "column_header_hint": "{{column}}: clic para ordenar; doble clic para seleccionar toda la columna",
+    "move_column": "Mueve la columna {{column}}",
+    "sorted_column_asc": "Ordenada por {{column}} en orden ascendente",
+    "sorted_column_desc": "Ordenada por {{column}} en orden descendente",
+    "sort_save_error": "No se ha podido guardar la ordenación",
     "keyboard_navigation": "Navegación por registros: Enter para entrar, flechas para moverse y Esc para salir",
     "formula_input": "Valor o fórmula",
     "formula_hint": "Escribe =SUM(B1:B3) o =[Precio]*[Cantidad]. Enter guarda; Esc cancela. A1 sigue el orden de filas y columnas de la vista; [Campo] referencia la misma fila.",

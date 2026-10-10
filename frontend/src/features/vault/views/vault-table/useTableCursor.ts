@@ -12,6 +12,7 @@ import type { useTableIdentity } from './useTableIdentity';
 import type { useTableMedia } from './useTableMedia';
 import type { useTableNavigation } from './useTableNavigation';
 import type { useTableOptimistic } from './useTableOptimistic';
+import type { useTableSelection } from './useTableSelection';
 import type { useTableRows } from './useTableRows';
 import type { useTableSave } from './useTableSave';
 import type { useTableState } from './useTableState';
@@ -23,6 +24,8 @@ type Inputs = Pick<ReturnType<typeof useTableState>,
   | 'columnWidthsRef'
   | 'setAnchorCell'
   | 'setActiveCell'
+  | 'setSelectedColumn'
+  | 'setVisibleRowsCount'
   | 'titlePreviewRef'
   | 'setEditInitial'
   | 'setEditingCell'
@@ -38,6 +41,7 @@ type Inputs = Pick<ReturnType<typeof useTableState>,
     | 'navRows'
   >
   & Pick<ReturnType<typeof useTableData>, 'sortedNotes'>
+  & Pick<ReturnType<typeof useTableSelection>, 'clearSelection'>
   & Pick<ReturnType<typeof useTableEntry>, 'handleLoadMoreRows'>
   & Pick<ReturnType<typeof useTableRows>, 'rowVirtualizer' | 'tableContainerRef'>
   & Pick<ReturnType<typeof useTableOptimistic>, 'safeNotes' | 'setOptimisticTitles'>
@@ -61,6 +65,9 @@ export function useTableCursor({
   columnWidthsRef,
   setAnchorCell,
   setActiveCell,
+  setSelectedColumn,
+  setVisibleRowsCount,
+  clearSelection,
   safeNotes,
   titlePreviewRef,
   setEditInitial,
@@ -77,6 +84,14 @@ export function useTableCursor({
   colIndexByKey,
   navRows,
 }: Inputs) {
+  const selectColumn = useCallback((field: string) => {
+    const first = sortedNotes[0];
+    if (!first || !gridColumnsRef.current.some(column => column.key === field)) return;
+    clearSelection(); setEditingCell(null); setEditInitial(null);
+    setVisibleRowsCount(count => Math.max(count, sortedNotes.length));
+    setActiveCell({ rowId: first.id, field }); setAnchorCell(null); setSelectedColumn(field);
+    tableContainerRef.current?.focus({ preventScroll: true });
+  }, [sortedNotes, gridColumnsRef, clearSelection, setEditingCell, setEditInitial, setVisibleRowsCount, setActiveCell, setAnchorCell, setSelectedColumn, tableContainerRef]);
   const moveCursor = useCallback((dRow: number, dCol: number, extend: boolean) => {
     const prev = activeCellRef.current;
     const currentAnchor = anchorCellRef.current;
@@ -130,7 +145,7 @@ export function useTableCursor({
       setEditingCell({ rowId: note.id, field: 'title', originalMetaKey: 'title' });
       return;
     }
-    const type = getFieldType(schema, cell.field);
+    const type = gridColumnsRef.current.find(column => column.key === cell.field)?.type ?? getFieldType(schema, cell.field);
     if (isComputedType(type)) return;
     const metaKey = getMetaKey(note, cell.field);
     if (isImageField(cell.field, type)) { openMediaPicker(note, cell.field, type); return; }
@@ -142,7 +157,7 @@ export function useTableCursor({
     }
     setEditInitial(initialChar);
     setEditingCell({ rowId: note.id, field: cell.field, originalMetaKey: metaKey });
-  }, [activeCellRef, safeNotes, schema, isImageField, setEditInitial, setEditingCell, titlePreviewRef, openMediaPicker, handleCellSave]);
+  }, [gridColumnsRef, activeCellRef, safeNotes, schema, isImageField, setEditInitial, setEditingCell, titlePreviewRef, openMediaPicker, handleCellSave]);
   const saveTitle = useCallback(async (noteId: string, newTitle: string) => {
     setEditingCell(null);
     setEditInitial(null);
@@ -181,5 +196,5 @@ export function useTableCursor({
       rowVirtualizer.scrollToIndex(target.descriptorIndex, { align: 'auto' });
     }
   }, [tableContainerRef, navRowIndexById, colIndexByKey, navRows, setAnchorCell, setActiveCell, rowVirtualizer]);
-  return { moveCursor, beginEditActive, saveTitle, advanceCursorAfterEdit };
+  return { selectColumn, moveCursor, beginEditActive, saveTitle, advanceCursorAfterEdit };
 }
