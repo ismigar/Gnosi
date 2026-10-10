@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 55 |
 | `config` | 13 | 1382 |
 | `data` | 2 | 214 |
-| `domains` | 526 | 108402 |
+| `domains` | 527 | 108448 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2301 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **969 modules** and **189692 source lines**.
+Total: **970 modules** and **189738 source lines**.
 
 ## agent
 
@@ -195,10 +195,10 @@ Total: **969 modules** and **189692 source lines**.
 | [`backend/domains/agent/exact_actions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/exact_actions.py) | 83 | 0 | 3 | 0 | 1 | Prepare bounded exact assignments from current user text and Vault evidence. |
 | [`backend/domains/agent/generated_tools/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/generated_tools/__init__.py) | 1 | 0 | 0 | 0 | 0 | Governed generated-tool validation owned by the agent domain. |
 | [`backend/domains/agent/generated_tools/validator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/generated_tools/validator.py) | 331 | 3 | 0 | 0 | 1 | Security validation for generated agent tools. |
-| [`backend/domains/agent/gnosi_confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_confirmations.py) | 358 | 0 | 7 | 0 | 6 | Preparation tools for consequential first-party actions. |
+| [`backend/domains/agent/gnosi_confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_confirmations.py) | 361 | 0 | 7 | 0 | 6 | Preparation tools for consequential first-party actions. |
 | [`backend/domains/agent/gnosi_dispatch.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch.py) | 29 | 0 | 1 | 1 | 1 | Executor for claimed first-party confirmations. |
 | [`backend/domains/agent/gnosi_dispatch_basic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_basic.py) | 226 | 0 | 8 | 8 | 0 | Confirmed handlers for pages, contacts, mail and calendars. |
-| [`backend/domains/agent/gnosi_dispatch_rows.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_rows.py) | 212 | 0 | 7 | 2 | 0 | Confirmed handlers for deterministic row rewrites. |
+| [`backend/domains/agent/gnosi_dispatch_rows.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_rows.py) | 219 | 0 | 7 | 2 | 0 | Confirmed handlers for deterministic row rewrites. |
 | [`backend/domains/agent/gnosi_dispatch_tables.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_tables.py) | 303 | 0 | 8 | 5 | 0 | Confirmed handlers for table, history, trash and schema operations. |
 | [`backend/domains/agent/gnosi_integrations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_integrations.py) | 390 | 0 | 12 | 8 | 11 | First-party calendar, mail and contacts tools. |
 | [`backend/domains/agent/gnosi_mutation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_mutation.py) | 64 | 0 | 2 | 0 | 2 | Cross-process page mutation lock. |
@@ -231,6 +231,7 @@ Total: **969 modules** and **189692 source lines**.
 | [`backend/domains/agent/routes/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/state.py) | 3 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/domains/agent/routes/task_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/task_evaluations.py) | 132 | 0 | 8 | 1 | 0 | Administrator-only previews and explicit checks of active candidate routes. |
 | [`backend/domains/agent/routes/workflow.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/workflow.py) | 181 | 0 | 1 | 1 | 1 | No module docstring |
+| [`backend/domains/agent/row_titles.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/row_titles.py) | 36 | 0 | 2 | 0 | 2 | Use the table's visible title field for confirmed row edits. |
 | [`backend/domains/agent/runtime_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/runtime_tools.py) | 581 | 0 | 18 | 0 | 17 | Typed agent capability resolution, metadata and tool selection. |
 | [`backend/domains/agent/sources/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/__init__.py) | 1 | 0 | 0 | 0 | 0 | Scoped read adapters for first-party agent sources. |
 | [`backend/domains/agent/sources/integrations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/integrations.py) | 158 | 0 | 7 | 0 | 3 | Mail, calendar and contacts read adapters. |

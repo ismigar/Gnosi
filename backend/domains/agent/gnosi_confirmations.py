@@ -24,6 +24,7 @@ from backend.domains.agent.gnosi_support import (
     _vault,
 )
 from backend.utils.safe_io import sanitize_rel_folder
+from backend.domains.agent.row_titles import row_title_state
 
 _F = TypeVar("_F", bound=Callable[..., Any])
 _runtime_tool: Any
@@ -198,14 +199,16 @@ def bulk_update_rows(updates: List[Dict[str, Any]], view_scope: Optional[Dict[st
         if not path:
             return _json({"error": f"Row not found: {identifier}"})
         metadata, _body = _parse(path)
-        if "expected_title" in update and update["expected_title"] != str(metadata.get("title") or path.stem):
+        title, title_field = row_title_state(metadata, path)
+        if "expected_title" in update and update["expected_title"] != title:
             return _json({"error": "A row title changed after the inventory. Prepare the preview again."})
         if not (metadata.get("table_id") or metadata.get("database_table_id")):
             return _json({"error": f"The page is not a table row: {identifier}"})
         normalized.append(
             {
                 "id": str(metadata.get("id") or identifier),
-                "title": str(metadata.get("title") or path.stem),
+                "title": title,
+                **({"title_field": title_field} if "title" in properties else {}),
                 "properties": properties,
                 "revision": _file_revision(path),
             }

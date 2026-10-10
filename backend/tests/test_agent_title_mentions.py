@@ -172,3 +172,78 @@ def test_host_page_membership_is_rechecked_after_preview(dashboard_runtime):
     paths['selected'].write_text('---\n{"id":"selected","title":"Project"}\n---\nNo embedded views now.')
     with pytest.raises(ValueError, match='context_view_unavailable'):
         validate_title_view(scope)
+
+
+@pytest.mark.parametrize('field_name,storage', [('Nom', 'name'), ('Titre', 'id'),
+                                               ('Title', 'alias'), ('Título', 'collision')])
+def test_http_title_edits_use_the_visible_schema_field_with_a_stale_internal_title(
+    dashboard_runtime, monkeypatch, field_name, storage,
+):
+    from backend.domains.agent import context_storage, gnosi_support
+    from backend.services import agent_team_store as artifacts
+    from backend.agent import gnosi_tools
+    from backend.agent.action_confirmations import claim_confirmation
+    from backend.services.context_vars import active_vault_path
+    from backend.services.field_resolver import to_response_names
+    fixture, paths, registry = dashboard_runtime
+    table = registry['tables'][0]
+    field = {'id': 'fld_12345678', 'name': field_name, 'type': 'title', 'aliases': ['Old title']}
+    table['properties'] = [field]
+    monkeypatch.setattr(gnosi_support, '_table', lambda identifier: table if identifier == table['id'] else None)
+    first = context_storage._table_pages('projects')[0]
+    visible_title = first.title
+    metadata = dict(first.metadata)
+    metadata['title'] = 'Outdated internal title'
+    key = {'name': field_name, 'id': field['id'], 'alias': 'Old title', 'collision': field_name}[storage]
+    metadata[key] = visible_title
+    if storage == 'collision':
+        metadata.update({field['id']: 'Outdated ID title', 'Old title': 'Outdated alias title'})
+    first.metadata = metadata
+    paths['row-0'].write_text('---\n' + json.dumps(metadata) + '\n---\n\nOriginal body\n')
+    before = {identifier: path.read_bytes() for identifier, path in paths.items()}
+    events = _http_chat(fixture, REQUEST, [PAGE, VIEW], [])
+    assert fixture[2] == []
+    task = artifacts.list_artifacts(fixture[0], 'task')[0]
+    assert task['status'] == 'awaiting_confirmation', (task, events)
+    confirmation = claim_confirmation(task['confirmations'][0]['confirmation_id'], task['confirmation_scope'])
+    arguments = confirmation['arguments']
+    first_update = next(update for update in arguments['updates'] if update['id'] == 'row-0')
+    assert first_update['title'] == visible_title
+    assert first_update['title_field']['name'] == field_name
+    assert all(path.read_bytes() == before[identifier] for identifier, path in paths.items())
+    token = active_vault_path.set(Path(fixture[0].vault_path))
+    try:
+        result = asyncio.run(gnosi_tools.execute_confirmed_action('bulk_update_rows', arguments, workspace_id='test'))
+    finally:
+        active_vault_path.reset(token)
+    assert result['updated_count'] == 31
+    saved, body = gnosi_support._parse(paths['row-0'])
+    assert to_response_names(saved, table)[field_name] == 'TFM · Fase1 - Filosofia 0'
+    assert saved['title'] == 'TFM · Fase1 - Filosofia 0'
+    assert saved['unrelated'] == 'keep-0' and body.strip() == 'Original body'
+    assert all(paths[f'row-{i}'].read_bytes() == before[f'row-{i}'] for i in range(31, 748))
+    assert paths['selected'].read_bytes() == before['selected']
+
+
+def test_changing_the_title_field_after_preview_rejects_all_writes(dashboard_runtime, monkeypatch):
+    from backend.domains.agent import gnosi_support
+    from backend.services import agent_team_store as artifacts
+    from backend.agent import gnosi_tools
+    from backend.agent.action_confirmations import claim_confirmation
+    from backend.services.context_vars import active_vault_path
+    fixture, paths, registry = dashboard_runtime
+    table = registry['tables'][0]
+    table['properties'] = [{'id': 'fld_12345678', 'name': 'Nom', 'type': 'title'}]
+    monkeypatch.setattr(gnosi_support, '_table', lambda identifier: table if identifier == table['id'] else None)
+    _http_chat(fixture, REQUEST, [PAGE, VIEW], [])
+    task = artifacts.list_artifacts(fixture[0], 'task')[0]
+    confirmation = claim_confirmation(task['confirmations'][0]['confirmation_id'], task['confirmation_scope'])
+    before = {identifier: path.read_bytes() for identifier, path in paths.items()}
+    table['properties'][0]['name'] = 'New title field'
+    token = active_vault_path.set(Path(fixture[0].vault_path))
+    try:
+        with pytest.raises(gnosi_tools.ActionConflictError, match='title field changed'):
+            asyncio.run(gnosi_tools.execute_confirmed_action('bulk_update_rows', confirmation['arguments'], workspace_id='test'))
+    finally:
+        active_vault_path.reset(token)
+    assert all(path.read_bytes() == before[identifier] for identifier, path in paths.items())

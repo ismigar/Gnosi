@@ -7,6 +7,7 @@ from backend.utils.metadata_io import MetadataUnavailable, read_metadata_bytes
 from typing import Any
 
 from backend.domains.agent.gnosi_dispatch_basic import ActionHandler
+from backend.domains.agent.row_titles import apply_row_title, row_title_state
 from backend.domains.agent.gnosi_support import (
     _BULK_UPDATE_LOCK,
     MAX_DETERMINISTIC_BULK_ITEMS,
@@ -165,7 +166,13 @@ def _prepare_bulk_updates(updates: list[dict[str, Any]]) -> list[dict[str, Any]]
         if not (metadata.get("table_id") or metadata.get("database_table_id")):
             raise ValueError(f"The page is not a table row: {row_id}")
         new_metadata = dict(metadata)
-        for key, value in dict(update.get("properties") or {}).items():
+        properties = dict(update.get("properties") or {})
+        if "title" in properties:
+            _title, title_field = row_title_state(metadata, path)
+            if "title_field" in update and update["title_field"] != title_field:
+                raise ActionConflictError("The title field changed after the confirmation preview.")
+            apply_row_title(new_metadata, properties["title"], title_field)
+        for key, value in properties.items():
             if key not in {"id", "table_id", "database_table_id"}:
                 new_metadata[key] = value
         prepared.append(

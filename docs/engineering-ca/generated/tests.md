@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
 | Vitest | 647 | 2844 |
-| pytest | 660 | 4886 |
+| pytest | 660 | 4888 |
 
 ## Fitxers
 
@@ -750,7 +750,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_agent_team_personal_skills.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_team_personal_skills.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_team_planning_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_team_planning_schema.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_title_change_regression.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_title_change_regression.py) | 4 | Python AST |
-| pytest | [`backend/tests/test_agent_title_mentions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_title_mentions.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_agent_title_mentions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_title_mentions.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_agent_title_replacements.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_title_replacements.py) | 17 | Python AST |
 | pytest | [`backend/tests/test_agent_tool_context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_tool_context.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_agent_turn_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_turn_contract.py) | 13 | Python AST |
