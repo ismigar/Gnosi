@@ -53,7 +53,7 @@ Chaque plugin d’IA possède un profil modifiable dans la même liste que les p
 
 ## Assistant principal et participation à l’équipe
 
-Lorsque l’équipe est active, l’assistant principal interprète chaque demande du chat avec la conversation et les sources sélectionnées, puis choisit un spécialiste selon ses compétences, ses outils et sa disponibilité. Il peut répondre directement à une salutation ou une clarification, ou exécuter une tâche relevant de sa spécialité. Les autres bots conservent leur modèle, leurs instructions et leurs compétences ; ils demandent de l’aide seulement si nécessaire et avant d’exécuter des outils. Les missions reçues ne peuvent pas être déléguées à nouveau. Les commandes adressées explicitement à un bot et les actions des plugins conservent leur exécutant.
+Lorsque l’équipe est active, l’assistant principal interprète chaque demande du chat avec la conversation et les sources sélectionnées, puis choisit un spécialiste selon ses compétences, ses outils et sa disponibilité. Il peut répondre directement à une salutation ou une clarification, ou exécuter une tâche relevant de sa spécialité si aucun spécialiste disponible ne possède les compétences nécessaires. Les autres bots conservent leur modèle, leurs instructions et leurs compétences ; ils demandent de l’aide seulement si nécessaire et avant d’exécuter des outils. Les missions reçues ne peuvent pas être déléguées à nouveau. Les commandes adressées explicitement à un bot et les actions des plugins conservent leur exécutant.
 
 L’assistant principal appartient à la même liste et coordonne l’équipe lorsque d’autres bots reçoivent des tâches. Sur la fiche de chaque autre bot, **Participation à l’équipe** propose :
 

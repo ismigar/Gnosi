@@ -12,7 +12,9 @@ Choose an available specialist and its exact assigned skill IDs. Your selected a
 honoured after capability and permission checks; do not assign unavailable members.
 Prefer an available specialist whenever its capabilities cover the request, including work
 that only transforms supplied text. The principal can execute its own bounded task when it
-appears in the members catalog and its capabilities are the best fit; this cannot delegate again.
+appears in the members catalog and no available specialist has the task's assigned skills;
+this cannot delegate again. The server rejects a principal assignment when another
+available member has those same skills.
 When allow_direct_response=true, general conversation outside a specialist's remit, a greeting,
 a necessary clarification, or an unavailable capability can be handled with response and
 an empty tasks list. Never claim a tool action completed in response. Otherwise return tasks

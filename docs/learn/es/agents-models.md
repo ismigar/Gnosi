@@ -53,7 +53,7 @@ Cada plugin de IA tiene un perfil editable en la misma lista que los personales,
 
 ## Principal y participación en el equipo
 
-Con el equipo activo, el principal interpreta cada petición del chat junto con la conversación y las fuentes seleccionadas, y elige al especialista según sus habilidades, herramientas y disponibilidad. Puede responder directamente a un saludo o una aclaración, o ejecutar una tarea de su especialidad. Los otros bots conservan el modelo, las instrucciones y las habilidades de su ficha; piden ayuda solo cuando hace falta y antes de ejecutar herramientas. Los encargos recibidos no se vuelven a delegar. Las órdenes dirigidas explícitamente a un bot y las acciones de los plugins conservan su ejecutor.
+Con el equipo activo, el principal interpreta cada petición del chat junto con la conversación y las fuentes seleccionadas, y elige al especialista según sus habilidades, herramientas y disponibilidad. Puede responder directamente a un saludo o una aclaración, o ejecutar una tarea de su especialidad si ningún especialista disponible tiene las habilidades necesarias. Los otros bots conservan el modelo, las instrucciones y las habilidades de su ficha; piden ayuda solo cuando hace falta y antes de ejecutar herramientas. Los encargos recibidos no se vuelven a delegar. Las órdenes dirigidas explícitamente a un bot y las acciones de los plugins conservan su ejecutor.
 
 El principal forma parte de la misma lista y coordina al equipo cuando hay otros bots que reciben encargos. En la ficha de los demás bots, **Participación en el equipo** permite elegir:
 

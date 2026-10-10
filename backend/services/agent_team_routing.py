@@ -8,7 +8,39 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 
 from backend.services.agent_behavior import resource
 from backend.services.agent_execution_models import ExecutionScope
-from backend.services.agent_team_models import TeamTask
+from backend.services.agent_team_models import TeamPlan, TeamTask
+
+
+def validate_assignments(plan: TeamPlan, members: list[dict[str, Any]], owner_id: str) -> None:
+    """Reject invented assignments and let the planner repair them before execution."""
+    by_id = {member["id"]: member for member in members}
+    skills = {}
+    for member in members:
+        assigned = {identifier: identifier for identifier in member.get("skills", [])}
+        for capability in member.get("capabilities", []):
+            canonical = capability["canonical_id"]
+            for identifier in (capability["id"], canonical):
+                if capability["available"]:
+                    assigned[identifier] = canonical
+                else:
+                    assigned.pop(identifier, None)
+        skills[member["id"]] = assigned
+    for task in plan.tasks:
+        selected = by_id.get(task.agent_id)
+        if not selected or not selected["available"]:
+            if task.temporary is not None:
+                continue
+            raise ValueError(f"agent_team_assignment_unavailable:{task.agent_id}; choose an available catalog member")
+        requested = set(task.skill_ids)
+        if not requested.issubset(skills[task.agent_id]):
+            raise ValueError(f"agent_team_skill_not_assigned:{task.agent_id}; use that member's assigned skill IDs")
+        if task.agent_id == owner_id:
+            specialists = [identifier for identifier, candidate in by_id.items()
+                           if identifier != owner_id and candidate["available"]
+                           and requested.issubset(skills[identifier])]
+            if specialists:
+                raise ValueError("agent_team_specialist_required: assign this task to an available specialist: "
+                                 + ", ".join(specialists))
 
 
 def planning_catalog(owner: dict[str, Any], scope: ExecutionScope, original: str,

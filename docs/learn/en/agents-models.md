@@ -53,7 +53,7 @@ Each AI plugin has an editable profile in the same list as personal profiles, la
 
 ## Primary assistant and team participation
 
-With the team active, the principal interprets each chat request together with the conversation and selected sources, then chooses a specialist by its skills, tools and availability. It can answer a greeting or clarification directly, or execute a task within its own specialty. Other bots retain their configured model, instructions and skills; they ask for help only when needed and before executing tools. Received assignments cannot be delegated again. Commands explicitly addressing a bot and plugin actions keep their selected executor.
+With the team active, the principal interprets each chat request together with the conversation and selected sources, then chooses a specialist by its skills, tools and availability. It can answer a greeting or clarification directly, or execute a task within its own specialty when no available specialist has the required skills. Other bots retain their configured model, instructions and skills; they ask for help only when needed and before executing tools. Received assignments cannot be delegated again. Commands explicitly addressing a bot and plugin actions keep their selected executor.
 
 The primary assistant belongs to the same list and coordinates the team when other bots receive tasks. On every other bot’s card, **Team participation** offers:
 

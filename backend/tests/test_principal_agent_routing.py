@@ -162,10 +162,15 @@ def test_principal_can_execute_its_own_specialty_without_recursing(optional_runt
     from backend.services import agent_team_runtime as teams
     from backend.agent import model_router
     fixture, bindings = optional_runtime
+    own_skill = "core.gnosi-operation-translation"
+    fixture[1].profile["skill_ids"] = [*fixture[1].profile["skill_ids"], own_skill]
+    fixture[3]["agents"][0]["skill_ids"] = fixture[1].profile["skill_ids"]
     if separate_director:
         fixture[1].profile["team"]["director_id"] = "worker"
     async def planned(*args, **kwargs):
-        return plan_for("director").model_dump_json()
+        plan = plan_for("director")
+        plan.tasks[0].skill_ids = [own_skill]
+        return plan.model_dump_json()
     monkeypatch.setattr(teams, "_phase", planned)
     registry = model_router.load_registry()
     monkeypatch.setattr(model_router, "load_registry", lambda: [*registry, {**registry[0], "model_id": "expensive"}])
@@ -173,6 +178,37 @@ def test_principal_can_execute_its_own_specialty_without_recursing(optional_runt
     assert fixture[2] == ["director"]
     assert messages[-1].content == '{"result":"own work"}'
     assert bindings == []
+
+
+@pytest.mark.parametrize("invalid_assignment", ["principal_overlap", "unassigned_skill"])
+def test_invalid_assignment_is_repaired_before_any_executor_runs(optional_runtime, monkeypatch, invalid_assignment):
+    from backend.agent import model_router
+    fixture, _ = optional_runtime
+    registry = model_router.load_registry()
+    monkeypatch.setattr(model_router, "load_registry", lambda: [*registry, {**registry[0], "model_id": "expensive"}])
+    invalid = plan_for("director" if invalid_assignment == "principal_overlap" else "worker")
+    if invalid_assignment == "unassigned_skill":
+        invalid.tasks[0].skill_ids = ["core.gnosi-operation-translation"]
+    fixture[3]["_responses"] = {"director": [AIMessage(content=invalid.model_dump_json()),
+        AIMessage(content=plan_for().model_dump_json())], "worker": [AIMessage(content="Specialist result")]}
+    messages, _ = run_chat(fixture, "Revisa aquesta frase.")
+    assert fixture[2] == ["director", "director", "worker"]
+    assert messages[-1].content == "Specialist result"
+
+
+def test_assignment_validation_matches_personal_aliases_without_borrowing_them():
+    from backend.services.agent_team_routing import validate_assignments
+    members = [{"id": identifier, "available": True, "skills": [personal],
+        "capabilities": [{"id": personal, "canonical_id": "core.gnosi-operation-writing", "available": True}]}
+        for identifier, personal in (("director", "user.principal-writing"), ("worker", "user.specialist-writing"))]
+    with pytest.raises(ValueError, match="specialist_required"):
+        validate_assignments(plan_for("director"), members, "director")
+    plan = plan_for()
+    plan.tasks[0].skill_ids = ["user.specialist-writing"]
+    validate_assignments(plan, members, "director")
+    plan.tasks[0].skill_ids = ["user.principal-writing"]
+    with pytest.raises(ValueError, match="skill_not_assigned"):
+        validate_assignments(plan, members, "director")
 
 
 def test_assignment_keeps_write_permissions_outside_model_generated_text():

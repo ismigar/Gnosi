@@ -53,7 +53,7 @@ Cada plugin d’IA té un perfil editable a la mateixa llista que els perfils pe
 
 ## Principal i participació en l’equip
 
-Amb l’equip actiu, el principal interpreta cada petició del xat amb la conversa i les fonts seleccionades, i tria l’especialista segons les seves habilitats, eines i disponibilitat. Pot respondre directament una salutació o un aclariment, o executar una tasca de la seva especialitat. Els altres bots conserven el model, les instruccions i les habilitats de la seva fitxa; demanen ajuda només quan cal i abans d’executar eines. Els encàrrecs rebuts no es tornen a delegar. Les ordres que s’adrecen explícitament a un bot i les accions dels plugins conserven el seu executor.
+Amb l’equip actiu, el principal interpreta cada petició del xat amb la conversa i les fonts seleccionades, i tria l’especialista segons les seves habilitats, eines i disponibilitat. Pot respondre directament una salutació o un aclariment, o executar una tasca de la seva especialitat si cap especialista disponible té les habilitats necessàries. Els altres bots conserven el model, les instruccions i les habilitats de la seva fitxa; demanen ajuda només quan cal i abans d’executar eines. Els encàrrecs rebuts no es tornen a delegar. Les ordres que s’adrecen explícitament a un bot i les accions dels plugins conserven el seu executor.
 
 El principal forma part de la mateixa llista i coordina l’equip quan hi ha bots que reben encàrrecs. A la fitxa de cadascun dels altres bots, **Participació en l’equip** permet triar:
 

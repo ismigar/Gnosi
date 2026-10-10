@@ -141,17 +141,21 @@ def _snapshot(profile: dict[str, Any], owner: dict[str, Any], root_id: str, scop
     return snapshot, runtime
 
 
-def _validate_plan_result(text: str, *, allow_response: bool = False) -> str:
+def _validate_plan_result(text: str, *, allow_response: bool = False, members: list[dict[str, Any]] | None = None, owner_id: str = "") -> str:
     plan = TeamPlan.model_validate_json(text)
     if plan.response and not allow_response:
         raise ValueError("agent_team_operation_requires_tasks")
+    if members is not None:
+        from backend.services.agent_team_routing import validate_assignments
+        validate_assignments(plan, members, owner_id)
     return text
 
 
 async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, text: str, schema: dict[str, Any] | None, operation: str, *, allow_response: bool = False) -> str:
     from backend.services.agent_execution import execute_operation, _operation_timeout
+    members = json.loads(text or "{}").get("members") if operation in {"team.plan", "team.replan"} else None
     def validate(text: str) -> str:
-        return _validate_plan_result(text, allow_response=allow_response)
+        return _validate_plan_result(text, allow_response=allow_response, members=members, owner_id=owner["id"])
     plan_validator = validate if operation in {"team.plan", "team.replan"} else None
     identifier = "phase:" + operation
     previous = next((p for p in artifacts.list_artifacts(scope, "phase", root_id) if p["id"] == identifier), None)
@@ -355,6 +359,9 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
     direct, reason, cost = _candidate(owner, scope, route.agent_ids, required, original, tools=not operation_mode) if route else (None, "director_required", None)
     root_snapshot = _snapshot.get()
     refs = root_snapshot.profile.get("context_refs", []) if root_snapshot else []
+    from backend.services.agent_team_routing import planning_catalog
+    catalog = planning_catalog(owner, scope, original,
+                               include_owner=not operation_mode and owner["id"] == _config().get("active_agent_id"))
     saved = artifacts.list_artifacts(scope, "plan", root_id)
     if saved:
         plan = TeamPlan.model_validate(saved[0]["plan"])
@@ -365,20 +372,17 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
             skill_ids=required, read_only=operation_mode or bool(chat_operation(original)))], result_task="direct")
     else:
         record("team.route", {"mode": "director", "reason": reason})
-        from backend.services.agent_team_routing import planning_catalog
-        catalog = planning_catalog(owner, scope, original,
-                                   include_owner=not operation_mode and owner["id"] == _config().get("active_agent_id"))
         plan_data = {"request": original, "members": catalog, "temporary_policy": team.temporary.model_dump(),
             "allow_direct_response": not operation_mode, "context_refs": refs,
             "authorized_tool_names": list(state.get("turn_authorized_tool_names") or []),
             "conversation_evidence": messages_to_dict(state.get("messages", []))}
         raw = await _phase(owner, root_id, scope, json.dumps(plan_data, ensure_ascii=False), TeamPlan.model_json_schema(), "team.plan", allow_response=not operation_mode)
         plan = TeamPlan.model_validate_json(raw)
+    _validate_plan_result(plan.model_dump_json(), allow_response=not operation_mode, members=catalog, owner_id=owner["id"])
     if not saved:
         artifacts.put(scope, root_id, "plan", "plan", {"plan": plan.model_dump(), "original": original,
             "operation_mode": operation_mode, "state": {"turn_authorized_tool_names": state.get("turn_authorized_tool_names", []),
                 "current_user_role": scope.role}, "messages": messages_to_dict(state.get("messages", []))}, create_only=True)
-    _validate_plan_result(plan.model_dump_json(), allow_response=not operation_mode)
     if plan.response:
         record("team.response", {"executor": team.director_id, "mode": "direct_response"})
         return {"messages": [AIMessage(content=plan.response)]}
@@ -398,6 +402,7 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
                     artifacts.put(scope, root_id, "replan", "replan", {"used": True}, create_only=True)
                     evidence = [{"agent_id": item["agent_id"], "run_id": item["run_id"], "result": item["result"]} for item in artifacts.list_artifacts(scope, "task", root_id) if item["status"] == "completed"]
                     raw = await _phase(owner, root_id, scope, json.dumps({"request": original,
+                        "members": catalog, "temporary_policy": team.temporary.model_dump(),
                         "previous_plan": plan.model_dump(), "completed_evidence": evidence,
                         "failure": str(failure), "remaining_assignments": remaining,
                         "instruction": "Return only new read-only assignments using fresh task IDs. Do not repeat completed evidence."}, ensure_ascii=False), TeamPlan.model_json_schema(), "team.replan")
