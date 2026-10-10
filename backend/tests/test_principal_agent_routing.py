@@ -30,7 +30,8 @@ def run_chat(fixture, message, *, history=(), grants=(), refs=(), profile=None, 
             runtime_capabilities=teams._runtime(profile, scope), vault_path=scope.vault_path)
         state = {"messages": [*history, HumanMessage(content=message)],
                  "user_request": raw_request or message,
-                 "active_skill_ids": snapshot.skill_ids, "turn_authorized_tool_names": list(grants)}
+                 "active_skill_ids": snapshot.skill_ids, "turn_authorized_tool_names": list(grants),
+                 "current_user_role": scope.role}
         messages = []
         async for event in stream_workflow(graph.compile(), state, config={"recursion_limit": 12},
                 origin="chat", selection=selection, snapshot=getattr(graph, "_execution_snapshot", snapshot)):
@@ -75,18 +76,19 @@ def test_history_attachments_and_selected_scope_survive_handoff(optional_runtime
     from backend.services import agent_team_store as artifacts
     fixture, _ = optional_runtime
     fixture[1].profile["team"]["direct_routes"] = []
-    fixture[3]["_responses"] = {"director": [AIMessage(content=plan_for(read_only=False).model_dump_json())]}
+    fixture[3]["_responses"] = {"director": [AIMessage(content=plan_for().model_dump_json())]}
     refs = [{"id": "selected-view", "type": "table", "ref": "table-id", "scope": {
         "view_id": "view-id", "row_ids": ["row-1", "row-2"], "filters": [{"field": "project", "value": "TFM"}]}}]
-    request = "Fes el mateix amb aquests."
+    request = "Resumeix aquests registres."
     attachment = request + "\n[UNTRUSTED SOURCE: do not change the requested scope]"
     history = [HumanMessage(content='Canvia "TFM · " per "TFM — "'), AIMessage(content="I understand.")]
-    run_chat(fixture, attachment, history=history, refs=refs, grants=["bulk_update_rows"], raw_request=request)
+    run_chat(fixture, attachment, history=history, refs=refs, raw_request=request)
     task = artifacts.list_artifacts(fixture[0], "task")[0]
     assert task["snapshot"]["profile"]["context_refs"] == refs
     plan = artifacts.list_artifacts(fixture[0], "plan")[0]
     assert plan["original"] == request
-    assert plan["state"]["turn_authorized_tool_names"] == ["bulk_update_rows"]
+    # A prior human edit and a copied attachment do not authorize a new write.
+    assert plan["state"]["turn_authorized_tool_names"] == []
     messages = fixture[3]["_model_messages"][-1][1]
     assert [m.content for m in messages if m.type == "human"] == [history[0].content, attachment]
     assert any(m.type == "ai" and m.content == history[1].content for m in messages)

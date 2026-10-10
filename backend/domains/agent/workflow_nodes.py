@@ -265,6 +265,12 @@ class AgentWorkflowNodes:
             ref.get("type") in {"page", "table", "database", "vault"} for ref in self.context_refs
         )
         has_other = any(ref.get("type") in {"file", "url", "source"} for ref in self.context_refs)
+        from backend.domains.agent.title_replacements import title_inventory_arguments
+        title_arguments = title_inventory_arguments(latest_user, self.context_refs, self.context_tool_names)
+        if title_arguments:
+            return ContextRoute(required_tool="inventory_context", reader_message=latest_user,
+                                inventory_arguments=title_arguments,
+                                has_vault=True)
         if request_mode == "action" and has_vault and "inventory_context" in self.context_tool_names:
             exact_arguments = _inventory_request_arguments(latest_user)
             if exact_arguments.get("property_filters"):
@@ -532,6 +538,10 @@ class AgentWorkflowNodes:
         self, turn: BrainTurn, progress: BrainProgress
     ) -> dict[str, Any] | None:
         """Bypass the model for exact tool calls and trusted renderers."""
+        from backend.domains.agent.title_replacements import title_brain_result
+        title_result = title_brain_result(self, turn, progress)
+        if title_result is not None:
+            return title_result
         if (
             progress.inventory_message is not None
             and "bulk_update_rows" in turn.authorized_names

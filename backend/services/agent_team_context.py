@@ -22,7 +22,8 @@ def visible_text(message: Any) -> str:
     return str(metadata.get("gnosi_visible_content", message.text))
 
 
-def compact_catalog(catalog: list[dict[str, Any]]) -> dict[str, Any]:
+def compact_catalog(catalog: list[dict[str, Any]], authorized_tool_names: set[str] | None = None) -> dict[str, Any]:
+    from backend.services.agent_team_actions import skill_tool_names
     members, capabilities = [], {}
     for member in catalog:
         skills = []
@@ -36,6 +37,7 @@ def compact_catalog(catalog: list[dict[str, Any]]) -> dict[str, Any]:
                 "description": excerpt(capability["description"], 180),
                 **({"application_operation": capability["application_operation"]} if capability.get("application_operation") else {}),
                 **({"canonical_id": capability["canonical_id"]} if identifier != capability["canonical_id"] else {}),
+                **({"action_tools": sorted(action_tools)} if (action_tools := skill_tool_names(member, [identifier]).intersection(authorized_tool_names or set())) else {}),
             }
         # Some runtime integrations only expose assigned IDs.
         described = {c["id"] for c in member["capabilities"]} | {c["canonical_id"] for c in member["capabilities"]}
@@ -78,7 +80,7 @@ def planning_input(owner: dict[str, Any], state: dict[str, Any], original: str,
     recent = [{"role": m.type, "text": excerpt(visible_text(m), 800)} for m in turns[-4:]]
     payload = {
         "request": excerpt(original, 6000), "request_truncated": len(original) > 6000,
-        **compact_catalog(catalog), "temporary_policy": team_for(owner).temporary.model_dump(),
+        **compact_catalog(catalog, set(state.get("turn_authorized_tool_names") or [])), "temporary_policy": team_for(owner).temporary.model_dump(),
         "allow_direct_response": not operation_mode, "context_refs": context_inventory(refs),
         "authorized_tool_names": list(state.get("turn_authorized_tool_names") or []),
         "recent_conversation": recent, "omitted_conversation_messages": len(history) - len(recent),

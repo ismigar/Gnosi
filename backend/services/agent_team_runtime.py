@@ -168,7 +168,11 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
     from backend.services.agent_team_contracts import explicit_output_keys
     output_keys = explicit_output_keys(str(json.loads(text or "{}").get("request") or "")) if allow_response and required_operation not in {"writing", "translation"} else set()
     def validate(text: str) -> str:
-        return _validate_plan_result(text, allow_response=allow_response, members=members, owner_id=owner["id"], required_operation=required_operation, output_keys=output_keys)
+        validated = _validate_plan_result(text, allow_response=allow_response, members=members, owner_id=owner["id"], required_operation=required_operation, output_keys=output_keys)
+        if members is not None:
+            from backend.services.agent_team_actions import validate_action_plan
+            validate_action_plan(TeamPlan.model_validate_json(validated), members, set(planning_data.get("authorized_tool_names") or []))
+        return validated
     plan_validator = validate if operation in {"team.plan", "team.replan"} else None
     if plan_validator and schema is not None and members is not None:
         schema = copy.deepcopy(schema)
@@ -292,6 +296,9 @@ def _collect_task_event(event: dict[str, Any], outcome: dict[str, Any]) -> None:
     from backend.agent.action_confirmations import confirmation_event
     for update in event.values():
         for message in update.get("messages", []):
+            from backend.services.agent_team_actions import successful_action_result
+            if successful_action_result(message, set(outcome.get("required_action_names") or [])):
+                outcome.setdefault("action_evidence", []).append(str(message.name))
             marker = confirmation_event(getattr(message, "content", None))
             if marker:
                 outcome["confirmations"].append(marker)
@@ -333,11 +340,14 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
         return _resume_cached_task(cached, scope, root_id, key)
     if len(artifacts.list_artifacts(scope, "task", root_id)) >= 4:
         raise RuntimeError("agent_team_task_limit")
+    from backend.services.agent_team_actions import action_context_refs, validate_task_action
+    refs = action_context_refs(original, refs, list(state.get("turn_authorized_tool_names") or []), read_only=task.read_only or operation_mode)
     snapshot, runtime = _snapshot(selected, owner, root_id, scope, task.skill_ids, refs, read_only=task.read_only or operation_mode, temporary=temporary)
     if temporary:
         _validate_temporary_runtime(selected, text, runtime, operation_mode)
     child_id = uuid.uuid4().hex
-    outcome = {"key": key, "task_id": task.id, "run_id": child_id, "agent_id": selected["id"], "status": "running", "result": "", "confirmations": [], "snapshot": snapshot.model_dump()}
+    outcome = {"key": key, "task_id": task.id, "run_id": child_id, "agent_id": selected["id"], "status": "running", "result": "", "confirmations": [], "snapshot": snapshot.model_dump(),
+               "required_action_names": [] if task.read_only or operation_mode else list(state.get("turn_authorized_tool_names") or [])}
     artifacts.put(scope, root_id, key, "task", outcome, create_only=True)
     record("team.delegation", {"task": task.id, "executor": selected["id"], "reason": reason, "estimated_cost_usd": cost, "run_id": child_id})
     token = delegating.set(True)
@@ -371,6 +381,7 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
                 _collect_task_event(event, outcome)
         if not outcome["result"].strip() and not outcome["confirmations"]:
             raise RuntimeError("agent_team_empty_result")
+        validate_task_action(outcome, original)
         outcome["status"] = "awaiting_confirmation" if outcome["confirmations"] else "completed"
         if temporary and outcome["status"] == "completed":
             _propose(scope, root_id, selected, child_id)

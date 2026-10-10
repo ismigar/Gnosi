@@ -110,11 +110,18 @@ def merge_context_refs(
 
 def dashboard_view_ids(content: str) -> List[str]:
     """Extract unique registry view ids embedded in a dashboard page."""
+    # Native read_page returns JSON with escaped Markdown. Parsing that as raw
+    # source loses modern fenced views and can hide the active table filter.
+    try:
+        envelope = json.loads(content)
+    except (TypeError, ValueError):
+        envelope = None
+    if isinstance(envelope, dict):
+        content = str(envelope.get("content") or envelope.get("body") or "")
     view_ids: List[str] = []
-    for raw_payload in re.findall(
-        r"<!--\s*gnosi-view:def\s+(\{[\s\S]*?\})\s*-->",
-        str(content or ""),
-    ):
+    payloads = re.findall(r"<!--\s*gnosi-view:def\s+(\{[\s\S]*?\})\s*-->", str(content or ""))
+    payloads += re.findall(r"(?m)^[ \t]*\x60{3}gnosi-view[ \t]*\r?\n([\s\S]*?)^[ \t]*\x60{3}[ \t]*$", str(content or ""))
+    for raw_payload in payloads:
         try:
             view_id = str(json.loads(raw_payload).get("view_id") or "").strip()
         except (AttributeError, TypeError, ValueError):

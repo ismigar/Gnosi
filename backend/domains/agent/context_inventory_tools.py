@@ -349,6 +349,47 @@ class InventoryContextTool:
     ) -> str:
         """Enumerate exact matching records across attached Vault sources.
 
+        Scan every matching record in the attached table, active view, database
+        group or Vault. Results are paginated. An empty query lists every record
+        in scope. record_types accepts live table names or localized type labels.
+        Set include_relations false for literal occurrences; property_filters
+        applies exact field equality and resolves relation IDs or unique titles.
+        Use schema_only to read field definitions, and expected_revision from
+        the previous page's snapshot_revision when continuing. Changed records
+        or saved-view filters require restarting the inventory.
+        """
+        if schema_only:
+            return self._schema_result(record_types)
+        from backend.domains.agent.title_replacements import title_view_revisions
+        try:
+            views = title_view_revisions(self.inventory_refs)
+        except ValueError as error:
+            return json.dumps({"error": str(error), "records": [], "has_more": False})
+        result = self._inventory_records(query, record_types, include_relations, offset, limit,
+                                         property_filters, expected_revision, view_revisions=views)
+        try:
+            if title_view_revisions(self.inventory_refs) != views:
+                return self._changed_result()
+        except ValueError:
+            return self._changed_result()
+        data = json.loads(result)
+        data["view_revisions"] = views
+        return json.dumps(data, ensure_ascii=False, default=str)
+
+    def _inventory_records(
+        self,
+        query: str = "",
+        record_types: Optional[list[str]] = None,
+        include_relations: bool = True,
+        offset: int = 0,
+        limit: int = MAX_CONTEXT_INVENTORY_ROWS,
+        property_filters: Optional[dict[str, Any]] = None,
+        expected_revision: str = "",
+        schema_only: bool = False,
+        view_revisions: Optional[list[dict[str, str]]] = None,
+    ) -> str:
+        """Enumerate exact matching records across attached Vault sources.
+
         Use this for requests asking which records exist, a count, a list, all
         matches, or records of one or more types. The scan is exhaustive inside
         the attached table, active view, database group, or Vault. Results are
@@ -432,6 +473,7 @@ class InventoryContextTool:
         # index must not invalidate a continuation. This is not a disk snapshot.
         revision = hashlib.sha256(json.dumps(_revision_value({
             "scope": self.inventory_refs,
+            "view_revisions": view_revisions,
             "root": str(root),
             "tables": authorized,
             "options": option_catalogs,

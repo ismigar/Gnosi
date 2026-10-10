@@ -75,8 +75,13 @@ def test_changed_context_and_unverified_markers_replan(optional_runtime, change)
     else:
         request = "Ara fes-ho més formal i envia-ho."
     fixture[3]["_responses"] = {"director": [AIMessage(content=plan_for().model_dump_json())]}
+    if change == "grants":
+        from backend.services.agent_team_models import TeamPlan
+        fixture[3]["_responses"] = {"director": [AIMessage(content=TeamPlan(
+            response="Quins registres vols modificar?", response_kind="clarification").model_dump_json())]}
     messages, _ = run_chat(fixture, request, history=history, **kwargs)
-    assert fixture[2] == ["director", "worker", "director", "worker"]
+    assert fixture[2] == (["director", "worker", "director"] if change == "grants" else
+                          ["director", "worker", "director", "worker"])
     assert messages[-1].additional_kwargs["gnosi_team_usage"]["routing"]["mode"] == "director"
 
 

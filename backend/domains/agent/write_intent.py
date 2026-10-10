@@ -201,7 +201,7 @@ def _row_field_write_tools(text: str, mentions: Sequence[object]) -> set[str]:
         r"actualitz(?:a|ar|i|is|eu)|actualiz(?:a|ar|e|es)|"
         r"canvi(?:a|ar|ï|ïs|eu)|cambi(?:a|ar|e|es)|"
         r"set|update|change|replace|rename|substitueix|reemplaza|remplace|"
-        r"modifi(?:e|er|ez)|attribu(?:e|er|ez)|défin(?:is|ir|issez))\b", masked,
+        r"modifi(?:ca|car|que|ques|e|er|ez)|attribu(?:e|er|ez)|défin(?:is|ir|issez))\b", masked,
     )
     fields = re.compile(
         r"\b(?:camp|camps|campo|campos|field|fields|champ|champs|"
@@ -229,6 +229,10 @@ def _explicit_brain_write_tool_names(
     text = " ".join((message or "").strip().lower().split())
     if not text:
         return set()
+
+    from backend.domains.agent.title_replacements import title_replacements
+    if title_replacements(message) is not None:
+        return {"bulk_update_rows"}
 
     cornell_actions = (
         "crea",

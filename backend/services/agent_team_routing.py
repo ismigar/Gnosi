@@ -73,9 +73,9 @@ def planning_catalog(owner: dict[str, Any], scope: ExecutionScope, original: str
         catalog.append({
             "id": identifier, "name": profile.get("name"), "roles": roles[identifier],
             "skills": list(profile.get("skill_ids") or []), "capabilities": skills,
-            "tools": [{"id": descriptor.id, "name": descriptor.name,
+            "tools": [{"id": descriptor.id, "name": descriptor.name, "call_name": str(getattr(tool, "name", "")),
                        "effects": [str(getattr(effect, "value", effect)) for effect in descriptor.effects]}
-                      for descriptor in runtime.tool_descriptors],
+                      for tool, descriptor in zip(runtime.tools, runtime.tool_descriptors)],
             "available": eligible is not None, "availability_reason": reason,
             "missing_skill_ids": list(runtime.missing_skill_ids),
             "unavailable_tool_ids": list(runtime.unavailable_tool_ids),

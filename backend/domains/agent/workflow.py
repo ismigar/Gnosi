@@ -203,6 +203,12 @@ async def create_agent_workflow(
     )
     if profile is None:
         return None, {}
+    if not operation_mode:
+        from backend.domains.agent.title_replacements import title_replacements, active_title_scope
+        if title_replacements(user_message) is not None:
+            refs = active_title_scope(profile.agent_data.get("context_refs") or [])
+            if refs:
+                profile = replace(profile, agent_data={**profile.agent_data, "context_refs": refs})
     if not operation_mode and profile.target_id == profile.ai_cfg.get("active_agent_id"):
         from backend.services.agent_team_runtime import build_team_workflow
         coordinated = build_team_workflow(profile, operation_mode=False, original=user_message)

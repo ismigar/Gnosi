@@ -109,7 +109,7 @@ def _table_view(table_id: str, scope: Any) -> Optional[RegistryData]:
     view_id = str(scope.get("view_id") or "").strip()
     if not view_id:
         return None
-    return next(
+    view = next(
         (
             view
             for view in _registry().get("views", [])
@@ -117,6 +117,9 @@ def _table_view(table_id: str, scope: Any) -> Optional[RegistryData]:
         ),
         None,
     )
+    if view is None:
+        raise ValueError("context_view_unavailable")
+    return cast(RegistryData, view)
 
 
 def _page_row(page: Any) -> RegistryData:
@@ -271,6 +274,13 @@ def _read_source(ref: Dict[str, Any]) -> str:
     return reader(ref)
 
 
+def _dashboard_content(ref: Dict[str, Any]) -> str:
+    """Read only the attached page locally; do not truncate its view inventory."""
+    from backend.domains.agent.gnosi_support import _resolve_page, _parse
+    path = _resolve_page(ref["ref"])
+    return _parse(path)[1] if path is not None else _read_source(ref)
+
+
 def expand_dashboard_context_refs(raw_refs: Any) -> List[Dict[str, Any]]:
     """Attach the one exact table view embedded by a dashboard page."""
     refs = normalize_refs(raw_refs)
@@ -290,7 +300,7 @@ def expand_dashboard_context_refs(raw_refs: Any) -> List[Dict[str, Any]]:
         if ref.get("type") == "page":
             matching_views = [
                 views_by_id[view_id]
-                for view_id in dashboard_view_ids(_read_source(ref))
+                for view_id in dashboard_view_ids(_dashboard_content(ref))
                 if view_id in views_by_id
             ]
             if len(matching_views) == 1:

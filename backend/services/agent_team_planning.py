@@ -32,6 +32,29 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
     if saved:
         return (TeamPlan.model_validate(saved[0]["plan"]),
                 {**state, "team_completed_evidence": saved[0].get("evidence", [])}, catalog, route, bool(direct))
+    # A complete literal substitution needs capability selection, not a model
+    # deciding whether it is prose. It still uses the normal team executor,
+    # revocation checks, scoped reads, confirmations, traces and shared budget.
+    if not operation_mode:
+        from backend.domains.agent.title_replacements import title_replacements, active_title_scope, title_response
+        from backend.services.agent_team_actions import action_candidates
+        if title_replacements(original) is not None and "bulk_update_rows" in state.get("turn_authorized_tool_names", []):
+            if not active_title_scope(refs):
+                plan = TeamPlan(response=title_response(original, "scope"), response_kind="clarification")
+            else:
+                plan = None
+                for identifier, skills in action_candidates(catalog, {"bulk_update_rows"}, owner["id"]):
+                    selected, _, _ = _candidate(owner, scope, [identifier], skills, original, tools=True, allow_owner=True)
+                    if selected:
+                        plan = TeamPlan(tasks=[TeamTask(id="titles", agent_id=identifier, objective="Prepare the original title substitutions in the active view using exact tool evidence.",
+                            skill_ids=skills, read_only=False)], result_task="titles")
+                        break
+            if plan is not None:
+                action_measurement = {"version": 1, "mode": "capability", "reason": "exact_title_substitution",
+                               "planning_calls_avoided": 1}
+                record("team.route", action_measurement)
+                artifacts.put(scope, root_id, "routing", "routing", action_measurement)
+                return plan, state, catalog, None, False
     continuation = None if operation_mode or direct else continuation_plan(owner, scope, state, original, catalog, refs)
     measurement: dict[str, Any] = {"version": 1, "planning_calls_avoided": 0}
     if direct:

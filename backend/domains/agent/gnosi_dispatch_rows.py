@@ -189,6 +189,9 @@ async def _bulk_update_rows(
     if not updates or len(updates) > MAX_LIST_ITEMS:
         raise ValueError("The bulk update size is invalid.")
     with _BULK_UPDATE_LOCK:
+        if arguments.get("view_scope") is not None:
+            from backend.domains.agent.title_replacements import validate_title_view
+            validate_title_view(arguments["view_scope"])
         prepared = _prepare_bulk_updates(updates)
         partial = _write_transaction(
             prepared,

@@ -151,10 +151,13 @@ def validate_json_schema(
 def validate_arguments(arguments: Mapping[str, Any], descriptor: Any = None) -> None:
     if len(arguments) > MAX_ARGUMENT_KEYS:
         raise ValueError("Tool arguments exceed the maximum number of fields.")
+    metadata = _descriptor_value(descriptor, "metadata", {}) or {}
+    declared_limit = metadata.get("max_argument_value_chars") if isinstance(metadata, Mapping) else None
+    value_limit = min(64_000, max(MAX_ARGUMENT_VALUE_CHARS, declared_limit)) if type(declared_limit) is int else MAX_ARGUMENT_VALUE_CHARS
     for key, value in arguments.items():
         if len(str(key)) > 128:
             raise ValueError("Tool argument name is too long.")
-        if len(json.dumps(value, ensure_ascii=False, default=str)) > MAX_ARGUMENT_VALUE_CHARS:
+        if len(json.dumps(value, ensure_ascii=False, default=str)) > value_limit:
             raise ValueError(f"Tool argument `{key}` exceeds the bounded size limit.")
     schema = _descriptor_value(descriptor, "input_schema", {}) if descriptor is not None else {}
     if isinstance(schema, Mapping):
@@ -168,10 +171,10 @@ def bound_result(result: Any) -> Any:
         # New executions account for the complete tool protocol at the model
         # boundary. A budget error is explicit and cannot hide source endings.
         if isinstance(result, ToolMessage):
-            return result.model_copy(update={"content": redact_secrets(result.content)})
-        return redact_secrets(result) if isinstance(result, str) else result
+            return result.model_copy(update={"content": redact_secrets(result.content, max_chars=len(str(result.content)))})
+        return redact_secrets(result, max_chars=len(result)) if isinstance(result, str) else result
     if isinstance(result, ToolMessage):
-        content = redact_secrets(result.content)
+        content = redact_secrets(result.content, max_chars=MAX_RESULT_CHARS + 1)
         if len(content) <= MAX_RESULT_CHARS:
             return result.model_copy(update={"content": content})
         return result.model_copy(
@@ -181,7 +184,7 @@ def bound_result(result: Any) -> Any:
             }
         )
     if isinstance(result, str):
-        return redact_secrets(result[:MAX_RESULT_CHARS])
+        return redact_secrets(result, max_chars=MAX_RESULT_CHARS)
     return result
 
 

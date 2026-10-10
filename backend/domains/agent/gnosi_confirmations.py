@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Dict, List, TypeVar, cast
+from typing import Any, Dict, List, Optional, TypeVar, cast
 
 from backend.domains.agent.gnosi_support import (
     MAX_CONFIRMATION_SAMPLE_ITEMS,
@@ -176,10 +176,16 @@ def change_schema(folder: str, schema_definition: Dict[str, Any]) -> str:
 
 
 @_typed_tool
-def bulk_update_rows(updates: List[Dict[str, Any]]) -> str:
+def bulk_update_rows(updates: List[Dict[str, Any]], view_scope: Optional[Dict[str, Any]] = None) -> str:
     """Prepares up to 100 row updates and waits for confirmation."""
     if not updates or len(updates) > MAX_LIST_ITEMS:
         return _json({"error": f"Between 1 and {MAX_LIST_ITEMS} row updates are required."})
+    if view_scope is not None:
+        from backend.domains.agent.title_replacements import validate_title_view
+        try:
+            validate_title_view(view_scope)
+        except ValueError as error:
+            return _json({"error": str(error)})
     normalized = []
     for update in updates:
         identifier = str(update.get("id") or update.get("title") or "").strip()
@@ -190,6 +196,8 @@ def bulk_update_rows(updates: List[Dict[str, Any]]) -> str:
         if not path:
             return _json({"error": f"Row not found: {identifier}"})
         metadata, _body = _parse(path)
+        if "expected_title" in update and update["expected_title"] != str(metadata.get("title") or path.stem):
+            return _json({"error": "A row title changed after the inventory. Prepare the preview again."})
         if not (metadata.get("table_id") or metadata.get("database_table_id")):
             return _json({"error": f"The page is not a table row: {identifier}"})
         normalized.append(
@@ -202,9 +210,10 @@ def bulk_update_rows(updates: List[Dict[str, Any]]) -> str:
         )
     return _confirmation(
         "bulk_update_rows",
-        {"updates": normalized},
+        {"updates": normalized, **({"view_scope": view_scope} if view_scope is not None else {})},
         {
             "count": len(normalized),
+            **({"view_scope": view_scope} if view_scope is not None else {}),
             "updates": [
                 {
                     "id": item["id"],

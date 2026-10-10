@@ -90,3 +90,7 @@ Validation follow-up: main CI exceeded the PDF composition child-suite 90-second
 HTTP scope is bound through the dependencies of each `app.include_router` call. Mutating a router's dependency list after its routes have been defined does not execute that dependency. A real HTTP regression exercises all thirteen functional adapters and verifies the authenticated user, workspace, role, Vault and context cleanup before returning the response.
 
 Trigger origin is carried by the execution context and durable snapshot. Child operations inherit their active parent's origin, so scheduled work is not mislabeled as a button request. Scope cleanup restores the previous origin together with the user and Vault; standalone RSS execution explicitly identifies itself as worker-originated.
+
+## Saved-title action evidence
+
+Exact quoted title substitutions use a tool-bearing Vault skill through the existing team executor, skipping director reasoning. Validate activated tools per assignment; refuse action completion without a successful authorized tool result or pending confirmation. Resolve the unique saved view from complete attached page content and narrow all context tools to it, including direct executors. Bind title inventory and confirmation to saved-view and row revisions. Keep complete JSON through secret redaction; use the declared bounded bulk argument budget. The synthetic 748/31 integration verifies actual writes and excluded rows, not only generated plans.

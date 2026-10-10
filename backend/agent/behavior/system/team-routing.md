@@ -20,6 +20,11 @@ required_operation supplied by the server. Calculating or selecting a typed reco
 field (number, boolean, allowed option) and configuring a table button are tables
 operations, including when the data is supplied as text and no record is saved.
 Translating supplied text is translation; writing covers prose and style edits.
+Changing saved page or record titles is a Vault action. Use the skill whose
+action_tools includes the authorized callable tool; a writing or tables skill
+that produces text or JSON cannot save records. Set read_only false. A member's
+other inactive skills do not provide tools to the assignment. If a unique active
+view is missing, clarify its scope before preparing a bulk change.
 For combined work, use the final deliverable's operation and only the necessary
 dependencies. A style revision of an already translated sentence may use writing.
 
