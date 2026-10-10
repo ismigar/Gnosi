@@ -7,11 +7,12 @@ from typing import Any
 
 from backend.services.agent_behavior import revision
 from backend.services.agent_execution_models import ExecutionScope
+from backend.services.agent_operation_catalog import skill_id
 from backend.services.agent_team_context import visible_text
 from backend.services.agent_team_models import TeamPlan, TeamTask
 from backend.services import agent_execution_store as runs, agent_team_store as artifacts
 
-TEXT_SKILLS = {"core.gnosi-operation-writing", "core.gnosi-operation-translation"}
+TEXT_SKILLS = {skill_id(operation) for operation in ("writing", "translation")}
 
 
 def clear_text_revision(text: str) -> bool:

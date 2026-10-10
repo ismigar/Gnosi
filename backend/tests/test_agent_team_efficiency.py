@@ -88,6 +88,27 @@ def test_write_assignments_do_not_install_a_continuation(optional_runtime):
     assert "gnosi_team_route" not in messages[-1].additional_kwargs
 
 
+def test_registered_translation_specialist_is_reused_for_a_style_revision(optional_runtime):
+    from backend.services.agent_operation_catalog import skill_id
+    fixture, _ = optional_runtime
+    fixture[1].profile["team"]["direct_routes"] = []
+    translation = skill_id("translation")
+    fixture[3]["agents"][1]["skill_ids"] = [translation]
+    plan = plan_for()
+    plan.tasks[0].skill_ids = [translation]
+    fixture[3]["_responses"] = {"director": [AIMessage(content=plan.model_dump_json())],
+                               "worker": [AIMessage(content="Veuillez confirmer la réservation R-204.")]}
+    original = "Tradueix al francès: Cal confirmar la reserva R-204."
+    messages, _ = run_chat(fixture, original)
+    assert "gnosi_team_route" in messages[-1].additional_kwargs
+    fixture[3]["_responses"] = {"worker": [AIMessage(content="Confirmez la réservation R-204.")]}
+    messages, _ = run_chat(fixture, "Maintenant, rends-la plus courte.",
+                           history=[HumanMessage(content=original), messages[-1]])
+    assert fixture[2] == ["director", "worker", "worker"]
+    assert messages[-1].additional_kwargs["gnosi_team_usage"]["routing"]["mode"] == "continuation"
+    assert messages[-1].content == "Confirmez la réservation R-204."
+
+
 def test_context_is_small_role_preserving_and_does_not_change_executor_sources(optional_runtime):
     from backend.services.agent_team_routing import planning_catalog
     fixture, _ = optional_runtime
