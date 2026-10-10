@@ -141,7 +141,7 @@ def _snapshot(profile: dict[str, Any], owner: dict[str, Any], root_id: str, scop
     return snapshot, runtime
 
 
-def _validate_plan_result(text: str, *, allow_response: bool = False, members: list[dict[str, Any]] | None = None, owner_id: str = "", required_operation: str = "") -> str:
+def _validate_plan_result(text: str, *, allow_response: bool = False, members: list[dict[str, Any]] | None = None, owner_id: str = "", required_operation: str = "", output_keys: set[str] | None = None) -> str:
     plan = TeamPlan.model_validate_json(text)
     if plan.response and not allow_response:
         raise ValueError("agent_team_operation_requires_tasks")
@@ -149,7 +149,7 @@ def _validate_plan_result(text: str, *, allow_response: bool = False, members: l
         from backend.services.agent_team_routing import validate_assignments
         from backend.services.agent_team_contracts import validate_plan_contract
         validate_assignments(plan, members, owner_id)
-        validate_plan_contract(plan, members, owner_id, legacy_response="response_kind" not in json.loads(text), required_operation=required_operation)
+        validate_plan_contract(plan, members, owner_id, legacy_response="response_kind" not in json.loads(text), required_operation=required_operation, output_keys=output_keys)
     return text
 
 
@@ -158,8 +158,10 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
     if members is None and operation in {"team.plan", "team.replan"}:
         members = json.loads(text or "{}").get("members")
     required_operation = str(json.loads(text or "{}").get("required_operation") or "") if operation in {"team.plan", "team.replan"} else ""
+    from backend.services.agent_team_contracts import explicit_output_keys
+    output_keys = explicit_output_keys(str(json.loads(text or "{}").get("request") or "")) if allow_response and required_operation not in {"writing", "translation"} else set()
     def validate(text: str) -> str:
-        return _validate_plan_result(text, allow_response=allow_response, members=members, owner_id=owner["id"], required_operation=required_operation)
+        return _validate_plan_result(text, allow_response=allow_response, members=members, owner_id=owner["id"], required_operation=required_operation, output_keys=output_keys)
     plan_validator = validate if operation in {"team.plan", "team.replan"} else None
     if plan_validator and schema is not None and members is not None:
         schema = copy.deepcopy(schema)

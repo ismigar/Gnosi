@@ -66,6 +66,7 @@ def planning_catalog(owner: dict[str, Any], scope: ExecutionScope, original: str
             "name": entry.descriptor.name,
             "description": entry.descriptor.description[:400],
             "application_operation": entry.descriptor.metadata.get("application_operation", ""),
+            "output_signatures": entry.descriptor.metadata.get("output_signatures", []),
             "available": entry.available,
             "tool_ids": entry.descriptor.tool_ids,
         } for entry in runtime.skills]

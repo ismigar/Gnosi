@@ -44,6 +44,9 @@ DESCRIPTIONS = {
     "knowledge": "Classify supplied notes using allowed labels, propose evidence-backed connections, or reformulate knowledge notes. Preserve exact note IDs and the requested JSON contract.",
 }
 
+OUTPUT_SIGNATURES = {"knowledge": [["classifications"]],
+                     "tables": [["button_label", "button_action", "button_config"]]}
+
 
 def skill_id(operation: str) -> str:
     if operation not in OPERATIONS:
@@ -56,7 +59,8 @@ def descriptors() -> list[SkillDescriptor]:
         id=skill_id(key), version="2.0.0", name=name,
         description=DESCRIPTIONS.get(key, name), origin=CatalogOrigin(type=OriginType.CORE, id="gnosi"),
         activation=SkillActivation.EXPLICIT, instructions=instructions,
-        metadata={"required_plugins": [plugin], "application_operation": key},
+        metadata={"required_plugins": [plugin], "application_operation": key,
+                  "output_signatures": OUTPUT_SIGNATURES.get(key, [])},
     ) for key, (plugin, name, instructions) in OPERATIONS.items()]
 
 

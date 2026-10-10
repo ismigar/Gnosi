@@ -43,6 +43,12 @@ def operation_input(request: Any, *, provider: str = "") -> str:
     if provider == "openrouter" and request.operation in {"team.plan", "team.replan"} and request.output_schema:
         from backend.domains.agent.structured_output import _has_dynamic_object
         if not _has_dynamic_object(request.output_schema):
+            try:
+                planning = json.loads(request.input)
+            except (TypeError, ValueError):
+                planning = None
+            if isinstance(planning, dict):
+                return json.dumps({**planning, "phase": request.operation}, ensure_ascii=False, allow_nan=False)
             payload.pop("output_schema")
     return json.dumps(payload, ensure_ascii=False, allow_nan=False)
 

@@ -10,6 +10,9 @@ exact selections. Assign that executor to inspect evidence needed for the work;
 do not attempt to execute a truncated request in this planning phase.
 Use the provided capability catalog and exact assigned skill IDs to choose an
 available specialist. A profile name or a word in a document title is insufficient.
+The request field is the current user instruction. Recent conversation is only
+reference evidence. A new task replaces the previous goal; do not return a plan
+for an earlier request or copy its output contract into the new task.
 
 Identify operation first, using application_operation from the catalog, then
 assign the result task to a member with that operation's skill. Preserve any

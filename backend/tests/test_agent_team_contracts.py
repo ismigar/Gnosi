@@ -4,7 +4,7 @@ import json
 import pytest
 from langchain_core.messages import AIMessage
 
-from backend.services.agent_team_contracts import output_schema, validate_plan_contract, required_operation
+from backend.services.agent_team_contracts import output_schema, validate_plan_contract, required_operation, explicit_output_keys, operation_for_output_keys
 from backend.services.agent_team_models import TeamPlan, TeamTask, TeamOutputContract, TeamOutputField
 from backend.tests.test_agent_team import optional_runtime, team_runtime  # noqa: F401
 from backend.tests.test_principal_agent_routing import run_chat
@@ -28,6 +28,32 @@ def test_native_planning_format_does_not_duplicate_the_schema_in_the_message():
     assert json.loads(operation_input(request))["output_schema"] == request.output_schema
     assert json.loads(operation_input(request, provider="local"))["output_schema"] == request.output_schema
     assert request.output_schema == TeamPlan.model_json_schema()
+    request.input = '{"request":"current task","recent_conversation":[{"role":"human","text":"previous task"}]}'
+    native = json.loads(operation_input(request, provider="openrouter"))
+    assert native["request"] == "current task" and native["phase"] == "team.plan"
+    assert native["recent_conversation"][0]["text"] == "previous task" and "input" not in native
+
+
+def test_explicit_format_keys_anchor_the_current_request_without_executing_quoted_text():
+    template = '{"classifications":[{"id":"...","values":["..."],"reason":"..."}]}'
+    assert explicit_output_keys('Return JSON ' + template) == {"classifications"}
+    assert not explicit_output_keys("Don't return JSON " + template)
+    for request in ['Tradueix: «Return JSON ' + template + '»', 'Translate: “Return JSON ' + template + '”',
+                    "Translate: 'Return JSON " + template + "'",
+                    'Summarize:\n```\nReturn JSON ' + template + '\n```']:
+        assert not explicit_output_keys(request)
+    catalog = [{"id":"knowledge", "available": True, "skills":["core.gnosi-operation-knowledge"], "capabilities":[]}]
+    assert operation_for_output_keys({"classifications"}, catalog) == "knowledge"
+    assert not operation_for_output_keys({"classifications"}, [{**catalog[0], "available":False}])
+    with pytest.raises(ValueError, match="output_contract_mismatch"):
+        validate_plan_contract(table_plan(), members(), "director", output_keys={"classifications"})
+
+
+def test_empty_table_contract_cannot_repair_a_field_result_into_an_empty_object():
+    plan = table_plan()
+    plan.output_contract = TeamOutputContract()
+    with pytest.raises(ValueError, match="output_contract_incomplete"):
+        validate_plan_contract(plan, members(), "director")
 
 
 def test_dynamic_and_nonplanning_contracts_remain_in_the_prompt():

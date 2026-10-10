@@ -2,16 +2,66 @@
 from __future__ import annotations
 
 from typing import Any
+import json
+import re
 
 from jsonschema import Draft202012Validator, ValidationError
 
-from backend.services.agent_operation_catalog import OPERATIONS, skill_id
+from backend.services.agent_operation_catalog import OPERATIONS, OUTPUT_SIGNATURES, skill_id
 from backend.services.agent_team_models import TeamPlan, TeamOutputField
 
 def required_operation(operation: str, active_skills: list[str]) -> str:
     """A plugin's operation prefix is not an application-skill assignment."""
     family = operation.split(".")[0]
     return family if family in OPERATIONS and skill_id(family) in active_skills else ""
+
+
+def explicit_output_keys(request: str) -> set[str]:
+    """Read a complete JSON format example after an unquoted return directive."""
+    directive = re.compile(r"\b(?:return|retorna|devuelve|retourne)\s+(?:(?:only|només|solo|seulement|exactly|exactament|exactamente|exactement)\s+)?JSON\s*:?[ \n]*", re.I)
+    for match in reversed(list(directive.finditer(request))):
+        prefix = request[:match.start()]
+        if _quoted(prefix) or (prefix.strip() and prefix.rstrip(" \t")[-1] not in ".!?;\n"):
+            continue
+        try:
+            value, _ = json.JSONDecoder().raw_decode(request[match.end():].lstrip())
+        except ValueError:
+            continue
+        if isinstance(value, dict) and value:
+            return set(value)
+    return set()
+
+
+def _quoted(text: str) -> bool:
+    closing, escaped = "", False
+    pairs = {'"': '"', "'": "'", '«': '»', '“': '”'}
+    for index, character in enumerate(text):
+        if escaped:
+            escaped = False
+        elif character == "\\" and closing:
+            escaped = True
+        elif closing and character == closing:
+            closing = ""
+        elif not closing and character in pairs:
+            if character != "'" or not index or not text[index - 1].isalnum():
+                closing = pairs[character]
+    return bool(closing) or text.count("```") % 2 == 1
+
+
+def operation_for_output_keys(keys: set[str], members: list[dict[str, Any]]) -> str:
+    operations = operation_skills(members)
+    matches = set()
+    for member in members:
+        if not member["available"]:
+            continue
+        for identifier in member.get("skills", []):
+            operation = operations.get(identifier, "")
+            if any(set(signature) == keys for signature in OUTPUT_SIGNATURES.get(operation, [])):
+                matches.add(operation)
+        for capability in member.get("capabilities", []):
+            if capability["available"] and any(set(signature) == keys for signature in capability.get("output_signatures", [])):
+                matches.add(str(capability.get("application_operation") or ""))
+    return next(iter(matches)) if len(matches) == 1 else ""
 
 
 def output_schema(plan: TeamPlan) -> dict[str, Any] | None:
@@ -76,7 +126,7 @@ def operation_skills(members: list[dict[str, Any]]) -> dict[str, str]:
 
 
 def validate_plan_contract(plan: TeamPlan, members: list[dict[str, Any]], owner_id: str,
-                           *, legacy_response: bool = False, required_operation: str = "") -> None:
+                           *, legacy_response: bool = False, required_operation: str = "", output_keys: set[str] | None = None) -> None:
     schema = output_schema(plan)
     operations = operation_skills(members)
     operation = required_operation or plan.operation
@@ -96,6 +146,10 @@ def validate_plan_contract(plan: TeamPlan, members: list[dict[str, Any]], owner_
         if operation and plan.response_kind not in {"clarification", "unavailable"}:
             raise ValueError("agent_team_work_requires_task: use a bounded task for a deliverable")
         return
+    if output_keys and (schema is None or schema.get("type") != "object" or set(schema.get("properties", {})) != output_keys):
+        raise ValueError("agent_team_output_contract_mismatch: preserve the current request's explicit JSON keys " + ", ".join(sorted(output_keys)))
+    if operation == "tables" and schema is not None and schema.get("type") == "object" and not schema.get("properties"):
+        raise ValueError("agent_team_output_contract_incomplete: define the requested table field or button keys")
     if operation:
         final = next(task for task in plan.tasks if task.id == plan.result_task)
         if not any(operations.get(identifier) == operation for identifier in final.skill_ids):
