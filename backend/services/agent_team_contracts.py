@@ -33,8 +33,8 @@ def standalone_clarification(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def explicit_output_keys(request: str) -> set[str]:
-    """Read a complete JSON format example after an unquoted return directive."""
-    directive = re.compile(r"\b(?:return|retorna|devuelve|retourne)\s+(?:(?:only|només|solo|seulement|exactly|exactament|exactamente|exactement)\s+)?JSON\s*:?[ \n]*", re.I)
+    """Read a complete JSON format example after an unquoted format directive."""
+    directive = re.compile(r"\b(?:(?:return|retorna|devuelve|retourne)\s+(?:(?:only|només|solo|seulement|exactly|exactament|exactamente|exactement)\s+)?JSON\s*:?|(?:contract|contracte|contrato|contrat)\s*:)[ \n]*", re.I)
     for match in reversed(list(directive.finditer(request))):
         prefix = request[:match.start()]
         if _quoted(prefix) or (prefix.strip() and prefix.rstrip(" \t")[-1] not in ".!?;\n"):

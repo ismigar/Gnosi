@@ -170,6 +170,11 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
     plan_validator = validate if operation in {"team.plan", "team.replan"} else None
     if plan_validator and schema is not None and members is not None:
         schema = copy.deepcopy(schema)
+        if output_keys:
+            contract = schema["$defs"]["TeamOutputContract"]
+            contract["required"] = ["type", "fields", "allow_extra_keys"]
+            contract["properties"]["type"] = {"const": "object"}
+            contract["properties"]["fields"]["minItems"] = len(output_keys)
         if allow_response:
             from backend.services.agent_team_contracts import operation_skills, initial_greeting
             schema["required"] = list(schema["properties"])

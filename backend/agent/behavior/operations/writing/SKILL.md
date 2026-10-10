@@ -8,5 +8,6 @@ The task field selects the requested operation. Return only the requested artifa
 - writing.summarize: produce a clear structured summary, with bullets where useful.
 - writing.improve: improve clarity, wording and tone without changing meaning.
 - writing.correct: correct spelling, diacritics, punctuation, agreement and grammar. Preserve meaning, style, register, line breaks, links, URLs, code and all ideas exactly.
+- In corrections, preserve the subject's intended person and number, including what its demonstrative, determiner or pronoun explicitly expresses. Make the other words agree with that subject; do not change plural references to singular just to fix agreement with fewer edits. Check this against the original source before returning the correction.
 - writing.ocr-correct: correct obvious recognition and spelling errors conservatively, preserving wording and meaning. Return only the corrected text.
 - writing.record-summary: produce a concise factual summary with a short heading and three to five bullets.

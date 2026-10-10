@@ -37,6 +37,10 @@ def test_native_planning_format_does_not_duplicate_the_schema_in_the_message():
 def test_explicit_format_keys_anchor_the_current_request_without_executing_quoted_text():
     template = '{"classifications":[{"id":"...","values":["..."],"reason":"..."}]}'
     assert explicit_output_keys('Return JSON ' + template) == {"classifications"}
+    for label in ["Contract", "Contracte", "Contrato", "Contrat"]:
+        assert explicit_output_keys(label + ': ' + template) == {"classifications"}
+        assert not explicit_output_keys('Translate: «' + label + ': ' + template + '»')
+        assert not explicit_output_keys('Ignore the ' + label + ': ' + template)
     assert not explicit_output_keys("Don't return JSON " + template)
     for request in ['Tradueix: «Return JSON ' + template + '»', 'Translate: “Return JSON ' + template + '”',
                     "Translate: 'Return JSON " + template + "'",
@@ -202,6 +206,24 @@ def test_valid_json_completes_without_an_extra_model_call(optional_runtime, monk
     assert messages[-1].additional_kwargs["gnosi_team_output"]["status"] == "validated"
     assert all(run.status == "completed" for run in store.list_runs(fixture[0]))
     assert len(artifacts.list_artifacts(fixture[0], "task")) == 1
+
+
+def test_explicit_contract_constrains_native_planning_without_preventing_clarification(optional_runtime, monkeypatch):
+    from jsonschema import Draft202012Validator
+    from backend.services import agent_execution_store as store
+    fixture, _ = optional_runtime
+    prepare(fixture, monkeypatch, ['{"value":false}'])
+    run_chat(fixture, 'Calcula el camp booleà. Contracte: {"value":false}.')
+    with store.connect() as db:
+        requests = [json.loads(row[0]) for row in db.execute("SELECT request FROM agent_runs")]
+    schema = next(request["output_schema"] for request in requests if request.get("operation") == "team.plan")
+    validator = Draft202012Validator(schema)
+    validator.validate(table_plan().model_dump())
+    raw = table_plan().model_dump()
+    for invalid in [{"type": "object"}, {"type": "object", "fields": [], "allow_extra_keys": False}]:
+        raw["output_contract"] = invalid
+        assert not validator.is_valid(raw)
+    validator.validate(TeamPlan(operation="tables", response_kind="clarification", response="Quin camp?").model_dump())
 
 
 @pytest.mark.parametrize("invalid", ['{\u200b', '{"value":"false"}', '{"value":false,"other":1}'])
