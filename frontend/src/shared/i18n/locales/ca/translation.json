@@ -529,6 +529,7 @@
     "quick_search": "Cerca ràpida",
     "favorite": "Favorit",
     "page_options": "Opcions de pàgina",
+    "free_width": "Amplada lliure",
     "open_quick_actions": "Obrir accions ràpides",
     "close_quick_actions": "Tancar accions ràpides",
     "stale_checkout": "La previsualització local serveix el checkout fusionat {{checkout}}, endarrerit respecte d’origin/main.",

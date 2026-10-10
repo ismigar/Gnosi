@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery';
 import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
+import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import {
     buildPageActionItems,
     pageActionButtonClass,
@@ -133,11 +134,13 @@ export function PageActionsBar({
                             setOverflowOpen(false);
                             item.onClick?.();
                         }}
-                        role="menuitem"
+                        role={item.toggle ? 'menuitemcheckbox' : 'menuitem'}
+                        aria-checked={item.toggle ? Boolean(item.active) : undefined}
                         type="button"
                     >
                         <Icon fill={pageActionIconFill(item)} size={14} />
                         <span>{item.label}</span>
+                        {item.toggle ? <span className="ml-auto"><GnosiToggle display active={Boolean(item.active)} /></span> : null}
                     </button>
                 </Fragment>;
             })}

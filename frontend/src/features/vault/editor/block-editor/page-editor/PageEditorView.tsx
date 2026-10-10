@@ -6,9 +6,10 @@ import { PageModals } from './PageModals';
 import { PagePropertiesPanel } from './PagePropertiesPanel';
 import { PageTitle } from './PageTitle';
 import type { PageEditorController } from './usePageEditorController';
+import './page-width.css';
 export function PageEditorView({ context }: { context: PageEditorController }) {
   const { isFocusMode, contentRef, metadata, showKnowledgePanels, isPropertiesOpen, isLinksInfoOpen } = context;
-  return (<div className={`vault-page-editor ${isFocusMode ? 'vault-page-editor--focus' : ''} w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300`}>
+  return (<div className={`vault-page-editor ${context.isFreeWidth ? 'vault-page-editor--free-width' : ''} ${isFocusMode ? 'vault-page-editor--focus' : ''} w-full min-w-0 flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300`}>
     <div ref={contentRef} className="max-w-7xl w-full flex flex-col min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
       <CompactPageHeader context={context} />
       <PageHero context={context} />

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { PageTable } from './types';
 import { emitAppEvent } from '../../../../../shared/platform/app-events';
 import { dispatchWindowEvent } from '../../../../../shared/platform/browser-events';
-import { readStorage, spellEnabledKey, writeStorage } from './preferences';
+import { pageFreeWidthKey, readStorage, spellEnabledKey, writeStorage } from './preferences';
 import {
   advance, container, element, fixture, initialMetadata, innerProps,
   mount, pageViewClose, patches, requests, root, setPatchResponse, state,
@@ -80,6 +80,48 @@ describe('outer page editor metadata persistence', () => {
 });
 
 describe('page shell, navigation and knowledge contracts', () => {
+  it('toggles free width from the menu without writing Markdown or metadata', async () => {
+    const update = vi.fn();
+    await mount({ view: true, onUpdate: update });
+    const openMenu = () => {
+      const button = container.querySelector<HTMLButtonElement>('[aria-label="shell.page_options"]');
+      if (!button) throw new Error('Missing page options');
+      act(() => { button.click(); });
+    };
+    openMenu();
+    const option = document.querySelector<HTMLButtonElement>('[role="menuitemcheckbox"]');
+    expect(option?.textContent).toBe('shell.free_width');
+    expect(option?.getAttribute('aria-checked')).toBe('false');
+    act(() => { option?.click(); });
+    expect(container.querySelector('.vault-page-editor--free-width')).not.toBeNull();
+    expect(readStorage(pageFreeWidthKey('fixture'))).toBe('1');
+    expect(document.querySelector('[role="menu"]')).toBeNull();
+    openMenu();
+    expect(document.querySelector('[role="menuitemcheckbox"]')?.getAttribute('aria-checked')).toBe('true');
+    act(() => { document.querySelector<HTMLButtonElement>('[role="menuitemcheckbox"]')?.click(); });
+    expect(container.querySelector('.vault-page-editor--free-width')).toBeNull();
+    expect(readStorage(pageFreeWidthKey('fixture'))).toBe('0');
+    await advance(1200);
+    expect(update).not.toHaveBeenCalled();
+    expect(patches()).toEqual([]);
+    expect(innerProps?.initialContent).toBe('[[outgoing]]');
+    expect(state().metadata).toEqual(initialMetadata);
+  });
+  it('restores free width for its page across reopening, including a locked compact header', async () => {
+    writeStorage(pageFreeWidthKey('fixture'), '1');
+    await mount({ view: true, isEditLocked: true });
+    expect(state().isFreeWidth).toBe(true);
+    act(() => { state().setIsPageHeaderCompact(true); });
+    const compactMenu = container.querySelector<HTMLButtonElement>('.vault-page-compact-header [aria-label="shell.page_options"]');
+    act(() => { compactMenu?.click(); });
+    expect(document.querySelector('[role="menuitemcheckbox"]')?.getAttribute('aria-checked')).toBe('true');
+    act(() => { root.render(null); });
+    await mount({ view: true, noteFilename: 'another-page' });
+    expect(state().isFreeWidth).toBe(false);
+    await mount({ view: true });
+    expect(state().isFreeWidth).toBe(true);
+    expect(patches()).toEqual([]);
+  });
   it('keeps schema management visible and safely handles an optional callback', async () => {
     const table: PageTable = { id: 'table', name: 'Fixture table', properties: [] };
     const props = { view: true, allTables: [table], initialMetadata: { title: 'Fixture', table_id: table.id } };
