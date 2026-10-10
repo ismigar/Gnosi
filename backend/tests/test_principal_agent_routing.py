@@ -105,6 +105,27 @@ def test_coordinator_can_answer_or_clarify_without_an_assignment(optional_runtim
     assert not artifacts.list_artifacts(fixture[0], "task")
 
 
+def test_personal_coordination_procedure_keeps_current_routing_contract(optional_runtime, monkeypatch):
+    from backend.services import agent_team_runtime as teams
+    from backend.services.agent_team_models import TEAM_SKILL
+    from backend.domains.agent import runtime_tools, workflow, workflow_setup
+    fixture, _ = optional_runtime
+    original_runtime = teams._runtime
+    personal = "Personal coordination procedure: use Catalan and existing specialists."
+    def customized(profile, scope, skill_ids=None):
+        runtime = original_runtime(profile, scope, skill_ids)
+        return replace(runtime, instructions=(personal,)) if skill_ids == [TEAM_SKILL] else runtime
+    monkeypatch.setattr(teams, "_runtime", customized)
+    monkeypatch.setattr(workflow, "build_prompts", workflow_setup.build_prompts)
+    monkeypatch.setattr(workflow_setup, "_model_context_window", lambda *_: 32000)
+    monkeypatch.setattr(runtime_tools, "_model_context_window", lambda *_: 32000)
+    fixture[3]["_responses"] = {"director": [AIMessage(content=plan_for().model_dump_json())]}
+    run_chat(fixture, "Revisa aquesta frase.")
+    prompt = "\n".join(str(m.content) for m in fixture[3]["_model_messages"][0][1])
+    assert personal in prompt
+    assert "Do not place a specialist's deliverable in response" in prompt
+
+
 def test_explicitly_selected_specialist_still_handles_its_own_conversation(optional_runtime):
     fixture, _ = optional_runtime
     fixture[3]["_responses"] = {"worker": [AIMessage(content="Specialist reply")]}

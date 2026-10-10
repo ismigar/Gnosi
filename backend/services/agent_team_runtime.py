@@ -14,7 +14,7 @@ from typing import Any, cast
 from langchain_core.messages import AIMessage, HumanMessage, messages_to_dict
 from langgraph.graph import END, START, StateGraph
 
-from backend.services.agent_behavior import revision
+from backend.services.agent_behavior import resource, revision
 from backend.services.agent_behavior_bindings import canonical_id, runtime_skill_ids
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation, ExecutionScope
 from backend.services.agent_team_models import TEAM_SKILL, AgentTeam, TeamPlan, TeamTask, TemporaryAgentSpec
@@ -126,7 +126,7 @@ def _candidate(owner: dict[str, Any], scope: ExecutionScope, ids: list[str], ski
         is_available=lambda provider: _provider_is_available(provider, ai.get("providers", {}).get(provider, {})))
 
 
-def _snapshot(profile: dict[str, Any], owner: dict[str, Any], root_id: str, scope: ExecutionScope, skills: list[str], refs: list[dict[str, Any]], *, read_only: bool = False, temporary: bool = False) -> tuple[AgentExecutionSnapshot, Any]:
+def _snapshot(profile: dict[str, Any], owner: dict[str, Any], root_id: str, scope: ExecutionScope, skills: list[str], refs: list[dict[str, Any]], *, read_only: bool = False, temporary: bool = False, extra_instructions: tuple[str, ...] = ()) -> tuple[AgentExecutionSnapshot, Any]:
     from backend.services.agent_execution import snapshot_from_runtime
     profile = copy.deepcopy(profile)
     profile["team"] = {"enabled": False}
@@ -136,6 +136,7 @@ def _snapshot(profile: dict[str, Any], owner: dict[str, Any], root_id: str, scop
     runtime = _filter_runtime(_runtime(profile, scope, skills), read_only=read_only)
     if not runtime_skill_ids(runtime, skills).issubset(runtime.active_skill_ids):
         raise PermissionError("agent_team_skill_unavailable")
+    runtime = replace(runtime, instructions=(*runtime.instructions, *extra_instructions))
     snapshot = snapshot_from_runtime(scope, profile, runtime).model_copy(update={"parent_run_id": root_id})
     return snapshot, runtime
 
@@ -162,7 +163,8 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
     phase = {"id": identifier, "status": "running", "result": ""}
     artifacts.put(scope, root_id, identifier, "phase", phase, create_only=True)
     director = _profile(team_for(owner).director_id)
-    snapshot, _ = _snapshot(director, owner, root_id, scope, [TEAM_SKILL], [])
+    routing = (resource("system/team-routing.md"),) if allow_response else ()
+    snapshot, _ = _snapshot(director, owner, root_id, scope, [TEAM_SKILL], [], extra_instructions=routing)
     token = delegating.set(True)
     try:
         result = await execute_operation(AgentOperation(skill_id=TEAM_SKILL, operation=operation, input=text,
