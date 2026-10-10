@@ -180,7 +180,7 @@ def test_principal_can_execute_its_own_specialty_without_recursing(optional_runt
     assert bindings == []
 
 
-@pytest.mark.parametrize("invalid_assignment", ["principal_overlap", "unassigned_skill"])
+@pytest.mark.parametrize("invalid_assignment", ["principal_overlap", "unassigned_skill", "missing_executor", "unknown_executor"])
 def test_invalid_assignment_is_repaired_before_any_executor_runs(optional_runtime, monkeypatch, invalid_assignment):
     from backend.agent import model_router
     fixture, _ = optional_runtime
@@ -189,7 +189,12 @@ def test_invalid_assignment_is_repaired_before_any_executor_runs(optional_runtim
     invalid = plan_for("director" if invalid_assignment == "principal_overlap" else "worker")
     if invalid_assignment == "unassigned_skill":
         invalid.tasks[0].skill_ids = ["core.gnosi-operation-translation"]
-    fixture[3]["_responses"] = {"director": [AIMessage(content=invalid.model_dump_json()),
+    invalid_data = invalid.model_dump()
+    if invalid_assignment == "missing_executor":
+        invalid_data["tasks"][0].pop("agent_id")
+    elif invalid_assignment == "unknown_executor":
+        invalid_data["tasks"][0]["agent_id"] = "not-a-catalog-member"
+    fixture[3]["_responses"] = {"director": [AIMessage(content=json.dumps(invalid_data)),
         AIMessage(content=plan_for().model_dump_json())], "worker": [AIMessage(content="Specialist result")]}
     messages, _ = run_chat(fixture, "Revisa aquesta frase.")
     assert fixture[2] == ["director", "director", "worker"]

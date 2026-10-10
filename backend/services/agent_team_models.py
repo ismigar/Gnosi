@@ -73,9 +73,9 @@ class TemporaryAgentSpec(BaseModel):
 
 
 class TeamTask(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"required": ["id", "agent_id", "objective", "skill_ids"]})
     id: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,31}$")
-    agent_id: str = ""
+    agent_id: str = Field(default="", description="Exact available member ID from the capability catalog; empty only with an allowed temporary specialist.")
     objective: str = Field(min_length=1, max_length=8000)
     expected_result: str = Field(default="Satisfy the original output contract", max_length=4000)
     acceptance: list[str] = Field(default_factory=list, max_length=8)

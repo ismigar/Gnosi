@@ -157,6 +157,12 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
     def validate(text: str) -> str:
         return _validate_plan_result(text, allow_response=allow_response, members=members, owner_id=owner["id"])
     plan_validator = validate if operation in {"team.plan", "team.replan"} else None
+    if plan_validator and schema is not None and members is not None:
+        schema = copy.deepcopy(schema)
+        identifiers = [member["id"] for member in members if member["available"]]
+        if team_for(owner).temporary.enabled:
+            identifiers.append("")
+        schema["$defs"]["TeamTask"]["properties"]["agent_id"]["enum"] = identifiers or [""]
     identifier = "phase:" + operation
     previous = next((p for p in artifacts.list_artifacts(scope, "phase", root_id) if p["id"] == identifier), None)
     if previous:
