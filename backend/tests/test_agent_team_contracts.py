@@ -4,7 +4,7 @@ import json
 import pytest
 from langchain_core.messages import AIMessage
 
-from backend.services.agent_team_contracts import output_schema, validate_plan_contract, required_operation, explicit_output_keys, operation_for_output_keys
+from backend.services.agent_team_contracts import output_schema, validate_plan_contract, required_operation, explicit_output_keys, operation_for_output_keys, initial_greeting
 from backend.services.agent_team_models import TeamPlan, TeamTask, TeamOutputContract, TeamOutputField
 from backend.tests.test_agent_team import optional_runtime, team_runtime  # noqa: F401
 from backend.tests.test_principal_agent_routing import run_chat
@@ -54,6 +54,22 @@ def test_empty_table_contract_cannot_repair_a_field_result_into_an_empty_object(
     plan.output_contract = TeamOutputContract()
     with pytest.raises(ValueError, match="output_contract_incomplete"):
         validate_plan_contract(plan, members(), "director")
+
+
+def test_initial_greeting_requires_no_prior_goal_sources_or_grants():
+    assert initial_greeting({"request":"Hola!", "context_refs":{"count":0}})
+    assert not initial_greeting({"request":"Hola, calcula el camp total", "context_refs":{"count":0}})
+    assert not initial_greeting({"request":"Hola", "recent_conversation":[{"role":"human","text":"Which value?"}]})
+    assert not initial_greeting({"request":"Hola", "context_refs":{"count":1}})
+
+
+def test_clarification_discards_generated_assignments_without_executing_them():
+    from backend.services.agent_team_runtime import _validate_plan_result
+    raw = table_plan().model_dump()
+    raw.update(response_kind="clarification", response="Quin camp vols?", output_contract=None)
+    normalized = json.loads(_validate_plan_result(json.dumps(raw), allow_response=True, members=members(), owner_id="director"))
+    assert normalized["response"] == "Quin camp vols?" and normalized["tasks"] == []
+    assert not normalized["result_task"] and normalized["synthesize"] is False
 
 
 def test_dynamic_and_nonplanning_contracts_remain_in_the_prompt():

@@ -16,6 +16,22 @@ def required_operation(operation: str, active_skills: list[str]) -> str:
     return family if family in OPERATIONS and skill_id(family) in active_skills else ""
 
 
+def initial_greeting(data: dict[str, Any]) -> bool:
+    text = str(data.get("request") or "").strip().casefold().rstrip(".!? ")
+    refs = data.get("context_refs") or {}
+    return (text in {"hola", "hello", "hi", "bonjour", "salut", "bon dia", "buenos días"}
+            and not data.get("recent_conversation") and not data.get("current_message_has_source_context")
+            and not data.get("authorized_tool_names") and isinstance(refs, dict) and not refs.get("count"))
+
+
+def standalone_clarification(data: dict[str, Any]) -> dict[str, Any]:
+    response = data.get("response")
+    if (data.get("response_kind") == "clarification" and isinstance(response, str) and response.strip()
+            and not data.get("output_contract") and not response.lstrip().startswith(("{", "[", "```"))):
+        return {**data, "tasks": [], "result_task": "", "synthesize": False}
+    return data
+
+
 def explicit_output_keys(request: str) -> set[str]:
     """Read a complete JSON format example after an unquoted return directive."""
     directive = re.compile(r"\b(?:return|retorna|devuelve|retourne)\s+(?:(?:only|només|solo|seulement|exactly|exactament|exactamente|exactement)\s+)?JSON\s*:?[ \n]*", re.I)

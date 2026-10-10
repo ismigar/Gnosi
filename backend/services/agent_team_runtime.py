@@ -142,6 +142,11 @@ def _snapshot(profile: dict[str, Any], owner: dict[str, Any], root_id: str, scop
 
 
 def _validate_plan_result(text: str, *, allow_response: bool = False, members: list[dict[str, Any]] | None = None, owner_id: str = "", required_operation: str = "", output_keys: set[str] | None = None) -> str:
+    from backend.services.agent_team_contracts import standalone_clarification
+    raw = json.loads(text)
+    normalized = standalone_clarification(raw) if allow_response and isinstance(raw, dict) else raw
+    if normalized != raw:
+        text = json.dumps(normalized, ensure_ascii=False)
     plan = TeamPlan.model_validate_json(text)
     if plan.response and not allow_response:
         raise ValueError("agent_team_operation_requires_tasks")
@@ -166,9 +171,15 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
     if plan_validator and schema is not None and members is not None:
         schema = copy.deepcopy(schema)
         if allow_response:
-            from backend.services.agent_team_contracts import operation_skills
+            from backend.services.agent_team_contracts import operation_skills, initial_greeting
             schema["required"] = list(schema["properties"])
             schema["properties"]["operation"]["enum"] = ["", *sorted(set(operation_skills(members).values()))]
+            if initial_greeting(json.loads(text or "{}")):
+                dialogue_fields: dict[str, Any] = {"operation":"", "response_kind":"greeting", "output_contract":None,
+                                                   "tasks":[], "result_task":"", "synthesize":False}
+                for key, value in dialogue_fields.items():
+                    schema["properties"][key] = {"const": value}
+                schema["properties"]["response"]["minLength"] = 1
         identifiers = [member["id"] for member in members if member["available"]]
         if team_for(owner).temporary.enabled:
             identifiers.append("")
