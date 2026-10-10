@@ -235,6 +235,7 @@ def test_delegation_retains_verified_citations_and_metadata():
 
 def test_structured_specialist_output_returns_only_the_visible_answer():
     from backend.services.agent_team_runtime import _collect_task_event
+    from backend.domains.agent.turn_evidence import verify_response
     outcome = {"confirmations": []}
     visible = "La gent que treballa plegada fa les coses millor."
     message = AIMessage(content=[
@@ -242,7 +243,10 @@ def test_structured_specialist_output_returns_only_the_visible_answer():
          "encrypted_content": "opaque-provider-state"},
         {"type": "text", "text": visible},
     ])
-    _collect_task_event({"brain": {"messages": [message]}}, outcome)
+    verified = verify_response(message, messages=[HumanMessage(content="Corregeix la frase.")],
+                               plan={"language": "ca", "verification": {}})
+    assert verified.content == visible
+    _collect_task_event({"brain": {"messages": [verified]}}, outcome)
     assert outcome["result"] == visible
 
 
