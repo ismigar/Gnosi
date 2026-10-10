@@ -266,6 +266,8 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
         _tokens[run_id] = inputs["cancel_token"]
     result = ""
     try:
+        from backend.services.agent_correction_output import checked_correction_workflow
+        application = checked_correction_workflow(application, inputs, snapshot, run_id)
         async for event in application.astream(inputs, config=config, stream_mode=stream_mode):
             for update in event.values():
                 for message in update.get("messages", []):
@@ -388,7 +390,7 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         # The durable reader owns the book loop. Each phase asks its frozen
         # model for one bounded result; a team handoff cannot run that loop
         # from a conversation or switch its source-processing executor.
-        operation_team_help=request.operation != "knowledge.process-source.phase" and not classifying_notes,
+        operation_team_help=request.operation not in {"knowledge.process-source.phase", "writing.correct.repair"} and not classifying_notes,
         # Reading returns one bounded action, never the whole book. Avoid a
         # provider-default reservation of 65,536 output tokens for each step.
         operation_max_output_tokens=((8192 if request.options.get("reading_prose") else 16384)
