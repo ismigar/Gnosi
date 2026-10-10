@@ -397,9 +397,9 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         # Routing needs a validated assignment, not a solution to the task.
         # A rejected plan gets the existing repair call at the model's normal
         # effort. Explicit profile choices and specialist effort stay intact.
-        operation_default_reasoning_effort=("low" if not snapshot.profile.get("reasoning_effort") and (
-            request.operation == "knowledge.process-source.phase"
-            or (request.operation in {"team.plan", "team.replan"} and not validation_retry)) else None),
+        operation_default_reasoning_effort=(None if snapshot.profile.get("reasoning_effort") else
+            "low" if request.operation == "knowledge.process-source.phase" else
+            "one_step_lower" if request.operation in {"team.plan", "team.replan"} and not validation_retry else None),
         output_schema=request.output_schema,
     )
     if workflow is None:

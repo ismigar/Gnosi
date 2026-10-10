@@ -16,7 +16,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 55 |
 | `config` | 13 | 1382 |
 | `data` | 2 | 214 |
-| `domains` | 524 | 107971 |
+| `domains` | 524 | 107981 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2301 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **963 modules** and **188851 source lines**.
+Total: **963 modules** and **188861 source lines**.
 
 ## agent
 
@@ -241,7 +241,7 @@ Total: **963 modules** and **188851 source lines**.
 | [`backend/domains/agent/sources/references.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/references.py) | 144 | 0 | 8 | 0 | 1 | Vault reference-library read adapter. |
 | [`backend/domains/agent/sources/scopes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/scopes.py) | 393 | 0 | 15 | 0 | 6 | Normalization and containment for internal source scopes. |
 | [`backend/domains/agent/stream_protocol.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/stream_protocol.py) | 318 | 1 | 8 | 5 | 2 | Versioned, bounded protocol for streamed agent events. |
-| [`backend/domains/agent/structured_output.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/structured_output.py) | 73 | 0 | 3 | 0 | 3 | Provider-enforced JSON for OpenRouter operations, with local validation retained. |
+| [`backend/domains/agent/structured_output.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/structured_output.py) | 83 | 0 | 3 | 0 | 3 | Provider-enforced JSON for OpenRouter operations, with local validation retained. |
 | [`backend/domains/agent/table_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/table_schema.py) | 44 | 0 | 2 | 0 | 1 | Exact schema requests and responses, independent of record search. |
 | [`backend/domains/agent/team_help.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/team_help.py) | 141 | 3 | 4 | 0 | 1 | Optional, bounded handoff from an assistant to its configured team. |
 | [`backend/domains/agent/tool_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/tool_runtime.py) | 250 | 0 | 12 | 0 | 5 | Runtime contract for bounded, observable agent tool calls. |

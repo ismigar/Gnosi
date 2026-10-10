@@ -49,8 +49,8 @@ def test_migration_preserves_personal_brain_and_disabled_features():
     ('knowledge.process-source.phase', None, True, 'low'),
     ('knowledge.process-source.phase', 'max', False, None),
     ('knowledge.process-source.phase', 'low', False, None),
-    ('team.plan', None, False, 'low'),
-    ('team.replan', None, False, 'low'),
+    ('team.plan', None, False, 'one_step_lower'),
+    ('team.replan', None, False, 'one_step_lower'),
     ('team.plan', None, True, None),
     ('team.replan', None, True, None),
     ('team.plan', 'max', False, None),
@@ -122,10 +122,10 @@ def test_structured_repair_once_and_scope_isolation(runtime, monkeypatch):
 @pytest.mark.parametrize("operation", ["team.plan", "team.replan"])
 @pytest.mark.parametrize("provider", ["openrouter", "local"])
 @pytest.mark.parametrize("answers,effort,expected_efforts,completed", [
-    (['{"agent_id":"worker"}'], None, ['low'], True),
-    (['bad JSON', '{"agent_id":"worker"}'], None, ['low', None], True),
-    (['{"agent_id":"wrong"}', '{"agent_id":"worker"}'], None, ['low', None], True),
-    (['{"agent_id":"wrong"}', '{"agent_id":"wrong"}'], None, ['low', None], False),
+    (['{"agent_id":"worker"}'], None, ['one_step_lower'], True),
+    (['bad JSON', '{"agent_id":"worker"}'], None, ['one_step_lower', None], True),
+    (['{"agent_id":"wrong"}', '{"agent_id":"worker"}'], None, ['one_step_lower', None], True),
+    (['{"agent_id":"wrong"}', '{"agent_id":"wrong"}'], None, ['one_step_lower', None], False),
     (['{"agent_id":"wrong"}', '{"agent_id":"worker"}'], 'high', [None], True),
 ])
 def test_planning_validation_fallback_keeps_contract_and_two_call_limit(
