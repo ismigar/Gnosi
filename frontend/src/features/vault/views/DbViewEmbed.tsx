@@ -3,6 +3,7 @@ import { ExposedFilters } from './ExposedFilters';
 import { searchesWholeTable } from '../../../shared/records/hooks/useViewSearch';
 import { useEmbedController } from './db-view-embed/useEmbedController';
 import { useEmbedNavigation } from './db-view-embed/useEmbedNavigation';
+import { useEmbedAgentContext } from './db-view-embed/useEmbedAgentContext';
 import { EmbedToolbar } from './db-view-embed/EmbedToolbar';
 import { EmbedTabs } from './db-view-embed/EmbedTabs';
 import { EmbedDialogs } from './db-view-embed/EmbedDialogs';
@@ -11,6 +12,7 @@ import type { DbViewEmbedProps } from './db-view-embed/types';
 export function DbViewEmbed(props: DbViewEmbedProps) {
     const model = useEmbedController(props);
     const { embedContainerRef, isInEditor, handleShellKeyDown, registerNavApi, focusShell } = useEmbedNavigation(model);
+    const publishAgentContext = useEmbedAgentContext(model);
     const { loading, error, viewType, t } = model;
     if (loading) {
         return (
@@ -42,6 +44,7 @@ export function DbViewEmbed(props: DbViewEmbedProps) {
     }
     return (
         <div ref={embedContainerRef} tabIndex={isInEditor ? -1 : undefined}
+            onPointerDownCapture={publishAgentContext} onFocusCapture={publishAgentContext}
             onKeyDown={isInEditor ? handleShellKeyDown : undefined}
             className="mt-0 mb-4 min-w-0 w-full gnosi-view-embed-container rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/40">
             <EmbedToolbar model={model} />

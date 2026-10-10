@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { vaultAgentContextRefs } from '../../agent-context/model/vaultAgentContext';
 import { vaultPageViewIds } from '../../agent-context/model/vaultAgentContext';
 import { getTableIdFromTab } from './tab-model';
 import { emitAppEvent } from '../../../shared/platform/app-events';
 import type { DashboardActions } from './useDashboardActions';
 export function useAgentContext(context: DashboardActions) {
+    const { key: locationKey } = useLocation();
     const { activeTabId, activeTableId, activeViewId, pages, registry, resolvePageTableId, tabs, viewMode, } = context;
     const activeContextTab = activeTabId
         ? tabs.find(tab => tab.id === activeTabId) || null
@@ -16,7 +18,6 @@ export function useAgentContext(context: DashboardActions) {
         : null;
     const activeContextPage = activeTabId
         && !activeContextTabTableId
-        && !activeContextEmbeddedView
         ? activeContextTab || pages.find(page => page.id === activeTabId) || null
         : null;
     const activeContextTableId = activeContextTabTableId
@@ -31,6 +32,7 @@ export function useAgentContext(context: DashboardActions) {
             page: activeContextPage,
             table: activeContextTable,
             view: activeContextView,
+            viewHostPageId: activeContextEmbeddedView ? String(activeContextPage?.id || '') : '',
         }));
-    }, [activeContextPage, activeContextTable, activeContextView]);
+    }, [activeContextPage, activeContextTable, activeContextView, locationKey]);
 }

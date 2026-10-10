@@ -89,6 +89,30 @@ async function render(value: EmbedBlock = block, tooltip = false): Promise<void>
     await act(async () => { await Promise.resolve(); root.render(<VaultEditorContext.Provider value={context}><DbViewEmbed block={value} />{tooltip && <GlobalTooltip />}</VaultEditorContext.Provider>); });
     await act(async () => { await Promise.resolve(); await new Promise(resolve => setTimeout(resolve, 5)); });
 }
+it('publishes only the interacted embedded view with its host page for chat', async () => {
+    const contexts: unknown[] = [];
+    const receive = (event: Event) => { if (event instanceof CustomEvent) contexts.push(event.detail); };
+    window.addEventListener('gnosi:module-context', receive);
+    try {
+        context = { ...context, idToTitle: { page: 'Project dashboard' } };
+        await render();
+        expect(contexts).toEqual([]);
+        const shell = container.querySelector('.gnosi-view-embed-container');
+        await act(async () => { shell?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })); });
+        expect(contexts.at(-1)).toEqual([
+            { id: 'vault-page:page', type: 'page', ref: 'page', label: 'Project dashboard' },
+            expect.objectContaining({ type: 'table', ref: 'books', scope: { view_id: 'anchor', view_name: 'Main', page_id: 'page' } }),
+        ]);
+        const tab = container.querySelectorAll('button[aria-label="View options"]')[1]?.parentElement;
+        await click(tab);
+        expect(contexts.at(-1)).toEqual([
+            expect.objectContaining({ ref: 'page' }),
+            expect.objectContaining({ scope: { view_id: 'other', view_name: 'Other', page_id: 'page' } }),
+        ]);
+    } finally {
+        window.removeEventListener('gnosi:module-context', receive);
+    }
+});
 it('forwards parallel opening from an embedded view to its editor', async () => {
     const parallel = vi.fn();
     context = { ...context, onOpenParallel: parallel };

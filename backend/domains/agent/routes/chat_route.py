@@ -323,9 +323,11 @@ async def chat_endpoint(
 
         # 2. Get the workflow only after request-owned uploads are cleaned up.
         turn_context_refs = [item.model_dump(mode="python") for item in chat_req.context_refs]
+        from backend.domains.agent.title_context import mention_context_refs
+        from backend.agent.agent_context import merge_context_refs
+        turn_context_refs = merge_context_refs(turn_context_refs, mention_context_refs(
+            chat_req.message, [mention.model_dump(mode="python") for mention in chat_req.mentions]))
         if project_refs:
-            from backend.agent.agent_context import merge_context_refs
-
             turn_context_refs = merge_context_refs(project_refs, turn_context_refs)
         if notebook_turn:
             turn_context_refs = notebook_turn["contexts"]

@@ -39,7 +39,9 @@ def _normalized_ref_scope(
     if rtype == "table":
         view_id = str(scope.get("view_id") or "").strip()[:64]
         view_name = str(scope.get("view_name") or "").strip()[:256]
-        return {"view_id": view_id, "view_name": view_name or view_id} if view_id else None
+        page_id = str(scope.get("page_id") or "").strip()[:64]
+        return {"view_id": view_id, "view_name": view_name or view_id,
+                **({"page_id": page_id} if page_id else {})} if view_id else None
     if rtype != "notebook":
         return None
     revision = int(scope.get("revision") or 0)
@@ -61,13 +63,13 @@ def _normalized_ref_scope(
 
 
 def normalize_refs(raw: Any) -> List[Dict[str, Any]]:
-    """Keeps only well-formed refs, de-duplicated by (type, ref).
+    """Keep well-formed refs, preserving distinct table view scopes.
 
     Configuration is hand-editable YAML, so a malformed entry must degrade to
     "this source is ignored", never to a crash at graph build time.
     """
     out: List[Dict[str, Any]] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[tuple[str, str, str, str]] = set()
     for item in raw or []:
         if not isinstance(item, dict):
             continue
@@ -75,7 +77,10 @@ def normalize_refs(raw: Any) -> List[Dict[str, Any]]:
         ref = str(item.get("ref") or "").strip()
         if rtype not in VALID_TYPES or not ref:
             continue
-        key = (rtype, ref)
+        value = item.get('scope')
+        raw_scope: Dict[str, Any] = value if isinstance(value, dict) else {}
+        key = (rtype, ref, str(raw_scope.get('view_id') or '') if rtype == 'table' else '',
+               str(raw_scope.get('page_id') or '') if rtype == 'table' else '')
         if key in seen:
             continue
         seen.add(key)
@@ -100,10 +105,13 @@ def merge_context_refs(
     turn_refs: Any,
 ) -> List[Dict[str, Any]]:
     """Merge refs with current-turn scopes taking precedence by source."""
+    current = normalize_refs(turn_refs)
+    selected = {(item['type'], item['ref']) for item in current}
     return normalize_refs(
         [
-            *(turn_refs or []),
-            *(persistent_refs or []),
+            *current,
+            *(item for item in normalize_refs(persistent_refs)
+              if (item['type'], item['ref']) not in selected),
         ]
     )
 

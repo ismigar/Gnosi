@@ -55,4 +55,8 @@ describe('Vault dashboard view context', () => {
   it('returns no ids when a page has no embedded view', () => {
     expect(vaultPageViewIds({ content: '# Notes' })).toEqual([]);
   });
+  it('recognizes current fenced views together with legacy markers', () => {
+    expect(vaultPageViewIds({ content: '```gnosi-view\n{"view_id":"planning"}\n```\n<!-- gnosi-view:def {"view_id":"resources"} -->' }))
+      .toEqual(['planning', 'resources']);
+  });
 });

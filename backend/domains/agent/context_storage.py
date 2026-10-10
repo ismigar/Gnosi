@@ -119,6 +119,8 @@ def _table_view(table_id: str, scope: Any) -> Optional[RegistryData]:
     )
     if view is None:
         raise ValueError("context_view_unavailable")
+    if scope.get("page_id") and view_id not in page_view_ids(str(scope["page_id"])):
+        raise ValueError("context_view_unavailable")
     return cast(RegistryData, view)
 
 
@@ -146,7 +148,7 @@ def _table_rows(
     if view:
         from backend.services.view_snapshot import resolve_rows
 
-        rows = resolve_rows(rows, view, None)
+        rows = resolve_rows(rows, view, (scope or {}).get("page_id"))
     return rows, view
 
 
@@ -281,6 +283,15 @@ def _dashboard_content(ref: Dict[str, Any]) -> str:
     return _parse(path)[1] if path is not None else _read_source(ref)
 
 
+def page_view_ids(page_id: str) -> List[str]:
+    """Include only page-owned embeds and their configured tabs."""
+    anchors = dashboard_view_ids(_dashboard_content({"type": "page", "ref": page_id}))
+    views = {str(view.get("id")): view for view in _registry().get("views", [])}
+    tabs = [str(tab) for identifier in anchors for tab in (views.get(identifier, {}).get("tabs") or [])
+            if views.get(str(tab), {}).get("table_id") == views.get(identifier, {}).get("table_id")]
+    return list(dict.fromkeys([*anchors, *tabs]))
+
+
 def expand_dashboard_context_refs(raw_refs: Any) -> List[Dict[str, Any]]:
     """Attach the one exact table view embedded by a dashboard page."""
     refs = normalize_refs(raw_refs)
@@ -317,6 +328,7 @@ def expand_dashboard_context_refs(raw_refs: Any) -> List[Dict[str, Any]]:
                             "scope": {
                                 "view_id": str(view.get("id") or ""),
                                 "view_name": str(view.get("name") or view.get("id") or ""),
+                                "page_id": ref['ref'],
                             },
                         }
                     )

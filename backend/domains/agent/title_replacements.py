@@ -23,6 +23,17 @@ _HEADERS = (
     r'for all records in the active view,\s*change the title from\s+',
     r'pour toutes les lignes de la vue active,\s*modifie le titre de\s+',
 )
+_NAMED_HEADERS = (
+    r'(?:als|en els)\s+títols\s+de\s+@(?P<target>[^\n@]{1,256})\s+(?:modifica|canvia|substitueix)\s+',
+    r'(?:en los|a los)\s+títulos\s+de\s+@(?P<target>[^\n@]{1,256})\s+(?:modifica|cambia|reemplaza)\s+',
+    r'in the titles\s+(?:of|in)\s+@(?P<target>[^\n@]{1,256})\s+(?:change|replace)\s+',
+    r'dans les titres\s+de\s+@(?P<target>[^\n@]{1,256})\s+(?:modifie|remplace)\s+',
+)
+
+
+def _title_header(text: str) -> re.Match[str] | None:
+    return next((match for pattern in (*_HEADERS, *_NAMED_HEADERS)
+                 if (match := re.match(pattern, text, re.I))), None)
 
 
 def title_replacements(message: str) -> list[tuple[str, str]] | None:
@@ -32,8 +43,7 @@ def title_replacements(message: str) -> list[tuple[str, str]] | None:
     explicit quoted operands and connectors; suffix actions or denials fail.
     """
     text = message.strip()
-    header = next((match for pattern in _HEADERS
-                   if (match := re.match(pattern, text, re.I))), None)
+    header = _title_header(text)
     if header is None:
         return None
     tail = text[header.end():].strip().removesuffix('.').rstrip()
@@ -57,9 +67,16 @@ def title_replacements(message: str) -> list[tuple[str, str]] | None:
     return pairs
 
 
+def title_target(message: str) -> str:
+    """A mention label is an opaque scope, not an operand or an instruction."""
+    header = _title_header(message.strip())
+    return str(header.groupdict().get('target') or '').strip() if header and title_replacements(message) else ''
+
+
 def active_title_scope(refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Narrow to the unique active view; unrelated permanent sources grant none."""
-    selected = {(str(ref.get('ref') or ''), str((ref.get('scope') or {}).get('view_id') or '')): ref
+    selected = {(str(ref.get('ref') or ''), str((ref.get('scope') or {}).get('view_id') or ''),
+                 str((ref.get('scope') or {}).get('page_id') or '')): ref
                 for ref in refs if ref.get('type') == 'table' and (ref.get('scope') or {}).get('view_id')}
     return list(selected.values()) if len(selected) == 1 else []
 
@@ -75,12 +92,13 @@ def title_view_revisions(refs: list[dict[str, Any]]) -> list[dict[str, str]]:
         if view is None:
             raise ValueError("context_view_unavailable")
         digest = hashlib.sha256(json.dumps(view, sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()
-        revisions.append({"table_id": ref["ref"], "view_id": str(view["id"]), "revision": digest})
+        revisions.append({"table_id": ref["ref"], "view_id": str(view["id"]), "revision": digest,
+                          **({"page_id": ref['scope']['page_id']} if ref['scope'].get('page_id') else {})})
     return revisions
 
 
 def validate_title_view(scope: dict[str, Any]) -> None:
-    refs = [{"type": "table", "ref": scope.get("table_id"), "scope": {"view_id": scope.get("view_id")}}]
+    refs = [{"type": "table", "ref": scope.get("table_id"), "scope": scope}]
     if not scope.get("view_id") or title_view_revisions(refs) != [scope]:
         raise ValueError("The active view changed after the title preview. Prepare it again.")
 

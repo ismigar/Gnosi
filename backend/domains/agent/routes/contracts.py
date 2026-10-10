@@ -86,6 +86,7 @@ class TurnContextRef(BaseModel):
                 for key, value in {
                     "view_id": view_id,
                     "view_name": view_name,
+                    "page_id": str(self.scope.get("page_id") or "").strip()[:64],
                 }.items()
                 if value
             }

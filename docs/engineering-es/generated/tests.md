@@ -11,8 +11,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 646 | 2841 |
-| pytest | 659 | 4878 |
+| Vitest | 647 | 2844 |
+| pytest | 660 | 4886 |
 
 ## Archivos
 
@@ -60,7 +60,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/app/startup.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/startup.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent-context/AgentContextSources.behavior.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/AgentContextSources.behavior.test.tsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent-context/AgentContextSources.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/AgentContextSources.test.tsx) | 5 | call-pattern estimate |
-| Vitest | [`frontend/src/features/agent-context/model/vaultAgentContext.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/model/vaultAgentContext.test.ts) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/features/agent-context/model/vaultAgentContext.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/model/vaultAgentContext.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent-learning/ConversationLearning.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/ConversationLearning.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent-learning/LearnedSkillEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/LearnedSkillEditor.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent-learning/LearnedSkillEditor.trialEvidence.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/LearnedSkillEditor.trialEvidence.test.tsx) | 1 | call-pattern estimate |
@@ -329,6 +329,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/vault/dashboard/model.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/model.test.ts) | 19 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/mutations.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/mutations.test.tsx) | 17 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/navigation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/navigation.test.tsx) | 11 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/dashboard/useAgentContext.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useAgentContext.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/useExternalCatalogRefresh.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useExternalCatalogRefresh.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/usePageLoading.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/usePageLoading.test.tsx) | 0 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/usePageToolbar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/usePageToolbar.test.tsx) | 0 | call-pattern estimate |
@@ -461,7 +462,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/vault/views/VaultViewsHeader.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultViewsHeader.test.tsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/db-view-embed/DbViewEmbed.continuity.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/DbViewEmbed.continuity.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx) | 4 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx) | 26 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx) | 27 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/db-view-embed/EmbedTabMenu.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/EmbedTabMenu.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/db-view-embed/ViewActionsBar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/ViewActionsBar.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/db-view-embed/api.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/api.test.ts) | 4 | call-pattern estimate |
@@ -749,6 +750,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_agent_team_personal_skills.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_team_personal_skills.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_team_planning_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_team_planning_schema.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_title_change_regression.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_title_change_regression.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_agent_title_mentions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_title_mentions.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_agent_title_replacements.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_title_replacements.py) | 17 | Python AST |
 | pytest | [`backend/tests/test_agent_tool_context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_tool_context.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_agent_turn_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_turn_contract.py) | 13 | Python AST |
