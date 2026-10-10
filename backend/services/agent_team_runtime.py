@@ -256,7 +256,7 @@ def _collect_task_event(event: dict[str, Any], outcome: dict[str, Any]) -> None:
             if marker:
                 outcome["confirmations"].append(marker)
             if getattr(message, "type", "") == "ai" and not getattr(message, "tool_calls", None):
-                outcome["result"] = str(message.content)
+                outcome["result"] = str(message.text)
                 outcome["metadata"] = dict(getattr(message, "additional_kwargs", {}) or {})
 
 

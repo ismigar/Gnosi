@@ -233,6 +233,19 @@ def test_delegation_retains_verified_citations_and_metadata():
     assert outcome["metadata"] == metadata
 
 
+def test_structured_specialist_output_returns_only_the_visible_answer():
+    from backend.services.agent_team_runtime import _collect_task_event
+    outcome = {"confirmations": []}
+    visible = "La gent que treballa plegada fa les coses millor."
+    message = AIMessage(content=[
+        {"type": "reasoning", "summary": [{"type": "summary_text", "text": "Internal provider summary"}],
+         "encrypted_content": "opaque-provider-state"},
+        {"type": "text", "text": visible},
+    ])
+    _collect_task_event({"brain": {"messages": [message]}}, outcome)
+    assert outcome["result"] == visible
+
+
 def test_chat_reports_actual_team_usage_instead_of_zero_calls():
     from backend.domains.agent.routes.chat_stream_updates import _message_events
     from backend.domains.agent.routes.chat_stream_state import AgentStreamState
