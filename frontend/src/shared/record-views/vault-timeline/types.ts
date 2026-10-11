@@ -1,3 +1,4 @@
+import type { TimelineMove, TimelinePlacement } from './timelineMoves';
 import type { TitlePreviewController } from '../../editor/useTitlePreview';
 import type { BulkActionTemplate } from '../VaultBulkActionsBar';
 import type {
@@ -116,6 +117,12 @@ export interface TimelineSchemaReaders {
 
 
 export interface TimelineController {
+    readonly movingRow: boolean;
+    readonly moveError: boolean;
+    readonly canMoveRow: (id: string, action?: TimelineMove) => boolean;
+    readonly moveRow: (id: string, action: TimelineMove) => Promise<void>;
+    readonly dropRow: (id: string, targetId: string, placement: TimelinePlacement) => Promise<void>;
+
     readonly canEditDates: boolean;
     readonly canEditDependencies: boolean;
     readonly scrollLeft: number;

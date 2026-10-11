@@ -6007,6 +6007,16 @@
     "axis_summary": "{{yLabel}} per <field>{{xField}}</field>"
   },
   "timeline": {
+    "move_up": "Moure amunt",
+    "move_down": "Moure avall",
+    "move_indent": "Convertir en subtasca",
+    "move_outdent": "Treure de la tasca mare",
+    "drag_row": "Arrossega abans, dins o després d’una altra tasca",
+    "drop_before": "Abans",
+    "drop_inside": "Dins",
+    "drop_after": "Després",
+    "manual_sort_hint": "Treu l’ordenació de la vista per moure les tasques manualment.",
+    "move_error": "No s’ha pogut completar el moviment. Revisa l’ordre i torna-ho a provar.",
     "select_predecessor": "Selecciona una Antecessora",
     "predecessor_prompt": "Tria quin registre ha de finalitzar abans que <bold>{{name}}</bold> pugui començar.",
     "col_title": "Títol del Registre",
