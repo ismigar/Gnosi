@@ -18,6 +18,10 @@ source_paths:
   - pyproject.toml
   - frontend/package.json
   - frontend/scripts/check-bundle-size.ts
+  - frontend/scripts/lint.mjs
+  - frontend/scripts/lint-files.mjs
+  - frontend/scripts/typecheck.mjs
+  - frontend/scripts/typecheck-worker.mjs
 tests:
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
@@ -25,6 +29,8 @@ tests:
   - backend/tests/test_ci_docker_python_policy.py
   - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
+  - frontend/tests/contracts/lint-runner.test.js
+  - frontend/tests/contracts/typecheck-runner.test.js
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
@@ -178,6 +184,21 @@ orden, TypeScript del frontend, mypy estricto de todo el backend (excepto las
 pruebas), mypy estricto de todos los archivos Python públicos indexados del
 pipeline y, finalmente, la sintaxis Python de backend, pipeline, scripts y
 extensiones. Cada error detiene las etapas siguientes y conserva el código de salida.
+
+La orden del frontend usa la API de la versión fijada de TypeScript con todo el
+programa de `tsconfig.json` cargado en cada proceso nuevo y secuencial. Primero
+comprueba sintaxis, opciones y diagnósticos globales; después comprueba todos los
+archivos resueltos, incluidos imports transitivos y declaraciones, en lotes de
+256 archivos costosos. Las declaraciones cubiertas por `skipLibCheck` también se
+comprueban con esa opción y no ocupan cuota del lote. Los diagnósticos de
+declaración se ejecutan cuando la configuración los activa. No se divide el
+proyecto, no se suprimen diagnósticos ni se aceptan resultados de caché. Las
+huellas de contenido detectan cambios entre procesos; un resultado ausente o un
+proceso fallido deja la verificación incompleta. Los límites de mac-idle se
+mantienen. Las regresiones sintéticas comparan diagnósticos con `tsc --noEmit`,
+incluidos globales entre lotes, referencias e interrupciones. La orden no acepta
+argumentos adicionales; para otras tareas, use `tsc` directamente. No emite
+código ni metadatos incrementales.
 
 Las órdenes individuales `typecheck:backend-boundaries` y
 `typecheck:pipeline` siguen disponibles. Es una comprobación estática:

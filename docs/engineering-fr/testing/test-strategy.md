@@ -18,6 +18,10 @@ source_paths:
   - pyproject.toml
   - frontend/package.json
   - frontend/scripts/check-bundle-size.ts
+  - frontend/scripts/lint.mjs
+  - frontend/scripts/lint-files.mjs
+  - frontend/scripts/typecheck.mjs
+  - frontend/scripts/typecheck-worker.mjs
 tests:
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
@@ -25,6 +29,8 @@ tests:
   - backend/tests/test_ci_docker_python_policy.py
   - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
+  - frontend/tests/contracts/lint-runner.test.js
+  - frontend/tests/contracts/typecheck-runner.test.js
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
@@ -181,6 +187,22 @@ ordre, TypeScript du frontend, mypy strict sur tout le backend (hors tests),
 mypy strict sur tous les fichiers Python publics indexés du pipeline, puis
 la syntaxe Python de backend, pipeline, scripts et extensions. Chaque échec
 interrompt les étapes suivantes et conserve son code de sortie.
+
+La commande frontend utilise l’API de la version fixée de TypeScript avec tout
+le programme de `tsconfig.json` chargé dans chaque nouveau processus séquentiel.
+Elle vérifie d’abord la syntaxe, les options et les diagnostics globaux, puis
+tous les fichiers résolus, y compris les imports transitifs et les déclarations,
+par lots de 256 fichiers coûteux. Les déclarations couvertes par `skipLibCheck`
+sont aussi vérifiées avec cette option sans occuper le quota du lot. Les
+diagnostics de déclaration sont exécutés lorsque la configuration les active.
+Le projet reste entier, aucun diagnostic n’est supprimé et aucun cache ne vaut
+acceptation. Les empreintes de contenu détectent les changements entre processus ;
+un résultat absent ou un processus en échec rend la vérification incomplète.
+Les limites de mac-idle restent inchangées. Les régressions synthétiques
+comparent les diagnostics à `tsc --noEmit`, y compris les globaux entre lots,
+les références et les interruptions. La commande n’accepte pas d’arguments
+supplémentaires ; utiliser directement `tsc` pour les autres tâches. Elle
+n’émet ni code applicatif ni métadonnées incrémentales.
 
 Les commandes individuelles `typecheck:backend-boundaries` et
 `typecheck:pipeline` restent disponibles. Cette vérification statique ne remplace

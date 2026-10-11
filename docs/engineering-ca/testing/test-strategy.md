@@ -18,6 +18,10 @@ source_paths:
   - pyproject.toml
   - frontend/package.json
   - frontend/scripts/check-bundle-size.ts
+  - frontend/scripts/lint.mjs
+  - frontend/scripts/lint-files.mjs
+  - frontend/scripts/typecheck.mjs
+  - frontend/scripts/typecheck-worker.mjs
 tests:
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
@@ -25,6 +29,8 @@ tests:
   - backend/tests/test_ci_docker_python_policy.py
   - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
+  - frontend/tests/contracts/lint-runner.test.js
+  - frontend/tests/contracts/typecheck-runner.test.js
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
@@ -178,6 +184,20 @@ ordre, TypeScript del frontend, mypy estricte de tot el backend (excloent-ne
 les proves), mypy estricte de tots els fitxers Python públics indexats del
 pipeline i, finalment, la sintaxi Python de backend, pipeline, scripts i
 extensions. Qualsevol error atura les etapes següents i conserva el codi de sortida.
+
+L’ordre del frontend usa l’API de la versió fixada de TypeScript amb tot el
+programa de `tsconfig.json` carregat en cada procés nou i seqüencial. Primer
+comprova sintaxi, opcions i diagnòstics globals; després comprova tots els fitxers
+resolts, inclosos imports transitius i declaracions, en lots de 256 fitxers
+costosos. Les declaracions cobertes per `skipLibCheck` també es comproven amb
+aquesta opció i no ocupen quota del lot. Els diagnòstics de declaració s’executen
+quan la configuració els activa. No es divideix el projecte, no se suprimeixen
+diagnòstics ni s’accepten resultats de memòria cau. Les empremtes de contingut
+detecten canvis entre processos; un resultat absent o un procés fallit deixa la
+verificació incompleta. Els límits de mac-idle es mantenen. Les regressions
+sintètiques comparen diagnòstics amb `tsc --noEmit`, inclosos globals entre lots,
+referències i interrupcions. L’ordre no accepta arguments addicionals; per a
+altres tasques, useu `tsc` directament. No emet codi ni metadades incrementals.
 
 Les ordres individuals `typecheck:backend-boundaries` i
 `typecheck:pipeline` continuen disponibles. És una comprovació estàtica:

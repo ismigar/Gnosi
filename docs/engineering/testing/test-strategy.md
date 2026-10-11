@@ -18,6 +18,10 @@ source_paths:
   - pyproject.toml
   - frontend/package.json
   - frontend/scripts/check-bundle-size.ts
+  - frontend/scripts/lint.mjs
+  - frontend/scripts/lint-files.mjs
+  - frontend/scripts/typecheck.mjs
+  - frontend/scripts/typecheck-worker.mjs
 tests:
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
@@ -25,6 +29,8 @@ tests:
   - backend/tests/test_ci_docker_python_policy.py
   - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
+  - frontend/tests/contracts/lint-runner.test.js
+  - frontend/tests/contracts/typecheck-runner.test.js
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
@@ -168,6 +174,20 @@ strict mypy across the complete backend (excluding tests), strict mypy across
 every indexed public pipeline Python file, and finally Python syntax checks
 for backend, pipeline, scripts and extensions, in that order. Each failure
 stops the remaining stages and returns its exit status.
+
+The frontend command uses the pinned TypeScript compiler API with the complete
+`tsconfig.json` program in every fresh, sequential worker. Syntax, options and
+global diagnostics run first; semantic diagnostics cover every resolved source,
+including transitive imports and declarations, in batches of 256 costly files.
+Declarations covered by `skipLibCheck` are still checked using that option and
+do not consume the batch quota. Declaration diagnostics run when enabled by the
+config. No source project is split, no diagnostic is suppressed and no build
+cache establishes success. Content fingerprints reject changes between workers;
+missing results and failed processes mean incomplete verification. The mac-idle
+limits stay unchanged. Synthetic regressions compare diagnostics with the real
+`tsc --noEmit`, including cross-batch globals, references and interruption.
+The command accepts no extra compiler arguments; use `tsc` directly for other
+tasks. It emits neither application code nor incremental build metadata.
 
 The individual commands `typecheck:backend-boundaries` and
 `typecheck:pipeline` remain available. This is a static gate, not a substitute
