@@ -191,4 +191,3 @@ def validate_plan_contract(plan: TeamPlan, members: list[dict[str, Any]], owner_
         if not any(operations.get(identifier) == operation for identifier in final.skill_ids):
             raise ValueError("agent_team_operation_skill_required: " + operation
                              + "; the result task must use this operation's assigned skill")
-

@@ -24,11 +24,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 237 | 47574 |
+| `services` | 237 | 47573 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **973 modules** and **189985 source lines**.
+Total: **973 modules** and **189984 source lines**.
 
 ## agent
 
@@ -886,7 +886,7 @@ Total: **973 modules** and **189985 source lines**.
 | [`backend/services/agent_team_actions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_actions.py) | 78 | 0 | 6 | 0 | 2 | Resolve action executors from callable tools and the activated skill grant. |
 | [`backend/services/agent_team_context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_context.py) | 96 | 0 | 5 | 0 | 1 | Small routing evidence; executors still receive the original conversation. |
 | [`backend/services/agent_team_continuation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_continuation.py) | 100 | 0 | 4 | 0 | 1 | Reuse a verified text specialist for narrowly unambiguous follow-up edits. |
-| [`backend/services/agent_team_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_contracts.py) | 194 | 0 | 11 | 0 | 2 | Local operation and output checks for the coordinator's untrusted plan. |
+| [`backend/services/agent_team_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_contracts.py) | 193 | 0 | 11 | 0 | 2 | Local operation and output checks for the coordinator's untrusted plan. |
 | [`backend/services/agent_team_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_evaluations.py) | 62 | 0 | 2 | 0 | 1 | Metadata-only measurements for comparing the same tasks across team policies. |
 | [`backend/services/agent_team_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_models.py) | 169 | 12 | 0 | 0 | 0 | Explicit, additive contracts for governed agent teams. |
 | [`backend/services/agent_team_output.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_output.py) | 62 | 2 | 0 | 0 | 1 | Validate a delegated result before its run completes; repair without actions. |
