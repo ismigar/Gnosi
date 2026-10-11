@@ -111,3 +111,5 @@ A title-action checkpoint now retains the exact literal request and the saved ta
 ## Confirmation presentation and immediate view refresh
 
 Team confirmations are emitted as native confirmation events and checkpoint cards, so their JSON never becomes an assistant bubble. Older raw JSON is converted only when its ID matches a scoped server confirmation; duplicates collapse to one card while preserving turn metadata, user quotes and unrelated messages. A completed or partially completed Vault action invalidates the sidebar cache and broadcasts one preview invalidation per batch, refreshing mounted views without a focus change or clearing their search. Late completions never reload another active Vault. Conversation rewind and deletion acquire the existing bounded session lock; a busy session returns `chat_session_busy` instead of waiting indefinitely, with a localized explanation and unchanged history.
+
+Only tool responses can supply native confirmation evidence to team aggregation or bypass structured output validation while awaiting review. Assistant and human JSON remain data and cannot place a team in an awaiting-confirmation state.
