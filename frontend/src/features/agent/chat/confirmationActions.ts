@@ -1,11 +1,14 @@
 import { cancelChatAction, confirmChatAction, fetchChatConfirmationStatus, type ConfirmationPayload } from '../../../shared/api/chat-confirmations';
 import { logChatError as logError } from './chatDiagnostics';
 import { confirmationRequest, localizedConfirmationError, recoveredConfirmationMessage, withConfirmationStatus, type ConfirmationActionContext } from './confirmationState';
+import { getActiveVaultId } from '../../../shared/api/vault-context';
+import { refreshConfirmedVaultAction } from '../../../shared/api/confirmed-vault-action';
 
 export async function confirmPendingAction(context: ConfirmationActionContext): Promise<void> {
   const { pendingConfirmation: confirmation, setPendingConfirmation, activeScopeRef, setMessages, t } = context;
   if (!confirmation?.confirmation_id) return;
   const { scope, requestScope } = confirmationRequest(confirmation, context);
+  const vaultId = getActiveVaultId() || '';
   const updateStatus = (status: string) => { setMessages((previous) => withConfirmationStatus(previous, confirmation.confirmation_id, status)); };
   let response;
   try {
@@ -16,8 +19,9 @@ export async function confirmPendingAction(context: ConfirmationActionContext): 
     try { recovered = await fetchChatConfirmationStatus(confirmation.confirmation_id, scope); }
     catch (statusError) { logError('agent-chat-confirm-reconcile', statusError); }
     setPendingConfirmation(null);
-    if (activeScopeRef.current !== requestScope) return;
     const status = recovered?.status || 'outcome_unknown';
+    await refreshConfirmedVaultAction(confirmation, status, vaultId);
+    if (activeScopeRef.current !== requestScope) return;
     updateStatus(status);
     setMessages((previous) => [...previous, { role: 'system', content: recoveredConfirmationMessage(status, recovered, t) }]);
     return;
@@ -28,8 +32,9 @@ export async function confirmPendingAction(context: ConfirmationActionContext): 
     try { authoritative = await fetchChatConfirmationStatus(confirmation.confirmation_id, scope) || payload; }
     catch (statusError) { logError('agent-chat-confirm-failed-reconcile', statusError); }
     setPendingConfirmation(null);
-    if (activeScopeRef.current !== requestScope) return;
     const status = authoritative.status || (payload.detail.code === 'confirmation_outcome_unknown' ? 'outcome_unknown' : 'failed');
+    await refreshConfirmedVaultAction(confirmation, status, vaultId);
+    if (activeScopeRef.current !== requestScope) return;
     updateStatus(status);
     const fallback = response.statusText || t('chat.confirmations.errors.confirmation_action_failed', 'The action could not be completed.');
     setMessages((previous) => [...previous, { role: 'system', content: localizedConfirmationError(payload, fallback, t) }]);
@@ -42,6 +47,7 @@ export async function confirmPendingAction(context: ConfirmationActionContext): 
   }
   const status = authoritative.status || 'outcome_unknown';
   setPendingConfirmation(null);
+  await refreshConfirmedVaultAction(confirmation, status, vaultId);
   if (activeScopeRef.current !== requestScope) return;
   updateStatus(status);
   setMessages((previous) => [...previous, { role: 'system', content: recoveredConfirmationMessage(status, authoritative, t) }]);

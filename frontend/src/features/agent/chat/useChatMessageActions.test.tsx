@@ -5,6 +5,7 @@ import { useChatMessageActions } from './useChatMessageActions';
 import { useChatRewind } from './useChatRewind';
 import { boundedJob } from '../model/agentChatTransparency';
 import type { StoredChatMessage } from './sessionModel';
+import { ConversationBusyError } from '../../../shared/api/chat-message-actions';
 import type { recordChatFeedback, requestChatMessageJob, rewindChatSession } from '../../../shared/api/chat-message-actions';
 
 const mocks = vi.hoisted(() => ({
@@ -12,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   copy: vi.fn<(text: string) => Promise<void>>(), diagnostic: vi.fn(), toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
   confirmation: vi.fn<(value: null) => void>(), details: vi.fn<(value: null) => void>(), pending: vi.fn<(value: null) => void>(),
 }));
-vi.mock('../../../shared/api/chat-message-actions', () => ({ recordChatFeedback: mocks.feedback, requestChatMessageJob: mocks.job, rewindChatSession: mocks.rewind }));
+vi.mock('../../../shared/api/chat-message-actions', async () => ({ ...await vi.importActual('../../../shared/api/chat-message-actions'), recordChatFeedback: mocks.feedback, requestChatMessageJob: mocks.job, rewindChatSession: mocks.rewind }));
 vi.mock('../../../shared/platform/clipboard', () => ({ writeClipboardText: mocks.copy }));
 vi.mock('../../../shared/notifications/toast', () => ({ toast: mocks.toast }));
 vi.mock('./chatDiagnostics', () => ({ logChatError: mocks.diagnostic }));
@@ -111,6 +112,12 @@ describe('conversation rewind lifecycle', () => {
     mocks.rewind.mockRejectedValueOnce(new Error('offline')); await render(); await click('Rewind');
     expect(shownMessages()).toEqual(initial); expect(history.current).toBe(0); expect(mocks.confirmation).not.toHaveBeenCalled();
     expect(container.querySelector('[data-rewinding]')?.textContent).toBe('false'); expect(mocks.toast.error).toHaveBeenCalledWith('The conversation could not be rewound.');
+  });
+  it('ends the busy state with a clear explanation while preserving the conversation', async () => {
+    mocks.rewind.mockRejectedValueOnce(new ConversationBusyError('chat_session_busy')); await render(); await click('Rewind');
+    expect(shownMessages()).toEqual(initial); expect(history.current).toBe(0);
+    expect(container.querySelector('[data-rewinding]')?.textContent).toBe('false');
+    expect(mocks.toast.error).toHaveBeenCalledWith('An answer is in progress. Wait for it to finish or stop it before undoing messages.');
   });
   it('does not rewind during loading or without a pending boundary', async () => {
     await render({ loading: true }); await click('Rewind'); await render({ rewindIndex: null }); await click('Rewind'); expect(mocks.rewind).not.toHaveBeenCalled();

@@ -6,6 +6,8 @@ export type ChatFeedback = components['schemas']['ChatFeedbackRequest'];
 export type ChatRewind = components['schemas']['ChatRewindRequest'];
 export type JobAction = 'status' | 'resume' | 'cancel';
 
+export class ConversationBusyError extends Error {}
+
 export async function recordChatFeedback(body: ChatFeedback): Promise<void> {
   const { response } = await apiClient.POST('/api/chat/feedback', { body, parseAs: 'text' });
   if (!response.ok) throw new Error(`Assistant feedback failed (${String(response.status)})`);
@@ -26,7 +28,12 @@ export async function rewindChatSession(session: ChatSessionIdentity, body: Chat
   const result = await apiClient.POST('/api/chat/sessions/{agent_id}/{session_id}/rewind', {
     params: { path: { agent_id: session.agentId, session_id: session.id }, query: { notebook_id: notebookId || undefined } }, body,
   });
-  if (!result.response.ok) throw new Error(`Conversation rewind failed (${String(result.response.status)})`);
+  if (!result.response.ok) {
+    const error: unknown = result.error;
+    if (error && typeof error === 'object' && 'detail' in error && error.detail && typeof error.detail === 'object'
+      && 'code' in error.detail && error.detail.code === 'chat_session_busy') throw new ConversationBusyError('chat_session_busy');
+    throw new Error(`Conversation rewind failed (${String(result.response.status)})`);
+  }
   const data: unknown = result.data;
   if (data === null || typeof data !== 'object') throw new Error('Conversation rewind returned an invalid response');
   return 'messages' in data ? data.messages : undefined;

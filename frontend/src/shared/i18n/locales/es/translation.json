@@ -6656,7 +6656,8 @@
           "summary_many": "¿Quieres sustituir los identificadores de {{count}} títulos por los nombres correspondientes?"
         }
       }
-    }
+    },
+    "rewind_busy": "Hay una respuesta en curso. Espera a que termine o detenla antes de deshacer mensajes."
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} seleccionado",

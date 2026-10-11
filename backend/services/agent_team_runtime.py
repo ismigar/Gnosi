@@ -480,7 +480,7 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
             from backend.services import agent_execution_store as runs
             runs.update(scope, root_id, status="awaiting_confirmation")
             return {"messages": [AIMessage(content=json.dumps(marker, ensure_ascii=False),
-                additional_kwargs=title_metadata) for marker in confirmations]}
+                additional_kwargs={**title_metadata, 'gnosi_action_confirmation': marker}) for marker in confirmations]}
     result = results[plan.result_task]["result"]
     if plan.synthesize:
         synthesis_evidence = {identifier: {key: value.get(key) for key in ("agent_id", "run_id", "status", "result")} for identifier, value in results.items()}
@@ -489,6 +489,7 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
             result_schema, "team.synthesis")
     metadata = {} if plan.synthesize else dict(results[plan.result_task].get("metadata", {}))
     metadata.pop("gnosi_team_route", None)
+    metadata.pop('gnosi_action_confirmation', None)
     metadata.update(title_metadata)
     if not operation_mode:
         metadata.update(_continuation_metadata(owner, scope, root_id, state, plan, catalog, refs, result))
