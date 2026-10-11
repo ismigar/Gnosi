@@ -162,6 +162,7 @@ def _chat_inputs(
     return {
         "messages": [HumanMessage(content=user_content, additional_kwargs=additional_kwargs)],
         "user_request": chat_req.message,
+        "title_edit": {},
         "turn_authorized_tool_names": sorted(authorized_tool_names),
         "active_skill_ids": list((llm_selection or {}).get("active_skill_ids") or []),
         "current_user_role": workspace_context.role,

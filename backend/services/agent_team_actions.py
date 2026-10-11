@@ -58,9 +58,9 @@ def successful_action_result(message: Any, names: set[str]) -> bool:
     return not (isinstance(value, dict) and (value.get("error") or value.get("status") in {"error", "failed", "unavailable", "cancelled"}))
 
 
-def action_context_refs(original: str, refs: list[dict[str, Any]], names: list[str], *, read_only: bool) -> list[dict[str, Any]]:
+def action_context_refs(original: str, refs: list[dict[str, Any]], names: list[str], *, read_only: bool, structured_edit: bool = False) -> list[dict[str, Any]]:
     from backend.domains.agent.title_replacements import title_replacements, active_title_scope
-    if read_only or title_replacements(original) is None or "bulk_update_rows" not in names:
+    if read_only or (title_replacements(original) is None and not structured_edit) or "bulk_update_rows" not in names:
         return refs
     selected = active_title_scope(refs)
     if not selected:
@@ -68,11 +68,11 @@ def action_context_refs(original: str, refs: list[dict[str, Any]], names: list[s
     return selected
 
 
-def validate_task_action(outcome: dict[str, Any], original: str) -> None:
+def validate_task_action(outcome: dict[str, Any], original: str, *, structured_edit: bool = False) -> None:
     if not outcome.get("required_action_names") or outcome["confirmations"] or outcome.get("action_evidence"):
         return
     from backend.domains.agent.title_replacements import title_replacements, title_response
     reason = outcome.get("metadata", {}).get("gnosi_title_action_outcome")
-    deterministic = title_replacements(original) is not None and reason in {"scope", "inventory", "unchanged", "failed"}
+    deterministic = (title_replacements(original) is not None or structured_edit) and reason in {"scope", "inventory", "unchanged", "failed"}
     if not deterministic or outcome["result"] != title_response(original, reason):
         raise RuntimeError("agent_team_action_not_executed")

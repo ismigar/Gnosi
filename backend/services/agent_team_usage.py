@@ -67,7 +67,7 @@ def team_usage(scope: ExecutionScope, run_id: str) -> dict[str, Any]:
     calls = _calls(scope, {run.run_id for run in runs})
     phases: dict[str, list[AgentRun]] = {key: [] for key in ("planning", "execution", "synthesis", "repair")}
     for run in runs:
-        phase = {"team.plan": "planning", "team.replan": "planning", "team.synthesis": "synthesis", "team.repair": "repair"}.get(run.operation, "execution")
+        phase = {"team.plan": "planning", "team.replan": "planning", "team.view_edit": "planning", "team.synthesis": "synthesis", "team.repair": "repair"}.get(run.operation, "execution")
         phases[phase].append(run)
     with store.connect() as db:
         row = db.execute("SELECT payload FROM agent_team_artifacts WHERE run_id=? AND id='routing'", (run_id,)).fetchone()

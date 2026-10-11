@@ -341,7 +341,7 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
     if len(artifacts.list_artifacts(scope, "task", root_id)) >= 4:
         raise RuntimeError("agent_team_task_limit")
     from backend.services.agent_team_actions import action_context_refs, validate_task_action
-    refs = action_context_refs(original, refs, list(state.get("turn_authorized_tool_names") or []), read_only=task.read_only or operation_mode)
+    refs = action_context_refs(original, refs, list(state.get("turn_authorized_tool_names") or []), read_only=task.read_only or operation_mode, structured_edit=bool(state.get('title_edit')))
     snapshot, runtime = _snapshot(selected, owner, root_id, scope, task.skill_ids, refs, read_only=task.read_only or operation_mode, temporary=temporary)
     if temporary:
         _validate_temporary_runtime(selected, text, runtime, operation_mode)
@@ -381,7 +381,7 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
                 _collect_task_event(event, outcome)
         if not outcome["result"].strip() and not outcome["confirmations"]:
             raise RuntimeError("agent_team_empty_result")
-        validate_task_action(outcome, original)
+        validate_task_action(outcome, original, structured_edit=bool(state.get('title_edit')))
         outcome["status"] = "awaiting_confirmation" if outcome["confirmations"] else "completed"
         if temporary and outcome["status"] == "completed":
             _propose(scope, root_id, selected, child_id)
@@ -428,13 +428,15 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
         return {'messages': [AIMessage(content=clarification)]}
     saved = artifacts.list_artifacts(scope, "plan", root_id)
     plan, state, catalog, route, direct = await prepare_plan(owner, scope, root_id, state, original, refs, operation_mode=operation_mode)
+    title_metadata = ({'gnosi_title_action': state['title_edit']} if state.get('title_edit') else title_metadata)
     required = required_operation(str(request_data.get("operation") or ""), root_snapshot.skill_ids if root_snapshot else []) if operation_mode else ""
     _validate_plan_result(plan.model_dump_json(), allow_response=not operation_mode, members=catalog, owner_id=owner["id"], required_operation=required)
     result_schema = request_data.get("output_schema") if operation_mode else plan_output_schema(plan)
     if not saved:
         artifacts.put(scope, root_id, "plan", "plan", {"plan": plan.model_dump(), "original": original,
             "operation_mode": operation_mode, "state": {"turn_authorized_tool_names": state.get("turn_authorized_tool_names", []),
-                "current_user_role": scope.role}, "messages": messages_to_dict(state.get("messages", []))}, create_only=True)
+                "current_user_role": scope.role, **({'title_edit': state['title_edit']} if state.get('title_edit') else {})},
+            "messages": messages_to_dict(state.get("messages", []))}, create_only=True)
     if plan.response:
         record("team.response", {"executor": team.director_id, "mode": "direct_response"})
         return {"messages": [AIMessage(content=plan.response)]}

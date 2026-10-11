@@ -40,7 +40,7 @@ def operation_input(request: Any, *, provider: str = "") -> str:
                        "data": request.data, "options": request.options,
                        "language": request.language, "sources": request.context_refs,
                        "output_schema": request.output_schema}
-    if provider == "openrouter" and request.operation in {"team.plan", "team.replan"} and request.output_schema:
+    if provider == "openrouter" and request.operation in {"team.plan", "team.replan", "team.view_edit"} and request.output_schema:
         from backend.domains.agent.structured_output import _has_dynamic_object
         if not _has_dynamic_object(request.output_schema):
             try:
