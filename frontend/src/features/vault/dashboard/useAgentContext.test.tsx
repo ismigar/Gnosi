@@ -8,7 +8,7 @@ import { subscribeAppEvent, type ModuleContextRef } from '../../../shared/platfo
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
-it('republishes the same open page after navigation changes its location key', async () => {
+it('republishes the same open page after navigation changes its location key', () => {
     const page = { id: 'project', title: 'Project', content: '```gnosi-view\n{"view_id":"tasks"}\n```' };
     const context = { activeTabId: 'project', activeTableId: '', activeViewId: '', pages: [page], tabs: [page],
         viewMode: 'editor', resolvePageTableId: () => '', registry: {
@@ -24,15 +24,15 @@ it('republishes the same open page after navigation changes its location key', a
     const element = document.createElement('div'); document.body.appendChild(element);
     const root = createRoot(element);
     try {
-        await act(async () => { root.render(<MemoryRouter initialEntries={['/knowledge']}><Probe /></MemoryRouter>); });
+        act(() => { root.render(<MemoryRouter initialEntries={['/knowledge']}><Probe /></MemoryRouter>); });
         expect(published).toHaveLength(1);
-        await act(async () => { element.querySelector('button')?.click(); });
+        act(() => { element.querySelector('button')?.click(); });
         expect(published).toHaveLength(2);
         expect(published[1]).toEqual([
             expect.objectContaining({ type: 'page', ref: 'project' }),
             expect.objectContaining({ type: 'table', ref: 'table', scope: { view_id: 'tasks', view_name: 'Planning', page_id: 'project' } }),
         ]);
     } finally {
-        await act(async () => { root.unmount(); }); stop(); element.remove();
+        act(() => { root.unmount(); }); stop(); element.remove();
     }
 });

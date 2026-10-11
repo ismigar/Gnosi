@@ -27,12 +27,13 @@ export function useAgentContext(context: DashboardActions) {
     const activeContextView = activeContextEmbeddedView || (activeContextTableId
         ? registry.views.find(view => view.id === activeViewId && view.table_id === activeContextTableId) || null
         : null);
+    const viewHostPageId = activeContextEmbeddedView ? activeContextPage?.id || '' : '';
     useEffect(() => {
         emitAppEvent('gnosi:module-context', vaultAgentContextRefs({
             page: activeContextPage,
             table: activeContextTable,
             view: activeContextView,
-            viewHostPageId: activeContextEmbeddedView ? String(activeContextPage?.id || '') : '',
+            viewHostPageId,
         }));
-    }, [activeContextPage, activeContextTable, activeContextView, locationKey]);
+    }, [activeContextPage, activeContextTable, activeContextView, viewHostPageId, locationKey]);
 }
