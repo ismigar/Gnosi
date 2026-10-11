@@ -151,6 +151,8 @@ def _chat_inputs(
     trace_id: str,
 ) -> Dict[str, Any]:
     additional_kwargs: Dict[str, Any] = {"gnosi_visible_content": chat_req.message}
+    if chat_req.attachments or chat_req.mentions:
+        additional_kwargs['gnosi_extra_context'] = True
     if notebook_turn:
         additional_kwargs["gnosi_author_user_id"] = workspace_context.user_id
         if notebook_turn.get("revision") is not None:

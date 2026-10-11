@@ -1,6 +1,6 @@
 import { cancelChatAction, confirmChatAction, fetchChatConfirmationStatus, type ConfirmationPayload } from '../../../shared/api/chat-confirmations';
 import { logChatError as logError } from './chatDiagnostics';
-import { confirmationRequest, localizedConfirmationError, partialConfirmationMessage, recoveredConfirmationMessage, withConfirmationStatus, type ConfirmationActionContext } from './confirmationState';
+import { confirmationRequest, localizedConfirmationError, recoveredConfirmationMessage, withConfirmationStatus, type ConfirmationActionContext } from './confirmationState';
 
 export async function confirmPendingAction(context: ConfirmationActionContext): Promise<void> {
   const { pendingConfirmation: confirmation, setPendingConfirmation, activeScopeRef, setMessages, t } = context;
@@ -35,11 +35,16 @@ export async function confirmPendingAction(context: ConfirmationActionContext): 
     setMessages((previous) => [...previous, { role: 'system', content: localizedConfirmationError(payload, fallback, t) }]);
     return;
   }
-  const status = payload.status || 'completed';
+  let authoritative = payload;
+  if (!payload.status) {
+    try { authoritative = await fetchChatConfirmationStatus(confirmation.confirmation_id, scope) || payload; }
+    catch (statusError) { logError('agent-chat-confirm-missing-status', statusError); }
+  }
+  const status = authoritative.status || 'outcome_unknown';
   setPendingConfirmation(null);
   if (activeScopeRef.current !== requestScope) return;
   updateStatus(status);
-  setMessages((previous) => [...previous, { role: 'system', content: status === 'partial' ? partialConfirmationMessage(payload, t) : t('chat.confirmations.completed', 'Action completed after confirmation.') }]);
+  setMessages((previous) => [...previous, { role: 'system', content: recoveredConfirmationMessage(status, authoritative, t) }]);
 }
 
 export async function cancelPendingAction(context: ConfirmationActionContext): Promise<void> {

@@ -108,6 +108,10 @@ def _write_transaction(
         for item in prepared:
             attempted.append(item)
             _write_page(item["path"], item["metadata"], item["body"])
+            if 'expected_title' in item:
+                saved, _ = _parse(item['path'])
+                if row_title_state(saved, item['path'])[0] != item['expected_title']:
+                    raise RuntimeError('The saved title does not match the confirmed change.')
     except MetadataUnavailable:
         raise
     except Exception as error:
@@ -183,6 +187,7 @@ def _prepare_bulk_updates(updates: list[dict[str, Any]]) -> list[dict[str, Any]]
                 **_sidecar_snapshot(path, row_id),
                 "metadata": new_metadata,
                 "body": body,
+                **({'expected_title': properties['title']} if 'title' in properties else {}),
             }
         )
     return prepared

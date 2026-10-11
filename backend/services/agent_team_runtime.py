@@ -394,6 +394,14 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
         delegating.reset(token)
 
 
+def _continuation_metadata(owner: dict[str, Any], scope: ExecutionScope, root_id: str,
+                           state: dict[str, Any], plan: TeamPlan, catalog: list[dict[str, Any]],
+                           refs: list[dict[str, Any]], result: str) -> dict[str, Any]:
+    from backend.services.agent_team_continuation import remember_specialist
+    marker = remember_specialist(owner, scope, root_id, state, plan, catalog, refs, result)
+    return {'gnosi_team_route': marker} if marker else {}
+
+
 async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_mode: bool, original: str) -> dict[str, Any]:
     from backend.services.agent_execution import _run, _snapshot
     from backend.services.agent_execution_scope import current_scope
@@ -411,6 +419,13 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
     from backend.services.agent_team_output import TeamOutputContractError
     root_snapshot = _snapshot.get()
     refs = root_snapshot.profile.get("context_refs", []) if root_snapshot else []
+    from backend.services.agent_title_continuation import prepare_title_turn
+    original, state, title_metadata, clarification = prepare_title_turn(
+        original, state, refs, owner['id'], scope, operation_mode=operation_mode)
+    if clarification:
+        artifacts.put(scope, root_id, 'routing', 'routing', {'mode': 'title_scope_clarification'})
+        record('team.response', {'executor': team.director_id, 'mode': 'title_scope_clarification'})
+        return {'messages': [AIMessage(content=clarification)]}
     saved = artifacts.list_artifacts(scope, "plan", root_id)
     plan, state, catalog, route, direct = await prepare_plan(owner, scope, root_id, state, original, refs, operation_mode=operation_mode)
     required = required_operation(str(request_data.get("operation") or ""), root_snapshot.skill_ids if root_snapshot else []) if operation_mode else ""
@@ -464,7 +479,8 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
         if confirmations:
             from backend.services import agent_execution_store as runs
             runs.update(scope, root_id, status="awaiting_confirmation")
-            return {"messages": [AIMessage(content=json.dumps(marker, ensure_ascii=False)) for marker in confirmations]}
+            return {"messages": [AIMessage(content=json.dumps(marker, ensure_ascii=False),
+                additional_kwargs=title_metadata) for marker in confirmations]}
     result = results[plan.result_task]["result"]
     if plan.synthesize:
         synthesis_evidence = {identifier: {key: value.get(key) for key in ("agent_id", "run_id", "status", "result")} for identifier, value in results.items()}
@@ -473,11 +489,9 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
             result_schema, "team.synthesis")
     metadata = {} if plan.synthesize else dict(results[plan.result_task].get("metadata", {}))
     metadata.pop("gnosi_team_route", None)
+    metadata.update(title_metadata)
     if not operation_mode:
-        from backend.services.agent_team_continuation import remember_specialist
-        marker = remember_specialist(owner, scope, root_id, state, plan, catalog, refs, result)
-        if marker:
-            metadata["gnosi_team_route"] = marker
+        metadata.update(_continuation_metadata(owner, scope, root_id, state, plan, catalog, refs, result))
     return {"messages": [AIMessage(content=result, additional_kwargs=metadata)]}
 
 
