@@ -6,6 +6,8 @@ import hashlib
 import re
 from typing import Any
 
+from backend.domains.agent.title_wording import scoped_title_operands
+
 _QUOTE = r'(?:"[^"\n]*"|«[^»\n]*»|“[^”\n]*”|\x27[^\x27\n]*\x27)'
 _JOIN = r'(?:i|y|and|et|,)'
 _GROUP = re.compile(
@@ -44,9 +46,10 @@ def title_replacements(message: str) -> list[tuple[str, str]] | None:
     """
     text = message.strip()
     header = _title_header(text)
-    if header is None:
+    operands = text[header.end():] if header else scoped_title_operands(text)
+    if operands is None:
         return None
-    tail = text[header.end():].strip().removesuffix('.').rstrip()
+    tail = operands.strip().removesuffix('.').rstrip()
     pairs: list[tuple[str, str]] = []
     end = 0
     for match in _GROUP.finditer(tail):

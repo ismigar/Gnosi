@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
 | Vitest | 647 | 2845 |
-| pytest | 660 | 4888 |
+| pytest | 661 | 4893 |
 
 ## Fichiers
 
@@ -752,6 +752,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_agent_title_change_regression.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_title_change_regression.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_agent_title_mentions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_title_mentions.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_agent_title_replacements.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_title_replacements.py) | 17 | Python AST |
+| pytest | [`backend/tests/test_agent_title_view_wording.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_title_view_wording.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_agent_tool_context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_tool_context.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_agent_turn_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_turn_contract.py) | 13 | Python AST |
 | pytest | [`backend/tests/test_agent_unavailable_http.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_unavailable_http.py) | 1 | Python AST |
@@ -1012,7 +1013,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_model_catalog_credential_reads.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_catalog_credential_reads.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_model_parameter_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_parameter_review.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_model_parameters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_parameters.py) | 5 | Python AST |
-| pytest | [`backend/tests/test_model_reliability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_reliability.py) | 9 | Python AST |
+| pytest | [`backend/tests/test_model_reliability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_reliability.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_model_reliability_route_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_reliability_route_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_model_role_suitability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_role_suitability.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_model_router.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_router.py) | 28 | Python AST |
