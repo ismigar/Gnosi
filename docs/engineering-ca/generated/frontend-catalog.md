@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1191 | 131237 | 55 |
+| `features` | 1191 | 131250 | 55 |
 | `generated` | 2 | 49841 | 510 |
 | `shared` | 296 | 33275 | 440 |
 
@@ -1155,7 +1155,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/views/db-view-embed/joins.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/joins.ts) | 100 | `applyClientJoins`, `normalizeVisibleColumns` | — |
 | [`frontend/src/features/vault/views/db-view-embed/preferences.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/preferences.ts) | 39 | `encodePresets`, `importPresets`, `pinnedKey`, `readPinned`, `readPresets`, `readText`, `selectedKey`, `toggleContrast`, `toggleTextSize`, `writeText` | — |
 | [`frontend/src/features/vault/views/db-view-embed/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/types.ts) | 108 | — | — |
-| [`frontend/src/features/vault/views/db-view-embed/useEmbedAgentContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/useEmbedAgentContext.ts) | 25 | `useEmbedAgentContext` | — |
+| [`frontend/src/features/vault/views/db-view-embed/useEmbedAgentContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/useEmbedAgentContext.ts) | 38 | `useEmbedAgentContext` | — |
 | [`frontend/src/features/vault/views/db-view-embed/useEmbedController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/useEmbedController.ts) | 46 | `useEmbedController` | — |
 | [`frontend/src/features/vault/views/db-view-embed/useEmbedDerived.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/useEmbedDerived.ts) | 132 | `useEmbedDerived` | — |
 | [`frontend/src/features/vault/views/db-view-embed/useEmbedLoad.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/useEmbedLoad.ts) | 217 | `useEmbedLoad` | — |

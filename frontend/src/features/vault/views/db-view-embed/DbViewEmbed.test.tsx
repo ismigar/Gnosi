@@ -8,7 +8,7 @@ import { VaultEditorContext, type VaultEditorContextValue } from '../../../../sh
 import type { VaultViewBodyProps } from '../VaultViewBody';
 import { defineStorageKey, removeStorage, stringStorageCodec } from '../../../../shared/platform/browser-storage';
 import { emitAppEvent } from './events';
-import { subscribeAppEvent } from '../../../../shared/platform/app-events';
+import { emitAppEvent as emitContextEvent, subscribeAppEvent } from '../../../../shared/platform/app-events';
 import { dispatchWindowEvent } from '../../../../shared/platform/browser-events';
 import * as api from './api';
 import { readText, writeText, pinnedKey, selectedKey } from './preferences';
@@ -98,7 +98,7 @@ it('publishes only the interacted embedded view with its host page for chat', as
         await render();
         expect(contexts).toEqual([]);
         const shell = container.querySelector('.gnosi-view-embed-container');
-        await act(async () => { shell?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })); });
+        await act(async () => { await Promise.resolve(); shell?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })); });
         expect(contexts.at(-1)).toEqual([
             { id: 'vault-page:page', type: 'page', ref: 'page', label: 'Project dashboard' },
             expect.objectContaining({ type: 'table', ref: 'books', scope: { view_id: 'anchor', view_name: 'Main', page_id: 'page' } }),
@@ -112,6 +112,49 @@ it('publishes only the interacted embedded view with its host page for chat', as
     } finally {
         window.removeEventListener('gnosi:module-context', receive);
     }
+});
+it('settles context publication when the app rerenders its editor after receiving it', async () => {
+    const contexts: unknown[] = [];
+    function AppContextHost() {
+        const [, renderApp] = React.useState(0);
+        React.useLayoutEffect(() => subscribeAppEvent('gnosi:module-context', refs => {
+            contexts.push(refs);
+            // Bound a broken feedback loop so this regression fails without hanging the runner.
+            if (contexts.length < 20) renderApp(value => value + 1);
+        }), []);
+        return <VaultEditorContext.Provider value={{
+            ...context, idToTitle: { page: 'Project dashboard' },
+            registry: { ...context.registry, tables: structuredClone(context.registry.tables) },
+        }}><DbViewEmbed block={block} /></VaultEditorContext.Provider>;
+    }
+    await act(async () => { await Promise.resolve(); root.render(<AppContextHost />); });
+    const shell = container.querySelector('.gnosi-view-embed-container');
+    await act(async () => { await Promise.resolve(); shell?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })); });
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0]).toEqual([
+        expect.objectContaining({ type: 'page', ref: 'page', label: 'Project dashboard' }),
+        expect.objectContaining({ scope: { view_id: 'anchor', view_name: 'Main', page_id: 'page' } }),
+    ]);
+    await act(async () => {
+        await Promise.resolve();
+        shell?.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+        shell?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    });
+    expect(contexts).toHaveLength(1);
+    await click(container.querySelectorAll('button[aria-label="View options"]')[1]?.parentElement);
+    expect(contexts).toHaveLength(2);
+    expect(contexts[1]).toEqual([
+        expect.objectContaining({ ref: 'page' }),
+        expect.objectContaining({ scope: { view_id: 'other', view_name: 'Other', page_id: 'page' } }),
+    ]);
+    await act(async () => {
+        await Promise.resolve();
+        emitContextEvent('gnosi:module-context', [{ id: 'another-page', type: 'page', ref: 'another', label: 'Another page' }]);
+    });
+    expect(contexts).toHaveLength(3);
+    await act(async () => { await Promise.resolve(); shell?.dispatchEvent(new FocusEvent('focusin', { bubbles: true })); });
+    expect(contexts).toHaveLength(4);
+    expect(contexts[3]).toEqual(contexts[1]);
 });
 it('forwards parallel opening from an embedded view to its editor', async () => {
     const parallel = vi.fn();
