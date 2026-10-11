@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-10-11
 source_paths:
+  - frontend/src/shared/records/model/subitems.ts
   - frontend/src/features/vault/views/RecordSubitemProvider.tsx
   - frontend/src/shared/record-views/RecordSubitemAction.tsx
   - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
@@ -474,3 +475,5 @@ Las cabeceras de tabla separan las acciones del estado de ordenación. Un clic o
 ## Subitems en las vistas
 
 Con `enableSubitems` activado en la vista, el botón para añadir un subitem aparece junto al título del registro en tabla, lista, kanban, galería, feed, calendario y cronograma. Las visualizaciones ofrecen la misma acción junto al título del registro enfocado; los genogramas también junto a la persona seleccionada. Las vistas incrustadas y completas comparten la asociación con el padre y los valores predeterminados. En tabla y lista se mantiene el campo de nombre en línea y se expande el padre. Los descendientes se muestran recursivamente y los hijos que cumplen el filtro siguen visibles aunque el padre quede excluido.
+
+Las vistas sin configuración propia de subitems heredan la de la vista principal de la tabla; se respeta una desactivación explícita. El botón «+» permanece visible junto al título aunque el ratón no esté sobre la fila.

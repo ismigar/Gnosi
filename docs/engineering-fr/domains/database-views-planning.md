@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-10-11
 source_paths:
+  - frontend/src/shared/records/model/subitems.ts
   - frontend/src/features/vault/views/RecordSubitemProvider.tsx
   - frontend/src/shared/record-views/RecordSubitemAction.tsx
   - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
@@ -484,3 +485,5 @@ Les en-têtes de tableau séparent les actions de l’état du tri. Un clic trie
 ## Sous-éléments dans les vues
 
 Lorsque `enableSubitems` est activé pour la vue, le bouton d’ajout d’un sous-élément apparaît à côté du titre dans les vues tableau, liste, kanban, galerie, flux, calendrier et chronologie. Les visualisations proposent la même action à côté du titre du document ciblé ; les génogrammes la proposent aussi à côté de la personne sélectionnée. Les vues intégrées et complètes partagent le lien au parent et les valeurs par défaut. Le tableau et la liste conservent le champ de nom en ligne et déploient le parent. Les descendants sont affichés récursivement et les enfants correspondant au filtre restent visibles même si leur parent est exclu.
+
+Les vues sans réglage propre pour les sous-éléments héritent du réglage de la vue principale du tableau ; une désactivation explicite est respectée. Le bouton «+» reste visible à côté du titre même lorsque la ligne n’est pas survolée.

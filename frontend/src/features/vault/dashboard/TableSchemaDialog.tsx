@@ -1,3 +1,4 @@
+import { resolveSubitemsEnabled } from '../../../shared/records/model/subitems';
 import { useRef } from 'react';
 import { createVaultTable, type VaultRegistryRecord } from '../../../shared/api/vaults';
 import { SchemaConfigModal } from '../schema/SchemaConfigModal';
@@ -14,13 +15,14 @@ export function TableSchemaDialog({ dashboard }: { dashboard: Context }) {
   const savedTableRef = useRef<VaultRegistryRecord | null>(null);
   const activeTable = registry.tables.find(t => t.id === activeTableId);
   const cv = getTableViews(activeTableId).find(v => v.id === activeViewId) || { id: 'default', table_id: activeTableId, name: activeTable?.name || MAIN_VIEW_NAME, type: 'table', is_main: true };
+  const enableSubitems = resolveSubitemsEnabled(cv, getTableViews(activeTableId), activeTableId);
   const currentSchemaObj = getSchemaFromTableId(activeTableId);
   return (<SchemaConfigModal
     isOpen={true}
     onClose={() => { setIsSchemaModalOpen(false); }}
     folder={activeTable?.name || t('common.table')}
     currentSchema={currentSchemaObj}
-    initialEnableSubitems={cv.enableSubitems}
+    initialEnableSubitems={enableSubitems}
     initialEnableTranslation={!!activeTable?.translation_enabled}
     initialVisibleProperties={cv.visibleProperties?.length ? cv.visibleProperties.filter((property): property is string => typeof property === 'string') : getSchemaFieldNames(currentSchemaObj)}
     initialEnableDrupalSync={!!activeTable?.drupal_sync_enabled}
@@ -61,7 +63,7 @@ export function TableSchemaDialog({ dashboard }: { dashboard: Context }) {
       const originalVisible = cv.visibleProperties?.length
         ? cv.visibleProperties.filter((property): property is string => typeof property === 'string')
         : getSchemaFieldNames(currentSchemaObj);
-      const viewChanged = Boolean(cv.enableSubitems) !== viewConfig.enableSubitems
+      const viewChanged = enableSubitems !== viewConfig.enableSubitems
         || JSON.stringify(originalVisible) !== JSON.stringify(viewConfig.visibleProperties);
       if (cv.id && viewChanged) {
         await handleUpdateView({

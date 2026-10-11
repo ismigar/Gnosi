@@ -48,9 +48,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1192 | 131367 | 55 |
+| `features` | 1192 | 131371 | 55 |
 | `generated` | 2 | 49842 | 510 |
-| `shared` | 299 | 33318 | 440 |
+| `shared` | 300 | 33344 | 440 |
 
 ## app
 
@@ -729,8 +729,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/vault/dashboard/DocumentPane.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/DocumentPane.tsx) | 92 | `DocumentPane` | — |
 | [`frontend/src/features/vault/dashboard/DocumentPanes.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/DocumentPanes.tsx) | 49 | `DocumentPanes` | — |
 | [`frontend/src/features/vault/dashboard/EditorPane.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/EditorPane.tsx) | 163 | `EditorPane` | — |
-| [`frontend/src/features/vault/dashboard/TablePane.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/TablePane.tsx) | 152 | `TablePane` | — |
-| [`frontend/src/features/vault/dashboard/TableSchemaDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/TableSchemaDialog.tsx) | 79 | `TableSchemaDialog` | — |
+| [`frontend/src/features/vault/dashboard/TablePane.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/TablePane.tsx) | 153 | `TablePane` | — |
+| [`frontend/src/features/vault/dashboard/TableSchemaDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/TableSchemaDialog.tsx) | 81 | `TableSchemaDialog` | — |
 | [`frontend/src/features/vault/dashboard/__tests__/controller-support.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/__tests__/controller-support.tsx) | 47 | `renderController` | — |
 | [`frontend/src/features/vault/dashboard/consumer-readers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/consumer-readers.ts) | 12 | `viewTables` | — |
 | [`frontend/src/features/vault/dashboard/editor-readers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/editor-readers.ts) | 52 | `editorMetadata`, `editorNote`, `editorTable` | — |
@@ -1158,7 +1158,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/vault/views/db-view-embed/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/types.ts) | 108 | — | — |
 | [`frontend/src/features/vault/views/db-view-embed/useEmbedAgentContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/useEmbedAgentContext.ts) | 38 | `useEmbedAgentContext` | — |
 | [`frontend/src/features/vault/views/db-view-embed/useEmbedController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/useEmbedController.ts) | 46 | `useEmbedController` | — |
-| [`frontend/src/features/vault/views/db-view-embed/useEmbedDerived.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/useEmbedDerived.ts) | 132 | `useEmbedDerived` | — |
+| [`frontend/src/features/vault/views/db-view-embed/useEmbedDerived.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/useEmbedDerived.ts) | 133 | `useEmbedDerived` | — |
 | [`frontend/src/features/vault/views/db-view-embed/useEmbedLoad.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/useEmbedLoad.ts) | 217 | `useEmbedLoad` | — |
 | [`frontend/src/features/vault/views/db-view-embed/useEmbedNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/useEmbedNavigation.ts) | 121 | `useEmbedNavigation` | — |
 | [`frontend/src/features/vault/views/db-view-embed/useEmbedPreferences.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/useEmbedPreferences.ts) | 139 | `useEmbedPreferences` | — |
@@ -1532,6 +1532,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/shared/records/model/schemaLanguageUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaLanguageUtils.ts) | 79 | `detectRecordSourceLang`, `getLanguageFieldName`, `normalizeLangCode` | — |
 | [`frontend/src/shared/records/model/schemaTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaTypes.ts) | 59 | — | — |
 | [`frontend/src/shared/records/model/schemaUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaUtils.ts) | 479 | `INTERNAL_METADATA_KEYS`, `buildSchemaFromTableProperties`, `buildTablePropertiesFromSchema`, `discoverFieldNamesFromRecords`, `getFieldConfig`, `getFieldId`, `getFieldNameById`, `getFieldType`, `getMetaValue`, `getSchemaFieldEntries`, `getSchemaFieldNames`, `isAppContent`, `normalizeSorts`, `resolveFieldRef`, `resolveSystemDateValue`, `resolveViewFilters`, `resolveViewSorts`, `setMetaValue`, `withResolvedSystemDates` | — |
+| [`frontend/src/shared/records/model/subitems.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/subitems.ts) | 26 | `resolveSubitemsEnabled` | — |
 | [`frontend/src/shared/records/model/viewHeight.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/viewHeight.ts) | 13 | `viewHeightMode`, `viewHeightPercent` | — |
 | [`frontend/src/shared/records/pageReferenceTitle.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/pageReferenceTitle.ts) | 66 | `pageReferenceId`, `pageReferenceTitle`, `readablePageTitle`, `readablePageTitleIndex` | — |
 | [`frontend/src/shared/records/usePageReferenceTitle.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/usePageReferenceTitle.ts) | 25 | `usePageReferenceTitle` | — |

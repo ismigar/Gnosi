@@ -123,6 +123,33 @@ it('dismisses tab hints while its options menu is open', async () => {
     expect(option.getAttribute('aria-expanded')).toBe('true');
 });
 
+it.each(['table', 'list', 'board', 'gallery', 'timeline', 'feed', 'calendar', 'chart'])(
+    'inherits enabled subitems from the table main view in an embedded %s view', async type => {
+        const main = { id: 'main', table_id: 'books', name: 'Books', type: 'table', is_main: true, enableSubitems: true };
+        context = { ...context, registry: { ...context.registry, views: [{ ...anchor, type }, other, main] } };
+        await render();
+        expect(fixture.body?.activeView?.enableSubitems).toBe(true);
+        expect(fixture.body?.onCreateRecord).toBeTypeOf('function');
+        expect(api.updateVaultView).not.toHaveBeenCalled();
+    });
+
+it('keeps an explicit embedded opt-out when table subitems are enabled', async () => {
+    const main = { id: 'main', table_id: 'books', name: 'Books', type: 'table', is_main: true, enableSubitems: true };
+    context = { ...context, registry: { ...context.registry, views: [{ ...anchor, enableSubitems: false }, main] } };
+    await render();
+    expect(fixture.body?.activeView?.enableSubitems).toBe(false);
+});
+
+it('updates inherited subitems when table settings refresh without changing the embedded block', async () => {
+    const main = { id: 'main', table_id: 'books', name: 'Books', type: 'table', is_main: true, enableSubitems: false };
+    context = { ...context, registry: { ...context.registry, views: [anchor, main] } };
+    await render();
+    expect(fixture.body?.activeView?.enableSubitems).toBe(false);
+    context = { ...context, registry: { ...context.registry, views: [anchor, { ...main, enableSubitems: true }] } };
+    await render();
+    expect(fixture.body?.activeView?.enableSubitems).toBe(true);
+});
+
 describe('adding embedded view tabs', () => {
     it('adds an existing view without rewriting its configuration and restores it on reload', async () => {
         const unpinned = { ...anchor, tabs: [] };

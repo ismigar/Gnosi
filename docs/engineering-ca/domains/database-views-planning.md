@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-10-11
 source_paths:
+  - frontend/src/shared/records/model/subitems.ts
   - frontend/src/features/vault/views/RecordSubitemProvider.tsx
   - frontend/src/shared/record-views/RecordSubitemAction.tsx
   - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
@@ -478,3 +479,5 @@ Les capçaleres de taula separen les accions de l’estat d’ordenació. Un cli
 ## Subitems a les vistes
 
 Amb `enableSubitems` activat a la vista, el botó d’afegir un subitem apareix al costat del títol del registre a taula, llista, kanban, galeria, feed, calendari i cronograma. Les visualitzacions ofereixen la mateixa acció al costat del títol del registre enfocat; els genogrames també al costat de la persona seleccionada. Les vistes incrustades i completes comparteixen l’associació amb el pare i els valors per defecte. A taula i llista es manté el camp de nom en línia i s’expandeix el pare. Els descendents es mostren recursivament i els fills que compleixen el filtre continuen visibles encara que el pare en quedi exclòs.
+
+Les vistes sense configuració pròpia de subitems hereten la de la vista principal de la taula; es respecta una desactivació explícita. El botó «+» es manté visible al costat del títol encara que el ratolí no sigui sobre la fila.

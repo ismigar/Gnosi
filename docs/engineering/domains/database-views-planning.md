@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-10-11
 source_paths:
+  - frontend/src/shared/records/model/subitems.ts
   - frontend/src/features/vault/views/RecordSubitemProvider.tsx
   - frontend/src/shared/record-views/RecordSubitemAction.tsx
   - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
@@ -424,3 +425,5 @@ Table headers separate actions from sort state. A single click sorts by that fie
 ## Subitems across views
 
 With `enableSubitems` enabled for the active view, the add-subitem button appears beside the record title in table, list, board, gallery, feed, calendar and timeline views. Visualizations expose the same action beside the focused record title; genograms also expose it beside the selected person. Embedded and full-page views use the same parent association and defaults. Table/list creation retains the inline name field and expands the parent. Nested descendants are rendered recursively, and matching children remain visible when their parent is filtered out.
+
+Views without an explicit subitem setting inherit the main table view’s setting; an explicit disabled setting remains respected. The plus button stays visible beside the title, including when the row is not hovered.

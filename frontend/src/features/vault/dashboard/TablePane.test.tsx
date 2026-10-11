@@ -101,3 +101,16 @@ it('keeps exposed values temporary when another view setting is saved', async ()
   expect(save).toHaveBeenCalledWith(expect.objectContaining({ filterTree, columnWidths: { title: 220 } }));
   expect(harness.current.registry.views.find(view => view.id === 'filtered')?.filterTree).toEqual(filterTree);
 });
+
+it('inherits the enabled table main view setting for a secondary view', async () => {
+  harness = await renderController('table/table/view/main', controller => <TablePane dashboard={controller} tableId="table" mode="tab" />);
+  await harness.run(controller => {
+    controller.setRegistry(previous => ({ ...previous, views: [
+      { id: 'main', table_id: 'table', name: 'Table', type: 'table', is_main: true, enableSubitems: true },
+      { id: 'secondary', table_id: 'table', name: 'Project', type: 'table' },
+    ] }));
+    controller.setActiveViewId('secondary');
+  });
+  expect(probe.mock.lastCall?.[0]?.activeView?.enableSubitems).toBe(true);
+  expect(harness.current.registry.views.find(view => view.id === 'secondary')?.enableSubitems).toBeUndefined();
+});

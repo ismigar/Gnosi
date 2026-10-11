@@ -1,3 +1,4 @@
+import { resolveSubitemsEnabled } from '../../../shared/records/model/subitems';
 import { RecordSubitemProvider } from '../views/RecordSubitemProvider';
 import { ExposedFilters } from '../views/ExposedFilters';
 import { useExposedFilters } from '../../../shared/filtering/useExposedFilters';
@@ -33,7 +34,7 @@ export function TablePane({ dashboard: d, tableId, mode }: Props) {
   if (!view) return null;
   const { mergedView, mergedSchema } = prepareDashboardViewContext(view, table, d.registry.tables);
   const wholeTable = searchesWholeTable(d.searchTerm, d.searchScope);
-  const searchView = { ...mergedView, filters: wholeTable ? [] : [exposedFilters.filterTree], filterTree: wholeTable ? undefined : exposedFilters.filterTree };
+  const searchView = { ...mergedView, enableSubitems: resolveSubitemsEnabled(view, views, tableId), filters: wholeTable ? [] : [exposedFilters.filterTree], filterTree: wholeTable ? undefined : exposedFilters.filterTree };
   const bodyNotes = wholeTable ? notes : applyDashboardJoins(notes, view.joins, d.pages, d.resolvePageTableId);
   const resultCount = activeViewRecordCount(bodyNotes, [searchView], view.id, bodyNotes.length, d.searchTerm, d.searchScope);
   const noSearchResults = Boolean(d.searchTerm.trim()) && view.type !== 'graph' && view.type !== 'genogram'
@@ -70,7 +71,7 @@ export function TablePane({ dashboard: d, tableId, mode }: Props) {
   } : {};
   const body = noSearchResults ? <ViewSearchEmptyState scope={d.searchScope} onScopeChange={d.setSearchScope} />
   : view.type === 'graph' ? (<RecordSubitemProvider key={`subitems:${view.id}`}
-    enabled={searchView.enableSubitems === true} records={bodyNotes} tableId={tableId}
+    enabled={searchView.enableSubitems} records={bodyNotes} tableId={tableId}
     schema={mergedSchema} onSaved={() => d.fetchPagesByTable(tableId)}><VaultGraph
     tableId={tableId}
     view={searchView}
