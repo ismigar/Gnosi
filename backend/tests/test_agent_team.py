@@ -83,6 +83,8 @@ def team_runtime(monkeypatch, tmp_path):
     monkeypatch.setattr(teams, "_config", lambda: config)
     monkeypatch.setattr(agent_skill_catalog, "resolve_agent_runtime", runtime)
     monkeypatch.setattr(store, "resolve_data_dir", lambda **_: tmp_path)
+    from backend.services import agent_team_usage
+    monkeypatch.setattr(agent_team_usage, "resolve_data_dir", lambda **_: tmp_path)
     monkeypatch.setattr(execution, "revalidate_scope", lambda _: None)
     monkeypatch.setattr(model_router, "budget_status", lambda: {"over_cap": False})
     monkeypatch.setattr(model_router, "load_registry", lambda: [{"provider": "local", "model_id": "cheap", "enabled": True,
@@ -99,6 +101,9 @@ def team_runtime(monkeypatch, tmp_path):
         response = responses.pop(0) if responses else '{"result":"done"}'
         return operation_workflow(FakeListChatModel(responses=[response]), "Complete the request", 32000), {"provider": p["provider"], "model": p["model"]}
     monkeypatch.setattr(factory, "create_agent_workflow", create)
+    # These graphs explicitly use 32k; their fake model names are not registry IDs.
+    from backend.domains.agent import runtime_tools
+    monkeypatch.setattr(runtime_tools, "_model_context_window", lambda *args: 32000)
     snapshot = AgentExecutionSnapshot(scope=scope, agent_id=owner["id"], profile=owner, skill_ids=[writing],
         instructions=["procedure"], catalog_revision="1", revision="1")
     return scope, snapshot, calls, config
@@ -384,6 +389,9 @@ def optional_runtime(team_runtime, monkeypatch):
         "Complete the request", "Complete the request", "General", [], 32000, 24000,
         tuple(profile.resolved_runtime.active_skill_ids), tuple(profile.resolved_runtime.assigned_skill_ids), False))
     monkeypatch.setattr(runtime_tools, "_model_supports_tools", lambda *args: True)
+    # The fake model uses the agent ID as its name for call assertions; those
+    # IDs are not model-registry IDs. Match the 32k window supplied above.
+    monkeypatch.setattr(runtime_tools, "_model_context_window", lambda *args: 32000)
     monkeypatch.setattr(workflow_setup, "_model_supports_tools", lambda *args: True)
     monkeypatch.setattr(agent_execution_scope, "revalidate_scope", lambda scope: None)
     monkeypatch.setattr(factory, "create_agent_workflow", workflow.create_agent_workflow)
@@ -688,7 +696,7 @@ def planning_runtime(optional_runtime):
 @pytest.mark.parametrize("violation", ["missing_executor", "invalid_dependencies", "missing_result"])
 def test_team_plan_repairs_domain_errors_before_executing(planning_runtime, violation):
     from copy import deepcopy
-    from jsonschema import validate
+    from jsonschema import ValidationError, validate
     from langchain_core.messages import AIMessage
     from backend.services import agent_execution_store as store, agent_team_store as artifacts
     fixture, valid = planning_runtime
@@ -700,12 +708,17 @@ def test_team_plan_repairs_domain_errors_before_executing(planning_runtime, viol
         invalid["tasks"][0]["depends_on"] = ["read"]
     else:
         invalid["result_task"] = "absent"
-    validate(invalid, TeamPlan.model_json_schema())  # These constraints require domain validation.
+    if violation == "missing_executor":
+        with pytest.raises(ValidationError, match="agent_id"):
+            validate(invalid, TeamPlan.model_json_schema())
+    else:
+        validate(invalid, TeamPlan.model_json_schema())  # Dependency constraints require domain validation.
     config["_responses"]["planner"] = [AIMessage(content=json.dumps(invalid)), AIMessage(content=json.dumps(valid))]
     run = run_operation(fixture, schema={"type": "object"})
     assert run.status == "completed" and calls == ["director", "planner", "planner", "worker"]
     planner_messages = [messages for identifier, messages in config["_model_messages"] if identifier == "planner"]
-    assert "agent_team_" + violation in str(planner_messages[1][-1].content)
+    diagnostic = "agent_id" if violation == "missing_executor" else "agent_team_" + violation
+    assert diagnostic in str(planner_messages[1][-1].content)
     phase = artifacts.list_artifacts(scope, "phase", run.run_id)[0]
     assert phase["status"] == "completed" and json.loads(phase["result"]) == valid
     planner = next(row for row in store.list_runs(scope) if row.agent_id == "planner")
@@ -713,12 +726,13 @@ def test_team_plan_repairs_domain_errors_before_executing(planning_runtime, viol
 
 
 def test_team_plan_stops_after_two_invalid_responses_without_assignments(planning_runtime):
+    from jsonschema import ValidationError
     from langchain_core.messages import AIMessage
     from backend.services import agent_execution_store as store, agent_team_store as artifacts
     fixture, invalid = planning_runtime
     invalid["tasks"][0].pop("agent_id")
     fixture[3]["_responses"]["planner"] = [AIMessage(content=json.dumps(invalid))]
-    with pytest.raises(ValueError, match="agent_team_missing_executor"):
+    with pytest.raises(ValidationError, match="agent_id"):
         run_operation(fixture)
     assert fixture[2] == ["director", "planner", "planner"]
     assert not artifacts.list_artifacts(fixture[0], "task")

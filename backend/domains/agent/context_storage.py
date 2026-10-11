@@ -109,7 +109,7 @@ def _table_view(table_id: str, scope: Any) -> Optional[RegistryData]:
     view_id = str(scope.get("view_id") or "").strip()
     if not view_id:
         return None
-    return next(
+    view = next(
         (
             view
             for view in _registry().get("views", [])
@@ -117,6 +117,11 @@ def _table_view(table_id: str, scope: Any) -> Optional[RegistryData]:
         ),
         None,
     )
+    if view is None:
+        raise ValueError("context_view_unavailable")
+    if scope.get("page_id") and view_id not in page_view_ids(str(scope["page_id"])):
+        raise ValueError("context_view_unavailable")
+    return cast(RegistryData, view)
 
 
 def _page_row(page: Any) -> RegistryData:
@@ -143,7 +148,7 @@ def _table_rows(
     if view:
         from backend.services.view_snapshot import resolve_rows
 
-        rows = resolve_rows(rows, view, None)
+        rows = resolve_rows(rows, view, (scope or {}).get("page_id"))
     return rows, view
 
 
@@ -271,6 +276,22 @@ def _read_source(ref: Dict[str, Any]) -> str:
     return reader(ref)
 
 
+def _dashboard_content(ref: Dict[str, Any]) -> str:
+    """Read only the attached page locally; do not truncate its view inventory."""
+    from backend.domains.agent.gnosi_support import _resolve_page, _parse
+    path = _resolve_page(ref["ref"])
+    return _parse(path)[1] if path is not None else _read_source(ref)
+
+
+def page_view_ids(page_id: str) -> List[str]:
+    """Include only page-owned embeds and their configured tabs."""
+    anchors = dashboard_view_ids(_dashboard_content({"type": "page", "ref": page_id}))
+    views = {str(view.get("id")): view for view in _registry().get("views", [])}
+    tabs = [str(tab) for identifier in anchors for tab in (views.get(identifier, {}).get("tabs") or [])
+            if views.get(str(tab), {}).get("table_id") == views.get(identifier, {}).get("table_id")]
+    return list(dict.fromkeys([*anchors, *tabs]))
+
+
 def expand_dashboard_context_refs(raw_refs: Any) -> List[Dict[str, Any]]:
     """Attach the one exact table view embedded by a dashboard page."""
     refs = normalize_refs(raw_refs)
@@ -290,7 +311,7 @@ def expand_dashboard_context_refs(raw_refs: Any) -> List[Dict[str, Any]]:
         if ref.get("type") == "page":
             matching_views = [
                 views_by_id[view_id]
-                for view_id in dashboard_view_ids(_read_source(ref))
+                for view_id in dashboard_view_ids(_dashboard_content(ref))
                 if view_id in views_by_id
             ]
             if len(matching_views) == 1:
@@ -307,6 +328,7 @@ def expand_dashboard_context_refs(raw_refs: Any) -> List[Dict[str, Any]]:
                             "scope": {
                                 "view_id": str(view.get("id") or ""),
                                 "view_name": str(view.get("name") or view.get("id") or ""),
+                                "page_id": ref['ref'],
                             },
                         }
                     )

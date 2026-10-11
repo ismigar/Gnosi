@@ -14,6 +14,7 @@ export interface VaultAgentContextInput {
   readonly page?: VaultContextEntity | null;
   readonly table?: VaultContextEntity | null;
   readonly view?: VaultContextEntity | null;
+  readonly viewHostPageId?: string;
 }
 
 
@@ -24,6 +25,7 @@ export interface VaultAgentContextRef {
   readonly scope?: {
     readonly view_id: string;
     readonly view_name: string;
+    readonly page_id?: string;
   };
   readonly type: 'page' | 'table' | 'vault';
 }
@@ -48,11 +50,11 @@ export function vaultPageViewIds(
 ): string[] {
   const content = page?.content ?? '';
   const viewIds: string[] = [];
-  const marker = /<!--\s*gnosi-view:def\s+(\{[\s\S]*?\})\s*-->/g;
+  const marker = /<!--\s*gnosi-view:def\s+(\{[\s\S]*?\})\s*-->|^\s*```gnosi-view[^\S\r\n]*\r?\n([\s\S]*?)^\s*```[^\S\r\n]*$/gm;
   let match = marker.exec(content);
   while (match) {
     try {
-      const payload = match[1];
+      const payload = match[1] || match[2];
       const viewId = payload ? markerViewId(payload) : '';
       if (viewId && !viewIds.includes(viewId)) viewIds.push(viewId);
     } catch {
@@ -68,6 +70,7 @@ export function vaultAgentContextRefs({
   page = null,
   table = null,
   view = null,
+  viewHostPageId = '',
 }: VaultAgentContextInput = {}): VaultAgentContextRef[] {
   const refs: VaultAgentContextRef[] = [];
   const pageId = String(page?.id ?? '').trim();
@@ -93,6 +96,7 @@ export function vaultAgentContextRefs({
             scope: {
               view_id: viewId,
               view_name: String(view?.name || viewId),
+              ...(viewHostPageId ? { page_id: viewHostPageId } : {}),
             },
           }
         : {}),

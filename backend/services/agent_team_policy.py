@@ -103,6 +103,11 @@ def select_executor(
         candidates.append((cost if cost is not None else math.inf, order, p, cost))
     if not candidates:
         return None, "no_eligible_executor", None
+    if preferred_id:
+        selected = next((candidate for candidate in candidates if candidate[2]["id"] == preferred_id), None)
+        if selected is None:
+            return None, "selected_executor_unavailable", None
+        return selected[2], "director_selected_executor", selected[3]
     known = [c for c in candidates if c[3] is not None]
     selected = min(known, key=lambda c: (c[0], c[1])) if known else candidates[0]
     return selected[2], "lowest_estimated_cost" if known else "configured_order_cost_unknown", selected[3]

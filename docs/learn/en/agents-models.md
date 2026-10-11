@@ -53,7 +53,7 @@ Each AI plugin has an editable profile in the same list as personal profiles, la
 
 ## Primary assistant and team participation
 
-Every bot, including team participants, keeps handling its tasks with its own model, instructions and skills. Asking for help is optional: the assistant chooses it only when another specialty or coordinated work is needed. It decides before executing tools; received assignments cannot be delegated again.
+With the team active, the principal interprets each chat request together with the conversation and selected sources, then chooses a specialist by its skills, tools and availability. It can answer a greeting or clarification directly, or execute a task within its own specialty when no available specialist has the required skills. Other bots retain their configured model, instructions and skills; they ask for help only when needed and before executing tools. Received assignments cannot be delegated again. Commands explicitly addressing a bot and plugin actions keep their selected executor.
 
 The primary assistant belongs to the same list and coordinates the team when other bots receive tasks. On every other bot’s card, **Team participation** offers:
 
@@ -72,7 +72,9 @@ With focus on reading text or a switch, Up/Down and page keys scroll the form. T
 
 
 
-Advanced assignments and direct routes apply only after an assistant requests help. Direct routes associate known operations with executor lists. The server checks availability, skills, context and limits before comparing estimated assignment cost. Unknown cost remains unknown. Direct routes bypass the primary assistant; ambiguous requests require a plan. Valid results are delivered without automatic Director review.
+Advanced assignments and direct routes apply to principal coordination and to other bots’ requests for help. Direct routes associate explicit operations with executor lists. Other requests are planned with the director’s model using capability descriptions and context. The server checks the selected agent, skills, permissions and limits; a cheaper agent does not silently replace the chosen specialist. Cost is used to choose among candidates when no specific executor was selected. Valid results are delivered without an additional automatic review.
+
+To choose an executor, the coordinator receives a compact catalog, up to four abbreviated recent messages and an inventory of selected sources. The specialist retains the original request, history and selections. Clear revisions of the preceding text, such as “now make it more formal”, keep the same specialist without planning again while the profile, capabilities, permissions and sources remain valid. Ambiguous requests or new goals go through coordination again. Response details show planning, execution, synthesis and repair usage separately. Unknown cost is not displayed as zero; provider-reported costs are distinguished from estimates. Avoided planning calls are not counted as measured monetary savings: compare the same tasks with equivalent quality.
 
 Limits are four assignments, two temporary specialists and two simultaneous reading tasks. Modifications run sequentially. Structured operations allow eight total calls within the original budget. Format repair gets one attempt and never repeats actions. Automatic replanning is limited to reading work; uncertain effects require review.
 

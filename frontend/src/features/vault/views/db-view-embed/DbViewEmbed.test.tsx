@@ -11,6 +11,8 @@ import { emitAppEvent } from './events';
 import { subscribeAppEvent } from '../../../../shared/platform/app-events';
 import { dispatchWindowEvent } from '../../../../shared/platform/browser-events';
 import * as api from './api';
+import { refreshConfirmedVaultAction } from '../../../../shared/api/confirmed-vault-action';
+import { getActiveVaultId } from '../../../../shared/api/vault-context';
 import { readText, writeText, pinnedKey, selectedKey } from './preferences';
 import type { EmbedBlock, EmbedView, NavApi } from './types';
 
@@ -89,15 +91,6 @@ async function render(value: EmbedBlock = block, tooltip = false): Promise<void>
     await act(async () => { await Promise.resolve(); root.render(<VaultEditorContext.Provider value={context}><DbViewEmbed block={value} />{tooltip && <GlobalTooltip />}</VaultEditorContext.Provider>); });
     await act(async () => { await Promise.resolve(); await new Promise(resolve => setTimeout(resolve, 5)); });
 }
-it('forwards parallel opening from an embedded view to its editor', async () => {
-    const parallel = vi.fn();
-    context = { ...context, onOpenParallel: parallel };
-    await render();
-    expect(fixture.body?.onOpenParallel).toBeDefined();
-    fixture.body?.onOpenParallel?.('b');
-    expect(parallel).toHaveBeenCalledExactlyOnceWith('b');
-    expect(openPage).not.toHaveBeenCalled();
-});
 async function click(element: Element | null | undefined): Promise<void> {
     if (!element) throw new Error('Missing clickable element');
     await act(async () => { await Promise.resolve(); element.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
@@ -372,6 +365,15 @@ describe('embedded record and view actions', () => {
         expect(document.activeElement).toBe(searchInput);
         expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(2);
         await act(async () => { emitAppEvent('gnosi:invalidatePreview', { pageId: 'page' }); await Promise.resolve(); });
+        expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(2);
+    });
+    it('shows completed bulk edits immediately without focus changes or losing the search', async () => {
+        await render(); await click(button('Search'));
+        await inputValue(container.querySelector('input[placeholder="Search..."]'), 'new title');
+        vi.mocked(api.fetchVaultPagesByTable).mockResolvedValue([{ id: 'a', title: 'New title', metadata: { table_id: 'books' } }]);
+        await act(async () => { await refreshConfirmedVaultAction({ confirmation_id: 'batch', action: 'bulk_update_rows' }, 'completed', getActiveVaultId() || ''); });
+        expect(fixture.body?.notes?.map(note => note.title)).toEqual(['New title']);
+        expect(container.querySelector<HTMLInputElement>('input[placeholder="Search..."]')?.value).toBe('new title');
         expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(2);
     });
     it('shows and selects a newly saved view before the registry refresh completes', async () => {

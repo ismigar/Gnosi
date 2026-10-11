@@ -13,10 +13,10 @@ from backend.domains.agent.routes.contracts import ChatRequest
 from backend.domains.agent.routes.shared import _agent_stream_error_code
 
 LANGUAGES = {
-    'ca': ('Busca totes les entrades de la taula Cervell Digital.', ['L’eina', 'No he pogut', 'La resposta', 'L’agent', 'Aquesta conversa', 'El model', 'La conversa', 'El proveïdor', 'S’ha', 'El compte', 'Les credencials']),
-    'es': ('Busca todas las entradas de la tabla Cervell Digital.', ['La herramienta', 'No he podido', 'La respuesta', 'El agente', 'Esta conversación', 'El modelo', 'La conversación', 'El proveedor', 'Se ha', 'La cuenta', 'Las credenciales']),
-    'en': ('Find all entries in the Cervell Digital table.', ['The tool', 'I could not', 'The generated', 'The response', 'The agent', 'This conversation', 'The model', 'The conversation', 'The provider', 'Provider', 'Invalid provider']),
-    'fr': ('Trouve toutes les entrées de la table Cervell Digital.', ['L’outil', 'Je n’ai pas pu', 'La réponse', 'L’agent', 'Cette conversation', 'Le modèle', 'La conversation', 'Le fournisseur', 'La limite', 'Le compte', 'Les identifiants', 'Une erreur']),
+    'ca': ('Busca totes les entrades de la taula Cervell Digital.', ['L’eina', 'No s’ha pogut', 'No he pogut', 'La resposta', 'L’agent', 'Aquesta conversa', 'El model', 'La conversa', 'El proveïdor', 'S’ha', 'El compte', 'Les credencials']),
+    'es': ('Busca todas las entradas de la tabla Cervell Digital.', ['La herramienta', 'No se ha podido', 'No he podido', 'La respuesta', 'El agente', 'Esta conversación', 'El modelo', 'La conversación', 'El proveedor', 'Se ha', 'La cuenta', 'Las credenciales']),
+    'en': ('Find all entries in the Cervell Digital table.', ['The tool', 'The connection', 'I could not', 'The generated', 'The response', 'The agent', 'This conversation', 'The model', 'The conversation', 'The provider', 'Provider', 'Invalid provider']),
+    'fr': ('Trouve toutes les entrées de la table Cervell Digital.', ['L’outil', 'La connexion', 'Je n’ai pas pu', 'La réponse', 'L’agent', 'Cette conversation', 'Le modèle', 'La conversation', 'Le fournisseur', 'La limite', 'Le compte', 'Les identifiants', 'Une erreur']),
 }
 
 
@@ -28,7 +28,7 @@ LANGUAGES = {
     'agent_turn_incomplete_limit_reached', 'agent_model_context_exceeded',
     'agent_invalid_result', 'agent_empty_result', 'turn_timeout', 'loop', 'busy',
     'tool_use_failed', 'context_length_exceeded', 'schema_invalid', 'content_filter',
-    'rate_limit', 'insufficient_credit', 'auth', 'not_found', 'timeout', 'server_error', 'unexpected',
+    'rate_limit', 'insufficient_credit', 'auth', 'not_found', 'timeout', 'network_error', 'server_error', 'unexpected',
 ])
 def test_failure_events_keep_language_code_and_unsuccessful_outcome(monkeypatch, language, failure):
     from langgraph.errors import GraphRecursionError
@@ -78,6 +78,9 @@ def test_failure_events_keep_language_code_and_unsuccessful_outcome(monkeypatch,
         assert '77' in result['content'] and result['code'] == 'agent_turn_timeout'
     if failure == 'unexpected':
         assert 'deadbeef' in result['content'] and 'ValueError' not in result['content']
+    if failure == 'network_error':
+        assert result['retryable'] is True
+        assert result['recovery']['automatic'] is False
 
 
 @pytest.mark.parametrize('language', LANGUAGES)

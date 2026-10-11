@@ -5873,6 +5873,15 @@
     "timing_model": "Model: {{count}} ms",
     "timing_misc": "Other: {{count}} ms",
     "timing_usage": "{{input}} input tokens · {{output}} output tokens · {{models}} model calls · {{tools}} tool calls",
+    "team_phase_planning": "Planning",
+    "team_phase_execution": "Execution",
+    "team_phase_synthesis": "Synthesis",
+    "team_phase_repair": "Repair",
+    "team_phase_usage": "{{phase}}: {{input}} input · {{output}} output tokens · {{calls}} calls",
+    "team_reused": "Same specialist: no new planning call.",
+    "team_usage_partial": "Partial usage: the provider did not report all tokens.",
+    "team_cost_unknown": "Cost unavailable.",
+    "team_reported_cost": "Reported cost: ${{amount}}",
     "timing_cost": "Estimated cost: ${{amount}}",
     "message_has_confirmation": "This message includes a governed action confirmation.",
     "message_attachments_count": "{{count}} attachment(s)",
@@ -6091,7 +6100,8 @@
           "summary_other": "Replace the IDs in {{count}} titles with their matching names?"
         }
       }
-    }
+    },
+    "rewind_busy": "An answer is in progress. Wait for it to finish or stop it before undoing messages."
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} selected",
@@ -8194,7 +8204,7 @@
     "completed_execution_only": "Execution completed with a result; does not certify every criterion",
     "acceptance_not_certified": "Specific acceptance criteria need review. Proposed instructions are generic and do not copy task content.",
     "add_to_team": "Also add the agent to this team",
-    "director_help": "This is the primary assistant, used by default in new conversations. It works with its own model and coordinates the team when help is needed. Use “Make primary” on another card to change it.",
+    "director_help": "This is the principal and the default for new conversations. With the team active, it interprets each request and assigns it according to the bots’ capabilities. You can change it using Make principal on another card.",
     "participation": "Team participation",
     "participation_for": "Team participation for {{name}}",
     "participation_options": {

@@ -82,6 +82,7 @@ def _selection_events(
         "active_skill_ids": list(selection.get("active_skill_ids") or []),
         "missing_skill_ids": list(selection.get("missing_skill_ids") or []),
         "unavailable_tool_ids": list(selection.get("unavailable_tool_ids") or []),
+        "capacity_omitted_tool_ids": list(selection.get("capacity_omitted_tool_ids") or []),
         "catalog_revision": selection.get("catalog_revision") or "",
         "supports_tools": bool(selection.get("supports_tools", False)),
         "tool_count": int(selection.get("tool_count", 0) or 0),
@@ -106,7 +107,8 @@ async def _opening_events(
     if initial_phase:
         events.append(initial_phase)
     interpretation = state.turn_plan.get("interpretation") or {}
-    should_clarify = bool(
+    coordinated = state.llm_selection.get("mode") == "team"
+    should_clarify = not coordinated and bool(
         interpretation.get("clarification_required")
         or (
             interpretation.get("abstain")
@@ -155,7 +157,7 @@ async def _opening_events(
         state.metrics_emitted = True
         return events, True
 
-    deterministic_confirmation = await asyncio.to_thread(
+    deterministic_confirmation = None if coordinated else await asyncio.to_thread(
         _prepare_index_title_replacements,
         chat_req.message,
     )

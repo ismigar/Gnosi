@@ -80,7 +80,7 @@ def test_dashboard_with_one_view_expands_to_its_scoped_table(monkeypatch):
         "type": "table",
         "ref": "resources",
         "label": "Resources",
-        "scope": {"view_id": "mine", "view_name": "My resources"},
+        "scope": {"view_id": "mine", "view_name": "My resources", "page_id": "dashboard"},
     }
     assert refs[1] == page_ref
 

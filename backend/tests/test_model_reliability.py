@@ -31,6 +31,8 @@ OPENROUTER_402 = (
     ("Error code: 401 - invalid_api_key", "auth"),
     ("This model's maximum context length is 8192 tokens", "context_length_exceeded"),
     ("Read operation timed out", "timeout"),
+    ("Connection error.", "network_error"),
+    (ConnectionError(), "network_error"),
     ("502 Bad Gateway", "server_error"),
     ("something nobody has ever seen", "unknown"),
     ("", "unknown"),
@@ -53,6 +55,17 @@ def test_a_malformed_tool_call_is_evidence_about_the_model():
 
 def test_an_exception_object_classifies_like_its_text():
     assert mr.classify_failure(RuntimeError(GROQ_TOOL_FAILURE)) == "tool_use_failed"
+
+
+def test_installed_sdk_connection_error_is_recoverable_and_not_a_model_fault():
+    from backend.tests.test_llm_wiki_recovery import sdk_connection_error
+    from backend.agent.recovery import recovery_metadata
+    error = sdk_connection_error()
+    reason = mr.classify_failure(error)
+    assert reason == 'network_error'
+    assert not mr.blames_the_model(reason)
+    assert recovery_metadata(reason) == {
+        'retryable': True, 'action': 'retry_message', 'automatic': False, 'max_attempts': 1}
 
 
 def test_recording_needs_a_provider_and_a_model():
