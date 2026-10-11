@@ -276,6 +276,24 @@ describe('embedded view data and editor navigation', () => {
 });
 
 describe('embedded record and view actions', () => {
+    it('retains removed timeline sorting through consecutive record-save reloads', async () => {
+        const sorted = { ...anchor, type: 'timeline', sorts: [{ field: 'title', direction: 'desc' }] };
+        context = { ...context, registry: { ...context.registry, views: [sorted, other] } };
+        await render();
+        expect(fixture.body?.activeView?.sort).toEqual(sorted.sorts);
+        vi.mocked(api.fetchVaultViews).mockResolvedValue([{ ...sorted, sorts: [], sort: null }, other]);
+        context = { ...context, viewSectionNonce: 1 };
+        await render();
+        expect(fixture.body?.activeView?.sort).toEqual([]);
+        for (const id of ['a', 'b']) {
+            await act(async () => {
+                await fixture.body?.onUpdateNote?.(id, { metadata: { timeline_order: 1 } });
+            });
+            expect(fixture.body?.activeView?.sort).toEqual([]);
+        }
+        expect(api.fetchVaultViews).toHaveBeenCalledTimes(1);
+    });
+
     it.each(['table', 'gallery', 'feed'])('expands an empty %s search to the whole table and restores filters on clear', async type => {
         writeText(selectedKey('page', 'anchor'), 'other');
         context = { ...context, registry: { ...context.registry, views: [anchor, { ...other, type }] } };
