@@ -414,10 +414,10 @@ describe('VaultTimeline', () => {
         if (!row) throw new Error('Missing row');
         const indent = row.querySelector<HTMLButtonElement>('[aria-label="timeline.move_indent"]');
         expect(indent?.disabled).toBe(false);
-        await act(async () => { indent?.click(); });
+        await act(() => { indent?.click(); });
         expect(onUpdateNote).toHaveBeenCalledWith('b', { metadata: { timeline_order: 0, parent_id: 'a' } });
         onUpdateNote.mockClear();
-        await act(async () => {
+        await act(() => {
             row.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true, bubbles: true }));
         });
         expect(onUpdateNote.mock.calls.map(([id]) => id)).toEqual(['b', 'a']);
