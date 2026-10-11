@@ -6656,7 +6656,8 @@
           "summary_many": "Vols substituir els identificadors de {{count}} títols amb els noms corresponents?"
         }
       }
-    }
+    },
+    "rewind_busy": "Hi ha una resposta en curs. Espera que acabi o atura-la abans de desfer missatges."
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} seleccionat",

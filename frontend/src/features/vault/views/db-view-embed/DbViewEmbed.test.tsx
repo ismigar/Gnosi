@@ -11,6 +11,8 @@ import { emitAppEvent } from './events';
 import { emitAppEvent as emitContextEvent, subscribeAppEvent } from '../../../../shared/platform/app-events';
 import { dispatchWindowEvent } from '../../../../shared/platform/browser-events';
 import * as api from './api';
+import { refreshConfirmedVaultAction } from '../../../../shared/api/confirmed-vault-action';
+import { getActiveVaultId } from '../../../../shared/api/vault-context';
 import { readText, writeText, pinnedKey, selectedKey } from './preferences';
 import type { EmbedBlock, EmbedView, NavApi } from './types';
 
@@ -439,6 +441,15 @@ describe('embedded record and view actions', () => {
         expect(document.activeElement).toBe(searchInput);
         expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(2);
         await act(async () => { emitAppEvent('gnosi:invalidatePreview', { pageId: 'page' }); await Promise.resolve(); });
+        expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(2);
+    });
+    it('shows completed bulk edits immediately without focus changes or losing the search', async () => {
+        await render(); await click(button('Search'));
+        await inputValue(container.querySelector('input[placeholder="Search..."]'), 'new title');
+        vi.mocked(api.fetchVaultPagesByTable).mockResolvedValue([{ id: 'a', title: 'New title', metadata: { table_id: 'books' } }]);
+        await act(async () => { await refreshConfirmedVaultAction({ confirmation_id: 'batch', action: 'bulk_update_rows' }, 'completed', getActiveVaultId() || ''); });
+        expect(fixture.body?.notes?.map(note => note.title)).toEqual(['New title']);
+        expect(container.querySelector<HTMLInputElement>('input[placeholder="Search..."]')?.value).toBe('new title');
         expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(2);
     });
     it('shows and selects a newly saved view before the registry refresh completes', async () => {

@@ -6100,7 +6100,8 @@
           "summary_other": "Replace the IDs in {{count}} titles with their matching names?"
         }
       }
-    }
+    },
+    "rewind_busy": "An answer is in progress. Wait for it to finish or stop it before undoing messages."
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} selected",

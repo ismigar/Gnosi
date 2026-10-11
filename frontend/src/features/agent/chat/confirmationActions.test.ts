@@ -5,6 +5,8 @@ import { mergeLiveConfirmationRecords, withConfirmationStatus, type Confirmation
 import { mergeConfirmationRecords, type ConfirmationRecord } from '../model/agentConfirmationUtils';
 import type { AgentConfirmation } from './confirmationModel';
 import type { cancelChatAction, confirmChatAction, fetchChatConfirmationStatus } from '../../../shared/api/chat-confirmations';
+import { subscribeAppEvent } from '../../../shared/platform/app-events';
+import { storageSet, ACTIVE_VAULT_ID_KEY } from '../../../shared/api/vault-context';
 
 const api = vi.hoisted(() => ({
   confirm: vi.fn<typeof confirmChatAction>(),
@@ -17,8 +19,8 @@ const i18n = createInstance();
 beforeAll(async () => { await i18n.init({ lng: 'en', fallbackLng: 'en', resources: {} }); });
 beforeEach(() => { vi.resetAllMocks(); });
 
-function setup() {
-  const confirmation: AgentConfirmation = { confirmation_id: 'action', agent_id: 'origin-agent', session_id: 'origin-session', client_scope: 'vault:workspace:user:origin-agent:origin-session', details: { body: 'private' }, status: 'pending', destructive: true };
+function setup(overrides: Partial<AgentConfirmation> = {}) {
+  const confirmation: AgentConfirmation = { confirmation_id: 'action', agent_id: 'origin-agent', session_id: 'origin-session', client_scope: 'vault:workspace:user:origin-agent:origin-session', details: { body: 'private' }, status: 'pending', destructive: true, ...overrides };
   let messages: ConfirmationConversation = [{ role: 'assistant', content: 'review', confirmation, preserved: 'metadata' }];
   let pending: AgentConfirmation | null = confirmation;
   const context: ConfirmationActionContext = {
@@ -42,6 +44,36 @@ describe('confirmation execution reconciliation', () => {
     expect(result[0]).toBe(untouched); expect(result[0]?.content).toHaveLength(24000);
     expect(result[1]).toMatchObject({ extra: 'kept', confirmation: { details: { before: 'private', after: 'changed' } } });
     expect(result[2]).toMatchObject({ content: 'Review b', role: 'assistant' });
+  });
+
+  it('replaces verified legacy JSON with a single card, retaining turn metadata and user quotations', () => {
+    const content = JSON.stringify({ type: 'confirmation_required', confirmation_id: 'a', details: { updates: Array(50).fill('large payload') } });
+    const messages: ConfirmationConversation = [{ role: 'assistant', content, turnId: 'turn', processingMs: 12000 },
+      { role: 'assistant', content: 'Duplicate card', confirmation: { confirmation_id: 'a' } },
+      { role: 'user', content }, { role: 'assistant', content: JSON.stringify({ type: 'confirmation_required', confirmation_id: 'unknown' }) }];
+    const merged = mergeLiveConfirmationRecords(messages, [{ confirmation_id: 'a', status: 'completed', details: {} }], () => 'Review');
+    expect(merged).toHaveLength(3);
+    expect(merged[0]).toMatchObject({ content: 'Review', turnId: 'turn', processingMs: 12000, confirmation: { status: 'completed' } });
+    expect(merged[1]?.content).toBe(content);
+    expect(merged[2]?.content).toContain('unknown');
+  });
+
+  it.each(['completed', 'partial'])('refreshes mounted views once for a %s batch before announcing completion', async (status) => {
+    const state = setup({ action: 'bulk_update_rows' });
+    const refresh = vi.fn();
+    const stop = subscribeAppEvent('gnosi:invalidatePreview', refresh);
+    api.confirm.mockResolvedValue({ ok: true, statusText: '', payload: { status, detail: {}, result: { updated_count: 21 } } });
+    try { await confirmPendingAction(state.context); expect(refresh).toHaveBeenCalledOnce(); }
+    finally { stop(); }
+  });
+
+  it('does not refresh another Vault when a completion arrives late', async () => {
+    storageSet(ACTIVE_VAULT_ID_KEY, 'original');
+    const state = setup({ action: 'bulk_update_rows' });
+    const refresh = vi.fn(); const stop = subscribeAppEvent('gnosi:invalidatePreview', refresh);
+    api.confirm.mockImplementation(() => { storageSet(ACTIVE_VAULT_ID_KEY, 'different'); return Promise.resolve({ ok: true, statusText: '', payload: { status: 'completed', detail: {}, result: {} } }); });
+    try { await confirmPendingAction(state.context); expect(refresh).not.toHaveBeenCalled(); }
+    finally { stop(); storageSet(ACTIVE_VAULT_ID_KEY, ''); }
   });
   it('executes once in the originating scope and scrubs terminal review details', async () => {
     api.confirm.mockResolvedValue({ ok: true, statusText: '', payload: { detail: {}, result: {}, status: 'completed' } });

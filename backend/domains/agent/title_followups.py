@@ -17,7 +17,8 @@ def canonical_title_request(pairs: list[tuple[str, str]], language: str = 'ca') 
         'en': ('In the titles replace ', ' with ', ' and '),
         'fr': ('Dans les titres remplace ', ' par ', ' et '),
     }.get(language, ('Als títols canvia ', ' per ', ' i '))
-    quote = lambda text: json.dumps(text, ensure_ascii=False)
+    def quote(text: str) -> str:
+        return json.dumps(text, ensure_ascii=False)
     return header + join.join(quote(source) + connector + quote(target) for source, target in pairs)
 
 

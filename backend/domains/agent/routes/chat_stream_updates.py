@@ -185,6 +185,12 @@ def _message_events(
         return events
 
     content = _message_text(getattr(message, "content", ""))
+    native_confirmation = getattr(message, 'additional_kwargs', {}).get('gnosi_action_confirmation')
+    if node_name == 'team' and message.type == 'ai' and isinstance(native_confirmation, dict):
+        pending = confirmation_event(json.dumps(native_confirmation, ensure_ascii=False))
+        if pending:
+            state.answer_count += 1
+            return [json.dumps(pending, ensure_ascii=False) + '\n']
     if message.type == "tool":
         state.active_tool_names.discard(str(message.name or "").strip())
         pending_confirmation = confirmation_event(content)

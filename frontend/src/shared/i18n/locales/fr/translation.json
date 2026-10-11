@@ -6656,7 +6656,8 @@
           "summary_many": "Remplacer les identifiants de {{count}} titres par les noms correspondants ?"
         }
       }
-    }
+    },
+    "rewind_busy": "Une réponse est en cours. Attendez sa fin ou arrêtez-la avant d’annuler des messages."
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} sélectionné",

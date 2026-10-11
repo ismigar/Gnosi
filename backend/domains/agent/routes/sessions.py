@@ -1,7 +1,8 @@
 import asyncio
 import copy
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, cast
+from typing import Any, AsyncIterator, Dict, List, Mapping, Optional, cast
 
 from fastapi import Depends, HTTPException, Query
 from langgraph.checkpoint.base import create_checkpoint
@@ -14,6 +15,8 @@ from backend.domains.agent.routes.checkpoints import (
     _public_checkpoint_messages,
     _rewound_checkpoint_messages,
     _thread_lock,
+    _acquire_turn_lock,
+    SessionBusyError,
 )
 from backend.domains.agent.routes.contracts import ChatRewindRequest
 from backend.domains.agent.routes.router import router
@@ -28,6 +31,15 @@ from backend.domains.agent.routes.shared import (
 )
 from backend.domains.agent.routes.state import cfg
 from backend.services.workspace_service import WorkspaceContext, require_role
+
+
+@asynccontextmanager
+async def _session_edit_lock(thread_id: str) -> AsyncIterator[None]:
+    try:
+        async with _acquire_turn_lock(_thread_lock(thread_id)):
+            yield
+    except SessionBusyError as error:
+        raise HTTPException(status_code=409, detail={'code': 'chat_session_busy'}) from error
 
 
 @router.delete(
@@ -63,7 +75,7 @@ async def delete_chat_session(
     )
     db_path = cast(Path, cfg.paths["CHECKPOINTS"]) / f"agent_{checkpoint_key}.sqlite"
     if db_path.exists():
-        async with _thread_lock(thread_id):
+        async with _session_edit_lock(thread_id):
             async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
                 await saver.adelete_thread(thread_id)
     await asyncio.to_thread(
@@ -117,7 +129,7 @@ async def rewind_chat_session(
     public_messages: List[Dict[str, str]] = []
 
     if db_path.exists():
-        async with _thread_lock(thread_id):
+        async with _session_edit_lock(thread_id):
             async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
                 checkpoint_tuple = await saver.aget_tuple(
                     {"configurable": {"thread_id": thread_id}},

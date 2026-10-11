@@ -11275,6 +11275,7 @@ export interface components {
             /** Author User Id */
             author_user_id?: string | null;
             citations?: components["schemas"]["JsonValue"] | null;
+            confirmation?: components["schemas"]["JsonValue"] | null;
             conflicts?: components["schemas"]["JsonValue"] | null;
             /** Content */
             content: string;

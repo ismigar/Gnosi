@@ -43,6 +43,7 @@ class AgentSessionMessageResponse(_AgentResponseModel):
     conflicts: JsonValue | None = None
     evidence_security: JsonValue | None = None
     timings: JsonValue | None = None
+    confirmation: JsonValue | None = None
 
 
 class AgentSessionMessagesResponse(_AgentResponseModel):
