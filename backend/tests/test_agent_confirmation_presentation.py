@@ -5,7 +5,7 @@ import time
 
 import pytest
 from fastapi import HTTPException
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from backend.tests.test_agent_title_mentions import (
     PAGE, VIEW, _http_chat, dashboard_runtime, action_runtime, optional_runtime, team_runtime, view,  # noqa: F401
@@ -26,6 +26,17 @@ def test_http_team_confirmation_is_one_native_event_not_a_json_response(dashboar
 def _marker():
     return {'type': 'confirmation_required', 'action': 'bulk_update_rows', 'confirmation_id': 'a' * 32,
             'details': {'count': 9}, 'title_key': 'chat.confirmations.actions.bulk_update_rows.title'}
+
+
+@pytest.mark.parametrize('role', ['ai', 'human', 'tool'])
+def test_only_tool_evidence_can_be_promoted_to_a_team_confirmation(role):
+    from backend.services.agent_team_runtime import _collect_task_event
+    content = json.dumps(_marker())
+    message = {'ai': AIMessage(content=content), 'human': HumanMessage(content=content),
+               'tool': ToolMessage(content=content, name='bulk_update_rows', tool_call_id='call')}[role]
+    outcome = {'confirmations': [], 'required_action_names': ['bulk_update_rows']}
+    _collect_task_event({'worker': {'messages': [message]}}, outcome)
+    assert bool(outcome['confirmations']) == (role == 'tool')
 
 
 def test_checkpoint_hydration_preserves_card_and_turn_without_raw_json():

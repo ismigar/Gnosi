@@ -24,11 +24,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 237 | 47574 |
+| `services` | 237 | 47575 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **973 modules** and **190010 source lines**.
+Total: **973 modules** and **190011 source lines**.
 
 ## agent
 
@@ -889,7 +889,7 @@ Total: **973 modules** and **190010 source lines**.
 | [`backend/services/agent_team_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_contracts.py) | 193 | 0 | 11 | 0 | 2 | Local operation and output checks for the coordinator's untrusted plan. |
 | [`backend/services/agent_team_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_evaluations.py) | 62 | 0 | 2 | 0 | 1 | Metadata-only measurements for comparing the same tasks across team policies. |
 | [`backend/services/agent_team_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_models.py) | 169 | 12 | 0 | 0 | 0 | Explicit, additive contracts for governed agent teams. |
-| [`backend/services/agent_team_output.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_output.py) | 62 | 2 | 0 | 0 | 1 | Validate a delegated result before its run completes; repair without actions. |
+| [`backend/services/agent_team_output.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_output.py) | 63 | 2 | 0 | 0 | 1 | Validate a delegated result before its run completes; repair without actions. |
 | [`backend/services/agent_team_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_planning.py) | 84 | 0 | 1 | 1 | 0 | Choose an existing route, a verified continuation, or a compact director plan. |
 | [`backend/services/agent_team_planning_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_planning_schema.py) | 39 | 0 | 2 | 0 | 1 | Minimize planning metadata without removing executable constraints. |
 | [`backend/services/agent_team_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_policy.py) | 126 | 0 | 6 | 0 | 2 | Model-free eligibility and economic routing. Labels never grant capabilities. |

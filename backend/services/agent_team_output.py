@@ -28,7 +28,8 @@ class CheckedTeamOutput:
         async for event in self.application.astream(inputs, config=config, stream_mode=stream_mode):
             for update in event.values():
                 for message in update.get("messages", []):
-                    pending_confirmation |= bool(confirmation_event(getattr(message, "content", None)))
+                    if getattr(message, 'type', '') == 'tool':
+                        pending_confirmation |= bool(confirmation_event(getattr(message, "content", None)))
                     if getattr(message, "type", "") == "ai" and not getattr(message, "tool_calls", None):
                         previous = message
             yield event

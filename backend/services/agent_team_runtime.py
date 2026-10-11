@@ -299,7 +299,7 @@ def _collect_task_event(event: dict[str, Any], outcome: dict[str, Any]) -> None:
             from backend.services.agent_team_actions import successful_action_result
             if successful_action_result(message, set(outcome.get("required_action_names") or [])):
                 outcome.setdefault("action_evidence", []).append(str(message.name))
-            marker = confirmation_event(getattr(message, "content", None))
+            marker = confirmation_event(getattr(message, "content", None)) if getattr(message, 'type', '') == 'tool' else None
             if marker:
                 outcome["confirmations"].append(marker)
             if getattr(message, "type", "") == "ai" and not getattr(message, "tool_calls", None):
