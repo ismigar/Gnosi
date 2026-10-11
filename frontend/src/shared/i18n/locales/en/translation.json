@@ -5459,6 +5459,16 @@
     "axis_summary": "{{yLabel}} by <field>{{xField}}</field>"
   },
   "timeline": {
+    "move_up": "Move up",
+    "move_down": "Move down",
+    "move_indent": "Indent task",
+    "move_outdent": "Outdent task",
+    "drag_row": "Drag before, inside or after another task",
+    "drop_before": "Before",
+    "drop_inside": "Inside",
+    "drop_after": "After",
+    "manual_sort_hint": "Remove view sorting to move tasks manually.",
+    "move_error": "The move could not be completed. Check the order and try again.",
     "select_predecessor": "Select a Predecessor",
     "predecessor_prompt": "Choose which record must finish before <bold>{{name}}</bold> can start.",
     "col_title": "Record Title",

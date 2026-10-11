@@ -1,5 +1,7 @@
 import { RecordSubitemAction } from '../RecordSubitemAction';
-import { useRef, type ChangeEvent } from 'react';
+import { TimelineRowActions } from './TimelineRowActions';
+import type { TimelineMove, TimelinePlacement } from './timelineMoves';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { Calendar, ChevronDown, ChevronRight, ExternalLink, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { TimelineBar } from './TimelineBar';
@@ -37,12 +39,17 @@ function HeaderTicks({ ticks, controller, upper = false }: { readonly ticks: rea
 
 export function VaultTimelineGrid({ controller, onNoteSelect }: TimelineGridProps) {
     const { t } = useTranslation();
+    const [draggedId, setDraggedId] = useState<string | null>(null);
+    const [dropTarget, setDropTarget] = useState<{ id: string; placement: TimelinePlacement } | null>(null);
+    const dragRow = (id: string | null) => { setDraggedId(id); setDropTarget(null); };
     const { drag, begin, consumeClick } = useTimelineDrag(controller);
     const resizing = useRef<{ readonly x: number; readonly width: number } | null>(null);
     const { scrollLeft } = controller;
     const contentWidth = controller.columnWidth + Number.parseFloat(controller.scaleMinWidth);
     const today = controller.calculatePosition(new Date());
     return <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {controller.activeSortsCount > 0 ? <p className="px-4 py-1 text-xs text-[var(--text-secondary)]">{t('timeline.manual_sort_hint')}</p> : null}
+        {controller.moveError ? <p role="alert" className="px-4 py-1 text-xs text-[var(--text-secondary)]">{t('timeline.move_error')}</p> : null}
         <div id={controller.scrollContainerId} className="custom-scrollbar relative min-h-0 flex-1 overflow-auto bg-[var(--bg-primary)]" style={{ overflowX: 'hidden', overflowY: 'auto' }} aria-busy={controller.saving} onScroll={event => { controller.setScrollLeft(event.currentTarget.scrollLeft); }}>
             <div className="sticky top-0 z-40 flex h-16 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]" style={{ width: contentWidth }}>
                 <div className="sticky left-0 z-50 flex shrink-0 items-center border-r border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 text-xs font-semibold text-[var(--text-secondary)]" style={{ width: controller.columnWidth }}>
@@ -76,9 +83,33 @@ export function VaultTimelineGrid({ controller, onNoteSelect }: TimelineGridProp
                         const native = event.nativeEvent;
                         controller.toggleSelect(note.id, 'shiftKey' in native && native.shiftKey === true);
                     };
-                    return <div key={note.id} data-record-id={note.id} tabIndex={-1} data-timeline-row={note.id} className={`focus:outline-2 focus:outline-[var(--gnosi-primary)] group flex border-b border-[var(--border-primary)] hover:bg-[var(--bg-secondary)]/50 ${drag?.targetId === note.id && drag.mode === 'dependency' ? 'bg-[var(--gnosi-primary)]/10' : ''}`} style={{ height: TIMELINE_ROW_HEIGHT }}>
+                    return <div key={note.id} data-record-id={note.id} tabIndex={0}
+                        onKeyDown={event => {
+                            if (event.target !== event.currentTarget || !event.altKey || controller.saving) return;
+                            const action: TimelineMove | undefined = event.key === 'ArrowUp' ? 'up' : event.key === 'ArrowDown' ? 'down' : event.key === 'ArrowRight' ? 'indent' : event.key === 'ArrowLeft' ? 'outdent' : undefined;
+                            if (action && controller.canMoveRow(note.id, action)) {
+                                event.preventDefault();
+                                void controller.moveRow(note.id, action);
+                            }
+                        }} data-timeline-row={note.id} className={`focus:outline-2 focus:outline-[var(--gnosi-primary)] group flex border-b border-[var(--border-primary)] hover:bg-[var(--bg-secondary)]/50 ${drag?.targetId === note.id && drag.mode === 'dependency' ? 'bg-[var(--gnosi-primary)]/10' : ''}`} style={{ height: TIMELINE_ROW_HEIGHT }}>
                         <div className={`sticky left-0 z-20 flex shrink-0 items-center gap-1.5 border-r border-[var(--border-primary)] pr-2 ${selected ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}`}
-                            style={{ width: controller.columnWidth, paddingLeft: 12 + Math.min(note.depth, 8) * 12 }}>
+                            onDragOver={event => {
+                                if (!draggedId || draggedId === note.id || !controller.canMoveRow(draggedId) || controller.saving) return;
+                                event.preventDefault();
+                                event.dataTransfer.dropEffect = 'move';
+                                const bounds = event.currentTarget.getBoundingClientRect();
+                                const y = (event.clientY - bounds.top) / bounds.height;
+                                setDropTarget({ id: note.id, placement: y < 0.25 ? 'before' : y > 0.75 ? 'after' : 'inside' });
+                            }}
+                            onDragLeave={event => {
+                                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTarget(null);
+                            }}
+                            onDrop={event => {
+                                event.preventDefault();
+                                if (draggedId && dropTarget?.id === note.id) void controller.dropRow(draggedId, note.id, dropTarget.placement);
+                                dragRow(null);
+                            }}
+                            style={{ outline: dropTarget?.id === note.id ? '2px solid var(--gnosi-primary)' : undefined, outlineOffset: '-2px', width: controller.columnWidth, paddingLeft: 12 + Math.min(note.depth, 8) * 12 }}>
                             {note.isParent ? <button type="button" className="shrink-0 rounded p-1 hover:bg-[var(--bg-tertiary)]" aria-expanded={!controller.collapsedIds.has(note.id)} aria-label={t('timeline.toggle_group', 'Expand or collapse phase')} onClick={() => { controller.toggleCollapsed(note.id); }}>
                                 {controller.collapsedIds.has(note.id) ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                             </button> : <span className="w-5 shrink-0" />}
@@ -89,10 +120,14 @@ export function VaultTimelineGrid({ controller, onNoteSelect }: TimelineGridProp
                                     {...controller.titlePreview.getTitleProps(note.id)} onClick={() => { onNoteSelect?.(note.id); }} title={timelineTitle(note.title, t('common.untitled', 'Untitled'))}><span className={`text-xs ${note.isParent ? 'font-bold' : 'font-medium'}`}>{title}</span></button>
                                 <RecordSubitemAction recordId={note.id} />
                                 </div>
+                                <div className="flex items-center gap-1">
+                                <TimelineRowActions controller={controller} id={note.id} onDrag={dragRow} />
                                 <button type="button" className="block w-full truncate text-left text-[10px] text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]" title={rangeLabel}
                                     onClick={() => { if (note.hasDates === false) onNoteSelect?.(note.id); else controller.goToDate(dateStart); }}>
                                     <span className="text-[10px]">{note.hasDates === false ? t('timeline.unscheduled', 'No dates') : `${controller.formatShortDate(dateStart)} → ${controller.formatShortDate(dateEnd)}`}</span>
                                 </button>
+                                </div>
+                                {dropTarget?.id === note.id ? <span className="text-[9px] text-[var(--gnosi-primary)]">{t(`timeline.drop_${dropTarget.placement}`)}</span> : null}
                             </div>
                             <div className="flex shrink-0 gap-0.5 opacity-0 focus-within:opacity-100 group-hover:opacity-100">
                                 <button type="button" aria-label={t('common.open')} onClick={() => { onNoteSelect?.(note.id); }} className="rounded p-1 hover:bg-[var(--bg-tertiary)]"><ExternalLink size={13} /></button>
