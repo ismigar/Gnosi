@@ -137,12 +137,15 @@ export function buildTimelineTicks(
 }
 
 
-function resolveParentId(
+export function resolveParentId(
     note: TimelineRecord,
     schema: TimelineSchema,
     readers: TimelineSchemaReaders,
 ): string | null {
     const metadata = note.metadata ?? {};
+    if (Object.prototype.hasOwnProperty.call(metadata, 'parent_id')) {
+        return metadata.parent_id ? stringifyLegacy(metadata.parent_id) : null;
+    }
     const direct = metadata.parent_id
         || note.parent_id
         || metadata.source_parent_id;
@@ -275,7 +278,15 @@ function addHierarchy(
     };
     for (const root of roots) summarize(root, new Set());
 
+    const manualOrder = (first: TimelineChartNote, second: TimelineChartNote): number => {
+        const a = first.metadata?.timeline_order;
+        const b = second.metadata?.timeline_order;
+        return (typeof a === 'number' && Number.isFinite(a) ? a : Number.MAX_SAFE_INTEGER)
+            - (typeof b === 'number' && Number.isFinite(b) ? b : Number.MAX_SAFE_INTEGER);
+    };
     const orderedRoots = hasExplicitSorts ? roots : [...roots].sort((first, second) => {
+        const manual = manualOrder(first, second);
+        if (manual) return manual;
         const firstStart = summarized.get(first.id)?.summaryStart ?? first.start;
         const secondStart = summarized.get(second.id)?.summaryStart ?? second.start;
         return firstStart.getTime() - secondStart.getTime();
@@ -287,7 +298,7 @@ function addHierarchy(
         seen.add(note.id);
         flat.push({ ...(summarized.get(note.id) ?? note), depth });
         const descendants = [...(children.get(note.id) ?? [])]
-            .sort((first, second) => first.start.getTime() - second.start.getTime());
+            .sort((first, second) => hasExplicitSorts ? 0 : manualOrder(first, second) || first.start.getTime() - second.start.getTime());
         for (const child of descendants) pushTree(child, depth + 1);
     };
     for (const root of orderedRoots) pushTree(root, 0);
