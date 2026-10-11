@@ -118,19 +118,47 @@ def test_frontend_lint_and_guardrails_fail_closed() -> None:
 
 
 @pytest.mark.parametrize("cached,status", [(False, 0), (True, 0), (False, 2), (True, 23)])
+@pytest.mark.parametrize("file_count", [1, 257])
 def test_shared_frontend_lint_preserves_scope_cache_arguments_and_failure(
-    tmp_path: Path, cached: bool, status: int,
+    tmp_path: Path, cached: bool, status: int, file_count: int,
 ) -> None:
     scripts = tmp_path / "frontend/scripts"
     scripts.mkdir(parents=True)
     runner = scripts / "lint.mjs"
-    runner.write_text((ROOT / "frontend/scripts/lint.mjs").read_text())
-    eslint = tmp_path / "frontend/node_modules/eslint/bin/eslint.js"
+    for name in ("lint.mjs", "lint-files.mjs"):
+        (scripts / name).write_text((ROOT / "frontend/scripts" / name).read_text())
+    source = scripts.parent / "src"
+    source.mkdir()
+    files = [source / f"source {index:03} [fixture].ts" for index in range(file_count)]
+    for path in files:
+        path.write_text("export {};\n")
+    eslint_root = scripts.parent / "node_modules/eslint"
+    eslint = eslint_root / "bin/eslint.js"
     eslint.parent.mkdir(parents=True)
+    (eslint_root / "package.json").write_text(json.dumps({
+        "name": "eslint", "type": "module", "exports": "./api.mjs",
+    }))
+    # The real discovery helper executes against a deterministic API shim.
+    # Real ESLint traversal/rules/cache are exercised by the frontend contracts.
+    (eslint_root / "api.mjs").write_text(
+        "import assert from 'node:assert/strict';\n"
+        "import { readdirSync } from 'node:fs';\n"
+        "import { resolve } from 'node:path';\n"
+        "export class ESLint { async lintFiles(patterns) {\n"
+        "  assert.deepEqual(patterns, ['.']);\n"
+        "  return readdirSync('src').sort().map(name => ({filePath: resolve('src', name)}));\n"
+        "} }\n"
+    )
+    calls = tmp_path / "lint-calls.jsonl"
+    final_batch = (file_count - 1) // 256
     eslint.write_text(
-        "console.log(JSON.stringify({args: process.argv.slice(2), cwd: process.cwd()}));\n"
+        "import { appendFileSync, existsSync, readFileSync } from 'node:fs';\n"
+        f"const log = {json.dumps(str(calls))};\n"
+        "const previous = existsSync(log) ? readFileSync(log, 'utf8').trim().split('\\n').length : 0;\n"
+        "appendFileSync(log, JSON.stringify({args: process.argv.slice(2), cwd: process.cwd()}) + '\\n');\n"
+        "console.log('synthetic lint output');\n"
         "console.error('synthetic lint diagnostic');\n"
-        f"process.exit({status});\n"
+        f"process.exit(previous === {final_batch} ? {status} : 0);\n"
     )
     environment = dict(os.environ)
     environment.pop("GNOSI_ESLINT_CACHE", None)
@@ -142,12 +170,16 @@ def test_shared_frontend_lint_preserves_scope_cache_arguments_and_failure(
         capture_output=True, text=True, check=False, timeout=30,
     )
     assert result.returncode == status
-    payload = json.loads(result.stdout)
-    expected = [".", "--max-warnings=0"]
-    if cached:
-        expected.extend(["--cache", "--cache-strategy", "content", "--cache-location", cache])
-    assert payload["args"] == expected
-    assert Path(payload["cwd"]).resolve() == (tmp_path / "frontend").resolve()
+    payloads = [json.loads(line) for line in calls.read_text().splitlines()]
+    assert len(payloads) == final_batch + 1
+    for index, payload in enumerate(payloads):
+        expected = ["--max-warnings=0", "--concurrency=off"]
+        if cached:
+            expected.extend(["--cache", "--cache-strategy", "content", "--cache-location", cache])
+        expected.extend(["--", *(str(path) for path in files[index * 256:(index + 1) * 256])])
+        assert payload["args"] == expected
+        assert Path(payload["cwd"]).resolve() == (tmp_path / "frontend").resolve()
+    assert result.stdout.count("synthetic lint output") == len(payloads)
     assert "synthetic lint diagnostic" in result.stderr
 
 
