@@ -390,17 +390,18 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         # The durable reader owns the book loop. Each phase asks its frozen
         # model for one bounded result; a team handoff cannot run that loop
         # from a conversation or switch its source-processing executor.
-        operation_team_help=request.operation not in {"knowledge.process-source.phase", "writing.correct.repair"} and not classifying_notes,
+        operation_team_help=request.operation not in {"knowledge.process-source.phase", "writing.correct.repair", "team.view_edit"} and not classifying_notes,
         # Reading returns one bounded action, never the whole book. Avoid a
         # provider-default reservation of 65,536 output tokens for each step.
         operation_max_output_tokens=((8192 if request.options.get("reading_prose") else 16384)
                                      if request.operation == "knowledge.process-source.phase"
+                                     else 1536 if request.operation == 'team.view_edit'
                                      else 4096 if classifying_notes else None),
         # Routing needs a validated assignment, not a solution to the task.
         # A rejected plan gets the existing repair call at the model's normal
         # effort. Explicit profile choices and specialist effort stay intact.
         operation_default_reasoning_effort=(None if snapshot.profile.get("reasoning_effort") else
-            "low" if request.operation == "knowledge.process-source.phase" else
+            "low" if request.operation in {"knowledge.process-source.phase", "team.view_edit"} else
             "one_step_lower" if request.operation == "team.plan" and request.options.get("economical_planning")
             and not validation_retry else None),
         output_schema=request.output_schema,

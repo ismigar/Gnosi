@@ -336,7 +336,12 @@ def test_attached_instructions_cannot_replace_the_current_title_request(action_r
         active_vault_path.reset(token)
 
 
-def test_a_tool_bearing_executor_cannot_complete_an_action_with_only_prose(action_runtime):
+def test_a_tool_bearing_executor_cannot_complete_an_action_with_only_prose(action_runtime, monkeypatch):
+    from backend.services import agent_view_edit
+    from backend.domains.agent.title_edit_contract import ViewEditDecision
+    async def outside_contract(*args, **kwargs):
+        return ViewEditDecision(kind='other', edit=None, question='')
+    monkeypatch.setattr(agent_view_edit, 'interpret_view_edit', outside_contract)
     fixture, paths, _ = action_runtime
     before = {identifier: path.read_bytes() for identifier, path in paths.items()}
     plan = TeamPlan(tasks=[TeamTask(id="action", agent_id="vault", objective="Execute the original action",

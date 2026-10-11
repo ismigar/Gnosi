@@ -247,7 +247,7 @@ class AgentWorkflowNodes:
         )
         return {"messages": [response], "next": "FINISH"}
 
-    def _context_route(self, messages: Any, latest_user: str, request_mode: str) -> ContextRoute:
+    def _context_route(self, messages: Any, latest_user: str, request_mode: str, title_edit: Any = None) -> ContextRoute:
         """Select the one mandatory context read for a lookup or analysis turn."""
         if request_disallows_tools(latest_user):
             return ContextRoute(reader_message=latest_user)
@@ -266,7 +266,7 @@ class AgentWorkflowNodes:
         )
         has_other = any(ref.get("type") in {"file", "url", "source"} for ref in self.context_refs)
         from backend.domains.agent.title_replacements import title_inventory_arguments
-        title_arguments = title_inventory_arguments(latest_user, self.context_refs, self.context_tool_names)
+        title_arguments = title_inventory_arguments(latest_user, self.context_refs, self.context_tool_names, edit=title_edit)
         if title_arguments:
             return ContextRoute(required_tool="inventory_context", reader_message=latest_user,
                                 inventory_arguments=title_arguments,
@@ -335,8 +335,12 @@ class AgentWorkflowNodes:
         from backend.domains.agent.title_replacements import current_title_instruction
         latest_user = current_title_instruction(messages, state, self._latest_user(messages))
         request_mode = _request_mode(latest_user)
+        from backend.domains.agent.title_edit_contract import state_title_edit
+        title_edit = state_title_edit(state, latest_user)
+        if title_edit:
+            request_mode = 'action'
         authorized_names = _turn_authorized_tool_names(state)
-        route = self._context_route(messages, latest_user, request_mode)
+        route = self._context_route(messages, latest_user, request_mode, title_edit)
         directed = bool(frozen_resources.get())
         required_reads = {route.required_tool} if route.required_tool else set()
         turn_plan = build_agent_turn_plan(

@@ -7,6 +7,7 @@ import re
 from typing import Any
 
 from backend.domains.agent.title_wording import scoped_title_operands
+from backend.domains.agent.title_edit_contract import TitleEdit, state_title_edit
 
 _QUOTE = r'(?:"[^"\n]*"|«[^»\n]*»|“[^”\n]*”|\x27[^\x27\n]*\x27)'
 _JOIN = r'(?:i|y|and|et|,)'
@@ -116,7 +117,7 @@ def title_view_label(scope: dict[str, Any]) -> str:
 def current_title_instruction(messages: Any, state: Any, fallback: str) -> str:
     """Read the server-preserved human wording, keeping attachments as data."""
     original = str(state.get("user_request") or "")
-    if title_replacements(original) is not None:
+    if title_replacements(original) is not None or state_title_edit(state, original):
         return original
     latest = next((message for message in reversed(messages) if getattr(message, "type", "") == "human"), None)
     visible = str((getattr(latest, "additional_kwargs", {}) or {}).get("gnosi_visible_content") or "")
@@ -136,10 +137,10 @@ def replace_title(title: str, pairs: list[tuple[str, str]]) -> str:
     return re.sub('|'.join(patterns), lambda match: replacements[match[0]], title)
 
 
-def title_update_call(message: str, content: str, refs: list[dict[str, Any]]) -> dict[str, Any] | None:
+def title_update_call(message: str, content: str, refs: list[dict[str, Any]], *, edit: TitleEdit | None = None) -> dict[str, Any] | None:
     """Prepare every changed title from a complete, literal, scoped inventory."""
     pairs = title_replacements(message)
-    if pairs is None:
+    if pairs is None and edit is None:
         return None
     scope = active_title_scope(refs)
     if not scope:
@@ -162,7 +163,7 @@ def title_update_call(message: str, content: str, refs: list[dict[str, Any]]) ->
                 or row.get('source_id') != scope[0]['id']):
             raise ValueError('title_replacement_inventory_invalid')
         seen.add(identifier)
-        changed = replace_title(title, pairs)
+        changed = edit.apply(title) if edit else replace_title(title, pairs or [])
         if changed != title:
             updates.append({'id': identifier, 'expected_title': title, 'properties': {'title': changed}})
     return {'name': 'bulk_update_rows', 'args': {'updates': updates, 'view_scope': expected_views[0]}, 'id': 'exact-title-replacement', 'type': 'tool_call'}
@@ -171,6 +172,12 @@ def title_update_call(message: str, content: str, refs: list[dict[str, Any]]) ->
 def title_response(message: str, reason: str) -> str:
     from backend.domains.agent.responses import _response_language
     responses = {
+        'interpretation': {
+            'ca': 'No he preparat cap canvi perquè no he pogut validar la interpretació. Pots concretar el canvi amb un exemple de títol abans i després?',
+            'es': 'No he preparado cambios porque no he podido validar la interpretación. ¿Puedes concretar el cambio con un ejemplo de título antes y después?',
+            'en': 'No changes prepared because I could not validate the interpretation. Can you give an example of a title before and after the change?',
+            'fr': 'Aucune modification préparée : je n’ai pas pu valider l’interprétation. Pouvez-vous donner un exemple de titre avant et après le changement ?',
+        },
         'scope': {
             'ca': 'Selecciona una vista concreta de la taula per preparar la substitució dels títols.',
             'es': 'Selecciona una vista concreta de la tabla para preparar la sustitución de los títulos.',
@@ -202,8 +209,8 @@ def title_response(message: str, reason: str) -> str:
     return responses[reason][language]
 
 
-def title_inventory_arguments(message: str, refs: list[dict[str, Any]], tool_names: Any) -> dict[str, Any] | None:
-    if title_replacements(message) is not None and active_title_scope(refs) and "inventory_context" in tool_names:
+def title_inventory_arguments(message: str, refs: list[dict[str, Any]], tool_names: Any, *, edit: TitleEdit | None = None) -> dict[str, Any] | None:
+    if (title_replacements(message) is not None or edit) and active_title_scope(refs) and "inventory_context" in tool_names:
         return {"query": "", "include_relations": False, "limit": 100}
     return None
 
@@ -212,7 +219,8 @@ def title_brain_result(nodes: Any, turn: Any, progress: Any) -> dict[str, Any] |
     """Use only deterministic tool evidence; never retry a failed mutation."""
     from langchain_core.messages import AIMessage
     from backend.domains.agent.context import _latest_tool_message_since_latest_user
-    if title_replacements(turn.latest_user) is None or "bulk_update_rows" not in turn.authorized_names:
+    edit = state_title_edit(turn.state, turn.latest_user)
+    if (title_replacements(turn.latest_user) is None and edit is None) or "bulk_update_rows" not in turn.authorized_names:
         return None
     def final(reason: str) -> dict[str, Any]:
         result: dict[str, Any] = nodes._verified_final(turn, title_response(turn.latest_user, reason))
@@ -227,7 +235,9 @@ def title_brain_result(nodes: Any, turn: Any, progress: Any) -> dict[str, Any] |
     if progress.inventory_message is None:
         return None
     try:
-        call = title_update_call(turn.latest_user, str(progress.inventory_message.content), nodes.context_refs)
+        if edit and title_view_revisions(active_title_scope(nodes.context_refs)) != [turn.state['title_edit']['view_scope']]:
+            return final('scope')
+        call = title_update_call(turn.latest_user, str(progress.inventory_message.content), nodes.context_refs, edit=edit)
     except (ValueError, TypeError, KeyError):
         return final("inventory")
     if call is None:

@@ -71,6 +71,7 @@ def _history_intent(messages: list[Any], owner_id: str, scope: ExecutionScope) -
                 result = dict(marker)
                 if pending:
                     result['request'] = canonical_title_request(pending[0])
+                    result.pop('program', None)
                 return result
     return None
 
@@ -103,6 +104,10 @@ def resolve_title_turn(original: str, state: dict[str, Any], refs: list[dict[str
             return original, None, followup is not None
         if revisions != [prior.get('view_scope')]:
             return original, None, True
+        if not followup and prior.get('program'):
+            from backend.domains.agent.title_edit_contract import TitleEdit
+            TitleEdit.model_validate(prior['program'])
+            return prior['request'], prior, False
         pairs = followup or title_replacements(prior['request'])
         if not pairs:
             return original, None, True
@@ -123,4 +128,6 @@ def prepare_title_turn(original: str, state: dict[str, Any], refs: list[dict[str
         return original, state, {}, title_response(original, 'scope')
     if marker:
         state = {**state, 'user_request': original, 'turn_authorized_tool_names': ['bulk_update_rows']}
+        if marker.get('program'):
+            state['title_edit'] = marker
     return original, state, {MARKER: marker} if marker else {}, ''

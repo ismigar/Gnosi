@@ -31,14 +31,20 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
     saved = artifacts.list_artifacts(scope, "plan", root_id)
     if saved:
         return (TeamPlan.model_validate(saved[0]["plan"]),
-                {**state, "team_completed_evidence": saved[0].get("evidence", [])}, catalog, route, bool(direct))
+                {**state, **saved[0].get('state', {}), "team_completed_evidence": saved[0].get("evidence", [])}, catalog, route, bool(direct))
+    continuation = None if operation_mode or direct else continuation_plan(owner, scope, state, original, catalog, refs)
+    if not operation_mode and not direct and not continuation:
+        from backend.services.agent_view_edit import prepare_view_edit
+        state, clarification = await prepare_view_edit(owner, scope, root_id, state, original, refs, catalog)
+        if clarification:
+            return TeamPlan(response=clarification, response_kind='clarification'), state, catalog, None, False
     # A complete literal substitution needs capability selection, not a model
     # deciding whether it is prose. It still uses the normal team executor,
     # revocation checks, scoped reads, confirmations, traces and shared budget.
     if not operation_mode:
         from backend.domains.agent.title_replacements import title_replacements, active_title_scope, title_response
         from backend.services.agent_team_actions import action_candidates
-        if title_replacements(original) is not None and "bulk_update_rows" in state.get("turn_authorized_tool_names", []):
+        if (title_replacements(original) is not None or state.get('title_edit')) and "bulk_update_rows" in state.get("turn_authorized_tool_names", []):
             if not active_title_scope(refs):
                 plan = TeamPlan(response=title_response(original, "scope"), response_kind="clarification")
             else:
@@ -50,12 +56,12 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
                             skill_ids=skills, read_only=False)], result_task="titles")
                         break
             if plan is not None:
-                action_measurement = {"version": 1, "mode": "capability", "reason": "exact_title_substitution",
-                               "planning_calls_avoided": 1}
+                action_measurement = {"version": 1, "mode": "capability", "reason": "structured_title_edit" if state.get('title_edit') else "exact_title_substitution",
+                               "full_planning_calls_avoided": 1,
+                               **({"planning_calls_avoided": 1} if not state.get('title_edit') else {})}
                 record("team.route", action_measurement)
                 artifacts.put(scope, root_id, "routing", "routing", action_measurement)
                 return plan, state, catalog, None, False
-    continuation = None if operation_mode or direct else continuation_plan(owner, scope, state, original, catalog, refs)
     measurement: dict[str, Any] = {"version": 1, "planning_calls_avoided": 0}
     if direct:
         measurement.update(mode="direct", operation=operation, executor=direct["id"], reason=reason, estimated_cost_usd=cost)
