@@ -11,7 +11,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 650 | 2864 |
+| Vitest | 651 | 2871 |
 | pytest | 664 | 4916 |
 
 ## Fichiers
