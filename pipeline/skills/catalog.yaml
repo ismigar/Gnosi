@@ -3,6 +3,7 @@ purpose: development-and-automation-classification
 agent_assignable_default: false
 packages:
   calendar_sync: {kind: automation}
+  gnosi-gauntlet: {kind: developer}
   host_open_helper: {kind: infrastructure}
   mail_sync: {kind: automation}
   notification_service: {kind: infrastructure}

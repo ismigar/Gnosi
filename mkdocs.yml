@@ -72,7 +72,7 @@ nav:
       - Relational data model: generated/data-model.md
       - Configuration: generated/configuration.md
       - Tests: generated/tests.md
-      - Runtime skills: generated/skills.md
+      - Pipeline skills: generated/skills.md
       - Coverage: generated/coverage.md
 
 plugins:

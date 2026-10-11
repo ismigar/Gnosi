@@ -1,5 +1,12 @@
 # Gnosi project instructions
 
+## Substantial development changes
+
+- Use [Gnosi Gauntlet](pipeline/skills/gnosi-gauntlet/SKILL.md) for new features, recurring bugs, and changes to persistence, public contracts or shared behavior. It is also available explicitly as `$gnosi-gauntlet`.
+- Follow its independent subagent review and evidence-based correction loop while measurable progress continues. Reviewers use fresh context and inherit the session model.
+- Routine questions and trivial edits use the ordinary workflow unless Gauntlet is explicitly requested. Delegated critics and bounded implementation assignments must not recursively start another loop.
+- The workflow preserves the task's scope and permissions. Acceptance requires the existing applicable checks; unavailable verification or stalled corrections remain visible, incomplete outcomes.
+
 ## Interface consistency
 
 - Always use the app's existing styles, shared components, and theme tokens when adding or changing UI.

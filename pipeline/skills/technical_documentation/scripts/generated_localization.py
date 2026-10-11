@@ -32,9 +32,9 @@ LABELS = {
     "Repository inventory": (
         "Inventari del repositori", "Inventario del repositorio", "Inventaire du dépôt",
     ),
-    "Runtime skill catalog": (
-        "Catàleg d’habilitats d’execució", "Catálogo de habilidades de ejecución",
-        "Catalogue des compétences d’exécution",
+    "Pipeline skill catalog": (
+        "Catàleg d’habilitats del pipeline", "Catálogo de habilidades del pipeline",
+        "Catalogue des compétences du pipeline",
     ),
     "Test catalog": ("Catàleg de proves", "Catálogo de pruebas", "Catalogue des tests"),
     "Summary": ("Resum", "Resumen", "Résumé"),
@@ -157,7 +157,7 @@ PAGE_LABELS = {
     "repository-inventory.md": (
         "Repository inventory", ("Key counts", "Owned application surfaces", "Exclusion boundary"),
     ),
-    "skills.md": ("Runtime skill catalog", ()),
+    "skills.md": ("Pipeline skill catalog", ()),
     "tests.md": ("Test catalog", ("Summary", "Files")),
 }
 

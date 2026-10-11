@@ -1,4 +1,4 @@
-"""Lock all nine static catalogs to a synthetic pre-extraction contract."""
+"""Lock all nine static catalogs to an approved synthetic contract."""
 
 from __future__ import annotations
 
@@ -48,6 +48,8 @@ def write_catalog_fixture(root: Path) -> Path:
 
 
 # Filled from commit 8177609a94c8a42d324c6ef5f7126b0ab2942069 before extraction.
+# Inventory and skill digests include the intentional public-pipeline terminology
+# update: development packages are no longer described as application runtime skills.
 EXPECTED_DIGESTS = {
     "api-catalog.md": "e47cc0aba14401ba71e2a7a97f25465a818518fde0dcf70e1c0dfbe6b4372bbf",
     "backend-modules.md": "805e865549d9655b2df95ae1663b0f11990b9b7f0c9950d2425dc257ca479f9e",
@@ -55,14 +57,14 @@ EXPECTED_DIGESTS = {
     "coverage.md": "1708b0a2bfdb50db5e7d8d27497b513e9ea617462021024f2c52713301d69b11",
     "data-model.md": "d92690250e44ca4a60c7a0baa46335ac50abc67e5fd018c75bb1c40e55ccde65",
     "frontend-catalog.md": "f8e14cad99fc91f869cc01786c375a328d7cd2531e628e05924ce793fc0e534c",
-    "repository-inventory.md": "c51f9d19e8d4a3aa05cd69c2dfcbc8f1507ba6b3e6f5ea8b5359ce707210ad7b",
-    "skills.md": "55597372921945f0cb83b0d0ff3ca356b9b714c22feb88b8f30f8a9f74221285",
+    "repository-inventory.md": "aa63181859321a58c619dd85434800f7d61f172eabaa27b77cf345b29ebfca25",
+    "skills.md": "4861ae6f50073164d03f29407e10f042e0c80a3c6e45a33332cdc9f4dc78c302",
     "tests.md": "ddbd94480ff66544b16b3f9b6a12019fd97d1a0336b94a6769e94a55dbe4364a",
 }
 
 
 @pytest.mark.parametrize("ancestor", ["", "tests", "e2e", "vendor", "sandbox", ".tmp"])
-def test_all_catalog_bytes_match_pre_extraction_baseline(tmp_path: Path, ancestor: str) -> None:
+def test_all_catalog_bytes_match_approved_baseline(tmp_path: Path, ancestor: str) -> None:
     root = tmp_path / ancestor / "app" if ancestor else tmp_path
     domains = write_catalog_fixture(root)
     outputs = build_outputs(root, root, domains)
