@@ -6007,6 +6007,16 @@
     "axis_summary": "{{yLabel}} par <field>{{xField}}</field>"
   },
   "timeline": {
+    "move_up": "Monter",
+    "move_down": "Descendre",
+    "move_indent": "Créer une sous-tâche",
+    "move_outdent": "Sortir de la tâche parente",
+    "drag_row": "Glisser avant, dans ou après une autre tâche",
+    "drop_before": "Avant",
+    "drop_inside": "Dans",
+    "drop_after": "Après",
+    "manual_sort_hint": "Supprimez le tri de la vue pour déplacer les tâches manuellement.",
+    "move_error": "Le déplacement a échoué. Vérifiez l’ordre et réessayez.",
     "select_predecessor": "Sélectionner un prédécesseur",
     "predecessor_prompt": "Choisissez quel enregistrement doit se terminer avant que <bold>{{name}}</bold> puisse commencer.",
     "col_title": "Titre de l'enregistrement",

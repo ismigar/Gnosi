@@ -50,7 +50,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `app` | 21 | 2657 | 0 |
 | `features` | 1192 | 131371 | 55 |
 | `generated` | 2 | 49842 | 510 |
-| `shared` | 300 | 33344 | 440 |
+| `shared` | 302 | 33521 | 440 |
 
 ## app
 
@@ -1509,17 +1509,19 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/record-views/recordSubitemContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/recordSubitemContext.ts) | 3 | `RecordSubitemContext` | — |
 | [`frontend/src/shared/record-views/vault-timeline/TimelineBar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/TimelineBar.tsx) | 68 | `TimelineBar` | — |
 | [`frontend/src/shared/record-views/vault-timeline/TimelineDependencies.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/TimelineDependencies.tsx) | 77 | `TIMELINE_ROW_HEIGHT`, `TimelineDependencies` | — |
+| [`frontend/src/shared/record-views/vault-timeline/TimelineRowActions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/TimelineRowActions.tsx) | 28 | `TimelineRowActions` | — |
 | [`frontend/src/shared/record-views/vault-timeline/VaultTimelineControls.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/VaultTimelineControls.tsx) | 167 | `VaultTimelineControls` | — |
 | [`frontend/src/shared/record-views/vault-timeline/VaultTimelineFooter.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/VaultTimelineFooter.tsx) | 48 | `VaultTimelineFooter` | — |
-| [`frontend/src/shared/record-views/vault-timeline/VaultTimelineGrid.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/VaultTimelineGrid.tsx) | 121 | `VaultTimelineGrid` | — |
+| [`frontend/src/shared/record-views/vault-timeline/VaultTimelineGrid.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/VaultTimelineGrid.tsx) | 156 | `VaultTimelineGrid` | — |
 | [`frontend/src/shared/record-views/vault-timeline/schedulingModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/schedulingModel.ts) | 119 | `buildDateMetadata`, `dateValue` | — |
 | [`frontend/src/shared/record-views/vault-timeline/timelineLabels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineLabels.ts) | 10 | `timelineErrorKey`, `timelineTitle` | — |
-| [`frontend/src/shared/record-views/vault-timeline/timelineModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineModel.ts) | 392 | `buildBarColorResolver`, `buildTimelineChart`, `buildTimelineTicks`, `predecessorCandidates`, `predecessorsFor`, `resolvePredecessorField`, `resolveTimelineDateFields`, `timelinePosition`, `timelineUnitFromConfig` | — |
+| [`frontend/src/shared/record-views/vault-timeline/timelineModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineModel.ts) | 403 | `buildBarColorResolver`, `buildTimelineChart`, `buildTimelineTicks`, `predecessorCandidates`, `predecessorsFor`, `resolveParentId`, `resolvePredecessorField`, `resolveTimelineDateFields`, `timelinePosition`, `timelineUnitFromConfig` | — |
+| [`frontend/src/shared/record-views/vault-timeline/timelineMoves.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineMoves.ts) | 57 | `planTimelineMove`, `timelineMoveTarget` | — |
 | [`frontend/src/shared/record-views/vault-timeline/timelineScale.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineScale.ts) | 95 | `calendarScale`, `scaleWidth`, `shiftTimelineDate` | — |
-| [`frontend/src/shared/record-views/vault-timeline/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/types.ts) | 175 | — | — |
+| [`frontend/src/shared/record-views/vault-timeline/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/types.ts) | 182 | — | — |
 | [`frontend/src/shared/record-views/vault-timeline/useTimelineDrag.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useTimelineDrag.ts) | 92 | `useTimelineDrag` | — |
 | [`frontend/src/shared/record-views/vault-timeline/useTimelineScheduling.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useTimelineScheduling.ts) | 152 | `planningSettingsFrom`, `useTimelineScheduling` | — |
-| [`frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.ts) | 328 | `useVaultTimelineController` | — |
+| [`frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.ts) | 367 | `useVaultTimelineController` | — |
 | [`frontend/src/shared/records/NumberValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/NumberValue.tsx) | 19 | `NumberValue` | — |
 | [`frontend/src/shared/records/hooks/useVaultSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/hooks/useVaultSelection.ts) | 78 | `useVaultSelection` | — |
 | [`frontend/src/shared/records/hooks/useVaultSelectionShortcuts.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/hooks/useVaultSelectionShortcuts.ts) | 53 | `useVaultSelectionShortcuts` | — |
