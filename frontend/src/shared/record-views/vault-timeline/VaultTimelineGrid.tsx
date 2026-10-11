@@ -1,3 +1,4 @@
+import { RecordSubitemAction } from '../RecordSubitemAction';
 import { useRef, type ChangeEvent } from 'react';
 import { Calendar, ChevronDown, ChevronRight, ExternalLink, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -83,8 +84,11 @@ export function VaultTimelineGrid({ controller, onNoteSelect }: TimelineGridProp
                             </button> : <span className="w-5 shrink-0" />}
                             <input type="checkbox" checked={selected} onChange={toggleSelection} aria-label={t('timeline.select_task', 'Select task')} className="h-3.5 w-3.5 shrink-0 accent-[var(--gnosi-primary)]" />
                             <div className="min-w-0 flex-1">
-                                <button type="button" className={`block w-full truncate text-left text-xs text-[var(--text-primary)] hover:text-[var(--gnosi-primary)] ${note.isParent ? 'font-bold' : 'font-medium'}`}
+                                <div className="flex min-w-0 items-center gap-1">
+                                <button type="button" className={`block min-w-0 flex-1 truncate text-left text-xs text-[var(--text-primary)] hover:text-[var(--gnosi-primary)] ${note.isParent ? 'font-bold' : 'font-medium'}`}
                                     {...controller.titlePreview.getTitleProps(note.id)} onClick={() => { onNoteSelect?.(note.id); }} title={timelineTitle(note.title, t('common.untitled', 'Untitled'))}><span className={`text-xs ${note.isParent ? 'font-bold' : 'font-medium'}`}>{title}</span></button>
+                                <RecordSubitemAction recordId={note.id} />
+                                </div>
                                 <button type="button" className="block w-full truncate text-left text-[10px] text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]" title={rangeLabel}
                                     onClick={() => { if (note.hasDates === false) onNoteSelect?.(note.id); else controller.goToDate(dateStart); }}>
                                     <span className="text-[10px]">{note.hasDates === false ? t('timeline.unscheduled', 'No dates') : `${controller.formatShortDate(dateStart)} → ${controller.formatShortDate(dateEnd)}`}</span>

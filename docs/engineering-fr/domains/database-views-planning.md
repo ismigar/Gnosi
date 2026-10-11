@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-10-09
+last_verified: 2026-10-11
 source_paths:
+  - frontend/src/features/vault/views/RecordSubitemProvider.tsx
+  - frontend/src/shared/record-views/RecordSubitemAction.tsx
   - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
   - frontend/src/shared/record-views/pinnedViewOrder.ts
   - frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx
@@ -478,3 +480,7 @@ Les tableaux intégrés définissent une grille non modifiable dans l’éditeur
 Les cellules sélectionnées du tableau affichent un fond opaque mêlant la couleur d’accent à la surface du thème et un contour intérieur sur chaque cellule. Un contour plus épais distingue la cellule active. Le même style couvre les titres fixes, les plages rectangulaires et les sélections disjointes dans les thèmes clair et sombre.
 
 Les en-têtes de tableau séparent les actions de l’état du tri. Un clic trie par le champ et alterne croissant/décroissant ; un double-clic sélectionne toute la colonne de la vue actuelle, y compris les lignes au-delà du premier lot chargé, sans changer l’ordre. Seul le champ trié affiche une flèche indiquant le sens. Entrée ou Espace trie un en-tête focalisé ; Maj+Entrée sélectionne sa colonne. Le déplacement utilise une poignée distincte. Le tri apparaît localement avant les enregistrements facultatifs en série, fonctionne sans fonction d’enregistrement, respecte les modifications externes ultérieures et rétablit l’ordre enregistré en cas d’échec. Les dates système peuvent être sélectionnées et copiées mais restent en lecture seule.
+
+## Sous-éléments dans les vues
+
+Lorsque `enableSubitems` est activé pour la vue, le bouton d’ajout d’un sous-élément apparaît à côté du titre dans les vues tableau, liste, kanban, galerie, flux, calendrier et chronologie. Les visualisations proposent la même action à côté du titre du document ciblé ; les génogrammes la proposent aussi à côté de la personne sélectionnée. Les vues intégrées et complètes partagent le lien au parent et les valeurs par défaut. Le tableau et la liste conservent le champ de nom en ligne et déploient le parent. Les descendants sont affichés récursivement et les enfants correspondant au filtre restent visibles même si leur parent est exclu.

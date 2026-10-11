@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-10-09
+last_verified: 2026-10-11
 source_paths:
+  - frontend/src/features/vault/views/RecordSubitemProvider.tsx
+  - frontend/src/shared/record-views/RecordSubitemAction.tsx
   - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
   - frontend/src/shared/record-views/pinnedViewOrder.ts
   - frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx
@@ -472,3 +474,7 @@ Les taules incrustades defineixen una graella no editable dins de l’editor de 
 Les cel·les seleccionades de la taula mostren un fons opac amb el color d’accent barrejat amb la superfície del tema i un contorn interior a cada cel·la. Un contorn més gruixut distingeix la cel·la activa. El mateix estil cobreix els títols fixos, els intervals rectangulars i les seleccions separades en els temes clar i fosc.
 
 Les capçaleres de taula separen les accions de l’estat d’ordenació. Un clic ordena pel camp i alterna ascendent/descendent; un doble clic selecciona tota la columna de la vista actual, també els registres més enllà del primer lot carregat, sense canviar l’ordre. Només el camp ordenat mostra una fletxa indicativa del sentit. Retorn o Espai ordenen una capçalera enfocada; Majúscules+Retorn selecciona la columna. L’arrossegament fa servir un agafador separat. L’ordre es mostra localment abans del desament opcional en sèrie, funciona sense una funció de desament, respecta els canvis externs posteriors i recupera l’ordre desat si falla. Les dates del sistema es poden seleccionar i copiar, però continuen sent de només lectura.
+
+## Subitems a les vistes
+
+Amb `enableSubitems` activat a la vista, el botó d’afegir un subitem apareix al costat del títol del registre a taula, llista, kanban, galeria, feed, calendari i cronograma. Les visualitzacions ofereixen la mateixa acció al costat del títol del registre enfocat; els genogrames també al costat de la persona seleccionada. Les vistes incrustades i completes comparteixen l’associació amb el pare i els valors per defecte. A taula i llista es manté el camp de nom en línia i s’expandeix el pare. Els descendents es mostren recursivament i els fills que compleixen el filtre continuen visibles encara que el pare en quedi exclòs.

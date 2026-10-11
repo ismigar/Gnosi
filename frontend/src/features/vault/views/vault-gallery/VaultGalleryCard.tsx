@@ -1,3 +1,4 @@
+import { RecordSubitemAction } from '../../../../shared/record-views/RecordSubitemAction';
 import type { KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -151,9 +152,10 @@ export function VaultGalleryCard({
                             size={18}
                         />
                     </span> : null}
-                    <span className={fullWidth ? 'whitespace-normal break-words' : 'truncate'} {...titlePreviewProps}>
+                    <span className={fullWidth ? 'min-w-0 flex-1 whitespace-normal break-words' : 'min-w-0 flex-1 truncate'} {...titlePreviewProps}>
                         {note.title || t('common.untitled', { defaultValue: 'Untitled' })}
                     </span>
+                    <RecordSubitemAction recordId={note.id} />
                 </h3>
                 {showContent ? <div className={`relative min-w-0 ${fullWidth ? 'overflow-x-clip' : 'min-h-0 flex-1 overflow-x-hidden'}`}>
                     <GalleryContentPreview

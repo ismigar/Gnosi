@@ -24,13 +24,15 @@ export function buildTableRowDescriptors<Note extends TableRowRecord>({
   emptyGroupLabel,
 }: TableRowDescriptorInput<Note>): TableRowDescriptor<Note>[] {
   const list: TableRowDescriptor<Note>[] = [];
-  const pushNoteRows = (note: Note) => {
-    list.push({ kind: 'row', note, isChild: false, depth: 0 });
+  const pushNoteRows = (note: Note, depth = 0, ancestors = new Set<string>()) => {
+    if (ancestors.has(note.id)) return;
+    list.push({ kind: 'row', note, isChild: depth > 0, depth });
     if (!expandedRows.has(note.id)) return;
+    const nextAncestors = new Set(ancestors).add(note.id);
     for (const child of childrenMap[note.id] || []) {
-      list.push({ kind: 'row', note: child, isChild: true, depth: 1 });
+      pushNoteRows(child, depth + 1, nextAncestors);
     }
-    if (addingSubitemFor === note.id) list.push({ kind: 'new-subitem', parentNote: note, depth: 1 });
+    if (addingSubitemFor === note.id) list.push({ kind: 'new-subitem', parentNote: note, depth: depth + 1 });
   };
   if (!groupByField || !groupMeta) {
     for (const note of visibleRootNotes) pushNoteRows(note);

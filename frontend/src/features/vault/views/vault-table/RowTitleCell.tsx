@@ -137,17 +137,16 @@ export function RowTitleCell({ model, note, isChild, depth }: { model: TableCont
         </span>
       )}
 
-      {!isListView && enableSubitems && onCreateRecord && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
+      {enableSubitems && onCreateRecord && (
+        <button type="button"
+          onClick={(event) => {
+            event.stopPropagation();
             setExpandedRows(prev => new Set([...prev, note.id]));
             setAddingSubitemFor(note.id);
             setNewSubitemTitle('');
           }}
-          className="opacity-0 group-hover/row:opacity-100 ml-1 p-0.5 rounded text-[var(--text-tertiary)] hover:text-indigo-600 hover:bg-indigo-500/10 transition-all shrink-0"
-          title={t('table.add_subitem')}
-        >
+          className="opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus:opacity-100 ml-1 p-0.5 rounded text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 transition-all shrink-0"
+          title={t('table.add_subitem')} aria-label={t('table.add_subitem')}>
           <Plus size={12} />
         </button>
       )}

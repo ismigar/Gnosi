@@ -1,3 +1,4 @@
+import { RecordSubitemAction } from '../../../shared/record-views/RecordSubitemAction';
 import { GalleryOpenButton } from './GalleryCardPreview';
 import {
   ChevronDown,
@@ -169,7 +170,7 @@ export function VaultFeedCard({
                 })}
               </span>
             </div>
-            <h2 className="min-w-0">
+            <h2 className="min-w-0 flex items-center gap-1.5">
               <button
                 type="button"
                 disabled={selectionActive}
@@ -191,6 +192,7 @@ export function VaultFeedCard({
                   ))}
                 </span>
               </button>
+              <RecordSubitemAction recordId={note.id} />
             </h2>
           </div>
           {!selectionActive && (

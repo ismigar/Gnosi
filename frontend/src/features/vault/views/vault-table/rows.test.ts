@@ -43,6 +43,14 @@ describe('table subitem tree', () => {
     expect(tree.childrenMap.other).toEqual([topChild]);
   });
 
+  it('keeps a matching child visible when its parent is filtered out', () => {
+    const parent = note('p'); const child = note('c', { parent_id: 'p' });
+    const tree = buildTableRowTree([parent, child], [child], true);
+    expect(tree.sortedNotes).toEqual([child]);
+    expect(tree.childrenMap).toEqual({});
+    expect(tree.allChildrenByParent.p).toEqual([child]);
+  });
+
   it('keeps all records flat when subitems are disabled', () => {
     const all = [note('p'), note('c', { parent_id: 'p' })];
     expect(buildTableRowTree(all, all, false)).toEqual({ sortedNotes: all, childrenMap: {}, allChildrenByParent: {} });
@@ -68,6 +76,29 @@ describe('table virtual row descriptors', () => {
       { kind: 'row', note: child, isChild: true, depth: 1 },
       { kind: 'new-subitem', parentNote: parent, depth: 1 },
     ]);
+  });
+
+  it('renders nested subtasks and the creation form under their actual parent', () => {
+    const parent = note('p'); const child = note('c'); const grandchild = note('g');
+    const rows = buildTableRowDescriptors(input({
+      groupByField: '', visibleRootNotes: [parent], childrenMap: { p: [child], c: [grandchild] },
+      expandedRows: new Set(['p', 'c']), addingSubitemFor: 'c',
+    }));
+    expect(rows).toEqual([
+      { kind: 'row', note: parent, isChild: false, depth: 0 },
+      { kind: 'row', note: child, isChild: true, depth: 1 },
+      { kind: 'row', note: grandchild, isChild: true, depth: 2 },
+      { kind: 'new-subitem', parentNote: child, depth: 2 },
+    ]);
+  });
+
+  it('stops recursive rendering at cyclic parent references', () => {
+    const parent = note('p'); const child = note('c');
+    const rows = buildTableRowDescriptors(input({
+      groupByField: '', visibleRootNotes: [parent], childrenMap: { p: [child], c: [parent] },
+      expandedRows: new Set(['p', 'c']),
+    }));
+    expect(rows).toHaveLength(2);
   });
 
   it('counts every filtered root in grouped mode regardless of the visible batch', () => {

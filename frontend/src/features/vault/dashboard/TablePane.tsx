@@ -1,3 +1,4 @@
+import { RecordSubitemProvider } from '../views/RecordSubitemProvider';
 import { ExposedFilters } from '../views/ExposedFilters';
 import { useExposedFilters } from '../../../shared/filtering/useExposedFilters';
 import { VaultViewsHeader } from '../views/VaultViewsHeader';
@@ -68,13 +69,15 @@ export function TablePane({ dashboard: d, tableId, mode }: Props) {
     onSetDefaultTemplate: d.handleSetDefaultTemplate,
   } : {};
   const body = noSearchResults ? <ViewSearchEmptyState scope={d.searchScope} onScopeChange={d.setSearchScope} />
-  : view.type === 'graph' ? (<VaultGraph
+  : view.type === 'graph' ? (<RecordSubitemProvider key={`subitems:${view.id}`}
+    enabled={searchView.enableSubitems === true} records={bodyNotes} tableId={tableId}
+    schema={mergedSchema} onSaved={() => d.fetchPagesByTable(tableId)}><VaultGraph
     tableId={tableId}
     view={searchView}
     searchTerm={d.searchTerm}
     isDarkMode={document.documentElement.classList.contains('dark')}
     onNodeClick={nodeId => { void d.loadPage(nodeId); }}
-  />) : (<VaultViewBody
+  /></RecordSubitemProvider>) : (<VaultViewBody
     {...bodyExtra}
     {...tableBodyCallbacks(d, tableId, view.id, split)}
     onUpdateView={value => d.handleUpdateView({ ...readViewDraft(value), filters: view.filters, filterTree: view.filterTree })}

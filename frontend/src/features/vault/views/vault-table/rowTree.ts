@@ -9,6 +9,7 @@ export function buildTableRowTree<Note extends TableRowRecord>(
   sortedAndFilteredNotes: readonly Note[],
   enableSubitems: boolean,
 ) {
+  const visibleIds = new Set(sortedAndFilteredNotes.map(note => note.id));
   const allIds = new Set(safeNotes.map(note => note.id));
   const children = new Map<string, Note[]>();
   const allChildren = new Map<string, Note[]>();
@@ -22,7 +23,7 @@ export function buildTableRowTree<Note extends TableRowRecord>(
   if (enableSubitems) {
     for (const note of sortedAndFilteredNotes) {
       const parent = parentOf(note);
-      if (typeof parent === 'string' && allIds.has(parent)) add(children, parent, note);
+      if (typeof parent === 'string' && parent !== note.id && visibleIds.has(parent)) add(children, parent, note);
       else sortedNotes.push(note);
     }
     // Propagation must include filtered-out children; visible children alone

@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-10-09
+last_verified: 2026-10-11
 source_paths:
+  - frontend/src/features/vault/views/RecordSubitemProvider.tsx
+  - frontend/src/shared/record-views/RecordSubitemAction.tsx
   - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
   - frontend/src/shared/record-views/pinnedViewOrder.ts
   - frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx
@@ -468,3 +470,7 @@ Las tablas incrustadas definen una cuadrícula no editable dentro del editor de 
 Las celdas seleccionadas de la tabla muestran un fondo opaco con el color de acento mezclado con la superficie del tema y un contorno interior en cada celda. Un contorno más grueso distingue la celda activa. El mismo estilo cubre los títulos fijos, los intervalos rectangulares y las selecciones separadas en los temas claro y oscuro.
 
 Las cabeceras de tabla separan las acciones del estado de ordenación. Un clic ordena por el campo y alterna ascendente/descendente; un doble clic selecciona toda la columna de la vista actual, también los registros más allá del primer lote cargado, sin cambiar el orden. Solo el campo ordenado muestra una flecha indicativa del sentido. Intro o Espacio ordenan una cabecera enfocada; Mayúsculas+Intro selecciona su columna. El arrastre utiliza un tirador separado. El orden se muestra localmente antes del guardado opcional en serie, funciona sin una función de guardado, respeta los cambios externos posteriores y recupera el orden guardado si falla. Las fechas del sistema se pueden seleccionar y copiar, pero siguen siendo de solo lectura.
+
+## Subitems en las vistas
+
+Con `enableSubitems` activado en la vista, el botón para añadir un subitem aparece junto al título del registro en tabla, lista, kanban, galería, feed, calendario y cronograma. Las visualizaciones ofrecen la misma acción junto al título del registro enfocado; los genogramas también junto a la persona seleccionada. Las vistas incrustadas y completas comparten la asociación con el padre y los valores predeterminados. En tabla y lista se mantiene el campo de nombre en línea y se expande el padre. Los descendientes se muestran recursivamente y los hijos que cumplen el filtro siguen visibles aunque el padre quede excluido.
