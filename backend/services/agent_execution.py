@@ -266,6 +266,8 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
         _tokens[run_id] = inputs["cancel_token"]
     result = ""
     try:
+        from backend.services.agent_correction_output import checked_correction_workflow
+        application = checked_correction_workflow(application, inputs, snapshot, run_id)
         async for event in application.astream(inputs, config=config, stream_mode=stream_mode):
             for update in event.values():
                 for message in update.get("messages", []):
@@ -375,7 +377,7 @@ async def _operation_response(application: Any, inputs: dict[str, Any], request:
     return text
 
 
-async def _operation_application(request: AgentOperation, snapshot: AgentExecutionSnapshot, ai: Any, runtime: Any) -> tuple[Any, Any]:
+async def _operation_application(request: AgentOperation, snapshot: AgentExecutionSnapshot, ai: Any, runtime: Any, *, validation_retry: bool = False) -> tuple[Any, Any]:
     from backend.agent.factory import create_agent_workflow
     classifying_notes = request.operation == "knowledge" and request.data.get("task") == "knowledge.classify"
     workflow, selection = await create_agent_workflow(
@@ -388,14 +390,19 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         # The durable reader owns the book loop. Each phase asks its frozen
         # model for one bounded result; a team handoff cannot run that loop
         # from a conversation or switch its source-processing executor.
-        operation_team_help=request.operation != "knowledge.process-source.phase" and not classifying_notes,
+        operation_team_help=request.operation not in {"knowledge.process-source.phase", "writing.correct.repair"} and not classifying_notes,
         # Reading returns one bounded action, never the whole book. Avoid a
         # provider-default reservation of 65,536 output tokens for each step.
         operation_max_output_tokens=((8192 if request.options.get("reading_prose") else 16384)
                                      if request.operation == "knowledge.process-source.phase"
                                      else 4096 if classifying_notes else None),
-        operation_default_reasoning_effort=("low" if request.operation == "knowledge.process-source.phase"
-                                            and not snapshot.profile.get("reasoning_effort") else None),
+        # Routing needs a validated assignment, not a solution to the task.
+        # A rejected plan gets the existing repair call at the model's normal
+        # effort. Explicit profile choices and specialist effort stay intact.
+        operation_default_reasoning_effort=(None if snapshot.profile.get("reasoning_effort") else
+            "low" if request.operation == "knowledge.process-source.phase" else
+            "one_step_lower" if request.operation == "team.plan" and request.options.get("economical_planning")
+            and not validation_retry else None),
         output_schema=request.output_schema,
     )
     if workflow is None:
@@ -440,7 +447,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     try:
         application, selection = await _operation_application(request, snapshot, ai, runtime)
         store.update(snapshot.scope, run_id, provider=str(selection.get("provider") or ""), model=str(selection.get("model") or ""))
-        messages: list[BaseMessage] = [HumanMessage(content=operation_input(request))]
+        messages: list[BaseMessage] = [HumanMessage(content=operation_input(request, provider=str(selection.get("provider") or "")))]
         deadline = time.monotonic() + request.timeout_seconds
         text = ""
         partial_repair: OutputRepair | None = None
@@ -491,10 +498,12 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                     continue
                 repair = snapshot.behavior_resources.get("system/repair.md", resource("system/repair.md"))
                 messages = [*messages, AIMessage(content=text), HumanMessage(content=repair + "\n" + json.dumps({"validation_error": diagnostic}, ensure_ascii=False))]
-                if request.tool_mode == "read":
+                planning_fallback = (request.operation in {"team.plan", "team.replan"}
+                    and selection.get("provider") == "openrouter" and not snapshot.profile.get("reasoning_effort"))
+                if request.tool_mode == "read" or planning_fallback:
                     repair_request = request.model_copy(update={"tool_mode": "none"})
                     async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
-                        application, _ = await _operation_application(repair_request, snapshot, ai, runtime)
+                        application, _ = await _operation_application(repair_request, snapshot, ai, runtime, validation_retry=True)
         raise RuntimeError("agent_invalid_result")
     except BaseException as error:
         cancel(cancel_token)

@@ -73,26 +73,58 @@ class TemporaryAgentSpec(BaseModel):
 
 
 class TeamTask(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"required": ["id", "agent_id", "objective", "skill_ids"]})
     id: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,31}$")
-    agent_id: str = ""
+    agent_id: str = Field(default="", description="Exact available member ID from the capability catalog; empty only with an allowed temporary specialist.")
     objective: str = Field(min_length=1, max_length=8000)
     expected_result: str = Field(default="Satisfy the original output contract", max_length=4000)
     acceptance: list[str] = Field(default_factory=list, max_length=8)
     skill_ids: list[str] = Field(min_length=1, max_length=32)
-    depends_on: list[str] = Field(default_factory=list, max_length=3)
+    depends_on: list[str] = Field(default_factory=list, max_length=3,
+        description="Only IDs of earlier tasks; never this task's own ID. Use [] for a standalone task.")
     read_only: bool = True
     temporary: TemporaryAgentSpec | None = None
 
 
+JsonType = Literal["object", "array", "string", "number", "integer", "boolean", "null"]
+
+
+class TeamOutputField(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    path: list[str] = Field(min_length=1, max_length=8, description="Exact property names; * selects an array item, e.g. [classifications, *, id].")
+    type: JsonType
+    required: bool = True
+    choices: list[str | int | float | bool | None] = Field(default_factory=list, max_length=64,
+        description="Explicitly allowed scalar values. On an array field these are allowed values for each item.")
+
+
+class TeamOutputContract(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: JsonType = "object"
+    fields: list[TeamOutputField] = Field(default_factory=list, max_length=64)
+    allow_extra_keys: bool = False
+
+
 class TeamPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    tasks: list[TeamTask] = Field(min_length=1, max_length=4)
-    result_task: str
+    operation: str = Field(default="", max_length=128,
+        description="First identify the requested application_operation from the capability catalog. Empty only for dialogue or a custom capability without an application operation.")
+    response_kind: Literal["", "greeting", "clarification", "conversation", "unavailable"] = "conversation"
+    output_contract: TeamOutputContract | None = Field(default=None,
+        description="Declare the requested JSON root type and field paths/types. Null for ordinary text or clarification. Use an object with value:number or value:boolean for typed table fields.")
+    tasks: list[TeamTask] = Field(default_factory=list, max_length=4)
+    result_task: str = ""
     synthesize: bool = False
+    response: str = Field(default="", max_length=12000)
 
     @model_validator(mode="after")
     def ordered_dag(self) -> TeamPlan:
+        if self.response.strip():
+            if self.tasks or self.result_task or self.synthesize:
+                raise ValueError("agent_team_response_must_be_standalone")
+            return self
+        if not self.tasks:
+            raise ValueError("agent_team_missing_tasks_or_response")
         seen: set[str] = set()
         for task in self.tasks:
             if task.id in seen or not set(task.depends_on).issubset(seen):

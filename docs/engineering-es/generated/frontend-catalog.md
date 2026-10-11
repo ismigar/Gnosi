@@ -48,7 +48,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1188 | 131138 | 55 |
+| `features` | 1191 | 131255 | 55 |
 | `generated` | 2 | 49841 | 510 |
 | `shared` | 296 | 33275 | 440 |
 
@@ -92,7 +92,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/agent/chat/ChatPanelView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ChatPanelView.tsx) | 185 | `ChatPanelView` | — |
 | [`frontend/src/features/agent/chat/ChatSessionList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ChatSessionList.tsx) | 55 | `ChatSessionList` | — |
 | [`frontend/src/features/agent/chat/ConfirmationReview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ConfirmationReview.tsx) | 75 | `ConfirmationReview` | — |
-| [`frontend/src/features/agent/chat/MessageDetails.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/MessageDetails.tsx) | 232 | `MessageDetails` | — |
+| [`frontend/src/features/agent/chat/MessageDetails.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/MessageDetails.tsx) | 235 | `MessageDetails` | — |
+| [`frontend/src/features/agent/chat/TeamUsageDetails.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/TeamUsageDetails.tsx) | 21 | `TeamUsageDetails` | — |
 | [`frontend/src/features/agent/chat/agentChatTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/agentChatTypes.ts) | 13 | — | — |
 | [`frontend/src/features/agent/chat/applyChatStreamEvent.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/applyChatStreamEvent.ts) | 52 | `applyChatStreamEvent` | — |
 | [`frontend/src/features/agent/chat/chatComposerTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/chatComposerTypes.ts) | 28 | — | — |
@@ -104,7 +105,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/agent/chat/chatTurnTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/chatTurnTypes.ts) | 27 | — | — |
 | [`frontend/src/features/agent/chat/checkpointQueue.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/checkpointQueue.ts) | 21 | `queueCheckpointDeletion`, `retryCheckpointDeletions` | — |
 | [`frontend/src/features/agent/chat/composerModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/composerModel.ts) | 62 | `CHAT_ATTACHMENT_ACCEPT`, `EMPTY_MENTION_MENU`, `MAX_CHAT_ATTACHMENTS`, `MAX_CHAT_ATTACHMENT_SIZE`, `catalogMentions`, `insertChatMention`, `mentionMenuReducer`, `pickChatAttachments`, `queryMentionMenu` | — |
-| [`frontend/src/features/agent/chat/confirmationActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/confirmationActions.ts) | 70 | `cancelPendingAction`, `confirmPendingAction` | — |
+| [`frontend/src/features/agent/chat/confirmationActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/confirmationActions.ts) | 75 | `cancelPendingAction`, `confirmPendingAction` | — |
 | [`frontend/src/features/agent/chat/confirmationModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/confirmationModel.ts) | 31 | `confirmationDetailRecord`, `confirmationScope`, `formatConfirmationValue` | — |
 | [`frontend/src/features/agent/chat/confirmationState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/confirmationState.ts) | 69 | `confirmationRequest`, `localizedConfirmationError`, `mergeLiveConfirmationRecords`, `partialConfirmationMessage`, `recoveredConfirmationMessage`, `withConfirmationStatus` | — |
 | [`frontend/src/features/agent/chat/liveConversationModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/liveConversationModel.ts) | 22 | `hydrateChatMessages`, `readLiveChatMessages` | — |
@@ -142,11 +143,12 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/agent/model/agentChatMentionUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatMentionUtils.ts) | 25 | `selectedMentionsInText`, `visibleMentionToken` | — |
 | [`frontend/src/features/agent/model/agentChatMessageTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatMessageTypes.ts) | 33 | `asLooseArray`, `isLooseArray`, `isRecord`, `recordValue`, `stringifyLooseValue` | — |
 | [`frontend/src/features/agent/model/agentChatMessageUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatMessageUtils.ts) | 26 | — | — |
-| [`frontend/src/features/agent/model/agentChatTiming.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatTiming.ts) | 383 | `boundedProcessingMs`, `boundedTurnMetrics`, `effectiveMessageTimingMs`, `processingSeconds`, `timedPayloadFromMessage` | — |
+| [`frontend/src/features/agent/model/agentChatTiming.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatTiming.ts) | 385 | `boundedProcessingMs`, `boundedTurnMetrics`, `effectiveMessageTimingMs`, `processingSeconds`, `timedPayloadFromMessage` | — |
 | [`frontend/src/features/agent/model/agentChatTransparency.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatTransparency.ts) | 357 | `boundedBudget`, `boundedCitations`, `boundedConflicts`, `boundedEvidenceSecurity`, `boundedExplanation`, `boundedFreshness`, `boundedJob`, `boundedPrivacy`, `boundedQuality`, `boundedTransparencyMetadata`, `boundedTurnPlan`, `boundedVerification`, `isRetryableErrorCode` | — |
 | [`frontend/src/features/agent/model/agentChatTurnIdentity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentChatTurnIdentity.ts) | 138 | `getTurnId`, `normalizeMessageTurnId` | — |
 | [`frontend/src/features/agent/model/agentConfirmationUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentConfirmationUtils.ts) | 103 | `CONFIRMATION_REFRESH_MS`, `agentChatStorageScope`, `confirmationForStorage`, `mergeConfirmationRecords`, `startConfirmationRefresh` | — |
 | [`frontend/src/features/agent/model/agentRuntimeStatus.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentRuntimeStatus.ts) | 74 | `deriveAgentRuntimeStatus` | — |
+| [`frontend/src/features/agent/model/agentTeamUsage.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/model/agentTeamUsage.ts) | 39 | `boundedTeamUsage` | — |
 | [`frontend/src/features/agent-context/AgentContextSources.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/AgentContextSources.tsx) | 170 | `AgentContextSources`, `function` | — |
 | [`frontend/src/features/agent-context/agent-context/AgentContextPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/agent-context/AgentContextPicker.tsx) | 301 | `AgentContextPicker` | — |
 | [`frontend/src/features/agent-context/agent-context/AgentContextReferenceList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/agent-context/AgentContextReferenceList.tsx) | 43 | `AgentContextReferenceList` | — |
@@ -158,7 +160,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/agent-context/agent-context/sourceSummary.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/agent-context/sourceSummary.ts) | 55 | `sourceSummary` | — |
 | [`frontend/src/features/agent-context/agent-context/useAgentContextCatalog.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/agent-context/useAgentContextCatalog.ts) | 30 | `useAgentContextCatalog` | — |
 | [`frontend/src/features/agent-context/agent-context/useContextResource.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/agent-context/useContextResource.ts) | 46 | `useContextKey`, `useContextResource` | — |
-| [`frontend/src/features/agent-context/model/vaultAgentContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/model/vaultAgentContext.ts) | 111 | `vaultAgentContextRefs`, `vaultPageViewIds` | — |
+| [`frontend/src/features/agent-context/model/vaultAgentContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/model/vaultAgentContext.ts) | 115 | `vaultAgentContextRefs`, `vaultPageViewIds` | — |
 | [`frontend/src/features/agent-learning/ConversationLearning.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/ConversationLearning.tsx) | 61 | `ConversationLearning` | — |
 | [`frontend/src/features/agent-learning/LearnedSkillEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/LearnedSkillEditor.tsx) | 93 | `LearnedSkillEditor` | — |
 | [`frontend/src/features/agent-learning/LearningProjectPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/LearningProjectPanel.tsx) | 107 | `LearningProjectPanel` | — |
@@ -739,7 +741,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/dashboard/table-callbacks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/table-callbacks.ts) | 26 | `tableBodyCallbacks` | — |
 | [`frontend/src/features/vault/dashboard/test-support.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/test-support.tsx) | 63 | `CATALOG`, `CREATED`, `DETAIL`, `OTHER_ID`, `PAGE`, `PAGE_ID`, `installApiDefaults`, `renderActions` | — |
 | [`frontend/src/features/vault/dashboard/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/types.ts) | 167 | — | — |
-| [`frontend/src/features/vault/dashboard/useAgentContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useAgentContext.ts) | 36 | `useAgentContext` | — |
+| [`frontend/src/features/vault/dashboard/useAgentContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useAgentContext.ts) | 38 | `useAgentContext` | — |
 | [`frontend/src/features/vault/dashboard/useBreadcrumbs.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useBreadcrumbs.ts) | 94 | `useBreadcrumbs` | — |
 | [`frontend/src/features/vault/dashboard/useBrowserHistory.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useBrowserHistory.ts) | 30 | `browserHistoryIndex`, `historyMaximum`, `useBrowserHistory` | — |
 | [`frontend/src/features/vault/dashboard/useContentCreation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useContentCreation.ts) | 205 | `useContentCreation` | — |
@@ -1111,7 +1113,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/view-config/page-view-modal/useViewSession.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewSession.ts) | 21 | `useViewSession` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/useViewSnapshot.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewSnapshot.ts) | 101 | `useViewSnapshot` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/useViewState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewState.ts) | 138 | `useViewState` | — |
-| [`frontend/src/features/vault/views/DbViewEmbed.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/DbViewEmbed.tsx) | 53 | `DbViewEmbed` | — |
+| [`frontend/src/features/vault/views/DbViewEmbed.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/DbViewEmbed.tsx) | 56 | `DbViewEmbed` | — |
 | [`frontend/src/features/vault/views/ExposedFilters.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/ExposedFilters.tsx) | 64 | `ExposedFilters` | — |
 | [`frontend/src/features/vault/views/GalleryCardPreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/GalleryCardPreview.tsx) | 159 | `GalleryContentPreview`, `GalleryOpenButton` | — |
 | [`frontend/src/features/vault/views/RecordViewFrame.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/RecordViewFrame.tsx) | 87 | `RecordViewFrame` | — |
@@ -1153,6 +1155,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/views/db-view-embed/joins.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/joins.ts) | 100 | `applyClientJoins`, `normalizeVisibleColumns` | — |
 | [`frontend/src/features/vault/views/db-view-embed/preferences.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/preferences.ts) | 39 | `encodePresets`, `importPresets`, `pinnedKey`, `readPinned`, `readPresets`, `readText`, `selectedKey`, `toggleContrast`, `toggleTextSize`, `writeText` | — |
 | [`frontend/src/features/vault/views/db-view-embed/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/types.ts) | 108 | — | — |
+| [`frontend/src/features/vault/views/db-view-embed/useEmbedAgentContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/useEmbedAgentContext.ts) | 38 | `useEmbedAgentContext` | — |
 | [`frontend/src/features/vault/views/db-view-embed/useEmbedController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/useEmbedController.ts) | 46 | `useEmbedController` | — |
 | [`frontend/src/features/vault/views/db-view-embed/useEmbedDerived.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/useEmbedDerived.ts) | 132 | `useEmbedDerived` | — |
 | [`frontend/src/features/vault/views/db-view-embed/useEmbedLoad.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/useEmbedLoad.ts) | 217 | `useEmbedLoad` | — |

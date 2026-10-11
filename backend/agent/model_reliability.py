@@ -48,6 +48,7 @@ FAULT: Dict[str, str] = {
     "auth": "account",
     "not_found": "account",
     "timeout": "provider",
+    "network_error": "provider",
     "server_error": "provider",
     "unknown": "unknown",
 }
@@ -68,6 +69,7 @@ _SIGNATURES = (
     ("auth", ("invalid_api_key", "unauthorized", "authentication", "401", "403")),
     ("not_found", ("model_not_found", "does not exist", "404")),
     ("timeout", ("timeout", "timed out", "read operation")),
+    ("network_error", ("connection error", "connection reset", "connection refused")),
     ("server_error", ("internal server error", "bad gateway", "service unavailable",
                       "overloaded", "500", "502", "503")),
 )
@@ -75,6 +77,15 @@ _SIGNATURES = (
 
 def classify_failure(error: Any) -> str:
     """Maps a provider error to a reason. Pure: `error` may be text or an exception."""
+    # LangChain wraps SDK failures. Keep transport failures recoverable even
+    # when the exception has no message, without blaming model capabilities.
+    from openai import APIConnectionError, APITimeoutError
+    import httpx
+
+    if isinstance(error, (TimeoutError, httpx.TimeoutException, APITimeoutError)):
+        return "timeout"
+    if isinstance(error, (ConnectionError, httpx.NetworkError, APIConnectionError)):
+        return "network_error"
     text = str(error or "").lower()
     if not text:
         return "unknown"

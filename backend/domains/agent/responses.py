@@ -24,7 +24,7 @@ def _response_language(message: str) -> str:
     if re.search(
         r"\b(?:soc|troba|cerca|llista|mostra|ensenya|dona|dels|quals|meus|"
         r"meves|quin|quins|quina|quines|quant|quants|quantes|tinc|amb|"
-        r"analitza|noticies|totes|temes|relacionades|continua|seguents|titulacio|titulacions|tasca|tasques|"
+        r"ara|fes|canvia|substitueix|analitza|noticies|totes|temes|relacionades|continua|seguents|titulacio|titulacions|tasca|tasques|"
         r"projecte|projectes|font|fonts|pagina|pagines|registre|registres)\b",
         text,
     ):

@@ -233,7 +233,7 @@ def verify_response(
     summary = _summarize_evidence(tools, tool_names, payloads, plan)
     policy = _string_key_dict(plan.get("verification"))
     language = str(plan.get("language") or "en")
-    text = str(getattr(response, "content", "") or "")
+    text = str(response.text)
     status, limitations, blocked_reason = _verification_decision(
         policy=policy,
         text=text,

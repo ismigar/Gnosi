@@ -86,15 +86,36 @@ describe('confirmation execution reconciliation', () => {
     expect(state.messages()[1]?.content).toBe('Conflict');
   });
 
-  it('preserves partial success counts and defaults a missing success status to completed', async () => {
+  it('preserves partial success counts and reconciles a missing success status', async () => {
     const state = setup();
     api.confirm.mockResolvedValueOnce({ ok: true, statusText: '', payload: { status: 'partial', detail: {}, result: { purged_count: 3, failed_count: 1 } } });
     await confirmPendingAction(state.context);
     expect(state.messages()[1]?.content).toContain('3 completed, 1 failed');
     api.confirm.mockResolvedValueOnce({ ok: true, statusText: '', payload: { detail: {}, result: {} } });
+    api.status.mockResolvedValueOnce({ status: 'completed', detail: {}, result: {} });
     const next = setup();
     await confirmPendingAction(next.context);
     expect(next.messages()[0]?.confirmation?.status).toBe('completed');
+    expect(api.status).toHaveBeenCalledOnce();
+  });
+
+  it.each(['failed', 'cancelled', 'expired', 'outcome_unknown', 'pending'])('does not announce completion for an HTTP success with status %s', async (status) => {
+    api.confirm.mockResolvedValue({ ok: true, statusText: '', payload: { status, detail: {}, result: {} } });
+    const state = setup();
+    await confirmPendingAction(state.context);
+    expect(state.messages()[0]?.confirmation?.status).toBe(status);
+    expect(state.messages()[1]?.content).not.toContain('Action completed');
+    expect(api.confirm).toHaveBeenCalledOnce();
+  });
+
+  it('reports uncertainty if a successful HTTP response has no observable action status', async () => {
+    api.confirm.mockResolvedValue({ ok: true, statusText: '', payload: { detail: {}, result: {} } });
+    api.status.mockRejectedValue(new Error('offline'));
+    const state = setup();
+    await confirmPendingAction(state.context);
+    expect(state.messages()[0]?.confirmation?.status).toBe('outcome_unknown');
+    expect(state.messages()[1]?.content).toContain('outcome is unknown');
+    expect(api.confirm).toHaveBeenCalledOnce();
   });
 
   it('does not add completion to a newly selected scope', async () => {

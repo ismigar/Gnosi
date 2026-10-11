@@ -151,6 +151,8 @@ def _chat_inputs(
     trace_id: str,
 ) -> Dict[str, Any]:
     additional_kwargs: Dict[str, Any] = {"gnosi_visible_content": chat_req.message}
+    if chat_req.attachments or chat_req.mentions:
+        additional_kwargs['gnosi_extra_context'] = True
     if notebook_turn:
         additional_kwargs["gnosi_author_user_id"] = workspace_context.user_id
         if notebook_turn.get("revision") is not None:
@@ -159,6 +161,7 @@ def _chat_inputs(
         additional_kwargs["gnosi_turn_id"] = chat_req.turn_id
     return {
         "messages": [HumanMessage(content=user_content, additional_kwargs=additional_kwargs)],
+        "user_request": chat_req.message,
         "turn_authorized_tool_names": sorted(authorized_tool_names),
         "active_skill_ids": list((llm_selection or {}).get("active_skill_ids") or []),
         "current_user_role": workspace_context.role,
@@ -322,9 +325,11 @@ async def chat_endpoint(
 
         # 2. Get the workflow only after request-owned uploads are cleaned up.
         turn_context_refs = [item.model_dump(mode="python") for item in chat_req.context_refs]
+        from backend.domains.agent.title_context import mention_context_refs
+        from backend.agent.agent_context import merge_context_refs
+        turn_context_refs = merge_context_refs(turn_context_refs, mention_context_refs(
+            chat_req.message, [mention.model_dump(mode="python") for mention in chat_req.mentions]))
         if project_refs:
-            from backend.agent.agent_context import merge_context_refs
-
             turn_context_refs = merge_context_refs(project_refs, turn_context_refs)
         if notebook_turn:
             turn_context_refs = notebook_turn["contexts"]
@@ -398,6 +403,7 @@ async def chat_endpoint(
                 ),
             ),
         )
+        turn_timeout_seconds = TURN_TIMEOUT_SECONDS if (llm_selection or {}).get("mode") == "team" else turn_timeout_seconds
         inputs = _chat_inputs(
             chat_req=chat_req,
             workspace_context=workspace_context,

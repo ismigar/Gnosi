@@ -35,6 +35,7 @@ MESSAGES = {
         'auth': 'Les credencials del proveïdor no són vàlides. Revisa-les a Configuració → IA.',
         'not_found': 'El proveïdor no reconeix aquest model.',
         'timeout': 'El proveïdor no ha respost a temps. Torna-ho a provar.',
+        'network_error': 'No s’ha pogut connectar amb el proveïdor d’IA. Revisa la connexió o torna-ho a provar.',
         'server_error': 'S’ha produït un error al proveïdor. Torna-ho a provar més tard.',
     },
     'es': {
@@ -57,6 +58,7 @@ MESSAGES = {
         'auth': 'Las credenciales del proveedor no son válidas. Revísalas en Configuración → IA.',
         'not_found': 'El proveedor no reconoce este modelo.',
         'timeout': 'El proveedor no ha respondido a tiempo. Vuelve a intentarlo.',
+        'network_error': 'No se ha podido conectar con el proveedor de IA. Revisa la conexión o vuelve a intentarlo.',
         'server_error': 'Se ha producido un error en el proveedor. Vuelve a intentarlo más tarde.',
     },
     'fr': {
@@ -79,6 +81,7 @@ MESSAGES = {
         'auth': 'Les identifiants du fournisseur ne sont pas valides. Vérifiez-les dans Paramètres → IA.',
         'not_found': 'Le fournisseur ne reconnaît pas ce modèle.',
         'timeout': 'Le fournisseur n’a pas répondu à temps. Réessayez.',
+        'network_error': 'La connexion au fournisseur d’IA a échoué. Vérifiez la connexion ou réessayez.',
         'server_error': 'Une erreur s’est produite chez le fournisseur. Réessayez plus tard.',
     },
 }

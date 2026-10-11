@@ -53,7 +53,7 @@ Cada plugin d’IA té un perfil editable a la mateixa llista que els perfils pe
 
 ## Principal i participació en l’equip
 
-Tots els bots, també els que participen en l’equip, continuen fent les seves tasques amb el model, les instruccions i les habilitats de la seva fitxa. Demanar ajuda és una capacitat opcional: l’agent només la tria si necessita una altra especialitat o treball coordinat. Ho decideix abans d’executar eines; els encàrrecs rebuts no es tornen a delegar.
+Amb l’equip actiu, el principal interpreta cada petició del xat amb la conversa i les fonts seleccionades, i tria l’especialista segons les seves habilitats, eines i disponibilitat. Pot respondre directament una salutació o un aclariment, o executar una tasca de la seva especialitat si cap especialista disponible té les habilitats necessàries. Els altres bots conserven el model, les instruccions i les habilitats de la seva fitxa; demanen ajuda només quan cal i abans d’executar eines. Els encàrrecs rebuts no es tornen a delegar. Les ordres que s’adrecen explícitament a un bot i les accions dels plugins conserven el seu executor.
 
 El principal forma part de la mateixa llista i coordina l’equip quan hi ha bots que reben encàrrecs. A la fitxa de cadascun dels altres bots, **Participació en l’equip** permet triar:
 
@@ -72,7 +72,9 @@ Amb el focus en el text o en un interruptor, les fletxes amunt/avall i les tecle
 
 
 
-Les assignacions avançades i les rutes directes només s’apliquen després que un agent demani ajuda. Les rutes directes associen operacions conegudes a una llista d’executors. El servidor comprova disponibilitat, habilitats, context i límits abans de comparar el cost estimat de l’encàrrec. El cost desconegut es tracta com a desconegut. Una ruta directa evita la crida al principal; una petició ambigua requereix un pla. Un resultat vàlid es lliura sense una revisió automàtica del principal.
+Les assignacions avançades i les rutes directes s’apliquen a la coordinació del principal i a les peticions d’ajuda dels altres bots. Les rutes directes associen operacions explícites amb llistes d’executors. Les altres peticions es planifiquen amb el model del director, que disposa de les descripcions de les capacitats i del context. El servidor comprova l’agent triat, les habilitats, els permisos i els límits; un agent més barat no substitueix silenciosament l’especialista seleccionat. El cost serveix per triar entre candidats quan no hi ha un executor concret. Un resultat vàlid es lliura sense una revisió addicional automàtica.
+
+Per decidir l’executor, el coordinador rep un catàleg compacte, fins a quatre missatges recents abreujats i una descripció de les fonts seleccionades. L’especialista conserva la petició, l’historial i les seleccions originals. Les reformulacions clares del text anterior, com «ara fes-ho més formal», mantenen l’especialista sense tornar a planificar, sempre que el perfil, les capacitats, els permisos i les fonts continuïn sent vàlids. Les peticions ambigües o amb un objectiu nou es tornen a coordinar. Als detalls de la resposta pots consultar el consum separat de planificació, execució, síntesi i reparació. El cost desconegut no es mostra com a zero; els costos informats pel proveïdor es distingeixen de les estimacions. Les crides de planificació evitades no es compten com un estalvi monetari mesurat: cal comparar les mateixes tasques amb qualitat equivalent.
 
 El pla té un màxim de quatre encàrrecs, dos especialistes temporals i dos encàrrecs de lectura simultanis. Les accions amb modificacions són seqüencials. Les operacions estructurades tenen vuit crides totals com a màxim, dins del pressupost del treball original. La reparació de format té un únic intent i no repeteix les accions. Només es replanteja automàticament treball de lectura; els efectes incerts requereixen revisió.
 

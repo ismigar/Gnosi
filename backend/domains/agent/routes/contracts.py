@@ -21,6 +21,7 @@ FAILURE_MESSAGES = {
     "auth": "Invalid provider credentials. Check them in Settings → AI.",
     "not_found": "The provider does not recognize this model.",
     "timeout": "The provider did not respond in time. Try again.",
+    "network_error": "The connection to the AI provider failed. Check your connection or try again.",
     "server_error": "Provider error. Try again later.",
 }
 
@@ -86,6 +87,7 @@ class TurnContextRef(BaseModel):
                 for key, value in {
                     "view_id": view_id,
                     "view_name": view_name,
+                    "page_id": str(self.scope.get("page_id") or "").strip()[:64],
                 }.items()
                 if value
             }
