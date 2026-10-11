@@ -48,7 +48,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1191 | 131277 | 55 |
+| `features` | 1191 | 131278 | 55 |
 | `generated` | 2 | 49842 | 510 |
 | `shared` | 297 | 33295 | 440 |
 
@@ -741,7 +741,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/dashboard/table-callbacks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/table-callbacks.ts) | 26 | `tableBodyCallbacks` | — |
 | [`frontend/src/features/vault/dashboard/test-support.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/test-support.tsx) | 63 | `CATALOG`, `CREATED`, `DETAIL`, `OTHER_ID`, `PAGE`, `PAGE_ID`, `installApiDefaults`, `renderActions` | — |
 | [`frontend/src/features/vault/dashboard/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/types.ts) | 167 | — | — |
-| [`frontend/src/features/vault/dashboard/useAgentContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useAgentContext.ts) | 38 | `useAgentContext` | — |
+| [`frontend/src/features/vault/dashboard/useAgentContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useAgentContext.ts) | 39 | `useAgentContext` | — |
 | [`frontend/src/features/vault/dashboard/useBreadcrumbs.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useBreadcrumbs.ts) | 94 | `useBreadcrumbs` | — |
 | [`frontend/src/features/vault/dashboard/useBrowserHistory.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useBrowserHistory.ts) | 30 | `browserHistoryIndex`, `historyMaximum`, `useBrowserHistory` | — |
 | [`frontend/src/features/vault/dashboard/useContentCreation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useContentCreation.ts) | 205 | `useContentCreation` | — |
