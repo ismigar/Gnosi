@@ -107,6 +107,17 @@ uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
 
 Sur macOS, utilisez `--resource-profile mac-idle` pour une validation locale limitée. Il remplace le heap par 1536 MiB, exécute à priorité 10 avec un worker et un thread de calcul, et surveille un budget RSS de 2 GiB pour la commande et ses descendants. Chaque phase ne démarre qu’après 30 secondes de pression mémoire normale. Les contrôles statiques, builds et suites sont limités à 5, 10 et 15 minutes respectivement.
 
+`pnpm lint:frontend` découvre les fichiers avec le parcours configuré d’ESLint,
+puis les vérifie par lots de 256 fichiers au maximum, dans des processus nouveaux
+et séquentiels. La découverte n’analyse pas le code et ne remplit pas le cache de
+lint ; seules les vérifications CLI suivantes peuvent établir le succès. Chaque
+lot conserve toutes les règles, le contrôle typé avec project service, les
+exclusions et le seuil de zéro avertissement. Un lot en échec arrête la commande.
+`GNOSI_ESLINT_CACHE` active toujours le cache basé sur le contenu. Les limites de
+heap, de RSS et de durée de mac-idle restent inchangées. Les régressions comparent
+la découverte à ESLint réel et couvrent les erreurs dans les lots suivants, les
+règles typées, l’invalidation du cache et la terminaison du processus enfant.
+
 Un avertissement pendant 2 secondes, une pression critique, un timeout, un dépassement RSS ou un échec de supervision arrêtent les processus concernés et laissent la validation incomplète. Aucun nouvel essai ni augmentation automatique du plafond. Arrêtez les autres jobs de validation; ne fermez pas les applications de l’utilisateur et ne chargez pas de modèles locaux pendant cet audit. Les suites Node de contrats et desktop utilisent explicitement `--test-concurrency=1`.
 
 ```bash

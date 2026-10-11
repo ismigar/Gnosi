@@ -149,6 +149,18 @@ is performed by the command.
 If source or `HEAD` changes during validation, the gate fails and must be rerun;
 expected generated-catalog updates are the only excluded source differences.
 
+## Frontend lint memory
+
+`pnpm lint:frontend` discovers files through ESLint's configured directory scan,
+then checks batches of at most 256 files in fresh, sequential processes. The
+discovery pass does not parse source or populate a lint cache; only the subsequent
+CLI checks can establish success. All existing rules, TypeScript project-service
+checks, ignores and the zero-warning threshold apply to every batch. A failed
+batch stops the command. `GNOSI_ESLINT_CACHE` still enables content-based caching.
+The mac-idle heap, process-tree memory budget and overall phase deadline stay
+unchanged. Runner regressions compare discovery with real ESLint and exercise
+later-batch failures, type-aware rules, cache invalidation and child termination.
+
 ## Unified type checking
 
 Run `pnpm typecheck` from the repository root. It runs frontend TypeScript,

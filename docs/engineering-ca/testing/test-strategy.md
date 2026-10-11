@@ -106,6 +106,16 @@ uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
 
 A macOS, feu servir `--resource-profile mac-idle` per a la validació local acotada. Substitueix el heap predeterminat per 1536 MiB, executa amb prioritat 10, un worker i un fil de càlcul, i supervisa un pressupost RSS de 2 GiB per a l’ordre i els descendents. Cada fase comença només després de 30 segons de pressió de memòria normal. Les comprovacions estàtiques, els builds i les suites tenen límits de 5, 10 i 15 minuts respectivament.
 
+`pnpm lint:frontend` descobreix els fitxers amb el recorregut configurat d’ESLint i
+els comprova en lots de com a màxim 256 fitxers, amb processos nous i seqüencials.
+La descoberta no analitza el codi ni omple la memòria cau de lint; només les
+comprovacions CLI posteriors poden acreditar l’èxit. Cada lot conserva totes les
+regles, la comprovació tipada amb project service, les exclusions i el llindar de
+zero avisos. Un lot fallit atura l’ordre. `GNOSI_ESLINT_CACHE` continua activant la
+cau basada en contingut. Els límits de heap, RSS i durada de mac-idle no canvien.
+Les regressions comparen la descoberta amb ESLint real i cobreixen errors en lots
+posteriors, regles tipades, invalidació de cau i terminació del procés fill.
+
 L’avís sostingut durant 2 segons, la pressió crítica, el timeout, l’excés d’RSS o una fallada de supervisió aturen els processos propis i deixen la validació incompleta. No hi ha reintent automàtic ni augment del límit. Manteniu aturats altres jobs de validació; no tanqueu aplicacions de l’usuari ni carregueu models locals durant aquesta auditoria. Les suites Node de contractes i escriptori fan servir explícitament `--test-concurrency=1`.
 
 ```bash
