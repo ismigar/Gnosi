@@ -6007,6 +6007,16 @@
     "axis_summary": "{{yLabel}} por <field>{{xField}}</field>"
   },
   "timeline": {
+    "move_up": "Mover arriba",
+    "move_down": "Mover abajo",
+    "move_indent": "Convertir en subtarea",
+    "move_outdent": "Sacar de la tarea principal",
+    "drag_row": "Arrastra antes, dentro o después de otra tarea",
+    "drop_before": "Antes",
+    "drop_inside": "Dentro",
+    "drop_after": "Después",
+    "manual_sort_hint": "Quita la ordenación de la vista para mover las tareas manualmente.",
+    "move_error": "No se ha podido completar el movimiento. Revisa el orden e inténtalo de nuevo.",
     "select_predecessor": "Selecciona una Predecesora",
     "predecessor_prompt": "Elige qué registro debe finalizar antes de que <bold>{{name}}</bold> pueda empezar.",
     "col_title": "Título del Registro",
