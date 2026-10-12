@@ -1,9 +1,9 @@
+import { unifiedDate, dateBoundary } from '../../../../shared/dates/unifiedDate';
 import { notifyError } from '../../../../shared/notifications/notifyError';
 import { patchVaultTablePage } from '../../../../shared/api/vault-table';
 import { withPeriodBoundaries } from '../../../../shared/dates/projectPlanning';
 import { sameCellValue } from '../../properties/cellGridUtils';
 import { getFieldType } from '../../../../shared/records/model/schemaUtils';
-import { parsePeriod } from '../../properties/VaultDateProperty';
 import { displayString } from './fieldConfig';
 import { getMetaKey } from './metadata';
 import { metadataDate } from './cellValues';
@@ -32,8 +32,8 @@ export function useTableSave({
   allChildrenByParent,
   schema,
 }: Inputs) {
-  const handleCellSave: CellSave = async (noteId: string, field: string, newValue: unknown, originalMetaKey: string, skipPropagation: boolean = false, additionalMetaUpdates: MetadataPatch = {}) => {
-    setEditingCell(null);
+  const handleCellSave: CellSave = async (noteId: string, field: string, newValue: unknown, originalMetaKey: string, skipPropagation: boolean = false, additionalMetaUpdates: MetadataPatch = {}, keepEditing = false) => {
+    if (!keepEditing) setEditingCell(null);
     setEditInitial(null);
     const note = safeNotes.find(n => n.id === noteId);
     if (!note) return false;
@@ -112,7 +112,7 @@ export function useTableSave({
             .find(v => completedValues.has(displayString(v || '').toLowerCase())) || newValue);
         const parentStatus = getFieldType(schema, changedField) === 'checkbox' ? true : completedWrite;
         if (displayString(parentCurrentVal || '').toLowerCase() !== displayString(parentStatus).toLowerCase()) {
-          await handleCellSave(parentId, changedField, parentStatus, parentMetaKey, true);
+          await handleCellSave(parentId, changedField, parentStatus, parentMetaKey, true, {}, true);
         }
       }
     }
@@ -129,17 +129,16 @@ export function useTableSave({
       }).filter(Boolean);
 
       if (allDates.length > 0) {
-        if (getFieldType(schema, changedField) === 'period') {
-          const starts = allDates.map(v => parsePeriod(v).start).filter(Boolean).map(d => new Date(d)).filter(d => !Number.isNaN(d.getTime()));
-          const ends = allDates.map(v => parsePeriod(v).end).filter(Boolean).map(d => new Date(d)).filter(d => !Number.isNaN(d.getTime()));
+        if (getFieldType(schema, changedField) === 'period' || allDates.some(v => typeof v === 'object' && v !== null && 'start' in v)) {
+          const dates = allDates.map(v => unifiedDate(v, getFieldType(schema, changedField)));
+          const starts = dates.map(v => dateBoundary(v, 'start')).filter(Boolean).map(d => new Date(d)).filter(d => !Number.isNaN(d.getTime()));
+          const ends = dates.map(v => dateBoundary(v, 'end') || dateBoundary(v, 'start')).filter(Boolean).map(d => new Date(d)).filter(d => !Number.isNaN(d.getTime()));
           if (starts.length > 0 && ends.length > 0) {
             const minStart = new Date(Math.min(...starts.map(d => d.getTime())));
             const maxEnd = new Date(Math.max(...ends.map(d => d.getTime())));
             const parentMetaKey = getMetaKey(parent, changedField);
             const parentValue = parent.metadata?.[parentMetaKey];
-            const hasTime = allDates.some((item) => (
-              parsePeriod(item).start.includes('T') || parsePeriod(item).end.includes('T')
-            ));
+            const hasTime = dates.some(item => item.withTime);
             const padDatePart = (number: number) => displayString(number).padStart(2, '0');
             const localDate = (date: Date) => {
               const day = `${String(date.getFullYear())}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`;
@@ -147,14 +146,18 @@ export function useTableSave({
                 ? `${day}T${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`
                 : day;
             };
-            const newPeriod = withPeriodBoundaries(
+            const boundaries = withPeriodBoundaries(
               parentValue,
               localDate(minStart),
               localDate(maxEnd),
               { startMode: 'auto', endMode: 'auto' },
             );
+            const newPeriod = getFieldType(schema, changedField) === 'period' ? boundaries : {
+              ...unifiedDate(parentValue), ...(boundaries || {}), withTime: hasTime,
+              kind: dates.some(date => date.kind === 'period') || minStart.getTime() !== maxEnd.getTime() ? 'period' : 'point',
+            };
             if (JSON.stringify(parentValue) !== JSON.stringify(newPeriod)) {
-              await handleCellSave(parentId, changedField, newPeriod, parentMetaKey, true);
+              await handleCellSave(parentId, changedField, newPeriod, parentMetaKey, true, {}, true);
             }
           }
         } else {
@@ -167,7 +170,7 @@ export function useTableSave({
               : new Date(Math.min(...dates.map(d => d.getTime()))).toISOString().split('T')[0];
             const parentMetaKey = getMetaKey(parent, changedField);
             if (parent.metadata?.[parentMetaKey] !== targetDate) {
-              await handleCellSave(parentId, changedField, targetDate, parentMetaKey, true);
+              await handleCellSave(parentId, changedField, targetDate, parentMetaKey, true, {}, true);
             }
           }
         }

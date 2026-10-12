@@ -228,7 +228,7 @@ describe('VaultDateProperty scalar and recurrence contracts', () => {
         act(() => {
             repeatButton.click();
         });
-        const recurrence = requiredElement(container, 'select');
+        const recurrence = Array.from(container.querySelectorAll('select')).find(select => select.querySelector('option[value="DAILY"]'));
         if (!(recurrence instanceof HTMLSelectElement)) {
             throw new Error('Expected recurrence selector');
         }

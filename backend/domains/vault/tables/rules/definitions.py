@@ -241,6 +241,11 @@ def is_truthy_checkbox(value: object) -> bool:
 
 
 def as_datetime(value: object) -> datetime | None:
+    if isinstance(value, dict):
+        with_time = value.get("withTime")
+        value = value.get("start")
+        if value is not None and isinstance(value, str):
+            value = value.partition("T")[0] if with_time is False else value
     if value is None or value == "":
         return None
     if isinstance(value, datetime):

@@ -67,6 +67,8 @@ def canonical_scalar(field_type: str, raw: object) -> object:
             return date.fromisoformat(raw).isoformat() if field_type == "date" else datetime.fromisoformat(raw).isoformat()
         except ValueError:
             return None
+    if field_type in {"date", "datetime"} and isinstance(raw, dict) and "start" in raw:
+        return deepcopy(raw)
     if field_type in COPY_TYPES and isinstance(raw, (str, list, dict)):
         return deepcopy(raw)
     return None

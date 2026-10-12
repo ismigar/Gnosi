@@ -158,7 +158,7 @@ export function useVaultTimelineController({
     const fieldConfig = readers.fieldConfig(schema, dateField);
     const timelineUnit = timelineUnitFromConfig(fieldConfig);
     const enhancedPeriod = isEnabled('project-planning')
-        && readers.fieldType(schema, dateField) === 'period';
+        && ['date', 'datetime', 'period'].includes(readers.fieldType(schema, dateField));
     const planningSettings = planningSettingsFrom(
         getPluginSettings('project-planning'),
     );
@@ -324,7 +324,7 @@ export function useVaultTimelineController({
 
     return {
         movingRow, moveError, canMoveRow, moveRow, dropRow,
-        canEditDates: Boolean(onUpdateNote && dateField && (readers.fieldType(schema, dateField) === 'period' || (endDateField && endDateField !== dateField))),
+        canEditDates: Boolean(onUpdateNote && dateField && (['date', 'datetime', 'period'].includes(readers.fieldType(schema, dateField)) || (endDateField && endDateField !== dateField))),
         canEditDependencies: Boolean(onUpdateNote),
         scrollLeft, setScrollLeft, viewportWidth, columnWidth, setColumnWidth, visibleNotes, collapsedIds, toggleCollapsed,
         fitProject, goToDate, goToToday: () => { goToDate(new Date()); },

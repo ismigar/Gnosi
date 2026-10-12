@@ -1,3 +1,4 @@
+import { formatUnifiedDate } from '../../../shared/dates/unifiedDate';
 import { pageReferenceTitle } from '../../../shared/records/pageReferenceTitle';
 import { NumberValue } from '../../../shared/records/NumberValue';
 import { Calendar, CheckSquare, Link as LinkIcon } from 'lucide-react';
@@ -10,7 +11,6 @@ import { openVaultResource } from '../../../shared/api/vaults';
 import { asBool } from '../../../shared/filtering/vaultFilters';
 import { FileFieldValue } from '../properties/FileFieldValue';
 import {
-  formatDate,
   resolveFieldFormat,
 } from '../../../shared/records/model/formatUtils';
 import {
@@ -58,11 +58,7 @@ function imageAlt(value: unknown, fallback: string): string {
 }
 
 
-function periodParts(value: unknown): { end: string; start: string } {
-  const text = feedValueString(value);
-  const [start = '', end = ''] = text.split('/');
-  return { end, start };
-}
+
 
 
 function metadataKey(note: VaultFeedNote, field: string): string {
@@ -120,19 +116,9 @@ export function useVaultFeedPills({
     if (type === 'checkbox') {
       return <CheckSquare size={14} className={asBool(value) ? 'text-indigo-500' : 'text-[var(--text-tertiary)]'} />;
     }
-    if (type === 'date' || type === 'datetime') {
+    if (type === 'date' || type === 'datetime' || type === 'period') {
       const format = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
-      return <span className="flex items-center gap-1.5 whitespace-nowrap text-sm text-[var(--text-secondary)]"><Calendar size={14} className="text-[var(--text-tertiary)]" />{formatDate(feedValueString(value), { dateFormat: format.dateFormat, locale: format.dateLocale, type })}</span>;
-    }
-    if (type === 'period') {
-      const format = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
-      const { end, start } = periodParts(value);
-      const formatPart = (part: string): string => formatDate(part, {
-        dateFormat: format.dateFormat,
-        locale: format.dateLocale,
-        type: part.includes('T') ? 'datetime' : 'date',
-      });
-      return <span className="flex items-center gap-1.5 whitespace-nowrap text-sm text-[var(--text-secondary)]"><Calendar size={14} className="text-[var(--text-tertiary)]" />{end ? `${formatPart(start)} → ${formatPart(end)}` : formatPart(start)}</span>;
+      return <span className="flex items-center gap-1.5 whitespace-nowrap text-sm text-[var(--text-secondary)]"><Calendar size={14} className="text-[var(--text-tertiary)]" />{formatUnifiedDate(value, { legacyType: type, dateFormat: format.dateFormat, locale: format.dateLocale, pending: t('vault_date.end_pending') })}</span>;
     }
     if (['number', 'formula', 'rollup', 'virtual'].includes(type)) {
       const format = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);

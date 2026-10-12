@@ -205,6 +205,7 @@ export function matchesRule(
         : ((item.metadata || {})[filter.field] ?? (item[filter.field] ?? ''));
     if (
         filter.periodPart
+        || (typeof rawVal === 'string' && /^-?\d{4,}-\d{2}-\d{2}.*\//.test(rawVal))
         || (
             typeof rawVal === 'object'
             && !Array.isArray(rawVal)
@@ -216,6 +217,10 @@ export function matchesRule(
             filter.periodPart || 'start',
         );
     }
+
+    if (typeof rawVal === 'string' && typeof filter.value === 'string'
+        && (filter.value === 'today' || /^-?\d{4,}-\d{2}-\d{2}$/.test(filter.value))
+        && /^-?\d{4,}-\d{2}-\d{2}T/.test(rawVal)) rawVal = rawVal.split('T')[0] ?? '';
 
     const authorshipMatch = matchesStructuredAuthorship(rawVal, filter.value, filter.operator);
     if (authorshipMatch !== null) return authorshipMatch;

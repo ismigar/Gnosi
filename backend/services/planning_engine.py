@@ -55,21 +55,24 @@ def normalize_period(value: Any) -> dict[str, Any]:
             }
         )
     mode = str(source.get("mode") or "automatic").lower()
+    point = source.get("kind") == "point"
     return {
+        **({"kind": source["kind"]} if source.get("kind") in {"point", "period"} else {}),
+        **({"withTime": source["withTime"]} if isinstance(source.get("withTime"), bool) else {}),
         "version": 3,
         "start": source.get("start"),
-        "end": source.get("end"),
-        "durationDays": max(0.0, float(source.get("durationDays") or 0)),
-        "durationValue": max(0.0, float(source["durationValue"]))
+        "end": source.get("start") if point else source.get("end"),
+        "durationDays": 0.0 if point else max(0.0, float(source.get("durationDays") or 0)),
+        "durationValue": 0.0 if point else max(0.0, float(source["durationValue"]))
         if source.get("durationValue") is not None
         else None,
         "durationUnit": str(source.get("durationUnit") or "")
         if str(source.get("durationUnit") or "") in {"hours", "days", "years"}
         else None,
-        "startMode": "manual" if source.get("startMode") == "manual" else "automatic",
-        "endMode": "manual" if source.get("endMode") == "manual" else "automatic",
+        "startMode": "manual" if point or source.get("startMode") == "manual" else "automatic",
+        "endMode": "manual" if point or source.get("endMode") == "manual" else "automatic",
         "dependencies": normalized_dependencies,
-        "mode": "manual" if mode == "manual" else "automatic",
+        "mode": "manual" if point or mode == "manual" else "automatic",
         "constraintType": str(source.get("constraintType") or "ASAP").upper(),
         "constraintDate": source.get("constraintDate"),
         "deadline": source.get("deadline"),

@@ -1,3 +1,4 @@
+import { unifiedDate, dateBoundary } from '../../dates/unifiedDate';
 import { formatVaultDate, parseVaultDate } from '../../records/model/dateUtils';
 import { normalizeOptions, optionColorHex } from '../../records/model/optionCatalogUtils';
 import { parsePeriod } from '../../dates/projectPlanning';
@@ -188,8 +189,9 @@ function dateRangeForNote(
             (key) => normalizedMetadataKey(key) === targetKey,
         ) ?? dateField;
         const rawStart = note.metadata?.[metadataKey];
-        if (readers.fieldType(schema, dateField) === 'period') {
-            const period = parsePeriod(rawStart);
+        if (readers.fieldType(schema, dateField) === 'period' || (rawStart && typeof rawStart === 'object' && 'start' in rawStart)) {
+            const date = unifiedDate(rawStart, readers.fieldType(schema, dateField));
+            const period = { start: dateBoundary(date, 'start'), end: date.kind === 'point' ? '' : dateBoundary(date, 'end') };
             if (period.start && !Number.isNaN(parseVaultDate(period.start).getTime())) {
                 startValue = period.start;
                 hasDates = true;
@@ -197,6 +199,7 @@ function dateRangeForNote(
             if (period.end && !Number.isNaN(parseVaultDate(period.end).getTime())) {
                 endValue = period.end;
             }
+            if (date.kind === 'point') endValue = period.start;
         } else {
             if (rawStart && !Number.isNaN(parseVaultDateValue(rawStart).getTime())) {
                 startValue = rawStart;
