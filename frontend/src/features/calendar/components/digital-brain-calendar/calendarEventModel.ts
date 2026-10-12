@@ -1,9 +1,9 @@
+import { unifiedDate, dateBoundary } from '../../../../shared/dates/unifiedDate';
 import type { DateInput, EventApi, EventInput } from '@fullcalendar/core';
 import type {} from '@fullcalendar/rrule';
 
 import { inclusiveToExclusiveAllDayEnd } from '../../../../shared/dates/calendarUtils';
-import { parsePeriod } from '../../../../shared/dates/projectPlanning';
-import { calendarPeriodInput, calendarRecord, calendarText, isCalendarPeriod } from './calendarPeriod';
+import { calendarRecord, calendarText, isCalendarPeriod } from './calendarPeriod';
 import type { CalendarEventDetails, CalendarMetadata, CalendarNote, DigitalBrainCalendarProps, RenderedCalendarEvent } from './calendarTypes';
 
 export const EMPTY_CALENDAR_SOURCES: ReadonlySet<string> = new Set();
@@ -56,15 +56,18 @@ function noteEvent(note: CalendarNote, options: EventOptions): RenderedCalendarE
     ? metadata[options.dateField]
     : metadata.date || metadata.data || metadata.start_time || metadata.due_date;
   let periodEnd: string | null = null;
+  let withTime: boolean | undefined;
   if (isCalendarPeriod(rawStart)) {
-    const period = parsePeriod(calendarPeriodInput(rawStart));
-    rawStart = period.start;
-    periodEnd = period.end || null;
+    const date = unifiedDate(rawStart);
+    const sourceDate = calendarRecord(rawStart);
+    if (typeof sourceDate?.withTime === 'boolean') withTime = sourceDate.withTime;
+    rawStart = dateBoundary(date, 'start');
+    periodEnd = date.kind === 'period' ? dateBoundary(date, 'end') || null : null;
   }
   if (!rawStart) return null;
   const start = dateValue(rawStart);
   if (start === undefined) return null;
-  const allDay = !String(start).includes('T') || Boolean(metadata.all_day);
+  const allDay = withTime === undefined ? !String(start).includes('T') || Boolean(metadata.all_day) : !withTime;
   const color = options.colorMap?.[source] || calendarText(metadata.color)
     || (source === 'Gnosi' ? 'var(--gnosi-primary)' : 'var(--text-tertiary)');
   const configuredEnd = options.endDateField ? metadata[options.endDateField] : undefined;
@@ -76,7 +79,7 @@ function noteEvent(note: CalendarNote, options: EventOptions): RenderedCalendarE
   return {
     id: note.id, title, start, end, allDay, color, textColor: allDay ? '#ffffff' : color,
     extendedProps: { id: note.id, readonly: Boolean(metadata.readonly), metadata },
-    ...recurrence(calendarText(metadata.rrule), start, metadata),
+    ...recurrence(calendarText(metadata[`${options.dateField ?? "date"}_rrule`] || metadata.rrule), start, metadata),
   };
 }
 
@@ -101,7 +104,12 @@ export function localCalendarDateTime(date: Date): string {
 }
 
 export function calendarEventAppearance(event: Pick<EventApi, 'allDay' | 'start' | 'end' | 'startStr' | 'id' | 'extendedProps'>, now = new Date()) {
-  const allDay = event.allDay || Boolean(calendarEventDetails(event).metadata.all_day) || !event.startStr.includes('T');
+  const metadata = calendarEventDetails(event).metadata;
+  const taggedDate = Object.values(metadata).some(value => {
+    const date = calendarRecord(value);
+    return (date?.kind === 'point' || date?.kind === 'period') && typeof date.withTime === 'boolean';
+  });
+  const allDay = taggedDate ? event.allDay : event.allDay || Boolean(metadata.all_day) || !event.startStr.includes('T');
   const date = event.start ?? new Date(event.startStr);
   const dayStart = (value: Date): number => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
   return { allDay, past: allDay ? dayStart(date) < dayStart(now) : (event.end ?? date).getTime() < now.getTime() };

@@ -97,7 +97,7 @@ describe('cellGridUtils', () => {
         expect(coerceValueForField(
             '2024-07-15T23:00:00+02:00',
             'date',
-        )).toEqual({ value: '2024-07-15' });
+        )).toEqual({ value: { version: 3, kind: 'point', withTime: true, start: '2024-07-15T23:00:00+02:00', end: '', startMode: 'manual', endMode: 'manual', mode: 'manual' } });
         expect(coerceValueForField(
             '2024-07-15T09:00:00',
             'datetime',

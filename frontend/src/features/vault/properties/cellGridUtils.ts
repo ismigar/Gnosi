@@ -1,3 +1,4 @@
+import { unifiedDate, dateBoundary } from '../../../shared/dates/unifiedDate';
 import { pageReferenceTitle } from '../../../shared/records/pageReferenceTitle';
 /**
  * cellGridUtils.js
@@ -86,6 +87,10 @@ export function serializeCellForClipboard(
 ): string {
     if (value === undefined || value === null) return '';
 
+    if (['date', 'datetime', 'period'].includes(type) && typeof value === 'object') {
+        const date = unifiedDate(value, type);
+        return date.kind === 'period' ? `${dateBoundary(date, 'start')}/${dateBoundary(date, 'end')}` : dateBoundary(date, 'start');
+    }
     if (type === 'period') {
         const period = parsePeriod(value);
         return period.end ? `${period.start}/${period.end}` : period.start;
@@ -249,6 +254,14 @@ export function coerceValueForField(
 
         case 'date': {
             if (isEmptyRaw(raw)) return { value: '' };
+            if (raw && typeof raw === 'object' && !Array.isArray(raw)) return { value: unifiedDate(raw) };
+            const interval = cellText(raw).trim();
+            if (interval.includes('/') || interval.includes('T')) {
+                const date = unifiedDate(interval);
+                if (!Number.isNaN(new Date(date.start).getTime())
+                    && (!date.end || !Number.isNaN(new Date(date.end).getTime()))) return { value: date };
+                return SKIP;
+            }
             const s = cellText(raw).trim();
             // Preserves the calendar date exactly as written (even if it comes from a
             // "YYYY-MM-DDT..." datetime): we do NOT go through toISOString() because the

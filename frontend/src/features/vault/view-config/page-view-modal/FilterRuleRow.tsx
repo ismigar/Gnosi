@@ -19,7 +19,7 @@ export function FilterRuleRow({ rule, onChange, onRemove, ctx }: { rule: FilterR
                     // (a relation id makes no sense in a text field, etc.).
                     const field = e.target.value;
                     const nextRule = { ...rule, field, value: defaultFilterValue(field) };
-                    if (fieldMeta[field]?.type === 'period') {
+                    if (['date', 'datetime', 'period'].includes(fieldMeta[field]?.type || '')) {
                         nextRule.periodPart = rule.periodPart === 'end' ? 'end' : 'start';
                     } else {
                         delete nextRule.periodPart;
@@ -31,7 +31,7 @@ export function FilterRuleRow({ rule, onChange, onRemove, ctx }: { rule: FilterR
                     <option key={tf.name} value={tf.name}>{tf.displayName || fieldLabel(tf.name)}</option>
                 ))}
             </select>
-            {meta?.type === 'period' && (
+            {['date', 'datetime', 'period'].includes(meta?.type || '') && (
                 <select
                     className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-36"
                     value={rule.periodPart === 'end' ? 'end' : 'start'}

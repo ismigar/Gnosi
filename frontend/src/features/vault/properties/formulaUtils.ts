@@ -1,3 +1,4 @@
+import { periodBoundary } from '../../../shared/dates/projectPlanning';
 type FormulaValue =
   | string
   | number
@@ -26,7 +27,11 @@ function isFormulaEvaluator(value: unknown): value is FormulaEvaluator {
 
 // Imported arrays and objects retain JavaScript's property text coercion.
 function formulaPropertyText(value: unknown): string {
-  return String(value);
+  return String(formulaPropertyValue(value));
+}
+
+function formulaPropertyValue(value: unknown): unknown {
+  return value && typeof value === 'object' && 'start' in value ? periodBoundary(value, 'start') : value;
 }
 
 /** Evaluates a simple formula expression over Vault metadata. */
@@ -52,10 +57,8 @@ export function evaluateFormula(
     expression = expression.replace(
       /\bprop\('([^']+)'\)/g,
       (_match, name: string) => {
-        const value =
-          name === 'title' || name === 'Títol'
-            ? title
-            : (metadata[name] ?? '');
+        const value = formulaPropertyValue(name === 'title' || name === 'Títol'
+            ? title : (metadata[name] ?? ''));
         return typeof value === 'string'
           ? `"${value.replace(/"/g, '\\"')}"`
           : formulaPropertyText(value ?? '');
@@ -65,10 +68,8 @@ export function evaluateFormula(
     expression = expression.replace(
       /\{([^}]+)\}/g,
       (_match, name: string) => {
-        const value =
-          name === 'title' || name === 'Títol'
-            ? title
-            : (metadata[name] ?? '');
+        const value = formulaPropertyValue(name === 'title' || name === 'Títol'
+            ? title : (metadata[name] ?? ''));
         if (typeof value === 'number') return String(value);
         if (typeof value === 'boolean') return value ? '1' : '0';
         return `"${formulaPropertyText(value ?? '').replace(/"/g, '\\"')}"`;

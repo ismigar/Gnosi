@@ -90,7 +90,7 @@ export function FieldFormats({ field, idx, handleUpdateField, projectPlanningEna
                 </div>
             )}
 
-            {field.type === 'period' && projectPlanningEnabled && (
+            {['date', 'datetime', 'period'].includes(field.type) && projectPlanningEnabled && (
                 <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
                     <div className="space-y-3 rounded-lg border border-[var(--gnosi-primary)]/20 bg-[var(--bg-primary)] p-3 shadow-inner">
                         <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--gnosi-primary)]">

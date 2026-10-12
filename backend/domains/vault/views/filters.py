@@ -46,7 +46,12 @@ def period_boundary(value: object, part: str) -> object:
         end = value.get("end") or ""
     else:
         start, _, end = str(value or "").partition("/")
-    return (end or start) if part == "end" else start
+    boundary = (end or start) if part == "end" and not (
+        isinstance(value, dict) and value.get("kind") == "point"
+    ) else start
+    if isinstance(value, dict) and value.get("withTime") is False:
+        return str(boundary).partition("T")[0]
+    return boundary
 
 
 def normalize_search_text(value: object) -> str:
@@ -233,8 +238,13 @@ def apply_filter(meta: Metadata, page_id: object, filter_rule: Filter) -> bool:
     operator = str(filter_rule.get("operator") or "equals").lower()
     raw_target = page_id if filter_rule.get("value") == "this" else filter_rule.get("value")
     value = meta_value_for_field(meta or {}, str(field))
-    if filter_rule.get("periodPart") or (isinstance(value, dict) and "start" in value):
+    if (filter_rule.get("periodPart") or (isinstance(value, dict) and "start" in value)
+            or (isinstance(value, str) and re.match(r"^-?\d{4,}-\d{2}-\d{2}.*/", value))):
         value = period_boundary(value, str(filter_rule.get("periodPart") or "start"))
+    if (isinstance(value, str) and isinstance(raw_target, str)
+            and (raw_target == "today" or re.fullmatch(r"-?\d{4,}-\d{2}-\d{2}", raw_target))
+            and re.match(r"^-?\d{4,}-\d{2}-\d{2}T", value)):
+        value = value.partition("T")[0]
     values = text_values(value)
     if (meta.get("llm_wiki_section_field") == field
             and operator in {"contains", "not_contains"}):
