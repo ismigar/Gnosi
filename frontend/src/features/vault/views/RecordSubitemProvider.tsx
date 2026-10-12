@@ -9,6 +9,7 @@ import { applyDefaultFormulasToMetadata } from '../properties/defaultFormulaUtil
 import type { VaultViewPage } from '../../../shared/records/hooks/useVaultViewData';
 
 interface Props {
+    creationMetadata?: Readonly<Record<string, unknown>>;
     children: ReactNode;
     enabled: boolean;
     records: readonly VaultViewPage[];
@@ -17,7 +18,7 @@ interface Props {
     onSaved: () => unknown;
 }
 
-export function RecordSubitemProvider({ children, enabled, records, tableId, schema, onSaved }: Props) {
+export function RecordSubitemProvider({ children, enabled, records, tableId, schema, creationMetadata, onSaved }: Props) {
     const { t } = useTranslation();
     const [parentId, setParentId] = useState<string | null>(null);
     const parent = records.find(record => record.id === parentId);
@@ -31,7 +32,7 @@ export function RecordSubitemProvider({ children, enabled, records, tableId, sch
             if (!targetTableId) throw new Error('Missing parent table');
             const defaults = applyDefaultFormulasToMetadata({
                 schema, title, notes: records, currentTableId: targetTableId,
-                metadata: { title, parent_id: parent.id, table_id: targetTableId, database_table_id: targetTableId,
+                metadata: { ...creationMetadata, title, parent_id: parent.id, table_id: targetTableId, database_table_id: targetTableId,
                     ...(text(metadata?.database_id) ? { database_id: text(metadata?.database_id) } : {}) },
             });
             await createVaultTablePage({ title, content: '', parent_id: parent.id,

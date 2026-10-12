@@ -94,7 +94,7 @@ it.each([true, false])('saves dragged column order for main=%s while preserving 
   const activeView = { id: 'ordered', is_main, visibleProperties: ['title', 'Status', 'Score', 'Text'], columnWidths: { Score: 220 }, sorts: [{ field: 'Score', direction: 'desc' }] };
   const table = mountController({ activeView, onUpdateView });
   try {
-    await act(async () => {
+    await act(() => {
       table.model().handleColumnDragEnd({ active: { id: 'Text' }, over: { id: 'Status' } } as Parameters<TableController['handleColumnDragEnd']>[0]);
     });
     expect(onUpdateView).toHaveBeenCalledExactlyOnceWith({ ...activeView, visibleProperties: ['title', 'Text', 'Status', 'Score'] });

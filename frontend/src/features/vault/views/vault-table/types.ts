@@ -35,6 +35,7 @@ export interface TableNavApi {
   readonly focusLastCell: () => boolean;
 }
 export interface VaultTableProps {
+  readonly creationMetadata?: Readonly<Record<string, unknown>>;
   readonly notes?: readonly TableNote[];
   readonly onNoteSelect: (id: string, options?: { returnFocusId: string; }) => void;
   readonly schema?: VaultSchema;

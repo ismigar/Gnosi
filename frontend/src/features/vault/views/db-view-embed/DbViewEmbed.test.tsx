@@ -445,7 +445,7 @@ describe('embedded record and view actions', () => {
         expect(api.patchSectionConfig).not.toHaveBeenCalled();
         expect(saved.visibleProperties).toEqual([columns[0], columns[2], columns[1]]);
         expect(fixture.body?.activeView?.visibleProperties).toEqual(['title', 'Date', 'Status']);
-        await act(async () => { fixture.body?.onCellSaved?.(); });
+        await act(() => { fixture.body?.onCellSaved?.(); });
         await render();
         expect(fixture.body?.activeView?.visibleProperties).toEqual(['title', 'Date', 'Status']);
     });
