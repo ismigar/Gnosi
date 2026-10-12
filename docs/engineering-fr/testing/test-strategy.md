@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-12
 source_paths:
+  - scripts/check_backend_types.py
   - package.json
   - .github/workflows/ci.yml
   - .github/workflows/build-release.yml
@@ -23,6 +24,7 @@ source_paths:
   - frontend/scripts/typecheck.mjs
   - frontend/scripts/typecheck-worker.mjs
 tests:
+  - backend/tests/test_ci_backend_parser.py
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
   - backend/tests/test_ci_container_build.py
@@ -187,6 +189,32 @@ ordre, TypeScript du frontend, mypy strict sur tout le backend (hors tests),
 mypy strict sur tous les fichiers Python publics indexés du pipeline, puis
 la syntaxe Python de backend, pipeline, scripts et extensions. Chaque échec
 interrompt les étapes suivantes et conserve son code de sortie.
+
+Les commandes racine, CI et pre-PR utilisent `scripts/check_backend_types.py`.
+Chaque exécution démarre avec un cache privé vide. De nouveaux processus
+séquentiels préparent les imports PyTorch/Transformers installés utilisés par le
+module d’écriture manuscrite découvert, puis vérifient ce module ; un nouveau
+processus final doit vérifier la cible complète `backend` inchangée. Cela évite
+de conserver les AST de dépendances chargés à froid avec tout le backend. Le
+module initial conserve l’identité et le répertoire de base de mypy ainsi que la
+priorité des stubs ; c’est une optimisation, jamais la couverture de référence.
+S’il manque, la cible complète s’exécute quand même. Les modes d’import sensibles
+aux racines ou les diagnostics de configuration utilisent uniquement la cible
+complète. Toutes les étapes conservent
+`--strict`, l’exclusion des tests et les imports normaux. Les erreurs, processus
+interrompus et modifications de sources ou configuration (même à taille et dates
+identiques) font échouer l’exécution. Les caches partagés existants ne peuvent
+pas établir l’acceptation.
+
+Les processus activent le parseur natif verrouillé avec un seul fil de parsing
+et aucun processus de travail. Le CPU déclaré change uniquement dans chaque
+processus de l’outil. Les cibles Python différentes de l’interpréteur conservent
+les diagnostics de syntaxe du parseur original. Le verrou des dépendances, le
+plafond RSS de 2 GiB de l’arbre de processus et le délai par phase restent
+inchangés. Les régressions CLI comparent diagnostics stricts, imports et versions,
+découverte, stubs, cycles, promotion en racines, syntaxe invalide, isolation du
+cache, modifications et terminaison des processus ; elles vérifient aussi la
+concurrence du parseur avec une demande héritée de travailleurs.
 
 La commande frontend utilise l’API de la version fixée de TypeScript avec tout
 le programme de `tsconfig.json` chargé dans chaque nouveau processus séquentiel.

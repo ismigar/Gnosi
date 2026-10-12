@@ -89,11 +89,8 @@ def build_steps(root: Path, base_sha: str, *, quick: bool) -> list[Step]:
             Step("OpenAPI and frontend API contracts", ("pnpm", "check:api-client")),
             _python(
                 "Complete backend types",
-                "mypy",
-                "--strict",
-                "--exclude",
-                "^backend/tests/",
-                "backend",
+                "python",
+                "scripts/check_backend_types.py",
             ),
             _python(
                 "Complete pipeline types",

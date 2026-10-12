@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-12
 source_paths:
+  - scripts/check_backend_types.py
   - package.json
   - .github/workflows/ci.yml
   - .github/workflows/build-release.yml
@@ -23,6 +24,7 @@ source_paths:
   - frontend/scripts/typecheck.mjs
   - frontend/scripts/typecheck-worker.mjs
 tests:
+  - backend/tests/test_ci_backend_parser.py
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
   - backend/tests/test_ci_container_build.py
@@ -184,6 +186,30 @@ ordre, TypeScript del frontend, mypy estricte de tot el backend (excloent-ne
 les proves), mypy estricte de tots els fitxers Python públics indexats del
 pipeline i, finalment, la sintaxi Python de backend, pipeline, scripts i
 extensions. Qualsevol error atura les etapes següents i conserva el codi de sortida.
+
+Les ordres d’arrel, CI i pre-PR usen `scripts/check_backend_types.py`. Cada
+execució comença amb una memòria cau privada buida. Processos nous seqüencials
+preparen els imports instal·lats de PyTorch/Transformers usats pel mòdul de
+manuscrits descobert i després comproven aquest mòdul; un procés nou final ha
+de comprovar el target complet `backend` sense canvis. Això evita retenir els
+AST de dependències carregats en fred juntament amb tot el backend. El mòdul
+inicial conserva la identitat i el directori base de mypy i la precedència dels
+stubs; és una optimització, mai una cobertura autoritativa. Si falta, també
+s’executa el target complet. Els modes d’import sensibles a les arrels o els
+diagnòstics de configuració usen només el target complet. Totes les etapes conserven `--strict`, l’exclusió de
+proves i els imports normals. Els errors, processos interromputs i edicions de
+fonts o configuració (fins i tot amb mida i dates iguals) fan fallar l’execució.
+Les memòries cau compartides existents no poden establir l’acceptació.
+
+Els processos activen el parser natiu fixat amb un fil de parsing i cap procés
+treballador. La CPU declarada només canvia dins de cada procés de l’eina. Els
+targets Python diferents del de l’intèrpret conserven els diagnòstics de sintaxi
+del parser original. Es mantenen les dependències fixades, el límit de 2 GiB de
+RSS de l’arbre de processos i el termini de cada fase. Les regressions amb la
+CLI real comparen diagnòstics estrictes, d’imports i versions, descobriment,
+stubs, cicles, promoció a arrels, sintaxi invàlida, aïllament de memòria cau,
+edicions i terminació de processos; també comproven la concurrència del parser
+amb una petició heretada de treballadors.
 
 L’ordre del frontend usa l’API de la versió fixada de TypeScript amb tot el
 programa de `tsconfig.json` carregat en cada procés nou i seqüencial. Primer

@@ -55,19 +55,22 @@ def test_root_typecheck_includes_every_strict_gate() -> None:
 
 
 def test_backend_target_remains_complete_and_matches_ci() -> None:
+    from scripts.check_backend_types import ARGUMENTS
+
     backend = _scripts()["typecheck:backend-boundaries"]
     assert shlex.split(backend) == [
         "uv",
         "run",
-        "mypy",
-        "--strict",
-        "--exclude",
-        "^backend/tests/",
-        "backend",
+        "python",
+        "scripts/check_backend_types.py",
     ]
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     backend_job = workflow.split("\n  backend:\n", 1)[1].split("\n  native-smoke:\n", 1)[0]
     assert "run: " + backend in backend_job
+    assert ARGUMENTS == [
+        "--native-parser", "--num-workers", "0", "--strict",
+        "--exclude", "^backend/tests/", "backend",
+    ]
 
 
 def test_pipeline_target_uses_the_complete_indexed_source_checker() -> None:

@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-12
 source_paths:
+  - scripts/check_backend_types.py
   - package.json
   - .github/workflows/ci.yml
   - .github/workflows/build-release.yml
@@ -23,6 +24,7 @@ source_paths:
   - frontend/scripts/typecheck.mjs
   - frontend/scripts/typecheck-worker.mjs
 tests:
+  - backend/tests/test_ci_backend_parser.py
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
   - backend/tests/test_ci_container_build.py
@@ -184,6 +186,30 @@ orden, TypeScript del frontend, mypy estricto de todo el backend (excepto las
 pruebas), mypy estricto de todos los archivos Python públicos indexados del
 pipeline y, finalmente, la sintaxis Python de backend, pipeline, scripts y
 extensiones. Cada error detiene las etapas siguientes y conserva el código de salida.
+
+Las órdenes de raíz, CI y pre-PR usan `scripts/check_backend_types.py`. Cada
+ejecución empieza con una caché privada vacía. Procesos nuevos secuenciales
+preparan los imports instalados de PyTorch/Transformers usados por el módulo de
+manuscritos descubierto y después comprueban ese módulo; un proceso nuevo final
+debe comprobar el target completo `backend` sin cambios. Así evita retener
+los AST de dependencias cargados en frío junto con todo el backend. El módulo
+inicial conserva la identidad y el directorio base de mypy y la precedencia de
+stubs; es una optimización, nunca cobertura autoritativa. Si falta, también se
+ejecuta el target completo. Los modos de import sensibles a las raíces o los
+diagnósticos de configuración usan solo el target completo. Todas las etapas mantienen `--strict`, la exclusión de
+pruebas y los imports normales. Los errores, procesos interrumpidos y ediciones
+de fuentes o configuración (incluso con tamaño y fechas iguales) hacen fallar la
+ejecución. Las cachés compartidas existentes no pueden establecer la aceptación.
+
+Los procesos activan el parser nativo fijado con un hilo de parsing y ningún
+proceso trabajador. La CPU declarada solo cambia dentro de cada proceso de la
+herramienta. Los targets Python distintos del del intérprete conservan los
+diagnósticos de sintaxis del parser original. Se mantienen las dependencias
+fijadas, el límite de 2 GiB de RSS del árbol de procesos y el plazo de cada fase.
+Las regresiones con la CLI real comparan diagnósticos estrictos, de imports y
+versiones, descubrimiento, stubs, ciclos, promoción a raíces, sintaxis inválida,
+aislamiento de caché, ediciones y terminación de procesos; también comprueban la
+concurrencia del parser con una petición heredada de trabajadores.
 
 La orden del frontend usa la API de la versión fijada de TypeScript con todo el
 programa de `tsconfig.json` cargado en cada proceso nuevo y secuencial. Primero

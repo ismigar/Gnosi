@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-12
 source_paths:
+  - scripts/check_backend_types.py
   - package.json
   - .github/workflows/ci.yml
   - .github/workflows/build-release.yml
@@ -23,6 +24,7 @@ source_paths:
   - frontend/scripts/typecheck.mjs
   - frontend/scripts/typecheck-worker.mjs
 tests:
+  - backend/tests/test_ci_backend_parser.py
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
   - backend/tests/test_ci_container_build.py
@@ -174,6 +176,26 @@ strict mypy across the complete backend (excluding tests), strict mypy across
 every indexed public pipeline Python file, and finally Python syntax checks
 for backend, pipeline, scripts and extensions, in that order. Each failure
 stops the remaining stages and returns its exit status.
+
+Root, CI and pre-PR use `scripts/check_backend_types.py`. Each invocation starts
+with an empty private cache. Fresh sequential processes prepare the installed
+PyTorch/Transformers imports used by the discovered handwriting root, then check
+that root; a final fresh process must check the unchanged complete `backend` target.
+This avoids retaining the cold dependency ASTs alongside the whole backend. The
+seed preserves mypy's module/base-directory identity and stub precedence; it is
+an optimization, never authoritative coverage. An absent seed still runs the full
+target. Root-sensitive import modes or configuration diagnostics use the full
+target alone. All stages retain `--strict`, the test exclusion and normal imports.
+Errors, interrupted children and source/config edits (including unchanged size
+and timestamps) fail the run. Existing shared caches cannot establish success.
+
+Workers enable the locked native parser with one parser thread and zero process
+workers. The CPU report changes only inside each tooling process. Non-host Python
+targets retain the original parser's syntax diagnostics. Dependency locks, the
+2 GiB process-tree RSS cap and phase deadline remain unchanged. Real CLI
+regressions compare strict/import/version diagnostics, discovery, stubs, cycles,
+root promotion, invalid syntax, private-cache isolation, source edits and child
+termination; parser concurrency is checked with an inherited worker request.
 
 The frontend command uses the pinned TypeScript compiler API with the complete
 `tsconfig.json` program in every fresh, sequential worker. Syntax, options and
