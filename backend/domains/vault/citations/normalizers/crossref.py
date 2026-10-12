@@ -25,7 +25,7 @@ def _first(value: object) -> object:
     return value
 
 
-def _creators(raw_authors: object) -> list[Creator]:
+def _creators(raw_authors: object, role: str = "author") -> list[Creator]:
     creators: list[Creator] = []
     if not isinstance(raw_authors, list):
         return creators
@@ -36,16 +36,16 @@ def _creators(raw_authors: object) -> list[Creator]:
         given = str(raw_author.get("given") or "").strip()
         name = str(raw_author.get("name") or "").strip()
         if family:
-            creator: Creator = {"creatorType": "author", "lastName": family}
+            creator: Creator = {"creatorType": role, "lastName": family}
             if given:
                 creator["firstName"] = given
             creators.append(creator)
         elif name:
-            creators.append({"creatorType": "author", "name": name})
+            creators.append({"creatorType": role, "name": name})
     return creators
 
 
-def _publication_year(work: dict[str, Any]) -> str | None:
+def _publication_date(work: dict[str, Any]) -> str | None:
     for key in ("published-print", "published-online", "issued"):
         date_value = work.get(key)
         if not isinstance(date_value, dict):
@@ -56,7 +56,7 @@ def _publication_year(work: dict[str, Any]) -> str | None:
         if not parts[0]:
             continue
         try:
-            return str(int(parts[0][0]))
+            return "-".join(str(int(value)) if index == 0 else f"{int(value):02}" for index, value in enumerate(parts[0][:3]))
         except (TypeError, ValueError):
             continue
     return None
@@ -71,6 +71,10 @@ def _copy_simple_fields(work: dict[str, Any], item: ZoteroItem) -> None:
         ("DOI", "DOI"),
         ("URL", "url"),
         ("language", "language"),
+        ("publisher-location", "place"),
+        ("edition-number", "edition"),
+        ("article-number", "number"),
+        ("abstract", "abstractNote"),
     )
     for source, target in field_map:
         value = work.get(source)
@@ -90,20 +94,20 @@ def crossref_to_zotero_item(work: dict[str, Any]) -> ZoteroItem:
     title = _first(work.get("title"))
     if title:
         item["title"] = title
-    creators = _creators(work.get("author"))
+    creators = [person for role in ("author", "editor", "translator") for person in _creators(work.get(role), role)]
     if creators:
         item["creators"] = creators
-    year = _publication_year(work)
+    year = _publication_date(work)
     if year:
         item["date"] = year
     container = _first(work.get("container-title"))
     if container:
         item["publicationTitle"] = container
     _copy_simple_fields(work, item)
-    isbn = _first(work.get("ISBN"))
+    isbn = "; ".join(str(value) for value in work["ISBN"]) if isinstance(work.get("ISBN"), list) else work.get("ISBN")
     if isbn:
         item["ISBN"] = isbn
-    issn = _first(work.get("ISSN"))
+    issn = "; ".join(str(value) for value in work["ISSN"]) if isinstance(work.get("ISSN"), list) else work.get("ISSN")
     if issn:
         item["ISSN"] = issn
     return item

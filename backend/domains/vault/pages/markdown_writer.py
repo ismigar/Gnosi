@@ -8,6 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from backend.domains.vault.registry.state import RegistryData
+from backend.services.reference_schema import bind_configured_roles
 
 
 Metadata = RegistryData
@@ -122,6 +123,7 @@ def _normalize_storage(
             if table:
                 metadata = dependencies.to_storage_names(metadata, table)
                 metadata = dependencies.strip_virtual_keys(metadata, table)
+                bind_configured_roles(metadata, table.get("properties"))
     except Exception as exc:
         dependencies.logger.debug(
             "to_storage_names ha fallat per %s: %s",

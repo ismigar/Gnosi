@@ -3,33 +3,13 @@
  * Keep this Gnosi-specific mapping aligned with the backend mirror.
  */
 import { ITEM_TYPE_FIELDS } from './zoteroSchema';
+import { REFERENCE_TYPE_FIELDS, REFERENCE_ZOTERO_FIELDS } from '../../generated/referenceCatalog';
 
 export const RECURSOS_TO_ZOTERO_FIELDS: Readonly<
   Record<string, readonly string[]>
 > = {
-  'Item Type': ['itemType'],
-  Title: ['title'],
-  Authors: ['creators'],
-  Any: ['date'],
-  'Llibre/Revista': [
-    'publicationTitle',
-    'bookTitle',
-    'proceedingsTitle',
-    'encyclopediaTitle',
-  ],
-  Editorial: ['publisher'],
-  Lloc: ['place'],
-  Volum: ['volume'],
-  Número: ['issue'],
-  Pàgines: ['pages'],
-  'Núm. pàgines': ['numPages'],
-  Edició: ['edition'],
-  DOI: ['DOI'],
-  ISBN: ['ISBN'],
-  ISSN: ['ISSN'],
-  PMID: ['PMID'],
-  URL: ['url'],
-  Idioma: ['language'],
+  'Item Type': ['itemType'], Authors: ['creators'], Any: ['date'],
+  ...REFERENCE_ZOTERO_FIELDS,
 };
 
 // Inverse: zoteroField → first Recursos column that mentions it.
@@ -56,6 +36,7 @@ export function isFieldRelevantForType(
   recursosField?: string,
   zoteroItemType?: string,
 ): boolean {
+  if (REFERENCE_TYPE_FIELDS[zoteroItemType ?? '']?.includes(recursosField ?? '')) return true;
   const candidates = RECURSOS_TO_ZOTERO_FIELDS[recursosField ?? ''];
   if (!candidates) return false;
   const itemTypeCatalog: unknown = ITEM_TYPE_FIELDS;

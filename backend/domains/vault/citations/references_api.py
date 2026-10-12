@@ -10,10 +10,13 @@ from fastapi import APIRouter, Body, HTTPException
 from fastapi.params import Depends as DependsParameter
 from pydantic import BaseModel, ConfigDict, JsonValue
 
+from backend.services.reference_metadata import reference_schema
+from backend.services.reference_schema import reference_property
+
 REFERENCE_SCHEMA: list[tuple[str, str]] = [
     ("Citation Key", "text"),
     ("Title", "text"),
-    ("Authors", "text"),
+    ("Autoría", "autoria"),
     ("Any", "text"),
     ("Item Type", "select"),
     ("Llibre/Revista", "text"),
@@ -35,6 +38,7 @@ REFERENCE_SCHEMA: list[tuple[str, str]] = [
     ("Literature Sources", "text"),
     ("Literature Work Key", "text"),
 ]
+REFERENCE_SCHEMA.extend((name, kind) for name, kind in reference_schema() if name not in {p[0] for p in REFERENCE_SCHEMA})
 
 
 class ReferenceTableResponse(BaseModel):
@@ -139,7 +143,7 @@ def register_routes(
             "name": name,
             "database_id": "gnosi_vault_db",
             "properties": [
-                {"id": str(uuid.uuid4()), "name": field, "type": field_type}
+                reference_property(field, field_type, lambda: str(uuid.uuid4()))
                 for field, field_type in REFERENCE_SCHEMA
             ],
         }

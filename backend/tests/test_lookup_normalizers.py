@@ -2,8 +2,8 @@
 
 Each normalizer is validated with:
   1. **Equivalence vs legacy**: the pipeline
-     `normalitzador → zotero_item_to_recursos` produces EXACTLY the
-     same Recursos fields as the original hardcoded mapper. Literal
+     `normalitzador → zotero_item_to_recursos` preserves the existing
+     Recursos fields as the original hardcoded mapper. Literal
      snapshot of the legacy at the top of the file.
   2. **Behavioral checks**: that the intermediate Zotero item has the fields
      the central mapper expects (to detect drift between the
@@ -175,7 +175,7 @@ def test_crossref_pipeline_equivalent_to_legacy(fixture):
     before the refactor in vault_routes.py."""
     new = zotero_item_to_recursos(crossref_to_zotero_item(fixture))
     legacy = _legacy_crossref_to_recursos(fixture)
-    assert new == legacy
+    assert {key: new.get(key) for key in legacy} == legacy
 
 
 def test_non_dict_returns_empty():
@@ -319,7 +319,7 @@ OPENLIB_EMPTY: dict = {}
 def test_openlibrary_pipeline_equivalent_to_legacy(fixture):
     new = zotero_item_to_recursos(openlibrary_to_zotero_item(fixture))
     legacy = _legacy_openlibrary_to_recursos(fixture)
-    assert new == legacy
+    assert {key: new.get(key) for key in legacy} == legacy
 
 
 def test_openlibrary_non_dict_returns_empty():
@@ -417,7 +417,7 @@ ARXIV_MALFORMED = "this is not xml"
 def test_arxiv_pipeline_equivalent_to_legacy(xml, name):
     new = zotero_item_to_recursos(arxiv_to_zotero_item(xml))
     legacy = _legacy_arxiv_to_recursos(xml)
-    assert new == legacy, f"divergence on {name}: new={new} legacy={legacy}"
+    assert {key: new.get(key) for key in legacy} == legacy, f"divergence on {name}: new={new} legacy={legacy}"
 
 
 # =================================================================
@@ -514,7 +514,7 @@ PUBMED_AUTHOR_WITH_COMMA = {
 def test_pubmed_pipeline_equivalent_to_legacy(fixture, name):
     new = zotero_item_to_recursos(pubmed_to_zotero_item(fixture))
     legacy = _legacy_pubmed_to_recursos(fixture)
-    assert new == legacy, f"divergence on {name}: new={new} legacy={legacy}"
+    assert {key: new.get(key) for key in legacy} == legacy, f"divergence on {name}: new={new} legacy={legacy}"
 
 
 # =================================================================
@@ -678,7 +678,7 @@ def test_html_pipeline_equivalent_to_legacy(html, name):
     url = "https://example.com/article"
     new = zotero_item_to_recursos(html_meta_to_zotero_item(html, url))
     legacy = _legacy_html_meta_to_recursos(html, url)
-    assert new == legacy, f"divergence on {name}: new={new} legacy={legacy}"
+    assert {key: new.get(key) for key in legacy} == legacy, f"divergence on {name}: new={new} legacy={legacy}"
 
 
 def test_html_publisher_now_separated_from_journal():
@@ -713,3 +713,21 @@ def test_html_url_always_present():
     """The URL parameter is always included, even if the HTML is empty."""
     out = zotero_item_to_recursos(html_meta_to_zotero_item("<html></html>", "https://x.com"))
     assert out['URL'] == 'https://x.com'
+
+
+def test_crossref_keeps_all_creator_roles_publication_details_and_identifiers():
+    result = zotero_item_to_recursos(crossref_to_zotero_item({
+        'type': 'book-chapter', 'title': ['A chapter'],
+        'author': [{'given': 'Ada', 'family': 'Riu'}],
+        'editor': [{'given': 'Joan', 'family': 'Puig'}],
+        'translator': [{'given': 'Anna', 'family': 'Sol'}],
+        'issued': {'date-parts': [[2024, 5, 12]]},
+        'ISBN': ['9780306406157', '9783161484100'],
+        'publisher-location': 'Barcelona', 'edition-number': '2',
+    }))
+    assert result['Editors'][0]['cognom1'] == 'Puig'
+    assert result['Traductors'][0]['cognom1'] == 'Sol'
+    assert result['Autoría'][0]['cognom1'] == 'Riu'
+    assert (result['Any'], result['Mes'], result['Dia']) == (2024, 5, 12)
+    assert result['ISBN'] == '9780306406157; 9783161484100'
+    assert result['Lloc'] == 'Barcelona' and result['Edició'] == '2'

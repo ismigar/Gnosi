@@ -93,3 +93,14 @@ def test_reader_news_maps_to_newspaper_resource_with_source_and_url():
         "date": "2026-09-15", "publicationTitle": "Daily News",
         "url": "https://example.test/news",
     }
+
+
+def test_bibliographic_metadata_merges_complementary_roles_and_preserves_conflicts():
+    from backend.services.literature_models import merge_works
+    left = canonical_work("crossref", "x", title="T", bibliography={"Editors": ["A"], "Edició": "2"}, dates={"issued": "2024-06-12"})
+    right = canonical_work("openalex", "x", title="T", bibliography={"Traductors": ["B"], "Edició": "3"}, dates={"online": "2024-01"})
+    merged = merge_works(left, right)
+    assert merged["bibliography"]["Editors"] == ["A"]
+    assert merged["bibliography"]["Traductors"] == ["B"]
+    assert len(merged["conflicts"]["bibliography.Edició"]) == 2
+    assert merged["dates"] == {"issued": "2024-06-12", "online": "2024-01"}

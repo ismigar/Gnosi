@@ -211,6 +211,19 @@ def _field_name_maps(table: TableSchema) -> FieldNameMaps:
     return name_set, id_to_name, alias_to_name
 
 
+def _resolve_citation_role_names(metadata: Metadata, maps: FieldNameMaps) -> bool:
+    """Keep stored creator roles attached to fields when their names change."""
+    roles = metadata.get("_citation_roles")
+    if not isinstance(roles, dict):
+        return False
+    names, ids, aliases = maps
+    resolved = {name if name in names else ids.get(name, aliases.get(name, name)): role for name, role in roles.items()}
+    if resolved == roles:
+        return False
+    metadata["_citation_roles"] = resolved
+    return True
+
+
 def _resolve_metadata_names(metadata: Metadata, maps: FieldNameMaps) -> tuple[Metadata, bool]:
     name_set, id_to_name, alias_to_name = maps
     # Most indexed rows already use current names. In that case there are no
@@ -218,7 +231,8 @@ def _resolve_metadata_names(metadata: Metadata, maps: FieldNameMaps) -> tuple[Me
     if type(metadata) is dict and all(
         key in name_set or (key not in id_to_name and key not in alias_to_name) for key in metadata
     ):
-        return dict(metadata), False
+        copied = dict(metadata)
+        return copied, _resolve_citation_role_names(copied, maps)
 
     chosen: dict[object, tuple[int, object]] = {}  # current_name -> (priority, value)
     passthrough: Metadata = {}  # unresolvable keys (real locals)
@@ -246,6 +260,7 @@ def _resolve_metadata_names(metadata: Metadata, maps: FieldNameMaps) -> tuple[Me
     for kind, key in order:
         out[key] = chosen[key][1] if kind == "col" else passthrough[key]
 
+    _resolve_citation_role_names(out, maps)
     changed = list(out.items()) != list(metadata.items())
     return out, changed
 

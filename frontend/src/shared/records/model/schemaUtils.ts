@@ -442,7 +442,7 @@ export const INTERNAL_METADATA_KEYS: ReadonlySet<string> = new Set([
     'created_time', 'last_edited_time', 'last_edited_at', 'last_edited_by',
     'created_by', 'created_at',
     'source_parent_id', 'is_default_template', 'is_template', 'is_dashboard',
-    'path', 'filename', 'description', 'cover', 'cover_manual', 'icon',
+    'path', 'filename', 'description', 'cover', 'cover_manual', 'icon', '_citation_roles',
 ]);
 
 const TITLE_FIELD_NAMES = new Set(['title', 'títol', 'titulo', 'título', 'titre']);

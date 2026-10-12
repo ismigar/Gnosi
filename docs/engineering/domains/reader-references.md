@@ -126,6 +126,14 @@ stage starts. The same notification becomes a success only after the record has
 opened, or an error if creation fails. Identifier imports use the applicable
 stages without showing file or cover progress.
 
+## Complete bibliographic metadata
+
+Resources creator columns (`Autoría`, `Editors`, `Traductors`, and the other CSL roles) all use the existing `autoria` field editor. The `citation_role` property configuration and internal `_citation_roles` metadata keep roles distinct across renamed fields. Schema completion is additive and idempotent.
+
+The pinned Zotero schema generates `reference_catalog.py` and `referenceCatalog.ts` through `pipeline/skills/zotero_schema/scripts/build_reference_catalog.py`. Both CSL mappers consume the same scalar/date catalog; dates retain year, month and day precision, and old `Zotero Extras` values remain usable. Academic-work ingestion retains supplemental bibliographic metadata through deduplication and import.
+
+BibTeX and RIS expose supported fields and role tags. Their `gnosimetadata` field and `GN` tag carry a bibliographic-only extension for exact surname boundaries, corporate names, unsupported fields and item types. Gnosi restores it on reimport, while externally edited standard fields take precedence. Other tools may discard this extension, so their round trips cannot guarantee recovery of fields absent from the standard format. Local page paths and unrelated personal properties are excluded.
+
 ## Responsibility
 
 This domain combines feed/newsletter reading with a Zotero-compatible reference

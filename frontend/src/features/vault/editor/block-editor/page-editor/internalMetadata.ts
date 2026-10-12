@@ -1,4 +1,5 @@
 export const INTERNAL_METADATA_KEYS = Object.freeze([
+  '_citation_roles',
   'title', 'table_id', 'database_id', 'database_table_id', 'id',
   'parent_id', 'source_id', 'resolved_table_id', 'last_modified',
   'created_time', 'last_edited_time', 'source_parent_id',

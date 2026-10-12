@@ -18,7 +18,7 @@ export function isManagedInternalMetadataKey(
   key?: MetadataKey,
 ): boolean {
   const normalized = String(key || '').trim().toLowerCase();
-  return normalized === 'note_type' || normalized.startsWith('llm_wiki_');
+  return normalized === '_citation_roles' || normalized === 'note_type' || normalized.startsWith('llm_wiki_');
 }
 
 /**

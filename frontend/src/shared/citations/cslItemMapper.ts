@@ -1,3 +1,4 @@
+import { bibliographicDetails, bibliographicValues, creatorRoles } from './bibliographicMetadata';
 import {
     LABEL_TO_ZOTERO_TYPE,
     ZOTERO_TO_CSL_TYPE,
@@ -126,7 +127,11 @@ function isStructuredAuthor(value: unknown): value is StructuredAuthor {
 }
 
 function findStructuredAuthors(metadata: MetadataRecord): StructuredAuthor[] | null {
-    for (const value of Object.values(metadata)) {
+    const roles = creatorRoles(metadata);
+    const entries = Object.entries(metadata).sort(([a], [b]) =>
+        Number(!['Autoría', 'Autoria', 'Authors'].includes(a)) - Number(!['Autoría', 'Autoria', 'Authors'].includes(b)));
+    for (const [name, value] of entries) {
+        if ((roles[name] ?? 'author') !== 'author') continue;
         if (!Array.isArray(value)) continue;
         const structured = value.filter(isStructuredAuthor);
         if (structured.length > 0) return structured;
@@ -155,7 +160,7 @@ function optionalScalar(metadata: MetadataRecord, key: string): string {
 
 export function recursosPageToCsl(page: VaultResourcePage | null): CslItem | null {
     if (!page) return null;
-    const metadata = isRecord(page.metadata) ? page.metadata : {};
+    const metadata = bibliographicValues(isRecord(page.metadata) ? page.metadata : {});
     const id = optionalScalar(metadata, 'Citation Key');
     if (!id) return null;
     const typeRaw = optionalScalar(metadata, 'Item Type');
@@ -174,29 +179,14 @@ export function recursosPageToCsl(page: VaultResourcePage | null): CslItem | nul
         : parseAuthors(metadata.Authors);
     if (authors.length > 0) item.author = authors;
 
-    const yearRaw = optionalScalar(metadata, 'Any').trim();
-    const yearMatch = yearRaw.match(/-?\d{1,4}/);
-    const year = yearMatch?.at(0);
-    if (year) item.issued = { 'date-parts': [[Number(year)]] };
-    else if (yearRaw) item.issued = { literal: yearRaw };
-
-    const directFields: Readonly<Record<string, string>> = {
-        'Llibre/Revista': 'container-title',
-        Editorial: 'publisher',
-        Lloc: 'publisher-place',
-        Volum: 'volume',
-        Número: 'issue',
-        Pàgines: 'page',
-        Edició: 'edition',
-        DOI: 'DOI',
-        ISBN: 'ISBN',
-        ISSN: 'ISSN',
-        URL: 'URL',
-        Idioma: 'language',
-    };
-    for (const [metadataKey, cslKey] of Object.entries(directFields)) {
-        const value = optionalScalar(metadata, metadataKey);
-        if (value) item[cslKey] = value;
+    Object.assign(item, bibliographicDetails(metadata));
+    for (const [column, role] of Object.entries(creatorRoles(metadata))) {
+        if (role === 'author') continue;
+        const value = metadata[column];
+        if (!Array.isArray(value)) continue;
+        const people = structuredAuthorsToCsl(value.filter(isStructuredAuthor));
+        if (people.length > 0) item[role] = people;
     }
+    item.title = title;
     return item;
 }
