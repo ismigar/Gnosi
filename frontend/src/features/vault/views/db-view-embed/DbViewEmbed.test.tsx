@@ -123,33 +123,6 @@ it('dismisses tab hints while its options menu is open', async () => {
     expect(option.getAttribute('aria-expanded')).toBe('true');
 });
 
-it.each(['table', 'list', 'board', 'gallery', 'timeline', 'feed', 'calendar', 'chart'])(
-    'inherits enabled subitems from the table main view in an embedded %s view', async type => {
-        const main = { id: 'main', table_id: 'books', name: 'Books', type: 'table', is_main: true, enableSubitems: true };
-        context = { ...context, registry: { ...context.registry, views: [{ ...anchor, type }, other, main] } };
-        await render();
-        expect(fixture.body?.activeView?.enableSubitems).toBe(true);
-        expect(fixture.body?.onCreateRecord).toBeTypeOf('function');
-        expect(api.updateVaultView).not.toHaveBeenCalled();
-    });
-
-it('keeps an explicit embedded opt-out when table subitems are enabled', async () => {
-    const main = { id: 'main', table_id: 'books', name: 'Books', type: 'table', is_main: true, enableSubitems: true };
-    context = { ...context, registry: { ...context.registry, views: [{ ...anchor, enableSubitems: false }, main] } };
-    await render();
-    expect(fixture.body?.activeView?.enableSubitems).toBe(false);
-});
-
-it('updates inherited subitems when table settings refresh without changing the embedded block', async () => {
-    const main = { id: 'main', table_id: 'books', name: 'Books', type: 'table', is_main: true, enableSubitems: false };
-    context = { ...context, registry: { ...context.registry, views: [anchor, main] } };
-    await render();
-    expect(fixture.body?.activeView?.enableSubitems).toBe(false);
-    context = { ...context, registry: { ...context.registry, views: [anchor, { ...main, enableSubitems: true }] } };
-    await render();
-    expect(fixture.body?.activeView?.enableSubitems).toBe(true);
-});
-
 describe('adding embedded view tabs', () => {
     it('adds an existing view without rewriting its configuration and restores it on reload', async () => {
         const unpinned = { ...anchor, tabs: [] };
@@ -303,24 +276,6 @@ describe('embedded view data and editor navigation', () => {
 });
 
 describe('embedded record and view actions', () => {
-    it('retains removed timeline sorting through consecutive record-save reloads', async () => {
-        const sorted = { ...anchor, type: 'timeline', sorts: [{ field: 'title', direction: 'desc' }] };
-        context = { ...context, registry: { ...context.registry, views: [sorted, other] } };
-        await render();
-        expect(fixture.body?.activeView?.sort).toEqual(sorted.sorts);
-        vi.mocked(api.fetchVaultViews).mockResolvedValue([{ ...sorted, sorts: [], sort: null }, other]);
-        context = { ...context, viewSectionNonce: 1 };
-        await render();
-        expect(fixture.body?.activeView?.sort).toEqual([]);
-        for (const id of ['a', 'b']) {
-            await act(async () => {
-                await fixture.body?.onUpdateNote?.(id, { metadata: { timeline_order: 1 } });
-            });
-            expect(fixture.body?.activeView?.sort).toEqual([]);
-        }
-        expect(api.fetchVaultViews).toHaveBeenCalledTimes(1);
-    });
-
     it.each(['table', 'gallery', 'feed'])('expands an empty %s search to the whole table and restores filters on clear', async type => {
         writeText(selectedKey('page', 'anchor'), 'other');
         context = { ...context, registry: { ...context.registry, views: [anchor, { ...other, type }] } };

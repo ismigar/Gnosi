@@ -126,6 +126,12 @@ describe('VaultViewBody', () => {
         expect(byTestId('table-renderer').dataset.listView).toBe('true');
     });
 
+    it.each(['table', 'list'])('passes embedded creation metadata to the %s editor', type => {
+        const creationMetadata = { Projecte: 'containing-page' };
+        renderBody({ ...baseProps, type, creationMetadata });
+        expect(tableProps().creationMetadata).toBe(creationMetadata);
+    });
+
     it('retains valid schema, pages, view and extension identities at the typed table boundary', () => {
         const schema = { tables: [{ id: 'resources', fields: [{ id: 'files', config: { custom: [null, 7] } }] }],
             plugin: { revision: 3, settings: ['custom'] } };

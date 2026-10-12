@@ -2,6 +2,9 @@
 
 Una base de dades agrupa taules. Una taula defineix propietats dels registres, que són pàgines; les vistes mostren els mateixos registres de maneres diferents.
 
+
+En una vista incrustada en una pàgina, un filtre com **Contenidor = Aquesta pàgina** omple automàticament aquest camp amb la pàgina contenidora quan afegeixes un registre. Funciona amb qualsevol taula, també amb plantilles i subitems. Així, els registres nous continuen a la vista quan el valor que faltava era aquesta relació amb la pàgina.
+
 ## Abans de començar {#before-you-begin}
 
 Un Vault amb escriptura. Les vistes generals formen part del coneixement; la programació avançada de projectes requereix Planificació.
