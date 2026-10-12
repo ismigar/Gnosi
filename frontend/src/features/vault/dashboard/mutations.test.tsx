@@ -139,6 +139,26 @@ describe('templates and views', () => {
     await harness.run(state => state.handleUpdateView({ id: 'custom', table_id: 'table', visibleProperties: ['Status'] }));
     expect(views.updateVaultView).toHaveBeenCalledWith('custom', { id: 'custom', table_id: 'table', visibleProperties: [{ tableId: 'table', fieldKey: 'Status' }], is_main: false });
   });
+  it('gives a virtual main view a unique identity before saving its reordered columns', async () => {
+    vi.mocked(views.createVaultView).mockResolvedValue({ id: 'saved-main' });
+    await harness.run(state => state.handleUpdateView({ id: 'default', table_id: 'table', visibleProperties: ['title', 'Date', 'Status'] }));
+    expect(views.createVaultView).toHaveBeenCalledWith(expect.objectContaining({ table_id: 'table', visibleProperties: ['title', 'Date', 'Status'], is_main: true }));
+    expect(vi.mocked(views.createVaultView).mock.calls[0]?.[0]?.id).not.toBe('default');
+    expect(views.updateVaultView).not.toHaveBeenCalled();
+    expect(harness.current.activeViewId).toBe('saved-main');
+  });
+  it('preserves reordered main columns in rendering, saves and migration', async () => {
+    const main = { id: 'main-columns', table_id: 'table', name: 'Main Table', type: 'table', is_main: true, visibleProperties: ['title', 'Date', 'Status'] };
+    await harness.run(state => { state.setRegistry({ ...CATALOG, views: [main] }); });
+    expect(harness.current.getTableViews('table')[0]?.visibleProperties).toEqual(main.visibleProperties);
+    await harness.run(state => state.handleUpdateView({ ...main, visibleProperties: ['title', 'Status', 'Date'] }));
+    expect(views.updateVaultView).toHaveBeenCalledWith(main.id, expect.objectContaining({ visibleProperties: ['title', 'Status', 'Date'], is_main: true }));
+    vi.mocked(views.updateVaultView).mockClear();
+    await harness.run(state => { state.setRegistry({ ...CATALOG, views: [main] }); });
+    await harness.run(state => state.migrateMainViewForTable('table'));
+    expect(views.updateVaultView).toHaveBeenCalled();
+    for (const [, patch] of vi.mocked(views.updateVaultView).mock.calls) expect(patch.visibleProperties).toEqual(main.visibleProperties);
+  });
   it('creates dashboards with the existing JSON body and metadata', async () => {
     await harness.run(state => { state.handleOpenCreatePrompt(null, false, false, true); });
     await harness.run(state => { state.setPromptModal(previous => ({ ...previous, inputValue: 'Dashboard' })); });

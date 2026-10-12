@@ -124,7 +124,7 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
                 // Keep the registry fetched after configuration saves across those reloads.
                 let registryViews = registrySourceRef.current === ctx.registry.views
                     ? refreshedRegistryRef.current : ctx.registry.views;
-                if (ctx.viewSectionNonce !== lastSavedNonceRef.current) {
+                if (reloadKey > 0 || ctx.viewSectionNonce !== lastSavedNonceRef.current) {
                     try {
                         registryViews = await fetchVaultViews();
                         if (isCancelled()) return;
