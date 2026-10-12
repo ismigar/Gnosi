@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1193 | 131447 | 55 |
+| `features` | 1193 | 131448 | 55 |
 | `generated` | 2 | 49842 | 510 |
 | `shared` | 305 | 33682 | 440 |
 
@@ -1021,7 +1021,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/properties/vault-date-property/PlanningPeriodEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/vault-date-property/PlanningPeriodEditor.tsx) | 29 | `PlanningPeriodEditor` | — |
 | [`frontend/src/features/vault/properties/vault-date-property/PlanningPeriodSummary.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/vault-date-property/PlanningPeriodSummary.tsx) | 177 | `PlanningPeriodSummary` | — |
 | [`frontend/src/features/vault/properties/vault-date-property/PlanningPredecessorPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/vault-date-property/PlanningPredecessorPicker.tsx) | 172 | `PlanningPredecessorPicker` | — |
-| [`frontend/src/features/vault/properties/vault-date-property/UnifiedDateEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/vault-date-property/UnifiedDateEditor.tsx) | 88 | `UnifiedDateEditor` | — |
+| [`frontend/src/features/vault/properties/vault-date-property/UnifiedDateEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/vault-date-property/UnifiedDateEditor.tsx) | 89 | `UnifiedDateEditor` | — |
 | [`frontend/src/features/vault/properties/vault-date-property/VaultDatePropertyComponent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/vault-date-property/VaultDatePropertyComponent.tsx) | 53 | `VaultDateProperty` | — |
 | [`frontend/src/features/vault/properties/vault-date-property/VaultScalarDateEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/vault-date-property/VaultScalarDateEditor.tsx) | 186 | `VaultScalarDateEditor` | — |
 | [`frontend/src/features/vault/properties/vault-date-property/dateModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/vault-date-property/dateModel.ts) | 112 | `addDaysISO`, `formattedDateInputValue`, `htmlDateValue`, `isSignedDateValue`, `scalarDateValue`, `toLocalDateString` | — |

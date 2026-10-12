@@ -6166,6 +6166,11 @@
     "apply_proposal": "Aplicar propuesta"
   },
   "vault_date": {
+    "period_calculation_start": "Inicio",
+    "period_calculation_finish": "Fin",
+    "period_calculation_duration": "Duración",
+    "period_calculation_summary": "Resumen del cálculo",
+    "period_calculation_predecessor": "Inicio automático a partir de",
     "modality": "Modalidad",
     "point": "Puntual",
     "include_time": "Incluir horas",
