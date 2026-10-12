@@ -3,9 +3,8 @@
 Quoted labels below are persisted schema values. @language-example
 
 Covers:
-  - Bit-identical equivalence with the original `_zotero_item_to_recursos`
-    from `vault_routes.py` for realistic fixtures (translation-server,
-    Zotero web library export). No regressions before the refactor.
+  - Compatibility of existing mapped fields with the original `_zotero_item_to_recursos`
+    from `vault_routes.py`, while retaining additional bibliographic data.
   - Partial cases and edge cases (empty item, non-dict, unusual dates,
     creators with only `name`).
   - `Llibre/Revista` fallback chain (publicationTitle → bookTitle →
@@ -171,7 +170,9 @@ NON_DICT = "not an item"
 def test_equivalence_with_legacy(fixture):
     """The new mapper produces exactly the same output as the
     legacy implementation. If it differs, it's a silent regression."""
-    assert zotero_item_to_recursos(fixture) == _legacy_zotero_item_to_recursos(fixture)
+    expected = _legacy_zotero_item_to_recursos(fixture)
+    actual = zotero_item_to_recursos(fixture)
+    assert {key: actual.get(key) for key in expected} == expected
 
 
 def test_non_dict_returns_empty():
@@ -230,7 +231,8 @@ def test_unmapped_zotero_fields_go_to_extras():
     out = zotero_item_to_recursos(item)
     assert out['Item Type'] == 'patent'
     assert out['Title'] == 'X'
-    assert out['Zotero Extras'] == {'patentNumber': 'US123', 'country': 'US'}
+    assert out['Número de document'] == 'US123'
+    assert out['Zotero Extras'] == {'country': 'US'}
 
 
 # ---------- L3.4: Zotero Extras ----------
@@ -255,10 +257,13 @@ def test_extras_includes_patent_specific_fields():
     }
     out = zotero_item_to_recursos(item)
     assert out['Zotero Extras'] == {
-        'patentNumber': 'US123', 'applicationNumber': 'APP456',
-        'country': 'US', 'issuingAuthority': 'USPTO',
-        'priorityNumbers': 'PR789', 'filingDate': '2023-01-15',
+        'country': 'US',
     }
+    assert out['Número de document'] == 'US123'
+    assert out['Autoritat'] == 'USPTO'
+    assert out['Signatura'] == 'APP456'
+    assert out['Número'] == 'PR789'
+    assert out['Data de presentació'] == '2023-01-15'
 
 
 def test_extras_includes_conference_specific_fields():
@@ -267,9 +272,9 @@ def test_extras_includes_conference_specific_fields():
         'conferenceName': 'NeurIPS 2024', 'presentationType': 'oral',
     }
     out = zotero_item_to_recursos(item)
-    assert out['Zotero Extras'] == {
-        'conferenceName': 'NeurIPS 2024', 'presentationType': 'oral',
-    }
+    assert out['Congrés'] == 'NeurIPS 2024'
+    assert out['Tipus de document'] == 'oral'
+    assert 'Zotero Extras' not in out
 
 
 def test_extras_excludes_technical_fields():
@@ -285,20 +290,21 @@ def test_extras_excludes_technical_fields():
         'callNumber': 'QA76.5',
     }
     out = zotero_item_to_recursos(item)
-    assert out.get('Zotero Extras') == {'callNumber': 'QA76.5'}
+    assert out['Data de consulta'] == '2024-06'
+    assert out['Signatura'] == 'QA76.5'
+    assert 'Zotero Extras' not in out
 
 
-def test_extras_excludes_consumed_field_chain():
-    """If a column takes `publicationTitle`, `bookTitle` will NOT appear
-    in Extras even if the item carries it (it's part of the same chain)."""
+def test_extras_preserves_unused_field_chain_values():
+    """Alternative fields must survive even when another alias supplies the column."""
     item = {
         'itemType': 'journalArticle', 'title': 'X',
         'publicationTitle': 'Journal Y',
-        'bookTitle': 'should not appear in extras',
+        'bookTitle': 'Alternative container',
     }
     out = zotero_item_to_recursos(item)
     assert out['Llibre/Revista'] == 'Journal Y'
-    assert 'Zotero Extras' not in out  # bookTitle is also consumed
+    assert out['Zotero Extras'] == {'bookTitle': 'Alternative container'}
 
 
 def test_extras_dict_skips_falsy_values():
@@ -308,4 +314,5 @@ def test_extras_dict_skips_falsy_values():
         'patentNumber': 'US1', 'country': '', 'priorityNumbers': None,
     }
     out = zotero_item_to_recursos(item)
-    assert out['Zotero Extras'] == {'patentNumber': 'US1'}
+    assert out['Número de document'] == 'US1'
+    assert 'Zotero Extras' not in out

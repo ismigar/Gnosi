@@ -46,9 +46,8 @@ def arxiv_to_zotero_item(entry_xml: str) -> ZoteroItem:
     if creators:
         item["creators"] = creators
     published = _text(entry, "atom:published")
-    year = re.match(r"(\d{4})", published)
-    if year:
-        item["date"] = year.group(1)
+    if published:
+        item["date"] = published
     field_map = (
         ("arxiv:doi", "DOI"),
         ("arxiv:journal_ref", "publicationTitle"),

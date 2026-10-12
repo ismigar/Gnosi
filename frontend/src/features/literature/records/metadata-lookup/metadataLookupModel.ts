@@ -127,6 +127,12 @@ export const metadataDisplayText = (value: unknown): string => {
     if (Array.isArray(value)) {
         return value.map(metadataDisplayText).filter(Boolean).join(', ');
     }
+    if (typeof value === 'object' && ('nom' in value || 'cognom1' in value || 'cognom2' in value)) {
+        const name = value as Readonly<Record<string, unknown>>;
+        const family = [name.cognom1, name.cognom2].map(metadataScalarText).filter(Boolean).join(' ');
+        const given = metadataScalarText(name.nom);
+        return family && given ? `${family}, ${given}` : family || given;
+    }
     try {
         return JSON.stringify(value);
     } catch {

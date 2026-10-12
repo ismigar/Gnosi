@@ -180,19 +180,11 @@ def _dedupe_citation_key(
 def _reference_autoria_prop(
     table: dict[str, object] | None,
 ) -> Mapping[object, object] | None:
-    """Returns the table's first `autoria`-type property (structured author
-    list), or None when the table doesn't have one."""
+    """Return the author field, excluding editors, translators and other roles."""
+    from backend.services.reference_schema import author_property
+
     properties = (table or {}).get("properties", []) or []
-    if not isinstance(properties, Iterable):
-        raise TypeError("Table properties must be iterable")
-    raw_property: object
-    for raw_property in properties:
-        if not isinstance(raw_property, Mapping):
-            raise AttributeError("Table property does not support get")
-        p: Mapping[object, object] = raw_property
-        if p.get("type") == "autoria":
-            return p
-    return None
+    return author_property(list(properties)) if isinstance(properties, Iterable) else None
 
 
 def _authors_string_to_autoria(authors: str) -> list[dict[str, str]]:
@@ -226,39 +218,45 @@ def _authors_string_to_autoria(authors: str) -> list[dict[str, str]]:
 def _fill_autoria_from_authors(
     metadata: dict[str, object], table: dict[str, object] | None
 ) -> dict[str, object]:
-    """Routes an imported `Authors` string into the table's `autoria` field.
+    """Bind creator roles and route imported authors to the designated author field.
 
-    Create-from-source (PDF/DOI/ISBN/arXiv/PubMed/…) runs metadata through the
-    canonical Zotero→Recursos mapper, which only knows the legacy text column
-    `Authors`. When the references table has an `autoria`-type property (the
-    structured field the user actually maintains), populate THAT instead so the
-    import fills the real column rather than the deprecated text one — the
-    feature must never leave the record's primary author field empty nor surface
-    a stray legacy column.
-
-    Gate EXCLUSIVE to designation (like `_ensure_recursos_citation_key`): only
-    acts on the designated references table. Idempotent: only fills when the
-    `autoria` cell is empty and an `Authors` value is present, and drops the
-    consumed `Authors` key so the legacy column is left untouched (empty).
-    Mutates and returns `metadata`."""
+    Structured imported names take precedence over the legacy text alias. Other
+    creator columns must never be selected merely because their type is autoria.
+    Existing values are retained; repeated normalization is idempotent.
+    """
     ref_id = _vault.get_reference_table_id()
     if not ref_id or _vault.get_table_id(metadata) != ref_id:
         return metadata
+    from backend.services.reference_schema import bind_roles, property_role
+    from backend.services.reference_catalog import REFERENCE_CREATOR_ROLES
+    from backend.services.reference_names import structured_names, text_names
+
+    properties = (table or {}).get("properties", [])
+    if isinstance(properties, list):
+        bind_roles(metadata, properties)
+        for candidate in properties:
+            if not isinstance(candidate, dict) or candidate.get("type") != "autoria":
+                continue
+            role = property_role(candidate)
+            source = next((key for key, value in REFERENCE_CREATOR_ROLES.items() if value == role), None)
+            target = candidate.get("name")
+            if source and isinstance(target, str) and source != target and metadata.get(target) in (None, "", []) and metadata.get(source):
+                metadata[target] = metadata.pop(source)
     prop = _reference_autoria_prop(table)
-    if not prop:
+    if not prop or not isinstance(prop.get("name"), str):
         return metadata
-    name = prop.get("name")
-    if not name:
-        return metadata
-    if not isinstance(name, str):
-        raise TypeError("Structured author property name must be text")
+    name = str(prop["name"])
     if metadata.get(name) not in (None, "", []):
+        # Imported structured authors take precedence over their compatibility alias.
+        if structured_names(metadata.get(name)) and "; ".join(text_names(metadata.get(name))) == metadata.get("Authors"):
+            metadata.pop("Authors", None)
         return metadata
-    parsed = _authors_string_to_autoria(str(metadata.get("Authors") or ""))
-    if not parsed:
-        return metadata
-    metadata[name] = parsed
-    metadata.pop("Authors", None)
+    parsed = structured_names(metadata.get("Autoría")) or _authors_string_to_autoria(str(metadata.get("Authors") or ""))
+    if parsed:
+        metadata[name] = parsed
+        metadata.pop("Authors", None)
+        if name != "Autoría":
+            metadata.pop("Autoría", None)
     return metadata
 
 

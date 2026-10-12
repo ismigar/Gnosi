@@ -99,6 +99,47 @@ describe('AutoriaField', () => {
         expect(onSave).not.toHaveBeenCalled();
     });
 
+    it('keeps the same focused input while typing a creator name', () => {
+        act(() => {
+            root.render(<AutoriaEditor onSave={vi.fn()} value={[{ nom: '', cognom1: '', cognom2: '' }]} />);
+        });
+        const firstName = container.querySelector<HTMLInputElement>('input[placeholder="First name"]');
+        if (!firstName) throw new Error('First-name input did not render');
+        act(() => { firstName.focus(); });
+        for (const value of ['E', 'Ed', 'Eduardo']) {
+            setInputValue(firstName, value);
+            expect(document.activeElement).toBe(firstName);
+            expect(container.querySelector('input[placeholder="First name"]')).toBe(firstName);
+        }
+        expect(firstName.value).toBe('Eduardo');
+    });
+
+    it('commits once when keyboard focus leaves the creator editor', () => {
+        const onSave = vi.fn();
+        act(() => {
+            root.render(<AutoriaEditor onSave={onSave} value={[{ nom: 'Eduardo', cognom1: '', cognom2: '' }]} />);
+        });
+        const firstName = container.querySelector<HTMLInputElement>('input[placeholder="First name"]');
+        const surname = container.querySelector<HTMLInputElement>('input[placeholder="Surname 1"]');
+        if (!firstName || !surname) throw new Error('Creator inputs did not render');
+        act(() => { firstName.focus(); });
+        act(() => { surname.focus(); });
+        expect(onSave).not.toHaveBeenCalled();
+        setInputValue(surname, 'Mendieta');
+        const outside = document.createElement('button');
+        document.body.append(outside);
+        try {
+            act(() => { outside.focus(); });
+            expect(onSave).toHaveBeenCalledExactlyOnceWith([
+                { nom: 'Eduardo', cognom1: 'Mendieta', cognom2: '' },
+            ]);
+            act(() => { document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); });
+            expect(onSave).toHaveBeenCalledTimes(1);
+        } finally {
+            outside.remove();
+        }
+    });
+
     it('selects a matching existing author with the keyboard', () => {
         const onSave = vi.fn();
         act(() => {

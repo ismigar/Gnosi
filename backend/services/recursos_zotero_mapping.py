@@ -21,29 +21,14 @@ a given type.
 from __future__ import annotations
 
 from backend.services.zotero_schema import ITEM_TYPE_FIELDS
+from backend.services.reference_catalog import REFERENCE_ZOTERO_FIELDS, REFERENCE_TYPE_FIELDS
 
 # Canonical Recursos columns (Vault frontmatter) → Zotero fields
 # that can feed them. If a Recursos field has no
 # Zotero correspondence (e.g. `Citation Key` or `Notes`), it doesn't appear here.
 RECURSOS_TO_ZOTERO_FIELDS: dict[str, list[str]] = {
-    'Item Type':       ['itemType'],
-    'Title':           ['title'],
-    'Authors':         ['creators'],
-    'Any':             ['date'],
-    'Llibre/Revista':  ['publicationTitle', 'bookTitle', 'proceedingsTitle', 'encyclopediaTitle'],
-    'Editorial':       ['publisher'],
-    'Lloc':            ['place'],
-    'Volum':           ['volume'],
-    'Número':          ['issue'],
-    'Pàgines':         ['pages'],
-    'Núm. pàgines':    ['numPages'],
-    'Edició':          ['edition'],
-    'DOI':             ['DOI'],
-    'ISBN':            ['ISBN'],
-    'ISSN':            ['ISSN'],
-    'PMID':            ['PMID'],
-    'URL':             ['url'],
-    'Idioma':          ['language'],
+    "Item Type": ["itemType"], "Authors": ["creators"], "Any": ["date"],
+    **REFERENCE_ZOTERO_FIELDS,
 }
 
 # Inverse: zoteroField → first Recursos column that mentions it.
@@ -64,6 +49,8 @@ def is_field_relevant_for_type(recursos_field: str, zotero_item_type: str) -> bo
     correspondence, returns False (show it in the "Other fields" section in the modal).
     
     """
+    if recursos_field in REFERENCE_TYPE_FIELDS.get(zotero_item_type, []):
+        return True
     candidates = RECURSOS_TO_ZOTERO_FIELDS.get(recursos_field)
     if not candidates:
         return False
