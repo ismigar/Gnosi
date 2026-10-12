@@ -37,6 +37,7 @@ def full_record():
         "Volum": "2", "Número": "3", "Pàgines": "14-28", "Núm. pàgines": 400,
         "Edició": "2", "Col·lecció": "Studies", "Número de col·lecció": "14", "Idioma": "ca",
         "ISBN": "9780306406157", "ISSN": "1234-567X", "DOI": "10.1000/test", "URL": "https://example.org",
+        "Full Citation": "García Riu, Ada. A chapter. Edited by Joan Puig. Translated by Anna Sol. 2024.",
         "Abstract": "First line\nSecond line", "Notes bibliogràfiques": "An annotation",
         "Zotero Extras": {"customBibliographicField": {"value": "keep"}},
         "Personal notes": "PRIVATE", "path": "/PRIVATE/path", "id": "PRIVATE-id",
@@ -190,3 +191,11 @@ def test_configured_roles_are_bound_on_native_page_writes_only_for_reference_sch
     assert "_citation_roles" not in metadata
     bind_configured_roles(metadata, [{"name": "Editors", "type": "autoria", "config": {"citation_role": "editor"}}])
     assert metadata["_citation_roles"] == {"Editors": "editor"}
+
+
+@pytest.mark.parametrize("export,parse", [(to_bibtex, parse_bibtex), (to_ris, parse_ris)])
+def test_conflicting_legacy_author_values_survive_without_changing_citation_authorship(export, parse):
+    metadata = {"Title": "T", "Citation Key": "x", "Item Type": "book", "Authors": "Old, Name", "Autoría": [person("Ada", "Riu")]}
+    imported = parse(export([metadata]))[0]
+    assert imported["Authors"] == "Old, Name"
+    assert recursos_metadata_to_csl("T", imported, resolve_csl_type)["author"] == [{"given": "Ada", "family": "Riu"}]
