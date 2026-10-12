@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1192 | 131392 | 55 |
+| `features` | 1192 | 131420 | 55 |
 | `generated` | 2 | 49842 | 510 |
 | `shared` | 303 | 33544 | 440 |
 
@@ -769,7 +769,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/dashboard/useTemplates.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useTemplates.ts) | 168 | `useTemplates` | — |
 | [`frontend/src/features/vault/dashboard/useUndoRedo.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useUndoRedo.ts) | 116 | `useUndoRedo` | — |
 | [`frontend/src/features/vault/dashboard/useVaultHome.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useVaultHome.ts) | 43 | `useVaultHome` | — |
-| [`frontend/src/features/vault/dashboard/useViewActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useViewActions.ts) | 212 | `useViewActions` | — |
+| [`frontend/src/features/vault/dashboard/useViewActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useViewActions.ts) | 227 | `useViewActions` | — |
 | [`frontend/src/features/vault/dashboard/useViewCatalog.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useViewCatalog.ts) | 113 | `useViewCatalog` | — |
 | [`frontend/src/features/vault/dashboard/view-context.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/view-context.ts) | 29 | `VIEW_WRAPPERS`, `prepareDashboardViewContext` | — |
 | [`frontend/src/features/vault/drawings/TldrawEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/TldrawEditor.tsx) | 92 | `TldrawEditor`, `function` | — |
@@ -1146,7 +1146,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx) | 21 | `EmbeddedViewBox` | — |
 | [`frontend/src/features/vault/views/db-view-embed/ViewTools.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/ViewTools.tsx) | 99 | `ViewTools` | — |
 | [`frontend/src/features/vault/views/db-view-embed/api.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/api.ts) | 55 | `apiErrorDetail`, `apiErrorStatus`, `applyVaultTemplate`, `createEmbeddedVaultPage`, `createPageInTable`, `createVaultView`, `deleteVaultPage`, `deleteVaultView`, `fetchPageViews`, `fetchVaultPage`, `fetchVaultPagesByTable`, `fetchVaultViewUsage`, `fetchVaultViews`, `patchEmbeddedVaultPageMetadata`, `patchPageMetadata`, `patchSectionConfig`, `updateVaultView`, `upsertPageView` | — |
-| [`frontend/src/features/vault/views/db-view-embed/body-adapters.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/body-adapters.ts) | 106 | `createBodyAdapters` | — |
+| [`frontend/src/features/vault/views/db-view-embed/body-adapters.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/body-adapters.ts) | 119 | `createBodyAdapters` | — |
 | [`frontend/src/features/vault/views/db-view-embed/decode.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/decode.ts) | 95 | `columns`, `decodeContext`, `decodeNavApi`, `decodeRow`, `decodeRows`, `decodeView`, `decodeViews`, `isFilterGroup`, `isRecord`, `legacyText`, `metadata`, `presets`, `text` | — |
 | [`frontend/src/features/vault/views/db-view-embed/diagnostics.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/diagnostics.ts) | 4 | `reportEmbedError` | — |
 | [`frontend/src/features/vault/views/db-view-embed/events.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/events.ts) | 10 | — | — |

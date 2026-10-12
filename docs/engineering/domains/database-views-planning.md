@@ -435,3 +435,7 @@ Embedded record saves retain the latest registry configuration fetched after a v
 ## Creation in a page-filtered view
 
 For any source table, an embedded view infers creation metadata from active `equals` rules whose value is `this`. The containing page ID is sent in the corresponding field on the initial create request, so the record still matches after reload. Inline table/list rows, the New menu, template creation and subitems share the same metadata. Nested AND groups combine defaults; OR groups contribute only equalities required by every branch. Disabled exposed rules do not contribute. Record identity and source-table fields are preserved. Page context overrides template values before explicit creation values, and inline defaults are present before evaluating property formulas. Switching the active tab or containing page recomputes the defaults without modifying the saved filter or existing records.
+
+## Column order persistence
+
+Dragging a column grip saves the configured order for main, secondary and embedded table views. Main-view rendering, saving and migration preserve that order instead of rebuilding it from the schema. Registered embedded anchor views save to the registry; legacy sections update their synthetic tab as well as the section. Record reloads fetch the current registry configuration so the columns do not return to an older order. Composite descriptors retain their source table and field metadata. A virtual main view receives a unique saved identity on its first update.
