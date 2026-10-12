@@ -2,6 +2,9 @@
 
 Une base de données regroupe des tables. Une table définit les propriétés de fiches qui sont des pages ; ses vues présentent les mêmes fiches de différentes façons.
 
+
+Dans une vue intégrée à une page, un filtre comme **Conteneur = Cette page** renseigne automatiquement ce champ avec la page contenant la vue lors de l’ajout d’un document. Cela fonctionne avec toute table, y compris les modèles et les sous-éléments. Les nouveaux documents restent ainsi dans la vue lorsque cette relation avec la page était la valeur manquante.
+
 ## Avant de commencer {#before-you-begin}
 
 Un Vault accessible en écriture. Les vues générales font partie des connaissances ; la planification avancée nécessite l’extension Planification.
