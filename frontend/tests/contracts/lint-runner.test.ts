@@ -7,15 +7,15 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 
 const frontend = fileURLToPath(new URL('../../', import.meta.url));
-let fixture;
+let fixture: string;
 
-function write(name, content) {
+function write(name: string, content: string) {
   const target = join(fixture, name);
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, content);
 }
 
-function node(args, env = {}) {
+function node(args: string[], env: NodeJS.ProcessEnv = {}) {
   return spawnSync(process.execPath, args, {
     cwd: fixture,
     encoding: 'utf8',
@@ -24,8 +24,18 @@ function node(args, env = {}) {
   });
 }
 
-function run(env) {
+function run(env: NodeJS.ProcessEnv = {}) {
   return node(['scripts/lint.mjs'], env);
+}
+
+function eslintPaths(output: string): string[] {
+  const results: unknown = JSON.parse(output);
+  if (!Array.isArray(results)) throw new Error('Expected ESLint result array');
+  return results.map((result: unknown) => {
+    if (typeof result !== 'object' || result === null || !('filePath' in result)
+      || typeof result.filePath !== 'string') throw new Error('Expected ESLint file path');
+    return result.filePath;
+  }).sort();
 }
 
 beforeEach(() => {
@@ -42,7 +52,7 @@ beforeEach(() => {
   ];`);
 });
 
-afterEach(() => rmSync(fixture, { recursive: true, force: true }));
+afterEach(() => { rmSync(fixture, { recursive: true, force: true }); });
 
 it('discovers the same paths as real ESLint, including extra extensions, dotfiles and literal glob characters', () => {
   for (const name of ['a.js', 'b.mjs', 'c.cjs', 'view.jsx', 'src/a.ts', 'src/b.tsx', 'extra.custom', '.hidden.js', 'space [1].js']) {
@@ -58,7 +68,7 @@ it('discovers the same paths as real ESLint, including extra extensions, dotfile
   const manifest = join(fixture, 'ignored/discovery.json');
   const discovered = node(['scripts/lint-files.mjs', manifest]);
   expect(discovered.status, discovered.stderr).toBe(0);
-  expect(JSON.parse(readFileSync(manifest, 'utf8'))).toEqual(JSON.parse(original.stdout).map(result => result.filePath).sort());
+  expect(JSON.parse(readFileSync(manifest, 'utf8')) as unknown).toEqual(eslintPaths(original.stdout));
   expect(run().status).toBe(0);
 });
 
@@ -70,7 +80,7 @@ it.each(['.eslintcache', 'custom.cache'])('reuses %s across fresh batches and re
         create: () => ({ Program: () => appendFileSync('rule-count.txt', process.pid + ',') })
       } } } }, rules: { 'fixture/count': 'error' } },
     ];`);
-  for (let index = 0; index < 257; index += 1) write(`source/${index}.js`, 'export {};');
+  for (let index = 0; index < 257; index += 1) write(`source/${String(index)}.js`, 'export {};');
   const environment = { GNOSI_ESLINT_CACHE: cache };
   expect(run(environment).status).toBe(0);
   const first = readFileSync(join(fixture, 'rule-count.txt'), 'utf8');
@@ -146,7 +156,7 @@ it('propagates a lint child signal and does not start later batches', () => {
       create: () => ({ Program: () => process.kill(process.pid, 'SIGTERM') })
     } } } }, rules: { 'fixture/terminate': 'error' } },
   ];`);
-  for (let index = 0; index < 257; index += 1) write(`source/${index}.js`, 'export {};');
+  for (let index = 0; index < 257; index += 1) write(`source/${String(index)}.js`, 'export {};');
   const result = run();
   expect(result.status).not.toBe(0);
   expect(result.stderr).toContain('SIGTERM');

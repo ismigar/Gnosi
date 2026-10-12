@@ -35,8 +35,8 @@ tests:
   - backend/tests/test_ci_docker_python_policy.py
   - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
-  - frontend/tests/contracts/lint-runner.test.js
-  - frontend/tests/contracts/typecheck-runner.test.js
+  - frontend/tests/contracts/lint-runner.test.ts
+  - frontend/tests/contracts/typecheck-runner.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 

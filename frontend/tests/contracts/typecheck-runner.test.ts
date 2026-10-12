@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { spawnSync } from 'node:child_process';
+import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -9,32 +9,32 @@ import { afterEach, beforeEach, expect, it } from 'vitest';
 const frontend = fileURLToPath(new URL('../../', import.meta.url));
 const options = { target: 'ES2022', module: 'ESNext', moduleResolution: 'Bundler',
   lib: ['ES2022'], types: [], strict: true, skipLibCheck: true };
-let fixture;
+let fixture: string;
 
-function write(name, content) {
+function write(name: string, content: string) {
   const target = join(fixture, name);
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, content);
 }
 
-function config(compilerOptions = {}, extra = {}) {
+function config(compilerOptions: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) {
   write('tsconfig.json', JSON.stringify({ compilerOptions: { ...options, ...compilerOptions }, include: ['src/**/*.ts'], ...extra }));
 }
 
-function node(args, env = {}) {
+function node(args: string[], env: NodeJS.ProcessEnv = {}) {
   return spawnSync(process.execPath, args, { cwd: fixture, encoding: 'utf8', timeout: 60_000,
     env: { ...process.env, ...env } });
 }
 
-function run(env) {
+function run(env: NodeJS.ProcessEnv = {}) {
   return node(['scripts/typecheck.mjs'], env);
 }
 
-function diagnosticLines(result) {
+function diagnosticLines(result: SpawnSyncReturns<string>) {
   return result.stdout.split('\n').filter(line => /error TS\d+:/.test(line)).sort();
 }
 
-function compare(passes) {
+function compare(passes: boolean) {
   const original = node(['node_modules/typescript/bin/tsc', '--noEmit', '--pretty', 'false']);
   const result = run();
   if (passes) expect(original.status, original.stdout + original.stderr).toBe(0);
@@ -49,7 +49,7 @@ function manyFiles() {
   for (let index = 0; index < 257; index += 1) write(`src/${String(index).padStart(3, '0')}.ts`, 'export {};');
 }
 
-function hook(body) {
+function hook(body: string) {
   write('hook.mjs', `import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
     if (process.argv[1]?.endsWith('typecheck-worker.mjs')) {
       const request = JSON.parse(readFileSync(process.argv[2], 'utf8'));
@@ -70,7 +70,7 @@ beforeEach(() => {
   config();
 });
 
-afterEach(() => rmSync(fixture, { recursive: true, force: true }));
+afterEach(() => { rmSync(fixture, { recursive: true, force: true }); });
 
 it('preserves extended configs, paths, global augmentation and imported files without emitting code', () => {
   write('base.json', JSON.stringify({ compilerOptions: { ...options, baseUrl: '.', paths: { '@/*': ['outside/*'] }, resolveJsonModule: true } }));
