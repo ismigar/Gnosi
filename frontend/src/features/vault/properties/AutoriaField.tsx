@@ -201,16 +201,21 @@ export function AutoriaEditor({
     return (
         <div
             className="w-full min-w-0 py-1"
+            onBlur={(event) => {
+                if (!eventTargetIsWithin(event.currentTarget, event.relatedTarget)) {
+                    commit(authorsRef.current);
+                }
+            }}
             onClick={(event) => {
                 event.stopPropagation();
             }}
             ref={containerRef}
         >
             <div className="mb-1 flex flex-col gap-1">
-                {authors.map((author, index) => {
+                {authors.map((_author, index) => {
                     const matches = focusedIndex === index ? matchesFor(index) : [];
                     return (
-                        <div key={`${authorSortLabel(author)}-${String(index)}`}>
+                        <div key={index}>
                             <div className="flex flex-wrap items-center gap-1">
                                 <div className="flex shrink-0 flex-col -space-y-1 text-[var(--text-tertiary)]">
                                     <ArrowUp
