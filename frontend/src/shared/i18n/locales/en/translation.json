@@ -5618,6 +5618,13 @@
     "apply_proposal": "Apply proposal"
   },
   "vault_date": {
+    "modality": "Mode",
+    "point": "Single date",
+    "include_time": "Include times",
+    "end_pending": "Finish pending",
+    "end_before_start": "Finish must be on or after start.",
+    "clear_end": "Leave finish pending",
+    "clear_date": "Clear date",
     "days_placeholder": "days",
     "days_count_hint": "Number of days (recalculates the end date)",
     "days_unit": "d",

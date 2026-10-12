@@ -2,6 +2,9 @@
 
 Una base de datos agrupa tablas. Una tabla define propiedades de registros que son páginas; sus vistas muestran los mismos registros de distintas formas.
 
+
+Los campos Fecha comparten un editor con modalidad puntual o período y horas opcionales independientes. Un período puede abarcar varios días con horas de inicio y fin; el fin puede quedar pendiente. La duración natural cuenta días de calendario inclusivos sin horas, y horas transcurridas con horas. Cambiar de modalidad conserva el intervalo y las horas guardadas; las opciones de planificación siguen disponibles.
+
 ## Antes de empezar {#before-you-begin}
 
 Un Vault con escritura. Las vistas generales forman parte del conocimiento; la programación avanzada de proyectos requiere Planificación.

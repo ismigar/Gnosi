@@ -88,7 +88,7 @@ describe('schema configuration persistence contracts', () => {
             Derived: 'virtual', Derived_config: { id: 'fld_00000008', compute: 'graph.degree' },
             Formula: 'formula', Formula_config: { id: 'fld_00000009', formula: '{Price} * 2', defaultFormula: 'today()', format: { kind: 'percent', display: 'ring', progressMax: 1 } },
         };
-        expect(buildPayload(hydrateFields(schema, null), false).newSchemaObj).toEqual(schema);
+        expect(buildPayload(hydrateFields(schema, null), false).newSchemaObj).toEqual({ ...schema, Period: 'date', Period_config: { ...schema.Period_config, date_default_kind: 'period' } });
     });
 
     it('converts legacy buttons once and preserves functionality config including extension keys', () => {

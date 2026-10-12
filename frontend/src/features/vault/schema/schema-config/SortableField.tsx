@@ -65,7 +65,7 @@ export function SortableField(props: SortableFieldProps) {
 
                 <div className={`w-44 ${field.type === 'title' ? 'mr-10' : ''}`}>
                     <select
-                        value={field.type}
+                        value={['datetime', 'period'].includes(field.type) ? 'date' : field.type}
                         onChange={(e) => { handleUpdateField(idx, 'type', e.target.value); }}
                         className="w-full text-xs font-medium border border-[var(--border-primary)] rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 focus:border-[var(--gnosi-primary)] outline-none bg-[var(--bg-secondary)] text-[var(--text-primary)] disabled:opacity-50"
                         disabled={field.type === 'title' || required}
@@ -80,8 +80,6 @@ export function SortableField(props: SortableFieldProps) {
                             { value: 'autoria', label: t('schema.type_autoria', "Authorship") },
                             { value: 'status', label: t('schema.type_status') },
                             { value: 'date', label: t('schema.type_date') },
-                            { value: 'datetime', label: t('schema.type_datetime') },
-                            { value: 'period', label: t('schema.type_period') },
                             { value: 'checkbox', label: t('schema.type_checkbox') },
                             { value: 'url', label: t('schema.type_url') },
                             { value: 'zotero', label: t('schema.type_zotero', 'Zotero') },

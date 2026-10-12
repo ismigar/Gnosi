@@ -18,10 +18,12 @@ export function buildPayload(fields: Field[], enableTranslation: boolean) {
     const visibleProperties: string[] = [];
     fields.forEach(f => {
         const cleanName = f.name.trim();
-        newSchemaObj[cleanName] = f.type;
+        newSchemaObj[cleanName] = ['datetime', 'period'].includes(f.type) ? 'date' : f.type;
         // Round-trip of the registry config: keys that the UI doesn't
         // manage (role, option_groups…) are kept as-is.
         const config = { ...(f.rawConfig || {}) };
+        if (f.type === 'period') config.date_default_kind = 'period';
+        if (f.type === 'datetime') config.date_default_with_time = true;
         for (const k of MANAGED_CONFIG_KEYS) Reflect.deleteProperty(config, k);
         // Persists the immutable field_id: it's the stable key for
         // referencing the field in notes, views, filters and sections.
@@ -70,7 +72,11 @@ export function buildPayload(fields: Field[], enableTranslation: boolean) {
             if (f.storage_folder) config.storage_folder = f.storage_folder;
             if (f.name_pattern.trim()) config.name_pattern = f.name_pattern.trim();
         }
-        if (f.type === 'period') {
+        if (f.type === 'period' || (f.type === 'date' && (
+            ['duration_enabled', 'predecessors_enabled', 'period_unit'].some(key => Object.hasOwn(f.rawConfig || {}, key))
+            || f.duration_enabled === false || f.predecessors_enabled === false
+            || f.skip_non_working_days === false || (f.period_unit && f.period_unit !== 'days')
+        ))) {
             config.duration_enabled = f.duration_enabled !== false;
             config.predecessors_enabled = f.predecessors_enabled !== false;
             config.skip_non_working_days = f.skip_non_working_days !== false;

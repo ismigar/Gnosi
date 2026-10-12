@@ -63,7 +63,7 @@ export function ViewDateOptions({
                         </div>
                     )}
                     {viewType === 'timeline' && (
-                        fieldMeta[dateField]?.type === 'period' ? (
+                        ['date', 'period'].includes(fieldMeta[dateField]?.type || '') ? (
                             <p className="text-[11px] text-[var(--text-tertiary)]">{t('view.period_hint', "The period field already defines each bar's start and end.")}</p>
                         ) : (
                             <div>

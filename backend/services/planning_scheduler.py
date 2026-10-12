@@ -53,6 +53,8 @@ def _plugins_state(vault_path: Path) -> dict[str, Any]:
 
 def _period_field(metadata: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
     for key, value in metadata.items():
+        if isinstance(value, dict) and value.get("kind") in {"point", "period"}:
+            return key, value
         if isinstance(value, dict) and any(
             name in value for name in ("durationDays", "dependencies", "predecessorIds")
         ):
@@ -138,7 +140,8 @@ def _write_automatic_boundaries(
         if not changed:
             continue
         metadata = deepcopy(source["metadata"])
-        metadata[source["field"]] = period
+        original = source["metadata"].get(source["field"])
+        metadata[source["field"]] = {**(original if isinstance(original, dict) else {}), **period}
         try:
             body = read_metadata_text(source["path"], encoding="utf-8")
             _, content = vault.parse_frontmatter(body, source["path"])

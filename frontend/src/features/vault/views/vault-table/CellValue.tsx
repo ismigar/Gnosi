@@ -1,3 +1,4 @@
+import { formatUnifiedDate, unifiedDate } from '../../../../shared/dates/unifiedDate';
 import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
 import { NumberValue } from '../../../../shared/records/NumberValue';
 import { Calendar, CheckSquare, Clock, Link as LinkIcon, Unlock } from 'lucide-react';
@@ -5,14 +6,13 @@ import { filenameFromTarget } from '../../../../shared/resources/fileResource';
 import { asBool } from '../../../../shared/filtering/vaultFilters';
 import { AutoriaDisplay } from '../../properties/AutoriaField';
 import { FileFieldValue } from '../../properties/FileFieldValue';
-import { formatDate, resolveFieldFormat } from '../../../../shared/records/model/formatUtils';
+import { resolveFieldFormat } from '../../../../shared/records/model/formatUtils';
 import { ImageHoverPreview } from '../../../../shared/ui/previews/ImageHoverPreview';
 import { optionChipStyle } from '../../../../shared/records/model/optionCatalogUtils';
 import { RelationItem } from '../../properties/RelationItem';
-import { parsePeriod, periodDaysInclusive } from '../../properties/VaultDateProperty';
 import { displayString, getTableFieldConfig } from './fieldConfig';
 import { normalizeRelationValues as normalizeTableRelations } from '../../properties/relationItemUtils';
-import { cellNode, metadataDate, tableText } from './cellValues';
+import { cellNode, tableText } from './cellValues';
 import type { TableController } from './useTableController';
 
 export function CellValue({ model, value, type, noteId, field, originalMetaKey }: { model: TableController, value: unknown; type: string; noteId: string; field: string; originalMetaKey: string; }) {
@@ -57,79 +57,16 @@ export function CellValue({ model, value, type, noteId, field, originalMetaKey }
       );
     }
     case 'date':
-    case 'datetime': {
-      const importedRange = value && typeof value === 'object'
-        ? parsePeriod(value)
-        : null;
-      const displayValue = importedRange?.start || value;
-      const parsed = metadataDate(displayValue);
-      if (isNaN(parsed.getTime())) {
-        const rawLabel = typeof value === 'object'
-          ? JSON.stringify(value)
-          : displayString(value);
-        return <span className="truncate max-w-[200px] block text-[var(--text-tertiary)]" title={rawLabel}>{rawLabel}</span>;
-      }
-      const fmt = resolveFieldFormat(getTableFieldConfig(schema, field), localeSettings);
-      const formatBoundary = (boundary: unknown) => formatDate(metadataDate(boundary), {
-        dateFormat: fmt.dateFormat,
-        type: displayString(boundary).includes('T') ? 'datetime' : type,
-        locale: fmt.dateLocale,
-      });
-      return (
-        <div className="flex items-center gap-1.5 whitespace-nowrap text-[var(--text-primary)]">
-          {type === 'datetime' ? <Clock size={14} className="text-[var(--text-tertiary)]" /> : <Calendar size={14} className="text-[var(--text-tertiary)]" />}
-          <span>{formatBoundary(displayValue)}</span>
-          {importedRange?.end && importedRange.end !== importedRange.start && (
-            <>
-              <span className="text-[var(--text-tertiary)]">→</span>
-              <span>{formatBoundary(importedRange.end)}</span>
-            </>
-          )}
-        </div>
-      );
-    }
+    case 'datetime':
     case 'period': {
-      const { start, end, durationDays, predecessorIds } = parsePeriod(value);
       const fmt = resolveFieldFormat(getTableFieldConfig(schema, field), localeSettings);
-      const fmtPeriodDate = (d: string) => {
-        if (!d) return '?';
-        const hasTime = displayString(d).includes('T');
-        if (fmt.dateFormat && fmt.dateFormat !== 'locale') {
-          return formatDate(d, {
-            dateFormat: fmt.dateFormat,
-            type: hasTime ? 'datetime' : 'date',
-            locale: fmt.dateLocale,
-          });
-        }
-        return new Date(d).toLocaleString(
-          fmt.dateLocale || i18n.language,
-          hasTime
-            ? { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }
-            : { day: '2-digit', month: 'short' },
-        );
-      };
-      const days = durationDays ?? periodDaysInclusive(start, end);
-      return (
-        <div className="flex items-center gap-1 text-[11px] font-medium text-[var(--text-secondary)] bg-[var(--bg-tertiary)] px-1.5 py-0.5 rounded border border-[var(--border-primary)] w-fit">
-          <span>{fmtPeriodDate(start)}</span>
-          <span className="text-[var(--text-tertiary)]">→</span>
-          <span>{fmtPeriodDate(end)}</span>
-          {days != null && (
-            <span className="text-[var(--text-tertiary)] ml-0.5" title={t('table.period_days', { count: days, defaultValue: "{{count}} days" })}>· {days} d</span>
-          )}
-          {predecessorIds.length > 0 && (
-            <span
-              className="text-[var(--text-tertiary)] ml-0.5"
-              title={predecessorIds.map((id) => pageReferenceTitle(id, idToTitle)).join(', ')}
-            >
-              · {t('vault_date.period_predecessor_count', {
-                count: predecessorIds.length,
-                defaultValue: "{{count}} predecessors",
-              })}
-            </span>
-          )}
-        </div>
-      );
+      const date = unifiedDate(value, type);
+      const label = formatUnifiedDate(value, { legacyType: type, dateFormat: fmt.dateFormat,
+        locale: fmt.dateLocale || i18n.language, pending: t('vault_date.end_pending') });
+      return <div className="flex items-center gap-1.5 whitespace-nowrap text-[var(--text-primary)]">
+        {date.withTime ? <Clock size={14} className="text-[var(--text-tertiary)]" /> : <Calendar size={14} className="text-[var(--text-tertiary)]" />}
+        <span>{label || '—'}</span>
+      </div>;
     }
     case 'status':
     case 'select': {

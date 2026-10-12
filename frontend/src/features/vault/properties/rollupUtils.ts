@@ -1,4 +1,5 @@
 import { asBool } from '../../../shared/filtering/vaultFilters';
+import { periodBoundary } from '../../../shared/dates/projectPlanning';
 
 function parseNumericValue(value: unknown): number {
   const text = String(value).trim();
@@ -46,13 +47,12 @@ export function evaluateRollup<Value>(
       return `${String(Math.round((checked / values.length) * 100))}%`;
     }
     case 'earliest':
-      return nonEmptyValues.length
-        ? (nonEmptyValues.sort().at(0) ?? null)
-        : null;
     case 'latest':
-      return nonEmptyValues.length
-        ? (nonEmptyValues.sort().reverse().at(0) ?? null)
-        : null;
+      { const dates = nonEmptyValues.map(value => typeof value === 'object' && 'start' in value
+          ? periodBoundary(value, aggregation === 'latest' ? 'end' : 'start') : value);
+        dates.sort();
+        return (aggregation === 'latest' ? dates.at(-1) : dates.at(0)) ?? null;
+      }
     case 'show_original':
       return nonEmptyValues.join(', ');
     default:
