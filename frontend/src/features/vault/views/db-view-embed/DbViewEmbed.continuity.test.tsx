@@ -260,7 +260,7 @@ it('forwards parallel opening from an embedded view to its editor', async () => 
     expect(openPage).not.toHaveBeenCalled();
 });
 
-it('retains removed timeline sorting through consecutive record-save reloads', async () => {
+it('refreshes registry settings and retains removed timeline sorting through consecutive record-save reloads', async () => {
     const sorted = { ...anchor, type: 'timeline', sorts: [{ field: 'title', direction: 'desc' }] };
     context = { ...context, registry: { ...context.registry, views: [sorted, other] } };
     await render();
@@ -269,11 +269,15 @@ it('retains removed timeline sorting through consecutive record-save reloads', a
     context = { ...context, viewSectionNonce: 1 };
     await render();
     expect(fixture.body?.activeView?.sort).toEqual([]);
+    expect(api.fetchVaultViews).toHaveBeenCalledTimes(1);
     for (const id of ['a', 'b']) {
+        const columns = ['title', id === 'a' ? 'Status' : 'Date'];
+        vi.mocked(api.fetchVaultViews).mockResolvedValue([{ ...sorted, sorts: [], sort: null, visibleProperties: columns }, other]);
         await act(async () => {
             await fixture.body?.onUpdateNote?.(id, { metadata: { timeline_order: 1 } });
         });
         expect(fixture.body?.activeView?.sort).toEqual([]);
+        expect(fixture.body?.activeView?.visibleProperties).toEqual(columns);
     }
-    expect(api.fetchVaultViews).toHaveBeenCalledTimes(1);
+    expect(api.fetchVaultViews).toHaveBeenCalledTimes(3);
 });
