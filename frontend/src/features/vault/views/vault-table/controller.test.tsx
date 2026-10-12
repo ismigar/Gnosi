@@ -89,20 +89,6 @@ function mountController(extra: Partial<VaultTableProps> = {}, withCells = false
     rerender: (input: Partial<VaultTableProps>) => { mounted.render(<Probe input={{ ...props, ...input }} />); },
   };
 }
-it.each([true, false])('saves dragged column order for main=%s while preserving other view settings', async is_main => {
-  const onUpdateView = vi.fn();
-  const activeView = { id: 'ordered', is_main, visibleProperties: ['title', 'Status', 'Score', 'Text'], columnWidths: { Score: 220 }, sorts: [{ field: 'Score', direction: 'desc' }] };
-  const table = mountController({ activeView, onUpdateView });
-  try {
-    await act(async () => {
-      await Promise.resolve();
-      table.model().handleColumnDragEnd({ active: { id: 'Text' }, over: { id: 'Status' } } as Parameters<TableController['handleColumnDragEnd']>[0]);
-    });
-    expect(onUpdateView).toHaveBeenCalledExactlyOnceWith({ ...activeView, visibleProperties: ['title', 'Text', 'Status', 'Score'] });
-    table.rerender({ activeView: { ...activeView, visibleProperties: ['title', 'Text', 'Status', 'Score'] }, onUpdateView });
-    expect(table.model().dynamicColumns.map(([key]) => key)).toEqual(['Text', 'Status', 'Score']);
-  } finally { table.unmount(); }
-});
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0);
