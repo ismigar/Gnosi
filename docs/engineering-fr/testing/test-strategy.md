@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-12
 source_paths:
+  - scripts/check_public_pipeline.py
   - scripts/check_backend_types.py
   - package.json
   - .github/workflows/ci.yml
@@ -24,6 +25,7 @@ source_paths:
   - frontend/scripts/typecheck.mjs
   - frontend/scripts/typecheck-worker.mjs
 tests:
+  - pipeline/tests/test_public_pipeline.py
   - backend/tests/test_ci_backend_parser.py
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
@@ -215,6 +217,13 @@ inchangés. Les régressions CLI comparent diagnostics stricts, imports et versi
 découverte, stubs, cycles, promotion en racines, syntaxe invalide, isolation du
 cache, modifications et terminaison des processus ; elles vérifient aussi la
 concurrence du parseur avec une demande héritée de travailleurs.
+
+Le pipeline public indexé complet utilise le même exécuteur de cache privé
+avec `--strict --explicit-package-bases` et tous les chemins Python indexés
+validés, y compris les tests et répertoires ignorés indexés. Son localiseur de
+documentation est le module initial sélectionné par la découverte. L’exclusion
+backend ne s’applique pas à la cible pipeline ; racine, CI et pre-PR conservent
+le point d’entrée pipeline existant.
 
 La commande frontend utilise l’API de la version fixée de TypeScript avec tout
 le programme de `tsconfig.json` chargé dans chaque nouveau processus séquentiel.

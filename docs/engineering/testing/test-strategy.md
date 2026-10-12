@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-12
 source_paths:
+  - scripts/check_public_pipeline.py
   - scripts/check_backend_types.py
   - package.json
   - .github/workflows/ci.yml
@@ -24,6 +25,7 @@ source_paths:
   - frontend/scripts/typecheck.mjs
   - frontend/scripts/typecheck-worker.mjs
 tests:
+  - pipeline/tests/test_public_pipeline.py
   - backend/tests/test_ci_backend_parser.py
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
@@ -196,6 +198,12 @@ targets retain the original parser's syntax diagnostics. Dependency locks, the
 regressions compare strict/import/version diagnostics, discovery, stubs, cycles,
 root promotion, invalid syntax, private-cache isolation, source edits and child
 termination; parser concurrency is checked with an inherited worker request.
+
+The complete indexed public pipeline uses the same private-cache runner with
+`--strict --explicit-package-bases` and every validated indexed Python path,
+including tests and ignored indexed directories. Its documentation localizer
+is the discovery-selected preparation seed. No backend exclusion applies to
+the pipeline target; root, CI and pre-PR keep the existing pipeline entrypoint.
 
 The frontend command uses the pinned TypeScript compiler API with the complete
 `tsconfig.json` program in every fresh, sequential worker. Syntax, options and

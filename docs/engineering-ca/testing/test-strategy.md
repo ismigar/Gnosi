@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-12
 source_paths:
+  - scripts/check_public_pipeline.py
   - scripts/check_backend_types.py
   - package.json
   - .github/workflows/ci.yml
@@ -24,6 +25,7 @@ source_paths:
   - frontend/scripts/typecheck.mjs
   - frontend/scripts/typecheck-worker.mjs
 tests:
+  - pipeline/tests/test_public_pipeline.py
   - backend/tests/test_ci_backend_parser.py
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
@@ -210,6 +212,13 @@ CLI real comparen diagnòstics estrictes, d’imports i versions, descobriment,
 stubs, cicles, promoció a arrels, sintaxi invàlida, aïllament de memòria cau,
 edicions i terminació de processos; també comproven la concurrència del parser
 amb una petició heretada de treballadors.
+
+La pipeline pública indexada completa usa el mateix executor de memòria cau
+privada amb `--strict --explicit-package-bases` i tots els camins Python
+indexats validats, incloses proves i directoris ignorats indexats. El seu
+localitzador de documentació és el mòdul inicial seleccionat pel descobriment.
+No s’aplica l’exclusió del backend al target de pipeline; arrel, CI i pre-PR
+conserven el punt d’entrada de pipeline existent.
 
 L’ordre del frontend usa l’API de la versió fixada de TypeScript amb tot el
 programa de `tsconfig.json` carregat en cada procés nou i seqüencial. Primer
