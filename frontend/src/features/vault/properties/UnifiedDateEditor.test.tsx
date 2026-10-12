@@ -1,3 +1,7 @@
+import ca from '../../../shared/i18n/locales/ca/translation.json';
+import en from '../../../shared/i18n/locales/en/translation.json';
+import es from '../../../shared/i18n/locales/es/translation.json';
+import fr from '../../../shared/i18n/locales/fr/translation.json';
 import { evaluateFormula } from './formulaUtils';
 import { evaluateRollup } from './rollupUtils';
 import { matchesRule } from '../../../shared/filtering/vaultFilters';
@@ -70,5 +74,15 @@ describe('unified date editor', () => {
         expect(evaluateFormula("prop('Data') == '2026-10-15'", { Data: { ...date, withTime: false } })).toBe(true);
         expect(evaluateRollup([date, unifiedDate('2026-10-14')], 'earliest')).toBe('2026-10-14');
         expect(evaluateRollup([date, unifiedDate('2026-10-14')], 'latest')).toBe('2026-10-17T18:00');
+    });
+});
+
+// Use real catalogues: the editor's key-returning mock cannot catch missing labels.
+describe('unified date translations', () => {
+    it.each([['ca', ca], ['en', en], ['es', es], ['fr', fr]])('provides boundary and duration labels in %s', (_locale, catalogue) => {
+        for (const key of ['period_calculation_start', 'period_calculation_finish', 'period_calculation_duration', 'period_calculation_summary', 'period_calculation_predecessor'] as const) {
+            expect(catalogue.vault_date[key]).toBeTruthy();
+            expect(catalogue.vault_date[key]).not.toContain('vault_date.');
+        }
     });
 });

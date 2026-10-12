@@ -1,3 +1,4 @@
+import './unified-date-editor.css';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GnosiToggle } from '../../../../shared/ui/settings/SettingsPrimitives';
@@ -30,8 +31,8 @@ export function UnifiedDateEditor(props: VaultDatePropertyProps) {
     };
     const scalarType = date.withTime ? 'datetime' : 'date';
     return (
-        <div className="flex w-full min-w-0 flex-col gap-2 text-sm" data-unified-date>
-            <div className="flex flex-wrap items-center gap-3">
+        <div className="unified-date-editor flex w-full min-w-0 flex-col gap-2 text-sm" data-unified-date>
+            <div className="unified-date-editor__toolbar flex flex-wrap items-center gap-3">
                 <select aria-label={t('vault_date.modality')} value={date.kind}
                     onChange={event => { commit({ ...date, kind: event.target.value === 'period' ? 'period' : 'point' }); }}
                     className="rounded border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2 py-1 text-xs text-[var(--text-primary)]">
@@ -44,20 +45,20 @@ export function UnifiedDateEditor(props: VaultDatePropertyProps) {
                     {t('vault_date.include_time')}
                 </span>
             </div>
-            <label className="flex min-w-0 flex-col gap-1">
+            <label className="unified-date-editor__boundary flex min-w-0 flex-col gap-1">
                 {date.kind === 'period' && <span className="text-xs text-[var(--text-tertiary)]">{t('vault_date.period_calculation_start')}</span>}
                 <VaultScalarDateEditor type={scalarType} value={dateBoundary(date, 'start')}
                     onChange={value => { updateBoundary('start', value); }}
                     onRruleChange={props.onRruleChange} rruleValue={props.rruleValue} />
             </label>
             {date.kind === 'period' && <>
-                <label className="flex min-w-0 flex-col gap-1">
+                <label className="unified-date-editor__boundary flex min-w-0 flex-col gap-1">
                     <span className="text-xs text-[var(--text-tertiary)]">{t('vault_date.period_calculation_finish')}</span>
                     <VaultScalarDateEditor type={scalarType} value={dateBoundary(date, 'end')}
                         onChange={value => { updateBoundary('end', value); }} />
                 </label>
                 {!date.end && <span className="text-xs text-[var(--text-tertiary)]">{t('vault_date.end_pending')}</span>}
-                <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                <label className="unified-date-editor__duration flex items-center gap-2 text-xs text-[var(--text-secondary)]">
                     {t('vault_date.period_calculation_duration')}
                     <input type="number" min={date.withTime ? 0 : 1} step={date.withTime ? '0.25' : '1'}
                         aria-label={t('vault_date.period_calculation_duration')} value={duration === null ? '' : Number(duration.toFixed(4))}
