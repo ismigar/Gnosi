@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
 | Vitest | 663 | 2913 |
-| pytest | 666 | 4938 |
+| pytest | 666 | 4939 |
 
 ## Fichiers
 
@@ -1365,7 +1365,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`pipeline/tests/test_notion_pipeline.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_notion_pipeline.py) | 1 | Python AST |
 | pytest | [`pipeline/tests/test_portable_ingestion_tools.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_portable_ingestion_tools.py) | 1 | Python AST |
 | pytest | [`pipeline/tests/test_portable_migrations.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_portable_migrations.py) | 1 | Python AST |
-| pytest | [`pipeline/tests/test_public_pipeline.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_public_pipeline.py) | 13 | Python AST |
+| pytest | [`pipeline/tests/test_public_pipeline.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_public_pipeline.py) | 14 | Python AST |
 | pytest | [`pipeline/tests/test_public_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_public_runtime.py) | 11 | Python AST |
 | pytest | [`pipeline/tests/test_sqlite_schema_audit.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_sqlite_schema_audit.py) | 4 | Python AST |
 | pytest | [`pipeline/tests/test_system_date_structure.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_system_date_structure.py) | 1 | Python AST |
