@@ -62,7 +62,7 @@ def openlibrary_to_zotero_item(book: dict[str, Any]) -> ZoteroItem:
     creators = _book_creators(book.get("authors"))
     if creators:
         item["creators"] = creators
-    year = _book_year(book.get("publish_date"))
+    year = str(book.get("publish_date") or "")
     if year:
         item["date"] = year
     publisher = _first_name(book.get("publishers"))

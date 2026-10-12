@@ -10,10 +10,10 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Périmètre | Décompte |
 | --- | ---: |
-| Backend Python files | 1599 |
-| Backend Python test files | 623 |
-| Frontend JS/TS source files | 2164 |
-| Frontend unit test files | 643 |
+| Backend Python files | 1606 |
+| Backend Python test files | 624 |
+| Frontend JS/TS source files | 2167 |
+| Frontend unit test files | 644 |
 | Registered FastAPI routers | 39 |
 | Pipeline skill contracts | 17 |
 | Development-memory directives | 24 |
@@ -22,9 +22,9 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Périmètre | Fichiers | Périmètre fonctionnel |
 | --- | ---: | --- |
-| `backend/` | 1718 | FastAPI, services, models, agents, scheduling, and storage adapters |
-| `frontend/src/` | 2257 | React application, UI behavior, state, and browser integrations |
-| `pipeline/` | 104 | Reusable development and application skills, and deterministic processing tools |
+| `backend/` | 1725 | FastAPI, services, models, agents, scheduling, and storage adapters |
+| `frontend/src/` | 2260 | React application, UI behavior, state, and browser integrations |
+| `pipeline/` | 105 | Reusable development and application skills, and deterministic processing tools |
 | `desktop/` | 120 | Desktop lifecycle, backend packaging, IPC, and updates |
 | `extensions/` | 68 | Office, browser, plugin, marketplace, and external-system adapters |
 | `tests/e2e/` | 43 | Host-level Playwright acceptance tests |

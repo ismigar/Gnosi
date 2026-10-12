@@ -35,7 +35,7 @@ def test_ordre_normal_segueix_funcionant():
     item = html_meta_to_zotero_item(NAME_FIRST, "http://x")
     assert item["title"] == "Thinking, Fast and Slow"
     assert item["DOI"] == "10.1234/abcd.5678"
-    assert item["date"] == "2011"
+    assert item["date"] == "2011-06-15"
     last_names = {c.get("lastName") for c in item["creators"]}
     assert "Kahneman" in last_names
     assert "Tversky" in last_names  # DC.creator
@@ -46,7 +46,7 @@ def test_ordre_invertit_ja_no_es_perd():
     # Before the fix this returned {} (only url) because no meta tag matched.
     assert item["title"] == "Thinking, Fast and Slow"
     assert item["DOI"] == "10.1234/abcd.5678"
-    assert item["date"] == "2011"
+    assert item["date"] == "2011-06-15"
     last_names = {c.get("lastName") for c in item["creators"]}
     assert "Kahneman" in last_names
     assert "Tversky" in last_names

@@ -168,6 +168,7 @@ def empty_work(provider: str, provider_id: Any = "") -> dict[str, Any]:
             "issue": "",
             "pages": "",
         },
+        "bibliography": {},
         "language": "",
         "identifiers": {
             "doi": "",
@@ -293,6 +294,8 @@ def _initial_provenance(work: dict[str, Any], provider: str) -> dict[str, list[s
         "type",
         "peer_reviewed",
         "publication",
+        "bibliography",
+        "dates",
         "language",
         "identifiers",
         "open_access",
@@ -317,6 +320,23 @@ def _source_provider(work: dict[str, Any]) -> str:
     return clean_text(
         (sources[0] if sources and isinstance(sources[0], dict) else {}).get("provider"), 100
     )
+
+
+def _merge_bibliography_and_dates(merged: dict[str, Any], right: dict[str, Any], left_provider: str, right_provider: str) -> None:
+    for group in ("bibliography", "dates"):
+        combined = merged.setdefault(group, {})
+        for key, new in (right.get(group) or {}).items():
+            old = combined.get(key)
+            if new in (None, "", [], {}):
+                continue
+            if old not in (None, "", [], {}) and old != new:
+                variants = merged.setdefault("conflicts", {}).setdefault(f"{group}.{key}", [])
+                for value, provider in ((old, left_provider), (new, right_provider)):
+                    candidate = {"value": value, "provider": provider}
+                    if candidate not in variants:
+                        variants.append(candidate)
+            if old in (None, "", [], {}) or _field_score(key, new, right_provider) < _field_score(key, old, left_provider):
+                combined[key] = deepcopy(new)
 
 
 def merge_works(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
@@ -353,6 +373,8 @@ def merge_works(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
         for provider in right.get("provenance", {}).get(field, [right_provider]):
             if provider and provider not in providers:
                 providers.append(provider)
+
+    _merge_bibliography_and_dates(merged, right, left_provider, right_provider)
 
     identifiers = merged.setdefault("identifiers", {})
     incoming_value = right.get("identifiers")

@@ -159,9 +159,8 @@ def html_meta_to_zotero_item(html: str, url: str) -> ZoteroItem:
     if creators:
         item["creators"] = creators
     year_raw = _first_source(sources, "date", "publication_date")
-    year = re.search(r"\b(19|20)\d{2}\b", year_raw) if year_raw else None
-    if year:
-        item["date"] = year.group(0)
+    if year_raw:
+        item["date"] = year_raw
     journal = _first_source(sources, "journal_title")
     if journal:
         item["publicationTitle"] = journal

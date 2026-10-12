@@ -132,6 +132,14 @@ la création de la couverture, l’enregistrement et l’ouverture au début de 
 erreur si la création échoue. Les imports par identifiant affichent uniquement
 les étapes applicables.
 
+## Métadonnées bibliographiques complètes
+
+Les champs `Autoría`, `Editors`, `Traductors` et les autres rôles CSL des Ressources utilisent l’éditeur de type `autoria`. La configuration `citation_role` et les métadonnées internes `_citation_roles` maintiennent les rôles distincts lorsque les champs sont renommés. L’extension du schéma est additive et idempotente.
+
+Le schéma Zotero figé génère `reference_catalog.py` et `referenceCatalog.ts` avec `pipeline/skills/zotero_schema/scripts/build_reference_catalog.py`. Les deux convertisseurs CSL partagent le catalogue des champs et des dates, conservent l’année, le mois et le jour et utilisent les anciennes valeurs de `Zotero Extras`. L’import académique conserve les métadonnées complémentaires pendant la déduplication et l’import.
+
+BibTeX et RIS exposent les champs et rôles compatibles. Le champ `gnosimetadata` et la balise `GN` contiennent une extension exclusivement bibliographique pour les deux noms de famille, les collectivités, les types de ressources et les champs sans équivalent dans le format. Gnosi les restaure à la réimportation tout en respectant les modifications externes des champs standard. Les autres logiciels peuvent supprimer cette extension et ne garantissent pas la récupération de ces données. Les chemins locaux et les propriétés personnelles sans rapport avec la bibliographie sont exclus.
+
 ## Responsabilité
 
 Ce domaine combine la lecture de flux et de newsletters avec un gestionnaire de références compatible Zotero, le rendu des citations CSL, l'import par identifiant ou depuis le web, la lecture PDF/EPUB et les annotations pouvant servir de preuves citables.

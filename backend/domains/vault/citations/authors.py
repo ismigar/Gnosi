@@ -7,6 +7,8 @@ from collections.abc import Callable, Sequence
 from typing import Any, TypeVar
 
 from backend.domains.vault.registry.records import RecordReader, is_object_list, is_record
+from backend.services.reference_names import role_fields
+from backend.services.reference_metadata import bibliographic_values, csl_details
 
 MetadataKey = TypeVar("MetadataKey", str, object)
 
@@ -69,7 +71,11 @@ def normalize_authors_field(value: object) -> str:
 def find_structured_authors(
     metadata: dict[MetadataKey, object],
 ) -> list[dict[object, object]]:
-    for value in metadata.values():
+    roles = role_fields({str(k): v for k, v in metadata.items()})
+    ordered = sorted(metadata.items(), key=lambda pair: 0 if str(pair[0]) in ("Autoría", "Autoria", "Authors") else 1)
+    for name, value in ordered:
+        if roles.get(str(name), "author") != "author":
+            continue
         if is_object_list(value) and any(
             is_record(author) and any(key in author for key in ("cognom1", "cognom2", "nom"))
             for author in value
@@ -109,6 +115,7 @@ def recursos_metadata_to_csl(
     metadata: dict[str, Any],
     resolve_csl_type: Callable[[object], str],
 ) -> dict[str, Any] | None:
+    metadata = bibliographic_values(metadata)
     citation_key = metadata.get("Citation Key")
     if not citation_key:
         return None
@@ -122,33 +129,8 @@ def recursos_metadata_to_csl(
         authors = parse_authors_to_csl(str(metadata.get("Authors") or ""))
     if authors:
         item["author"] = authors
-    year_raw = str(metadata.get("Any") or "").strip()
-    year_match = re.search(r"-?\d{1,4}", year_raw)
-    if year_match:
-        item["issued"] = {"date-parts": [[int(year_match.group(0))]]}
-    elif year_raw:
-        item["issued"] = {"literal": year_raw}
-    mappings = {
-        "Llibre/Revista": "container-title",
-        "Editorial": "publisher",
-        "Lloc": "publisher-place",
-        "DOI": "DOI",
-        "ISBN": "ISBN",
-        "ISSN": "ISSN",
-        "URL": "URL",
-        "Idioma": "language",
-    }
-    for source, target in mappings.items():
-        if metadata.get(source):
-            item[target] = metadata[source]
-    for source, target in {
-        "Volum": "volume",
-        "Número": "issue",
-        "Pàgines": "page",
-        "Edició": "edition",
-    }.items():
-        if metadata.get(source):
-            item[target] = str(metadata[source])
+    item.update(csl_details(metadata))
+    item["title"] = title or metadata.get("Title") or ""
     return item
 
 

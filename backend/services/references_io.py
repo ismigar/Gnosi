@@ -26,6 +26,12 @@ from typing import Any
 # Pure sibling module (data tables only) — keeps this module free of backend
 # and network dependencies.
 from backend.services.csl_type_resolver import resolve_zotero_item_type
+from backend.services.reference_names import author_names
+from backend.services.reference_metadata import bibliographic_values
+from backend.services.reference_exchange import (
+    encode_metadata,
+    BIB_ROLES, export_bib_details, export_ris_details, import_bib_details, import_ris_details,
+)
 
 # Common LaTeX accents in BibTeX → Unicode combining diacritic.
 _LATEX_ACCENTS = {
@@ -130,6 +136,22 @@ _ITEM_TO_RIS_TYPE = {
     "preprint": "JOUR",
 }
 
+# RIS item types (Zotero RIS translator); ambiguous types are restored by the envelope.
+_RIS_TYPE_TO_ITEM.update({
+    "ART": "artwork", "SOUND": "audioRecording", "BILL": "bill", "BLOG": "blogPost",
+    "CASE": "case", "COMP": "computerProgram", "DICT": "dictionaryEntry",
+    "ENCYC": "encyclopediaArticle", "ICOMM": "email", "DATA": "dataset", "MPCT": "film",
+    "HEAR": "hearing", "PCOMM": "letter", "MANSCPT": "manuscript", "MAP": "map",
+    "PAT": "patent", "SLIDE": "presentation", "STAT": "statute", "VIDEO": "videoRecording",
+})
+_ITEM_TO_RIS_TYPE.update({value: key for key, value in _RIS_TYPE_TO_ITEM.items() if key not in {"CPAPER"}})
+_RIS_TYPE_TO_ITEM.update({
+    "EBOOK": "book", "EDBOOK": "book", "ECHAP": "bookSection", "EJOUR": "journalArticle",
+    "ADVS": "film", "DBASE": "dataset", "GOVDOC": "report", "MUSIC": "audioRecording",
+    "STAND": "standard", "WEB": "webpage",
+})
+_ITEM_TO_RIS_TYPE.update({"podcast": "SOUND", "radioBroadcast": "SOUND", "tvBroadcast": "MPCT", "interview": "PCOMM", "standard": "STAND"})
+
 # "Simple" Recursos fields in canonical serialization order.
 _RECURSOS_SIMPLE_FIELDS = [
     "Title",
@@ -198,18 +220,13 @@ def _meta_authors(meta: dict[str, Any]) -> Any:
     """Author source for export: the structured `autoria` value if the page has
     one, else the legacy `Authors` string.
 
-    Found by SHAPE (a list of dicts with `nom`/`cognom1`/`cognom2`), not by key
-    name, because the field is stored under the user-renamable field name —
-    mirror of `_find_structured_authors` in vault_routes. Reading only
+    Uses explicit creator roles first and keeps shape-based compatibility for
+    legacy renamed author fields, excluding editors and translators. Reading only
     `Authors` exported records without any author at all: the import path even
     deletes `Authors` after filling `Autoría` (`_fill_autoria_from_authors`),
     so a reference imported from BibTeX and re-exported lost its author."""
-    for v in meta.values():
-        if isinstance(v, list) and any(
-            isinstance(a, dict) and ("cognom1" in a or "cognom2" in a or "nom" in a) for a in v
-        ):
-            return v
-    return meta.get("Authors")
+    return author_names(meta) or meta.get("Authors")
+
 
 
 # ---------------------------------------------------------------------------
@@ -217,17 +234,20 @@ def _meta_authors(meta: dict[str, Any]) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def _strip_bibtex_value(raw: str) -> str:
+def _strip_bibtex_value(raw: str, preserve_groups: bool = False) -> str:
     """Cleans a BibTeX value: strips outer braces/quotes, collapses whitespace, and
     undoes some common escape sequences."""
     s = raw.strip()
     # Removes one level of outer {…} or "…".
     while len(s) >= 2 and ((s[0] == "{" and s[-1] == "}") or (s[0] == '"' and s[-1] == '"')):
         s = s[1:-1].strip()
+        if preserve_groups:
+            break
     # Decodes LaTeX accents before stripping the inner braces (which may
     # be part of `\'{e}`).
     s = _decode_latex_accents(s)
-    s = s.replace("{", "").replace("}", "")
+    if not preserve_groups:
+        s = s.replace("{", "").replace("}", "")
     # Undoes LaTeX escaping (symmetric with `_bibtex_escape`) so that the
     # round-trip export→import recovers the literal text.
     s = re.sub(r"\\([&%$#_])", r"\1", s)
@@ -252,7 +272,7 @@ def _parse_bibtex_fields(body: str) -> dict[str, str]:
         name = m.group(1).lower()
         i += m.end()
         value, i = _parse_bibtex_value(body, i)
-        fields[name] = _strip_bibtex_value(value)
+        fields[name] = _strip_bibtex_value(value, preserve_groups=name in BIB_ROLES)
         # Consume the separator comma.
         while i < n and body[i] in " \t\r\n":
             i += 1
@@ -314,9 +334,7 @@ def _bibtex_entry_to_recursos(etype: str, key: str, f: dict[str, str]) -> dict[s
         if s:
             out["Authors"] = s
     if f.get("year"):
-        m = re.search(r"\d{4}", f["year"])
-        if m:
-            out["Any"] = int(m.group(0))
+        out["Any"] = int(f["year"]) if re.fullmatch(r"-?\d{1,4}", f["year"]) else f["year"]
     # journal (articles) or booktitle (chapters/conf)
     if f.get("journal"):
         out["Llibre/Revista"] = f["journal"]
@@ -327,7 +345,7 @@ def _bibtex_entry_to_recursos(etype: str, key: str, f: dict[str, str]) -> dict[s
         if f.get(source):
             value = f[source].replace("--", "-") if source == "pages" else f[source]
             out[target] = value
-    return out
+    return import_bib_details(out, f)
 
 
 def parse_bibtex(text: str) -> list[dict[str, Any]]:
@@ -431,10 +449,11 @@ def _bibtex_export_fields(meta: dict[str, Any], btype: str) -> list[tuple[str, s
                 str(meta[source]).replace("-", "--") if source == "Pàgines" else str(meta[source])
             )
             fields.append((target, value))
-    return fields
+    return export_bib_details(meta, fields, btype)
 
 
 def entry_to_bibtex(meta: dict[str, Any]) -> str:
+    meta = bibliographic_values(meta)
     key = str(meta.get("Citation Key") or "ref").strip() or "ref"
     item_type = meta.get("Item Type") or "document"
     # The map is keyed by canonical Zotero keys, but the vault stores translated
@@ -443,7 +462,12 @@ def entry_to_bibtex(meta: dict[str, Any]) -> str:
     first_line = f"@{btype}{{{key},"
     fld = _bibtex_export_fields(meta, btype)
     body = ",\n".join(f"  {name} = {{{_bibtex_escape(val)}}}" for name, val in fld)
-    return first_line + ("\n" + body if body else "") + "\n}"
+    parsed_fields = _parse_bibtex_fields(body)
+    parsed = _bibtex_entry_to_recursos(btype, key, parsed_fields)
+    standard = {**parsed_fields, "$type": parsed["Item Type"], "$key": key}
+    envelope = encode_metadata(meta, standard, parsed)
+    body += (",\n" if body else "") + f"  gnosimetadata = {{{envelope}}}"
+    return first_line + "\n" + body + "\n}"
 
 
 def to_bibtex(entries: list[dict[str, Any]]) -> str:
@@ -465,11 +489,15 @@ def parse_ris(text: str) -> list[dict[str, Any]]:
             entries.append(_ris_record_to_recursos(cur))
             cur.clear()
 
+    previous_tag = ""
     for raw in text.splitlines():
         m = re.match(r"^([A-Z][A-Z0-9])\s{2}-\s?(.*)$", raw.rstrip("\r\n"))
         if not m:
+            if previous_tag in cur and raw.strip():
+                cur[previous_tag][-1] += "\n" + raw.strip()
             continue
         tag, val = m.group(1), m.group(2).strip()
+        previous_tag = tag
         if tag == "ER":
             flush()
             continue
@@ -537,11 +565,11 @@ def _ris_record_to_recursos(r: dict[str, list[str]]) -> dict[str, Any]:
     m = re.search(r"\d{4}", year)
     if m:
         out["Any"] = int(m.group(0))
-    journal = _ris_first(r, "JO", "JF", "T2", "J2")
+    journal = _ris_first(r, "JO", "JF", "T2")
     if journal:
         out["Llibre/Revista"] = journal
     _apply_ris_details(out, r)
-    return out
+    return import_ris_details(out, r)
 
 
 # ---------------------------------------------------------------------------
@@ -569,6 +597,7 @@ def _append_ris_tail(lines: list[str], meta: dict[str, Any]) -> None:
 
 
 def entry_to_ris(meta: dict[str, Any]) -> str:
+    meta = bibliographic_values(meta)
     item_type = meta.get("Item Type") or "document"
     # Same label→Zotero-key resolution as `entry_to_bibtex` (see the note there).
     ty = _ITEM_TO_RIS_TYPE.get(resolve_zotero_item_type(item_type), "GEN")
@@ -593,7 +622,12 @@ def entry_to_ris(meta: dict[str, Any]) -> str:
         if meta.get(source):
             lines.append(f"{tag}  - {meta[source]}")
     _append_ris_tail(lines, meta)
-    lines.append("ER  - ")
+    lines = export_ris_details(meta, lines, resolve_zotero_item_type(item_type))
+    standard: dict[str, list[str]] = {}
+    for line in lines:
+        standard.setdefault(line[:2], []).append(line[6:].replace("\n      ", "\n").strip())
+    parsed = _ris_record_to_recursos(standard)
+    lines.extend([f"GN  - {encode_metadata(meta, standard, parsed)}", "ER  - "])
     return "\n".join(lines)
 
 

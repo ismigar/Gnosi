@@ -131,6 +131,14 @@ i l’obertura a mesura que comença cada etapa. El mateix avís confirma l’è
 quan el registre s’ha obert, o mostra un error si la creació falla. Les
 importacions per identificador mostren només les etapes aplicables.
 
+## Metadades bibliogràfiques completes
+
+Els camps `Autoría`, `Editors`, `Traductors` i la resta de rols CSL de Recursos fan servir l’editor de tipus `autoria`. La configuració `citation_role` i les metadades internes `_citation_roles` mantenen els rols diferenciats quan es reanomenen els camps. La compleció de l’esquema és additiva i idempotent.
+
+L’esquema Zotero fixat genera `reference_catalog.py` i `referenceCatalog.ts` amb `pipeline/skills/zotero_schema/scripts/build_reference_catalog.py`. Els dos conversors CSL comparteixen el catàleg de camps i dates, conserven any, mes i dia i aprofiten les dades antigues de `Zotero Extras`. La importació acadèmica conserva les metadades bibliogràfiques complementàries durant la deduplicació i la importació.
+
+BibTeX i RIS inclouen els camps i rols compatibles. El camp `gnosimetadata` i l’etiqueta `GN` conserven, en una extensió només bibliogràfica, els dos cognoms, les entitats, els tipus de recurs i els camps que el format no representa. Gnosi els recupera en reimportar, respectant els canvis externs als camps estàndard. Altres programes poden descartar aquesta extensió i no garanteixen recuperar les dades sense equivalència al format. Se n’exclouen les rutes locals i les propietats personals alienes a la bibliografia.
+
 ## Responsabilitat
 
 Aquest domini combina la lectura de canals i butlletins amb un gestor de

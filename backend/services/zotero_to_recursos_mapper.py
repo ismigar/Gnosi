@@ -1,163 +1,74 @@
-"""Declarative Zotero item → Recursos columns dict mapper.
-
-It's the central engine that before L3.1 lived hardcoded inside
-`vault_routes._zotero_item_to_recursos` (and in variants for CrossRef,
-OpenLibrary, arXiv, PubMed, HTML). It reads the declarative table
-`RECURSOS_TO_ZOTERO_FIELDS` (module `recursos_zotero_mapping`, L2) and
-generates the output without the mapper knowing any Zotero field name
-or Recursos column.
-
-Why "declarative" — adding a new Recursos column (with a Zotero
-correspondence) requires only adding an entry to the mapping; this module doesn't
-change. Likewise, adding a new lookup source (L3.2-3) only requires
-normalizing its output to a Zotero item; there's no longer a need to write a new
-mapper per source.
-
-Three special cases not derivable from the mapping:
-  - `Authors`: the Zotero `creators` field is a list of objects
-    {creatorType, lastName, firstName, name?}; it needs flattening to the string
-    `"Lastname, Firstname; ..."` the way Recursos does.
-  - `Any`: the Zotero `date` field is a free string (`"2024"`, `"2024-05"`,
-    `"May 2024"`, `"2024-05-15"`); we extract the first ``\\d{4}`` as an int.
-  - Forced-string: `Volum`, `Número`, `Pàgines`, `Edició` may come
-    as int in the JSON but Recursos stores them as string.
-
-L3.4 (this module, updated): Zotero fields with no Recursos
-correspondence are captured under the `Zotero Extras` key (dict) in the frontmatter.
-This way `patentNumber`, `conferenceName`, `meetingName`, `caseName`,
-`versionNumber`... are not lost even though they don't have their own column.
-
-Purely technical Zotero fields (`key`, `version`, `tags`, `dateAdded`,
-`dateModified`, `relations`, `notes`, `attachments`, `collections`,
-`accessDate`) do NOT go to `Zotero Extras` — they are Zotero system
-metadata, not bibliographic information.
-"""
-
+"""Lossless bibliographic Zotero → Resources conversion with explicit creator roles."""
 from __future__ import annotations
 
+from typing import Any
 import re
-from typing import Any, Callable, TypeAlias, cast
 
-from backend.services.recursos_zotero_mapping import RECURSOS_TO_ZOTERO_FIELDS
+from backend.services.reference_catalog import REFERENCE_DATE_SOURCES, REFERENCE_ZOTERO_FIELDS, ZOTERO_CREATOR_COLUMNS
+from backend.services.reference_dates import import_date
+from backend.services.reference_names import text_names, zotero_name
 
-ZoteroItem: TypeAlias = dict[str, Any]
-SpecialValue: TypeAlias = str | int | None
-
-
-# ---------- Special handling per column ----------
+# Library bookkeeping is not bibliographic metadata. accessDate is bibliographic.
+_TECHNICAL_FIELDS = {"key", "version", "tags", "relations", "notes", "attachments", "dateAdded", "dateModified", "collections"}
 
 
-def _handle_authors(item: ZoteroItem) -> str | None:
-    """`creators` (Zotero list) → `"Lastname, Firstname; ..."` (Recursos string).
-
-    Only `creatorType=author` is considered; editors, translators, etc.
-    are omitted (another layer in the Vault handles them). We accept creators
-    with a single `name` field (institutions, e.g. `{"name": "WHO"}`).
-
-    """
-    parts: list[str] = []
-    for c in item.get("creators") or []:
-        if not isinstance(c, dict):
-            continue
-        if (c.get("creatorType") or "author") != "author":
-            continue
-        last = (c.get("lastName") or "").strip()
-        first = (c.get("firstName") or "").strip()
-        name = (c.get("name") or "").strip()
-        if last and first:
-            parts.append(f"{last}, {first}")
-        elif last:
-            parts.append(last)
-        elif name:
-            parts.append(name)
-    return "; ".join(parts) if parts else None
-
-
-def _handle_any(item: ZoteroItem) -> int | None:
-    r"""Zotero `date` (free-form) → first `\d{4}` as int. None if there isn't one."""
-    m = re.search(r"\d{4}", str(item.get("date") or ""))
-    return int(m.group(0)) if m else None
-
-
-_SPECIAL_HANDLERS: dict[str, Callable[[ZoteroItem], SpecialValue]] = {
-    "Authors": _handle_authors,
-    "Any": _handle_any,
-}
-
-# Recursos columns whose values must be stringified (they can
-# come as int in the Zotero JSON but Recursos stores them as text).
-_FORCE_STR: set[str] = {"Volum", "Número", "Pàgines", "Edició"}
-
-# Purely technical Zotero fields — do NOT go into `Zotero Extras` even if the
-# declarative mapping doesn't translate them. They are Zotero system metadata,
-# not bibliographic information that a human author would maintain in the frontmatter.
-_TECHNICAL_FIELDS: set[str] = {
-    "key",
-    "version",
-    "tags",
-    "relations",
-    "notes",
-    "attachments",
-    "dateAdded",
-    "dateModified",
-    "accessDate",
-    "collections",
-}
-
-
-# ---------- Public mapper ----------
+def _copy_creators(item: dict[str, Any], output: dict[str, Any], consumed: set[str]) -> list[Any]:
+    creators = item.get("creators")
+    unknown = []
+    columns = ZOTERO_CREATOR_COLUMNS.get(str(item.get("itemType") or ""), {"author": "Autoría", "editor": "Editors", "translator": "Traductors"})
+    if isinstance(creators, list):
+        for person in creators:
+            if not isinstance(person, dict):
+                unknown.append(person)
+                continue
+            creator_column = columns.get(person.get("creatorType") or "author")
+            if not creator_column:
+                unknown.append(person)
+                continue
+            name = zotero_name(person)
+            if any(name.values()):
+                output.setdefault(creator_column, []).append(name)
+        consumed.add("creators")
+    return unknown
 
 
 def zotero_item_to_recursos(item: object) -> dict[str, Any]:
-    """Converts a canonical Zotero item into a Resources columns dict.
-
-    We iterate over `RECURSOS_TO_ZOTERO_FIELDS`. For each column:
-      1. If there is a special handler (`Authors`, `Any`), we invoke it.
-      2. Otherwise, we take the first candidate field present in the item with
-         a truthy value. Convert to `str` if the column is in `_FORCE_STR`.
-
-    The order of candidates in `RECURSOS_TO_ZOTERO_FIELDS` defines the
-    fallback chain (e.g. `Llibre/Revista` tries `publicationTitle` →
-    `bookTitle` → `proceedingsTitle` → `encyclopediaTitle`).
-
-    L3.4: Zotero fields not consumed by any column and not in `_TECHNICAL_FIELDS`
-    are collected under `Zotero Extras` (dict) so as not to lose information about
-    rare types (`patentNumber`, `conferenceName`, `meetingName`...).
-
-    Returns `{}` if `item` is not a dict.
-
-    """
     if not isinstance(item, dict):
         return {}
-    zotero_item = cast(ZoteroItem, item)
-    out: dict[str, Any] = {}
-    # All the Zotero fields that this mapper "claims" — their chains
-    # of candidates in the declarative mapping, even if the item only
-    # carries one of the candidates. This way `bookTitle` and `publicationTitle` don't
-    # both appear in Extras when only one of them feeds `Llibre/Revista`.
-    consumed_fields: set[str] = set()
-    for col, candidates in RECURSOS_TO_ZOTERO_FIELDS.items():
-        consumed_fields.update(candidates)
-        handler = _SPECIAL_HANDLERS.get(col)
-        if handler is not None:
-            v = handler(zotero_item)
-            if v is not None and v != "":
-                out[col] = v
-            continue
-        for field in candidates:
-            v = zotero_item.get(field)
-            if v:
-                out[col] = str(v) if col in _FORCE_STR else v
+    output: dict[str, Any] = {}
+    consumed: set[str] = set()
+    if item.get("itemType"):
+        output["Item Type"] = item["itemType"]
+        consumed.add("itemType")
+    for column, fields in REFERENCE_ZOTERO_FIELDS.items():
+        for field in fields:
+            value = item.get(field)
+            if value not in (None, "", [], {}):
+                output[column] = str(value) if column in {"Volum", "Número", "Pàgines", "Edició"} else value
+                consumed.add(field)
                 break
-
-    # Extras: every truthy field from the item that hasn't been consumed and isn't technical.
-    extras: dict[str, Any] = {}
-    for k, v in zotero_item.items():
-        if not v:
-            continue
-        if k in consumed_fields or k in _TECHNICAL_FIELDS:
-            continue
-        extras[k] = v
+    date_field = next((field for field in REFERENCE_DATE_SOURCES["issued"] if item.get(field)), "date")
+    dates = import_date(item.get(date_field))
+    if dates:
+        output.update(dates)
+        consumed.add(date_field)
+    elif item.get(date_field):
+        output["Data de publicació"] = str(item[date_field])
+        year = re.search(r"\d{4}", str(item[date_field]))
+        if year:
+            output["Any"] = int(year.group())
+        consumed.add(date_field)
+    if item.get("citationKey"):
+        output["Citation Key"] = item["citationKey"]
+        consumed.add("citationKey")
+    unknown = _copy_creators(item, output, consumed)
+    if output.get("Autoría"):
+        # Compatibility for lookup/key-generation clients; the write boundary
+        # consumes this legacy alias into the designated structured author field.
+        output["Authors"] = "; ".join(text_names(output["Autoría"]))
+    extras = {key: value for key, value in item.items() if key not in consumed | _TECHNICAL_FIELDS and value not in (None, "", [], {})}
+    if unknown:
+        extras["creators"] = unknown
     if extras:
-        out["Zotero Extras"] = extras
-    return out
+        output["Zotero Extras"] = extras
+    return output

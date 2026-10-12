@@ -13,6 +13,8 @@ from backend.domains.literature.connectors.normalization import (
     _occurrence,
 )
 from backend.domains.literature.connectors.runtime import current_runtime
+from backend.domains.vault.citations.normalizers.crossref import crossref_to_zotero_item
+from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
 from backend.services.literature_models import canonical_work, normalize_doi
 
 
@@ -39,6 +41,7 @@ def _crossref_work(item: dict[str, Any], provider: str = "crossref") -> dict[str
         provider,
         doi or item.get("URL"),
         title=((item.get("title") or [""])[0]),
+        bibliography=zotero_item_to_recursos(crossref_to_zotero_item(item)),
         authors=_authors(item.get("author")),
         dates={
             "issued": _date_parts((item.get("issued") or {}).get("date-parts")),
@@ -74,7 +77,6 @@ async def search_crossref(
     params: dict[str, Any] = {
         "query.bibliographic": query,
         "rows": limit,
-        "select": "DOI,title,author,issued,published-online,published-print,abstract,type,container-title,publisher,volume,issue,page,URL,is-referenced-by-count,license,link",
     }
     range_filters: list[str] = []
     if _filters(filters).get("date_from"):
@@ -99,7 +101,6 @@ async def search_scielo_articles(
     params: dict[str, Any] = {
         "query.bibliographic": query,
         "rows": per_member,
-        "select": "DOI,title,author,issued,published-online,published-print,abstract,type,container-title,publisher,volume,issue,page,URL,is-referenced-by-count,license,link",
     }
     range_filters: list[str] = []
     if filters.get("date_from"):

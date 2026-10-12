@@ -128,7 +128,7 @@ Discovered **127 variables** across **246 source references**.
 | `THUMB_DAEMON_TIMEOUT` | Python | '45' | [`backend/domains/vault/media/routes.py:295`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/media/routes.py#L295) |
 | `THUMB_DAEMON_URL` | Python | unset | [`backend/config/env_config.py:171`](https://github.com/ismigar/Gnosi/blob/main/backend/config/env_config.py#L171) |
 | `TIKTOKEN_CACHE_DIR` | Python | redacted | [`backend/services/agent_context_budget.py:31`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_context_budget.py#L31) |
-| `TRANSLATION_SERVER_URL` | Python | 'http://translation-server:1969' | [`backend/domains/vault/citations/lookup_routes.py:555`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/lookup_routes.py#L555) |
+| `TRANSLATION_SERVER_URL` | Python | 'http://translation-server:1969' | [`backend/domains/vault/citations/lookup_routes.py:553`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/lookup_routes.py#L553) |
 | `TZ` | Python | '' | [`backend/domains/vault/pages/index_service.py:38`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/index_service.py#L38) |
 | `UNSPLASH_ACCESS_KEY` | Python | unset | [`backend/domains/vault/media/routes.py:445`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/media/routes.py#L445) |
 | `UV_CACHE_DIR` | Python | required | [`scripts/ci/python_cache.py:151`](https://github.com/ismigar/Gnosi/blob/main/scripts/ci/python_cache.py#L151) |

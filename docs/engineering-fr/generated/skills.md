@@ -25,5 +25,5 @@ Discovered **17 documented pipeline skills**.
 | `translate_page` | Skill: translate_page | 109 | 3 | [`pipeline/skills/translate_page/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_page/SKILL.md) |
 | `translate_row` | Skill: translate_row | 124 | 2 | [`pipeline/skills/translate_row/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/SKILL.md) |
 | `vault_core` | SKILL: Vault Core Management | 54 | 0 | [`pipeline/skills/vault_core/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/vault_core/SKILL.md) |
-| `zotero_schema` | Skill: Zotero Schema | 99 | 2 | [`pipeline/skills/zotero_schema/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/zotero_schema/SKILL.md) |
+| `zotero_schema` | Skill: Zotero Schema | 99 | 3 | [`pipeline/skills/zotero_schema/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/zotero_schema/SKILL.md) |
 | `zotero_sync` | Zotero sync compatibility | 47 | 0 | [`pipeline/skills/zotero_sync/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/zotero_sync/SKILL.md) |
