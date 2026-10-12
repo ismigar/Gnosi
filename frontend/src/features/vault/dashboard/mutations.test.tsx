@@ -155,7 +155,7 @@ describe('templates and views', () => {
     expect(views.updateVaultView).toHaveBeenCalledWith(main.id, expect.objectContaining({ visibleProperties: ['title', 'Status', 'Date'], is_main: true }));
     vi.mocked(views.updateVaultView).mockClear();
     await harness.run(state => { state.setRegistry({ ...CATALOG, views: [main] }); });
-    await harness.run(state => state.migrateMainViewForTable('table'));
+    await harness.run(state => { state.migrateMainViewForTable('table'); });
     expect(views.updateVaultView).toHaveBeenCalled();
     for (const [, patch] of vi.mocked(views.updateVaultView).mock.calls) expect(patch.visibleProperties).toEqual(main.visibleProperties);
   });
