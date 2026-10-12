@@ -20,6 +20,10 @@ from backend.services.literature_models import (
     normalize_pmid,
     normalize_title,
 )
+from backend.services.reference_exchange import canonical_metadata
+from backend.services.reference_metadata import bibliographic_values
+from backend.services.reference_dates import date_text, issued_date
+from backend.services.reference_names import author_names, to_csl_names
 from backend.services.workspace_service import WorkspaceContext
 
 
@@ -36,7 +40,8 @@ def suggested_resource_to_work(
 ) -> dict[str, Any]:
     """Convert the existing identifier-lookup suggestion into AcademicWork."""
     extras = _object(suggested.get("Zotero Extras"))
-    authors_value = suggested.get("Authors") or []
+    suggested = bibliographic_values(suggested)
+    authors_value = to_csl_names(author_names(suggested)) or suggested.get("Authors") or []
     authors = [part.strip() for part in str(authors_value).split(";") if part.strip()] if isinstance(authors_value, str) else authors_value
     item_type = str(suggested.get("Item Type") or "").casefold()
     if "article" in item_type or "article" in str(extras.get("itemType") or "").casefold():
@@ -56,8 +61,9 @@ def suggested_resource_to_work(
         provider,
         provider_id,
         title=suggested.get("Title"),
+        bibliography=canonical_metadata(suggested),
         authors=authors,
-        dates={"issued": suggested.get("Any") or "", "online": "", "print": ""},
+        dates={"issued": date_text(issued_date(suggested)), "online": "", "print": ""},
         year=suggested.get("Any"),
         abstract=suggested.get("Abstract") or extras.get("abstractNote") or "",
         type=canonical_type,
@@ -141,7 +147,12 @@ def work_to_resources(work: dict[str, Any]) -> dict[str, Any]:
 
     identifiers = _object(work.get("identifiers"))
     open_access = _object(work.get("open_access"))
-    suggested = zotero_item_to_recursos(work_to_zotero(work))
+    preserved = canonical_metadata(_object(work.get("bibliography")))
+    suggested = {**preserved, **zotero_item_to_recursos(work_to_zotero(work))}
+    # These structured values retain surname boundaries and the original Zotero type.
+    for key in ("Autoría", "Item Type"):
+        if preserved.get(key):
+            suggested[key] = preserved[key]
     suggested.update({
         "PMID": normalize_pmid(identifiers.get("pmid")),
         "PMCID": normalize_pmcid(identifiers.get("pmcid")),

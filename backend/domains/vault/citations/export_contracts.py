@@ -21,6 +21,7 @@ class ReferenceProperty(TypedDict, total=False):
 
 
 class ReferenceTable(TypedDict, total=False):
+    schema_revision: int
     id: str
     name: str
     properties: list[ReferenceProperty]

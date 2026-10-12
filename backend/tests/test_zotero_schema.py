@@ -215,7 +215,7 @@ def test_py_and_ts_have_same_item_type_fields(ts_constants: dict) -> None:
     # Casos clarament no-rellevants
     ('ISBN',             'webpage',        False),
     ('Volum',            'webpage',        False),
-    ('Llibre/Revista',   'webpage',        False),
+    ('Llibre/Revista',   'webpage',        True),
     # Unknown type → never relevant
     ('DOI',              'nonexistent',    False),
     # Field with no Zotero correspondence

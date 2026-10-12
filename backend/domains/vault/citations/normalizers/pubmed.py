@@ -57,7 +57,7 @@ def pubmed_to_zotero_item(doc: dict[str, Any]) -> ZoteroItem:
     date_raw = str(doc.get("pubdate") or doc.get("epubdate") or "")
     year = re.search(r"\d{4}", date_raw)
     if year:
-        item["date"] = year.group(0)
+        item["date"] = date_raw
     _copy_bibliographic_fields(doc, item)
     doi = _doi(doc.get("articleids"))
     if doi:

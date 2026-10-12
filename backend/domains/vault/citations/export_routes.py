@@ -560,15 +560,12 @@ def ensure_reference_table_schema(table_id: str) -> int:
         if not table:
             return 0
         props = table.setdefault("properties", [])
-        existing = {str(p.get("name") or "").lower().replace(" ", "") for p in props}
-        added = 0
-        for name, ptype in _vault._REFERENCE_SCHEMA:
-            norm = name.lower().replace(" ", "")
-            if norm not in existing:
-                props.append({"id": str(_uuid.uuid4()), "name": name, "type": ptype})
-                existing.add(norm)
-                added += 1
-        if added:
+        from backend.services.reference_schema import complete_properties
+
+        completed, added = complete_properties(props, _vault._REFERENCE_SCHEMA, lambda: str(_uuid.uuid4()))
+        if completed != props:
+            table["properties"] = completed
+            table["schema_revision"] = int(table.get("schema_revision") or 0) + 1
             _vault.save_registry(reg)
             _log.info(f"📚 References schema: +{added} columns in {table_id}")
     return added
