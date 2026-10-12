@@ -1,3 +1,7 @@
+import { useRef } from 'react';
+import { RecordSubitemProvider } from '../RecordSubitemProvider';
+import { RecordViewFrame } from '../RecordViewFrame';
+import type { TableNavApi } from '../vault-table/types';
 import { VaultViewBody, type VaultViewBodyProps } from '../VaultViewBody';
 import { GraphRender } from './GraphRender';
 import { EmbeddedViewBox } from './ViewContainers';
@@ -7,6 +11,7 @@ import type { EmbedNavigation } from './useEmbedNavigation';
 import { ViewSearchEmptyState } from '../ViewSearchScope';
 export function EmbedBody({ model, registerNavApi, focusShell }: { model: EmbedModel ;} & Pick<EmbedNavigation, 'registerNavApi' | 'focusShell'>) {
     const { rows, columnsAsKeys, embeddedSchema, ctx, allRows, embeddedView, searchTerm, setSearchTerm, feedGroupMode, block, feedDensity, viewType, templates, reload, table, onEditSchemaAdapter, onCreateRecordAdapter, onDeletePageAdapter, onDeleteSelectedAdapter, onApplyTemplateAdapter, onUpdateViewAdapter, onUpdateNoteAdapter } = model;
+    const graphNavigation = useRef<TableNavApi | null>(null);
     const heightMode = viewHeightMode(embeddedView.heightMode, viewType);
     const heightPercent = viewHeightPercent(embeddedView.heightPercent);
     if (searchTerm.trim() && rows.length === 0 && viewType !== 'genogram') {
@@ -49,7 +54,14 @@ export function EmbedBody({ model, registerNavApi, focusShell }: { model: EmbedM
     };
     const renderBody = () => {
         // The `graph` has no equivalent editable component → bespoke render.
-        if (viewType === 'graph') return <GraphRender rows={rows} columns={columnsAsKeys} onOpenPage={ctx.onOpenPage} />;
+        if (viewType === 'graph') return <RecordSubitemProvider key={`subitems:${embeddedView.id}`}
+            enabled={embeddedView.enableSubitems} records={rows} tableId={embeddedView.table_id}
+            schema={embeddedSchema} onSaved={reload}>
+            <RecordViewFrame records={rows} navigation={graphNavigation} onOpen={id => ctx.onOpenPage?.(id)}
+                registerNavApi={registerNavApi} onExit={focusShell} adaptive>
+                <GraphRender rows={rows} columns={columnsAsKeys} onOpenPage={ctx.onOpenPage} />
+            </RecordViewFrame>
+        </RecordSubitemProvider>;
         return (
                 <VaultViewBody
                     type={viewType}

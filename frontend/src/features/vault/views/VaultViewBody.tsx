@@ -1,3 +1,4 @@
+import { RecordSubitemProvider } from './RecordSubitemProvider';
 import { RecordViewFrame } from './RecordViewFrame';
 import type { TableNavApi } from './vault-table/types';
 import { loadGenogramView } from '../../genograms';
@@ -304,11 +305,16 @@ export function VaultViewBody({
     // view/type identity (view or table change).
     return (
         <VaultViewErrorBoundary resetKeys={[t, activeView.id, schema, notes, allNotes, isEmbedded]}>
+            <RecordSubitemProvider key={`subitems:${t}:${activeView.id ?? ''}`}
+                enabled={activeView.enableSubitems === true && !!onCreateRecord} records={viewFilteredNotes}
+                tableId={activeView.table_id} schema={schema}
+                onSaved={onCellSaved ?? (() => onUpdateView?.(activeView))}>
             <RecordViewFrame key={`${t}:${activeView.id ?? ''}`} records={viewFilteredNotes} navigation={navigation}
                 onOpen={onNoteSelect} onExit={onEscape ?? onFocusShell} adaptive={!!maxHeight}
                 registerNavApi={['table', 'list', 'gallery'].includes(t) ? undefined : registerNavigation}>
                 {body}
             </RecordViewFrame>
+            </RecordSubitemProvider>
         </VaultViewErrorBoundary>
     );
 }

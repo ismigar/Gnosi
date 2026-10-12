@@ -11,7 +11,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 648 | 2858 |
+| Vitest | 653 | 2872 |
 | pytest | 664 | 4916 |
 
 ## Fichiers
@@ -322,8 +322,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/vault/dashboard/Dashboard.document-controls.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/Dashboard.document-controls.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/DashboardContent.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/DashboardContent.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/DocumentPane.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/DocumentPane.test.tsx) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/dashboard/TablePane.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/TablePane.test.tsx) | 1 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/dashboard/TableSchemaDialog.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/TableSchemaDialog.test.tsx) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/dashboard/TablePane.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/TablePane.test.tsx) | 2 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/dashboard/TableSchemaDialog.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/TableSchemaDialog.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/creationFlow.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/creationFlow.test.tsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/lifecycle.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/lifecycle.test.tsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/model.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/model.test.ts) | 19 | call-pattern estimate |
@@ -450,6 +450,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/vault/view-config/page-view-modal/model.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/model.test.ts) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/view-config/page-view-modal/useViewAppearance.genogram.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewAppearance.genogram.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/GalleryCardPreview.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/GalleryCardPreview.test.tsx) | 6 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/views/RecordSubitemProvider.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/RecordSubitemProvider.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/RecordViewFrame.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/RecordViewFrame.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/VaultChart.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultChart.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/VaultFeed.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultFeed.test.tsx) | 5 | call-pattern estimate |
@@ -462,6 +463,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/vault/views/VaultViewsHeader.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultViewsHeader.test.tsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/db-view-embed/DbViewEmbed.continuity.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/DbViewEmbed.continuity.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/views/db-view-embed/DbViewEmbed.subitems.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/DbViewEmbed.subitems.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx) | 26 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/db-view-embed/EmbedTabMenu.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/EmbedTabMenu.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/db-view-embed/ViewActionsBar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/db-view-embed/ViewActionsBar.test.tsx) | 1 | call-pattern estimate |
@@ -478,6 +480,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/vault/views/vault-kanban/VaultKanbanCard.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-kanban/VaultKanbanCard.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-kanban/vaultKanbanModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-kanban/vaultKanbanModel.test.ts) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/ColumnHeaderActions.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/ColumnHeaderActions.test.tsx) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/views/vault-table/RowTitleCell.subitems.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/RowTitleCell.subitems.test.tsx) | 0 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/accessibility.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/accessibility.test.tsx) | 0 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/cellValues.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/cellValues.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/controller.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/controller.test.tsx) | 38 | call-pattern estimate |
@@ -485,7 +488,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/vault/views/vault-table/metadata.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/metadata.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/pickers.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/pickers.test.tsx) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/portal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/portal.test.tsx) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/views/vault-table/rows.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/rows.test.ts) | 10 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/views/vault-table/rows.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/rows.test.ts) | 13 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/spreadsheetFormula.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/spreadsheetFormula.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/virtualization.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/virtualization.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx) | 5 | call-pattern estimate |
@@ -637,6 +640,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/shared/plugins/usePlugins.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/plugins/usePlugins.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/record-views/VaultBulkActionsBar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/VaultBulkActionsBar.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/record-views/VaultTimeline.interactions.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/VaultTimeline.interactions.test.tsx) | 9 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/record-views/VaultTimeline.subitems.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/VaultTimeline.subitems.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/record-views/VaultTimeline.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/VaultTimeline.test.tsx) | 11 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/record-views/VaultViewToolbar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/VaultViewToolbar.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/record-views/vault-timeline/timelineModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/record-views/vault-timeline/timelineModel.test.ts) | 9 | call-pattern estimate |
@@ -650,6 +654,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/shared/records/model/optionCatalogUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/optionCatalogUtils.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/records/model/schemaUtils.systemDates.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaUtils.systemDates.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/records/model/schemaUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaUtils.test.ts) | 10 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/records/model/subitems.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/subitems.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/records/model/viewHeight.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/viewHeight.test.ts) | 0 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/records/pageReferenceTitle.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/pageReferenceTitle.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/records/usePageReferenceTitle.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/usePageReferenceTitle.test.tsx) | 2 | call-pattern estimate |

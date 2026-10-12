@@ -1,3 +1,4 @@
+import { RecordSubitemAction } from '../../../shared/record-views/RecordSubitemAction';
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TableNavApi } from './vault-table/types';
@@ -81,6 +82,7 @@ export function RecordViewFrame({ children, records, navigation, onOpen, onExit,
     {current && <div role="status" className="flex items-center gap-2 border-b border-[var(--border-primary)] px-3 py-1 text-sm text-[var(--text-secondary)]">
       <span>{records.indexOf(current) + 1} / {records.length}</span>
       <button type="button" onClick={() => onOpen?.(current.id)} className="truncate text-[var(--gnosi-primary)]">{typeof current.title === 'string' || typeof current.title === 'number' ? String(current.title) : current.id}</button>
+      <RecordSubitemAction recordId={current.id} />
     </div>}
     {children}
   </div>;
