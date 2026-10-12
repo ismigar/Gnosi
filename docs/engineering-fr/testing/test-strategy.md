@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-12
 source_paths:
+  - scripts/ci/pre_pr_resources.py
   - scripts/check_public_pipeline.py
   - scripts/check_backend_types.py
   - package.json
@@ -25,6 +26,7 @@ source_paths:
   - frontend/scripts/typecheck.mjs
   - frontend/scripts/typecheck-worker.mjs
 tests:
+  - backend/tests/test_pre_pr_resources.py
   - pipeline/tests/test_public_pipeline.py
   - backend/tests/test_ci_backend_parser.py
   - backend/tests/test_root_typecheck_contract.py
@@ -183,6 +185,14 @@ systèmes, les installateurs ou le déploiement. La commande ne publie ni ne fus
 
 Si le code ou `HEAD` change pendant la validation, celle-ci échoue et doit être répétée ;
 seules les différences prévues des catalogues générés sont exclues.
+
+Avant de démarrer une phase mac-idle, la préparation attend au maximum 90
+secondes pour observer 30 secondes consécutives de pression normale. Un
+avertissement réinitialise la séquence normale ; une pression critique, une
+supervision illisible ou l’expiration laisse la vérification incomplète sans
+lancer la commande. Cette attente ne répète jamais une phase démarrée ou échouée.
+Le heap, les fils, la RSS de l’arbre de processus, les arrêts pour avertissement
+ou pression critique et les délais d’exécution des phases restent inchangés.
 
 ## Vérification unifiée des types
 

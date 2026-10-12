@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-12
 source_paths:
+  - scripts/ci/pre_pr_resources.py
   - scripts/check_public_pipeline.py
   - scripts/check_backend_types.py
   - package.json
@@ -25,6 +26,7 @@ source_paths:
   - frontend/scripts/typecheck.mjs
   - frontend/scripts/typecheck-worker.mjs
 tests:
+  - backend/tests/test_pre_pr_resources.py
   - pipeline/tests/test_public_pipeline.py
   - backend/tests/test_ci_backend_parser.py
   - backend/tests/test_root_typecheck_contract.py
@@ -180,6 +182,14 @@ operatius, instal·ladors ni desplegaments. L’ordre no publica ni fusiona comm
 
 Si el codi o `HEAD` canvien durant la validació, aquesta falla i cal repetir-la;
 només s’exclouen les diferències previstes dels catàlegs generats.
+
+Abans d’iniciar una fase mac-idle, la preparació espera com a màxim 90 segons
+per observar 30 segons consecutius de pressió normal. Un avís reinicia la
+seqüència normal; la pressió crítica, una supervisió il·legible o l’expiració
+deixen la verificació incompleta sense iniciar l’ordre. Aquesta espera no
+repeteix mai una fase iniciada o fallida. Es mantenen el heap, els fils, la RSS
+de l’arbre de processos, l’aturada per avís o pressió crítica i els terminis
+d’execució de cada fase.
 
 ## Comprovació unificada de tipus
 

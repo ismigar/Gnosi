@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-12
 source_paths:
+  - scripts/ci/pre_pr_resources.py
   - scripts/check_public_pipeline.py
   - scripts/check_backend_types.py
   - package.json
@@ -25,6 +26,7 @@ source_paths:
   - frontend/scripts/typecheck.mjs
   - frontend/scripts/typecheck-worker.mjs
 tests:
+  - backend/tests/test_pre_pr_resources.py
   - pipeline/tests/test_public_pipeline.py
   - backend/tests/test_ci_backend_parser.py
   - backend/tests/test_root_typecheck_contract.py
@@ -170,6 +172,13 @@ batch stops the command. `GNOSI_ESLINT_CACHE` still enables content-based cachin
 The mac-idle heap, process-tree memory budget and overall phase deadline stay
 unchanged. Runner regressions compare discovery with real ESLint and exercise
 later-batch failures, type-aware rules, cache invalidation and child termination.
+
+Before a mac-idle phase starts, readiness waits at most 90 seconds to observe
+30 consecutive seconds of normal pressure. A warning resets the normal streak;
+critical pressure, unreadable supervision or expiry leaves validation incomplete
+without launching the command. This wait never retries a started or failed phase.
+The execution heap, threads, process-tree RSS, warning/critical stop conditions
+and phase execution deadlines stay unchanged.
 
 ## Unified type checking
 
