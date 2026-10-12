@@ -6166,6 +6166,13 @@
     "apply_proposal": "Appliquer la proposition"
   },
   "vault_date": {
+    "modality": "Modalité",
+    "point": "Ponctuelle",
+    "include_time": "Inclure les heures",
+    "end_pending": "Fin à définir",
+    "end_before_start": "La fin doit être égale ou postérieure au début.",
+    "clear_end": "Laisser la fin à définir",
+    "clear_date": "Effacer la date",
     "days_placeholder": "jours",
     "days_count_hint": "Nombre de jours (recalcule la date de fin)",
     "days_unit": "j",

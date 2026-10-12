@@ -6166,6 +6166,13 @@
     "apply_proposal": "Aplica la proposta"
   },
   "vault_date": {
+    "modality": "Modalitat",
+    "point": "Puntual",
+    "include_time": "Incloure hores",
+    "end_pending": "Fi pendent",
+    "end_before_start": "La fi ha de ser igual o posterior a l’inici.",
+    "clear_end": "Deixar la fi pendent",
+    "clear_date": "Netejar data",
     "days_placeholder": "dies",
     "days_count_hint": "Nombre de dies (recalcula la data de fi)",
     "days_unit": "d",

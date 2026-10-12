@@ -2,6 +2,9 @@
 
 A database groups tables. A table defines properties for page records; its views show the same records in different ways.
 
+
+Date fields share one editor with independent single-date/period and optional-time controls. A period can span several days with separate start and finish clocks; its finish may remain pending. Natural duration is inclusive calendar days without clocks, and elapsed hours with clocks. Switching modes keeps the saved interval and clocks; project-planning options remain available.
+
 ## Before you begin {#before-you-begin}
 
 A writable Vault. General table views are part of the knowledge workflow; advanced project scheduling requires the Planning plugin.

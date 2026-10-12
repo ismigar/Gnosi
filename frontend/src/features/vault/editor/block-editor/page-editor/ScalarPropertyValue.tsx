@@ -1,8 +1,8 @@
+import { formatUnifiedDate } from '../../../../../shared/dates/unifiedDate';
 import { NumberValue } from '../../../../../shared/records/NumberValue';
 import { GnosiToggle } from '../../../../../shared/ui/settings/SettingsPrimitives';
 import { asBool } from '../../../../../shared/filtering/vaultFilters';
 import { isPagePropertyReadOnly, propertyDisplayText } from './propertyModel';
-import { parsePeriod } from '../../../properties/VaultDateProperty';
 import { ImageHoverPreview } from '../../../../../shared/ui/previews/ImageHoverPreview';
 import { VaultDateProperty } from '../../../properties/VaultDateProperty';
 import { formatDate } from '../../../../../shared/records/model/formatUtils';
@@ -87,9 +87,7 @@ export function ScalarPropertyValue({ context, prop }: { context: PageEditorCont
   }
   if (!isEditor && (prop.type === 'date' || prop.type === 'datetime' || prop.type === 'period')) {
     const fmt = resolveFieldFormat(getPropConfig(prop), localeSettings);
-    const period = parsePeriod(v);
-    const formatBoundary = (value: unknown) => formatDate(dateValue(value), { dateFormat: fmt.dateFormat, type: prop.type === 'datetime' || String(value).includes('T') ? 'datetime' : 'date', locale: fmt.dateLocale });
-    const text = period.start ? [formatBoundary(period.start), ...(period.end && period.end !== period.start ? [formatBoundary(period.end)] : [])].join(' → ') : '';
+    const text = formatUnifiedDate(v, { legacyType: prop.type, dateFormat: fmt.dateFormat, locale: fmt.dateLocale, pending: t('vault_date.end_pending') });
     return <span className="px-2 py-1 text-sm text-[var(--text-primary)] tabular-nums" aria-label={prop.name}>{text || t('common.empty')}</span>;
   }
   if (!isEditor && hasVal && prop.type === 'number') {
@@ -102,7 +100,7 @@ export function ScalarPropertyValue({ context, prop }: { context: PageEditorCont
   }
   if (prop.type === 'date' || prop.type === 'datetime' || prop.type === 'period') {
     return (
-      <div className={`w-full flex items-center group/date ${prop.type === 'period' ? 'min-h-7' : 'h-7'}`}>
+      <div className={`w-full flex items-center group/date min-h-7`}>
         <VaultDateProperty
           value={periodInput(v || "")}
           rruleValue={legacyText(metadata[`${prop.name}_rrule`] || '')}

@@ -94,4 +94,4 @@ export interface PendingTableAction {
 }
 export type RowDescriptor = TableRowDescriptor<TableNote>;
 export type MetadataPatch = Record<string, unknown>;
-export type CellSave = (noteId: string, field: string, newValue: unknown, originalMetaKey: string, skipPropagation?: boolean, additionalMetaUpdates?: MetadataPatch) => Promise<boolean>;
+export type CellSave = (noteId: string, field: string, newValue: unknown, originalMetaKey: string, skipPropagation?: boolean, additionalMetaUpdates?: MetadataPatch, keepEditing?: boolean) => Promise<boolean>;

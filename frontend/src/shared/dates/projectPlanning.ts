@@ -4,22 +4,11 @@
  * Enhanced period values are structured objects. Legacy "start/end" strings
  * remain readable so vaults migrate one edited value at a time.
  */
-type LegacyScalar = string | number | bigint | boolean | null | undefined;
-export type PeriodUnit = 'hours' | 'days' | 'years';
-type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
+import { normalizedIds, normalizePeriodUnit, parsePeriod, validDuration, isPeriodObject, type LegacyScalar, type PeriodInput, type PeriodUnit } from './periodValue';
+export { normalizePeriodUnit, parsePeriod, serializePeriod, withPeriodBoundaries, periodBoundary } from './periodValue';
+export type { PeriodInput, PeriodUnit } from './periodValue';
 interface PlanningSettings { [key: string]: unknown; holidays?: unknown; hours_per_day?: unknown; workday_start?: unknown; working_weekdays?: unknown; }
 type PlanningSettingsInput = PlanningSettings | null | undefined;
-interface RawDependency { lagMinutes?: LegacyScalar; predecessorId?: LegacyScalar; type?: LegacyScalar; }
-interface PeriodInputObject {
-    actualEnd?: LegacyScalar; actualStart?: LegacyScalar; constraintDate?: LegacyScalar; constraintType?: LegacyScalar; deadline?: LegacyScalar; dependencies?: readonly RawDependency[]; durationDays?: LegacyScalar; durationUnit?: LegacyScalar; durationValue?: LegacyScalar; end?: LegacyScalar; endMode?: LegacyScalar; mode?: LegacyScalar; percentComplete?: LegacyScalar; predecessorIds?: LegacyScalar | readonly LegacyScalar[]; start?: LegacyScalar; startMode?: LegacyScalar;
-}
-export type PeriodInput = LegacyScalar | Date | PeriodInputObject;
-interface NormalizedDependency { lagMinutes: number; predecessorId: string; type: DependencyType; }
-interface ParsedPeriod {
-    actualEnd: string; actualStart: string; constraintDate: string; constraintType: string; deadline: string; dependencies: NormalizedDependency[]; durationDays: number | null; durationUnit: PeriodUnit | null; durationValue: number | null; end: string; endMode: 'auto' | 'manual'; mode: 'automatic' | 'manual'; percentComplete: number; predecessorIds: string[]; start: string; startMode: 'auto' | 'manual'; version: 1 | 3;
-}
-interface SerializedPeriod extends Omit<ParsedPeriod, 'version'> { version: 3; }
-interface BoundaryModes { endMode?: 'auto' | 'manual'; startMode?: 'auto' | 'manual'; }
 interface NormalizedSettings { holidays: ReadonlySet<unknown>; hoursPerDay: number; startMinutes: number; weekdays: ReadonlySet<number>; }
 interface IdentifiedNote { [key: string]: unknown; id?: LegacyScalar; }
 const DEFAULT_SETTINGS = Object.freeze({
@@ -31,16 +20,8 @@ const DEFAULT_SETTINGS = Object.freeze({
 const pad = (value: number): string => String(value).padStart(2, '0');
 // String deliberately preserves imported objects' native ToPrimitive behavior.
 function importedText(value: unknown): string { return String(value); }
-function isPeriodUnit(value: unknown): value is PeriodUnit {
-    return value === 'hours' || value === 'days' || value === 'years';
-}
 function isUnknownArray(value: unknown): value is readonly unknown[] {
     return Array.isArray(value);
-}
-function isPeriodObject(value: unknown): value is Record<string, unknown> {
-    return value !== null
-        && typeof value === 'object'
-        && !Array.isArray(value);
 }
 // Read imported properties without discarding prototypes, coercions or errors.
 function property(value: unknown, key: string): unknown {
@@ -90,150 +71,9 @@ export function formatLocalDateTime(value: Date | LegacyScalar): string {
     return `${formattedYear}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
         + `T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
-function validDuration(value: unknown): number | null {
-    if (value === '' || value === null || value === undefined) return null;
-    const number = Number(value);
-    return Number.isFinite(number) && number >= 0 ? number : null;
-}
-export function normalizePeriodUnit(value: unknown): PeriodUnit {
-    return isPeriodUnit(value) ? value : 'days';
-}
 function configuredHoursPerDay(settings: PlanningSettingsInput = {}): number {
     const value = Number(settings?.hours_per_day);
     return Number.isFinite(value) && value > 0 ? value : DEFAULT_SETTINGS.hours_per_day;
-}
-function normalizedIds(value: unknown = []): string[] {
-    const input = isUnknownArray(value) ? value : (value ? [value] : []);
-    return [...new Set(input.map((item) => importedText(item || '').trim()).filter(Boolean))];
-}
-function normalizedDependencies(value: unknown,
-    legacyIds: readonly string[] = []): NormalizedDependency[] {
-    const input = value ?? [];
-    const dependencies = Number(property(input, 'length')) > 0
-        ? input
-        : legacyIds.map((predecessorId): RawDependency => ({ predecessorId }));
-    const seen = new Set<string>();
-    const normalized: NormalizedDependency[] = [];
-    callMethod(dependencies, 'forEach', [(dependency: unknown) => {
-        const predecessorId = importedText(property(dependency, 'predecessorId') || '').trim();
-        if (!predecessorId || seen.has(predecessorId)) return;
-        seen.add(predecessorId);
-        const rawType = importedText(property(dependency, 'type') || '').toUpperCase();
-        const type: DependencyType = rawType === 'SS' || rawType === 'FF'
-            || rawType === 'SF' ? rawType : 'FS';
-        const lagMinutes = Number(property(dependency, 'lagMinutes'));
-        normalized.push({
-            predecessorId,
-            type,
-            lagMinutes: Number.isFinite(lagMinutes) ? lagMinutes : 0,
-        });
-    }]);
-    return normalized;
-}
-export function parsePeriod(value: unknown): ParsedPeriod {
-    if (isPeriodObject(value)) {
-        const source = value instanceof Date ? {} : value;
-        return {
-            version: 3,
-            start: importedText(source.start || ''),
-            end: importedText(source.end || ''),
-            durationDays: validDuration(source.durationDays),
-            durationValue: validDuration(source.durationValue),
-            durationUnit: isPeriodUnit(source.durationUnit)
-                ? source.durationUnit : null,
-            predecessorIds: normalizedIds(source.predecessorIds),
-            dependencies: normalizedDependencies(
-                source.dependencies,
-                normalizedIds(source.predecessorIds),
-            ),
-            startMode: source.startMode === 'auto'
-                || source.startMode === 'automatic' ? 'auto' : 'manual',
-            endMode: source.endMode === 'auto'
-                || source.endMode === 'automatic' ? 'auto' : 'manual',
-            mode: source.mode === 'manual' ? 'manual' : 'automatic',
-            constraintType: importedText(source.constraintType || 'ASAP').toUpperCase(),
-            constraintDate: importedText(source.constraintDate || ''),
-            deadline: importedText(source.deadline || ''),
-            percentComplete: Math.min(100, Math.max(0, Number(source.percentComplete) || 0)),
-            actualStart: importedText(source.actualStart || ''),
-            actualEnd: importedText(source.actualEnd || ''),
-        };
-    }
-    const [start = '', end = ''] = importedText(value || '').split('/');
-    return {
-        version: 1,
-        start,
-        end,
-        durationDays: null,
-        durationValue: null,
-        durationUnit: null,
-        predecessorIds: [],
-        dependencies: [],
-        startMode: 'manual',
-        endMode: 'manual',
-        mode: 'manual',
-        constraintType: 'ASAP',
-        constraintDate: '',
-        deadline: '',
-        percentComplete: 0,
-        actualStart: '',
-        actualEnd: '',
-    };
-}
-export function serializePeriod(value: PeriodInput): '' | SerializedPeriod {
-    const period = parsePeriod(value);
-    if (
-        !period.start
-        && !period.end
-        && period.durationDays === null
-        && period.durationValue === null
-        && period.dependencies.length === 0
-    ) {
-        return '';
-    }
-    return {
-        version: 3,
-        start: period.start,
-        end: period.end,
-        durationDays: period.durationDays,
-        durationValue: period.durationValue,
-        durationUnit: period.durationUnit,
-        predecessorIds: period.dependencies.map((dependency) => dependency.predecessorId),
-        dependencies: period.dependencies,
-        startMode: period.startMode,
-        endMode: period.endMode,
-        mode: period.mode,
-        constraintType: period.constraintType,
-        constraintDate: period.constraintDate,
-        deadline: period.deadline,
-        percentComplete: period.percentComplete,
-        actualStart: period.actualStart,
-        actualEnd: period.actualEnd,
-    };
-}
-export function withPeriodBoundaries(
-    value: unknown, start: LegacyScalar, end: LegacyScalar,
-    modes: BoundaryModes = {},
-): '' | SerializedPeriod {
-    const period = parsePeriod(value);
-    period.start = String(start || '');
-    period.end = String(end || '');
-    if (modes.startMode === 'auto' || modes.startMode === 'manual') {
-        period.startMode = modes.startMode;
-    }
-    if (modes.endMode === 'auto' || modes.endMode === 'manual') {
-        period.endMode = modes.endMode;
-    }
-    return serializePeriod(period);
-}
-export function periodBoundary<T>(value: T, part?: null | ''): T;
-export function periodBoundary(value: unknown, part: string): string;
-export function periodBoundary<T>(value: T, part?: string | null): T | string;
-export function periodBoundary<T>(value: T,
-    part?: string | null): T | string {
-    if (!part) return value;
-    const period = parsePeriod(value);
-    return part === 'end' ? (period.end || period.start) : period.start;
 }
 function normalizeSettings(settings: PlanningSettingsInput = {},
     skipNonWorkingDays = true): NormalizedSettings {

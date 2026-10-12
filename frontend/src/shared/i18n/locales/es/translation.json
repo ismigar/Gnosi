@@ -6166,6 +6166,13 @@
     "apply_proposal": "Aplicar propuesta"
   },
   "vault_date": {
+    "modality": "Modalidad",
+    "point": "Puntual",
+    "include_time": "Incluir horas",
+    "end_pending": "Fin pendiente",
+    "end_before_start": "El fin debe ser igual o posterior al inicio.",
+    "clear_end": "Dejar el fin pendiente",
+    "clear_date": "Borrar fecha",
     "days_placeholder": "días",
     "days_count_hint": "Número de días (recalcula la fecha de fin)",
     "days_unit": "d",

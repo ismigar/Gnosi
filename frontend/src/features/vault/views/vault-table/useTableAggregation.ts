@@ -48,7 +48,7 @@ export function useTableAggregation({ aggregations, sortedNotes, getCalculatedFi
     if (type === 'date' || type === 'datetime' || type === 'period' || field === 'last_modified') {
       const aggDateFmt = resolveFieldFormat(getTableFieldConfig(schema, field), localeSettings);
       const formatAggDate = (d: Date) => formatDate(d, { dateFormat: aggDateFmt.dateFormat, type: 'date', locale: aggDateFmt.dateLocale });
-      if (type === 'period') {
+      if (['date', 'datetime', 'period'].includes(type)) {
         if (func === 'earliest') {
           const dates = values.map(v => new Date(parsePeriod(v).start)).filter(d => !Number.isNaN(d.getTime()));
           return dates.length ? formatAggDate(new Date(Math.min(...dates.map(d => d.getTime())))) : '-';
@@ -56,7 +56,7 @@ export function useTableAggregation({ aggregations, sortedNotes, getCalculatedFi
         if (func === 'latest') {
           const dates = values.map(v => {
             const period = parsePeriod(v);
-            return new Date(period.end || period.start);
+            return new Date((period.kind !== 'point' && period.end) || period.start);
           }).filter(d => !Number.isNaN(d.getTime()));
           return dates.length ? formatAggDate(new Date(Math.max(...dates.map(d => d.getTime())))) : '-';
         }
