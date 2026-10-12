@@ -5618,6 +5618,11 @@
     "apply_proposal": "Apply proposal"
   },
   "vault_date": {
+    "period_calculation_start": "Start",
+    "period_calculation_finish": "Finish",
+    "period_calculation_duration": "Duration",
+    "period_calculation_summary": "Calculation summary",
+    "period_calculation_predecessor": "Automatic start from",
     "modality": "Mode",
     "point": "Single date",
     "include_time": "Include times",

@@ -6166,6 +6166,11 @@
     "apply_proposal": "Aplica la proposta"
   },
   "vault_date": {
+    "period_calculation_start": "Inici",
+    "period_calculation_finish": "Fi",
+    "period_calculation_duration": "Durada",
+    "period_calculation_summary": "Resum del càlcul",
+    "period_calculation_predecessor": "Inici automàtic a partir de",
     "modality": "Modalitat",
     "point": "Puntual",
     "include_time": "Incloure hores",
