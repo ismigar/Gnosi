@@ -2,6 +2,11 @@
 
 Una base de dades agrupa taules. Una taula defineix propietats dels registres, que són pàgines; les vistes mostren els mateixos registres de maneres diferents.
 
+
+Els camps Data comparteixen un editor amb modalitat puntual o període i hores opcionals independents. Un període pot abastar diversos dies amb hores d’inici i fi; la fi pot quedar pendent. La durada natural compta dies de calendari inclusius sense hores, i hores transcorregudes amb hores. Canviar de modalitat conserva l’interval i les hores desades; les opcions de planificació continuen disponibles. L’inici, la fi, la durada, la repetició i l’ajuda de les regles de planificació segueixen l’idioma seleccionat de la interfície.
+
+En una vista incrustada en una pàgina, un filtre com **Contenidor = Aquesta pàgina** omple automàticament aquest camp amb la pàgina contenidora quan afegeixes un registre. Funciona amb qualsevol taula, també amb plantilles i subitems. Així, els registres nous continuen a la vista quan el valor que faltava era aquesta relació amb la pàgina.
+
 ## Abans de començar {#before-you-begin}
 
 Un Vault amb escriptura. Les vistes generals formen part del coneixement; la programació avançada de projectes requereix Planificació.

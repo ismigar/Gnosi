@@ -911,6 +911,16 @@
               }
             ]
           },
+          "confirmation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "conflicts": {
             "anyOf": [
               {

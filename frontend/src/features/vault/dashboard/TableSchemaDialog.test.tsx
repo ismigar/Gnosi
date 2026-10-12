@@ -83,3 +83,14 @@ describe('consecutive table schema saves', () => {
         expect(context.handleUpdateView).toHaveBeenCalledWith(expect.objectContaining({ id: 'view', visibleProperties: ['Title'] }));
     });
 });
+
+it('shows inherited subitems in secondary-view settings without creating an override on unrelated saves', async () => {
+    vi.mocked(context.getTableViews).mockReturnValue([
+        { id: 'main', table_id: 'table', name: 'Table', type: 'table', is_main: true, enableSubitems: true },
+        { id: 'view', table_id: 'table', name: 'Project', type: 'table', visibleProperties: ['Title', 'Status'] },
+    ]);
+    await act(async () => { root.render(<TableSchemaDialog dashboard={context} />); await Promise.resolve(); });
+    expect(captured.props?.initialEnableSubitems).toBe(true);
+    await saveCallback()(schema(['Done']), { ...viewConfig, enableSubitems: true });
+    expect(context.handleUpdateView).not.toHaveBeenCalled();
+});

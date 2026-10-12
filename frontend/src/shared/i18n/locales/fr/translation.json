@@ -6007,6 +6007,16 @@
     "axis_summary": "{{yLabel}} par <field>{{xField}}</field>"
   },
   "timeline": {
+    "move_up": "Monter",
+    "move_down": "Descendre",
+    "move_indent": "Créer une sous-tâche",
+    "move_outdent": "Sortir de la tâche parente",
+    "drag_row": "Glisser avant, dans ou après une autre tâche",
+    "drop_before": "Avant",
+    "drop_inside": "Dans",
+    "drop_after": "Après",
+    "manual_sort_hint": "Supprimez le tri de la vue pour déplacer les tâches manuellement.",
+    "move_error": "Le déplacement a échoué. Vérifiez l’ordre et réessayez.",
     "select_predecessor": "Sélectionner un prédécesseur",
     "predecessor_prompt": "Choisissez quel enregistrement doit se terminer avant que <bold>{{name}}</bold> puisse commencer.",
     "col_title": "Titre de l'enregistrement",
@@ -6156,6 +6166,29 @@
     "apply_proposal": "Appliquer la proposition"
   },
   "vault_date": {
+    "period_calculation_start": "Début",
+    "period_calculation_finish": "Fin",
+    "period_calculation_duration": "Durée",
+    "period_calculation_summary": "Résumé du calcul",
+    "period_calculation_predecessor": "Début automatique à partir de",
+    "modality": "Modalité",
+    "point": "Ponctuelle",
+    "include_time": "Inclure les heures",
+    "end_pending": "Fin à définir",
+    "end_before_start": "La fin doit être égale ou postérieure au début.",
+    "clear_end": "Laisser la fin à définir",
+    "clear_date": "Effacer la date",
+    "period_calculation_start": "Début",
+    "period_calculation_finish": "Fin",
+    "period_calculation_duration": "Durée",
+    "period_calculation_summary": "Résumé du calcul",
+    "period_calculation_predecessor": "Début automatique à partir de",
+    "period_constraint_selected_title": "Règle sélectionnée",
+    "period_constraint_show_all": "Afficher toutes les règles",
+    "period_constraint_show_selected": "Afficher uniquement la règle sélectionnée",
+    "period_constraint_date_hint": "La règle sélectionnée exige cette date et modifie la planification automatique ; une échéance ne génère qu’un avertissement.",
+    "period_constraint_date_required": "Indiquez une date de contrainte pour la règle de planification sélectionnée.",
+    "toggle_recurrence": "Récurrence",
     "days_placeholder": "jours",
     "days_count_hint": "Nombre de jours (recalcule la date de fin)",
     "days_unit": "j",
@@ -6423,6 +6456,15 @@
     "timing_model": "Modèle : {{count}} ms",
     "timing_misc": "Autres : {{count}} ms",
     "timing_usage": "{{input}} jetons d'entrée · {{output}} jetons de sortie · {{models}} appels au modèle · {{tools}} appels d'outils",
+    "team_phase_planning": "Planification",
+    "team_phase_execution": "Exécution",
+    "team_phase_synthesis": "Synthèse",
+    "team_phase_repair": "Réparation",
+    "team_phase_usage": "{{phase}} : {{input}} tokens d’entrée · {{output}} de sortie · {{calls}} appels",
+    "team_reused": "Même spécialiste : aucun nouvel appel de planification.",
+    "team_usage_partial": "Utilisation partielle : le fournisseur n’a pas indiqué tous les tokens.",
+    "team_cost_unknown": "Coût indisponible.",
+    "team_reported_cost": "Coût déclaré : ${{amount}}",
     "timing_cost": "Coût estimé : ${{amount}}",
     "message_has_confirmation": "Ce message inclut une confirmation d'action régie.",
     "message_attachments_count": "{{count}} pièce(s) jointe(s)",
@@ -6647,7 +6689,8 @@
           "summary_many": "Remplacer les identifiants de {{count}} titres par les noms correspondants ?"
         }
       }
-    }
+    },
+    "rewind_busy": "Une réponse est en cours. Attendez sa fin ou arrêtez-la avant d’annuler des messages."
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} sélectionné",
@@ -8250,7 +8293,7 @@
     "completed_execution_only": "Exécution terminée avec résultat ; ne certifie pas tous les critères",
     "acceptance_not_certified": "Les critères particuliers nécessitent une vérification. Les instructions proposées sont génériques et ne copient pas le contenu de la tâche.",
     "add_to_team": "Ajouter aussi cet agent à cette équipe",
-    "director_help": "Cet assistant est le principal, utilisé par défaut dans les nouvelles conversations. Il travaille avec son propre modèle et coordonne l’équipe lorsque de l’aide est nécessaire. Utilisez « Définir comme principal » sur une autre fiche pour le changer.",
+    "director_help": "C’est l’assistant principal, utilisé par défaut dans les nouvelles conversations. Lorsque l’équipe est active, il interprète chaque demande et l’attribue selon les capacités des bots. Vous pouvez le changer avec « Définir comme principal » sur une autre fiche.",
     "participation": "Participation à l’équipe",
     "participation_for": "Participation de {{name}} à l’équipe",
     "participation_options": {

@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { logError } from '../../notifications/notifyError';
+import { planTimelineMove, timelineMoveTarget, type TimelineMove, type TimelinePlacement } from './timelineMoves';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { calendarScale, scaleWidth } from './timelineScale';
 
@@ -28,6 +30,7 @@ import {
     buildBarColorResolver,
     buildTimelineChart,
     predecessorCandidates,
+    resolveParentId,
     predecessorsFor,
     resolveTimelineDateFields,
     resolvePredecessorField,
@@ -155,7 +158,7 @@ export function useVaultTimelineController({
     const fieldConfig = readers.fieldConfig(schema, dateField);
     const timelineUnit = timelineUnitFromConfig(fieldConfig);
     const enhancedPeriod = isEnabled('project-planning')
-        && readers.fieldType(schema, dateField) === 'period';
+        && ['date', 'datetime', 'period'].includes(readers.fieldType(schema, dateField));
     const planningSettings = planningSettingsFrom(
         getPluginSettings('project-planning'),
     );
@@ -184,6 +187,41 @@ export function useVaultTimelineController({
     const schedulingNotes = allNotes ?? notes;
     const allChart = useMemo(() => buildTimelineChart({ dateField, endDateField, hasExplicitSorts: false,
         notes: schedulingNotes, readers, schema, timelineUnit }), [dateField, endDateField, schedulingNotes, schema, timelineUnit]);
+    const [movingRow, setMovingRow] = useState(false);
+    const [moveError, setMoveError] = useState(false);
+    const moveLock = useRef(false);
+    const moveNotes = useMemo(() => {
+        const all = buildTimelineChart({ dateField, endDateField, hasExplicitSorts,
+            notes, readers, schema, timelineUnit }).chartData;
+        const included = new Set(all.map(note => note.id));
+        return [...all, ...notes.filter(note => !included.has(note.id))];
+    }, [dateField, endDateField, hasExplicitSorts, notes, schema, timelineUnit]);
+    const parentOf = useCallback((note: TimelineRecord) => resolveParentId(note, schema, readers), [schema]);
+    const canMoveRow = useCallback((id: string, action?: TimelineMove) => (
+        Boolean(onUpdateNote) && !hasExplicitSorts && !movingRow
+        && (!action || Boolean(timelineMoveTarget(moveNotes, parentOf, id, action)))
+    ), [onUpdateNote, hasExplicitSorts, movingRow, moveNotes, parentOf]);
+    const dropRow = useCallback(async (id: string, targetId: string, placement: TimelinePlacement) => {
+        if (!onUpdateNote || hasExplicitSorts || moveLock.current) return;
+        const changes = planTimelineMove(moveNotes, parentOf, id, targetId, placement);
+        if (!changes.length) return;
+        moveLock.current = true;
+        setMovingRow(true);
+        setMoveError(false);
+        try {
+            for (const change of changes) await onUpdateNote(change.id, change.patch);
+        } catch (error) {
+            setMoveError(true);
+            logError('timeline-row-move', error);
+        } finally {
+            moveLock.current = false;
+            setMovingRow(false);
+        }
+    }, [onUpdateNote, hasExplicitSorts, moveNotes, parentOf]);
+    const moveRow = useCallback(async (id: string, action: TimelineMove) => {
+        const target = timelineMoveTarget(moveNotes, parentOf, id, action);
+        if (target) await dropRow(id, target.id, target.placement);
+    }, [moveNotes, parentOf, dropRow]);
     const scheduleOptions = useMemo(() => ({
         chartData: allChart.chartData,
         dateField,
@@ -285,13 +323,14 @@ export function useVaultTimelineController({
     }, [scrollContainerId]);
 
     return {
-        canEditDates: Boolean(onUpdateNote && dateField && (readers.fieldType(schema, dateField) === 'period' || (endDateField && endDateField !== dateField))),
+        movingRow, moveError, canMoveRow, moveRow, dropRow,
+        canEditDates: Boolean(onUpdateNote && dateField && (['date', 'datetime', 'period'].includes(readers.fieldType(schema, dateField)) || (endDateField && endDateField !== dateField))),
         canEditDependencies: Boolean(onUpdateNote),
         scrollLeft, setScrollLeft, viewportWidth, columnWidth, setColumnWidth, visibleNotes, collapsedIds, toggleCollapsed,
         fitProject, goToDate, goToToday: () => { goToDate(new Date()); },
         removePredecessor: scheduling.removePredecessor,
         updateDates: scheduling.updateDates, undo: scheduling.undo,
-        canUndo: scheduling.canUndo, saving: scheduling.saving, timelineUnit,
+        canUndo: scheduling.canUndo, saving: scheduling.saving || movingRow, timelineUnit,
         activeFiltersCount: readers.filters(activeView).length,
         activeSortsCount: readers.sorts(activeView).length,
         calculatePosition,

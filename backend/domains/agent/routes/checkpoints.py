@@ -199,6 +199,12 @@ def _checkpoint_public_message(
             public_message["author_user_id"] = author_user_id
     if role == "ai":
         assistant_metadata = dict(getattr(message, "additional_kwargs", {}) or {})
+        native = assistant_metadata.get('gnosi_action_confirmation')
+        if isinstance(native, dict):
+            from backend.agent.action_confirmations import confirmation_event
+            marker = confirmation_event(json.dumps(native, ensure_ascii=False))
+            if marker:
+                public_message.update(content='', confirmation=marker)
         for public_key, internal_key in (
             ("plan", "gnosi_plan"),
             ("privacy", "gnosi_privacy"),

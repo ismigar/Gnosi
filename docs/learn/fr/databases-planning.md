@@ -2,6 +2,11 @@
 
 Une base de données regroupe des tables. Une table définit les propriétés de fiches qui sont des pages ; ses vues présentent les mêmes fiches de différentes façons.
 
+
+Les champs Date partagent un éditeur avec une modalité ponctuelle ou période et des heures facultatives indépendantes. Une période peut couvrir plusieurs jours avec des heures de début et de fin ; la fin peut rester à définir. La durée naturelle compte les jours calendaires inclusifs sans heures, et les heures écoulées avec heures. Changer de modalité conserve l’intervalle et les heures enregistrées ; les options de planification restent disponibles. Le début, la fin, la durée, la récurrence et l’aide des règles de planification suivent la langue sélectionnée de l’interface.
+
+Dans une vue intégrée à une page, un filtre comme **Conteneur = Cette page** renseigne automatiquement ce champ avec la page contenant la vue lors de l’ajout d’un document. Cela fonctionne avec toute table, y compris les modèles et les sous-éléments. Les nouveaux documents restent ainsi dans la vue lorsque cette relation avec la page était la valeur manquante.
+
 ## Avant de commencer {#before-you-begin}
 
 Un Vault accessible en écriture. Les vues générales font partie des connaissances ; la planification avancée nécessite l’extension Planification.

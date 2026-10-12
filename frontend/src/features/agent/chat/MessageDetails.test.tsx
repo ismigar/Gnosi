@@ -37,6 +37,18 @@ async function click(label: string): Promise<void> {
 function buttons(): string[] { return [...container.querySelectorAll('button')].map((button) => button.textContent); }
 
 describe('typed response details', () => {
+  it('keeps phase accounting after restoration and does not turn unknown costs into zero', async () => {
+    const timings = boundedTurnMetrics({ total_ms: 100, estimated_cost_usd: null, team_usage: {
+      usage_complete: false, cost_source: 'unknown', routing: { mode: 'continuation' },
+      phases: { planning: { model_calls: 0 }, execution: { model_calls: 1, input_tokens: 300, output_tokens: 20, estimated_cost_usd: null } },
+    } });
+    await render({ timings: boundedTurnMetrics(timings) });
+    expect(container.textContent).toContain('Execution: 300 input · 20 output tokens · 1 calls');
+    expect(container.textContent).toContain('Same specialist: no new planning call.');
+    expect(container.textContent).toContain('Partial usage:');
+    expect(container.textContent).toContain('Cost unavailable.');
+    expect(container.textContent).not.toContain('$0.000000');
+  });
   it('keeps user alignment, model strategy, timing defaults and cost precision', async () => {
     await render({ role: 'user', llm: { model: 'fixture-model', strategy: { mode: 'balanced' } }, timings: boundedTurnMetrics({ total_ms: 1234, input_tokens: 3, output_tokens: 4, model_calls: 1, tool_calls: 2, estimated_cost_usd: 0.0000124 }), confirmation: {}, attachments: [{ name: 'fixture.txt' }] });
     expect(container.firstElementChild?.getAttribute('style')).toContain('align-self: flex-end');

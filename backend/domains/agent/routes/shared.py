@@ -31,6 +31,7 @@ def _agent_stream_error_code(error: BaseException) -> Optional[str]:
         "agent_execution_vault_unavailable", "agent_budget_exceeded",
         "agent_turn_incomplete_limit_reached", "agent_model_context_exceeded",
         "agent_invalid_result", "agent_empty_result",
+        "agent_team_action_not_executed",
     }:
         return code
     return None

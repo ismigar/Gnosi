@@ -1,3 +1,4 @@
+import { unifiedDate } from '../../../../shared/dates/unifiedDate';
 import type { EventApi } from '@fullcalendar/core';
 
 import { logError } from '../../../../shared/notifications/notifyError';
@@ -30,6 +31,15 @@ export function calendarMetadataPatch(
   const startKey = options.dateField || 'date';
   const endKey = options.endDateField || 'end_date';
   const current = metadata[startKey];
+  if (current && typeof current === 'object' && 'kind' in current) {
+    const date = unifiedDate(current);
+    return { metadata: { [startKey]: { ...date,
+      kind: mode === 'resize' ? 'period' : date.kind, withTime: start.includes('T'),
+      start: mode === 'resize' ? date.start : start,
+      end: mode === 'resize' || date.kind === 'period' ? end || '' : date.end,
+      mode: 'manual', startMode: 'manual', endMode: 'manual',
+    } } };
+  }
   if (isCalendarPeriod(current)) {
     const input = calendarPeriodInput(current);
     const nextStart = mode === 'resize' ? parsePeriod(input).start : start;

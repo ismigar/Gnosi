@@ -7,6 +7,7 @@ from backend.utils.metadata_io import MetadataUnavailable, read_metadata_bytes
 from typing import Any
 
 from backend.domains.agent.gnosi_dispatch_basic import ActionHandler
+from backend.domains.agent.row_titles import apply_row_title, row_title_state
 from backend.domains.agent.gnosi_support import (
     _BULK_UPDATE_LOCK,
     MAX_DETERMINISTIC_BULK_ITEMS,
@@ -107,6 +108,10 @@ def _write_transaction(
         for item in prepared:
             attempted.append(item)
             _write_page(item["path"], item["metadata"], item["body"])
+            if 'expected_title' in item:
+                saved, _ = _parse(item['path'])
+                if row_title_state(saved, item['path'])[0] != item['expected_title']:
+                    raise RuntimeError('The saved title does not match the confirmed change.')
     except MetadataUnavailable:
         raise
     except Exception as error:
@@ -165,7 +170,13 @@ def _prepare_bulk_updates(updates: list[dict[str, Any]]) -> list[dict[str, Any]]
         if not (metadata.get("table_id") or metadata.get("database_table_id")):
             raise ValueError(f"The page is not a table row: {row_id}")
         new_metadata = dict(metadata)
-        for key, value in dict(update.get("properties") or {}).items():
+        properties = dict(update.get("properties") or {})
+        if "title" in properties:
+            _title, title_field = row_title_state(metadata, path)
+            if "title_field" in update and update["title_field"] != title_field:
+                raise ActionConflictError("The title field changed after the confirmation preview.")
+            apply_row_title(new_metadata, properties["title"], title_field)
+        for key, value in properties.items():
             if key not in {"id", "table_id", "database_table_id"}:
                 new_metadata[key] = value
         prepared.append(
@@ -176,6 +187,7 @@ def _prepare_bulk_updates(updates: list[dict[str, Any]]) -> list[dict[str, Any]]
                 **_sidecar_snapshot(path, row_id),
                 "metadata": new_metadata,
                 "body": body,
+                **({'expected_title': properties['title']} if 'title' in properties else {}),
             }
         )
     return prepared
@@ -189,6 +201,9 @@ async def _bulk_update_rows(
     if not updates or len(updates) > MAX_LIST_ITEMS:
         raise ValueError("The bulk update size is invalid.")
     with _BULK_UPDATE_LOCK:
+        if arguments.get("view_scope") is not None:
+            from backend.domains.agent.title_replacements import validate_title_view
+            validate_title_view(arguments["view_scope"])
         prepared = _prepare_bulk_updates(updates)
         partial = _write_transaction(
             prepared,

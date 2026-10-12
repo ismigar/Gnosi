@@ -37,6 +37,16 @@ EXISTING_SKILLS = {
     "notebook": "core.gnosi-notebooks",
 }
 
+DESCRIPTIONS = {
+    "writing": "Write, correct, summarize or revise prose and its style. Preserve meaning. Typed record fields and button configuration belong to tables; faithful translation belongs to translation.",
+    "translation": "Translate supplied text, instructions, Markdown, Vault pages or rows into the requested language. Preserve conditions, negations, IDs and values.",
+    "tables": "Calculate or select typed record field values, including numbers, booleans and options; return the exact value JSON. Configure table buttons with the exact schema and fields.",
+    "knowledge": "Classify supplied notes using allowed labels, propose evidence-backed connections, or reformulate knowledge notes. Preserve exact note IDs and the requested JSON contract.",
+}
+
+OUTPUT_SIGNATURES = {"knowledge": [["classifications"]],
+                     "tables": [["button_label", "button_action", "button_config"]]}
+
 
 def skill_id(operation: str) -> str:
     if operation not in OPERATIONS:
@@ -47,9 +57,10 @@ def skill_id(operation: str) -> str:
 def descriptors() -> list[SkillDescriptor]:
     return [SkillDescriptor(
         id=skill_id(key), version="2.0.0", name=name,
-        description=name, origin=CatalogOrigin(type=OriginType.CORE, id="gnosi"),
+        description=DESCRIPTIONS.get(key, name), origin=CatalogOrigin(type=OriginType.CORE, id="gnosi"),
         activation=SkillActivation.EXPLICIT, instructions=instructions,
-        metadata={"required_plugins": [plugin], "application_operation": key},
+        metadata={"required_plugins": [plugin], "application_operation": key,
+                  "output_signatures": OUTPUT_SIGNATURES.get(key, [])},
     ) for key, (plugin, name, instructions) in OPERATIONS.items()]
 
 
@@ -66,6 +77,7 @@ def extend_descriptors(existing: Iterable[SkillDescriptor]) -> list[SkillDescrip
         if extension:
             descriptor = descriptor.model_copy(update={
                 "instructions": descriptor.instructions + "\n\nApplication phases:\n" + extension.instructions,
+                "description": extension.description if extension.metadata["application_operation"] in DESCRIPTIONS else descriptor.description,
                 "metadata": {**descriptor.metadata, **extension.metadata},
                 "version": "2.0.0",
                 "tool_ids": list(dict.fromkeys([*descriptor.tool_ids, *engines.get(descriptor.id, [])])),

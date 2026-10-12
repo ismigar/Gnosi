@@ -84,6 +84,13 @@ async def get_agent_workflow(  # noqa: C901 - bounded cache-key assembly
                 turn_context_refs,
             ),
         )
+    from backend.domains.agent.title_replacements import title_replacements
+    if title_replacements(user_message or "") is not None:
+        use_cache = False
+        from backend.domains.agent.title_context import title_context_refs
+        agent_data = dict(agent_data or {})
+        agent_data["context_refs"] = await asyncio.to_thread(
+            title_context_refs, user_message, agent_data.get("context_refs") or [])
     runtime_active_ids = list(getattr(runtime_capabilities, "active_skill_ids", ()) or ())
     catalog_revision = str(getattr(runtime_capabilities, "catalog_revision", "") or "")
     agent_revision = hashlib.sha256(

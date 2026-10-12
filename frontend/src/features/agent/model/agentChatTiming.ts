@@ -1,4 +1,5 @@
 import { boundedBudget } from './agentChatTransparency';
+import { boundedTeamUsage, type TeamUsageMetrics } from './agentTeamUsage';
 import {
     isRecord,
     recordValue,
@@ -15,7 +16,7 @@ const TURN_TIMING_MS_FIELDS = [
 const TURN_TIMING_COUNT_FIELDS = [
     'input_tokens', 'output_tokens', 'model_calls', 'tool_calls',
 ] as const;
-export type TurnMetrics = LooseRecord & Partial<Record<
+export type TurnMetrics = LooseRecord & TeamUsageMetrics & Partial<Record<
     typeof TURN_TIMING_MS_FIELDS[number] | typeof TURN_TIMING_COUNT_FIELDS[number]
     | 'estimated_cost_usd', number
 >>;
@@ -264,9 +265,10 @@ export const boundedTurnMetrics = (value: LooseValue): TurnMetrics | null => {
         }
     });
     const estimatedCost = Number(value.estimated_cost_usd);
-    if (Number.isFinite(estimatedCost) && estimatedCost >= 0) {
+    if (value.estimated_cost_usd != null && Number.isFinite(estimatedCost) && estimatedCost >= 0) {
         metrics.estimated_cost_usd = Math.min(1_000_000, estimatedCost);
     }
+    Object.assign(metrics, boundedTeamUsage(value));
     const budget = boundedBudget(value.budget);
     if (budget) metrics.budget = budget;
     if (isRecord(value.budget_exhausted)) {

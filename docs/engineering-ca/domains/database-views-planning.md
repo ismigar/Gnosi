@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-10-09
+last_verified: 2026-10-11
 source_paths:
+  - frontend/src/shared/records/model/subitems.ts
+  - frontend/src/features/vault/views/RecordSubitemProvider.tsx
+  - frontend/src/shared/record-views/RecordSubitemAction.tsx
   - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
   - frontend/src/shared/record-views/pinnedViewOrder.ts
   - frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx
@@ -472,3 +475,23 @@ Les taules incrustades defineixen una graella no editable dins de l’editor de 
 Les cel·les seleccionades de la taula mostren un fons opac amb el color d’accent barrejat amb la superfície del tema i un contorn interior a cada cel·la. Un contorn més gruixut distingeix la cel·la activa. El mateix estil cobreix els títols fixos, els intervals rectangulars i les seleccions separades en els temes clar i fosc.
 
 Les capçaleres de taula separen les accions de l’estat d’ordenació. Un clic ordena pel camp i alterna ascendent/descendent; un doble clic selecciona tota la columna de la vista actual, també els registres més enllà del primer lot carregat, sense canviar l’ordre. Només el camp ordenat mostra una fletxa indicativa del sentit. Retorn o Espai ordenen una capçalera enfocada; Majúscules+Retorn selecciona la columna. L’arrossegament fa servir un agafador separat. L’ordre es mostra localment abans del desament opcional en sèrie, funciona sense una funció de desament, respecta els canvis externs posteriors i recupera l’ordre desat si falla. Les dates del sistema es poden seleccionar i copiar, però continuen sent de només lectura.
+
+## Subitems a les vistes
+
+Amb `enableSubitems` activat a la vista, el botó d’afegir un subitem apareix al costat del títol del registre a taula, llista, kanban, galeria, feed, calendari i cronograma. Les visualitzacions ofereixen la mateixa acció al costat del títol del registre enfocat; els genogrames també al costat de la persona seleccionada. Les vistes incrustades i completes comparteixen l’associació amb el pare i els valors per defecte. A taula i llista es manté el camp de nom en línia i s’expandeix el pare. Els descendents es mostren recursivament i els fills que compleixen el filtre continuen visibles encara que el pare en quedi exclòs.
+
+Les vistes sense configuració pròpia de subitems hereten la de la vista principal de la taula; es respecta una desactivació explícita. El botó «+» es manté visible al costat del títol encara que el ratolí no sigui sobre la fila.
+
+Les files de tasques permeten ordenar els germans manualment i canviar la jerarquia. Les fletxes de fila o Alt+Amunt/Avall reordenen una tasca amb les seves subtasques; Alt+Dreta la converteix en filla del germà anterior i Alt+Esquerra la col·loca després de la tasca mare. Arrossega el mànec a la part superior, central o inferior del títol d’una altra tasca per col·locar-la abans, dins o després. Les metadades desen l’ordre i la tasca mare sense canviar dates ni dependències. Els moviments rebutgen destinacions descendents, inclouen registres ocults en la planificació de l’ordre i esperen el desament. Cal treure l’ordenació explícita de la vista. Si falla el desament, s’informa que el moviment no s’ha completat; els ordres ja desats poden haver canviat.
+
+Els desaments de registres incrustats conserven la darrera configuració del registre carregada després de desar una vista. Els moviments consecutius de files del cronograma no han de recuperar l’ordenació antiga del context de l’editor. Una nova còpia del registre substitueix la còpia conservada; les lectures cancel·lades no marquen el desament com a processat.
+
+Els camps Data comparteixen un editor amb modalitat puntual o període i hores opcionals independents. Un període pot abastar diversos dies amb hores d’inici i fi; la fi pot quedar pendent. La durada natural compta dies de calendari inclusius sense hores, i hores transcorregudes amb hores. Canviar de modalitat conserva l’interval i les hores desades; les opcions de planificació continuen disponibles. La migració explícita de Tasques conserva els identificadors de camps i notes, els cossos, els desplaçaments horaris importats, la planificació, la recurrència i les referències de les vistes. Verifica una còpia comprimida externa, detecta edicions concurrents i conserva valors en conflicte per revisar-los. L’inici, la fi, la durada, la repetició i l’ajuda de les regles de planificació segueixen l’idioma seleccionat de la interfície.
+
+## Creació en una vista filtrada per pàgina
+
+Per a qualsevol taula d’origen, una vista incrustada obté les metadades de creació dels filtres actius `equals` amb valor `this`. Envia l’ID de la pàgina contenidora al camp corresponent en la petició inicial, de manera que el registre continua complint el filtre després de recarregar. Les files en línia de taula i llista, el menú Nou, les plantilles i els subitems comparteixen aquestes metadades. Els grups AND combinen els valors; els grups OR només aporten les igualtats exigides per totes les branques. Els filtres exposats desactivats no hi contribueixen. Es preserven la identitat del registre i la taula d’origen. El context de pàgina preval sobre els valors de la plantilla abans dels valors explícits de creació, i les files en línia el reben abans d’avaluar les fórmules per defecte. Canviar de pestanya o de pàgina recalcula els valors sense modificar el filtre desat ni els registres existents.
+
+## Persistència de l’ordre de les columnes
+
+Arrossegar l’agafador d’una columna desa l’ordre configurat a les vistes de taula principals, secundàries i incrustades. La visualització, el desament i la migració de la vista principal conserven aquest ordre en lloc de reconstruir-lo a partir de l’esquema. Les vistes incrustades d’ancoratge registrades es desen al registre; les seccions antigues actualitzen tant la pestanya sintètica com la secció. En recarregar els registres es consulta la configuració actual del registre perquè les columnes no recuperin un ordre anterior. Els descriptors compostos conserven la taula d’origen i les metadades del camp. Una vista principal virtual rep una identitat desada única en la primera actualització.

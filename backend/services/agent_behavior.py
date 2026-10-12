@@ -34,12 +34,23 @@ def task_input(task: str, **data: Any) -> str:
     return json.dumps({"task": task, "data": data}, ensure_ascii=False, allow_nan=False)
 
 
-def operation_input(request: Any) -> str:
+def operation_input(request: Any, *, provider: str = "") -> str:
     """A stable, inspectable data envelope, including legacy caller input."""
-    return json.dumps({"operation": request.operation, "input": request.input,
+    payload = {"operation": request.operation, "input": request.input,
                        "data": request.data, "options": request.options,
                        "language": request.language, "sources": request.context_refs,
-                       "output_schema": request.output_schema}, ensure_ascii=False, allow_nan=False)
+                       "output_schema": request.output_schema}
+    if provider == "openrouter" and request.operation in {"team.plan", "team.replan", "team.view_edit"} and request.output_schema:
+        from backend.domains.agent.structured_output import _has_dynamic_object
+        if not _has_dynamic_object(request.output_schema):
+            try:
+                planning = json.loads(request.input)
+            except (TypeError, ValueError):
+                planning = None
+            if isinstance(planning, dict):
+                return json.dumps({**planning, "phase": request.operation}, ensure_ascii=False, allow_nan=False)
+            payload.pop("output_schema")
+    return json.dumps(payload, ensure_ascii=False, allow_nan=False)
 
 
 def snapshot_instruction_text(snapshot: Any) -> str:

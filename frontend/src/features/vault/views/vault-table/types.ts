@@ -35,6 +35,7 @@ export interface TableNavApi {
   readonly focusLastCell: () => boolean;
 }
 export interface VaultTableProps {
+  readonly creationMetadata?: Readonly<Record<string, unknown>>;
   readonly notes?: readonly TableNote[];
   readonly onNoteSelect: (id: string, options?: { returnFocusId: string; }) => void;
   readonly schema?: VaultSchema;
@@ -94,4 +95,4 @@ export interface PendingTableAction {
 }
 export type RowDescriptor = TableRowDescriptor<TableNote>;
 export type MetadataPatch = Record<string, unknown>;
-export type CellSave = (noteId: string, field: string, newValue: unknown, originalMetaKey: string, skipPropagation?: boolean, additionalMetaUpdates?: MetadataPatch) => Promise<boolean>;
+export type CellSave = (noteId: string, field: string, newValue: unknown, originalMetaKey: string, skipPropagation?: boolean, additionalMetaUpdates?: MetadataPatch, keepEditing?: boolean) => Promise<boolean>;

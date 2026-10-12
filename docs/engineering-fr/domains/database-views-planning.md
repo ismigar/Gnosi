@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-10-09
+last_verified: 2026-10-11
 source_paths:
+  - frontend/src/shared/records/model/subitems.ts
+  - frontend/src/features/vault/views/RecordSubitemProvider.tsx
+  - frontend/src/shared/record-views/RecordSubitemAction.tsx
   - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
   - frontend/src/shared/record-views/pinnedViewOrder.ts
   - frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx
@@ -478,3 +481,23 @@ Les tableaux intégrés définissent une grille non modifiable dans l’éditeur
 Les cellules sélectionnées du tableau affichent un fond opaque mêlant la couleur d’accent à la surface du thème et un contour intérieur sur chaque cellule. Un contour plus épais distingue la cellule active. Le même style couvre les titres fixes, les plages rectangulaires et les sélections disjointes dans les thèmes clair et sombre.
 
 Les en-têtes de tableau séparent les actions de l’état du tri. Un clic trie par le champ et alterne croissant/décroissant ; un double-clic sélectionne toute la colonne de la vue actuelle, y compris les lignes au-delà du premier lot chargé, sans changer l’ordre. Seul le champ trié affiche une flèche indiquant le sens. Entrée ou Espace trie un en-tête focalisé ; Maj+Entrée sélectionne sa colonne. Le déplacement utilise une poignée distincte. Le tri apparaît localement avant les enregistrements facultatifs en série, fonctionne sans fonction d’enregistrement, respecte les modifications externes ultérieures et rétablit l’ordre enregistré en cas d’échec. Les dates système peuvent être sélectionnées et copiées mais restent en lecture seule.
+
+## Sous-éléments dans les vues
+
+Lorsque `enableSubitems` est activé pour la vue, le bouton d’ajout d’un sous-élément apparaît à côté du titre dans les vues tableau, liste, kanban, galerie, flux, calendrier et chronologie. Les visualisations proposent la même action à côté du titre du document ciblé ; les génogrammes la proposent aussi à côté de la personne sélectionnée. Les vues intégrées et complètes partagent le lien au parent et les valeurs par défaut. Le tableau et la liste conservent le champ de nom en ligne et déploient le parent. Les descendants sont affichés récursivement et les enfants correspondant au filtre restent visibles même si leur parent est exclu.
+
+Les vues sans réglage propre pour les sous-éléments héritent du réglage de la vue principale du tableau ; une désactivation explicite est respectée. Le bouton «+» reste visible à côté du titre même lorsque la ligne n’est pas survolée.
+
+Les lignes de tâches permettent de réordonner les tâches sœurs et de modifier la hiérarchie. Les flèches de ligne ou Alt+Haut/Bas déplacent une tâche avec ses sous-tâches ; Alt+Droite la place sous la tâche sœur précédente et Alt+Gauche après sa tâche parente. Faites glisser la poignée vers le haut, le centre ou le bas du titre d’une autre tâche pour la placer avant, dans ou après. Les métadonnées enregistrent l’ordre et le parent sans modifier les dates ni les dépendances. Les déplacements refusent les descendants, incluent les lignes masquées lors du calcul de l’ordre et attendent l’enregistrement. Supprimez le tri explicite de la vue. Un échec indique que le déplacement est incomplet ; les rangs déjà enregistrés peuvent avoir changé.
+
+Les enregistrements intégrés conservent la dernière configuration du registre chargée après la sauvegarde d’une vue. Les déplacements successifs de lignes du calendrier ne doivent pas restaurer l’ancien tri du contexte de l’éditeur. Un nouveau registre remplace la copie conservée ; une lecture annulée ne marque pas la sauvegarde comme traitée.
+
+Les champs Date partagent un éditeur avec une modalité ponctuelle ou période et des heures facultatives indépendantes. Une période peut couvrir plusieurs jours avec des heures de début et de fin ; la fin peut rester à définir. La durée naturelle compte les jours calendaires inclusifs sans heures, et les heures écoulées avec heures. Changer de modalité conserve l’intervalle et les heures enregistrées ; les options de planification restent disponibles. La migration explicite des tâches conserve les identifiants des champs et notes, les corps, les décalages horaires importés, la planification, la récurrence et les références des vues. Elle vérifie une sauvegarde compressée externe, détecte les modifications concurrentes et conserve les valeurs en conflit pour révision. Le début, la fin, la durée, la récurrence et l’aide des règles de planification suivent la langue sélectionnée de l’interface.
+
+## Création dans une vue filtrée par page
+
+Pour toute table source, une vue intégrée déduit les métadonnées de création des filtres actifs `equals` dont la valeur est `this`. Elle transmet l’ID de la page contenant la vue au champ correspondant dans la requête initiale, afin que le document corresponde encore au filtre après rechargement. Les lignes des tableaux et listes, le menu Nouveau, les modèles et les sous-éléments partagent ces métadonnées. Les groupes AND combinent les valeurs ; les groupes OR ne fournissent que les égalités exigées par toutes les branches. Les filtres exposés désactivés ne contribuent pas. L’identité du document et sa table source sont préservées. Le contexte de page remplace les valeurs du modèle avant les valeurs explicites de création et précède l’évaluation des formules par défaut dans les lignes. Changer d’onglet ou de page recalcule les valeurs sans modifier le filtre enregistré ni les documents existants.
+
+## Persistance de l’ordre des colonnes
+
+Faire glisser la poignée d’une colonne enregistre l’ordre configuré dans les vues de table principales, secondaires et intégrées. L’affichage, l’enregistrement et la migration de la vue principale conservent cet ordre au lieu de le reconstruire à partir du schéma. Les vues intégrées d’ancrage enregistrées sont sauvegardées dans le registre ; les anciennes sections mettent à jour leur onglet synthétique ainsi que la section. Le rechargement des enregistrements récupère la configuration actuelle du registre pour que les colonnes ne reviennent pas à un ordre antérieur. Les descripteurs composites conservent la table source et les métadonnées du champ. Une vue principale virtuelle reçoit une identité enregistrée unique lors de sa première mise à jour.

@@ -13,7 +13,7 @@ import type { useTableState } from './useTableState';
 
 type Inputs = Pick<ReturnType<typeof useTableState>, 'newSubitemTitle' | 'setAddingSubitemFor' | 'setNewSubitemTitle' | 'setExpandedRows'>
   & Pick<ReturnType<typeof useTableOptimistic>, 'safeNotes'>
-  & Pick<TableInputs, 'activeView' | 'schema' | 'onCellSaved' | 'onUpdateView' | 'onNoteSelect'>
+  & Pick<TableInputs, 'activeView' | 'schema' | 'creationMetadata' | 'onCellSaved' | 'onUpdateView' | 'onNoteSelect'>
   & Pick<ReturnType<typeof useTableIdentity>, 't'>
   & Pick<ReturnType<typeof useTableEntry>, 'newRowTitle' | 'setNewRowTitle'>
   & Pick<ReturnType<typeof useTableData>, 'resolveNoteTableId'>;
@@ -25,6 +25,7 @@ export function useTableCreate({
   safeNotes,
   activeView,
   schema,
+  creationMetadata,
   setExpandedRows,
   onCellSaved,
   onUpdateView,
@@ -45,6 +46,7 @@ export function useTableCreate({
       const parentNote = safeNotes.find(n => n.id === parentId);
       const tableId = activeView?.table_id || parentNote?.resolved_table_id || parentNote?.metadata?.table_id || parentNote?.metadata?.database_table_id;
       const baseMetadata = {
+        ...creationMetadata,
         title: title,
         parent_id: parentId,
         table_id: tableId,
@@ -75,7 +77,7 @@ export function useTableCreate({
       setAddingSubitemFor(null);
       setNewSubitemTitle('');
     }
-  }, [newSubitemTitle, setAddingSubitemFor, setNewSubitemTitle, safeNotes, activeView, schema, setExpandedRows, onCellSaved, onUpdateView, t]);
+  }, [newSubitemTitle, setAddingSubitemFor, setNewSubitemTitle, safeNotes, activeView, schema, creationMetadata, setExpandedRows, onCellSaved, onUpdateView, t]);
   const handleCreateRowRecord = useCallback(async () => {
     const title = newRowTitle.trim();
     if (!title) return;
@@ -87,6 +89,7 @@ export function useTableCreate({
       }
 
       const baseMetadata = {
+        ...creationMetadata,
         title,
         table_id: tableId,
         database_table_id: tableId,
@@ -117,6 +120,6 @@ export function useTableCreate({
       const errorMsg = apiErrorDetail(error, t('table.record_create_error'));
       notifyError('table-create-record', error, errorMsg);
     }
-  }, [newRowTitle, activeView, safeNotes, resolveNoteTableId, schema, setNewRowTitle, onCellSaved, t, onNoteSelect]);
+  }, [newRowTitle, activeView, safeNotes, resolveNoteTableId, schema, creationMetadata, setNewRowTitle, onCellSaved, t, onNoteSelect]);
   return { handleCreateSubitem, handleCreateRowRecord };
 }

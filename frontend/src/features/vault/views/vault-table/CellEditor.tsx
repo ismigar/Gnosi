@@ -110,8 +110,8 @@ export function CellEditor({ model, value, type, noteId, field, originalMetaKey 
         idToTitle={idToTitle}
         planningSettings={projectPlanningSettings}
         planningEnabled={projectPlanningEnabled}
-        onChange={(newVal) => { void handleCellSave(noteId, field, newVal, originalMetaKey); }}
-        onRruleChange={(newRrule) => { void handleCellSave(noteId, field, value || '', originalMetaKey, false, { [`${originalMetaKey}_rrule`]: newRrule }); }}
+        onChange={(newVal) => { void handleCellSave(noteId, field, newVal, originalMetaKey, false, {}, true); }}
+        onRruleChange={(newRrule) => { void handleCellSave(noteId, field, value || '', originalMetaKey, false, { [`${originalMetaKey}_rrule`]: newRrule }, true); }}
       />
     );
   }

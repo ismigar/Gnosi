@@ -57,7 +57,7 @@ export interface EmbedView extends Omit<ViewAppearance, 'groupBy' | 'group_by'> 
     is_main?: boolean | null;
     is_default?: boolean;
 }
-export interface EmbedTable { id: string; properties?: TableProperty[]; action_rules?: unknown; functionalities?: unknown; }
+export interface EmbedTable { id: string; name?: string; title?: string; properties?: TableProperty[]; action_rules?: unknown; functionalities?: unknown; }
 export interface EmbedBlock {
     id?: string;
     props?: { view_id?: string; heading?: string; heading_level?: number | string; section?: string; };

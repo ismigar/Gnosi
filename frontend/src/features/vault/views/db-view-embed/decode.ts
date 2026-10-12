@@ -69,7 +69,7 @@ export function decodeRow(value: unknown): EmbedRow {
 }
 export const decodeRows = (value: unknown): EmbedRow[] => array(value).map(decodeRow);
 function decodeTables(value: unknown): EmbedTable[] {
-    return array(value).filter(isRecord).map(src => ({ ...src, id: legacyText(src.id), properties: Array.isArray(src.properties) ? src.properties.filter(isRecord).map(p => ({ ...p, name: text(p.name), type: text(p.type) })) : undefined }));
+    return array(value).filter(isRecord).map(src => ({ ...src, id: legacyText(src.id), name: text(src.name), title: text(src.title), properties: Array.isArray(src.properties) ? src.properties.filter(isRecord).map(p => ({ ...p, name: text(p.name), type: text(p.type) })) : undefined }));
 }
 function invoke(value: unknown, ...args: unknown[]): unknown { return typeof value === 'function' ? Reflect.apply(value, undefined, args) : undefined; }
 export function decodeContext(value: VaultEditorContextValue): EmbedContext {

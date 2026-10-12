@@ -351,6 +351,7 @@ def core_gnosi_registrations() -> Tuple[Tuple[ToolDescriptor, Any], ...]:
                 metadata={
                     "domain": _domain(name),
                     "prepares_confirmation": prepares_confirmation,
+                    **({"max_argument_value_chars": 64_000} if name == "bulk_update_rows" else {}),
                 },
             ),
             handler,

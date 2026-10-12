@@ -18,9 +18,19 @@ def constrain_default_reasoning(model: Any, provider: str, effort: str | None) -
     if any((getattr(base, "reasoning", None), getattr(base, "reasoning_effort", None),
             bound.get("reasoning"), bound.get("reasoning_effort"), extra.get("reasoning"), extra.get("reasoning_effort"))):
         return model
-    from backend.services.model_reasoning import reasoning_options
+    from backend.services.model_reasoning import EFFORTS, reasoning_options
     model_id = str(getattr(base, "model_name", "") or getattr(base, "model", ""))
-    if effort not in reasoning_options(provider, model_id)["supported_efforts"]:
+    options = reasoning_options(provider, model_id)
+    if effort == "one_step_lower":
+        # Reduce only a known default by one declared level. Keep at least
+        # low reasoning, and never increase a cheaper or unknown default.
+        levels = [value for value in EFFORTS if value in options["supported_efforts"]
+                  and value not in {"none", "minimal"}]
+        default = options.get("default_effort")
+        if default not in levels or levels.index(default) == 0:
+            return model
+        effort = levels[levels.index(default) - 1]
+    if effort not in options["supported_efforts"]:
         return model
     # Keep Chat Completions on its existing transport. The gateway's reasoning
     # object also works for Responses; changing endpoints is unnecessary.

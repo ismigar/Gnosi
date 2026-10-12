@@ -81,8 +81,8 @@ export async function fetchChatConfirmationStatus(actionId: string, scope: Confi
 }
 
 export async function confirmChatAction(actionId: string, scope: ConfirmationRequestScope): Promise<ConfirmationActionResponse> {
-  // A successful legacy response with an empty/malformed JSON body still defaults
-  // to completed. Reading text preserves that contract, distinct from a lost request.
+  // Preserve missing/malformed status for reconciliation; HTTP success alone
+  // does not establish that the action completed.
   const result = await apiClient.POST('/api/chat/confirmations/{action_id}/confirm', {
     params: { path: { action_id: actionId } }, body: scope, parseAs: 'text',
   });

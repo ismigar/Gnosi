@@ -55,6 +55,31 @@ def test_unknown_reasoning_support_does_not_invent_a_setting(monkeypatch):
     assert constrain_default_reasoning(model, 'other', 'low') is model
 
 
+@pytest.mark.parametrize('supported,default,expected', [
+    (['max', 'high', 'low'], 'max', 'high'),
+    (['none', 'low', 'medium', 'high', 'xhigh', 'max'], 'medium', 'low'),
+    (['none', 'low', 'medium', 'high', 'xhigh', 'max'], 'max', 'xhigh'),
+    (['none', 'low', 'high'], 'low', None),
+    (['none', 'minimal', 'low', 'high'], 'none', None),
+    (['none', 'minimal', 'low', 'high'], 'minimal', None),
+    (['low', 'high'], None, None),
+    ([], 'high', None),
+    (['low', 'high'], 'max', None),
+])
+def test_planning_reduces_only_one_declared_level_without_raising_a_default(monkeypatch, supported, default, expected):
+    from backend.domains.agent.structured_output import constrain_default_reasoning
+    monkeypatch.setattr('backend.services.model_reasoning.reasoning_options',
+        lambda *_: {'supported_efforts': supported, 'default_effort': default})
+    model = ChatOpenAI(model='fixture', api_key='fixture', extra_body={'provider': {'order': ['chosen']}})
+    reduced = constrain_default_reasoning(model, 'openrouter', 'one_step_lower')
+    if expected is None:
+        assert reduced is model
+    else:
+        assert reduced.kwargs['extra_body']['reasoning'] == {'effort': expected}
+        assert reduced.kwargs['extra_body']['provider'] == {'order': ['chosen'], 'require_parameters': True}
+    assert 'reasoning' not in model.extra_body
+
+
 def test_schema_reaches_provider_and_preserves_tools_routing_and_reasoning():
     requests = []
     def respond(request):

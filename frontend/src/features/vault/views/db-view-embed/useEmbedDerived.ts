@@ -1,5 +1,7 @@
+import { resolveSubitemsEnabled } from '../../../../shared/records/model/subitems';
 import { useMemo } from 'react';
 import { useExposedFilters } from '../../../../shared/filtering/useExposedFilters';
+import { currentPageFilterDefaults } from '../../../../shared/filtering/currentPageFilterDefaults';
 import { buildSchemaFromTableProperties } from '../../../../shared/records/model/schemaUtils';
 import { useVaultViewData } from '../../../../shared/records/hooks/useVaultViewData';
 import { searchesWholeTable } from '../../../../shared/records/hooks/useViewSearch';
@@ -19,6 +21,7 @@ export function useEmbedDerived({ view, tableViews, activeViewId, headingProp, h
 
     const exposedFilters = useExposedFilters(effectiveView || {}, `${pageId || ""}:${activeViewId || effectiveView?.view_id || ''}`);
     const runtimeTree = exposedFilters.filterTree;
+    const creationMetadata = useMemo(() => currentPageFilterDefaults(runtimeTree, pageId), [runtimeTree, pageId]);
     const columns = useMemo(
         () => effectiveView?.visibleProperties || effectiveView?.visible_properties || effectiveView?.columns || ['title'],
         [effectiveView],
@@ -119,14 +122,14 @@ export function useEmbedDerived({ view, tableViews, activeViewId, headingProp, h
         calendarView: effectiveView?.calendarView || effectiveView?.calendar_view,
         colorField: effectiveView?.colorField || effectiveView?.color_field,
         rowHeight: effectiveView?.rowHeight || effectiveView?.row_height,
-        enableSubitems: effectiveView?.enableSubitems ?? effectiveView?.enable_subitems,
+        enableSubitems: resolveSubitemsEnabled(effectiveView, [...ctx.registry.views, ...tableViews], tableId),
         columnWidths: effectiveView?.columnWidths || effectiveView?.column_widths,
         // Chart options (embedded 'chart' view).
         chartType: effectiveView?.chartType || effectiveView?.chart_type,
         xField: effectiveView?.xField || effectiveView?.x_field,
         yField: effectiveView?.yField || effectiveView?.y_field,
         aggregation: effectiveView?.aggregation,
-    }), [effectiveView, viewType, columnsAsKeys, t, tableId]);
-    return { exposedFilters, tableId, effectiveView, columns, columnSpec, columnsAsKeys, viewType, activeFilterCount, displayHeading, displayLevel, allRows, rows, table, embeddedSchema, embeddedView };
+    }), [effectiveView, viewType, columnsAsKeys, t, tableId, ctx.registry.views, tableViews]);
+    return { creationMetadata, exposedFilters, tableId, effectiveView, columns, columnSpec, columnsAsKeys, viewType, activeFilterCount, displayHeading, displayLevel, allRows, rows, table, embeddedSchema, embeddedView };
 }
 export type EmbedDerived = ReturnType<typeof useEmbedDerived>;

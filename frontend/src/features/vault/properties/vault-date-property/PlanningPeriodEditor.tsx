@@ -11,7 +11,7 @@ export function PlanningPeriodEditor(props: PeriodEditorProps) {
     const model = createPlanningPeriodModel(props, dateLocale);
 
     return (
-        <div className="grid min-w-[430px] grid-cols-2 gap-2 p-1 text-xs">
+        <div className="grid min-w-0 grid-cols-2 gap-2 p-1 text-xs">
             <PlanningPeriodDates model={model} />
             {model.predecessorsEnabled && (
                 <PlanningPredecessorPicker

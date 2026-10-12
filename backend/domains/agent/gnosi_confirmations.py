@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Dict, List, TypeVar, cast
+from typing import Any, Dict, List, Optional, TypeVar, cast
 
 from backend.domains.agent.gnosi_support import (
     MAX_CONFIRMATION_SAMPLE_ITEMS,
@@ -24,6 +24,7 @@ from backend.domains.agent.gnosi_support import (
     _vault,
 )
 from backend.utils.safe_io import sanitize_rel_folder
+from backend.domains.agent.row_titles import row_title_state
 
 _F = TypeVar("_F", bound=Callable[..., Any])
 _runtime_tool: Any
@@ -176,11 +177,19 @@ def change_schema(folder: str, schema_definition: Dict[str, Any]) -> str:
 
 
 @_typed_tool
-def bulk_update_rows(updates: List[Dict[str, Any]]) -> str:
+def bulk_update_rows(updates: List[Dict[str, Any]], view_scope: Optional[Dict[str, Any]] = None) -> str:
     """Prepares up to 100 row updates and waits for confirmation."""
     if not updates or len(updates) > MAX_LIST_ITEMS:
         return _json({"error": f"Between 1 and {MAX_LIST_ITEMS} row updates are required."})
-    normalized = []
+    if view_scope is not None:
+        from backend.domains.agent.title_replacements import validate_title_view
+        try:
+            validate_title_view(view_scope)
+        except ValueError as error:
+            return _json({"error": str(error)})
+    from backend.domains.agent.title_replacements import title_view_label
+    scope_label = title_view_label(view_scope) if view_scope is not None else ""
+    normalized: List[Dict[str, Any]] = []
     for update in updates:
         identifier = str(update.get("id") or update.get("title") or "").strip()
         properties = update.get("properties")
@@ -190,26 +199,32 @@ def bulk_update_rows(updates: List[Dict[str, Any]]) -> str:
         if not path:
             return _json({"error": f"Row not found: {identifier}"})
         metadata, _body = _parse(path)
+        title, title_field = row_title_state(metadata, path)
+        if "expected_title" in update and update["expected_title"] != title:
+            return _json({"error": "A row title changed after the inventory. Prepare the preview again."})
         if not (metadata.get("table_id") or metadata.get("database_table_id")):
             return _json({"error": f"The page is not a table row: {identifier}"})
         normalized.append(
             {
                 "id": str(metadata.get("id") or identifier),
-                "title": str(metadata.get("title") or path.stem),
+                "title": title,
+                **({"title_field": title_field} if "title" in properties else {}),
                 "properties": properties,
                 "revision": _file_revision(path),
             }
         )
     return _confirmation(
         "bulk_update_rows",
-        {"updates": normalized},
+        {"updates": normalized, **({"view_scope": view_scope} if view_scope is not None else {})},
         {
             "count": len(normalized),
+            **({"table": scope_label} if scope_label else {}),
             "updates": [
                 {
                     "id": item["id"],
                     "title": item["title"],
-                    "properties": item["properties"],
+                    **({"from": item["title"], "to": item["properties"]["title"]}
+                       if set(item["properties"]) == {"title"} else {"properties": item["properties"]}),
                 }
                 for item in normalized
             ],

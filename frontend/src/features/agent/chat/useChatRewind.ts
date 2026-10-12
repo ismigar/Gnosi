@@ -1,7 +1,7 @@
 import { useCallback, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '../../../shared/notifications/toast';
-import { rewindChatSession } from '../../../shared/api/chat-message-actions';
+import { ConversationBusyError, rewindChatSession } from '../../../shared/api/chat-message-actions';
 import { conversationRewindPlan } from '../model/agentChatConversationMerge';
 import { hydrateChatMessages } from './liveConversationModel';
 import type { StoredChatMessage } from './sessionModel';
@@ -41,7 +41,10 @@ export function useChatRewind({ messages, selectedAgentId, sessionId, notebookId
       if (plan.prompt) focusComposerWith(plan.prompt);
       toast.success(t('chat.rewind_complete', 'Conversation rewound. Completed external actions were not reversed.'));
     } catch (error) {
-      logChatError('agent-chat-rewind', error); toast.error(t('chat.rewind_failed', 'The conversation could not be rewound.'));
+      logChatError('agent-chat-rewind', error);
+      toast.error(error instanceof ConversationBusyError
+        ? t('chat.rewind_busy', 'An answer is in progress. Wait for it to finish or stop it before undoing messages.')
+        : t('chat.rewind_failed', 'The conversation could not be rewound.'));
     } finally { setIsRewinding(false); }
   }, [focusComposerWith, historyHydrationRef, isLoading, isRewinding, messages, notebookId, pendingRewindIndex, selectedAgentId, sessionId, setDetailsMessageIndex, setIsRewinding, setMessages, setPendingConfirmation, setPendingRewindIndex, t]);
 }

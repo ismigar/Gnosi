@@ -2,6 +2,7 @@ import { LegacyPeriodEditor } from './LegacyPeriodEditor';
 import { PlanningPeriodEditor } from './PlanningPeriodEditor';
 import type { VaultDatePropertyProps } from './types';
 import { VaultScalarDateEditor } from './VaultScalarDateEditor';
+import { UnifiedDateEditor } from './UnifiedDateEditor';
 
 export function VaultDateProperty({
     fieldConfig = {},
@@ -17,6 +18,10 @@ export function VaultDateProperty({
     type = 'date',
     value = '',
 }: VaultDatePropertyProps) {
+    if (type === 'date' || (value !== null && typeof value === 'object' && 'kind' in value)) {
+        return <UnifiedDateEditor {...{ fieldConfig, fieldName, idToTitle, noteId, notes, onChange,
+            onRruleChange, planningEnabled, planningSettings, rruleValue, type, value }} />;
+    }
     if (type === 'period') {
         if (!planningEnabled) {
             return <LegacyPeriodEditor value={value} onChange={onChange} />;

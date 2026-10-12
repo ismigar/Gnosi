@@ -17,6 +17,7 @@ from backend.domains.vault.tables.rules.types import (
     Metadata,
     RuleEngineDependencies,
 )
+from backend.services.unified_dates import formula_date_value
 
 
 def _first(value: object) -> object:
@@ -154,7 +155,7 @@ class RuleEngine:
         for index, raw_name in enumerate(re.findall(r"\{([^}]+)\}", expression)):
             field_name = (raw_name or "").strip()
             token = f"__field_{index}"
-            self.evaluator.names[token] = self.evaluator.names.get(field_name)
+            self.evaluator.names[token] = formula_date_value(self.evaluator.names.get(field_name))
             token_names.append(token)
             parsed_expression = parsed_expression.replace(f"{{{raw_name}}}", token)
         try:
@@ -283,7 +284,7 @@ class RuleEngine:
             self.evaluator.names[name] = updated_metadata.get(name)
 
     def _get_prop(self, name: str) -> object:
-        return self.evaluator.names.get(name)
+        return formula_date_value(self.evaluator.names.get(name))
 
     def _lookup(self, table_id: str, record_ids: object, property_name: str) -> object:
         return records.lookup(

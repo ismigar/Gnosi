@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-10-09
+last_verified: 2026-10-11
 source_paths:
+  - frontend/src/shared/records/model/subitems.ts
+  - frontend/src/features/vault/views/RecordSubitemProvider.tsx
+  - frontend/src/shared/record-views/RecordSubitemAction.tsx
   - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
   - frontend/src/shared/record-views/pinnedViewOrder.ts
   - frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx
@@ -468,3 +471,23 @@ Las tablas incrustadas definen una cuadrícula no editable dentro del editor de 
 Las celdas seleccionadas de la tabla muestran un fondo opaco con el color de acento mezclado con la superficie del tema y un contorno interior en cada celda. Un contorno más grueso distingue la celda activa. El mismo estilo cubre los títulos fijos, los intervalos rectangulares y las selecciones separadas en los temas claro y oscuro.
 
 Las cabeceras de tabla separan las acciones del estado de ordenación. Un clic ordena por el campo y alterna ascendente/descendente; un doble clic selecciona toda la columna de la vista actual, también los registros más allá del primer lote cargado, sin cambiar el orden. Solo el campo ordenado muestra una flecha indicativa del sentido. Intro o Espacio ordenan una cabecera enfocada; Mayúsculas+Intro selecciona su columna. El arrastre utiliza un tirador separado. El orden se muestra localmente antes del guardado opcional en serie, funciona sin una función de guardado, respeta los cambios externos posteriores y recupera el orden guardado si falla. Las fechas del sistema se pueden seleccionar y copiar, pero siguen siendo de solo lectura.
+
+## Subitems en las vistas
+
+Con `enableSubitems` activado en la vista, el botón para añadir un subitem aparece junto al título del registro en tabla, lista, kanban, galería, feed, calendario y cronograma. Las visualizaciones ofrecen la misma acción junto al título del registro enfocado; los genogramas también junto a la persona seleccionada. Las vistas incrustadas y completas comparten la asociación con el padre y los valores predeterminados. En tabla y lista se mantiene el campo de nombre en línea y se expande el padre. Los descendientes se muestran recursivamente y los hijos que cumplen el filtro siguen visibles aunque el padre quede excluido.
+
+Las vistas sin configuración propia de subitems heredan la de la vista principal de la tabla; se respeta una desactivación explícita. El botón «+» permanece visible junto al título aunque el ratón no esté sobre la fila.
+
+Las filas de tareas permiten ordenar tareas hermanas manualmente y cambiar la jerarquía. Las flechas de fila o Alt+Arriba/Abajo reordenan una tarea con sus subtareas; Alt+Derecha la convierte en hija de la tarea hermana anterior y Alt+Izquierda la coloca después de la tarea principal. Arrastra el control a la parte superior, central o inferior del título de otra tarea para colocarla antes, dentro o después. Los metadatos guardan el orden y la tarea principal sin cambiar fechas ni dependencias. Los movimientos rechazan destinos descendientes, incluyen registros ocultos al planificar el orden y esperan el guardado. Hay que quitar la ordenación explícita de la vista. Si falla el guardado, se informa que el movimiento no se ha completado; los órdenes ya guardados pueden haber cambiado.
+
+Los guardados de registros incrustados conservan la última configuración del registro cargada después de guardar una vista. Los movimientos consecutivos de filas del cronograma no deben recuperar la ordenación antigua del contexto del editor. Una nueva copia del registro sustituye la copia conservada; las lecturas canceladas no marcan el guardado como procesado.
+
+Los campos Fecha comparten un editor con modalidad puntual o período y horas opcionales independientes. Un período puede abarcar varios días con horas de inicio y fin; el fin puede quedar pendiente. La duración natural cuenta días de calendario inclusivos sin horas, y horas transcurridas con horas. Cambiar de modalidad conserva el intervalo y las horas guardadas; las opciones de planificación siguen disponibles. La migración explícita de Tareas conserva los identificadores de campos y notas, los cuerpos, los desplazamientos horarios importados, la planificación, la recurrencia y las referencias de las vistas. Verifica una copia comprimida externa, detecta ediciones concurrentes y conserva valores en conflicto para revisarlos. El inicio, el fin, la duración, la repetición y la ayuda de las reglas de planificación siguen el idioma seleccionado de la interfaz.
+
+## Creación en una vista filtrada por página
+
+Para cualquier tabla de origen, una vista insertada obtiene los metadatos de creación de los filtros activos `equals` con valor `this`. Envía el ID de la página contenedora al campo correspondiente en la petición inicial, de modo que el registro sigue cumpliendo el filtro tras recargar. Las filas en línea de tabla y lista, el menú Nuevo, las plantillas y los subitems comparten estos metadatos. Los grupos AND combinan los valores; los grupos OR solo aportan las igualdades exigidas por todas las ramas. Los filtros expuestos desactivados no contribuyen. Se conservan la identidad del registro y la tabla de origen. El contexto de página prevalece sobre los valores de la plantilla antes de los valores explícitos de creación, y las filas en línea lo reciben antes de evaluar las fórmulas predeterminadas. Cambiar de pestaña o de página recalcula los valores sin modificar el filtro guardado ni los registros existentes.
+
+## Persistencia del orden de las columnas
+
+Arrastrar el control de una columna guarda el orden configurado en las vistas de tabla principales, secundarias e insertadas. La visualización, el guardado y la migración de la vista principal conservan ese orden en lugar de reconstruirlo a partir del esquema. Las vistas insertadas de anclaje registradas se guardan en el registro; las secciones antiguas actualizan tanto la pestaña sintética como la sección. Al recargar los registros se consulta la configuración actual del registro para que las columnas no recuperen un orden anterior. Los descriptores compuestos conservan la tabla de origen y los metadatos del campo. Una vista principal virtual recibe una identidad guardada única en su primera actualización.

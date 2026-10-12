@@ -1,3 +1,4 @@
+import { unifiedDate } from '../../dates/unifiedDate';
 import {
     formatLocalDateTime,
     nextWorkingInstant,
@@ -82,7 +83,13 @@ export function buildDateMetadata(
     } = options;
     const metadata: Record<string, unknown> = {};
     if (dateField) {
-        if (readers.fieldType(schema, dateField) === 'period') {
+        const raw = dateValue(target, dateField);
+        if (raw && typeof raw === 'object' && 'kind' in raw) {
+            const date = unifiedDate(raw);
+            metadata[dateField] = { ...date, start: date.withTime ? formatLocalDateTime(start) : formatDay(start),
+                end: date.kind === 'period' ? (date.withTime ? formatLocalDateTime(end) : formatDay(end)) : date.end,
+                startMode: 'manual', endMode: 'manual', mode: 'manual' };
+        } else if (readers.fieldType(schema, dateField) === 'period') {
             if (enhancedPeriod) {
                 const next = parsePeriod(withPeriodBoundaries(
                     dateValue(target, dateField),

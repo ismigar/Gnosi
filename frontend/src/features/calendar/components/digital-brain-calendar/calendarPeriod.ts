@@ -26,6 +26,8 @@ export function calendarPeriodInput(value: unknown): PeriodInput {
   const source = calendarRecord(value);
   if (!source) return calendarScalar(value);
   return {
+    kind: source.kind === 'point' || source.kind === 'period' ? source.kind : undefined,
+    withTime: typeof source.withTime === 'boolean' ? source.withTime : undefined,
     actualEnd: calendarScalar(source.actualEnd), actualStart: calendarScalar(source.actualStart),
     constraintDate: calendarScalar(source.constraintDate), constraintType: calendarScalar(source.constraintType),
     deadline: calendarScalar(source.deadline), durationDays: calendarScalar(source.durationDays),

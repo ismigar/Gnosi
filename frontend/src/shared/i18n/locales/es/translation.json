@@ -6007,6 +6007,16 @@
     "axis_summary": "{{yLabel}} por <field>{{xField}}</field>"
   },
   "timeline": {
+    "move_up": "Mover arriba",
+    "move_down": "Mover abajo",
+    "move_indent": "Convertir en subtarea",
+    "move_outdent": "Sacar de la tarea principal",
+    "drag_row": "Arrastra antes, dentro o después de otra tarea",
+    "drop_before": "Antes",
+    "drop_inside": "Dentro",
+    "drop_after": "Después",
+    "manual_sort_hint": "Quita la ordenación de la vista para mover las tareas manualmente.",
+    "move_error": "No se ha podido completar el movimiento. Revisa el orden e inténtalo de nuevo.",
     "select_predecessor": "Selecciona una Predecesora",
     "predecessor_prompt": "Elige qué registro debe finalizar antes de que <bold>{{name}}</bold> pueda empezar.",
     "col_title": "Título del Registro",
@@ -6156,6 +6166,29 @@
     "apply_proposal": "Aplicar propuesta"
   },
   "vault_date": {
+    "period_calculation_start": "Inicio",
+    "period_calculation_finish": "Fin",
+    "period_calculation_duration": "Duración",
+    "period_calculation_summary": "Resumen del cálculo",
+    "period_calculation_predecessor": "Inicio automático a partir de",
+    "modality": "Modalidad",
+    "point": "Puntual",
+    "include_time": "Incluir horas",
+    "end_pending": "Fin pendiente",
+    "end_before_start": "El fin debe ser igual o posterior al inicio.",
+    "clear_end": "Dejar el fin pendiente",
+    "clear_date": "Borrar fecha",
+    "period_calculation_start": "Inicio",
+    "period_calculation_finish": "Fin",
+    "period_calculation_duration": "Duración",
+    "period_calculation_summary": "Resumen del cálculo",
+    "period_calculation_predecessor": "Inicio automático a partir de",
+    "period_constraint_selected_title": "Regla seleccionada",
+    "period_constraint_show_all": "Mostrar todas las reglas",
+    "period_constraint_show_selected": "Mostrar solo la regla seleccionada",
+    "period_constraint_date_hint": "La regla seleccionada requiere esta fecha y modifica la planificación automática; una fecha límite solo genera un aviso.",
+    "period_constraint_date_required": "Introduce una fecha de restricción para la regla de planificación seleccionada.",
+    "toggle_recurrence": "Repetición",
     "days_placeholder": "días",
     "days_count_hint": "Número de días (recalcula la fecha de fin)",
     "days_unit": "d",
@@ -6423,6 +6456,15 @@
     "timing_model": "Modelo: {{count}} ms",
     "timing_misc": "Otros: {{count}} ms",
     "timing_usage": "{{input}} tokens de entrada · {{output}} tokens de salida · {{models}} llamadas al modelo · {{tools}} llamadas a herramientas",
+    "team_phase_planning": "Planificación",
+    "team_phase_execution": "Ejecución",
+    "team_phase_synthesis": "Síntesis",
+    "team_phase_repair": "Reparación",
+    "team_phase_usage": "{{phase}}: {{input}} tokens de entrada · {{output}} de salida · {{calls}} llamadas",
+    "team_reused": "Se mantiene el especialista: ninguna nueva llamada de planificación.",
+    "team_usage_partial": "Consumo parcial: el proveedor no ha informado de todos los tokens.",
+    "team_cost_unknown": "Coste no disponible.",
+    "team_reported_cost": "Coste informado: ${{amount}}",
     "timing_cost": "Coste estimado: ${{amount}}",
     "message_has_confirmation": "Este mensaje incluye una confirmación de acción gobernada.",
     "message_attachments_count": "{{count}} adjunto(s)",
@@ -6647,7 +6689,8 @@
           "summary_many": "¿Quieres sustituir los identificadores de {{count}} títulos por los nombres correspondientes?"
         }
       }
-    }
+    },
+    "rewind_busy": "Hay una respuesta en curso. Espera a que termine o detenla antes de deshacer mensajes."
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} seleccionado",
@@ -8250,7 +8293,7 @@
     "completed_execution_only": "Ejecución completada con resultado; no certifica todos los criterios",
     "acceptance_not_certified": "Hay que contrastar los criterios particulares. Las instrucciones propuestas son genéricas y no copian contenido de la tarea.",
     "add_to_team": "Incorporar también el agente a este equipo",
-    "director_help": "Es el asistente principal y se utiliza por defecto en conversaciones nuevas. Trabaja con su propio modelo y coordina el equipo cuando hace falta ayuda. Puedes cambiarlo con «Hacer principal» en otra ficha.",
+    "director_help": "Es el principal y se utiliza por defecto en conversaciones nuevas. Con el equipo activo, interpreta cada petición y la asigna según las capacidades de los bots. Puedes cambiarlo con «Hacer principal» en otra ficha.",
     "participation": "Participación en el equipo",
     "participation_for": "Participación de {{name}} en el equipo",
     "participation_options": {

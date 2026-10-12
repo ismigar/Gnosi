@@ -6007,6 +6007,16 @@
     "axis_summary": "{{yLabel}} per <field>{{xField}}</field>"
   },
   "timeline": {
+    "move_up": "Moure amunt",
+    "move_down": "Moure avall",
+    "move_indent": "Convertir en subtasca",
+    "move_outdent": "Treure de la tasca mare",
+    "drag_row": "Arrossega abans, dins o després d’una altra tasca",
+    "drop_before": "Abans",
+    "drop_inside": "Dins",
+    "drop_after": "Després",
+    "manual_sort_hint": "Treu l’ordenació de la vista per moure les tasques manualment.",
+    "move_error": "No s’ha pogut completar el moviment. Revisa l’ordre i torna-ho a provar.",
     "select_predecessor": "Selecciona una Antecessora",
     "predecessor_prompt": "Tria quin registre ha de finalitzar abans que <bold>{{name}}</bold> pugui començar.",
     "col_title": "Títol del Registre",
@@ -6156,6 +6166,29 @@
     "apply_proposal": "Aplica la proposta"
   },
   "vault_date": {
+    "period_calculation_start": "Inici",
+    "period_calculation_finish": "Fi",
+    "period_calculation_duration": "Durada",
+    "period_calculation_summary": "Resum del càlcul",
+    "period_calculation_predecessor": "Inici automàtic a partir de",
+    "modality": "Modalitat",
+    "point": "Puntual",
+    "include_time": "Incloure hores",
+    "end_pending": "Fi pendent",
+    "end_before_start": "La fi ha de ser igual o posterior a l’inici.",
+    "clear_end": "Deixar la fi pendent",
+    "clear_date": "Netejar data",
+    "period_calculation_start": "Inici",
+    "period_calculation_finish": "Fi",
+    "period_calculation_duration": "Durada",
+    "period_calculation_summary": "Resum del càlcul",
+    "period_calculation_predecessor": "Inici automàtic a partir de",
+    "period_constraint_selected_title": "Regla seleccionada",
+    "period_constraint_show_all": "Mostra totes les regles",
+    "period_constraint_show_selected": "Mostra només la regla seleccionada",
+    "period_constraint_date_hint": "La regla seleccionada requereix aquesta data i modifica la planificació automàtica; una data límit només genera un avís.",
+    "period_constraint_date_required": "Introdueix una data de restricció per a la regla de planificació seleccionada.",
+    "toggle_recurrence": "Repetició",
     "days_placeholder": "dies",
     "days_count_hint": "Nombre de dies (recalcula la data de fi)",
     "days_unit": "d",
@@ -6423,6 +6456,15 @@
     "timing_model": "Model: {{count}} ms",
     "timing_misc": "Altres: {{count}} ms",
     "timing_usage": "{{input}} tokens d'entrada · {{output}} tokens de sortida · {{models}} crides al model · {{tools}} crides a eines",
+    "team_phase_planning": "Planificació",
+    "team_phase_execution": "Execució",
+    "team_phase_synthesis": "Síntesi",
+    "team_phase_repair": "Reparació",
+    "team_phase_usage": "{{phase}}: {{input}} tokens d’entrada · {{output}} de sortida · {{calls}} crides",
+    "team_reused": "Es manté l’especialista: cap nova crida de planificació.",
+    "team_usage_partial": "Consum parcial: el proveïdor no ha informat de tots els tokens.",
+    "team_cost_unknown": "Cost no disponible.",
+    "team_reported_cost": "Cost informat: ${{amount}}",
     "timing_cost": "Cost estimat: ${{amount}}",
     "message_has_confirmation": "Aquest missatge inclou una confirmació d'acció governada.",
     "message_attachments_count": "{{count}} adjunt(s)",
@@ -6647,7 +6689,8 @@
           "summary_many": "Vols substituir els identificadors de {{count}} títols amb els noms corresponents?"
         }
       }
-    }
+    },
+    "rewind_busy": "Hi ha una resposta en curs. Espera que acabi o atura-la abans de desfer missatges."
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} seleccionat",
@@ -8250,7 +8293,7 @@
     "completed_execution_only": "Execució completada amb resultat; no certifica tots els criteris",
     "acceptance_not_certified": "Cal contrastar els criteris particulars. Les instruccions proposades són genèriques i no copien el contingut de la tasca.",
     "add_to_team": "Incorpora també l’agent a aquest equip",
-    "director_help": "És el principal i s’utilitza per defecte en converses noves. Fa la feina amb el seu model i coordina l’equip quan cal ajuda. Pots canviar-lo amb «Fes-lo principal» en una altra fitxa.",
+    "director_help": "És el principal i s’utilitza per defecte en converses noves. Amb l’equip actiu, interpreta cada petició i l’assigna segons les capacitats dels bots. Pots canviar-lo amb «Fes-lo principal» en una altra fitxa.",
     "participation": "Participació en l’equip",
     "participation_for": "Participació de {{name}} en l’equip",
     "participation_options": {

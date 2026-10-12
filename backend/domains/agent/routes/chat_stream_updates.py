@@ -153,6 +153,13 @@ def _message_events(
     untrusted_context_flags: list[str],
 ) -> list[str]:  # noqa: C901 - mirrors three provider message variants
     events: list[str] = []
+    team_usage = getattr(message, "additional_kwargs", {}).get("gnosi_team_usage")
+    if node_name == "team" and isinstance(team_usage, dict):
+        state.total_in_tok = int(team_usage["input_tokens"])
+        state.total_out_tok = int(team_usage["output_tokens"])
+        state.model_calls = int(team_usage["model_calls"])
+        state.tool_calls_count = int(team_usage["tool_calls"])
+        state.team_usage = team_usage
     if turn_usage:
         state.total_in_tok += int(turn_usage[0])
         state.total_out_tok += int(turn_usage[1])
@@ -178,6 +185,12 @@ def _message_events(
         return events
 
     content = _message_text(getattr(message, "content", ""))
+    native_confirmation = getattr(message, 'additional_kwargs', {}).get('gnosi_action_confirmation')
+    if node_name == 'team' and message.type == 'ai' and isinstance(native_confirmation, dict):
+        pending = confirmation_event(json.dumps(native_confirmation, ensure_ascii=False))
+        if pending:
+            state.answer_count += 1
+            return [json.dumps(pending, ensure_ascii=False) + '\n']
     if message.type == "tool":
         state.active_tool_names.discard(str(message.name or "").strip())
         pending_confirmation = confirmation_event(content)

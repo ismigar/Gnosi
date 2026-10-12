@@ -9,10 +9,10 @@ import type { useDataLoading } from './useDataLoading';
 type Context = Pick<DashboardState, 'registry' | 'viewCreationInProgressRef' | 'views'> & Pick<ReturnType<typeof useDataLoading>, 'fetchRegistry'>;
 export function useViewCatalog(context: Context) {
     const { fetchRegistry, registry, viewCreationInProgressRef, views } = context;
-    const buildMainViewBody = useCallback((tableId: string | null): Partial<View> & {
+    const buildMainViewBody = useCallback((tableId: string | null, view?: Pick<View, 'visibleProperties'>): Partial<View> & {
         name: string;
         type: string;
-        visibleProperties: string[];
+        visibleProperties: NonNullable<View['visibleProperties']>;
     } => {
         const table = registry.tables.find(t => t.id === tableId);
         const propNames = (table?.properties || []).map(p => p.name).filter((name): name is string => Boolean(name)).filter(n => n !== 'title');
@@ -31,7 +31,7 @@ export function useViewCatalog(context: Context) {
             group_sort: null,
             groupSortDir: 'asc',
             group_sort_dir: 'asc',
-            visibleProperties: ['title', ...propNames],
+            visibleProperties: view?.visibleProperties?.length ? view.visibleProperties : ['title', ...propNames],
             is_main: true,
         };
     }, [registry.tables]);
@@ -49,7 +49,7 @@ export function useViewCatalog(context: Context) {
             }
             return {
                 ...v,
-                ...buildMainViewBody(tableId),
+                ...buildMainViewBody(tableId, v),
                 id: v.id,
                 table_id: v.table_id || tableId,
                 is_main: true,
@@ -63,7 +63,7 @@ export function useViewCatalog(context: Context) {
         const mainView = tableViews.find(v => isMainView(v, tableViews));
         if (!mainView || mainView.id === 'default')
             return; // virtual, not persisted
-        const canonical = buildMainViewBody(tableId);
+        const canonical = buildMainViewBody(tableId, mainView);
         const needsMigration = Object.entries(canonical).some(([key, value]) => JSON.stringify(mainView[key]) !== JSON.stringify(value));
         if (!needsMigration)
             return;

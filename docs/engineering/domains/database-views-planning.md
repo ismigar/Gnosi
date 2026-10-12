@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-10-09
+last_verified: 2026-10-11
 source_paths:
+  - frontend/src/shared/records/model/subitems.ts
+  - frontend/src/features/vault/views/RecordSubitemProvider.tsx
+  - frontend/src/shared/record-views/RecordSubitemAction.tsx
   - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
   - frontend/src/shared/record-views/pinnedViewOrder.ts
   - frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx
@@ -418,3 +421,23 @@ Embedded tables explicitly own a noneditable grid boundary inside the rich-text 
 Selected table cells use an opaque accent-colored background mixed with the current theme surface and an inset contour on every cell. A thicker contour distinguishes the active cell. The same styling covers sticky title cells, rectangular ranges and disjoint selections in light and dark themes.
 
 Table headers separate actions from sort state. A single click sorts by that field and alternates ascending/descending; a double click selects the entire current-view column, including rows beyond the initially loaded batch, without changing the order. Only the sorted field shows a passive direction arrow. Enter or Space sorts a focused header; Shift+Enter selects its column. Column dragging uses a separate grip. Sorting updates locally before optional serialized saves, remains usable without a save callback, honors later external configuration changes and restores the saved order on failure. System date columns can be selected and copied but remain read-only.
+
+## Subitems across views
+
+With `enableSubitems` enabled for the active view, the add-subitem button appears beside the record title in table, list, board, gallery, feed, calendar and timeline views. Visualizations expose the same action beside the focused record title; genograms also expose it beside the selected person. Embedded and full-page views use the same parent association and defaults. Table/list creation retains the inline name field and expands the parent. Nested descendants are rendered recursively, and matching children remain visible when their parent is filtered out.
+
+Views without an explicit subitem setting inherit the main table view’s setting; an explicit disabled setting remains respected. The plus button stays visible beside the title, including when the row is not hovered.
+
+Task rows support manual sibling order and hierarchy changes. Use the row arrows or Alt+Up/Down to reorder a subtree; Alt+Right makes it a child of the preceding sibling and Alt+Left moves it after its parent. Drag the row handle onto the top, center or bottom of another title cell to place it before, inside or after that task. Metadata stores the sibling order and parent link without changing dates or dependencies. Moves reject descendant targets, include hidden records when planning order, and wait for saved writes. Remove explicit view sorting before moving rows manually. Failed saves report that the move could not be completed; already saved sibling ranks may remain changed.
+
+Embedded record saves retain the latest registry configuration fetched after a view configuration save. Consecutive timeline row moves must not restore stale sorting from the editor context. A newer registry snapshot replaces the retained snapshot; cancelled configuration reads do not mark the save as consumed.
+
+Date fields share one editor with independent single-date/period and optional-time controls. A period can span several days with separate start and finish clocks; its finish may remain pending. Natural duration is inclusive calendar days without clocks, and elapsed hours with clocks. Switching modes keeps the saved interval and clocks; project-planning options remain available. The explicit task migration preserves field IDs, note IDs, bodies, imported offsets, planning extensions, recurrence and view references. It verifies an external compressed backup, detects concurrent edits and retains conflicting values for review. Start, finish, duration, recurrence and scheduling-rule help follow the selected interface language.
+
+## Creation in a page-filtered view
+
+For any source table, an embedded view infers creation metadata from active `equals` rules whose value is `this`. The containing page ID is sent in the corresponding field on the initial create request, so the record still matches after reload. Inline table/list rows, the New menu, template creation and subitems share the same metadata. Nested AND groups combine defaults; OR groups contribute only equalities required by every branch. Disabled exposed rules do not contribute. Record identity and source-table fields are preserved. Page context overrides template values before explicit creation values, and inline defaults are present before evaluating property formulas. Switching the active tab or containing page recomputes the defaults without modifying the saved filter or existing records.
+
+## Column order persistence
+
+Dragging a column grip saves the configured order for main, secondary and embedded table views. Main-view rendering, saving and migration preserve that order instead of rebuilding it from the schema. Registered embedded anchor views save to the registry; legacy sections update their synthetic tab as well as the section. Record reloads fetch the current registry configuration so the columns do not return to an older order. Composite descriptors retain their source table and field metadata. A virtual main view receives a unique saved identity on its first update.

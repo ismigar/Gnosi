@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { recordChatFeedback, requestChatMessageJob, rewindChatSession } from '../../../shared/api/chat-message-actions';
+import { ConversationBusyError, recordChatFeedback, requestChatMessageJob, rewindChatSession } from '../../../shared/api/chat-message-actions';
 import { messageFeedback } from './messageActionModel';
 
 afterEach(() => { vi.unstubAllGlobals(); });
@@ -30,6 +30,11 @@ describe('message action HTTP contracts', () => {
     const request = requestAt(mock); const url = new URL(request.url);
     expect(url.pathname).toBe('/api/chat/sessions/agent%2Fa/session%20b/rewind'); expect(url.searchParams.get('notebook_id')).toBe('notebook/b'); expect(request.method).toBe('POST');
     expect(await request.json()).toEqual({ before_turn_id: 'turn', keep_messages: 2 });
+  });
+  it('reports the bounded busy response without replaying the rewind', async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ detail: { code: 'chat_session_busy' } }, { status: 409 })); vi.stubGlobal('fetch', mock);
+    await expect(rewindChatSession({ agentId: 'a', id: 's' }, { keep_messages: 0 })).rejects.toBeInstanceOf(ConversationBusyError);
+    expect(mock).toHaveBeenCalledOnce();
   });
   it('rejects HTTP errors without retrying or treating a null rewind as a conversation', async () => {
     const mock = vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({}, { status: 503 })).mockResolvedValueOnce(Response.json(null)); vi.stubGlobal('fetch', mock);
