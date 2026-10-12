@@ -1,3 +1,4 @@
+import { RecordSubitemAction } from '../../../../shared/record-views/RecordSubitemAction';
 import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
 import { NumberValue } from '../../../../shared/records/NumberValue';
 import type { ComponentProps, ReactNode } from 'react';
@@ -202,7 +203,8 @@ export function VaultKanbanCard(props: VaultKanbanCardProps) {
         <GalleryOpenButton pageId={note.id} onOpen={onNoteSelect} />
         <h4 className="mb-2 flex items-start gap-2 pr-8 text-sm font-semibold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--gnosi-primary)]">
             <FileText className="mt-0.5 shrink-0 text-[var(--text-tertiary)] group-hover:text-[var(--gnosi-primary)]/70" size={16} />
-            <span {...titlePreviewProps}>{note.title || untitledLabel}</span>
+            <span className="min-w-0 flex-1" {...titlePreviewProps}>{note.title || untitledLabel}</span>
+            <RecordSubitemAction recordId={note.id} />
         </h4>
         {fields.length > 0 ? <div className="mt-2 flex flex-col gap-1 text-[10px]">
             {fields.map(({ field, type }) => {

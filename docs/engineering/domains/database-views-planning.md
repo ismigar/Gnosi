@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-10-09
+last_verified: 2026-10-11
 source_paths:
+  - frontend/src/shared/records/model/subitems.ts
+  - frontend/src/features/vault/views/RecordSubitemProvider.tsx
+  - frontend/src/shared/record-views/RecordSubitemAction.tsx
   - frontend/src/features/vault/views/db-view-embed/ViewContainers.tsx
   - frontend/src/shared/record-views/pinnedViewOrder.ts
   - frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx
@@ -418,6 +421,13 @@ Embedded tables explicitly own a noneditable grid boundary inside the rich-text 
 Selected table cells use an opaque accent-colored background mixed with the current theme surface and an inset contour on every cell. A thicker contour distinguishes the active cell. The same styling covers sticky title cells, rectangular ranges and disjoint selections in light and dark themes.
 
 Table headers separate actions from sort state. A single click sorts by that field and alternates ascending/descending; a double click selects the entire current-view column, including rows beyond the initially loaded batch, without changing the order. Only the sorted field shows a passive direction arrow. Enter or Space sorts a focused header; Shift+Enter selects its column. Column dragging uses a separate grip. Sorting updates locally before optional serialized saves, remains usable without a save callback, honors later external configuration changes and restores the saved order on failure. System date columns can be selected and copied but remain read-only.
+
+## Subitems across views
+
+With `enableSubitems` enabled for the active view, the add-subitem button appears beside the record title in table, list, board, gallery, feed, calendar and timeline views. Visualizations expose the same action beside the focused record title; genograms also expose it beside the selected person. Embedded and full-page views use the same parent association and defaults. Table/list creation retains the inline name field and expands the parent. Nested descendants are rendered recursively, and matching children remain visible when their parent is filtered out.
+
+Views without an explicit subitem setting inherit the main table view’s setting; an explicit disabled setting remains respected. The plus button stays visible beside the title, including when the row is not hovered.
+
 Task rows support manual sibling order and hierarchy changes. Use the row arrows or Alt+Up/Down to reorder a subtree; Alt+Right makes it a child of the preceding sibling and Alt+Left moves it after its parent. Drag the row handle onto the top, center or bottom of another title cell to place it before, inside or after that task. Metadata stores the sibling order and parent link without changing dates or dependencies. Moves reject descendant targets, include hidden records when planning order, and wait for saved writes. Remove explicit view sorting before moving rows manually. Failed saves report that the move could not be completed; already saved sibling ranks may remain changed.
 
 Embedded record saves retain the latest registry configuration fetched after a view configuration save. Consecutive timeline row moves must not restore stale sorting from the editor context. A newer registry snapshot replaces the retained snapshot; cancelled configuration reads do not mark the save as consumed.
