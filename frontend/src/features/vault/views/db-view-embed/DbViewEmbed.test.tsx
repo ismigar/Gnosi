@@ -432,6 +432,32 @@ describe('embedded record and view actions', () => {
         expect(api.patchSectionConfig).toHaveBeenCalledWith('page', expect.objectContaining({ plugin: 'preserved' }), expect.objectContaining({ visible_properties: [{ tableId: 'books', fieldKey: 'title', label: 'Nom' }], columnWidths: { title: 240 }, sorts: [{ field: 'title', direction: 'desc' }] }));
         expect(api.updateVaultView).not.toHaveBeenCalled();
     });
+    it.each(['anchor', 'other'])('keeps reordered registry columns after a record reload in %s', async id => {
+        const columns = [{ tableId: 'books', fieldKey: 'title', label: 'Nom' }, { tableId: 'books', fieldKey: 'Status' }, { tableId: 'books', fieldKey: 'Date' }];
+        const original = { ...(id === 'anchor' ? anchor : other), type: 'table', visibleProperties: columns };
+        let saved = original;
+        context = { ...context, registry: { ...context.registry, views: [id === 'anchor' ? original : anchor, ...(id === 'other' ? [original] : [])] } };
+        vi.mocked(api.fetchVaultViews).mockImplementation(() => Promise.resolve([id === 'anchor' ? saved : anchor, ...(id === 'other' ? [saved] : [])]));
+        vi.mocked(api.updateVaultView).mockImplementation((_id, patch) => { saved = { ...saved, ...patch } as typeof original; return Promise.resolve({ status: 'ok' }); });
+        writeText(selectedKey('page', 'anchor'), id);
+        await render();
+        await act(async () => { await fixture.body?.onUpdateView?.({ visibleProperties: ['title', 'Date', 'Status'] }); });
+        expect(api.patchSectionConfig).not.toHaveBeenCalled();
+        expect(saved.visibleProperties).toEqual([columns[0], columns[2], columns[1]]);
+        expect(fixture.body?.activeView?.visibleProperties).toEqual(['title', 'Date', 'Status']);
+        await act(async () => { fixture.body?.onCellSaved?.(); });
+        await render();
+        expect(fixture.body?.activeView?.visibleProperties).toEqual(['title', 'Date', 'Status']);
+    });
+    it('updates the synthetic tab of a legacy section when reordering columns', async () => {
+        context = { ...context, registry: { ...context.registry, views: [] } };
+        vi.mocked(api.fetchVaultViews).mockResolvedValue([]);
+        vi.mocked(api.fetchPageViews).mockResolvedValue({ page_id: 'page', sections: [{ ...section, visible_properties: ['title', 'Status', 'Date'] }] });
+        await render();
+        await act(async () => { await fixture.body?.onUpdateView?.({ visibleProperties: ['title', 'Date', 'Status'] }); });
+        expect(fixture.body?.activeView?.visibleProperties).toEqual(['title', 'Date', 'Status']);
+        expect(api.patchSectionConfig).toHaveBeenCalledWith('page', expect.anything(), expect.objectContaining({ visible_properties: ['title', 'Date', 'Status'] }));
+    });
     it('updates a selected registry tab and preserves its plugin options', async () => {
         writeText(selectedKey('page', 'anchor'), 'other'); await render();
         await act(async () => { await Promise.resolve(); await fixture.body?.onUpdateView?.({ visibleProperties: ['title'], group_by: 'status', columnWidths: { title: 180 } }); });

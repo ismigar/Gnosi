@@ -19,12 +19,27 @@ export function useViewActions(context: Context) {
     const handleUpdateView = async (updatedView: ViewDraft) => {
         if (!updatedView.id)
             return;
-        // Never persist the virtual main view: its id is the literal 'default'
-        // (from ensureMainViewForTable), and PUTting it upserts a registry view
-        // whose id collides across tables — a later save on another table then
-        // overwrites the first table's entry. A real saved view has a unique id.
-        if (updatedView.id === 'default')
+        // A virtual main view must get a unique registry identity before saving.
+        // Never PUT the shared literal `default`, which would collide across tables.
+        if (updatedView.id === 'default') {
+            const tableId = updatedView.table_id || activeTableId;
+            if (!tableId) return;
+            try {
+                const saved = await createVaultView({
+                    ...updatedView,
+                    ...buildMainViewBody(tableId, updatedView),
+                    id: uuidv4(),
+                    table_id: tableId,
+                    is_main: true,
+                });
+                await fetchRegistry();
+                if (saved.id) setActiveViewId(saved.id);
+            } catch (err) {
+                console.error('Error creating main view:', err);
+                toast.error(t('errors.save_view'));
+            }
             return;
+        }
         const viewId = updatedView.id;
         try {
             const tableId = updatedView.table_id || activeTableId;
@@ -44,7 +59,7 @@ export function useViewActions(context: Context) {
             const normalizedView = main
                 ? {
                     ...updatedView,
-                    ...buildMainViewBody(tableId),
+                    ...buildMainViewBody(tableId, updatedView),
                     id: updatedView.id,
                     table_id: tableId,
                     is_main: true,
