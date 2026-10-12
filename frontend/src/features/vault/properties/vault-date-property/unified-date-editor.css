@@ -1,0 +1,47 @@
+/* Unlayered document prose rules must not override embedded form controls. */
+.unified-date-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-primary);
+}
+.unified-date-editor__toolbar,
+.unified-date-editor__duration {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.unified-date-editor__boundary {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 4px;
+}
+.unified-date-editor > label > span,
+.unified-date-editor > span,
+.unified-date-editor__toolbar > span,
+.unified-date-editor > button { font-size: 12px; line-height: 1.5; }
+.unified-date-editor__toolbar > span { display: inline-flex; align-items: center; gap: 6px; }
+.unified-date-editor .gnosi-toggle { flex-shrink: 0; }
+.unified-date-editor select,
+.unified-date-editor input[type="number"] {
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 4px 8px;
+    font: inherit;
+    min-width: 0;
+}
+.unified-date-editor input[type="number"] { width: 80px; }
+.unified-date-editor__boundary input[type="text"] { font-size: 13px; line-height: 1.5; padding: 4px; }
+.unified-date-editor input:focus-visible,
+.unified-date-editor select:focus-visible { outline: 2px solid var(--gnosi-primary); outline-offset: 1px; }
+.unified-date-editor input:disabled { opacity: 0.4; }
+.unified-date-editor > button { align-self: flex-start; white-space: normal; }
