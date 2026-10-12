@@ -3,7 +3,7 @@
 Una base de dades agrupa taules. Una taula defineix propietats dels registres, que són pàgines; les vistes mostren els mateixos registres de maneres diferents.
 
 
-Els camps Data comparteixen un editor amb modalitat puntual o període i hores opcionals independents. Un període pot abastar diversos dies amb hores d’inici i fi; la fi pot quedar pendent. La durada natural compta dies de calendari inclusius sense hores, i hores transcorregudes amb hores. Canviar de modalitat conserva l’interval i les hores desades; les opcions de planificació continuen disponibles.
+Els camps Data comparteixen un editor amb modalitat puntual o període i hores opcionals independents. Un període pot abastar diversos dies amb hores d’inici i fi; la fi pot quedar pendent. La durada natural compta dies de calendari inclusius sense hores, i hores transcorregudes amb hores. Canviar de modalitat conserva l’interval i les hores desades; les opcions de planificació continuen disponibles. L’inici, la fi, la durada, la repetició i l’ajuda de les regles de planificació segueixen l’idioma seleccionat de la interfície.
 
 ## Abans de començar {#before-you-begin}
 
