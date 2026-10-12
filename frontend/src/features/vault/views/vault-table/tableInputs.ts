@@ -1,5 +1,6 @@
 import type { VaultTableProps } from './types';
 export function tableInputs({
+  creationMetadata,
   notes = [],
   onNoteSelect,
   schema = {},
@@ -30,6 +31,6 @@ export function tableInputs({
   restoreRecordFocus = null,
   onRecordFocusRestored = null,
 }: VaultTableProps) {
-  return { notes, onNoteSelect, schema, idToTitle, allNotes, activeView, onUpdateView, isEmbedded, isListView, onCreateRecord, onDeletePage, onDeleteSelected, onApplyTemplate, onCreateNotebook, templates, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTermProp, actionRules, functionalities, maxHeight, registerNavApi, onExitTop, onExitBottom, onEscape, restoreRecordFocus, onRecordFocusRestored };
+  return { creationMetadata, notes, onNoteSelect, schema, idToTitle, allNotes, activeView, onUpdateView, isEmbedded, isListView, onCreateRecord, onDeletePage, onDeleteSelected, onApplyTemplate, onCreateNotebook, templates, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTermProp, actionRules, functionalities, maxHeight, registerNavApi, onExitTop, onExitBottom, onEscape, restoreRecordFocus, onRecordFocusRestored };
 }
 export type TableInputs = ReturnType<typeof tableInputs>;

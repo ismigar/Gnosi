@@ -47,6 +47,20 @@ it('hides the action when subitems are disabled', () => {
     expect(view.container.querySelector('button')).toBeNull();
 });
 
+it('assigns the containing page to a subitem before applying field defaults', async () => {
+    createPage.mockReset().mockResolvedValue({ id: 'child' });
+    const view = mountTestComponent(<RecordSubitemProvider enabled records={[parent]} onSaved={vi.fn()}
+        creationMetadata={{ Projecte: 'containing-page' }}
+        schema={{ Projecte: 'relation', Projecte_config: { defaultFormula: 'other-page' } }}>
+        <RecordSubitemAction recordId={parent.id} />
+    </RecordSubitemProvider>);
+    act(() => { actionButton(view.container).click(); });
+    await act(async () => { await submit('Child'); });
+    const payload: unknown = createPage.mock.calls[0]?.[0];
+    expect(payload).toMatchObject({ parent_id: 'parent',
+        metadata: { Projecte: 'containing-page', parent_id: 'parent', table_id: 'tasks' } });
+});
+
 it('keeps the entered title editable on failure and does not refresh', async () => {
     createPage.mockReset().mockRejectedValue(new Error('save failed')); const refreshed = vi.fn();
     const view = mountTestComponent(<RecordSubitemProvider enabled records={[parent]} schema={{}} onSaved={refreshed}>

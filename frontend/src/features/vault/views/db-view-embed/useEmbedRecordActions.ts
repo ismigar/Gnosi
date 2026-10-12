@@ -4,7 +4,7 @@ import { reportEmbedError } from './diagnostics';
 import type { EmbedInputs } from './inputs';
 import type { EmbedDerived } from './useEmbedDerived';
 import type { Metadata, EmbedRow } from './types';
-export function useEmbedRecordActions({ ctx, tableId, block, activeViewId, effectiveView, headingProp, headingLevelProp, reload }: EmbedInputs & EmbedDerived & { reload: () => void ;}) {
+export function useEmbedRecordActions({ ctx, tableId, block, activeViewId, effectiveView, creationMetadata, headingProp, headingLevelProp, reload }: EmbedInputs & EmbedDerived & { reload: () => void ;}) {
     const { onOpenPage, onOpenPageViewModal } = ctx;
     const isCreatingRef = useRef(false);
     const handleCreate = useCallback(async (extra: Metadata = {}, template: EmbedRow | null = null) => {
@@ -34,6 +34,7 @@ export function useEmbedRecordActions({ ctx, tableId, block, activeViewId, effec
                 content: initialContent,
                 extraMetadata: {
                     ...baseMeta,
+                    ...creationMetadata,
                     is_template: false,
                     ...extra,
                 },
@@ -48,7 +49,7 @@ export function useEmbedRecordActions({ ctx, tableId, block, activeViewId, effec
         } finally {
             isCreatingRef.current = false;
         }
-    }, [tableId, onOpenPage, reload]);
+    }, [tableId, creationMetadata, onOpenPage, reload]);
 
     const handleOpenConfig = useCallback(() => {
         if (!onOpenPageViewModal || !tableId) return;
