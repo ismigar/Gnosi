@@ -55,7 +55,7 @@ export function EmbedBody({ model, registerNavApi, focusShell }: { model: EmbedM
     const renderBody = () => {
         // The `graph` has no equivalent editable component → bespoke render.
         if (viewType === 'graph') return <RecordSubitemProvider key={`subitems:${embeddedView.id}`}
-            enabled={embeddedView.enableSubitems === true} records={rows} tableId={embeddedView.table_id}
+            enabled={embeddedView.enableSubitems} records={rows} tableId={embeddedView.table_id}
             schema={embeddedSchema} onSaved={reload}>
             <RecordViewFrame records={rows} navigation={graphNavigation} onOpen={id => ctx.onOpenPage?.(id)}
                 registerNavApi={registerNavApi} onExit={focusShell} adaptive>
