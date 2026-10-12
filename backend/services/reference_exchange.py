@@ -28,7 +28,7 @@ RIS_FIELDS = {"ET": "Edició", "AB": "Abstract", "ST": "Títol abreujat", "J2": 
               "M3": "Tipus de document", "NV": "Núm. volums", "DB": "Arxiu bibliogràfic",
               "AN": "Localització a l’arxiu", "CN": "Signatura", "DP": "Catàleg"}
 EXTRA_KEYS = {"Zotero Extras", "BibTeX Extras", "RIS Extras"}
-CANONICAL = set(REFERENCE_TEXT_FIELDS) | set(REFERENCE_DATE_FIELDS) | set(REFERENCE_CREATOR_ROLES) | EXTRA_KEYS | {"Any", "Mes", "Dia", "Item Type", "Citation Key", "Authors", "Títol del llibre", "Data de publicació"}
+CANONICAL = set(REFERENCE_TEXT_FIELDS) | set(REFERENCE_DATE_FIELDS) | set(REFERENCE_CREATOR_ROLES) | EXTRA_KEYS | {"Any", "Mes", "Dia", "Item Type", "Citation Key", "Authors", "Títol del llibre", "Data de publicació", "Full Citation"}
 
 
 def canonical_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
@@ -41,7 +41,8 @@ def canonical_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     people = author_names(values)
     if people:
         result["Autoría"] = people
-        result.pop("Authors", None)
+        if result.get("Authors") == "; ".join(text_names(people)):
+            result.pop("Authors", None)
     return result
 
 
@@ -67,7 +68,7 @@ def restore_metadata(out: dict[str, Any], encoded: str, standard: object) -> dic
     saved = {k: v for k, v in payload["metadata"].items() if k in CANONICAL}
     if payload.get("standard") == standard:
         if saved.get("Autoría"):
-            saved["Authors"] = "; ".join(text_names(saved["Autoría"]))
+            saved.setdefault("Authors", "; ".join(text_names(saved["Autoría"])))
         return saved
     previous = payload.get("parsed")
     if not isinstance(previous, dict):
