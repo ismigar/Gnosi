@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[4]
 
@@ -39,7 +40,7 @@ CREATOR_COLUMNS = {
 }
 
 
-def derive(schema: dict) -> dict:
+def derive(schema: dict[str, Any]) -> dict[str, Any]:
     csl = schema["csl"]
     texts = {column: variable for variable, column in TEXT_COLUMNS.items()}
     candidates = {column: list(csl["fields"]["text"][variable]) for variable, column in TEXT_COLUMNS.items()}
@@ -58,7 +59,7 @@ def derive(schema: dict) -> dict:
     for variable, column in DATE_COLUMNS.items():
         candidates[column] = [csl["fields"]["date"][variable]]
     roles = {column: role for role, column in CREATOR_COLUMNS.items()}
-    creator_columns = {}
+    creator_columns: dict[str, dict[str, str]] = {}
     relevant = {}
     for item in schema["itemTypes"]:
         key = item["itemType"]
