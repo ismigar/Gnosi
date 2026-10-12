@@ -14,7 +14,7 @@ function decodeViewUpdate(value: unknown) {
     const sort = Array.isArray(source.sort) ? decodeView({ sorts: source.sort }).sorts : view.sort;
     return { ...view, sort, visibleProperties: Array.isArray(source.visibleProperties) ? source.visibleProperties.filter((key: unknown): key is string => typeof key === 'string') : undefined };
 }
-export function createBodyAdapters({ ctx, table, handleOpenConfig, templates, handleCreate, reload, pageId, view, activeViewId, columns, columnSpec, tableId, setView, setRawRecords, setTableRecords, tableViews, refetchTableViews }: EmbedInputs & EmbedDerived & EmbedRecordActions & EmbedTabActions & { reload: () => void ;}) {
+export function createBodyAdapters({ ctx, table, handleOpenConfig, templates, handleCreate, reload, pageId, view, activeViewId, columns, columnSpec, tableId, setView, setTableViews, setRawRecords, setTableRecords, tableViews, refetchTableViews }: EmbedInputs & EmbedDerived & EmbedRecordActions & EmbedTabActions & { reload: () => void ;}) {
     const onEditSchemaAdapter = (type?: string) => {
         if (type === 'filters' || type === 'sorts') handleOpenConfig();
         else if (ctx.onEditSchema && table) ctx.onEditSchema(table);
@@ -62,7 +62,8 @@ export function createBodyAdapters({ ctx, table, handleOpenConfig, templates, ha
         // persist it, the widths would revert on every reload (the
         // main view does save them via VaultDashboard).
         const isSection = !view ? false : (activeViewId === view.view_id);
-        if (isSection || !activeViewId) {
+        const registered = ctx.registry.views.some(v => v.id === activeViewId);
+        if ((isSection && !registered) || !activeViewId) {
             // The active tab is the block's section → patch to the section.
             const next = await patchSectionConfig(pageId, view, {
                 visible_properties: newVisible,
@@ -73,6 +74,18 @@ export function createBodyAdapters({ ctx, table, handleOpenConfig, templates, ha
                 ...(nextView.columnWidths ? { columnWidths: nextView.columnWidths } : {}),
             });
             setView(next);
+            // Legacy sections are also represented by a synthetic tab. Update
+            // that tab because it takes precedence over `view` when rendering.
+            setTableViews(prev => prev.map(tab => tab.id === next.view_id ? {
+                ...tab,
+                visibleProperties: newVisible,
+                sorts,
+                sort: sorts[0] || null,
+                ...(nextView.columnWidths ? { columnWidths: nextView.columnWidths } : {}),
+                ...(nextView.genogram ? { genogram: nextView.genogram } : {}),
+                group_by: next.group_by,
+                groupBy: next.group_by,
+            } : tab));
         } else {
             // Tab of a registry view → direct PUT to /api/vault/views.
             const current = tableViews.find(v => v.id === activeViewId) || {};
