@@ -28,7 +28,7 @@ function mountCreation(extra: Partial<VaultTableProps> = {}) {
         const actions = useTableCreate({ ...inputs, t, newRowTitle, setNewRowTitle, newSubitemTitle, setNewSubitemTitle,
             setAddingSubitemFor, setExpandedRows, safeNotes: inputs.notes,
             resolveNoteTableId: note => note?.resolved_table_id || note?.metadata?.table_id || note?.metadata?.database_table_id || null });
-        useLayoutEffect(() => { current = { ...actions, setNewRowTitle, setNewSubitemTitle }; });
+        useLayoutEffect(() => { current = { ...actions, setNewRowTitle, setNewSubitemTitle }; }, [actions]);
         return null;
     }
     const mounted = mountTestComponent(<Probe input={props} />);
