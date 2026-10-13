@@ -16,6 +16,7 @@ from scripts.ci.pre_pr_commands import Step
 LOG = logging.getLogger(__name__)
 RSS_LIMIT_KIB = 2 * 1024 * 1024
 POLL_SECONDS = 0.2
+PREFLIGHT_WAIT_SECONDS = 90
 
 
 def resource_environment(parent: Mapping[str, str]) -> dict[str, str]:
@@ -32,10 +33,10 @@ def resource_environment(parent: Mapping[str, str]) -> dict[str, str]:
     return environment
 
 
-def pressure_level() -> int:
+def pressure_level(timeout: float = 2) -> int:
     result = subprocess.run(
         ("sysctl", "-n", "kern.memorystatus_vm_pressure_level"),
-        capture_output=True, text=True, check=True, timeout=2,
+        capture_output=True, text=True, check=True, timeout=timeout,
     )
     level = int(result.stdout.strip())
     if level not in (1, 2, 4):
@@ -47,12 +48,22 @@ def idle_preflight() -> None:
     if platform.system() != "Darwin":
         raise ValueError("mac-idle requires macOS")
     started = monotonic()
+    normal_since: float | None = None
     while True:
-        if pressure_level() != 1:
+        remaining = PREFLIGHT_WAIT_SECONDS - (monotonic() - started)
+        if remaining <= 0:
             raise ValueError("Memory pressure is not normal; validation is incomplete")
-        if monotonic() - started >= 30:
-            return
-        sleep(POLL_SECONDS)
+        level = pressure_level(timeout=min(2, remaining))
+        now = monotonic()
+        if level == 4 or now - started >= PREFLIGHT_WAIT_SECONDS:
+            raise ValueError("Memory pressure is not normal; validation is incomplete")
+        if level == 1:
+            normal_since = now if normal_since is None else normal_since
+            if now - normal_since >= 30:
+                return
+        else:
+            normal_since = None
+        sleep(min(POLL_SECONDS, PREFLIGHT_WAIT_SECONDS - (now - started)))
 
 
 def process_tree_rss(group: int, tracked: set[int]) -> int:

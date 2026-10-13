@@ -133,8 +133,15 @@ def typecheck_pipeline(root: Path, entries: list[IndexedFile]) -> int:
     sources = validated_python_sources(root, entries)
     root = root.resolve(strict=True)
     LOG.info("Strict type-check of all %s indexed pipeline Python files", len(sources))
+    worker = (
+        "import runpy, sys; from pathlib import Path; "
+        "runpy.run_path(sys.argv[1])['run_complete']("
+        "['--native-parser', '--num-workers', '0', '--strict', '--explicit-package-bases'], "
+        "sys.argv[3:], 'pipeline.skills.technical_documentation.scripts.localize', Path(sys.argv[2]))"
+    )
     result = subprocess.run(
-        [sys.executable, "-m", "mypy", "--strict", "--explicit-package-bases", *sources],
+        [sys.executable, "-c", worker, str(ROOT / "scripts/check_backend_types.py"),
+         str(root), *sources],
         cwd=root,
         check=False,
     )

@@ -72,7 +72,7 @@ nav:
       - Model de dades relacional: generated/data-model.md
       - Configuració: generated/configuration.md
       - Proves: generated/tests.md
-      - Habilitats d’execució: generated/skills.md
+      - Habilitats del pipeline: generated/skills.md
       - Cobertura: generated/coverage.md
 
 plugins:

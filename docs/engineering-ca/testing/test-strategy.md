@@ -2,6 +2,9 @@
 status: implemented
 last_verified: 2026-09-12
 source_paths:
+  - scripts/ci/pre_pr_resources.py
+  - scripts/check_public_pipeline.py
+  - scripts/check_backend_types.py
   - package.json
   - .github/workflows/ci.yml
   - .github/workflows/build-release.yml
@@ -18,13 +21,22 @@ source_paths:
   - pyproject.toml
   - frontend/package.json
   - frontend/scripts/check-bundle-size.ts
+  - frontend/scripts/lint.mjs
+  - frontend/scripts/lint-files.mjs
+  - frontend/scripts/typecheck.mjs
+  - frontend/scripts/typecheck-worker.mjs
 tests:
+  - backend/tests/test_pre_pr_resources.py
+  - pipeline/tests/test_public_pipeline.py
+  - backend/tests/test_ci_backend_parser.py
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
   - backend/tests/test_ci_container_build.py
   - backend/tests/test_ci_docker_python_policy.py
   - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
+  - frontend/tests/contracts/lint-runner.test.ts
+  - frontend/tests/contracts/typecheck-runner.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
@@ -106,6 +118,16 @@ uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
 
 A macOS, feu servir `--resource-profile mac-idle` per a la validació local acotada. Substitueix el heap predeterminat per 1536 MiB, executa amb prioritat 10, un worker i un fil de càlcul, i supervisa un pressupost RSS de 2 GiB per a l’ordre i els descendents. Cada fase comença només després de 30 segons de pressió de memòria normal. Les comprovacions estàtiques, els builds i les suites tenen límits de 5, 10 i 15 minuts respectivament.
 
+`pnpm lint:frontend` descobreix els fitxers amb el recorregut configurat d’ESLint i
+els comprova en lots de com a màxim 256 fitxers, amb processos nous i seqüencials.
+La descoberta no analitza el codi ni omple la memòria cau de lint; només les
+comprovacions CLI posteriors poden acreditar l’èxit. Cada lot conserva totes les
+regles, la comprovació tipada amb project service, les exclusions i el llindar de
+zero avisos. Un lot fallit atura l’ordre. `GNOSI_ESLINT_CACHE` continua activant la
+cau basada en contingut. Els límits de heap, RSS i durada de mac-idle no canvien.
+Les regressions comparen la descoberta amb ESLint real i cobreixen errors en lots
+posteriors, regles tipades, invalidació de cau i terminació del procés fill.
+
 L’avís sostingut durant 2 segons, la pressió crítica, el timeout, l’excés d’RSS o una fallada de supervisió aturen els processos propis i deixen la validació incompleta. No hi ha reintent automàtic ni augment del límit. Manteniu aturats altres jobs de validació; no tanqueu aplicacions de l’usuari ni carregueu models locals durant aquesta auditoria. Les suites Node de contractes i escriptori fan servir explícitament `--test-concurrency=1`.
 
 ```bash
@@ -161,6 +183,14 @@ operatius, instal·ladors ni desplegaments. L’ordre no publica ni fusiona comm
 Si el codi o `HEAD` canvien durant la validació, aquesta falla i cal repetir-la;
 només s’exclouen les diferències previstes dels catàlegs generats.
 
+Abans d’iniciar una fase mac-idle, la preparació espera com a màxim 90 segons
+per observar 30 segons consecutius de pressió normal. Un avís reinicia la
+seqüència normal; la pressió crítica, una supervisió il·legible o l’expiració
+deixen la verificació incompleta sense iniciar l’ordre. Aquesta espera no
+repeteix mai una fase iniciada o fallida. Es mantenen el heap, els fils, la RSS
+de l’arbre de processos, l’aturada per avís o pressió crítica i els terminis
+d’execució de cada fase.
+
 ## Comprovació unificada de tipus
 
 Executeu `pnpm typecheck` des de l'arrel del repositori. Comprova, en aquest
@@ -168,6 +198,51 @@ ordre, TypeScript del frontend, mypy estricte de tot el backend (excloent-ne
 les proves), mypy estricte de tots els fitxers Python públics indexats del
 pipeline i, finalment, la sintaxi Python de backend, pipeline, scripts i
 extensions. Qualsevol error atura les etapes següents i conserva el codi de sortida.
+
+Les ordres d’arrel, CI i pre-PR usen `scripts/check_backend_types.py`. Cada
+execució comença amb una memòria cau privada buida. Processos nous seqüencials
+preparen els imports instal·lats de PyTorch/Transformers usats pel mòdul de
+manuscrits descobert i després comproven aquest mòdul; un procés nou final ha
+de comprovar el target complet `backend` sense canvis. Això evita retenir els
+AST de dependències carregats en fred juntament amb tot el backend. El mòdul
+inicial conserva la identitat i el directori base de mypy i la precedència dels
+stubs; és una optimització, mai una cobertura autoritativa. Si falta, també
+s’executa el target complet. Els modes d’import sensibles a les arrels o els
+diagnòstics de configuració usen només el target complet. Totes les etapes conserven `--strict`, l’exclusió de
+proves i els imports normals. Els errors, processos interromputs i edicions de
+fonts o configuració (fins i tot amb mida i dates iguals) fan fallar l’execució.
+Les memòries cau compartides existents no poden establir l’acceptació.
+
+Els processos activen el parser natiu fixat amb un fil de parsing i cap procés
+treballador. La CPU declarada només canvia dins de cada procés de l’eina. Els
+targets Python diferents del de l’intèrpret conserven els diagnòstics de sintaxi
+del parser original. Es mantenen les dependències fixades, el límit de 2 GiB de
+RSS de l’arbre de processos i el termini de cada fase. Les regressions amb la
+CLI real comparen diagnòstics estrictes, d’imports i versions, descobriment,
+stubs, cicles, promoció a arrels, sintaxi invàlida, aïllament de memòria cau,
+edicions i terminació de processos; també comproven la concurrència del parser
+amb una petició heretada de treballadors.
+
+La pipeline pública indexada completa usa el mateix executor de memòria cau
+privada amb `--strict --explicit-package-bases` i tots els camins Python
+indexats validats, incloses proves i directoris ignorats indexats. El seu
+localitzador de documentació és el mòdul inicial seleccionat pel descobriment.
+No s’aplica l’exclusió del backend al target de pipeline; arrel, CI i pre-PR
+conserven el punt d’entrada de pipeline existent.
+
+L’ordre del frontend usa l’API de la versió fixada de TypeScript amb tot el
+programa de `tsconfig.json` carregat en cada procés nou i seqüencial. Primer
+comprova sintaxi, opcions i diagnòstics globals; després comprova tots els fitxers
+resolts, inclosos imports transitius i declaracions, en lots de 256 fitxers
+costosos. Les declaracions cobertes per `skipLibCheck` també es comproven amb
+aquesta opció i no ocupen quota del lot. Els diagnòstics de declaració s’executen
+quan la configuració els activa. No es divideix el projecte, no se suprimeixen
+diagnòstics ni s’accepten resultats de memòria cau. Les empremtes de contingut
+detecten canvis entre processos; un resultat absent o un procés fallit deixa la
+verificació incompleta. Els límits de mac-idle es mantenen. Les regressions
+sintètiques comparen diagnòstics amb `tsc --noEmit`, inclosos globals entre lots,
+referències i interrupcions. L’ordre no accepta arguments addicionals; per a
+altres tasques, useu `tsc` directament. No emet codi ni metadades incrementals.
 
 Les ordres individuals `typecheck:backend-boundaries` i
 `typecheck:pipeline` continuen disponibles. És una comprovació estàtica:

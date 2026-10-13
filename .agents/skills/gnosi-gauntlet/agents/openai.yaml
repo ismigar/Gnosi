@@ -1,0 +1,6 @@
+interface:
+  display_name: "Gnosi Gauntlet"
+  short_description: "Independent review for substantial Gnosi changes"
+  default_prompt: "Use $gnosi-gauntlet to implement and independently verify this Gnosi change."
+policy:
+  allow_implicit_invocation: true

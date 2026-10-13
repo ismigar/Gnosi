@@ -44,10 +44,15 @@ def test_monitor_enforces_real_conditions(monkeypatch: pytest.MonkeyPatch, reaso
 
 def test_preflight_requires_thirty_normal_seconds(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(resources.platform, "system", lambda: "Darwin")
-    times = iter([0.0, 0.0, 29.9, 30.0])
+    clock = [0.0]
+    readings = iter([0.0, 29.9, 30.0])
     levels = []
-    monkeypatch.setattr(resources, "monotonic", lambda: next(times))
-    monkeypatch.setattr(resources, "pressure_level", lambda: levels.append(1) or 1)
+    def pressure(**kwargs: object) -> int:
+        clock[0] = next(readings)
+        levels.append(1)
+        return 1
+    monkeypatch.setattr(resources, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(resources, "pressure_level", pressure)
     monkeypatch.setattr(resources, "sleep", lambda _: None)
     resources.idle_preflight()
     assert len(levels) == 3
@@ -56,9 +61,93 @@ def test_preflight_requires_thirty_normal_seconds(monkeypatch: pytest.MonkeyPatc
 @pytest.mark.parametrize("level", [2, 4])
 def test_preflight_never_starts_under_pressure(monkeypatch: pytest.MonkeyPatch, level: int) -> None:
     monkeypatch.setattr(resources.platform, "system", lambda: "Darwin")
-    monkeypatch.setattr(resources, "pressure_level", lambda: level)
+    monkeypatch.setattr(resources, "pressure_level", lambda **_: level)
+    times = iter([0.0, float(resources.PREFLIGHT_WAIT_SECONDS)])
+    monkeypatch.setattr(resources, "monotonic", lambda: next(times))
     with pytest.raises(ValueError, match="not normal"):
         resources.idle_preflight()
+
+
+def test_preflight_resets_normal_streak_after_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(resources.platform, "system", lambda: "Darwin")
+    clock = [0.0]
+    readings = iter([(0.0, 1), (29.0, 1), (30.0, 2), (40.0, 1), (69.9, 1), (70.0, 1)])
+    observed = []
+    def pressure(**kwargs: object) -> int:
+        clock[0], level = next(readings)
+        observed.append((clock[0], level))
+        return level
+    monkeypatch.setattr(resources, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(resources, "pressure_level", pressure)
+    monkeypatch.setattr(resources, "sleep", lambda _: None)
+    resources.idle_preflight()
+    assert observed[-1] == (70.0, 1)
+
+
+def test_preflight_timeout_never_launches_a_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(resources.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(resources, "pressure_level", lambda **_: 2)
+    times = iter([0.0, float(resources.PREFLIGHT_WAIT_SECONDS)])
+    monkeypatch.setattr(resources, "monotonic", lambda: next(times))
+    def forbidden(*args: object, **kwargs: object) -> None:
+        pytest.fail("A command started without its normal-pressure precondition")
+    monkeypatch.setattr(resources.subprocess, "Popen", forbidden)
+    with pytest.raises(ValueError, match="not normal"):
+        resources.run_mac_idle(Step("fixture", (sys.executable, "-c", "pass")), tmp_path, {})
+
+
+def test_normal_streak_after_readiness_deadline_never_passes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(resources.platform, "system", lambda: "Darwin")
+    clock = [0.0]
+    readings = iter([(0.0, 1), (59.0, 2), (61.0, 1), (91.0, 1)])
+    def pressure(**kwargs: object) -> int:
+        clock[0], level = next(readings)
+        return level
+    monkeypatch.setattr(resources, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(resources, "pressure_level", pressure)
+    monkeypatch.setattr(resources, "sleep", lambda _: None)
+    with pytest.raises(ValueError, match="not normal"):
+        resources.idle_preflight()
+
+
+def test_slow_pressure_probes_and_sleep_respect_remaining_readiness_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(resources.platform, "system", lambda: "Darwin")
+    clock = [0.0]
+    timeouts = []
+    def pressure(timeout: float = 2) -> int:
+        timeouts.append(timeout)
+        clock[0] += min(1.99, timeout)
+        return 2
+    monkeypatch.setattr(resources, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(resources, "pressure_level", pressure)
+    monkeypatch.setattr(resources, "sleep", lambda duration: clock.__setitem__(0, clock[0] + duration))
+    with pytest.raises(ValueError, match="not normal"):
+        resources.idle_preflight()
+    assert clock[0] <= resources.PREFLIGHT_WAIT_SECONDS
+    assert timeouts[-1] < 2
+
+
+def test_normal_streak_at_expiry_never_launches_a_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(resources.platform, "system", lambda: "Darwin")
+    clock = [0.0]
+    readings = iter([(0.0, 2), (60.0, 1), (90.0, 1)])
+    def pressure(timeout: float = 2) -> int:
+        clock[0], level = next(readings)
+        return level
+    def forbidden(*args: object, **kwargs: object) -> None:
+        pytest.fail("A command launched at the expired readiness boundary")
+    monkeypatch.setattr(resources, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(resources, "pressure_level", pressure)
+    monkeypatch.setattr(resources, "sleep", lambda _: None)
+    monkeypatch.setattr(resources.subprocess, "Popen", forbidden)
+    with pytest.raises(ValueError, match="not normal"):
+        resources.run_mac_idle(Step("fixture", (sys.executable, "-c", "pass")), tmp_path, {})
 
 
 @pytest.mark.parametrize("failure", [124, 137, 75, 125, 130])

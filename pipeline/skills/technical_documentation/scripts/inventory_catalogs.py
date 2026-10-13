@@ -94,7 +94,7 @@ def first_markdown_heading(text: str, fallback: str) -> str:
 
 
 def build_skill_catalog(app_root: Path) -> str:
-    """Generate the runtime skill-package catalog."""
+    """Generate the public pipeline skill-package catalog."""
     skill_root = app_root / "pipeline" / "skills"
     rows: list[tuple[str, str, int, int, str]] = []
     for skill_doc in sorted(skill_root.glob("*/SKILL.md")):
@@ -119,13 +119,16 @@ def build_skill_catalog(app_root: Path) -> str:
             )
         )
     lines = generated_header(
-        "Runtime skill catalog",
-        "Packages under `pipeline/skills/` are application automation and operational "
-        "capabilities. They are distinct from development-agent skills.",
+        "Pipeline skill catalog",
+        "Packages under `pipeline/skills/` include development tools, automation and "
+        "application capabilities. The package kind is declared in "
+        "[`pipeline/skills/catalog.yaml`](https://github.com/ismigar/Gnosi/blob/main/"
+        "pipeline/skills/catalog.yaml); discovery here does not make a package "
+        "assignable to the application agent.",
     )
     lines.extend(
         [
-            f"Discovered **{len(rows)} documented runtime skills**.",
+            f"Discovered **{len(rows)} documented pipeline skills**.",
             "",
             "| Skill | Declared title | Documentation lines | Scripts | Contract |",
             "| --- | --- | ---: | ---: | --- |",
@@ -181,7 +184,7 @@ def build_repository_inventory(app_root: Path, project_root: Path) -> str:
             f"| Frontend JS/TS source files | {len(frontend_all)} |",
             f"| Frontend unit test files | {len(frontend_tests)} |",
             f"| Registered FastAPI routers | {len(route_registrations)} |",
-            f"| Runtime skill contracts | {len(skills)} |",
+            f"| Pipeline skill contracts | {len(skills)} |",
             f"| Development-memory directives | {len(directives)} |",
             "",
             "## Owned application surfaces",
@@ -193,7 +196,7 @@ def build_repository_inventory(app_root: Path, project_root: Path) -> str:
     purpose = {
         "backend": "FastAPI, services, models, agents, scheduling, and storage adapters",
         "frontend/src": "React application, UI behavior, state, and browser integrations",
-        "pipeline": "Reusable application skills and deterministic processing tools",
+        "pipeline": "Reusable development and application skills, and deterministic processing tools",
         "desktop": "Desktop lifecycle, backend packaging, IPC, and updates",
         "extensions": "Office, browser, plugin, marketplace, and external-system adapters",
         "tests/e2e": "Host-level Playwright acceptance tests",

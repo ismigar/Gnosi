@@ -72,7 +72,7 @@ nav:
       - Modèle de données relationnel: generated/data-model.md
       - Configuration: generated/configuration.md
       - Tests: generated/tests.md
-      - Compétences d'exécution: generated/skills.md
+      - Compétences du pipeline: generated/skills.md
       - Couverture: generated/coverage.md
 
 plugins:

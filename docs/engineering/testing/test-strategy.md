@@ -2,6 +2,9 @@
 status: implemented
 last_verified: 2026-09-12
 source_paths:
+  - scripts/ci/pre_pr_resources.py
+  - scripts/check_public_pipeline.py
+  - scripts/check_backend_types.py
   - package.json
   - .github/workflows/ci.yml
   - .github/workflows/build-release.yml
@@ -18,13 +21,22 @@ source_paths:
   - pyproject.toml
   - frontend/package.json
   - frontend/scripts/check-bundle-size.ts
+  - frontend/scripts/lint.mjs
+  - frontend/scripts/lint-files.mjs
+  - frontend/scripts/typecheck.mjs
+  - frontend/scripts/typecheck-worker.mjs
 tests:
+  - backend/tests/test_pre_pr_resources.py
+  - pipeline/tests/test_public_pipeline.py
+  - backend/tests/test_ci_backend_parser.py
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
   - backend/tests/test_ci_container_build.py
   - backend/tests/test_ci_docker_python_policy.py
   - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
+  - frontend/tests/contracts/lint-runner.test.ts
+  - frontend/tests/contracts/typecheck-runner.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
@@ -149,6 +161,25 @@ is performed by the command.
 If source or `HEAD` changes during validation, the gate fails and must be rerun;
 expected generated-catalog updates are the only excluded source differences.
 
+## Frontend lint memory
+
+`pnpm lint:frontend` discovers files through ESLint's configured directory scan,
+then checks batches of at most 256 files in fresh, sequential processes. The
+discovery pass does not parse source or populate a lint cache; only the subsequent
+CLI checks can establish success. All existing rules, TypeScript project-service
+checks, ignores and the zero-warning threshold apply to every batch. A failed
+batch stops the command. `GNOSI_ESLINT_CACHE` still enables content-based caching.
+The mac-idle heap, process-tree memory budget and overall phase deadline stay
+unchanged. Runner regressions compare discovery with real ESLint and exercise
+later-batch failures, type-aware rules, cache invalidation and child termination.
+
+Before a mac-idle phase starts, readiness waits at most 90 seconds to observe
+30 consecutive seconds of normal pressure. A warning resets the normal streak;
+critical pressure, unreadable supervision or expiry leaves validation incomplete
+without launching the command. This wait never retries a started or failed phase.
+The execution heap, threads, process-tree RSS, warning/critical stop conditions
+and phase execution deadlines stay unchanged.
+
 ## Unified type checking
 
 Run `pnpm typecheck` from the repository root. It runs frontend TypeScript,
@@ -156,6 +187,46 @@ strict mypy across the complete backend (excluding tests), strict mypy across
 every indexed public pipeline Python file, and finally Python syntax checks
 for backend, pipeline, scripts and extensions, in that order. Each failure
 stops the remaining stages and returns its exit status.
+
+Root, CI and pre-PR use `scripts/check_backend_types.py`. Each invocation starts
+with an empty private cache. Fresh sequential processes prepare the installed
+PyTorch/Transformers imports used by the discovered handwriting root, then check
+that root; a final fresh process must check the unchanged complete `backend` target.
+This avoids retaining the cold dependency ASTs alongside the whole backend. The
+seed preserves mypy's module/base-directory identity and stub precedence; it is
+an optimization, never authoritative coverage. An absent seed still runs the full
+target. Root-sensitive import modes or configuration diagnostics use the full
+target alone. All stages retain `--strict`, the test exclusion and normal imports.
+Errors, interrupted children and source/config edits (including unchanged size
+and timestamps) fail the run. Existing shared caches cannot establish success.
+
+Workers enable the locked native parser with one parser thread and zero process
+workers. The CPU report changes only inside each tooling process. Non-host Python
+targets retain the original parser's syntax diagnostics. Dependency locks, the
+2 GiB process-tree RSS cap and phase deadline remain unchanged. Real CLI
+regressions compare strict/import/version diagnostics, discovery, stubs, cycles,
+root promotion, invalid syntax, private-cache isolation, source edits and child
+termination; parser concurrency is checked with an inherited worker request.
+
+The complete indexed public pipeline uses the same private-cache runner with
+`--strict --explicit-package-bases` and every validated indexed Python path,
+including tests and ignored indexed directories. Its documentation localizer
+is the discovery-selected preparation seed. No backend exclusion applies to
+the pipeline target; root, CI and pre-PR keep the existing pipeline entrypoint.
+
+The frontend command uses the pinned TypeScript compiler API with the complete
+`tsconfig.json` program in every fresh, sequential worker. Syntax, options and
+global diagnostics run first; semantic diagnostics cover every resolved source,
+including transitive imports and declarations, in batches of 256 costly files.
+Declarations covered by `skipLibCheck` are still checked using that option and
+do not consume the batch quota. Declaration diagnostics run when enabled by the
+config. No source project is split, no diagnostic is suppressed and no build
+cache establishes success. Content fingerprints reject changes between workers;
+missing results and failed processes mean incomplete verification. The mac-idle
+limits stay unchanged. Synthetic regressions compare diagnostics with the real
+`tsc --noEmit`, including cross-batch globals, references and interruption.
+The command accepts no extra compiler arguments; use `tsc` directly for other
+tasks. It emits neither application code nor incremental build metadata.
 
 The individual commands `typecheck:backend-boundaries` and
 `typecheck:pipeline` remain available. This is a static gate, not a substitute

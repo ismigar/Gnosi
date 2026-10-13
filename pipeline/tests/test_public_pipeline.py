@@ -126,9 +126,33 @@ def test_typecheck_passes_every_indexed_python_source_and_propagates_failure(
     entries = [IndexedFile("100644", name) for name in reversed(names)]
     entries.append(IndexedFile("100644", "pipeline/README.md"))
     assert typecheck_pipeline(tmp_path, entries) == 1
-    assert calls == [[
-        sys.executable, "-m", "mypy", "--strict", "--explicit-package-bases", *sorted(names),
-    ]]
+    assert len(calls) == 1
+    assert calls[0][:2] == [sys.executable, "-c"]
+    assert "['--native-parser', '--num-workers', '0', '--strict', '--explicit-package-bases']" in calls[0][2]
+    assert calls[0][3].endswith("/scripts/check_backend_types.py")
+    assert calls[0][4:] == [str(tmp_path.resolve()), *sorted(names)]
+
+
+@pytest.mark.parametrize("broken", [False, True])
+def test_real_complete_pipeline_diagnostics_match_mypy_in_another_repository(
+    tmp_path: Path, broken: bool, capfd: pytest.CaptureFixture[str],
+) -> None:
+    names = ["pipeline/legacy/new_portable.py", "pipeline/tests/test_portable.py"]
+    for name in names:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("value: int = 1\n")
+    if broken:
+        (tmp_path / names[-1]).write_text("value: int = 'bad'\n")
+    original = subprocess.run(
+        [sys.executable, "-m", "mypy", "--no-native-parser", "--strict",
+         "--explicit-package-bases", *names],
+        cwd=tmp_path, capture_output=True, text=True, check=False,
+    )
+    result = typecheck_pipeline(tmp_path, [IndexedFile("100644", name) for name in names])
+    output, errors = capfd.readouterr()
+    assert result == original.returncode == int(broken)
+    assert output == original.stdout and errors == original.stderr
 
 
 def test_typecheck_rejects_empty_missing_and_external_sources(tmp_path: Path) -> None:

@@ -133,7 +133,33 @@ See `docs/dev_memory/directives/i18n_and_english_standardization.md`.
 
 ### Reusable scripts and tools
 
-Mature, reusable tooling lives under `pipeline/skills/[name]/` with a `SKILL.md` describing it and a `scripts/` subfolder. Experiments and one-offs stay in `pipeline/sandbox/` (gitignored). UI-managed secrets use the system credential store. Process variables take precedence over Gnosi's local `.env`; an optional shared file is read only when `GNOSI_SHARED_ENV_FILE` explicitly names it. Never hard-code credentials.
+Mature, reusable tooling lives under `pipeline/skills/[name]/` with a `SKILL.md` describing it and a `scripts/` subfolder when executable helpers are needed. Experiments and one-offs stay in `pipeline/sandbox/` (gitignored). UI-managed secrets use the system credential store. Process variables take precedence over Gnosi's local `.env`; an optional shared file is read only when `GNOSI_SHARED_ENV_FILE` explicitly names it. Never hard-code credentials.
+
+### Gauntlet review for substantial changes
+
+When developing with Codex, use [Gnosi Gauntlet](pipeline/skills/gnosi-gauntlet/SKILL.md)
+for new features, recurring bugs, and changes to persistence, public contracts or
+shared behavior. The repository instructions activate this workflow for those
+tasks. You can also request it explicitly with `$gnosi-gauntlet`, for example:
+“Use $gnosi-gauntlet to fix citation navigation after import.” Routine questions
+and trivial edits retain the ordinary workflow.
+
+Start Codex inside this repository or one of its source subdirectories. The
+versioned [.agents entrypoint](.agents/skills/gnosi-gauntlet/SKILL.md) loads the
+canonical pipeline procedure, so no personal installation is required. Its
+classification is `developer`; it is not assigned to Gnosi's application agent.
+
+The workflow fixes verifiable acceptance criteria, builds a candidate, and asks
+a fresh, read-only subagent to inspect the actual change. Correct demonstrated
+defects and repeat while quality improves. Two consecutive correction rounds
+without progress stop the loop with a recorded blocker. Missing tools or checks
+produce incomplete verification, never a passing verdict. Independent review
+complements the existing tests and final pre-PR gate below.
+
+Keep the criteria, candidate identities, findings and check results in an ignored
+local run record. Report useful defects, false positives and additional time in
+the handoff; report token usage only when available. Maintainers changing the
+skill should run its [synthetic behavioral exercises](pipeline/skills/gnosi-gauntlet/references/validation-scenarios.md).
 
 ## Testing & QA
 

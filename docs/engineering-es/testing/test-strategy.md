@@ -2,6 +2,9 @@
 status: implemented
 last_verified: 2026-09-12
 source_paths:
+  - scripts/ci/pre_pr_resources.py
+  - scripts/check_public_pipeline.py
+  - scripts/check_backend_types.py
   - package.json
   - .github/workflows/ci.yml
   - .github/workflows/build-release.yml
@@ -18,13 +21,22 @@ source_paths:
   - pyproject.toml
   - frontend/package.json
   - frontend/scripts/check-bundle-size.ts
+  - frontend/scripts/lint.mjs
+  - frontend/scripts/lint-files.mjs
+  - frontend/scripts/typecheck.mjs
+  - frontend/scripts/typecheck-worker.mjs
 tests:
+  - backend/tests/test_pre_pr_resources.py
+  - pipeline/tests/test_public_pipeline.py
+  - backend/tests/test_ci_backend_parser.py
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
   - backend/tests/test_ci_container_build.py
   - backend/tests/test_ci_docker_python_policy.py
   - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
+  - frontend/tests/contracts/lint-runner.test.ts
+  - frontend/tests/contracts/typecheck-runner.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
@@ -105,6 +117,17 @@ uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
 
 En macOS, usad `--resource-profile mac-idle` para la validación local acotada. Sustituye el heap predeterminado por 1536 MiB, ejecuta con prioridad 10, un worker y un hilo de cálculo, y supervisa un presupuesto RSS de 2 GiB para el comando y sus descendientes. Cada fase comienza solo después de 30 segundos de presión de memoria normal. Las comprobaciones estáticas, compilaciones y suites tienen límites de 5, 10 y 15 minutos respectivamente.
 
+`pnpm lint:frontend` descubre los archivos con el recorrido configurado de ESLint
+y los comprueba en lotes de hasta 256 archivos, con procesos nuevos y secuenciales.
+El descubrimiento no analiza el código ni rellena la caché de lint; solo las
+comprobaciones CLI posteriores pueden acreditar el éxito. Cada lote conserva
+todas las reglas, la comprobación tipada con project service, las exclusiones y
+el umbral de cero avisos. Un lote fallido detiene el comando. `GNOSI_ESLINT_CACHE`
+sigue activando la caché basada en contenido. Los límites de heap, RSS y duración
+de mac-idle no cambian. Las regresiones comparan el descubrimiento con ESLint real
+y cubren errores en lotes posteriores, reglas tipadas, invalidación de caché y
+terminación del proceso hijo.
+
 El aviso sostenido durante 2 segundos, la presión crítica, el timeout, el exceso de RSS o un fallo de supervisión detienen los procesos propios y dejan la validación incompleta. No hay reintento automático ni aumento del límite. Mantened detenidos otros jobs de validación; no cerréis aplicaciones del usuario ni carguéis modelos locales durante esta auditoría. Las suites Node de contratos y escritorio usan explícitamente `--test-concurrency=1`.
 
 ```bash
@@ -160,6 +183,14 @@ instaladores ni despliegues. La orden no publica ni fusiona commits.
 Si el código o `HEAD` cambian durante la validación, esta falla y debe repetirse;
 solo se excluyen las diferencias previstas de los catálogos generados.
 
+Antes de iniciar una fase mac-idle, la preparación espera como máximo 90
+segundos para observar 30 segundos consecutivos de presión normal. Un aviso
+reinicia la secuencia normal; la presión crítica, una supervisión ilegible o
+la expiración dejan la verificación incompleta sin iniciar la orden. Esta
+espera nunca repite una fase iniciada o fallida. Se mantienen el heap, los
+hilos, la RSS del árbol de procesos, la parada por aviso o presión crítica
+y los plazos de ejecución de cada fase.
+
 ## Comprobación unificada de tipos
 
 Ejecute `pnpm typecheck` desde la raíz del repositorio. Comprueba, en este
@@ -167,6 +198,52 @@ orden, TypeScript del frontend, mypy estricto de todo el backend (excepto las
 pruebas), mypy estricto de todos los archivos Python públicos indexados del
 pipeline y, finalmente, la sintaxis Python de backend, pipeline, scripts y
 extensiones. Cada error detiene las etapas siguientes y conserva el código de salida.
+
+Las órdenes de raíz, CI y pre-PR usan `scripts/check_backend_types.py`. Cada
+ejecución empieza con una caché privada vacía. Procesos nuevos secuenciales
+preparan los imports instalados de PyTorch/Transformers usados por el módulo de
+manuscritos descubierto y después comprueban ese módulo; un proceso nuevo final
+debe comprobar el target completo `backend` sin cambios. Así evita retener
+los AST de dependencias cargados en frío junto con todo el backend. El módulo
+inicial conserva la identidad y el directorio base de mypy y la precedencia de
+stubs; es una optimización, nunca cobertura autoritativa. Si falta, también se
+ejecuta el target completo. Los modos de import sensibles a las raíces o los
+diagnósticos de configuración usan solo el target completo. Todas las etapas mantienen `--strict`, la exclusión de
+pruebas y los imports normales. Los errores, procesos interrumpidos y ediciones
+de fuentes o configuración (incluso con tamaño y fechas iguales) hacen fallar la
+ejecución. Las cachés compartidas existentes no pueden establecer la aceptación.
+
+Los procesos activan el parser nativo fijado con un hilo de parsing y ningún
+proceso trabajador. La CPU declarada solo cambia dentro de cada proceso de la
+herramienta. Los targets Python distintos del del intérprete conservan los
+diagnósticos de sintaxis del parser original. Se mantienen las dependencias
+fijadas, el límite de 2 GiB de RSS del árbol de procesos y el plazo de cada fase.
+Las regresiones con la CLI real comparan diagnósticos estrictos, de imports y
+versiones, descubrimiento, stubs, ciclos, promoción a raíces, sintaxis inválida,
+aislamiento de caché, ediciones y terminación de procesos; también comprueban la
+concurrencia del parser con una petición heredada de trabajadores.
+
+La pipeline pública indexada completa usa el mismo ejecutor de caché privada
+con `--strict --explicit-package-bases` y todas las rutas Python indexadas
+validadas, incluidas pruebas y directorios ignorados indexados. Su localizador
+de documentación es el módulo inicial seleccionado por el descubrimiento. No
+se aplica la exclusión del backend al target de pipeline; raíz, CI y pre-PR
+conservan el punto de entrada de pipeline existente.
+
+La orden del frontend usa la API de la versión fijada de TypeScript con todo el
+programa de `tsconfig.json` cargado en cada proceso nuevo y secuencial. Primero
+comprueba sintaxis, opciones y diagnósticos globales; después comprueba todos los
+archivos resueltos, incluidos imports transitivos y declaraciones, en lotes de
+256 archivos costosos. Las declaraciones cubiertas por `skipLibCheck` también se
+comprueban con esa opción y no ocupan cuota del lote. Los diagnósticos de
+declaración se ejecutan cuando la configuración los activa. No se divide el
+proyecto, no se suprimen diagnósticos ni se aceptan resultados de caché. Las
+huellas de contenido detectan cambios entre procesos; un resultado ausente o un
+proceso fallido deja la verificación incompleta. Los límites de mac-idle se
+mantienen. Las regresiones sintéticas comparan diagnósticos con `tsc --noEmit`,
+incluidos globales entre lotes, referencias e interrupciones. La orden no acepta
+argumentos adicionales; para otras tareas, use `tsc` directamente. No emite
+código ni metadatos incrementales.
 
 Las órdenes individuales `typecheck:backend-boundaries` y
 `typecheck:pipeline` siguen disponibles. Es una comprobación estática:
