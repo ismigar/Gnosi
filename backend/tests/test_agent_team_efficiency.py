@@ -52,7 +52,7 @@ def test_new_or_ambiguous_goals_are_not_continuations(followup):
     assert not clear_text_revision(followup)
 
 
-@pytest.mark.parametrize("change", ["scope", "profile", "answer", "prior_user", "marker", "attachment", "grants", "new_goal"])
+@pytest.mark.parametrize("change", ["scope", "profile", "answer", "prior_user", "marker", "legacy_quality", "attachment", "grants", "new_goal"])
 def test_changed_context_and_unverified_markers_replan(optional_runtime, change):
     fixture, _ = optional_runtime
     history = seed(fixture)
@@ -67,6 +67,12 @@ def test_changed_context_and_unverified_markers_replan(optional_runtime, change)
         history[0] = HumanMessage(content="An unrelated request")
     elif change == "marker":
         history[-1].additional_kwargs["gnosi_team_route"] = {"run_id": "invented"}
+    elif change == "legacy_quality":
+        from backend.services import agent_team_store as artifacts
+        run_id = history[-1].additional_kwargs["gnosi_team_route"]["run_id"]
+        saved = artifacts.get(fixture[0], run_id, "continuation")
+        saved.pop("quality_mode")
+        artifacts.put(fixture[0], run_id, "continuation", "continuation", saved)
     elif change == "attachment":
         kwargs["raw_request"] = request
         request += "\nVerified attachment context: another source"

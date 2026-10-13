@@ -7,6 +7,10 @@ import { boundedJob, boundedTransparencyMetadata } from '../model/agentChatTrans
 import { boundedTurnMetrics } from '../model/agentChatTiming';
 import { MessageDetails } from './MessageDetails';
 import type { MessageDetailsData, MessageJobAction } from './messageDetailsModel';
+import ca from '../../../shared/i18n/locales/ca/translation.json';
+import en from '../../../shared/i18n/locales/en/translation.json';
+import es from '../../../shared/i18n/locales/es/translation.json';
+import fr from '../../../shared/i18n/locales/fr/translation.json';
 
 const locale = createInstance();
 let container: HTMLDivElement;
@@ -23,9 +27,9 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => { root.unmount(); await Promise.resolve(); }); container.remove(); });
 
-async function render(msg: MessageDetailsData): Promise<void> {
+async function render(msg: MessageDetailsData, i18n = locale): Promise<void> {
   await act(async () => {
-    root.render(<I18nextProvider i18n={locale}><MessageDetails msg={msg} onJobAction={onJobAction} onFocusComposer={onFocusComposer} /></I18nextProvider>);
+    root.render(<I18nextProvider i18n={i18n}><MessageDetails msg={msg} onJobAction={onJobAction} onFocusComposer={onFocusComposer} /></I18nextProvider>);
     await Promise.resolve();
   });
 }
@@ -37,6 +41,29 @@ async function click(label: string): Promise<void> {
 function buttons(): string[] { return [...container.querySelectorAll('button')].map((button) => button.textContent); }
 
 describe('typed response details', () => {
+  it.each(Object.entries({ ca, en, es, fr }))('localizes review status, counts and incomplete reasons in %s', async (language, translation) => {
+    const i18n = createInstance();
+    await i18n.init({ lng: language, fallbackLng: false, resources: { [language]: { translation } }, interpolation: { escapeValue: false } });
+    for (const status of ['accepted', 'stagnated', 'incomplete'] as const) {
+      const summary = { status, rounds: 2, finding_count: status === 'accepted' ? 0 : 1,
+        stop_reason: status === 'incomplete' ? 'budget' : status, findings: ['PRIVATE-REVIEW'] };
+      await render(boundedTransparencyMetadata({ gauntlet: summary }), i18n);
+      expect(container.querySelector('strong')?.textContent).toBe(translation.chat.gauntlet_title);
+      const text = translation.chat.gauntlet_summary.replace('{{status}}', translation.chat.gauntlet_status[status])
+        .replace('{{reviews}}', '2').replace('{{findings}}', String(summary.finding_count));
+      expect(container.textContent).toContain(text);
+      expect(container.textContent.includes(translation.chat.gauntlet_stop_reason.budget)).toBe(status === 'incomplete');
+      expect(container.textContent).not.toMatch(/PRIVATE-REVIEW|chat\.gauntlet|Gauntlet|stop_reason/);
+      expect(buttons()).toEqual([]);
+    }
+    for (const stop_reason of ['unavailable', 'invalid_review', 'interrupted', 'unverified_evidence', 'awaiting_confirmation', 'action_review'] as const) {
+      await render(boundedTransparencyMetadata({ gauntlet: { status: 'incomplete', rounds: 0, finding_count: 0, stop_reason } }), i18n);
+      expect(container.textContent).toContain(translation.chat.gauntlet_stop_reason[stop_reason]);
+    }
+    expect(translation.chat.gauntlet_stop_reason.action_review).not.toBe(translation.chat.gauntlet_stop_reason.awaiting_confirmation);
+    await render(boundedTransparencyMetadata({ gauntlet: { status: 'unknown', rounds: 0, finding_count: 0, stop_reason: 'budget' } }), i18n);
+    expect(container.textContent).toBe('');
+  });
   it('keeps phase accounting after restoration and does not turn unknown costs into zero', async () => {
     const timings = boundedTurnMetrics({ total_ms: 100, estimated_cost_usd: null, team_usage: {
       usage_complete: false, cost_source: 'unknown', routing: { mode: 'continuation' },

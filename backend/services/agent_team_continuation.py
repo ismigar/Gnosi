@@ -45,6 +45,14 @@ def routing_fingerprint(owner: dict[str, Any], catalog: list[dict[str, Any]], re
                      "procedures": {p["id"]: _runtime(p, scope).catalog_revision for p in profiles}})
 
 
+def _completed_specialist(scope: ExecutionScope, root_id: str) -> str | None:
+    completed = [task for task in artifacts.list_artifacts(scope, "task", root_id) if task["status"] == "completed"]
+    if len(completed) != 1:
+        return None
+    identifier = completed[0].get("agent_id")
+    return identifier if isinstance(identifier, str) else None
+
+
 def continuation_plan(owner: dict[str, Any], scope: ExecutionScope, state: dict[str, Any], original: str,
                       catalog: list[dict[str, Any]], refs: list[dict[str, Any]]) -> tuple[TeamPlan, str] | None:
     from backend.services.agent_team_routing import validate_assignments
@@ -62,7 +70,9 @@ def continuation_plan(owner: dict[str, Any], scope: ExecutionScope, state: dict[
     try:
         prior = runs.read(scope, marker["run_id"])
         saved = artifacts.get(scope, prior.run_id, "continuation")
-        if prior.status != "completed" or prior.agent_id != owner["id"]:
+        if prior.status != "completed" or prior.agent_id != owner["id"] or saved.get("quality_mode") != "routine":
+            return None
+        if _completed_specialist(scope, prior.run_id) != saved["agent_id"]:
             return None
         if saved["fingerprint"] != routing_fingerprint(owner, catalog, refs, scope):
             return None
@@ -80,9 +90,12 @@ def continuation_plan(owner: dict[str, Any], scope: ExecutionScope, state: dict[
 def remember_specialist(owner: dict[str, Any], scope: ExecutionScope, root_id: str, state: dict[str, Any],
                         plan: TeamPlan, catalog: list[dict[str, Any]], refs: list[dict[str, Any]],
                         result: str) -> dict[str, str]:
-    if len(plan.tasks) != 1 or plan.synthesize or plan.response or plan.output_contract:
+    if plan.quality.mode != "routine" or len(plan.tasks) != 1 or plan.synthesize or plan.response or plan.output_contract:
         return {}
-    task = plan.tasks[0]
+    identifier = _completed_specialist(scope, root_id)
+    if identifier is None:
+        return {}
+    task = plan.tasks[0].model_copy(update={"agent_id": identifier})
     if not task.read_only or task.temporary or task.agent_id == owner["id"]:
         return {}
     member = next(m for m in catalog if m["id"] == task.agent_id)
@@ -93,6 +106,7 @@ def remember_specialist(owner: dict[str, Any], scope: ExecutionScope, root_id: s
     if last_user is None:
         return {}
     artifacts.put(scope, root_id, "continuation", "continuation", {
+        "quality_mode": plan.quality.mode,
         "agent_id": task.agent_id, "skill_ids": task.skill_ids,
         "fingerprint": routing_fingerprint(owner, catalog, refs, scope),
         "request_hash": revision(visible_text(last_user)), "response_hash": revision(result),

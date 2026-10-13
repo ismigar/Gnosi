@@ -6379,6 +6379,24 @@
     "privacy_title": "Privacidad",
     "privacy_summary": "{{classification}} · {{count}} fuentes privadas · datos minimizados: {{minimized}}",
     "privacy_remote_processing": "El modelo remoto configurado puede procesar la evidencia privada estrictamente necesaria.",
+    "gauntlet_title": "Revisión de calidad",
+    "gauntlet_summary": "{{status}} · revisiones: {{reviews}} · puntos pendientes: {{findings}}",
+    "gauntlet_status": {
+      "accepted": "Aceptada",
+      "stagnated": "Sin más mejoras",
+      "incomplete": "Incompleta"
+    },
+    "gauntlet_stop_reason": {
+      "accepted": "La revisión se ha aceptado.",
+      "stagnated": "Las revisiones adicionales no han resuelto los puntos pendientes.",
+      "budget": "La revisión ha alcanzado el límite de tiempo o de uso.",
+      "unavailable": "La revisión de calidad no estaba disponible.",
+      "invalid_review": "No se ha podido validar el resultado de la revisión.",
+      "interrupted": "La revisión se ha interrumpido.",
+      "unverified_evidence": "No se han podido verificar las evidencias necesarias.",
+      "awaiting_confirmation": "La acción está pendiente de tu confirmación.",
+      "action_review": "Es necesario revisar el resultado de la acción."
+    },
     "verification_title": "Verificación",
     "verification_summary": "{{status}} · {{count}} elementos de evidencia",
     "verification_limitations": "Limitaciones: {{limitations}}",

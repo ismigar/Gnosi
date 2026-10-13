@@ -35,8 +35,11 @@ export function streamResponseMessage(previous: readonly StoredChatMessage[], da
       privacy: data.privacy || message.privacy || state.transparency.privacy,
       verification: data.verification, citations: data.citations, freshness: data.freshness, job: data.job,
       explanation: data.explanation, quality: data.quality, conflicts: data.conflicts, evidence_security: data.evidence_security,
+      gauntlet: data.gauntlet,
     });
-    message = { ...message, ...(typeof data.content === 'string' && data.content ? { content: data.content } : {}), ...definedTransparency(metadata) };
+    message = { ...message, ...(typeof data.content === 'string' && data.content ? { content: data.content } : {}), ...definedTransparency(metadata),
+      ...(data.gauntlet !== undefined ? { gauntlet: metadata.gauntlet } : {}),
+    };
   } else if (data.type === 'error') {
     const errorCode = typeof data.code === 'string' && data.code ? data.code : 'agent_error';
     message = { ...message, content: streamError(data, t), errorCode,

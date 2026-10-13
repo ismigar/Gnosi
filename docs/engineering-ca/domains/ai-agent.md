@@ -42,6 +42,15 @@ source_paths:
   - backend/domains/configuration/ai/model_parameter_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
+  - backend/services/agent_gauntlet.py
+  - backend/services/agent_gauntlet_models.py
+  - backend/services/agent_gauntlet_policy.py
+  - desktop/scripts/backend_resources.py
+  - backend/services/agent_team_continuation.py
+  - backend/tests/test_agent_team_efficiency.py
+  - backend/tests/test_agent_gauntlet.py
+  - backend/tests/test_agent_gauntlet_presentation.py
+  - frontend/src/features/agent/model/agentChatGauntlet.test.ts
   - backend/tests/test_agent_team.py
   - backend/services/model_reasoning.py
   - backend/services/agent_execution.py
@@ -1610,3 +1619,17 @@ Només les respostes de les eines poden aportar evidència d’una confirmació 
 Quan hi ha una única vista desada activa, les peticions fora de la via literal poden usar `team.view_edit`: una consulta governada al director, amb un termini de 25 segons, un límit de sortida de 1.536 tokens i raonament baix només si és compatible i no s’ha configurat explícitament una altra opció. La interpretació exclou el contingut dels documents, la memòria personal i la conversa completa. `ViewEditDecision` conté només operació, camp de títol, àmbit, condició i transformacions de text limitades; no executa codi, expressions regulars, identificadors ni àmbits més amplis proposats pel model. Les plantilles numèriques conserven `{n}`. Les peticions que no són edicions tornen a la derivació habitual; les propostes invàlides o ambigües demanen un aclariment.
 
 La proposta validada `title_edit` queda a l’estat del servidor i selecciona un membre existent de l’equip amb eines del Vault. L’executor resol l’inventari complet de la vista, comprova la revisió desada, calcula localment els títols afectats i usa la confirmació nativa i l’escriptor verificat existents. Una continuació verificada reutilitza el programa sense més consultes al model; un canvi de vista o de tema no l’hereta. Cada missatge nou neteja l’estat d’una proposta anterior. Les proves amb el proveïdor real usen dades inventades; les proves HTTP sintètiques també comproven les files afectades, les excloses i que cap fitxer canviï abans de confirmar.
+
+## Revisió automàtica de qualitat del treball coordinat
+
+El coordinador classifica la tasca original abans d'executar-la. La recerca elaborada, la síntesi i els resultats substantius reben criteris d'acceptació fixos i observables. Les transformacions del xat amb sortida estructurada i les operacions de l'aplicació passen per la planificació encara que hi hagi una ruta directa; els contractes JSON demanats es validen durant l'execució i la correcció. Les peticions noves, incloses les transformacions curtes de text inclòs a la petició, reben una crida de planificació del director per classificar la tasca completa; el treball rutinari no afegeix crides de revisió Gauntlet. Només les peticions d’estil acotades i verificades sobre un resultat rutinari poden reutilitzar l’especialista anterior sense planificació. Els resultats elaborats i els marcadors de continuació antics no activen aquesta drecera.
+
+Els receptors configurats per a l’operació es mantenen després de classificar la tasca, amb selecció econòmica dins de la ruta assignada. Una alternativa temporal o un resultat desat no pot ampliar aquesta ruta; les altres capacitats de les tasques mantenen la selecció existent de l’equip. Les continuacions rutinàries desen l’executor del treball completat i el verifiquen amb l’artefacte de la tasca dins del mateix àmbit abans de reutilitzar-lo.
+
+El manifest de dades revisat del backend empaquetat inclou els dos prompts de Gauntlet. La verificació del codi font i del paquet manté el rebuig de recursos inesperats.
+
+Les claus entre cometes es conserven com a propietats JSON literals. Les plantilles JSON explícites, inclòs el codi en línia o en blocs després d’una instrucció de sortida, conserven el tipus arrel, les propietats internes obligatòries i els tipus dels elements de les llistes. Els valors d’exemple defineixen l’estructura i no els valors permesos; les llistes buides no especifiquen el tipus dels elements. Un pla incompatible o una llista explícita de claus ambigua atura l’execució abans de construir el resultat i no permet validar un contracte diferent. El mateix esquema validat governa la reparació de la sortida i la correcció Gauntlet.
+
+Les revisions Gauntlet utilitzen un context nou amb la petició original, els criteris fixos, el resultat candidat i les evidències de les fonts dins de l'àmbit autoritzat, sense eines ni delegació. Les evidències absents o omeses produeixen una verificació incompleta. Una crida de correcció separada conserva l'esquema de sortida i rep una nova revisió. El bucle comparteix els límits de crides i temps de la tasca principal, s'atura en acceptar el resultat o després de dues correccions consecutives sense millora mesurable i propaga la cancel·lació i la revocació de permisos. Les correccions no repeteixen accions; una revisió interrompuda es reprèn com a incompleta.
+
+El text de les crítiques, les peticions i les instantànies de les fases internes no es desen de manera persistent. Els registres de les fases només conserven metadades operatives i un resultat buit. Els artefactes privats de recuperació conserven el candidat, els criteris i les metadades de les fases amb la retenció existent de les execucions. Els detalls del xat, la recuperació del flux i les converses desades només exposen l'estat d'acceptació, el nombre de revisions i de troballes pendents i un motiu d'aturada finit.

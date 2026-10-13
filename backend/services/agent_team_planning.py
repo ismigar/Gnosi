@@ -22,17 +22,20 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
     from backend.services.agent_team_contracts import required_operation, explicit_output_keys, operation_for_output_keys
     from backend.services.agent_team_runtime import _candidate, _config, _phase
     team = team_for(owner)
+    from backend.services.agent_gauntlet_policy import needs_planning
     operation = str(json.loads(original).get("operation") or "").split(".")[0] if operation_mode else chat_operation(original)
     route = next((r for r in team.direct_routes if r.operation == operation), None)
+    semantic_plan = needs_planning(original, refs, state, operation_mode=operation_mode)
     required = [skill_id(operation)] if route else []
-    direct, reason, cost = _candidate(owner, scope, route.agent_ids, required, original, tools=not operation_mode) if route else (None, "director_required", None)
+    direct, reason, cost = (_candidate(owner, scope, route.agent_ids, required, original, tools=not operation_mode)
+                            if route and not semantic_plan else (None, "director_required", None))
     catalog = planning_catalog(owner, scope, original,
                                include_owner=not operation_mode and owner["id"] == _config().get("active_agent_id"))
     saved = artifacts.list_artifacts(scope, "plan", root_id)
     if saved:
         return (TeamPlan.model_validate(saved[0]["plan"]),
                 {**state, **saved[0].get('state', {}), "team_completed_evidence": saved[0].get("evidence", [])}, catalog, route, bool(direct))
-    continuation = None if operation_mode or direct else continuation_plan(owner, scope, state, original, catalog, refs)
+    continuation = None if semantic_plan or direct else continuation_plan(owner, scope, state, original, catalog, refs)
     if not operation_mode and not direct and not continuation:
         from backend.services.agent_view_edit import prepare_view_edit
         state, clarification = await prepare_view_edit(owner, scope, root_id, state, original, refs, catalog)
@@ -73,6 +76,8 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
                            prior_run_id=prior_run_id, planning_calls_avoided=1)
     else:
         data, sizes = planning_input(owner, state, original, catalog, refs, operation_mode=operation_mode)
+        if route is not None:
+            data["execution_route"] = route.model_dump()
         snapshot = _snapshot.get()
         operation_hint = required_operation(operation, snapshot.skill_ids if snapshot else []) if operation_mode else operation
         if not operation_mode:

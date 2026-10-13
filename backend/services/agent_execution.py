@@ -417,14 +417,14 @@ def _operation_output(text: str, request: AgentOperation, validator: Callable[[s
     return validator(text) if validator is not None else text
 
 
-async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None) -> AgentRun:
+async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, private_result: bool = False) -> AgentRun:
     from backend.domains.agent.team_help import OptionalTeamHelpDeclined
     from backend.services.agent_cancellation import AgentTurnCancelled, create_cancel_token, release, cancel
 
     snapshot, ai, runtime = _operation_context(request, snapshot)
     parent_id = request.parent_run_id or snapshot.parent_run_id or _run.get()
     checkpoint_key = hashlib.sha256((snapshot.revision + request.model_dump_json()).encode()).hexdigest()
-    cached = _checked_checkpoint(request, snapshot, parent_id, checkpoint_key, output_validator)
+    cached = None if private_result else _checked_checkpoint(request, snapshot, parent_id, checkpoint_key, output_validator)
     if cached is not None:
         return cached
     run_id = uuid.uuid4().hex
@@ -434,8 +434,13 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                    execution_revision=snapshot.revision)
     team_enabled = (request.operation != "knowledge.process-source.phase"
                     and bool(snapshot.profile.get("team", {}).get("enabled")))
-    store.create(row, snapshot.scope, {**request.model_dump(), "checkpoint_key": checkpoint_key,
-        **({"max_calls": 8} if team_enabled else {})}, snapshot.model_dump())
+    # Internal quality phases run from in-memory frozen inputs. Never write
+    # their criticism or context to durable storage, even before a worker crash.
+    saved_request = ({"operation": request.operation, "max_model_calls": request.max_model_calls,
+                      "resume_requires_parent": True} if private_result else
+                     {**request.model_dump(), "checkpoint_key": checkpoint_key,
+                      **({"max_calls": 8} if team_enabled else {})})
+    store.create(row, snapshot.scope, saved_request, {} if private_result else snapshot.model_dump())
     report_run(run_id)
     run_token = _run.set(run_id)
     snapshot_token = _snapshot.set(snapshot)
@@ -474,7 +479,11 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                 revalidate_scope(snapshot.scope)
                 if store.cancelled(snapshot.scope, run_id) or (row.parent_run_id and store.cancelled(snapshot.scope, row.parent_run_id)):
                     raise AgentTurnCancelled("agent_run_cancelled")
-                return store.update(snapshot.scope, run_id, status="completed", result=text)
+                completed = store.update(snapshot.scope, run_id, status="completed", result="" if private_result else text)
+                # Independent review text can contain private source evidence and
+                # criticism. Return it only to the in-process coordinator; the
+                # run record and its public API keep it ephemeral.
+                return completed.model_copy(update={"result": text}) if private_result else completed
             except (ValueError, jsonschema.ValidationError) as validation_error:
                 from backend.services.structured_output_diagnostics import repair_diagnostic, reading_error
                 diagnostic = repair_diagnostic(reading_error(validation_error, text, request.output_schema)
@@ -509,19 +518,22 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     except BaseException as error:
         cancel(cancel_token)
         status = "cancelled" if isinstance(error, (AgentTurnCancelled, asyncio.CancelledError)) else "failed"
-        store.update(snapshot.scope, run_id, status=status, error=type(error).__name__ + ": " + str(error)[:512])
+        error_text = "agent_internal_operation_failed" if private_result else type(error).__name__ + ": " + str(error)[:512]
+        store.update(snapshot.scope, run_id, status=status, error=error_text)
         raise
     finally:
-        if row.parent_run_id:
-            store.aggregate(snapshot.scope, row.parent_run_id)
-        _tokens.pop(run_id, None)
-        release(cancel_token)
-        _call_limit.reset(call_limit_token)
-        _operation_timeout.reset(timeout_token)
-        _operation_tool_mode.reset(tool_mode_token)
-        _snapshot.reset(snapshot_token)
-        frozen_resources.reset(resource_token)
-        _run.reset(run_token)
+        try:
+            if row.parent_run_id:
+                store.aggregate(snapshot.scope, row.parent_run_id)
+        finally:
+            _tokens.pop(run_id, None)
+            release(cancel_token)
+            _call_limit.reset(call_limit_token)
+            _operation_timeout.reset(timeout_token)
+            _operation_tool_mode.reset(tool_mode_token)
+            _snapshot.reset(snapshot_token)
+            frozen_resources.reset(resource_token)
+            _run.reset(run_token)
 
 
 def run_sync(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None) -> AgentRun:

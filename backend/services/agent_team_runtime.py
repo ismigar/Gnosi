@@ -141,7 +141,7 @@ def _snapshot(profile: dict[str, Any], owner: dict[str, Any], root_id: str, scop
     return snapshot, runtime
 
 
-def _validate_plan_result(text: str, *, allow_response: bool = False, members: list[dict[str, Any]] | None = None, owner_id: str = "", required_operation: str = "", output_keys: set[str] | None = None) -> str:
+def _validate_plan_result(text: str, *, allow_response: bool = False, members: list[dict[str, Any]] | None = None, owner_id: str = "", required_operation: str = "", output_keys: set[str] | None = None, require_output_contract: bool = False, requested_output_schema: dict[str, Any] | None = None) -> str:
     from backend.services.agent_team_contracts import standalone_clarification
     raw = json.loads(text)
     normalized = standalone_clarification(raw) if allow_response and isinstance(raw, dict) else raw
@@ -154,7 +154,11 @@ def _validate_plan_result(text: str, *, allow_response: bool = False, members: l
         from backend.services.agent_team_routing import validate_assignments
         from backend.services.agent_team_contracts import validate_plan_contract
         validate_assignments(plan, members, owner_id)
-        validate_plan_contract(plan, members, owner_id, legacy_response="response_kind" not in json.loads(text), required_operation=required_operation, output_keys=output_keys)
+        validate_plan_contract(plan, members, owner_id, legacy_response="response_kind" not in json.loads(text), required_operation=required_operation, output_keys=output_keys, require_output_contract=require_output_contract, requested_output_schema=requested_output_schema)
+        if plan.response and plan.output_contract is not None:
+            from backend.services.agent_team_contracts import output_schema
+            from backend.services.agent_execution import _validate_output
+            _validate_output(plan.response, output_schema(plan))
     return text
 
 
@@ -165,10 +169,13 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
     if members is None and operation in {"team.plan", "team.replan"}:
         members = json.loads(text or "{}").get("members")
     required_operation = str(json.loads(text or "{}").get("required_operation") or "") if operation in {"team.plan", "team.replan"} else ""
-    from backend.services.agent_team_contracts import explicit_output_keys
-    output_keys = explicit_output_keys(str(json.loads(text or "{}").get("request") or "")) if allow_response and required_operation not in {"writing", "translation"} else set()
+    from backend.services.agent_team_contracts import explicit_output_schema, output_contract_requested
+    original_request = str(planning_data.get("request") or "")
+    chat_planning = allow_response or bool(planning_data.get("allow_direct_response"))
+    requested_schema = explicit_output_schema(original_request) if chat_planning else None
+    requires_contract = chat_planning and output_contract_requested(original_request)
     def validate(text: str) -> str:
-        validated = _validate_plan_result(text, allow_response=allow_response, members=members, owner_id=owner["id"], required_operation=required_operation, output_keys=output_keys)
+        validated = _validate_plan_result(text, allow_response=allow_response, members=members, owner_id=owner["id"], required_operation=required_operation, require_output_contract=requires_contract, requested_output_schema=requested_schema)
         if members is not None:
             from backend.services.agent_team_actions import validate_action_plan
             validate_action_plan(TeamPlan.model_validate_json(validated), members, set(planning_data.get("authorized_tool_names") or []))
@@ -176,11 +183,14 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
     plan_validator = validate if operation in {"team.plan", "team.replan"} else None
     if plan_validator and schema is not None and members is not None:
         schema = copy.deepcopy(schema)
-        if output_keys:
+        schema["required"] = list(dict.fromkeys([*schema.get("required", []), "quality"]))
+        if requested_schema is not None:
             contract = schema["$defs"]["TeamOutputContract"]
             contract["required"] = ["type", "fields", "allow_extra_keys"]
-            contract["properties"]["type"] = {"const": "object"}
-            contract["properties"]["fields"]["minItems"] = len(output_keys)
+            contract["properties"]["type"] = ({"enum": ["number", "integer"]} if requested_schema["type"] == "number"
+                                                else {"const": requested_schema["type"]})
+            if requested_schema["type"] == "object":
+                contract["properties"]["fields"]["minItems"] = len(requested_schema["properties"])
         if allow_response:
             from backend.services.agent_team_contracts import operation_skills, initial_greeting
             schema["required"] = list(schema["properties"])
@@ -224,7 +234,10 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
         delegating.reset(token)
 
 
-def _temporary(spec: TemporaryAgentSpec, owner: dict[str, Any], root_id: str, scope: ExecutionScope) -> dict[str, Any]:
+def _temporary(spec: TemporaryAgentSpec, owner: dict[str, Any], root_id: str, scope: ExecutionScope,
+               *, allowed_ids: list[str] | None = None) -> dict[str, Any]:
+    if allowed_ids is not None:
+        raise PermissionError("agent_team_route_no_eligible_executor")
     validate_temporary(spec, owner, scope)
     current = artifacts.list_artifacts(scope, "temporary", root_id)
     fingerprint = revision(spec.model_dump())
@@ -265,13 +278,18 @@ def _propose(scope: ExecutionScope, root_id: str, profile: dict[str, Any], child
     }, create_only=True)
 
 
-def _resume_cached_task(cached: dict[str, Any], scope: ExecutionScope, root_id: str, key: str) -> dict[str, Any]:
+def _resume_cached_task(cached: dict[str, Any], scope: ExecutionScope, root_id: str, key: str,
+                        allowed_ids: list[str] | None = None) -> dict[str, Any]:
+    if allowed_ids is not None and cached["agent_id"] not in allowed_ids:
+        raise PermissionError("agent_team_cached_executor_outside_route")
     execution_profile(AgentExecutionSnapshot.model_validate(cached["snapshot"]))
     if cached["status"] == "awaiting_confirmation":
         from backend.agent.action_confirmations import get_confirmation_status
         approvals = [get_confirmation_status(m["confirmation_id"], cached["confirmation_scope"]) for m in cached["confirmations"]]
         if all(a["status"] == "completed" for a in approvals):
             cached.update(status="completed", confirmations=[], result=json.dumps({"completed_actions": approvals}, ensure_ascii=False))
+            if "review_evidence" in cached:
+                _add_review_evidence(cached, {"tool": "confirmed_actions", "content": approvals, "status": "success"})
             artifacts.put(scope, root_id, key, "task", cached)
         elif any(a["status"] not in {"pending", "executing", "completed"} for a in approvals):
             raise RuntimeError("agent_team_confirmation_requires_review")
@@ -292,10 +310,30 @@ def _validate_temporary_runtime(selected: dict[str, Any], text: str, runtime: An
         raise RuntimeError("agent_team_temporary_tools_unavailable")
 
 
+def _add_review_evidence(outcome: dict[str, Any], value: dict[str, Any]) -> None:
+    if len(outcome["review_evidence"]) >= 12:
+        outcome["review_evidence_omitted"] = int(outcome.get("review_evidence_omitted", 0)) + 1
+        return
+    from backend.services.agent_execution_trace import sanitize
+    evidence, _ = sanitize(value)
+    encoded = json.dumps(evidence, ensure_ascii=False, separators=(",", ":"))
+    if len(encoded) > 4000:
+        content = evidence.get("content")
+        content_text = json.dumps(content, ensure_ascii=False)
+        marker = "\n[… evidence excerpt; remaining content omitted …]\n"
+        excerpt = content_text[: 3600 - len(marker)] + marker
+        evidence = {key: evidence[key] for key in ("tool", "status") if key in evidence}
+        evidence.update(content_excerpt=excerpt, truncated=True)
+    outcome["review_evidence"].append(evidence)
+
+
 def _collect_task_event(event: dict[str, Any], outcome: dict[str, Any]) -> None:
     from backend.agent.action_confirmations import confirmation_event
     for update in event.values():
         for message in update.get("messages", []):
+            if getattr(message, "type", "") == "tool" and "review_evidence" in outcome:
+                _add_review_evidence(outcome, {"tool": getattr(message, "name", ""), "content": message.content,
+                                               "status": getattr(message, "status", "")})
             from backend.services.agent_team_actions import successful_action_result
             if successful_action_result(message, set(outcome.get("required_action_names") or [])):
                 outcome.setdefault("action_evidence", []).append(str(message.name))
@@ -307,7 +345,7 @@ def _collect_task_event(event: dict[str, Any], outcome: dict[str, Any]) -> None:
                 outcome["metadata"] = dict(getattr(message, "additional_kwargs", {}) or {})
 
 
-async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, scope: ExecutionScope, state: dict[str, Any], original: str, results: dict[str, Any], *, operation_mode: bool, refs: list[dict[str, Any]], allowed_ids: list[str] | None = None, output_schema: dict[str, Any] | None = None) -> dict[str, Any]:
+async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, scope: ExecutionScope, state: dict[str, Any], original: str, results: dict[str, Any], *, operation_mode: bool, refs: list[dict[str, Any]], allowed_ids: list[str] | None = None, output_schema: dict[str, Any] | None = None, collect_evidence: bool = False) -> dict[str, Any]:
     from backend.agent.factory import create_agent_workflow
     from backend.agent.action_confirmations import confirmation_context, current_confirmation_scope
     from backend.services.agent_execution import stream_workflow
@@ -326,18 +364,18 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
         "conversation_evidence": [str(m.content) for m in state.get("messages", []) if getattr(m, "type", "") in {"human", "ai"}],
         "completed_evidence": state.get("team_completed_evidence", []),
         "previous_results": {k: results[k]["result"] for k in task.depends_on}}, ensure_ascii=False)
-    selected, reason, cost = _candidate(owner, scope, ids, task.skill_ids, text, preferred=task.agent_id,
+    selected, reason, cost = _candidate(owner, scope, ids, task.skill_ids, text, preferred=task.agent_id if allowed_ids is None else "",
                                       tools=not operation_mode, allow_owner=own_task)
     temporary = False
     if selected is None and task.temporary is not None:
-        selected = _temporary(task.temporary, owner, root_id, scope)
+        selected = _temporary(task.temporary, owner, root_id, scope, allowed_ids=allowed_ids)
         temporary, reason = True, "missing_specialty_temporary"
     if selected is None:
         raise RuntimeError("agent_team_no_eligible_executor")
     key = revision({"task": task.model_dump(), "original": original})
     cached = next((r for r in artifacts.list_artifacts(scope, "task", root_id) if r["key"] == key), None)
     if cached:
-        return _resume_cached_task(cached, scope, root_id, key)
+        return _resume_cached_task(cached, scope, root_id, key, allowed_ids=allowed_ids)
     if len(artifacts.list_artifacts(scope, "task", root_id)) >= 4:
         raise RuntimeError("agent_team_task_limit")
     from backend.services.agent_team_actions import action_context_refs, validate_task_action
@@ -348,6 +386,8 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
     child_id = uuid.uuid4().hex
     outcome = {"key": key, "task_id": task.id, "run_id": child_id, "agent_id": selected["id"], "status": "running", "result": "", "confirmations": [], "snapshot": snapshot.model_dump(),
                "required_action_names": [] if task.read_only or operation_mode else list(state.get("turn_authorized_tool_names") or [])}
+    if collect_evidence:
+        outcome["review_evidence"] = []
     artifacts.put(scope, root_id, key, "task", outcome, create_only=True)
     record("team.delegation", {"task": task.id, "executor": selected["id"], "reason": reason, "estimated_cost_usd": cost, "run_id": child_id})
     token = delegating.set(True)
@@ -403,7 +443,7 @@ def _continuation_metadata(owner: dict[str, Any], scope: ExecutionScope, root_id
 
 
 async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_mode: bool, original: str) -> dict[str, Any]:
-    from backend.services.agent_execution import _run, _snapshot
+    from backend.services.agent_execution import _run, _snapshot as current_snapshot
     from backend.services.agent_execution_scope import current_scope
     from backend.services.agent_team_planning import prepare_plan
     from backend.services.agent_execution_trace import record
@@ -415,9 +455,9 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
         raise PermissionError("agent_team_configuration_changed")
     team = team_for(owner)
     request_data: dict[str, Any] = json.loads(original) if operation_mode else {}
-    from backend.services.agent_team_contracts import output_schema as plan_output_schema, required_operation
+    from backend.services.agent_team_contracts import output_schema as plan_output_schema, required_operation, task_route_ids
     from backend.services.agent_team_output import TeamOutputContractError
-    root_snapshot = _snapshot.get()
+    root_snapshot = current_snapshot.get()
     refs = root_snapshot.profile.get("context_refs", []) if root_snapshot else []
     from backend.services.agent_title_continuation import prepare_title_turn
     original, state, title_metadata, clarification = prepare_title_turn(
@@ -428,9 +468,15 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
         return {'messages': [AIMessage(content=clarification)]}
     saved = artifacts.list_artifacts(scope, "plan", root_id)
     plan, state, catalog, route, direct = await prepare_plan(owner, scope, root_id, state, original, refs, operation_mode=operation_mode)
+    from backend.services.agent_gauntlet_policy import review_plan
+    quality = review_plan(plan)
+    plan = plan.model_copy(update={"quality": quality})
     title_metadata = ({'gnosi_title_action': state['title_edit']} if state.get('title_edit') else title_metadata)
-    required = required_operation(str(request_data.get("operation") or ""), root_snapshot.skill_ids if root_snapshot else []) if operation_mode else ""
-    _validate_plan_result(plan.model_dump_json(), allow_response=not operation_mode, members=catalog, owner_id=owner["id"], required_operation=required)
+    required = required_operation(str(request_data.get("operation") or ""), root_snapshot.skill_ids if root_snapshot else []) if operation_mode else route.operation if route else ""
+    from backend.services.agent_team_contracts import explicit_output_schema, output_contract_requested
+    _validate_plan_result(plan.model_dump_json(), allow_response=not operation_mode, members=catalog, owner_id=owner["id"], required_operation=required,
+        requested_output_schema=explicit_output_schema(original) if not operation_mode else None,
+        require_output_contract=not operation_mode and output_contract_requested(original))
     result_schema = request_data.get("output_schema") if operation_mode else plan_output_schema(plan)
     if not saved:
         artifacts.put(scope, root_id, "plan", "plan", {"plan": plan.model_dump(), "original": original,
@@ -439,15 +485,20 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
             "messages": messages_to_dict(state.get("messages", []))}, create_only=True)
     if plan.response:
         record("team.response", {"executor": team.director_id, "mode": "direct_response"})
-        return {"messages": [AIMessage(content=plan.response)]}
+        from backend.services.agent_gauntlet import review_direct_response
+        answer, metadata = await review_direct_response(owner=owner, root_id=root_id, scope=scope,
+            quality=quality, original=original, state=state, candidate=plan.response,
+            output_schema=result_schema, available=root_snapshot is not None)
+        return {"messages": [AIMessage(content=answer, additional_kwargs=metadata)]}
     results: dict[str, Any] = {}
     pending = list(plan.tasks)
     while pending:
         ready = [t for t in pending if set(t.depends_on).issubset(results)]
         task = ready[0]
         batch = [t for t in ready if t.read_only][:2] if task.read_only else [task]
-        outcomes = await asyncio.gather(*[_execute_task(t, owner, root_id, scope, state, original, results, operation_mode=operation_mode, refs=refs, allowed_ids=route.agent_ids if direct and route else None,
-            output_schema=result_schema if t.id == plan.result_task and not plan.synthesize else None) for t in batch], return_exceptions=True)
+        outcomes = await asyncio.gather(*[_execute_task(t, owner, root_id, scope, state, original, results, operation_mode=operation_mode, refs=refs, allowed_ids=task_route_ids(t, route, catalog),
+            output_schema=result_schema if t.id == plan.result_task and not plan.synthesize else None,
+            **({"collect_evidence": True} if quality.mode == "elaborate" else {})) for t in batch], return_exceptions=True)
         failure = next((outcome for outcome in outcomes if isinstance(outcome, BaseException)), None)
         if failure is not None:
             # Never replan across a write or an uncertain action outcome.
@@ -459,11 +510,14 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
                     from backend.services.agent_team_context import planning_input, excerpt
                     replan_input, _ = planning_input(owner, state, original, catalog, refs, operation_mode=operation_mode)
                     raw = await _phase(owner, root_id, scope, json.dumps({**replan_input,
+                        "required_operation": required,
+                        **({"execution_route": route.model_dump()} if route is not None else {}),
                         "previous_plan": plan.model_dump(),
                         "completed_evidence": [{**item, "result": excerpt(item["result"], 1200)} for item in evidence],
                         "failure": excerpt(str(failure), 800), "remaining_assignments": remaining,
                         "instruction": "Return only new read-only assignments using fresh task IDs. Do not repeat completed evidence."}, ensure_ascii=False, separators=(",", ":")), TeamPlan.model_json_schema(), "team.replan", members=catalog)
                     revised = TeamPlan.model_validate_json(raw)
+                    revised = revised.model_copy(update={"quality": quality})
                     previous_ids = {t.id for t in plan.tasks}
                     if len(revised.tasks) > remaining or any(not t.read_only or t.id in previous_ids for t in revised.tasks):
                         raise RuntimeError("agent_team_invalid_replan")
@@ -482,7 +536,9 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
             from backend.services import agent_execution_store as runs
             runs.update(scope, root_id, status="awaiting_confirmation")
             return {"messages": [AIMessage(content=json.dumps(marker, ensure_ascii=False),
-                additional_kwargs={**title_metadata, 'gnosi_action_confirmation': marker}) for marker in confirmations]}
+                additional_kwargs={**title_metadata, 'gnosi_action_confirmation': marker,
+                    **({"gnosi_gauntlet": {"status": "incomplete", "rounds": 0, "finding_count": 0,
+                                          "stop_reason": "awaiting_confirmation"}} if quality.mode == "elaborate" else {})}) for marker in confirmations]}
     result = results[plan.result_task]["result"]
     if plan.synthesize:
         synthesis_evidence = {identifier: {key: value.get(key) for key in ("agent_id", "run_id", "status", "result")} for identifier, value in results.items()}
@@ -490,10 +546,14 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
             "phase": "synthesize the completed evidence; do not plan or execute actions"}, ensure_ascii=False),
             result_schema, "team.synthesis")
     metadata = {} if plan.synthesize else dict(results[plan.result_task].get("metadata", {}))
+    from backend.services.agent_gauntlet import review_team_result
+    result, metadata = await review_team_result(root_id=root_id, scope=scope, plan=plan,
+        original=original, state=state, results=results, candidate=result,
+        output_schema=result_schema, metadata=metadata, operation_mode=operation_mode)
     metadata.pop("gnosi_team_route", None)
     metadata.pop('gnosi_action_confirmation', None)
     metadata.update(title_metadata)
-    if not operation_mode:
+    if not operation_mode and metadata.get("gnosi_gauntlet", {}).get("status", "accepted") == "accepted":
         metadata.update(_continuation_metadata(owner, scope, root_id, state, plan, catalog, refs, result))
     return {"messages": [AIMessage(content=result, additional_kwargs=metadata)]}
 

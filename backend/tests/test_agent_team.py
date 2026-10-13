@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from backend.services.agent_team_models import AgentTeam, TeamPlan, TEAM_SKILL
+from backend.services.agent_team_models import AgentTeam, TeamPlan, TeamTask, TEAM_SKILL
 from backend.services.agent_team_policy import chat_operation, estimate_cost, select_executor, validate_teams
 from backend.services.model_role_suitability import assess_roles
 
@@ -98,7 +98,11 @@ def team_runtime(monkeypatch, tmp_path):
             return root
         calls.append(p["id"])
         responses = config.get("_responses", {}).get(p["id"], [])
-        response = responses.pop(0) if responses else '{"result":"done"}'
+        current = store.read(scope, execution._run.get()).operation if execution._run.get() else ""
+        default = (json.dumps({"tasks": [{"id": "direct", "agent_id": "worker", "objective": "Complete the original writing request",
+            "skill_ids": [writing]}], "result_task": "direct", "quality": {"mode": "routine"}})
+            if current == "team.plan" else '{"result":"done"}')
+        response = responses.pop(0) if responses else default
         return operation_workflow(FakeListChatModel(responses=[response]), "Complete the request", 32000), {"provider": p["provider"], "model": p["model"]}
     monkeypatch.setattr(factory, "create_agent_workflow", create)
     # These graphs explicitly use 32k; their fake model names are not registry IDs.
@@ -109,19 +113,25 @@ def team_runtime(monkeypatch, tmp_path):
     return scope, snapshot, calls, config
 
 
-def test_direct_operation_calls_only_worker_and_records_child(team_runtime):
+def test_operation_routes_through_quality_planner_before_specialist(team_runtime):
     from backend.services.agent_execution_scope import execution_scope
     from backend.services.agent_execution import execute_operation
     from backend.services.agent_execution_models import AgentOperation
     from backend.services import agent_execution_store as store
     from backend.agent.action_confirmations import confirmation_context
     scope, snapshot, calls, _ = team_runtime
+    plan = {"operation": "writing", "tasks": [{"id": "draft", "agent_id": "worker",
+        "objective": "Complete the original writing request",
+        "skill_ids": [skill for skill in snapshot.skill_ids if skill != TEAM_SKILL]}],
+        "result_task": "draft", "quality": {"mode": "routine"}}
+    team_runtime[3]["_responses"] = {"director": [json.dumps(plan)], "worker": ['{"result":"done"}']}
     with execution_scope(scope), confirmation_context(vault_scope="test", workspace_id="test", user_id="alice", role="owner", agent_id="director", session_id="s"):
         run = asyncio.run(execute_operation(AgentOperation(skill_id=snapshot.skill_ids[0], operation="writing", input="Summarize this", output_schema={"type": "object"}), snapshot=snapshot))
-    assert calls == ["worker"]
+    assert calls == ["director", "worker"]
     assert json.loads(run.result) == {"result": "done"}
     children = [r for r in store.list_runs(scope) if r.parent_run_id == run.run_id]
-    assert len(children) == 1 and children[0].agent_id == "worker" and children[0].model_calls == 1
+    assert len(children) == 2 and {child.agent_id for child in children} == {"director", "worker"}
+    assert sum(child.model_calls for child in children) == 2
     assert run.model_calls == 0
 
 
@@ -147,14 +157,93 @@ def run_operation(fixture, *, schema=None, input_text="Summarize this", max_mode
             max_model_calls=max_model_calls, timeout_seconds=timeout_seconds, output_schema=schema), snapshot=snapshot))
 
 
-def test_direct_route_does_not_escape_configured_shortlist(team_runtime):
-    _, snapshot, calls, config = team_runtime
+@pytest.mark.parametrize("elaborate", [False, True])
+def test_direct_chat_route_does_not_escape_configured_shortlist(optional_runtime, elaborate):
+    from backend.tests.test_principal_agent_routing import run_chat
+    from backend.services import agent_team_store as artifacts
+    from backend.services.agent_gauntlet_models import GauntletPlan
+    from langchain_core.messages import AIMessage, HumanMessage
+    fixture, _ = optional_runtime
+    _, snapshot, calls, config = fixture
     other = {**config["agents"][1], "id": "unlisted"}
     config["agents"].insert(1, other)
     snapshot.profile["team"]["members"].insert(0, {"agent_id": "unlisted", "roles": ["worker"]})
     config["agents"][0]["team"] = snapshot.profile["team"]
-    run_operation(team_runtime)
-    assert calls == ["worker"]
+    plan = TeamPlan(tasks=[TeamTask(id="work", agent_id="unlisted", objective="Summarize the original sentence",
+                                  skill_ids=snapshot.skill_ids)], result_task="work")
+    if elaborate:
+        plan.quality = GauntletPlan(mode="elaborate", reason="Substantive interpretation",
+                                   criteria=["Produce a faithful summary of the supplied sentence."])
+    config["_phase_responses"] = {"team.plan": [AIMessage(content=plan.model_dump_json())],
+        "gauntlet.review": [AIMessage(content=json.dumps({"checks": [{"criterion_id": "C1", "outcome": "passed",
+            "severity": "none", "evidence": "The candidate faithfully summarizes the supplied sentence.", "issue": ""}]}))]}
+    config["_responses"] = {"worker": [AIMessage(content="A faithful summary of this sentence.")]}
+    original = "Summarize: this sentence"
+    messages, _ = run_chat(fixture, original)
+    assert calls == ["director", "worker", *(["worker"] if elaborate else [])]
+    assert artifacts.list_artifacts(fixture[0], "task")[0]["agent_id"] == "worker"
+    if not elaborate:
+        initial = messages[-1]
+        root_id = initial.additional_kwargs["gnosi_team_route"]["run_id"]
+        saved = artifacts.get(fixture[0], root_id, "continuation")
+        assert saved["agent_id"] == "worker"
+        run_chat(fixture, "Now make it shorter.", history=[HumanMessage(content=original), initial])
+        assert calls == ["director", "worker", "worker"]
+        # A marker created before the identity correction cannot certify another member.
+        saved["agent_id"] = "unlisted"
+        artifacts.put(fixture[0], root_id, "continuation", "continuation", saved)
+        plan.tasks[0].agent_id = "worker"
+        config["_phase_responses"]["team.plan"] = [AIMessage(content=plan.model_dump_json())]
+        run_chat(fixture, "Now make it shorter.", history=[HumanMessage(content=original), initial])
+        assert calls == ["director", "worker", "worker", "director", "worker"]
+
+
+def test_unavailable_configured_route_cannot_fall_back_to_a_temporary_or_other_member(optional_runtime):
+    from backend.tests.test_principal_agent_routing import run_chat
+    from backend.services import agent_team_store as artifacts
+    from backend.services.agent_team_models import TemporaryAgentSpec
+    from langchain_core.messages import AIMessage
+    fixture, _ = optional_runtime
+    _, snapshot, calls, config = fixture
+    other = {**config["agents"][1], "id": "unlisted"}
+    config["agents"].append(other)
+    config["agents"][1]["enabled"] = False
+    snapshot.profile["team"]["members"].append({"agent_id": "unlisted", "roles": ["worker"]})
+    snapshot.profile["team"]["temporary"] = {"enabled": True, "models": [{"provider": "local", "model": "cheap"}], "skill_ids": snapshot.skill_ids}
+    config["agents"][0]["team"] = snapshot.profile["team"]
+    spec = TemporaryAgentSpec(name="Specialist", instructions="Summarize the supplied text", provider="local", model="cheap",
+                              skill_ids=snapshot.skill_ids, acceptance=["Preserve the original meaning"])
+    plan = TeamPlan(tasks=[TeamTask(id="work", agent_id="unlisted", objective="Summarize the original sentence",
+                                  skill_ids=snapshot.skill_ids, temporary=spec)], result_task="work")
+    config["_phase_responses"] = {"team.plan": [AIMessage(content=plan.model_dump_json())]}
+    with pytest.raises(PermissionError, match="route_no_eligible_executor"):
+        run_chat(fixture, "Summarize: this sentence")
+    assert calls == ["director"]
+    assert artifacts.list_artifacts(fixture[0], "task") == []
+    assert artifacts.list_artifacts(fixture[0], "temporary") == []
+
+
+def test_resume_cannot_reuse_a_cached_executor_outside_the_configured_route(team_runtime):
+    from backend.services import agent_execution_store as store, agent_team_store as artifacts
+    from backend.services.agent_execution import resume_run
+    from backend.services.agent_execution_scope import execution_scope
+    scope, snapshot, calls, config = team_runtime
+    other = {**config["agents"][1], "id": "unlisted"}
+    config["agents"].append(other)
+    snapshot.profile["team"]["members"].append({"agent_id": "unlisted", "roles": ["worker"]})
+    config["agents"][0]["team"] = snapshot.profile["team"]
+    run = run_operation(team_runtime)
+    # Represent a completed pre-correction artifact without rerunning its work.
+    cached = artifacts.list_artifacts(scope, "task", run.run_id)[0]
+    cached["agent_id"] = "unlisted"
+    cached["snapshot"]["agent_id"] = "unlisted"
+    cached["snapshot"]["profile"]["id"] = "unlisted"
+    artifacts.put(scope, run.run_id, cached["key"], "task", cached)
+    store.update(scope, run.run_id, status="interrupted")
+    previous_calls = list(calls)
+    with execution_scope(scope), pytest.raises(PermissionError, match="cached_executor_outside_route"):
+        asyncio.run(resume_run(run.run_id))
+    assert calls == previous_calls
 
 
 def test_format_repair_calls_executor_once_without_replanning(team_runtime):
@@ -162,7 +251,7 @@ def test_format_repair_calls_executor_once_without_replanning(team_runtime):
     config["_responses"] = {"worker": ["bad JSON", '{"result":"fixed"}']}
     result = run_operation(team_runtime, schema={"type": "object"})
     assert json.loads(result.result) == {"result": "fixed"}
-    assert calls == ["worker", "worker"]
+    assert calls == ["director", "worker", "worker"]
     from backend.services import agent_team_store as artifacts
     assert len(artifacts.list_artifacts(team_runtime[0], "task", result.run_id)) == 1
 
@@ -171,7 +260,7 @@ def test_ambiguous_operation_plans_then_delivers_without_director_review(team_ru
     _, snapshot, calls, config = team_runtime
     snapshot.profile["team"]["direct_routes"] = []
     config["agents"][0]["team"] = snapshot.profile["team"]
-    config["_responses"] = {"director": [json.dumps({"tasks": [{"id": "read", "agent_id": "worker", "objective": "Summarize", "skill_ids": snapshot.skill_ids}], "result_task": "read", "synthesize": False})]}
+    config["_responses"] = {"director": [json.dumps({"tasks": [{"id": "read", "agent_id": "worker", "objective": "Summarize", "skill_ids": snapshot.skill_ids}], "result_task": "read", "synthesize": False, "quality": {"mode": "routine"}})]}
     run_operation(team_runtime)
     assert calls == ["director", "worker"]
 
@@ -226,7 +315,7 @@ def test_completed_assignments_are_reused_on_resume(team_runtime):
     with execution_scope(scope):
         resumed = asyncio.run(resume_run(run.run_id))
     assert resumed.status == "completed" and resumed.run_id == run.run_id
-    assert calls == ["worker"]
+    assert calls == ["director", "worker"]
 
 
 def test_team_measurements_do_not_count_job_rollups_or_invent_prices():
@@ -241,17 +330,24 @@ def test_team_measurements_do_not_count_job_rollups_or_invent_prices():
     assert result["cost_usd"] is None and result["unnecessary_assignments"] == 0
 
 
-@pytest.mark.parametrize("strategy,expected_calls", [("allrounder", ["director"]), ("director_always", ["director", "worker"]), ("director_direct", ["worker"])])
-def test_identical_case_compares_three_execution_policies(team_runtime, strategy, expected_calls):
-    _, snapshot, calls, config = team_runtime
+@pytest.mark.parametrize("strategy,expected_calls", [("allrounder", ["director"]), ("director_always", ["director", "worker"]), ("director_direct", ["director", "worker"])])
+def test_identical_chat_transform_compares_three_execution_policies(optional_runtime, strategy, expected_calls):
+    from langchain_core.messages import AIMessage
+    from backend.tests.test_principal_agent_routing import run_chat
+    fixture, _ = optional_runtime
+    _, snapshot, calls, config = fixture
+    config["_responses"] = {"director": [AIMessage(content='{"result":"done"}')], "worker": [AIMessage(content='{"result":"done"}')]}
     if strategy == "allrounder":
         snapshot.profile["team"]["enabled"] = False
     elif strategy == "director_always":
         snapshot.profile["team"]["direct_routes"] = []
-        config["_responses"] = {"director": [json.dumps({"tasks": [{"id": "read", "agent_id": "worker", "objective": "Summarize", "skill_ids": snapshot.skill_ids}], "result_task": "read"})]}
+        plan = TeamPlan(tasks=[TeamTask(id="read", agent_id="worker", objective="Summarize", skill_ids=snapshot.skill_ids)], result_task="read")
+        config["_responses"]["director"] = [AIMessage(content=plan.model_dump_json())]
+    else:
+        routine_help_plan(fixture)
     config["agents"][0]["team"] = snapshot.profile["team"]
-    result = run_operation(team_runtime, schema={"type": "object", "required": ["result"]})
-    assert json.loads(result.result) == {"result": "done"}
+    messages, _ = run_chat(fixture, "Summarize: this sentence")
+    assert json.loads(messages[-1].content) == {"result": "done"}
     assert calls == expected_calls
 
 
@@ -312,7 +408,9 @@ def test_only_independent_readers_run_concurrently(team_runtime, monkeypatch, re
     snapshot.profile["team"]["direct_routes"] = []
     config["agents"][0]["team"] = snapshot.profile["team"]
     tasks = [{"id": f"t{i}", "agent_id": "worker", "objective": "Check", "skill_ids": snapshot.skill_ids, "read_only": read_only} for i in range(4)]
-    config["_responses"] = {"director": [json.dumps({"tasks": tasks, "result_task": "t3"})]}
+    config["_responses"] = {"director": [json.dumps({"tasks": tasks, "result_task": "t3", "quality": {"mode": "routine"}})],
+        "worker": [json.dumps({"checks": [{"criterion_id": "C1", "outcome": "passed", "severity": "none",
+            "evidence": "The synthetic result matches the requested result done.", "issue": ""}]})]}
     active = 0
     peak = 0
     async def executor(*args, **kwargs):
@@ -321,7 +419,11 @@ def test_only_independent_readers_run_concurrently(team_runtime, monkeypatch, re
         peak = max(peak, active)
         await asyncio.sleep(0.01)
         active -= 1
-        return {"status": "completed", "result": '{"result":"done"}', "confirmations": []}
+        from backend.services.agent_execution import _run
+        child = snapshot.model_copy(update={"agent_id": "worker", "parent_run_id": _run.get(),
+            "profile": {**config["agents"][1], "_team_execution": {"root_id": _run.get(),
+                "owner_id": snapshot.agent_id, "read_only": read_only}}})
+        return {"status": "completed", "result": '{"result":"done"}', "confirmations": [], "snapshot": child.model_dump()}
     monkeypatch.setattr(teams, "_execute_task", executor)
     run_operation(team_runtime)
     assert peak == peak_expected
@@ -344,13 +446,15 @@ def test_resume_reuses_completed_director_synthesis(team_runtime):
     scope, snapshot, calls, config = team_runtime
     snapshot.profile["team"]["direct_routes"] = []
     config["agents"][0]["team"] = snapshot.profile["team"]
-    config["_responses"] = {"director": [json.dumps({"tasks": [{"id": "read", "agent_id": "worker", "objective": "Read", "skill_ids": snapshot.skill_ids}], "result_task": "read", "synthesize": True}), '{"result":"integrated"}']}
+    config["_responses"] = {"director": [json.dumps({"tasks": [{"id": "read", "agent_id": "worker", "objective": "Read", "skill_ids": snapshot.skill_ids}], "result_task": "read", "synthesize": True, "quality": {"mode": "routine"}}), '{"result":"integrated"}'],
+        "worker": ['{"result":"done"}', json.dumps({"checks": [{"criterion_id": "C1", "outcome": "passed", "severity": "none",
+            "evidence": "The final synthetic integration contains the expected integrated result.", "issue": ""}]})]}
     run = run_operation(team_runtime, schema={"type": "object"})
     store.update(scope, run.run_id, status="interrupted")
     with execution_scope(scope):
         resumed = asyncio.run(resume_run(run.run_id))
     assert json.loads(resumed.result) == {"result": "integrated"}
-    assert calls == ["director", "worker", "director"]
+    assert calls == ["director", "worker", "director", "worker"]
 
 
 @pytest.fixture
@@ -378,7 +482,9 @@ def optional_runtime(team_runtime, monkeypatch):
 
     def resolve(profile, **kwargs):
         identifier = profile.agent_data["id"]
-        responses = config.get("_responses", {}).get(identifier, [AIMessage(content='{"result":"own work"}')])
+        from backend.services import agent_execution_store as store, agent_execution as execution
+        operation = store.read(team_runtime[0], execution._run.get()).operation if execution._run.get() else ""
+        responses = config.get("_phase_responses", {}).get(operation, config.get("_responses", {}).get(identifier, [AIMessage(content='{"result":"own work"}')]))
         model = Model(responses=responses)
         # FakeMessagesListChatModel allows its ordinary name field.
         object.__setattr__(model, "model_name", identifier)
@@ -404,6 +510,13 @@ def help_message(reason="Need another specialty", *, extra=False):
     if extra:
         calls.append({"name": "write_something", "args": {}, "id": "write"})
     return AIMessage(content="", tool_calls=calls)
+
+
+def routine_help_plan(fixture):
+    from langchain_core.messages import AIMessage
+    plan = TeamPlan(tasks=[TeamTask(id="work", agent_id="worker", objective="Complete the original request",
+        skill_ids=fixture[1].skill_ids)], result_task="work")
+    fixture[3]["_phase_responses"] = {"team.plan": [AIMessage(content=plan.model_dump_json())]}
 
 
 def test_team_permission_keeps_ordinary_operation_on_own_model(optional_runtime):
@@ -448,8 +561,9 @@ def test_optional_help_calls_team_once_and_never_recurses(optional_runtime):
     from backend.services import agent_team_store as artifacts
     fixture, bindings = optional_runtime
     fixture[3]["_responses"] = {"director": [help_message()]}
+    routine_help_plan(fixture)
     run = run_operation(fixture, schema={"type": "object"})
-    assert fixture[2] == ["director", "worker"]
+    assert fixture[2] == ["director", "director", "worker"]
     assert run.model_calls == 1 and run.model == "expensive"
     assert len(bindings) == 1  # The delegated worker has no help permission.
     assert len(artifacts.list_artifacts(fixture[0], "task", run.run_id)) == 1
@@ -482,12 +596,13 @@ def test_resume_optional_help_reuses_completed_assignments(optional_runtime):
     from backend.services.agent_execution_scope import execution_scope
     fixture, _ = optional_runtime
     fixture[3]["_responses"] = {"director": [help_message()]}
+    routine_help_plan(fixture)
     run = run_operation(fixture)
     store.update(fixture[0], run.run_id, status="interrupted")
     with execution_scope(fixture[0]):
         resumed = asyncio.run(resume_run(run.run_id))
     assert resumed.status == "completed"
-    assert fixture[2] == ["director", "worker"]
+    assert fixture[2] == ["director", "director", "worker"]
 
 
 def test_independent_profile_has_no_help_tool(optional_runtime):
@@ -519,6 +634,8 @@ def test_conversation_uses_own_model_and_can_choose_help(optional_runtime, help_
     fixture, _ = optional_runtime
     scope, snapshot, calls, config = fixture
     config["_responses"] = {"director": [help_message() if help_needed else AIMessage(content="Hello")]}
+    if help_needed:
+        routine_help_plan(fixture)
 
     async def run():
         runtime = teams._runtime(snapshot.profile, scope)
@@ -537,7 +654,7 @@ def test_conversation_uses_own_model_and_can_choose_help(optional_runtime, help_
 
     with execution_scope(scope):
         messages = asyncio.run(run())
-    assert calls == (["director", "worker"] if help_needed else ["director"])
+    assert calls == (["director", "director", "worker"] if help_needed else ["director"])
     assert messages[-1].content == ('{"result":"own work"}' if help_needed else "Hello")
     if help_needed:
         from backend.services import agent_team_store as artifacts
@@ -552,9 +669,10 @@ def test_optional_help_supports_validated_json_transport(optional_runtime, monke
     monkeypatch.setattr(runtime_tools, "_model_supports_tools", lambda *args: False)
     fixture[3]["_responses"] = {"director": [AIMessage(content=json.dumps({
         "action": "tool", "name": "request_team_help", "arguments": {"reason": "Need expertise"}}))]}
+    routine_help_plan(fixture)
     result = run_operation(fixture, schema={"type": "object"})
     assert json.loads(result.result) == {"result": "own work"}
-    assert fixture[2] == ["director", "worker"]
+    assert fixture[2] == ["director", "director", "worker"]
 
 
 def test_no_handoff_after_tools_or_during_format_repair():
@@ -688,7 +806,7 @@ def planning_runtime(optional_runtime):
     config["agents"].append({"id": "planner", "provider": "local", "model": "expensive",
                              "skill_ids": [TEAM_SKILL], "_execution_detailed_persona": ""})
     valid = {"tasks": [{"id": "read", "agent_id": "worker", "objective": "Read the source",
-                         "skill_ids": snapshot.skill_ids}], "result_task": "read"}
+                         "skill_ids": snapshot.skill_ids}], "result_task": "read", "quality": {"mode": "routine"}}
     config["_responses"] = {"director": [help_message()], "planner": [AIMessage(content=json.dumps(valid))]}
     return fixture, valid
 
