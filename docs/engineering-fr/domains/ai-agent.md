@@ -42,6 +42,15 @@ source_paths:
   - backend/domains/configuration/ai/model_parameter_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
+  - backend/services/agent_gauntlet.py
+  - backend/services/agent_gauntlet_models.py
+  - backend/services/agent_gauntlet_policy.py
+  - desktop/scripts/backend_resources.py
+  - backend/services/agent_team_continuation.py
+  - backend/tests/test_agent_team_efficiency.py
+  - backend/tests/test_agent_gauntlet.py
+  - backend/tests/test_agent_gauntlet_presentation.py
+  - frontend/src/features/agent/model/agentChatGauntlet.test.ts
   - backend/tests/test_agent_team.py
   - backend/services/model_reasoning.py
   - backend/services/agent_execution.py
@@ -1702,3 +1711,17 @@ Seules les réponses des outils peuvent fournir la preuve d’une confirmation n
 Lorsqu’une unique vue enregistrée est active, les demandes hors du traitement littéral peuvent utiliser `team.view_edit` : un appel gouverné au directeur, avec un délai de 25 secondes, une limite de sortie de 1 536 tokens et un raisonnement faible uniquement si compatible et sans autre configuration explicite. L’interprétation exclut le contenu des documents, la mémoire personnelle et la conversation complète. `ViewEditDecision` contient seulement une opération, le champ titre, la portée, une condition et des transformations de texte bornées ; elle n’exécute ni code, ni expressions régulières, ni identifiants, ni portée élargie proposés par le modèle. Les modèles numériques conservent `{n}`. Les demandes sans modification reviennent au routage habituel ; les propositions invalides ou ambiguës demandent une précision.
 
 La proposition validée `title_edit` reste dans l’état du serveur et sélectionne un membre existant de l’équipe disposant des outils du Vault. L’exécuteur résout l’inventaire complet de la vue, vérifie sa révision enregistrée, calcule localement les titres affectés et utilise la confirmation native et l’écriture vérifiée existantes. Une continuation vérifiée réutilise le programme sans nouvel appel au modèle ; un changement de vue ou de sujet ne l’hérite pas. Chaque nouveau message efface l’état d’une proposition précédente. Les essais avec le fournisseur réel utilisent des données inventées ; les tests HTTP synthétiques vérifient également les lignes affectées, exclues et l’absence de modification des fichiers avant confirmation.
+
+## Revue automatique de qualité du travail coordonné
+
+Le coordinateur classe la tâche initiale avant son exécution. Les recherches approfondies, les synthèses et les livrables substantiels reçoivent des critères d'acceptation fixes et observables. Les transformations du chat avec une sortie structurée et les opérations de l'application passent par la planification même si une route directe existe ; les contrats JSON demandés sont validés pendant l'exécution et la correction. Les nouvelles demandes, y compris les transformations courtes du texte inclus, reçoivent un appel de planification du directeur pour classer la tâche complète ; le travail courant n’ajoute aucun appel de revue Gauntlet. Seules les demandes de style délimitées et vérifiées sur un résultat courant peuvent réutiliser le spécialiste précédent sans planification. Les résultats approfondis et les anciens marqueurs de continuation ne déclenchent pas ce raccourci.
+
+Les destinataires configurés pour l’opération sont conservés après la classification, avec une sélection économique dans la route assignée. Un recours temporaire ou un résultat enregistré ne peut pas élargir cette route ; les autres capacités des tâches conservent la sélection existante de l’équipe. Les continuations courantes enregistrent l’exécuteur du travail terminé et le vérifient dans l’artefact de la tâche du même périmètre avant sa réutilisation.
+
+Le manifeste de données revu du backend empaqueté inclut les deux prompts Gauntlet. La vérification des sources et du paquet conserve le rejet des ressources inattendues.
+
+Les clés entre guillemets sont conservées comme des propriétés JSON littérales. Les modèles JSON explicites, y compris le code en ligne ou en blocs après une instruction de sortie, préservent le type racine, les propriétés imbriquées obligatoires et les types des éléments des listes. Les valeurs d’exemple définissent la structure et non les valeurs autorisées ; les listes vides ne précisent pas le type de leurs éléments. Un plan incompatible ou une liste explicite de clés ambiguë arrête l’exécution avant de construire le résultat et ne permet pas de valider un contrat différent. Le même schéma validé gouverne la réparation de la sortie et la correction Gauntlet.
+
+Les revues Gauntlet utilisent un contexte neuf contenant la demande initiale, les critères fixes, le résultat candidat et les preuves des sources dans le périmètre autorisé, sans outils ni délégation. Les preuves absentes ou omises entraînent une vérification incomplète. Un appel de correction séparé préserve le schéma de sortie, puis reçoit une nouvelle revue. La boucle partage les limites d'appels et de temps de la tâche principale, s'arrête après acceptation ou deux corrections consécutives sans amélioration mesurable et propage l'annulation et la révocation des permissions. Les corrections ne répètent aucune action ; une revue interrompue reprend comme incomplète.
+
+Le texte des critiques, les demandes et les instantanés des phases internes ne sont jamais enregistrés de façon durable. Les enregistrements des phases ne conservent que des métadonnées opérationnelles et un résultat vide. Les artefacts privés de reprise conservent le candidat, les critères et les métadonnées des phases selon la rétention existante des exécutions. Les détails du chat, la reprise du flux et les conversations enregistrées n'exposent que l'état d'acceptation, le nombre de revues et de constats non résolus et un motif d'arrêt fini.

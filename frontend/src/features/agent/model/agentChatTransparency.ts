@@ -284,6 +284,28 @@ export const boundedQuality = (value: LooseValue) => {
     };
 };
 
+export type GauntletSummary = {
+    readonly status: 'accepted' | 'stagnated' | 'incomplete';
+    readonly rounds: number;
+    readonly finding_count: number;
+    readonly stop_reason: 'accepted' | 'stagnated' | 'budget' | 'unavailable' | 'invalid_review'
+        | 'interrupted' | 'unverified_evidence' | 'awaiting_confirmation' | 'action_review';
+};
+
+export const boundedGauntlet = (value: LooseValue): GauntletSummary | null => {
+    if (!isRecord(value)) return null;
+    const status = (['accepted', 'stagnated', 'incomplete'] as const).find(item => item === value.status);
+    const stopReason = (['accepted', 'stagnated', 'budget', 'unavailable', 'invalid_review',
+        'interrupted', 'unverified_evidence', 'awaiting_confirmation', 'action_review'] as const).find(item => item === value.stop_reason);
+    if (!status || !stopReason
+        || typeof value.rounds !== 'number' || !Number.isSafeInteger(value.rounds) || value.rounds < 0
+        || typeof value.finding_count !== 'number' || !Number.isSafeInteger(value.finding_count) || value.finding_count < 0) return null;
+    if ((status === 'accepted' && (stopReason !== 'accepted' || value.finding_count !== 0 || value.rounds < 1))
+        || (status === 'stagnated' && stopReason !== 'stagnated')
+        || (status === 'incomplete' && (stopReason === 'accepted' || stopReason === 'stagnated'))) return null;
+    return { status, rounds: value.rounds, finding_count: value.finding_count, stop_reason: stopReason };
+};
+
 export const boundedConflicts = (value: LooseValue) => {
     if (!isRecord(value)) return null;
     const conflicts = isLooseArray(value.conflicts)
@@ -338,6 +360,7 @@ export const boundedTransparencyMetadata = (value: LooseValue) => {
         job: boundedJob(record.job),
         explanation: boundedExplanation(record.explanation),
         quality: boundedQuality(record.quality),
+        gauntlet: boundedGauntlet(record.gauntlet),
         conflicts: boundedConflicts(record.conflicts),
         evidenceSecurity: boundedEvidenceSecurity(
             record.evidence_security || record.evidenceSecurity,

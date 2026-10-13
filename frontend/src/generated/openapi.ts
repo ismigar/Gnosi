@@ -11282,6 +11282,7 @@ export interface components {
             evidence_security?: components["schemas"]["JsonValue"] | null;
             explanation?: components["schemas"]["JsonValue"] | null;
             freshness?: components["schemas"]["JsonValue"] | null;
+            gauntlet?: components["schemas"]["JsonValue"] | null;
             job?: components["schemas"]["JsonValue"] | null;
             plan?: components["schemas"]["JsonValue"] | null;
             privacy?: components["schemas"]["JsonValue"] | null;

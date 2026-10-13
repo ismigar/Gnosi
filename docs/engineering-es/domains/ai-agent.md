@@ -42,6 +42,15 @@ source_paths:
   - backend/domains/configuration/ai/model_parameter_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
+  - backend/services/agent_gauntlet.py
+  - backend/services/agent_gauntlet_models.py
+  - backend/services/agent_gauntlet_policy.py
+  - desktop/scripts/backend_resources.py
+  - backend/services/agent_team_continuation.py
+  - backend/tests/test_agent_team_efficiency.py
+  - backend/tests/test_agent_gauntlet.py
+  - backend/tests/test_agent_gauntlet_presentation.py
+  - frontend/src/features/agent/model/agentChatGauntlet.test.ts
   - backend/tests/test_agent_team.py
   - backend/services/model_reasoning.py
   - backend/services/agent_execution.py
@@ -1677,3 +1686,17 @@ Solo las respuestas de las herramientas pueden aportar evidencia de una confirma
 Cuando hay una única vista guardada activa, las peticiones fuera de la vía literal pueden usar `team.view_edit`: una consulta gobernada al director, con un plazo de 25 segundos, un límite de salida de 1.536 tokens y razonamiento bajo solo si es compatible y no existe otra configuración explícita. La interpretación excluye el contenido de documentos, la memoria personal y la conversación completa. `ViewEditDecision` contiene solo operación, campo de título, ámbito, condición y transformaciones de texto limitadas; no ejecuta código, expresiones regulares, identificadores ni ámbitos más amplios propuestos por el modelo. Las plantillas numéricas conservan `{n}`. Las peticiones que no son ediciones vuelven a la derivación habitual; las propuestas inválidas o ambiguas piden una aclaración.
 
 La propuesta validada `title_edit` permanece en el estado del servidor y selecciona un miembro existente del equipo con herramientas del Vault. El ejecutor resuelve el inventario completo de la vista, comprueba su revisión guardada, calcula localmente los títulos afectados y usa la confirmación nativa y el escritor verificado existentes. Una continuación verificada reutiliza el programa sin más consultas al modelo; un cambio de vista o de tema no lo hereda. Cada mensaje nuevo limpia el estado de una propuesta anterior. Las pruebas con el proveedor real usan datos inventados; las pruebas HTTP sintéticas también comprueban las filas afectadas, las excluidas y que ningún archivo cambie antes de confirmar.
+
+## Revisión automática de calidad del trabajo coordinado
+
+El coordinador clasifica la tarea original antes de ejecutarla. La investigación elaborada, la síntesis y los resultados sustanciales reciben criterios de aceptación fijos y observables. Las transformaciones del chat con salida estructurada y las operaciones de la aplicación pasan por la planificación aunque exista una ruta directa; los contratos JSON solicitados se validan durante la ejecución y la corrección. Las solicitudes nuevas, incluidas las transformaciones cortas de texto incluido en la solicitud, reciben una llamada de planificación del director para clasificar la tarea completa; el trabajo rutinario no añade llamadas de revisión Gauntlet. Solo las solicitudes de estilo acotadas y verificadas sobre un resultado rutinario pueden reutilizar al especialista anterior sin planificación. Los resultados elaborados y los marcadores de continuación antiguos no activan este atajo.
+
+Los receptores configurados para la operación se mantienen después de clasificar la tarea, con selección económica dentro de la ruta asignada. Una alternativa temporal o un resultado guardado no puede ampliar esa ruta; las otras capacidades de las tareas mantienen la selección existente del equipo. Las continuaciones rutinarias guardan el ejecutor del trabajo completado y lo verifican con el artefacto de la tarea dentro del mismo ámbito antes de reutilizarlo.
+
+El manifiesto de datos revisado del backend empaquetado incluye los dos prompts de Gauntlet. La verificación del código fuente y del paquete mantiene el rechazo de recursos inesperados.
+
+Las claves entre comillas se conservan como propiedades JSON literales. Las plantillas JSON explícitas, incluido el código en línea o en bloques después de una instrucción de salida, conservan el tipo raíz, las propiedades internas obligatorias y los tipos de los elementos de las listas. Los valores de ejemplo definen la estructura y no los valores permitidos; las listas vacías no especifican el tipo de sus elementos. Un plan incompatible o una lista explícita de claves ambigua detiene la ejecución antes de construir el resultado y no permite validar un contrato diferente. El mismo esquema validado gobierna la reparación de la salida y la corrección Gauntlet.
+
+Las revisiones Gauntlet utilizan un contexto nuevo con la solicitud original, los criterios fijos, el resultado candidato y las evidencias de las fuentes dentro del ámbito autorizado, sin herramientas ni delegación. Las evidencias ausentes u omitidas producen una verificación incompleta. Una llamada de corrección separada conserva el esquema de salida y recibe una nueva revisión. El bucle comparte los límites de llamadas y tiempo de la tarea principal, termina al aceptar el resultado o después de dos correcciones consecutivas sin mejora medible y propaga la cancelación y la revocación de permisos. Las correcciones no repiten acciones; una revisión interrumpida se reanuda como incompleta.
+
+El texto de las críticas, las solicitudes y las instantáneas de las fases internas no se guardan de forma persistente. Los registros de las fases solo conservan metadatos operativos y un resultado vacío. Los artefactos privados de recuperación conservan el candidato, los criterios y los metadatos de las fases con la retención existente de las ejecuciones. Los detalles del chat, la recuperación del flujo y las conversaciones guardadas solo exponen el estado de aceptación, el número de revisiones y de hallazgos pendientes y un motivo de detención finito.

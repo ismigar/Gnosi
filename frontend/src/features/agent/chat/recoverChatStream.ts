@@ -1,6 +1,6 @@
 import { readChatStreamReplay } from '../../../shared/api/chat-streaming';
 import { boundedTurnMetrics } from '../model/agentChatTiming';
-import { boundedTransparencyMetadata } from '../model/agentChatTransparency';
+import { boundedGauntlet, boundedTransparencyMetadata } from '../model/agentChatTransparency';
 import { isRecord, stringifyLooseValue, type LooseRecord } from '../model/agentChatMessageTypes';
 import { acceptStreamSequence } from './streamSequence';
 import { definedTransparency, lastTurnResponseIndex, type ChatStreamState, type StreamEventContext } from './streamEventModel';
@@ -16,11 +16,11 @@ function applyRecoveredResponse(data: LooseRecord, state: ChatStreamState, conte
     const content = data.type === 'error'
       ? `${t('chat.error_prefix', 'Error')}: ${stringifyLooseValue(data.content || t('errors.unknown', 'Unknown error'))}`
       : typeof data.content === 'string' ? data.content : '';
-    const metadata = definedTransparency(boundedTransparencyMetadata({
+    const metadata = { ...definedTransparency(boundedTransparencyMetadata({
       plan: data.plan, privacy: data.privacy, verification: data.verification, citations: data.citations,
       freshness: data.freshness, job: data.job, explanation: data.explanation, quality: data.quality,
       conflicts: data.conflicts, evidence_security: data.evidence_security,
-    }));
+    })), ...(data.gauntlet !== undefined ? { gauntlet: boundedGauntlet(data.gauntlet) } : {}) };
     if (index < 0) return [...previous, { role: 'assistant', content, turnId, llm: state.model, ...metadata }];
     return previous.map((message, itemIndex) => itemIndex === index ? { ...message, content, turnId, ...metadata } : message);
   });

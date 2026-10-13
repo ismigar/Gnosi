@@ -81,6 +81,27 @@ describe('typed stream event processing', () => {
     expect(f.messages()).toHaveLength(2); expect(f.messages()[1]).toMatchObject({ content: 'Answer 🧠', turnId: 'turn', plan: { mode: 'read' }, privacy: { classification: 'private' }, verification: { status: 'verified' }, explanation: { evidence_count: 2 } });
     expect(f.state.responseReceived).toBe(true);
   });
+  it('keeps only bounded review summaries and replaces stale acceptance on later events', () => {
+    const f = fixture();
+    const accepted = { status: 'accepted', rounds: 1, finding_count: 0, stop_reason: 'accepted' };
+    f.send({ type: 'message', sequence: 1, content: 'Answer', gauntlet: { ...accepted, findings: ['PRIVATE-REVIEW'] } });
+    expect(f.messages()[0]?.gauntlet).toEqual(accepted);
+    expect(JSON.stringify(f.messages())).not.toContain('PRIVATE-REVIEW');
+    const incomplete = { status: 'incomplete', rounds: 2, finding_count: 1, stop_reason: 'budget' };
+    f.send({ type: 'message', sequence: 2, content: 'Updated answer', gauntlet: incomplete });
+    expect(f.messages()[0]?.gauntlet).toEqual(incomplete);
+    f.send({ type: 'message', sequence: 3, gauntlet: { ...accepted, stop_reason: 'unknown' } });
+    expect(f.messages()[0]?.gauntlet).toBeNull();
+    expect(f.messages()).toHaveLength(1);
+  });
+  it('attaches incomplete action review to the confirmation message without private review contents', () => {
+    const f = fixture();
+    const summary = { status: 'incomplete', rounds: 0, finding_count: 0, stop_reason: 'action_review' };
+    f.send({ type: 'confirmation_required', confirmation_id: 'action',
+      gauntlet: { ...summary, candidate: 'PRIVATE-REVIEW' }, details: { body: 'Review this action' } });
+    expect(f.messages()[0]).toMatchObject({ gauntlet: summary, confirmation: { confirmation_id: 'action', details: { body: 'Review this action' } } });
+    expect(JSON.stringify(f.messages())).not.toContain('PRIVATE-REVIEW');
+  });
   it('keeps confirmations scoped, deduplicated and unsanitized for live review', () => {
     const f = fixture(); const action = { type: 'confirmation_required', confirmation_id: 'action', details: { body: 'Full review body', updates: [{ from: 'before', to: 'after' }] } };
     f.send(action); f.send({ ...action, details: { body: 'Updated review' } });

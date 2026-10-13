@@ -1,8 +1,9 @@
 """Explicit, additive contracts for governed agent teams."""
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from backend.services.agent_gauntlet_models import GauntletPlan
 
 TeamRole = Literal["director", "allrounder", "documentalist", "expert", "administrative", "worker"]
 TEAM_SKILL = "core.gnosi-coordination"
@@ -78,7 +79,7 @@ class TeamTask(BaseModel):
     agent_id: str = Field(default="", description="Exact available member ID from the capability catalog; empty only with an allowed temporary specialist.")
     objective: str = Field(min_length=1, max_length=8000)
     expected_result: str = Field(default="Satisfy the original output contract", max_length=4000)
-    acceptance: list[str] = Field(default_factory=list, max_length=8)
+    acceptance: list[Annotated[str, Field(min_length=1, max_length=1000)]] = Field(default_factory=list, max_length=8)
     skill_ids: list[str] = Field(min_length=1, max_length=32)
     depends_on: list[str] = Field(default_factory=list, max_length=3,
         description="Only IDs of earlier tasks; never this task's own ID. Use [] for a standalone task.")
@@ -107,6 +108,8 @@ class TeamOutputContract(BaseModel):
 
 class TeamPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    quality: GauntletPlan = Field(default_factory=GauntletPlan,
+        description="Classify the original task before execution. Use elaborate for research, multi-source synthesis, substantive creation or multi-step judgment, with fixed observable acceptance criteria; routine for simple transformations, lookups and dialogue.")
     operation: str = Field(default="", max_length=128,
         description="First identify the requested application_operation from the capability catalog. Empty only for dialogue or a custom capability without an application operation.")
     response_kind: Literal["", "greeting", "clarification", "conversation", "unavailable"] = "conversation"

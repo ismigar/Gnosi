@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { boundedChatSessions, createChatSession, deriveSessionTitle } from './sessionModel';
+import { hydrateChatMessages } from './liveConversationModel';
+import { parseStoredSessions } from './sessionRestore';
 
 describe('agent chat session persistence model', () => {
   it('retains the 20 most recently updated sessions and preserves unknown historical fields', () => {
@@ -38,6 +40,19 @@ describe('agent chat session persistence model', () => {
   it('handles malformed storage without mutating it', () => {
     expect(boundedChatSessions({ sessions: [] })).toEqual([]);
     expect(boundedChatSessions([null, 'bad', {}, { id: 'valid', messages: null }])).toMatchObject([{ id: 'valid', messages: [] }]);
+  });
+
+  it('roundtrips only bounded quality review metadata through storage and conversation restoration', () => {
+    const summary = { status: 'stagnated', rounds: 3, finding_count: 1, stop_reason: 'stagnated' };
+    const message = { role: 'assistant', content: 'Answer', turnId: 'turn', gauntlet: {
+      ...summary, findings: ['PRIVATE-FINDING'], candidate: 'PRIVATE-ANSWER', request: 'PRIVATE-REQUEST',
+    } };
+    const serialized = JSON.stringify(boundedChatSessions([{ id: 'session', messages: [message] }]));
+    const restored = boundedChatSessions(parseStoredSessions(serialized))[0]?.messages ?? [];
+    expect(restored[0]?.gauntlet).toEqual(summary);
+    expect(serialized).not.toContain('PRIVATE-');
+    expect(hydrateChatMessages([{ role: 'assistant', content: 'Answer', turn_id: 'turn' }], restored)[0]?.gauntlet).toEqual(summary);
+    expect(hydrateChatMessages([], restored, true)[0]?.gauntlet).toEqual(summary);
   });
 
   it('creates the legacy session shape with injectable identity and clock', () => {

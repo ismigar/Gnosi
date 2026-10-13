@@ -965,6 +965,16 @@
               }
             ]
           },
+          "gauntlet": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "job": {
             "anyOf": [
               {

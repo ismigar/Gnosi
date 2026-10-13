@@ -42,6 +42,15 @@ source_paths:
   - backend/domains/configuration/ai/model_parameter_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
+  - backend/services/agent_gauntlet.py
+  - backend/services/agent_gauntlet_models.py
+  - backend/services/agent_gauntlet_policy.py
+  - desktop/scripts/backend_resources.py
+  - backend/services/agent_team_continuation.py
+  - backend/tests/test_agent_team_efficiency.py
+  - backend/tests/test_agent_gauntlet.py
+  - backend/tests/test_agent_gauntlet_presentation.py
+  - frontend/src/features/agent/model/agentChatGauntlet.test.ts
   - backend/tests/test_agent_team.py
   - backend/services/model_reasoning.py
   - backend/services/agent_execution.py
@@ -1500,3 +1509,17 @@ Only tool responses can supply native confirmation evidence to team aggregation 
 When a unique saved view is active, requests outside the literal fast path can use `team.view_edit`: one governed director call with a 25-second deadline, a 1,536-token output limit, and low reasoning only when supported and not explicitly configured otherwise. The parsing snapshot excludes document contents, personal memory and the full conversation. Its `ViewEditDecision` contains only an operation, title field, view scope, condition and bounded text transformations; model-generated code, regular expressions, IDs and wider scopes are not executable. Numerical templates preserve `{n}`. Non-editing requests return to ordinary routing, while invalid or ambiguous proposals stop with clarification.
 
 A validated `title_edit` stays in server graph state and selects an existing Vault-capable team member. That executor resolves the complete view inventory, checks the saved view revision, computes changed titles locally and uses the existing native confirmation and verified writer. A verified continuation can reuse the program with zero further model calls; a changed view or topic cannot inherit it. Every chat input clears stale proposal state. Real-provider interpretation tests use invented data; synthetic HTTP tests also verify all affected rows, excluded rows and files remaining unchanged before confirmation.
+
+## Automatic quality review for coordinated work
+
+The coordinator classifies the original task before execution. Elaborate research, synthesis and substantive deliverables receive fixed, observable acceptance criteria. Structured chat transformations and application operations pass through planning even when a direct route exists; requested JSON contracts are validated during execution and correction. New requests, including short inline transformations, receive a director planning call to classify the complete task; routine work adds no Gauntlet review calls. Only verified, narrowly defined style follow-ups to a routine result can reuse their prior specialist without planning. Elaborate results and legacy continuation markers cannot seed this shortcut.
+
+Configured operation receivers remain enforced after classification, with economic selection inside the assigned route. Temporary fallback and cached results cannot widen that route; other task capabilities retain their existing team selection. Routine continuations record the completed executor and verify it against the scoped task artifact before reuse.
+
+The frozen backend's reviewed data manifest includes both Gauntlet prompts. Source and bundle verification retain their rejection of unexpected resources.
+
+Quoted key names are preserved as literal JSON properties. Explicit JSON templates, including inline and fenced code after an output instruction, preserve their root type, required nested properties and array item types. Example values define shape rather than allowed values; empty arrays leave item types unspecified. An incompatible plan or an ambiguous explicit key list stops before execution instead of permitting a different contract. The same validated schema governs output repair and Gauntlet correction.
+
+Gauntlet reviews use a fresh context containing the original request, frozen criteria, candidate and scoped source evidence, with tools and delegation disabled. Missing or omitted evidence produces incomplete verification. A separate correction call preserves the output schema, followed by a fresh review. The loop shares the parent's call and time budgets, stops after acceptance or two consecutive corrections without measurable progress, and propagates cancellation and revoked authority. Actions are never replayed by a correction; an interrupted review resumes as incomplete.
+
+Critique text and internal phase prompts and snapshots are never persisted. Child run records retain only operational metadata and an empty result. Scoped recovery artifacts retain the candidate, criteria and phase metadata under existing run retention. Chat details, stream recovery and saved conversations expose only acceptance status, review count, unresolved finding count and a finite stop reason.
