@@ -1134,6 +1134,7 @@
     "synced_block_subtext": "Contenido compartido entre páginas (bidireccional)",
     "toc": "Índice de contenidos",
     "toc_subtext": "Genera el índice a partir de los encabezados",
+    "transclusion_conflict": "La nota original ha cambiado. Tus cambios siguen en el editor; abre la nota original para revisarlos.",
     "transclusion": "Transclusión",
     "transclusion_alias_placeholder": "Nombre de nota#Apartado|Alias",
     "transclusions_group": "Transclusiones",

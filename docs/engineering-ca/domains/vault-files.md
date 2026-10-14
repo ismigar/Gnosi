@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-13
+last_verified: 2026-10-14
 source_paths:
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -140,6 +140,8 @@ La gramàtica admet frases entre cometes, AND implícit o explícit, OR, NOT, ne
 El diàleg de cerca global i els blocs Markdown `query`/`search` comparteixen API i paginació. L’editor visual ofereix un bloc de consulta. La identitat de la petició inclou Vault, espai de treball i usuari; canviar qualsevol àmbit esborra els resultats visibles i rebutja les respostes pendents. El Markdown públic no executa consultes al Vault. Els marcadors agrupats són locals al compte/espai de treball/Vault del dispositiu i admeten pàgines, referències a encapçalaments o blocs, consultes, rutes de graf i enllaços HTTP(S).
 
 Les transclusions mostren Markdown enriquit complet per a `![[note]]`, encapçalaments i referències de bloc. Comparteixen els enllaços i recursos amb la previsualització Markdown, conserven els exemples literals, s’actualitzen amb l’origen i indiquen els destins absents o buits. Una comprovació d’ancestres per branca i un límit de profunditat eviten la recursió. Les lectures fixen el context capturat i descarten respostes obsoletes. Compartir una pàgina públicament no autoritza lectures de transclusions privades.
+
+A l’editor de blocs, les transclusions mostren un document complet editable i desen automàticament a la nota original després de 700 ms. L’edició d’encapçalaments i blocs només substitueix el cos seleccionat, conservant les referències i la resta del contingut. Les peticions PATCH només envien el contingut amb la versió original i el context capturat; els conflictes aturen el desament i conserven l’esborrany local. L’accés de només lectura desactiva l’edició. Les transclusions editables mantenen l’editor després dels esdeveniments de desament i desactiven l’actualització manual per evitar perdre un esborrany.
 
 Els enllaços i les imatges de referència de transclusions d’encapçalament o bloc conserven les definicions de la nota completa. El compositor utilitza etiquetes de referència diferents per al contingut mogut i el de destí, preservant cada enllaç i el text entre claudàtors que abans era literal.
 

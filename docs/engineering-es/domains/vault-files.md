@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-13
+last_verified: 2026-10-14
 source_paths:
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -140,6 +140,8 @@ La gramática admite frases entre comillas, AND implícito o explícito, OR, NOT
 El diálogo de búsqueda global y los bloques Markdown `query`/`search` comparten API y paginación. El editor visual ofrece un bloque de consulta. La identidad de la petición incluye Vault, espacio de trabajo y usuario; cambiar cualquier ámbito borra los resultados visibles y rechaza respuestas pendientes. El Markdown público no ejecuta consultas al Vault. Los marcadores agrupados son locales a la cuenta/espacio de trabajo/Vault del dispositivo y admiten páginas, referencias a encabezados o bloques, consultas, rutas del grafo y enlaces HTTP(S).
 
 Las transclusiones muestran Markdown enriquecido completo para `![[note]]`, encabezados y referencias de bloque. Comparten enlaces y recursos con la previsualización Markdown, conservan ejemplos literales, se actualizan con el origen e indican destinos ausentes o vacíos. Una comprobación de ancestros por rama y un límite de profundidad evitan la recursión. Las lecturas fijan el contexto capturado y descartan respuestas obsoletas. Compartir una página públicamente no autoriza lecturas de transclusiones privadas.
+
+En el editor de bloques, las transclusiones muestran un documento completo editable y guardan automáticamente en la nota original después de 700 ms. La edición de títulos y bloques sustituye únicamente el cuerpo seleccionado, conservando las referencias y el resto del contenido. Las peticiones PATCH solo envían el contenido con la versión original y el contexto capturado; los conflictos detienen el guardado y conservan el borrador local. El acceso de solo lectura desactiva la edición. Las transclusiones editables mantienen el editor tras los eventos de guardado y desactivan la actualización manual para evitar perder un borrador.
 
 Los enlaces e imágenes de referencia de transclusiones de encabezado o bloque conservan las definiciones de la nota completa. El compositor utiliza etiquetas de referencia diferentes para el contenido movido y el de destino, preservando cada enlace y el texto entre corchetes que antes era literal.
 
