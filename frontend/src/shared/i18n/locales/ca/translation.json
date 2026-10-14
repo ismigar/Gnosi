@@ -1134,6 +1134,7 @@
     "synced_block_subtext": "Contingut compartit entre pàgines (bidireccional)",
     "toc": "Índex de continguts",
     "toc_subtext": "Genera l'índex a partir dels encapçalaments",
+    "transclusion_conflict": "La nota original ha canviat. Els teus canvis continuen a l’editor; obre la nota original per revisar-los.",
     "transclusion": "Transclusió",
     "transclusion_alias_placeholder": "Nom de nota#Apartat|Àlies",
     "transclusions_group": "Transclusions",

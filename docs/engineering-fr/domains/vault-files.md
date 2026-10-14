@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-13
+last_verified: 2026-10-14
 source_paths:
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -140,6 +140,8 @@ La grammaire accepte les phrases entre guillemets, AND implicite ou explicite, O
 Le dialogue de recherche globale et les blocs Markdown `query`/`search` partagent API et pagination. L’éditeur visuel propose un bloc de requête. L’identité de la requête comprend Vault, espace de travail et utilisateur ; tout changement de périmètre efface les résultats visibles et rejette les réponses en cours. Le Markdown public n’exécute pas de requêtes au Vault. Les favoris regroupés sont locaux au compte/espace de travail/Vault de l’appareil et acceptent pages, références de titres ou blocs, requêtes, routes de graphe et liens HTTP(S).
 
 Les transclusions affichent le Markdown enrichi complet pour `![[note]]`, les titres et références de bloc. Elles partagent liens et ressources avec l’aperçu Markdown, préservent les exemples littéraux, se rafraîchissent avec la source et signalent les destinations absentes ou vides. Une vérification des ancêtres par branche et une profondeur limitée empêchent la récursion. Les lectures fixent le contexte capturé et ignorent les réponses périmées. Le partage public d’une page n’autorise pas la lecture de transclusions privées.
+
+Dans l’éditeur de blocs, les transclusions affichent un document complet modifiable et enregistrent automatiquement la note originale après 700 ms. La modification des titres et blocs remplace uniquement le corps sélectionné en conservant les références et le reste du contenu. Les requêtes PATCH envoient uniquement le contenu avec la version originale et le contexte capturé ; les conflits suspendent l’enregistrement et conservent le brouillon local. L’accès en lecture seule désactive la modification. Les transclusions modifiables conservent leur éditeur après les événements d’enregistrement et désactivent l’actualisation manuelle pour éviter de perdre un brouillon.
 
 Les liens et images de référence des transclusions de titre ou de bloc conservent les définitions de la note complète. Le compositeur utilise des libellés de référence distincts pour le contenu déplacé et la destination, préservant chaque lien et le texte entre crochets auparavant littéral.
 

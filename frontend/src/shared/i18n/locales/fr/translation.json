@@ -4112,6 +4112,7 @@
     "synced_block_subtext": "Contenu partagé entre pages (bidirectionnel)",
     "toc": "Table des matières",
     "toc_subtext": "Génère l'index à partir des titres",
+    "transclusion_conflict": "La note originale a changé. Vos modifications restent dans l’éditeur ; ouvrez la note originale pour les examiner.",
     "transclusion": "Transclusion",
     "transclusion_alias_placeholder": "Nom de note#Section|Alias",
     "transclusions_group": "Transclusions",
