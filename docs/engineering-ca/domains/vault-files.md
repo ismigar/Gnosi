@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-08
+last_verified: 2026-10-13
 source_paths:
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -35,7 +35,16 @@ source_paths:
   - frontend/src/shared/records
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
+  - backend/domains/vault/search
+  - frontend/src/shared/bookmarks
 tests:
+  - backend/tests/test_vault_content_search.py
+  - backend/tests/test_page_save_concurrency.py
+  - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
+  - frontend/src/shared/api/vault-search.test.ts
+  - frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx
+  - frontend/src/shared/bookmarks/bookmarks.test.ts
+  - tests/e2e/tests/disposable/knowledge-parity.spec.ts
   - frontend/src/features/vault/dashboard/Dashboard.document-controls.test.tsx
   - frontend/src/features/vault/navigation/VaultShell.test.tsx
 
@@ -119,6 +128,26 @@ tests:
 # Vault i fitxers
 
 L’autoguardat serialitza les escriptures de pàgina dins del client web. Una versió obsoleta retorna un conflicte (409), no un error de pàgina inexistent (404), encara que la lectura condicional ometi el cos. Les pàgines inexistents continuen retornant 404; els conflictes no sobreescriuen silenciosament contingut més recent.
+
+Les desades completes amb PUT conserven la detecció inicial de conflictes i tornen a resoldre la pàgina i l’ETag després d’adquirir el bloqueig d’escriptura. Una desada o un canvi de nom concurrent no pot sobreescriure una versió més recent mentre espera el bloqueig. Una desada condicional també rebutja una pàgina eliminada durant l’espera.
+
+## Cerca de contingut complet i composició
+
+`GET /api/vault/search` llegeix els cossos Markdown complets, títols, àlies, etiquetes i propietats del Vault actiu autoritzat. Exclou fitxers ocults, historial, paperera, taulers i rutes que es resolen fora del Vault. Els resultats inclouen fragments de context, línia d’origen, total i paginació estable (50 per defecte, màxim 100). Les desades actualitzen la memòria cau de contingut existent; els canvis externs segueixen la invalidació existent per observador/TTL.
+
+La gramàtica admet frases entre cometes, AND implícit o explícit, OR, NOT, negació amb menys, parèntesis i expressions regulars amb indicadors `i`, `m`, `s`. Els camps són `title`, `path`, `file`, `tag`, `is`, `content`, `line`, `block`, `section`, `task`, `task-todo` i `task-done`; `[name]` i `[name:value]` consulten les metadades inicials. La coincidència literal ignora majúscules i accents. Les etiquetes literals conserven els límits jeràrquics dins dels grups. Els límits dels tokens CommonMark distingeixen seccions, blocs i tasques dels exemples de codi. La mida, la profunditat, les expressions regulars i el temps total tenen límits explícits; les consultes invàlides o massa costoses retornen 422. Aquesta cerca textual determinista és independent de la cerca semàntica i dels sistemes de recuperació dels quaderns.
+
+El diàleg de cerca global i els blocs Markdown `query`/`search` comparteixen API i paginació. L’editor visual ofereix un bloc de consulta. La identitat de la petició inclou Vault, espai de treball i usuari; canviar qualsevol àmbit esborra els resultats visibles i rebutja les respostes pendents. El Markdown públic no executa consultes al Vault. Els marcadors agrupats són locals al compte/espai de treball/Vault del dispositiu i admeten pàgines, referències a encapçalaments o blocs, consultes, rutes de graf i enllaços HTTP(S).
+
+Les transclusions mostren Markdown enriquit complet per a `![[note]]`, encapçalaments i referències de bloc. Comparteixen els enllaços i recursos amb la previsualització Markdown, conserven els exemples literals, s’actualitzen amb l’origen i indiquen els destins absents o buits. Una comprovació d’ancestres per branca i un límit de profunditat eviten la recursió. Les lectures fixen el context capturat i descarten respostes obsoletes. Compartir una pàgina públicament no autoritza lectures de transclusions privades.
+
+Els enllaços i les imatges de referència de transclusions d’encapçalament o bloc conserven les definicions de la nota completa. El compositor utilitza etiquetes de referència diferents per al contingut mogut i el de destí, preservant cada enllaç i el text entre claudàtors que abans era literal.
+
+L’editor de codi utilitza CodeMirror per al ressaltat Markdown, seleccions múltiples, entrada Vim opcional i previsualització. Conserva el traspàs de pàgina, la lectura sola i les desades ordenades. Les dreceres, els temes amb nom i els fragments CSS es configuren a Configuració; els fragments rebutgen recursos de xarxa i el mode d’aparença segur permet recuperar la interfície. Vegeu els [contractes dels connectors](integrations-plugins.md) per a substitució de seleccions i cerca amb permisos.
+
+El compositor de notes previsualitza l’extracció a una nota nova o la fusió en una d’existent. El pla inclou els enllaços entrants afectats i les versions exactes dels fitxers. L’aplicació adquireix bloquejos de pàgina ordenats, torna a comprovar les versions, conserva historial i fitxers auxiliars i reverteix els canvis si falla. L’extracció deixa una transclusió a l’origen. Es rebutgen sessions de col·laboració actives i enllaços absoluts ambigus per evitar moviments incoherents. La revisió es tanca i amaga el contingut si canvien el compte, l’espai de treball o el Vault actius, també des d’una altra pestanya. Les desades i respostes pendents no poden aplicar l’operació revisada en el context nou.
+
+Les targetes de pàgina del canvas admeten edició explícita i desades condicionals. Els esborranys es conserven en memòria quan una disposició desmunta un dibuix, limitats al compte, espai de treball, Vault i pàgina. Abans de tancar l’aplicació cal desar-los. La importació/exportació JSON Canvas conserva nodes, arestes i metadades personalitzades compatibles; rebutja explícitament estructures no compatibles i no copia recursos. Les disposicions desades restauren pestanyes de notes, dibuixos, PDF i EPUB, document actiu, posició del lector i geometria dels panells després de validar els destins.
 
 Es pot retirar del registre un àlies inactiu si una altra entrada del mateix espai de treball conserva la carpeta. L’eliminació fa servir la mateixa identitat seleccionada que el catàleg i continua protegint l’entrada activa i l’última entrada del vault principal. Retirar una entrada compartida conserva la carpeta, les bases de dades locals, les memòries cau i l’índex de fitxers; no es permet esborrar els fitxers mentre un altre vault registrat faci servir la mateixa ruta, encara que pertanyi a un altre espai de treball.
 

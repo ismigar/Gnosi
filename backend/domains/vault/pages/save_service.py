@@ -68,19 +68,13 @@ def _copy_request_metadata(request: PageSaveRequest) -> Metadata:
     return copied_metadata
 
 
-async def save_page(
+def _check_save_etag(
     page_id: str,
     request: PageSaveRequest,
-    background_tasks: BackgroundTasks,
-    user_id: str | None,
+    file_path: Path | None,
     dependencies: SavePageDependencies,
-) -> dict[str, object]:
-    """Save a complete page while preserving optimistic concurrency."""
-    file_path = await asyncio.to_thread(
-        dependencies.find_page,
-        page_id,
-        allow_full_scan=False,
-    )
+) -> None:
+    """Reject a stale save without modifying the page or its metadata."""
     if file_path and file_path.exists() and request.expected_etag and not request.force:
         current_etag = dependencies.file_etag(file_path)
         if current_etag and current_etag != request.expected_etag:
@@ -104,7 +98,41 @@ async def save_page(
                 },
             )
 
+
+async def save_page(
+    page_id: str,
+    request: PageSaveRequest,
+    background_tasks: BackgroundTasks,
+    user_id: str | None,
+    dependencies: SavePageDependencies,
+) -> dict[str, object]:
+    """Save a complete page while preserving optimistic concurrency."""
+    file_path = await asyncio.to_thread(
+        dependencies.find_page,
+        page_id,
+        allow_full_scan=False,
+    )
+    _check_save_etag(page_id, request, file_path, dependencies)
+
     async with await dependencies.get_page_write_lock(page_id):
+        if request.expected_etag and not request.force:
+            # Another writer may save or rename the page while we wait for its lock.
+            file_path = await asyncio.to_thread(
+                dependencies.find_page,
+                page_id,
+                allow_full_scan=False,
+            )
+            if file_path is None or not file_path.exists():
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "error": "etag_mismatch",
+                        "message": "The note is no longer available. Reload before saving.",
+                        "current_etag": None,
+                        "expected_etag": request.expected_etag,
+                    },
+                )
+            _check_save_etag(page_id, request, file_path, dependencies)
         metadata, table = dependencies.prepare_metadata(
             _copy_request_metadata(request),
             file_path,

@@ -8,9 +8,12 @@ import { buildImageValue } from '../../../../../shared/resources/fileResource';
 import { parseImageField } from '../../../../../shared/resources/fileResource';
 import { servedUrlToVaultPath } from '../../../../../shared/resources/fileResource';
 import type { PageEditorController } from './usePageEditorController';
+import { NoteComposerModal } from './NoteComposerModal';
 export function PageModals({ context }: { context: PageEditorController }) {
   const { noteFilename, isHistoryOpen, setIsHistoryOpen, isPageViewModalOpen, setIsPageViewModalOpen, pageViewEditingBlock, setPageViewPreselectedTable, setPageViewEditingBlock, applyViewSectionRef, setViewSectionNonce, onRefreshNotes, allTables, pageViewPreselectedTable, isIconPickerOpen, setIsIconPickerOpen, handleMetaChange, propertyMetadata: metadata, iconTriggerRef, isCoverPickerOpen, setIsCoverPickerOpen, coverTriggerRef, isMetadataLookupOpen, setIsMetadataLookupOpen, imagePickerProp, rawTableId, setImagePickerProp } = context;
-  return (<><PageHistory pageId={noteFilename} open={isHistoryOpen} onClose={() => { setIsHistoryOpen(false); }} onRestore={() => { window.location.reload(); }} />
+  return (<>{context.composerOpen && <NoteComposerModal sourceId={noteFilename} idToTitle={context.idToTitle}
+    flush={context.flushForComposer} onFlushed={context.lockComposer} onClose={context.closeComposer} onApplied={context.finishComposition} />}
+    <PageHistory pageId={noteFilename} open={isHistoryOpen} onClose={() => { setIsHistoryOpen(false); }} onRestore={() => { window.location.reload(); }} />
     <PageViewModal
       isOpen={isPageViewModalOpen}
       onClose={(changed, sectionData) => {

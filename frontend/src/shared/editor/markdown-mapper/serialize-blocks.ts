@@ -205,6 +205,11 @@ function serializeStandardBlock(
         }
         case 'codeBlock':
             return `\`\`\`${legacyStringOrEmpty(props.language)}\n${codeBlockText(block)}\n\`\`\``;
+        case 'query': {
+            const query = legacyStringOrEmpty(props.query);
+            const fence = '`'.repeat(Math.max(3, ...[...query.matchAll(/`+/gu)].map(match => match[0].length + 1)));
+            return `${fence}query\n${query}\n${fence}`;
+        }
         case 'horizontalRule':
         case 'divider':
             return '---';

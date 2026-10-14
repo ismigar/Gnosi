@@ -57,6 +57,31 @@ async function advance(milliseconds: number) { await act(async () => { await vi.
 async function flush() { await act(async () => { await Promise.resolve(); }); }
 
 describe('rich editor persistence', () => {
+    it('registers a flush that persists pending edits before a Composer operation without a later debounce', async () => {
+        const registerSave = vi.fn<(flush: (() => Promise<boolean>) | null) => void>();
+        const view = fixture({ registerSave });
+        const flushSave = registerSave.mock.calls[0]?.[0];
+        view.edit('Move this');
+        let saved = false;
+        await act(async () => { saved = await flushSave?.() ?? false; });
+        expect(saved).toBe(true);
+        expect(patch).toHaveBeenCalledOnce();
+        await advance(3000);
+        expect(patch).toHaveBeenCalledOnce();
+        view.unmount();
+        expect(registerSave).toHaveBeenLastCalledWith(null);
+    });
+    it('does not approve Composer after an unsuccessful flush or keep a retry queued', async () => {
+        const registerSave = vi.fn<(flush: (() => Promise<boolean>) | null) => void>();
+        const view = fixture({ registerSave });
+        view.edit();
+        patch.mockRejectedValue(new GnosiApiError(new Response('{}', { status: 503 }), {}));
+        let saved = true;
+        await act(async () => { saved = await registerSave.mock.calls[0]?.[0]?.() ?? false; });
+        expect(saved).toBe(false);
+        await advance(10000);
+        expect(patch).toHaveBeenCalledOnce();
+    });
     it('does not save on open/close and unsubscribes either supported listener contract', async () => {
         const view = fixture({}, true); await advance(800); view.unmount();
         expect(patch).not.toHaveBeenCalled(); expect(view.unsubscribe).toHaveBeenCalledOnce();

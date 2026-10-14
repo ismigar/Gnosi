@@ -18,6 +18,7 @@ import {
 } from './tldraw-editor/tldrawEditorTypes';
 import { useTldrawHandwriting } from './tldraw-editor/useTldrawHandwriting';
 import { useTldrawPageCards } from './tldraw-editor/useTldrawPageCards';
+import { useJsonCanvasIO } from './json-canvas/useJsonCanvasIO';
 import { useTldrawPersistence } from './tldraw-editor/useTldrawPersistence';
 
 export default function TldrawEditor({
@@ -33,6 +34,7 @@ export default function TldrawEditor({
     const [store] = useState(() => createTLStore({
         shapeUtils: CANVAS_SHAPE_UTILS,
     }));
+    const rawEditorRef = useRef<Editor | null>(null);
     const editorRef = useRef<CanvasEditor | null>(null);
     const wrapperRef = useRef<HTMLDivElement | null>(null);
     const [penOnly, setPenOnly] = useState(false);
@@ -46,6 +48,7 @@ export default function TldrawEditor({
         store,
         title,
     });
+    const canvasIO = useJsonCanvasIO(rawEditorRef, allNotes, title, persistence.save);
     const pageCards = useTldrawPageCards({
         allNotes,
         cardsEnabled,
@@ -56,6 +59,7 @@ export default function TldrawEditor({
     const handwriting = useTldrawHandwriting({ editorRef });
 
     const onEditorMount = (editor: Editor): void => {
+        rawEditorRef.current = editor;
         editorRef.current = canvasEditorFrom(editor);
     };
 
@@ -69,6 +73,8 @@ export default function TldrawEditor({
             loadState={persistence.loadState}
             onClose={onClose}
             onEditorMount={onEditorMount}
+            onImportCanvas={canvasIO.importFile}
+            onExportCanvas={canvasIO.exportFile}
             onOpenPage={onOpenPage}
             onRecognize={handwriting.recognize}
             onSearchSelect={pageCards.insertFromSearch}

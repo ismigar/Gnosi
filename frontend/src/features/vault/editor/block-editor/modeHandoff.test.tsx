@@ -7,6 +7,8 @@ import { blocksToRichMarkdown } from '../../../../shared/editor/markdown-mapper'
 import { MarkdownCodeEditor } from './MarkdownCodeEditor';
 import { useInitialDocument, type InitialDocumentOptions } from './useInitialDocument';
 import { createEditorSchema, type PartialEditorBlock } from './schema';
+import { markdownView, replaceMarkdown, mockCodeMirrorLayout } from '../../../../../tests/helpers/codemirror';
+mockCodeMirrorLayout();
 import type { VaultEditorContextValue } from '../../../../shared/editor/VaultEditorContext';
 
 vi.mock(import('../../../../shared/api/vaults'), async importOriginal => ({ ...await importOriginal(), patchVaultPage: vi.fn() }));
@@ -40,11 +42,9 @@ describe('Markdown to visual mode handoff', () => {
         let resolve: ((value: Awaited<ReturnType<typeof patchVaultPage>>) => void) | undefined;
         vi.mocked(patchVaultPage).mockReturnValue(new Promise(done => { resolve = done; }));
         const view = mountTestComponent(<ModeSwitch />);
-        const textarea = view.container.querySelector('textarea'); const button = view.container.querySelector('button');
-        if (!textarea || !button) throw new Error('Missing mode fixture controls');
-        const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
-        if (!descriptor?.set) throw new Error('Missing textarea setter');
-        act(() => { descriptor.set?.call(textarea, '# New section\n\nUnsaved draft'); textarea.dispatchEvent(new Event('input', { bubbles: true })); });
+        const editor = markdownView(view.container); const button = view.container.querySelector('button');
+        if (!button) throw new Error('Missing mode fixture control');
+        replaceMarkdown(editor, '# New section\n\nUnsaved draft');
         await act(async () => { button.click(); await Promise.resolve(); });
         expect(view.container.querySelector('[aria-label="Parent document"]')?.textContent).toBe('Original');
         expect(view.container.querySelector('[aria-label="Visual document"]')?.textContent).toBe('# New section\n\nUnsaved draft');

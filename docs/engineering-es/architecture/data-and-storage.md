@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-10-01
+last_verified: 2026-10-13
 source_paths:
+  - backend/migrations/alembic/versions/management_0006.py
+  - backend/domains/vault/publishing/models.py
+  - frontend/src/shared/offline
   - backend/services/plugin_fields.py
   - backend/domains/llm_wiki/brain_fields.py
   - backend/config/paths_config.py
@@ -12,6 +15,7 @@ source_paths:
   - backend/services/reference_table_config.py
   - backend/services/reference_config_migration.py
 tests:
+  - backend/tests/test_publication_migration.py
   - backend/tests/test_plugin_required_fields.py
   - backend/tests/test_auto_provisioned_migration.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -166,3 +170,9 @@ Las variables del proceso tienen prioridad sobre el `.env` local de Gnosi. El
 archivo compartido solo se carga si `GNOSI_SHARED_ENV_FILE` lo indica explícitamente
 y es de solo lectura para la app. Las credenciales gestionadas por la interfaz van
 al gestor del sistema, con alternativa cifrada bajo `GNOSI_DATA_DIR/secrets`.
+
+## Instantáneas publicadas y copias cifradas sin conexión
+
+La revisión de gestión `mgmt_0006` añade `publication_previews`, `publication_sites` y `publication_revisions` mediante el proceso de migración protegido. Las tablas anteriores y las huellas históricas revisadas se conservan. Las vistas previas caducan; una revisión confirmada guarda su instantánea Markdown pública, independiente de los cambios posteriores del origen. La propiedad incluye cuenta, espacio de trabajo y Vault. La revocación impide nuevas lecturas del servidor; no puede retirar copias ya descargadas por un visitante.
+
+El complemento sin conexión guarda una colección cifrada con contraseña por perfil de navegador en IndexedDB. Incluye notas de texto seleccionadas y estado de versiones y conflictos. Cada guardado utiliza cifrado autenticado con un IV nuevo y comprobación atómica de versión local. Claves y datos descifrados permanecen en memoria hasta el bloqueo. Perder la contraseña o borrar los datos del navegador puede hacer perder cambios no sincronizados; la colección no es una copia de seguridad ni cifrado de extremo a extremo del servidor.

@@ -108,7 +108,9 @@ describe('calendar page controller', () => {
         expect(updateCalendarColors).toHaveBeenCalledWith({Appointments: '#123456'});
         await run(async () => { await page().setDefaultCalendar('caldav@example.test'); });
         expect(updateDefaultCalendar).toHaveBeenCalledWith('caldav@example.test');
-        expect(page().defaultCalendarId).toBe('caldav@example.test');
+        expect(page().calendarConfigs.find(config => config.id === page().defaultCalendarId)).toMatchObject({
+            source: 'caldav@example.test', account: 'caldav@example.test', provider: 'caldav', google_calendar_id: 'primary',
+        });
         expect(page().remindersLead).toBe(15);
         await run(async () => { await page().saveReminderSettings({enabled: false}); });
         expect(vi.mocked(updateMeetingReminderSettings).mock.calls[0]?.[0]).toEqual({enabled: false, lead_minutes: 15});

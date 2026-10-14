@@ -17,6 +17,7 @@ from backend.domains.vault.api import pages_queries as _page_queries_api
 from backend.domains.vault.api.core_composition import Metadata as _Metadata
 from backend.domains.vault.api.core_composition import VirtualFieldsPayload as _VirtualFieldsPayload
 from backend.domains.vault.api.core_composition import vault as _vault
+from backend.domains.vault.composer.api import register_routes as _register_composer_routes
 from backend.domains.vault.daily import service as _daily_service
 from backend.domains.vault.daily.contracts import (
     DailyNoteDocumentResponse,
@@ -26,8 +27,10 @@ from backend.domains.vault.pages import create_service as _page_create_service
 from backend.domains.vault.pages import tags as _tags_query
 from backend.domains.vault.pages.runtime import DailyNoteRequest as _DailyNoteRequest
 from backend.domains.vault.pages.state import page_state as _page_state
+from backend.domains.vault.publishing.api import register_routes as _register_publishing_routes
 from backend.domains.vault.schemas.pages import PageSaveRequest as _PageSaveRequest
 from backend.domains.vault.schemas.tags import VaultTagsResponse
+from backend.domains.vault.search.api import register_routes as _register_search_routes
 from backend.domains.vault.tables import rows as _table_rows
 from backend.services.plugin_access import require_plugins as _require_plugins
 from backend.services.workspace_service import WorkspaceContext as _WorkspaceContext
@@ -59,6 +62,9 @@ async def list_virtual_fields() -> _VirtualFieldsPayload:
 
 
 _page_queries_api.register_status_routes(router)
+_register_search_routes(router)
+_register_composer_routes(router)
+_register_publishing_routes(router)
 get_indexer_status_endpoint = _page_queries_api.get_indexer_status_endpoint
 list_sidebar_summary = _page_queries_api.list_sidebar_summary
 

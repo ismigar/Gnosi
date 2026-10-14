@@ -103,6 +103,8 @@ def test_plan_keeps_required_runtime_without_importing_application(repository: P
     assert "extensions.marketplace.signing_policy" not in first.modules
     assert "backend/migrations/alembic/versions/literature_0001.py" in first.resources
     assert "backend/migrations/alembic/versions/management_0005.py" in first.resources
+    assert "backend/migrations/alembic/versions/management_0006.py" in first.resources
+    assert "backend/migrations/alembic/versions/management_0007.py" in first.resources
     assert "backend/migrations/alembic/versions/vault_0004.py" in first.resources
     assert "backend/migrations/alembic/versions/vault_0005.py" in first.resources
     assert "backend/migrations/alembic/versions/vault_0006.py" in first.resources
@@ -161,6 +163,27 @@ def test_universal_lock_covers_every_release_environment() -> None:
         "(platform_machine != 'x86_64' and sys_platform == 'darwin') or "
         "(sys_platform != 'darwin' and sys_platform != 'linux')",
     ]
+
+
+@pytest.mark.parametrize("migration", ("management_0006", "management_0007"))
+def test_public_workflow_migrations_survive_data_analysis_and_bundle(
+    repository: Path,
+    tmp_path: Path,
+    migration: str,
+) -> None:
+    name = f"backend/migrations/alembic/versions/{migration}.py"
+    source = (ROOT / name).read_text(encoding="utf-8")
+    write(repository, name, source)
+    plan = policy.build_plan(repository)
+    data, modules = toc(plan)
+    policy.validate_analysis(data, modules, [], plan)
+    bundle = make_bundle(tmp_path, plan)
+    policy.verify_bundle(bundle, plan)
+    packaged = bundle / "_internal" / name
+    assert packaged.read_text(encoding="utf-8") == source
+    packaged.unlink()
+    with pytest.raises(policy.ResourcePolicyError, match="missing required resources"):
+        policy.verify_bundle(bundle, plan)
 
 
 def test_unselected_local_state_is_never_read_or_collected(
@@ -440,6 +463,8 @@ def test_bundle_keeps_legitimate_data_and_dependency_certificates(
     bundle = make_bundle(tmp_path, plan, layout)
     policy.verify_bundle(bundle, plan)
     assert (bundle / layout / "backend/migrations/alembic/script.py.mako").is_file()
+    assert (bundle / layout / "backend/migrations/alembic/versions/management_0006.py").is_file()
+    assert (bundle / layout / "backend/migrations/alembic/versions/management_0007.py").is_file()
 
 
 @pytest.mark.parametrize("name", policy.DATA_FILES)

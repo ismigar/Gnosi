@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-03
+last_verified: 2026-10-13
 source_paths:
   - backend/api/calendar_routes.py
   - backend/domains/calendar/geocoding.py
@@ -88,3 +88,19 @@ Les pujades de la junta han lligat àudio a un flux de treball de fons. Els col�
 ## Concentrat de verificació
 
 Prova el contenidor de la ruta local, esdeveniment normalització, repetició, estat ocult, dependències de recordatori, selecció de comptes, zones horàries i crea/ info/ repetició de la ruta local. S' hauria de gravar o pujar un estat de fons d' anàlisi, observar l' estat resultant de la pàgina Vulta.
+
+## Escriptures CalDAV condicionals, videotrucades i reserves
+
+Les escriptures privades conserven el proveïdor explícit en crear, actualitzar amb PATCH i eliminar amb DELETE. Si diversos comptes comparteixen correu, aquesta indicació selecciona el compte correcte; els proveïdors no admesos es rebutgen abans d’accedir-hi. DELETE accepta el paràmetre de consulta opcional `provider`, que els clients existents poden ometre. Els noms dels calendaris són etiquetes; les destinacions d’escriptura utilitzen els identificadors del proveïdor, compte i calendari.
+
+`domains/calendar/provider_operations.py` resol el proveïdor del compte configurat. CalDAV utilitza descobriment i URL de recursos confinats, PUT/DELETE condicionals i l'ETag anterior. El frontend conserva l'ETag retornat per al desament següent. Un recurs modificat retorna un conflicte. Les sèries recurrents CalDAV no es poden modificar. Els esdeveniments nous amb hora utilitzen instants UTC per enviar dades completes sense dependre de l'extensió de fusos horaris per referència del servidor; les actualitzacions conserven la representació de les dates existents. `conference_links.py` normalitza l'enllaç de vídeo a `join_url`; l'inspector només obre HTTP(S), sense credencials ni referent.
+
+El text no modificat conserva els espais i tots els paràmetres de la propietat. En editar-lo, es conserven els paràmetres d’idioma i d’extensió, però es retira ALTREP perquè la representació alternativa pot descriure el valor anterior.
+
+`domains/booking/` agrega els intervals ocupats dels calendaris seleccionats, inclosos els locals, i aplica fus horari, setmana laboral, durada, marges, antelació i horitzó. Els errors del proveïdor tanquen la disponibilitat. La consulta alternativa CalDAV conserva la distinció entre dies nominals i hores transcorregudes, i bloqueja les recurrències no compatibles, incloses les hores locals inexistents que no pot resoldre amb garanties. El calendari de destí ha d'estar seleccionat. Com que les credencials externes són globals de la instal·lació, les reserves amb aquests comptes es limiten al propietari de l'espai personal.
+
+La recurrència local omet les hores inexistents abans d’aplicar COUNT; les instàncies reals excloses continuen consumint el recompte. Les cites amb hora conserven la durada transcorreguda i les de tot el dia conserven dies nominals. L’expansió amb recompte finit es valida des de la primera instància, amb un límit de 3.000 instàncies avaluades; els intervals invàlids i les expansions no compatibles tanquen la disponibilitat.
+
+L'accés anònim es limita a GET `/api/booking/public/{token}`, GET `/slots` i POST `/reservations` sota aquest enllaç. La gestió privada és a `/api/booking/links` i la consulta agregada a `/api/booking/availability`. Una reserva persistent a SQLite serialitza les franges dels enllaços del mateix propietari i de propietaris diferents que consulten el mateix vault o calendari extern abans de crear l'esdeveniment. Els calendaris de propietaris sense recursos compartits no es bloquegen entre ells. Els reintents no repeteixen una escriptura incerta: la petició pendent bloqueja la franja i és visible al propietari. Els canvis simultanis fets en altres clients de calendari no poden formar part de la mateixa transacció.
+
+La lectura selecciona les metadades del compte sense desbloquejar credencials. L’autenticació continua dins de l’adaptador del proveïdor seleccionat, i es conserva la selecció de proveïdor, compte i calendari quan els comptes comparteixen una adreça de correu.

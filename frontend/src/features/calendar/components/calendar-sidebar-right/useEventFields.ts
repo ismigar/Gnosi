@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { exclusiveToInclusiveAllDayEnd } from '../../../../shared/dates/calendarUtils';
 import type { CalendarAttendee, CalendarGeocodeResult } from '../../../../shared/api/calendar';
 import type { EventAttendee, EventFormProps, EventFields } from './calendarTypes';
-import { recurrenceText } from './eventFormModel';
+import { eventDateFields, recurrenceText } from './eventFormModel';
 export function useEventFields({mode, eventData, initialDate, calendars, defaultCalendarId = ''}: EventFormProps) {
     const titleRef = useRef<HTMLInputElement>(null);
     // Function to normalize times to the HH:mm format
@@ -59,7 +59,9 @@ export function useEventFields({mode, eventData, initialDate, calendars, default
     const [createdId, setCreatedId] = useState<string | null>(null);
     // When the appointment is created in a Google calendar, we store the Google event id
     // (+ account and calendar_id) so that subsequent changes PATCH Google, not the Vault.
-    const googleRef = useRef<{id: string; account: string; calendar_id: string} | null>(null);
+    const etagRef = useRef<string | null>(null);
+    const resourceUrlRef = useRef<string | null>(null);
+    const googleRef = useRef<{id: string; account: string; calendar_id: string; provider?: string; start?: string; end?: string} | null>(null);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [isRecurrenceDeleteOpen, setIsRecurrenceDeleteOpen] = useState(false);
     const [isRecurrenceModifyOpen, setIsRecurrenceModifyOpen] = useState(false);
@@ -71,6 +73,8 @@ export function useEventFields({mode, eventData, initialDate, calendars, default
         createdIdRef.current = null;
         isCreatingRef.current = false;
         googleRef.current = null;
+        etagRef.current = eventData?.metadata._etag || null;
+        resourceUrlRef.current = eventData?.metadata._resource_url || null;
         setCreatedId(null);
 
         if ((mode === 'edit' || mode === 'view') && eventData) {
@@ -79,8 +83,9 @@ export function useEventFields({mode, eventData, initialDate, calendars, default
 
             const rawDate = meta.date || meta.start_time || meta.due_date || '';
             if (rawDate.includes('T')) {
-                setStartDate(rawDate.split('T')[0] || '');
-                setStartTime(padTime(rawDate.split('T')[1]?.substring(0, 5) || ''));
+                const local = eventDateFields(rawDate);
+                setStartDate(local.date);
+                setStartTime(padTime(local.time));
                 setAllDay(false);
             } else {
                 setStartDate(rawDate);
@@ -90,8 +95,9 @@ export function useEventFields({mode, eventData, initialDate, calendars, default
 
             const rawEnd = meta.end_date || meta.end_time || '';
             if (rawEnd.includes('T')) {
-                setEndDate(rawEnd.split('T')[0] || '');
-                setEndTime(padTime(rawEnd.split('T')[1]?.substring(0, 5) || ''));
+                const local = eventDateFields(rawEnd);
+                setEndDate(local.date);
+                setEndTime(padTime(local.time));
             } else {
                 setEndDate(meta._end_exclusive ? exclusiveToInclusiveAllDayEnd(rawEnd) : rawEnd);
                 setEndTime('');
@@ -99,8 +105,11 @@ export function useEventFields({mode, eventData, initialDate, calendars, default
 
             const tableId = eventData.resolved_table_id || meta.table_id || meta.database_table_id || '';
             const hasCalendarOption = calendars.some(c => c.id === tableId);
+            const externalCalendar = calendars.find(c => c.kind === 'external'
+                && c.provider === meta._provider && c.account === meta._account
+                && c.google_calendar_id === meta._calendar_id);
             const fallbackCalId = defaultCalendarId || calendars[0]?.id || '';
-            setCalendarId(hasCalendarOption ? tableId : fallbackCalId);
+            setCalendarId(externalCalendar?.id || (hasCalendarOption ? tableId : fallbackCalId));
             setLocation(meta.location || '');
             setLocationLat(meta.location_lat ?? null);
             setLocationLon(meta.location_lon ?? null);
@@ -136,7 +145,7 @@ export function useEventFields({mode, eventData, initialDate, calendars, default
                 setEndType('never');
             }
 
-            setDescription(eventData.content || '');
+            setDescription(eventData.content || (typeof meta.description === 'string' ? meta.description : ''));
 
             const loadedAttendees = Array.isArray(meta.attendees) ? meta.attendees : [];
             setAttendees(loadedAttendees);
@@ -147,8 +156,9 @@ export function useEventFields({mode, eventData, initialDate, calendars, default
             // ("YYYY-MM-DDTHH:mm[:ss]") if a time slot was clicked.
             const rawInit = initialDate || '';
             if (rawInit.includes('T')) {
-                setStartDate(rawInit.split('T')[0] || '');
-                setStartTime(padTime(rawInit.split('T')[1]?.substring(0, 5) || ''));
+                const local = eventDateFields(rawInit);
+                setStartDate(local.date);
+                setStartTime(padTime(local.time));
                 setAllDay(false);
             } else {
                 setStartDate(rawInit);
@@ -193,6 +203,6 @@ export function useEventFields({mode, eventData, initialDate, calendars, default
 
 
     const fields: EventFields = { title, allDay, startDate, endDate, startTime, endTime, calendarId, location, locationLat, locationLon, reminder, recurrence, selectedDays, endType, endCount, untilDate, description, attendees, travelTime };
-    return { fields, titleRef, title, setTitle, allDay, setAllDay, startDate, setStartDate, endDate, setEndDate, startTime, setStartTime, endTime, setEndTime, calendarId, setCalendarId, location, setLocation, locationLat, setLocationLat, locationLon, setLocationLon, locationSuggestions, setLocationSuggestions, locationLoading, setLocationLoading, locationHighlight, setLocationHighlight, reminder, setReminder, travelTime, setTravelTime, recurrence, setRecurrence, selectedDays, setSelectedDays, endType, setEndType, endCount, setEndCount, untilDate, setUntilDate, description, setDescription, attendees, setAttendees, attendeeInput, setAttendeeInput, attendeeSuggestions, setAttendeeSuggestions, saving, setSaving, deleting, setDeleting, saveError, setSaveError, createdId, setCreatedId, isDeleteConfirmOpen, setIsDeleteConfirmOpen, isRecurrenceDeleteOpen, setIsRecurrenceDeleteOpen, isRecurrenceModifyOpen, setIsRecurrenceModifyOpen, locationSuggestTimeoutRef, locationBlurTimeoutRef, attendeeSuggestTimeoutRef, originalAttendeesRef, isInitializingRef, lastSavedDataRef, autoSaveTimeoutRef, createdIdRef, isCreatingRef, googleRef };
+    return { fields, titleRef, title, setTitle, allDay, setAllDay, startDate, setStartDate, endDate, setEndDate, startTime, setStartTime, endTime, setEndTime, calendarId, setCalendarId, location, setLocation, locationLat, setLocationLat, locationLon, setLocationLon, locationSuggestions, setLocationSuggestions, locationLoading, setLocationLoading, locationHighlight, setLocationHighlight, reminder, setReminder, travelTime, setTravelTime, recurrence, setRecurrence, selectedDays, setSelectedDays, endType, setEndType, endCount, setEndCount, untilDate, setUntilDate, description, setDescription, attendees, setAttendees, attendeeInput, setAttendeeInput, attendeeSuggestions, setAttendeeSuggestions, saving, setSaving, deleting, setDeleting, saveError, setSaveError, createdId, setCreatedId, isDeleteConfirmOpen, setIsDeleteConfirmOpen, isRecurrenceDeleteOpen, setIsRecurrenceDeleteOpen, isRecurrenceModifyOpen, setIsRecurrenceModifyOpen, locationSuggestTimeoutRef, locationBlurTimeoutRef, attendeeSuggestTimeoutRef, originalAttendeesRef, isInitializingRef, lastSavedDataRef, autoSaveTimeoutRef, createdIdRef, isCreatingRef, googleRef, etagRef, resourceUrlRef };
 }
 export type EventFieldState = ReturnType<typeof useEventFields>;

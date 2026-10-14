@@ -64,15 +64,21 @@ function headers(context: RequestContext): Record<string, string> {
 }
 
 export async function fetchPageCreationStatus(key: string, context = currentRequestContext()): Promise<CreationStatus> {
-  return unwrapApiResult(await apiClient.GET('/api/vault/pages/creation-requests/{creation_key}', {
+  const result = unwrapApiResult(await apiClient.GET('/api/vault/pages/creation-requests/{creation_key}', {
     params: { path: { creation_key: key } }, headers: headers(context),
   }));
+  if (result.status === 'completed' && result.result) {
+    emitAppEvent('gnosi:invalidatePreview', { pageId: result.result.id });
+  }
+  return result;
 }
 
 export async function resumePageCreation(key: string, context = currentRequestContext()): Promise<components['schemas']['PageMutationResponse']> {
-  return unwrapApiResult(await apiClient.POST('/api/vault/pages/creation-requests/{creation_key}/resume', {
+  const result = unwrapApiResult(await apiClient.POST('/api/vault/pages/creation-requests/{creation_key}/resume', {
     params: { path: { creation_key: key } }, headers: headers(context),
   }));
+  emitAppEvent('gnosi:invalidatePreview', { pageId: result.id });
+  return result;
 }
 
 const running = new Map<string, Promise<components['schemas']['PageMutationResponse']>>();
@@ -109,6 +115,7 @@ export function createRecoverablePage(body: CreationInput): Promise<components['
     const result = unwrapApiResult(await apiClient.POST('/api/vault/pages', {
       body, headers: { ...headers(context), 'Idempotency-Key': entry.key },
     }));
+    emitAppEvent('gnosi:invalidatePreview', { pageId: result.id });
     await acknowledgePageCreation(entry.key, context);
     return result;
   };

@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-10-01
+last_verified: 2026-10-13
 source_paths:
+  - backend/migrations/alembic/versions/management_0006.py
+  - backend/domains/vault/publishing/models.py
+  - frontend/src/shared/offline
   - backend/services/plugin_fields.py
   - backend/domains/llm_wiki/brain_fields.py
   - backend/config/paths_config.py
@@ -12,6 +15,7 @@ source_paths:
   - backend/services/reference_table_config.py
   - backend/services/reference_config_migration.py
 tests:
+  - backend/tests/test_publication_migration.py
   - backend/tests/test_plugin_required_fields.py
   - backend/tests/test_auto_provisioned_migration.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -162,3 +166,9 @@ Process variables have priority over Gnosi's local `.env`. A shared environment
 file is loaded only when `GNOSI_SHARED_ENV_FILE` explicitly names it and remains
 read-only to the application. UI-managed credentials use the operating-system
 credential store, with an encrypted fallback under `GNOSI_DATA_DIR/secrets`.
+
+## Publication snapshots and encrypted offline copies
+
+Management revision `mgmt_0006` adds `publication_previews`, `publication_sites` and `publication_revisions` through the guarded migration runner. Previous management tables and reviewed historical fingerprints remain unchanged. Previews expire; a committed revision stores its own public Markdown snapshot and is independent of subsequent source edits. Ownership includes account, workspace and Vault. Revocation stops future server reads; it cannot recall copies already downloaded by a visitor.
+
+The offline companion stores one passphrase-encrypted collection per browser profile in IndexedDB. The collection includes selected text notes and revision/conflict state. Each save uses authenticated encryption with a new IV and an atomic local revision check. Keys and decrypted data remain in memory until lock. Losing the passphrase or clearing browser storage can lose unsynchronized work; this collection is not a backup or server-side end-to-end encryption.

@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-10-13
 source_paths:
+  - frontend/src/features/sharing/publishing
+  - frontend/src/features/offline
   - backend/server.py
   - backend/app/lifespan.py
   - backend/config/app_config.py
@@ -142,3 +144,7 @@ Check process ownership, `/api/health`, `/api/config`, and `/api/vault/pages` in
 that order. A successful health response with an empty or failed vault request
 indicates configuration or file-provider trouble rather than a dead server.
 See the [operations runbook](../operations/runbook.md).
+
+## Independent public and offline entries
+
+Published-site URLs are handled before authenticated startup. They load only the public snapshot reader, without account, plugin or Vault bootstrap requests. The separate compiled offline entry loads its own encrypted local collection and static-only service worker. Main-app source editors, custom shortcuts and appearance settings remain within ordinary authenticated startup. Theme snippets reject network resources; safe appearance mode and a reset command recover from unusable custom styling.

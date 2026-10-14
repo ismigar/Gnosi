@@ -23,8 +23,8 @@ import {
   buildTagFieldsByTable,
   getSearchNoteTags,
   mergeGlobalSearchNotes,
-  searchGlobalNotes,
 } from './globalSearchUtils';
+import { useVaultContentSearch } from './useVaultContentSearch';
 
 
 interface SavedSearch {
@@ -146,7 +146,6 @@ function persistSavedSearches(searches: readonly SavedSearch[]): void {
 
 
 function OpenGlobalSearchModal({
-  aliasesById,
   allNotes,
   globalIndex,
   onClose,
@@ -176,12 +175,13 @@ function OpenGlobalSearchModal({
     () => buildTagFieldsByTable(tables),
     [tables],
   );
-  const filteredNotes = useMemo(() => searchGlobalNotes({
-    aliasesById,
-    notes: searchableNotes,
-    query,
-    tables,
-  }), [aliasesById, query, searchableNotes, tables]);
+  const search = useVaultContentSearch(query);
+  const filteredNotes = useMemo<GlobalSearchNote[]>(() => search.results.map((hit) => {
+    const existing = searchableNotes.find((note) => note.id === hit.id);
+    return { id: hit.id, title: hit.title, path: hit.path, folder: existing?.folder ?? hit.path, excerpt: hit.excerpt,
+      resolved_table_id: existing?.resolved_table_id, parent_id: existing?.parent_id,
+      is_database: existing?.is_database, metadata: existing?.metadata ?? { tags: hit.tags } };
+  }), [search.results, searchableNotes]);
   const getSourceDbTitle = useMemo(() => {
     const byId = new Map(
       searchableNotes
@@ -230,6 +230,7 @@ function OpenGlobalSearchModal({
         || t('common.page_wiki', 'Page • Wiki'),
       icon: displaySearchValue(note.metadata?.icon),
       id: note.id ?? '',
+      excerpt: displaySearchValue(note.excerpt),
       sourceDb: getSourceDbTitle(note),
       tags: getSearchNoteTags(note, tagFieldsByTable).slice(0, 3),
       title: displaySearchValue(note.title)
@@ -317,7 +318,7 @@ function OpenGlobalSearchModal({
             }}
             placeholder={t(
               'globalsearch.search_placeholder',
-              'Search…  tag:a/b  path:Folder  title:text  /regex/',
+              'Search notes…  content:text  tag:a/b  "exact phrase"',
             )}
             className="w-full bg-transparent border-none focus:ring-0 text-lg px-3 py-1 outline-none text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
           />
@@ -387,15 +388,24 @@ function OpenGlobalSearchModal({
                 <div className="py-6 text-center text-[var(--text-secondary)] text-sm">
                   {t(
                     'globalsearch.operators_hint',
-                    'Search by title or with operators:',
+                    'Search titles and complete notes, or use operators:',
                   )}{' '}
                   <code className="text-[var(--gnosi-primary)]">tag:</code>{' '}
                   <code className="text-[var(--gnosi-primary)]">path:</code>{' '}
                   <code className="text-[var(--gnosi-primary)]">title:</code>{' '}
+                  <code className="text-[var(--gnosi-primary)]">content:</code>{' '}
+                  <code className="text-[var(--gnosi-primary)]">task:</code>{' '}
                   <code className="text-[var(--gnosi-primary)]">/regex/</code>
                 </div>
               )}
             </div>
+          ) : search.error ? (
+            <div className="px-6 py-8 text-sm text-[var(--text-secondary)]" role="alert">
+              <p>{t(search.error === 'query' ? 'globalsearch.invalid_query' : 'globalsearch.search_failed')}</p>
+              <button type="button" onClick={search.retry} className="mt-2 text-[var(--gnosi-primary)]">{t('common.retry', 'Retry')}</button>
+            </div>
+          ) : search.loading && filteredNotes.length === 0 ? (
+            <p role="status" className="px-6 py-8 text-sm text-[var(--text-secondary)]">{t('globalsearch.searching', 'Searching notes…')}</p>
           ) : filteredNotes.length === 0 ? (
             <div className="px-6 py-12 text-center text-[var(--text-secondary)] text-sm">
               {t(
@@ -421,6 +431,12 @@ function OpenGlobalSearchModal({
             />
           )}
         </div>
+        {query.trim() && !search.error && filteredNotes.length > 0 ? (
+          <div className="flex items-center justify-between border-t border-[var(--border-primary)] px-4 py-2 text-xs text-[var(--text-secondary)]" aria-live="polite">
+            <span>{t('globalsearch.result_count', '{{count}} notes', { count: search.total })}</span>
+            {filteredNotes.length < search.total ? <button type="button" disabled={search.loading} onClick={search.loadMore} className="text-[var(--gnosi-primary)]">{t('globalsearch.load_more', 'More results')}</button> : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );

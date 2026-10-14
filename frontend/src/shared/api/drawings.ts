@@ -1,3 +1,4 @@
+import type { RequestContext } from './request-context';
 import { apiClient } from './client';
 import { GnosiApiError, unwrapApiResult } from './errors';
 import { transportFetch } from './transports';
@@ -182,10 +183,17 @@ export async function listDrawings(
 export async function fetchDrawing(
   drawingId: string,
   signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<DrawingDocument> {
   const result = await apiClient.GET('/api/vault/drawings/{drawing_id}', {
     params: { path: { drawing_id: drawingId } },
     signal,
+    headers: context ? {
+      'X-Vault-ID': context.vaultId,
+      'X-Workspace-ID': context.workspaceId,
+      'X-User-ID': context.userId,
+      'X-User-Email': context.userEmail,
+    } : undefined,
   });
   const payload = unwrapApiResult<unknown, unknown>(result);
   if (!isRecord(payload)) {

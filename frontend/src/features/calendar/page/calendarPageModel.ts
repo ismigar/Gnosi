@@ -51,7 +51,8 @@ export function hybridCalendarEntry(event: CalendarEvent): CalendarEntry {
     return { id: event.id, title: event.title, metadata: {
         date: event.start, end_date: event.end || null, all_day: event.all_day, source: event.source,
         location: event.location || '', description: event.description || '', rrule: event.recurrence || null,
-        status: event.status, link: event.link || '', color: event.color || null, readonly: event.is_read_only || false,
+        status: event.status, link: event.link || '', join_url: event.join_url || '',
+        _etag: event.etag || null, _resource_url: event.resource_url || null, color: event.color || null, readonly: event.is_read_only || false,
         attendees: attendeeList(event.attendees), organizer: event.organizer || '', _provider: event.provider,
         _account: event.account, _calendar_id: event.calendar_id, _calendar_name: event.calendar_name,
         _vault_path: event.vault_path || null, _end_exclusive: event.provider !== 'vault' && event.all_day,
@@ -60,9 +61,13 @@ export function hybridCalendarEntry(event: CalendarEvent): CalendarEntry {
     } };
 }
 
+function externalCalendarId(calendar: CalendarListItem): string {
+    return JSON.stringify(['external', calendar.provider || 'google', calendar.account, calendar.id]);
+}
+
 export function calendarConfigsFor(available: readonly string[], integrations: CalendarSettings, tables: readonly EnabledTable[], calendars: readonly CalendarListItem[]): CalendarConfig[] {
     const colors = ['#64b5f6', '#ffb74d', '#ba68c8', '#4db6ac', '#f06292'];
-    return available.map((source, index) => {
+    const configs: CalendarConfig[] = available.map((source, index) => {
         const isGnosi = source === 'Gnosi' || source === 'Gnosi Vault';
         const table = tables.find((item) => item.name === source);
         const alias = integrations.calendar_aliases?.[source] || (table ? integrations.calendar_aliases?.[table.id] : null);
@@ -72,11 +77,26 @@ export function calendarConfigsFor(available: readonly string[], integrations: C
         const [first, ...rest] = source.split(' - ');
         const account = source.includes(' - ') ? first ?? null : source.includes('@') ? source : null;
         const subName = source.includes(' - ') ? rest.join(' - ') : null;
-        const calendar = !isGnosi && !table ? calendars.find((item) => item.account === account && ((subName && item.name === subName) || (!subName && (item.id === account || item.primary || item.name === account)))) : undefined;
-        return { id: table?.id || source, source, kind: table ? 'table' : 'external', name: alias || subName || integration?.name || source,
+        const calendar = !isGnosi && !table
+            ? calendars.find((item) => item.account === account && ((subName && item.name === subName) || (!subName && (item.id === account || item.primary || item.name === account))))
+                || (!subName ? calendars.find(item => item.account === account) : undefined)
+            : undefined;
+        return { id: table?.id || (calendar ? externalCalendarId(calendar) : source), source, kind: table ? 'table' : 'external', name: alias || subName || integration?.name || calendar?.name || source,
             account, google_calendar_id: calendar?.id ?? null, provider: calendar ? textValue(calendar.provider) || 'google' : null,
             color: integrations.calendar_colors?.[source] || integration?.color || (isGnosi ? 'var(--gnosi-primary)' : colors[index % colors.length] ?? '#64b5f6') };
     });
+    // Discovery is enough to create an event: empty calendars have no event
+    // sources yet, so they must be added directly from the provider list.
+    for (const calendar of calendars) {
+        const id = externalCalendarId(calendar);
+        if (configs.some(config => config.kind === 'external' && config.id === id)) continue;
+        const source = calendar.name && calendar.name !== calendar.account
+            ? `${calendar.account} - ${calendar.name}` : calendar.account;
+        configs.push({ id, source, kind: 'external', name: integrations.calendar_aliases?.[source] || calendar.name,
+            account: calendar.account, google_calendar_id: calendar.id, provider: calendar.provider || 'google',
+            color: integrations.calendar_colors?.[source] || calendar.color || colors[configs.length % colors.length] || '#64b5f6' });
+    }
+    return configs;
 }
 
 export function formatLocalDate(date: Date): string {

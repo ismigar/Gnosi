@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { VaultShell } from '../navigation/VaultShell';
 import { dispatchWindowEvent } from '../../../shared/platform/browser-events';
 import { useDashboardController } from './useDashboardController';
+import { useSavedWorkspaces } from './useSavedWorkspaces';
 import { DashboardSidebar } from './DashboardSidebar';
 import { DashboardContent } from './DashboardContent';
 import { CreationRecoveryPanel } from './CreationRecoveryPanel';
@@ -12,6 +13,7 @@ const ConfigurationDialogs = lazy(() => import('./ConfigurationDialogs').then(mo
 
 export default function Dashboard() {
   const dashboard = useDashboardController();
+  const { restoreWorkspace } = useSavedWorkspaces(dashboard);
   const activeDocument = dashboard.tabs.find(tab => tab.id === dashboard.activeTabId);
   const hasBrowseDialog = dashboard.isGlobalSearchOpen
     || dashboard.isPresentOpen
@@ -48,7 +50,7 @@ export default function Dashboard() {
     <CreationRecoveryPanel onOpen={dashboard.loadPage} />
     <DashboardContent {...dashboard} />
     <Suspense fallback={null}>
-      {hasBrowseDialog && <BrowseDialogs {...dashboard} />}
+      {hasBrowseDialog && <BrowseDialogs {...dashboard} onRestoreWorkspace={restoreWorkspace} />}
       {hasConfirmationDialog && <ConfirmationDialogs {...dashboard} />}
       {hasConfigurationDialog && <ConfigurationDialogs {...dashboard} />}
     </Suspense>

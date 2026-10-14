@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-10-13
 source_paths:
+  - frontend/src/features/sharing/publishing
+  - frontend/src/features/offline
   - backend/server.py
   - backend/app/lifespan.py
   - backend/config/app_config.py
@@ -130,3 +132,7 @@ locales y Docker se mapean sin incorporar ningún proveedor al modelo de datos.
 ## Diagnóstico de fallo
 
 Compruebe qué proceso está atendiendo el servicio, `/api/health`, `/api/config` y `/api/vault/pages`, en ese orden. Una respuesta de salud correcta junto con una petición al vault vacía o fallida indica problemas de configuración o del proveedor de archivos, no un servidor detenido. Consulte el [manual de operaciones](../operations/runbook.md).
+
+## Entradas públicas y sin conexión independientes
+
+Las URL de sitios publicados se gestionan antes del arranque autenticado. Solo cargan el lector de la instantánea pública, sin peticiones de inicio de cuenta, plugins o Vault. La entrada compilada sin conexión carga su colección local cifrada y un service worker solo para archivos estáticos. Editores de código, atajos y apariencia de la aplicación principal permanecen dentro del inicio autenticado. Los fragmentos de tema rechazan recursos de red; el modo de apariencia seguro y la orden de restablecimiento permiten recuperar una interfaz mal configurada.

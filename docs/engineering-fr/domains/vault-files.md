@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-08
+last_verified: 2026-10-13
 source_paths:
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -35,7 +35,16 @@ source_paths:
   - frontend/src/shared/records
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
+  - backend/domains/vault/search
+  - frontend/src/shared/bookmarks
 tests:
+  - backend/tests/test_vault_content_search.py
+  - backend/tests/test_page_save_concurrency.py
+  - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
+  - frontend/src/shared/api/vault-search.test.ts
+  - frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx
+  - frontend/src/shared/bookmarks/bookmarks.test.ts
+  - tests/e2e/tests/disposable/knowledge-parity.spec.ts
   - frontend/src/features/vault/dashboard/Dashboard.document-controls.test.tsx
   - frontend/src/features/vault/navigation/VaultShell.test.tsx
 
@@ -119,6 +128,26 @@ tests:
 # Vault et fichiers
 
 L’enregistrement automatique sérialise les écritures de page dans le client web. Une version obsolète renvoie un conflit (409), et non une erreur de page introuvable (404), même lorsque la lecture conditionnelle omet le corps. Les pages inexistantes renvoient toujours 404 ; les conflits ne remplacent jamais silencieusement un contenu plus récent.
+
+Les sauvegardes complètes par PUT conservent la détection initiale des conflits et résolvent à nouveau la page et l’ETag après acquisition du verrou d’écriture. Une sauvegarde ou un renommage concurrent ne peut écraser une version plus récente pendant l’attente du verrou. Une sauvegarde conditionnelle rejette aussi une page supprimée pendant l’attente.
+
+## Recherche du contenu complet et composition
+
+`GET /api/vault/search` lit les corps Markdown complets, titres, alias, étiquettes et propriétés du Vault actif autorisé. Les fichiers cachés, historiques, corbeilles, tableaux de bord et chemins résolus hors du Vault sont exclus. Les résultats incluent extraits contextuels, ligne source, total et pagination stable (50 par défaut, maximum 100). Les sauvegardes mettent à jour le cache existant ; les changements externes suivent son invalidation par observateur/TTL.
+
+La grammaire accepte les phrases entre guillemets, AND implicite ou explicite, OR, NOT, la négation par moins, les parenthèses et les expressions régulières avec indicateurs `i`, `m`, `s`. Les champs sont `title`, `path`, `file`, `tag`, `is`, `content`, `line`, `block`, `section`, `task`, `task-todo` et `task-done` ; `[name]` et `[name:value]` interrogent les métadonnées initiales. La recherche littérale ignore la casse et les accents. Les étiquettes littérales conservent leurs limites hiérarchiques dans les groupes. Les limites de tokens CommonMark distinguent sections, blocs et tâches des exemples de code. Taille, profondeur, expressions régulières et évaluation totale ont des limites explicites ; une requête invalide ou trop coûteuse renvoie 422. Cette recherche textuelle déterministe est indépendante de la recherche sémantique et des systèmes de récupération des carnets.
+
+Le dialogue de recherche globale et les blocs Markdown `query`/`search` partagent API et pagination. L’éditeur visuel propose un bloc de requête. L’identité de la requête comprend Vault, espace de travail et utilisateur ; tout changement de périmètre efface les résultats visibles et rejette les réponses en cours. Le Markdown public n’exécute pas de requêtes au Vault. Les favoris regroupés sont locaux au compte/espace de travail/Vault de l’appareil et acceptent pages, références de titres ou blocs, requêtes, routes de graphe et liens HTTP(S).
+
+Les transclusions affichent le Markdown enrichi complet pour `![[note]]`, les titres et références de bloc. Elles partagent liens et ressources avec l’aperçu Markdown, préservent les exemples littéraux, se rafraîchissent avec la source et signalent les destinations absentes ou vides. Une vérification des ancêtres par branche et une profondeur limitée empêchent la récursion. Les lectures fixent le contexte capturé et ignorent les réponses périmées. Le partage public d’une page n’autorise pas la lecture de transclusions privées.
+
+Les liens et images de référence des transclusions de titre ou de bloc conservent les définitions de la note complète. Le compositeur utilise des libellés de référence distincts pour le contenu déplacé et la destination, préservant chaque lien et le texte entre crochets auparavant littéral.
+
+L’éditeur source utilise CodeMirror pour la coloration Markdown, les sélections multiples, la saisie Vim facultative et l’aperçu. Il conserve le transfert entre pages, la lecture seule et les sauvegardes ordonnées. Raccourcis, thèmes nommés et extraits CSS se configurent dans Paramètres ; les extraits rejettent les ressources réseau et le mode d’apparence sûr permet de récupérer l’interface. Voir les [contrats des plugins](integrations-plugins.md) pour le remplacement de sélections et la recherche soumis aux permissions.
+
+Le compositeur de notes prévisualise l’extraction vers une nouvelle note ou la fusion dans une note existante. Le plan inclut les liens entrants affectés et les versions exactes des fichiers. L’application acquiert les verrous de page dans l’ordre, revérifie les versions, préserve historique et fichiers auxiliaires, puis annule les modifications en cas d’échec. L’extraction laisse une transclusion dans la source. Les sessions collaboratives actives et liens absolus ambigus sont rejetés pour éviter un déplacement incohérent. La révision se ferme et masque son contenu si le compte, l’espace de travail ou le Vault actifs changent, y compris depuis un autre onglet. Les sauvegardes et réponses en attente ne peuvent pas appliquer l’opération examinée dans le nouveau contexte.
+
+Les cartes de page du canvas permettent une édition explicite et des sauvegardes conditionnelles. Les brouillons restent en mémoire lorsqu’une disposition démonte un dessin, limités au compte, espace de travail, Vault et page. Il faut les sauvegarder avant de fermer l’application. L’import/export JSON Canvas préserve les nœuds, arêtes et métadonnées personnalisées compatibles ; les structures non prises en charge sont rejetées et les ressources ne sont pas copiées. Les dispositions enregistrées restaurent les onglets de notes, dessins, PDF et EPUB, le document actif, la position de lecture et la géométrie des panneaux après validation des destinations.
 
 Un alias inactif peut être retiré du registre si une autre entrée du même espace de travail conserve le dossier. La suppression utilise la même identité sélectionnée que le catalogue et protège toujours l’entrée active et la dernière entrée du vault principal. Le retrait d’une entrée partagée préserve le dossier, les bases de données locales, les caches et l’index des fichiers ; la suppression des fichiers est refusée tant qu’un autre vault enregistré utilise le même chemin, y compris dans un autre espace de travail.
 

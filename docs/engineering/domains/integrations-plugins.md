@@ -359,6 +359,29 @@ credential access automatically.
 - Disabling or migrating never deletes plugin data, settings, credentials or profiles.
 - MCP tool origin and effect remain visible after catalog normalization.
 
+## UI plugin search and source-editor contract
+
+The existing opaque-origin UI sandbox exposes these additive API v2 methods:
+
+| Method | Grant | Behavior |
+|---|---|---|
+| `gnosi.vault.search(query, {offset})` | `vault:read` | Uses the same full-content search API as the Vault search interface. Returns its contextual hits and pagination fields. Requests are pinned to the active account, workspace and Vault; a context change aborts the request and rejects stale results, including changes made in another tab. Plugins cannot supply a different Vault ID. |
+| `gnosi.editor.getSelection()` | `vault:read` | Returns the active Markdown source editor's `vaultId`, `documentId`, `sessionId`, `documentVersion`, `selectionVersion`, `readOnly`, `mainIndex`, and `ranges` (`from`, `to`, `text`). It fails when no source editor is active. |
+| `gnosi.editor.replaceSelection(text, snapshot)` | `vault:write` | Replaces each current selection as one undoable source-editor transaction. The snapshot must still match the same Vault, page, editor session, document version, and selection version. Locked pages, changed selections, and stale snapshots are rejected. The normal draft/autosave path handles persistence. Total inserted text is limited to one million characters. |
+
+Read the selection immediately before an asynchronous transformation, then pass
+the unchanged snapshot with the replacement. If it is rejected, obtain a fresh
+selection and let the user decide whether to rerun the transformation. Do not
+retry against a changed selection automatically. Source editors unregister when
+their page is inactive or unmounted; account, workspace and Vault changes invalidate
+their capabilities, even when the previous context is selected again. A mounted
+editor retains its original request context when reactivated.
+
+The iframe retains `sandbox="allow-scripts"` without `allow-same-origin`; these
+methods pass serializable data over the existing permission-checked message
+bridge. They expose no parent DOM or CodeMirror instance. Rich-editor plugins and
+binary compatibility with arbitrary Obsidian plugins are outside this contract.
+
 ## Verification focus
 
 Run plugin manifest, signing, sandbox, state-race, AI contribution, MCP routing,

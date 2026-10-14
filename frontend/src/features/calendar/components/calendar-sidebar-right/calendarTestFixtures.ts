@@ -20,5 +20,5 @@ export function pageSummary(): VaultPageSummary {
     return {id: LOCAL_EVENT.id, title: LOCAL_EVENT.title, metadata: LOCAL_EVENT.metadata, folder: 'Calendar', path: '/Calendar/appointment.md', size: 100, is_database: false, last_modified: '2026-09-01'};
 }
 export function externalEvent(provider = 'caldav'): CalendarEvent {
-    return {id: provider + '-event', title: provider + ' appointment', provider, account: provider + '@example.test', calendar_id: 'primary', calendar_name: provider, start: '2026-09-02', end: '2026-09-04', all_day: true, source: provider + '@example.test', location: '', description: 'External description', status: 'confirmed', link: '', is_read_only: false};
+    return {id: provider + '-event', title: provider + ' appointment', provider, account: provider + '@example.test', calendar_id: 'primary', calendar_name: provider, start: '2026-09-02', end: '2026-09-04', all_day: true, source: provider + '@example.test', location: '', description: 'External description', status: 'confirmed', link: '', join_url: '', is_read_only: false};
 }

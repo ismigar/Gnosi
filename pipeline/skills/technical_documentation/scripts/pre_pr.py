@@ -4,13 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_ROOT = SCRIPT_DIR.parent
@@ -32,8 +32,13 @@ def build_commands(*, base_ref: str | None, check_only: bool) -> list[GateComman
         GateCommand(
             "Test documentation tooling",
             (
-                python, "-m", "pytest", str(SKILL_ROOT / "tests"), "-q",
-                "-p", "no:cacheprovider",
+                python,
+                "-m",
+                "pytest",
+                str(SKILL_ROOT / "tests"),
+                "-q",
+                "-p",
+                "no:cacheprovider",
             ),
         ),
     ]
@@ -158,9 +163,37 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def reuse_documentation_check() -> bool:
+    """Retain this PR's verified remote documentation success without repeating it."""
+    if os.environ.get("GITHUB_JOB") != "documentation":
+        return False
+    result = subprocess.run(
+        [sys.executable, str(APP_ROOT / "scripts/ci/reuse_approved_ci.py"), "--json"],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    previous = json.loads(result.stdout)
+    if not isinstance(previous, dict) or type(previous.get("reused")) is not bool:
+        raise ValueError("Invalid documentation reuse evidence")
+    if not previous["reused"]:
+        return False
+    message = "Documentation checks reused from an actual verified remote PASS: " + json.dumps(
+        previous
+    )
+    print(message)
+    if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
+        with Path(summary).open("a") as stream:
+            stream.write(message + "\n")
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run every required engineering-documentation validation phase."""
     args = parse_args(argv)
+    if reuse_documentation_check():
+        return 0
     run_gate(
         build_commands(base_ref=args.base_ref, check_only=args.check_only),
         check_only=args.check_only,

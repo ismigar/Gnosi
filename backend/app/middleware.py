@@ -10,6 +10,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from backend.app.desktop_instance import DesktopInstanceMiddleware
 from backend.services.active_vault_middleware import ActiveVaultMiddleware
+from backend.services.public_workflow_headers import PublicWorkflowHeadersMiddleware
 
 
 LOOPBACK_ORIGIN_RE = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
@@ -33,3 +34,4 @@ def register_middleware(app: FastAPI) -> None:
     app.add_middleware(AgentRunMiddleware)
     app.add_middleware(ActiveVaultMiddleware)
     app.add_middleware(DesktopInstanceMiddleware)
+    app.add_middleware(PublicWorkflowHeadersMiddleware)

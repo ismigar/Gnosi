@@ -1,0 +1,7 @@
+/* Public reading is a document, outside the fixed-height application shell. */
+body:has(.gnosi-publication) {
+    width: 100%;
+    height: auto;
+    min-height: 100dvh;
+    overflow: auto;
+}

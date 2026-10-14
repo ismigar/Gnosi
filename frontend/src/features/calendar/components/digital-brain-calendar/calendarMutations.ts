@@ -100,7 +100,9 @@ export async function persistCalendarChange(
       const calendarId = calendarText(metadata._calendar_id) || 'primary';
       await updateCalendarEvent({
         calendarId, email: calendarText(metadata._account), eventId: id,
-        event: { start: event.startStr, end: event.endStr || event.startStr, calendar_id: calendarId },
+        event: { provider: calendarText(metadata._provider) || undefined, start: event.startStr, end: event.endStr || event.startStr, calendar_id: calendarId,
+          ...(metadata._provider === 'caldav' ? { etag: calendarText(metadata._etag), resource_url: calendarText(metadata._resource_url) } : {}),
+        },
       });
     } else {
       await patchVaultPage(id, calendarMetadataPatch(metadata, start, end, mode, options));

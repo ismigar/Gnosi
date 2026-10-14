@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-08
+last_verified: 2026-10-13
 source_paths:
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -35,7 +35,16 @@ source_paths:
   - frontend/src/shared/records
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
+  - backend/domains/vault/search
+  - frontend/src/shared/bookmarks
 tests:
+  - backend/tests/test_vault_content_search.py
+  - backend/tests/test_page_save_concurrency.py
+  - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
+  - frontend/src/shared/api/vault-search.test.ts
+  - frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx
+  - frontend/src/shared/bookmarks/bookmarks.test.ts
+  - tests/e2e/tests/disposable/knowledge-parity.spec.ts
   - frontend/src/features/vault/dashboard/Dashboard.document-controls.test.tsx
   - frontend/src/features/vault/navigation/VaultShell.test.tsx
 
@@ -119,6 +128,75 @@ tests:
 # Vault and files
 
 Autosave serializes page writes within the web client. A stale page version returns a conflict (409), not a missing-page error (404), even when the conditional read omits the body. Missing pages still return 404; conflicts never silently overwrite newer content.
+
+Complete PUT saves retain the initial conflict fast-fail and re-resolve the page
+and ETag after acquiring its write lock. A concurrent save or rename cannot make
+a previously valid revision overwrite the newer file while waiting for the lock.
+A conditional save also rejects a page deleted while it was waiting.
+
+## Complete content search and composition
+
+`GET /api/vault/search` reads the authorized active Vault's complete Markdown
+bodies, titles, aliases, tags and properties. Hidden files, history, trash,
+dashboards and paths resolving outside that Vault are excluded. Results include
+context excerpts, a source line, a total and stable pagination (50 by default,
+100 maximum). Normal saves update the existing body cache; external file changes
+follow its existing watcher/TTL invalidation.
+
+The query grammar supports quoted phrases, implicit/explicit AND, OR, NOT,
+minus negation, parentheses and regular expressions with `i`, `m`, `s` flags.
+Fields are `title`, `path`, `file`, `tag`, `is`, `content`, `line`, `block`,
+`section`, `task`, `task-todo` and `task-done`; `[name]` and `[name:value]` query
+front matter. Literal matching folds case and accents. Tag literals retain
+hierarchical boundaries inside groups. CommonMark token boundaries distinguish
+sections, blocks and tasks from literal code examples. Query size, nesting,
+regex execution and total evaluation have explicit limits; invalid or expensive
+queries return 422. This is a deterministic textual search, separate from the
+semantic and notebook retrieval systems.
+
+The global search dialog and `query`/`search` Markdown fences share the same API
+and pagination. The visual editor offers a query block. Request identity includes
+the Vault, workspace and user; changing any scope clears visible results and
+rejects in-flight responses. Public Markdown rendering does not execute Vault
+queries. Grouped bookmarks are local to that account/workspace/Vault on the
+device and accept pages, heading/block references, queries, graph routes and
+HTTP(S) links.
+
+Transclusions render complete rich Markdown for `![[note]]`, headings and block
+references. They share link/media rendering with Markdown previews, preserve
+literal examples, refresh on source changes and display missing/empty targets
+explicitly. A branch-local ancestry guard and depth limit prevent recursive
+embeds. Transclusion reads pin the captured request context and discard stale
+responses. Public single-page shares do not authorize private transclusion reads.
+
+Reference links and images in heading/block embeds retain definitions from the
+complete source note. Composer uses distinct reference labels for moved and
+destination content, preserving each target and previously literal bracketed text.
+
+The source editor uses CodeMirror for Markdown highlighting, multiple selections,
+optional Vim input and a rendered preview. It retains page handoff, read-only
+checks and ordered autosaves. Hotkeys and named themes/CSS snippets are configured
+in Settings; snippets reject network resources and safe appearance mode provides
+a recovery path. See [plugin contracts](integrations-plugins.md) for permissioned
+selection replacement and content search.
+
+Note Composer previews extraction into a new note or merging into an existing
+note before applying it. The plan includes affected backlinks and exact file
+versions. Applying acquires sorted page locks, checks versions again, preserves
+history and sidecars, and rolls back changed files on failure. Extraction keeps
+an embed in the source. Active collaborative editing sessions and ambiguous
+absolute links are rejected instead of risking an inconsistent move.
+The review closes and clears its content when the active account, workspace
+or Vault changes, including changes observed from another browser tab. Pending
+saves and responses cannot apply the reviewed operation in the new context.
+
+Canvas page cards support explicit editing and conditional saves. Unsaved drafts
+remain in memory when a saved layout unmounts a drawing, scoped to the account,
+workspace, Vault and page. Closing the app still requires saving those drafts.
+JSON Canvas import/export preserves supported node, edge and custom metadata;
+unsupported structures are rejected explicitly and file assets are not copied.
+Saved layouts restore the existing note, drawing, PDF and EPUB tabs, active
+document, reader location and split geometry after validating their targets.
 
 An inactive alias can be removed from the registry while another registration in the same workspace retains its folder. Deletion uses the same selected identity as the catalog and still protects the active entry and the last primary registration. Removing a shared registration preserves the folder, local databases, caches and file index; requesting file deletion is rejected while any other registered vault uses the same path, including another workspace.
 

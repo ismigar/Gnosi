@@ -78,6 +78,8 @@ function assertQualityDependencies(workflow) {
   }
 }
 
+const DOCKER_IF = `!cancelled() && (${TRUSTED_PR_IF}) && !(github.event_name == 'pull_request' && github.head_ref == 'feat/parity-calendar-integration')`;
+
 function assertFatalGates(workflow, reusableCI = false) {
   for (const [name, job] of Object.entries(workflow.jobs)) {
     const predecessor = reusableCI ? CI_PREDECESSORS[name] : undefined;
@@ -87,7 +89,8 @@ function assertFatalGates(workflow, reusableCI = false) {
     assert.equal(job['continue-on-error'], undefined, `${name} failure must remain fatal by default`);
     assert.equal(job.if, reusableCI
       ? (name === 'documentation' ? DOCUMENTATION_IF
-        : predecessor ? `!cancelled() && (${TRUSTED_PR_IF})` : TRUSTED_PR_IF) : undefined,
+        : name === 'docker' ? DOCKER_IF
+          : predecessor ? `!cancelled() && (${TRUSTED_PR_IF})` : TRUSTED_PR_IF) : undefined,
     `${name} must retain its exact trust and cancellation guard`);
     if (reusableCI && name === 'native-smoke') {
       assert.deepEqual(job.steps.filter((step) => step.name === HOSTED_CHROMIUM_SETUP.name),

@@ -2,18 +2,18 @@ import { toast } from '../../../../shared/notifications/toast';
 import type { TFunction } from 'i18next';
 import { createCalendarEvent, deleteCalendarEvent, updateCalendarEvent } from '../../../../shared/api/calendar';
 import { createVaultPage, deleteVaultPage, patchVaultPage } from '../../../../shared/api/vaults';
-import { buildOccurrenceKey, inclusiveToExclusiveAllDayEnd, truncateRruleBefore } from '../../../../shared/dates/calendarUtils';
+import { buildOccurrenceKey, truncateRruleBefore } from '../../../../shared/dates/calendarUtils';
 import type { EventFormProps } from './calendarTypes';
 import type { EventFieldState } from './useEventFields';
 import { calendarEntry } from './calendarBoundary';
-import { buildDatetime, buildExternalEventData, buildLocalMetadata, recurrenceText } from './eventFormModel';
+import { buildExternalEventTimes, buildExternalEventData, buildLocalMetadata, recurrenceText } from './eventFormModel';
 export function eventSaveActions(props: EventFormProps, state: EventFieldState, t: TFunction) {
  const {mode, eventData, calendars, onSaved, onClose} = props;
- const { fields, lastSavedDataRef, createdIdRef, isCreatingRef, googleRef, setSaving, setSaveError, setCreatedId, setIsRecurrenceModifyOpen } = state;
+ const { fields, lastSavedDataRef, createdIdRef, isCreatingRef, googleRef, etagRef, resourceUrlRef, setSaving, setSaveError, setCreatedId, setIsRecurrenceModifyOpen } = state;
  const {title, allDay, startDate, endDate, startTime, endTime, calendarId, location, locationLat, locationLon, reminder, recurrence, selectedDays, endType, endCount, untilDate, description, attendees, travelTime} = fields;
     const handleSubmit = async (e: {preventDefault: () => void} | null = null, silent = true, snapshot: string | null = null, isSeries = false, isInstanceOnly = false, isFollowing = false) => {
         if (e) e.preventDefault();
-        if (!title.trim() || !startDate) return;
+        if (!title.trim() || !startDate || eventData?.metadata.readonly) return;
 
         // Prevents a second creation (POST) while the first one is still in flight
         if (!eventData?.id && !createdIdRef.current && isCreatingRef.current) return;
@@ -28,14 +28,16 @@ export function eventSaveActions(props: EventFormProps, state: EventFieldState, 
         setSaving(true);
         setSaveError(false);
 
-        const fullStart = buildDatetime(startDate, startTime, allDay);
-        const fullEnd = buildDatetime(endDate, endTime, allDay);
-        const googleEnd = allDay
-            ? inclusiveToExclusiveAllDayEnd(endDate || startDate)
-            : (fullEnd || fullStart);
+        const { start: externalStart, end: externalEnd } = buildExternalEventTimes(
+            fields, eventData?.metadata.date || googleRef.current?.start,
+            eventData?.metadata.end_date || googleRef.current?.end,
+        );
 
         // ─── Editing a Google event that ALREADY EXISTS (reopened in edit mode) → PATCH to Google ───
         const existGm = eventData?.metadata || {};
+        const preserveText = existGm._provider === 'caldav' || (mode !== 'edit' && (googleRef.current?.provider || calendars.find(c => c.id === calendarId)?.provider) === 'caldav');
+        const providerText = { summary: preserveText ? title : title.trim(),
+            location: preserveText ? location : location.trim(), description: preserveText ? description : description.trim() };
         const isExistingGoogle = mode === 'edit' && eventData?.id && (existGm._provider === 'google' || existGm._account) && !existGm._vault_path;
         if (isExistingGoogle) {
             const formSnap = snapshot || JSON.stringify({
@@ -44,35 +46,38 @@ export function eventSaveActions(props: EventFormProps, state: EventFieldState, 
                 endType, endCount, untilDate, description, attendees, travelTime
             });
             try {
-                await updateCalendarEvent({
+                const saved = await updateCalendarEvent({
                     calendarId: existGm._calendar_id || 'primary',
                     email: existGm._account || '',
                     eventId: eventData.id,
                     event: {
-                        summary: title.trim(),
-                        location: location.trim(),
-                        description: description.trim() || '',
-                        start: fullStart,
-                        end: googleEnd,
+                        ...providerText,
+                        provider: existGm._provider,
+                        start: externalStart,
+                        end: externalEnd,
                         calendar_id: existGm._calendar_id || 'primary',
                         attendees,
+                        ...(existGm._provider === 'caldav' ? { etag: etagRef.current, resource_url: resourceUrlRef.current } : {}),
                     },
                 });
+                etagRef.current = saved.etag || etagRef.current;
+                resourceUrlRef.current = saved.resource_url || resourceUrlRef.current;
                 lastSavedDataRef.current = formSnap;
                 if (!silent) toast.success(t('calendar.event_updated', "Appointment updated!"));
                 // Optimistic update (without refetch) so as not to reload the whole calendar on
                 // every keystroke: we pass the updated event so only this one is refreshed.
                 onSaved?.({
                     id: eventData.id,
-                    title: title.trim(),
-                    content: description.trim() || '',
+                    title: providerText.summary,
+                    content: providerText.description,
                     metadata: {
                         ...existGm,
-                        date: fullStart,
-                        end_date: googleEnd,
+                        _etag: etagRef.current, _resource_url: resourceUrlRef.current,
+                        date: externalStart,
+                        end_date: externalEnd,
                         all_day: allDay,
-                        location: location.trim(),
-                        description: description.trim() || '',
+                        location: providerText.location,
+                        description: providerText.description,
                         attendees,
                     },
                 });
@@ -100,30 +105,39 @@ export function eventSaveActions(props: EventFormProps, state: EventFieldState, 
             try {
                 if (googleRef.current?.id) {
                     // Updates the event we already created in Google during this session
-                    await updateCalendarEvent({
+                    const saved = await updateCalendarEvent({
                         calendarId: googleRef.current.calendar_id,
                         email: googleRef.current.account,
                         eventId: googleRef.current.id,
                         event: {
-                            summary: title.trim(),
-                            location: location.trim(),
-                            description: description.trim() || '',
-                            start: fullStart,
-                            end: googleEnd,
+                            ...providerText,
+                            provider: googleRef.current.provider,
+                            start: externalStart,
+                            end: externalEnd,
                             calendar_id: googleRef.current.calendar_id,
                             attendees,
+                            ...(googleRef.current.provider === 'caldav' ? { etag: etagRef.current, resource_url: resourceUrlRef.current } : {}),
                         },
                     });
+                    etagRef.current = saved.etag || etagRef.current;
+                    resourceUrlRef.current = saved.resource_url || resourceUrlRef.current;
+                    googleRef.current.start = externalStart || undefined;
+                    googleRef.current.end = externalEnd || undefined;
                 } else if (!isCreatingRef.current) {
                     // Creates the new event in Google (we store the id to avoid duplicating it)
                     isCreatingRef.current = true;
                     const created = await createCalendarEvent({
                         calendarId: selCal.google_calendar_id || 'primary',
                         email: selCal.account || '',
-                        event: buildExternalEventData(fields),
+                        event: { ...buildExternalEventData(fields), ...(selCal.provider === 'caldav' ? providerText : {}), provider: selCal.provider },
                     });
                     if (created.id) {
-                        googleRef.current = { id: created.id, account: selCal.account || '', calendar_id: selCal.google_calendar_id || 'primary' };
+                        etagRef.current = created.etag || null;
+                        resourceUrlRef.current = created.resource_url || null;
+                        googleRef.current = { id: created.id, account: selCal.account || '', calendar_id: selCal.google_calendar_id || 'primary',
+                            provider: selCal.provider || 'google',
+                            start: created.start?.dateTime || created.start?.date || undefined,
+                            end: created.end?.dateTime || created.end?.date || undefined };
                         setCreatedId(created.id);
                         // If the appointment already existed in the Vault (calendar change Tasks→Google),
                         // delete it so it doesn't remain duplicated.
@@ -247,6 +261,9 @@ export function eventSaveActions(props: EventFormProps, state: EventFieldState, 
                             calendarId: googleRef.current.calendar_id,
                             email: googleRef.current.account,
                             eventId: googleRef.current.id,
+                            provider: googleRef.current.provider,
+                            ...(etagRef.current ? { etag: etagRef.current } : {}),
+                            ...(resourceUrlRef.current ? { resourceUrl: resourceUrlRef.current } : {}),
                         });
                     } catch { /* Preserve the existing best-effort cleanup behavior. */ }
                     googleRef.current = null;
