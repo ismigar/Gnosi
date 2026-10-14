@@ -92,7 +92,7 @@ def _stage_inputs(store: WorkbenchStore, scope: WorkbenchScope, inputs: list[dic
 def _docker_arguments(name: str, root: Path) -> list[str]:
     return [shutil.which('docker') or 'docker', 'run', '--pull=never', '--rm', '--name', name,
             '--network=none', '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges',
-            '--pids-limit=64', '--memory=256m', '--cpus=1', '--ulimit', 'fsize=15360:15360',
+            '--pids-limit=64', '--memory=256m', '--cpus=1', '--ulimit', 'fsize=15000000:15000000',
             '--user', f'{os.getuid()}:{os.getgid()}', '--tmpfs', '/tmp:rw,noexec,nosuid,size=32m',
             '--mount', f'type=bind,src={root / "main.py"},dst=/code/main.py,readonly',
             '--mount', f'type=bind,src={root / "inputs"},dst=/inputs,readonly',

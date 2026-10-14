@@ -238,6 +238,8 @@ def test_analysis_isolation_flags_artifacts_and_prior_inputs(setup, monkeypatch)
     command = next(c for c in commands if 'run' in c)
     for flag in ('--pull=never', '--network=none', '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges', '--memory=256m', '--pids-limit=64', '--user'):
         assert flag in command
+    # Docker's fsize limit is in bytes, unlike the shell's block-based ulimit.
+    assert 'fsize=15000000:15000000' in command
     assert '/work:rw,noexec,nosuid,size=32m,mode=1777' in command
     assert not any('dst=/work' in str(arg) for arg in command)
 
