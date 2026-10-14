@@ -28,6 +28,7 @@ dmg:
 
 files:
   - main.js
+  - agent-workspace.js
   - preload.js
   - ipc-security.js
   - google-sign-in.js
