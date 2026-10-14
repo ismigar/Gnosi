@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-14
+last_verified: 2026-10-15
 source_paths:
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -38,6 +38,8 @@ source_paths:
   - backend/domains/vault/search
   - frontend/src/shared/bookmarks
 tests:
+  - backend/tests/test_e2e_option_catalogs.py
+  - backend/tests/test_translation_lifecycle_binding_contract.py
   - backend/tests/test_vault_content_search.py
   - backend/tests/test_page_save_concurrency.py
   - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
@@ -893,3 +895,5 @@ La capçalera d’un sol document només mostra Tancar pestanya quan l’identif
 Afegiu `--resource-id <id>` a `preview` per classificar només un recurs; les accions posteriors reutilitzen aquesta selecció desada. La classificació vincula el propietari personal verificat, exclou els contextos adjunts i les memòries revisades, desactiva les delegacions i reserva com a màxim 4.096 tokens de sortida per lot sense canviar els límits de despesa.
 
 Els encapçalaments plegables admeten Alt/Opció+Retorn amb el cursor dins del títol. El botó natiu es pot enfocar amb Tab i activar amb Retorn o Espai, amb focus visible, etiqueta traduïda i estat de desplegament. L’activació conserva el cursor o el focus del botó i l’estat de desplegament desat. Retorn sense modificadors conserva el comportament d’edició; els paràgrafs fills, els controls incrustats i la composició de text no pleguen una secció pare.
+
+La traducció interna de files i pàgines crea registres derivats mitjançant el servei canònic de creació de pàgines, sense cridar un handler HTTP amb dependències FastAPI sense resoldre. Es conserven les sobreescriptures de creació amb dos arguments. El test d’integració dels catàlegs activa explícitament la traducció al Vault temporal perquè la prova del bloqueig d’esborranys arribi a la regla d’acció.

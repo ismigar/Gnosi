@@ -12,6 +12,7 @@ from fastapi import BackgroundTasks
 
 from backend.domains.vault.drupal.fields import DrupalFieldDependencies
 from backend.domains.vault.drupal.media import DrupalUploadDependencies
+from backend.domains.vault.schemas.pages import PageSaveRequest
 from backend.domains.vault.registry.records import RecordReader
 from backend.domains.vault.translation.adapters import DetectLanguage
 from backend.domains.vault.translation.types import Metadata, Result, TranslateText
@@ -186,6 +187,17 @@ _TRANSLATION_STALENESS_DEPENDENCIES = (
         logger=_legacy.log,
     )
 )
+async def _create_translation_page(request: PageSaveRequest, tasks: BackgroundTasks) -> RecordReader:
+    """Internal creation must not invoke an HTTP handler's unresolved Depends."""
+    from backend.domains.vault.api import core_routes
+    from backend.domains.vault.pages import create_service
+
+    handler = _legacy.create_page
+    if handler is not core_routes.create_page:
+        return await handler(request, tasks)
+    return await create_service.create_page(request, tasks, None, core_routes._CREATE_PAGE_DEPENDENCIES)
+
+
 _ROW_TRANSLATION_DEPENDENCIES = _legacy.translation_row_service.RowTranslationDependencies(
     find_page=lambda page_id: _legacy.find_page_path(page_id),
     parse_frontmatter=lambda raw, path: _legacy.parse_frontmatter(raw, path),
@@ -230,7 +242,7 @@ _ROW_TRANSLATION_DEPENDENCIES = _legacy.translation_row_service.RowTranslationDe
     forget_translation=lambda origin_id, language: _legacy.translation_index.forget_translation(
         origin_id, language
     ),
-    create_page=lambda request, tasks: _legacy.create_page(request, tasks),
+    create_page=lambda request, tasks: _create_translation_page(request, tasks),
     patch_page=lambda page_id, request, tasks: _legacy.patch_page(page_id, request, tasks),
     load_markdown_translator=lambda: _legacy.translation_adapters.load_translate_page_skill(
         _legacy.log
@@ -244,7 +256,7 @@ _PAGE_TRANSLATION_DEPENDENCIES = _legacy.translation_page_service.PageTranslatio
     parse_frontmatter=lambda raw, path: _legacy.parse_frontmatter(raw, path),
     detect_record_source_lang=lambda metadata: _legacy.detect_record_source_lang(metadata),
     existing_translations=lambda origin_id: _legacy._get_existing_translations(origin_id),
-    create_page=lambda request, tasks: _legacy.create_page(request, tasks),
+    create_page=lambda request, tasks: _create_translation_page(request, tasks),
     patch_page=lambda page_id, request, tasks: _legacy.patch_page(page_id, request, tasks),
     logger=_legacy.log,
 )

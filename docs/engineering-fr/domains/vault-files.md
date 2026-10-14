@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-14
+last_verified: 2026-10-15
 source_paths:
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -38,6 +38,8 @@ source_paths:
   - backend/domains/vault/search
   - frontend/src/shared/bookmarks
 tests:
+  - backend/tests/test_e2e_option_catalogs.py
+  - backend/tests/test_translation_lifecycle_binding_contract.py
   - backend/tests/test_vault_content_search.py
   - backend/tests/test_page_save_concurrency.py
   - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
@@ -914,3 +916,5 @@ L’en-tête d’un seul document affiche Fermer l’onglet uniquement lorsque l
 Ajoutez `--resource-id <id>` à `preview` pour classer un seul document ; les actions suivantes réutilisent cette sélection enregistrée. La classification lie le propriétaire personnel vérifié, exclut les contextes joints et les mémoires révisées, désactive les délégations et réserve au maximum 4 096 tokens de sortie par lot sans modifier les plafonds de dépenses.
 
 Les titres repliables acceptent Alt/Option+Entrée lorsque le curseur est dans le titre. Le bouton natif est accessible avec Tab et activé avec Entrée ou Espace, avec un focus visible, une étiquette traduite et l’état développé. L’activation conserve le curseur ou le focus du bouton et l’état de déploiement enregistré. Entrée sans modificateur conserve son comportement d’édition ; les paragraphes enfants, les contrôles intégrés et la composition de texte ne replient pas une section parente.
+
+La traduction interne des lignes et pages crée les enregistrements dérivés via le service canonique de création des pages, sans appeler un handler HTTP avec des dépendances FastAPI non résolues. Les remplacements de création à deux arguments restent pris en charge. Le test d’intégration des catalogues active explicitement la traduction dans le Vault temporaire pour atteindre la règle de blocage des brouillons.
