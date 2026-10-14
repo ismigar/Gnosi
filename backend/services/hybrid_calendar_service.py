@@ -10,15 +10,20 @@ import logging
 import re
 import threading
 import time
-import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from email.header import decode_header as _raw_decode
 from typing import Any, Callable
 
 import requests
+from defusedxml import ElementTree as ET
 
 from backend.services.integration_manager import integration_manager
 from backend.domains.calendar.timing import calendar_phase
+from backend.domains.calendar.conference_links import google_join_url, caldav_join_url
+from backend.domains.calendar.caldav_transport import CalDAVClient, checked_url
+from backend.domains.calendar.caldav_time import effective_event_end, parse_calendar
+from backend.domains.calendar.caldav_attendees import display_address
+from backend.domains.calendar.provider_errors import CalendarProviderError
 
 log = logging.getLogger(__name__)
 
@@ -50,8 +55,6 @@ def _normalize_dt(val: object) -> str:
     if not val:
         return ""
     if isinstance(val, datetime):
-        if val.tzinfo is None:
-            val = val.replace(tzinfo=timezone.utc)
         return val.isoformat()
     s = str(val)
     # DATE-only (YYYYMMDD)
@@ -286,6 +289,8 @@ def _normalize_google_event(e: JsonObject, email: str, cal: JsonObject) -> JsonO
         "color": cal.get("color"),
         "status": e.get("status", "confirmed"),
         "link": e.get("htmlLink", ""),
+        "join_url": google_join_url(e),
+        "etag": e.get("etag"),
         "recurrence": e.get("recurrence"),
         "recurring_event_id": e.get("recurringEventId"),
         "event_type": e.get("eventType", "default"),
@@ -336,106 +341,34 @@ def caldav_list_calendars(email: str) -> list[JsonObject]:
     acc = _get_account(email)
     if not acc:
         return []
-    base_url = _caldav_base_url(acc)
-    if not base_url:
-        return []
-
-    session = _caldav_session(acc)
-    # PROPFIND to discover the calendar collections
-    body = """<?xml version="1.0" encoding="utf-8"?>
-<d:propfind xmlns:d="DAV:" xmlns:cal="urn:ietf:params:xml:ns:caldav">
-  <d:prop>
-    <d:displayname/>
-    <d:resourcetype/>
-    <cal:calendar-description/>
-    <d:current-user-principal/>
-  </d:prop>
-</d:propfind>"""
     try:
-        with calendar_phase("http"):
-            r = session.request(
-                "PROPFIND", base_url + "/", data=body, headers={"Depth": "1"}, timeout=15
-            )
-        r.raise_for_status()
-    except Exception as ex:
-        log.error(f"caldav_list_calendars {email}: {ex}")
+        return CalDAVClient(acc).calendars(email)
+    except CalendarProviderError as error:
+        log.warning("CalDAV calendar discovery failed: %s", error.detail)
         return []
-
-    calendars: list[JsonObject] = []
-    try:
-        root = ET.fromstring(r.text)
-        for resp in root.findall(".//{DAV:}response"):
-            href = resp.findtext("{DAV:}href", "")
-            restype = resp.find(".//{DAV:}resourcetype")
-            is_cal = (
-                restype is not None
-                and restype.find("{urn:ietf:params:xml:ns:caldav}calendar") is not None
-            )
-            if not is_cal:
-                continue
-            # Last NON-empty segment of the href (calendar id): robust to an href without a trailing
-            # slash or without slashes. Previously `href.split("/")[-2]` raised an IndexError with an href
-            # without enough slashes and, since the except below swallows the rest, it aborted the ENTIRE
-            # from a calendar list; also `[-2]` (assuming a trailing slash) took the parent segment
-            # if there wasn't one.
-            _segs = [s for s in href.split("/") if s]
-            name = resp.findtext(".//{DAV:}displayname") or (_segs[-1] if _segs else "") or href
-            calendars.append(
-                {
-                    "id": href,
-                    "name": name,
-                    "color": None,
-                    "account": email,
-                    "provider": "caldav",
-                    "url": base_url.rstrip("/") + "/" + href.lstrip("/")
-                    if not href.startswith("http")
-                    else href,
-                }
-            )
-    except Exception as ex:
-        log.error(f"caldav_list_calendars parse {email}: {ex}")
-
-    return calendars
 
 
 def caldav_list_events(
-    email: str,
-    time_min: str,
-    time_max: str,
-    search: str | None = None,
+    email: str, time_min: str, time_max: str, search: str | None = None,
+    calendar_id: str | None = None,
 ) -> list[JsonObject]:
+    from backend.domains.calendar.caldav_resources import event_query
+
     acc = _get_account(email)
     if not acc:
         return []
-
-    calendars = caldav_list_calendars(email)
-    session = _caldav_session(acc)
+    client = CalDAVClient(acc)
+    calendars = client.calendars(email)
+    if calendar_id:
+        calendars = [calendar for calendar in calendars if calendar_id in {calendar["id"], calendar["url"]}]
     events: list[JsonObject] = []
-
-    for cal in calendars:
-        cal_url = cal["url"]
-        body = f"""<?xml version="1.0" encoding="utf-8"?>
-<cal:calendar-query xmlns:d="DAV:" xmlns:cal="urn:ietf:params:xml:ns:caldav">
-  <d:prop>
-    <d:getetag/>
-    <cal:calendar-data/>
-  </d:prop>
-  <cal:filter>
-    <cal:comp-filter name="VCALENDAR">
-      <cal:comp-filter name="VEVENT">
-        <cal:time-range start="{_to_caldav_dt(time_min)}" end="{_to_caldav_dt(time_max)}"/>
-      </cal:comp-filter>
-    </cal:comp-filter>
-  </cal:filter>
-</cal:calendar-query>"""
+    for calendar in calendars:
         try:
-            with calendar_phase("http"):
-                r = session.request("REPORT", cal_url, data=body, headers={"Depth": "1"}, timeout=20)
-            r.raise_for_status()
-            events.extend(_parse_caldav_response(r.text, email, cal, search))
-        except Exception as ex:
-            log.warning(f"caldav_list_events calendar={cal_url}: {ex}")
-
+            result = client.request("REPORT", calendar["url"], data=event_query(time_min=time_min, time_max=time_max),
+                                    headers={"Depth": "1", "Content-Type": "application/xml; charset=utf-8"})
+            events.extend(_parse_caldav_response(result.text, email, calendar, search))
+        except CalendarProviderError as error:
+            log.warning("CalDAV event query failed: %s", error.detail)
     return events
 
 
@@ -456,8 +389,6 @@ def _parse_caldav_response(
     cal: JsonObject,
     search: str | None,
 ) -> list[JsonObject]:
-    from icalendar import Calendar as iCal
-
     events: list[JsonObject] = []
     try:
         root = ET.fromstring(xml_text)
@@ -471,11 +402,13 @@ def _parse_caldav_response(
         if not cal_data:
             continue
         try:
-            ical = iCal.from_ical(cal_data)
+            ical = parse_calendar(cal_data)
             for component in ical.walk():
                 if component.name != "VEVENT":
                     continue
                 ev = _normalize_caldav_event(component, email, cal)
+                ev["etag"] = resp.findtext(".//{DAV:}getetag", "")
+                ev["resource_url"] = checked_url(cal["url"], resp.findtext("{DAV:}href", ""), collection=cal["url"])
                 if (
                     q
                     and q not in ev["title"].lower()
@@ -489,11 +422,22 @@ def _parse_caldav_response(
     return events
 
 
+def _caldav_attendees(component: Any, email: str) -> list[JsonObject]:
+    values = component.get("ATTENDEE", [])
+    values = values if isinstance(values, list) else [values]
+    return [{
+        "email": display_address(value),
+        "name": str(value.params.get("CN", "")),
+        "rsvp": {"ACCEPTED": "accepted", "DECLINED": "declined", "TENTATIVE": "tentative"}.get(str(value.params.get("PARTSTAT", "")), "needsAction"),
+        "self": str(value).lower() == "mailto:" + email.lower(),
+    } for value in values]
+
+
 def _normalize_caldav_event(component: Any, email: str, cal: JsonObject) -> JsonObject:
     uid = _ical_prop(component, "UID")
     title = _ical_prop(component, "SUMMARY", "(sense títol)")
     start = _ical_prop(component, "DTSTART")
-    end = _ical_prop(component, "DTEND") or _ical_prop(component, "DUE")
+    end = _ical_prop(component, "DTEND") or _ical_prop(component, "DUE") or _normalize_dt(effective_event_end(component))
     all_day = "T" not in start if start else False
     source = f"{email} - {cal['name']}" if cal.get("name") and cal["name"] != email else email
     rrule_obj = component.get("RRULE")
@@ -520,9 +464,12 @@ def _normalize_caldav_event(component: Any, email: str, cal: JsonObject) -> Json
         "color": cal.get("color"),
         "status": _ical_prop(component, "STATUS", "confirmed").lower(),
         "link": _ical_prop(component, "URL"),
+        "join_url": caldav_join_url(component),
+        "attendees": _caldav_attendees(component, email),
+        "organizer": display_address(_ical_prop(component, "ORGANIZER")),
         "recurrence": rrule_str,
         "recurring_event_id": None,
-        "is_read_only": False,
+        "is_read_only": cal.get("access_role") == "reader" or any(component.get(key) for key in ("RRULE", "RDATE", "EXDATE", "RECURRENCE-ID")),
     }
 
 
@@ -553,14 +500,20 @@ def list_events(
     if acc.get("provider") == "google":
         return google_list_events(email, time_min, time_max, search, calendar_id)
     if _is_caldav_account(acc):
-        return caldav_list_events(email, time_min, time_max, search)
+        if calendar_id is None:
+            return caldav_list_events(email, time_min, time_max, search)
+        return caldav_list_events(email, time_min, time_max, search, calendar_id)
     return []
 
 
 def get_event(email: str, event_id: str, calendar_id: str | None = None) -> JsonObject | None:
-    acc = _get_account(email, resolve_secrets=False)
-    if not acc:
+    from backend.domains.calendar import provider_operations
+
+    with calendar_phase("integrations"):
+        accounts = integration_manager.get_calendar_accounts(email, resolve_secrets=False)
+    if not accounts:
         return None
-    if acc.get("provider") == "google":
+    account = provider_operations.select_account_reference(accounts, calendar_id or "primary")
+    if provider_operations.account_provider(account) == "google":
         return google_get_event(email, event_id, calendar_id or "primary")
-    return None
+    return provider_operations.get_caldav_event(email, event_id, calendar_id or "primary")

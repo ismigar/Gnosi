@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type Dispatch, type RefObject, type SetStateAction } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { patchVaultPage } from '../../../../shared/api/vaults';
 import { GnosiApiError } from '../../../../shared/api/errors';
@@ -36,6 +36,7 @@ export interface EditorPersistenceOptions {
     readonly onUpdate?: MarkdownCodeEditorProps['onUpdate'];
     readonly onOutgoingLinksChange?: MarkdownCodeEditorProps['onOutgoingLinksChange'];
     readonly idToTitle?: MarkdownCodeEditorProps['idToTitle'];
+    readonly registerSave?: MarkdownCodeEditorProps['registerSave'];
 }
 
 /** Track exactly the promise whose completion is allowed to clear the cache. */
@@ -49,10 +50,11 @@ function clearOwnSave(id: string, promise: Promise<unknown>): void {
     if (inFlightSaves.get(id)?.promise === promise) inFlightSaves.delete(id);
 }
 
-export function useEditorPersistence({ editor, noteFilename, isParsing, editorReady, metadataRef, setSaveStatus, onUpdate, onOutgoingLinksChange, idToTitle }: EditorPersistenceOptions) {
+export function useEditorPersistence({ editor, noteFilename, isParsing, editorReady, metadataRef, setSaveStatus, onUpdate, onOutgoingLinksChange, idToTitle, registerSave }: EditorPersistenceOptions) {
     const { t } = useTranslation();
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const transientRetryRef = useRef(0);
+    const lastSaveFailedRef = useRef(false);
     const outgoingSignatureRef = useRef('');
     const contentRef = useRef<{
         editor: PersistenceEditor;
@@ -64,6 +66,7 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
     const readMetadata = useCallback(() => metadataRef.current, [metadataRef]);
     const handleSave = useCallback(async function persistCurrentPage(force = true) {
         if (!noteFilename || isParsing || !editorReady) return;
+        lastSaveFailedRef.current = false;
         try {
             const content = blocksToRichMarkdown(editor.document);
             const tracked = contentRef.current;
@@ -71,14 +74,14 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
                 && content === tracked.saved && !inFlightSaves.has(noteFilename)) return;
             setSaveStatus('saving');
             const { data, promise } = savePage(noteFilename, content, readMetadata(), t('editor.untitled'));
-            await promise;
-            clearOwnSave(noteFilename, promise);
+            try { await promise; } finally { clearOwnSave(noteFilename, promise); }
             if (tracked?.editor === editor && tracked.noteFilename === noteFilename) tracked.saved = data.content;
             transientRetryRef.current = 0;
             setSaveStatus('saved');
             onUpdate?.(noteFilename, data.content, { title: data.title, metadata: data.metadata });
             setTimeout(() => { setSaveStatus(previous => previous === 'saved' ? 'idle' : previous); }, 3000);
         } catch (error) {
+            lastSaveFailedRef.current = true;
             const retryDelay = transientRetryDelay(error, transientRetryRef.current);
             if (retryDelay !== null) {
                 transientRetryRef.current += 1;
@@ -95,6 +98,33 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
             setSaveStatus('error');
         }
     }, [editor, editorReady, isParsing, readMetadata, noteFilename, onUpdate, setSaveStatus, t]);
+
+    const cancelPendingSave = useCallback(() => {
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+    }, []);
+    const flush = useCallback(async () => {
+        if (!noteFilename || isParsing || !editorReady) return false;
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+            cancelPendingSave();
+            const pending = inFlightSaves.get(noteFilename)?.promise;
+            if (pending) {
+                try { await pending; } catch { return false; }
+                clearOwnSave(noteFilename, pending);
+            }
+            await handleSave(false);
+            cancelPendingSave();
+            if (lastSaveFailedRef.current) return false;
+            if (!inFlightSaves.has(noteFilename) && contentRef.current?.saved === blocksToRichMarkdown(editor.document)) return true;
+        }
+        return false;
+    }, [cancelPendingSave, editor, editorReady, handleSave, isParsing, noteFilename]);
+    // Match the source editor's registration phase so the old mode cleans up
+    // before the new mode publishes its save controller.
+    useLayoutEffect(() => {
+        registerSave?.(flush);
+        return () => { registerSave?.(null); };
+    }, [flush, registerSave]);
 
     useEffect(() => {
         if (isParsing || !editorReady || !noteFilename) return;

@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-09-12
+last_verified: 2026-10-13
 source_paths:
+  - backend/domains/vault/publishing
+  - frontend/src/features/sharing/publishing
+  - frontend/src/features/offline
+  - frontend/src/shared/offline
   - backend/api/auth_routes.py
   - backend/api/workspace_routes.py
   - backend/api/vaults_routes.py
@@ -10,6 +14,7 @@ source_paths:
   - backend/api/public_routes.py
   - backend/models/management.py
   - backend/services/auth_service.py
+  - backend/services/auth_public_surface.py
   - backend/services/workspace_service.py
   - backend/services/vault_routing.py
   - backend/services/active_vault_middleware.py
@@ -20,6 +25,7 @@ source_paths:
   - frontend/src/shared/routing
   - frontend/src/features/workspaces
 tests:
+  - backend/tests/test_auth_expected_account.py
   - frontend/src/features/auth/LoginPage.test.tsx
   - frontend/src/features/auth/public-entry.test.ts
   - backend/tests/test_auth_central_gate.py
@@ -39,6 +45,12 @@ tests:
 ---
 
 # Autenticació, espais de treball i compartició
+
+## Notes sense connexió i llocs publicats
+
+El complement de notes sense connexió s’obre des de Configuració → General i utilitza el mateix origen del servidor. En una compilació de producció, el service worker només desa la interfície pública compilada. L’usuari tria les notes de text explícitament i protegeix la col·lecció local amb una contrasenya separada. Les desades locals xifren la col·lecció a IndexedDB; bloquejar-la esborra el text desxifrat conservat per l’aplicació. La sincronització comprova compte, espai de treball, Vault i versió de pàgina i mostra les dues versions si hi ha conflicte. El servidor continua conservant notes llegibles ordinàries. Adjunts, dibuixos i bases de dades queden fora d’aquesta col·lecció.
+
+La publicació de diverses pàgines utilitza el connector de compartició i el backend del servidor propi. Un editor selecciona notes i revisa la instantània pública exacta abans de publicar-la. El visitant només rep aquella instantània; la navegació i la cerca es limiten a les pàgines seleccionades. S’ometen visiblement adjunts, HTML, transclusions privades i consultes desades. Les actualitzacions requereixen una previsualització nova; revisions, caducitat i revocació es desen a la base de dades de gestió. Les lectures anònimes utilitzen una ruta de token acotada, ometen credencials i no arrenquen l’aplicació privada. Publicar no desplega un altre servei ni actualitza automàticament els canvis de les notes originals.
 
 ## Modes operatius
 
@@ -77,6 +89,8 @@ JWT signat en una galeta HttpOnly amb SameSite=Lax. Els clients API admesos
 també poden enviar un token bearer a `Authorization`. Els Personal Access
 Tokens utilitzen un format opac separat; només se'n desa un hash SHA-256 i
 el prefix visible.
+
+Els clients que conserven canvis entre sessions poden enviar `X-Gnosi-Expected-User-ID`. El control central compara aquesta precondició amb la identitat autenticada per galeta/PAT abans d’atendre rutes protegides: si falta identitat retorna 401, i un canvi de compte retorna 409 amb `code: account_changed`. La capçalera mai no selecciona un usuari ni concedeix permisos, tampoc en instal·lacions locals amb autenticació opcional. Es continuen comprovant els rols d’espai de treball/Vault. Les excepcions públiques d’accés, sortida i salut conserven el comportament existent.
 
 El secret de signatura ha de ser robust en desplegaments exposats. El backend
 rebutja l'arrencada amb el valor públic de desenvolupament quan la política
@@ -212,3 +226,15 @@ les actualitzacions de compte, el canvi d'espai de treball i l'accés anònim
 als enllaços compartits en una sessió neta.
 
 Resoldre una biblioteca registrada és una operació de lectura. Si la carpeta falta, la identitat no està disponible i les rutes canòniques retornen 404; les peticions no recreen el camí antic. La creació explícita de carpetes continua al flux de creació de biblioteques. Triar una altra carpeta existent conserva les dues identitats i les seves rutes.
+
+## Formularis públics de taula
+
+`domains/forms/` publica preguntes explícites d'una taula registrada. GET anònim `/api/forms/public/{token}` retorna aquest esquema; POST `/submissions` valida cada camp i crea la pàgina mitjançant el procés canònic idempotent. Les fórmules, relacions i metadades reservades no són modificables. Un canvi incompatible d'esquema desactiva el formulari. El complement `share-links` regula la publicació i l'accés.
+
+Formularis i reserves utilitzen `public_workflow_scope.py` per fixar espai, vault i propietari i comprovar de nou pertinença, escriptura, emmagatzematge i complements. Les galetes, capçaleres i paràmetres del visitant no seleccionen el destí. Les respostes són `no-store`; les pàgines públiques no envien referent ni s'indexen. El client públic omet credencials i capçaleres de l'espai. La migració `mgmt_0006` afegeix definicions i rebuts persistents sense modificar els registres existents.
+
+La publicació d’un formulari exigeix una vigència d’1 a 365 dies (30 per defecte). Cada token nou desa una data de venciment; si falta o ja ha passat, es rebutgen tant les consultes com les respostes. El propietari pot revocar l’enllaç abans que caduqui.
+
+El paquet del backend inclou `management_0006.py` entre els recursos revisats perquè les instal·lacions d’escriptori puguin aplicar la mateixa migració d’esquema per als formularis públics i les reserves.
+
+Les migracions de gestió segueixen una única seqüència: `mgmt_0006` afegeix formularis i reserves; `mgmt_0007` hi afegeix previsualitzacions, llocs i revisions de publicació. Totes dues s’inclouen als recursos del backend d’escriptori. Les bases noves i les actualitzacions conserven els dos esquemes i les dades existents. Una base incompatible amb la mateixa etiqueta de revisió es rebutja per l’empremta exacta de l’esquema abans de modificar-la; l’etiqueta sola no n’autoritza l’adopció.

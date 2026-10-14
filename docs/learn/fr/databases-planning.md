@@ -43,3 +43,11 @@ Une vue vide peut simplement avoir un filtre restrictif. Vérifiez dates, statut
 
 - [Créer des pages, des liens et des pièces jointes](pages-files.md)
 - [Activer les extensions, connecter et automatiser](integrations-automations.md)
+
+## Formulaires publics de table
+
+Activez **Partage externe**, ouvrez une table et choisissez **Formulaires publics**. Publiez un formulaire avec titre, description, questions choisies, aide, champs obligatoires et expiration. Les questions acceptent texte, nombres, dates, courriel, URL, téléphone, cases à cocher et choix de la table. Les formules, relations et champs internes ne sont pas exposés.
+
+Partagez le lien depuis un serveur Gnosi accessible aux destinataires. Ils peuvent répondre sans compte et ne peuvent pas consulter les enregistrements existants. Chaque réponse acceptée crée une page dans la table fixée par le processus habituel. Réessayer un envoi interrompu conserve son identité et ne duplique pas l'enregistrement. Révoquez le lien pour arrêter les nouvelles réponses. Retirer le droit d'écriture du propriétaire ou changer le schéma d'un champ exposé arrête également le formulaire.
+
+Les liens expirent toujours : choisissez 7, 30, 90 ou 365 jours lors de la publication. Publiez un nouveau formulaire pour obtenir un autre lien après expiration.

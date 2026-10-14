@@ -318,6 +318,20 @@ El repositorio incluye ejemplos de empaquetado de plugins, un proxy MCP para Dru
 - Desactivar o migrar nunca elimina datos, configuraciones, credenciales o perfiles del plugin.
 - El origen y efecto de la herramienta MCP permanece visible después de la normalización del catálogo.
 
+## Contrato de búsqueda y editor de código para plugins de interfaz
+
+El entorno aislado de interfaz con origen opaco expone estos métodos adicionales de la API v2:
+
+| Método | Permiso | Comportamiento |
+|---|---|---|
+| `gnosi.vault.search(query, {offset})` | `vault:read` | Utiliza la misma API de búsqueda de contenido completo que la interfaz del Vault. Devuelve coincidencias con contexto y paginación. Las peticiones quedan fijadas a la cuenta, espacio de trabajo y Vault activos; cambiar de contexto las cancela y rechaza resultados obsoletos, también si el cambio se hace en otra pestaña. El plugin no puede indicar otro Vault. |
+| `gnosi.editor.getSelection()` | `vault:read` | Devuelve `vaultId`, `documentId`, `sessionId`, `documentVersion`, `selectionVersion`, `readOnly`, `mainIndex` y `ranges` (`from`, `to`, `text`) del editor de código Markdown activo. Falla si no hay un editor activo. |
+| `gnosi.editor.replaceSelection(text, snapshot)` | `vault:write` | Sustituye cada selección actual en una sola transacción que se puede deshacer. La instantánea debe coincidir con el Vault, página, sesión, versión del documento y versión de selección actuales. Rechaza páginas bloqueadas, selecciones cambiadas e instantáneas obsoletas. La persistencia sigue la ruta normal de borrador y autoguardado. El texto insertado tiene un límite total de un millón de caracteres. |
+
+Lea la selección justo antes de una transformación asíncrona y pase la misma instantánea al sustituirla. Si se rechaza, obtenga una selección nueva y deje que el usuario decida si desea repetir la transformación. No reintente automáticamente sobre una selección cambiada. Los editores se desregistran cuando la página queda inactiva o se desmonta; los cambios de cuenta, espacio de trabajo y Vault invalidan las capacidades, aunque se vuelva al contexto anterior. Un editor montado conserva su contexto original al reactivarse.
+
+El iframe conserva `sandbox="allow-scripts"` sin `allow-same-origin`; los métodos transmiten datos serializables por el puente de mensajes existente con comprobación de permisos. No exponen el DOM del padre ni la instancia CodeMirror. Los plugins de editor enriquecido y la compatibilidad binaria con plugins arbitrarios de Obsidian quedan fuera de este contrato.
+
 ## Enfoque de verificación
 
 Ejecute las pruebas de manifiestos, firmas, sandbox, condiciones de carrera del estado, contribuciones de IA, enrutamiento MCP, reintentos y conectores. Una prueba de integración real utiliza una cuenta de pruebas dedicada y no debe modificar involuntariamente datos de producción.

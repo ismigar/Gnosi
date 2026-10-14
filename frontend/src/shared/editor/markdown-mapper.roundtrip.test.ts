@@ -20,6 +20,14 @@ function inlineText(value: string): unknown[] {
 }
 
 describe('Markdown mapper serialization domains', () => {
+    it('preserves embedded queries as portable Markdown fences', async () => {
+        const body = 'task-todo:(write OR review)';
+        expect(blocksToRichMarkdown([{ type: 'query', props: { query: body } }])).toBe('```query\n' + body + '\n```');
+        const blocks = await richMarkdownToBlocks('```query\n' + body + '\n```', {
+            tryParseMarkdownToBlocks: () => Promise.resolve([{ type: 'codeBlock', props: { language: 'query' }, content: inlineText(body) }]),
+        });
+        expect(blocks[0]).toMatchObject({ type: 'query', props: { query: body } });
+    });
     it('serializes lists tightly and appends stable footnote definitions', () => {
         const markdown = blocksToRichMarkdown([
             { type: 'bulletListItem', content: inlineText('First') },

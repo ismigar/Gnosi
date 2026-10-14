@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import readerAssets from "../desktop/scripts/verify-frontend-assets.cjs";
+import { offlineShellPlugin } from "./src/shared/offline/build-plugin.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -278,7 +279,7 @@ export default defineConfig(({ mode }) => {
   const frontendPort = env.VITE_FRONTEND_PORT || "5173";
 
   return {
-    plugins: [react(), httpToHttpsRedirectPlugin(), immutablePreviewAssetsPlugin(), requiredReaderAssetsPlugin()],
+    plugins: [react(), httpToHttpsRedirectPlugin(), immutablePreviewAssetsPlugin(), requiredReaderAssetsPlugin(), offlineShellPlugin()],
     // Web and packaged app://gnosi both serve from the origin root. Relative
     // assets break direct BrowserRouter entries and reloads below nested paths.
     base: env.VITE_BASE_PATH || "/",
@@ -302,14 +303,15 @@ export default defineConfig(({ mode }) => {
       ),
     },
     optimizeDeps: {
-      // Gnosi has one application entry. Without this boundary Vite scans HTML
+      // Keep the two application entries explicit. Otherwise Vite scans HTML
       // fixtures inside the vendored Zotero Reader and tries to resolve the
       // PDF.js build-only aliases as application dependencies.
-      entries: [path.join(rootDir, "index.html")],
+      entries: [path.join(rootDir, "index.html"), path.join(rootDir, "offline.html")],
       // Keep Lucide's per-icon dynamic imports visible to Vite. If esbuild
       // prebundles this entry, opening any stored custom icon makes the dev
       // browser request the complete icon catalogue instead of one module.
-      exclude: ["lucide-react/dynamic"],
+      // tldraw’s local assets use ?url imports handled by Vite, not the optimizer.
+      exclude: ["lucide-react/dynamic", "@tldraw/assets"],
     },
     build: {
       // Identifies actual compiler outputs for immutable preview asset caching.
@@ -320,6 +322,7 @@ export default defineConfig(({ mode }) => {
       // static startup graph, including modulepreload dependencies.
       chunkSizeWarningLimit: 1500,
       rolldownOptions: {
+        input: { main: path.join(rootDir, "index.html"), offline: path.join(rootDir, "offline.html") },
         output: {
           codeSplitting: {
             groups: [{

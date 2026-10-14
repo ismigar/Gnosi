@@ -379,6 +379,20 @@ automàticament l'accés als seus fitxers ni a les credencials.
 - Desactivar o migrar mai no elimina dades, configuració, credencials ni perfils dels connectors.
 - L'origen i l'efecte de les eines MCP es mantenen visibles després de normalitzar el catàleg.
 
+## Contracte de cerca i editor de codi per als connectors d’interfície
+
+L’entorn aïllat d’interfície amb origen opac exposa aquests mètodes additius de l’API v2:
+
+| Mètode | Permís | Comportament |
+|---|---|---|
+| `gnosi.vault.search(query, {offset})` | `vault:read` | Utilitza la mateixa API de cerca de contingut complet que la interfície del Vault. Retorna coincidències amb context i paginació. Les peticions queden fixades al compte, espai de treball i Vault actius; canviar de context les cancel·la i rebutja resultats obsolets, també si el canvi es fa en una altra pestanya. El connector no pot indicar un altre Vault. |
+| `gnosi.editor.getSelection()` | `vault:read` | Retorna `vaultId`, `documentId`, `sessionId`, `documentVersion`, `selectionVersion`, `readOnly`, `mainIndex` i `ranges` (`from`, `to`, `text`) de l’editor de codi Markdown actiu. Falla si no hi ha cap editor actiu. |
+| `gnosi.editor.replaceSelection(text, snapshot)` | `vault:write` | Substitueix cada selecció actual en una sola transacció que es pot desfer. La instantània ha de coincidir amb el Vault, la pàgina, la sessió, la versió del document i la versió de selecció actuals. Es rebutgen pàgines bloquejades, seleccions canviades i instantànies obsoletes. La persistència segueix el camí normal d’esborrany i autoguardat. El text inserit té un límit total d’un milió de caràcters. |
+
+Llegiu la selecció just abans d’una transformació asíncrona i passeu la mateixa instantània en substituir-la. Si es rebutja, obteniu una selecció nova i deixeu que l’usuari decideixi si vol repetir la transformació. No reintenteu automàticament sobre una selecció canviada. Els editors es desregistren quan la pàgina queda inactiva o es desmunta; els canvis de compte, espai de treball i Vault invaliden les capacitats, encara que es torni al context anterior. Un editor muntat conserva el seu context original quan es reactiva.
+
+L’iframe conserva `sandbox="allow-scripts"` sense `allow-same-origin`; els mètodes transmeten dades serialitzables pel pont de missatges existent amb comprovació de permisos. No exposen el DOM del pare ni la instància CodeMirror. Els connectors d’editor enriquit i la compatibilitat binària amb connectors arbitraris d’Obsidian queden fora d’aquest contracte.
+
 ## Aspectes que cal verificar
 
 Executeu proves de manifest, signatura, sandbox, curses d'estat, contribucions

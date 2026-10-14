@@ -8,29 +8,47 @@ function source(name: string): ts.SourceFile {
   return ts.createSourceFile(name, readFileSync(new URL(name, import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 }
 
-function collect<T>(file: ts.SourceFile, select: (node: ts.Node) => T | undefined): T[] {
+function collect<T>(root: ts.Node, select: (node: ts.Node) => T | undefined): T[] {
   const result: T[] = [];
   function visit(node: ts.Node): void {
     const value = select(node);
     if (value !== undefined) result.push(value);
     ts.forEachChild(node, visit);
   }
-  visit(file);
+  visit(root);
+  return result;
+}
+
+function declaration(file: ts.SourceFile, name: string): ts.FunctionDeclaration {
+  const functions = collect(file, node => ts.isFunctionDeclaration(node) && node.name?.text === name ? node : undefined);
+  expect(functions).toHaveLength(1);
+  const [result] = functions;
+  if (!result) throw new Error(`Missing function ${name}`);
   return result;
 }
 
 describe('application composition extraction contracts', () => {
-  it('preserves every route, wrapper, permission gate and source order from a8f9d76f0', () => {
+  it('preserves every legacy route, wrapper, permission gate and source order while adding public workflows', () => {
     const file = source('./routes.tsx');
     const printer = ts.createPrinter({ removeComments: true });
     const routes = collect(file, node => ts.isJsxSelfClosingElement(node) && node.tagName.getText(file) === 'Route'
       ? printer.printNode(ts.EmitHint.Unspecified, node, file) : undefined);
-    expect(routes).toHaveLength(32);
-    expect(createHash('sha256').update(JSON.stringify(routes)).digest('hex'))
+    const additions = [
+      '<Route path="/forms/:token" element={<PublicFormPage />}/>',
+      '<Route path="/book/:token" element={<BookingPage />}/>',
+    ];
+    expect(routes).toHaveLength(34);
+    expect(routes.filter(route => additions.includes(route))).toEqual(additions);
+    expect(collect(declaration(file, 'SharedRoutes'), node => ts.isJsxSelfClosingElement(node) && node.tagName.getText(file) === 'Route'
+      ? printer.printNode(ts.EmitHint.Unspecified, node, file) : undefined))
+      .toEqual(['<Route path="/s/:token" element={<SharedPage />}/>', ...additions]);
+    const legacy = routes.filter(route => !additions.includes(route));
+    expect(legacy).toHaveLength(32);
+    expect(createHash('sha256').update(JSON.stringify(legacy)).digest('hex'))
       .toBe('e224a66814a7d55998fabd012f35fc4fb496d2a35e7a7e66a070ec2482d2224d');
   });
 
-  it('keeps the twenty optional imports deferred and the Home page eager', () => {
+  it('keeps reviewed optional imports deferred and the Home page eager', () => {
     const sourceRoot = new URL('../', import.meta.url).pathname;
     const entries = ['automations', 'calendar', 'contacts', 'control-center', 'graph', 'literature', 'mail', 'media', 'meetings', 'notebooks', 'planning', 'reader', 'sharing', 'social'];
     const files = ['./App.tsx', '../features/agent/AgentChatLauncher.tsx', './routes.tsx', './routePreload.ts', ...entries.map(feature => `../features/${feature}/index.ts`)];
@@ -43,13 +61,15 @@ describe('application composition extraction contracts', () => {
     })))];
     expect(imports.sort()).toEqual([
       'features/reader/zotero/ZoteroReaderTab', 'features/agent/AgentChat', 'features/automations/SchedulerPage',
-      'features/calendar/CalendarPage', 'features/contacts/ContactsPage',
+      'features/booking/BookingPage', 'features/calendar/CalendarPage', 'features/contacts/ContactsPage',
+      'features/forms/FormPage',
       'features/control-center/Dashboard', 'features/graph/GraphPage', 'features/literature/LiteraturePage',
       'features/mail/MailPage', 'features/media/MediaCenter', 'features/notebooks/NotebooksPage',
       'features/meetings/MeetingRecorder', 'features/meetings/MeetingReminderWatcher',
       'features/notebooks/create/NotebookCreateDialog',
       'features/planning/ProjectPlanningPage', 'features/reader/ReaderDashboard',
-      'features/sharing/SharedPage', 'features/social/ComposerPage', 'features/social/SocialDashboard',
+      'features/sharing/SharedPage', 'features/sharing/publishing/publicBootstrap',
+      'features/social/ComposerPage', 'features/social/SocialDashboard',
       'features/vault/VaultDashboard',
     ].sort());
     const eager = collect(source('./routes.tsx'), node => ts.isImportDeclaration(node)
@@ -58,10 +78,15 @@ describe('application composition extraction contracts', () => {
     expect(eager.filter(path => path.startsWith('../pages/'))).toEqual([]);
   });
 
-  it('keeps the original provider order and renders App before the tooltip', () => {
+  it('keeps the original private provider order, bypasses authentication for public links and renders App before the tooltip', () => {
     const providers = source('./AppProviders.tsx');
-    expect(collect(providers, node => ts.isJsxOpeningElement(node) ? node.tagName.getText(providers) : undefined))
-      .toEqual(['StrictMode', 'ApiProvider', 'BrowserRouter', 'AuthProvider']);
+    const app = declaration(providers, 'AppProviders');
+    expect(collect(app, node => ts.isJsxOpeningElement(node) ? node.tagName.getText(providers) : undefined))
+      .toEqual(['StrictMode', 'ApiProvider', 'BrowserRouter', 'RoutedSessionProvider']);
+    const session = declaration(providers, 'RoutedSessionProvider');
+    expect(collect(session, node => ts.isReturnStatement(node) && node.expression
+      ? ts.createPrinter().printNode(ts.EmitHint.Expression, node.expression, providers) : undefined))
+      .toEqual(['isPublicTokenPath(location.pathname) ? children : <AuthProvider>{children}</AuthProvider>']);
     const bootstrap = source('./bootstrap.tsx');
     expect(collect(bootstrap, node => ts.isJsxSelfClosingElement(node) ? node.tagName.getText(bootstrap) : undefined))
       .toEqual(['App', 'GlobalTooltip']);

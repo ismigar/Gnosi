@@ -49,6 +49,9 @@ import {
     writeStorage,
 } from '../../shared/platform/browser-storage';
 import { subscribeWindowEvent } from '../../shared/platform/browser-events';
+import { commandHotkey, hotkeyFromEvent, useHotkeyBindings } from '../../shared/commands/hotkeys';
+import { hasOpenModal } from '../../shared/hooks/useModalKeyboard';
+import { resetCustomAppearance } from '../../shared/theme/customAppearance';
 
 
 type ThemePreference = 'dark' | 'light' | 'system';
@@ -98,6 +101,7 @@ export default function CommandPalette() {
     const [query, setQuery] = useState('');
     const [highlighted, setHighlighted] = useState(0);
     const { isEnabled } = usePlugins();
+    const hotkeys = useHotkeyBindings();
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLUListElement>(null);
 
@@ -170,6 +174,7 @@ export default function CommandPalette() {
         { id: 'theme-light', title: t('command_palette.theme_light'), section: t('command_palette.section_appearance'), icon: Sun, kw: ['tema', 'clar', 'light', 'theme'], run: () => { setTheme('light'); } },
         { id: 'theme-dark', title: t('command_palette.theme_dark'), section: t('command_palette.section_appearance'), icon: Moon, kw: ['tema', 'fosc', 'dark', 'theme'], run: () => { setTheme('dark'); } },
         { id: 'theme-system', title: t('command_palette.theme_system'), section: t('command_palette.section_appearance'), icon: Monitor, kw: ['tema', 'sistema', 'system', 'auto'], run: () => { setTheme('system'); } },
+        { id: 'appearance-reset', title: t('settings.custom_appearance.reset'), section: t('command_palette.section_appearance'), icon: Monitor, kw: ['css', 'reset', 'theme'], run: () => { resetCustomAppearance(); } },
         { id: 'act-settings', title: t('command_palette.open_settings'), section: t('command_palette.section_actions'), icon: Settings, kw: ['configuració', 'settings', 'preferències', 'ajustos'], run: () => { emitAppEvent('gnosi:open-settings'); } },
     ].filter((command) => !command.pluginId || isEnabled(command.pluginId)), [createNote, go, importNotes, isEnabled, t]);
 
@@ -198,11 +203,21 @@ export default function CommandPalette() {
     }, [allCommands, query]);
 
     useEffect(() => subscribeWindowEvent('keydown', (event) => {
-        if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'p') {
+        if (event.defaultPrevented || event.repeat || event.isComposing || event.getModifierState('AltGraph') || hasOpenModal()) return;
+        if (event.target instanceof Element && event.target.closest('[data-hotkey-recorder]')) return;
+        const binding = hotkeyFromEvent(event);
+        if (!binding) return;
+        if (binding === commandHotkey('command-palette', hotkeys)) {
             event.preventDefault();
             setOpen((value) => !value);
+            return;
         }
-    }), []);
+        const command = allCommands.find(candidate => commandHotkey(candidate.id, hotkeys) === binding);
+        if (!command) return;
+        event.preventDefault();
+        close();
+        void command.run();
+    }), [allCommands, close, hotkeys]);
 
     useEffect(() => {
         if (!open) return undefined;
@@ -293,6 +308,7 @@ export default function CommandPalette() {
                         >
                             <Icon size={16} className={index === highlighted ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'} />
                             {command.title}
+                            {commandHotkey(command.id, hotkeys) && <kbd className="ml-auto text-xs text-[var(--text-tertiary)]">{commandHotkey(command.id, hotkeys)}</kbd>}
                         </li>
                     </Fragment>;
                 })}

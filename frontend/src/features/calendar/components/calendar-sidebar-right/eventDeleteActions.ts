@@ -8,7 +8,7 @@ import type { EventFieldState } from './useEventFields';
 import { record, textValue } from './calendarBoundary';
 import { recurrenceText } from './eventFormModel';
 export function eventDeleteActions({eventData, onSaved, onClose}: EventFormProps, state: EventFieldState, t: TFunction) {
- const {googleRef, createdIdRef, setDeleting, setIsRecurrenceDeleteOpen} = state;
+ const {googleRef, etagRef, resourceUrlRef, createdIdRef, setDeleting, setIsRecurrenceDeleteOpen} = state;
     const handleDelete = async (isSeries = false, isInstanceOnly = false, isFollowing = false) => {
         // If the appointment was created in a Google calendar during this session, delete it in Google
         if (googleRef.current?.id) {
@@ -18,6 +18,9 @@ export function eventDeleteActions({eventData, onSaved, onClose}: EventFormProps
                     calendarId: googleRef.current.calendar_id,
                     email: googleRef.current.account,
                     eventId: googleRef.current.id,
+                    provider: googleRef.current.provider,
+                    ...(etagRef.current ? { etag: etagRef.current } : {}),
+                    ...(resourceUrlRef.current ? { resourceUrl: resourceUrlRef.current } : {}),
                 });
                 toast.success(t('calendar.event_deleted', "Appointment deleted."));
                 googleRef.current = null;
@@ -46,6 +49,9 @@ export function eventDeleteActions({eventData, onSaved, onClose}: EventFormProps
                     calendarId: gmeta._calendar_id || 'primary',
                     email: gmeta._account || '',
                     eventId: eventData.id,
+                    provider: gmeta._provider,
+                    ...(etagRef.current ? { etag: etagRef.current } : {}),
+                    ...(resourceUrlRef.current ? { resourceUrl: resourceUrlRef.current } : {}),
                 });
                 toast.success(t('calendar.event_deleted', "Appointment deleted."));
                 onSaved?.();

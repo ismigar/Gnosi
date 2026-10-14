@@ -14,7 +14,7 @@ import pytest
 from pydantic import BaseModel
 
 from backend.api import calendar_routes
-from backend.domains.calendar import api_contracts, mutations, runtime
+from backend.domains.calendar import api_contracts, mutations, provider_operations, runtime
 from backend.services.calendar_event_aggregation import CalendarAccountEvents
 
 
@@ -114,11 +114,11 @@ def test_post_event_passes_the_original_json_shape_to_provider(
 ) -> None:
     captured: dict[str, object] = {}
 
-    def create(email: str, body: dict[str, object], calendar_id: str) -> dict[str, str]:
+    def create(email: str, calendar_id: str, body: dict[str, object]) -> dict[str, str]:
         captured.update(email=email, body=body, calendar_id=calendar_id)
         return {"id": "event-1", "summary": "Review"}
 
-    monkeypatch.setattr(calendar_routes, "create_google_calendar_event", create)
+    monkeypatch.setattr(provider_operations, "create_provider_event", create)
     result = asyncio.run(
         calendar_routes.post_event(
             email="owner@example.test",

@@ -1,4 +1,5 @@
 import { ApplicationRoutes, SharedRoutes } from './routes';
+import { isPublicTokenPath } from '../shared/routing/publicRoutes';
 import {
   Suspense,
   useEffect,
@@ -120,7 +121,7 @@ function SessionRecoveryScreen({ recovery }: {
   );
 }
 
-function App() {
+function ApplicationShell() {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
@@ -225,17 +226,6 @@ function App() {
     );
   }
 
-  // Publicly shared pages (`/s/:token`): rendered OUTSIDE the
-  // the auth gate and the app shell — anyone with the link can access them.
-  if (window.location.pathname.startsWith('/s/')) {
-    return (
-      <>
-        <SharedRoutes />
-        <Toaster position="bottom-right" containerStyle={{ zIndex: 'var(--z-toast)' }} />
-      </>
-    );
-  }
-
   if (sessionRecovery) return <SessionRecoveryScreen recovery={sessionRecovery} />;
 
   // An explicit server denial is fresher than the startup health snapshot.
@@ -316,4 +306,10 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  const location = useLocation();
+  if (isPublicTokenPath(location.pathname)) {
+    return <><SharedRoutes /><Toaster position="bottom-right" /></>;
+  }
+  return <ApplicationShell />;
+}

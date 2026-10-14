@@ -54,6 +54,9 @@ class CalendarEventResponse(CalendarProviderPayload):
     color: str | None = None
     status: str = "confirmed"
     link: str = ""
+    join_url: str = ""
+    etag: str | None = None
+    resource_url: str | None = None
     recurrence: JsonValue | None = None
     recurring_event_id: str | None = None
     is_read_only: bool = False
@@ -100,6 +103,7 @@ class GoogleEventResourceResponse(CalendarProviderPayload):
 
     kind: str | None = None
     etag: str | None = None
+    resource_url: str | None = None
     id: str | None = None
     status: str | None = None
     html_link: str | None = Field(None, alias="htmlLink")
@@ -160,6 +164,8 @@ class MeetingReminderSettingsResponse(CalendarProviderPayload):
 
 class CalendarStatusResponse(BaseModel):
     status: Literal["success", "not_found"]
+    etag: str | None = None
+    resource_url: str | None = None
 
 
 class CalendarStatusMessageResponse(BaseModel):

@@ -12,6 +12,22 @@ import {
 } from '../platform/browser-storage';
 import { GlobalSearchModal, type GlobalSearchNote } from './GlobalSearchModal';
 
+vi.mock('../api/vault-search', () => ({
+  searchVaultContent: vi.fn((query: string) => {
+    const alpha = { id: 'alpha', title: 'Alpha roadmap', path: 'BD/Projects/alpha.md', excerpt: 'Found in note content', tags: ['strategy'] };
+    const beta = { id: 'beta', title: 'Beta note', path: 'Notes/beta.md', excerpt: '', tags: ['research'] };
+    const gamma = { id: 'gamma', title: 'Gamma indexed note', path: 'Notes/gamma.md', excerpt: '', tags: [] };
+    const absent = { id: 'absent', title: 'Absent metadata', path: 'absent.md', excerpt: '', tags: [] };
+    const nullable = { id: 'nullable', title: 'Null metadata', path: 'nullable.md', excerpt: '', tags: [] };
+    const fixtures: Record<string, typeof alpha[]> = {
+      'tag:strategy': [alpha], 'tag:ecole': [alpha], 'Project Alpha': [alpha],
+      note: [beta, gamma], Beta: [beta], metadata: [absent, nullable], null: [nullable],
+    };
+    const results = fixtures[query] ?? [];
+    return Promise.resolve({ results, total: results.length, offset: 0, limit: 50 });
+  }),
+}));
+
 
 interface SavedSearch {
   readonly label: string;
@@ -170,7 +186,7 @@ function requiredInput(): HTMLInputElement {
 }
 
 
-function setInputValue(input: HTMLInputElement, value: string): void {
+async function setInputValue(input: HTMLInputElement, value: string): Promise<void> {
   const setValue = Object.getOwnPropertyDescriptor(
     HTMLInputElement.prototype,
     'value',
@@ -180,6 +196,7 @@ function setInputValue(input: HTMLInputElement, value: string): void {
     setValue(value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
+  await act(async () => { await vi.advanceTimersByTimeAsync(200); });
 }
 
 
@@ -201,7 +218,7 @@ function buttonWithTitle(title: string): HTMLButtonElement {
 
 
 describe('GlobalSearchModal', () => {
-  it.each(['click', 'Enter'])('opens an opaque original note with %s without traversing extensions', action => {
+  it.each(['click', 'Enter'])('opens an opaque original note with %s without traversing extensions', async action => {
     const cycle: Record<string, unknown> = {};
     cycle.self = cycle;
     const arrayCycle: unknown[] = [];
@@ -222,7 +239,7 @@ describe('GlobalSearchModal', () => {
     renderModal({ allNotes, isOpen: false, onClose, onNoteSelect });
     expect(container.querySelector('[role="dialog"]')).toBeNull();
     renderModal({ allNotes, onClose, onNoteSelect });
-    setInputValue(requiredInput(), 'tag:strategy');
+    await setInputValue(requiredInput(), 'tag:strategy');
     const result = buttonWithText('Alpha roadmap');
     expect(result.textContent).toContain('Projects');
     expect(result.textContent).toContain('#strategy');
@@ -239,18 +256,18 @@ describe('GlobalSearchModal', () => {
     expect(readOpaque).not.toHaveBeenCalled();
   });
 
-  it('searches notes with absent and null metadata and opens their original IDs', () => {
+  it('searches notes with absent and null metadata and opens their original IDs', async () => {
     const absent = Object.freeze({ id: 'absent', title: 'Absent metadata' });
     const nullable = Object.freeze({ id: 'nullable', title: 'Null metadata', metadata: null });
     const onNoteSelect = vi.fn();
     const onClose = vi.fn();
     renderModal({ allNotes: [absent, nullable], onNoteSelect, onClose });
-    setInputValue(requiredInput(), 'metadata');
+    await setInputValue(requiredInput(), 'metadata');
     expect(container.textContent).toContain('Absent metadata');
     expect(container.textContent).toContain('Null metadata');
     act(() => { buttonWithText('Absent metadata').click(); });
     expect(onNoteSelect).toHaveBeenNthCalledWith(1, 'absent');
-    setInputValue(requiredInput(), 'null');
+    await setInputValue(requiredInput(), 'null');
     act(() => {
       dispatchWindowEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }));
     });
@@ -260,7 +277,7 @@ describe('GlobalSearchModal', () => {
     expect(nullable.metadata).toBeNull();
   });
 
-  it('keeps tag coercion and field-name fallback in the real modal', () => {
+  it('keeps tag coercion and field-name fallback in the real modal', async () => {
     const tag = {
       toString(this: unknown): string {
         expect(this).toBe(tag);
@@ -271,7 +288,7 @@ describe('GlobalSearchModal', () => {
       id: 'alpha', title: 'Alpha roadmap',
       metadata: { table_id: 'projects', topics: null, Tags: [tag] },
     }] });
-    setInputValue(requiredInput(), 'tag:ecole');
+    await setInputValue(requiredInput(), 'tag:ecole');
     expect(buttonWithText('Alpha roadmap').textContent).toContain('#ecole');
     expect(buttonWithText('Alpha roadmap').textContent).toContain('Projects');
   });
@@ -283,31 +300,31 @@ describe('GlobalSearchModal', () => {
   });
 
 
-  it('renders the accessible empty state and focuses the query', () => {
+  it('renders the accessible empty state and focuses the query', async () => {
     renderModal();
     const input = requiredInput();
     expect(container.querySelector('[role="dialog"]')?.getAttribute(
       'aria-label',
     )).toBe('Search');
-    expect(container.textContent).toContain('Search by title or with operators:');
+    expect(container.textContent).toContain('Search titles and complete notes, or use operators:');
 
     act(() => {
       vi.advanceTimersByTime(50);
     });
     expect(document.activeElement).toBe(input);
 
-    setInputValue(input, 'missing phrase');
+    await setInputValue(input, 'missing phrase');
     expect(container.textContent).toContain(
       'No results found for "missing phrase"',
     );
   });
 
 
-  it('shows search metadata and opens the mouse-selected note', () => {
+  it('shows search metadata and opens the mouse-selected note', async () => {
     const onClose = vi.fn();
     const onNoteSelect = vi.fn();
     renderModal({ onClose, onNoteSelect });
-    setInputValue(requiredInput(), 'Project Alpha');
+    await setInputValue(requiredInput(), 'Project Alpha');
 
     expect(container.textContent).toContain('Alpha roadmap');
     expect(container.textContent).toContain('Projects');
@@ -321,11 +338,11 @@ describe('GlobalSearchModal', () => {
   });
 
 
-  it('moves the selection with arrows and opens it with Enter', () => {
+  it('moves the selection with arrows and opens it with Enter', async () => {
     const onClose = vi.fn();
     const onNoteSelect = vi.fn();
     renderModal({ onClose, onNoteSelect });
-    setInputValue(requiredInput(), 'note');
+    await setInputValue(requiredInput(), 'note');
 
     act(() => {
       dispatchWindowEvent(new KeyboardEvent('keydown', {
@@ -345,7 +362,7 @@ describe('GlobalSearchModal', () => {
   });
 
 
-  it('loads, applies, removes and creates saved searches', () => {
+  it('loads, applies, removes and creates saved searches', async () => {
     writeStorage(savedSearchesKey, [{
       label: 'Strategy search',
       query: 'tag:strategy',
@@ -356,10 +373,11 @@ describe('GlobalSearchModal', () => {
     act(() => {
       buttonWithText('Strategy search').click();
     });
+    await act(async () => { await vi.advanceTimersByTimeAsync(200); });
     expect(requiredInput().value).toBe('tag:strategy');
     expect(container.textContent).toContain('Alpha roadmap');
 
-    setInputValue(requiredInput(), 'Beta');
+    await setInputValue(requiredInput(), 'Beta');
     act(() => {
       buttonWithTitle('Save this search').click();
     });
@@ -368,7 +386,7 @@ describe('GlobalSearchModal', () => {
       { label: 'Strategy search', query: 'tag:strategy' },
     ]);
 
-    setInputValue(requiredInput(), '');
+    await setInputValue(requiredInput(), '');
     const strategyChip = Array.from(container.querySelectorAll('span'))
       .find((candidate) => candidate.textContent.includes('Strategy search'));
     const removeButton = strategyChip?.querySelector('button[title="Remove"]');

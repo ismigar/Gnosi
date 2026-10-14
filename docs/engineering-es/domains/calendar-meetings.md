@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-03
+last_verified: 2026-10-13
 source_paths:
   - backend/api/calendar_routes.py
   - backend/domains/calendar/geocoding.py
@@ -114,3 +114,19 @@ La grabación de reuniones sube audio de tamaño acotado a un flujo de trabajo e
 ## Enfoque de verificación
 
 Pruebe el confinamiento de rutas locales, la normalización de eventos, las recurrencias, los eventos ocultos, las condiciones de carrera de recordatorios, la selección de cuentas, las zonas horarias y los flujos de creación, edición y eliminación con Playwright. La QA de reuniones debe grabar o subir un archivo de prueba, observar el estado en segundo plano y verificar la página resultante del vault.
+
+## Escrituras CalDAV condicionales, videollamadas y reservas
+
+Las escrituras privadas conservan el proveedor explícito al crear, actualizar con PATCH y eliminar con DELETE. Si varias cuentas comparten correo, esta indicación selecciona la cuenta correcta; los proveedores no admitidos se rechazan antes de acceder a ellos. DELETE acepta el parámetro de consulta opcional `provider`, que los clientes existentes pueden omitir. Los nombres de calendario son etiquetas; los destinos de escritura utilizan los identificadores de proveedor, cuenta y calendario.
+
+`domains/calendar/provider_operations.py` resuelve el proveedor de la cuenta configurada. CalDAV utiliza descubrimiento y URL de recursos confinados, PUT/DELETE condicionales y el ETag anterior. El frontend conserva el ETag devuelto para el siguiente guardado. Un recurso modificado devuelve un conflicto. Las series recurrentes CalDAV no se pueden modificar. Los eventos nuevos con hora utilizan instantes UTC para enviar datos completos sin depender de la extensión de zonas horarias por referencia del servidor; las actualizaciones conservan la representación de las fechas existentes. `conference_links.py` normaliza el enlace de vídeo a `join_url`; el inspector solo abre HTTP(S), sin credenciales ni referente.
+
+El texto no modificado conserva los espacios y todos los parámetros de la propiedad. Al editarlo, se conservan los parámetros de idioma y de extensión, pero se retira ALTREP porque su representación alternativa puede describir el valor anterior.
+
+`domains/booking/` agrega los intervalos ocupados de los calendarios seleccionados, incluidos los locales, y aplica zona horaria, semana laboral, duración, márgenes, antelación y horizonte. Los errores del proveedor cierran la disponibilidad. La consulta alternativa CalDAV conserva la distinción entre días nominales y horas transcurridas, y bloquea las recurrencias no compatibles, incluidas las horas locales inexistentes que no puede resolver con garantías. El destino debe estar seleccionado. Las credenciales externas son globales de la instalación, por lo que estas reservas se limitan al propietario del espacio personal.
+
+La recurrencia local omite las horas inexistentes antes de aplicar COUNT; las instancias reales excluidas siguen consumiendo el recuento. Las citas con hora conservan la duración transcurrida y las de todo el día conservan días nominales. La expansión con recuento finito se valida desde la primera instancia, con un límite de 3.000 instancias evaluadas; los intervalos inválidos y las expansiones no compatibles cierran la disponibilidad.
+
+El acceso anónimo se limita a GET `/api/booking/public/{token}`, GET `/slots` y POST `/reservations` bajo ese enlace. La gestión privada está en `/api/booking/links` y la consulta agregada en `/api/booking/availability`. Una reserva persistente en SQLite serializa las franjas de los enlaces del mismo propietario y de propietarios distintos que consultan el mismo vault o calendario externo antes de crear el evento. Los calendarios de propietarios sin recursos compartidos no se bloquean entre sí. Los reintentos no repiten una escritura incierta: la petición pendiente bloquea la franja y es visible al propietario. Los cambios simultáneos desde otros clientes de calendario no pueden participar en la misma transacción.
+
+La lectura selecciona los metadatos de la cuenta sin desbloquear credenciales. La autenticación permanece dentro del adaptador del proveedor seleccionado, y se conserva la selección de proveedor, cuenta y calendario cuando las cuentas comparten una dirección de correo.

@@ -1,0 +1,7 @@
+# Optional compiled web frontend, including the installable offline companion.
+# Keep the same Compose project name and storage overrides used by the deployment.
+# docker compose -f docker-compose.yml -f compose.production.yml up -d --build
+services:
+  frontend:
+    build:
+      target: production

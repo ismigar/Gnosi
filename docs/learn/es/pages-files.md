@@ -22,6 +22,34 @@ Un Vault activo con escritura. La IA es opcional; compartir y traducir requiere 
 
 En el menú **⋯** de la página, activa **Anchura libre** para que las tablas puedan expandirse y desplazarse horizontalmente. Los párrafos mantienen una anchura legible. La preferencia se recuerda por página en este dispositivo y no modifica el Markdown. Desactívala en el mismo menú para recuperar la visualización habitual.
 
+### Buscar notas completas y reutilizar contenido
+
+La búsqueda global encuentra palabras en cualquier parte de una nota y muestra
+un fragmento. Puedes escribir `"frase exacta"`, `(rojo OR azul) -verde`,
+`tag:investigación`, `content:"memoria de trabajo"`, `task-todo:revisar` o
+`[estado:Borrador]`. `line:(zorro rojo)`, `block:(zorro rojo)` y
+`section:(zorro rojo)` requieren las palabras en la misma línea, bloque o
+sección. Una consulta incorrecta muestra un error para poder corregirla.
+El bloque **Resultados de búsqueda**, o un bloque de código Markdown con lenguaje `query`,
+mantiene resultados de búsqueda vivos dentro de una nota.
+
+Escribe `![[Notas de la fuente]]` para mostrar todo su contenido con formato.
+`![[Notas de la fuente#Encabezado]]` y `![[Notas de la fuente#^id-bloque]]`
+incrustan una parte concreta. Se muestran tablas, código y notas anidadas; las
+referencias circulares se detienen con una explicación. La fuente sigue siendo
+una nota independiente y la transclusión se actualiza después de los cambios.
+
+El editor de fuente Markdown incluye resaltado, varios cursores, modo Vim y
+vista previa. Configura los atajos en los ajustes y guarda temas o fragmentos
+CSS en Apariencia. Si un fragmento dificulta el uso de la interfaz, abre Gnosi
+con `?gnosi-safe-appearance=1` y restablece la apariencia.
+
+### Combina notas y guarda accesos
+
+En el menú **⋯** de una nota, elige **Combina y extrae notas**. Selecciona la nota completa, un encabezado o líneas Markdown completas y elige una nota nueva o un destino existente. **Previsualiza los cambios** muestra el origen, el destino y los enlaces afectados. Revisa todos los cambios antes de aplicarlos. El origen conserva una transclusión y el historial. Si otro editor modifica un archivo, prepara una nueva vista previa.
+
+En **Marcadores** de la barra lateral, guarda notas, secciones, búsquedas, vistas del grafo o enlaces web y asígnales un grupo. Edita un marcador para cambiar su nombre, moverlo o eliminarlo. Estos marcadores pertenecen a la cuenta, espacio de trabajo y Vault seleccionados en este dispositivo.
+
 ## Resultado esperado {#expected-result}
 
 La nota contiene texto legible, un enlace y un adjunto accesible.

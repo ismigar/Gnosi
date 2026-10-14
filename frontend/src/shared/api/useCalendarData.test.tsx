@@ -14,7 +14,7 @@ function externalEvent(provider: string): CalendarEvent {
         account: `${provider}@example.test`, calendar_id: 'primary', calendar_name: provider,
         start: '2026-09-02', end: '2026-09-04', all_day: true,
         source: `${provider}@example.test`, location: '', description: '',
-        status: 'confirmed', link: '', is_read_only: false,
+        status: 'confirmed', link: '', join_url: '', is_read_only: false,
     };
 }
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   defineStorageKey,
@@ -8,6 +8,7 @@ import {
   readStorageResult,
   removeStorage,
   stringStorageCodec,
+  storageEventIsFrom,
   writeStorage,
 } from './browser-storage';
 
@@ -54,6 +55,26 @@ function isStoredTheme(value: unknown): value is StoredTheme {
 
 
 describe('browser storage adapter', () => {
+  it('matches the specified event area and never treats unavailable areas as a match', () => {
+    const current = new MemoryStorage();
+    const other = new MemoryStorage();
+    expect(storageEventIsFrom({ storageArea: current }, 'local', current)).toBe(true);
+    expect(storageEventIsFrom({ storageArea: other }, 'local', current)).toBe(false);
+    expect(storageEventIsFrom({ storageArea: null }, 'local', current)).toBe(false);
+    expect(storageEventIsFrom({ storageArea: null }, 'local', null)).toBe(false);
+    expect(storageEventIsFrom({ storageArea: current }, 'session', null)).toBe(false);
+  });
+
+  it('tolerates denied runtime storage access while handling an event', () => {
+    const runtimeWindow = globalThis.window;
+    vi.stubGlobal('window', new Proxy({}, { get: () => { throw new Error('Storage access denied'); } }));
+    try {
+      expect(storageEventIsFrom({ storageArea: new MemoryStorage() }, 'local')).toBe(false);
+    } finally {
+      vi.stubGlobal('window', runtimeWindow);
+    }
+  });
+
   it('accepts only the capability required by each injected operation', () => {
     const key = defineStorageKey('minimal', stringStorageCodec);
     let stored: string | null = null;

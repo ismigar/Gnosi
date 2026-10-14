@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-10-01
+last_verified: 2026-10-13
 source_paths:
+  - backend/migrations/alembic/versions/management_0006.py
+  - backend/domains/vault/publishing/models.py
+  - frontend/src/shared/offline
   - backend/services/plugin_fields.py
   - backend/domains/llm_wiki/brain_fields.py
   - backend/config/paths_config.py
@@ -12,6 +15,7 @@ source_paths:
   - backend/services/reference_table_config.py
   - backend/services/reference_config_migration.py
 tests:
+  - backend/tests/test_publication_migration.py
   - backend/tests/test_plugin_required_fields.py
   - backend/tests/test_auto_provisioned_migration.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -167,3 +171,9 @@ Les variables del procés tenen prioritat sobre el `.env` local de Gnosi. El fit
 compartit només es carrega si `GNOSI_SHARED_ENV_FILE` l'indica explícitament i és
 de només lectura per a l'app. Les credencials gestionades per la interfície van al
 gestor del sistema, amb alternativa xifrada sota `GNOSI_DATA_DIR/secrets`.
+
+## Instantànies publicades i còpies xifrades sense connexió
+
+La revisió de gestió `mgmt_0006` afegeix `publication_previews`, `publication_sites` i `publication_revisions` mitjançant el procés de migració protegit. Les taules anteriors i les empremtes històriques revisades es conserven. Les previsualitzacions caduquen; una revisió confirmada desa la seva instantània Markdown pública, independent dels canvis posteriors de l’origen. La propietat inclou compte, espai de treball i Vault. La revocació impedeix noves lectures del servidor; no pot retirar còpies ja descarregades pel visitant.
+
+El complement sense connexió desa una col·lecció xifrada amb contrasenya per perfil de navegador a IndexedDB. Inclou notes de text seleccionades i estat de versions i conflictes. Cada desada utilitza xifratge autenticat amb un IV nou i comprovació atòmica de versió local. Claus i dades desxifrades es mantenen en memòria fins al bloqueig. Perdre la contrasenya o esborrar les dades del navegador pot fer perdre canvis no sincronitzats; la col·lecció no és una còpia de seguretat ni xifratge d’extrem a extrem del servidor.

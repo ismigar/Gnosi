@@ -34,3 +34,19 @@ A local Vault does not automatically appear on another computer. Workspace membe
 ## Vault template catalog and moderation
 
 In personal mode, Settings → General → File structure → Vaults → From repository opens the verified catalog. Search, category filters and content previews help select a template; installation creates a new Vault. Publish template opens a searchable inventory of included files, exclusions and potential sensitive content. Refreshing the inventory clears the previous acknowledgement.
+
+## Saved layouts and canvas notes
+
+Saved layouts remember your open notes, drawings, PDF and EPUB readers, the active document and split sizes. Reader positions are restored too. If a target no longer exists, Gnosi reports the problem before replacing the current layout.
+
+On a canvas page card, use **Edit** and **Save** to change its note. Drafts survive switching layouts during the current session; save them before closing the app. JSON Canvas import and export preserve supported cards, connections and custom metadata. An import does not copy attached files, and Gnosi reports unsupported structures.
+
+## Take selected notes offline
+
+Sign in to your Gnosi server, select the account, workspace and Vault, then open the offline notes companion from Settings → General. Create an encrypted collection with a separate passphrase, load the server list and add the text notes you need. Use **Save locally** after editing. After its first successful production load, the companion can reopen without a network connection. On a mobile browser, add it to the home screen; the server must use HTTPS.
+
+Reconnect and synchronize explicitly. If both copies changed, compare the original, local and server text and select or write a merged version. Keep your passphrase: it cannot be recovered, and clearing browser data removes unsynchronized work. Attachments and embedded notes are not downloaded with a note. The server continues using its existing storage; this local encrypted collection is not a backup.
+
+## Publish a collection of notes
+
+With the sharing plugin enabled, open a note’s sharing controls and choose multi-page publication. Select the notes, name the site and optionally set an expiry. Review the public preview before publishing. Its navigation and search only include the selected pages; omitted attachments, private embeds, HTML and saved queries are indicated. Source edits appear publicly only after you preview and publish an update. Revoke the site from the same manager to stop future reads; visitors may have saved copies already.

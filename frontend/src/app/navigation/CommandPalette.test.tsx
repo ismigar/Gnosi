@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CommandPalette from './CommandPalette';
 import { subscribeAppEvent } from '../../shared/platform/app-events';
 import { dispatchWindowEvent } from '../../shared/platform/browser-events';
+import { hotkeysKey, saveHotkeyBindings } from '../../shared/commands/hotkeys';
 import {
     defineStorageKey,
     readStorage,
@@ -86,6 +87,7 @@ describe('CommandPalette', () => {
         vi.useRealTimers();
         vi.clearAllMocks();
         removeStorage(themeStorageKey);
+        removeStorage(hotkeysKey);
         Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
         delete reactTestGlobal.IS_REACT_ACT_ENVIRONMENT;
     });
@@ -101,6 +103,27 @@ describe('CommandPalette', () => {
             vi.advanceTimersByTime(25);
         });
     }
+
+    it('rebinds the palette immediately and runs assigned commands from the same registry', () => {
+        act(() => { saveHotkeyBindings({ 'command-palette': 'Mod+Shift+k', 'nav-home': 'Mod+Alt+h' }); });
+        openPalette();
+        expect(container.querySelector('input')).toBeNull();
+        act(() => { dispatchWindowEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, shiftKey: true, cancelable: true })); });
+        expect(container.querySelector('input')).not.toBeNull();
+        act(() => { dispatchWindowEvent(new KeyboardEvent('keydown', { key: 'h', metaKey: true, altKey: true, cancelable: true })); });
+        expect(mocks.navigate).toHaveBeenLastCalledWith('/');
+        expect(container.querySelector('input')).toBeNull();
+    });
+
+    it('ignores disabled plugin actions, repeated keys and composition', () => {
+        act(() => { saveHotkeyBindings({ 'nav-mail': 'Mod+Alt+m', 'nav-home': 'Mod+Alt+h' }); });
+        act(() => {
+            dispatchWindowEvent(new KeyboardEvent('keydown', { key: 'm', ctrlKey: true, altKey: true }));
+            dispatchWindowEvent(new KeyboardEvent('keydown', { key: 'h', ctrlKey: true, altKey: true, repeat: true }));
+            dispatchWindowEvent(new KeyboardEvent('keydown', { key: 'h', ctrlKey: true, altKey: true, isComposing: true }));
+        });
+        expect(mocks.navigate).not.toHaveBeenCalled();
+    });
 
     function commandRow(label: string): HTMLLIElement {
         const row = Array.from(container.querySelectorAll<HTMLLIElement>('[data-idx]'))

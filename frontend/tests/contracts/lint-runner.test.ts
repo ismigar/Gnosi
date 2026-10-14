@@ -86,7 +86,9 @@ it.each(['.eslintcache', 'custom.cache'])('reuses %s across fresh batches and re
   const first = readFileSync(join(fixture, 'rule-count.txt'), 'utf8');
   const processIds = first.split(',').filter(Boolean);
   expect(processIds).toHaveLength(257);
-  expect(new Set(processIds).size).toBe(2);
+  expect(new Set(processIds).size).toBe(3);
+  const counts = [...new Set(processIds)].map(id => processIds.filter(value => value === id).length);
+  expect(counts.sort((left, right) => left - right)).toEqual([1, 128, 128]);
   expect(run(environment).status).toBe(0);
   expect(readFileSync(join(fixture, 'rule-count.txt'), 'utf8')).toBe(first);
 });
@@ -112,7 +114,7 @@ it.each([
   write('source/999.js', source);
   const result = run();
   expect(result.status).toBe(1);
-  expect(result.stdout).toContain('ESLint batch 2/2');
+  expect(result.stdout).toContain('ESLint batch 3/3');
   expect(result.stdout).toContain(message);
 });
 
@@ -160,5 +162,6 @@ it('propagates a lint child signal and does not start later batches', () => {
   const result = run();
   expect(result.status).not.toBe(0);
   expect(result.stderr).toContain('SIGTERM');
-  expect(result.stdout).not.toContain('ESLint batch 2/2');
+  expect(result.stdout).not.toContain('ESLint batch 2/3');
+  expect(result.stdout).not.toContain('ESLint batch 3/3');
 });

@@ -164,7 +164,7 @@ expected generated-catalog updates are the only excluded source differences.
 ## Frontend lint memory
 
 `pnpm lint:frontend` discovers files through ESLint's configured directory scan,
-then checks batches of at most 256 files in fresh, sequential processes. The
+then checks batches of at most 128 files in fresh, sequential processes. The
 discovery pass does not parse source or populate a lint cache; only the subsequent
 CLI checks can establish success. All existing rules, TypeScript project-service
 checks, ignores and the zero-warning threshold apply to every batch. A failed
@@ -227,6 +227,11 @@ limits stay unchanged. Synthetic regressions compare diagnostics with the real
 `tsc --noEmit`, including cross-batch globals, references and interruption.
 The command accepts no extra compiler arguments; use `tsc` directly for other
 tasks. It emits neither application code nor incremental build metadata.
+
+The synthetic TypeScript projects link only the pinned compiler. Malformed
+configuration tests provide their own ambient type package and verify its
+diagnostics against the real CLI, avoiding unrelated application declarations.
+The five-second test deadline and complete diagnostic comparisons stay unchanged.
 
 The individual commands `typecheck:backend-boundaries` and
 `typecheck:pipeline` remain available. This is a static gate, not a substitute

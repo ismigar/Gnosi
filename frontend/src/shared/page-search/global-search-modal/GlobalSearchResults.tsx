@@ -15,6 +15,7 @@ export interface GlobalSearchResultItem {
   readonly sourceDb: string | null;
   readonly tags: readonly string[];
   readonly title: string;
+  readonly excerpt?: string;
 }
 
 
@@ -73,6 +74,7 @@ export function GlobalSearchResults({
                 <h3 className={`text-sm font-medium ${isSelected ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-primary)]'}`}>
                   {item.title}
                 </h3>
+                {item.excerpt ? <p className="mt-1 whitespace-pre-wrap text-xs text-[var(--text-secondary)]">{item.excerpt}</p> : null}
                 <div className="flex items-center gap-2 mt-0.5 opacity-70">
                   {item.sourceDb ? (
                     <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-secondary)]">

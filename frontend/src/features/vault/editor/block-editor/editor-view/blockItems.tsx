@@ -1,10 +1,17 @@
-import { Info, List as ListIcon, Workflow, Superscript, RefreshCw, Link2 } from 'lucide-react';
+import { Info, List as ListIcon, Workflow, Superscript, RefreshCw, Link2, Search } from 'lucide-react';
 import { insertOrUpdateBlockForSlashMenu } from '@blocknote/core/extensions';
 import { createReferenceId, firstBlockChild } from './values';
 import type { EditorMenuItem, SlashMenuInputs } from './types';
 
 export function blockItems({ editor, t, setLinkCardCtx }: SlashMenuInputs): EditorMenuItem[] {
     const insertBlockItems: EditorMenuItem[] = [
+        {
+            title: t('globalsearch.embedded', 'Search results'),
+            onItemClick: () => insertOrUpdateBlockForSlashMenu(editor, { type: 'query', props: { query: '' } }),
+            aliases: ['query', 'search', 'cerca', 'busqueda', 'recherche'],
+            group: t('editor.blocks_group', { defaultValue: 'Blocks' }),
+            icon: <Search size={18} />,
+        },
         {
             title: t('editor.callout', { defaultValue: "Callout" }),
             onItemClick: () => {

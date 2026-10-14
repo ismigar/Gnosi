@@ -32,3 +32,17 @@ Si des données manquent, vérifiez autorisation et filtres. Masquer un événem
 
 - [Activer les extensions, connecter et automatiser](integrations-automations.md)
 - [Questions fréquentes et récupération](troubleshooting.md)
+
+## Écriture CalDAV et visioconférences
+
+Les calendriers CalDAV modifiables, dont iCloud, permettent de créer, modifier et supprimer des événements individuels. Les modifications conservent l'UID, les fuseaux horaires, les dates de journée entière et les propriétés iCalendar non modifiées. L'ETag du fournisseur évite d'écraser une modification simultanée ; actualisez l'événement en cas de conflit. Les séries récurrentes CalDAV restent en lecture seule dans Gnosi.
+
+Si le fournisseur transmet un lien vidéo, ouvrez le rendez-vous et choisissez **Rejoindre la visioconférence**. Le lien s'ouvre dans le navigateur.
+
+## Disponibilité et réservations publiques
+
+Ouvrez **Disponibilité** dans le panneau latéral du calendrier. Sélectionnez tous les calendriers qui doivent bloquer les réservations, y compris les événements locaux et les calendriers de plusieurs comptes. Configurez le fuseau horaire, les jours et heures ouvrés, la durée, la marge, le préavis et l'horizon. Consultez les créneaux, choisissez un calendrier de destination parmi ceux sélectionnés et créez un lien. Vous pouvez copier et révoquer les liens publiés.
+
+Les visiteurs choisissent un créneau et saisissent leur nom et leur courriel. Gnosi vérifie à nouveau la disponibilité avant de créer le rendez-vous. Si un calendrier ne peut pas être consulté, les réservations sont suspendues. Si le résultat d'une écriture est incertain, le créneau reste bloqué et la réservation est en attente ; vérifiez le calendrier de destination avant d'en créer une autre. Les comptes externes sont réservés au propriétaire de l'espace personnel pour les réservations publiques.
+
+Les destinataires doivent pouvoir accéder au serveur web de Gnosi. Une adresse localhost ou de bureau fonctionne seulement sur cet appareil ; créer un lien ne publie ni n'expose l'installation.

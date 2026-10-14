@@ -120,7 +120,7 @@ uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
 Sur macOS, utilisez `--resource-profile mac-idle` pour une validation locale limitée. Il remplace le heap par 1536 MiB, exécute à priorité 10 avec un worker et un thread de calcul, et surveille un budget RSS de 2 GiB pour la commande et ses descendants. Chaque phase ne démarre qu’après 30 secondes de pression mémoire normale. Les contrôles statiques, builds et suites sont limités à 5, 10 et 15 minutes respectivement.
 
 `pnpm lint:frontend` découvre les fichiers avec le parcours configuré d’ESLint,
-puis les vérifie par lots de 256 fichiers au maximum, dans des processus nouveaux
+puis les vérifie par lots de 128 fichiers au maximum, dans des processus nouveaux
 et séquentiels. La découverte n’analyse pas le code et ne remplit pas le cache de
 lint ; seules les vérifications CLI suivantes peuvent établir le succès. Chaque
 lot conserve toutes les règles, le contrôle typé avec project service, les
@@ -250,6 +250,11 @@ comparent les diagnostics à `tsc --noEmit`, y compris les globaux entre lots,
 les références et les interruptions. La commande n’accepte pas d’arguments
 supplémentaires ; utiliser directement `tsc` pour les autres tâches. Elle
 n’émet ni code applicatif ni métadonnées incrémentales.
+
+Les projets synthétiques TypeScript ne lient que le compilateur verrouillé.
+Les tests de configuration malformée fournissent leur propre paquet de types
+ambiants et comparent les diagnostics à la CLI réelle, sans déclarations étrangères
+de l’application. Le délai de cinq secondes et les comparaisons complètes restent inchangés.
 
 Les commandes individuelles `typecheck:backend-boundaries` et
 `typecheck:pipeline` restent disponibles. Cette vérification statique ne remplace

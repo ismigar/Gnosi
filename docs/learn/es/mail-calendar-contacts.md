@@ -32,3 +32,17 @@ Si faltan datos, revisa autorización y filtros. Ocultar un evento no lo elimina
 
 - [Activa complementos, conecta servicios y automatiza](integrations-automations.md)
 - [Preguntas frecuentes y recuperación](troubleshooting.md)
+
+## Escritura CalDAV y videollamadas
+
+Los calendarios CalDAV con permiso de escritura, incluido iCloud, permiten crear, editar y eliminar eventos individuales. Las modificaciones conservan el UID, las zonas horarias, las fechas de día completo y las propiedades iCalendar no modificadas. El ETag del proveedor evita sobrescribir cambios simultáneos; actualiza el evento antes de volver a editarlo si hay un conflicto. Las series recurrentes CalDAV siguen siendo de solo lectura en Gnosi.
+
+Si el proveedor ofrece un enlace de vídeo, abre la cita y pulsa **Entrar en la videollamada**. El enlace se abre en el navegador.
+
+## Disponibilidad y reservas públicas
+
+Abre **Disponibilidad** en el panel lateral del calendario. Selecciona todos los calendarios que deben bloquear reservas, incluidos los eventos locales de Gnosi y calendarios de varias cuentas. Configura zona horaria, días y horas laborables, duración, margen, antelación y horizonte de reserva. Consulta las franjas, elige un destino entre los calendarios seleccionados y crea un enlace. Puedes copiar y revocar los enlaces publicados.
+
+Los visitantes eligen una franja e indican su nombre y correo. Gnosi vuelve a comprobar la disponibilidad antes de crear la cita. Si no puede consultar algún calendario, las reservas se detienen. Si el resultado de una escritura es incierto, la franja sigue bloqueada y la reserva queda pendiente; verifica el calendario de destino antes de crear otra. Las cuentas externas solo están disponibles para reservas públicas del propietario del espacio personal.
+
+El enlace público requiere que sus destinatarios puedan acceder al servidor web de Gnosi. Una dirección localhost o de escritorio solo funciona en ese dispositivo; crear el enlace no publica ni expone la instalación.

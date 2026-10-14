@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-09-12
+last_verified: 2026-10-13
 source_paths:
+  - backend/domains/vault/publishing
+  - frontend/src/features/sharing/publishing
+  - frontend/src/features/offline
+  - frontend/src/shared/offline
   - backend/api/auth_routes.py
   - backend/api/workspace_routes.py
   - backend/api/vaults_routes.py
@@ -10,6 +14,7 @@ source_paths:
   - backend/api/public_routes.py
   - backend/models/management.py
   - backend/services/auth_service.py
+  - backend/services/auth_public_surface.py
   - backend/services/workspace_service.py
   - backend/services/vault_routing.py
   - backend/services/active_vault_middleware.py
@@ -20,6 +25,7 @@ source_paths:
   - frontend/src/shared/routing
   - frontend/src/features/workspaces
 tests:
+  - backend/tests/test_auth_expected_account.py
   - frontend/src/features/auth/LoginPage.test.tsx
   - frontend/src/features/auth/public-entry.test.ts
   - backend/tests/test_auth_central_gate.py
@@ -39,6 +45,12 @@ tests:
 ---
 
 # Authentication, workspaces, and sharing
+
+## Offline notes and published sites
+
+The separate offline notes companion opens from Settings → General and uses the same server origin. In a production build, its service worker caches only the compiled public shell. Users choose text notes explicitly and protect the local collection with a separate passphrase. Local saves encrypt the collection in IndexedDB; locking clears application-held plaintext. Synchronization checks account, workspace, Vault and page revision, and presents both versions when changes conflict. The server continues to hold ordinary readable notes. Attachments, drawings and databases are outside this offline collection.
+
+Multi-page publishing uses the existing sharing plugin and self-hosted backend. An editor selects notes and reviews the exact public snapshot before publishing. Only that snapshot is served to a visitor; navigation and search run within its selected pages. Attachments, raw HTML, private transclusions and saved queries are visibly omitted. Updates require a new preview; revisions, expiry and revocation are stored in the management database. Anonymous reads use a narrowly matched token route, omit credentials and never bootstrap the private application. Publication does not deploy another service or automatically update when the original notes change.
 
 ## Operating modes
 
@@ -73,6 +85,14 @@ Email/password login verifies a password hash and issues a signed JWT in an
 HttpOnly, SameSite=Lax cookie. Accepted API clients may also send an
 `Authorization` bearer token. Personal Access Tokens use a separate opaque
 format; only a SHA-256 hash and display prefix are stored.
+
+Clients retaining edits across sessions may send `X-Gnosi-Expected-User-ID`.
+The central gate compares this precondition with the authenticated cookie/PAT
+identity before serving protected endpoints: a missing identity returns 401,
+and an account change returns 409 with `code: account_changed`. The header
+never selects a user or grants authorization, including on local installations
+where normal authentication is optional. Workspace/Vault role checks still run.
+The public login/logout/health exemptions retain their existing behavior.
 
 The signing secret must be strong on exposed deployments. The backend refuses
 to start with the public development fallback when the effective deployment
@@ -197,3 +217,15 @@ sharing tests. Browser QA checks login/logout, account updates, workspace
 switching, and anonymous share access in a clean session.
 
 Resolving a registered Vault is read-only. If its folder is absent, the identity is unavailable and canonical routes return 404; requests never recreate the old location. Explicit folder creation remains owned by the create-library flow. Selecting another existing folder preserves both registry identities and their paths.
+
+## Public table forms
+
+`domains/forms/` publishes an explicit question schema for one registered table. Anonymous GET `/api/forms/public/{token}` reveals that schema; POST its `/submissions` validates every selected field and creates a page through the canonical idempotent creation pipeline. Formula, relation and reserved metadata fields are never writable through a form. Schema drift disables stale forms instead of rebinding questions to other fields. The `share-links` plugin gates publication and use.
+
+Both forms and bookings use `public_workflow_scope.py` to pin workspace, vault and owner and revalidate current membership, write access, storage and plugins. Visitor cookies, headers and query parameters never select public storage. Management and token responses are `no-store`; token pages use no-referrer and noindex. The frontend public client omits session credentials and workspace headers. Migration `mgmt_0006` adds durable form/booking definitions and request receipts without changing existing rows.
+
+Form publication requires a lifetime of 1–365 days (30 by default). Every new token stores a deadline; missing or expired stored deadlines reject both reads and submissions. The owner can revoke a link before its deadline.
+
+The frozen backend includes `management_0006.py` in its reviewed resources so desktop installations can apply the same schema migration for public forms and bookings.
+
+Management migrations have one linear history: `mgmt_0006` adds forms and bookings; `mgmt_0007` follows it with publication previews, sites and revisions. Both migrations are frozen desktop resources. Fresh databases and upgrades retain both schemas and existing rows. An incompatible database carrying the same revision label is rejected by its exact schema fingerprint before mutation; revision labels alone never authorize adoption.

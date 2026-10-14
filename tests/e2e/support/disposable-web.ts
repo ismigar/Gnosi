@@ -82,6 +82,13 @@ async function syntheticApi(
   if (pathname === '/api/config/interface' && request.method() === 'GET') {
     return json(route, SYNTHETIC_INTERFACE_SETTINGS);
   }
+  if (pathname === '/api/config/editor' && request.method() === 'GET') {
+    return json(route, {
+      paths: { vault: SYNTHETIC_VAULT.path },
+      settings: {},
+      ai: { providers: {} },
+    } satisfies components['schemas']['ConfigurationDocument']);
+  }
   if (pathname === '/api/vault/plugins') {
     return json(route, {
       disabled: [],

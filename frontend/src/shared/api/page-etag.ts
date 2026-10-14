@@ -197,6 +197,14 @@ export function clearPageEtag(pageId: string): void {
 }
 
 
+/** Adopt a mutation's version together with its matching editor content. */
+export function adoptPageEtag(pageId: string, etag: string | null): void {
+  if (!pageId || !etag) return;
+  conflictByPage.delete(pageId);
+  etagByPage.set(pageId, etag);
+}
+
+
 export function getCachedPageEtag(pageId: string): string | null {
   return etagByPage.get(pageId) ?? null;
 }

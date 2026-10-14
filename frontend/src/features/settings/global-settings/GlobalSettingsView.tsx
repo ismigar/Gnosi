@@ -3,6 +3,8 @@ import { withBotModel } from '../model-comparison/botModelChoice';
 import { ProfileSettingsNavigation } from '../../../shared/ui/settings/ProfileSettingsNavigation';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { AppearancePanel } from './AppearancePanel';
+import { HotkeysPanel } from './HotkeysPanel';
+import { OfflineSettingsLink } from '../../offline';
 import { ConfirmModal } from '../../../shared/ui/dialogs/ConfirmModal';
 import { Database } from 'lucide-react';
 import { FileText } from 'lucide-react';
@@ -97,6 +99,8 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
                 <SettingsBackButton onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} />
               )}
               <Suspense fallback={<div role="status">{t('common.loading')}</div>}>
+                {activeTab === 'hotkeys' && <HotkeysPanel />}
+                {activeTab === 'general' && <OfflineSettingsLink />}
 
                 {/* API I TOKENS (PAT) */}
                 {activeTab === 'api' && (

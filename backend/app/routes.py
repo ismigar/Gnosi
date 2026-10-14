@@ -9,12 +9,14 @@ from backend.api import (
     ai_routes,
     analytics_routes,
     auth_routes,
+    booking_routes,
     calendar_routes,
     collab_routes,
     config_routes,
     contacts_routes,
     credentials_routes,
     env_routes,
+    form_routes,
     google_auth_routes,
     handwriting_routes,
     identity_routes,
@@ -44,6 +46,7 @@ from backend.api import (
 from backend.domains.agent.routes.router import router as agent_router
 from backend.services.plugin_access import require_plugins
 from backend.domains.genograms.routes import router as genograms_router
+from backend.domains.vault.publishing.api import public_router as publication_router
 
 
 def register_routers(app: FastAPI) -> None:
@@ -89,6 +92,9 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(vault_views_routes.router, prefix="/api", tags=["Vault Views"])
     app.include_router(collab_routes.router, prefix="/api/vault", tags=["Collaboration"])
     app.include_router(share_routes.router, prefix="/api", tags=["Share"])
+    app.include_router(form_routes.router, prefix="/api", tags=["Forms"])
+    app.include_router(booking_routes.router)
+    app.include_router(publication_router, prefix="/api", tags=["Published sites"])
 
     app.include_router(
         calendar_routes.router,

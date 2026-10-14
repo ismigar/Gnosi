@@ -6,6 +6,7 @@ import { Monitor } from 'lucide-react';
 import { Palette } from 'lucide-react';
 import { Section } from '../../../shared/ui/settings/SettingsPrimitives';
 import type { SettingsController } from './useGlobalSettingsController';
+import { CustomAppearancePanel } from './CustomAppearancePanel';
 
 type Props = { context: Pick<SettingsController, 'activeTab' | 'draft' | 'mailDarkBody' | 'setDraft' | 'setMailDarkBody' | 'tn'> };
 
@@ -71,6 +72,7 @@ export function AppearancePanel({ context }: Props) {
           }}
         />
       </div>
+      <CustomAppearancePanel />
     </Section>
   ));
 }
