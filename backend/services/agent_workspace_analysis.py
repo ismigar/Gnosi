@@ -18,6 +18,19 @@ from fastapi import HTTPException
 from backend.services.agent_workspace_store import WorkbenchScope, WorkbenchStore
 
 IMAGE = os.environ.get('GNOSI_ANALYSIS_IMAGE', 'python:3.11-slim')
+_DOCKER_LOCATIONS = (
+    Path('/opt/homebrew/bin/docker'),
+    Path('/usr/local/bin/docker'),
+    Path('/Applications/Docker.app/Contents/Resources/bin/docker'),
+)
+
+
+def _docker_executable() -> str | None:
+    """Finder omits package-manager paths; only inspect known CLI locations."""
+    configured = shutil.which('docker')
+    if configured:
+        return configured
+    return next((str(path) for path in _DOCKER_LOCATIONS if path.is_file() and os.access(path, os.X_OK)), None)
 
 # Only the immutable program is mounted from the host. All writable container
 # paths are size-limited tmpfs volumes; artifacts leave through bounded stdout.
@@ -51,7 +64,7 @@ print(json.dumps({'output':text, 'artifacts':artifacts, 'exit_code':1 if failed 
 
 
 async def status() -> dict[str, Any]:
-    docker = shutil.which('docker')
+    docker = _docker_executable()
     if not docker:
         return dict(available=False, reason='docker_unavailable', image=IMAGE)
     try:
@@ -90,7 +103,10 @@ def _stage_inputs(store: WorkbenchStore, scope: WorkbenchScope, inputs: list[dic
 
 
 def _docker_arguments(name: str, root: Path) -> list[str]:
-    return [shutil.which('docker') or 'docker', 'run', '--pull=never', '--rm', '--name', name,
+    docker = _docker_executable()
+    if docker is None:
+        raise HTTPException(503, 'Docker is unavailable')
+    return [docker, 'run', '--pull=never', '--rm', '--name', name,
             '--network=none', '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges',
             '--pids-limit=64', '--memory=256m', '--cpus=1', '--ulimit', 'fsize=15000000:15000000',
             '--user', f'{os.getuid()}:{os.getgid()}', '--tmpfs', '/tmp:rw,noexec,nosuid,size=32m',
@@ -214,7 +230,7 @@ async def execute(store: WorkbenchStore, scope: WorkbenchScope, code: str, reque
 
 
 async def remove_container(name: str) -> None:
-    docker = shutil.which('docker')
+    docker = _docker_executable()
     if docker:
         process = await asyncio.create_subprocess_exec(docker, 'rm', '-f', name, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
         try:

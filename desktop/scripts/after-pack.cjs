@@ -96,6 +96,8 @@ exports.default = async function afterPack(context) {
 
   const appPath = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`);
 
+  require('./native-privacy.cjs').installNativePrivacy(appPath);
+
   // Compile into Resources before signing. Frozen Python resolves this sibling
   // helper without PATH lookups or a system compiler at runtime.
   require('./file-access-build.cjs').build(path.join(appPath, 'Contents/Resources/native'));

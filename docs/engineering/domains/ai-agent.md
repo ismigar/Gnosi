@@ -9,6 +9,10 @@ source_paths:
   - backend/services/agent_workspace_tools.py
   - backend/services/agent_native_bridge.py
   - desktop/agent-workspace.js
+  - desktop/electron-builder.yml
+  - desktop/scripts/after-pack.cjs
+  - desktop/scripts/native-privacy.cjs
+  - desktop/assets/native-privacy.json
   - frontend/src/features/agent-workspace
   - frontend/src/shared/api/agent-workspace.ts
   - frontend/src/shared/api/agent-workspace-voice.ts
@@ -148,6 +152,7 @@ tests:
   - frontend/src/features/agent-workspace/useVoiceConversation.test.tsx
   - frontend/src/features/agent/chat/promptQueue.test.ts
   - desktop/agent-workspace.test.js
+  - desktop/native-privacy.test.js
   - backend/tests/test_agent_exact_inventory_filters.py
   - backend/tests/test_agent_exact_actions.py
   - backend/tests/test_agent_learning_review.py
@@ -1626,7 +1631,8 @@ before dispatching bounded native input. Taking control, stopping, revoking or
 replacing the browser invalidates pending observations and input. macOS app
 selection grants only that selected application; text entry checks focus and
 uses a cancellable native runner. The optional Messages action opens a draft for
-human review. Agent requests use a durable claim/lease queue and never replay a
+human review. Packaged apps include localized macOS automation and microphone
+purpose strings; these descriptions do not grant operating-system permissions. Agent requests use a durable claim/lease queue and never replay a
 claimed action after disconnection.
 
 Voice starts only from the conversation's explicit microphone button. It uses

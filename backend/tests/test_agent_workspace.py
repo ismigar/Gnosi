@@ -104,6 +104,7 @@ def test_receipts_survive_reopen_and_unknown_never_replays(setup):
 def test_analysis_refuses_host_fallback(setup, monkeypatch):
     store, scope, _ = setup
     monkeypatch.setattr(analysis.shutil, 'which', lambda _: None)
+    monkeypatch.setattr(analysis, '_DOCKER_LOCATIONS', ())
     assert asyncio.run(analysis.status())['available'] is False
     with pytest.raises(HTTPException) as error:
         asyncio.run(analysis.execute(store, scope, 'raise Exception("must not run on host")', 'analysis'))
@@ -370,3 +371,33 @@ def test_analysis_cancel_while_staging_prevents_container_creation(setup, monkey
     result = asyncio.run(analysis.execute(store, scope, 'print("must not run")', 'staging'))
     assert result['reason'] == 'cancelled'
     assert store.get(scope, 'analysis', 'staging')['status'] == 'stopped'
+
+
+def test_docker_discovery_with_finder_path_uses_trusted_cli_for_probe_run_and_cleanup(tmp_path, monkeypatch):
+    cli = tmp_path / 'trusted-docker'
+    cli.write_text('#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$0.calls"\nexit 0\n')
+    cli.chmod(0o700)
+    monkeypatch.setenv('PATH', '/usr/bin:/bin:/usr/sbin:/sbin')
+    monkeypatch.setattr(analysis.shutil, 'which', lambda _: None)
+    monkeypatch.setattr(analysis, '_DOCKER_LOCATIONS', (cli,))
+    assert asyncio.run(analysis.status())['available'] is True
+    arguments = analysis._docker_arguments('synthetic-container', tmp_path)
+    assert arguments[0] == str(cli)
+    assert '--pull=never' in arguments and '--network=none' in arguments
+    asyncio.run(analysis.remove_container('synthetic-container'))
+    assert Path(str(cli) + '.calls').read_text().splitlines() == [f'image inspect {analysis.IMAGE}', 'rm -f synthetic-container']
+
+
+def test_docker_discovery_prefers_configured_path_and_rejects_nonexecutables(tmp_path, monkeypatch):
+    fallback = tmp_path / 'fallback-docker'
+    fallback.write_text('not executable')
+    fallback.chmod(0o600)
+    monkeypatch.setattr(analysis, '_DOCKER_LOCATIONS', (fallback, tmp_path))
+    monkeypatch.setattr(analysis.shutil, 'which', lambda _: '/configured/bin/docker')
+    assert analysis._docker_executable() == '/configured/bin/docker'
+    monkeypatch.setattr(analysis.shutil, 'which', lambda _: None)
+    assert analysis._docker_executable() is None
+    assert asyncio.run(analysis.status())['reason'] == 'docker_unavailable'
+    with pytest.raises(HTTPException) as error:
+        analysis._docker_arguments('synthetic', tmp_path)
+    assert error.value.status_code == 503
