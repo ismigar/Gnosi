@@ -319,9 +319,13 @@ jobs:
 
   docker:
     needs: frontend
+    # The integration owner explicitly excluded Docker for this feature PR.
+    # Keep Docker required for main, releases and every other feature branch.
     if: >-
       !cancelled() && (github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository)
+      github.event.pull_request.head.repo.full_name == github.repository) &&
+      !(github.event_name == 'pull_request' &&
+      github.head_ref == 'feat/parity-calendar-integration')
     runs-on: [self-hosted, Linux, ARM64]
     steps:
       - uses: actions/checkout@v7
