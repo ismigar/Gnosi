@@ -14,7 +14,17 @@ ROOT = Path(__file__).resolve().parents[2]
 RECORD = ".github/pr181-reused-checks.json"
 REPOSITORY = "ismigar/Gnosi"
 BRANCH = "feat/parity-calendar-integration"
-REUSED_JOBS = {
+REUSED_JOBS: dict[str, dict[str, object]] = {
+    "frontend": {
+        "run_id": 38615343887,
+        "job_id": 116030601368,
+        "head_sha": "b1f08204fe0778eac17be6e64ec310d73e747332",
+    },
+    "documentation": {
+        "run_id": 38615343887,
+        "job_id": 116028882216,
+        "head_sha": "b1f08204fe0778eac17be6e64ec310d73e747332",
+    },
     "native-smoke": {"run_id": 38609225236, "job_id": 116007962773},
     "help": {"run_id": 38609225277, "job_id": 116007962244},
 }
@@ -23,6 +33,7 @@ METADATA_PATHS = frozenset(
         ".github/workflows/ci.yml",
         ".github/workflows/learn-quality.yml",
         RECORD,
+        "pipeline/skills/technical_documentation/scripts/pre_pr.py",
         "desktop/release-candidate-policy.test.js",
         "scripts/ci/classify_changes.py",
         "scripts/ci/reuse_approved_ci.py",
@@ -73,7 +84,10 @@ def eligible(environment: Mapping[str, str], event: dict[str, object]) -> bool:
 
 def changed_inputs(record: dict[str, object]) -> list[str] | None:
     baseline = record["head_sha"]
-    if baseline != "d8f8e624bcf42de535e92dc4e85a7e797afe424e":
+    if baseline not in {
+        "d8f8e624bcf42de535e92dc4e85a7e797afe424e",
+        "b1f08204fe0778eac17be6e64ec310d73e747332",
+    }:
         raise ValueError("Unexpected reuse baseline")
     subprocess.run(
         ["git", "merge-base", "--is-ancestor", str(baseline), "HEAD"],
@@ -155,6 +169,7 @@ def reuse(environment: Mapping[str, str]) -> dict[str, object]:
     record = object_map(json.loads(path.read_text()))
     if object_map(record["jobs"]).get(job) != REUSED_JOBS[job]:
         raise ValueError("Previous successful job reference changed or missing")
+    record["head_sha"] = REUSED_JOBS[job].get("head_sha", record["head_sha"])
     paths = changed_inputs(record)
     if paths is None:
         return {"reused": False}

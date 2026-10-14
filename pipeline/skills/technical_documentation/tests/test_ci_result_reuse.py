@@ -68,7 +68,7 @@ def test_reuse_rejects_other_pr_numbers_and_fork_heads() -> None:
 def test_only_actual_terminal_success_can_be_reused(
     monkeypatch: pytest.MonkeyPatch, status: str, conclusion: str | None
 ) -> None:
-    record = {
+    record: dict[str, object] = {
         "head_sha": "d8f8e624bcf42de535e92dc4e85a7e797afe424e",
         "jobs": {"native-smoke": {"run_id": 1, "job_id": 2}},
     }
@@ -92,11 +92,11 @@ def test_only_actual_terminal_success_can_be_reused(
 def test_remote_evidence_checks_head_workflow_and_job_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    record = {
+    record: dict[str, object] = {
         "head_sha": "d8f8e624bcf42de535e92dc4e85a7e797afe424e",
         "jobs": {"native-smoke": {"run_id": 1, "job_id": 2}},
     }
-    run = {"head_sha": record["head_sha"], "event": "pull_request", "name": "CI"}
+    run: dict[str, object] = {"head_sha": record["head_sha"], "event": "pull_request", "name": "CI"}
     job = {
         "name": "native-smoke",
         "id": 2,
@@ -122,7 +122,7 @@ def test_remote_evidence_checks_head_workflow_and_job_identity(
 
 
 def test_unreviewed_metadata_and_file_modes_are_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
-    record = {
+    record: dict[str, object] = {
         "head_sha": "d8f8e624bcf42de535e92dc4e85a7e797afe424e",
         "approved_changes": {
             "scripts/ci/classify_changes.py": "100644 blob abc\tscripts/ci/classify_changes.py"
@@ -197,12 +197,14 @@ def _environment(tmp_path: Path) -> dict[str, str]:
     }
 
 
-def test_release_candidate_and_failed_jobs_require_real_runtime(tmp_path: Path) -> None:
+@pytest.mark.parametrize("job", ["native-smoke", "documentation", "frontend"])
+def test_release_candidate_and_failed_jobs_require_real_runtime(tmp_path: Path, job: str) -> None:
     env = _environment(tmp_path)
+    env["GITHUB_JOB"] = job
     env["CI_RELEASE_CANDIDATE"] = "true"
     assert reuse.reuse(env) == {"reused": False}
     env.pop("CI_RELEASE_CANDIDATE")
-    for job in ("documentation", "backend", "frontend", "docker"):
+    for job in ("backend", "docker"):
         env["GITHUB_JOB"] = job
         assert reuse.reuse(env) == {"reused": False}
 
@@ -242,7 +244,11 @@ def test_deleted_job_reference_aborts_and_network_error_propagates(
     path.write_text(json.dumps({"jobs": {}}))
     with pytest.raises(ValueError, match="changed or missing"):
         reuse.reuse(env)
-    path.write_text(json.dumps({"jobs": reuse.REUSED_JOBS}))
+    path.write_text(
+        json.dumps(
+            {"head_sha": "d8f8e624bcf42de535e92dc4e85a7e797afe424e", "jobs": reuse.REUSED_JOBS}
+        )
+    )
     monkeypatch.setattr(reuse, "changed_inputs", lambda record: [])
 
     def unavailable(job: str, record: dict[str, object]) -> dict[str, object]:
@@ -263,7 +269,11 @@ def test_reuse_main_reports_verified_prior_execution(
     monkeypatch.setattr(reuse, "ROOT", tmp_path)
     path = tmp_path / reuse.RECORD
     path.parent.mkdir()
-    path.write_text(json.dumps({"jobs": reuse.REUSED_JOBS}))
+    path.write_text(
+        json.dumps(
+            {"head_sha": "d8f8e624bcf42de535e92dc4e85a7e797afe424e", "jobs": reuse.REUSED_JOBS}
+        )
+    )
     monkeypatch.setattr(
         subprocess,
         "check_output",
@@ -387,3 +397,97 @@ def test_product_change_never_bypasses_unreviewed_metadata(
                 },
             }
         )
+
+
+@pytest.mark.parametrize("reused", [True, False])
+def test_documentation_dispatch_keeps_actual_gate_when_not_reused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reused: bool
+) -> None:
+    import json
+
+    from pipeline.skills.technical_documentation.scripts import pre_pr
+
+    monkeypatch.setenv("GITHUB_JOB", "documentation")
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess([], 0, json.dumps({"reused": reused})),
+    )
+    calls: list[bool] = []
+
+    def gate(*args: object, **kwargs: object) -> None:
+        calls.append(True)
+
+    monkeypatch.setattr(pre_pr, "run_gate", gate)
+    assert pre_pr.main(["--check-only"]) == 0
+    assert calls == ([] if reused else [True])
+
+
+def test_documentation_verification_failure_aborts_before_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from pipeline.skills.technical_documentation.scripts import pre_pr
+
+    monkeypatch.setenv("GITHUB_JOB", "documentation")
+
+    def unavailable(*args: object, **kwargs: object) -> None:
+        raise subprocess.CalledProcessError(1, ["verifier"])
+
+    monkeypatch.setattr(subprocess, "run", unavailable)
+    with pytest.raises(subprocess.CalledProcessError):
+        pre_pr.main(["--check-only"])
+
+
+def test_documentation_release_context_is_propagated() -> None:
+    workflow = yaml.safe_load((reuse.ROOT / ".github/workflows/ci.yml").read_text())
+    assert (
+        workflow["jobs"]["documentation"]["env"]["CI_RELEASE_CANDIDATE"]
+        == "${{ inputs.release_candidate }}"
+    )
+
+
+def test_documentation_job_uses_its_actual_passed_source(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import json
+
+    env = _environment(tmp_path)
+    env["GITHUB_JOB"] = "documentation"
+    monkeypatch.setattr(reuse, "ROOT", tmp_path)
+    path = tmp_path / reuse.RECORD
+    path.parent.mkdir()
+    path.write_text(
+        json.dumps(
+            {"head_sha": "d8f8e624bcf42de535e92dc4e85a7e797afe424e", "jobs": reuse.REUSED_JOBS}
+        )
+    )
+    monkeypatch.setattr(
+        subprocess,
+        "check_output",
+        lambda *args, **kwargs: b"100644 blob abc\t.github/pr181-reused-checks.json",
+    )
+    heads: list[object] = []
+
+    def delta(record: dict[str, object]) -> list[str]:
+        heads.append(record["head_sha"])
+        return []
+
+    monkeypatch.setattr(reuse, "changed_inputs", delta)
+    monkeypatch.setattr(reuse, "verified_remote_job", lambda job, record: reuse.REUSED_JOBS[job])
+    assert reuse.reuse(env)["reused"] is True
+    assert heads == ["b1f08204fe0778eac17be6e64ec310d73e747332"]
+
+
+@pytest.mark.parametrize("payload", ["{}", '{"reused": 1}', '{"reused": "false"}'])
+def test_documentation_invalid_evidence_aborts(
+    monkeypatch: pytest.MonkeyPatch, payload: str
+) -> None:
+    from pipeline.skills.technical_documentation.scripts import pre_pr
+
+    monkeypatch.setenv("GITHUB_JOB", "documentation")
+    monkeypatch.setattr(
+        subprocess, "run", lambda *args, **kwargs: subprocess.CompletedProcess([], 0, payload)
+    )
+    with pytest.raises(ValueError, match="Invalid documentation reuse"):
+        pre_pr.main(["--check-only"])

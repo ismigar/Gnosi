@@ -1,26 +1,38 @@
 {
   "approved_changes": {
+    ".github/workflows/ci.yml": "100644 blob be7488df5e6faac1c296efc230c53c4b8e726166\t.github/workflows/ci.yml",
     ".github/workflows/learn-quality.yml": "100644 blob 0e62389f80f63f68db0a70ae2594697651992802\t.github/workflows/learn-quality.yml",
     "desktop/release-candidate-policy.test.js": "100644 blob 9c3df56e14784ec51c01cad287ae322ee74339e8\tdesktop/release-candidate-policy.test.js",
-    "docs/engineering-ca/generated/configuration.md": "100644 blob 69e4cf43220080db022b4477d6f912e3b8432276\tdocs/engineering-ca/generated/configuration.md",
+    "docs/engineering-ca/generated/configuration.md": "100644 blob f4474c48e4e984716d6c9aa485b0aecf53e319c7\tdocs/engineering-ca/generated/configuration.md",
     "docs/engineering-ca/generated/repository-inventory.md": "100644 blob 933b99674d79e1df1ddc8620981a39d15f2be84f\tdocs/engineering-ca/generated/repository-inventory.md",
-    "docs/engineering-ca/generated/tests.md": "100644 blob 0e25268ee1b43ee99f26f732a775fc0fe90a54da\tdocs/engineering-ca/generated/tests.md",
-    "docs/engineering-es/generated/configuration.md": "100644 blob 2f283573f031d4745e0295c7d078649c5577ca93\tdocs/engineering-es/generated/configuration.md",
+    "docs/engineering-ca/generated/tests.md": "100644 blob 89e78d0dc716991e348b14418280656cace2b263\tdocs/engineering-ca/generated/tests.md",
+    "docs/engineering-es/generated/configuration.md": "100644 blob 11ca57e5bb71fed49fe164b1fa85cd23fe612ebb\tdocs/engineering-es/generated/configuration.md",
     "docs/engineering-es/generated/repository-inventory.md": "100644 blob 7fd12aa85bf3c6c6f8b2b54e6e75788f8fba14bc\tdocs/engineering-es/generated/repository-inventory.md",
-    "docs/engineering-es/generated/tests.md": "100644 blob 933f670931dc28cb16fe4b6f23e67e56da8461e5\tdocs/engineering-es/generated/tests.md",
-    "docs/engineering-fr/generated/configuration.md": "100644 blob ba2fbcb4f59b444951e2e008ec4278868cdfda17\tdocs/engineering-fr/generated/configuration.md",
+    "docs/engineering-es/generated/tests.md": "100644 blob c763db551d614e54c4f2598498c11156230f9ef9\tdocs/engineering-es/generated/tests.md",
+    "docs/engineering-fr/generated/configuration.md": "100644 blob 5bd8a1b26455c34c28606e8fa86b71bdd97bce6d\tdocs/engineering-fr/generated/configuration.md",
     "docs/engineering-fr/generated/repository-inventory.md": "100644 blob e12b2621868356b20f871e042d3e27cad63bbd61\tdocs/engineering-fr/generated/repository-inventory.md",
-    "docs/engineering-fr/generated/tests.md": "100644 blob 51133cb3a9f1a8e31e33466d74f5059dd2532710\tdocs/engineering-fr/generated/tests.md",
-    "docs/engineering/generated/configuration.md": "100644 blob 9ec1659bd0e1654f673f03e1829819444f7d1345\tdocs/engineering/generated/configuration.md",
+    "docs/engineering-fr/generated/tests.md": "100644 blob 1da976599f3298554f7f653984d3177b4120b382\tdocs/engineering-fr/generated/tests.md",
+    "docs/engineering/generated/configuration.md": "100644 blob 31300e85809860469d05e655818724929ffbd1db\tdocs/engineering/generated/configuration.md",
     "docs/engineering/generated/repository-inventory.md": "100644 blob 4ae311e1b44119c713b3eef472d9c61231646715\tdocs/engineering/generated/repository-inventory.md",
-    "docs/engineering/generated/tests.md": "100644 blob e0f779d9a7f8d2262123470eaa441d5aa5a2943b\tdocs/engineering/generated/tests.md",
-    "pipeline/skills/technical_documentation/tests/test_ci_result_reuse.py": "100644 blob 2b17ff44b7fd06394feb9dafd15571d303caacb2\tpipeline/skills/technical_documentation/tests/test_ci_result_reuse.py",
+    "docs/engineering/generated/tests.md": "100644 blob 2e5307a8a686904dd3237fe707dc24a301453f58\tdocs/engineering/generated/tests.md",
+    "pipeline/skills/technical_documentation/scripts/pre_pr.py": "100644 blob 9b09474843f1ef1da1bac1791a1ed1ff338e1fc4\tpipeline/skills/technical_documentation/scripts/pre_pr.py",
+    "pipeline/skills/technical_documentation/tests/test_ci_result_reuse.py": "100644 blob a6fae0fb5d7c0d88cbbb196e7a2a6418586644c1\tpipeline/skills/technical_documentation/tests/test_ci_result_reuse.py",
     "pipeline/skills/technical_documentation/tests/test_publication.py": "100644 blob f1480bcf0b8333c05540db170805fa01c01a1651\tpipeline/skills/technical_documentation/tests/test_publication.py",
     "scripts/ci/classify_changes.py": "100644 blob fa84c74997d5e78b65c862b292cc87d3224e2498\tscripts/ci/classify_changes.py",
-    "scripts/ci/reuse_approved_ci.py": "100644 blob 23d3ac5479f5bcfb23e851419288b430fc17b5da\tscripts/ci/reuse_approved_ci.py"
+    "scripts/ci/reuse_approved_ci.py": "100644 blob e37a28662bffab3dc9f1be482f0fbea2edbecd03\tscripts/ci/reuse_approved_ci.py"
   },
   "head_sha": "d8f8e624bcf42de535e92dc4e85a7e797afe424e",
   "jobs": {
+    "documentation": {
+      "head_sha": "b1f08204fe0778eac17be6e64ec310d73e747332",
+      "job_id": 116028882216,
+      "run_id": 38615343887
+    },
+    "frontend": {
+      "head_sha": "b1f08204fe0778eac17be6e64ec310d73e747332",
+      "job_id": 116030601368,
+      "run_id": 38615343887
+    },
     "help": {
       "job_id": 116007962244,
       "run_id": 38609225277

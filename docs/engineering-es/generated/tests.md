@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 30 | 97 |
 | Vitest | 704 | 3107 |
-| pytest | 689 | 5193 |
+| pytest | 689 | 5198 |
 
 ## Archivos
 
@@ -1410,7 +1410,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`pipeline/skills/technical_documentation/tests/test_ai_guide_parity.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_ai_guide_parity.py) | 4 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_catalog_path_boundaries.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_catalog_path_boundaries.py) | 2 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_change_impact.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_change_impact.py) | 12 | Python AST |
-| pytest | [`pipeline/skills/technical_documentation/tests/test_ci_result_reuse.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_ci_result_reuse.py) | 17 | Python AST |
+| pytest | [`pipeline/skills/technical_documentation/tests/test_ci_result_reuse.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_ci_result_reuse.py) | 22 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_community_release.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_community_release.py) | 2 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_frontend_routes.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_frontend_routes.py) | 7 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_generate.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_generate.py) | 17 | Python AST |

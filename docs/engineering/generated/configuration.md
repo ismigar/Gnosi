@@ -6,7 +6,7 @@ Environment names and source-written defaults discovered through static inspecti
 
 Regenerate with `python pipeline/skills/technical_documentation/scripts/generate.py`.
 
-Discovered **128 variables** across **249 source references**.
+Discovered **129 variables** across **251 source references**.
 
 | Variable | Runtime | Source default | Consumers |
 | --- | --- | --- | --- |
@@ -36,8 +36,9 @@ Discovered **128 variables** across **249 source references**.
 | `FIXTURE_SCRIPT_DIR` | Python | str(Path(args[1]).parent) | [`pipeline/tests/test_find_connections_wrapper.py:55`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_find_connections_wrapper.py#L55) |
 | `FIXTURE_UV_EXIT` | Python | '0' | [`pipeline/tests/test_find_connections_wrapper.py:65`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_find_connections_wrapper.py#L65)<br>[`pipeline/tests/test_native_runtime_wrappers.py:111`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_native_runtime_wrappers.py#L111) |
 | `GITHUB_ENV` | Python | required | [`scripts/ci/prepare_analysis_cache.py:76`](https://github.com/ismigar/Gnosi/blob/main/scripts/ci/prepare_analysis_cache.py#L76) |
-| `GITHUB_OUTPUT` | Python | required | [`scripts/ci/classify_changes.py:72`](https://github.com/ismigar/Gnosi/blob/main/scripts/ci/classify_changes.py#L72)<br>[`scripts/ci/reuse_approved_ci.py:171`](https://github.com/ismigar/Gnosi/blob/main/scripts/ci/reuse_approved_ci.py#L171) |
-| `GITHUB_STEP_SUMMARY` | Python | unset | [`scripts/ci/classify_changes.py:85`](https://github.com/ismigar/Gnosi/blob/main/scripts/ci/classify_changes.py#L85)<br>[`scripts/ci/reuse_approved_ci.py:180`](https://github.com/ismigar/Gnosi/blob/main/scripts/ci/reuse_approved_ci.py#L180) |
+| `GITHUB_JOB` | Python | unset | [`pipeline/skills/technical_documentation/scripts/pre_pr.py:168`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/scripts/pre_pr.py#L168) |
+| `GITHUB_OUTPUT` | Python | required | [`scripts/ci/classify_changes.py:72`](https://github.com/ismigar/Gnosi/blob/main/scripts/ci/classify_changes.py#L72)<br>[`scripts/ci/reuse_approved_ci.py:186`](https://github.com/ismigar/Gnosi/blob/main/scripts/ci/reuse_approved_ci.py#L186) |
+| `GITHUB_STEP_SUMMARY` | Python | unset | [`pipeline/skills/technical_documentation/scripts/pre_pr.py:186`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/scripts/pre_pr.py#L186)<br>[`scripts/ci/classify_changes.py:85`](https://github.com/ismigar/Gnosi/blob/main/scripts/ci/classify_changes.py#L85)<br>[`scripts/ci/reuse_approved_ci.py:195`](https://github.com/ismigar/Gnosi/blob/main/scripts/ci/reuse_approved_ci.py#L195) |
 | `GNOSI_API_TOKEN` | Python | redacted | [`backend/tests/conftest.py:38`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/conftest.py#L38)<br>[`pipeline/skills/notion_clone/scripts/backfill_notion_views.py:133`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/notion_clone/scripts/backfill_notion_views.py#L133)<br>[`pipeline/utils/rewalk_subpage_parents.py:76`](https://github.com/ismigar/Gnosi/blob/main/pipeline/utils/rewalk_subpage_parents.py#L76) |
 | `GNOSI_BACKEND_URL` | Python | 'http://127.0.0.1:5002' | [`backend/tests/conftest.py:28`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/conftest.py#L28)<br>[`backend/tests/test_e2e_etag_concurrency.py:24`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_e2e_etag_concurrency.py#L24)<br>[`backend/tests/test_e2e_tables_assets.py:24`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_e2e_tables_assets.py#L24)<br>[`backend/tests/test_vault_trash.py:35`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_trash.py#L35) |
 | `GNOSI_CITATION_SHARED_IMPORT_FIRST` | Python | required | [`backend/tests/test_citation_shared_lookup_contracts.py:93`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_citation_shared_lookup_contracts.py#L93) |
