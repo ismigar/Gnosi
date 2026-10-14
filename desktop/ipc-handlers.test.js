@@ -10,7 +10,7 @@ const { buildMacInstallerUrl, getUpdateInstallMode } = require('./update-policy'
 
 const CHANNELS = [
   'get-app-version', 'choose-vault-container', 'pick-filesystem', 'set-application-menu', 'get-update-status', 'get-backend-url',
-  'download-update', 'get-backend-status', 'install-update', 'open-form-filler',
+  'download-update', 'get-backend-status', 'install-update', 'open-form-filler', 'workspace-operation',
 ];
 
 function fixture({ isDev = false, platform = 'darwin', arch = 'arm64', overrides = {} } = {}) {
@@ -123,7 +123,7 @@ for (const [name, corrupt] of [
   });
 }
 
-for (const channel of CHANNELS.filter(channel => !['set-application-menu', 'open-form-filler', 'pick-filesystem'].includes(channel))) {
+for (const channel of CHANNELS.filter(channel => !['set-application-menu', 'open-form-filler', 'pick-filesystem', 'workspace-operation'].includes(channel))) {
   test(`${channel} rejects extra arguments before reading state or acting`, async () => {
     const f = fixture();
     for (const args of [[undefined], [null], [{}], ['bad'], [0, false]]) {

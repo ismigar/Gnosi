@@ -18,9 +18,13 @@ export async function submitChatTurn(context: ChatTurnContext): Promise<void> {
     browserStorageScope, selectedAgentId, sessionId, activeScopeRef, activeStreamRef,
     setAgentRuntime, confirmationSummary, requestAbortRef, contextRefs, notebookId, inputRef,
   } = context;
+  const entryScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
+  if (activeScopeRef.current !== entryScope) return;
   if (readOnly || (!inputValue.trim() && attachments.length === 0) || isLoading || !agentHasModel) return;
 
-  const turnId = crypto.randomUUID();
+  const turnId = context.queuedTurnId || crypto.randomUUID();
+  let successful = false;
+  let streamFailed = false;
   const processingStartedAt = performance.now();
   processingStartedAtRef.current = processingStartedAt;
   const mentions = selectedMentionsInText(inputValue, selectedMentions);
@@ -71,9 +75,13 @@ export async function submitChatTurn(context: ChatTurnContext): Promise<void> {
       onMalformed: error => { logError('chat.stream.record', error); },
     })) {
       if (requestAbortRef.current !== ownedController || activeScopeRef.current !== requestScope) return;
-      try { applyChatStreamEvent(streamState, data, streamContext); }
+      try {
+        if (recordValue(data, 'type') === 'error' || recordValue(data, 'type') === 'confirmation_required') streamFailed = true;
+        applyChatStreamEvent(streamState, data, streamContext);
+      }
       catch (error) { logError('chat.stream.event', error); }
     }
+    successful = streamState.terminal && streamState.responseReceived && !streamFailed;
     if (!streamState.terminal || !streamState.responseReceived) {
       setMessages(previous => activeScopeRef.current !== requestScope ? previous : [...previous, {
         role: 'system',
@@ -99,6 +107,7 @@ export async function submitChatTurn(context: ChatTurnContext): Promise<void> {
       }]);
     }
   } finally {
+    await context.onOutcome?.(successful);
     const elapsedMs = boundedProcessingMs(performance.now() - processingStartedAt);
     setMessages(previous => {
       if (activeScopeRef.current !== requestScope) return previous;

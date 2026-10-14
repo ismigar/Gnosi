@@ -226,6 +226,23 @@ def _response_language(message: str) -> str:
     return "en"
 
 
+def _workbench_relevant(item: Mapping[str, Any], domains: Sequence[str], mode: str, message: str) -> bool:
+    """Offer scoped tools by task domain; proposals still require confirmation."""
+    name = str(item.get("name") or "")
+    if not item.get("workbench") or not str(item.get("id") or "").startswith("core.workspace-"):
+        return False
+    if mode == "conversation":
+        return False
+    if name in {"workspace_native_request", "workspace_native_result"}:
+        return bool(set(domains).intersection({"web", "notion"})) or bool(re.search(
+            r"\b(?:imessage|application|aplicacio|aplicacion|app|safari|chrome)\b", normalize_request_text(message)))
+    if name in {"workspace_execute_python", "workspace_analysis_result"}:
+        return mode == "analysis" or bool(re.search(r"\b(?:python|code|codi|codigo)\b", normalize_request_text(message)))
+    if name in {"workspace_capture_document", "workspace_preview_document", "workspace_apply_document"}:
+        return "vault" in domains
+    return "files" in domains
+
+
 def build_turn_plan(
     message: str,
     *,
@@ -293,9 +310,16 @@ def build_turn_plan(
         explicitly_scoped_read = bool(
             skill_ids and "core.legacy-default-v1" not in skill_ids and not guarded
         )
-        if guarded and name not in authorized:
+        workbench_relevant = _workbench_relevant(item, domains, mode, message)
+        proposal_only = bool(
+            workbench_relevant and item.get("confirmation") == "always"
+            and mode in {"action", "analysis"}
+        )
+        if guarded and name not in authorized and not proposal_only:
             continue
         relevant = (
+            workbench_relevant
+            or
             name == required_tool_name
             or name in authorized
             or (
@@ -370,8 +394,13 @@ def build_turn_plan(
     allowed_dynamic_context = any(
         item.get("dynamic_context") and item.get("name") in allowed_tool_names for item in tools
     )
+    workspace_context_selected = any(
+        item.get("workbench") and item.get("name") in allowed_tool_names
+        for item in tools
+    )
     private_context_in_use = bool(
-        has_private_sources and (allowed_dynamic_context or mode == "action" or required_tool_name)
+        workspace_context_selected
+        or has_private_sources and (allowed_dynamic_context or mode == "action" or required_tool_name)
     )
     private_evidence_to_remote_model = bool(
         remote_model and private_context_in_use and not deterministic_output

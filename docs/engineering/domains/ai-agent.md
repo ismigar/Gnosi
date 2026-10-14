@@ -1,7 +1,21 @@
 ---
 status: implemented
-last_verified: 2026-10-06
+last_verified: 2026-10-15
 source_paths:
+  - backend/services/agent_workspace_store.py
+  - backend/services/agent_workspace_files.py
+  - backend/services/agent_workspace_documents.py
+  - backend/services/agent_workspace_analysis.py
+  - backend/services/agent_workspace_tools.py
+  - backend/services/agent_native_bridge.py
+  - desktop/agent-workspace.js
+  - frontend/src/features/agent-workspace
+  - frontend/src/shared/api/agent-workspace.ts
+  - frontend/src/shared/api/agent-workspace-voice.ts
+  - backend/services/mcp_contracts.py
+  - backend/services/mcp_tool_contributions.py
+  - backend/tests/test_mcp_schema_validation.py
+  - backend/tests/test_agent_memory_provenance.py
   - frontend/src/shared/api/resource-processing.ts
   - frontend/src/features/literature/records/process-resource/useProcessResourceController.ts
   - frontend/src/features/literature/records/process-resource/resourceProcessingTasks.ts
@@ -127,6 +141,13 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_workspace.py
+  - backend/tests/test_agent_native_bridge.py
+  - backend/tests/test_agent_workspace_voice.py
+  - frontend/src/features/agent-workspace/AgentWorkspacePanel.test.tsx
+  - frontend/src/features/agent-workspace/useVoiceConversation.test.tsx
+  - frontend/src/features/agent/chat/promptQueue.test.ts
+  - desktop/agent-workspace.test.js
   - backend/tests/test_agent_exact_inventory_filters.py
   - backend/tests/test_agent_exact_actions.py
   - backend/tests/test_agent_learning_review.py
@@ -1523,3 +1544,96 @@ Quoted key names are preserved as literal JSON properties. Explicit JSON templat
 Gauntlet reviews use a fresh context containing the original request, frozen criteria, candidate and scoped source evidence, with tools and delegation disabled. Missing or omitted evidence produces incomplete verification. A separate correction call preserves the output schema, followed by a fresh review. The loop shares the parent's call and time budgets, stops after acceptance or two consecutive corrections without measurable progress, and propagates cancellation and revoked authority. Actions are never replayed by a correction; an interrupted review resumes as incomplete.
 
 Critique text and internal phase prompts and snapshots are never persisted. Child run records retain only operational metadata and an empty result. Scoped recovery artifacts retain the candidate, criteria and phase metadata under existing run retention. Chat details, stream recovery and saved conversations expose only acceptance status, review count, unresolved finding count and a finite stop reason.
+
+
+## Governed MCP capabilities and answer memory sources
+
+MCP tool schemas are kept intact in the LangChain argument contract. The host
+validates exact argument values with JSON Schema before connector dispatch and
+before creating a governed confirmation, including nested objects, arrays,
+enumerations and local references. Optional arguments remain absent when omitted.
+The binding adapter supplies MCP function dictionaries directly, retaining local
+recursive references rather than allowing LangChain to dereference them into
+weaker constraints. Local reference targets are checked before catalog admission;
+dangling or remote references reject only the malformed capability. Validation
+never retrieves a schema from a connector-supplied URL.
+
+`backend/config/mcp_config.py` owns `MCP_TOOL_POLICIES`, keyed by the exact
+`(server_name, tool_name)` pair. Each trusted entry declares `effects`,
+`minimum_role` and `confirmation`. Unknown definitions, including definitions that
+only advertise `readOnlyHint`, remain unavailable. Consequential tools require at
+least editor access; external writes and destructive actions require `always`
+confirmation through the existing scope-bound, one-shot confirmation flow. Server
+annotations and embedded policy fields cannot grant authorization. The legacy
+profile name-only allowlist cannot grant MCP access; connectors must be
+explicitly assigned through the governed skill catalog.
+
+Assistant messages include `memory_provenance` in stream events and session
+history. Each entry records the memory ID, revision, owning agent, text, category,
+scope, enabled state and expiry captured in the workflow prompt. Memory entries
+are appended atomically after instruction/context budgeting with explicit IDs
+and revisions; entries that do not fit are absent from both prompt and sources.
+Provenance is recorded at inclusion time, never inferred from text substrings. These sources describe
+selected prompt context, not a claim that a model causally relied on a memory.
+Correction uses the existing scoped memory update API and its `expected_revision`
+check; deletion uses the same agent, user and vault boundaries. Historical
+provenance retains the original revision after later memory edits.
+
+## Conversation workbench
+
+The chat's expandable agent workspace groups files, document editing, Python
+analysis, native browsing and voice for the current conversation. Existing tool
+activity and confirmation cards remain the progress surface. Workbench receipts
+are persisted in `system/agent_workspace.sqlite`, scoped by authenticated user,
+workspace, vault, agent and conversation. Scope changes reset the panel, abort
+pending requests and revoke native capabilities. The browser's durable prompt
+queue keeps editable, reorderable instructions and attachments for the next turn;
+a Web Lock serializes queue writes and delivery across tabs. Uncertain deliveries
+pause for review instead of automatically replaying a consequential instruction.
+
+Assistant output uses the shared Markdown renderer, preserves citations and can
+be saved to a vault page and opened from the chat. Answer memory sources expose
+the exact stored revisions and use the existing correction and forget controls.
+
+Folder access starts with the desktop's native picker. A short-lived signed
+attestation binds the selected directory to the full authenticated workbench
+scope; callers cannot grant an arbitrary path. Relative-path traversal, symlinks
+and nonregular files are rejected, including FIFOs without blocking the reader.
+Transfers require matching byte size and SHA-256, never overwrite an existing
+file and keep idempotent receipts. Grants can be revoked from the panel.
+
+Document sessions capture the source page and its etag. The UI previews the diff
+before an explicit save; applying checks the captured etag through the existing
+vault patch API. A changed page produces a conflict instead of overwriting it.
+Saved sessions and operation receipts can be reopened; an uncertain save keeps
+the same request identity on retry.
+
+Python analysis requires Docker and an already installed local image (default
+`python:3.11-slim`). It never falls back to executing generated code on the host
+and does not pull an image automatically. Each run disables network access,
+drops capabilities and uses a read-only root, resource limits, a bounded writable
+tmpfs and a 30-second deadline. Only explicitly selected, hash-checked prior
+artifacts are mounted as read-only inputs. Users can import local input files,
+reuse retained artifacts, download verified results and stop a running container.
+Interrupted receipts remain uncertain and are not executed again automatically.
+
+The Electron bridge exposes a narrow, trusted-sender IPC contract. Native work
+is scoped to the owning window and authenticated conversation. Browser windows
+have sandboxing, isolated sessions, no Node or preload access, denied popups and
+permissions, and same-origin navigation. Each proposed click or text entry needs
+native consent; DOM lookup is read-only and capability generations are rechecked
+before dispatching bounded native input. Taking control, stopping, revoking or
+replacing the browser invalidates pending observations and input. macOS app
+selection grants only that selected application; text entry checks focus and
+uses a cancellable native runner. The optional Messages action opens a draft for
+human review. Agent requests use a durable claim/lease queue and never replay a
+claimed action after disconnection.
+
+Voice starts only from the conversation's explicit microphone button. It uses
+browser speech recognition when available, otherwise complete bounded audio
+chunks go to the existing governed local Whisper transcription service. The
+microphone pauses while the agent works or speech playback runs, and recording,
+requests and playback stop on exit or scope change. Local transcription may
+fetch its configured model on first explicit use. Browser speech recognition
+uses the browser's configured service. Voice instructions enter the same scoped
+next-turn queue without replacing the typed composer draft.

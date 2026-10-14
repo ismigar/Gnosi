@@ -35,6 +35,9 @@ const { isMicrosoftSignInNavigation, openMicrosoftSignIn, microsoftSignInErrorMe
 const { registerIpcHandlers } = require('./ipc-handlers');
 const { backendStartupMessage } = require('./startup-errors');
 const { proxyBackendRequest } = require('./backend-proxy');
+const { createAgentWorkspace } = require('./agent-workspace');
+const workspaceSelectionSecret = require('node:crypto').randomBytes(32).toString('hex');
+const agentWorkspace = createAgentWorkspace({ BrowserWindow, dialog, shell, selectionSecret: workspaceSelectionSecret });
 
 const isDev = process.argv.includes('--dev');
 let updateInstallMode = getUpdateInstallMode(process.platform,
@@ -202,6 +205,7 @@ async function startBackend() {
   const environment = isDev
     ? { ...process.env, LOGGING_LEVEL: 'info' }
     : getPackagedBackendEnvironment(process.env, app.getPath('userData'), backendPort);
+  environment.GNOSI_DESKTOP_SELECTION_SECRET = workspaceSelectionSecret;
   const launch = environment => launchBackend({
     executable: isDev ? (process.platform === 'win32' ? 'python' : 'python3') : bundled,
     args: isDev ? ['-m', 'uvicorn', 'backend.server:app', '--host', '127.0.0.1',
@@ -483,6 +487,11 @@ function setupIPC() {
   let choosingContainer = false;
   registerIpcHandlers({
     ipcMain, mainWindows, isDev,
+    workspaceOperation: (contents, request) => {
+      const owner = BrowserWindow.fromWebContents(contents);
+      if (!owner) throw new Error('Workspace owner unavailable');
+      return agentWorkspace.operation(owner, request);
+    },
     pickFilesystem: async options => {
       const owner = getPreferredMainWindow();
       let mode = options.mode;

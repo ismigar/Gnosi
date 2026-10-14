@@ -1,3 +1,9 @@
+import { knowledgeDocumentPath } from '../../../shared/routing/vaultRouting';
+import './chat-result.css';
+import { useState } from 'react';
+import { VaultMarkdown } from '../../../shared/editor/VaultMarkdown';
+import { createVaultPage } from '../../../shared/api/vault-page-mutations';
+import { MemorySources } from './MemorySources';
 import { useTranslation } from 'react-i18next';
 import { Copy, Reply, RotateCcw, Pencil, ThumbsUp, ThumbsDown, Info, Bookmark, Undo2 } from 'lucide-react';
 import { effectiveMessageTimingMs, getTurnId, processingSeconds } from '../model/agentChatMessageUtils';
@@ -13,6 +19,17 @@ export function ChatMessageRow({ message, index: idx,
 }: ChatMessageRowProps) {
   const { t } = useTranslation();
   const msg = messagePresentation(message);
+  const [savedPage, setSavedPage] = useState('');
+  const [savingPage, setSavingPage] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const saveResult = async () => {
+    if (savingPage || savedPage) return;
+    setSavingPage(true); setSaveError(false);
+    try {
+      const page = await createVaultPage({ title: t('chat.result_title', 'Assistant result'), content: msg.content });
+      setSavedPage(page.id);
+    } catch { setSaveError(true); } finally { setSavingPage(false); }
+  };
   return (
     <div style={{
         alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
@@ -30,7 +47,8 @@ export function ChatMessageRow({ message, index: idx,
             boxShadow: msg.role === 'user' ? '0 4px 6px -1px rgba(37, 99, 235, 0.2)' : 'none',
             whiteSpace: 'pre-wrap'
         }}>
-            {msg.content}
+            {msg.role === 'assistant' ? <div className="chat-result"><VaultMarkdown md={msg.content} allowVaultQueries={false} /></div> : msg.content}
+            {msg.role === 'assistant' && <MemorySources value={msg.memory_provenance} readOnly={readOnly} />}
             {msg.role === 'assistant' && msg.citations && msg.citations.claims.length > 0 && (
                 <details open={notebookId ? true : undefined} style={{ marginTop: '10px', whiteSpace: 'normal' }}>
                     <summary style={{ cursor: 'pointer', color: 'var(--gnosi-blue, #2563eb)', fontSize: '0.74rem', fontWeight: 600 }}>
@@ -137,6 +155,9 @@ export function ChatMessageRow({ message, index: idx,
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px', padding: '0 2px', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
             <button type="button" onClick={() => { void copyMessage(msg.content); }} aria-label={t('chat.copy_message', 'Copy message')} title={t('chat.copy_message', 'Copy message')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Copy size={13} /></button>
+            {!readOnly && msg.role === 'assistant' && msg.content && <button className="btn-gnosi btn-gnosi-secondary" type="button" disabled={savingPage || Boolean(savedPage) || isLoading} onClick={() => { void saveResult(); }}>{t('chat.save_result', 'Save as page')}</button>}
+            {savedPage && <a href={knowledgeDocumentPath(savedPage)}>{t('chat.open_result', 'Open saved page')}</a>}
+            {saveError && <span role="alert">{t('chat.save_result_error', 'Could not save the result. Review pages before retrying.')}</span>}
             {!readOnly && <button type="button" onClick={() => { quoteMessage(msg); }} aria-label={t('chat.reply_to_message', 'Reply to message')} title={t('chat.reply_to_message', 'Reply to message')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Reply size={13} /></button>}
             {!readOnly && msg.role === 'user' && (
                 <button type="button" onClick={() => { focusComposerWith(msg.content || ''); }} aria-label={t('chat.edit_message', 'Edit and resend')} title={t('chat.edit_message', 'Edit and resend')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Pencil size={13} /></button>
@@ -181,6 +202,7 @@ export function ChatMessageRow({ message, index: idx,
             })()}
             <button type="button" onClick={() => { setDetailsMessageIndex(detailsMessageIndex === idx ? null : idx); }} aria-label={t('chat.message_details', 'Message details')} title={t('chat.message_details', 'Message details')} aria-expanded={detailsMessageIndex === idx} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Info size={13} /></button>
         </div>
+        {msg.role === 'assistant' && (msg.plan || msg.explanation || msg.job || msg.timings) && detailsMessageIndex !== idx && <details style={{ width: '100%' }}><summary>{t('chat.task_details', 'Task activity')}</summary><MessageDetails msg={msg} onJobAction={action => { void refreshMessageJob(idx, action); }} onFocusComposer={focusComposerWith} /></details>}
         {detailsMessageIndex === idx && (
             <MessageDetails msg={msg} onJobAction={(action) => { void refreshMessageJob(idx, action); }} onFocusComposer={focusComposerWith} />
         )}

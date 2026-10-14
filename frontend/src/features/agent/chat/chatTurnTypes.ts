@@ -5,6 +5,8 @@ import type { ChatAttachment } from './composerModel';
 import type { StreamEventContext } from './streamEventModel';
 
 export interface ChatTurnContext extends Omit<StreamEventContext, 'requestScope' | 'agentId' | 'turnId'> {
+  readonly queuedTurnId?: string;
+  readonly onOutcome?: (success: boolean) => void | Promise<void>;
   readonly browserStorageScope: string;
   readonly selectedAgentId: string;
   readonly profileId?: string;

@@ -123,16 +123,22 @@
       "backend/api/tools_routes.py",
       "backend/services/ai*.py",
       "backend/services/model_reasoning.py",
+      "backend/services/agent_workspace*.py",
+      "backend/services/agent_native_bridge.py",
+      "backend/services/mcp_contracts.py",
       "backend/domains/agent/team_help.py",
       "backend/domains/configuration/ai/model_metadata_routes.py",
       "frontend/src/features/agent/**/*",
+      "frontend/src/features/agent-workspace/**/*",
+      "frontend/src/shared/api/agent-workspace*.ts",
       "frontend/src/features/agent-context/**/*",
       "frontend/src/features/settings/AI/**/*",
       "frontend/src/features/settings/AI*.ts*",
       "frontend/src/features/settings/*Comparison*.ts*",
       "frontend/src/features/settings/model-comparison/**/*"
     ],
-    "test_globs": ["backend/tests/test_agent*.py", "backend/tests/test_ai*.py", "backend/tests/test_generated_tool*.py", "frontend/src/features/agent/**/*.test.*", "frontend/src/features/agent-context/**/*.test.*", "frontend/src/features/settings/AI/**/*.test.*", "frontend/src/features/settings/AI*.test.*", "frontend/src/features/settings/*Comparison*.test.*"],
+    "test_globs": ["backend/tests/test_agent*.py", "backend/tests/test_ai*.py", "backend/tests/test_generated_tool*.py", "frontend/src/features/agent/**/*.test.*",
+      "frontend/src/features/agent-workspace/**/*.test.*", "frontend/src/features/agent-context/**/*.test.*", "frontend/src/features/settings/AI/**/*.test.*", "frontend/src/features/settings/AI*.test.*", "frontend/src/features/settings/*Comparison*.test.*"],
     "directives": ["agent_skills_runtime.md", "ai_provider_model_config.md", "generated_tools_approval_policy.md", "agent_action_confirmations.md"]
   },
   {

@@ -1,3 +1,4 @@
+import { activateVault } from '../../../shared/routing/vaultRouting';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { createInstance } from 'i18next';
@@ -8,6 +9,8 @@ import { ChatMessageRow } from './ChatMessageRow';
 import type { ChatMessageRowProps } from './chatMessageRowTypes';
 import { messagePresentation } from './messagePresentation';
 
+const savedResult = vi.hoisted(() => vi.fn<(input: { title: string; content: string }) => Promise<{ id: string }>>());
+vi.mock('../../../shared/api/vault-page-mutations', () => ({ createVaultPage: savedResult }));
 const locale = createInstance();
 let container: HTMLDivElement;
 let root: Root;
@@ -58,6 +61,23 @@ describe('live message presentation refinement', () => {
 });
 
 describe('typed message row', () => {
+  it('renders assistant tables in a scoped result and opens a saved page using its canonical vault route', async () => {
+    activateVault({ id: 'vault-a', slug: 'historia', name: 'Història' }, { notify: false });
+    savedResult.mockResolvedValue({ id: 'saved/page' });
+    const content = '| Sample | Value |\n| --- | --- |\n| A | 12 |';
+    await render(props({ message: { role: 'assistant', content } }));
+    expect(container.querySelector('.chat-result table')).not.toBeNull();
+    expect([...container.querySelectorAll('.chat-result th')].map(cell => cell.textContent)).toEqual(['Sample', 'Value']);
+    const save = [...container.querySelectorAll('button')].find(item => item.textContent === 'Save as page');
+    if (!save) throw new Error('Missing save result action');
+    await act(async () => { save.click(); await Promise.resolve(); });
+    expect(savedResult).toHaveBeenCalledWith({ title: 'Assistant result', content });
+    const link = [...container.querySelectorAll('a')].find(item => item.textContent === 'Open saved page');
+    expect(link?.getAttribute('href')).toBe('/@historia/knowledge/page/saved%2Fpage');
+    await render(props({ message: { role: 'user', content } }));
+    expect(container.querySelector('.chat-result')).toBeNull();
+    expect(container.textContent).toContain('| Sample | Value |');
+  });
   it('preserves source order, verified versions and external/internal link attributes', async () => {
     const citations = boundedCitations({ sources: [
       { citation_id: 'web', title: 'External', href: 'https://example.org/evidence', version_status: 'exact' },

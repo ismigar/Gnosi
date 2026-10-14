@@ -195,6 +195,7 @@ function buildFormFillerScript(profile) {
 function registerIpcHandlers(dependencies) {
   /** @type {import('./ipc-contract').DesktopRequestHandlers} */
   const handlers = {
+    'workspace-operation': () => { throw new Error('Workspace sender required'); },
     'choose-vault-container': () => dependencies.chooseVaultContainer?.() ?? false,
     'pick-filesystem': options => {
       if (!dependencies.pickFilesystem) throw new Error('Native filesystem picker unavailable');
@@ -268,6 +269,11 @@ function registerIpcHandlers(dependencies) {
      */
     function listener(event, ...args) {
       assertTrustedIpcSender(event, dependencies.mainWindows, dependencies.isDev);
+      if (channel === 'workspace-operation') {
+        const request = args[0];
+        if (!request || typeof request !== 'object' || !dependencies.workspaceOperation) throw new Error('Workspace unavailable');
+        return dependencies.workspaceOperation(event.sender, /** @type {import('./ipc-contract').WorkspaceNativeRequest} */ (request));
+      }
       return handlers[channel](...decode(...args));
     }
     dependencies.ipcMain.handle(channel, listener);
@@ -283,6 +289,7 @@ function registerIpcHandlers(dependencies) {
   handle('get-backend-status', readEmptyArgs);
   handle('install-update', readEmptyArgs);
   handle('open-form-filler', (...args) => args);
+  handle('workspace-operation', (...args) => args);
 }
 
 module.exports = { registerIpcHandlers };

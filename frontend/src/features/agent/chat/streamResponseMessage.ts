@@ -1,3 +1,4 @@
+import { boundedMemoryProvenance } from './memoryProvenance';
 import type { TFunction } from 'i18next';
 import { boundedTransparencyMetadata, isRetryableErrorCode } from '../model/agentChatTransparency';
 import { isRecord, type LooseRecord } from '../model/agentChatMessageTypes';
@@ -37,7 +38,7 @@ export function streamResponseMessage(previous: readonly StoredChatMessage[], da
       explanation: data.explanation, quality: data.quality, conflicts: data.conflicts, evidence_security: data.evidence_security,
       gauntlet: data.gauntlet,
     });
-    message = { ...message, ...(typeof data.content === 'string' && data.content ? { content: data.content } : {}), ...definedTransparency(metadata),
+    message = { ...message, ...(data.memory_provenance !== undefined ? { memory_provenance: boundedMemoryProvenance(data.memory_provenance) } : {}), ...(typeof data.content === 'string' && data.content ? { content: data.content } : {}), ...definedTransparency(metadata),
       ...(data.gauntlet !== undefined ? { gauntlet: metadata.gauntlet } : {}),
     };
   } else if (data.type === 'error') {
