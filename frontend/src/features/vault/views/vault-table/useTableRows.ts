@@ -77,6 +77,12 @@ export function useTableRows({
     activeView,
     emptyGroupLabel: t('table.no_group_value', 'No value'),
   }), [groupByField, groupMeta, visibleRootNotes, sortedNotes, expandedRows, childrenMap, addingSubitemFor, expandedGroups, hasGroupAggregations, activeView, t]);
+  const formulaRows = useMemo(() => buildTableRowDescriptors({
+    groupByField, groupMeta, visibleRootNotes: sortedNotes, sortedNotes, expandedRows,
+    childrenMap, addingSubitemFor, expandedGroups, hasGroupAggregations, activeView,
+    emptyGroupLabel: t('table.no_group_value', 'No value'),
+  }).flatMap(descriptor => descriptor.kind === 'row' ? [descriptor.note] : []),
+  [groupByField, groupMeta, sortedNotes, expandedRows, childrenMap, addingSubitemFor, expandedGroups, hasGroupAggregations, activeView, t]);
   const { rowVirtualizer, virtualRows, virtTotalSize } = useTableVirtualizer({
     count: rowDescriptors.length,
     getScrollElement: () => tableContainerRef.current,
@@ -86,5 +92,5 @@ export function useTableRows({
   const virtPaddingBottom = virtualRows.length > 0
     ? virtTotalSize - (virtualRows.at(-1)?.end ?? 0)
     : 0;
-  return { tableContainerRef, groupMeta, toggleGroup, rowDescriptors, rowVirtualizer, virtualRows, virtPaddingTop, virtPaddingBottom };
+  return { formulaRows, tableContainerRef, groupMeta, toggleGroup, rowDescriptors, rowVirtualizer, virtualRows, virtPaddingTop, virtPaddingBottom };
 }

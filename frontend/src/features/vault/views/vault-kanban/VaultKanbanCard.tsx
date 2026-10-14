@@ -1,3 +1,4 @@
+import { RecordSubitemAction } from '../../../../shared/record-views/RecordSubitemAction';
 import { NumberValue } from '../../../../shared/records/NumberValue';
 import type { ComponentProps, ReactNode } from 'react';
 import { GalleryOpenButton } from '../GalleryCardPreview';
@@ -171,7 +172,9 @@ export function VaultKanbanCard(props: VaultKanbanCardProps) {
         untitledLabel,
     } = props;
     return <div
-        className={`group relative cursor-pointer rounded-xl border bg-[var(--bg-primary)] p-4 shadow-sm transition-all hover:shadow-md ${canDrag ? 'active:cursor-grabbing' : ''} ${isSelected ? 'border-[var(--gnosi-primary)] shadow-indigo-500/5 ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
+        data-record-id={note.id}
+        tabIndex={-1}
+        className={`focus:outline-2 focus:outline-[var(--gnosi-primary)] group relative cursor-pointer rounded-xl border bg-[var(--bg-primary)] p-4 shadow-sm transition-all hover:shadow-md ${canDrag ? 'active:cursor-grabbing' : ''} ${isSelected ? 'border-[var(--gnosi-primary)] shadow-indigo-500/5 ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
         draggable={canDrag}
         onClick={() => {
             if (selectedCount > 0) onToggleSelect(note.id, false);
@@ -199,7 +202,8 @@ export function VaultKanbanCard(props: VaultKanbanCardProps) {
         <GalleryOpenButton pageId={note.id} onOpen={onNoteSelect} />
         <h4 className="mb-2 flex items-start gap-2 pr-8 text-sm font-semibold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--gnosi-primary)]">
             <FileText className="mt-0.5 shrink-0 text-[var(--text-tertiary)] group-hover:text-[var(--gnosi-primary)]/70" size={16} />
-            <span {...titlePreviewProps}>{note.title || untitledLabel}</span>
+            <span className="min-w-0 flex-1" {...titlePreviewProps}>{note.title || untitledLabel}</span>
+            <RecordSubitemAction recordId={note.id} />
         </h4>
         {fields.length > 0 ? <div className="mt-2 flex flex-col gap-1 text-[10px]">
             {fields.map(({ field, type }) => {

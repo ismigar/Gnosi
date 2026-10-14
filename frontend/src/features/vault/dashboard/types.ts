@@ -42,6 +42,7 @@ export type VisibleProperty = string | {
 export interface View extends Metadata {
     id: string;
     name: string;
+    displayTitle?: string;
     type: string;
     table_id?: string | null;
     order?: number;

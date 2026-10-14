@@ -82,6 +82,7 @@ def _selection_events(
         "active_skill_ids": list(selection.get("active_skill_ids") or []),
         "missing_skill_ids": list(selection.get("missing_skill_ids") or []),
         "unavailable_tool_ids": list(selection.get("unavailable_tool_ids") or []),
+        "capacity_omitted_tool_ids": list(selection.get("capacity_omitted_tool_ids") or []),
         "catalog_revision": selection.get("catalog_revision") or "",
         "supports_tools": bool(selection.get("supports_tools", False)),
         "tool_count": int(selection.get("tool_count", 0) or 0),

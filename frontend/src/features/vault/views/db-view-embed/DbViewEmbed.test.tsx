@@ -369,11 +369,13 @@ describe('embedded record and view actions', () => {
         await act(async () => { emitAppEvent('gnosi:invalidatePreview', { pageId: 'page' }); await Promise.resolve(); });
         expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(2);
     });
-    it('keeps source/template creation callbacks and pins a newly configured view', async () => {
+    it('shows and selects a newly saved view before the registry refresh completes', async () => {
         const createTemplate = vi.fn<(id: string) => void>();
         const createFromSource = vi.fn<(id: string) => void>();
         const configure = vi.fn<(...args: unknown[]) => void>((_input, save) => {
-            if (typeof save === 'function') Reflect.apply(save, undefined, [{ id: 'new-tab' }]);
+            if (typeof save === 'function') Reflect.apply(save, undefined, [{
+                ...other, id: 'new-tab', name: 'New named view',
+            }]);
         });
         context = { ...context, referenceTableId: 'books', onCreateTemplate: createTemplate, onCreateFromSource: createFromSource, onOpenViewConfig: configure };
         await render(); await click(button('New record options')); await click(button('New template'));
@@ -384,6 +386,12 @@ describe('embedded record and view actions', () => {
         await click(button('Create a new view'));
         expect(configure).toHaveBeenCalledWith({ type: 'table', name: '', table_id: 'books' }, expect.any(Function));
         expect(api.updateVaultView).toHaveBeenCalledWith('anchor', { tabs: ['other', 'new-tab'] });
+        const newTab = [...container.querySelectorAll('span')].find(span => span.textContent === 'New named view');
+        expect(newTab).toBeDefined();
+        expect(newTab?.parentElement?.className).toContain('font-semibold');
+        expect(fixture.body?.type).toBe('feed');
+        expect(fixture.body?.notes?.map(note => note.id)).toEqual(['b']);
+        expect(readText(selectedKey('page', 'anchor'))).toBe('new-tab');
     });
     it('duplicates all view options but removes main/default identity before pinning', async () => {
         vi.mocked(api.createVaultView).mockResolvedValue({ id: 'copy' });
@@ -437,7 +445,8 @@ describe('embedded record and view actions', () => {
         expect(document.body.textContent).toContain('Linked page'); expect(api.deleteVaultView).not.toHaveBeenCalled();
         await click(button('Delete')); expect(api.deleteVaultView).toHaveBeenCalledWith('other');
     });
-    it('renames the full registry view and opens config with a synthetic block', async () => {
+    it('renames only the visible title and opens config with a synthetic block', async () => {
+        context = { ...context, registry: { ...context.registry, views: [anchor, { ...other, displayTitle: 'Feed' }] } };
         await render(); await tabMenu(); await click(button('Configure'));
         expect(openConfig).toHaveBeenCalledTimes(1);
         expect(openConfig.mock.calls[0]).toMatchObject(['books', {
@@ -450,8 +459,16 @@ describe('embedded record and view actions', () => {
         }]);
         await tabMenu(); await click(button('Rename'));
         await act(async () => { await Promise.resolve(); await new Promise(resolve => setTimeout(resolve, 5)); });
+        expect(document.querySelector<HTMLInputElement>('input[type="text"]')?.value).toBe('Feed');
+        vi.mocked(api.fetchVaultViews).mockResolvedValue([anchor, { ...other, displayTitle: 'Renamed' }]);
         await inputValue(document.querySelector('input[type="text"]'), 'Renamed'); await click(button('Rename'));
-        expect(api.updateVaultView).toHaveBeenCalledWith('other', expect.objectContaining({ name: 'Renamed', plugin: { keep: true } }));
+        expect(api.updateVaultView).toHaveBeenCalledExactlyOnceWith('other', { displayTitle: 'Renamed' });
+        expect(container.textContent).toContain('Renamed');
+        expect(other.name).toBe('Other');
+        const tab = container.querySelectorAll('button[aria-label="View options"]')[1]?.parentElement;
+        if (!tab) throw new Error('Missing renamed tab');
+        await act(async () => { tab.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await Promise.resolve(); });
+        expect(document.querySelector<HTMLInputElement>('input[type="text"]')?.value).toBe('Renamed');
     });
     it('reports successful and already-deleted ids for global undo, excluding failures', async () => {
         await render();
@@ -469,4 +486,63 @@ describe('embedded record and view actions', () => {
         await act(async () => { await Promise.resolve(); emitAppEvent('gnosi:open-view-tools'); });
         expect(container.querySelector('[role="dialog"]')).not.toBeNull();
     });
+});
+
+describe('embedded display titles and exposed filters', () => {
+    it.each(['table', 'list', 'board', 'gallery', 'calendar', 'timeline', 'feed', 'chart', 'graph', 'genogram'])('shows the short title for %s without changing the catalog name', async type => {
+        const view = { ...anchor, name: 'Tasks per project - Kanban', displayTitle: 'Kanban', type, tabs: [] };
+        context = { ...context, registry: { ...context.registry, views: [view] } };
+        await render();
+        expect(container.querySelector('h2')?.textContent).toBe('Kanban');
+        expect(view.name).toBe('Tasks per project - Kanban');
+    });
+    it('changes results and resets defaults without writing to the shared view', async () => {
+        const filterTree = { conjunction: 'and', rules: [{ field: 'title', operator: 'contains', value: 'Alpha', exposed: true }] };
+        const view = { ...anchor, tabs: [], filterTree };
+        context = { ...context, registry: { ...context.registry, views: [view] } };
+        await render();
+        expect(fixture.body?.notes?.map(row => row.id)).toEqual(['a']);
+        const input = container.querySelector<HTMLInputElement>('fieldset input');
+        if (!input) throw new Error('Missing exposed value');
+        await act(async () => {
+            await Promise.resolve();
+            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, 'Beta');
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        expect(fixture.body?.notes?.map(row => row.id)).toEqual(['b']);
+        expect(filterTree.rules[0]?.value).toBe('Alpha');
+        expect(api.updateVaultView).not.toHaveBeenCalled();
+        await click(button('view.reset_exposed_filters'));
+        expect(fixture.body?.notes?.map(row => row.id)).toEqual(['a']);
+        await click(container.querySelector('[role="switch"]'));
+        expect(fixture.body?.notes?.map(row => row.id)).toEqual(['a', 'b']);
+    });
+    it('preserves inline section titles and nested exposed filters without a registry entry', async () => {
+        context = { ...context, registry: { ...context.registry, views: [] } };
+        vi.mocked(api.fetchPageViews).mockResolvedValue({ page_id: 'page', sections: [{ ...section, displayTitle: 'Local', filterTree: {
+            conjunction: 'or', rules: [{ field: 'title', operator: 'equals', value: 'Beta', exposed: true }],
+        } }] });
+        await render();
+        expect(container.querySelector('h2')?.textContent).toBe('Local');
+        expect(fixture.body?.notes?.map(row => row.id)).toEqual(['b']);
+        expect(container.querySelector('[role="switch"]')).not.toBeNull();
+    });
+});
+
+
+it('renders saved tab order before the anchor and retains it after a reload', async () => {
+    writeText(pinnedKey('page', 'anchor'), JSON.stringify(['other', 'anchor']));
+    await render();
+    const tabNames = () => [...container.querySelectorAll('button[aria-label="View options"]')]
+        .map(button => button.parentElement?.querySelector('span')?.textContent);
+    expect(tabNames()).toEqual(['Other', 'Main']);
+    context = { ...context, viewSectionNonce: 1 };
+    await render();
+    expect(tabNames()).toEqual(['Other', 'Main']);
+});
+
+it('keeps explicitly unpinned registry tabs hidden on reload', async () => {
+    writeText(pinnedKey('page', 'anchor'), JSON.stringify(['anchor']));
+    await render();
+    expect(container.querySelectorAll('button[aria-label="View options"]')).toHaveLength(0);
 });

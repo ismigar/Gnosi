@@ -25,6 +25,8 @@ export interface VaultEditorContextValue {
   readonly onOpenParallel: VaultEditorCallback | null;
   readonly onOpenViewConfig?: VaultEditorCallback | null;
   readonly pageId: string | null;
+  readonly isEditable?: boolean;
+  readonly transclusionAncestors?: readonly string[];
   readonly registry: VaultEditorRegistry;
 }
 

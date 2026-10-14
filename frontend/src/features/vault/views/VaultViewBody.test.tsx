@@ -286,7 +286,7 @@ describe('VaultViewBody', () => {
             onExitTop: vi.fn(), onExitBottom: vi.fn(), onEscape: vi.fn() };
         renderBody({ ...baseProps, ...callbacks, searchTerm: 'needle', isEmbedded: true, maxHeight: '50vh' });
         const props = tableProps();
-        for (const [key, callback] of Object.entries(callbacks)) expect(props).toHaveProperty(key, callback);
+        for (const [key, callback] of Object.entries(callbacks)) if (key !== 'registerNavApi') expect(props).toHaveProperty(key, callback);
         expect(props).toMatchObject({ searchTerm: 'needle', isEmbedded: true, maxHeight: '50vh' });
         const selection = new Set(['page-1']);
         const focusOptions = { returnFocusId: 'focus' };

@@ -346,3 +346,29 @@ describe('VaultViewsHeader creation menus', () => {
         expect(menuToggle.getAttribute('aria-expanded')).toBe('false');
     });
 });
+
+
+it('shows the display title on tabs while retaining the catalog identity for actions', () => {
+    const view = { ...filteredView, name: 'Tasks per project - Kanban', displayTitle: 'Kanban' };
+    const onRenameView = vi.fn<(view: HeaderView) => void>();
+    const { container } = renderHeader({ views: [view, mainView], activeViewId: view.id, onRenameView });
+    const label = [...container.querySelectorAll('span')].find(element => element.textContent === 'Kanban');
+    expect(label).toBeDefined();
+    expect(label?.getAttribute('title')).toBe('Kanban');
+    expect(view.name).toBe('Tasks per project - Kanban');
+});
+
+
+it('allows renaming the visible title of a main view while keeping deletion locked', () => {
+    const onRenameView = vi.fn<(view: HeaderView) => void>();
+    const { container } = renderHeader({ onRenameView });
+    click(requiredButton(container, 'button[aria-label="views_header.add_view"]'));
+    click(document.body.querySelectorAll<HTMLButtonElement>('button[aria-label="More actions"]').item(0));
+    const rename = [...document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+        .find(button => button.textContent.includes('views_header.rename'));
+    if (!rename) throw new Error('Missing main-view rename action');
+    expect([...document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+        .some(button => button.textContent.includes('views_header.delete'))).toBe(false);
+    click(rename);
+    expect(onRenameView).toHaveBeenCalledWith(mainView);
+});

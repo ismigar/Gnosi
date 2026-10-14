@@ -37,6 +37,7 @@ export interface FilterRule {
     operator: string;
     value?: FilterValue;
     periodPart?: string;
+    exposed?: boolean;
 }
 export interface FilterGroup { conjunction: string; rules: FilterNode[] }
 export type FilterNode = FilterGroup | FilterRule;
@@ -50,6 +51,7 @@ export interface FilterContext {
     t: TFunction;
 }
 export interface ViewAppearance {
+    displayTitle?: string;
     heightMode?: string;
     heightPercent?: number;
     genogram?: import('../../../genograms').Config | null;

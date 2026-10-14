@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent, useRef } from 'react';
 import { fetchPageViews, fetchVaultViews, fetchVaultPagesByTable, apiErrorDetail } from './api';
 import { applyClientJoins } from './joins';
 import { decodeView, legacyText } from './decode';
-import { readPinned, readText, writeText, selectedKey } from './preferences';
+import { readPinned, readText, writeText, selectedKey, pinnedKey } from './preferences';
 import { reportEmbedError } from './diagnostics';
 import type { EmbedView } from './types';
 import type { EmbedInputs } from './inputs';
@@ -131,16 +131,14 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
                     setRawRecords(records);
                     setTableRecords(baseRecords);
                     setTemplates(tpls);
-                    // Pinned tabs = anchor view's `tabs` in the registry
-                    // (portable; written by the Notion importer or by its own
-                    // pinned by the user) ∪ legacy local preferences.
+                    // Explicit block preferences override registry defaults, including order and removals.
                     let pinned = [...readPinned(pageId, viewId)];
                     const anchorReg = registryViews.find(v => String(v.id) === viewId);
                     if (Array.isArray(anchorReg?.quickPresets)) {
                         setQuickPresets(anchorReg.quickPresets);
                         try { writeText(presetStorageKey, JSON.stringify(anchorReg.quickPresets)); } catch { /* noop */ }
                     }
-                    if (Array.isArray(anchorReg?.tabs)) pinned = [...pinned, ...anchorReg.tabs.map(String)];
+                    if (readText(pinnedKey(pageId, viewId)) === undefined && Array.isArray(anchorReg?.tabs)) pinned = anchorReg.tabs.map(String);
                     setPinnedViewIds(new Set(pinned));
                     // We guarantee the section's view is always there. A view
                     // belongs to the table if it is its base OR if it joins it.
@@ -149,6 +147,9 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
                     const tv = registryViews.filter(involves);
                     const sectionAsView: EmbedView = {
                         id: section.view_id,
+                        displayTitle: section.displayTitle,
+                        filterTree: section.filterTree,
+                        filter: section.filter,
                         name: section.heading || t('views_header.default_view_name', "View"),
                         type: section.view_type || 'table',
                         table_id: tableId,

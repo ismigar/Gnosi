@@ -62,6 +62,22 @@ describe('schema field helpers', () => {
 });
 
 describe('schema conversion', () => {
+    it('preserves catalog settings through a table save and reopen', () => {
+        for (const settings of [
+            { options: [{ name: 'Fet', color: 'green', group: 'Final' }], default_option: 'Fet' },
+            { options: [] },
+            { catalog_ref: 'status', default_option: 'Open' },
+        ]) {
+            const savedSchema = {
+                Estat: 'status',
+                Estat_config: { id: 'fld_status', role: 'status', option_groups: ['Final'], ...settings },
+            };
+            const properties = buildTablePropertiesFromSchema(savedSchema);
+            expect(properties[0]?.config).toMatchObject(settings);
+            expect(properties[0]).not.toHaveProperty('options');
+            expect(buildSchemaFromTableProperties(properties)).toEqual(savedSchema);
+        }
+    });
     it('round-trips supported table property configuration', () => {
         const properties = [{
             id: 'fld_status',
@@ -86,7 +102,10 @@ describe('schema conversion', () => {
                 format: { kind: 'number', decimals: 2 },
             },
         });
-        expect(buildTablePropertiesFromSchema(built)).toEqual([properties[0]]);
+        const original = properties[0];
+        if (!original) throw new Error('Missing status property');
+        const { options, ...property } = original;
+        expect(buildTablePropertiesFromSchema(built)).toEqual([{ ...property, config: { options } }]);
     });
 
     it('prefers fresh nested options over stale top-level options', () => {

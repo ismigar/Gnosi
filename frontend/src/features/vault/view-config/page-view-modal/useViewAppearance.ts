@@ -4,7 +4,7 @@ import type { useViewStateResult } from './useViewState';
 import type { ViewAppearance } from './types';
 
 export function useViewAppearance({
-    heightMode, setHeightMode, heightPercent, setHeightPercent, setCardSize, setGalleryPreview, setCoverField, setImageFit,
+    displayTitle, setDisplayTitle, heightMode, setHeightMode, heightPercent, setHeightPercent, setCardSize, setGalleryPreview, setCoverField, setImageFit,
     setGroupBy, setGroupSort, setGroupSortDir, setDateField,
     setEndDateField, setCalendarView, setColorField, setRowHeight,
     setFeedPillLimit, setFeedExcerptLines, setFeedFocus, setSummaryModel,
@@ -17,7 +17,7 @@ export function useViewAppearance({
     viewType
 }: Pick<
     useViewStateResult,
-    'heightMode'
+    'displayTitle' | 'setDisplayTitle' | 'heightMode'
     | 'setHeightMode'
     | 'heightPercent'
     | 'setHeightPercent'
@@ -66,6 +66,7 @@ export function useViewAppearance({
     | 'setGenogram'
 >) {
     const applyTypeOptions = (v: ViewAppearance | null | undefined) => {
+        setDisplayTitle(v?.displayTitle || '');
         setHeightMode(v?.heightMode === 'content' || v?.heightMode === 'limited' ? v.heightMode : undefined);
         setHeightPercent(viewHeightPercent(v?.heightPercent));
         setGenogram(configValue(v?.genogram));
@@ -91,6 +92,7 @@ export function useViewAppearance({
         setAggregation(v?.aggregation || (v?.yField || v?.y_field ? 'sum' : 'count'));
     };
     const resetTypeOptions = () => {
+        setDisplayTitle('');
         setHeightMode(undefined);
         setHeightPercent(70);
         setGenogram(configValue(undefined));
@@ -120,8 +122,8 @@ export function useViewAppearance({
         // existing view) it extracts the same fields with the same defaults,
         // tolerating camelCase (registry) and snake_case (embedded section). This way
         // change detection and saving use exactly the same shape.
-        const s = src || { heightMode, heightPercent, genogram, cardSize, galleryPreview, coverField, imageFit, groupBy, groupSort, groupSortDir, dateField, endDateField, calendarView, colorField, rowHeight, feedPillLimit, feedExcerptLines, feedFocus, summaryModel, chartType, xField, yField, aggregation };
-        const extras: Record<string, unknown> = { heightMode: viewHeightMode(s.heightMode, viewType), heightPercent: viewHeightPercent(s.heightPercent) };
+        const s = src || { displayTitle, heightMode, heightPercent, genogram, cardSize, galleryPreview, coverField, imageFit, groupBy, groupSort, groupSortDir, dateField, endDateField, calendarView, colorField, rowHeight, feedPillLimit, feedExcerptLines, feedFocus, summaryModel, chartType, xField, yField, aggregation };
+        const extras: Record<string, unknown> = { displayTitle: s.displayTitle?.trim() || '', heightMode: viewHeightMode(s.heightMode, viewType), heightPercent: viewHeightPercent(s.heightPercent) };
         if (viewType === 'genogram') {
             extras.genogram = configValue(s.genogram);
         } else if (viewType === 'gallery') {

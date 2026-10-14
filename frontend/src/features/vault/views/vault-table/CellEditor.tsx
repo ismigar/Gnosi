@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { AutoriaEditor } from '../../properties/AutoriaField';
 import { displayString, getTableFieldConfig } from './fieldConfig';
 import { InlinePillsPicker } from './InlinePillsPicker';
@@ -32,6 +33,7 @@ export function CellEditor({ model, value, type, noteId, field, originalMetaKey 
     handleKeyDown,
   } = model;
   const note = model.noteById.get(noteId);
+  const finished = useRef(false);
 
   if (type === 'status' || type === 'select') {
     const options = getAvailableOptions(field, type);
@@ -116,6 +118,8 @@ export function CellEditor({ model, value, type, noteId, field, originalMetaKey 
 
   if (type === 'number') {
     const saveNumber = (raw: string) => {
+      if (finished.current) return;
+      finished.current = true;
       const s = displayString(raw).trim();
       const n = s === '' ? '' : (Number.isFinite(Number(s)) ? Number(s) : s);
       void handleCellSave(noteId, field, n, originalMetaKey);
@@ -123,14 +127,15 @@ export function CellEditor({ model, value, type, noteId, field, originalMetaKey 
     return (
       <input
         autoFocus
-        type="number"
+        type="text"
         inputMode="decimal"
         className="w-full px-1 py-0.5 text-sm border border-[var(--border-primary)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
         defaultValue={editInitial != null ? editInitial : tableText(value ?? '')}
         onBlur={(e) => { saveNumber(e.currentTarget.value); }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') { e.preventDefault(); saveNumber(e.currentTarget.value); advanceCursorAfterEdit(noteId, field); return; }
-          if (e.key === 'Escape') { setEditingCell(null); setEditInitial(null); return; }
+          if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finished.current = true; setEditingCell(null); setEditInitial(null); return; }
+          if (e.key === 'Tab') finished.current = true;
           handleKeyDown(e, noteId, field, originalMetaKey);
         }}
       />
@@ -142,10 +147,11 @@ export function CellEditor({ model, value, type, noteId, field, originalMetaKey 
       autoFocus
       className="w-full px-1 py-0.5 text-sm border border-[var(--border-primary)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
       defaultValue={editInitial != null ? editInitial : tableText(value || '')}
-      onBlur={(e) => { void handleCellSave(noteId, field, e.currentTarget.value, originalMetaKey); }}
+      onBlur={(e) => { if (!finished.current) { finished.current = true; void handleCellSave(noteId, field, e.currentTarget.value, originalMetaKey); } }}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') { e.preventDefault(); void handleCellSave(noteId, field, e.currentTarget.value, originalMetaKey); advanceCursorAfterEdit(noteId, field); return; }
-        if (e.key === 'Escape') { setEditingCell(null); setEditInitial(null); return; }
+        if (e.key === 'Enter') { e.preventDefault(); finished.current = true; void handleCellSave(noteId, field, e.currentTarget.value, originalMetaKey); advanceCursorAfterEdit(noteId, field); return; }
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finished.current = true; setEditingCell(null); setEditInitial(null); return; }
+        if (e.key === 'Tab') finished.current = true;
         handleKeyDown(e, noteId, field, originalMetaKey);
       }}
     />

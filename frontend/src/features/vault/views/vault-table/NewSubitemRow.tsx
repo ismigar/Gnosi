@@ -36,8 +36,10 @@ export function createNewSubitemRenderer(model: TableController) {
             value={newSubitemTitle}
             onChange={(e) => { setNewSubitemTitle(e.currentTarget.value); }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') void handleCreateSubitem(parentNote.id);
+              if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); void handleCreateSubitem(parentNote.id); }
               if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
                 setAddingSubitemFor(null);
                 setNewSubitemTitle('');
               }

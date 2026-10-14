@@ -346,3 +346,28 @@ record editors and action-rule persistence all honor the explicit reference;
 local status options are never merged into the global catalog automatically.
 Regression coverage: `backend/tests/test_status_catalog_isolation.py` and
 `frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.
+
+## Display titles and exposed filters
+
+Saved views have an optional `displayTitle` independent of the catalog `name`.
+Insertion pickers retain the catalog name; embedded headings and tabs use the
+short title when present, with existing headings and names as the fallback.
+The setting applies to every view type and round-trips through registry views,
+inline sections, copying and modal autosave.
+
+The Rename action (including embedded tab double-click) edits only `displayTitle`
+and starts from the current visible title. Catalog names remain editable in Configure.
+Main views permit this presentation change while retaining their deletion lock.
+
+Each filter rule can opt into `exposed: true`. Its typed value control and an
+enable switch appear above embedded views and table panes. Overrides belong to
+the mounted view and active page/tab configuration, never to the saved registry.
+Reset restores the saved defaults. Nested AND/OR groups and fixed rules remain
+intact; disabled groups are removed without turning OR branches into matches.
+Whole-table search temporarily disables the controls. Result counts use the same
+runtime filters as the body, and saving layout changes preserves the original
+filter configuration. Zero, false and period boundaries survive serialization.
+
+Regression coverage includes `exposedFilters.test.ts`, `PageViewModal.test.tsx`,
+`DbViewEmbed.test.tsx`, `TablePane.test.tsx` and
+`backend/tests/test_exposed_view_configuration.py`.

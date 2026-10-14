@@ -200,11 +200,18 @@ def _row_field_write_tools(text: str, mentions: Sequence[object]) -> set[str]:
         r"\b(?:assign(?:a|ar|i|is|eu|es)?|asign(?:a|ar|e|es)|"
         r"actualitz(?:a|ar|i|is|eu)|actualiz(?:a|ar|e|es)|"
         r"canvi(?:a|ar|ï|ïs|eu)|cambi(?:a|ar|e|es)|"
-        r"set|update|change|modifi(?:e|er|ez)|attribu(?:e|er|ez)|défin(?:is|ir|issez))\b"
-        r"(?=[^.!?;\n]{0,200}\b(?:camp|camps|campo|campos|field|fields|"
-        r"champ|champs|estat|estado|status|statut)\b)", masked,
+        r"set|update|change|replace|rename|substitueix|reemplaza|remplace|"
+        r"modifi(?:e|er|ez)|attribu(?:e|er|ez)|défin(?:is|ir|issez))\b", masked,
     )
-    if not any(_affirmative_pattern_present(text, [match.group(0)]) for match in assignments):
+    fields = re.compile(
+        r"\b(?:camp|camps|campo|campos|field|fields|champ|champs|"
+        r"estat|estado|status|statut|t[ií]tols?|t[ií]tulos?|titles?|titres?|nom|name)\b"
+    )
+    if not any(
+        fields.search(masked[max(0, match.start() - 80):match.end() + 200])
+        and _affirmative_pattern_present(text, [match.group(0)])
+        for match in assignments
+    ):
         return set()
     bulk = re.search(
         r"\b(?:tots|totes|todos|todas|all|every|tous|toutes|"
@@ -459,7 +466,8 @@ def _explicit_brain_write_tool_names(
     }
     authorized.update(_matching_pattern_tools(text, confirmation_request_patterns))
     authorized.update(_mention_write_tools(text, mentions or ()))
-    authorized.update(_row_field_write_tools(text, mentions or ()))
+    if "replace_reference_ids_in_titles" not in authorized:
+        authorized.update(_row_field_write_tools(text, mentions or ()))
 
     return authorized
 

@@ -403,4 +403,27 @@ describe('VaultTimeline', () => {
             { metadata: { End: '2024-01-06', Start: '2024-01-05' } },
         ]);
     });
+    it('moves rows using the row controls and Alt arrow keyboard shortcuts', async () => {
+        const onUpdateNote = vi.fn<NonNullable<VaultTimelineProps['onUpdateNote']>>();
+        act(() => {
+            root.render(<VaultTimeline activeView={{ dateField: 'Start' }}
+                schema={{ Start: 'date' }} onUpdateNote={onUpdateNote} searchTerm=""
+                notes={[
+                    { id: 'a', title: 'A', metadata: { Start: '2024-01-01' } },
+                    { id: 'b', title: 'B', metadata: { Start: '2024-01-02' } },
+                ]} />);
+        });
+        const row = container.querySelector<HTMLElement>('[data-record-id="b"]');
+        if (!row) throw new Error('Missing row');
+        const indent = row.querySelector<HTMLButtonElement>('[aria-label="timeline.move_indent"]');
+        expect(indent?.disabled).toBe(false);
+        await act(async () => { indent?.click(); });
+        expect(onUpdateNote).toHaveBeenCalledWith('b', { metadata: { timeline_order: 0, parent_id: 'a' } });
+        onUpdateNote.mockClear();
+        await act(async () => {
+            row.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true, bubbles: true }));
+        });
+        expect(onUpdateNote.mock.calls.map(([id]) => id)).toEqual(['b', 'a']);
+    });
+
 });

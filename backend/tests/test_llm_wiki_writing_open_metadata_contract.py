@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -46,6 +47,48 @@ def _dependencies(root: Path) -> writing.WritingDependencies:
         uuid_factory=lambda: "synthetic-created",
         generated_note_type="lectura",
     )
+
+
+@pytest.mark.parametrize("status_type", ["status", "select"])
+def test_generated_notes_start_as_drafts_and_keep_creation_on_reprocess(
+    tmp_path: Path, status_type: str
+) -> None:
+    table: RegistryData = {"properties": [
+        {"id": "state", "name": "Workflow", "type": status_type,
+         "config": {"role": "status", "default_option": "Revisat"}},
+        {"id": "created", "name": "Creation date", "type": "created_time"},
+        {"id": "modified", "name": "Last modified", "type": "last_edited_time"},
+    ]}
+    saved: list[PageMetadata] = []
+    path = tmp_path / "Reading.md"
+    note = {"title": "Reading", "managed_key": "key", "body_md": "Evidence"}
+    dependencies = replace(
+        _dependencies(tmp_path),
+        table_by_id=lambda table_id: table,
+        save_page_md=lambda path, metadata, body: saved.append(dict(metadata)),
+    )
+    writing.apply_plan({"notes": [note]}, "source", "Source", "brain",
+                       dependencies=dependencies)
+    original = saved[-1]
+    assert original["Workflow"] == "Esborrany"
+    assert original["Creation date"] == original["Last modified"]
+    assert datetime.fromisoformat(str(original["Creation date"])).tzinfo is not None
+
+    path.write_text("Existing note", encoding="utf-8")
+    original["Workflow"] = "Revisat"
+    original["Last modified"] = "2000-01-01T00:00:00+00:00"
+    page = _Page("synthetic-created", path, original)
+    dependencies = replace(
+        dependencies,
+        get_pages_for_table=lambda table_id: [page],
+        parse_frontmatter=lambda content, path: (dict(original), "User text"),
+    )
+    result = writing.apply_plan({"notes": [note]}, "source", "Source", "brain",
+                               dependencies=dependencies)
+    assert result["updated"] == ["Reading"] and not result["created"]
+    assert saved[-1]["Workflow"] == "Revisat"
+    assert saved[-1]["Creation date"] == original["Creation date"]
+    assert saved[-1]["Last modified"] != original["Last modified"]
 
 
 def test_update_keeps_open_metadata_identity_and_callback_order(tmp_path: Path) -> None:

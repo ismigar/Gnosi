@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next';
 import {
     BrainCircuit,
+    ArrowLeftRight,
     Code2,
     History,
     House,
@@ -16,6 +17,9 @@ import {
 
 
 export interface PageActionsConfig {
+    readonly canToggleFreeWidth?: boolean;
+    readonly isFreeWidth?: boolean;
+    readonly onToggleFreeWidth?: () => void;
     readonly canSetHome?: boolean;
     readonly isHome?: boolean;
     readonly onToggleHome?: () => void;
@@ -48,6 +52,8 @@ export interface PageActionsConfig {
 
 
 export interface PageActionItem {
+    readonly toggle?: boolean;
+    readonly overflowOnly?: boolean;
     readonly Icon: LucideIcon;
     readonly active?: boolean;
     readonly activeClassName?: string;
@@ -89,6 +95,15 @@ export function buildPageActionItems(
 ): PageActionItem[] {
     if (!pageActions) return [];
     const items: Array<PageActionItem | false | undefined> = [
+        pageActions.canToggleFreeWidth && {
+            Icon: ArrowLeftRight,
+            active: pageActions.isFreeWidth,
+            toggle: true,
+            overflowOnly: true,
+            key: 'free-width',
+            label: t('shell.free_width', 'Free width'),
+            onClick: pageActions.onToggleFreeWidth,
+        },
         pageActions.canGoHome && {
             Icon: House,
             key: 'go-home',
@@ -200,7 +215,7 @@ export function partitionPageActions({
         ...primaryKeys
             .map((key) => items.find((item) => item.key === key))
             .filter((item): item is PageActionItem => Boolean(item)),
-        ...items.filter((item) => item.active && !primaryKeys.includes(item.key)),
+        ...items.filter((item) => item.active && !item.overflowOnly && !primaryKeys.includes(item.key)),
     ];
     const budget = inlinePageActionBudget(containerWidth);
     const inlineLimit = Math.min(
