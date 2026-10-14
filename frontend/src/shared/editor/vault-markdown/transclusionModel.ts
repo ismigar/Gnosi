@@ -183,3 +183,51 @@ export function extractSectionMarkdown(markdown: string | null | undefined, sect
     return null;
 }
 import { commonmarkLanguage } from '@codemirror/lang-markdown';
+
+/** Exact editable body range; source anchors and surrounding Markdown stay intact. */
+export function transclusionSourceRange(source: string, sectionName: string): { start: number; end: number } | null {
+    const section = sectionName.trim().replace(/^#/u, '').toLocaleLowerCase();
+    if (!section) return { start: 0, end: source.length };
+    const lines = source.split('\n');
+    const offsets: number[] = [];
+    let offset = 0;
+    for (const line of lines) { offsets.push(offset); offset += line.length + 1; }
+    const code = protectedLines(lines);
+    if (section.startsWith('^')) {
+        const blockId = section.slice(1).trim();
+        if (!blockId) return null;
+        for (let index = 0; index < lines.length; index += 1) {
+            if (code[index]) continue;
+            const line = lines[index] ?? '';
+            const marker = /(?:^|\s)\^([a-zA-Z0-9_-]+)[ \t]*$/u.exec(line);
+            if (marker?.[1]?.toLocaleLowerCase() !== blockId) continue;
+            const content = line.slice(0, marker.index).trimEnd();
+            let end = index;
+            if (!content) {
+                end -= 1;
+                while (end >= 0 && !(lines[end] ?? '').trim()) end -= 1;
+                if (end < 0) return { start: offsets[index] ?? 0, end: offsets[index] ?? 0 };
+            }
+            let start = blockStart(lines, code, end, !content);
+            // A setext underline belongs to its heading, never to the next block.
+            const precedingHeading = headingAt(lines, code, start - 1);
+            if (precedingHeading && precedingHeading.end >= start) start = precedingHeading.end + 1;
+            return {
+                start: offsets[start] ?? 0,
+                end: content ? (offsets[index] ?? 0) + marker.index : (offsets[end] ?? 0) + (lines[end]?.length ?? 0),
+            };
+        }
+        return null;
+    }
+    for (let index = 0; index < lines.length; index += 1) {
+        const heading = headingAt(lines, code, index);
+        if (!heading || heading.title !== section) continue;
+        let end = lines.length;
+        for (let next = heading.end + 1; next < lines.length; next += 1) {
+            const candidate = headingAt(lines, code, next);
+            if (candidate && candidate.level <= heading.level) { end = next; break; }
+        }
+        return { start: Math.min(offsets[heading.end + 1] ?? source.length, source.length), end: offsets[end] ?? source.length };
+    }
+    return null;
+}

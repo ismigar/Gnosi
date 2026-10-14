@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-13
+last_verified: 2026-10-14
 source_paths:
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -163,6 +163,8 @@ device and accept pages, heading/block references, queries, graph routes and
 HTTP(S) links.
 
 Transclusions render complete rich Markdown for `![[note]]`, headings and block
+
+In the block editor, transclusions render a complete editable document and autosave to the source page after 700 ms. Heading and block edits replace only the selected body, preserving source anchors and surrounding content. Content-only PATCH requests use the source revision and captured request context; conflicts stop autosave and retain the local draft. Read-only access disables editing. Editable embeds keep their editor mounted rather than refreshing after save events, and disable manual refresh to avoid discarding a draft.
 references. They share link/media rendering with Markdown previews, preserve
 literal examples, refresh on source changes and display missing/empty targets
 explicitly. A branch-local ancestry guard and depth limit prevent recursive

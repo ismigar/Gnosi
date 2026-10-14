@@ -1175,6 +1175,7 @@
     "synced_block_subtext": "Content shared between pages (bidirectional)",
     "toc": "Table of contents",
     "toc_subtext": "Generates the index from the headings",
+    "transclusion_conflict": "The original note has changed. Your edits remain in the editor; open the original note to review them.",
     "transclusion": "Transclusion",
     "transclusion_alias_placeholder": "Note name#Section|Alias",
     "transclusions_group": "Transclusions",

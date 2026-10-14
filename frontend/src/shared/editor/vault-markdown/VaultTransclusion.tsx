@@ -3,6 +3,8 @@ import { ExternalLink, Maximize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { GnosiApiError } from '../../api/errors';
 import { currentRequestContext } from '../../api/request-context';
+import type { VaultPage } from '../../api/vaults';
+import type { RequestContext } from '../../api/request-context';
 import { fetchVaultPage, resolveVaultTitle } from '../../api/vaults';
 import { useRequestContext } from '../../hooks/useRequestContext';
 import { subscribeAppEvent } from '../../platform/app-events';
@@ -12,11 +14,14 @@ import { extractSectionMarkdown, resolveTransclusionLocally, transclusionGuard, 
 
 export interface TransclusionContent {
     readonly markdown: string;
+    readonly page: VaultPage;
+    readonly requestContext: RequestContext;
     readonly pageId: string;
     readonly ancestry: readonly string[];
 }
 
 export interface VaultTransclusionProps {
+    readonly editable?: boolean;
     readonly target: string;
     readonly alias?: string;
     readonly section?: string;
@@ -37,12 +42,13 @@ interface LoadedTransclusion {
     readonly status: TransclusionStatus;
     readonly pageId: string;
     readonly markdown?: string;
+    readonly page?: VaultPage;
     readonly title?: string;
 }
 
 /** Read-only source view; each descendant carries a bounded, branch-local path. */
 export function VaultTransclusion({
-    target, alias = '', section = '', idToTitle, sourcePageId, ancestry, vaultId,
+    editable = false, target, alias = '', section = '', idToTitle, sourcePageId, ancestry, vaultId,
     onOpenInCurrentTab, onOpenInNewTab, onOpenParallel, containerRef, renderContent,
 }: VaultTransclusionProps) {
     const { t } = useTranslation();
@@ -62,7 +68,7 @@ export function VaultTransclusion({
     const loading = !status;
 
     useEffect(() => {
-        const refresh = () => { setRevision(value => value + 1); };
+        const refresh = () => { if (editable) return; setRevision(value => value + 1); };
         const stopSaved = subscribeAppEvent('gnosi:invalidatePreview', ({ pageId }) => {
             if (!pageId || !resolvedId || pageId === resolvedId) refresh();
         });
@@ -71,7 +77,7 @@ export function VaultTransclusion({
         });
         const stopVault = subscribeAppEvent('gnosi:vault-changed', refresh);
         return () => { stopSaved(); stopDeleted(); stopVault(); };
-    }, [resolvedId]);
+    }, [editable, resolvedId]);
 
     useEffect(() => {
         if (localGuard) return;
@@ -95,6 +101,7 @@ export function VaultTransclusion({
                     status: markdown === null ? 'section' : 'loaded',
                     pageId,
                     markdown: markdown ?? undefined,
+                    page,
                     title: typeof page.title === 'string' ? page.title : (typeof page.metadata.title === 'string' ? page.metadata.title : ''),
                 });
             } catch (error: unknown) {
@@ -130,7 +137,7 @@ export function VaultTransclusion({
     >
         <div className="mb-2 flex items-center justify-between gap-2">
             <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--gnosi-primary)]"><Maximize2 size={13} />{t('editor.transclusion')}</span>
-            <RefreshButton loading={loading} onClick={event => { event.stopPropagation(); setRevision(value => value + 1); }} />
+            <RefreshButton disabled={editable && status === 'loaded'} loading={loading} onClick={event => { event.stopPropagation(); setRevision(value => value + 1); }} />
         </div>
         <button type="button" className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)] hover:underline" disabled={!resolvedId} onClick={openTarget} title={t('editor.open_embedded_note')}>
             {displayTitle}{section ? ` #${section}` : ''}<ExternalLink size={14} />
@@ -138,8 +145,10 @@ export function VaultTransclusion({
         {loading ? <div className="text-sm text-[var(--text-tertiary)]" role="status">{t('common.loading', 'Loading...')}</div> : null}
         {message ? <div className="text-sm text-[var(--text-tertiary)]" role="status">{message}</div> : null}
         {status === 'loaded' && current ? <div className="min-w-0 break-words text-sm leading-relaxed text-[var(--text-primary)]">
-            {current.markdown?.trim() ? renderContent({
-                markdown: current.markdown,
+            {(current.markdown?.trim() || editable) && current.page ? renderContent({
+                markdown: current.markdown || '',
+                page: current.page,
+                requestContext: context,
                 pageId: current.pageId,
                 ancestry: [...ancestry, transclusionKey(current.pageId, section)],
             }) : t('editor.no_content')}

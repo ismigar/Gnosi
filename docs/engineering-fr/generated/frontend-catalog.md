@@ -50,9 +50,9 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2691 | 0 |
-| `features` | 1233 | 134101 | 55 |
+| `features` | 1235 | 134243 | 55 |
 | `generated` | 3 | 51759 | 530 |
-| `shared` | 329 | 35849 | 464 |
+| `shared` | 329 | 35908 | 464 |
 
 ## app
 
@@ -859,7 +859,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/editor/block-editor/MarkdownCodeEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/MarkdownCodeEditor.tsx) | 40 | `MarkdownCodeEditor` | — |
 | [`frontend/src/features/vault/editor/block-editor/QueryBlock.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/QueryBlock.tsx) | 22 | `QueryBlock` | — |
 | [`frontend/src/features/vault/editor/block-editor/SelectableSideMenu.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/SelectableSideMenu.tsx) | 39 | `SelectableSideMenu` | — |
-| [`frontend/src/features/vault/editor/block-editor/TransclusionEmbed.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/TransclusionEmbed.tsx) | 16 | `TransclusionEmbed` | — |
+| [`frontend/src/features/vault/editor/block-editor/TransclusionContent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/TransclusionContent.tsx) | 116 | `TransclusionContent` | — |
+| [`frontend/src/features/vault/editor/block-editor/TransclusionEmbed.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/TransclusionEmbed.tsx) | 32 | `TransclusionEmbed` | — |
 | [`frontend/src/features/vault/editor/block-editor/blockSpecs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/blockSpecs.tsx) | 96 | `createBlockSpecs` | — |
 | [`frontend/src/features/vault/editor/block-editor/blockValues.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/blockValues.ts) | 107 | `readEditorBlocks`, `sanitizeBlocks` | — |
 | [`frontend/src/features/vault/editor/block-editor/codeTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/codeTypes.ts) | 42 | `codeContent` | — |
@@ -945,6 +946,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/editor/block-editor/property-controls/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/property-controls/types.ts) | 35 | — | — |
 | [`frontend/src/features/vault/editor/block-editor/property-controls/values.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/property-controls/values.ts) | 1 | — | — |
 | [`frontend/src/features/vault/editor/block-editor/schema.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/schema.ts) | 43 | `createEditorSchema` | — |
+| [`frontend/src/features/vault/editor/block-editor/transclusionDocument.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/transclusionDocument.ts) | 10 | `replaceTransclusion` | — |
 | [`frontend/src/features/vault/editor/block-editor/useDropBridge.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useDropBridge.ts) | 12 | `useDropBridge` | — |
 | [`frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts) | 180 | `useEditorPersistence` | — |
 | [`frontend/src/features/vault/editor/block-editor/useEditorRuntime.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorRuntime.ts) | 57 | `useEditorRuntime` | — |
@@ -1462,7 +1464,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/shared/editor/InstructionMarkdownEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/InstructionMarkdownEditor.tsx) | 102 | `InstructionMarkdownEditor` | — |
 | [`frontend/src/shared/editor/InstructionRichEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/InstructionRichEditor.tsx) | 111 | `InstructionRichEditor`, `function` | — |
 | [`frontend/src/shared/editor/PageHoverCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/PageHoverCard.tsx) | 254 | `PageHoverCard` | — |
-| [`frontend/src/shared/editor/VaultEditorContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultEditorContext.ts) | 41 | `VaultEditorContext` | — |
+| [`frontend/src/shared/editor/VaultEditorContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultEditorContext.ts) | 43 | `VaultEditorContext` | — |
 | [`frontend/src/shared/editor/VaultMarkdown.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultMarkdown.tsx) | 348 | `VaultMarkdown`, `VaultMarkdownTransclusion` | — |
 | [`frontend/src/shared/editor/WikilinkContextMenu.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/WikilinkContextMenu.tsx) | 199 | `WikilinkContextMenu` | — |
 | [`frontend/src/shared/editor/WikilinkHoverPreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/WikilinkHoverPreview.tsx) | 300 | `WikilinkHoverPreview` | — |
@@ -1488,8 +1490,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/shared/editor/useTitlePreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/useTitlePreview.tsx) | 137 | `useTitlePreview` | — |
 | [`frontend/src/shared/editor/vault-markdown/CitationEvidencePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/CitationEvidencePanel.tsx) | 67 | `CitationEvidencePanel` | — |
 | [`frontend/src/shared/editor/vault-markdown/RetryableImage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/RetryableImage.tsx) | 49 | `RetryableImage` | — |
-| [`frontend/src/shared/editor/vault-markdown/VaultTransclusion.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/VaultTransclusion.tsx) | 148 | `VaultTransclusion` | — |
-| [`frontend/src/shared/editor/vault-markdown/transclusionModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/transclusionModel.ts) | 185 | `MAX_TRANSCLUSION_DEPTH`, `TRANSCLUSION_HREF_SENTINEL`, `embeddedMediaKind`, `extractSectionMarkdown`, `parseTransclusionReference`, `resolveTransclusionLocally`, `transclusionGuard`, `transclusionKey` | — |
+| [`frontend/src/shared/editor/vault-markdown/VaultTransclusion.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/VaultTransclusion.tsx) | 157 | `VaultTransclusion` | — |
+| [`frontend/src/shared/editor/vault-markdown/transclusionModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/transclusionModel.ts) | 233 | `MAX_TRANSCLUSION_DEPTH`, `TRANSCLUSION_HREF_SENTINEL`, `embeddedMediaKind`, `extractSectionMarkdown`, `parseTransclusionReference`, `resolveTransclusionLocally`, `transclusionGuard`, `transclusionKey`, `transclusionSourceRange` | — |
 | [`frontend/src/shared/editor/vault-markdown/vaultMarkdownModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/vaultMarkdownModel.ts) | 52 | `citationEvidence`, `latexFencesToMath`, `reactNodeText` | — |
 | [`frontend/src/shared/editor/vaultMarkdownBlocks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vaultMarkdownBlocks.ts) | 118 | `parseVaultMarkdownBlocks` | — |
 | [`frontend/src/shared/editor/vaultMarkdownUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vaultMarkdownUtils.ts) | 237 | `CITE_HREF_SENTINEL`, `STYLE_HREF_SENTINEL`, `WIKILINK_HREF_SENTINEL`, `convertInlineHtmlToMd`, `convertWikilinksToMd`, `decodeStylePayload`, `normalizeAssetUrl`, `wikilinkUrlTransform` | — |
