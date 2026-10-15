@@ -46,6 +46,7 @@ export interface DigitalBrainCalendarProps {
   readonly selectedCalendars?: ReadonlySet<string>;
   readonly onNoteSelect?: (id: string) => void;
   readonly onEventEdit?: (id: string, update?: CalendarEditUpdate, mode?: 'move' | 'resize') => void;
+  readonly onEventView?: (id: string) => void;
   readonly onContextMenu?: (menu: CalendarContextMenu) => void;
   readonly calendarRef?: RefObject<FullCalendar | null>;
   readonly onTitleChange?: (title: string) => void;

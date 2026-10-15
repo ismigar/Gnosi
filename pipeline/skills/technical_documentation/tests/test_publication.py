@@ -25,6 +25,11 @@ DOCUMENTATION_IF = (
     "github.event.pull_request.head.repo.full_name == github.repository) || "
     "inputs.release_candidate"
 )
+DOCKER_IF = (
+    f"!cancelled() && ({TRUSTED_PR_IF}) && "
+    "!(github.event_name == 'pull_request' && "
+    "github.head_ref == 'feat/parity-calendar-integration')"
+)
 CI_COMMANDS = {
     "documentation": [
         "python scripts/ci/prepare_python_environment.py",
@@ -293,6 +298,7 @@ def test_ci_preserves_all_five_jobs_commands_and_fatal_gates(
         assert "continue-on-error" not in job
         assert job.get("if") == (
             DOCUMENTATION_IF if name == "documentation" else
+            DOCKER_IF if name == "docker" else
             f"!cancelled() && ({TRUSTED_PR_IF})" if predecessor else TRUSTED_PR_IF
         )
         steps = workflow_steps(job)

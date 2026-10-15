@@ -2,6 +2,9 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LayoutPanelLeft, Plus, Trash2, X, FolderOpen } from 'lucide-react';
 
+import { useActiveVaultId } from '../../../shared/hooks/useActiveVaultId';
+import { getActiveVaultId } from '../../../shared/api/vault-context';
+import { defaultWorkspaceLayout, readWorkspaces, saveWorkspaceTab, type SavedWorkspace, type WorkspaceLayout, type WorkspaceTab } from './workspacesModel';
 import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
 import {
     defineStorageKey,
@@ -10,67 +13,21 @@ import {
     writeStorage,
 } from '../../../shared/platform/browser-storage';
 
-/**
- * WorkspacesModal — Saved workspaces (saved layouts).
- * Saves the set of open tabs under a name and can reopen them.
- * Local persistence (browser storage); each workspace = list of {id, isTable, title}.
- * Only pages and tables are saved (PDFs/drawings are omitted in v1).
- */
-interface WorkspaceTab {
-    readonly id: string;
-    readonly isDrawing?: boolean;
-    readonly isPdf?: boolean;
-    readonly isTable?: boolean;
-    readonly title?: string | null;
-}
-
-interface SavedWorkspaceTab {
-    readonly id: string;
-    readonly isTable: boolean;
-    readonly title: string;
-}
-
-interface SavedWorkspace {
-    readonly id: string;
-    readonly name: string;
-    readonly tabs: readonly SavedWorkspaceTab[];
-}
-
 interface WorkspacesModalProps {
     readonly currentTabs?: readonly WorkspaceTab[];
+    readonly currentLayout?: WorkspaceLayout;
     readonly isOpen: boolean;
     readonly onClose: () => unknown;
-    readonly onRestore?: (tabs: readonly SavedWorkspaceTab[]) => unknown;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null;
-}
-
-function isSavedWorkspaceTab(value: unknown): value is SavedWorkspaceTab {
-    return isRecord(value)
-        && typeof value.id === 'string'
-        && typeof value.isTable === 'boolean'
-        && typeof value.title === 'string';
-}
-
-function isSavedWorkspace(value: unknown): value is SavedWorkspace {
-    if (!isRecord(value) || !Array.isArray(value.tabs)) return false;
-    return typeof value.id === 'string'
-        && typeof value.name === 'string'
-        && value.tabs.every((tab: unknown) => isSavedWorkspaceTab(tab));
+    readonly onRestore?: (workspace: SavedWorkspace) => unknown;
 }
 
 const WORKSPACES_STORAGE_KEY = defineStorageKey(
     'gnosi.workspaces',
-    jsonStorageCodec((value): value is readonly SavedWorkspace[] => (
-        Array.isArray(value)
-        && value.every((workspace: unknown) => isSavedWorkspace(workspace))
-    )),
+    jsonStorageCodec((value): value is unknown[] => Array.isArray(value)),
 );
 
 function loadWorkspaces(): readonly SavedWorkspace[] {
-    return readStorage(WORKSPACES_STORAGE_KEY) ?? [];
+    return readWorkspaces(readStorage(WORKSPACES_STORAGE_KEY), getActiveVaultId());
 }
 
 function saveWorkspaces(list: readonly SavedWorkspace[]): void {
@@ -87,9 +44,11 @@ export default function WorkspacesModal({
     isOpen,
     onClose,
     currentTabs = [],
+    currentLayout,
     onRestore,
 }: WorkspacesModalProps) {
     const { t } = useTranslation();
+    const vaultId = useActiveVaultId();
     const [items, setItems] = useState(loadWorkspaces);
     const [name, setName] = useState('');
     const panelRef = useRef<HTMLDivElement>(null);
@@ -97,17 +56,11 @@ export default function WorkspacesModal({
 
     if (!isOpen) return null;
 
-    const saveable = currentTabs
-        .filter((tab) => !tab.isPdf && !tab.isDrawing)
-        .map((tab) => ({
-            id: tab.id,
-            isTable: Boolean(tab.isTable),
-            title: tab.title || 'Sense títol',
-        }));
-
+    const saveable = currentTabs.map(tab => saveWorkspaceTab(tab, t('common.untitled', 'Untitled')));
     const saveCurrent = () => {
         if (!name.trim() || saveable.length === 0) return;
-        const next = [{ id: createWorkspaceId(), name: name.trim(), tabs: saveable }, ...items].slice(0, 30);
+        const saved: SavedWorkspace = { version: 2, id: createWorkspaceId(), name: name.trim(), vaultId, tabs: saveable, layout: currentLayout ?? defaultWorkspaceLayout(saveable) };
+        const next = [saved, ...items].slice(0, 30);
         setItems(next);
         saveWorkspaces(next);
         setName('');
@@ -118,7 +71,7 @@ export default function WorkspacesModal({
         saveWorkspaces(next);
     };
     const restore = (workspace: SavedWorkspace) => {
-        onRestore?.(workspace.tabs);
+        onRestore?.(workspace);
         onClose();
     };
 
@@ -148,9 +101,9 @@ export default function WorkspacesModal({
                     </div>
                 </div>
                 <div className="max-h-80 overflow-auto p-2">
-                    {items.length === 0 ? (
+                    {items.filter(item => item.vaultId === vaultId).length === 0 ? (
                         <div className="px-3 py-8 text-center text-sm text-[var(--text-tertiary)]">{t('doc_tabs.workspaces_empty', "No saved workspaces yet.")}</div>
-                    ) : items.map((workspace) => (
+                    ) : items.filter(item => item.vaultId === vaultId).map((workspace) => (
                         <div key={workspace.id} className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-[var(--bg-secondary)]">
                             <button onClick={() => {
                                 restore(workspace);

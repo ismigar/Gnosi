@@ -1,3 +1,5 @@
+export { extractSectionMarkdown } from '../../../../shared/editor/vault-markdown/transclusionModel';
+
 export const parseMarkdownHeading = (line: string | undefined) => {
     const match = (line || '').match(/^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/);
     if (!match?.[1] || !match[2]) return null;

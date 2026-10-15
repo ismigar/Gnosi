@@ -5,9 +5,37 @@ import {
   type PluginHostPagePatchInput,
 } from '../api/plugin-runtime';
 import { fetchVaultPagesByTable, fetchVaultTables } from '../api/vaults';
+import { searchVaultContent } from '../api/vault-search';
+import { currentRequestContext } from '../api/request-context';
+import { subscribeAppEvent } from '../platform/app-events';
+import { subscribeWindowEvent } from '../platform/browser-events';
+import { getPluginEditorSelection, replacePluginEditorSelection } from './editor-bridge';
 import { isRecord, stringValue, type HostMethod } from './host-model';
 
+function immediateHostResult(run: () => unknown): Promise<unknown> {
+    try { return Promise.resolve(run()); } catch (error) { return Promise.reject(error instanceof Error ? error : new Error(stringValue(error))); }
+}
+
 export const HOST_METHODS: Readonly<Record<string, HostMethod>> = {
+    'editor.getSelection': { perm: 'vault:read', run: () => immediateHostResult(getPluginEditorSelection) },
+    'editor.replaceSelection': { perm: 'vault:write', run: args => immediateHostResult(() => replacePluginEditorSelection(args.text, args.expected)) },
+    'vault.search': { perm: 'vault:read', run: async args => {
+        if (typeof args.query !== 'string' || args.query.length > 4096) throw new Error('A search query of at most 4,096 characters is required');
+        const offset = args.offset ?? 0;
+        if (typeof offset !== 'number' || !Number.isSafeInteger(offset) || offset < 0) throw new Error('Search offset must be a non-negative integer');
+        const context = currentRequestContext();
+        const contextKey = JSON.stringify(context);
+        const abort = new AbortController();
+        const invalidateChangedContext = () => { if (JSON.stringify(currentRequestContext()) !== contextKey) abort.abort(); };
+        const stopVault = subscribeAppEvent('gnosi:vault-changed', invalidateChangedContext);
+        const stopStorage = subscribeWindowEvent('storage', invalidateChangedContext);
+        const stopFocus = subscribeWindowEvent('focus', invalidateChangedContext);
+        try {
+            const result = await searchVaultContent(args.query, { offset, context, signal: abort.signal });
+            if (JSON.stringify(currentRequestContext()) !== contextKey || abort.signal.aborted) throw new Error('Active request context changed during search');
+            return result;
+        } finally { stopVault(); stopStorage(); stopFocus(); }
+    } },
     'vault.readPage': { perm: 'vault:read', run: async (args) => {
         const id = stringValue(args.pageId);
         const d = await fetchPluginHostPage(id);

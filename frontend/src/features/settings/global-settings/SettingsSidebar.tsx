@@ -2,7 +2,7 @@ import { pluginForSettingsTab } from './pluginSettingsNavigation';
 import { ChevronDown } from 'lucide-react';
 import { ChevronRight } from 'lucide-react';
 import { Globe } from 'lucide-react';
-import { KeyRound, PanelLeft, Puzzle, UserCog } from 'lucide-react';
+import { Keyboard, KeyRound, PanelLeft, Puzzle, UserCog } from 'lucide-react';
 import { Palette } from 'lucide-react';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { SettingsNavGroup } from './SettingsNavigation';
@@ -31,6 +31,7 @@ export function SettingsSidebar({ context }: Props) {
       <SettingsNavGroup label={t('settings.navigation.basic')}>
         <SidebarItem id="general" icon={SettingsIcon} label={t('settings.tabs.general') || 'General'} active={activeTab === 'general'} onClick={() => { setActiveTab('general'); setAddAccountType(null); }} />
         <SidebarItem id="appearance" icon={Palette} label={t('settings.tabs.appearance') || 'Aparença'} active={activeTab === 'appearance'} onClick={() => { setActiveTab('appearance'); setAddAccountType(null); }} />
+        <SidebarItem id="hotkeys" icon={Keyboard} label={t('settings.tabs.hotkeys')} active={activeTab === 'hotkeys'} onClick={() => { setActiveTab('hotkeys'); setAddAccountType(null); }} />
         {sidebarNavigation && <SidebarItem id="menu" icon={PanelLeft} label={t('settings.tabs.menu', 'Menú')} active={activeTab === 'menu'} onClick={() => { setActiveTab('menu'); setAddAccountType(null); }} />}
         <SidebarItem id="language" icon={Globe} label={t('settings.tabs.language') || 'Idioma i Regió'} active={activeTab === 'language'} onClick={() => { setActiveTab('language'); setAddAccountType(null); }} />
         <SidebarItem id="profile" icon={User} label={t('settings.tabs.profile') || 'Perfil'} active={activeTab === 'profile'} onClick={() => { setActiveTab('profile'); setAddAccountType(null); }} />

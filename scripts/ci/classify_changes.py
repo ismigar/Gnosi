@@ -1,10 +1,13 @@
 """Only trusted PRs changing portal prose may omit runtime checks."""
+
 from __future__ import annotations
 
+import json
 import os
-from pathlib import PurePosixPath, Path
 import re
 import subprocess
+import sys
+from pathlib import Path, PurePosixPath
 from typing import Mapping
 
 SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -15,27 +18,36 @@ def documentation_path(value: str) -> bool:
     path = PurePosixPath(value)
     parts = path.parts
     return (
-        not path.is_absolute() and ".." not in parts
-        and len(parts) >= 3 and parts[0] == "docs" and parts[1] in PORTALS
+        not path.is_absolute()
+        and ".." not in parts
+        and len(parts) >= 3
+        and parts[0] == "docs"
+        and parts[1] in PORTALS
         and path.suffix == ".md"
     )
 
 
 def runtime_required(environment: Mapping[str, str]) -> bool:
-    if (environment.get("CI_EVENT") != "pull_request"
-            or environment.get("CI_HEAD_REPOSITORY") != environment.get("GITHUB_REPOSITORY")
-            or not environment.get("GITHUB_REPOSITORY")
-            or environment.get("CI_RELEASE_CANDIDATE") == "true"):
+    if (
+        environment.get("CI_EVENT") != "pull_request"
+        or environment.get("CI_HEAD_REPOSITORY") != environment.get("GITHUB_REPOSITORY")
+        or not environment.get("GITHUB_REPOSITORY")
+        or environment.get("CI_RELEASE_CANDIDATE") == "true"
+    ):
         return True
     base, head = environment.get("CI_BASE_SHA", ""), environment.get("CI_HEAD_SHA", "")
     if not SHA.fullmatch(base) or not SHA.fullmatch(head):
         return True
     try:
         # --no-renames includes both names: moving code into docs still runs CI.
-        changed = subprocess.check_output(
-            ["git", "diff", "--name-only", "--no-renames", "-z", f"{base}...{head}", "--"],
-            timeout=30,
-        ).decode("utf-8").split("\0")
+        changed = (
+            subprocess.check_output(
+                ["git", "diff", "--name-only", "--no-renames", "-z", f"{base}...{head}", "--"],
+                timeout=30,
+            )
+            .decode("utf-8")
+            .split("\0")
+        )
     except (OSError, UnicodeError, subprocess.SubprocessError):
         return True
     paths = [path for path in changed if path]
@@ -43,12 +55,32 @@ def runtime_required(environment: Mapping[str, str]) -> bool:
 
 
 def main() -> None:
-    required = runtime_required(os.environ)
+    # This PR's reviewed metadata-only repair may retain real successful checks.
+    # Verification failures abort rather than silently rerunning a passed job.
+    verifier = Path(__file__).with_name("reuse_approved_ci.py")
+    result = subprocess.run(
+        [sys.executable, str(verifier), "--json"],
+        check=True,
+        text=True,
+        capture_output=True,
+        timeout=60,
+    )
+    previous = json.loads(result.stdout)
+    if not isinstance(previous, dict) or type(previous.get("reused")) is not bool:
+        raise ValueError("Invalid CI reuse result")
+    required = False if previous["reused"] else runtime_required(os.environ)
     with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
         stream.write(f"runtime_required={str(required).lower()}\n")
-    message = ("Full runtime validation required." if required else
-               "Only engineering portal Markdown changed. Runtime checks are not needed; "
-               "the documentation check still validates all four portals.")
+    message = (
+        "Full runtime validation required."
+        if required
+        else "Only engineering portal Markdown changed. Runtime checks are not needed; "
+        "the documentation check still validates all four portals."
+    )
+    if previous["reused"]:
+        message = "Runtime checks reused from an actual verified remote PASS: " + json.dumps(
+            previous
+        )
     print(message)
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:

@@ -22,6 +22,34 @@ Un Vault actiu amb permisos d’escriptura. La IA és opcional; compartir i trad
 
 Al menú **⋯** de la pàgina, activa **Amplada lliure** perquè les taules es puguin expandir i desplaçar horitzontalment. Els paràgrafs mantenen una amplada llegible. La preferència es recorda per pàgina en aquest dispositiu i no modifica el Markdown. Torna a desactivar-la al mateix menú per recuperar la visualització habitual.
 
+### Cercar notes completes i reutilitzar contingut
+
+La cerca global troba paraules a qualsevol part d'una nota i en mostra un
+fragment. Pots escriure `"frase exacta"`, `(vermell OR blau) -verd`,
+`tag:recerca`, `content:"memòria de treball"`, `task-todo:revisar` o
+`[estat:Esborrany]`. `line:(guineu vermella)`, `block:(guineu vermella)` i
+`section:(guineu vermella)` exigeixen que les paraules siguin a la mateixa
+línia, bloc o secció. Una consulta incorrecta mostra un error per poder-la
+corregir. El bloc **Resultats de cerca**, o un bloc de codi Markdown amb llenguatge
+`query`, manté resultats de cerca vius dins d'una nota.
+
+Escriu `![[Notes de la font]]` per mostrar-ne tot el contingut amb format.
+`![[Notes de la font#Encapçalament]]` i `![[Notes de la font#^id-bloc]]`
+incrusten una part concreta. S'hi mostren taules, codi i notes imbricades; les
+referències circulars s'aturen amb una explicació. La font continua sent una
+nota independent i la transclusió s'actualitza després dels canvis.
+
+L'editor de font Markdown incorpora ressaltat, múltiples cursors, mode Vim i
+previsualització. Configura les dreceres als paràmetres i desa temes o fragments
+CSS a Aparença. Si un fragment dificulta l'ús de la interfície, obre Gnosi amb
+`?gnosi-safe-appearance=1` i restableix l'aparença.
+
+### Combina notes i desa accessos
+
+Al menú **⋯** d’una nota, tria **Combina i extreu notes**. Selecciona la nota completa, un encapçalament o línies Markdown completes i tria una nota nova o una destinació existent. **Previsualitza els canvis** mostra l’origen, la destinació i els enllaços afectats. Revisa tots els canvis abans d’aplicar-los. L’origen conserva una transclusió i l’historial. Si un altre editor modifica un fitxer, prepara una previsualització nova.
+
+A **Marcadors** de la barra lateral, desa notes, seccions, cerques, vistes de graf o enllaços web i assigna’ls un grup. Edita un marcador per canviar-ne el nom, moure’l o eliminar-lo. Aquests marcadors pertanyen al compte, l’espai de treball i el Vault seleccionats en aquest dispositiu.
+
 ## Resultat esperat {#expected-result}
 
 La nota conté text llegible, un enllaç i un adjunt accessible.

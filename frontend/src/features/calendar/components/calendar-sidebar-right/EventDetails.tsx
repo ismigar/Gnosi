@@ -8,7 +8,7 @@ export function EventDetails({controller}: {controller: EventFormController}) {
                         <Bell size={10} />
                         {t('calendar.reminder', "Reminder")}
                     </label>
-                    <select value={reminder} onChange={(e) => { setReminder(e.target.value); }} onBlur={handleFieldBlur} className={inputClass}>
+                    <select disabled={controller.isViewMode} value={reminder} onChange={(e) => { setReminder(e.target.value); }} onBlur={handleFieldBlur} className={inputClass}>
                         {REMINDER_OPTIONS.map(opt => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                         ))}
@@ -21,7 +21,7 @@ export function EventDetails({controller}: {controller: EventFormController}) {
                         <Navigation size={10} />
                         {t('calendar.travel_time', "Travel time")}
                     </label>
-                    <select value={travelTime} onChange={(e) => { setTravelTime(e.target.value); }} className={inputClass}>
+                    <select disabled={controller.isViewMode} value={travelTime} onChange={(e) => { setTravelTime(e.target.value); }} className={inputClass}>
                         {TRAVEL_TIME_OPTIONS.map(opt => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                         ))}

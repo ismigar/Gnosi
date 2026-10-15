@@ -3,6 +3,7 @@ import {
     BrainCircuit,
     ArrowLeftRight,
     Code2,
+    Files,
     History,
     House,
     Languages,
@@ -17,6 +18,8 @@ import {
 
 
 export interface PageActionsConfig {
+    readonly canComposeNote?: boolean;
+    readonly onComposeNote?: () => void;
     readonly canToggleFreeWidth?: boolean;
     readonly isFreeWidth?: boolean;
     readonly onToggleFreeWidth?: () => void;
@@ -95,6 +98,13 @@ export function buildPageActionItems(
 ): PageActionItem[] {
     if (!pageActions) return [];
     const items: Array<PageActionItem | false | undefined> = [
+        pageActions.canComposeNote && {
+            Icon: Files,
+            overflowOnly: true,
+            key: 'compose-note',
+            label: t('composer.title', 'Compose notes'),
+            onClick: pageActions.onComposeNote,
+        },
         pageActions.canToggleFreeWidth && {
             Icon: ArrowLeftRight,
             active: pageActions.isFreeWidth,

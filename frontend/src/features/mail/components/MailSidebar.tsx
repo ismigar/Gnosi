@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
+import '../../settings/styles/settings-controls.css';
 import { useMailTags } from '../hooks/useMailTags';
 import { useMailViews } from '../hooks/useMailViews';
 import type {
@@ -35,6 +37,8 @@ export interface MailAccount {
 
 
 export interface MailSidebarProps {
+  readonly hiddenAccounts?: readonly string[];
+  readonly onToggleAccountVisibility?: (account: MailAccount) => unknown;
   readonly accounts?: readonly MailAccount[];
   readonly activeCategory: string | null;
   readonly activeFolder: string;
@@ -59,6 +63,8 @@ function accountAddress(account: MailAccount): string {
 
 export default function MailSidebar({
   accounts = [],
+  hiddenAccounts = [],
+  onToggleAccountVisibility,
   activeCategory,
   activeFolder,
   activeTagId,
@@ -192,6 +198,26 @@ export default function MailSidebar({
             </div>
           )}
         </div>
+        {accounts.length > 0 && onToggleAccountVisibility && (
+          <div className="px-3 pb-3 space-y-2">
+            <div className="gnosi-sidebar-section-title px-2">{t('mail.visible_accounts')}</div>
+            {accounts.map(account => {
+              const address = accountAddress(account);
+              return (
+                <div key={address} className="flex items-center justify-between gap-2 px-2 text-[13px] text-[var(--text-primary)]">
+                  <span className="truncate" title={address}>{address}</span>
+                  <GnosiToggle
+                    active={!hiddenAccounts.includes(address.trim().toLowerCase())}
+                    label={t('mail.show_account', { account: address })}
+                    onChange={() => onToggleAccountVisibility(account)}
+                    style={{ flexShrink: 0 }}
+                    scale={0.7}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
         <div className="px-3 pb-3">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={13} />

@@ -1,12 +1,13 @@
-import { useContext, useEffect, useState } from 'react';
-import { ExternalLink, FileText } from 'lucide-react';
+import { useContext } from 'react';
+import { ExternalLink, FileText, Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { HTMLContainer } from 'tldraw';
 
-import { fetchVaultPage } from '../../../../shared/api/vaults';
+import { InstructionMarkdownEditor } from '../../../../shared/editor/InstructionMarkdownEditor';
+import { useEditablePageCard } from './useEditablePageCard';
 import { CanvasPageContext } from './context';
 import { pageCardPreview } from './model';
-import type { PageCardData, PageCardShape } from './types';
+import type { PageCardShape } from './types';
 
 
 interface PageCardComponentProps {
@@ -14,50 +15,12 @@ interface PageCardComponentProps {
 }
 
 
-const pageCache = new Map<string, PageCardData>();
-
-
-function usePageData(pageId: string, unavailableTitle: string): PageCardData | null {
-    const [data, setData] = useState<PageCardData | null>(
-        () => pageCache.get(pageId) ?? null,
-    );
-    useEffect(() => {
-        if (!pageId) return undefined;
-        const controller = new AbortController();
-        void fetchVaultPage(pageId, controller.signal)
-            .then((page) => {
-                if (controller.signal.aborted) return;
-                const next = {
-                    title: typeof page.title === 'string' ? page.title : '',
-                    content: typeof page.content === 'string' ? page.content : '',
-                };
-                pageCache.set(pageId, next);
-                setData(next);
-            })
-            .catch(() => {
-                if (!controller.signal.aborted) {
-                    setData({
-                        title: unavailableTitle,
-                        content: '',
-                    });
-                }
-            });
-        return () => {
-            controller.abort();
-        };
-    }, [pageId, unavailableTitle]);
-    return data;
-}
-
-
 export function PageCardComponent({ shape }: PageCardComponentProps) {
     const { t } = useTranslation();
     const { onOpenPage } = useContext(CanvasPageContext);
-    const data = usePageData(
-        shape.props.pageId,
-        t('page_card.unavailable_title', '(not available)'),
-    );
-    const title = data?.title || shape.props.pageTitle || t('tldraw.page', 'Page');
+    const editor = useEditablePageCard(shape.props.pageId);
+    const data = editor.page;
+    const title = (typeof data?.title === 'string' ? data.title : '') || shape.props.pageTitle || t('tldraw.page', 'Page');
     const preview = pageCardPreview(data?.content ?? '');
     return (
         <HTMLContainer style={{
@@ -78,6 +41,12 @@ export function PageCardComponent({ shape }: PageCardComponentProps) {
                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary,#0f172a)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
                     {title}
                 </span>
+                <button type="button" onPointerDown={event => { event.stopPropagation(); }}
+                    onClick={editor.begin} disabled={!data?.etag || editor.editing}
+                    className="rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] disabled:opacity-40"
+                    aria-label={t('page_card.edit', 'Edit page content')} title={t('page_card.edit', 'Edit page content')}>
+                    <Pencil size={13} />
+                </button>
                 {onOpenPage ? (
                     <button
                         onPointerDown={(event) => {
@@ -90,12 +59,29 @@ export function PageCardComponent({ shape }: PageCardComponentProps) {
                     ><ExternalLink size={13} /></button>
                 ) : null}
             </div>
-            <div style={{ flex: 1, overflow: 'hidden', padding: '8px 10px', fontSize: 11, lineHeight: 1.45, color: 'var(--text-secondary,#475569)', whiteSpace: 'pre-wrap' }}>
-                {preview || (
-                    <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>
-                        {t('editor.no_content', 'No content')}
-                    </span>
-                )}
+            <div className="flex-1 min-h-0 overflow-auto p-2 text-xs text-[var(--text-secondary)]"
+                onPointerDown={editor.editing ? event => { event.stopPropagation(); } : undefined}
+                onKeyDown={editor.editing ? event => { event.stopPropagation(); } : undefined}
+                onWheel={event => { event.stopPropagation(); }}>
+                {editor.editing ? <>
+                    <InstructionMarkdownEditor label={t('page_card.content', 'Page content')} value={editor.draft}
+                        onChange={editor.setDraft} disabled={editor.saving} />
+                    <div className="flex gap-2 py-2">
+                        <button type="button" className="btn-gnosi btn-gnosi-primary" disabled={editor.saving}
+                            onClick={() => { void editor.save(); }}>{t('common.save', 'Save')}</button>
+                        <button type="button" className="btn-gnosi btn-gnosi-secondary" disabled={editor.saving}
+                            onClick={() => { void editor.cancel(); }}>{t('common.cancel', 'Cancel')}</button>
+                    </div>
+                </> : <div className="whitespace-pre-wrap">{preview || <span className="italic text-[var(--text-tertiary)]">
+                    {t('editor.no_content', 'No content')}
+                </span>}</div>}
+                {editor.error && <p role="alert" className="py-2 text-[var(--gnosi-danger)]">
+                    {editor.error === 'conflict'
+                        ? t('page_card.conflict', 'This page changed elsewhere. Your draft is kept. Copy it before cancelling to load the latest page.')
+                        : editor.error === 'load'
+                            ? t('page_card.load_error', 'The page could not be loaded.')
+                            : t('page_card.save_error', 'The page could not be saved. Your draft is kept.')}
+                </p>}
             </div>
         </HTMLContainer>
     );

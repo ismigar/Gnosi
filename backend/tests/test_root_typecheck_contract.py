@@ -153,7 +153,7 @@ def test_shared_frontend_lint_preserves_scope_cache_arguments_and_failure(
         "} }\n"
     )
     calls = tmp_path / "lint-calls.jsonl"
-    final_batch = (file_count - 1) // 256
+    final_batch = (file_count - 1) // 128
     eslint.write_text(
         "import { appendFileSync, existsSync, readFileSync } from 'node:fs';\n"
         f"const log = {json.dumps(str(calls))};\n"
@@ -179,7 +179,7 @@ def test_shared_frontend_lint_preserves_scope_cache_arguments_and_failure(
         expected = ["--max-warnings=0", "--concurrency=off"]
         if cached:
             expected.extend(["--cache", "--cache-strategy", "content", "--cache-location", cache])
-        expected.extend(["--", *(str(path) for path in files[index * 256:(index + 1) * 256])])
+        expected.extend(["--", *(str(path) for path in files[index * 128:(index + 1) * 128])])
         assert payload["args"] == expected
         assert Path(payload["cwd"]).resolve() == (tmp_path / "frontend").resolve()
     assert result.stdout.count("synthetic lint output") == len(payloads)

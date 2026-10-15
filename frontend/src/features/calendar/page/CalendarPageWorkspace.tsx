@@ -22,7 +22,7 @@ export function CalendarPageWorkspace({ controller }: {controller: CalendarPageC
                     <div className="calendar-workspace__sidebar-content calendar-workspace__sidebar-content--left">
 <CalendarSidebarLeft
                             calendarRef={calendarRef}
-                            availableCalendars={calendarConfigs.map(c => c.source)}
+                            availableCalendars={[...new Set(calendarConfigs.map(c => c.source))]}
                             selectedCalendars={selectedCalendars}
                             onToggleCalendar={toggleCalendar}
                             onRenameCalendar={(...args) => { void renameCalendar(...args); }}
@@ -49,6 +49,7 @@ export function CalendarPageWorkspace({ controller }: {controller: CalendarPageC
                                 selectedCalendars={selectedCalendars}
 
                                 onEventEdit={(...args) => { void handleEventClick(...args); }}
+                                onEventView={(id) => { void handleEventClick(id); }}
                                 onContextMenu={handleContextMenu}
                                 onRefresh={() => { void fetchPages(); }}
                                 calendarRef={calendarRef}

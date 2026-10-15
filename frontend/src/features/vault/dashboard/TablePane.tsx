@@ -1,3 +1,4 @@
+import { TableFormsButton } from '../../forms';
 import { resolveSubitemsEnabled } from '../../../shared/records/model/subitems';
 import { RecordSubitemProvider } from '../views/RecordSubitemProvider';
 import { ExposedFilters } from '../views/ExposedFilters';
@@ -144,6 +145,7 @@ export function TablePane({ dashboard: d, tableId, mode }: Props) {
       templates={templates}
       {...(split ? { onClose: () => { d.setSplitTableIds(previous => previous.filter(id => id !== tableId)); } } : {})}
     />
+    <TableFormsButton tableId={tableId} tableName={table?.title || table?.name || d.t('common.table')} />
     <ExposedFilters controls={exposedFilters} schema={mergedSchema} disabled={wholeTable} />
     <div className={inline ? 'flex-1 overflow-hidden' : 'flex-1 overflow-hidden flex flex-col'}>
       {view.type === 'graph' ? inline ? <div className="h-full flex flex-col">{body}</div> : body

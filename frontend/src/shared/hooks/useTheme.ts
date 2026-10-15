@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 
 import { subscribeAppEvent } from '../platform/app-events';
+import { subscribeWindowEvent } from '../platform/browser-events';
+import { applyCustomAppearance, customAppearanceKey } from '../theme/customAppearance';
 import {
   defineStorageKey,
   readStorage,
@@ -46,16 +48,24 @@ export function useTheme(): ThemeState {
     };
 
     updateEffectiveTheme();
+    applyCustomAppearance();
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleSystemChange = () => {
       if (readThemePreference() === 'system') updateEffectiveTheme();
     };
     const unsubscribeTheme = subscribeAppEvent('db-theme-changed', updateEffectiveTheme);
+    const unsubscribeAppearance = subscribeAppEvent('gnosi:appearance-changed', () => { applyCustomAppearance(); });
+    const unsubscribeStorage = subscribeWindowEvent('storage', event => {
+      if (!event.key || event.key === THEME_KEY.name) updateEffectiveTheme();
+      if (!event.key || event.key === customAppearanceKey.name) applyCustomAppearance();
+    });
     mediaQuery.addEventListener('change', handleSystemChange);
 
     return () => {
       unsubscribeTheme();
+      unsubscribeAppearance();
+      unsubscribeStorage();
       mediaQuery.removeEventListener('change', handleSystemChange);
     };
   }, []);

@@ -19,18 +19,31 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify previously successful help inputs
+        id: previous
+        run: python3 scripts/ci/reuse_approved_ci.py
       - uses: actions/setup-python@v7
+        if: steps.previous.outputs.runtime_required != 'false'
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v10.2.0
+        if: steps.previous.outputs.runtime_required != 'false'
         with:
           version: '0.9.15'
           enable-cache: false
       - name: Prepare isolated Python environment
+        if: steps.previous.outputs.runtime_required != 'false'
         run: python scripts/ci/prepare_python_environment.py
       - run: uv sync --frozen --only-group docs
+        if: steps.previous.outputs.runtime_required != 'false'
       - run: uv run --frozen --only-group docs python scripts/check_learn.py
+        if: steps.previous.outputs.runtime_required != 'false'
       - name: Build all help languages
+        if: steps.previous.outputs.runtime_required != 'false'
         run: |
           for config in mkdocs-learn.yml mkdocs-learn-ca.yml mkdocs-learn-es.yml mkdocs-learn-fr.yml; do
             uv run --frozen --only-group docs mkdocs build --strict --config-file "$config"

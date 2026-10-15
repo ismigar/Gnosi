@@ -9,6 +9,7 @@ import { EventDetails } from './EventDetails';
 import { EventAttendees } from './EventAttendees';
 import { EventRecurrence } from './EventRecurrence';
 import { EventDescription } from './EventDescription';
+import { ConferenceJoinButton } from './ConferenceJoinButton';
 export function EventForm(props: EventFormProps) {
  const controller = useEventForm(props);
  const { saving, deleting, saveError, createdId, isDeleteConfirmOpen, setIsDeleteConfirmOpen, isRecurrenceDeleteOpen, setIsRecurrenceDeleteOpen, isRecurrenceModifyOpen, setIsRecurrenceModifyOpen, t, mode, eventData, onClose, handleSubmit, handleDelete, flushSave, isDeletableGoogleEvent} = controller;
@@ -21,7 +22,7 @@ export function EventForm(props: EventFormProps) {
                         <X />
                     </button>
                     <span className="text-[13px] font-semibold text-[var(--text-primary)]">
-                        {mode === 'create' && !createdId ? t('calendar.new_event', "New appointment") : t('calendar.edit_event', "Edit appointment")}
+                        {mode === 'view' ? t('calendar.view_event', 'Appointment details') : mode === 'create' && !createdId ? t('calendar.new_event', "New appointment") : t('calendar.edit_event', "Edit appointment")}
                     </span>
                 </div>
                 <div className="flex items-center gap-1" />
@@ -29,12 +30,17 @@ export function EventForm(props: EventFormProps) {
 
             {/* Form */}
             <form onSubmit={(event) => { void handleSubmit(event); }} className="flex-1 overflow-y-auto p-4 space-y-3">
-                <EventDates controller={controller} />
-                <EventLocation controller={controller} />
-                <EventDetails controller={controller} />
+                <ConferenceJoinButton url={eventData?.metadata.join_url} />
+                <fieldset disabled={mode === 'view'} className="min-w-0 space-y-3">
+                    <EventDates controller={controller} />
+                    <EventLocation controller={controller} />
+                    <EventDetails controller={controller} />
+                </fieldset>
                 <EventAttendees controller={controller} />
-                <EventRecurrence controller={controller} />
-                <EventDescription controller={controller} />
+                <fieldset disabled={mode === 'view'} className="min-w-0 space-y-3">
+                    <EventRecurrence controller={controller} />
+                    <EventDescription controller={controller} />
+                </fieldset>
             </form>
 
             {/* Footer */}
@@ -43,7 +49,7 @@ export function EventForm(props: EventFormProps) {
                     {saving ? t('calendar.saving', "Saving...") : deleting ? t('calendar.deleting', "Deleting...") : saveError ? '⚠ Error desant' : t('calendar.saved', "Saved")}
                 </div>
                 <div className="flex gap-1.5">
-                    {((mode === 'edit' && eventData?.id) || createdId || isDeletableGoogleEvent) && (
+                    {mode !== 'view' && ((mode === 'edit' && eventData?.id) || createdId || isDeletableGoogleEvent) && (
                         <button
                             type="button"
                             onClick={() => { setIsDeleteConfirmOpen(true); }}

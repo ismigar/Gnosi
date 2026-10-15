@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-08
+last_verified: 2026-10-15
 source_paths:
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -35,7 +35,18 @@ source_paths:
   - frontend/src/shared/records
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
+  - backend/domains/vault/search
+  - frontend/src/shared/bookmarks
 tests:
+  - backend/tests/test_e2e_option_catalogs.py
+  - backend/tests/test_translation_lifecycle_binding_contract.py
+  - backend/tests/test_vault_content_search.py
+  - backend/tests/test_page_save_concurrency.py
+  - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
+  - frontend/src/shared/api/vault-search.test.ts
+  - frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx
+  - frontend/src/shared/bookmarks/bookmarks.test.ts
+  - tests/e2e/tests/disposable/knowledge-parity.spec.ts
   - frontend/src/features/vault/dashboard/Dashboard.document-controls.test.tsx
   - frontend/src/features/vault/navigation/VaultShell.test.tsx
 
@@ -119,6 +130,28 @@ tests:
 # Vault y archivos
 
 El autoguardado serializa las escrituras de página dentro del cliente web. Una versión obsoleta devuelve un conflicto (409), no un error de página inexistente (404), aunque la lectura condicional omita el cuerpo. Las páginas inexistentes siguen devolviendo 404; los conflictos no sobrescriben silenciosamente contenido más reciente.
+
+Los guardados completos con PUT conservan la detección inicial de conflictos y vuelven a resolver la página y el ETag tras adquirir el bloqueo de escritura. Un guardado o cambio de nombre concurrente no puede sobrescribir una versión más reciente mientras espera el bloqueo. Un guardado condicional también rechaza una página eliminada durante la espera.
+
+## Búsqueda de contenido completo y composición
+
+`GET /api/vault/search` lee los cuerpos Markdown completos, títulos, alias, etiquetas y propiedades del Vault activo autorizado. Excluye archivos ocultos, historial, papelera, paneles y rutas resueltas fuera del Vault. Los resultados incluyen fragmentos de contexto, línea de origen, total y paginación estable (50 por defecto, máximo 100). Los guardados actualizan la caché existente; los cambios externos siguen su invalidación por observador/TTL.
+
+La gramática admite frases entre comillas, AND implícito o explícito, OR, NOT, negación con menos, paréntesis y expresiones regulares con indicadores `i`, `m`, `s`. Los campos son `title`, `path`, `file`, `tag`, `is`, `content`, `line`, `block`, `section`, `task`, `task-todo` y `task-done`; `[name]` y `[name:value]` consultan los metadatos iniciales. La coincidencia literal ignora mayúsculas y acentos. Las etiquetas literales conservan los límites jerárquicos dentro de grupos. Los límites de tokens CommonMark distinguen secciones, bloques y tareas de los ejemplos de código. El tamaño, la profundidad, las expresiones regulares y la evaluación total tienen límites explícitos; las consultas inválidas o demasiado costosas devuelven 422. Esta búsqueda textual determinista es independiente de la búsqueda semántica y la recuperación de los cuadernos.
+
+El diálogo de búsqueda global y los bloques Markdown `query`/`search` comparten API y paginación. El editor visual ofrece un bloque de consulta. La identidad de la petición incluye Vault, espacio de trabajo y usuario; cambiar cualquier ámbito borra los resultados visibles y rechaza respuestas pendientes. El Markdown público no ejecuta consultas al Vault. Los marcadores agrupados son locales a la cuenta/espacio de trabajo/Vault del dispositivo y admiten páginas, referencias a encabezados o bloques, consultas, rutas del grafo y enlaces HTTP(S).
+
+Las transclusiones muestran Markdown enriquecido completo para `![[note]]`, encabezados y referencias de bloque. Comparten enlaces y recursos con la previsualización Markdown, conservan ejemplos literales, se actualizan con el origen e indican destinos ausentes o vacíos. Una comprobación de ancestros por rama y un límite de profundidad evitan la recursión. Las lecturas fijan el contexto capturado y descartan respuestas obsoletas. Compartir una página públicamente no autoriza lecturas de transclusiones privadas.
+
+En el editor de bloques, las transclusiones muestran un documento completo editable y guardan automáticamente en la nota original después de 700 ms. La edición de títulos y bloques sustituye únicamente el cuerpo seleccionado, conservando las referencias y el resto del contenido. Las peticiones PATCH solo envían el contenido con la versión original y el contexto capturado; los conflictos detienen el guardado y conservan el borrador local. El acceso de solo lectura desactiva la edición. Las transclusiones editables mantienen el editor tras los eventos de guardado y desactivan la actualización manual para evitar perder un borrador.
+
+Los enlaces e imágenes de referencia de transclusiones de encabezado o bloque conservan las definiciones de la nota completa. El compositor utiliza etiquetas de referencia diferentes para el contenido movido y el de destino, preservando cada enlace y el texto entre corchetes que antes era literal.
+
+El editor de código utiliza CodeMirror para resaltado Markdown, selecciones múltiples, entrada Vim opcional y previsualización. Conserva el traspaso de página, la lectura sola y los guardados ordenados. Los atajos, temas con nombre y fragmentos CSS se configuran en Ajustes; los fragmentos rechazan recursos de red y el modo de apariencia seguro permite recuperar la interfaz. Consulte los [contratos de plugins](integrations-plugins.md) para sustitución de selecciones y búsqueda con permisos.
+
+El compositor de notas previsualiza la extracción a una nota nueva o la fusión en una existente. El plan incluye enlaces entrantes afectados y versiones exactas de los archivos. La aplicación adquiere bloqueos de página ordenados, vuelve a comprobar versiones, conserva historial y archivos auxiliares y revierte cambios si falla. La extracción deja una transclusión en el origen. Se rechazan sesiones colaborativas activas y enlaces absolutos ambiguos para evitar movimientos incoherentes. La revisión se cierra y oculta el contenido si cambian la cuenta, el espacio de trabajo o el Vault activos, también desde otra pestaña. Los guardados y respuestas pendientes no pueden aplicar la operación revisada en el contexto nuevo.
+
+Las tarjetas de página del canvas admiten edición explícita y guardados condicionales. Los borradores permanecen en memoria cuando una disposición desmonta un dibujo, limitados a la cuenta, espacio de trabajo, Vault y página. Antes de cerrar la aplicación hay que guardarlos. La importación/exportación JSON Canvas conserva nodos, aristas y metadatos personalizados compatibles; rechaza estructuras no compatibles y no copia recursos. Las disposiciones guardadas restauran pestañas de notas, dibujos, PDF y EPUB, documento activo, posición del lector y geometría de paneles tras validar los destinos.
 
 Se puede retirar del registro un alias inactivo si otra entrada del mismo espacio de trabajo conserva la carpeta. La eliminación utiliza la misma identidad seleccionada que el catálogo y sigue protegiendo la entrada activa y la última entrada del vault principal. Retirar una entrada compartida conserva la carpeta, las bases de datos locales, las cachés y el índice de archivos; no se permite borrar los archivos mientras otro vault registrado utilice la misma ruta, aunque pertenezca a otro espacio de trabajo.
 
@@ -868,3 +901,5 @@ La cabecera de un solo documento muestra Cerrar pestaña únicamente cuando el i
 Añada `--resource-id <id>` a `preview` para clasificar solo un recurso; las acciones posteriores reutilizan esa selección guardada. La clasificación vincula al propietario personal verificado, excluye contextos adjuntos y memorias revisadas, desactiva las delegaciones y reserva como máximo 4096 tokens de salida por lote sin cambiar los límites de gasto.
 
 Los encabezados plegables admiten Alt/Opción+Intro con el cursor dentro del título. El botón nativo se puede enfocar con Tab y activar con Intro o Espacio, con foco visible, etiqueta traducida y estado de despliegue. La activación conserva el cursor o el foco del botón y el estado de despliegue guardado. Intro sin modificadores conserva su comportamiento de edición; los párrafos hijos, los controles incrustados y la composición de texto no pliegan una sección padre.
+
+La traducción interna de filas y páginas crea registros derivados mediante el servicio canónico de creación de páginas, sin llamar a un handler HTTP con dependencias FastAPI sin resolver. Se conservan las sustituciones de creación con dos argumentos. El test de integración de catálogos activa explícitamente la traducción en el Vault temporal para que la prueba del bloqueo de borradores alcance la regla de acción.

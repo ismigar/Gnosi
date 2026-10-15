@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-03
+last_verified: 2026-10-13
 source_paths:
   - backend/api/calendar_routes.py
   - backend/domains/calendar/geocoding.py
@@ -129,3 +129,19 @@ Test local path containment, event normalization, recurrence, hidden state,
 reminder races, account selection, time zones, and Playwright create/edit/delete
 flows. Meeting QA should record or upload a fixture, observe background status,
 and verify the resulting Vault page.
+
+## Conditional CalDAV writes, conference links and booking
+
+Private writes retain an explicit provider across creation, PATCH and DELETE. When accounts share an email, this hint selects the correct account; unsupported hints reject before provider I/O. DELETE accepts the optional `provider` query parameter, which existing clients may omit. Calendar names remain display labels, while write destinations use provider/account/calendar identifiers.
+
+`domains/calendar/provider_operations.py` dispatches through the configured account provider. CalDAV resources use confined discovery and resource URLs, conditional PUT/DELETE and the previous ETag. The frontend carries the returned ETag into its next autosave. A stale resource returns a conflict instead of replacing another client's edits. Recurring CalDAV resources remain read-only for mutation. New timed events use UTC instants, so their payloads are self-contained without relying on the server's timezone-by-reference extension; updates retain existing date representations. `conference_links.py` normalizes provider video URLs into `join_url`; the event inspector opens only HTTP(S) links without credentials or a referrer.
+
+Unchanged text retains its whitespace and all property parameters. Editing text retains language and extension parameters, but removes ALTREP because its alternate representation may describe the old value.
+
+`domains/booking/` computes the union of busy intervals across selected calendars, including local events, and applies the configured time zone, working week, duration, buffers, notice and horizon. Provider failures close availability. The CalDAV query fallback preserves nominal days versus elapsed hours and blocks unsupported recurrence expansions, including nonexistent local times it cannot resolve safely. The booking destination must be among the calendars checked. External integration credentials are installation-wide, so external public scheduling is restricted to the personal workspace owner.
+
+Local recurrence skips nonexistent wall times before applying COUNT; excluded real instances still consume the count. Timed instances retain elapsed duration, while all-day spans retain nominal days. Finite-count expansion validates from the first occurrence with a 3,000-instance evaluation limit; invalid intervals and unsupported expansion close availability.
+
+The anonymous surface is exactly GET `/api/booking/public/{token}`, GET its `/slots` and POST its `/reservations`. Owner-only management lives at `/api/booking/links` and aggregate checks at `/api/booking/availability`. A durable SQLite claim serializes overlapping reservations across one owner's links and across different owners checking the same vault or external calendar before writing an event. Unrelated owners' calendars do not block one another. Idempotent replay never repeats an uncertain provider write; pending claims keep their slot blocked and are visible to the owner. Concurrent changes made directly in another calendar client cannot be made atomic with Gnosi's reservation transaction.
+
+Read dispatch selects unresolved account metadata without unlocking credentials. Authentication remains inside the selected provider adapter, and the provider/account/calendar selection is retained when accounts share an email.

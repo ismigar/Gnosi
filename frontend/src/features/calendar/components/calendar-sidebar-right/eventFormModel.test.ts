@@ -37,7 +37,7 @@ describe('calendar form model', () => {
     });
     it('keeps external timed end fallbacks and time zone', () => {
         const result = buildExternalEventData({...FIELDS, allDay: false, endDate: '', startTime: '09:00', endTime: '10:00'});
-        expect(result.start).toEqual({dateTime: '2026-09-02T09:00:00', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone});
-        expect(result.end).toEqual({dateTime: '2026-09-02T10:00:00', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone});
+        expect(result.start).toEqual({dateTime: new Date('2026-09-02T09:00:00').toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone});
+        expect(result.end).toEqual({dateTime: new Date('2026-09-02T10:00:00').toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone});
     });
 });

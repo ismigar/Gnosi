@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-10-13
 source_paths:
+  - compose.production.yml
+  - docker/frontend-production.conf
+  - frontend/src/features/offline
   - .github/workflows/ci.yml
   - scripts/runtime/run_native_dev.sh
   - scripts/runtime/run_native_frontend.sh
@@ -242,3 +245,9 @@ organization listings without registering personal storage. These scoped
 checks do not certify the full E2E suite, Docker/Electron matrix or release. The
 integration owner performs the remaining real browser, CI, SOP, documentation
 generation and platform acceptance checks.
+
+## Compiled self-hosted web frontend
+
+The optional `compose.production.yml` override selects the production target in `Dockerfile.frontend`. Initialize the pinned recursive submodules first. The image builds the reader assets and both web entries, then Nginx serves the compiled files with a same-origin API and WebSocket proxy. The ordinary Compose target remains the development server. The production command is `docker compose -f docker-compose.yml -f compose.production.yml up -d --build`; preserve the existing Compose project name, storage overrides and named volumes.
+
+Use HTTPS for access from mobile devices. The offline companion requires a secure browser context; localhost is the development exception. Its worker caches only the compiled public offline shell, never API responses. APIs receive no-store headers, missing compiled assets return 404, and the worker and HTML are revalidated. See the source deployment recipe for configuration. A passing local frontend build does not verify a Docker image or the external TLS proxy.

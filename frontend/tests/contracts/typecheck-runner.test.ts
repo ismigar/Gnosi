@@ -65,7 +65,10 @@ beforeEach(() => {
   for (const script of ['typecheck.mjs', 'typecheck-worker.mjs']) {
     cpSync(join(frontend, 'scripts', script), join(fixture, 'scripts', script));
   }
-  symlinkSync(join(frontend, 'node_modules'), join(fixture, 'node_modules'), 'dir');
+  // Malformed options may enable ambient type discovery. Keep the project
+  // synthetic instead of loading unrelated React declarations from the app.
+  mkdirSync(join(fixture, 'node_modules'));
+  symlinkSync(join(frontend, 'node_modules/typescript'), join(fixture, 'node_modules/typescript'), 'dir');
   write('package.json', '{"type":"module"}');
   config();
 });
@@ -140,9 +143,13 @@ it.each([
   write('base.json', '{}');
   write(path, text);
   write('src/main.ts', 'export const wrong: number = "bad";');
+  write('node_modules/@types/fixture/index.d.ts', 'declare const ambient: MissingAmbientType;');
   const result = compare(false);
   expect(result.stdout).toContain('error TS1005:');
   expect(result.stdout).toContain('error TS2322:');
+  if (_kind === 'root array') {
+    expect(result.stdout).toContain("error TS2304: Cannot find name 'MissingAmbientType'.");
+  }
 });
 
 it('reports invalid project references', () => {

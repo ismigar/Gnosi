@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-09-12
+last_verified: 2026-10-13
 source_paths:
+  - backend/domains/vault/publishing
+  - frontend/src/features/sharing/publishing
+  - frontend/src/features/offline
+  - frontend/src/shared/offline
   - backend/api/auth_routes.py
   - backend/api/workspace_routes.py
   - backend/api/vaults_routes.py
@@ -10,6 +14,7 @@ source_paths:
   - backend/api/public_routes.py
   - backend/models/management.py
   - backend/services/auth_service.py
+  - backend/services/auth_public_surface.py
   - backend/services/workspace_service.py
   - backend/services/vault_routing.py
   - backend/services/active_vault_middleware.py
@@ -20,6 +25,7 @@ source_paths:
   - frontend/src/shared/routing
   - frontend/src/features/workspaces
 tests:
+  - backend/tests/test_auth_expected_account.py
   - frontend/src/features/auth/LoginPage.test.tsx
   - frontend/src/features/auth/public-entry.test.ts
   - backend/tests/test_auth_central_gate.py
@@ -39,6 +45,12 @@ tests:
 ---
 
 # Authentification, espaces de travail et partage
+
+## Notes hors connexion et sites publiés
+
+Le compagnon de notes hors connexion s’ouvre dans Paramètres → Général et utilise la même origine serveur. Dans une compilation de production, son service worker ne met en cache que l’interface publique compilée. L’utilisateur choisit explicitement les notes textuelles et protège la collection locale avec une phrase secrète distincte. Les sauvegardes locales chiffrent la collection dans IndexedDB ; le verrouillage efface le texte déchiffré détenu par l’application. La synchronisation vérifie compte, espace de travail, Vault et version de page, puis présente les deux versions en cas de conflit. Le serveur conserve toujours des notes ordinaires lisibles. Pièces jointes, dessins et bases de données sont hors de cette collection.
+
+La publication de plusieurs pages utilise le plugin de partage et le backend du serveur personnel. Un éditeur sélectionne les notes et vérifie l’instantané public exact avant de publier. Le visiteur ne reçoit que cet instantané ; navigation et recherche se limitent aux pages sélectionnées. Pièces jointes, HTML, transclusions privées et requêtes enregistrées sont visiblement omis. Une mise à jour exige un nouvel aperçu ; révisions, expiration et révocation sont stockées dans la base de gestion. Les lectures anonymes utilisent une route de jeton étroitement définie, omettent les identifiants et ne démarrent pas l’application privée. Publier ne déploie pas un autre service et ne répercute pas automatiquement les modifications des notes originales.
 
 ## Modes de fonctionnement
 
@@ -69,6 +81,8 @@ un vault d'organisation.
 ## Authentification de session et de jetons
 
 La connexion par adresse e-mail et mot de passe vérifie le hachage du mot de passe et émet un JWT signé dans un cookie HttpOnly, SameSite=Lax. Les clients API acceptés peuvent également envoyer un jeton bearer dans `Authorization`. Les Personal Access Tokens utilisent un format opaque distinct ; seuls un hachage SHA-256 et un préfixe d'affichage sont stockés.
+
+Les clients conservant des modifications entre sessions peuvent envoyer `X-Gnosi-Expected-User-ID`. Le contrôle central compare cette précondition à l’identité authentifiée par cookie/PAT avant de servir les routes protégées : une identité absente renvoie 401, et un changement de compte renvoie 409 avec `code: account_changed`. Cet en-tête ne sélectionne jamais un utilisateur et n’accorde aucune autorisation, même dans les installations locales à authentification facultative. Les rôles de l’espace de travail/Vault restent vérifiés. Les exceptions publiques de connexion, déconnexion et santé gardent leur comportement existant.
 
 Le secret de signature doit être robuste sur les déploiements exposés. Le backend refuse de démarrer avec la valeur publique de développement lorsque la protection est requise par le déploiement effectif.
 
@@ -190,3 +204,15 @@ vérifie connexion et déconnexion, mises à jour du compte, changement de works
 et accès anonyme aux partages dans une session vierge.
 
 Résoudre une bibliothèque enregistrée est une opération de lecture. Si son dossier est absent, l’identité est indisponible et les routes canoniques renvoient 404 ; les requêtes ne recréent jamais l’ancien emplacement. La création explicite des dossiers reste dans le flux de création de bibliothèque. Choisir un autre dossier existant conserve les deux identités et leurs chemins.
+
+## Formulaires publics de table
+
+`domains/forms/` publie des questions explicites d'une table enregistrée. GET anonyme `/api/forms/public/{token}` renvoie ce schéma ; POST `/submissions` valide chaque champ et crée une page par le processus canonique idempotent. Les formules, relations et métadonnées réservées ne sont pas modifiables. Une modification incompatible du schéma désactive le formulaire. Le module `share-links` contrôle publication et accès.
+
+Formulaires et réservations utilisent `public_workflow_scope.py` pour fixer espace, vault et propriétaire et revérifier appartenance, écriture, stockage et modules. Les cookies, en-têtes et paramètres du visiteur ne sélectionnent pas la destination. Les réponses sont `no-store` ; les pages publiques n'envoient pas de référent et ne sont pas indexées. Le client public omet identifiants et en-têtes d'espace. La migration `mgmt_0006` ajoute définitions et reçus persistants sans modifier les enregistrements existants.
+
+La publication d’un formulaire exige une durée de validité de 1 à 365 jours (30 par défaut). Chaque nouveau jeton conserve une échéance ; si elle manque ou est dépassée, les lectures et les réponses sont refusées. Le propriétaire peut révoquer le lien avant son expiration.
+
+Le backend distribué inclut `management_0006.py` parmi ses ressources vérifiées pour que les installations de bureau puissent appliquer la même migration de schéma aux formulaires publics et aux réservations.
+
+Les migrations de gestion suivent une séquence unique : `mgmt_0006` ajoute les formulaires et les réservations ; `mgmt_0007` ajoute les aperçus, sites et révisions de publication. Les deux font partie des ressources du backend de bureau. Les nouvelles bases et les mises à niveau conservent les deux schémas et les données existantes. Une base incompatible portant la même étiquette de révision est rejetée selon l’empreinte exacte du schéma avant toute modification ; l’étiquette seule n’autorise jamais son adoption.

@@ -111,6 +111,7 @@ export interface PageEditorBodyProps {
   onOpenPageViewModal: (tableId?: string, editingBlock?: ViewEditingBlock | null) => void;
   applyViewSectionRef: RefObject<ApplyViewSection | null>;
   registerEditorApi: (api: PageEditorApi | null) => void;
+  registerSave?: (flush: (() => Promise<boolean>) | null) => void;
   onNavigateUp: () => void;
   onOpenProperties: () => void;
   spellEnabled: boolean;

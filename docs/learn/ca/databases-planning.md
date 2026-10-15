@@ -43,3 +43,11 @@ Una vista buida pot tenir un filtre massa restrictiu. Revisa dates, estats i dep
 
 - [Crea pàgines, enllaços i adjunts](pages-files.md)
 - [Activa complements, connecta serveis i automatitza](integrations-automations.md)
+
+## Formularis públics de taula
+
+Activa **Compartició externa**, obre una taula i tria **Formularis públics**. Publica un formulari amb títol, descripció, preguntes seleccionades, text d'ajuda, camps obligatoris i caducitat. Admet text, números, dates, correu, URL, telèfon, caselles i opcions de la taula. No exposa fórmules, relacions ni camps interns.
+
+Comparteix l'enllaç des d'un servidor de Gnosi accessible als destinataris. Poden respondre sense compte i no poden consultar registres existents. Cada resposta acceptada crea una pàgina a la taula fixada mitjançant el procés normal de creació. Reintentar un enviament interromput conserva la identitat de la petició i no duplica el registre. Revoca l'enllaç per aturar respostes noves. Retirar el permís d'escriptura del propietari o canviar l'esquema d'un camp exposat també atura el formulari.
+
+Els enllaços sempre caduquen: tria 7, 30, 90 o 365 dies en publicar. Publica un formulari nou quan necessitis un altre enllaç després del venciment.

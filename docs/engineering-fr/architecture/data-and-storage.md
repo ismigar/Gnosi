@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-10-01
+last_verified: 2026-10-13
 source_paths:
+  - backend/migrations/alembic/versions/management_0006.py
+  - backend/domains/vault/publishing/models.py
+  - frontend/src/shared/offline
   - backend/services/plugin_fields.py
   - backend/domains/llm_wiki/brain_fields.py
   - backend/config/paths_config.py
@@ -12,6 +15,7 @@ source_paths:
   - backend/services/reference_table_config.py
   - backend/services/reference_config_migration.py
 tests:
+  - backend/tests/test_publication_migration.py
   - backend/tests/test_plugin_required_fields.py
   - backend/tests/test_auto_provisioned_migration.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -169,3 +173,9 @@ fichier partagé est chargé uniquement si `GNOSI_SHARED_ENV_FILE` le désigne
 explicitement et reste en lecture seule pour l'application. Les identifiants gérés
 par l'interface utilisent le gestionnaire système, avec repli chiffré sous
 `GNOSI_DATA_DIR/secrets`.
+
+## Instantanés publiés et copies chiffrées hors connexion
+
+La révision de gestion `mgmt_0006` ajoute `publication_previews`, `publication_sites` et `publication_revisions` via le processus de migration protégé. Les tables précédentes et empreintes historiques vérifiées sont conservées. Les aperçus expirent ; une révision validée stocke son propre instantané Markdown public, indépendant des modifications ultérieures de la source. La propriété comprend compte, espace de travail et Vault. La révocation empêche de nouvelles lectures du serveur ; elle ne peut retirer les copies déjà téléchargées par un visiteur.
+
+Le compagnon hors connexion stocke une collection chiffrée par phrase secrète par profil de navigateur dans IndexedDB. Elle comprend les notes textuelles sélectionnées et l’état des versions et conflits. Chaque sauvegarde utilise un chiffrement authentifié avec un nouvel IV et une vérification atomique de version locale. Clés et données déchiffrées restent en mémoire jusqu’au verrouillage. Perdre la phrase secrète ou effacer les données du navigateur peut faire perdre des modifications non synchronisées ; la collection n’est ni une sauvegarde ni un chiffrement de bout en bout du serveur.

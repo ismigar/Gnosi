@@ -14,11 +14,16 @@ export interface SandboxApi {
   registerSidebarPanel(panel?: SandboxContribution | null): void;
   registerSettingsPanel(panel?: SandboxContribution | null): void;
   readonly vault: {
+    search(query: unknown, options?: { readonly offset?: unknown } | null): Promise<unknown>;
     readPage(id: unknown): Promise<unknown>;
     writePage(id: unknown, patch?: unknown): Promise<unknown>;
     createPage(options?: Record<string, unknown> | null): Promise<unknown>;
     queryDB(tableId: unknown, options?: { readonly limit?: unknown } | null): Promise<unknown>;
     listTables(): Promise<unknown>;
+  };
+  readonly editor: {
+    getSelection(): Promise<unknown>;
+    replaceSelection(text: unknown, expected: unknown): Promise<unknown>;
   };
   readonly settings: {
     get(): Promise<unknown>;

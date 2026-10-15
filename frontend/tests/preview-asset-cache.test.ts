@@ -164,7 +164,12 @@ it('serves real hashed Vite output with immutable 200/304 while HTML, API, misse
     configFile: configPath, configLoader: 'native' as const, root, envFile: false as const,
     logLevel: 'silent' as const, base: '/fixture/',
     css: { postcss: { plugins: [] } },
-    build: { outDir: 'dist', minify: false as const },
+    build: {
+      outDir: 'dist', minify: false as const,
+      // This independent cache fixture owns its entry; the app config also
+      // declares an offline entry that is outside this temporary project.
+      rolldownOptions: { input: join(root, 'index.html') },
+    },
   };
   await build(buildOptions);
   const firstManifest = JSON.parse(readFileSync(join(root, 'dist/.vite/manifest.json'), 'utf8')) as Manifest;

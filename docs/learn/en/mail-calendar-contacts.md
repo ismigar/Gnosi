@@ -32,3 +32,17 @@ If data is absent, check account authorization and source filters. Hiding a cale
 
 - [Enable plugins, connect services and automate](integrations-automations.md)
 - [Frequently asked questions and recovery](troubleshooting.md)
+
+## CalDAV writes and video calls
+
+Writable CalDAV calendars, including iCloud, support creating, editing and deleting individual events. Updates preserve the resource UID, time zones, all-day dates and untouched iCalendar properties. The provider's ETag prevents overwriting a concurrent change; refresh a conflicting event before editing again. Recurring CalDAV resources remain read-only in Gnosi.
+
+When a provider supplies a video link, open the appointment and choose **Join video call**. The link opens in your browser.
+
+## Availability and public bookings
+
+Open **Availability** in the calendar side panel. Select every calendar that should block bookings, including local Gnosi events and calendars from multiple accounts. Set the time zone, working days and hours, duration, buffer, notice and booking horizon. Check availability, then choose a destination among the selected calendars and create a booking link. You can copy and revoke published links.
+
+Visitors choose an available slot and enter their name and email. Gnosi checks availability again before creating the event. If a selected calendar cannot be checked, bookings stop until it is available. If a provider write has an uncertain result, the slot stays reserved and the visitor sees a pending result; verify the destination calendar before making another reservation. External accounts are available for public booking only to the personal workspace owner.
+
+A public link requires your Gnosi web server to be reachable by its recipients. A localhost or desktop address only works on that device; creating a link does not host or expose your installation.

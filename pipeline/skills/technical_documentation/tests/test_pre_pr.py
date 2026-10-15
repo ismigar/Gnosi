@@ -67,6 +67,8 @@ def test_check_only_stages_builds_outside_checkout(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Verify execution wiring without running MkDocs or the global gate."""
+    # This test exercises local staging, not the runner's remote reuse policy.
+    monkeypatch.delenv("GITHUB_JOB", raising=False)
     monkeypatch.setattr(pre_pr, "APP_ROOT", tmp_path)
     sentinel = tmp_path / "approved.md"
     sentinel.write_bytes(b"approved\r\n")

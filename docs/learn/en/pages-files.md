@@ -22,6 +22,33 @@ An active Vault with write access. AI is optional; extra sharing and translation
 
 In the page’s **⋯** menu, turn on **Free width** to let tables expand and scroll horizontally. Paragraphs keep a readable width. The preference is remembered for each page on this device and does not change the Markdown. Turn it off in the same menu to restore the usual layout.
 
+### Search complete notes and reuse content
+
+Global search finds words deep inside a note and shows a nearby excerpt. Use
+`"exact phrase"`, `(red OR blue) -green`, `tag:research`,
+`content:"working memory"`, `task-todo:review` or `[status:Draft]`.
+`line:(red fox)`, `block:(red fox)` and `section:(red fox)` require both words
+in the same line, block or section. Invalid queries display an error so you can
+correct them. A **Search results** block, or a Markdown fence named `query`, keeps live
+search results inside a note.
+
+Write `![[Source notes]]` to display its full formatted content. Use
+`![[Source notes#Heading]]` or `![[Source notes#^block-id]]` to embed a specific
+part. Tables, code and nested notes are rendered; circular references stop with
+an explanation. The source remains a separate note, and the embed refreshes
+after changes.
+
+The Markdown source editor includes highlighting, multiple cursors, Vim mode
+and a rendered preview. Configure shortcuts in Settings and use Appearance to
+save themes or CSS snippets. If a snippet makes the interface hard to use, open
+Gnosi with `?gnosi-safe-appearance=1` and reset the appearance.
+
+### Compose notes and save shortcuts
+
+In a note’s **⋯** menu, choose **Compose notes**. Select the whole note, a heading or complete Markdown lines, then choose a new note or an existing destination. **Preview changes** shows the source, destination and affected links. Review every change before applying it. The source keeps an embed and its history. If another editor changes a file, prepare a fresh preview.
+
+In the sidebar’s **Bookmarks**, save notes, sections, searches, graph views or web links and give them a group. Edit a bookmark to rename, move or remove it. These bookmarks belong to the selected account, workspace and Vault on this device.
+
 ## Expected result {#expected-result}
 
 Your note contains readable text, a link and an accessible attachment.

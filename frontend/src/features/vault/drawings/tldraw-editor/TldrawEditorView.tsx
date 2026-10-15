@@ -1,8 +1,11 @@
 import { useEffect, type RefObject } from 'react';
+import { getAssetUrlsByImport } from '@tldraw/assets/imports.vite.js';
 import type { HandwritingStatusResponse } from '../../../../shared/api/drawings';
 import { HandwritingModelStatus } from './HandwritingModelStatus';
 import {
     AlertTriangle,
+    Download,
+    Upload,
     FilePlus2,
     Loader2,
     PenLine,
@@ -31,6 +34,8 @@ import type {
     TldrawVaultTable,
 } from './tldrawEditorTypes';
 
+const canvasAssetUrls = getAssetUrlsByImport();
+
 interface TldrawEditorViewProps {
     readonly allNotes: readonly TldrawVaultNote[];
     readonly cardsEnabled: boolean;
@@ -39,6 +44,8 @@ interface TldrawEditorViewProps {
     readonly isSearchOpen: boolean;
     readonly loadState: DrawingLoadState;
     readonly onClose: () => void;
+    readonly onImportCanvas: (file: File) => Promise<void>;
+    readonly onExportCanvas: () => void;
     readonly onEditorMount: (editor: Editor) => void;
     readonly onOpenPage?: ((pageId: string) => void) | null;
     readonly onRecognize: () => Promise<void>;
@@ -69,6 +76,8 @@ export function TldrawEditorView({
     loadState,
     onClose,
     onEditorMount,
+    onImportCanvas,
+    onExportCanvas,
     onOpenPage,
     onRecognize,
     onSearchSelect,
@@ -120,6 +129,21 @@ export function TldrawEditorView({
                     {title || t('tldraw.untitled_drawing')}
                 </h2>
                 <div className="flex flex-wrap items-center justify-end gap-2" style={{ flex: '1 1 16rem', minWidth: 0 }}>
+                    {loadState === 'ready' && <>
+                        <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2.5 py-1 text-xs text-[var(--text-secondary)] focus-within:outline focus-within:outline-2 focus-within:outline-[var(--gnosi-primary)]">
+                            <Upload size={14} /> {t('json_canvas.import', 'Import .canvas')}
+                            <input type="file" accept=".canvas,application/json" className="sr-only" aria-label={t('json_canvas.import', 'Import .canvas')}
+                                onChange={event => {
+                                    const file = event.target.files?.[0];
+                                    if (file) void onImportCanvas(file);
+                                    event.target.value = '';
+                                }} />
+                        </label>
+                        <button type="button" onClick={onExportCanvas}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2.5 py-1 text-xs text-[var(--text-secondary)]">
+                            <Download size={14} /> {t('json_canvas.export', 'Export .canvas')}
+                        </button>
+                    </>}
                     {handwritingStatus && <HandwritingModelStatus status={handwritingStatus} onCancel={onCancelDownload} />}
                     {loadState === 'ready' && (
                         <button
@@ -196,6 +220,7 @@ export function TldrawEditorView({
                 ) : (
                     <CanvasPageProvider value={{ onOpenPage }}>
                         <Tldraw
+                            assetUrls={canvasAssetUrls}
                             store={store}
                             shapeUtils={shapeUtils}
                             hideUi={false}

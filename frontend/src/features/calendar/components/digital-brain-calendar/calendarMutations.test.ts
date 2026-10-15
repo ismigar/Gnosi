@@ -40,7 +40,7 @@ describe('calendar persistence boundary', () => {
   it('keeps provider timestamps and exclusive end dates unchanged', async () => {
     await persistCalendarChange(change({ _provider: 'google', _account: 'test@example.invalid', _calendar_id: 'team' }, true), 'move', {}, translate);
     expect(updateCalendarEvent).toHaveBeenCalledWith({ calendarId: 'team', email: 'test@example.invalid', eventId: 'event',
-      event: { start: '2026-09-02', end: '2026-09-03', calendar_id: 'team' } });
+      event: { provider: 'google', start: '2026-09-02', end: '2026-09-03', calendar_id: 'team' } });
     expect(patchVaultPage).not.toHaveBeenCalled();
   });
 

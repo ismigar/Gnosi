@@ -65,6 +65,10 @@ def client():
         }),
         encoding="utf-8",
     )
+    from backend.services.builtin_plugins import PLUGIN_STATE_VERSION, normalize_state
+    plugin_state, _ = normalize_state({"schema_version": PLUGIN_STATE_VERSION, "enabled_builtin": ["translation"]})
+    (VAULT / ".gnosi").mkdir(exist_ok=True)
+    (VAULT / ".gnosi" / "plugins.json").write_text(json.dumps(plugin_state), encoding="utf-8")
     from fastapi.testclient import TestClient
     from backend.server import app
 
@@ -148,7 +152,9 @@ def test_translate_draft_blocked_with_409(client, table):
         json={"item_id": page_id, "target_languages": ["en"]},
     )
     assert r.status_code == 409, r.text
-    assert "esborrany" in r.json()["detail"].lower()
+    detail = r.json()["detail"]
+    assert isinstance(detail, str), detail
+    assert "esborrany" in detail.lower()
 
 
 # --- Effects of translating: original «Traduït», child «Esborrany» ------------------

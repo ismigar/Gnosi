@@ -13,11 +13,13 @@ from datetime import datetime, timedelta
 import hashlib
 import json
 from pathlib import Path
+from threading import RLock
 from typing import Any, cast
 
 
 DEPENDENCY_TYPES = {"FS", "SS", "FF", "SF"}
 CONSTRAINT_TYPES = {"ASAP", "ALAP", "SNET", "SNLT", "FNET", "FNLT", "MSO", "MFO"}
+_index_lock = RLock()
 
 
 def parse_datetime(value: Any) -> datetime | None:
@@ -477,14 +479,41 @@ class ScheduleIndex:
     def save(
         self, project_id: str, schedule: dict[str, Any], planning_revision: int
     ) -> dict[str, Any]:
-        current = self.load() or {"projects": {}}
-        projects = current.setdefault("projects", {})
-        previous = projects.get(project_id) or {}
-        schedule["scheduleRevision"] = int(previous.get("scheduleRevision", 0)) + 1
-        schedule["planningRevision"] = planning_revision
-        projects[project_id] = schedule
+        with _index_lock:
+            current = self.load() or {"projects": {}}
+            projects = current.setdefault("projects", {})
+            previous = projects.get(project_id) or {}
+            schedule["scheduleRevision"] = int(previous.get("scheduleRevision", 0)) + 1
+            schedule["planningRevision"] = planning_revision
+            projects[project_id] = schedule
+            self._write(current)
+            return schedule
+
+    def replace_all(self, schedules: dict[str, dict[str, Any]], planning_revision: int) -> None:
+        """Publish a complete snapshot, retaining empty revisions for removed projects."""
+        with _index_lock:
+            current = self.load() or {"projects": {}}
+            previous_projects = current.get("projects", {})
+            projects = {}
+            ignored = {"scheduleRevision", "generatedAt", "automaticWriteConflicts"}
+            for project_id in previous_projects.keys() | schedules.keys():
+                schedule = schedules.get(project_id) or {
+                    **build_schedule([]), "projectId": project_id,
+                }
+                schedule["planningRevision"] = planning_revision
+                previous = previous_projects.get(project_id) or {}
+                comparable = {key: value for key, value in schedule.items() if key not in ignored}
+                old = {key: value for key, value in previous.items() if key not in ignored}
+                if comparable == old:
+                    projects[project_id] = previous
+                else:
+                    schedule["scheduleRevision"] = int(previous.get("scheduleRevision", 0)) + 1
+                    projects[project_id] = schedule
+            if projects != previous_projects:
+                self._write({**current, "projects": projects})
+
+    def _write(self, current: dict[str, Any]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.path.with_suffix(".tmp")
         temporary.write_text(json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8")
         temporary.replace(self.path)
-        return schedule

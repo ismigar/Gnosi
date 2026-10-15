@@ -28,6 +28,7 @@ source_paths:
   - backend/domains/vault/views/sorting.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
+  - backend/domains/planning/project_scope.py
   - backend/api/virtual_fields.py
   - backend/services/table_system_dates.py
   - backend/services/option_catalogs.py
@@ -76,6 +77,7 @@ tests:
   - backend/tests/test_planning_engine.py
   - backend/tests/test_planning_agent_tools.py
   - backend/tests/test_planning_scheduler.py
+  - backend/tests/test_planning_project_isolation.py
   - backend/tests/test_project_planning.py
   - backend/tests/test_virtual_fields_graph_projection.py
   - backend/tests/test_pipeline_naming.py
@@ -276,6 +278,19 @@ selected, and recurrence materialization uses bounded iterator consumption for
 RRULE occurrences while preserving stable task identifiers and ETag checks.
 
 ## Project planning
+
+Project settings expose the task relation used to identify each project. The scheduler
+resolves its stable field ID through the task schema, including current names and aliases.
+Reading schedules rebuilds derived data without writing Markdown. Removed or reassigned
+tasks leave an empty revised snapshot in their previous project; unchanged snapshots retain
+their revision. Unavailable task files prevent publishing an incomplete snapshot.
+
+The allocation and work-log reads accept an optional `project_id`; omitted, they retain
+the global Vault report. The project page scopes these reads, query caches and drafts to
+the selected project and Vault. Baselines capture project costs. Leveling uses global
+resource contention but only proposes assignments owned by the selected project. Explicit
+assignment ownership takes precedence; assignments without a project follow their task.
+Applying a proposal validates its planning revision and project scope before any save.
 
 The strictly typed `features/planning/` frontend owns the planning page and
 its behavior tests behind a public lazy entry. The timeline renderer remains

@@ -3,12 +3,16 @@ import TagsModal from '../navigation/TagsModal';
 import PresentationMode from '../editor/PresentationMode';
 import InlineComments from '../comments/InlineComments';
 import WorkspacesModal from '../navigation/WorkspacesModal';
+import type { SavedWorkspace } from '../navigation/workspacesModel';
 import { MetadataLookupModal } from '../../literature/records/MetadataLookupModal';
 import { RecentModal } from '../navigation/RecentModal';
 import { TranslateLanguagesModal } from '../editor/TranslateLanguagesModal';
 import { ProcessResourceModal } from '../../literature/records/ProcessResourceModal';
 import type { DashboardController } from './useDashboardController';
-export function BrowseDialogs(dashboard: DashboardController) {
+type BrowseDialogsProps = DashboardController & {
+  readonly onRestoreWorkspace: (workspace: SavedWorkspace) => Promise<void>;
+};
+export function BrowseDialogs(dashboard: BrowseDialogsProps) {
   const context = dashboard;
   const {
     activeTabId,
@@ -20,7 +24,6 @@ export function BrowseDialogs(dashboard: DashboardController) {
     getSchemaFromTableId,
     globalIndex,
     handleCreateFromSource,
-    handleTableSelect,
     isGlobalSearchOpen,
     isPluginEnabled,
     isPresentOpen,
@@ -78,14 +81,9 @@ export function BrowseDialogs(dashboard: DashboardController) {
       isOpen={isWorkspacesOpen}
       onClose={() => { setIsWorkspacesOpen(false); }}
       currentTabs={tabs}
-      onRestore={(savedTabs) => {
-        savedTabs.forEach((t) => {
-          if (t.isTable)
-            void handleTableSelect(t.id);
-          else
-            void loadPage(t.id);
-        });
-      }}
+      currentLayout={{ activeTabId, activeTableId: dashboard.activeTableId, activeViewId: dashboard.activeViewId,
+        viewMode, splitTabIds: dashboard.splitTabIds, splitTableIds: dashboard.splitTableIds, paneSizes: dashboard.paneSizes }}
+      onRestore={workspace => { void dashboard.onRestoreWorkspace(workspace); }}
     />
 
     <MetadataLookupModal

@@ -6,7 +6,7 @@ Static SQLAlchemy table and column catalog. Runtime SQLite inspection remains au
 
 Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py`.
 
-Discovered **19 mapped tables** and **165 mapped columns**.
+Discovered **23 mapped tables** and **209 mapped columns**.
 
 ## Resum de taules
 
@@ -14,6 +14,8 @@ Discovered **19 mapped tables** and **165 mapped columns**.
 | --- | --- | ---: | --- |
 | `api_tokens` | `ApiToken` | 10 | [`backend/models/management.py:103`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L103) |
 | `articles` | `Article` | 9 | [`backend/models/reader.py:23`](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py#L23) |
+| `booking_links` | `BookingLink` | 10 | [`backend/models/booking.py:12`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L12) |
+| `booking_reservations` | `BookingReservation` | 15 | [`backend/models/booking.py:27`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L27) |
 | `contacts` | `Contact` | 21 | [`backend/models/contact.py:28`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py#L28) |
 | `feed_sources` | `FeedSource` | 6 | [`backend/models/reader.py:11`](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py#L11) |
 | `hidden_events` | `HiddenEvent` | 3 | [`backend/models/calendar.py:6`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py#L6) |
@@ -25,6 +27,8 @@ Discovered **19 mapped tables** and **165 mapped columns**.
 | `newsletter_account` | `NewsletterAccount` | 8 | [`backend/models/reader.py:49`](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py#L49) |
 | `notifications` | `Notification` | 7 | [`backend/models/notification.py:11`](https://github.com/ismigar/Gnosi/blob/main/backend/models/notification.py#L11) |
 | `pdf_annotations` | `PdfAnnotation` | 12 | [`backend/models/pdf_annotation.py:22`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L22) |
+| `public_form_submissions` | `FormSubmission` | 7 | [`backend/models/forms.py:30`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L30) |
+| `public_forms` | `FormDefinition` | 12 | [`backend/models/forms.py:13`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L13) |
 | `share_links` | `ShareLink` | 9 | [`backend/models/management.py:125`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L125) |
 | `task_execution_history` | `TaskExecutionHistory` | 8 | [`backend/models/scheduler.py:12`](https://github.com/ismigar/Gnosi/blob/main/backend/models/scheduler.py#L12) |
 | `users` | `User` | 7 | [`backend/models/management.py:19`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py#L19) |
@@ -60,6 +64,41 @@ Discovered **19 mapped tables** and **165 mapped columns**.
 | `published_at` | `DateTime(timezone=True)` | — | — | — | — | — | — | [`backend/models/reader.py:42`](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py#L42) |
 | `is_read` | `Boolean` | — | — | — | — | — | False | [`backend/models/reader.py:43`](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py#L43) |
 | `created_at` | `DateTime(timezone=True)` | — | — | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/reader.py:44`](https://github.com/ismigar/Gnosi/blob/main/backend/models/reader.py#L44) |
+
+## `booking_links` — `BookingLink`
+
+| Columna | Tipus | Clau primària | Admet nuls | Únic | Índex | Clau forana | Valor per defecte al codi | Font |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `id` | `String` | yes | no | — | — | — | lambda: uuid.uuid4().hex | [`backend/models/booking.py:15`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L15) |
+| `token` | `String` | — | no | yes | — | — | redacted | [`backend/models/booking.py:16`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L16) |
+| `workspace_id` | `String` | — | no | — | yes | `workspaces.id` | — | [`backend/models/booking.py:17`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L17) |
+| `vault_id` | `String` | — | no | — | yes | `vaults.id` | — | [`backend/models/booking.py:18`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L18) |
+| `owner_id` | `String` | — | no | — | yes | `users.id` | — | [`backend/models/booking.py:19`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L19) |
+| `title` | `String` | — | no | — | — | — | — | [`backend/models/booking.py:20`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L20) |
+| `config_json` | `Text` | — | no | — | — | — | — | [`backend/models/booking.py:21`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L21) |
+| `expires_at` | `DateTime(timezone=True)` | — | no | — | — | — | — | [`backend/models/booking.py:22`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L22) |
+| `revoked` | `Boolean` | — | no | — | — | — | False | [`backend/models/booking.py:23`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L23) |
+| `created_at` | `DateTime(timezone=True)` | — | no | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/booking.py:24`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L24) |
+
+## `booking_reservations` — `BookingReservation`
+
+| Columna | Tipus | Clau primària | Admet nuls | Únic | Índex | Clau forana | Valor per defecte al codi | Font |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `id` | `String` | yes | no | — | — | — | — | [`backend/models/booking.py:34`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L34) |
+| `link_id` | `String` | — | no | — | yes | `booking_links.id` | — | [`backend/models/booking.py:35`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L35) |
+| `workspace_id` | `String` | — | no | — | — | `workspaces.id` | — | [`backend/models/booking.py:36`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L36) |
+| `owner_id` | `String` | — | no | — | — | `users.id` | — | [`backend/models/booking.py:37`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L37) |
+| `idempotency_key` | `String` | — | no | — | — | — | — | [`backend/models/booking.py:38`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L38) |
+| `request_hash` | `String` | — | no | — | — | — | — | [`backend/models/booking.py:39`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L39) |
+| `start_at` | `DateTime(timezone=True)` | — | no | — | — | — | — | [`backend/models/booking.py:40`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L40) |
+| `end_at` | `DateTime(timezone=True)` | — | no | — | — | — | — | [`backend/models/booking.py:41`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L41) |
+| `blocked_start` | `DateTime(timezone=True)` | — | no | — | — | — | — | [`backend/models/booking.py:42`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L42) |
+| `blocked_end` | `DateTime(timezone=True)` | — | no | — | — | — | — | [`backend/models/booking.py:43`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L43) |
+| `name` | `String` | — | no | — | — | — | — | [`backend/models/booking.py:44`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L44) |
+| `email` | `String` | — | no | — | — | — | — | [`backend/models/booking.py:45`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L45) |
+| `status` | `String` | — | no | — | — | — | 'pending' | [`backend/models/booking.py:46`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L46) |
+| `event_id` | `String` | — | yes | — | — | — | — | [`backend/models/booking.py:47`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L47) |
+| `created_at` | `DateTime(timezone=True)` | — | no | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/booking.py:48`](https://github.com/ismigar/Gnosi/blob/main/backend/models/booking.py#L48) |
 
 ## `contacts` — `Contact`
 
@@ -221,6 +260,35 @@ Discovered **19 mapped tables** and **165 mapped columns**.
 | `managed_key` | `String` | — | yes | yes | yes | — | — | [`backend/models/pdf_annotation.py:52`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L52) |
 | `created_at` | `DateTime(timezone=True)` | — | yes | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/pdf_annotation.py:59`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L59) |
 | `updated_at` | `DateTime(timezone=True)` | — | yes | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/pdf_annotation.py:64`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py#L64) |
+
+## `public_form_submissions` — `FormSubmission`
+
+| Columna | Tipus | Clau primària | Admet nuls | Únic | Índex | Clau forana | Valor per defecte al codi | Font |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `id` | `String` | yes | no | — | — | — | lambda: uuid.uuid4().hex | [`backend/models/forms.py:34`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L34) |
+| `form_id` | `String` | — | no | — | yes | `public_forms.id` | — | [`backend/models/forms.py:35`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L35) |
+| `request_id` | `String` | — | no | — | — | — | — | [`backend/models/forms.py:36`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L36) |
+| `fingerprint` | `String` | — | no | — | — | — | — | [`backend/models/forms.py:37`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L37) |
+| `payload_json` | `Text` | — | no | — | — | — | — | [`backend/models/forms.py:38`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L38) |
+| `completed` | `Boolean` | — | no | — | — | — | False | [`backend/models/forms.py:39`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L39) |
+| `created_at` | `DateTime(timezone=True)` | — | no | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/forms.py:40`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L40) |
+
+## `public_forms` — `FormDefinition`
+
+| Columna | Tipus | Clau primària | Admet nuls | Únic | Índex | Clau forana | Valor per defecte al codi | Font |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `id` | `String` | yes | no | — | — | — | lambda: uuid.uuid4().hex | [`backend/models/forms.py:16`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L16) |
+| `token` | `String` | — | no | yes | yes | — | redacted | [`backend/models/forms.py:17`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L17) |
+| `workspace_id` | `String` | — | no | — | yes | — | — | [`backend/models/forms.py:18`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L18) |
+| `vault_id` | `String` | — | no | — | — | `vaults.id` | — | [`backend/models/forms.py:19`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L19) |
+| `owner_id` | `String` | — | no | — | — | `users.id` | — | [`backend/models/forms.py:20`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L20) |
+| `table_id` | `String` | — | no | — | — | — | — | [`backend/models/forms.py:21`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L21) |
+| `title` | `String` | — | no | — | — | — | — | [`backend/models/forms.py:22`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L22) |
+| `description` | `Text` | — | no | — | — | — | '' | [`backend/models/forms.py:23`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L23) |
+| `fields_json` | `Text` | — | no | — | — | — | — | [`backend/models/forms.py:24`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L24) |
+| `expires_at` | `DateTime(timezone=True)` | — | yes | — | — | — | — | [`backend/models/forms.py:25`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L25) |
+| `revoked` | `Boolean` | — | no | — | — | — | False | [`backend/models/forms.py:26`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L26) |
+| `created_at` | `DateTime(timezone=True)` | — | no | — | — | — | lambda: datetime.now(timezone.utc) | [`backend/models/forms.py:27`](https://github.com/ismigar/Gnosi/blob/main/backend/models/forms.py#L27) |
 
 ## `share_links` — `ShareLink`
 

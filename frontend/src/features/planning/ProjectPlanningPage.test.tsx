@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   projectReferences: vi.fn(),
   projectQuery: vi.fn(),
   baselinesQuery: vi.fn(),
+  allocationQuery: vi.fn(),
+  worklogsQuery: vi.fn(),
 }));
 
 
@@ -60,7 +62,9 @@ vi.mock('../../shared/api/usePlanningData', () => ({
   useCreatePlanningBaseline: () => ({ mutateAsync: mocks.createBaseline }),
   useCreatePlanningLevelingProposal: () => ({ mutateAsync: mocks.createProposal }),
   useCreatePlanningWorklog: () => ({ mutateAsync: mocks.createWorklog }),
-  usePlanningAllocation: () => ({
+  usePlanningAllocation: (projectId: string, enabled: boolean) => {
+    mocks.allocationQuery(projectId, enabled);
+    return ({
     data: {
       assignment_summaries: [],
       buckets: [],
@@ -71,7 +75,8 @@ vi.mock('../../shared/api/usePlanningData', () => ({
     isError: false,
     isFetching: false,
     refetch: mocks.refetch,
-  }),
+  });
+  },
   usePlanningBaselines: (projectId: string, enabled: boolean) => {
     mocks.baselinesQuery(projectId, enabled);
     return {
@@ -81,12 +86,15 @@ vi.mock('../../shared/api/usePlanningData', () => ({
     refetch: mocks.refetch,
     };
   },
-  usePlanningWorklogs: () => ({
+  usePlanningWorklogs: (projectId: string, enabled: boolean) => {
+    mocks.worklogsQuery(projectId, enabled);
+    return ({
     data: { worklogs: [] },
     isError: false,
     isFetching: false,
     refetch: mocks.refetch,
-  }),
+  });
+  },
   useProjectSchedule: (projectId: string, enabled: boolean) => {
     mocks.projectQuery(projectId, enabled);
     return {
@@ -185,7 +193,7 @@ afterEach(() => {
 
 
 describe('ProjectPlanningPage', () => {
-  it('renders the typed schedule and creates a baseline and worklog', async () => {
+  it.each([['2.5', 2.5], ['-1', -1]])('renders the typed schedule and creates a baseline and a %s-hour worklog', async (hoursInput, expectedHours) => {
     act(() => {
       renderPage();
     });
@@ -226,7 +234,7 @@ describe('ProjectPlanningPage', () => {
     await act(async () => {
       setControlValue(task, 'task-1');
       setControlValue(date, '2026-08-29');
-      setControlValue(hours, '2.5');
+      setControlValue(hours, hoursInput);
       await Promise.resolve();
     });
     const addWorklog = [...container.querySelectorAll('button')]
@@ -238,7 +246,7 @@ describe('ProjectPlanningPage', () => {
     });
     expect(mocks.createWorklog).toHaveBeenCalledWith({
       date: '2026-08-29',
-      hours: 2.5,
+      hours: expectedHours,
       task_id: 'task-1',
     });
   });
@@ -282,6 +290,8 @@ describe('ProjectPlanningPage', () => {
     });
     expect(mocks.projectQuery).toHaveBeenLastCalledWith('default', false);
     expect(mocks.baselinesQuery).toHaveBeenLastCalledWith('default', false);
+    expect(mocks.allocationQuery).toHaveBeenLastCalledWith('default', false);
+    expect(mocks.worklogsQuery).toHaveBeenLastCalledWith('default', false);
     expect(mocks.projectReferences).toHaveBeenCalledWith(
       'projects-table', { include_templates: false }, expect.any(AbortSignal),
     );
@@ -294,9 +304,51 @@ describe('ProjectPlanningPage', () => {
     });
     expect(mocks.projectQuery).toHaveBeenLastCalledWith('project-1', true);
     expect(mocks.baselinesQuery).toHaveBeenLastCalledWith('project-1', true);
+    expect(mocks.allocationQuery).toHaveBeenLastCalledWith('project-1', true);
+    expect(mocks.worklogsQuery).toHaveBeenLastCalledWith('project-1', true);
     const selector = container.querySelector('select[aria-label="Project"]');
     expect(selector).toHaveProperty('disabled', false);
     expect(selector).toHaveProperty('value', 'project-1');
     expect(mocks.projectQuery.mock.calls).not.toContainEqual(['default', true]);
   });
+
+  it('drops drafts and an in-flight proposal when the selected project changes', async () => {
+    mocks.pluginSettings.mockReturnValue({ project_table_id: 'projects-table' });
+    mocks.projectReferences.mockResolvedValue([
+      { id: 'project-a', title: 'Alpha' }, { id: 'project-b', title: 'Beta' },
+    ]);
+    let resolveProposal!: (value: unknown) => void;
+    mocks.createProposal.mockReturnValue(new Promise((resolve) => { resolveProposal = resolve; }));
+    await act(async () => { renderPage(); await new Promise((resolve) => { setTimeout(resolve, 0); }); });
+    await act(async () => { await new Promise((resolve) => { setTimeout(resolve, 0); }); });
+    const baseline = container.querySelector('input[aria-label="Baseline name"]');
+    const selector = container.querySelector('select[aria-label="Project"]');
+    const generate = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('Generate proposal'));
+    if (!(baseline instanceof HTMLInputElement) || !(selector instanceof HTMLSelectElement) || !generate) throw new Error('Planning controls missing');
+    await act(async () => { setControlValue(baseline, 'Alpha baseline'); generate.click(); await Promise.resolve(); });
+    expect(mocks.createProposal).toHaveBeenCalledWith('project-a');
+    await act(async () => { setControlValue(selector, 'project-b'); await Promise.resolve(); });
+    expect(mocks.allocationQuery).toHaveBeenLastCalledWith('project-b', true);
+    expect(mocks.worklogsQuery).toHaveBeenLastCalledWith('project-b', true);
+    expect(container.querySelector('input[aria-label="Baseline name"]')).toHaveProperty('value', '');
+    await act(async () => {
+      resolveProposal({ id: 'proposal-a', projectId: 'project-a', proposals: [{}], scheduleRevision: 1, sourceEtags: {} });
+      await Promise.resolve();
+    });
+    expect(container.textContent).not.toContain('Apply proposal');
+    expect(mocks.applyProposal).not.toHaveBeenCalled();
+  });
+
+  it('shows mutation errors without losing the baseline draft', async () => {
+    mocks.createBaseline.mockRejectedValue(new Error('Stale revision'));
+    act(() => { renderPage(); });
+    const baseline = container.querySelector('input[aria-label="Baseline name"]');
+    if (!(baseline instanceof HTMLInputElement)) throw new Error('Baseline input missing');
+    act(() => { setControlValue(baseline, 'Keep this draft'); });
+    const create = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('Create'));
+    await act(async () => { create?.click(); await Promise.resolve(); });
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('Could not create the baseline.');
+    expect(baseline.value).toBe('Keep this draft');
+  });
+
 });

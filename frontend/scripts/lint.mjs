@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const cwd = fileURLToPath(new URL('../', import.meta.url));
 const eslint = fileURLToPath(new URL('../node_modules/eslint/bin/eslint.js', import.meta.url));
-const batchSize = 256;
+const batchSize = 128;
 
 function exitStatus(result) {
   if (result.error) console.error(result.error.message);

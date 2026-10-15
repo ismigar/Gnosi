@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-15
+last_verified: 2026-10-15
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -18,6 +18,7 @@ source_paths:
   - frontend/src/shared/api/mail.ts
   - frontend/src/shared/api/mail-specialized.ts
 tests:
+  - frontend/src/features/mail/page/mailAccountVisibility.test.tsx
   - backend/tests/test_mail_thread_completeness.py
   - frontend/src/features/mail/components/MailViewer.resilience.test.tsx
   - tests/e2e/tests/disposable/mail-thread-completeness.spec.ts
@@ -59,6 +60,10 @@ implementacions copiades ni façanes de compatibilitat. El trasllat de
 responsabilitats no canvia l'enviament,
 el desament d'esborranys, la identitat de carpetes, la privacitat ni les
 operacions dels proveïdors.
+
+## Visibilitat dels comptes
+
+La barra lateral de correu té un interruptor de visibilitat per compte configurat. Les adreces dels comptes amagats es desen localment a `mail.hiddenAccounts`, normalitzades. La visibilitat es combina amb el selector de comptes abans de carregar els missatges i els comptadors de carpetes; les carpetes, les vistes desades, les categories, les etiquetes i la cerca comparteixen el mateix àmbit. Si tots els comptes estan amagats, la bústia queda buida; canviar la visibilitat tanca el missatge seleccionat. Aquesta preferència de visualització no desactiva la sincronització ni elimina les identitats d’enviament.
 
 ## Sincronització
 
@@ -185,6 +190,11 @@ compatibilitat amb els clients 2.x.
 ## Invariants
 
 - La sincronització és idempotent per a un identificador de missatge del proveïdor.
+- Les sincronitzacions IMAP en segon pla conserven les còpies locals Markdown i HTML
+  quan un UID no apareix a la cerca del servidor, inclosos els resultats buits i
+  els canvis d'espai d'UID. Els moviments remots, la retenció o els resultats
+  absents no autoritzen a eliminar l'arxiu local; l'eliminació correspon a les
+  accions explícites de correu de l'usuari.
 - Un missatge fallit utilitza un savepoint i no interromp el lot del compte.
 - Les etiquetes i vistes desades són estat local de l'aplicació, no etiquetes
   del proveïdor, tret que hi hagi un mapatge explícit.

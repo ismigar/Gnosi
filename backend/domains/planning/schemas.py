@@ -287,6 +287,7 @@ class BaselineRecordResponse(StoredPlanningRecord):
     scheduleRevision: int
     schedule: ProjectScheduleResponse
     allocation: AllocationResponse | None = None
+    allocationProjectId: str | None = None
 
 
 class BaselineCreateResponse(BaseModel):

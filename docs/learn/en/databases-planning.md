@@ -43,3 +43,11 @@ An empty view may simply have a restrictive filter. Check dates, statuses and de
 
 - [Create pages, links and attachments](pages-files.md)
 - [Enable plugins, connect services and automate](integrations-automations.md)
+
+## Public table forms
+
+Enable **External sharing**, then open a table and choose **Public forms**. Publish a form with a title, description, selected questions, help text, required fields and an expiry. Supported questions include text, numbers, dates, email, URLs, phone numbers, checkboxes and table choices. Formula, relation and internal fields are not exposed.
+
+Share the generated link from a Gnosi server your visitors can reach. They can submit a response without a Gnosi account and cannot read existing records. Each accepted submission creates one page in the pinned table through the normal page pipeline. Retrying an interrupted submission uses the same request identity and does not create another record. Revoke the link to stop new submissions. Removing the owner's write access or changing an exposed field's schema also stops the form.
+
+Links always expire: choose 7, 30, 90 or 365 days when publishing. Publish a new form when you need a new link after expiry.

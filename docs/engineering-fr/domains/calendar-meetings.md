@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-03
+last_verified: 2026-10-13
 source_paths:
   - backend/api/calendar_routes.py
   - backend/domains/calendar/geocoding.py
@@ -123,3 +123,19 @@ dictionnaires directement indexables aux appelants existants.
 ## Aspects de vérification
 
 Testez le confinement des chemins locaux, la normalisation des événements, les récurrences, le masquage, la concurrence des rappels, le choix de compte, les fuseaux horaires et les parcours Playwright de création, modification et suppression. La QA des réunions doit enregistrer ou téléverser un fichier de test, suivre l'état du traitement et vérifier la page produite dans le vault.
+
+## Écritures CalDAV conditionnelles, visioconférences et réservations
+
+Les écritures privées conservent le fournisseur explicite lors de la création, de la mise à jour par PATCH et de la suppression par DELETE. Si plusieurs comptes partagent une adresse courriel, cette indication sélectionne le bon compte ; les fournisseurs non pris en charge sont rejetés avant tout accès. DELETE accepte le paramètre de requête facultatif `provider`, que les clients existants peuvent omettre. Les noms des calendriers servent d’étiquettes ; les destinations d’écriture utilisent les identifiants du fournisseur, du compte et du calendrier.
+
+`domains/calendar/provider_operations.py` résout le fournisseur du compte configuré. CalDAV utilise une découverte et des URL confinées, des PUT/DELETE conditionnels et l'ETag précédent. Le frontend conserve l'ETag renvoyé pour la prochaine sauvegarde. Un changement concurrent renvoie un conflit. Les séries récurrentes CalDAV ne sont pas modifiables. Les nouveaux événements avec heure utilisent des instants UTC pour transmettre des données complètes sans dépendre de l'extension de fuseaux horaires par référence du serveur ; les mises à jour conservent la représentation des dates existantes. `conference_links.py` normalise le lien vidéo en `join_url` ; l'inspecteur ouvre uniquement HTTP(S), sans identifiants ni référent.
+
+Le texte inchangé conserve ses espaces et tous les paramètres de la propriété. Une modification conserve les paramètres de langue et d’extension, mais retire ALTREP, dont la représentation alternative peut décrire l’ancienne valeur.
+
+`domains/booking/` agrège les périodes occupées des calendriers sélectionnés, y compris locaux, et applique fuseau horaire, semaine ouvrée, durée, marges, préavis et horizon. Une erreur du fournisseur ferme la disponibilité. La requête de repli CalDAV conserve la distinction entre jours nominaux et heures écoulées, et bloque les récurrences non prises en charge, notamment les heures locales inexistantes qu'elle ne peut pas résoudre de manière fiable. La destination doit être sélectionnée. Les identifiants externes étant globaux à l'installation, ces réservations sont limitées au propriétaire de l'espace personnel.
+
+La récurrence locale ignore les heures inexistantes avant d’appliquer COUNT ; les occurrences réelles exclues consomment toujours le compte. Les événements avec heure conservent leur durée écoulée et ceux sur toute la journée conservent des jours nominaux. L’expansion à compte fini est validée depuis la première occurrence, avec une limite de 3 000 occurrences évaluées ; les intervalles invalides et les expansions non prises en charge ferment la disponibilité.
+
+L'accès anonyme est limité à GET `/api/booking/public/{token}`, GET `/slots` et POST `/reservations` sous ce lien. La gestion privée utilise `/api/booking/links` et la consultation agrégée `/api/booking/availability`. Une réservation persistante dans SQLite sérialise les créneaux des liens du même propriétaire ainsi que ceux de propriétaires différents consultant le même vault ou calendrier externe avant de créer l'événement. Les calendriers de propriétaires sans ressources partagées ne se bloquent pas entre eux. Une nouvelle tentative ne répète pas une écriture incertaine : la demande en attente bloque le créneau et reste visible au propriétaire. Les changements simultanés dans d'autres clients ne peuvent pas participer à cette transaction.
+
+La lecture sélectionne les métadonnées du compte sans déverrouiller les identifiants. L’authentification reste dans l’adaptateur du fournisseur sélectionné, et la sélection du fournisseur, du compte et du calendrier est conservée lorsque les comptes partagent une adresse électronique.

@@ -7,8 +7,15 @@ export function PageBody({ context }: { context: PageEditorController }) {
     <ErrorBoundary>
       {isCodeView ? (
         <MarkdownCodeEditor
+          key={context.composerRevision}
+          registerSave={context.registerSave}
+          readOnly={!isEditable || context.composerLocked}
+          isActivePage={context.isActivePage}
+          onOpenInCurrentTab={context.onOpenInCurrentTab ?? undefined}
+          onOpenInNewTab={context.onOpenInNewTab ?? undefined}
+          onOpenParallel={context.onOpenParallel}
           noteFilename={noteFilename}
-          initialContent={initialContent}
+          initialContent={context.composedContent ?? initialContent}
           metadata={metadata}
           onUpdate={onUpdate}
           onRefreshNotes={onRefreshNotes}
@@ -17,8 +24,10 @@ export function PageBody({ context }: { context: PageEditorController }) {
         />
       ) : (
         <EditorInner
+          key={context.composerRevision}
+          registerSave={context.registerSave}
           noteFilename={noteFilename}
-          initialContent={initialContent}
+          initialContent={context.composedContent ?? initialContent}
           metadata={metadata}
           onUpdate={onUpdate}
           idToTitle={idToTitle}
@@ -30,7 +39,7 @@ export function PageBody({ context }: { context: PageEditorController }) {
           saveStatus={saveStatus}
           setSaveStatus={setSaveStatus}
           metadataRef={metadataRef}
-          isEditable={isEditable}
+          isEditable={isEditable && !context.composerLocked}
           onOpenPageViewModal={context.openPageViewModalFromContext}
           applyViewSectionRef={applyViewSectionRef}
           registerEditorApi={registerEditorApi}

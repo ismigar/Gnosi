@@ -36,7 +36,7 @@ afterEach(async () => { await harness?.unmount(); harness = undefined; });
 
 describe('dashboard to global search data preservation', () => {
   it.each([false, true])('preserves opaque rows without traversal with dialog open=%s', async isOpen => {
-    harness = await renderController('', controller => <BrowseDialogs {...controller} />);
+    harness = await renderController('', controller => <BrowseDialogs {...controller} onRestoreWorkspace={() => Promise.resolve()} />);
     const cycle: Record<string, unknown> = {};
     cycle.self = cycle;
     const arrayCycle: unknown[] = [];

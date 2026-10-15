@@ -28,6 +28,9 @@ export interface EventMetadata extends Record<string, unknown> {
     exdates?: string[] | string;
     attendees?: EventAttendee[];
     readonly?: boolean;
+    join_url?: string;
+    _etag?: string | null;
+    _resource_url?: string | null;
     _provider?: string;
     _account?: string;
     _calendar_id?: string;

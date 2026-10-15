@@ -153,4 +153,18 @@ describe('Drawings API', () => {
       status: 503,
     } satisfies Partial<GnosiApiError>);
   });
+  it('pins the complete captured request context when loading a saved workspace drawing', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({}));
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    await fetchDrawing('scoped-drawing', controller.signal, { vaultId: 'vault-a', workspaceId: 'workspace-a', userId: 'user-a', userEmail: 'a@example.invalid' });
+    const request = requestAt(fetchMock, 0);
+    expect(request.headers.get('X-Vault-ID')).toBe('vault-a');
+    expect(request.headers.get('X-Workspace-ID')).toBe('workspace-a');
+    expect(request.headers.get('X-User-ID')).toBe('user-a');
+    expect(request.headers.get('X-User-Email')).toBe('a@example.invalid');
+    controller.abort();
+    expect(request.signal.aborted).toBe(true);
+  });
+
 });

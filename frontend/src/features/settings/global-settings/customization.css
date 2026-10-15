@@ -1,0 +1,11 @@
+.customization-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 16px 0; }
+.customization-actions .gnosi-input { flex: 1; min-width: 160px; }
+.customization-list { display: grid; gap: 14px; }
+.customization-row { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(120px, 180px) auto; align-items: center; gap: 10px; }
+.customization-row label { color: var(--text-primary); font-size: 13px; }
+.customization-card { padding: 16px; border: 1px solid var(--settings-border); border-radius: 12px; }
+.customization-card textarea { min-height: 140px; width: 100%; resize: vertical; font-family: var(--font-mono, monospace); }
+.customization-card .customization-actions { margin-top: 0; }
+.customization-card [role="switch"] { flex-shrink: 0; }
+.customization-section { margin-top: 28px; }
+@media (max-width: 700px) { .customization-row { grid-template-columns: minmax(0, 1fr) auto; } .customization-row label { grid-column: 1 / -1; } }

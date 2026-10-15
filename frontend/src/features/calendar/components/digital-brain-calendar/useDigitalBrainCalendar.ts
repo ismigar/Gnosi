@@ -20,7 +20,7 @@ export function useDigitalBrainCalendar(props: DigitalBrainCalendarProps) {
     allNotes, calendarConfigs = EMPTY_CALENDAR_CONFIGS, colorMap = EMPTY_CALENDAR_COLORS,
     dateField = '', endDateField = '', ignoreCalendarFilter = false,
     initialView = 'dayGridMonth', onApplyTemplate, onContextMenu, onDateClick,
-    onDatesSet, onDeletePage, onDeleteSelected, onEventEdit, onNoteSelect, onRefresh,
+    onDatesSet, onDeletePage, onDeleteSelected, onEventEdit, onEventView, onNoteSelect, onRefresh,
     onTitleChange, searchQuery = '', selectedCalendars = EMPTY_CALENDAR_SOURCES,
     showHeaderToolbar = false,
   } = props;
@@ -91,12 +91,13 @@ export function useDigitalBrainCalendar(props: DigitalBrainCalendarProps) {
       native.preventDefault();
       toggleSelect(id, native);
     } else if (readonly) {
-      toast.error(t('calendar.external_readonly_error', 'External event (read-only).'));
+      if (id && onEventView) onEventView(id);
+      else toast.error(t('calendar.external_readonly_error', 'External event (read-only).'));
     } else if (id) {
       if (onEventEdit) onEventEdit(id);
       else onNoteSelect?.(id);
     }
-  }, [selectedIds, toggleSelect, t, onEventEdit, onNoteSelect]);
+  }, [selectedIds, toggleSelect, t, onEventEdit, onEventView, onNoteSelect]);
 
   const handleChange = useCallback((change: CalendarChange, mode: 'move' | 'resize'): void => {
     void persistCalendarChange(change, mode, { onEventEdit, onRefresh, dateField, endDateField }, t);

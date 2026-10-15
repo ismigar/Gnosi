@@ -983,6 +983,7 @@ dependencies = [
     { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "langgraph-checkpoint-sqlite" },
+    { name = "markdown-it-py" },
     { name = "networkx" },
     { name = "numpy", version = "1.26.4", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
@@ -998,6 +999,7 @@ dependencies = [
     { name = "python-jose", extra = ["cryptography"] },
     { name = "python-multipart" },
     { name = "pyyaml" },
+    { name = "regex" },
     { name = "requests" },
     { name = "sentence-transformers", version = "5.7.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
     { name = "sentence-transformers", version = "6.0.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
@@ -1029,6 +1031,7 @@ dev = [
     { name = "types-python-dateutil" },
     { name = "types-python-jose" },
     { name = "types-pyyaml" },
+    { name = "types-regex" },
 ]
 docs = [
     { name = "mkdocs" },
@@ -1083,6 +1086,7 @@ requires-dist = [
     { name = "langchain-openai", specifier = ">=1.4.2" },
     { name = "langgraph", specifier = ">=1.2.9" },
     { name = "langgraph-checkpoint-sqlite", specifier = ">=3.1.1" },
+    { name = "markdown-it-py", specifier = ">=4.2.0" },
     { name = "networkx", specifier = ">=3.6.1" },
     { name = "numpy", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'", specifier = ">=1.26.4" },
     { name = "numpy", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'", specifier = ">=1.26.4,<2" },
@@ -1098,6 +1102,7 @@ requires-dist = [
     { name = "python-jose", extras = ["cryptography"], specifier = ">=3.5.0" },
     { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "regex", specifier = ">=2026.7.19" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "sentence-transformers", specifier = ">=5.6.0" },
     { name = "sentencepiece", specifier = ">=0.2.2" },
@@ -1126,6 +1131,7 @@ dev = [
     { name = "types-python-dateutil", specifier = ">=2.9.0.20260807" },
     { name = "types-python-jose", specifier = ">=3.5.0.20260408" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20260815" },
+    { name = "types-regex", specifier = ">=2026.9.29.20261005" },
 ]
 docs = [
     { name = "mkdocs", specifier = ">=1.6.1,<2" },
@@ -4078,6 +4084,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/9f/72/b56089aeee6c496d969bac42376bedb6e3eeab4682e1018fa3137122f94b/types_pyyaml-6.0.12.20260815.tar.gz", hash = "sha256:28764110c9cf35846e733da32d8d734df7473c5dde9ef67c3b7332ec0e819858", size = 18545, upload-time = "2026-08-15T02:41:51.532Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/08/52/eefeba09be4ef2a1eb989eb92934561e8e502a6ee3c32654996e4be7e399/types_pyyaml-6.0.12.20260815-py3-none-any.whl", hash = "sha256:6f332212b7e191f3afd5016a713c510b6340593b7ebec573c7d5d20aa5386d3b", size = 21148, upload-time = "2026-08-15T02:41:50.555Z" },
+]
+
+[[package]]
+name = "types-regex"
+version = "2026.9.29.20261005"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d5/e9/4995560975e0b953b6f114ad655ae529a7dcc11d03fbbc9ab95cf0ebdea2/types_regex-2026.9.29.20261005.tar.gz", hash = "sha256:544b8f5b45e4d10e3d3222c92f8280426588cc98fd34eb1e2c5311f7c68a4189", size = 13907, upload-time = "2026-10-05T07:49:30.328Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b3/bf/3e900befa0c479d277db0f115c668bec681249a26e6dee44c0520080fa8b/types_regex-2026.9.29.20261005-py3-none-any.whl", hash = "sha256:24a74fa7fdf0c17300a499f49c0b6dc6865851e138d76a24922d220c048fa9d3", size = 11194, upload-time = "2026-10-05T07:49:29.454Z" },
 ]
 
 [[package]]

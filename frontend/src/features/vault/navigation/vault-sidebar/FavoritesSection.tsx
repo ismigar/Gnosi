@@ -10,10 +10,12 @@ import { SortableFavoriteItem } from './NavigationRows';
 import type { FavoritesMode } from './types';
 import { useFavorites } from './useFavorites';
 import type { SidebarController } from './useSidebarController';
+import { BookmarksSection } from '../../../../shared/bookmarks/BookmarksSection';
 export function FavoritesSection({ view }: { view: SidebarController; }) {
     const { favoritePages, setIsFavoritesExpanded, isFavoritesExpanded, t, onPageSelect } = view;
     const { isFavoritesSortOpen, setIsFavoritesSortOpen, favoritesSortMenuRef, setFavoritesSortMode, favoritesSort, favoriteSensors, handleFavoriteDragEnd, sortedFavoritePages } = useFavorites(favoritePages);
     return (<>
+        <BookmarksSection onPageSelect={onPageSelect} pages={view.pages} activePageId={view.activePageId} />
         {favoritePages.length > 0 && (
             <>
                 <div className="group relative flex items-center px-3 mt-6 mb-1">

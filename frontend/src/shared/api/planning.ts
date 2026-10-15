@@ -57,9 +57,11 @@ export async function fetchPlanningState(): Promise<PlanningState> {
 }
 
 
-export async function fetchPlanningAllocation(): Promise<PlanningAllocation> {
+export async function fetchPlanningAllocation(projectId?: string): Promise<PlanningAllocation> {
   return unwrapApiResult<PlanningAllocation, unknown>(
-    await apiClient.GET('/api/planning/allocation'),
+    await apiClient.GET('/api/planning/allocation', {
+      params: { query: { project_id: projectId } },
+    }),
   );
 }
 
@@ -103,10 +105,11 @@ export async function createPlanningBaseline({
 
 export async function fetchPlanningWorklogs(
   taskId?: string,
+  projectId?: string,
 ): Promise<PlanningWorklogList> {
   return unwrapApiResult<PlanningWorklogList, unknown>(
     await apiClient.GET('/api/planning/worklogs', {
-      params: { query: { task_id: taskId } },
+      params: { query: { task_id: taskId, project_id: projectId } },
     }),
   );
 }

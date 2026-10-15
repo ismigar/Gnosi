@@ -8,19 +8,19 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Domaine | État | Guide | Fichiers source | Fichiers de test | Directives trouvées |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 839 | 293 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1087 | 303 | 0 |
-| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 530 | 160 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 888 | 314 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1142 | 321 | 0 |
+| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 533 | 163 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 65 | 40 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 145 | 56 | 0 |
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 310 | 129 | 0 |
 | `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 50 | 13 | 0 |
-| `mail` | **covered** | [`Mail`](../domains/mail.md) | 98 | 49 | 0 |
-| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 83 | 35 | 0 |
+| `mail` | **covered** | [`Mail`](../domains/mail.md) | 99 | 51 | 0 |
+| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 88 | 41 | 0 |
 | `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 24 | 8 | 0 |
 | `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 74 | 23 | 0 |
-| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 170 | 52 | 0 |
-| `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 41 | 29 | 0 |
+| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 173 | 54 | 0 |
+| `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 51 | 36 | 0 |
 | `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 18 | 10 | 0 |
 | `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 143 | 50 | 0 |
 

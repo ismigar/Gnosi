@@ -281,6 +281,15 @@ class ActiveVaultMiddleware:
             # active-vault cookie must not turn that read into SQLite/cloud I/O.
             await self.app(scope, receive, send)
             return
+        if str(scope.get("path", "")).startswith(("/api/forms/public/", "/api/booking/public/")):
+            # Opaque links pin their own vault after authorization. Visitor
+            # headers and cookies must not select storage or trigger its I/O.
+            public_token = active_vault_path.set(None)
+            try:
+                await self.app(scope, receive, send)
+            finally:
+                active_vault_path.reset(public_token)
+            return
         scope, canonical_identity, should_continue = await _rewrite_canonical_scope(
             dict(scope),
             send,

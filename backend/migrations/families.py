@@ -31,6 +31,8 @@ FAMILIES = {
                 "mgmt_0003",
                 "mgmt_0004",
                 "mgmt_0005",
+                "mgmt_0006",
+                "mgmt_0007",
             ),
         ),
         MigrationFamily(

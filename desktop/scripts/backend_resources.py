@@ -114,6 +114,8 @@ MIGRATIONS = (
     "management_0003",
     "management_0004",
     "management_0005",
+    "management_0006",
+    "management_0007",
     "notebooks_0001",
     "notebooks_0002",
     "notebooks_0003",
