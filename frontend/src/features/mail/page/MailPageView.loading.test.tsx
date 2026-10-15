@@ -38,6 +38,7 @@ function Harness() {
   const [selectedMail, setSelectedMail] = useState<MailPageController['selectedMail']>(null);
   const [isComposing, setIsComposing] = useState(false);
   const controller: MailPageController = {
+    visibleAccounts: [], hiddenAccounts: [], toggleAccountVisibility: vi.fn(),
     accounts: [], identities: [], selectedAccount: null, selectedMail, setSelectedMail,
     isComposing, showMailboxSidebar: true, composeData: {initialSubject: 'Saved draft'},
     handleCompose: () => { setIsComposing(true); },

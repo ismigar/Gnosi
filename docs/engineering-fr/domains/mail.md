@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-15
+last_verified: 2026-10-15
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -18,6 +18,7 @@ source_paths:
   - frontend/src/shared/api/mail.ts
   - frontend/src/shared/api/mail-specialized.ts
 tests:
+  - frontend/src/features/mail/page/mailAccountVisibility.test.tsx
   - backend/tests/test_mail_thread_completeness.py
   - frontend/src/features/mail/components/MailViewer.resilience.test.tsx
   - tests/e2e/tests/disposable/mail-thread-completeness.spec.ts
@@ -55,6 +56,10 @@ utilisent l'éditeur via son entrée publique explicitement révisée ; il n'y a
 ni copies d'implémentation ni façades de compatibilité. Le déplacement ne change ni
 l'envoi, ni les brouillons, ni l'identité des dossiers, ni la confidentialité,
 ni les opérations des fournisseurs.
+
+## Visibilité des comptes
+
+La barre latérale du courrier propose un interrupteur de visibilité par compte configuré. Les adresses des comptes masqués sont normalisées et enregistrées localement dans `mail.hiddenAccounts`. La visibilité est combinée au sélecteur de comptes avant de charger les messages et les compteurs de dossiers ; dossiers, vues enregistrées, catégories, étiquettes et recherche partagent ainsi le même périmètre. Masquer tous les comptes produit une boîte vide ; changer la visibilité ferme le message sélectionné. Cette préférence d’affichage ne désactive pas la synchronisation et ne supprime pas les identités d’envoi.
 
 ## Synchronisation
 
