@@ -141,7 +141,7 @@ export function MailPageView({ controller }: MailPageViewProps) {
           <div className={`mail-workspace__list ${hasDetail ? 'mail-workspace__list--with-detail' : ''}`}>
             <MailList
               key={JSON.stringify([controller.selectedAccount?.email, controller.visibleAccounts.map(account => account.email || account.username)])}
-              account={null}
+              account={controller.visibleAccounts.length > 0 ? controller.selectedAccount : null}
               accounts={controller.visibleAccounts}
               accountsLoading={controller.accountsLoading}
               folder={controller.activeFolder}
