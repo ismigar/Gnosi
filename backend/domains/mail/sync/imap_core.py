@@ -246,19 +246,10 @@ class ImapMailSyncCore:
             log.error(f"[IMAP] Search failed for {folder_name}: {e}")
             return 0
 
-        # --- Reconcile: remove vault files no longer on server ---
-        # Guard against destroying the local mirror on an empty/spurious search:
-        # `b''.split()` yields an empty set (empty folder, or a transient OK-empty
-        # response some servers return), and reconcile would then unlink() every
-        # local message for this folder. Only reconcile when the server actually
-        # reported messages.
-        if server_uids:
-            self._reconcile_folder(email_account, folder_name, server_uids)
-        else:
-            log.info(
-                f"[IMAP] {email_account}/{folder_name}: empty server search; "
-                "skipping reconcile to avoid deleting the local mirror"
-            )
+        # A search result is not authority to delete the local archive. UIDs
+        # may disappear after moves, retention, incomplete responses or a
+        # UIDVALIDITY reset. Keep both Markdown and HTML copies; explicit user
+        # mail actions own deletion instead of background pull synchronization.
 
         # --- Download new messages ---
         vault_uids = self._get_vault_uids(email_account, folder_name)
@@ -285,54 +276,6 @@ class ImapMailSyncCore:
         self._sync_flags(imap, email_account, folder_name, recent_uids)
 
         return count
-
-    def _reconcile_folder(
-        self: Any, email_account: str, folder_name: str, server_uids: set[Any]
-    ) -> Any:
-        """Remove vault files whose imap_uid is no longer present on server.
-
-        Note: this iterates filesystem operations, not DB rows. There is no
-        SQL transaction to wrap. If the process crashes mid-loop, the next
-        sync will reconcile any leftover files (idempotent by design).
-        """
-        if not self.mail_folder:
-            return
-
-        # Normalise server_uids to a set of strings so comparison is unambiguous.
-        # imap.uid("search") returns bytes, but downstream code may pass strings.
-        normalized_server_uids: set[str] = set()
-        for sid in server_uids:
-            if isinstance(sid, bytes):
-                try:
-                    normalized_server_uids.add(sid.decode())
-                except Exception:
-                    continue
-            else:
-                normalized_server_uids.add(str(sid))
-
-        removed = 0
-        for file_path in list(self.mail_folder.glob("*.md")):
-            try:
-                content = file_path.read_text(encoding="utf-8")
-                meta = self._parse_meta(content)
-                if meta.get("account") != email_account:
-                    continue
-                if meta.get("imap_folder") != folder_name:
-                    continue
-                uid = meta.get("imap_uid")
-                if uid and str(uid) not in normalized_server_uids:
-                    file_path.unlink(missing_ok=True)
-                    html = file_path.with_suffix(".html")
-                    if html.exists():
-                        html.unlink(missing_ok=True)
-                    removed += 1
-                    log.info(f"[IMAP] Reconciled (deleted from server): {file_path.name}")
-            except Exception as e:
-                log.debug(f"[IMAP] Error reconciling {file_path.name}: {e}")
-        if removed:
-            log.info(
-                f"[IMAP] Reconciliation for {folder_name}: {removed} files deleted from the Vault"
-            )
 
     def _get_vault_uids(self: Any, email_account: str, folder_name: str) -> set[Any]:
         """Return set of imap_uid strings already in vault for this account+folder."""

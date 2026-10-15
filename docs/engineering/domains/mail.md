@@ -175,6 +175,10 @@ and OpenAPI shapes remain compatible with 2.x clients.
 ## Invariants
 
 - Sync is idempotent for a provider message identifier.
+- IMAP background pulls preserve local Markdown and HTML copies when a UID is
+  absent from the server search, including empty results and UID namespace
+  changes. Remote moves, retention or missing search results do not authorize
+  deleting the local archive; explicit user mail actions own deletion.
 - A failed message uses a savepoint and does not abort the account batch.
 - Tags and saved views are local application state, not provider labels unless
   an explicit mapping exists.
