@@ -174,6 +174,12 @@ restent compatibles avec les clients 2.x.
 ## Invariants
 
 - La synchronisation est idempotente pour un identifiant de message du fournisseur.
+- Les synchronisations IMAP en arrière-plan conservent les copies locales Markdown
+  et HTML lorsqu'un UID est absent de la recherche du serveur, y compris les
+  résultats vides et les changements d'espace d'UID. Les déplacements distants,
+  la rétention ou les résultats absents n'autorisent pas la suppression de
+  l'archive locale ; seules les actions explicites de messagerie de l'utilisateur
+  en sont responsables.
 - Un message en échec utilise un point de sauvegarde transactionnel et n'interrompt pas le lot du compte.
 - Les étiquettes et vues enregistrées sont un état applicatif local, pas des libellés du fournisseur sauf correspondance explicite.
 - Les en-têtes de réponse préservent l'identité du fil.
