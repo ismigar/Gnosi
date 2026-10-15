@@ -5,7 +5,7 @@ import type {
     PlanningState,
 } from '../../../shared/api/planning';
 import type { VaultPageReference } from '../../../shared/api/vaults';
-import type { VaultTable } from './pluginSettingsModel';
+import type { VaultProperty, VaultTable } from './pluginSettingsModel';
 
 export interface HolidayRow {
     readonly date: string;
@@ -50,6 +50,7 @@ export interface ProjectPlanningController {
     readonly setHoursPerDayInput: (value: string) => void;
     readonly setPlanningSettings: (patch: Readonly<Record<string, unknown>>) => void;
     readonly setResourceDraft: (draft: PlanningResourceInput) => void;
+    readonly projectRelationFields: readonly VaultProperty[];
     readonly sortedProjects: readonly VaultPageReference[];
     readonly sortedTables: readonly VaultTable[];
     readonly sortedTasks: readonly VaultPageReference[];

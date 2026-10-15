@@ -28,6 +28,7 @@ source_paths:
   - backend/domains/vault/views/sorting.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
+  - backend/domains/planning/project_scope.py
   - backend/api/virtual_fields.py
   - backend/services/table_system_dates.py
   - backend/services/option_catalogs.py
@@ -76,6 +77,7 @@ tests:
   - backend/tests/test_planning_engine.py
   - backend/tests/test_planning_agent_tools.py
   - backend/tests/test_planning_scheduler.py
+  - backend/tests/test_planning_project_isolation.py
   - backend/tests/test_project_planning.py
   - backend/tests/test_virtual_fields_graph_projection.py
   - backend/tests/test_pipeline_naming.py
@@ -314,6 +316,21 @@ de manera acotada els iteradors d'ocurrències RRULE, tot preservant els
 identificadors estables de tasca i les comprovacions d'ETag.
 
 ## Planificació de projectes
+
+Els ajustos del projecte permeten triar la relació de tasca que identifica cada projecte.
+El planificador resol l'identificador estable del camp mitjançant l'esquema de tasques,
+inclosos el nom actual i els àlies. Consultar calendaris reconstrueix les dades derivades
+sense escriure Markdown. Les tasques eliminades o reassignades deixen una instantània buida
+amb una nova revisió al projecte anterior; les instantànies sense canvis mantenen la revisió.
+Si un fitxer de tasca no és accessible, no es publica una instantània incompleta.
+
+Les consultes d'assignació i de registres de treball accepten un `project_id` opcional;
+si s'omet, mantenen l'informe global del Vault. La pàgina de projecte limita aquestes
+consultes, la memòria cau i els esborranys al projecte i Vault seleccionats. Les línies base
+capturen els costos del projecte. L'anivellament considera la càrrega global dels recursos,
+però només proposa assignacions del projecte seleccionat. La propietat explícita de
+l'assignació té prioritat; les assignacions sense projecte segueixen la tasca.
+Aplicar una proposta valida la revisió de planificació i l'àmbit abans de desar res.
 
 El frontend amb tipatge estricte de `features/planning/` és responsable de
 la pàgina de planificació i de les seves proves de comportament, accessibles

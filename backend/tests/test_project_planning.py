@@ -168,7 +168,9 @@ def test_leveling_proposal_requires_current_revision_and_etags(route_store, monk
     monkeypatch.setattr(routes, "_index", lambda: Index())
     state = route_store.load()
     state["resources"] = [_resource()]
-    state["assignments"] = [_assignment(), _assignment("a2", task_id="task-2")]
+    state["assignments"] = [
+        _assignment(project_id="p1"), _assignment("a2", task_id="task-2", project_id="p1")
+    ]
     route_store.save(state)
 
     async def scenario():

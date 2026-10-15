@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act } from 'react';
+import { act, useLayoutEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetApiTestStorage } from '../../../tests/api-request';
-import { usePlanningWorklogs } from './usePlanningData';
+import { resetApiTestStorage, writeApiTestStorage } from '../../../tests/api-request';
+import { ACTIVE_VAULT_ID_KEY } from './vault-context';
+import { useCreatePlanningBaseline, usePlanningWorklogs } from './usePlanningData';
 
 const reactTestGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean };
 reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
@@ -85,4 +86,30 @@ describe('planning cloud read recovery', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(container.querySelector('output')?.getAttribute('data-state')).toBe('error');
   });
+});
+
+
+it('rejects a mutation from the previous vault before sending a request', async () => {
+  writeApiTestStorage(ACTIVE_VAULT_ID_KEY, 'vault-a');
+  let mutation: ReturnType<typeof useCreatePlanningBaseline> | undefined;
+  function MutationHarness() {
+    const value = useCreatePlanningBaseline();
+    useLayoutEffect(() => { mutation = value; });
+    return null;
+  }
+  const fetchMock = vi.fn<typeof fetch>();
+  vi.stubGlobal('fetch', fetchMock);
+  await act(async () => {
+    root.render(<QueryClientProvider client={client}><MutationHarness /></QueryClientProvider>);
+    await Promise.resolve();
+  });
+  const previousMutation = mutation;
+  if (!previousMutation) throw new Error('Mutation not initialized');
+  writeApiTestStorage(ACTIVE_VAULT_ID_KEY, 'vault-b');
+  await act(async () => {
+    await expect(previousMutation.mutateAsync({
+      projectId: 'project-a', baseline: { name: 'Do not write', schedule_revision: 1 },
+    })).rejects.toThrow('The selected vault has changed');
+  });
+  expect(fetchMock).not.toHaveBeenCalled();
 });

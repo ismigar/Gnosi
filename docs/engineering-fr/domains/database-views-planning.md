@@ -28,6 +28,7 @@ source_paths:
   - backend/domains/vault/views/sorting.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
+  - backend/domains/planning/project_scope.py
   - backend/api/virtual_fields.py
   - backend/services/table_system_dates.py
   - backend/services/option_catalogs.py
@@ -76,6 +77,7 @@ tests:
   - backend/tests/test_planning_engine.py
   - backend/tests/test_planning_agent_tools.py
   - backend/tests/test_planning_scheduler.py
+  - backend/tests/test_planning_project_isolation.py
   - backend/tests/test_project_planning.py
   - backend/tests/test_virtual_fields_graph_projection.py
   - backend/tests/test_pipeline_naming.py
@@ -316,6 +318,21 @@ consomme de manière bornée les itérateurs d'occurrences RRULE tout en
 préservant les identifiants stables des tâches et les vérifications ETag.
 
 ## Planification de projets
+
+Les paramètres du projet permettent de choisir la relation de tâche qui identifie chaque
+projet. Le planificateur résout son identifiant de champ stable grâce au schéma des tâches,
+y compris le nom actuel et les alias. La lecture des calendriers reconstruit les données
+dérivées sans écrire de Markdown. Les tâches supprimées ou réaffectées laissent un instantané
+vide avec une nouvelle révision dans leur ancien projet ; les instantanés inchangés conservent
+leur révision. Un fichier de tâche inaccessible empêche de publier un instantané incomplet.
+
+Les lectures des affectations et des journaux de travail acceptent un `project_id`
+facultatif ; sans ce paramètre, elles conservent le rapport global du Vault. La page de
+projet limite ces lectures, les caches et les brouillons au projet et au Vault sélectionnés.
+Les références de base capturent les coûts du projet. Le nivellement considère la charge
+globale des ressources, mais ne propose que des affectations du projet sélectionné.
+L'appartenance explicite de l'affectation est prioritaire ; les affectations sans projet
+suivent leur tâche. L'application valide la révision et le périmètre avant toute sauvegarde.
 
 Le frontend strictement typé `features/planning/` gère la page de planification
 et ses tests de comportement derrière un point d'entrée public à chargement

@@ -140,3 +140,65 @@ it('isolates references and every planning read when vaults reuse table and proj
     container.remove();
   }
 });
+
+it('isolates all project reads and hides the old project while another project is loading', async () => {
+  vi.useFakeTimers();
+  activateVault('vault-a');
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  let releaseBeta!: () => void;
+  const betaReady = new Promise<void>((resolve) => { releaseBeta = resolve; });
+  const fetchMock = vi.fn<typeof fetch>(async (request) => {
+    if (!(request instanceof Request)) throw new Error('Expected a Request');
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/references')) return Response.json([
+      { id: 'alpha', title: 'Alpha project' }, { id: 'beta', title: 'Beta project' },
+    ]);
+    const project = url.searchParams.get('project_id')
+      ?? url.pathname.match(/\/projects\/(alpha|beta)\//)?.[1];
+    if (!project) throw new Error(`Unscoped project request: ${url}`);
+    if (project === 'beta') await betaReady;
+    return Response.json(payloadFor(url.pathname, project === 'alpha' ? 'Alpha' : 'Beta'));
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  try {
+    await act(async () => {
+      root.render(<QueryClientProvider client={client}><ProjectPlanningPage /></QueryClientProvider>);
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    expect(container.textContent).toContain('Alpha task');
+    expect(container.textContent).toContain('Alpha baseline');
+    expect(container.textContent).toContain('111');
+    const selector = container.querySelector('select[aria-label="Project"]');
+    if (!(selector instanceof HTMLSelectElement)) throw new Error('Project selector missing');
+    await act(async () => {
+      selector.value = 'beta';
+      selector.dispatchEvent(new Event('change', { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(container.textContent).not.toContain('Alpha task');
+    expect(container.textContent).not.toContain('Alpha baseline');
+    expect(container.textContent).not.toContain('111');
+    await act(async () => { releaseBeta(); await vi.advanceTimersByTimeAsync(100); });
+    expect(container.textContent).toContain('Beta task');
+    expect(container.textContent).toContain('Beta baseline');
+    expect(container.textContent).toContain('222');
+    const projectQueries = fetchMock.mock.calls.flatMap(([request]) => {
+      if (!(request instanceof Request)) return [];
+      const url = new URL(request.url);
+      return url.pathname.endsWith('/allocation') || url.pathname.endsWith('/worklogs')
+        ? [[url.pathname.split('/').at(-1), url.searchParams.get('project_id')]] : [];
+    });
+    expect(projectQueries).toEqual(expect.arrayContaining([
+      ['allocation', 'alpha'], ['worklogs', 'alpha'], ['allocation', 'beta'], ['worklogs', 'beta'],
+    ]));
+  } finally {
+    releaseBeta();
+    act(() => { root.unmount(); });
+    client.clear();
+    container.remove();
+  }
+});

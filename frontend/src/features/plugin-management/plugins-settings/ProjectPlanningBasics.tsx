@@ -13,6 +13,10 @@ export function ProjectPlanningBasics({ controller }: ProjectPlanningBasicsProps
     const tp = (key: string, fallback: string): string => (
         t(`settings.plugins.${key}`, { defaultValue: fallback })
     );
+    const configuredRelation = stringSetting(controller.config, 'project_relation_field_id');
+    const selectedRelation = controller.projectRelationFields.find((field) => field.id === configuredRelation)
+        ?? controller.projectRelationFields.find((field) => field.name === configuredRelation)
+        ?? controller.projectRelationFields.find((field) => field.aliases?.includes(configuredRelation));
     const weekdayOptions: readonly [number, string][] = [
         [1, tp('planning_monday', 'Mon')], [2, tp('planning_tuesday', 'Tue')],
         [3, tp('planning_wednesday', 'Wed')], [4, tp('planning_thursday', 'Thu')],
@@ -46,6 +50,23 @@ export function ProjectPlanningBasics({ controller }: ProjectPlanningBasicsProps
             </div>
             {tableSelect('project_table_id', tp('planning_project_table', 'Projects table'))}
             {tableSelect('task_table_id', tp('planning_task_table', 'Tasks table'))}
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ color: 'var(--text-secondary, #475569)', fontSize: 12, fontWeight: 600 }}>
+                    {tp('planning_project_relation', 'Project relation in the tasks table')}
+                </span>
+                <select
+                    style={SELECT_STYLE}
+                    value={selectedRelation?.id ?? ''}
+                    disabled={controller.loading || !stringSetting(controller.config, 'task_table_id') || !stringSetting(controller.config, 'project_table_id')}
+                    onChange={(event) => { controller.setPlanningSettings({ project_relation_field_id: event.target.value }); }}
+                >
+                    <option value="">{tp('planning_table_none', '— Not configured —')}</option>
+                    {controller.projectRelationFields.map((field) => <option key={field.id} value={field.id}>{field.name}</option>)}
+                </select>
+                <span style={{ color: 'var(--text-tertiary, #94a3b8)', fontSize: 12 }}>
+                    {tp('planning_project_relation_help', 'Choose the task field that links each task to its project.')}
+                </span>
+            </label>
             <fieldset style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <legend style={{ color: 'var(--text-secondary, #475569)', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
                     {tp('planning_working_week', 'Working week')}
