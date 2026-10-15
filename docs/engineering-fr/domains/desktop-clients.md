@@ -185,6 +185,12 @@ donc pas laisser l’enregistrement des vues indéfiniment en attente de connexi
 occupées. Ce délai n’interrompt pas une lecture bloquée du système de fichiers
 dans le backend et ne garantit pas la disponibilité des fichiers dans le cloud.
 
+L’annulation inclut la fermeture du corps après réception des en-têtes. Le
+proxy annule la requête au backend quand le consommateur ferme le corps et
+maintient la propagation de l’annulation jusqu’à la fin du flux. Les flux
+d’événements de Courrier abandonnés doivent libérer les connexions HTTP avant
+le démarrage de la page suivante.
+
 L’annulation par le processus de rendu se propage aux requêtes vers le backend.
 Les autres réponses de l’API, y compris les flux des agents et les écritures,
 conservent leur durée et leur comportement de diffusion habituels. Le contrat

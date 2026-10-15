@@ -63,8 +63,43 @@ test('streams keep their lifetime, request body, and cookie handling', async () 
     upstreamSignal = init.signal;
     return new Response('event: done\n\n', { headers: { 'content-type': 'text/event-stream' } });
   }, 1);
-  assert.equal(upstreamSignal, request.signal);
+  assert.notEqual(upstreamSignal, request.signal);
+  assert.equal(upstreamSignal.aborted, false);
   assert.equal(await response.text(), 'event: done\n\n');
+  assert.equal(upstreamSignal.aborted, false);
+});
+
+test('closing six event streams releases upstream slots before another page starts', async () => {
+  let occupied = 0;
+  const fetchBackend = async (_url, { signal }) => {
+    occupied += 1;
+    signal.addEventListener('abort', () => { occupied -= 1; }, { once: true });
+    return new Response(new ReadableStream({
+      start(target) { target.enqueue(new TextEncoder().encode('event: ready\n\n')); },
+    }), { headers: { 'content-type': 'text/event-stream' } });
+  };
+  const responses = await Promise.all(Array.from({ length: 6 }, () => proxyBackendRequest(
+    new Request('app://gnosi/api/mail/events'), 'http://localhost/events', fetchBackend,
+  )));
+  assert.equal(occupied, 6);
+  await Promise.all(responses.map(response => response.body.cancel('renderer reloaded')));
+  assert.equal(occupied, 0);
+});
+
+test('renderer abort still reaches a stream after its response headers arrive', async () => {
+  const controller = new AbortController();
+  let upstreamSignal;
+  const response = await proxyBackendRequest(new Request('app://gnosi/api/mail/events', {
+    signal: controller.signal,
+  }), 'http://localhost/events', async (_url, { signal }) => {
+    upstreamSignal = signal;
+    return new Response(new ReadableStream({
+      start(target) {
+        signal.addEventListener('abort', () => target.error(signal.reason), { once: true });
+      },
+    }));
+  });
   controller.abort();
   assert.equal(upstreamSignal.aborted, true);
+  await assert.rejects(response.text(), { name: 'AbortError' });
 });

@@ -180,6 +180,12 @@ la galeria no poden deixar el desament de vistes indefinidament en espera de
 connexions ocupades. Aquest límit no interromp una lectura bloquejada del
 sistema de fitxers al backend ni garanteix la disponibilitat dels fitxers al núvol.
 
+La cancel·lació inclou tancar el cos de la resposta després de rebre les
+capçaleres. El proxy avorta la petició al backend quan el consumidor tanca el
+cos i manté la propagació de l’avortament fins que acaba la transmissió. Els
+streams d’esdeveniments de Correu abandonats han d’alliberar les connexions
+HTTP abans que s’iniciï la pàgina següent.
+
 La cancel·lació del renderer es propaga a les peticions cap al backend. Les
 altres respostes de l’API, incloses les transmissions dels agents i les
 escriptures, conserven la durada i el comportament de transmissió habituals.
