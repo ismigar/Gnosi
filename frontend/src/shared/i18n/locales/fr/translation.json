@@ -1819,6 +1819,8 @@
       },
       "planning_intro": "Choisissez les tables des projets et des tâches, puis définissez le calendrier des champs de période enrichis.",
       "planning_project_table": "Table des projets",
+      "planning_project_relation": "Relation au projet dans la table des tâches",
+      "planning_project_relation_help": "Choisissez le champ des tâches qui relie chaque tâche à son projet.",
       "planning_task_table": "Table des tâches",
       "planning_table_none": "— Non configuré —",
       "planning_working_week": "Semaine de travail",
@@ -6214,6 +6216,10 @@
     "no_files": "Aucun fichier trouvé"
   },
   "planning_page": {
+    "baseline_error": "Impossible de créer la référence.",
+    "worklog_error": "Impossible d’ajouter le relevé de travail.",
+    "proposal_error": "Impossible de générer la proposition de nivellement.",
+    "apply_error": "Impossible d’appliquer la proposition. Générez une nouvelle proposition et réessayez.",
     "title": "Planification de projets",
     "subtitle": "Planning, chemin critique, ressources et diagnostics.",
     "project_id": "ID du projet",
