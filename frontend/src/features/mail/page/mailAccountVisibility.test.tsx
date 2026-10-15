@@ -9,9 +9,12 @@ import type { MailListProps } from '../components/MailList';
 const fixtures = vi.hoisted(() => ({
   accounts: [{ email: 'one@example.test' }, { username: 'two@example.test' }] as const,
   lists: [] as MailListProps[],
+  disabledSelection: false,
 }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-vi.mock('../../../shared/api/integrations', () => ({ fetchIntegrations: () => Promise.resolve({ mail_accounts: fixtures.accounts }) }));
+vi.mock('../../../shared/api/integrations', () => ({ fetchIntegrations: () => Promise.resolve(fixtures.disabledSelection
+  ? { mail_accounts: [{ ...fixtures.accounts[0], enabled: false }], default_mail: fixtures.accounts[0].email }
+  : { mail_accounts: fixtures.accounts }) }));
 vi.mock('../../../shared/api/query-client', () => ({ queryClient: { query: ({ queryFn }: { queryFn: (options: {signal: AbortSignal}) => unknown }) => queryFn({signal: new AbortController().signal}) } }));
 vi.mock('../../../shared/hooks/useMediaQuery', () => ({ useMediaQuery: () => false }));
 vi.mock('../../../shared/api/mail', () => ({ fetchMailCounts: () => Promise.resolve({ INBOX: { unread: 2, total: 3 } }), moveMailMessage: vi.fn() }));
@@ -33,7 +36,7 @@ async function update(operation: () => void) {
   await act(async () => { operation(); await Promise.resolve(); });
 }
 const visibilityKey = defineStorageKey('mail.hiddenAccounts', stringStorageCodec);
-afterEach(() => { removeStorage(visibilityKey); fixtures.lists.length = 0; });
+afterEach(() => { removeStorage(visibilityKey); fixtures.lists.length = 0; fixtures.disabledSelection = false; });
 
 it('applies persistent visibility to every list scope, counts and detail, including all accounts off', async () => {
   window.matchMedia = vi.fn().mockReturnValue({ matches: false });
@@ -91,5 +94,38 @@ it('applies persistent visibility to every list scope, counts and detail, includ
     expect(list().accounts).toEqual([]);
     await toggle(0);
     expect(list().accounts).toMatchObject([fixtures.accounts[0]]);
+  } finally { act(() => { root.unmount(); }); host.remove(); }
+});
+
+
+it('preserves explicit selection of an account with synchronization disabled while honoring its visibility', async () => {
+  fixtures.disabledSelection = true;
+  window.matchMedia = vi.fn().mockReturnValue({ matches: false });
+  const host = document.createElement('div'); document.body.append(host);
+  const root = createRoot(host);
+  const latest = () => {
+    const value = fixtures.lists.at(-1);
+    if (!value) throw new Error('Mail list has not rendered');
+    return value;
+  };
+  const toggle = async () => {
+    await update(() => {
+      const control = host.querySelector<HTMLElement>('[role=switch]');
+      if (!control) throw new Error('Account visibility switch is missing');
+      control.click();
+    });
+  };
+  try {
+    await update(() => { root.render(<Harness />); });
+    expect(latest().account?.email).toBe('one@example.test');
+    expect(current.counts.INBOX?.unread).toBe(2);
+    await toggle();
+    expect(latest().account).toBeNull();
+    expect(latest().accounts).toEqual([]);
+    expect(current.counts).toEqual({});
+    await toggle();
+    expect(latest().account?.email).toBe('one@example.test');
+    expect(latest().account?.enabled).toBe(false);
+    expect(current.counts.INBOX?.unread).toBe(2);
   } finally { act(() => { root.unmount(); }); host.remove(); }
 });
