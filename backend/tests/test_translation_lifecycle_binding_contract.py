@@ -511,3 +511,29 @@ def test_staleness_resolves_local_persist_then_local_stale_callback(
         ("persist", "table", ["Draft"]),
         ("stale", "child", path, "Draft"),
     ]
+
+
+@pytest.mark.parametrize("kind", ["row", "page"])
+def test_canonical_translation_creation_uses_domain_service(monkeypatch: pytest.MonkeyPatch, kind: str) -> None:
+    """Internal translation cannot rely on FastAPI resolving handler defaults."""
+    from backend.domains.vault.api import core_routes
+    from backend.domains.vault.pages import create_service
+
+    request = PageSaveRequest(title="Translated", content="Body", metadata={})
+    tasks = BackgroundTasks()
+    receipt: dict[str, object] = {"id": "translated"}
+    calls: list[object] = []
+
+    async def create(request_arg: PageSaveRequest, tasks_arg: object, user_id: str | None,
+                     dependencies: create_service.CreatePageDependencies) -> dict[str, object]:
+        assert request_arg is request and tasks_arg is tasks
+        assert user_id is None
+        assert dependencies is core_routes._CREATE_PAGE_DEPENDENCIES
+        calls.append(request_arg)
+        return receipt
+
+    monkeypatch.setattr(vault_routes, "create_page", core_routes.create_page)
+    monkeypatch.setattr(create_service, "create_page", create)
+    dependencies = lifecycle._ROW_TRANSLATION_DEPENDENCIES if kind == "row" else lifecycle._PAGE_TRANSLATION_DEPENDENCIES
+    assert _run(dependencies.create_page(request, tasks)) is receipt
+    assert calls == [request]

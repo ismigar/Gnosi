@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 30 | 97 |
 | Vitest | 707 | 3124 |
-| pytest | 689 | 5198 |
+| pytest | 689 | 5199 |
 
 ## Fitxers
 
@@ -1288,7 +1288,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_translation_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_helpers.py) | 38 | Python AST |
 | pytest | [`backend/tests/test_translation_http_open_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_http_open_contract.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_translation_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_index.py) | 7 | Python AST |
-| pytest | [`backend/tests/test_translation_lifecycle_binding_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_lifecycle_binding_contract.py) | 9 | Python AST |
+| pytest | [`backend/tests/test_translation_lifecycle_binding_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_lifecycle_binding_contract.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_translation_open_effects_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_open_effects_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_translation_open_helpers_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_open_helpers_contract.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_translation_open_io_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_open_io_contract.py) | 5 | Python AST |

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-14
+last_verified: 2026-10-15
 source_paths:
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -38,6 +38,8 @@ source_paths:
   - backend/domains/vault/search
   - frontend/src/shared/bookmarks
 tests:
+  - backend/tests/test_e2e_option_catalogs.py
+  - backend/tests/test_translation_lifecycle_binding_contract.py
   - backend/tests/test_vault_content_search.py
   - backend/tests/test_page_save_concurrency.py
   - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
@@ -899,3 +901,5 @@ La cabecera de un solo documento muestra Cerrar pestaña únicamente cuando el i
 Añada `--resource-id <id>` a `preview` para clasificar solo un recurso; las acciones posteriores reutilizan esa selección guardada. La clasificación vincula al propietario personal verificado, excluye contextos adjuntos y memorias revisadas, desactiva las delegaciones y reserva como máximo 4096 tokens de salida por lote sin cambiar los límites de gasto.
 
 Los encabezados plegables admiten Alt/Opción+Intro con el cursor dentro del título. El botón nativo se puede enfocar con Tab y activar con Intro o Espacio, con foco visible, etiqueta traducida y estado de despliegue. La activación conserva el cursor o el foco del botón y el estado de despliegue guardado. Intro sin modificadores conserva su comportamiento de edición; los párrafos hijos, los controles incrustados y la composición de texto no pliegan una sección padre.
+
+La traducción interna de filas y páginas crea registros derivados mediante el servicio canónico de creación de páginas, sin llamar a un handler HTTP con dependencias FastAPI sin resolver. Se conservan las sustituciones de creación con dos argumentos. El test de integración de catálogos activa explícitamente la traducción en el Vault temporal para que la prueba del bloqueo de borradores alcance la regla de acción.
