@@ -1696,6 +1696,8 @@
       },
       "planning_intro": "Choose the project and task tables, then define the calendar used by enhanced period fields.",
       "planning_project_table": "Projects table",
+      "planning_project_relation": "Project relation in the tasks table",
+      "planning_project_relation_help": "Choose the task field that links each task to its project.",
       "planning_task_table": "Tasks table",
       "planning_table_none": "— Not configured —",
       "planning_working_week": "Working week",
@@ -5664,6 +5666,10 @@
     "no_files": "No files found"
   },
   "planning_page": {
+    "baseline_error": "Could not create the baseline.",
+    "worklog_error": "Could not add the work log.",
+    "proposal_error": "Could not generate the leveling proposal.",
+    "apply_error": "Could not apply the proposal. Generate a new proposal and try again.",
     "title": "Project planning",
     "subtitle": "Schedule, critical path, resources and diagnostics.",
     "project_id": "Project ID",

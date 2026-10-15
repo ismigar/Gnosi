@@ -4,12 +4,13 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { resetApiTestStorage, writeApiTestStorage } from '../../../../tests/api-request';
 import { ACTIVE_VAULT_ID_KEY, getActiveVaultId } from '../../../shared/api/vault-context';
 import { useProjectPlanningController } from './useProjectPlanningController';
+import { ProjectPlanningBasics } from './ProjectPlanningBasics';
 import type { ProjectPlanningController } from './projectPlanningModel';
 
 const api = vi.hoisted(() => ({
     fetchVaultTables: vi.fn(), fetchVaultPageReferencesByTable: vi.fn(),
 }));
-const plugins = vi.hoisted(() => ({
+const plugins = vi.hoisted((): { config: Record<string, unknown>; setPluginSettings: ReturnType<typeof vi.fn> } => ({
     config: { task_table_id: 'tasks', project_table_id: 'projects' },
     setPluginSettings: vi.fn(),
 }));
@@ -20,14 +21,15 @@ vi.mock('../../../shared/plugins/usePlugins', () => ({ usePlugins: () => ({
     getPluginSettings: () => plugins.config, setPluginSettings: plugins.setPluginSettings,
 }) }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({
-    i18n: { language: 'en' }, t: (key: string) => key,
+    i18n: { language: 'en' }, t: (key: string, options?: { defaultValue?: string }) => options?.defaultValue ?? key,
 }) }));
 let controller: ProjectPlanningController;
 let root: Root;
+let container: HTMLDivElement;
 function Harness() {
     const value = useProjectPlanningController();
     useLayoutEffect(() => { controller = value; });
-    return null;
+    return <ProjectPlanningBasics controller={value} />;
 }
 beforeEach(() => {
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -37,7 +39,8 @@ beforeEach(() => {
     api.fetchVaultPageReferencesByTable.mockImplementation((id: string) => Promise.resolve([
         { id: `${id}-b`, title: 'Zulu' }, { id: `${id}-a`, title: 'Alpha' },
     ]));
-    root = createRoot(document.createElement('div'));
+    container = document.createElement('div');
+    root = createRoot(container);
 });
 afterEach(() => {
     act(() => { root.unmount(); });
@@ -160,4 +163,40 @@ it.each(['resolve', 'reject'] as const)('ignores old-vault requests that %s afte
     expectCurrentRows('Beta');
     expect(plugins.config).toEqual({ task_table_id: 'tasks', project_table_id: 'projects' });
     expect(plugins.setPluginSettings).not.toHaveBeenCalled();
+});
+
+
+it.each(['field-project', 'Project', 'Former project'])('offers sorted compatible relation fields and reads saved reference %s without writing on load', async (reference) => {
+    plugins.config.project_relation_field_id = reference;
+    api.fetchVaultTables.mockResolvedValue([{ id: 'tasks', properties: [
+        { id: 'field-z', name: 'Zulu', type: 'relation', relation_database_id: 'projects' },
+        { id: 'field-project', name: 'Project', aliases: ['Former project'], type: 'relation', relation_database_id: 'projects' },
+        { id: 'field-a', name: 'Alpha', type: 'relation' },
+        { id: 'other', name: 'Other table', type: 'relation', relation_database_id: 'other-table' },
+        { id: 'text', name: 'Text', type: 'text' },
+    ] }]);
+    await act(async () => { root.render(<Harness />); await Promise.resolve(); });
+    expect(controller.projectRelationFields.map((field) => field.id)).toEqual(['field-a', 'field-project', 'field-z']);
+    const selector = [...container.querySelectorAll('select')].find((element) =>
+        element.closest('label')?.textContent.includes('Project relation in the tasks table'));
+    expect(selector).toBeDefined();
+    expect(selector?.value).toBe('field-project');
+    expect(plugins.setPluginSettings).not.toHaveBeenCalled();
+    act(() => {
+        if (!selector) throw new Error('Relation selector missing');
+        selector.value = 'field-a';
+        selector.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(plugins.setPluginSettings).toHaveBeenCalledWith('project-planning', { project_relation_field_id: 'field-a' });
+});
+
+it.each(['task_table_id', 'project_table_id'])('clears stale relation and assignment selection only when the user changes %s', async (key) => {
+    plugins.config.project_relation_field_id = 'project-field';
+    await act(async () => { root.render(<Harness />); await Promise.resolve(); });
+    act(() => { controller.setAssignmentDraft({ ...controller.assignmentDraft, task_id: 'old-task', project_id: 'old-project' }); });
+    expect(plugins.setPluginSettings).not.toHaveBeenCalled();
+    act(() => { controller.setPlanningSettings({ [key]: 'new-table' }); });
+    expect(plugins.setPluginSettings).toHaveBeenCalledWith('project-planning', { [key]: 'new-table', project_relation_field_id: '' });
+    expect(controller.assignmentDraft.task_id).toBe('');
+    expect(controller.assignmentDraft.project_id).toBe('');
 });
