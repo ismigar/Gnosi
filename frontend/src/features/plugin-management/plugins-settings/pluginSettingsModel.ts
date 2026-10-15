@@ -32,6 +32,7 @@ export function isPluginSection(value: string): value is PluginSection {
 }
 
 export interface VaultProperty {
+    readonly aliases?: readonly string[];
     readonly id: string;
     readonly name: string;
     readonly relation_database_id?: string;
@@ -84,6 +85,7 @@ function stringList(value: unknown): readonly string[] {
 function normalizeProperty(value: unknown): VaultProperty | null {
     if (!isRecord(value) || typeof value.id !== 'string') return null;
     return {
+        ...(Array.isArray(value.aliases) ? { aliases: stringList(value.aliases) } : {}),
         id: value.id,
         name: optionalString(value.name) ?? value.id,
         relation_database_id: optionalString(value.relation_database_id),

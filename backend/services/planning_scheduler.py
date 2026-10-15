@@ -8,16 +8,18 @@ import json
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from threading import Lock, Timer
+from threading import Lock, RLock, Timer
 from typing import Any, Protocol, TypedDict, cast
 
 from backend.services import builtin_plugins
 from backend.services.planning_engine import ScheduleIndex, build_schedule, normalize_period
 from backend.services.project_planning import DEFAULT_CALENDAR_ID, PlanningStore
+from backend.services.field_resolver import get_meta_value
 
 
 _timers: dict[tuple[str, str], Timer] = {}
 _lock = Lock()
+_refresh_lock = RLock()
 
 
 class VaultPlanningPort(Protocol):
@@ -62,14 +64,32 @@ def _period_field(metadata: dict[str, Any]) -> tuple[str, dict[str, Any]] | None
     return None
 
 
-def _project_ids(metadata: dict[str, Any], relation_key: str | None) -> list[str]:
+def _task_table(vault_path: Path, table_id: str) -> dict[str, Any]:
+    """Read the schema without registry repairs or task mutations."""
+    path = vault_path / "BD" / "vault_db_registry.json"
+    if not path.exists():
+        path = vault_path / "vault_db_registry.json"
+    if not path.exists():
+        return {}
+    registry = json.loads(read_metadata_text(path, encoding="utf-8"))
+    if not isinstance(registry, dict) or not isinstance(registry.get("tables", []), list):
+        raise ValueError("The planning task schema is unavailable")
+    return next((cast(dict[str, Any], table) for table in registry.get("tables", [])
+                 if isinstance(table, dict) and table.get("id") == table_id), {})
+
+
+def _project_ids(
+    metadata: dict[str, Any], relation_key: str | None, table: dict[str, Any] | None = None
+) -> list[str]:
     if not relation_key:
         return ["default"]
-    raw = metadata.get(relation_key)
+    raw = get_meta_value(metadata, table or {}, relation_key)
     values = raw if isinstance(raw, list) else [raw]
-    result = [
-        str(item.get("id") if isinstance(item, dict) else item).strip() for item in values if item
-    ]
+    result = list(dict.fromkeys(
+        str(item.get("id") or "" if isinstance(item, dict) else item).strip()
+        for item in values if item
+    ))
+    result = [item for item in result if item]
     return result or ["default"]
 
 
@@ -81,16 +101,18 @@ def _read_tasks(
 
     projects: dict[str, list[dict[str, Any]]] = defaultdict(list)
     sources: dict[str, SourceRecord] = {}
+    table = _task_table(vault_path, task_table_id) if relation_key else {}
     for path in vault_path.rglob("*.md"):
-        if ".gnosi" in path.parts or ".history" in path.parts:
+        if {".gnosi", ".history", ".trash"}.intersection(path.relative_to(vault_path).parts):
             continue
         try:
             metadata, _ = vault.parse_frontmatter(read_metadata_text(path, encoding="utf-8"), path)
-        except OSError:
+        except FileNotFoundError:
             continue
         if (
             str(metadata.get("table_id") or metadata.get("database_table_id") or "")
             != task_table_id
+            or metadata.get("is_template") is True
         ):
             continue
         found = _period_field(metadata)
@@ -110,7 +132,7 @@ def _read_tasks(
             "field": field_name,
             "etag": task["etag"],
         }
-        for project_id in _project_ids(metadata, relation_key):
+        for project_id in _project_ids(metadata, relation_key, table):
             projects[project_id].append(task)
     return projects, sources
 
@@ -151,8 +173,13 @@ def _write_automatic_boundaries(
     return conflicts
 
 
-def recalculate_vault(vault_path: Path) -> None:
-    """Rebuilds configured task schedules and applies safe automatic boundaries."""
+def refresh_vault_schedules(vault_path: Path, *, write_automatic_boundaries: bool = False) -> None:
+    """Rebuild all projects; read requests never write task boundaries."""
+    with _refresh_lock:
+        _refresh_vault_schedules(vault_path, write_automatic_boundaries=write_automatic_boundaries)
+
+
+def _refresh_vault_schedules(vault_path: Path, *, write_automatic_boundaries: bool) -> None:
     state = _plugins_state(vault_path)
     state, _ = builtin_plugins.normalize_state(state)
     if not builtin_plugins.is_enabled(state, "project-planning"):
@@ -160,18 +187,20 @@ def recalculate_vault(vault_path: Path) -> None:
     all_settings = state.get("settings")
     raw_settings = all_settings.get("project-planning") if isinstance(all_settings, dict) else None
     settings: dict[str, Any] = raw_settings if isinstance(raw_settings, dict) else {}
+    planning = PlanningStore(vault_path / ".gnosi").load()
     task_table_id = str(settings.get("task_table_id") or "")
     if not task_table_id:
+        ScheduleIndex(vault_path).replace_all({}, planning["revision"])
         return
     raw_relation_key = settings.get("project_relation_field_id")
     relation_key = str(raw_relation_key) if raw_relation_key else None
     projects, sources = _read_tasks(vault_path, task_table_id, relation_key)
-    planning = PlanningStore(vault_path / ".gnosi").load()
     calendar = next(
         (item for item in planning["calendars"] if item["id"] == DEFAULT_CALENDAR_ID),
         planning["calendars"][0],
     )
     index = ScheduleIndex(vault_path)
+    schedules = {}
     for project_id, tasks in projects.items():
         external_tasks = [
             task
@@ -181,8 +210,15 @@ def recalculate_vault(vault_path: Path) -> None:
         ]
         schedule = build_schedule(tasks, calendar, external_facts=external_tasks)
         schedule["projectId"] = project_id
-        schedule["automaticWriteConflicts"] = _write_automatic_boundaries(sources, schedule)
-        index.save(project_id, schedule, planning["revision"])
+        if write_automatic_boundaries:
+            schedule["automaticWriteConflicts"] = _write_automatic_boundaries(sources, schedule)
+        schedules[project_id] = schedule
+    index.replace_all(schedules, planning["revision"])
+
+
+def recalculate_vault(vault_path: Path) -> None:
+    """Rebuild configured task schedules and apply ETag-safe automatic boundaries."""
+    refresh_vault_schedules(vault_path, write_automatic_boundaries=True)
 
 
 def enqueue_recalculation(

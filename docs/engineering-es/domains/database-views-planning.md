@@ -28,6 +28,7 @@ source_paths:
   - backend/domains/vault/views/sorting.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
+  - backend/domains/planning/project_scope.py
   - backend/api/virtual_fields.py
   - backend/services/table_system_dates.py
   - backend/services/option_catalogs.py
@@ -76,6 +77,7 @@ tests:
   - backend/tests/test_planning_engine.py
   - backend/tests/test_planning_agent_tools.py
   - backend/tests/test_planning_scheduler.py
+  - backend/tests/test_planning_project_isolation.py
   - backend/tests/test_project_planning.py
   - backend/tests/test_virtual_fields_graph_projection.py
   - backend/tests/test_pipeline_naming.py
@@ -310,6 +312,21 @@ de forma acotada los iteradores de ocurrencias RRULE, conservando los
 identificadores estables de tareas y las comprobaciones de ETag.
 
 ## Planificación de proyectos
+
+Los ajustes del proyecto permiten elegir la relación de tarea que identifica cada proyecto.
+El planificador resuelve el identificador estable del campo mediante el esquema de tareas,
+incluidos el nombre actual y los alias. Consultar calendarios reconstruye los datos derivados
+sin escribir Markdown. Las tareas eliminadas o reasignadas dejan una instantánea vacía con
+una nueva revisión en el proyecto anterior; las instantáneas sin cambios conservan la revisión.
+Si un archivo de tarea no está disponible, no se publica una instantánea incompleta.
+
+Las consultas de asignación y de registros de trabajo aceptan un `project_id` opcional;
+si se omite, mantienen el informe global del Vault. La página de proyecto limita estas
+consultas, la caché y los borradores al proyecto y Vault seleccionados. Las líneas base
+capturan los costes del proyecto. La nivelación considera la carga global de los recursos,
+pero solo propone asignaciones del proyecto seleccionado. La propiedad explícita de
+la asignación tiene prioridad; las asignaciones sin proyecto siguen a su tarea.
+Aplicar una propuesta valida la revisión de planificación y el ámbito antes de guardar.
 
 El frontend con tipado estricto de `features/planning/` es responsable de la
 página de planificación y de sus pruebas de comportamiento, a través de un punto

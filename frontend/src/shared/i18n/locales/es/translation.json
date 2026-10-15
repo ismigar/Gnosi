@@ -1657,6 +1657,8 @@
       },
       "planning_intro": "Elige las tablas de proyectos y tareas y define el calendario de los campos de período ampliados.",
       "planning_project_table": "Tabla de proyectos",
+      "planning_project_relation": "Relación con el proyecto en la tabla de tareas",
+      "planning_project_relation_help": "Elige el campo de las tareas que vincula cada tarea con su proyecto.",
       "planning_task_table": "Tabla de tareas",
       "planning_table_none": "— Sin configurar —",
       "planning_working_week": "Semana laboral",
@@ -6214,6 +6216,10 @@
     "no_files": "No se han encontrado archivos"
   },
   "planning_page": {
+    "baseline_error": "No se ha podido crear la línea base.",
+    "worklog_error": "No se ha podido añadir el registro de trabajo.",
+    "proposal_error": "No se ha podido generar la propuesta de nivelación.",
+    "apply_error": "No se ha podido aplicar la propuesta. Genera una propuesta nueva e inténtalo de nuevo.",
     "title": "Planificación de proyectos",
     "subtitle": "Calendario, ruta crítica, recursos y diagnósticos.",
     "project_id": "ID del proyecto",

@@ -1711,6 +1711,8 @@
       },
       "planning_intro": "Tria les taules de projectes i tasques i defineix el calendari dels camps de període ampliats.",
       "planning_project_table": "Taula de projectes",
+      "planning_project_relation": "Relació amb el projecte a la taula de tasques",
+      "planning_project_relation_help": "Tria el camp de les tasques que vincula cada tasca amb el seu projecte.",
       "planning_task_table": "Taula de tasques",
       "planning_table_none": "— Sense configurar —",
       "planning_working_week": "Setmana laboral",
@@ -6214,6 +6216,10 @@
     "no_files": "No s'han trobat fitxers"
   },
   "planning_page": {
+    "baseline_error": "No s’ha pogut crear la línia base.",
+    "worklog_error": "No s’ha pogut afegir el registre de treball.",
+    "proposal_error": "No s’ha pogut generar la proposta d’anivellament.",
+    "apply_error": "No s’ha pogut aplicar la proposta. Genera una proposta nova i torna-ho a provar.",
     "title": "Planificació de projectes",
     "subtitle": "Calendari, camí crític, recursos i diagnòstics.",
     "project_id": "ID del projecte",
