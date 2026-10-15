@@ -50,7 +50,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2691 | 0 |
-| `features` | 1235 | 134352 | 55 |
+| `features` | 1235 | 134409 | 55 |
 | `generated` | 3 | 51764 | 530 |
 | `shared` | 329 | 35918 | 464 |
 
@@ -371,7 +371,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/mail/components/MailList.test-harness.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.test-harness.tsx) | 282 | `account`, `accounts`, `message`, `mocks`, `response`, `setupMailListTestHarness` | — |
 | [`frontend/src/features/mail/components/MailList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.tsx) | 49 | `MailList`, `function` | — |
 | [`frontend/src/features/mail/components/MailPdfViewer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailPdfViewer.tsx) | 218 | `MailPdfViewer` | — |
-| [`frontend/src/features/mail/components/MailSidebar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSidebar.tsx) | 298 | `MailSidebar`, `function` | — |
+| [`frontend/src/features/mail/components/MailSidebar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSidebar.tsx) | 324 | `MailSidebar`, `function` | — |
 | [`frontend/src/features/mail/components/MailSidebarItems.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSidebarItems.tsx) | 146 | `SidebarNavItem`, `SidebarViewItem` | — |
 | [`frontend/src/features/mail/components/MailSmartSuggestions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSmartSuggestions.tsx) | 211 | `MailSmartSuggestions` | — |
 | [`frontend/src/features/mail/components/MailTagPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailTagPicker.tsx) | 322 | `MailTagPicker`, `TagPill`, `function` | — |
@@ -413,11 +413,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/mail/hooks/useMailViews.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/hooks/useMailViews.ts) | 96 | `useMailViews` | — |
 | [`frontend/src/features/mail/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/index.ts) | 3 | `MailPage` | — |
 | [`frontend/src/features/mail/mailIdentity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/mailIdentity.ts) | 175 | `hydrateMailMessageIdentity`, `isSameMailMessage`, `mailMessageIdentity`, `mailThreadIdentity`, `selectMailDisplayMessage`, `tryMailIdentityScope`, `tryMailMessageIdentity` | — |
-| [`frontend/src/features/mail/page/MailPageView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/MailPageView.tsx) | 210 | `MailPageView` | — |
+| [`frontend/src/features/mail/page/MailPageView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/MailPageView.tsx) | 215 | `MailPageView` | — |
 | [`frontend/src/features/mail/page/MailUndoToast.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/MailUndoToast.tsx) | 34 | `MailUndoToast` | — |
 | [`frontend/src/features/mail/page/mailPageModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/mailPageModel.ts) | 237 | `adjacentMail`, `buildMailAccountCatalog`, `draftComposeData`, `isVaultDraft`, `mailAccountAddress`, `mergeMailCounts` | — |
 | [`frontend/src/features/mail/page/useMailCounts.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/useMailCounts.ts) | 66 | `useMailCounts` | — |
-| [`frontend/src/features/mail/page/useMailPageController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/useMailPageController.ts) | 412 | `useMailPageController` | — |
+| [`frontend/src/features/mail/page/useMailPageController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/useMailPageController.ts) | 438 | `useMailPageController` | — |
 | [`frontend/src/features/media/MediaCenter.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/MediaCenter.tsx) | 73 | `MediaCenter`, `function` | — |
 | [`frontend/src/features/media/browser/ConfirmDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/browser/ConfirmDialog.tsx) | 69 | `ConfirmDialog` | — |
 | [`frontend/src/features/media/browser/MediaGallery.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/browser/MediaGallery.tsx) | 103 | `MediaGallery` | — |

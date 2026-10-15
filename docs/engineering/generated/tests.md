@@ -11,8 +11,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 30 | 97 |
-| Vitest | 707 | 3128 |
-| pytest | 690 | 5209 |
+| Vitest | 708 | 3130 |
+| pytest | 691 | 5211 |
 
 ## Files
 
@@ -204,6 +204,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/features/mail/hooks/useMailViews.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/hooks/useMailViews.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/mailIdentity.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/mailIdentity.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/page/MailPageView.loading.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/MailPageView.loading.test.tsx) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/features/mail/page/mailAccountVisibility.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/mailAccountVisibility.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/page/mailPageModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/mailPageModel.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/public-entry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/public-entry.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/media/browser/MediaCenter.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/browser/MediaCenter.test.tsx) | 13 | call-pattern estimate |
@@ -1055,6 +1056,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_mail_calendar_domain_facades.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_calendar_domain_facades.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_mail_decoding.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_decoding.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_mail_idle_delivery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_idle_delivery.py) | 7 | Python AST |
+| pytest | [`backend/tests/test_mail_imap_preservation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_imap_preservation.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_mail_ingester_savepoint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_ingester_savepoint.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_mail_inline_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_inline_images.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_mail_listing_independence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_listing_independence.py) | 4 | Python AST |
