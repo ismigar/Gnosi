@@ -149,7 +149,7 @@ export function useMailPageController(): MailPageController {
     !hiddenAccounts.includes(accountKey(account))
     && (!selectedAccount || accountKey(account) === accountKey(selectedAccount)),
   ), [accounts, hiddenAccounts, selectedAccount]);
-  const { counts, countStatuses, refreshCounts } = useMailCounts(visibleAccounts, null);
+  const { counts, countStatuses, refreshCounts } = useMailCounts(visibleAccounts, visibleAccounts.length > 0 ? selectedAccount : null);
   const toggleAccountVisibility = useCallback((account: MailAccount) => {
     const key = accountKey(account);
     setHiddenAccounts(current => current.includes(key)
