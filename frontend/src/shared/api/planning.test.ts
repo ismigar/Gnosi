@@ -5,6 +5,8 @@ import {
   applyPlanningLevelingProposal,
   createPlanningBaseline,
   fetchProjectSchedule,
+  fetchPlanningAllocation,
+  fetchPlanningWorklogs,
 } from './planning';
 
 
@@ -15,6 +17,27 @@ afterEach(() => {
 
 
 describe('planning API', () => {
+
+  it('supports project-scoped allocation and worklogs while preserving legacy global and task reads', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(() => Promise.resolve(Response.json({})));
+    vi.stubGlobal('fetch', fetchMock);
+    await fetchPlanningAllocation('project A');
+    await fetchPlanningAllocation();
+    await fetchPlanningWorklogs('task 1');
+    await fetchPlanningWorklogs(undefined, 'project B');
+    const urls = fetchMock.mock.calls.map(([request]) => {
+      if (!(request instanceof Request)) throw new Error('Expected a Request instance');
+      return new URL(request.url);
+    });
+    expect(urls[0]?.searchParams.get('project_id')).toBe('project A');
+    expect(urls[1]?.search).toBe('');
+    expect(urls[2]?.searchParams.get('task_id')).toBe('task 1');
+    expect(urls[2]?.searchParams.has('project_id')).toBe(false);
+    expect(urls[3]?.searchParams.get('project_id')).toBe('project B');
+    expect(urls[3]?.searchParams.has('task_id')).toBe(false);
+  });
+
+
   it('loads a project schedule through its generated path contract', async () => {
     const payload = {
       criticalTaskIds: [],

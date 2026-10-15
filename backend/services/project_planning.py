@@ -350,7 +350,9 @@ def _shift_to_next_working_date(value: datetime, calendar: dict[str, Any], days:
     return datetime.combine(current, value.timetz().replace(tzinfo=None))
 
 
-def propose_leveling(state: dict[str, Any]) -> dict[str, Any]:
+def propose_leveling(
+    state: dict[str, Any], *, assignment_ids: set[str] | None = None
+) -> dict[str, Any]:
     """Creates conservative, non-mutating delay suggestions for overloads.
 
     The current resource layer has no task constraints, dependencies, or split
@@ -360,18 +362,27 @@ def propose_leveling(state: dict[str, Any]) -> dict[str, Any]:
     future schedule write is allowed.
     """
     allocation = calculate_allocation(state)
+    if assignment_ids is not None:
+        allocation["warnings"] = [
+            warning for warning in allocation["warnings"]
+            if assignment_ids.intersection(warning["assignment_ids"])
+        ]
     resources = {item["id"]: item for item in state.get("resources", [])}
     calendars = {item["id"]: item for item in state.get("calendars", [])}
     assignments = {item["id"]: item for item in state.get("assignments", [])}
     proposals: list[dict[str, Any]] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[str] = set()
     for warning in allocation["warnings"]:
         candidates = [assignments.get(assignment_id) for assignment_id in warning["assignment_ids"]]
-        dated = [item for item in candidates if item and item.get("start") and item.get("end")]
+        dated = [
+            item for item in candidates
+            if item and item.get("start") and item.get("end")
+            and (assignment_ids is None or item["id"] in assignment_ids)
+        ]
         if not dated:
             continue
         candidate = max(dated, key=lambda item: (item["start"], item["id"]))
-        key = (candidate["id"], warning["date"])
+        key = candidate["id"]
         if key in seen:
             continue
         seen.add(key)

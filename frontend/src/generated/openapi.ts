@@ -4667,7 +4667,7 @@ export interface paths {
         };
         /**
          * Get Project Schedule
-         * @description Returns the cached, reconstructible schedule for one project.
+         * @description Refresh derived schedules without modifying Markdown task facts.
          */
         get: operations["get_project_schedule_api_planning_projects__project_id__schedule_get"];
         put?: never;
@@ -12654,6 +12654,8 @@ export interface components {
          */
         BaselineRecordResponse: {
             allocation?: components["schemas"]["AllocationResponse"] | null;
+            /** Allocationprojectid */
+            allocationProjectId?: string | null;
             /** Createdat */
             createdAt: string;
             /** Id */
@@ -36625,7 +36627,9 @@ export interface operations {
     };
     get_allocation_api_planning_allocation_get: {
         parameters: {
-            query?: never;
+            query?: {
+                project_id?: string | null;
+            };
             header?: {
                 authorization?: string | null;
                 "x-user-id"?: string | null;
@@ -37453,6 +37457,7 @@ export interface operations {
     list_worklogs_api_planning_worklogs_get: {
         parameters: {
             query?: {
+                project_id?: string | null;
                 task_id?: string | null;
             };
             header?: {

@@ -11,12 +11,12 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Mòduls | Línies |
 | --- | ---: | ---: |
 | `agent` | 53 | 9510 |
-| `api` | 40 | 13540 |
+| `api` | 40 | 13574 |
 | `app` | 8 | 830 |
 | `application root` | 2 | 55 |
 | `config` | 13 | 1382 |
 | `data` | 2 | 214 |
-| `domains` | 568 | 113935 |
+| `domains` | 569 | 113920 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1310 |
@@ -24,11 +24,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 250 | 49288 |
+| `services` | 250 | 49364 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1031 modules** and **197588 source lines**.
+Total: **1032 modules** and **197683 source lines**.
 
 ## agent
 
@@ -117,7 +117,7 @@ Total: **1031 modules** and **197588 source lines**.
 | [`backend/api/notebook_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/notebook_routes.py) | 364 | 0 | 16 | 2 | 1 | HTTP contracts for the grounded notebook workspace. |
 | [`backend/api/notion_oauth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/notion_oauth_routes.py) | 222 | 2 | 13 | 4 | 3 | OAuth 2.1 to Notion's hosted MCP (mcp.notion.com) — for recreating views. |
 | [`backend/api/notion_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/notion_routes.py) | 756 | 23 | 27 | 13 | 12 | Compatibility-preserving FastAPI surface for the typed Notion domain. |
-| [`backend/api/planning_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/planning_routes.py) | 766 | 0 | 29 | 24 | 11 | API for normalized project-planning resources and allocation reports. |
+| [`backend/api/planning_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/planning_routes.py) | 800 | 0 | 33 | 25 | 11 | API for normalized project-planning resources and allocation reports. |
 | [`backend/api/public_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/public_routes.py) | 458 | 12 | 14 | 1 | 10 | Gnosi's public API with Personal Access Token (PAT) authentication. |
 | [`backend/api/reader.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/reader.py) | 75 | 0 | 0 | 0 | 0 | Compatibility facade for the Reader HTTP API. |
 | [`backend/api/scheduler_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/scheduler_routes.py) | 135 | 1 | 6 | 6 | 6 | No module docstring |
@@ -459,7 +459,7 @@ Total: **1031 modules** and **197588 source lines**.
 | [`backend/domains/mail/services/remote_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/remote_images.py) | 596 | 7 | 15 | 8 | 8 | Durable, SSRF-hardened recovery for remote mail raster images. |
 | [`backend/domains/mail/sync/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail synchronization services. |
 | [`backend/domains/mail/sync/idle.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/idle.py) | 366 | 2 | 0 | 0 | 2 | IMAP IDLE service: push notifications when new messages arrive. |
-| [`backend/domains/mail/sync/imap_core.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_core.py) | 543 | 1 | 3 | 0 | 0 | IMAP pull synchronization and vault persistence. |
+| [`backend/domains/mail/sync/imap_core.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_core.py) | 486 | 1 | 3 | 0 | 0 | IMAP pull synchronization and vault persistence. |
 | [`backend/domains/mail/sync/imap_mutations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_mutations.py) | 596 | 1 | 3 | 0 | 0 | IMAP server mutation operations. |
 | [`backend/domains/mail/sync/imap_protocol.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_protocol.py) | 185 | 0 | 5 | 0 | 3 | IMAP protocol normalization and folder discovery. |
 | [`backend/domains/mail/sync/imap_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_service.py) | 49 | 1 | 0 | 0 | 1 | IMAP mail sync service. |
@@ -495,7 +495,8 @@ Total: **1031 modules** and **197588 source lines**.
 | [`backend/domains/notion/verification.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notion/verification.py) | 130 | 2 | 5 | 0 | 1 | Typed read-only verification of an exact Notion clone. |
 | [`backend/domains/notion/view_recreator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notion/view_recreator.py) | 629 | 0 | 28 | 0 | 18 | Typed recreator of embedded Notion views (Phase 2, via hosted MCP). |
 | [`backend/domains/planning/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/planning/__init__.py) | 1 | 0 | 0 | 0 | 0 | Public contracts for the project-planning domain. |
-| [`backend/domains/planning/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/planning/schemas.py) | 473 | 46 | 0 | 0 | 46 | Pydantic contracts for the public project-planning API. |
+| [`backend/domains/planning/project_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/planning/project_scope.py) | 41 | 0 | 2 | 0 | 2 | Project ownership and atomic validation of resource-assignment changes. |
+| [`backend/domains/planning/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/planning/schemas.py) | 474 | 46 | 0 | 0 | 46 | Pydantic contracts for the public project-planning API. |
 | [`backend/domains/plugins/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/plugins/__init__.py) | 5 | 0 | 0 | 0 | 0 | Typed third-party plugin lifecycle and sandbox domain. |
 | [`backend/domains/plugins/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/plugins/contracts.py) | 189 | 2 | 9 | 0 | 4 | Plugin manifest contracts and validation. |
 | [`backend/domains/plugins/packages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/plugins/packages.py) | 211 | 0 | 11 | 0 | 4 | Safe installation, removal and deterministic packaging of plugins. |
@@ -1067,8 +1068,8 @@ Total: **1031 modules** and **197588 source lines**.
 | [`backend/services/optional_module_capabilities.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/optional_module_capabilities.py) | 13 | 0 | 1 | 0 | 1 | Side-effect-free availability checks for optional Python modules. |
 | [`backend/services/page_sidecar.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/page_sidecar.py) | 221 | 0 | 11 | 0 | 11 | Sidecar I/O for internal page metadata. |
 | [`backend/services/path_resolver.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/path_resolver.py) | 93 | 1 | 0 | 0 | 1 | No module docstring |
-| [`backend/services/planning_engine.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/planning_engine.py) | 490 | 2 | 14 | 0 | 14 | Deterministic, rebuildable scheduling for Gnosi project planning. |
-| [`backend/services/planning_scheduler.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/planning_scheduler.py) | 200 | 2 | 8 | 0 | 5 | Coalesced, ETag-safe project schedule refreshes triggered by page changes. |
+| [`backend/services/planning_engine.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/planning_engine.py) | 519 | 2 | 14 | 0 | 14 | Deterministic, rebuildable scheduling for Gnosi project planning. |
+| [`backend/services/planning_scheduler.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/planning_scheduler.py) | 236 | 2 | 11 | 0 | 7 | Coalesced, ETag-safe project schedule refreshes triggered by page changes. |
 | [`backend/services/plugin_access.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_access.py) | 73 | 0 | 3 | 1 | 3 | FastAPI guards for optional per-vault capabilities. |
 | [`backend/services/plugin_agent_profiles.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_agent_profiles.py) | 164 | 0 | 6 | 0 | 1 | Editable, plugin-owned profiles for standalone application operations. |
 | [`backend/services/plugin_ai_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_ai_contributions.py) | 500 | 0 | 16 | 0 | 6 | Governed AI contributions from installed third-party plugins. |
@@ -1081,7 +1082,7 @@ Total: **1031 modules** and **197588 source lines**.
 | [`backend/services/plugin_signing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_signing.py) | 167 | 0 | 8 | 0 | 6 | Plugin signing and trust (phase 3 of plugin_system.md). |
 | [`backend/services/plugin_system.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_system.py) | 256 | 0 | 14 | 0 | 12 | Compatibility facade for the typed third-party plugin domain. |
 | [`backend/services/principal_agent_migration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/principal_agent_migration.py) | 119 | 0 | 3 | 0 | 0 | Idempotent, backed-up migration from feature-owned agents to the principal. |
-| [`backend/services/project_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/project_planning.py) | 481 | 3 | 14 | 0 | 12 | Vault-scoped storage and pure calculations for project planning resources. |
+| [`backend/services/project_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/project_planning.py) | 492 | 3 | 14 | 0 | 12 | Vault-scoped storage and pure calculations for project planning resources. |
 | [`backend/services/provider_health.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/provider_health.py) | 87 | 1 | 6 | 0 | 5 | Process-local provider circuit breaker with bounded cooldowns. |
 | [`backend/services/public_evaluation_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/public_evaluation_contract.py) | 113 | 0 | 7 | 0 | 0 | Portable public-test contract, also reviewed in ismigar.github.io. |
 | [`backend/services/public_workflow_headers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/public_workflow_headers.py) | 27 | 1 | 0 | 0 | 0 | Keep revocable token responses out of caches and referrers. |

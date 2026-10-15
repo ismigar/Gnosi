@@ -3593,6 +3593,17 @@
               }
             ]
           },
+          "allocationProjectId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allocationprojectid"
+          },
           "createdAt": {
             "title": "Createdat",
             "type": "string"
@@ -72800,6 +72811,22 @@
         "operationId": "get_allocation_api_planning_allocation_get",
         "parameters": [
           {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Id"
+            }
+          },
+          {
             "in": "header",
             "name": "x-workspace-id",
             "required": false,
@@ -74547,7 +74574,7 @@
     },
     "/api/planning/projects/{project_id}/schedule": {
       "get": {
-        "description": "Returns the cached, reconstructible schedule for one project.",
+        "description": "Refresh derived schedules without modifying Markdown task facts.",
         "operationId": "get_project_schedule_api_planning_projects__project_id__schedule_get",
         "parameters": [
           {
@@ -75432,6 +75459,22 @@
                 }
               ],
               "title": "Task Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Id"
             }
           },
           {

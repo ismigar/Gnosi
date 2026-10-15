@@ -10,12 +10,12 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | --- | --- | ---: | ---: | ---: |
 | `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 888 | 314 | 0 |
 | `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1142 | 321 | 0 |
-| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 533 | 162 | 0 |
+| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 533 | 163 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 65 | 40 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 145 | 56 | 0 |
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 310 | 129 | 0 |
 | `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 50 | 13 | 0 |
-| `mail` | **covered** | [`Mail`](../domains/mail.md) | 99 | 50 | 0 |
+| `mail` | **covered** | [`Mail`](../domains/mail.md) | 99 | 51 | 0 |
 | `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 88 | 41 | 0 |
 | `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 24 | 8 | 0 |
 | `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 74 | 23 | 0 |

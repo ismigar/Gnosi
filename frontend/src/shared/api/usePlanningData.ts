@@ -23,7 +23,9 @@ function planningVaultQueryKey(vaultId = getActiveVaultId()) {
 export const planningQueryKeys = {
   all: ['planning'] as const,
   vault: planningVaultQueryKey,
-  allocation: () => [...planningVaultQueryKey(), 'allocation'] as const,
+  allocation: (projectId?: string, vaultId = getActiveVaultId()) => (
+    [...planningVaultQueryKey(vaultId), 'allocation', ...(projectId ? [projectId] : [])] as const
+  ),
   baselines: (projectId: string, vaultId = getActiveVaultId()) => (
     [...planningVaultQueryKey(vaultId), 'baselines', projectId] as const
   ),
@@ -34,7 +36,9 @@ export const planningQueryKeys = {
     [...planningVaultQueryKey(vaultId), 'schedule', projectId] as const
   ),
   state: () => [...planningVaultQueryKey(), 'state'] as const,
-  worklogs: () => [...planningVaultQueryKey(), 'worklogs'] as const,
+  worklogs: (projectId?: string, vaultId = getActiveVaultId()) => (
+    [...planningVaultQueryKey(vaultId), 'worklogs', ...(projectId ? [projectId] : [])] as const
+  ),
 };
 
 
@@ -69,11 +73,12 @@ export function usePlanningState() {
 }
 
 
-export function usePlanningAllocation() {
+export function usePlanningAllocation(projectId?: string, enabled = true) {
   return useQuery({
     ...planningReadRecovery,
-    queryFn: fetchPlanningAllocation,
-    queryKey: planningQueryKeys.allocation(),
+    enabled,
+    queryFn: () => fetchPlanningAllocation(projectId),
+    queryKey: planningQueryKeys.allocation(projectId),
   });
 }
 
@@ -82,9 +87,6 @@ export function useProjectSchedule(projectId: string, enabled = true) {
   const vaultId = getActiveVaultId();
   return useQuery({
     enabled,
-    placeholderData: (data, previousQuery) => (
-      previousQuery?.queryKey[1] === vaultId ? data : undefined
-    ),
     queryFn: () => fetchProjectSchedule(projectId),
     queryKey: planningQueryKeys.schedule(projectId, vaultId),
   });
@@ -96,33 +98,38 @@ export function usePlanningBaselines(projectId: string, enabled = true) {
   return useQuery({
     ...planningReadRecovery,
     enabled,
-    placeholderData: (data, previousQuery) => (
-      previousQuery?.queryKey[1] === vaultId ? data : undefined
-    ),
     queryFn: () => fetchPlanningBaselines(projectId),
     queryKey: planningQueryKeys.baselines(projectId, vaultId),
   });
 }
 
 
-export function usePlanningWorklogs() {
+export function usePlanningWorklogs(projectId?: string, enabled = true) {
   return useQuery({
     ...planningReadRecovery,
-    queryFn: () => fetchPlanningWorklogs(),
-    queryKey: planningQueryKeys.worklogs(),
+    enabled,
+    queryFn: () => fetchPlanningWorklogs(undefined, projectId),
+    queryKey: planningQueryKeys.worklogs(projectId),
   });
 }
 
 
 function usePlanningMutation<TVariables, TResult>(
   mutationFn: (variables: TVariables) => Promise<TResult>,
+  invalidateOnSuccess = true,
 ) {
   const queryClient = useQueryClient();
-  const vaultQueryKey = planningQueryKeys.vault();
+  const vaultId = getActiveVaultId();
+  const vaultQueryKey = planningQueryKeys.vault(vaultId);
   return useMutation({
-    mutationFn,
+    mutationFn: (variables: TVariables) => {
+      if (getActiveVaultId() !== vaultId) {
+        throw new Error('The selected vault has changed. Reopen the project before saving.');
+      }
+      return mutationFn(variables);
+    },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: vaultQueryKey });
+      if (invalidateOnSuccess) await queryClient.invalidateQueries({ queryKey: vaultQueryKey });
     },
   });
 }
@@ -139,7 +146,7 @@ export function useCreatePlanningWorklog() {
 
 
 export function useCreatePlanningLevelingProposal() {
-  return useMutation({ mutationFn: createPlanningLevelingProposal });
+  return usePlanningMutation(createPlanningLevelingProposal, false);
 }
 
 

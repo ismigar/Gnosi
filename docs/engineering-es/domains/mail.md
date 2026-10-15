@@ -163,6 +163,11 @@ clientes 2.x.
 ## Invariantes
 
 - La sincronización es idempotente para cada identificador de mensaje del proveedor.
+- Las sincronizaciones IMAP en segundo plano conservan las copias locales Markdown
+  y HTML cuando un UID no aparece en la búsqueda del servidor, incluidos los
+  resultados vacíos y los cambios de espacio de UID. Los movimientos remotos,
+  la retención o los resultados ausentes no autorizan a borrar el archivo local;
+  la eliminación corresponde a las acciones explícitas de correo del usuario.
 - Un mensaje fallido utiliza un savepoint y no aborta el lote de la cuenta.
 - Las etiquetas y vistas guardadas son estado local de la aplicación, no etiquetas
   del proveedor, salvo que exista un mapeo explícito.
