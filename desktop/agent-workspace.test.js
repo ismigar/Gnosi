@@ -168,3 +168,11 @@ test('empty browser typing clears an existing editable field with native deletio
     { type: 'keyDown', keyCode: 'Backspace' }, { type: 'keyUp', keyCode: 'Backspace' },
   ]);
 });
+
+test('native selection supports built-in macOS applications and rejects arbitrary folders', async () => {
+  const { operation, dialog } = fixture({ platform: 'darwin', run: async () => ({ stdout: 'com.apple.TextEdit' }) });
+  dialog.showOpenDialog = async () => ({ filePaths: ['/System/Applications/TextEdit.app'], canceled: false });
+  assert.deepEqual(await operation('app-open'), { status: 'opened', app_id: 'com.apple.TextEdit' });
+  dialog.showOpenDialog = async () => ({ filePaths: ['/tmp/Untrusted.app'], canceled: false });
+  await assert.rejects(operation('app-open'), /Choose an installed application/);
+});

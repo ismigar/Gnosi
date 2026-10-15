@@ -148,7 +148,7 @@ function createAgentWorkspace({ BrowserWindow, dialog, shell, selectionSecret, p
         current();
         if (selection.canceled || !selection.filePaths[0]) return { canceled: true };
         const selectedPath = selection.filePaths[0];
-        if (!selectedPath.startsWith('/Applications/') || !selectedPath.endsWith('.app')) throw new Error('Choose an installed application');
+        if (!['/Applications/', '/System/Applications/'].some(root => selectedPath.startsWith(root)) || !selectedPath.endsWith('.app')) throw new Error('Choose an installed application');
         const { stdout } = await run('/usr/bin/defaults', ['read', `${selectedPath}/Contents/Info`, 'CFBundleIdentifier'], { timeout: 5000, maxBuffer: 4096, signal });
         const appId = stdout.trim();
         current();
