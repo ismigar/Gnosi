@@ -1,6 +1,7 @@
-import { createElement, useCallback, useEffect, useRef, useState } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { defineStorageKey, jsonStorageCodec, readStorage, writeStorage } from '../../../shared/platform/browser-storage';
 import { logError } from '../../../shared/notifications/notifyError';
 import { toast } from '../../../shared/notifications/toast';
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery';
@@ -23,6 +24,7 @@ import {
 } from '../mailIdentity';
 import {
   adjacentMail,
+  mailAccountAddress,
   buildMailAccountCatalog,
   draftComposeData,
   isVaultDraft,
@@ -34,6 +36,11 @@ import {
 } from './mailPageModel';
 import { useMailCounts, type MailCountAccountStatus } from './useMailCounts';
 
+
+const hiddenAccountsKey = defineStorageKey('mail.hiddenAccounts', jsonStorageCodec(
+  (value: unknown): value is string[] => Array.isArray(value) && value.every(item => typeof item === 'string'),
+));
+const accountKey = (account: MailAccount) => mailAccountAddress(account).trim().toLowerCase();
 
 const INTEGRATIONS_QUERY_KEY = ['integrations'] as const;
 
@@ -60,6 +67,9 @@ type BooleanAction = boolean | ((current: boolean) => boolean);
 export interface MailPageController {
   readonly accounts: readonly MailAccount[];
   readonly accountsLoading: boolean;
+  readonly visibleAccounts: readonly MailAccount[];
+  readonly hiddenAccounts: readonly string[];
+  readonly toggleAccountVisibility: (account: MailAccount) => void;
   readonly activeCategory: string | null;
   readonly activeFolder: string | null;
   readonly activeTagId: string | null;
@@ -134,7 +144,20 @@ export function useMailPageController(): MailPageController {
   const [composeData, setComposeData] = useState<MailComposeData | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [messages, setMessagesState] = useState<readonly MailPageMessage[]>([]);
-  const { counts, countStatuses, refreshCounts } = useMailCounts(accounts, selectedAccount);
+  const [hiddenAccounts, setHiddenAccounts] = useState<string[]>(() => readStorage(hiddenAccountsKey) ?? []);
+  const visibleAccounts = useMemo(() => accounts.filter(account =>
+    !hiddenAccounts.includes(accountKey(account))
+    && (!selectedAccount || accountKey(account) === accountKey(selectedAccount)),
+  ), [accounts, hiddenAccounts, selectedAccount]);
+  const { counts, countStatuses, refreshCounts } = useMailCounts(visibleAccounts, visibleAccounts.length > 0 ? selectedAccount : null);
+  const toggleAccountVisibility = useCallback((account: MailAccount) => {
+    const key = accountKey(account);
+    setHiddenAccounts(current => current.includes(key)
+      ? current.filter(value => value !== key) : [...current, key]);
+    setSelectedMail(null);
+    setMessagesState([]);
+  }, []);
+  useEffect(() => { writeStorage(hiddenAccountsKey, hiddenAccounts); }, [hiddenAccounts]);
   const [sidebarState, setSidebarState] = useState<MailboxSidebarState>(() => ({
     compact: isCompact,
     open: initialMailboxSidebar(),
@@ -370,6 +393,9 @@ export function useMailPageController(): MailPageController {
   return {
     accounts,
     accountsLoading,
+    visibleAccounts,
+    hiddenAccounts,
+    toggleAccountVisibility,
     activeCategory,
     activeFolder,
     activeTagId,

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-15
+last_verified: 2026-10-15
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -18,6 +18,7 @@ source_paths:
   - frontend/src/shared/api/mail.ts
   - frontend/src/shared/api/mail-specialized.ts
 tests:
+  - frontend/src/features/mail/page/mailAccountVisibility.test.tsx
   - backend/tests/test_mail_thread_completeness.py
   - frontend/src/features/mail/components/MailViewer.resilience.test.tsx
   - tests/e2e/tests/disposable/mail-thread-completeness.spec.ts
@@ -55,6 +56,10 @@ The BlockNote mail editor and its adapter belong to this domain. Settings
 consumes the editor through its explicitly reviewed public entry; there are no
 copied implementations or compatibility facades. Moving ownership does not change
 sending, draft saving, folder identity, privacy, or provider operations.
+
+## Account visibility
+
+The mailbox sidebar has one visibility switch per configured account. Hidden account addresses are saved locally in `mail.hiddenAccounts` using normalized addresses. Visibility intersects the account selector before loading messages and folder counts, so folders, saved views, categories, tags and search share the same scope. Turning every account off produces an empty mailbox; changing visibility closes the selected message. This display preference does not disable synchronization or remove sending identities.
 
 ## Synchronization
 

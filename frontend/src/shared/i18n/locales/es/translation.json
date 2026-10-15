@@ -3913,6 +3913,8 @@
     "legacy_notice": "DeepL y Softcatalà pertenecen al sistema de traducción anterior y ya no intervienen en este circuito. Las credenciales antiguas guardadas se conservan, pero no se utilizan."
   },
   "mail": {
+    "visible_accounts": "Cuentas visibles",
+    "show_account": "Mostrar los correos de {{account}}",
     "all_accounts": "Todas las cuentas",
     "inbox": "Bandeja de entrada",
     "starred": "Destacados",

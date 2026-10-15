@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-15
+last_verified: 2026-10-15
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -18,6 +18,7 @@ source_paths:
   - frontend/src/shared/api/mail.ts
   - frontend/src/shared/api/mail-specialized.ts
 tests:
+  - frontend/src/features/mail/page/mailAccountVisibility.test.tsx
   - backend/tests/test_mail_thread_completeness.py
   - frontend/src/features/mail/components/MailViewer.resilience.test.tsx
   - tests/e2e/tests/disposable/mail-thread-completeness.spec.ts
@@ -55,6 +56,10 @@ dominio. Configuración consume el editor mediante su entrada pública revisada
 explícitamente; no hay implementaciones copiadas ni fachadas de compatibilidad. El traslado de
 responsabilidades no cambia el envío, el guardado de borradores, la identidad
 de carpetas, la privacidad ni las operaciones de proveedores.
+
+## Visibilidad de las cuentas
+
+La barra lateral de correo tiene un interruptor de visibilidad por cuenta configurada. Las direcciones de las cuentas ocultas se guardan localmente en `mail.hiddenAccounts`, normalizadas. La visibilidad se combina con el selector de cuentas antes de cargar los mensajes y los contadores de carpetas; las carpetas, las vistas guardadas, las categorías, las etiquetas y la búsqueda comparten el mismo ámbito. Si todas las cuentas están ocultas, el buzón queda vacío; cambiar la visibilidad cierra el mensaje seleccionado. Esta preferencia de visualización no desactiva la sincronización ni elimina las identidades de envío.
 
 ## Sincronización
 

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-15
+last_verified: 2026-10-15
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -18,6 +18,7 @@ source_paths:
   - frontend/src/shared/api/mail.ts
   - frontend/src/shared/api/mail-specialized.ts
 tests:
+  - frontend/src/features/mail/page/mailAccountVisibility.test.tsx
   - backend/tests/test_mail_thread_completeness.py
   - frontend/src/features/mail/components/MailViewer.resilience.test.tsx
   - tests/e2e/tests/disposable/mail-thread-completeness.spec.ts
@@ -59,6 +60,10 @@ implementacions copiades ni façanes de compatibilitat. El trasllat de
 responsabilitats no canvia l'enviament,
 el desament d'esborranys, la identitat de carpetes, la privacitat ni les
 operacions dels proveïdors.
+
+## Visibilitat dels comptes
+
+La barra lateral de correu té un interruptor de visibilitat per compte configurat. Les adreces dels comptes amagats es desen localment a `mail.hiddenAccounts`, normalitzades. La visibilitat es combina amb el selector de comptes abans de carregar els missatges i els comptadors de carpetes; les carpetes, les vistes desades, les categories, les etiquetes i la cerca comparteixen el mateix àmbit. Si tots els comptes estan amagats, la bústia queda buida; canviar la visibilitat tanca el missatge seleccionat. Aquesta preferència de visualització no desactiva la sincronització ni elimina les identitats d’enviament.
 
 ## Sincronització
 

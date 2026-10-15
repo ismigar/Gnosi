@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-14
+last_verified: 2026-10-15
 source_paths:
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -38,6 +38,8 @@ source_paths:
   - backend/domains/vault/search
   - frontend/src/shared/bookmarks
 tests:
+  - backend/tests/test_e2e_option_catalogs.py
+  - backend/tests/test_translation_lifecycle_binding_contract.py
   - backend/tests/test_vault_content_search.py
   - backend/tests/test_page_save_concurrency.py
   - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
@@ -828,3 +830,5 @@ The single-document header exposes Close tab only when its active ID matches an 
 Add `--resource-id <id>` to `preview` to classify only one resource; subsequent actions reuse that saved selection. Classification binds the verified personal owner, excludes attached context and reviewed memories, disables team handoffs, and reserves at most 4,096 output tokens per batch without changing budget limits.
 
 Toggle headings support Alt/Option+Enter while the caret is in the heading. The native disclosure button is reachable with Tab and activates with Enter or Space, with a visible focus outline, localized label and expanded state. Activation retains the caret or button focus and the existing saved expansion state. Plain Enter keeps its editing behavior; child paragraphs, embedded controls and composing input do not toggle an ancestor section.
+
+Internal row and page translation creates derived records through the canonical page creation service, rather than invoking an HTTP handler with unresolved FastAPI dependencies. Late-bound two-argument creation overrides remain supported. The option-catalog integration fixture explicitly enables translation in its disposable Vault, so the draft rejection test reaches the action rule instead of the plugin-disabled guard.
