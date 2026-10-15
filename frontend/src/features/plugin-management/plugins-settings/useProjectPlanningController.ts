@@ -208,9 +208,12 @@ export function useProjectPlanningController(): ProjectPlanningController {
     }, [configuredHours]);
 
     const setPlanningSettings = (patch: Readonly<Record<string, unknown>>): void => {
-        void setPluginSettings('project-planning', patch);
-        if (patch.project_table_id === '') {
-            setAssignmentDraft((current) => ({ ...current, project_id: '' }));
+        const tablesChanged = (typeof patch.project_table_id === 'string' && patch.project_table_id !== projectTableId)
+            || (typeof patch.task_table_id === 'string' && patch.task_table_id !== taskTableId);
+        void setPluginSettings('project-planning', tablesChanged
+            ? { ...patch, project_relation_field_id: '' } : patch);
+        if (tablesChanged) {
+            setAssignmentDraft(EMPTY_ASSIGNMENT);
         }
         const calendar: PlanningCalendarInput = {};
         if (Object.hasOwn(patch, 'working_weekdays') && Array.isArray(patch.working_weekdays)) {
@@ -346,6 +349,17 @@ export function useProjectPlanningController(): ProjectPlanningController {
         () => sortFieldItems(tables, (table) => table.name, i18n.language),
         [tables, i18n.language],
     );
+    const projectRelationFields = useMemo(
+        () => sortFieldItems(
+            tables.find((table) => table.id === taskTableId)?.properties.filter(
+                (field) => field.type === 'relation'
+                    && (!field.relation_database_id || field.relation_database_id === projectTableId),
+            ) ?? [],
+            (field) => field.name,
+            i18n.language,
+        ),
+        [tables, taskTableId, projectTableId, i18n.language],
+    );
     const sortedProjects = useMemo(
         () => sortFieldItems(projectTableId ? projectPages : [], (page) => page.title, i18n.language),
         [projectTableId, projectPages, i18n.language],
@@ -379,6 +393,7 @@ export function useProjectPlanningController(): ProjectPlanningController {
         planningState,
         previewLeveling,
         projectPages: activeProjectPages,
+        projectRelationFields,
         removeHolidayRow: (index) => {
             const rows = holidayRows.filter((_row, rowIndex) => rowIndex !== index);
             setHolidayRows(rows);

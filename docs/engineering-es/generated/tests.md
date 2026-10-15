@@ -11,8 +11,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 30 | 97 |
-| Vitest | 707 | 3124 |
-| pytest | 689 | 5199 |
+| Vitest | 707 | 3128 |
+| pytest | 690 | 5209 |
 
 ## Archivos
 
@@ -229,8 +229,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/notebooks/public-entry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notebooks/public-entry.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/notion-import/NotionImportSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notion-import/NotionImportSettings.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/notion-import/notion-import/notionImportModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notion-import/notion-import/notionImportModel.test.ts) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/features/planning/ProjectPlanningPage.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/planning/ProjectPlanningPage.test.tsx) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/features/planning/ProjectPlanningVaultScope.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/planning/ProjectPlanningVaultScope.test.tsx) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/features/planning/ProjectPlanningPage.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/planning/ProjectPlanningPage.test.tsx) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/features/planning/ProjectPlanningVaultScope.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/planning/ProjectPlanningVaultScope.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/planning/public-entry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/planning/public-entry.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/plugin-management/PluginSettingsPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/PluginSettingsPanel.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/plugin-management/PluginsSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/PluginsSettings.test.tsx) | 8 | call-pattern estimate |
@@ -583,7 +583,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/shared/api/page-creation-recovery.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/page-creation-recovery.test.ts) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/page-etag.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/page-etag.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/page-write-queue.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/page-write-queue.test.ts) | 2 | call-pattern estimate |
-| Vitest | [`frontend/src/shared/api/planning.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/planning.test.ts) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/api/planning.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/planning.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/plugins.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/plugins.test.ts) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/reader.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/reader.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/resource-lookup.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/resource-lookup.test.ts) | 4 | call-pattern estimate |
@@ -597,7 +597,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/shared/api/translation.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/translation.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/transports.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/transports.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/useCalendarData.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/useCalendarData.test.tsx) | 4 | call-pattern estimate |
-| Vitest | [`frontend/src/shared/api/usePlanningData.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/usePlanningData.test.tsx) | 2 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/api/usePlanningData.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/usePlanningData.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/vault-comments.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/vault-comments.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/vault-composer.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/vault-composer.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/vault-content.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/vault-content.test.ts) | 4 | call-pattern estimate |
@@ -1162,6 +1162,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_planning_agent_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_planning_agent_tools.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_planning_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_planning_api_contract.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_planning_engine.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_planning_engine.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_planning_project_isolation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_planning_project_isolation.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_planning_scheduler.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_planning_scheduler.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_planning_storage_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_planning_storage_recovery.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_platform_notifications.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_platform_notifications.py) | 5 | Python AST |

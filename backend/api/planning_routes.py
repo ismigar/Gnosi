@@ -14,6 +14,8 @@ from typing import Any, Callable, ParamSpec, TypeVar, cast
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from backend.domains.planning.project_scope import apply_project_leveling, project_assignment_ids
+
 from backend.domains.planning.schemas import (
     AllocationResponse,
     AssignmentMutationResponse,
@@ -119,6 +121,30 @@ def _validation_error(error: PlanningValidationError) -> HTTPException:
     return HTTPException(status_code=422, detail=str(error))
 
 
+def _read_schedule_index() -> dict[str, Any]:
+    vault_path = get_active_vault_path()
+    if vault_path is not None:
+        from backend.services.planning_scheduler import refresh_vault_schedules
+
+        try:
+            refresh_vault_schedules(Path(vault_path))
+        except (OSError, ValueError, MetadataUnavailable) as exc:
+            raise PlanningStorageUnavailable(Path(vault_path)) from exc
+    return _index().load() or {}
+
+
+def _project_task_ids(project_id: str) -> set[str]:
+    schedule = (_read_schedule_index().get("projects") or {}).get(project_id) or {}
+    return {item["id"] for item in schedule.get("tasks", [])}
+
+
+def _project_allocation(state: dict[str, Any], project_id: str) -> dict[str, Any]:
+    assignment_ids = project_assignment_ids(state, project_id, _project_task_ids(project_id))
+    return calculate_allocation({
+        **state, "assignments": [item for item in state["assignments"] if item["id"] in assignment_ids],
+    })
+
+
 @router.get(
     "/planning/state",
     response_model=PlanningStateResponse,
@@ -135,10 +161,12 @@ async def get_planning_state() -> JsonResponse:
     response_model=AllocationResponse,
     response_model_exclude_unset=True,
 )
-async def get_allocation() -> JsonResponse:
+async def get_allocation(project_id: str | None = None) -> JsonResponse:
     """Returns a rebuildable allocation/cost report without writing task data."""
     state = await _planning_io(_store().load)
-    return calculate_allocation(state)
+    if project_id is None:
+        return calculate_allocation(state)
+    return await _planning_io(_project_allocation, state, project_id)
 
 
 @router.get(
@@ -158,8 +186,8 @@ async def get_leveling_proposal() -> JsonResponse:
     response_model_exclude_unset=True,
 )
 async def get_project_schedule(project_id: str) -> JsonResponse:
-    """Returns the cached, reconstructible schedule for one project."""
-    schedule = await asyncio.to_thread(_index().load)
+    """Refresh derived schedules without modifying Markdown task facts."""
+    schedule = await _planning_io(_read_schedule_index)
     return ((schedule or {}).get("projects") or {}).get(project_id) or {
         "projectId": project_id,
         "tasks": [],
@@ -208,7 +236,7 @@ async def create_baseline(project_id: str, payload: BaselinePayload) -> JsonResp
     name = payload.name.strip()
     if not name:
         raise HTTPException(status_code=422, detail="baseline name is required")
-    schedule = ((await asyncio.to_thread(_index().load) or {}).get("projects") or {}).get(
+    schedule = ((await _planning_io(_read_schedule_index)).get("projects") or {}).get(
         project_id
     )
     if not schedule:
@@ -223,7 +251,7 @@ async def create_baseline(project_id: str, payload: BaselinePayload) -> JsonResp
     existing = await _planning_io(store.history, "baseline")
     if any(item.get("projectId") == project_id and item.get("name") == name for item in existing):
         raise HTTPException(status_code=409, detail="Baseline name already exists")
-    allocation = calculate_allocation(await _planning_io(store.load))
+    allocation = await _planning_io(_project_allocation, await _planning_io(store.load), project_id)
     baseline = {
         "id": str(uuid.uuid4()),
         "type": "baseline",
@@ -233,6 +261,7 @@ async def create_baseline(project_id: str, payload: BaselinePayload) -> JsonResp
         "scheduleRevision": schedule["scheduleRevision"],
         "schedule": schedule,
         "allocation": allocation,
+        "allocationProjectId": project_id,
     }
     await _planning_io(store.append_history, baseline)
     return {"baseline": baseline}
@@ -271,7 +300,7 @@ async def get_baseline_variance(project_id: str, baseline_id: str) -> JsonRespon
     )
     if not baseline:
         raise _not_found("baseline")
-    current = ((await asyncio.to_thread(_index().load) or {}).get("projects") or {}).get(project_id)
+    current = ((await _planning_io(_read_schedule_index)).get("projects") or {}).get(project_id)
     if not current:
         raise HTTPException(
             status_code=409, detail="Recalculate the project before requesting variance"
@@ -282,7 +311,9 @@ async def get_baseline_variance(project_id: str, baseline_id: str) -> JsonRespon
         item["task_id"]: item
         for item in baseline.get("allocation", {}).get("assignment_summaries", [])
     }
-    current_allocation = calculate_allocation(await _planning_io(_store().load))
+    current_allocation = await _planning_io(
+        _project_allocation, await _planning_io(_store().load), project_id
+    )
     current_costs = {
         item["task_id"]: item for item in current_allocation.get("assignment_summaries", [])
     }
@@ -314,13 +345,18 @@ async def get_baseline_variance(project_id: str, baseline_id: str) -> JsonRespon
                 ),
             }
         )
+    baseline_total = sum(
+        float(item.get("estimated_cost") or 0)
+        for item in baseline.get("allocation", {}).get("assignment_summaries", [])
+        if baseline.get("allocationProjectId") == project_id or item["task_id"] in original_tasks
+    )
     return {
         "baselineId": baseline_id,
         "baselineScheduleRevision": baseline.get("scheduleRevision"),
         "currentScheduleRevision": current.get("scheduleRevision"),
         "totalCostVariance": round(
             current_allocation["total_estimated_cost"]
-            - float(baseline.get("allocation", {}).get("total_estimated_cost") or 0),
+            - baseline_total,
             2,
         ),
         "tasks": rows,
@@ -355,8 +391,16 @@ async def create_worklog(payload: WorklogPayload) -> JsonResponse:
     response_model=WorklogListResponse,
     response_model_exclude_unset=True,
 )
-async def list_worklogs(task_id: str | None = None) -> WorklogListJsonResponse:
+async def list_worklogs(
+    task_id: str | None = None, project_id: str | None = None
+) -> WorklogListJsonResponse:
     entries = await _planning_io(_store().history, "worklog")
+    if project_id is not None:
+        state = await _planning_io(_store().load)
+        task_ids = await _planning_io(_project_task_ids, project_id)
+        assignment_ids = project_assignment_ids(state, project_id, task_ids)
+        task_ids.update(item["task_id"] for item in state["assignments"] if item["id"] in assignment_ids)
+        entries = [entry for entry in entries if entry.get("taskId") in task_ids]
     if task_id:
         entries = [entry for entry in entries if entry.get("taskId") == task_id]
     totals: dict[str, float] = {}
@@ -372,10 +416,12 @@ async def list_worklogs(task_id: str | None = None) -> WorklogListJsonResponse:
 )
 async def create_leveling_proposal(project_id: str) -> JsonResponse:
     state = await _planning_io(_store().load)
-    schedule = ((await asyncio.to_thread(_index().load) or {}).get("projects") or {}).get(
+    schedule = ((await _planning_io(_read_schedule_index)).get("projects") or {}).get(
         project_id
     )
-    proposal = propose_leveling(state)
+    task_ids = {item["id"] for item in (schedule or {}).get("tasks", [])}
+    assignment_ids = project_assignment_ids(state, project_id, task_ids)
+    proposal = propose_leveling(state, assignment_ids=assignment_ids)
     proposal.update(
         {
             "id": str(uuid.uuid4()),
@@ -403,6 +449,11 @@ async def create_leveling_proposal(project_id: str) -> JsonResponse:
 )
 async def apply_leveling_proposal(proposal_id: str, payload: ProposalApplyPayload) -> JsonResponse:
     """Accepts a current proposal only after revision and ETag validation."""
+    async with _mutation_lock:
+        return await _apply_leveling_proposal(proposal_id, payload)
+
+
+async def _apply_leveling_proposal(proposal_id: str, payload: ProposalApplyPayload) -> JsonResponse:
     store = _store()
     proposals = await _planning_io(store.history, "leveling_proposal")
     proposal = next((item for item in reversed(proposals) if item.get("id") == proposal_id), None)
@@ -414,7 +465,7 @@ async def apply_leveling_proposal(proposal_id: str, payload: ProposalApplyPayloa
         raise HTTPException(
             status_code=409, detail="Schedule revision is stale; regenerate the proposal"
         )
-    schedule = ((await asyncio.to_thread(_index().load) or {}).get("projects") or {}).get(
+    schedule = ((await _planning_io(_read_schedule_index)).get("projects") or {}).get(
         proposal["projectId"]
     )
     if not schedule or schedule.get("scheduleRevision") != proposal.get("scheduleRevision"):
@@ -428,29 +479,12 @@ async def apply_leveling_proposal(proposal_id: str, payload: ProposalApplyPayloa
     if current_etags != expected_etags or payload.etags != expected_etags:
         raise HTTPException(status_code=409, detail="Task ETags changed; regenerate the proposal")
     state = await _planning_io(store.load)
-    by_assignment = {item["id"]: item for item in state["assignments"]}
-    applied_changes = []
-    for change in proposal["proposals"]:
-        assignment = by_assignment.get(change["assignment_id"])
-        if not assignment:
-            raise HTTPException(
-                status_code=409, detail="An assignment in the proposal no longer exists"
-            )
-        if assignment.get("start") != change.get(
-            "source_start", assignment.get("start")
-        ) or assignment.get("end") != change.get("source_end", assignment.get("end")):
-            raise HTTPException(
-                status_code=409, detail="An assignment changed; regenerate the proposal"
-            )
-        assignment["start"] = change["suggested_start"]
-        assignment["end"] = change["suggested_end"]
-        applied_changes.append(
-            {
-                "assignmentId": assignment["id"],
-                "start": assignment["start"],
-                "end": assignment["end"],
-            }
+    try:
+        applied_changes = apply_project_leveling(
+            state, proposal, {item["id"] for item in schedule.get("tasks", [])}
         )
+    except PlanningValidationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if applied_changes:
         await asyncio.to_thread(store.save, state)
     entry = {
