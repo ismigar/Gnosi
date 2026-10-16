@@ -608,11 +608,15 @@ class FakeAnalysis:
 
 @pytest.mark.parametrize("contaminated", (False, True))
 @pytest.mark.parametrize("missing_voice", (False, True))
+@pytest.mark.parametrize("platform", ("darwin", "linux"))
+@pytest.mark.parametrize("collection_failure", (False, True))
 def test_generated_spec_uses_real_policy_before_collect_with_fake_build_adapters(
     repository: Path,
     monkeypatch: pytest.MonkeyPatch,
     contaminated: bool,
     missing_voice: bool,
+    platform: str,
+    collection_failure: bool,
 ) -> None:
     plan = policy.build_plan(repository)
     events: list[str] = []
@@ -640,10 +644,41 @@ def test_generated_spec_uses_real_policy_before_collect_with_fake_build_adapters
         assert includes == ["assets/silero_vad_v6.onnx"]
         return [] if missing_voice else voice_data
     hooks.__dict__["collect_data_files"] = collect_data
+    osx = ModuleType("PyInstaller.utils.osx")
+    architecture_result = (False, ["arm64"])
+    inspection_error = ValueError("synthetic invalid binary")
+    collection_error = ValueError("synthetic collection failure")
+
+    @dataclass
+    class MachOGraph:
+        parent: object | None = None
+
+    def binary_architectures(filename: str) -> tuple[bool, list[str]]:
+        if filename == "invalid":
+            raise inspection_error
+        assert filename == "runtime.dylib"
+        graph = MachOGraph()
+        graph.parent = graph
+        refs["macho"] = weakref.ref(graph)
+        return architecture_result
+
+    def dependency_paths(filename: str, target_rpath: str) -> None:
+        assert filename == "runtime.dylib" and target_rpath == "@loader_path"
+        assert refs["macho"]() is None
+        graph = MachOGraph()
+        graph.parent = graph
+        refs["paths"] = weakref.ref(graph)
+
+    osx.__dict__.update(
+        get_binary_architectures=binary_architectures,
+        set_dylib_dependency_paths=dependency_paths,
+    )
     monkeypatch.setitem(sys.modules, "PyInstaller", ModuleType("PyInstaller"))
     monkeypatch.setitem(sys.modules, "PyInstaller.utils", ModuleType("PyInstaller.utils"))
     monkeypatch.setitem(sys.modules, "PyInstaller.utils.hooks", hooks)
+    monkeypatch.setitem(sys.modules, "PyInstaller.utils.osx", osx)
     monkeypatch.setattr(sys, "path", sys.path.copy())
+    monkeypatch.setattr(sys, "platform", platform)
 
     def analysis(entries: list[str], **kwargs: object) -> FakeAnalysis:
         events.append("analysis")
@@ -686,6 +721,22 @@ def test_generated_spec_uses_real_policy_before_collect_with_fake_build_adapters
         assert args[1] is tables["binaries"] and args[2] is tables["datas"]
         assert tables["binaries"] and tables["datas"]
         assert refs["analysis"]() is None and refs["pyz"]() is None
+        if platform == "darwin":
+            assert osx.get_binary_architectures is not binary_architectures
+            assert osx.set_dylib_dependency_paths is not dependency_paths
+            for _ in range(2):
+                assert osx.get_binary_architectures(filename="runtime.dylib") is architecture_result
+                assert refs["macho"]() is None
+                assert osx.set_dylib_dependency_paths(
+                    "runtime.dylib", target_rpath="@loader_path",
+                ) is None
+                # The next native tool must not overlap completed parser cycles.
+                assert refs["paths"]() is None
+            with pytest.raises(ValueError) as raised:
+                osx.get_binary_architectures("invalid")
+            assert raised.value is inspection_error
+        if collection_failure:
+            raise collection_error
         return object()
 
     namespace: dict[str, object] = {
@@ -705,8 +756,17 @@ def test_generated_spec_uses_real_policy_before_collect_with_fake_build_adapters
             exec(compile(spec, "backend.spec", "exec"), namespace)
         assert events == ["analysis"]
     else:
-        exec(compile(spec, "backend.spec", "exec"), namespace)
-        assert events == ["analysis", "pyz", "exe", "release", "collect"]
+        if collection_failure:
+            with pytest.raises(ValueError) as raised:
+                exec(compile(spec, "backend.spec", "exec"), namespace)
+            assert raised.value is collection_error
+        else:
+            exec(compile(spec, "backend.spec", "exec"), namespace)
+        assert events == ["analysis", "pyz", "exe", "release", "collect"] + (
+            ["release"] * 5 if platform == "darwin" else []
+        )
+    assert osx.get_binary_architectures is binary_architectures
+    assert osx.set_dylib_dependency_paths is dependency_paths
 
 
 def test_spec_windows_paths_are_literal_without_backslash_or_quote_corruption() -> None:

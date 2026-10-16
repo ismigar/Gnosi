@@ -689,8 +689,28 @@ collected_binaries, collected_datas = a.binaries, a.datas
 CONF['code_cache'].pop(id(a.pure), None)
 del a, pyz
 gc.collect()
-coll = COLLECT(exe, collected_binaries, collected_datas, strip=False, upx=True,
-               name='cervell_backend')
+# MachO headers reference their parent and retain every binary section. Release
+# completed inspections before another parser or native signing tool runs.
+inspection_functions = {{}}
+if sys.platform == 'darwin':
+    from PyInstaller.utils import osx
+    def release_inspection_cycles(function):
+        def inspected(*args, **kwargs):
+            try:
+                return function(*args, **kwargs)
+            finally:
+                gc.collect()
+        return inspected
+    for name in ('get_binary_architectures', 'set_dylib_dependency_paths'):
+        inspection_functions[name] = getattr(osx, name)
+        setattr(osx, name, release_inspection_cycles(inspection_functions[name]))
+try:
+    coll = COLLECT(exe, collected_binaries, collected_datas, strip=False, upx=True,
+                   name='cervell_backend')
+finally:
+    if inspection_functions:
+        for name, function in inspection_functions.items():
+            setattr(osx, name, function)
 """
 
 
