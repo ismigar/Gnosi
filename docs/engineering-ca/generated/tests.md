@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 30 | 97 |
 | Vitest | 708 | 3130 |
-| pytest | 690 | 5209 |
+| pytest | 691 | 5211 |
 
 ## Fitxers
 
@@ -1056,6 +1056,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_mail_calendar_domain_facades.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_calendar_domain_facades.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_mail_decoding.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_decoding.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_mail_idle_delivery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_idle_delivery.py) | 7 | Python AST |
+| pytest | [`backend/tests/test_mail_imap_preservation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_imap_preservation.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_mail_ingester_savepoint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_ingester_savepoint.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_mail_inline_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_inline_images.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_mail_listing_independence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_listing_independence.py) | 4 | Python AST |

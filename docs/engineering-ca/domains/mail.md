@@ -190,6 +190,11 @@ compatibilitat amb els clients 2.x.
 ## Invariants
 
 - La sincronització és idempotent per a un identificador de missatge del proveïdor.
+- Les sincronitzacions IMAP en segon pla conserven les còpies locals Markdown i HTML
+  quan un UID no apareix a la cerca del servidor, inclosos els resultats buits i
+  els canvis d'espai d'UID. Els moviments remots, la retenció o els resultats
+  absents no autoritzen a eliminar l'arxiu local; l'eliminació correspon a les
+  accions explícites de correu de l'usuari.
 - Un missatge fallit utilitza un savepoint i no interromp el lot del compte.
 - Les etiquetes i vistes desades són estat local de l'aplicació, no etiquetes
   del proveïdor, tret que hi hagi un mapatge explícit.
