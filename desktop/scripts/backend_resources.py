@@ -656,10 +656,12 @@ def verify_bundle(bundle: Path, plan: ResourcePlan) -> None:
 def render_spec(repository: Path, helper_directory: Path) -> str:
     """Use repr for paths: spaces, quotes and Windows backslashes stay literal."""
     return f"""# -*- mode: python ; coding: utf-8 -*-
+import gc
 import sys
 from pathlib import Path
 sys.path.insert(0, {str(helper_directory)!r})
 from backend_resources import build_plan, validate_analysis
+from PyInstaller.config import CONF
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 plan = build_plan(Path({str(repository)!r}))
@@ -681,7 +683,13 @@ pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True,
           name='cervell_backend', debug=False, strip=False, upx=True,
           console=True, contents_directory='_internal')
-coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=True,
+# PYZ and EXE have consumed the analysis graph and its compiled-code cache.
+# COLLECT needs only the executable and these already validated file tables.
+collected_binaries, collected_datas = a.binaries, a.datas
+CONF['code_cache'].pop(id(a.pure), None)
+del a, pyz
+gc.collect()
+coll = COLLECT(exe, collected_binaries, collected_datas, strip=False, upx=True,
                name='cervell_backend')
 """
 

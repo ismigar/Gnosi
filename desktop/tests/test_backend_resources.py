@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import ast
+import gc
 import json
 import os
 import shutil
 import subprocess
 import sys
 import tomllib
+import weakref
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -601,6 +603,7 @@ class FakeAnalysis:
     pure: list[policy.TocEntry]
     binaries: list[policy.TocEntry]
     scripts: list[policy.TocEntry]
+    graph: object | None = None
 
 
 @pytest.mark.parametrize("contaminated", (False, True))
@@ -613,6 +616,21 @@ def test_generated_spec_uses_real_policy_before_collect_with_fake_build_adapters
 ) -> None:
     plan = policy.build_plan(repository)
     events: list[str] = []
+    refs: dict[str, weakref.ReferenceType[object]] = {}
+    tables: dict[str, list[policy.TocEntry]] = {}
+    config: dict[str, dict[int, object]] = {"code_cache": {99: "unrelated analysis"}}
+    config_module = ModuleType("PyInstaller.config")
+    config_module.__dict__["CONF"] = config
+    monkeypatch.setitem(sys.modules, "PyInstaller.config", config_module)
+    gc_module = ModuleType("gc")
+    def release_graph() -> int:
+        events.append("release")
+        count = gc.collect()
+        assert refs["analysis"]() is None and refs["pyz"]() is None
+        assert config["code_cache"] == {99: "unrelated analysis"}
+        return count
+    gc_module.__dict__["collect"] = release_graph
+    monkeypatch.setitem(sys.modules, "gc", gc_module)
     hooks = ModuleType("PyInstaller.utils.hooks")
     hooks.__dict__["collect_submodules"] = lambda name: ["keyring.backends.null"]
     voice_source = write(repository.parent, "vendor/faster_whisper/assets/silero_vad_v6.onnx")
@@ -639,19 +657,35 @@ def test_generated_spec_uses_real_policy_before_collect_with_fake_build_adapters
         data.append(("faster_whisper/assets/silero_vad_v6.onnx", str(voice_source), "DATA"))
         if contaminated:
             data.append(("backend/.env", "/synthetic-hook/secret", "DATA"))
-        return FakeAnalysis(data, modules, [], [])
+        binary_source = write(repository.parent, "vendor/runtime.dylib")
+        binaries = [("runtime.dylib", str(binary_source), "BINARY")]
+        value = FakeAnalysis(data, modules, binaries, [])
+        value.graph = value  # Exercise cyclic graph release rather than only refcounts.
+        refs["analysis"] = weakref.ref(value)
+        tables.update(binaries=binaries, datas=data)
+        config["code_cache"][id(modules)] = {"compiled": "synthetic code"}
+        return value
+
+    class FakePyz:
+        pass
 
     def pyz(*args: object, **kwargs: object) -> object:
         events.append("pyz")
-        return object()
+        value = FakePyz()
+        refs["pyz"] = weakref.ref(value)
+        return value
 
     def exe(*args: object, **kwargs: object) -> object:
         events.append("exe")
         assert kwargs["contents_directory"] == "_internal"
+        assert refs["analysis"]() is not None and refs["pyz"]() is not None
         return object()
 
     def collect(*args: object, **kwargs: object) -> object:
         events.append("collect")
+        assert args[1] is tables["binaries"] and args[2] is tables["datas"]
+        assert tables["binaries"] and tables["datas"]
+        assert refs["analysis"]() is None and refs["pyz"]() is None
         return object()
 
     namespace: dict[str, object] = {
@@ -672,7 +706,7 @@ def test_generated_spec_uses_real_policy_before_collect_with_fake_build_adapters
         assert events == ["analysis"]
     else:
         exec(compile(spec, "backend.spec", "exec"), namespace)
-        assert events == ["analysis", "pyz", "exe", "collect"]
+        assert events == ["analysis", "pyz", "exe", "release", "collect"]
 
 
 def test_spec_windows_paths_are_literal_without_backslash_or_quote_corruption() -> None:
