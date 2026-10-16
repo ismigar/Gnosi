@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { createVaultDatabase } from '../../../shared/api/vaults';
 import { deleteVaultDatabase } from '../../../shared/api/vaults';
 import { deleteVaultTable } from '../../../shared/api/vaults';
@@ -44,8 +45,11 @@ export function DashboardSidebar(dashboard: DashboardController) {
     tabs,
     viewMode,
   } = context;
+  const sidebarPages = useMemo(() => pages.map(page => ({ ...page,
+    metadata: { ...page.metadata, favorite: context.bookmarkedPageIds.has(page.id) },
+  })), [pages, context.bookmarkedPageIds]);
   return (<VaultSidebar
-    pages={pages}
+    pages={sidebarPages}
     activePageId={activeTabId}
     favoritePages={favoritePages}
     isRegistryLoading={isRegistryLoading}
@@ -65,7 +69,7 @@ export function DashboardSidebar(dashboard: DashboardController) {
     onDeletePage={handleDeletePage}
     onDuplicatePage={handleDuplicatePage}
     onRenamePage={handleRenamePage}
-    onToggleFavorite={handleToggleFavorite}
+    onToggleFavorite={context.bookmarksReady ? handleToggleFavorite : undefined}
     onMovePage={handleMovePage}
     currentView={viewMode}
     databases={registry.databases}

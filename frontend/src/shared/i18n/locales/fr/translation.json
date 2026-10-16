@@ -3356,7 +3356,9 @@
     "unpin_application": "Désépingler {{application}}",
     "move_application_up": "Monter {{application}}",
     "move_application_down": "Descendre {{application}}",
-    "no_matching_applications": "Aucune application correspondante."
+    "no_matching_applications": "Aucune application correspondante.",
+    "add_bookmark": "Ajouter aux signets",
+    "remove_bookmark": "Retirer des signets"
   },
   "shell": {
     "view_more": "Plus",
@@ -3389,7 +3391,9 @@
     "unlock_edit": "Déverrouiller pour modifier",
     "share_page": "Partager",
     "add_favorite": "Ajouter aux favoris",
-    "remove_favorite": "Retirer des favoris"
+    "remove_favorite": "Retirer des favoris",
+    "add_bookmark": "Ajouter aux signets",
+    "remove_bookmark": "Retirer des signets"
   },
   "views_header": {
     "create_new_view": "Créer une nouvelle vue",
@@ -8566,18 +8570,28 @@
     "add": "Ajouter un signet",
     "name": "Nom",
     "kind": "Type",
-    "page": "Note",
+    "page": "Page",
     "section": "Titre ou bloc",
     "search": "Recherche enregistrée",
     "graph": "Graphe",
     "url": "Lien web",
     "group": "Groupe",
-    "choose_note": "Choisir une note",
+    "choose_note": "Choisir une page",
     "section_name": "Titre ou référence de bloc",
     "query": "Requête",
     "up": "Monter",
     "down": "Descendre",
-    "save_failed": "Impossible d’enregistrer le signet. Vérifiez la cible et le stockage local."
+    "save_failed": "Impossible d’enregistrer le signet. Vos modifications sont conservées ; réessayez.",
+    "empty": "Enregistrez ici des notes, sections, recherches, vues du graphe ou liens web.",
+    "loading": "Synchronisation des signets…",
+    "sort": "Trier les signets",
+    "sync_failed": "Impossible de synchroniser les signets. Les éléments enregistrés sont conservés ; actualisez pour réessayer.",
+    "invalid_target": "Vérifiez le nom et la destination de ce signet.",
+    "edit": "Modifier {{name}}",
+    "reorder": "Réordonner {{name}}",
+    "route": "Vue de Gnosi",
+    "route_target": "Adresse de la vue",
+    "add_view": "Enregistrer la vue actuelle"
   },
   "json_canvas": {
     "import": "Importer .canvas",

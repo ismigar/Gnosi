@@ -519,7 +519,9 @@
     "unpin_application": "Desfijar {{application}}",
     "move_application_up": "Subir {{application}}",
     "move_application_down": "Bajar {{application}}",
-    "no_matching_applications": "No hay aplicaciones coincidentes."
+    "no_matching_applications": "No hay aplicaciones coincidentes.",
+    "add_bookmark": "Añadir a marcadores",
+    "remove_bookmark": "Quitar de marcadores"
   },
   "shell": {
     "view_more": "Más",
@@ -552,7 +554,9 @@
     "unlock_edit": "Desbloquear para editar",
     "share_page": "Compartir",
     "add_favorite": "Añadir a favoritos",
-    "remove_favorite": "Quitar de favoritos"
+    "remove_favorite": "Quitar de favoritos",
+    "add_bookmark": "Añadir a marcadores",
+    "remove_bookmark": "Quitar de marcadores"
   },
   "table": {
     "column_header_hint": "{{column}}: clic para ordenar; doble clic para seleccionar toda la columna",
@@ -8566,18 +8570,28 @@
     "add": "Añadir marcador",
     "name": "Nombre",
     "kind": "Tipo",
-    "page": "Nota",
+    "page": "Página",
     "section": "Encabezado o bloque",
     "search": "Búsqueda guardada",
     "graph": "Grafo",
     "url": "Enlace web",
     "group": "Grupo",
-    "choose_note": "Elige una nota",
+    "choose_note": "Elige una página",
     "section_name": "Encabezado o referencia de bloque",
     "query": "Consulta",
     "up": "Subir",
     "down": "Bajar",
-    "save_failed": "No se ha podido guardar el marcador. Revisa el destino y el almacenamiento local."
+    "save_failed": "No se ha podido guardar el marcador. Se conservan los cambios; vuelve a intentarlo.",
+    "empty": "Guarda aquí notas, secciones, búsquedas, vistas del grafo o enlaces web.",
+    "loading": "Sincronizando marcadores…",
+    "sort": "Ordenar marcadores",
+    "sync_failed": "No se han podido sincronizar los marcadores. Se conservan los elementos guardados; actualiza para reintentar.",
+    "invalid_target": "Revisa el nombre y el destino de este marcador.",
+    "edit": "Editar {{name}}",
+    "reorder": "Reordenar {{name}}",
+    "route": "Vista de Gnosi",
+    "route_target": "Dirección de la vista",
+    "add_view": "Guardar la vista actual"
   },
   "json_canvas": {
     "import": "Importa .canvas",

@@ -567,7 +567,9 @@
     "unpin_application": "Unpin {{application}}",
     "move_application_up": "Move {{application}} up",
     "move_application_down": "Move {{application}} down",
-    "no_matching_applications": "No matching applications."
+    "no_matching_applications": "No matching applications.",
+    "add_bookmark": "Add to bookmarks",
+    "remove_bookmark": "Remove from bookmarks"
   },
   "shell": {
     "view_more": "More",
@@ -600,7 +602,9 @@
     "unlock_edit": "Unlock to edit",
     "share_page": "Share",
     "add_favorite": "Add to favorites",
-    "remove_favorite": "Remove from favorites"
+    "remove_favorite": "Remove from favorites",
+    "add_bookmark": "Add to bookmarks",
+    "remove_bookmark": "Remove from bookmarks"
   },
   "table": {
     "column_header_hint": "{{column}}: click to sort; double-click to select the whole column",
@@ -8510,18 +8514,28 @@
     "add": "Add bookmark",
     "name": "Name",
     "kind": "Type",
-    "page": "Note",
+    "page": "Page",
     "section": "Heading or block",
     "search": "Saved search",
     "graph": "Graph",
     "url": "Web link",
     "group": "Group",
-    "choose_note": "Choose a note",
+    "choose_note": "Choose a page",
     "section_name": "Heading or block reference",
     "query": "Query",
     "up": "Move up",
     "down": "Move down",
-    "save_failed": "The bookmark could not be saved. Check its target and local storage."
+    "save_failed": "The bookmark could not be saved. Your changes are kept; try again.",
+    "empty": "Save notes, sections, searches, graph views or web links here.",
+    "loading": "Synchronizing bookmarks…",
+    "sort": "Sort bookmarks",
+    "sync_failed": "Bookmarks could not be synchronized. Your saved items are kept; refresh to retry.",
+    "invalid_target": "Check the name and destination of this bookmark.",
+    "edit": "Edit {{name}}",
+    "reorder": "Reorder {{name}}",
+    "route": "Gnosi view",
+    "route_target": "View address",
+    "add_view": "Save current view"
   },
   "json_canvas": {
     "import": "Import .canvas",

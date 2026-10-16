@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-15
+last_verified: 2026-10-16
 source_paths:
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -37,6 +37,7 @@ source_paths:
   - frontend/src/shared/page-search
   - backend/domains/vault/search
   - frontend/src/shared/bookmarks
+  - frontend/src/shared/api/bookmarks.ts
 tests:
   - backend/tests/test_e2e_option_catalogs.py
   - backend/tests/test_translation_lifecycle_binding_contract.py
@@ -45,6 +46,12 @@ tests:
   - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
   - frontend/src/shared/api/vault-search.test.ts
   - frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx
+  - backend/tests/test_vault_bookmarks.py
+  - frontend/src/shared/api/bookmarks.test.ts
+  - frontend/src/shared/bookmarks/useBookmarks.test.tsx
+  - frontend/src/shared/bookmarks/bookmark-routes.test.ts
+  - frontend/src/features/vault/dashboard/bookmark-target.test.ts
+  - frontend/src/shared/bookmarks/BookmarksSection.test.tsx
   - frontend/src/shared/bookmarks/bookmarks.test.ts
   - tests/e2e/tests/disposable/knowledge-parity.spec.ts
   - frontend/src/features/vault/dashboard/Dashboard.document-controls.test.tsx
@@ -160,9 +167,8 @@ The global search dialog and `query`/`search` Markdown fences share the same API
 and pagination. The visual editor offers a query block. Request identity includes
 the Vault, workspace and user; changing any scope clears visible results and
 rejects in-flight responses. Public Markdown rendering does not execute Vault
-queries. Grouped bookmarks are local to that account/workspace/Vault on the
-device and accept pages, heading/block references, queries, graph routes and
-HTTP(S) links.
+queries. Unified bookmarks accept pages, heading/block references, queries, graph
+routes, portable Gnosi views and HTTP(S) links; the page star is a shortcut into the same collection.
 
 Transclusions render complete rich Markdown for `![[note]]`, headings and block
 
@@ -203,6 +209,51 @@ Saved layouts restore the existing note, drawing, PDF and EPUB tabs, active
 document, reader location and split geometry after validating their targets.
 
 An inactive alias can be removed from the registry while another registration in the same workspace retains its folder. Deletion uses the same selected identity as the catalog and still protects the active entry and the last primary registration. Removing a shared registration preserves the folder, local databases, caches and file index; requesting file deletion is rejected while any other registered vault uses the same path, including another workspace.
+
+## Unified bookmarks and device synchronization
+
+The sidebar exposes one **Bookmarks** collection. Whole-page membership drives
+both the page star and its context menu; page metadata `favorite` is migration
+input, never a second mutable favorites list. Page labels can remain custom
+aliases, and groups, manual order and sorting belong to the collection.
+Dashboards, records and templates remain page destinations. Tables, saved views,
+drawings, document readers (PDF/EPUB/snapshot), notebooks and other routed app
+sections use a `route` destination relative to the Vault (for example
+`/knowledge/table/<table>/view/<view>`). Reader shortcuts retain the source,
+kind and page number. The client resolves each route against the device's
+current Vault slug. Only the twelve audited app roots are allowed; external
+origins, another Vault prefix, controls, backslashes and encoded path traversal
+are rejected. This preserves destination types without duplicating categories
+such as favorites, dashboards and notes in the shortcut model.
+
+`/api/vault/bookmarks` and its import/item/page/order/sort operations resolve
+`get_workspace_context`, using authenticated identity rather than `X-User-ID`.
+Each user/workspace collection lives in the selected Vault under
+`.gnosi/bookmarks/<scope-hash>/`. Viewers may manage their own shortcuts without
+writing note content. Existing shared favorite flags are discovered server-side
+from the complete hydrated page index, including late cloud metadata. Each
+browser imports its legacy scoped list and favorite ordering only after the
+server acknowledges it; the original local entries remain available for retry.
+Migration receipts retain distinct aliases/groups and prevent deleted imports
+from reappearing when another device reconnects.
+
+Each mutation appends an atomic, immutable JSON operation. Local processes use
+a file lock outside the synchronized Vault. Independent devices can exchange
+operation files through their normal folder synchronization without replacing a
+whole collection. Replay uses Lamport clocks and operation UUIDs; concurrent
+changes to different items survive, while concurrent changes to one item have a
+deterministic winner. History and deletion receipts are retained; replay is
+linear in journal length and no compaction is currently performed. Corrupt,
+unavailable cloud or symlinked metadata fails visibly without replacing it.
+
+Clients use a cache scoped to the account, email, workspace and Vault, refresh
+every fifteen seconds and on focus/reconnect, and serialize reads with writes.
+Mutations capture the selected context and cannot submit into a different
+account or Vault. Cached items remain visible on errors; edits require a
+successful initial synchronization and failed saves retain the editing draft.
+Synchronization requires the same server or a synchronized copy of the same
+Vault and authenticated account/workspace identity. Separate local Vaults do
+not acquire a new cloud transport automatically.
 
 ## Comment and translation contracts
 

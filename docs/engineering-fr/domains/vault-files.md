@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-15
+last_verified: 2026-10-16
 source_paths:
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -37,6 +37,7 @@ source_paths:
   - frontend/src/shared/page-search
   - backend/domains/vault/search
   - frontend/src/shared/bookmarks
+  - frontend/src/shared/api/bookmarks.ts
 tests:
   - backend/tests/test_e2e_option_catalogs.py
   - backend/tests/test_translation_lifecycle_binding_contract.py
@@ -45,6 +46,12 @@ tests:
   - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
   - frontend/src/shared/api/vault-search.test.ts
   - frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx
+  - backend/tests/test_vault_bookmarks.py
+  - frontend/src/shared/api/bookmarks.test.ts
+  - frontend/src/shared/bookmarks/useBookmarks.test.tsx
+  - frontend/src/shared/bookmarks/bookmark-routes.test.ts
+  - frontend/src/features/vault/dashboard/bookmark-target.test.ts
+  - frontend/src/shared/bookmarks/BookmarksSection.test.tsx
   - frontend/src/shared/bookmarks/bookmarks.test.ts
   - tests/e2e/tests/disposable/knowledge-parity.spec.ts
   - frontend/src/features/vault/dashboard/Dashboard.document-controls.test.tsx
@@ -139,7 +146,7 @@ Les sauvegardes complètes par PUT conservent la détection initiale des conflit
 
 La grammaire accepte les phrases entre guillemets, AND implicite ou explicite, OR, NOT, la négation par moins, les parenthèses et les expressions régulières avec indicateurs `i`, `m`, `s`. Les champs sont `title`, `path`, `file`, `tag`, `is`, `content`, `line`, `block`, `section`, `task`, `task-todo` et `task-done` ; `[name]` et `[name:value]` interrogent les métadonnées initiales. La recherche littérale ignore la casse et les accents. Les étiquettes littérales conservent leurs limites hiérarchiques dans les groupes. Les limites de tokens CommonMark distinguent sections, blocs et tâches des exemples de code. Taille, profondeur, expressions régulières et évaluation totale ont des limites explicites ; une requête invalide ou trop coûteuse renvoie 422. Cette recherche textuelle déterministe est indépendante de la recherche sémantique et des systèmes de récupération des carnets.
 
-Le dialogue de recherche globale et les blocs Markdown `query`/`search` partagent API et pagination. L’éditeur visuel propose un bloc de requête. L’identité de la requête comprend Vault, espace de travail et utilisateur ; tout changement de périmètre efface les résultats visibles et rejette les réponses en cours. Le Markdown public n’exécute pas de requêtes au Vault. Les favoris regroupés sont locaux au compte/espace de travail/Vault de l’appareil et acceptent pages, références de titres ou blocs, requêtes, routes de graphe et liens HTTP(S).
+Le dialogue de recherche globale et les blocs Markdown `query`/`search` partagent API et pagination. L’éditeur visuel propose un bloc de requête. L’identité de la requête comprend Vault, espace de travail et utilisateur ; tout changement de périmètre efface les résultats visibles et rejette les réponses en cours. Le Markdown public n’exécute pas de requêtes au Vault. Les marque-pages unifiés acceptent les pages, références de titres ou blocs, requêtes, routes de graphe, vues portables de Gnosi et liens HTTP(S) ; l’étoile de la page est un raccourci vers la même collection.
 
 Les transclusions affichent le Markdown enrichi complet pour `![[note]]`, les titres et références de bloc. Elles partagent liens et ressources avec l’aperçu Markdown, préservent les exemples littéraux, se rafraîchissent avec la source et signalent les destinations absentes ou vides. Une vérification des ancêtres par branche et une profondeur limitée empêchent la récursion. Les lectures fixent le contexte capturé et ignorent les réponses périmées. Le partage public d’une page n’autorise pas la lecture de transclusions privées.
 
@@ -154,6 +161,67 @@ Le compositeur de notes prévisualise l’extraction vers une nouvelle note ou l
 Les cartes de page du canvas permettent une édition explicite et des sauvegardes conditionnelles. Les brouillons restent en mémoire lorsqu’une disposition démonte un dessin, limités au compte, espace de travail, Vault et page. Il faut les sauvegarder avant de fermer l’application. L’import/export JSON Canvas préserve les nœuds, arêtes et métadonnées personnalisées compatibles ; les structures non prises en charge sont rejetées et les ressources ne sont pas copiées. Les dispositions enregistrées restaurent les onglets de notes, dessins, PDF et EPUB, le document actif, la position de lecture et la géométrie des panneaux après validation des destinations.
 
 Un alias inactif peut être retiré du registre si une autre entrée du même espace de travail conserve le dossier. La suppression utilise la même identité sélectionnée que le catalogue et protège toujours l’entrée active et la dernière entrée du vault principal. Le retrait d’une entrée partagée préserve le dossier, les bases de données locales, les caches et l’index des fichiers ; la suppression des fichiers est refusée tant qu’un autre vault enregistré utilise le même chemin, y compris dans un autre espace de travail.
+
+## Marque-pages unifiés et synchronisation entre appareils
+
+La barre latérale présente une seule collection de **Marque-pages**.
+L’appartenance d’une page entière détermine à la fois l’étoile de la page et
+son menu contextuel ; la métadonnée `favorite` de la page est une entrée de
+migration, jamais une deuxième liste modifiable de favoris. Les libellés des
+pages peuvent conserver des alias personnalisés, et les groupes, l’ordre
+manuel et le tri appartiennent à la collection. Les tableaux de bord,
+enregistrements et modèles restent des destinations de page. Les tables,
+vues enregistrées, dessins, lecteurs de documents (PDF/EPUB/instantané),
+carnets et autres sections de l’application disposant d’une route utilisent
+une destination `route` relative au Vault (par exemple,
+`/knowledge/table/<table>/view/<view>`). Les raccourcis du lecteur conservent
+la source, le type et le numéro de page. Le client résout chaque route avec
+le slug actuel du Vault sur l’appareil. Seules les douze racines d’application
+auditées sont autorisées ; les origines externes, le préfixe d’un autre Vault,
+les caractères de contrôle, les barres obliques inverses et la traversée de
+chemins encodée sont rejetés. Cela préserve les types de destination sans
+dupliquer des catégories telles que favoris, tableaux de bord et notes dans
+le modèle de raccourcis.
+
+`/api/vault/bookmarks` et ses opérations d’importation, d’élément, de page,
+d’ordre et de tri résolvent `get_workspace_context`, en utilisant l’identité
+authentifiée plutôt que `X-User-ID`. Chaque collection d’utilisateur et
+d’espace de travail est stockée dans le Vault sélectionné, sous
+`.gnosi/bookmarks/<scope-hash>/`. Les utilisateurs ayant un rôle de lecteur
+peuvent gérer leurs propres raccourcis sans écrire le contenu des notes. Les
+indicateurs partagés de favoris existants sont découverts côté serveur à
+partir de l’index complet des pages dont les métadonnées ont été récupérées,
+y compris celles qui arrivent plus tard du cloud. Chaque navigateur importe
+son ancienne liste par périmètre et l’ordre des favoris uniquement après
+confirmation du serveur ; les entrées locales originales sont conservées
+pour permettre une nouvelle tentative. Les reçus de migration préservent les
+alias et groupes distincts et empêchent les importations supprimées de
+réapparaître lorsqu’un autre appareil se reconnecte.
+
+Chaque modification ajoute une opération JSON atomique et immuable. Les
+processus locaux utilisent un verrou de fichier hors du Vault synchronisé.
+Les appareils indépendants peuvent échanger les fichiers d’opérations au
+moyen de leur synchronisation habituelle des dossiers sans remplacer toute
+la collection. La relecture utilise des horloges Lamport et des UUID
+d’opération ; les modifications concurrentes d’éléments différents sont
+conservées, tandis que celles d’un même élément ont un gagnant déterministe.
+L’historique et les reçus de suppression sont conservés ; le coût de
+relecture est linéaire par rapport à la longueur du journal et aucune
+compaction n’est actuellement effectuée. Les métadonnées corrompues,
+indisponibles dans le cloud ou liées symboliquement échouent visiblement
+sans être remplacées.
+
+Les clients utilisent un cache limité au compte, à l’adresse e-mail, à
+l’espace de travail et au Vault, l’actualisent toutes les quinze secondes
+ainsi qu’au retour du focus ou de la connexion, et sérialisent les lectures
+avec les écritures. Les modifications capturent le contexte sélectionné et
+ne peuvent pas être envoyées à un autre compte ou Vault. Les éléments en
+cache restent visibles en cas d’erreur ; la modification nécessite une
+synchronisation initiale réussie et les échecs d’enregistrement conservent
+le brouillon en cours. La synchronisation nécessite le même serveur ou une
+copie synchronisée du même Vault et la même identité authentifiée de compte
+et d’espace de travail. Les Vaults locaux indépendants n’acquièrent pas
+automatiquement un nouveau transport cloud.
 
 ## Contrats des commentaires et des traductions
 
