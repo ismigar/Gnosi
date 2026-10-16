@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WorkspaceIdentity } from '../../shared/api/agent-workspace';
+import { isElectron } from '../../shared/platform/electron';
 import { useLocalVoiceCapture } from './useLocalVoiceCapture';
 
 interface SpeechResult { readonly isFinal: boolean; readonly 0: { readonly transcript: string } }
@@ -20,7 +21,9 @@ interface VoiceWindow {
 export function useVoiceConversation(identity: WorkspaceIdentity, language: string, busy: boolean, reply: string,
   onPrompt: (text: string) => void) {
   const voiceWindow = window as unknown as VoiceWindow;
-  const factory = voiceWindow.SpeechRecognition ?? voiceWindow.webkitSpeechRecognition;
+  // Electron exposes Chromium's recognition constructor without providing the
+  // browser vendor's speech service. Desktop capture must use local transcription.
+  const factory = isElectron ? undefined : voiceWindow.SpeechRecognition ?? voiceWindow.webkitSpeechRecognition;
   const speech = voiceWindow.speechSynthesis;
   const [active, setActive] = useState(false);
   const [failed, setFailed] = useState(false);

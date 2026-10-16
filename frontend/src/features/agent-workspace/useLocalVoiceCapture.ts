@@ -58,8 +58,10 @@ export function useLocalVoiceCapture(identity: WorkspaceIdentity, active: boolea
         void transcribeWorkspaceVoice(captureIdentity, chunk, language, request.signal).then(result => {
           if (disposed) return;
           const text = result.text.trim();
-          if (text) { stream?.getTracks().forEach(track => { track.stop(); }); prompt.current(text); }
-          else record();
+          if (text) prompt.current(text);
+          // A queued prompt may remain paused without a busy transition. Keep
+          // listening until the owning scope suspends or stops this capture.
+          record();
         }).catch(() => { if (!disposed && !request?.signal.aborted) failed(); });
       };
       recorder.start();
