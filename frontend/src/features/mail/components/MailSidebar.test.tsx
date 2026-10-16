@@ -105,9 +105,11 @@ describe('MailSidebar', () => {
     act(() => { buttonWithText('mail.all_accounts').click(); });
     const switches = container.querySelectorAll<HTMLElement>('[role="switch"]');
     expect(switches).toHaveLength(2);
-    expect(switches[0].getAttribute('aria-checked')).toBe('true');
-    expect(switches[1].getAttribute('aria-checked')).toBe('false');
-    act(() => { switches[1].click(); });
+    const [firstSwitch, secondSwitch] = switches;
+    if (!firstSwitch || !secondSwitch) throw new Error('Expected both account visibility switches');
+    expect(firstSwitch.getAttribute('aria-checked')).toBe('true');
+    expect(secondSwitch.getAttribute('aria-checked')).toBe('false');
+    act(() => { secondSwitch.click(); });
     expect(onToggleAccountVisibility).toHaveBeenCalledExactlyOnceWith(accounts[1]);
     expect(onSelectAccount).not.toHaveBeenCalled();
     expect(container.querySelector('button[aria-expanded="true"]')).not.toBeNull();
