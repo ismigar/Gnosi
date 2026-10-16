@@ -94,6 +94,26 @@ describe('local voice capture', () => {
     expect(Recorder.instances).toHaveLength(2);
     expect(Recorder.instances[1]?.state).toBe('recording');
   });
+
+  it('keeps capturing later utterances when the prompt stays queued without a busy transition', async () => {
+    const prompt = vi.fn(); const error = vi.fn();
+    vi.mocked(transcribeWorkspaceVoice)
+      .mockResolvedValueOnce({ text: 'First queued instruction', language: 'en', duration: 4 })
+      .mockResolvedValueOnce({ text: 'Second queued instruction', language: 'en', duration: 4 });
+    const { unmount } = renderHook(() => useLocalVoiceCapture(identity, true, false, 'en', prompt, error));
+    await settle();
+    await act(async () => { vi.advanceTimersByTime(4000); await Promise.resolve(); });
+    expect(prompt).toHaveBeenNthCalledWith(1, 'First queued instruction');
+    expect(stop).not.toHaveBeenCalled();
+    expect(Recorder.instances[1]?.state).toBe('recording');
+    await act(async () => { vi.advanceTimersByTime(4000); await Promise.resolve(); });
+    expect(prompt).toHaveBeenNthCalledWith(2, 'Second queued instruction');
+    expect(Recorder.instances[2]?.state).toBe('recording');
+    expect(error).not.toHaveBeenCalled();
+    unmount();
+    expect(stop).toHaveBeenCalled();
+    expect(Recorder.instances[2]?.state).toBe('inactive');
+  });
 });
 
 it('closes tracks from a permission response received after unmount', async () => {

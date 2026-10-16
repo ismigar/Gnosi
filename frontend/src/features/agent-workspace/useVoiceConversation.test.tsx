@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useVoiceConversation } from './useVoiceConversation';
 
 const local = vi.hoisted(() => ({ capture: vi.fn(), supported: false }));
+const platform = vi.hoisted(() => ({ isElectron: false }));
+vi.mock('../../shared/platform/electron', () => platform);
 vi.mock('./useLocalVoiceCapture', () => ({ useLocalVoiceCapture: (...args: unknown[]) => { local.capture(...args); return { supported: local.supported }; } }));
 class Recognition {
   static instances: Recognition[] = [];
@@ -29,7 +31,7 @@ async function render(props: { busy?: boolean; reply?: string } = {}) {
   await act(async () => { root.render(<Probe {...props} />); await Promise.resolve(); });
 }
 beforeEach(() => {
-  vi.clearAllMocks(); Recognition.instances = []; local.supported = false;
+  vi.clearAllMocks(); Recognition.instances = []; local.supported = false; platform.isElectron = false;
   container = document.createElement('div'); document.body.append(container); root = createRoot(container); mounted = true;
   Object.defineProperty(window, 'SpeechRecognition', { configurable: true, value: Recognition });
   Object.defineProperty(window, 'webkitSpeechRecognition', { configurable: true, value: undefined });
@@ -41,6 +43,26 @@ afterEach(async () => {
   for (const key of ['SpeechRecognition', 'webkitSpeechRecognition', 'speechSynthesis']) Object.defineProperty(window, key, { configurable: true, value: undefined });
 });
 describe('voice conversation lifecycle', () => {
+  it('uses local transcription in Electron even when browser recognition is exposed', async () => {
+    platform.isElectron = true; local.supported = true;
+    await render();
+    expect(value.supported).toBe(true);
+    expect(local.capture).toHaveBeenLastCalledWith(identity, false, false, 'ca', prompt, expect.any(Function));
+    await act(async () => { value.toggle(); await Promise.resolve(); });
+    expect(local.capture).toHaveBeenLastCalledWith(identity, true, false, 'ca', prompt, expect.any(Function));
+    expect(Recognition.instances).toHaveLength(0);
+    await render({ busy: true });
+    expect(local.capture).toHaveBeenLastCalledWith(identity, true, true, 'ca', prompt, expect.any(Function));
+    await act(async () => { value.toggle(); await Promise.resolve(); });
+    expect(local.capture).toHaveBeenLastCalledWith(identity, false, true, 'ca', prompt, expect.any(Function));
+    expect(container.querySelector('input')?.value).toBe('Unsubmitted draft');
+  });
+  it('does not advertise browser recognition as a desktop fallback when local capture is unavailable', async () => {
+    platform.isElectron = true;
+    await render();
+    expect(value.supported).toBe(false);
+    expect(Recognition.instances).toHaveLength(0);
+  });
   it('requests no recognition on mount, and submits a final utterance without modifying the typed draft', async () => {
     await render(); expect(Recognition.instances).toHaveLength(0); expect(value.active).toBe(false);
     expect(local.capture).toHaveBeenLastCalledWith(identity, false, false, 'ca', prompt, expect.any(Function));

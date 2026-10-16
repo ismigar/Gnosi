@@ -1636,8 +1636,10 @@ purpose strings; these descriptions do not grant operating-system permissions. A
 claimed action after disconnection.
 
 Voice starts only from the conversation's explicit microphone button. It uses
-browser speech recognition when available, otherwise complete bounded audio
-chunks go to the existing governed local Whisper transcription service. The
+the existing governed local Whisper transcription service in Electron, even
+when Chromium exposes a browser recognition constructor. Outside Electron it
+uses browser speech recognition when available, otherwise complete bounded audio
+chunks go to the local service. The
 microphone pauses while the agent works or speech playback runs, and recording,
 requests and playback stop on exit or scope change. Local transcription may
 fetch its configured model on first explicit use. Browser speech recognition
