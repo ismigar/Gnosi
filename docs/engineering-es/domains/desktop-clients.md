@@ -182,6 +182,12 @@ de conexiones ocupadas. Este límite no interrumpe una lectura bloqueada del
 sistema de archivos en el backend ni garantiza la disponibilidad de los archivos
 en la nube.
 
+La cancelación incluye cerrar el cuerpo de la respuesta después de recibir las
+cabeceras. El proxy aborta la petición al backend cuando el consumidor cierra
+el cuerpo y mantiene la propagación de la cancelación hasta que termina la
+transmisión. Los streams de eventos de Correo abandonados deben liberar las
+conexiones HTTP antes de que se inicie la página siguiente.
+
 La cancelación del proceso de renderizado se propaga a las solicitudes al
 backend. Las demás respuestas de la API, incluidas las transmisiones de los
 agentes y las escrituras, conservan su duración y comportamiento de transmisión

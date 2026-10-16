@@ -167,6 +167,11 @@ connection, so gallery previews cannot indefinitely queue view saves behind
 occupied connections. This deadline does not terminate a blocked filesystem
 read in the backend or guarantee that cloud files are available.
 
+Cancellation includes cancelling the response body after headers arrive. The
+proxy aborts the upstream fetch when a stream consumer closes its body, and
+retains request-abort propagation until the stream ends. Abandoned Mail event
+streams must release their HTTP slots before the next page starts.
+
 Renderer cancellation propagates to upstream requests. Other API responses,
 including agent streams and writes, retain their normal lifetime and streaming
 behavior. The packaging contract requires the proxy helper; regression tests
