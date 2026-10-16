@@ -1,0 +1,8 @@
+.agent-workspace { flex: 0 0 auto; border-top: 1px solid var(--settings-border); color: var(--text-primary); padding: 8px 12px; font-size: .85rem; }
+.agent-workspace > summary { cursor: pointer; }
+.agent-workspace__body { max-height: 320px; overflow: auto; padding-top: 8px; }
+.agent-workspace__section { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; }
+.agent-workspace__section label { display: flex; flex-direction: column; gap: 4px; }
+.agent-workspace__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.agent-workspace__output { max-height: 180px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 8px; background: var(--settings-sidebar-bg); border-radius: 6px; }
+.agent-workspace .gnosi-input, .agent-workspace .gnosi-select { max-width: 100%; min-width: 0; }

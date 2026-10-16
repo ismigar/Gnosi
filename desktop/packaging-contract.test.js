@@ -105,6 +105,7 @@ test('the packaged archive check rejects a missing runtime module', () => {
 test('the packaged archive check accepts normalized Windows entries', () => {
   assert.doesNotThrow(() => assertPackagedRuntimeEntries([
     '\\main.js',
+    '\\agent-workspace.js',
     '\\preload.js',
     '\\ipc-security.js',
     '\\google-sign-in.js',

@@ -6,7 +6,7 @@ import json
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 
 NAMESPACED_ID_PATTERN = (
@@ -234,10 +234,21 @@ class ToolDescriptor(BaseModel):
 
     @field_validator("input_schema")
     @classmethod
-    def validate_input_schema(cls, value: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_input_schema(cls, value: Dict[str, Any], info: ValidationInfo) -> Dict[str, Any]:
         schema = _validate_json_object(value, "input_schema")
         if schema.get("type", "object") != "object":
             raise ValueError("input_schema must describe an object")
+        if getattr(info.data.get("origin"), "type", None) == OriginType.MCP:
+            from backend.services.mcp_contracts import compile_mcp_schema
+            from jsonschema.exceptions import SchemaError
+            try:
+                compile_mcp_schema(schema)
+            except SchemaError as error:
+                raise ValueError(f"Invalid MCP input schema: {error.message}") from error
+            # JSON Schema permits required keys without sibling properties,
+            # including keys defined in referenced/allOf schemas. Preserve the
+            # complete contract for the full MCP validator and model adapter.
+            return schema
         properties = schema.get("properties", {})
         if not isinstance(properties, dict):
             raise ValueError("input_schema.properties must be an object")

@@ -1,3 +1,5 @@
+import { AgentWorkspacePanel } from '../../agent-workspace';
+import { PromptQueue } from './QueuedPromptsPanel';
 import { ConversationLearning } from '../../agent-learning';
 import { Brain, Sparkles } from 'lucide-react';
 import ConfirmModal from '../../../shared/ui/dialogs/ConfirmModal';
@@ -83,7 +85,7 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
                             </div>
                         )}
                         {!showSessionsView && messages.map((msg, idx) => (
-                            <ChatMessageRow key={idx} message={msg} index={idx}
+                            <ChatMessageRow key={`${browserStorageScope}:${selectedAgentId}:${sessionId}:${String(idx)}`} message={msg} index={idx}
                                 notebookId={notebookId}
                                 readOnly={readOnly}
                                 conversationMode={conversationMode}
@@ -124,6 +126,8 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
                         {!showSessionsView && <div ref={messagesEndRef} />}
                     </div>
 
+                    {!learningVisible && !readOnly && <PromptQueue items={controller.queueItems} error={controller.queueStorageError} update={controller.updateQueuedPrompt} remove={controller.removeQueuedPrompt} move={controller.moveQueuedPromptBy} resume={controller.resumeQueue} />}
+                    {!learningVisible && <AgentWorkspacePanel scopeKey={browserStorageScope} agentId={selectedAgentId} sessionId={sessionId} readOnly={readOnly} onPrompt={focusComposerWith} onVoicePrompt={controller.handleVoicePrompt} latestAssistantReply={[...messages].reverse().find(message => message.role === 'assistant')?.content || ''} isAgentBusy={isLoading} />}
                     {/* Input Area */}
                     {!learningVisible && <ChatComposer
                         readOnly={readOnly}

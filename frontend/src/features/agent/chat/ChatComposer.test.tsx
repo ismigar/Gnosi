@@ -60,8 +60,16 @@ describe('typed chat composer', () => {
     expect(container.querySelector('button[aria-label="Attach files"]')).toBeNull(); expect(container.querySelector('button[aria-label="Sessions"]')).toBeNull();
     expect(p.fileInputRef.current?.accept).toBe(CHAT_ATTACHMENT_ACCEPT); expect(p.fileInputRef.current?.multiple).toBe(true);
   });
-  it.each([{ inputValue: '  ' }, { isLoading: true }, { agentHasModel: false }])('disables submission for %j', async overrides => {
+  it.each([{ inputValue: '  ' }, { isUploadingAttachment: true }, { agentHasModel: false }])('disables submission for %j', async overrides => {
     await render(props(overrides)); expect(button('button[type="submit"]').disabled).toBe(true);
+  });
+  it('allows queuing while the agent works and labels the boundary accurately', async () => {
+    const p = props({ isLoading: true }); await render(p);
+    const send = button('button[type="submit"]');
+    expect(send.disabled).toBe(false);
+    expect(send.getAttribute('aria-label')).toBe('Queue next turn');
+    await dispatch(element('form'), new Event('submit', { bubbles: true, cancelable: true }));
+    expect(p.handleSubmit).toHaveBeenCalledOnce();
   });
   it('allows an attachment-only form and preserves its context label and removal callback', async () => {
     const p = props({ inputValue: ' ', attachments: [{ id: 'a', name: 'a.txt', path: '/fixture/a', url: null, size: 1, type: 'text/plain' }], contextRefs: [{ id: 'page', ref: 'page:page', type: 'page', label: 'Research' }] });

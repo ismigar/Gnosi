@@ -6,6 +6,8 @@ from backend.services.agent_behavior import resource as behavior_resource, froze
 
 import time
 from dataclasses import dataclass
+from backend.agent.tools import bind_model_tools
+
 from typing import Any
 
 from langchain_core.messages import AIMessage, SystemMessage
@@ -140,6 +142,16 @@ class AgentWorkflowNodes:
     supervisor_prompt: Any
     tool_policies: Any
     team_help: TeamHelp | None = None
+    memory_provenance: list[dict[str, Any]] | None = None
+
+    def _with_memory(self, response: Any) -> Any:
+        """Persist the exact memory revisions included in this workflow prompt."""
+        if not getattr(response, "tool_calls", None):
+            response.additional_kwargs = {
+                **getattr(response, "additional_kwargs", {}),
+                "memory_provenance": [dict(row) for row in self.memory_provenance or []],
+            }
+        return response
 
     @staticmethod
     def _latest_user(messages: Any) -> str:
@@ -208,7 +220,7 @@ class AgentWorkflowNodes:
             if request_disallows_tools(self._latest_user(messages)):
                 coder_model = self.llm
             elif self.team_help and not can_request_help(state):
-                coder_model = self.llm.bind_tools(self.coder_tools) if self.coder_tools else self.llm
+                coder_model = bind_model_tools(self.llm, self.coder_tools) if self.coder_tools else self.llm
             response = _invoke_agent_model(
                 coder_model,
                 [SystemMessage(content=coder_system)]
@@ -222,7 +234,7 @@ class AgentWorkflowNodes:
             messages=messages,
             plan=state.get("turn_plan") or {},
         )
-        return {"messages": [response], "next": "supervisor"}
+        return {"messages": [self._with_memory(response)], "next": "supervisor"}
 
     def general_node(self, state: AgentState) -> dict[str, Any]:
         """Answer a tool-free conversational turn with the configured persona."""
@@ -231,7 +243,7 @@ class AgentWorkflowNodes:
         messages = state["messages"]
         try:
             response = _invoke_agent_model(
-                self.llm.bind_tools([HELP_TOOL])
+                bind_model_tools(self.llm, [HELP_TOOL])
                 if self.team_help and not request_disallows_tools(self._latest_user(messages))
                 else self.llm,
                 [SystemMessage(content=self.general_prompt)]
@@ -245,7 +257,7 @@ class AgentWorkflowNodes:
             messages=messages,
             plan=state.get("turn_plan") or {},
         )
-        return {"messages": [response], "next": "FINISH"}
+        return {"messages": [self._with_memory(response)], "next": "FINISH"}
 
     def _context_route(self, messages: Any, latest_user: str, request_mode: str, title_edit: Any = None) -> ContextRoute:
         """Select the one mandatory context read for a lookup or analysis turn."""
@@ -374,7 +386,7 @@ class AgentWorkflowNodes:
         ):
             tools = [tool for tool in tools if _tool_name(tool) not in self.context_tool_names]
         model_tools = [*tools, HELP_TOOL] if self.team_help and can_request_help(state) and not request_disallows_tools(latest_user) else tools
-        selected_llm = self.llm.bind_tools(model_tools) if model_tools else self.llm
+        selected_llm = bind_model_tools(self.llm, model_tools) if model_tools else self.llm
         return BrainTurn(
             state=state,
             messages=messages,
@@ -529,15 +541,14 @@ class AgentWorkflowNodes:
             remaining_steps=int(turn.state.get("remaining_steps", 0) or 0),
         )
 
-    @staticmethod
-    def _verified_final(turn: BrainTurn, content: str) -> dict[str, Any]:
+    def _verified_final(self, turn: BrainTurn, content: str) -> dict[str, Any]:
         """Return one deterministic response through the universal verifier."""
         response = verify_response(
             AIMessage(content=content),
             messages=turn.messages,
             plan=turn.turn_plan,
         )
-        return {"messages": [response], "next": "FINISH"}
+        return {"messages": [self._with_memory(response)], "next": "FINISH"}
 
     def _deterministic_brain_result(
         self, turn: BrainTurn, progress: BrainProgress
@@ -719,7 +730,7 @@ class AgentWorkflowNodes:
             messages=turn.messages,
             plan=turn.turn_plan,
         )
-        return {"messages": [response], "next": "supervisor"}
+        return {"messages": [self._with_memory(response)], "next": "supervisor"}
 
     @staticmethod
     def coder_router(state: AgentState) -> str:

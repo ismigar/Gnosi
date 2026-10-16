@@ -28,6 +28,7 @@ dmg:
 
 files:
   - main.js
+  - agent-workspace.js
   - preload.js
   - ipc-security.js
   - google-sign-in.js
@@ -85,6 +86,9 @@ extraResources:
       - "**/*"
 
 mac:
+  extendInfo:
+    NSAppleEventsUsageDescription: Gnosi controls the application you select to perform an action you explicitly approve.
+    NSMicrophoneUsageDescription: Gnosi uses your microphone when you start a voice conversation to transcribe your instructions.
   icon: assets/icon.icns
   category: public.app-category.productivity
   # The PyInstaller Python.framework has an ambiguous bundle type that breaks

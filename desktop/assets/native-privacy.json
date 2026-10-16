@@ -1,0 +1,18 @@
+{
+  "en": {
+    "NSAppleEventsUsageDescription": "Gnosi controls the application you select to perform an action you explicitly approve.",
+    "NSMicrophoneUsageDescription": "Gnosi uses your microphone when you start a voice conversation to transcribe your instructions."
+  },
+  "ca": {
+    "NSAppleEventsUsageDescription": "Gnosi controla l’aplicació que selecciones per executar una acció que aproves explícitament.",
+    "NSMicrophoneUsageDescription": "Gnosi utilitza el micròfon quan inicies una conversa de veu per transcriure les teves instruccions."
+  },
+  "es": {
+    "NSAppleEventsUsageDescription": "Gnosi controla la aplicación que seleccionas para ejecutar una acción que apruebas explícitamente.",
+    "NSMicrophoneUsageDescription": "Gnosi utiliza el micrófono cuando inicias una conversación de voz para transcribir tus instrucciones."
+  },
+  "fr": {
+    "NSAppleEventsUsageDescription": "Gnosi contrôle l’application que vous sélectionnez pour effectuer une action que vous approuvez explicitement.",
+    "NSMicrophoneUsageDescription": "Gnosi utilise votre microphone lorsque vous démarrez une conversation vocale pour transcrire vos instructions."
+  }
+}

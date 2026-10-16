@@ -428,7 +428,7 @@ async def chat_endpoint(
             session_id=session_id,
         )
         config = {
-            "configurable": {"thread_id": thread_id},
+            "configurable": {"thread_id": thread_id, "workbench_session_id": session_id},
             "recursion_limit": 12,
         }
         turn_lock = _thread_lock(thread_id)

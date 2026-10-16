@@ -40,4 +40,4 @@ def test_good_def_still_loads_with_schema():
     t = tools[0]
     assert t.name == "search"
     # The required schema field is present.
-    assert "q" in t.args_schema.model_fields
+    assert "q" in t.args_schema["properties"]

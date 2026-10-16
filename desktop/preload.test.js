@@ -45,7 +45,7 @@ test('exposes only the named application methods, never generic IPC primitives',
     'chooseVaultContainer', 'downloadUpdate', 'getAppVersion', 'getBackendStatus', 'getBackendURL',
     'getUpdateStatus', 'installUpdate', 'onOpenSettings', 'onUpdateStatus',
     'openFormFiller', 'pickFilesystem', 'removeOpenSettingsListener', 'removeUpdateListener',
-    'setApplicationMenu',
+    'setApplicationMenu', 'workspaceOperation',
   ].sort());
   for (const method of Object.values(api)) assert.equal(typeof method, 'function');
 });

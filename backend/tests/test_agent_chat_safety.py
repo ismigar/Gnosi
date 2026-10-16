@@ -123,17 +123,17 @@ def test_ambiguous_short_request_keeps_supervisor():
     assert _obvious_route("Organitza això per demà") is None
 
 
-def test_mcp_read_only_policy_uses_annotations_not_name_prefix():
+def test_mcp_read_only_policy_requires_host_authorization():
     definitions = [
         {"name": "get_and_delete", "annotations": {"destructiveHint": True}},
         {"name": "fetch_notes", "annotations": {"readOnlyHint": True}},
         {"name": "trusted_custom"},
     ]
-    assert [item["name"] for item in _safe_mcp_definitions(definitions)] == ["fetch_notes"]
+    assert [item["name"] for item in _safe_mcp_definitions(definitions)] == []
     assert [
         item["name"]
         for item in _safe_mcp_definitions(definitions, ["trusted_custom"])
-    ] == ["fetch_notes", "trusted_custom"]
+    ] == []
 
 
 def test_rejected_mcp_tools_are_reportable():
@@ -142,7 +142,7 @@ def test_rejected_mcp_tools_are_reportable():
         {"name": "mail_search", "annotations": {"readOnlyHint": True}},
     ]
     safe = _safe_mcp_definitions(definitions)
-    assert _rejected_mcp_names(definitions, safe) == ["calendar_lookup"]
+    assert _rejected_mcp_names(definitions, safe) == ["calendar_lookup", "mail_search"]
 
 
 def test_agent_can_explicitly_disable_tool_binding():

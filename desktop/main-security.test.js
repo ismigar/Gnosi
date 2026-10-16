@@ -4,11 +4,12 @@ const { loadMainRuntime, senderEvent } = require('./test-helpers/main-runtime.cj
 
 const CHANNELS = [
   'get-app-version', 'choose-vault-container', 'pick-filesystem', 'set-application-menu', 'get-update-status', 'get-backend-url',
-  'download-update', 'get-backend-status', 'install-update', 'open-form-filler',
+  'download-update', 'get-backend-status', 'install-update', 'open-form-filler', 'workspace-operation',
 ];
 const FORM = { url: 'https://example.invalid/form', profile: { email: 'fixture@example.invalid' } };
 
 function argumentsFor(channel) {
+  if (channel === 'workspace-operation') return [{ action: 'revoke', agentId: 'principal', sessionId: 'session', scopeKey: 'a'.repeat(64) }];
   if (channel === 'open-form-filler') return [FORM];
   if (channel === 'pick-filesystem') return [{ mode: 'file', multiple: false, title: 'File', fileLabel: 'File', folderLabel: 'Folder', cancelLabel: 'Cancel' }];
   if (channel === 'set-application-menu') return [{ labels: { settings: 'Configuració' } }];
