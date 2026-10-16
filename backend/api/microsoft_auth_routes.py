@@ -47,6 +47,8 @@ class PendingAuth:
     config: MicrosoftOAuthConfig
     desktop: bool = False
     locale: str = "en"
+    account_type: str = "mail"
+    expected_email: str = ""
 
 
 # Keep the PKCE verifier server-side, bound to a single short-lived login.
@@ -70,6 +72,8 @@ SCOPES = " ".join(
         "User.Read",
     ]
 )
+
+CALENDAR_SCOPES = "https://graph.microsoft.com/Calendars.Read offline_access User.Read"
 
 AUTH_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
 TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
@@ -118,6 +122,10 @@ Un cop configurada, Microsoft et portarà a l'accés de la teva organització.</
 <p><a href="/">Tornar a Gnosi</a></p></body></html>""",
             headers={"Cache-Control": "no-store"},
         )
+    account_type = request.query_params.get("type", "mail")
+    if account_type not in {"mail", "calendar"}:
+        raise HTTPException(400, "Microsoft account type is unsupported")
+    expected_email = request.query_params.get("login_hint", "").strip()
     state = secrets.token_urlsafe(32)
     verifier = secrets.token_urlsafe(64)
     challenge = (
@@ -130,6 +138,10 @@ Un cop configurada, Microsoft et portarà a l'accés de la teva organització.</
         cfg.copy(),
         request.query_params.get("desktop") == "true",
         request.query_params.get("ui_locales", "en").split("-")[0],
+        account_type,
+        expected_email
+        if len(expected_email) <= 254 and re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", expected_email)
+        else "",
     )
 
     params = {
@@ -137,7 +149,7 @@ Un cop configurada, Microsoft et portarà a l'accés de la teva organització.</
         "response_type": "code",
         "redirect_uri": cfg["redirect_uri"],
         "response_mode": "query",
-        "scope": SCOPES,
+        "scope": CALENDAR_SCOPES if account_type == "calendar" else SCOPES,
         "state": state,
         "code_challenge": challenge,
         "code_challenge_method": "S256",
@@ -147,6 +159,8 @@ Un cop configurada, Microsoft et portarà a l'accés de la teva organització.</
         params["login_hint"] = email
     else:
         params["prompt"] = "select_account"
+    if account_type == "calendar":
+        params["prompt"] = "consent"
     # urlencode ensures correct encoding of spaces in SCOPES, `://` in
     # redirect_uri, etc. Manual concatenation used to produce invalid URLs
     # depending on the values.
@@ -226,7 +240,7 @@ async def callback(request: Request) -> HTMLResponse | RedirectResponse:
         "code": code,
         "redirect_uri": cfg["redirect_uri"],
         "grant_type": "authorization_code",
-        "scope": SCOPES,
+        "scope": CALENDAR_SCOPES if pending.account_type == "calendar" else SCOPES,
         "code_verifier": pending.code_verifier,
     }
     if cfg["client_secret"]:
@@ -237,6 +251,7 @@ async def callback(request: Request) -> HTMLResponse | RedirectResponse:
             TOKEN_URL,
             data=token_data,
             timeout=15,
+            allow_redirects=False,
         )
         resp.raise_for_status()
         token_payload: Any = resp.json()
@@ -257,6 +272,7 @@ async def callback(request: Request) -> HTMLResponse | RedirectResponse:
             "https://graph.microsoft.com/v1.0/me",
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=10,
+            allow_redirects=False,
         )
         me_resp.raise_for_status()
         profile_payload: Any = me_resp.json()
@@ -268,6 +284,18 @@ async def callback(request: Request) -> HTMLResponse | RedirectResponse:
     except Exception as exc:
         log.error("[Microsoft] Error retrieving profile: %s", exc)
         raise HTTPException(status_code=500, detail="Could not retrieve the profile")
+
+    if pending.account_type == "calendar":
+        scopes = str(tokens.get("scope", "")).split()
+        if not any(
+            scope in {"Calendars.Read", "https://graph.microsoft.com/Calendars.Read"}
+            for scope in scopes
+        ):
+            raise HTTPException(403, "Calendar read permission was not granted")
+        if not isinstance(refresh_token, str) or not refresh_token:
+            raise HTTPException(502, "Calendar offline access was not granted")
+        if pending.expected_email and email.casefold() != pending.expected_email.casefold():
+            raise HTTPException(409, "The selected Microsoft account does not match")
 
     log.info("[Microsoft] OAuth completed for %s", email)
 
@@ -287,5 +315,22 @@ async def callback(request: Request) -> HTMLResponse | RedirectResponse:
         "type": "mail",
     }
 
-    integration_manager.bulk_update({"mail_accounts": [account_data]})
+    if pending.account_type == "calendar":
+        account_data.update(
+            {
+                "id": f"microsoft_calendar_{email}",
+                "type": "calendar",
+                "granted_scopes": tokens.get("scope", ""),
+                "read_only": True,
+            }
+        )
+        integration_manager.upsert_calendar_oauth_account(account_data)
+        from backend.services.hybrid_calendar_service import clear_calendar_list_cache
+        from backend.domains.calendar.runtime import CALENDARS_CACHE, EVENTS_CACHE
+
+        clear_calendar_list_cache()
+        CALENDARS_CACHE.clear()
+        EVENTS_CACHE.clear()
+    else:
+        integration_manager.bulk_update({"mail_accounts": [account_data]})
     return _auth_result(pending, True)

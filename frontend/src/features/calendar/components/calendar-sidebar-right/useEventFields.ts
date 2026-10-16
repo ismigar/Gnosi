@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { exclusiveToInclusiveAllDayEnd } from '../../../../shared/dates/calendarUtils';
 import type { CalendarAttendee, CalendarGeocodeResult } from '../../../../shared/api/calendar';
 import type { EventAttendee, EventFormProps, EventFields } from './calendarTypes';
-import { eventDateFields, recurrenceText } from './eventFormModel';
+import { defaultWritableCalendarId, eventDateFields, recurrenceText } from './eventFormModel';
 export function useEventFields({mode, eventData, initialDate, calendars, defaultCalendarId = ''}: EventFormProps) {
     const titleRef = useRef<HTMLInputElement>(null);
     // Function to normalize times to the HH:mm format
@@ -169,7 +169,7 @@ export function useEventFields({mode, eventData, initialDate, calendars, default
             setEndTime('');
 
             // Default calendar (configured by the user or the first available one)
-            const defCalId = defaultCalendarId || calendars.find(c => c.is_default)?.id || calendars[0]?.id || '';
+            const defCalId = defaultWritableCalendarId(calendars, defaultCalendarId);
             setCalendarId(defCalId);
 
             setLocation('');

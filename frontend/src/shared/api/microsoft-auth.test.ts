@@ -17,3 +17,10 @@ describe('Microsoft mail sign-in', () => {
     expect(microsoftSignInPath(' ')).toBe('/api/auth/microsoft/login');
   });
 });
+
+  it('requests calendar-specific authorization without changing mail defaults', () => {
+    const url = new URL(microsoftSignInPath('calendar@example.test', 'calendar'), 'http://localhost');
+    expect(url.searchParams.get('type')).toBe('calendar');
+    expect(url.searchParams.get('login_hint')).toBe('calendar@example.test');
+    expect(new URL(microsoftSignInPath('mail@example.test'), 'http://localhost').searchParams.has('type')).toBe(false);
+  });

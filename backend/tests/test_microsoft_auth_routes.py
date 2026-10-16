@@ -316,8 +316,107 @@ def test_system_browser_callback_requires_one_time_state_but_not_app_cookie(monk
     assert result.status_code == 200
     assert "tornar a Gnosi" in result.text
     assert (
-        client.get(
-            f"/api/auth/microsoft{path}?state=browser-state&error=access_denied"
-        ).status_code
+        client.get(f"/api/auth/microsoft{path}?state=browser-state&error=access_denied").status_code
         == 400
     )
+
+
+def test_calendar_login_binds_read_only_scope_and_expected_identity(monkeypatch):
+    monkeypatch.setattr(microsoft_auth_routes, "_get_config", _config)
+    response = asyncio.run(
+        microsoft_auth_routes.login(_request("type=calendar&login_hint=calendar%40example.test"))
+    )
+    query = parse_qs(urlparse(response.headers["location"]).query)
+    assert query["scope"] == [microsoft_auth_routes.CALENDAR_SCOPES]
+    assert "Mail." not in query["scope"][0]
+    assert "ReadWrite" not in query["scope"][0]
+    pending = microsoft_auth_routes._pending[query["state"][0]]
+    assert query["prompt"] == ["consent"]
+    assert pending.account_type == "calendar"
+    assert pending.expected_email == "calendar@example.test"
+
+
+@pytest.mark.parametrize(
+    "scope,email,refresh,status",
+    [
+        ("Mail.Read", "calendar@example.test", "refresh", 403),
+        ("Calendars.Read", "other@example.test", "refresh", 409),
+        ("Calendars.Read", "calendar@example.test", None, 502),
+    ],
+)
+def test_calendar_callback_rejects_missing_permission_identity_or_offline_access(
+    monkeypatch, scope, email, refresh, status
+):
+    microsoft_auth_routes._pending["calendar-state"] = microsoft_auth_routes.PendingAuth(
+        1000.0,
+        "verifier",
+        _config(),
+        account_type="calendar",
+        expected_email="calendar@example.test",
+    )
+    monkeypatch.setattr(microsoft_auth_routes, "_get_config", _config)
+    monkeypatch.setattr(
+        microsoft_auth_routes.http,
+        "post",
+        lambda *a, **kw: _Response(
+            {"access_token": "access", "refresh_token": refresh, "scope": scope}
+        ),
+    )
+    monkeypatch.setattr(
+        microsoft_auth_routes.http, "get", lambda *a, **kw: _Response({"mail": email})
+    )
+    monkeypatch.setattr(
+        microsoft_auth_routes.integration_manager,
+        "upsert_calendar_oauth_account",
+        lambda data: pytest.fail("Must not persist unauthorized calendar credentials"),
+    )
+    with pytest.raises(HTTPException) as caught:
+        asyncio.run(microsoft_auth_routes.callback(_request("code=code&state=calendar-state")))
+    assert caught.value.status_code == status
+
+
+def test_calendar_callback_persists_only_calendar_credentials(monkeypatch):
+    microsoft_auth_routes._pending["calendar-state"] = microsoft_auth_routes.PendingAuth(
+        1000.0,
+        "verifier",
+        _config(),
+        account_type="calendar",
+        expected_email="calendar@example.test",
+    )
+    monkeypatch.setattr(microsoft_auth_routes, "_get_config", _config)
+    posted = []
+
+    def post(*a, **kw):
+        posted.append(kw["data"])
+        return _Response(
+            {
+                "access_token": "access",
+                "refresh_token": "refresh",
+                "scope": "Calendars.Read User.Read",
+            }
+        )
+
+    monkeypatch.setattr(microsoft_auth_routes.http, "post", post)
+    monkeypatch.setattr(
+        microsoft_auth_routes.http,
+        "get",
+        lambda *a, **kw: _Response({"mail": "calendar@example.test"}),
+    )
+    captured = []
+    monkeypatch.setattr(
+        microsoft_auth_routes.integration_manager, "upsert_calendar_oauth_account", captured.append
+    )
+    monkeypatch.setattr(
+        microsoft_auth_routes.integration_manager,
+        "bulk_update",
+        lambda data: pytest.fail("Mail account must remain unchanged"),
+    )
+    response = asyncio.run(
+        microsoft_auth_routes.callback(_request("code=code&state=calendar-state"))
+    )
+    assert response.status_code == 307
+    assert posted[0]["scope"] == microsoft_auth_routes.CALENDAR_SCOPES
+    assert captured[0]["type"] == "calendar"
+    assert captured[0]["read_only"] is True
+    assert captured[0]["provider"] == "microsoft"
+    assert "calendar-state" not in microsoft_auth_routes._pending

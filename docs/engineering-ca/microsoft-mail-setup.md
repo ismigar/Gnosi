@@ -5,6 +5,9 @@ source_paths:
   - backend/api/microsoft_auth_routes.py
   - backend/services/auth_public_surface.py
   - backend/services/microsoft_mail_service.py
+  - backend/services/microsoft_calendar_service.py
+  - backend/tests/test_microsoft_calendar_service.py
+  - backend/tests/test_calendar_oauth_account_preservation.py
   - desktop/microsoft-sign-in.js
   - desktop/main.js
   - frontend/src/shared/api/microsoft-auth.ts
@@ -60,3 +63,21 @@ pot llegir correu. Les proves locals amb simulacions no demostren que el registr
 ni el consentiment institucional existeixin.
 
 Referència: https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow
+
+## Calendaris de Microsoft de només lectura
+
+La configuració de calendaris inicia una autorització separada amb
+`Calendars.Read`, `User.Read` i `offline_access`. Conserva els comptes i permisos
+de correu. Reutilitza el registre públic natiu; la política de la institució pot
+exigir el consentiment d'un administrador.
+
+Les credencials es desen per separat a `calendars` amb referències al magatzem
+segur. La reconnexió i la renovació conserven els altres calendaris, també els
+que no tenen identificador, i la configuració de correu i contactes.
+
+El connector consulta les llistes i els intervals paginats de `calendarView`,
+incloses les ocurrències recurrents. Els esdeveniments són de només lectura:
+no es poden crear ni modificar cites de Microsoft des de Gnosi. No importa,
+sobreescriu ni elimina els fitxers de calendari recuperats del Vault.
+Iniciar sessió a Outlook web no concedeix accés a Gnosi; cal completar el
+consentiment específic de calendaris.

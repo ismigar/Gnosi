@@ -5,6 +5,9 @@ source_paths:
   - backend/api/microsoft_auth_routes.py
   - backend/services/auth_public_surface.py
   - backend/services/microsoft_mail_service.py
+  - backend/services/microsoft_calendar_service.py
+  - backend/tests/test_microsoft_calendar_service.py
+  - backend/tests/test_calendar_oauth_account_preservation.py
   - desktop/microsoft-sign-in.js
   - desktop/main.js
   - frontend/src/shared/api/microsoft-auth.ts
@@ -62,3 +65,20 @@ que le compte apparaît et peut lire le courrier. Les tests locaux avec simulati
 ne prouvent pas l’existence de l’inscription ni du consentement institutionnel.
 
 Référence : https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow
+
+## Calendriers Microsoft en lecture seule
+
+Les paramètres de calendrier lancent une autorisation distincte avec
+`Calendars.Read`, `User.Read` et `offline_access`. Les comptes et autorisations
+de courrier sont conservés. L'inscription native publique est réutilisée ;
+l'établissement peut exiger le consentement d'un administrateur.
+
+Les identifiants sont enregistrés séparément dans `calendars`, par références au
+stockage sécurisé. La reconnexion et le renouvellement préservent les autres
+calendriers, même sans identifiant, ainsi que le courrier et les contacts.
+
+Le connecteur consulte les listes et plages paginées de `calendarView`, avec les
+occurrences récurrentes. Les événements sont en lecture seule et les calendriers
+Microsoft ne sont pas proposés comme destinations de création. Aucun fichier
+récupéré du Vault n'est importé, remplacé ou supprimé. La connexion à Outlook web
+ne suffit pas : le consentement propre aux calendriers est nécessaire.

@@ -83,7 +83,7 @@ export function EventDates({controller}: {controller: EventFormController}) {
                     </label>
                     <select aria-label={t('calendar.label', 'Calendar')} value={calendarId} onChange={(e) => { setCalendarId(e.target.value); }} onBlur={handleFieldBlur} className={inputClass}>
                         {calendarChoices.map(({ calendar, label }) => (
-                            <option key={calendar.id} value={calendar.id}>{label}</option>
+                            <option key={calendar.id} value={calendar.id} disabled={calendar.provider === 'microsoft'}>{label}</option>
                         ))}
                     </select>
                 </div>

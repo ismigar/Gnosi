@@ -357,6 +357,37 @@ class IntegrationManager:
             del config[key]
             self._save(config)
 
+    def upsert_calendar_oauth_account(self, account: dict[str, Any]) -> None:
+        """Merge one Microsoft calendar identity without dropping unrelated entries."""
+        email = str(account.get("email") or "").strip().casefold()
+        if not email or account.get("provider") != "microsoft" or account.get("type") != "calendar":
+            raise ValueError("Invalid Microsoft calendar account")
+        with self._lock:
+            config = self._load_secured()
+            calendars = config.get("calendars", [])
+            if not isinstance(calendars, list):
+                raise ValueError("Calendar configuration is not a list")
+            matches = [
+                index
+                for index, item in enumerate(calendars)
+                if isinstance(item, dict)
+                and item.get("provider") == "microsoft"
+                and item.get("type") == "calendar"
+                and str(item.get("email") or "").strip().casefold() == email
+            ]
+            if len(matches) > 1:
+                raise ValueError("Microsoft calendar account is ambiguous")
+            updated = list(calendars)
+            if matches:
+                index = matches[0]
+                merged = self._merge_dict(updated[index], account)
+                merged["id"] = updated[index].get("id") or f"microsoft_calendar_{email}"
+                updated[index] = merged
+            else:
+                updated.append({**account, "id": f"microsoft_calendar_{email}"})
+            config["calendars"] = updated
+            self._save(config)
+
     def bulk_update(self, updates: dict[str, Any]) -> None:
         """Updates multiple integration keys and saves once."""
         with self._lock:
@@ -400,7 +431,10 @@ class IntegrationManager:
             return False
 
     def get_mail_account(
-        self, email: str, *, resolve_secrets: bool = True,
+        self,
+        email: str,
+        *,
+        resolve_secrets: bool = True,
     ) -> dict[str, Any] | None:
         """Select one mail account; provider dispatch can use reference metadata."""
         email_lower = email.strip().lower()

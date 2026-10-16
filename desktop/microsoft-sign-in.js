@@ -10,6 +10,7 @@ async function openMicrosoftSignIn(url, { backendURL, fetch, openExternal, local
   const login = new URL('/api/auth/microsoft/login', backendURL);
   const email = source.searchParams.get('login_hint');
   if (email) login.searchParams.set('login_hint', email);
+  if (source.searchParams.get('type') === 'calendar') login.searchParams.set('type', 'calendar');
   login.searchParams.set('desktop', 'true');
   login.searchParams.set('ui_locales', locale || 'en');
   const response = await fetch(login.href, {
