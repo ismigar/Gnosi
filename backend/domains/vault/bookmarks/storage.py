@@ -193,7 +193,7 @@ class BookmarkStore:
         return state
 
     def append(self, state: State, **changes: object) -> BookmarkCollection:
-        event = JournalEvent(clock=state.clock + 1, id=uuid.uuid4().hex, **changes)
+        event = JournalEvent.model_validate(dict(clock=state.clock + 1, id=uuid.uuid4().hex, **changes))
         replacements = {entry.id: entry for entry in event.entries}
         deleted = set(event.deleted)
         removed = [entry for bookmark_id, entry in state.entries.items()

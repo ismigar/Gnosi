@@ -32,7 +32,7 @@ def discover_favorites(context: WorkspaceContext) -> list[BookmarkEntry]:
         dependencies.refresh_pages_metadata(pages)
         # Hydration can update canonical page identifiers in the index.
         pages = dependencies.get_pages_snapshot()
-        favorites = []
+        favorites: list[BookmarkEntry] = []
         for page in pages:
             if page.metadata.get("favorite") not in (True, "true"):
                 continue
