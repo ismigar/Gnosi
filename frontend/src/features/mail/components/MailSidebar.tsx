@@ -134,6 +134,7 @@ export default function MailSidebar({
       <div className="flex flex-col h-full w-64 bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] shrink-0">
         <div className="px-3 pt-3 pb-2 flex items-center justify-between gap-2 relative">
           <button
+            aria-expanded={showAccountSelector}
             className="flex items-center gap-2 flex-1 min-w-0 px-2 py-1.5 rounded-lg hover:bg-[var(--bg-secondary)] transition-colors"
             onClick={() => {
               setShowAccountSelector((visible) => !visible);
@@ -158,7 +159,7 @@ export default function MailSidebar({
             <Plus size={18} />
           </button>
           {showAccountSelector && (
-            <div className="absolute top-14 left-2 right-2 z-[var(--z-modal-dropdown)] bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-lg py-1 animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute top-14 left-2 right-2 z-[var(--z-modal-dropdown)] max-h-[60vh] overflow-y-auto bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-lg py-1 animate-in fade-in zoom-in-95 duration-150">
               <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
                 {t('mail.mail_section')}
               </div>
@@ -179,45 +180,38 @@ export default function MailSidebar({
                 const address = accountAddress(account);
                 const isSelected = selectedAccount?.email === address;
                 return (
-                  <button
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors ${isSelected
+                  <div
+                    className={`flex items-center gap-2 pr-3 text-[13px] transition-colors ${isSelected
                       ? 'text-[var(--gnosi-blue)] font-semibold bg-[var(--sidebar-item-active)]'
                       : 'text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]'
                     }`}
                     key={address}
-                    onClick={() => {
-                      onSelectAccount(account);
-                      setShowAccountSelector(false);
-                    }}
                   >
-                    <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-[var(--gnosi-blue)]' : 'bg-[var(--border-primary)]'}`} />
-                    <span className="truncate">{address}</span>
-                  </button>
+                    <button
+                      className="flex flex-1 min-w-0 items-center gap-2.5 pl-3 py-2 text-left"
+                      onClick={() => {
+                        onSelectAccount(account);
+                        setShowAccountSelector(false);
+                      }}
+                    >
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-[var(--gnosi-blue)]' : 'bg-[var(--border-primary)]'}`} />
+                      <span className="truncate" title={address}>{address}</span>
+                    </button>
+                    {onToggleAccountVisibility && (
+                      <GnosiToggle
+                        active={!hiddenAccounts.includes(address.trim().toLowerCase())}
+                        label={t('mail.show_account', { account: address })}
+                        onChange={() => onToggleAccountVisibility(account)}
+                        style={{ flexShrink: 0 }}
+                        scale={0.7}
+                      />
+                    )}
+                  </div>
                 );
               })}
             </div>
           )}
         </div>
-        {accounts.length > 0 && onToggleAccountVisibility && (
-          <div className="px-3 pb-3 space-y-2">
-            <div className="gnosi-sidebar-section-title px-2">{t('mail.visible_accounts')}</div>
-            {accounts.map(account => {
-              const address = accountAddress(account);
-              return (
-                <div key={address} className="flex items-center justify-between gap-2 px-2 text-[13px] text-[var(--text-primary)]">
-                  <span className="truncate" title={address}>{address}</span>
-                  <GnosiToggle
-                    active={!hiddenAccounts.includes(address.trim().toLowerCase())}
-                    label={t('mail.show_account', { account: address })}
-                    onChange={() => onToggleAccountVisibility(account)}
-                    style={{ flexShrink: 0 }}
-                    scale={0.7}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        )}
         <div className="px-3 pb-3">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={13} />

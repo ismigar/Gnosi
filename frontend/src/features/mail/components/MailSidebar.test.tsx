@@ -7,7 +7,7 @@ import MailSidebar from './MailSidebar';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, fallback?: string) => fallback ?? key,
+    t: (key: string, fallback?: unknown) => typeof fallback === 'string' ? fallback : key,
   }),
 }));
 
@@ -83,6 +83,41 @@ function setInputValue(input: HTMLInputElement, value: string): void {
 
 
 describe('MailSidebar', () => {
+  it('keeps visibility switches inside the account dropdown without selecting or closing it', () => {
+    const accounts = [{ email: 'one@example.test' }, { email: 'two@example.test' }];
+    const onSelectAccount = vi.fn();
+    const onToggleAccountVisibility = vi.fn();
+    act(() => {
+      root.render(<MailSidebar
+        accounts={accounts}
+        hiddenAccounts={['two@example.test']}
+        activeCategory={null}
+        activeFolder="INBOX"
+        selectedAccount={null}
+        onCompose={vi.fn()}
+        onSelectAccount={onSelectAccount}
+        onSelectCategory={vi.fn()}
+        onSelectFolder={vi.fn()}
+        onToggleAccountVisibility={onToggleAccountVisibility}
+      />);
+    });
+    expect(container.querySelectorAll('[role="switch"]')).toHaveLength(0);
+    act(() => { buttonWithText('mail.all_accounts').click(); });
+    const switches = container.querySelectorAll<HTMLElement>('[role="switch"]');
+    expect(switches).toHaveLength(2);
+    const [firstSwitch, secondSwitch] = switches;
+    if (!firstSwitch || !secondSwitch) throw new Error('Expected both account visibility switches');
+    expect(firstSwitch.getAttribute('aria-checked')).toBe('true');
+    expect(secondSwitch.getAttribute('aria-checked')).toBe('false');
+    act(() => { secondSwitch.click(); });
+    expect(onToggleAccountVisibility).toHaveBeenCalledExactlyOnceWith(accounts[1]);
+    expect(onSelectAccount).not.toHaveBeenCalled();
+    expect(container.querySelector('button[aria-expanded="true"]')).not.toBeNull();
+    act(() => { buttonWithText('two@example.test').click(); });
+    expect(onSelectAccount).toHaveBeenCalledExactlyOnceWith(accounts[1]);
+    expect(container.querySelectorAll('[role="switch"]')).toHaveLength(0);
+  });
+
   it('preserves account, folder, search, compose, and tag callbacks', () => {
     const onCompose = vi.fn<() => void>();
     const onSearch = vi.fn<(value: string) => void>();

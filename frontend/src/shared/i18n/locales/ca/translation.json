@@ -3971,7 +3971,7 @@
   "mail": {
     "visible_accounts": "Comptes visibles",
     "show_account": "Mostra els correus de {{account}}",
-    "all_accounts": "Totes les comptes",
+    "all_accounts": "Tots els comptes",
     "inbox": "Safata d'entrada",
     "starred": "Destacats",
     "sent": "Enviats",
