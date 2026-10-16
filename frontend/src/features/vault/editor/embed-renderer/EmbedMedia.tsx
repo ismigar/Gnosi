@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AppAudio } from '../../../../shared/speech/AppAudio';
 
 import {
   getImageRetryDelay,
@@ -98,7 +99,7 @@ export function EmbedMedia({
     );
   }
   if (kind === 'audio') {
-    return <audio src={url} controls className="w-full" />;
+    return <AppAudio src={url} controls className="w-full" />;
   }
   if (kind === 'image') {
     return <RetryableEmbedImage src={url} alt={caption || ''} />;

@@ -11,7 +11,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('react-i18next', () => ({ useTranslation: () => mocks.translation }));
 vi.mock('../../shared/api/agent-workspace', () => ({ workspaceRequest: mocks.request, uploadWorkspaceFile: vi.fn(), checkedWorkspaceDownload: vi.fn() }));
 vi.mock('../../shared/api/vaults', () => ({ fetchVaultPages: mocks.pages }));
-vi.mock('./useVoiceConversation', () => ({ useVoiceConversation: () => ({ active: false, supported: false, failed: false, toggle: vi.fn() }) }));
+vi.mock('./useVoiceConversation', () => ({ useVoiceConversation: () => ({ active: false, supported: false, failed: false, toggle: vi.fn(), stop: vi.fn(), output: { state: 'idle', error: false } }) }));
+vi.mock('../../shared/speech/SpeechSettings', () => ({ SpeechSettings: () => null }));
 let container: HTMLDivElement;
 let root: Root;
 const props = { scopeKey: 'vault-a', agentId: 'agent', sessionId: 'session', readOnly: false,

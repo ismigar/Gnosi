@@ -2,6 +2,11 @@
 status: implemented
 last_verified: 2026-10-15
 source_paths:
+  - backend/services/workspace_speech.py
+  - backend/domains/agent/routes/workspace_speech.py
+  - frontend/src/shared/speech
+  - frontend/src/shared/api/speech-output.ts
+  - backend/tests/test_agent_workspace_speech.py
   - backend/services/agent_workspace_store.py
   - backend/services/agent_workspace_files.py
   - backend/services/agent_workspace_documents.py
@@ -1645,3 +1650,9 @@ requests and playback stop on exit or scope change. Local transcription may
 fetch its configured model on first explicit use. Browser speech recognition
 uses the browser's configured service. Voice instructions enter the same scoped
 next-turn queue without replacing the typed composer draft.
+
+### Shared speech output
+
+Settings → AI → Voice stores one `ai.speech_output` preference for the active Vault. Chat playback, Reader podcasts, speech artifacts and the RSS-to-audio helper resolve the same provider, voice, language and speed in `backend/services/workspace_speech.py`. New output uses either the installed macOS voice engine or explicitly selected OpenAI neural synthesis. The OpenAI API key stays in the existing server credential store; selecting that provider discloses external processing of spoken text and possible API cost. There is no automatic external fallback. Local synthesis is currently available on macOS only.
+
+Speech preview uses a fixed translated sample. Audio starts from an explicit playback or conversation action, and preparation and speaking have separate status. Playback focus pauses microphone recognition while speech or a Reader episode plays. Stop, scope changes and configuration changes cancel pending playback and release its audio resources. Previously generated audio retains its original sound until regenerated; new artifact cache keys include effective speech configuration. Markdown prose is prepared for speech rather than reading formatting syntax or code blocks aloud. Actual voice naturalness and language quality require listening checks; mocked transport tests do not establish parity with ChatGPT.

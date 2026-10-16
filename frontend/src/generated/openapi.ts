@@ -5734,6 +5734,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/speech/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Speech */
+        post: operations["preview_speech_api_speech_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/speech/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Speech Settings */
+        get: operations["get_speech_settings_api_speech_settings_get"];
+        /** Put Speech Settings */
+        put: operations["put_speech_settings_api_speech_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/browse": {
         parameters: {
             query?: never;
@@ -11363,6 +11398,23 @@ export interface paths {
         put?: never;
         /** Workbench Transfer */
         post: operations["workbench_transfer_api_workspace_transfers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workspace/voice/speak": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Synthesize Workspace Speech */
+        post: operations["synthesize_workspace_speech_api_workspace_voice_speak_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -24913,6 +24965,55 @@ export interface components {
              */
             status: "ok";
         };
+        /** SpeechPreviewRequest */
+        SpeechPreviewRequest: {
+            /** Language */
+            language?: ("ca" | "en" | "es" | "fr") | null;
+        };
+        /** SpeechSettings */
+        SpeechSettings: {
+            /**
+             * Language
+             * @default auto
+             * @enum {string}
+             */
+            language: "auto" | "ca" | "en" | "es" | "fr";
+            /**
+             * Provider
+             * @default local
+             * @enum {string}
+             */
+            provider: "local" | "openai";
+            /**
+             * Speed
+             * @default 1
+             */
+            speed: number;
+            /**
+             * Voice
+             * @default auto
+             */
+            voice: string;
+        };
+        /** SpeechSettingsResponse */
+        SpeechSettingsResponse: {
+            /** Local Available */
+            local_available: boolean;
+            /** Local Voices */
+            local_voices: components["schemas"]["SpeechVoice"][];
+            /** Openai Configured */
+            openai_configured: boolean;
+            /** Revision */
+            revision: string;
+            settings: components["schemas"]["SpeechSettings"];
+        };
+        /** SpeechVoice */
+        SpeechVoice: {
+            /** Id */
+            id: string;
+            /** Language */
+            language: string;
+        };
         /**
          * StoredLevelingProposalResponse
          * @description Persisted proposal with optimistic-concurrency metadata.
@@ -26654,6 +26755,17 @@ export interface components {
             role?: string | null;
             /** Slug */
             slug?: string | null;
+        };
+        /** WorkspaceSpeechRequest */
+        WorkspaceSpeechRequest: {
+            /** Agent Id */
+            agent_id: string;
+            /** Language */
+            language?: ("ca" | "en" | "es" | "fr") | null;
+            /** Session Id */
+            session_id: string;
+            /** Text */
+            text: string;
         };
         /** WorkspaceVoiceTranscript */
         WorkspaceVoiceTranscript: {
@@ -39958,6 +40070,122 @@ export interface operations {
             };
         };
     };
+    preview_speech_api_speech_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpeechPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/mpeg": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_speech_settings_api_speech_settings_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeechSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_speech_settings_api_speech_settings_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpeechSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeechSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     browse_directory_api_system_browse_post: {
         parameters: {
             query?: never;
@@ -52123,6 +52351,46 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    synthesize_workspace_speech_api_workspace_voice_speak_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkspaceSpeechRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/mpeg": string;
                 };
             };
             /** @description Validation Error */

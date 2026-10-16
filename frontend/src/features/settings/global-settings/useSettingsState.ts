@@ -34,12 +34,12 @@ export function useSettingsState(props: GlobalSettingsModalProps) {
     }
   });
   const [activeTab, setActiveTab] = useState(
-    initialTab === 'newsletters' ? 'reader' : initialTab,
+    initialTab === 'newsletters' ? 'reader' : initialTab === 'voice' ? 'ai' : initialTab,
   );
   const [readerSection, setReaderSection] = useState(
     initialTab === 'newsletters' ? 'subscriptions' : 'podcast',
   );
-  const [aiSection, setAiSection] = useState('agents');
+  const [aiSection, setAiSection] = useState(initialTab === 'voice' ? 'voice' : 'agents');
   const [generalSection, setGeneralSection] = useState('system');
   const [mailSection, setMailSection] = useState('accounts');
   const [graphSection, setGraphSection] = useState('engine');

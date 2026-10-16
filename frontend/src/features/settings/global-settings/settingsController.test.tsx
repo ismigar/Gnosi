@@ -107,6 +107,11 @@ afterEach(() => {
 });
 
 describe('settings controller persistence contracts', () => {
+  it('opens the single app-wide voice configuration from a speech surface', async () => {
+    await mount({ initialTab: 'voice' });
+    expect(snapshot().activeTab).toBe('ai');
+    expect(snapshot().aiSection).toBe('voice');
+  });
   it('scrolls the form from toggles and focuses reading areas without activating controls', async () => {
     await act(async () => { root.render(<Harness isOpen onClose={vi.fn()} initialTab="general" showView />); await Promise.resolve(); });
     const main = container.querySelector<HTMLElement>('.settings-main');

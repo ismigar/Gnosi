@@ -2,6 +2,11 @@
 status: implemented
 last_verified: 2026-10-15
 source_paths:
+  - backend/services/workspace_speech.py
+  - backend/domains/agent/routes/workspace_speech.py
+  - frontend/src/shared/speech
+  - frontend/src/shared/api/speech-output.ts
+  - backend/tests/test_agent_workspace_speech.py
   - backend/services/agent_workspace_store.py
   - backend/services/agent_workspace_files.py
   - backend/services/agent_workspace_documents.py
@@ -1750,3 +1755,9 @@ El análisis Python requiere Docker y una imagen local ya instalada (por defecto
 El puente Electron expone un contrato IPC acotado para emisores de confianza. El trabajo nativo queda limitado a la ventana propietaria y a la conversación autenticada. Las ventanas del navegador tienen aislamiento de seguridad, sesiones aisladas, ningún acceso a Node ni a preload, ventanas emergentes y permisos denegados y navegación del mismo origen. Cada clic o entrada de texto propuestos necesitan consentimiento nativo; la consulta del DOM es de solo lectura y se vuelven a comprobar las generaciones de las capacidades antes de enviar entradas nativas limitadas. Tomar el control, detener, revocar o sustituir el navegador invalida las observaciones y las entradas pendientes. La selección de aplicaciones de macOS solo autoriza la aplicación seleccionada; la entrada de texto comprueba el foco y utiliza un ejecutor nativo cancelable. La acción opcional de Mensajes abre un borrador para que una persona lo revise. Las aplicaciones empaquetadas incluyen descripciones localizadas de la finalidad de la automatización y del micrófono en macOS; estas descripciones no conceden permisos del sistema operativo. Las solicitudes del agente utilizan una cola persistente con reserva y concesión temporal y nunca repiten una acción reservada tras una desconexión.
 
 La voz solo se inicia desde el botón explícito del micrófono de la conversación. En Electron utiliza el servicio local gobernado de transcripción Whisper, aunque Chromium exponga un constructor de reconocimiento del navegador. Fuera de Electron utiliza el reconocimiento del navegador cuando está disponible; en caso contrario, envía fragmentos de audio completos y de tamaño limitado al servicio local. El micrófono se pausa mientras el agente trabaja o se reproduce voz, y la grabación, las solicitudes y la reproducción se detienen al salir o cambiar de ámbito. La transcripción local puede descargar el modelo configurado durante el primer uso explícito. El reconocimiento de voz del navegador utiliza el servicio configurado en el navegador. Las instrucciones de voz entran en la misma cola del siguiente turno delimitada por el ámbito, sin sustituir el borrador escrito en el compositor.
+
+### Voz de salida compartida
+
+Configuración → IA → Voz guarda una única preferencia `ai.speech_output` para el Vault activo. El chat, los pódcasts del lector, los audios del agente y la herramienta RSS utilizan el mismo motor, voz, idioma y velocidad en `backend/services/workspace_speech.py`. La síntesis puede ser local con las voces instaladas de macOS o neuronal de OpenAI, seleccionada explícitamente. La clave de API permanece en el almacén de credenciales del servidor; la opción de OpenAI informa del envío del texto y del posible coste. No hay alternativa externa automática. El motor local solo está disponible actualmente en macOS.
+
+La prueba de voz utiliza una muestra traducida fija. La preparación y la reproducción tienen estados diferenciados. La coordinación del audio pausa el micrófono mientras habla la app o se reproduce un episodio del lector. Detener, cambiar de contexto o de configuración cancela las peticiones y libera los recursos. Los audios antiguos conservan su voz hasta que se regeneran; la caché nueva identifica la configuración efectiva. Se lee la prosa sin recitar sintaxis Markdown ni bloques de código. La naturalidad y la calidad por idioma requieren pruebas de escucha; los tests simulados no demuestran equivalencia con ChatGPT.
