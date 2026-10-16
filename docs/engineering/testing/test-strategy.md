@@ -169,6 +169,11 @@ discovery pass does not parse source or populate a lint cache; only the subseque
 CLI checks can establish success. All existing rules, TypeScript project-service
 checks, ignores and the zero-warning threshold apply to every batch. A failed
 batch stops the command. `GNOSI_ESLINT_CACHE` still enables content-based caching.
+The canonical pre-PR environment preserves this explicit analyzer opt-in while
+isolating application selectors, credentials and live-test flags. Prepare reused
+caches with `scripts/ci/prepare_analysis_cache.py` so imported source types,
+configuration and tool locks invalidate stale analyzer results; the default
+remains uncached.
 The mac-idle heap, process-tree memory budget and overall phase deadline stay
 unchanged. Runner regressions compare discovery with real ESLint and exercise
 later-batch failures, type-aware rules, cache invalidation and child termination.

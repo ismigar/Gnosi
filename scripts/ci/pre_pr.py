@@ -125,6 +125,9 @@ def isolated_environment(parent: Mapping[str, str], temporary: Path) -> dict[str
             "RUFF_CACHE_DIR": str(temporary / "cache" / "ruff"),
         }
     )
+    # Analyzer cache is an explicit build opt-in, not an application selector.
+    if lint_cache := parent.get("GNOSI_ESLINT_CACHE"):
+        environment["GNOSI_ESLINT_CACHE"] = lint_cache
     return environment
 
 
