@@ -11,7 +11,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 30 | 97 |
-| Vitest | 708 | 3130 |
+| Vitest | 708 | 3131 |
 | pytest | 691 | 5211 |
 
 ## Archivos
@@ -187,7 +187,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/mail/components/MailList.actions.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.actions.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailList.navigation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.navigation.test.tsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailList.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.test.tsx) | 6 | call-pattern estimate |
-| Vitest | [`frontend/src/features/mail/components/MailSidebar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSidebar.test.tsx) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/features/mail/components/MailSidebar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSidebar.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailTagPicker.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailTagPicker.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailViewEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailViewEditor.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailViewer.resilience.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailViewer.resilience.test.tsx) | 2 | call-pattern estimate |
