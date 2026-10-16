@@ -27,6 +27,10 @@ from pathlib import Path, PurePosixPath
 LOG = logging.getLogger(__name__)
 TocEntry = tuple[str, str, str]
 
+# The locked faster-whisper 1.2.1 runtime loads this VAD model by package path.
+# Python module discovery does not include binary package data.
+DEPENDENCY_DATA_FILES = ("faster_whisper/assets/silero_vad_v6.onnx",)
+
 # Source-only discovery avoids collect_submodules('backend'), which imports the
 # application and can initialize real configuration, databases and automation.
 MODULE_TREES = (
@@ -641,6 +645,10 @@ def verify_bundle(bundle: Path, plan: ResourcePlan) -> None:
                 _check_content(header, packaged_name)
 
     inspect(bundle)
+    for name in DEPENDENCY_DATA_FILES:
+        resource = _regular_path(payload, name)
+        if resource.stat().st_size == 0:
+            raise ResourcePolicyError(f"Empty dependency runtime resource: {name}")
     if missing := set(expected) - found:
         raise ResourcePolicyError(f"Bundle is missing required resources: {sorted(missing)}")
 
@@ -652,15 +660,18 @@ import sys
 from pathlib import Path
 sys.path.insert(0, {str(helper_directory)!r})
 from backend_resources import build_plan, validate_analysis
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 plan = build_plan(Path({str(repository)!r}))
 hiddenimports = list(plan.modules) + {list(THIRD_PARTY_IMPORTS)!r}
 hiddenimports += collect_submodules('keyring.backends')
+voice_data = collect_data_files('faster_whisper', includes=['assets/silero_vad_v6.onnx'])
+if not voice_data:
+    raise RuntimeError('Locked Whisper voice activity model is missing')
 a = Analysis(
     [{str(repository / "backend/server.py")!r}],
     pathex=[{str(repository)!r}],
-    binaries=[], datas=plan.datas, hiddenimports=hiddenimports,
+    binaries=[], datas=plan.datas + voice_data, hiddenimports=hiddenimports,
     hookspath=[], runtime_hooks=[],
     excludes=['tkinter', 'test', 'matplotlib', 'pandas', 'scipy'],
     noarchive=False,

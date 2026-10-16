@@ -74,6 +74,8 @@ def make_bundle(tmp_path: Path, plan: policy.ResourcePlan, layout: str = "_inter
         shutil.copyfile(plan.repository / name, destination)
     write(bundle, "cervell_backend", "synthetic executable; never executed")
     write(payload, "certifi/cacert.pem", "-----BEGIN CERTIFICATE-----\npublic certificate\n")
+    for name in policy.DEPENDENCY_DATA_FILES:
+        write(payload, name, "synthetic ONNX model; never executed")
     write(payload, "base_library.zip", "synthetic dependency archive")
     write(payload, "libpython.dylib", "synthetic library")
     return bundle
@@ -602,15 +604,24 @@ class FakeAnalysis:
 
 
 @pytest.mark.parametrize("contaminated", (False, True))
+@pytest.mark.parametrize("missing_voice", (False, True))
 def test_generated_spec_uses_real_policy_before_collect_with_fake_build_adapters(
     repository: Path,
     monkeypatch: pytest.MonkeyPatch,
     contaminated: bool,
+    missing_voice: bool,
 ) -> None:
     plan = policy.build_plan(repository)
     events: list[str] = []
     hooks = ModuleType("PyInstaller.utils.hooks")
     hooks.__dict__["collect_submodules"] = lambda name: ["keyring.backends.null"]
+    voice_source = write(repository.parent, "vendor/faster_whisper/assets/silero_vad_v6.onnx")
+    voice_data = [(str(voice_source), "faster_whisper/assets")]
+    def collect_data(package: str, *, includes: list[str]) -> list[tuple[str, str]]:
+        assert package == "faster_whisper"
+        assert includes == ["assets/silero_vad_v6.onnx"]
+        return [] if missing_voice else voice_data
+    hooks.__dict__["collect_data_files"] = collect_data
     monkeypatch.setitem(sys.modules, "PyInstaller", ModuleType("PyInstaller"))
     monkeypatch.setitem(sys.modules, "PyInstaller.utils", ModuleType("PyInstaller.utils"))
     monkeypatch.setitem(sys.modules, "PyInstaller.utils.hooks", hooks)
@@ -620,11 +631,12 @@ def test_generated_spec_uses_real_policy_before_collect_with_fake_build_adapters
         events.append("analysis")
         assert entries == [str(repository / "backend/server.py")]
         assert kwargs["pathex"] == [str(repository)]
-        assert kwargs["datas"] == plan.datas
+        assert kwargs["datas"] == plan.datas + voice_data
         assert set(plan.modules) <= set(cast(list[str], kwargs["hiddenimports"]))
         assert "unittest" not in cast(list[str], kwargs["excludes"])
         assert "PIL" not in cast(list[str], kwargs["excludes"])
         data, modules = toc(plan)
+        data.append(("faster_whisper/assets/silero_vad_v6.onnx", str(voice_source), "DATA"))
         if contaminated:
             data.append(("backend/.env", "/synthetic-hook/secret", "DATA"))
         return FakeAnalysis(data, modules, [], [])
@@ -649,7 +661,11 @@ def test_generated_spec_uses_real_policy_before_collect_with_fake_build_adapters
         "COLLECT": collect,
     }
     spec = policy.render_spec(repository, HELPER.parent)
-    if contaminated:
+    if missing_voice:
+        with pytest.raises(RuntimeError, match="Whisper voice activity model"):
+            exec(compile(spec, "backend.spec", "exec"), namespace)
+        assert events == []
+    elif contaminated:
         # The spec imports its helper under its standalone CLI module name.
         with pytest.raises(ValueError, match="Prohibited resource path"):
             exec(compile(spec, "backend.spec", "exec"), namespace)
@@ -694,6 +710,12 @@ elif args[:2] == ['-m', 'PyInstaller']:
         output = bundle / name
         output.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(plan.repository / name, output)
+    for name in backend_resources.DEPENDENCY_DATA_FILES:
+        output = bundle / name
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_bytes(b'synthetic ONNX model')
+    if mode == 'missing-voice':
+        (bundle / backend_resources.DEPENDENCY_DATA_FILES[0]).unlink()
     if mode == 'contaminated':
         (bundle / 'backend/.env').write_text('synthetic; never read')
     if mode == 'missing':
@@ -729,7 +751,8 @@ output.chmod(0o755)
 @pytest.mark.parametrize("layout", ("bin/python", "Scripts/python.exe"))
 @pytest.mark.parametrize(
     "failure",
-    ("", "uv-sync", "pyinstaller", "no-output", "contaminated", "missing", "source"),
+    ("", "uv-sync", "pyinstaller", "no-output", "contaminated", "missing",
+     "missing-voice", "source"),
 )
 def test_real_shell_with_simulated_build_commands_and_paths_with_spaces(
     repository: Path,
@@ -783,7 +806,7 @@ def test_real_shell_with_simulated_build_commands_and_paths_with_spaces(
         assert not smoke
         if failure == "source":
             assert not uv_calls
-        if failure in {"contaminated", "missing"}:
+        if failure in {"contaminated", "missing", "missing-voice"}:
             assert "Backend resource policy failed" in result.stderr
         assert previous.read_text() == "preserve on failure"
     else:
@@ -815,3 +838,19 @@ def test_cli_failure_is_redacted(repository: Path, caplog: pytest.LogCaptureFixt
     assert policy.main(["check-source", "--repository", str(repository)]) == 1
     assert "fixture-secret-value" not in caplog.text
     assert "model_catalog.json" in caplog.text
+
+
+@pytest.mark.parametrize("layout", ["_internal", "."])
+@pytest.mark.parametrize("missing", [True, False])
+def test_bundle_requires_nonempty_whisper_vad_model(
+    tmp_path: Path, repository: Path, layout: str, missing: bool,
+) -> None:
+    plan = policy.build_plan(repository)
+    bundle = make_bundle(tmp_path, plan, layout)
+    model = bundle / layout / "faster_whisper/assets/silero_vad_v6.onnx"
+    if missing:
+        model.unlink()
+    else:
+        model.write_bytes(b"")
+    with pytest.raises((policy.ResourcePolicyError, OSError)):
+        policy.verify_bundle(bundle, plan)
