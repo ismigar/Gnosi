@@ -11,7 +11,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 30 | 97 |
-| Vitest | 714 | 3164 |
+| Vitest | 714 | 3168 |
 | pytest | 699 | 5281 |
 
 ## Fichiers
@@ -72,8 +72,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/agent-learning/MemorySettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/MemorySettings.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent-learning/learningIntent.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/learningIntent.test.ts) | 0 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent-workspace/AgentWorkspacePanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-workspace/AgentWorkspacePanel.test.tsx) | 6 | call-pattern estimate |
-| Vitest | [`frontend/src/features/agent-workspace/useLocalVoiceCapture.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-workspace/useLocalVoiceCapture.test.tsx) | 5 | call-pattern estimate |
-| Vitest | [`frontend/src/features/agent-workspace/useVoiceConversation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-workspace/useVoiceConversation.test.tsx) | 7 | call-pattern estimate |
+| Vitest | [`frontend/src/features/agent-workspace/useLocalVoiceCapture.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-workspace/useLocalVoiceCapture.test.tsx) | 6 | call-pattern estimate |
+| Vitest | [`frontend/src/features/agent-workspace/useVoiceConversation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-workspace/useVoiceConversation.test.tsx) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/AgentChatLauncher.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/AgentChatLauncher.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/AgentConfirmations.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/AgentConfirmations.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/AgentChat.transport.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/AgentChat.transport.test.tsx) | 9 | call-pattern estimate |
@@ -192,7 +192,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/mail/components/MailList.actions.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.actions.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailList.navigation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.navigation.test.tsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailList.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.test.tsx) | 6 | call-pattern estimate |
-| Vitest | [`frontend/src/features/mail/components/MailSidebar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSidebar.test.tsx) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/features/mail/components/MailSidebar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSidebar.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailTagPicker.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailTagPicker.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailViewEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailViewEditor.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailViewer.resilience.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailViewer.resilience.test.tsx) | 2 | call-pattern estimate |

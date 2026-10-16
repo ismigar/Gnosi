@@ -50,7 +50,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2691 | 0 |
-| `features` | 1248 | 135210 | 55 |
+| `features` | 1248 | 135209 | 55 |
 | `generated` | 3 | 53346 | 550 |
 | `shared` | 331 | 36006 | 465 |
 
@@ -183,8 +183,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/agent-workspace/WorkspaceNative.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-workspace/WorkspaceNative.tsx) | 32 | `WorkspaceNative` | — |
 | [`frontend/src/features/agent-workspace/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-workspace/index.ts) | 1 | — | — |
 | [`frontend/src/features/agent-workspace/useAgentWorkspace.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-workspace/useAgentWorkspace.ts) | 112 | `useAgentWorkspace`, `workspaceText` | — |
-| [`frontend/src/features/agent-workspace/useLocalVoiceCapture.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-workspace/useLocalVoiceCapture.ts) | 85 | `useLocalVoiceCapture` | — |
-| [`frontend/src/features/agent-workspace/useVoiceConversation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-workspace/useVoiceConversation.ts) | 65 | `useVoiceConversation` | — |
+| [`frontend/src/features/agent-workspace/useLocalVoiceCapture.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-workspace/useLocalVoiceCapture.ts) | 87 | `useLocalVoiceCapture` | — |
+| [`frontend/src/features/agent-workspace/useVoiceConversation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-workspace/useVoiceConversation.ts) | 68 | `useVoiceConversation` | — |
 | [`frontend/src/features/auth/LoginPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/auth/LoginPage.tsx) | 230 | `LoginPage` | — |
 | [`frontend/src/features/auth/context/AuthProvider.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/auth/context/AuthProvider.tsx) | 276 | `AUTH_BOOTSTRAP_TIMEOUT_MS`, `AuthProvider` | — |
 | [`frontend/src/features/auth/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/auth/index.ts) | 1 | — | — |
@@ -384,7 +384,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/mail/components/MailList.test-harness.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.test-harness.tsx) | 282 | `account`, `accounts`, `message`, `mocks`, `response`, `setupMailListTestHarness` | — |
 | [`frontend/src/features/mail/components/MailList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.tsx) | 49 | `MailList`, `function` | — |
 | [`frontend/src/features/mail/components/MailPdfViewer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailPdfViewer.tsx) | 218 | `MailPdfViewer` | — |
-| [`frontend/src/features/mail/components/MailSidebar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSidebar.tsx) | 324 | `MailSidebar`, `function` | — |
+| [`frontend/src/features/mail/components/MailSidebar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSidebar.tsx) | 318 | `MailSidebar`, `function` | — |
 | [`frontend/src/features/mail/components/MailSidebarItems.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSidebarItems.tsx) | 146 | `SidebarNavItem`, `SidebarViewItem` | — |
 | [`frontend/src/features/mail/components/MailSmartSuggestions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSmartSuggestions.tsx) | 211 | `MailSmartSuggestions` | — |
 | [`frontend/src/features/mail/components/MailTagPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailTagPicker.tsx) | 322 | `MailTagPicker`, `TagPill`, `function` | — |
