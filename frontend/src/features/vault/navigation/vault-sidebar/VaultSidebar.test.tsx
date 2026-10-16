@@ -1,14 +1,21 @@
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { BookmarkSortMode, VaultBookmark } from '../../../../shared/bookmarks/bookmarks';
 import { emitAppEvent } from '../../../../shared/platform/app-events';
-import { readFavoritesSort, readWikiLock, saveSections } from './preferences';
+import { readWikiLock, saveSections } from './preferences';
 import { button, cleanup, click, fixtureRole, inputValue, pageRow, renderSidebar, resetPreferences, settle } from './test-support';
 
 vi.mock('../../../../shared/api/use-api', () => ({ useApi: () => ({ role: fixtureRole.value }) }));
 vi.mock('../../../../shared/hooks/useActiveVaultName', () => ({ useActiveVaultName: () => 'Vault fictici' }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, options?: string | { name?: string; defaultValue?: string }) => typeof options === 'string' ? options : options?.defaultValue || key + (options?.name ? `:${options.name}` : '') }) }));
 
-beforeEach(() => { fixtureRole.value = 'admin'; resetPreferences(); });
+const bookmarkFixture = vi.hoisted((): { entries: VaultBookmark[]; sortMode: BookmarkSortMode } => ({ entries: [], sortMode: 'manual' }));
+vi.mock('../../../../shared/bookmarks/useBookmarks', () => ({ useBookmarks: () => ({
+    ...bookmarkFixture, isReady: true, isPending: false, error: false,
+    refresh: vi.fn().mockResolvedValue(undefined), save: vi.fn().mockResolvedValue(undefined), remove: vi.fn().mockResolvedValue(undefined), reorder: vi.fn().mockResolvedValue(undefined),
+    setSortMode: (mode: BookmarkSortMode) => { bookmarkFixture.sortMode = mode; return Promise.resolve(); },
+}) }));
+beforeEach(() => { fixtureRole.value = 'admin'; bookmarkFixture.entries = []; bookmarkFixture.sortMode = 'manual'; resetPreferences(); });
 afterEach(cleanup);
 
 describe('VaultSidebar navigation', () => {
@@ -51,13 +58,17 @@ describe('VaultSidebar navigation', () => {
         expect(document.querySelector('.vault-sidebar__menu')?.textContent).not.toContain('sidebar.delete');
         expect(pageRow('a').draggable).toBe(false);
     });
-    it('persists favorite sorting and drag locking without changing page ids', async () => {
+    it('shows one bookmark section with synced sorting and keeps wiki drag locking', async () => {
         const pages = [{ id: 'z', title: 'Zulu' }, { id: 'a', title: 'Alpha' }];
+        bookmarkFixture.entries = pages.map(page => ({ id: `bookmark-${page.id}`, label: page.title, target: page.id, kind: 'page', group: '' }));
         const { props, container } = await renderSidebar({ pages, favoritePages: pages });
-        await click(button('Favorites'));
-        await click(button('Sort favorites'));
-        await click(button('A → Z'));
-        expect(readFavoritesSort().mode).toBe('alpha-asc');
+        expect(container.querySelectorAll('section[aria-label="Bookmarks"]')).toHaveLength(1);
+        expect(container.textContent).not.toContain('Favorites');
+        await click(button('Bookmarks'));
+        const sort = container.querySelector<HTMLSelectElement>('select');
+        if (!sort) throw new Error('Missing bookmark sort');
+        await act(async () => { sort.value = 'alpha-asc'; sort.dispatchEvent(new Event('change', { bubbles: true })); await Promise.resolve(); });
+        expect(bookmarkFixture.sortMode).toBe('alpha-asc');
         expect([...container.querySelectorAll<HTMLElement>('[data-vault-page-id]')].map(row => row.dataset.vaultPageId)).toEqual(['a', 'z']);
         await click(button('Alpha'));
         expect(props.onPageSelect).toHaveBeenCalledWith('a');
@@ -92,7 +103,7 @@ describe('VaultSidebar navigation', () => {
         await act(async () => { await Promise.resolve(); input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
         expect(props.onRenamePage).toHaveBeenCalledWith('a', 'Renamed');
         await click(button('sidebar.options', pageRow('a')));
-        await act(async () => { await Promise.resolve(); button('sidebar.add_favorites').dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })); });
+        await act(async () => { await Promise.resolve(); button('sidebar.add_bookmark').dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })); });
         expect(props.onToggleFavorite).toHaveBeenCalledWith('a');
     });
     it('virtualizes large wiki lists and restores hierarchy when expanded', async () => {

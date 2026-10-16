@@ -48,7 +48,9 @@ CSS a Aparença. Si un fragment dificulta l'ús de la interfície, obre Gnosi am
 
 Al menú **⋯** d’una nota, tria **Combina i extreu notes**. Selecciona la nota completa, un encapçalament o línies Markdown completes i tria una nota nova o una destinació existent. **Previsualitza els canvis** mostra l’origen, la destinació i els enllaços afectats. Revisa tots els canvis abans d’aplicar-los. L’origen conserva una transclusió i l’historial. Si un altre editor modifica un fitxer, prepara una previsualització nova.
 
-A **Marcadors** de la barra lateral, desa notes, seccions, cerques, vistes de graf o enllaços web i assigna’ls un grup. Edita un marcador per canviar-ne el nom, moure’l o eliminar-lo. Aquests marcadors pertanyen al compte, l’espai de treball i el Vault seleccionats en aquest dispositiu.
+A **Marcadors** de la barra lateral, desa notes, seccions, cerques, vistes de graf o enllaços web i assigna’ls un grup. L’estrella d’una nota l’afegeix o la treu d’aquesta mateixa llista. Els antics favorits i els marcadors d’aquest dispositiu s’importen automàticament, conservant els noms propis i els grups. Els marcadors pertanyen al compte, l’espai de treball i el Vault seleccionats. Se sincronitzen mitjançant el mateix servidor Gnosi o quan la carpeta del mateix Vault se sincronitza entre dispositius. Els canvis s’actualitzen periòdicament i en tornar a l’aplicació; prem Actualitza per comprovar-los immediatament. Si la sincronització falla, es conserven els elements desats i els canvis en edició perquè ho puguis tornar a provar.
+
+Fes servir **Desa la vista actual** per afegir una taula, una vista desada, un dibuix o una altra vista estable de Gnosi. Les adreces de les vistes es desen en relació amb el Vault perquè cada dispositiu pugui fer servir la seva adreça local. Els taulells, registres i plantilles fan servir el mateix tipus de marcador de pàgina; el catàleg de Taulells continua disponible.
 
 ## Resultat esperat {#expected-result}
 

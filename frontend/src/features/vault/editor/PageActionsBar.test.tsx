@@ -68,7 +68,7 @@ describe('PageActionsBar', () => {
         />);
 
         act(() => {
-            document.body.querySelector<HTMLButtonElement>('[aria-label="Add to favorites"]')?.click();
+            document.body.querySelector<HTMLButtonElement>('[aria-label="Add to bookmarks"]')?.click();
             document.body.querySelector<HTMLButtonElement>('[aria-label="Comments"]')?.click();
         });
 

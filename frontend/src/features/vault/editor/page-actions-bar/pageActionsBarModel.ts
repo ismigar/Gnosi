@@ -136,8 +136,8 @@ export function buildPageActionItems(
             fillWhenActive: true,
             key: 'favorite',
             label: pageActions.isFavorite
-                ? t('shell.remove_favorite', 'Remove from favorites')
-                : t('shell.add_favorite', 'Add to favorites'),
+                ? t('shell.remove_bookmark', 'Remove from bookmarks')
+                : t('shell.add_bookmark', 'Add to bookmarks'),
             onClick: pageActions.onToggleFavorite,
         },
         pageActions.canToggleEditLock && {

@@ -519,7 +519,9 @@
     "unpin_application": "Desfixar {{application}}",
     "move_application_up": "Pujar {{application}}",
     "move_application_down": "Baixar {{application}}",
-    "no_matching_applications": "No hi ha aplicacions coincidents."
+    "no_matching_applications": "No hi ha aplicacions coincidents.",
+    "add_bookmark": "Afegeix a marcadors",
+    "remove_bookmark": "Treu dels marcadors"
   },
   "shell": {
     "view_more": "Més",
@@ -552,7 +554,9 @@
     "view_comments": "Comentaris",
     "share_page": "Comparteix",
     "add_favorite": "Afegeix a favorits",
-    "remove_favorite": "Treu dels favorits"
+    "remove_favorite": "Treu dels favorits",
+    "add_bookmark": "Afegeix a marcadors",
+    "remove_bookmark": "Treu dels marcadors"
   },
   "table": {
     "column_header_hint": "{{column}}: clic per ordenar; doble clic per seleccionar tota la columna",
@@ -8566,18 +8570,28 @@
     "add": "Afegeix un marcador",
     "name": "Nom",
     "kind": "Tipus",
-    "page": "Nota",
+    "page": "Pàgina",
     "section": "Encapçalament o bloc",
     "search": "Cerca desada",
     "graph": "Graf",
     "url": "Enllaç web",
     "group": "Grup",
-    "choose_note": "Tria una nota",
+    "choose_note": "Tria una pàgina",
     "section_name": "Encapçalament o referència de bloc",
     "query": "Consulta",
     "up": "Mou amunt",
     "down": "Mou avall",
-    "save_failed": "No s’ha pogut desar el marcador. Revisa el destí i l’emmagatzematge local."
+    "save_failed": "No s’ha pogut desar el marcador. Es conserven els canvis; torna-ho a provar.",
+    "empty": "Desa aquí notes, seccions, cerques, vistes de graf o enllaços web.",
+    "loading": "S’estan sincronitzant els marcadors…",
+    "sort": "Ordena els marcadors",
+    "sync_failed": "No s’han pogut sincronitzar els marcadors. Es conserven els elements desats; actualitza per tornar-ho a provar.",
+    "invalid_target": "Revisa el nom i la destinació d’aquest marcador.",
+    "edit": "Edita {{name}}",
+    "reorder": "Reordena {{name}}",
+    "route": "Vista de Gnosi",
+    "route_target": "Adreça de la vista",
+    "add_view": "Desa la vista actual"
   },
   "json_canvas": {
     "import": "Importa .canvas",

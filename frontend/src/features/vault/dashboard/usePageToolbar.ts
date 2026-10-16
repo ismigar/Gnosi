@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { tabBookmarkTarget } from './bookmark-target';
 import { useVaultHome } from './useVaultHome';
 import { fetchResourceProcessingStatus } from '../../../shared/api/resource-processing';
 import { restoreResourceProcessingTask } from '../../literature';
@@ -9,6 +10,7 @@ export function usePageToolbar(context: DashboardActions) {
     const currentOpenPage = activeTabId ? pages.find(p => p.id === activeTabId) : null;
     const currentOpenPageId = currentOpenPage?.id;
     const currentActiveTab = activeTabId ? tabs.find(t => t.id === activeTabId) : null;
+    const bookmarkTarget = tabBookmarkTarget(currentActiveTab, context.activeViewId);
     const canToggleCodeView = viewMode === 'editor' && Boolean(currentActiveTab && !currentActiveTab.isTable && !currentActiveTab.isPdf);
     // The active tab can exist briefly before the pages index is refreshed.
     // Keep page actions available during that window, but never expose page
@@ -80,8 +82,8 @@ export function usePageToolbar(context: DashboardActions) {
         onToggleHome: () => { void home.toggleHome(); },
         canGoHome: Boolean(home.homeId),
         onGoHome: home.goHome,
-        canFavorite: Boolean(currentActiveTab?.id),
-        isFavorite: currentActiveTab?.metadata?.favorite === true || currentActiveTab?.metadata?.favorite === 'true',
+        canFavorite: Boolean(bookmarkTarget) && context.bookmarksReady,
+        isFavorite: Boolean(bookmarkTarget && (bookmarkTarget.kind === 'page' ? context.bookmarkedPageIds.has(bookmarkTarget.target) : context.bookmarkedRoutes.has(bookmarkTarget.target))),
         onToggleFavorite: () => {
             if (!currentActiveTab?.id)
                 return;

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as vault from '../../../shared/api/vaults';
 import * as views from '../../../shared/api/vault-views';
-import { CATALOG, DETAIL, PAGE, PAGE_ID, OTHER_ID, installApiDefaults, renderActions } from './test-support';
+import { CATALOG, DETAIL, PAGE, PAGE_ID, OTHER_ID, installApiDefaults, pageBookmarks, renderActions } from './test-support';
 vi.mock('../../../shared/api/vaults');
 vi.mock('../../../shared/api/vault-views');
 vi.mock('../../../shared/api/daily-notes');
@@ -63,12 +63,20 @@ describe('editor and page mutations', () => {
     await harness.run(state => state.handleRenamePage(PAGE_ID, 'New title'));
     expect(vault.patchVaultPage).toHaveBeenCalledWith(PAGE_ID, { title: 'New title' });
   });
-  it('updates favorites optimistically without changing content', async () => {
+  it('uses the canonical page bookmark action without writing page content or metadata', async () => {
     await harness.run(state => { state.setTabs([{ ...PAGE, content: 'body' }]); });
     await harness.run(state => state.handleToggleFavorite(PAGE_ID));
-    expect(vault.patchVaultPage).toHaveBeenCalledWith(PAGE_ID, { metadata: { favorite: true } });
-    expect(harness.current.pages[0]?.metadata?.favorite).toBe(true);
-    expect(harness.current.tabs[0]?.metadata?.favorite).toBe(true);
+    expect(pageBookmarks.setPage).toHaveBeenCalledWith(PAGE_ID, 'Page', true);
+    expect(harness.current.bookmarkedPageIds.has(PAGE_ID)).toBe(true);
+    expect(vault.patchVaultPage).not.toHaveBeenCalled();
+    expect(harness.current.tabs[0]?.content).toBe('body');
+  });
+  it('uses a saved-view route for table stars without writing a synthetic page id', async () => {
+    await harness.run(state => { state.setTabs([{ id: 'table:table', tableId: 'table', title: 'Table view', isTable: true }]); state.setActiveViewId('kanban'); });
+    await harness.run(state => state.handleToggleFavorite('table:table'));
+    expect(pageBookmarks.setRoute).toHaveBeenCalledWith('/knowledge/table/table/view/kanban', 'Table view', true);
+    expect(pageBookmarks.setPage).not.toHaveBeenCalled();
+    expect(vault.patchVaultPage).not.toHaveBeenCalled();
   });
   it.each(['favorite', 'rename'] as const)('preserves newer saved text when %s sees an older page snapshot', async action => {
     let storedContent = 'newer autosaved text';
@@ -86,12 +94,14 @@ describe('editor and page mutations', () => {
       : state.handleRenamePage(PAGE_ID, 'Renamed'));
     expect(storedContent).toBe('newer autosaved text');
   });
-  it('restores the favorite in pages and tabs when the patch fails', async () => {
+  it('keeps page data and bookmark membership on a failed bookmark write', async () => {
     await harness.run(state => { state.setTabs([{ ...PAGE, content: 'keep body' }]); });
-    vi.mocked(vault.patchVaultPage).mockRejectedValueOnce(new Error('synthetic favorite failure'));
+    pageBookmarks.setPage.mockRejectedValueOnce(new Error('synthetic bookmark failure'));
     await harness.run(state => state.handleToggleFavorite(PAGE_ID));
-    expect(harness.current.pages[0]?.metadata?.favorite).toBe(false);
-    expect(harness.current.tabs[0]).toMatchObject({ content: 'keep body', metadata: { favorite: false } });
+    expect(harness.current.bookmarkedPageIds.has(PAGE_ID)).toBe(false);
+    expect(harness.current.pages[0]?.metadata?.favorite).toBeUndefined();
+    expect(harness.current.tabs[0]?.content).toBe('keep body');
+    expect(vault.patchVaultPage).not.toHaveBeenCalled();
   });
   it('passes board updates unchanged and rethrows failures for optimistic rollback', async () => {
     const error = new Error('synthetic rejected patch');

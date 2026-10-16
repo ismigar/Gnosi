@@ -24,7 +24,8 @@ it.each([
     function Harness() {
         const [llmWikiJobs, setLlmWikiJobs] = useState<DashboardActions['llmWikiJobs']>({});
         const context = {
-            activeTabId: 'source', viewMode: 'editor',
+            activeTabId: 'source', viewMode: 'editor', activeViewId: null,
+            bookmarkedPageIds: new Set(), bookmarkedRoutes: new Set(), bookmarksReady: true,
             pages: [{ id: 'source', title: 'Book', metadata: processed ? { 'Processat pel Cervell': '2026-09-27' } : {} }],
             tabs: [{ id: 'source' }], registry: { tables: [{ id: 'resources' }] },
             codeViewByTabId: {}, editLockedByPageId: {}, resolvePageTableId: () => 'resources',

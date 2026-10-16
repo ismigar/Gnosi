@@ -13,6 +13,9 @@ describe('scoped bookmarks', () => {
     expect(isBookmark({ ...base, kind: 'url', target: 'https://example.com' })).toBe(true);
     expect(isBookmark({ ...base, kind: 'url', target: 'javascript:alert(1)' })).toBe(false);
     expect(isBookmark({ ...base, kind: 'graph', target: '//outside.example/graph' })).toBe(false);
+    expect(isBookmark({ ...base, target: "Resum d'ètica #2 [UNED].md" })).toBe(true);
+    expect(isBookmark({ ...base, kind: 'section', target: "Resum d'ètica.md#Idees" })).toBe(true);
+    expect(isBookmark({ ...base, kind: 'section', target: 'page#bad]] ![[other' })).toBe(false);
   });
   it('isolates Vaults, preserves grouping and rejects duplicate IDs without replacing saved data', () => {
     expect(saveBookmarks('synthetic-a', [base])).toBe(true);

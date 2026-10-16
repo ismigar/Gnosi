@@ -45,7 +45,7 @@ export function PageContextMenu({ page, role, menuState, setMenuState, onRenameP
                         className="w-full cursor-pointer text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                     >
                         <Star size={14} className={isFavorite ? "text-amber-400" : "text-[var(--text-secondary)]/60"} fill={isFavorite ? "currentColor" : "none"} />
-                        <span>{isFavorite ? t('sidebar.remove_favorites') : t('sidebar.add_favorites')}</span>
+                        <span>{isFavorite ? t('sidebar.remove_bookmark') : t('sidebar.add_bookmark')}</span>
                     </button>
                 )}
                 {onDuplicatePage && isEditor && (
