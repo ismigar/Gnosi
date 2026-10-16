@@ -124,7 +124,13 @@ La descoberta no analitza el codi ni omple la memòria cau de lint; només les
 comprovacions CLI posteriors poden acreditar l’èxit. Cada lot conserva totes les
 regles, la comprovació tipada amb project service, les exclusions i el llindar de
 zero avisos. Un lot fallit atura l’ordre. `GNOSI_ESLINT_CACHE` continua activant la
-cau basada en contingut. Els límits de heap, RSS i durada de mac-idle no canvien.
+cau basada en contingut. L’entorn canònic de validació conserva aquesta opció
+explícita de l’analitzador i continua aïllant els selectors de l’aplicació, les
+credencials i els indicadors de proves contra serveis reals. Prepareu les memòries
+cau reutilitzades amb `scripts/ci/prepare_analysis_cache.py` perquè els tipus de
+fonts importades, la configuració i els fitxers de dependències invalidin els
+resultats obsolets; per defecte no es fa servir cau.
+Els límits de heap, RSS i durada de mac-idle no canvien.
 Les regressions comparen la descoberta amb ESLint real i cobreixen errors en lots
 posteriors, regles tipades, invalidació de cau i terminació del procés fill.
 

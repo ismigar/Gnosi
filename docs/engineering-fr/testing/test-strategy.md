@@ -125,7 +125,13 @@ et séquentiels. La découverte n’analyse pas le code et ne remplit pas le cac
 lint ; seules les vérifications CLI suivantes peuvent établir le succès. Chaque
 lot conserve toutes les règles, le contrôle typé avec project service, les
 exclusions et le seuil de zéro avertissement. Un lot en échec arrête la commande.
-`GNOSI_ESLINT_CACHE` active toujours le cache basé sur le contenu. Les limites de
+`GNOSI_ESLINT_CACHE` active toujours le cache basé sur le contenu. L’environnement
+canonique de validation conserve cette option explicite de l’analyseur tout en
+isolant les sélecteurs de l’application, les identifiants et les indicateurs de
+tests sur des services réels. Préparez les caches réutilisés avec
+`scripts/ci/prepare_analysis_cache.py` afin que les types des sources importées, la
+configuration et les fichiers de dépendances invalident les résultats obsolètes ;
+le cache reste désactivé par défaut. Les limites de
 heap, de RSS et de durée de mac-idle restent inchangées. Les régressions comparent
 la découverte à ESLint réel et couvrent les erreurs dans les lots suivants, les
 règles typées, l’invalidation du cache et la terminaison du processus enfant.

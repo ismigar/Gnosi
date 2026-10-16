@@ -123,7 +123,13 @@ El descubrimiento no analiza el código ni rellena la caché de lint; solo las
 comprobaciones CLI posteriores pueden acreditar el éxito. Cada lote conserva
 todas las reglas, la comprobación tipada con project service, las exclusiones y
 el umbral de cero avisos. Un lote fallido detiene el comando. `GNOSI_ESLINT_CACHE`
-sigue activando la caché basada en contenido. Los límites de heap, RSS y duración
+sigue activando la caché basada en contenido. El entorno canónico de validación
+conserva esta opción explícita del analizador y sigue aislando los selectores de
+la aplicación, las credenciales y los indicadores de pruebas contra servicios
+reales. Preparad las cachés reutilizadas con `scripts/ci/prepare_analysis_cache.py`
+para que los tipos de fuentes importadas, la configuración y los archivos de
+dependencias invaliden los resultados obsoletos; por defecto no se usa caché.
+Los límites de heap, RSS y duración
 de mac-idle no cambian. Las regresiones comparan el descubrimiento con ESLint real
 y cubren errores en lotes posteriores, reglas tipadas, invalidación de caché y
 terminación del proceso hijo.
