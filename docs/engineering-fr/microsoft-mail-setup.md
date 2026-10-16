@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-16
+last_verified: 2026-10-16
 source_paths:
   - backend/api/microsoft_auth_routes.py
   - backend/services/auth_public_surface.py
@@ -82,3 +82,6 @@ occurrences récurrentes. Les événements sont en lecture seule et les calendri
 Microsoft ne sont pas proposés comme destinations de création. Aucun fichier
 récupéré du Vault n'est importé, remplacé ou supprimé. La connexion à Outlook web
 ne suffit pas : le consentement propre aux calendriers est nécessaire.
+
+Références: [calendarView](https://learn.microsoft.com/en-us/graph/api/calendar-list-calendarview?view=graph-rest-1.0)
+et [listes de calendriers](https://learn.microsoft.com/en-us/graph/api/user-list-calendars?view=graph-rest-1.0).

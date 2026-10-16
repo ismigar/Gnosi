@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-16
+last_verified: 2026-10-16
 source_paths:
   - backend/api/microsoft_auth_routes.py
   - backend/services/auth_public_surface.py
@@ -80,3 +80,6 @@ las ocurrencias recurrentes. Los eventos son de solo lectura y no se ofrecen
 como destinos de creación. No importa, sobrescribe ni elimina archivos del Vault.
 Iniciar sesión en Outlook web no concede acceso a Gnosi: se necesita el
 consentimiento específico de calendarios.
+
+Referencias: [calendarView](https://learn.microsoft.com/en-us/graph/api/calendar-list-calendarview?view=graph-rest-1.0)
+y [listas de calendarios](https://learn.microsoft.com/en-us/graph/api/user-list-calendars?view=graph-rest-1.0).

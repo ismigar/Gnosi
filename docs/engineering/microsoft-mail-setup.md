@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-16
+last_verified: 2026-10-16
 source_paths:
   - backend/api/microsoft_auth_routes.py
   - backend/services/auth_public_surface.py

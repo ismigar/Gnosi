@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-16
+last_verified: 2026-10-16
 source_paths:
   - backend/api/microsoft_auth_routes.py
   - backend/services/auth_public_surface.py
@@ -81,3 +81,6 @@ no es poden crear ni modificar cites de Microsoft des de Gnosi. No importa,
 sobreescriu ni elimina els fitxers de calendari recuperats del Vault.
 Iniciar sessió a Outlook web no concedeix accés a Gnosi; cal completar el
 consentiment específic de calendaris.
+
+Referències: [calendarView](https://learn.microsoft.com/en-us/graph/api/calendar-list-calendarview?view=graph-rest-1.0)
+i [llistes de calendaris](https://learn.microsoft.com/en-us/graph/api/user-list-calendars?view=graph-rest-1.0).
