@@ -95,18 +95,30 @@ def test_component_reads_leave_loop_available(monkeypatch, tmp_path, endpoint):
                 elif endpoint == "mail-thread":
                     assert await messages.get_thread("one", "a@example.test") == {"messages": []}
                 elif endpoint == "mail-detail":
+                    detail = {
+                        "id": "imap_42", "account": "a@example.test", "source": "imap",
+                        "imap_uid": "42", "imap_folder": "INBOX",
+                    }
+
+                    def get_account(email, *, resolve_secrets):
+                        assert email == "a@example.test"
+                        assert resolve_secrets is False
+                        return slow({"provider": "imap"})
+
+                    def get_body(email, uid, folder):
+                        assert (email, uid, folder) == ("a@example.test", "42", "INBOX")
+                        return slow(detail)
+
                     monkeypatch.setattr(
                         integration_manager,
                         "get_mail_account",
-                        lambda _: slow({"provider": "imap"}),
+                        get_account,
                     )
                     monkeypatch.setattr(integration_manager, "is_imap_account", lambda _: True)
                     monkeypatch.setattr(
-                        hybrid_mail_service, "imap_get_message", lambda *a: slow({"id": "one"})
+                        hybrid_mail_service, "imap_get_message", get_body
                     )
-                    assert await messages.get_message("one", "a@example.test", "INBOX") == {
-                        "id": "one"
-                    }
+                    assert await messages.get_message("imap_42", "a@example.test", "INBOX") == detail
                 else:
                     monkeypatch.setattr(compose, "_is_imap_account", lambda _: slow(True))
                     monkeypatch.setattr(
