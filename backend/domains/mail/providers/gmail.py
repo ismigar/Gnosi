@@ -18,6 +18,7 @@ _GMAIL_FOLDER_QUERY = {
     "TRASH": "in:trash",
     "SPAM": "in:spam",
     "STARRED": "is:starred",
+    "ARCHIVE": "-in:inbox -in:drafts -in:trash -in:spam",
     "all": "-in:trash -in:spam",
     "NOT_ARCHIVED": "in:inbox",
 }
@@ -166,7 +167,7 @@ def _parse_gmail_meta(msg: dict[str, Any], account_email: str) -> dict[str, Any]
         "type": msg_type,
         "account": account_email,
         "source": "gmail",
-        "archived": "INBOX" not in label_ids and msg_type == "Received",
+        "archived": not {"INBOX", "DRAFT", "TRASH", "SPAM"}.intersection(label_ids),
     }
 
 

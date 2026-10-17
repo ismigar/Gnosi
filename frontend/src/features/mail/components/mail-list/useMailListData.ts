@@ -40,6 +40,7 @@ interface UseMailListDataOptions {
   readonly onMessagesLoaded?: (messages: readonly MailListMessage[]) => void;
   readonly readMail: MailIdentityMessage | null;
   readonly removedMail: MailIdentityMessage | null;
+  readonly searchQuery: string;
 }
 
 
@@ -83,21 +84,25 @@ export function useMailListData({
   onMessagesLoaded,
   readMail,
   removedMail,
+  searchQuery,
 }: UseMailListDataOptions) {
+  const normalizedSearch = searchQuery.trim();
+  const [search, setSearch] = useState(normalizedSearch);
   const enabledAccounts = useMemo(() => enabledMailAccounts(accounts), [accounts]);
   const emails = useMemo(
     () => accountEmails(account, enabledAccounts),
     [account, enabledAccounts],
   );
   const cacheKey = useMemo(
-    () => mailListCacheKey(emails, folder, category),
-    [category, emails, folder],
+    () => mailListCacheKey(emails, folder, category, search),
+    [category, emails, folder, search],
   );
   const [messages, setMessages] = useState<MailListMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [unavailableAccountCount, setUnavailableAccountCount] = useState(0);
+  const [unavailableAccounts, setUnavailableAccounts] = useState<ReadonlySet<string>>(() => new Set());
+  const unavailableAccountCount = unavailableAccounts.size;
   const [pageTokens, setPageTokens] = useState<TokenByAccount>({});
   const [offsets, setOffsets] = useState<NumberByAccount>({});
   const [totals, setTotals] = useState<NumberByAccount>({});
@@ -106,6 +111,12 @@ export function useMailListData({
   const loadMoreAbortRef = useRef<AbortController | null>(null);
   const unavailableAccountsRef = useRef(new Set<string>());
   const unavailablePagesRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (normalizedSearch === search) return undefined;
+    const timer = setTimeout(() => { setSearch(normalizedSearch); }, 250);
+    return () => { clearTimeout(timer); };
+  }, [normalizedSearch, search]);
 
   const fetchMessages = useCallback((options: FetchMessagesOptions = {}): void => {
     fetchAbortRef.current?.abort();
@@ -119,7 +130,7 @@ export function useMailListData({
     setTotals({});
     unavailableAccountsRef.current.clear();
     unavailablePagesRef.current.clear();
-    setUnavailableAccountCount(0);
+    setUnavailableAccounts(new Set());
     if (emails.length === 0) {
       setMessages([]);
       setLoading(accountsLoading);
@@ -185,7 +196,7 @@ export function useMailListData({
       setPageTokens(newTokens);
       setOffsets(newOffsets);
       setTotals(newTotals);
-      setUnavailableAccountCount(unavailableCount);
+      setUnavailableAccounts(new Set(unavailableAccountsRef.current));
 
       const merged = deduplicateMailListMessages(
         visibleMessages,
@@ -204,7 +215,7 @@ export function useMailListData({
         email,
         folder,
         category,
-        { force: options.force },
+        { force: options.force, search },
       ), abortController.signal).then((result) => {
         publishResult(email, result, Boolean(result.error));
       }).catch(() => {
@@ -212,18 +223,23 @@ export function useMailListData({
         publishResult(email, EMPTY_MAIL_MESSAGES, true);
       });
     });
-  }, [account, accountsLoading, cacheKey, category, emails, folder, onMessagesLoaded]);
+  }, [account, accountsLoading, cacheKey, category, emails, folder, onMessagesLoaded, search]);
 
   const hasMore = emails.some((email) => (
-    Boolean(pageTokens[email])
-    || Boolean(totals[email] && (offsets[email] ?? 0) < (totals[email] ?? 0))
+    !unavailableAccounts.has(email) && (Boolean(pageTokens[email])
+    || Boolean(totals[email] && (offsets[email] ?? 0) < (totals[email] ?? 0)))
   ));
 
   const loadMore = useCallback((retryEmails?: readonly string[]): void => {
     if (loading || syncing || loadingMore || loadMoreAbortRef.current) return;
+    const initialRetries = new Set((retryEmails ?? []).filter(email => (
+      unavailableAccountsRef.current.has(email) && !unavailablePagesRef.current.has(email)
+    )));
     const requestedEmails = (retryEmails ?? emails).filter(email => (
-      Boolean(pageTokens[email])
-      || Boolean(totals[email] && (offsets[email] ?? 0) < (totals[email] ?? 0))
+      emails.includes(email)
+      && (retryEmails !== undefined || !unavailableAccountsRef.current.has(email))
+      && (initialRetries.has(email) || Boolean(pageTokens[email])
+        || Boolean(totals[email] && (offsets[email] ?? 0) < (totals[email] ?? 0)))
     ));
     if (requestedEmails.length === 0) return;
     const abortController = new AbortController();
@@ -233,33 +249,45 @@ export function useMailListData({
     const unavailable = (email: string): void => {
       if (abortController.signal.aborted) return;
       unavailableAccountsRef.current.add(email);
-      unavailablePagesRef.current.add(email);
-      setUnavailableAccountCount(unavailableAccountsRef.current.size);
+      if (!initialRetries.has(email)) unavailablePagesRef.current.add(email);
+      setUnavailableAccounts(new Set(unavailableAccountsRef.current));
     };
     requestedEmails.forEach(email => {
-      const token = pageTokens[email];
-      const offset = offsets[email] ?? 0;
+      const initialRetry = initialRetries.has(email);
+      const token = initialRetry ? null : pageTokens[email];
+      const offset = initialRetry ? 0 : offsets[email] ?? 0;
       void fetchMailMessages(buildMailListQuery(
         email,
         folder,
         category,
-        { offset, pageToken: token },
+        { force: initialRetry || undefined, offset, pageToken: token, search },
       ), abortController.signal).then(result => {
         if (abortController.signal.aborted) return;
         if (result.error) {
           unavailable(email);
           return;
         }
+        if ((result.messages.length === 0 && (result.next_page_token || result.total > offset))
+          || (token && token === result.next_page_token)) {
+          unavailable(email);
+          return;
+        }
         unavailableAccountsRef.current.delete(email);
         unavailablePagesRef.current.delete(email);
-        setUnavailableAccountCount(unavailableAccountsRef.current.size);
+        setUnavailableAccounts(new Set(unavailableAccountsRef.current));
         setPageTokens(current => ({ ...current, [email]: result.next_page_token }));
         setOffsets(current => ({ ...current, [email]: offset + result.messages.length }));
         setTotals(current => ({ ...current, [email]: result.total }));
-        setMessages(current => deduplicateMailListMessages(
-          [...current, ...result.messages],
-          { collapseInternetCopies: account === null },
-        ));
+        setMessages(current => {
+          const retained = initialRetry ? current.filter(message => (
+            (message.account || message.account_email)?.trim().toLocaleLowerCase()
+              !== email.trim().toLocaleLowerCase()
+          )) : current;
+          return deduplicateMailListMessages(
+            [...retained, ...result.messages],
+            { collapseInternetCopies: account === null },
+          );
+        });
       }).catch(() => {
         unavailable(email);
       }).finally(() => {
@@ -271,15 +299,11 @@ export function useMailListData({
         }
       });
     });
-  }, [account, category, emails, folder, loading, loadingMore, offsets, pageTokens, syncing, totals]);
+  }, [account, category, emails, folder, loading, loadingMore, offsets, pageTokens, search, syncing, totals]);
 
   const retryUnavailable = useCallback((): void => {
-    if (unavailablePagesRef.current.size > 0) {
-      loadMore([...unavailablePagesRef.current]);
-    } else {
-      fetchMessages({ force: true });
-    }
-  }, [fetchMessages, loadMore]);
+    loadMore([...unavailableAccountsRef.current]);
+  }, [loadMore]);
 
   const fetchRef = useRef(fetchMessages);
   useEffect(() => {
@@ -388,6 +412,7 @@ export function useMailListData({
     purgeMessageFromCaches,
     purgeMessagesFromCaches,
     retryUnavailable,
+    search,
     setLoading,
     setMessages,
     syncing,

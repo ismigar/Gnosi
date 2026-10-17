@@ -60,8 +60,10 @@ export function mailListCacheKey(
   emails: readonly string[],
   folder: string | null,
   category: string | null,
+  search = '',
 ): string {
-  return `${emails.join(',')}|${folder || ''}|${category || ''}`;
+  const scope = `${emails.join(',')}|${folder || ''}|${category || ''}`;
+  return search ? `${scope}|search=${JSON.stringify(search)}` : scope;
 }
 
 
@@ -73,14 +75,16 @@ export function buildMailListQuery(
     readonly force?: boolean;
     readonly offset?: number;
     readonly pageToken?: string | null;
+    readonly search?: string;
   } = {},
 ): MailMessagesQuery {
   return {
     email,
-    folder: folder === 'NOT_ARCHIVED' ? 'all' : (folder || 'all'),
+    folder: folder || 'all',
     limit: 50,
     ...(category ? { category } : {}),
     ...(options.pageToken ? { pageToken: options.pageToken } : {}),
+    ...(options.search?.trim() ? { search: options.search.trim() } : {}),
     ...(options.offset ? { offset: options.offset } : {}),
     ...(options.force ? { force: true } : {}),
   };
@@ -218,7 +222,9 @@ function applyViewFilter(
     case 'is':
       return Boolean(raw) === Boolean(value);
     case 'is_not':
-      return Boolean(raw) !== Boolean(value);
+      return typeof value === 'boolean'
+        ? Boolean(raw) !== value
+        : text.toLowerCase() !== String(value).toLowerCase();
     case 'before':
       return message.timestamp < filterDate(value);
     case 'after':
@@ -388,6 +394,7 @@ export function mailFolderTitleKey(
     Forums: 'category_forums',
     INBOX: 'inbox_title',
     NOT_ARCHIVED: 'not_archived_title',
+    ARCHIVE: 'archive_title',
     Promotions: 'category_promotions',
     SENT: 'sent_title',
     SPAM: 'spam_title',

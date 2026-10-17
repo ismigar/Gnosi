@@ -2,6 +2,7 @@ import { FileText, Tag } from 'lucide-react';
 
 import { TagPill } from './MailTagPicker';
 import { MailSmartSuggestions } from './MailSmartSuggestions';
+import { MailReaderError } from './MailReaderError';
 import { MailThread } from './MailThread';
 import type { MailViewerController } from './useMailViewerController';
 
@@ -34,6 +35,20 @@ export function MailViewerContent({ controller }: { readonly controller: MailVie
             </button>
           ))}
         </div>
+        {(controller.messageError || controller.threadError) && (
+          <div className="mb-6 space-y-2">
+            {controller.messageError && (
+              <MailReaderError kind="message" onRetry={controller.retryMessage} retryLabel={t('common.retry', 'Try again')}>
+                {t('mail.reader_message_error', 'The message could not be loaded. Try again.')}
+              </MailReaderError>
+            )}
+            {controller.threadError && (
+              <MailReaderError kind="thread" onRetry={controller.retryThread} retryLabel={t('common.retry', 'Try again')}>
+                {t('mail.reader_thread_error', 'The conversation could not be loaded. Try again.')}
+              </MailReaderError>
+            )}
+          </div>
+        )}
         <MailSmartSuggestions controller={controller} />
         <MailThread controller={controller} />
       </div>

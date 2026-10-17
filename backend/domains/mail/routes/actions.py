@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Optional
 
@@ -39,18 +40,30 @@ log = logging.getLogger(__name__)
 async def trash_msg(
     message_id: str, email: str = Query(...), folder: Optional[str] = Query(None)
 ) -> Any:
+    return await asyncio.to_thread(_trash_msg_sync, message_id, email, folder)
+
+
+def _trash_msg_sync(message_id: str, email: str, folder: str | None) -> Any:
     if _is_imap_account(email):
         from backend.services.imap_mail_sync_service import imap_sync_service
 
         if imap_sync_service.trash_message(email, message_id, imap_folder=folder):
             _invalidate_mail_cache()
             return {"status": "success"}
+        raise HTTPException(
+            status_code=503, detail="Unable to move the message to trash. Try again shortly.",
+            headers={"Retry-After": "3"},
+        )
     if _is_microsoft_account(email):
         from backend.services.microsoft_mail_service import microsoft_trash_message
 
         if microsoft_trash_message(email, message_id):
             _invalidate_mail_cache()
             return {"status": "success"}
+        raise HTTPException(
+            status_code=503, detail="Unable to move the message to trash. Try again shortly.",
+            headers={"Retry-After": "3"},
+        )
     gmail_id = _resolve_gmail_id(message_id)
     if trash_thread(email, gmail_id):
         _invalidate_mail_cache()
@@ -66,12 +79,24 @@ async def trash_msg(
 async def archive_msg(
     message_id: str, email: str = Query(...), folder: Optional[str] = Query(None)
 ) -> Any:
+    return await asyncio.to_thread(_archive_msg_sync, message_id, email, folder)
+
+
+def _archive_msg_sync(message_id: str, email: str, folder: str | None) -> Any:
+    if _is_microsoft_account(email):
+        from backend.services.microsoft_mail_service import microsoft_move_message
+
+        if microsoft_move_message(email, message_id, "archive"):
+            _invalidate_mail_cache()
+            return {"status": "success"}
+        raise HTTPException(status_code=503, detail="Unable to archive the message. Try again shortly.")
     if _is_imap_account(email):
         from backend.services.imap_mail_sync_service import imap_sync_service
 
         if imap_sync_service.archive_message(email, message_id, imap_folder=folder):
             _invalidate_mail_cache()
             return {"status": "success"}
+        raise HTTPException(status_code=503, detail="Unable to archive the message. Try again shortly.")
     gmail_id = _resolve_gmail_id(message_id)
     if update_thread_labels(email, gmail_id, remove_labels=["INBOX"]):
         _invalidate_mail_cache()
@@ -89,6 +114,10 @@ async def star_msg(
     payload: mail_schemas.MailStarRequest,
     email: str = Query(...),
 ) -> Any:
+    return await asyncio.to_thread(_star_msg_sync, message_id, payload, email)
+
+
+def _star_msg_sync(message_id: str, payload: mail_schemas.MailStarRequest, email: str) -> Any:
     starred = payload.starred
     if _is_microsoft_account(email):
         from backend.services.microsoft_mail_service import microsoft_star_message
@@ -124,6 +153,10 @@ async def spam_msg(
     email: str = Query(...),
 ) -> Any:
     """Marks or unmarks a message as spam (junk mail)."""
+    return await asyncio.to_thread(_spam_msg_sync, message_id, payload, email)
+
+
+def _spam_msg_sync(message_id: str, payload: mail_schemas.MailSpamRequest, email: str) -> Any:
     spam = payload.spam
     if _is_imap_account(email):
         from backend.services.imap_mail_sync_service import imap_sync_service
@@ -248,6 +281,10 @@ def _empty_gmail_folder(email: str, folder: str) -> dict[str, str] | None:
 )
 async def empty_folder(email: str = Query(...), folder: str = Query(...)) -> Any:
     """Empty a folder (Trash or Spam)."""
+    return await asyncio.to_thread(_empty_folder_sync, email, folder)
+
+
+def _empty_folder_sync(email: str, folder: str) -> Any:
     log.info(f"[Mail] Folder-empty request for {folder} from {email}")
     result = (
         _empty_imap_folder(email, folder)

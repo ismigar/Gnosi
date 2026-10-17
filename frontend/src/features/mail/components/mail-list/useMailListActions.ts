@@ -252,29 +252,31 @@ export function useMailListActions({
           : candidate
       )));
       await starMailMessage(message.id, email, starred).catch(() => undefined);
-    } else if (action === 'archive') {
-      setMessages((current) => filterOutMailThread(current, message));
-      purgeMessageFromCaches(message);
-      onRecordAction?.('archive', message.id, email, {
-        imap_folder: message.imap_folder,
-        imap_uid: message.imap_uid,
-      }, message);
-      await archiveMailMessage(message.id, email).catch(() => undefined);
-    } else if (action === 'trash') {
-      setMessages((current) => filterOutMailThread(current, message));
-      purgeMessageFromCaches(message);
-      onRecordAction?.('trash', message.id, email, {
-        imap_folder: message.imap_folder,
-        imap_uid: message.imap_uid,
-      }, message);
-      if (message.source === 'vault') {
-        await deleteMailDraft(message.id).catch(() => undefined);
-        onBatchDone?.();
-      } else {
-        await trashMailMessage(message.id, email).catch(() => undefined);
+    } else if (action === 'archive' || action === 'trash') {
+      try {
+        if (action === 'archive') {
+          await archiveMailMessage(message.id, email, message.imap_folder || undefined);
+        } else if (message.source === 'vault') {
+          await deleteMailDraft(message.id);
+        } else {
+          await trashMailMessage(message.id, email, message.imap_folder || undefined);
+        }
+      } catch (error: unknown) {
+        toast.error(errorMessage(error) || t('mail.batch_action_error', {
+          count: 1,
+          defaultValue: 'Could not update {{count}} message(s)',
+        }));
+        return;
       }
+      setMessages((current) => filterOutMailThread(current, message));
+      purgeMessageFromCaches(message);
+      onRecordAction?.(action, message.id, email, {
+        imap_folder: message.imap_folder,
+        imap_uid: message.imap_uid,
+      }, message);
+      if (message.source === 'vault') onBatchDone?.();
     }
-  }, [account, onBatchDone, onRecordAction, purgeMessageFromCaches, setMessages]);
+  }, [account, onBatchDone, onRecordAction, purgeMessageFromCaches, setMessages, t]);
 
   const handleBatchAction = useCallback(async (
     action: MailListAction,
@@ -311,21 +313,18 @@ export function useMailListActions({
             return { identities: [identity], ok: false };
           }
         }),
-        ...groups.filter((group) => group.messages.length > 0).map(
-          async (group): Promise<ActionResult> => {
-            const identities = group.messages.map(mailListMessageIdentity);
+        ...groups.flatMap((group) => group.messages.map(
+          async (message): Promise<ActionResult> => {
+            const identities = [mailListMessageIdentity(message)];
             try {
-              await batchMailMessages(
-                group.email,
-                action,
-                group.messages.map((message) => message.id),
-              );
+              const mutation = action === 'archive' ? archiveMailMessage : trashMailMessage;
+              await mutation(message.id, group.email, message.imap_folder || undefined);
               return { identities, ok: true };
             } catch {
               return { identities, ok: false };
             }
           },
-        ),
+        )),
       ]);
       const failedIdentities = new Set(
         results.filter((result) => !result.ok)

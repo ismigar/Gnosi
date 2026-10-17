@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-15
+last_verified: 2026-10-17
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -18,6 +18,18 @@ source_paths:
   - frontend/src/shared/api/mail.ts
   - frontend/src/shared/api/mail-specialized.ts
 tests:
+  - backend/tests/test_mail_move_identity.py
+  - backend/tests/test_mail_cache_scope.py
+  - backend/tests/test_mail_archive_listing.py
+  - backend/tests/test_mail_archive_identity.py
+  - backend/tests/test_mail_connection_lifecycle.py
+  - backend/tests/test_mail_conversation_truthfulness.py
+  - backend/tests/test_mail_ordered_header_listing.py
+  - backend/tests/test_mail_detail_responsiveness.py
+  - backend/tests/test_mail_read_negative_contract.py
+  - frontend/src/features/mail/components/MailViewer.loading.test.tsx
+  - tests/e2e/tests/disposable/mail-archive-pagination.spec.ts
+  - tests/e2e/tests/disposable/mail-reader-responsiveness.spec.ts
   - frontend/src/features/mail/page/mailAccountVisibility.test.tsx
   - backend/tests/test_mail_thread_completeness.py
   - frontend/src/features/mail/components/MailViewer.resilience.test.tsx
@@ -95,6 +107,114 @@ incluidos la identidad del hilo, las fechas y las etiquetas de envío. Las
 lecturas conservan la cuenta y la carpeta porque los UID IMAP pertenecen a un
 buzón. El visor resuelve el hilo desde el mensaje cargado y despliega y carga
 su elemento más reciente, incluidas las respuestas enviadas.
+
+Las lecturas de los miembros de una conversación utilizan la misma validación
+de cabeceras completa y acotada que los buzones agregados. Las conexiones u
+órdenes fallidas, o los miembros que faltan al recuperarlos, producen un error
+que permite reintentar, en lugar de un hilo vacío o parcial presentado como
+correcto.
+
+Las lecturas del cuerpo de los mensajes tienen una conexión IMAP reutilizable
+separada de las listas de buzones y de las descargas de adjuntos. La
+reutilización queda vinculada al vault y a la configuración de la cuenta; la
+invalidación de credenciales cierra ambas vías y rechaza una conexión obsoleta
+que termina de autenticarse después de la invalidación. Un error de transporte
+invalida solo su propia vía. Las lecturas del proveedor terminan con un HTTP 503
+que permite reintentar al cabo de 25 segundos, y las mutaciones del estado de
+lectura se ejecutan en hilos de trabajo. Una actualización atascada de la marca
+de lectura no debe bloquear el bucle de eventos del servidor ni el siguiente
+mensaje seleccionado.
+Las peticiones del lector dependen de la identidad del mensaje dentro de su
+ámbito, y no de la sustitución de objetos o callbacks. El lector conserva como
+máximo dieciséis cuerpos y un tamaño estimado de 4 MiB durante cinco minutos
+después de recuperarlos; cambiar el contexto de la petición vacía esta caché.
+El identificador de mensaje de Internet, cuando está disponible, diferencia las
+versiones de selección y de caché; si cambia, el contenido se vuelve a cargar
+aunque el UID sea el mismo.
+Es una caché de sesión, no un buzón duradero sin conexión.
+Los identificadores RFC guardados de los mensajes van directamente al
+almacenamiento local de la cuenta; solo los UID IMAP decimales entran en la vía
+remota del cuerpo.
+
+Un cuerpo ya cargado puede servir su copia IMAP en otra carpeta cuando la
+cuenta y el Internet Message-ID original coinciden. El UID y la carpeta del
+contenido original siguen vinculados a las imágenes CID y a los adjuntos; la
+identidad de las acciones no se fusiona. Las lecturas fallidas de cuerpos y
+conversaciones ofrecen reintentos explícitos traducidos. Las peticiones tardías
+o canceladas no pueden sustituir una selección nueva.
+
+Las instantáneas de listas y recuentos y la reutilización de imágenes incrustadas
+también quedan vinculadas al vault activo. La identidad de las imágenes conserva
+el nombre exacto del buzón.
+
+## Archivo, listas completas y búsqueda
+
+Archivo tiene una entrada propia en la navegación. Todo el correo resuelve el
+buzón `\All` traducido del servidor en lugar de INBOX. Los servidores sin un
+buzón nativo de todo el correo combinan instantáneas solo de cabeceras de todos
+los buzones seleccionables que no sean de papelera ni de correo no deseado.
+Archivo incluye todos los buzones de archivo descubiertos y sus subcarpetas.
+Tanto las listas nativas como las agregadas de Todo el correo/Archivo ordenan
+todas las cabeceras coincidentes por fecha antes de paginar, incluidos los
+mensajes importados cuyo orden de UID difiere de su fecha.
+Las transferencias de cabeceras utilizan lotes de 200 UID como máximo; los
+lotes serializados en caché tienen un límite de 256 KiB (como máximo 32 MiB
+de datos de cabeceras en la caché compartida de 128 entradas).
+La reutilización exige que coincidan los miembros del buzón, el ámbito y
+UIDVALIDITY. La ausencia de UIDVALIDITY desactiva la caché opcional, siguiendo
+el modelo de identidad de buzones de
+[RFC 9051](https://www.rfc-editor.org/rfc/rfc9051.html#section-2.3.1.1).
+Las lecturas agregadas en frío pueden requerir muchos intercambios de cabeceras;
+la vía del cuerpo sigue siendo independiente. Los nombres de carpeta y los UID
+se conservan en cada fila, incluidos los UID reutilizados en carpetas diferentes.
+Una lectura fallida de un buzón no puede publicar un resultado completo o vacío
+que induzca a error.
+
+El descubrimiento conserva los buzones personalizados y las múltiples carpetas
+de archivo, y omite los contenedores no seleccionables. Sincronizar un buzón
+de archivo conserva el tipo de mensaje recibido y registra `archived: true`; no clasifica
+el mensaje como eliminado. Archivar en Gmail elimina la etiqueta Recibidos y
+conserva las demás etiquetas. Los errores al archivar remotamente siguen siendo
+errores, sin informar de que la operación ha sido correcta.
+
+Los movimientos de un único mensaje IMAP utilizan `MOVE` nativo o, tras una
+copia y una actualización de indicadores confirmadas, la limpieza mediante
+`UID EXPUNGE` (`UIDPLUS` o `IMAP4rev2`). Las órdenes fallidas siguen siendo
+fallos. Los servidores sin ninguna de las dos operaciones seguras se rechazan
+antes de copiar; mover un mensaje no elimina otros mensajes marcados para borrar.
+Véase [RFC 9051](https://www.rfc-editor.org/rfc/rfc9051.html#section-6.4.9) para
+la semántica de limpieza limitada a los UID.
+
+Las subcarpetas de archivo utilizan el separador de jerarquía declarado por
+`LIST`, incluidas las de contenedores de archivo no seleccionables. Los espacios
+de nombres `NIL` se mantienen planos, como define
+[RFC 9051](https://www.rfc-editor.org/rfc/rfc9051.html#section-7.3.1).
+Las subcarpetas ordinarias heredan el contexto del archivo aunque se llamen
+`Sent`, `Drafts` o `All Mail`. Los atributos de función especial declarados por
+el servidor tienen prioridad; solo `\All` designa un buzón nativo de Todo el correo.
+
+Las acciones de archivar y enviar a la papelera, tanto individuales como en
+selecciones, transmiten el buzón físico de cada fila. Si se rechaza el movimiento
+a la papelera, se devuelve un error que permite reintentar; los metadatos guardados
+solo cambian después del éxito y registran el UID de destino. Una acción individual
+fallida conserva la fila y no se añade al historial de deshacer.
+
+El centinela de paginación pertenece a la lista que realmente se desplaza y se
+vuelve a observar cuando se completa una página. Un proveedor que no hace
+avanzar el cursor exige un reintento explícito. Las cuentas no disponibles se
+excluyen de la paginación automática; las cuentas sanas pueden seguir
+cargándose. Los reintentos explícitos se dirigen a las cuentas fallidas en sus
+cursores fallidos y conservan las páginas ya cargadas de otras cuentas.
+La búsqueda se envía al proveedor tras un retardo de 250 ms para agrupar los
+cambios, de modo que puede devolver coincidencias fuera de las páginas cargadas
+y dentro de los cuerpos. El texto de búsqueda forma parte del ámbito de la
+caché de listas, y las peticiones obsoletas se cancelan. Los criterios de las
+vistas guardadas siguen filtrando las filas cargadas; no son reglas de correo
+entrante ni un motor completo de consultas en el servidor.
+
+La [referencia de Apple Mail](../mail-apple-reference.md) recoge el inventario de
+la interfaz distribuida, la cobertura actual de Gnosi y el trabajo pendiente
+para alcanzar la paridad.
 
 Los envíos correctos invalidan las listas y los recuentos en caché; la página
 actualiza ambos cuando termina el compositor. La vista previa diferida al

@@ -15,7 +15,6 @@ from backend.domains.mail.sync.imap_protocol import (
     _TYPE_FOLDER_PREFERENCE,
     _decode_str,
     _discover_folders,
-    _find_all_mail_folder,
     _imap_name,
 )
 
@@ -58,12 +57,24 @@ def _latest_mailbox_uid(imap: Any, drafts_folder: str) -> str | None:
         return None
 
 
+def _supports_uid_expunge(imap: Any) -> bool:
+    capabilities = {
+        value.decode().upper() if isinstance(value, bytes) else str(value).upper()
+        for value in getattr(imap, "capabilities", ())
+    }
+    return not {"UIDPLUS", "IMAP4REV2"}.isdisjoint(capabilities)
+
+
 class ImapMailMutationService(ImapMailSyncCore):
     def _move_on_server(self: Any, imap: Any, uid: str, from_folder: str, to_folder: str) -> bool:
-        r"""COPY + STORE \Deleted + EXPUNGE (compatible with all IMAP servers)."""
+        """Move one UID without expunging unrelated messages in its mailbox."""
+        if not isinstance(uid, str) or not re.fullmatch(r"[0-9]{1,10}", uid) or not 0 < int(uid) <= 0xFFFFFFFF:
+            return False
         try:
-            imap.select(_imap_name(from_folder))
-            uid_b = uid.encode() if isinstance(uid, str) else uid
+            status, _ = imap.select(_imap_name(from_folder))
+            if status != "OK":
+                return False
+            uid_b = str(int(uid)).encode("ascii")
 
             # Try MOVE extension first (faster)
             try:
@@ -73,24 +84,36 @@ class ImapMailMutationService(ImapMailSyncCore):
             except Exception:
                 pass
 
-            # Fallback: COPY + delete
+            # A mailbox-wide EXPUNGE could delete messages flagged by another
+            # client. Reject unsupported cleanup before copying anything.
+            if not _supports_uid_expunge(imap):
+                return False
             status, _ = imap.uid("copy", uid_b, _imap_name(to_folder))
             if status != "OK":
-                log.error(f"[IMAP] COPY fallat de {from_folder} a {to_folder} per UID {uid}")
+                log.error(f"[IMAP] COPY failed from {from_folder} to {to_folder} for UID {uid}")
                 return False
-            imap.uid("store", uid_b, "+FLAGS", "\\Deleted")
-            imap.expunge()
-            return True
+            status, _ = imap.uid("store", uid_b, "+FLAGS", "\\Deleted")
+            if status != "OK":
+                return False
+            status, _ = imap.uid("expunge", uid_b)
+            return bool(status == "OK")
         except Exception as e:
             log.error(f"[IMAP] Error moving UID {uid} from {from_folder} to {to_folder}: {e}")
             return False
 
     def _find_server_folder(self: Any, imap: Any, target_type: str) -> Optional[str]:
         """Find the actual folder name for a given target type (Deleted/Archived)."""
-        folders = _discover_folders(imap)
+        folders = _discover_folders(imap, strict=True)
+        capabilities = {value.decode().upper() if isinstance(value, bytes) else str(value).upper() for value in getattr(imap, "capabilities", ())}
+        if target_type == "Archived" and "X-GM-EXT-1" in capabilities:
+            return next((name for name, kind in folders if kind == "All"), None)
         for name, ftype in folders:
             if ftype == target_type:
                 return name
+        if target_type == "Archived":
+            all_mail = next((name for name, kind in folders if kind == "All"), None)
+            if all_mail:
+                return all_mail
         # Fallback: try preference list by name
         for candidate in _TYPE_FOLDER_PREFERENCE.get(target_type, []):
             try:
@@ -172,12 +195,12 @@ class ImapMailMutationService(ImapMailSyncCore):
                 "Draft": "Draft",
                 "Spam": "Spam",
                 "Deleted": "Deleted",
-                "Archived": "Deleted",
+                "Archived": "Received",
             }
             updates = {
                 "imap_folder": target_folder,
                 "type": type_map.get(target_type, "Received"),
-                "archived": target_type in ("Deleted", "Archived"),
+                "archived": target_type in ("Archived", "Custom"),
                 "spam": target_type == "Spam",
             }
             # After MOVE the destination server assigns a new UID. Recover it
@@ -209,7 +232,7 @@ class ImapMailMutationService(ImapMailSyncCore):
             mid = message_id
             if not mid.startswith("<"):
                 mid = f"<{mid}>"
-            status, data = imap.uid("search", None, "HEADER", "Message-ID", mid)
+            status, data = imap.uid("search", None, "HEADER", "Message-ID", _imap_name(mid))
             if status != "OK" or not data or not data[0]:
                 return None
             uids = data[0].split()
@@ -247,16 +270,19 @@ class ImapMailMutationService(ImapMailSyncCore):
         self: Any, email_account: str, message_id: str, imap_folder: Optional[str] | None = None
     ) -> bool:
         """Move message to Trash on server and update vault."""
-        vault_file = self._find_vault_file(message_id)
+        vault_file = self._find_vault_file(message_id, email_account=email_account)
+        internet_message_id = message_id
 
         if vault_file:
             meta = self._parse_meta(vault_file.read_text(encoding="utf-8"))
             uid = meta.get("imap_uid")
             from_folder = meta.get("imap_folder") or imap_folder
-            self._update_vault_file(vault_file, {"type": "Deleted", "archived": True})
+            internet_message_id = meta.get("internet_message_id") or message_id
         else:
             # Hybrid message (not in the vault): extract UID from the imap_ prefix
             raw = message_id[5:] if message_id.startswith("imap_") else message_id
+            if not re.fullmatch(r"[0-9]{1,10}", raw):
+                return False
             uid = raw
             from_folder = imap_folder
 
@@ -264,20 +290,24 @@ class ImapMailMutationService(ImapMailSyncCore):
             log.warning(
                 f"[IMAP] Message {message_id} has no UID or folder; cannot move it on the server"
             )
-            return bool(vault_file)
+            return False
 
         with self._connect(email_account) as imap:
             if imap is None:
-                return bool(vault_file)
+                return False
             to_folder = self._find_server_folder(imap, "Deleted")
             if not to_folder:
                 log.warning(f"[IMAP] Trash folder not found for {email_account}")
-                return bool(vault_file)
-            if from_folder.lower() == to_folder.lower():
-                return True  # already in trash
-            ok = self._move_on_server(imap, uid, from_folder, to_folder)
-            if ok and vault_file:
-                self._update_vault_file(vault_file, {"imap_folder": to_folder})
+                return False
+            already_in_trash = from_folder == to_folder
+            if not already_in_trash and not self._move_on_server(imap, str(uid), from_folder, to_folder):
+                return False
+            if vault_file:
+                new_uid = str(uid) if already_in_trash else self._lookup_uid_by_message_id(imap, to_folder, internet_message_id)
+                self._update_vault_file(vault_file, {
+                    "type": "Deleted", "archived": True,
+                    "imap_folder": to_folder, "imap_uid": new_uid or "",
+                })
                 log.info(f"[IMAP] Message {message_id} moved to {to_folder}")
         return True
 
@@ -285,33 +315,51 @@ class ImapMailMutationService(ImapMailSyncCore):
         self: Any, email_account: str, message_id: str, imap_folder: Optional[str] | None = None
     ) -> bool:
         """Move message to Archive on server and update vault."""
-        vault_file = self._find_vault_file(message_id)
+        vault_file = self._find_vault_file(message_id, email_account=email_account)
+        internet_message_id = message_id
 
         if vault_file:
             meta = self._parse_meta(vault_file.read_text(encoding="utf-8"))
             uid = meta.get("imap_uid")
             from_folder = meta.get("imap_folder") or imap_folder
-            self._update_vault_file(vault_file, {"archived": True})
+            internet_message_id = meta.get("internet_message_id") or message_id
         else:
             raw = message_id[5:] if message_id.startswith("imap_") else message_id
+            if not raw.isdigit():
+                return False
             uid = raw
             from_folder = imap_folder
 
         if not uid or not from_folder:
+            if vault_file:
+                self._update_vault_file(vault_file, {"archived": True})
             return bool(vault_file)
 
         with self._connect(email_account) as imap:
             if imap is None:
-                return bool(vault_file)
+                return False
             to_folder = self._find_server_folder(imap, "Archived")
             if not to_folder:
                 log.warning(f"[IMAP] Archive folder not found for {email_account}")
-                return bool(vault_file)
-            if from_folder.lower() == to_folder.lower():
-                return True
-            ok = self._move_on_server(imap, uid, from_folder, to_folder)
-            if ok and vault_file:
-                self._update_vault_file(vault_file, {"imap_folder": to_folder})
+                return False
+            capabilities = {value.decode().upper() if isinstance(value, bytes) else str(value).upper() for value in getattr(imap, "capabilities", ())}
+            if "X-GM-EXT-1" in capabilities:
+                status, _ = imap.select(_imap_name(from_folder))
+                if status != "OK":
+                    return False
+                status, _ = imap.uid("store", uid, "-X-GM-LABELS", "(\\Inbox)")
+                ok = status == "OK"
+            else:
+                ok = from_folder == to_folder or self._move_on_server(imap, uid, from_folder, to_folder)
+            if not ok:
+                return False
+            if vault_file:
+                new_uid = self._lookup_uid_by_message_id(imap, to_folder, internet_message_id)
+                self._update_vault_file(vault_file, {
+                    "imap_folder": to_folder,
+                    "imap_uid": new_uid or "",
+                    "archived": True,
+                })
                 log.info(f"[IMAP] Message {message_id} archived in {to_folder}")
         return True
 
@@ -539,58 +587,29 @@ class ImapMailMutationService(ImapMailSyncCore):
         of the same thread (INBOX + SENT, e.g.).
 
         """
-        with self._connect(email_account) as imap:
-            if imap is None:
-                return []
-
-            # Check X-GM-EXT-1 capability.
-            try:
-                _, caps_data = imap.capability()
+        if not gm_thrid.isascii() or not gm_thrid.isdigit() or len(gm_thrid) > 20 or not 0 < int(gm_thrid) < 2**64:
+            raise RuntimeError("Invalid Gmail conversation identifier")
+        try:
+            with self._connect(email_account) as imap:
+                if imap is None:
+                    raise RuntimeError("Conversation connection is temporarily unavailable")
+                status, caps_data = imap.capability()
                 caps = b" ".join(caps_data).decode().upper() if caps_data else ""
-                if "X-GM-EXT-1" not in caps:
-                    log.debug(f"[IMAP] Server without X-GM-EXT-1 for {email_account}")
-                    return []
-            except Exception:
-                return []
-
-            # "[Gmail]/All Mail" contains all messages (INBOX + SENT + archive).
-            # The localized name varies: we try the \All flag first.
-            try:
-                all_mail = _find_all_mail_folder(imap) or "[Gmail]/All Mail"
-                status, _ = imap.select(_imap_name(all_mail), readonly=True)
-                if status != "OK":
-                    log.warning(f"[IMAP] Could not select {all_mail}")
-                    return []
-
-                # Search by X-GM-THRID. Format: `X-GM-THRID 1234567890123456789`
-                status, data = imap.uid("search", None, f"X-GM-THRID {gm_thrid}")
-                if status != "OK" or not data or not data[0]:
-                    return []
-
-                uids = data[0].split()
-                if not uids:
-                    return []
-
-                uid_str = b",".join(uids).decode()
-                status, fetch_data = imap.uid(
-                    "fetch",
-                    uid_str,
-                    "(UID FLAGS X-GM-THRID X-GM-LABELS BODY.PEEK[HEADER])",
-                )
-                if status != "OK":
-                    return []
-
+                if status != "OK" or "X-GM-EXT-1" not in caps.split():
+                    raise RuntimeError("Gmail conversation capability is unavailable")
+                folders = _discover_folders(imap, strict=True)
+                all_mail = next((name for name, kind in folders if kind == "All"), None)
+                if not all_mail:
+                    raise RuntimeError("The conversation mailbox is unavailable")
                 from backend.domains.mail.providers.hybrid import _imap_list_item
+                from backend.domains.mail.providers.imap_listing import list_all_mailboxes
 
-                messages = [
-                    message
-                    for index in range(len(fetch_data))
-                    if (message := _imap_list_item(
-                        fetch_data, index, all_mail, email_account, all_mail
-                    )) is not None
-                ]
+                result = list_all_mailboxes(
+                    imap, email_account, [(all_mail, "All")], f"X-GM-THRID {gm_thrid}",
+                    0xFFFFFFFF, 0, _imap_list_item, gmail=True,
+                )
+                messages: list[dict[str, Any]] = result["messages"]
                 messages.sort(key=lambda message: message["timestamp"])
                 return messages
-            except Exception as e:
-                log.error(f"[IMAP] Error retrieving thread {gm_thrid} for {email_account}: {e}")
-                return []
+        except Exception as error:
+            raise RuntimeError("Mail conversation is temporarily unavailable") from error

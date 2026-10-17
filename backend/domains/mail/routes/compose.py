@@ -577,6 +577,10 @@ async def mark_as_read(
     sidebar kept showing the old counter.
 
     """
+    return await asyncio.to_thread(_mark_as_read, message_id, email, folder)
+
+
+def _mark_as_read(message_id: str, email: str, folder: str | None) -> Any:
     if _is_microsoft_account(email):
         from backend.services.microsoft_mail_service import microsoft_mark_read
 

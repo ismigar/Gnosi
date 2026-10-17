@@ -119,11 +119,15 @@ describe('MailSidebar', () => {
     act(() => {
       buttonWithText('two@example.test').click();
       buttonWithText('mail.inbox').click();
+      buttonWithText('mail.all_mail').click();
+      buttonWithText('Archive').click();
       buttonWithText('Research').click();
       container.querySelector<HTMLButtonElement>('button[title="Compose"]')?.click();
     });
     expect(onSelectAccount).toHaveBeenCalledWith({ email: 'two@example.test' });
     expect(onSelectFolder).toHaveBeenCalledWith('INBOX');
+    expect(onSelectFolder).toHaveBeenCalledWith('all');
+    expect(onSelectFolder).toHaveBeenCalledWith('ARCHIVE');
     expect(onSelectTag).toHaveBeenCalledWith('tag-1');
     expect(onCompose).toHaveBeenCalledOnce();
 

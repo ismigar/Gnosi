@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-15
+last_verified: 2026-10-17
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -18,6 +18,18 @@ source_paths:
   - frontend/src/shared/api/mail.ts
   - frontend/src/shared/api/mail-specialized.ts
 tests:
+  - backend/tests/test_mail_move_identity.py
+  - backend/tests/test_mail_cache_scope.py
+  - backend/tests/test_mail_archive_listing.py
+  - backend/tests/test_mail_archive_identity.py
+  - backend/tests/test_mail_connection_lifecycle.py
+  - backend/tests/test_mail_conversation_truthfulness.py
+  - backend/tests/test_mail_ordered_header_listing.py
+  - backend/tests/test_mail_detail_responsiveness.py
+  - backend/tests/test_mail_read_negative_contract.py
+  - frontend/src/features/mail/components/MailViewer.loading.test.tsx
+  - tests/e2e/tests/disposable/mail-archive-pagination.spec.ts
+  - tests/e2e/tests/disposable/mail-reader-responsiveness.spec.ts
   - frontend/src/features/mail/page/mailAccountVisibility.test.tsx
   - backend/tests/test_mail_thread_completeness.py
   - frontend/src/features/mail/components/MailViewer.resilience.test.tsx
@@ -103,6 +115,91 @@ body literal is preserved, including thread identity, dates and sent labels.
 Message reads retain both account and folder because IMAP UIDs are scoped to a
 mailbox. The viewer resolves the thread from the loaded message and expands
 and loads its newest item, including sent replies.
+Conversation member reads use the same bounded, complete header validation as
+aggregate mailboxes. Failed connections/commands or missing fetched members
+produce a retryable error rather than an empty or partial successful thread.
+
+Message body reads have a separate reusable IMAP connection from mailbox listings
+and attachment downloads. Reuse is bound to the vault and account configuration;
+credential invalidation closes both lanes and rejects an obsolete connection
+that finishes authenticating after invalidation. A transport error invalidates
+only its own lane. Provider reads end with a retryable HTTP 503 after
+25 seconds, and read-state mutations run in worker threads. A stalled read flag
+update must not block the server event loop or the next selected message.
+Reader requests depend on scoped message identity rather than object/callback
+replacement. The reader keeps at most sixteen bodies and an estimated 4 MiB for
+five minutes after fetching; changing request context clears this memory cache.
+An available Internet Message-ID versions both the selection and cached body;
+changing it refetches content even when the UID stays unchanged.
+This is a session cache, not a durable offline mailbox.
+Saved RFC message IDs go directly to account-scoped local storage; only decimal
+IMAP UIDs enter the remote body path.
+
+An already loaded body can serve its IMAP copy in another folder when the account
+and original Internet Message-ID match. The original content's UID and folder
+remain attached to CID images and attachments; action identity is not merged.
+Failed body and conversation reads expose explicit localized retries. Late or
+cancelled requests cannot replace a new selection.
+
+Mail list and count snapshots and inline-image reuse are also bound to the active
+vault. Inline-image identity preserves the exact mailbox name.
+
+## Archive, complete listings and search
+
+Archive has its own navigation entry. All Mail resolves the server's localized
+`\All` mailbox instead of INBOX. Servers without a native All mailbox merge
+header-only snapshots from every selectable non-trash/non-spam mailbox. Archive
+includes all discovered archive mailboxes and their child folders. Both native
+and aggregate All/Archive listings sort every matching header by date before
+pagination, including imported messages whose UID order differs from their date.
+Header transfers use batches of at most 200 UIDs; serialized cached batches have
+a 256-KiB cap (at most 32 MiB of header payloads in the shared 128-entry cache).
+Reuse requires matching mailbox membership, scope and UIDVALIDITY. Missing
+UIDVALIDITY disables optional caching, following the mailbox identity model in
+[RFC 9051](https://www.rfc-editor.org/rfc/rfc9051.html#section-2.3.1.1).
+Cold aggregate reads can require many header round trips; the body lane remains
+independent. Folder names and UIDs
+remain present on each row, including reused UIDs in different folders. A failed
+mailbox read cannot publish a misleading complete or empty result.
+
+Discovery retains custom mailboxes and multiple archive folders, while skipping
+non-selectable containers. Archive descendants use the hierarchy delimiter
+declared by `LIST`, including descendants of non-selectable archive containers;
+`NIL` namespaces remain flat, as defined by
+[RFC 9051](https://www.rfc-editor.org/rfc/rfc9051.html#section-7.3.1).
+Ordinary descendants inherit their archive context even when named `Sent`,
+`Drafts` or `All Mail`. Explicit server special-use attributes retain priority;
+only `\All` designates a native All mailbox.
+Synchronizing an archive preserves a received-message
+type and records `archived: true`; it does not classify the message as deleted.
+Gmail archiving removes the Inbox label and preserves other labels. Remote
+archive failures remain failures rather than reporting a successful operation.
+
+Single-message IMAP moves use native `MOVE` or, after a confirmed copy and flag
+update, cleanup through `UID EXPUNGE` (`UIDPLUS` or `IMAP4rev2`). Failed commands
+remain failures. Servers without either safe operation are rejected before
+copying; moving one message never expunges other messages marked for deletion.
+See [RFC 9051](https://www.rfc-editor.org/rfc/rfc9051.html#section-6.4.9) for
+UID-scoped cleanup semantics.
+
+Archive and Trash actions on individual rows and selections pass each row's
+physical mailbox. A rejected Trash move returns a retryable error; saved metadata
+changes only after success and records the destination UID. A failed inline
+action keeps its row and does not enter the undo history.
+
+The pagination sentinel belongs to the actual scrolling list and is observed
+again after a page completes. A provider that returns no cursor progress requires
+an explicit retry. Unavailable accounts are excluded from automatic pagination;
+healthy accounts can continue loading. Explicit retries target failed accounts
+at their failed cursors and preserve the pages already loaded from other accounts.
+Search is debounced for 250 ms and sent to the provider, so
+matches outside loaded pages and matches inside bodies can be returned. Search
+text is part of list-cache scope, and obsolete requests are cancelled. Saved-view
+criteria continue to filter loaded rows; they are not incoming-mail rules or a
+complete server-side query engine.
+
+The [Apple Mail reference](../mail-apple-reference.md) records the shipped
+interface inventory, current Gnosi coverage and remaining parity work.
 
 Successful sends invalidate cached mail lists and counts; the page refreshes
 both after the composer completes. The list's delayed hover preview loads the

@@ -112,11 +112,11 @@ describe('MailList message actions', () => {
     );
     if (!contextArchive) throw new Error('Missing scoped context action');
     await harness.click(contextArchive);
-    expect(mocks.archive).toHaveBeenCalledWith('shared', 'two@example.com');
+    expect(mocks.archive).toHaveBeenCalledWith('shared', 'two@example.com', 'SENT');
   });
 
   it('restores an optimistically archived message if its batch request fails', async () => {
-    mocks.batch.mockRejectedValueOnce(new Error('offline'));
+    mocks.archive.mockRejectedValueOnce(new Error('offline'));
     await harness.render();
     await harness.click(harness.checkbox());
     await harness.click(harness.button('Archive selected'));
@@ -127,6 +127,49 @@ describe('MailList message actions', () => {
     expect(harness.container.textContent).toContain('Subject one');
     expect(mocks.error).toHaveBeenCalled();
   });
+
+  for (const action of ['archive', 'trash'] as const) {
+    it(`inline ${action} preserves an All Mail row's physical folder`, async () => {
+      const row = {
+        ...message('imap_42'), source: 'imap', imap_uid: '42',
+        imap_folder: 'Projects/Reference', thread_id: 'imap_42',
+      };
+      mocks.fetchMessages.mockResolvedValue(response([row]));
+      await harness.render({ folder: 'all' });
+      await harness.click(harness.button(action === 'archive' ? 'Archive' : 'Delete'));
+      expect(action === 'archive' ? mocks.archive : mocks.trash)
+        .toHaveBeenCalledWith(row.id, account.email, row.imap_folder);
+    });
+
+    it(`keeps the row and undo history intact after refused inline ${action}`, async () => {
+      const onRecordAction = vi.fn();
+      (action === 'archive' ? mocks.archive : mocks.trash)
+        .mockRejectedValueOnce(new Error('Server refused'));
+      await harness.render({ onRecordAction });
+      await harness.click(harness.button(action === 'archive' ? 'Archive' : 'Delete'));
+      expect(harness.container.textContent).toContain('Subject one');
+      expect(mocks.error).toHaveBeenCalledWith('Server refused');
+      expect(mocks.purgeCache).not.toHaveBeenCalled();
+      expect(onRecordAction).not.toHaveBeenCalled();
+    });
+
+    it(`batch ${action} keeps equal UIDs scoped to their physical folders`, async () => {
+      const rows = ['Projects/Reference', 'Archive/2025'].map((imap_folder) => ({
+        ...message('imap_42'), source: 'imap', imap_uid: '42', imap_folder,
+      }));
+      mocks.fetchMessages.mockResolvedValue(response(rows));
+      await harness.render({ folder: 'all' });
+      const checkboxes = [...harness.container.querySelectorAll<HTMLInputElement>('input[aria-label]')];
+      for (const checkbox of checkboxes) await harness.click(checkbox);
+      await harness.click(harness.button(action === 'archive' ? 'Archive selected' : 'Delete selected'));
+      const mutation = action === 'archive' ? mocks.archive : mocks.trash;
+      for (const row of rows) {
+        expect(mutation).toHaveBeenCalledWith(row.id, account.email, row.imap_folder);
+      }
+      expect(mutation).toHaveBeenCalledTimes(2);
+      expect(mocks.batch).not.toHaveBeenCalled();
+    });
+  }
 
   it('keeps keyboard selection and open callbacks behind the shared event adapter', async () => {
     const onSelectMail = vi.fn<(mail: MailListMessage) => void>();

@@ -27,8 +27,10 @@ export interface MailViewerMessage extends Readonly<Record<string, unknown>> {
   readonly date?: string | null;
   readonly has_attachments?: boolean | null;
   readonly id: string;
+  readonly gm_thrid?: string | null;
   readonly imap_folder?: string | null;
   readonly imap_uid?: string | null;
+  readonly internet_message_id?: string | null;
   readonly is_read?: boolean | null;
   readonly is_spam?: boolean | null;
   readonly is_starred?: boolean | null;

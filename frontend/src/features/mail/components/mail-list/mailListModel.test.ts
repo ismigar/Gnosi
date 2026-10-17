@@ -8,6 +8,7 @@ import {
   filterOutMailThread,
   groupMailListMessages,
   mailListMessageIdentity,
+  mailListCacheKey,
   mapMailTagsByIdentity,
   processMailListMessages,
   setMailTagsByIdentity,
@@ -87,16 +88,19 @@ describe('mail list model', () => {
       'one@example.com',
       'NOT_ARCHIVED',
       'Updates',
-      { force: true, offset: 50, pageToken: 'next' },
+      { force: true, offset: 50, pageToken: 'next', search: ' body evidence ' },
     )).toEqual({
       category: 'Updates',
       email: 'one@example.com',
-      folder: 'all',
+      folder: 'NOT_ARCHIVED',
       force: true,
       limit: 50,
       offset: 50,
       pageToken: 'next',
+      search: 'body evidence',
     });
+    expect(mailListCacheKey(['one@example.com'], 'ARCHIVE', null, 'body evidence'))
+      .not.toBe(mailListCacheKey(['one@example.com'], 'ARCHIVE', null));
   });
 
   it('removes only exact provider copies without colliding IMAP UIDs by scope', () => {
@@ -232,6 +236,17 @@ describe('mail list model', () => {
       searchQuery: 'a',
       unreadOnly: true,
     }).map((candidate) => candidate.id)).toEqual(['a', 'b']);
+  });
+
+  it('compares text exclusions as text in saved views', () => {
+    const messages = [message('included', { subject: 'Keep this' }), message('excluded', { subject: 'Ignore this' })];
+    const filtered = processMailListMessages(messages, {
+      activeTagId: null,
+      activeView: { ...view, filters: [{ field: 'subject', operator: 'is_not', value: 'ignore this' }] },
+      config: { groupBy: 'none', showSnippet: true, showTimestamp: true, sortBy: 'date', sortDir: 'desc' },
+      folder: null, messageTags: {}, searchQuery: '', unreadOnly: false,
+    });
+    expect(filtered.map(candidate => candidate.id)).toEqual(['included']);
   });
 
   it('removes full threads and derives newest thread summaries', () => {
