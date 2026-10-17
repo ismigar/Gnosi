@@ -47,7 +47,9 @@ Gnosi with `?gnosi-safe-appearance=1` and reset the appearance.
 
 In a note’s **⋯** menu, choose **Compose notes**. Select the whole note, a heading or complete Markdown lines, then choose a new note or an existing destination. **Preview changes** shows the source, destination and affected links. Review every change before applying it. The source keeps an embed and its history. If another editor changes a file, prepare a fresh preview.
 
-In the sidebar’s **Bookmarks**, save notes, sections, searches, graph views or web links and give them a group. Edit a bookmark to rename, move or remove it. These bookmarks belong to the selected account, workspace and Vault on this device.
+In the sidebar’s **Bookmarks**, save notes, sections, searches, graph views or web links and give them a group. The star on a note adds or removes that note from this same list. Former favorites and this device’s existing bookmarks are imported automatically, keeping custom names and groups. Bookmarks belong to the selected account, workspace and Vault. They synchronize through the same Gnosi server, or when the same Vault folder is synchronized between devices. Changes refresh periodically and when you return to the app; use Refresh to check immediately. If synchronization fails, saved items and editing drafts are kept so you can retry.
+
+Use **Save current view** to add a table, a saved view, a drawing or another stable Gnosi view. View addresses are stored relative to the Vault so each device can use its own local address. Dashboards, records and templates use the same page bookmark type; the Dashboards catalog remains available.
 
 ## Expected result {#expected-result}
 

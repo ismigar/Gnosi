@@ -2,7 +2,7 @@ import type { DashboardActions } from './useDashboardActions';
 import type { Breadcrumb, HistoryOrigin, Page } from './types';
 export function useBreadcrumbs(context: DashboardActions) {
     const { activeTabId, historyPointer, loadPage, navigationHistory, pages, registry, resolvePageTableId, returnToTableFromBreadcrumb, setActiveTabId, setViewMode, t, } = context;
-    const favoritePages = pages.filter(p => (p.metadata?.favorite === true || p.metadata?.favorite === 'true') && !p.metadata.is_template);
+    const favoritePages = pages.filter(p => context.bookmarkedPageIds.has(p.id) && !p.metadata?.is_template);
     // Recursive method to build breadcrumbs for parent->child hierarchy
     const buildPageParentBreadcrumbs = (pageId: string, currentTrail: Breadcrumb[] = []): Breadcrumb[] => {
         const page = pages.find(p => p.id === pageId);

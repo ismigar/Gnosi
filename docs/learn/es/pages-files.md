@@ -48,7 +48,9 @@ con `?gnosi-safe-appearance=1` y restablece la apariencia.
 
 En el menú **⋯** de una nota, elige **Combina y extrae notas**. Selecciona la nota completa, un encabezado o líneas Markdown completas y elige una nota nueva o un destino existente. **Previsualiza los cambios** muestra el origen, el destino y los enlaces afectados. Revisa todos los cambios antes de aplicarlos. El origen conserva una transclusión y el historial. Si otro editor modifica un archivo, prepara una nueva vista previa.
 
-En **Marcadores** de la barra lateral, guarda notas, secciones, búsquedas, vistas del grafo o enlaces web y asígnales un grupo. Edita un marcador para cambiar su nombre, moverlo o eliminarlo. Estos marcadores pertenecen a la cuenta, espacio de trabajo y Vault seleccionados en este dispositivo.
+En **Marcadores** de la barra lateral, guarda notas, secciones, búsquedas, vistas del grafo o enlaces web y asígnales un grupo. La estrella de una nota la añade o elimina de esta misma lista. Los antiguos favoritos y los marcadores de este dispositivo se importan automáticamente, conservando nombres propios y grupos. Los marcadores pertenecen a la cuenta, espacio de trabajo y Vault seleccionados. Se sincronizan mediante el mismo servidor Gnosi o cuando la carpeta del mismo Vault se sincroniza entre dispositivos. Los cambios se actualizan periódicamente y al volver a la aplicación; pulsa Actualizar para comprobarlos inmediatamente. Si la sincronización falla, se conservan los elementos guardados y los cambios en edición para poder reintentar.
+
+Usa **Guardar la vista actual** para añadir una tabla, una vista guardada, un dibujo u otra vista estable de Gnosi. Las direcciones se guardan en relación con el Vault para que cada dispositivo pueda usar su propia dirección local. Los tableros, registros y plantillas usan el mismo tipo de marcador de página; el catálogo de Tableros sigue disponible.
 
 ## Resultado esperado {#expected-result}
 
