@@ -41,6 +41,30 @@ function providerIdentity(message: MailIdentityMessage): string {
 }
 
 
+function imapMessageIdUid(message: MailIdentityMessage): string | null {
+  if (message.id.startsWith('imap_')) return message.id.slice(5);
+  return /^\d+$/.test(message.id) ? message.id : null;
+}
+
+
+function hasConsistentMailIdentity(message: MailIdentityMessage): boolean {
+  const account = normalizeIdentityPart(message.account);
+  const alias = normalizeIdentityPart(message.account_email);
+  if (account && alias && account !== alias) return false;
+  const uid = message.imap_uid?.trim();
+  const idUid = imapMessageIdUid(message);
+  return providerIdentity(message) !== 'imap' || !uid || idUid === null || uid === idUid;
+}
+
+
+function mailBodyIdsMatch(left: MailIdentityMessage, right: MailIdentityMessage): boolean {
+  if (left.id === right.id) return true;
+  const uid = imapMessageIdUid(left);
+  return providerIdentity(left) === 'imap' && providerIdentity(right) === 'imap'
+    && uid !== null && uid === imapMessageIdUid(right);
+}
+
+
 function structuralIdentity(kind: 'message' | 'thread', parts: readonly string[]): string {
   return JSON.stringify([kind, ...parts]);
 }
@@ -54,7 +78,7 @@ export function tryMailMessageIdentity(
   const provider = providerIdentity(message);
   if (!account || !provider || !message.id) return null;
   if (provider === 'imap') {
-    const folder = message.imap_folder?.trim() ?? '';
+    const folder = message.imap_folder ?? '';
     const uid = message.imap_uid?.trim() ?? '';
     if (!folder || !uid) return null;
     return structuralIdentity('message', [account, provider, folder, uid]);
@@ -70,7 +94,7 @@ export function tryMailIdentityScope(
   const account = accountIdentity(message, fallbackAccount);
   const provider = providerIdentity(message);
   if (!account || !provider || !message.id) return null;
-  const imapFolder = message.imap_folder?.trim() || null;
+  const imapFolder = message.imap_folder || null;
   const imapUid = message.imap_uid?.trim() || null;
   if (provider === 'imap' && (!imapFolder || !imapUid)) return null;
   return {
@@ -90,7 +114,7 @@ export function mailMessageIdentity(
     ?? structuralIdentity('message', [
       accountIdentity(message, fallbackAccount),
       providerIdentity(message),
-      message.imap_folder?.trim() ?? '',
+      message.imap_folder ?? '',
       message.imap_uid?.trim() || message.id,
     ]);
 }
@@ -103,7 +127,7 @@ export function mailThreadIdentity(
   const account = accountIdentity(message, fallbackAccount);
   const provider = providerIdentity(message);
   const thread = message.thread_id?.trim() ?? '';
-  const folder = provider === 'imap' ? message.imap_folder?.trim() ?? '' : '';
+  const folder = provider === 'imap' ? message.imap_folder ?? '' : '';
   if (!account || !provider || !thread || (provider === 'imap' && !folder)) {
     return mailMessageIdentity(message, fallbackAccount);
   }
@@ -136,7 +160,7 @@ export function isSameMailMessageContent(
   right: MailIdentityMessage | null | undefined,
   fallbackAccount?: string | null,
 ): boolean {
-  if (!left || !right) return false;
+  if (!left || !right || !hasConsistentMailIdentity(left) || !hasConsistentMailIdentity(right)) return false;
   const messageId = mailContentVersion(left);
   const otherMessageId = mailContentVersion(right);
   if (messageId && otherMessageId && messageId !== otherMessageId) return false;
@@ -160,7 +184,8 @@ export function canUseMailBody(
   requestedVersion: string,
   fallbackAccount?: string | null,
 ): boolean {
-  if (!detail || (!isSameMailMessage(summary, detail, fallbackAccount)
+  if (!detail || !hasConsistentMailIdentity(summary) || !hasConsistentMailIdentity(detail)
+    || !mailBodyIdsMatch(summary, detail) || (!isSameMailMessage(summary, detail, fallbackAccount)
     && !isHydratedSparseSelection(detail, summary, fallbackAccount))) return false;
   const version = mailContentVersion(summary);
   return !version || version === requestedVersion || version === mailContentVersion(detail);
@@ -185,7 +210,7 @@ export function hydrateMailMessageIdentity<T extends MailIdentityMessage>(
 ): T {
   return {
     ...detail,
-    account: detail.account || selected.account || fallbackAccount,
+    account: detail.account || detail.account_email || selected.account || selected.account_email || fallbackAccount,
     account_email: detail.account_email || selected.account_email,
     imap_folder: detail.imap_folder || selected.imap_folder,
     imap_uid: detail.imap_uid || selected.imap_uid,
@@ -200,8 +225,8 @@ function selectedDiscriminatorMatches(
   selectedValue?: string | null,
   loadedValue?: string | null,
 ): boolean {
-  const selected = normalizeIdentityPart(selectedValue);
-  return !selected || selected === normalizeIdentityPart(loadedValue);
+  const selected = selectedValue || '';
+  return !selected || selected === (loadedValue || '');
 }
 
 
@@ -210,11 +235,12 @@ function isHydratedSparseSelection(
   selected: MailIdentityMessage,
   fallbackAccount?: string | null,
 ): boolean {
-  if (loaded.id !== selected.id) return false;
+  if (!hasConsistentMailIdentity(loaded) || !hasConsistentMailIdentity(selected)
+    || !mailBodyIdsMatch(loaded, selected)) return false;
   const selectedAccount = accountIdentity(selected, fallbackAccount);
   if (selectedAccount && (tryMailMessageIdentity(selected, fallbackAccount) !== null
     || selectedAccount !== accountIdentity(loaded, fallbackAccount))) return false;
-  return selectedDiscriminatorMatches(selected.source, loaded.source)
+  return selectedDiscriminatorMatches(providerIdentity(selected), providerIdentity(loaded))
     && selectedDiscriminatorMatches(selected.imap_folder, loaded.imap_folder)
     && selectedDiscriminatorMatches(selected.imap_uid, loaded.imap_uid)
     && selectedDiscriminatorMatches(selected.thread_id, loaded.thread_id);

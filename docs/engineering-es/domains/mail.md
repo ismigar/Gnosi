@@ -28,6 +28,8 @@ tests:
   - backend/tests/test_mail_detail_responsiveness.py
   - backend/tests/test_mail_read_negative_contract.py
   - frontend/src/features/mail/components/MailViewer.loading.test.tsx
+  - frontend/src/features/mail/components/MailViewer.versions.test.tsx
+  - frontend/src/features/mail/mailIdentity.test.ts
   - tests/e2e/tests/disposable/mail-archive-pagination.spec.ts
   - tests/e2e/tests/disposable/mail-reader-responsiveness.spec.ts
   - frontend/src/features/mail/page/mailAccountVisibility.test.tsx
@@ -142,6 +144,9 @@ contenido original siguen vinculados a las imágenes CID y a los adjuntos; la
 identidad de las acciones no se fusiona. Las lecturas fallidas de cuerpos y
 conversaciones ofrecen reintentos explícitos traducidos. Las peticiones tardías
 o canceladas no pueden sustituir una selección nueva.
+Se rechazan las respuestas que contradicen una cuenta, un buzón, un proveedor o
+un UID indicados, también con cabeceras parcialmente identificadas. Un cuerpo
+rechazado termina la carga y espera un reintento explícito.
 
 Las instantáneas de listas y recuentos y la reutilización de imágenes incrustadas
 también quedan vinculadas al vault activo. La identidad de las imágenes conserva

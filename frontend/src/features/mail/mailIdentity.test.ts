@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  canUseMailBody,
   hydrateMailMessageIdentity,
   isSameMailMessage,
   isSameMailMessageContent,
@@ -29,6 +30,7 @@ describe('mail structural identity', () => {
     expect(mailMessageIdentity(first)).not.toBe(mailMessageIdentity(otherFolder));
     expect(mailThreadIdentity(first)).not.toBe(mailThreadIdentity(otherAccount));
     expect(mailThreadIdentity(first)).not.toBe(mailThreadIdentity(otherFolder));
+    expect(mailMessageIdentity(first)).not.toBe(mailMessageIdentity({ ...first, imap_folder: ' INBOX ' }));
   });
 
   it('shares content across IMAP folders only for a nonempty matching account and Internet Message-ID', () => {
@@ -82,6 +84,31 @@ describe('mail structural identity', () => {
       ...first,
       account: 'other@example.test',
     })).toBe(false);
+  });
+
+  it('uses an explicit detail account alias before hydrating the selected account', () => {
+    const detail = hydrateMailMessageIdentity({ id: first.id, account_email: 'other@example.test' }, first);
+    expect(canUseMailBody(first, detail, '')).toBe(false);
+    expect(canUseMailBody(first, { ...first, account_email: 'other@example.test' }, '')).toBe(false);
+    expect(canUseMailBody(first, { ...first, account_email: ' FIRST@example.test ' }, '')).toBe(true);
+  });
+
+  it('keeps sparse mailbox and inferred provider discriminators exact', () => {
+    const sparse = { ...first, imap_folder: 'Projects', imap_uid: undefined };
+    expect(canUseMailBody(sparse, { ...first, imap_folder: 'Projects' }, '')).toBe(true);
+    expect(canUseMailBody(sparse, { ...first, imap_folder: 'projects' }, '')).toBe(false);
+    expect(canUseMailBody(sparse, { ...first, imap_folder: ' Projects ' }, '')).toBe(false);
+    const inferred = { ...first, id: 'imap_42', source: undefined, imap_folder: undefined };
+    expect(canUseMailBody(inferred, { ...first, id: 'imap_42' }, '')).toBe(true);
+    expect(canUseMailBody(inferred, { ...first, id: 'imap_42', source: 'microsoft' }, '')).toBe(false);
+  });
+
+  it('preserves numeric IMAP ID aliases while rejecting contradictory response IDs', () => {
+    const selected = { ...first, id: '42' };
+    expect(canUseMailBody(selected, { ...first, id: 'imap_42' }, '')).toBe(true);
+    expect(canUseMailBody({ ...selected, imap_uid: undefined }, { ...first, id: 'imap_42' }, '')).toBe(true);
+    expect(canUseMailBody({ ...first, id: 'imap_42' }, { ...first, id: 'imap_99' }, '')).toBe(false);
+    expect(canUseMailBody({ ...first, id: 'imap_42' }, { ...first, id: 'opaque-other-id' }, '')).toBe(false);
   });
 
   it('accepts hydrated detail for an account-less matching selection', () => {

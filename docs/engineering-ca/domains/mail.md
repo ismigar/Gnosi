@@ -28,6 +28,8 @@ tests:
   - backend/tests/test_mail_detail_responsiveness.py
   - backend/tests/test_mail_read_negative_contract.py
   - frontend/src/features/mail/components/MailViewer.loading.test.tsx
+  - frontend/src/features/mail/components/MailViewer.versions.test.tsx
+  - frontend/src/features/mail/mailIdentity.test.ts
   - tests/e2e/tests/disposable/mail-archive-pagination.spec.ts
   - tests/e2e/tests/disposable/mail-reader-responsiveness.spec.ts
   - frontend/src/features/mail/page/mailAccountVisibility.test.tsx
@@ -156,6 +158,9 @@ contingut original continuen vinculats a les imatges CID i als adjunts; la
 identitat de les accions no es fusiona. Les lectures fallides de cossos i
 converses ofereixen reintents explícits traduïts. Les peticions tardanes o
 cancel·lades no poden substituir una selecció nova.
+Les respostes que contradiuen un compte, una bústia, un proveïdor o un UID
+indicats es rebutgen, també amb capçaleres parcialment identificades. Un cos
+rebutjat acaba la càrrega i espera un reintent explícit.
 
 Les instantànies de llistes i recomptes i la reutilització d’imatges incrustades
 també queden vinculades al vault actiu. La identitat de les imatges conserva

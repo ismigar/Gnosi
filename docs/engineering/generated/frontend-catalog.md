@@ -50,7 +50,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2691 | 0 |
-| `features` | 1253 | 135603 | 55 |
+| `features` | 1253 | 135629 | 55 |
 | `generated` | 3 | 53614 | 553 |
 | `shared` | 338 | 36369 | 468 |
 
@@ -430,7 +430,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/mail/hooks/useMailTags.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/hooks/useMailTags.ts) | 266 | `MailTagsProvider`, `useMailTags` | — |
 | [`frontend/src/features/mail/hooks/useMailViews.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/hooks/useMailViews.ts) | 96 | `useMailViews` | — |
 | [`frontend/src/features/mail/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/index.ts) | 3 | `MailPage` | — |
-| [`frontend/src/features/mail/mailIdentity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/mailIdentity.ts) | 234 | `canUseMailBody`, `hydrateMailMessageIdentity`, `isSameMailMessage`, `isSameMailMessageContent`, `isSelectedMailBody`, `mailContentVersion`, `mailMessageIdentity`, `mailThreadIdentity`, `selectMailDisplayMessage`, `tryMailIdentityScope`, `tryMailMessageIdentity` | — |
+| [`frontend/src/features/mail/mailIdentity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/mailIdentity.ts) | 260 | `canUseMailBody`, `hydrateMailMessageIdentity`, `isSameMailMessage`, `isSameMailMessageContent`, `isSelectedMailBody`, `mailContentVersion`, `mailMessageIdentity`, `mailThreadIdentity`, `selectMailDisplayMessage`, `tryMailIdentityScope`, `tryMailMessageIdentity` | — |
 | [`frontend/src/features/mail/page/MailPageView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/MailPageView.tsx) | 215 | `MailPageView` | — |
 | [`frontend/src/features/mail/page/MailUndoToast.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/MailUndoToast.tsx) | 34 | `MailUndoToast` | — |
 | [`frontend/src/features/mail/page/mailPageModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/mailPageModel.ts) | 237 | `adjacentMail`, `buildMailAccountCatalog`, `draftComposeData`, `isVaultDraft`, `mailAccountAddress`, `mergeMailCounts` | — |

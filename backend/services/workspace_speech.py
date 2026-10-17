@@ -188,7 +188,7 @@ async def local_voices() -> list[SpeechVoice]:
 
 async def effective_settings(language: str = '', settings: SpeechSettings | None = None) -> SpeechSettings:
     """Freeze the actual voice/language once, before hashing or synthesizing."""
-    selected = settings or await asyncio.to_thread(get_settings)
+    selected: SpeechSettings = settings if settings is not None else await asyncio.to_thread(get_settings)
     effective_language = resolve_language(selected, language)
     voices = await local_voices() if selected.provider == 'local' and selected.voice == 'auto' else []
     return _resolved_settings(selected, effective_language, voices)
@@ -289,7 +289,7 @@ async def _encode_mp3(aiff: bytes, cancelled: threading.Event, deadline: float) 
         raise SpeechProviderFailure()
     try:
         output = BoundedBuffer()
-        with av.open(io.BytesIO(aiff)) as source, av.open(output, mode='w', format='mp3') as destination:
+        with av.open(io.BytesIO(aiff), mode='r') as source, av.open(output, mode='w', format='mp3') as destination:
             stream = destination.add_stream('libmp3lame', rate=24000)
             stream.layout = 'mono'
             stream.codec_context.format = 'fltp'
@@ -346,7 +346,7 @@ def _write_document_mp3(chunks: list[bytes], output_path: str | Path,
             stream.codec_context.format = 'fltp'
             for chunk in chunks:
                 resampler = av.AudioResampler(format='fltp', layout='mono', rate=24000)
-                with av.open(io.BytesIO(chunk)) as source:
+                with av.open(io.BytesIO(chunk), mode='r') as source:
                     for frame in source.decode(audio=0):
                         check()
                         if not isinstance(frame, av.AudioFrame):

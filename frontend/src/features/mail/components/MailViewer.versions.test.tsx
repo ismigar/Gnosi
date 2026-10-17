@@ -47,6 +47,19 @@ function message(id: string, extra: Partial<MailMessage> = {}): MailMessage {
   };
 }
 
+const mismatchedResponses = [
+  { name: 'account', summary: {}, response: { account: 'other@example.test' } },
+  { name: 'folder', summary: {}, response: { imap_folder: 'Other' } },
+  { name: 'UID', summary: {}, response: { imap_uid: '99' } },
+  { name: 'provider', summary: {}, response: { source: 'microsoft' } },
+  { name: 'account alias', summary: {}, response: { account: null, account_email: 'other@example.test' } },
+  { name: 'contradictory aliases', summary: {}, response: { account_email: 'other@example.test' } },
+  { name: 'case-distinct sparse folder', summary: { imap_uid: null, imap_folder: 'Projects' }, response: { imap_folder: 'projects' } },
+  { name: 'space-distinct folder', summary: { imap_folder: 'Projects' }, response: { imap_folder: ' Projects ' } },
+  { name: 'inferred provider', summary: { source: null, imap_folder: null }, response: { source: 'microsoft' } },
+  { name: 'raw response ID', summary: {}, response: { id: 'imap_99' } },
+] satisfies { name: string; summary: Partial<MailMessage>; response: Partial<MailMessage> }[];
+
 function deferred<T>() {
   let resolve: (value: T) => void = () => undefined;
   let reject: (reason: Error) => void = () => undefined;
@@ -179,12 +192,9 @@ describe('MailViewer current bodies and changing conversation headers', () => {
     expect(mocks.fetchMessage).toHaveBeenCalledTimes(3);
   });
 
-  it.each([
-    { account: 'other@example.test' }, { imap_folder: 'Other' },
-    { imap_uid: '99' }, { source: 'microsoft' },
-  ])('ends a mismatched selected response with retry and keeps its body out of the cache: %s', async (scope) => {
-    const selected = message('imap_42');
-    mocks.fetchMessage.mockResolvedValueOnce({ ...selected, ...scope, body_text: 'Mismatched body' })
+  it.each(mismatchedResponses)('ends a mismatched selected $name response with retry and keeps its body out of the cache', async ({ summary, response }) => {
+    const selected = message('imap_42', summary);
+    mocks.fetchMessage.mockResolvedValueOnce({ ...selected, ...response, body_text: 'Mismatched body' })
       .mockResolvedValueOnce({ ...selected, body_text: 'Matching retried body' });
     await render({ mail: selected });
     expect(container.textContent).not.toContain('Mismatched body');
@@ -199,14 +209,11 @@ describe('MailViewer current bodies and changing conversation headers', () => {
     expect(mocks.fetchMessage).toHaveBeenCalledTimes(2);
   });
 
-  it.each([
-    { account: 'other@example.test' }, { imap_folder: 'Other' },
-    { imap_uid: '99' }, { source: 'microsoft' },
-  ])('ends a mismatched member response without an automatic retry loop: %s', async (scope) => {
+  it.each(mismatchedResponses)('ends a mismatched member $name response without an automatic retry loop', async ({ summary, response }) => {
     const selected = message('imap_42', { body_text: 'Selected body' });
-    const member = message('imap_43');
+    const member = message('imap_43', summary);
     mocks.fetchMessage.mockResolvedValueOnce(selected)
-      .mockResolvedValueOnce({ ...member, ...scope, body_text: 'Mismatched member body' })
+      .mockResolvedValueOnce({ ...member, ...response, body_text: 'Mismatched member body' })
       .mockResolvedValueOnce({ ...member, body_text: 'Matching retried member body' });
     await render({ mail: { ...selected, thread_messages: [member, selected] } });
     expect(container.textContent).not.toContain('Mismatched member body');

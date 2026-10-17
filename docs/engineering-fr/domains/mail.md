@@ -28,6 +28,8 @@ tests:
   - backend/tests/test_mail_detail_responsiveness.py
   - backend/tests/test_mail_read_negative_contract.py
   - frontend/src/features/mail/components/MailViewer.loading.test.tsx
+  - frontend/src/features/mail/components/MailViewer.versions.test.tsx
+  - frontend/src/features/mail/mailIdentity.test.ts
   - tests/e2e/tests/disposable/mail-archive-pagination.spec.ts
   - tests/e2e/tests/disposable/mail-reader-responsiveness.spec.ts
   - frontend/src/features/mail/page/mailAccountVisibility.test.tsx
@@ -150,6 +152,9 @@ contenu d'origine restent associés aux images CID et aux pièces jointes ;
 l'identité des actions n'est pas fusionnée. Les lectures de corps et de
 conversations en échec proposent des reprises explicites traduites. Les
 requêtes tardives ou annulées ne peuvent pas remplacer une nouvelle sélection.
+Les réponses qui contredisent un compte, une boîte, un fournisseur ou un UID
+indiqués sont rejetées, y compris avec des en-têtes partiellement identifiés.
+Un corps rejeté termine le chargement et attend une nouvelle tentative explicite.
 
 Les instantanés de listes et de compteurs et la réutilisation des images intégrées
 sont également liés au vault actif. L’identité des images conserve le nom exact

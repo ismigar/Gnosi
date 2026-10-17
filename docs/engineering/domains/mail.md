@@ -28,6 +28,8 @@ tests:
   - backend/tests/test_mail_detail_responsiveness.py
   - backend/tests/test_mail_read_negative_contract.py
   - frontend/src/features/mail/components/MailViewer.loading.test.tsx
+  - frontend/src/features/mail/components/MailViewer.versions.test.tsx
+  - frontend/src/features/mail/mailIdentity.test.ts
   - tests/e2e/tests/disposable/mail-archive-pagination.spec.ts
   - tests/e2e/tests/disposable/mail-reader-responsiveness.spec.ts
   - frontend/src/features/mail/page/mailAccountVisibility.test.tsx
@@ -140,6 +142,9 @@ and original Internet Message-ID match. The original content's UID and folder
 remain attached to CID images and attachments; action identity is not merged.
 Failed body and conversation reads expose explicit localized retries. Late or
 cancelled requests cannot replace a new selection.
+Responses that contradict a supplied account, mailbox, provider or UID are
+rejected, including partially identified headers. A rejected body ends loading
+and waits for an explicit retry.
 
 Mail list and count snapshots and inline-image reuse are also bound to the active
 vault. Inline-image identity preserves the exact mailbox name.
