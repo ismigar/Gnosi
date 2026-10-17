@@ -1,3 +1,4 @@
+import { GraphToggleRow } from './GraphToggleRow';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CollapsibleSection } from '../../../shared/ui/sections/CollapsibleSection';
@@ -46,35 +47,6 @@ export function VisualizationSection({
         marginLeft: '8px'
     };
 
-    const toggleContainerStyle: CSSProperties = {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '12px'
-    };
-
-    const toggleStyle: CSSProperties = {
-        width: '48px',
-        height: '24px',
-        backgroundColor: showArrows ? '#3498db' : '#ccc',
-        borderRadius: '12px',
-        position: 'relative',
-        cursor: 'pointer',
-        transition: 'background-color 0.2s'
-    };
-
-    const toggleKnobStyle: CSSProperties = {
-        width: '20px',
-        height: '20px',
-        backgroundColor: 'white',
-        borderRadius: '50%',
-        position: 'absolute',
-        top: '2px',
-        left: showArrows ? '26px' : '2px',
-        transition: 'left 0.2s',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
-    };
-
     const sliderContainerStyle: CSSProperties = {
         marginBottom: '12px'
     };
@@ -82,20 +54,9 @@ export function VisualizationSection({
     return (
         <CollapsibleSection title={t('graph.visualization.title', "Visualization")} defaultOpen={false}>
             {/* Arrows toggle */}
-            <div style={toggleContainerStyle}>
-                <span style={{ fontSize: '0.9rem' }}>{t('graph.visualization.arrows', "Arrows")}</span>
-                <button
-                    type="button"
-                    style={toggleStyle}
-                    onClick={() => {
-                        onShowArrowsChange(!showArrows);
-                    }}
-                    aria-label={t('graph.visualization.arrows', 'Arrows')}
-                    aria-pressed={showArrows}
-                >
-                    <div style={toggleKnobStyle} />
-                </button>
-            </div>
+            <GraphToggleRow active={showArrows} label={t('graph.visualization.arrows', 'Arrows')} onChange={() => { onShowArrowsChange(!showArrows); }}>
+                {t('graph.visualization.arrows', 'Arrows')}
+            </GraphToggleRow>
 
             {/* Label threshold slider */}
             <div style={sliderContainerStyle}>
