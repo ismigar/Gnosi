@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import json
 import logging
 import time
 from collections.abc import AsyncIterator
+from collections.abc import Callable
 from typing import Any, Optional, cast
 
 import yaml
@@ -18,6 +20,7 @@ from backend.domains.mail.cache import (
     _MAIL_CACHE,
     _CountsReadGeneration,
     _invalidate_mail_cache,
+    _mail_cache_scope,
 )
 from backend.domains.mail.repositories.vault import (
     _find_message_files,
@@ -43,6 +46,20 @@ _COUNTS_INFLIGHT: dict[
     tuple[asyncio.AbstractEventLoop, str, _CountsReadGeneration], asyncio.Task[Any]
 ] = {}
 _COUNTS_READ_TIMEOUT_S = 30
+_MESSAGE_READ_TIMEOUT_S = 25
+
+
+async def _read_message_provider(function: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(function, *args, **kwargs), timeout=_MESSAGE_READ_TIMEOUT_S,
+        )
+    except (OSError, RuntimeError) as error:
+        raise HTTPException(
+            status_code=503,
+            detail="Mail content is temporarily unavailable. Try again shortly.",
+            headers={"Retry-After": "3"},
+        ) from error
 
 
 async def _load_mail_counts(email: str) -> Any:
@@ -63,9 +80,11 @@ async def _load_mail_counts(email: str) -> Any:
     return counts
 
 
-async def _load_current_mail_counts(email: str, generation: _CountsReadGeneration) -> Any:
+async def _load_current_mail_counts(
+    email: str, cache_key: str, generation: _CountsReadGeneration,
+) -> Any:
     counts = await _load_mail_counts(email)
-    if not _COUNTS_CACHE.set_if_current(email, generation, counts):
+    if not _COUNTS_CACHE.set_if_current(cache_key, generation, counts):
         raise RuntimeError("Mail counts changed while this read was in progress")
     return counts
 
@@ -82,17 +101,18 @@ async def get_mail_counts(email: str = Query(...)) -> Any:
     includes Google with refresh_token). Microsoft 365 still uses the Graph API.
 
     """
-    cached = _COUNTS_CACHE.get(email)
+    cache_key = _mail_cache_scope(email)
+    cached = _COUNTS_CACHE.get(cache_key)
     if cached is not None:
         return cached
 
     # Deduplicate work only while it is in progress, preserving the existing
     # cache lifetime. Cancellation of one tab must not cancel another reader.
-    generation = _COUNTS_CACHE.read_generation(email)
-    key = (asyncio.get_running_loop(), email, generation)
+    generation = _COUNTS_CACHE.read_generation(cache_key)
+    key = (asyncio.get_running_loop(), cache_key, generation)
     task = _COUNTS_INFLIGHT.get(key)
     if task is None or task.done():
-        task = asyncio.create_task(_load_current_mail_counts(email, generation))
+        task = asyncio.create_task(_load_current_mail_counts(email, cache_key, generation))
         _COUNTS_INFLIGHT[key] = task
 
         def completed(finished: asyncio.Task[Any]) -> None:
@@ -131,7 +151,9 @@ async def get_messages(
     """Hybrid: query IMAP (Google and manual accounts) or Microsoft Graph directly."""
     from backend.services.integration_manager import integration_manager
 
-    cache_key = f"{email}|{folder}|{category}|{page_token}|{offset}|{search}"
+    cache_key = _mail_cache_scope(json.dumps(
+        [email, folder, category, page_token, offset, search, limit], ensure_ascii=False,
+    ))
     if not force:
         cached = _MAIL_CACHE.get(cache_key)
         if cached is not None:
@@ -226,47 +248,62 @@ async def get_message(
     """Hybrid: gets the detail of a message via IMAP or Microsoft Graph.
 
     All messages carry the `imap_` prefix except Microsoft ones. For
-    backward compatibility, if an id arrives without a prefix but the account is
-    IMAP, it's interpreted as a bare UID.
+    backward compatibility, bare decimal IDs for IMAP accounts are also UIDs.
+    Saved RFC message identifiers use local storage without remote UID commands.
 
     """
     from backend.services.integration_manager import integration_manager
 
     if email:
-        acc = await asyncio.to_thread(integration_manager.get_mail_account, email)
+        acc = await asyncio.to_thread(integration_manager.get_mail_account, email, resolve_secrets=False)
         if acc and integration_manager.is_microsoft_account(acc):
             from backend.services.microsoft_mail_service import microsoft_get_message
 
-            result = await asyncio.to_thread(microsoft_get_message, email, message_id)
+            result = await _read_message_provider(microsoft_get_message, email, message_id)
         elif acc and integration_manager.is_imap_account(acc):
-            provider = await asyncio.to_thread(
-                importlib.import_module, "backend.services.hybrid_mail_service"
-            )
             uid = message_id[5:] if message_id.startswith("imap_") else message_id
-            result = await asyncio.to_thread(
-                provider.imap_get_message, email, uid, folder or "INBOX"
-            )
+            if not uid.isascii() or not uid.isdigit():
+                result = None  # Saved RFC identifiers are local IDs, never remote UIDs.
+            else:
+                provider = await asyncio.to_thread(
+                    importlib.import_module, "backend.services.hybrid_mail_service"
+                )
+                result = await _read_message_provider(
+                    provider.imap_get_message, email, uid, folder or "INBOX"
+                )
         else:
             result = None
 
         if result:
             return result
 
+    return await asyncio.to_thread(_get_saved_message, message_id, email)
+
+
+def _get_saved_message(message_id: str, account_email: str | None = None) -> Any:
     # Fallback: search the vault (manually saved messages)
     mail_path = get_mail_vault_path()
     files = _find_message_files(mail_path, message_id)
     if not files:
         raise HTTPException(status_code=404, detail="Message not found")
 
-    file_path = files[0]
-    content = file_path.read_text(encoding="utf-8")
-    metadata, body = parse_frontmatter(content, file_path)
+    for file_path in files:
+        content = file_path.read_text(encoding="utf-8")
+        metadata, body = parse_frontmatter(content, file_path)
+        if account_email and str(metadata.get("account", "")).casefold() != account_email.casefold():
+            continue
+        if metadata.get("id") and metadata["id"] != message_id:
+            continue
+        break
+    else:
+        raise HTTPException(status_code=404, detail="Message not found")
     html_path = file_path.with_suffix(".html")
     body_html = html_path.read_text(encoding="utf-8") if html_path.exists() else None
     date_val = metadata.get("date")
     return {
         "id": metadata.get("id") or message_id,
         "thread_id": metadata.get("thread_id") or message_id,
+        "internet_message_id": metadata.get("internet_message_id") or None,
         "subject": metadata.get("title") or "Untitled",
         "sender": metadata.get("sender") or "Unknown",
         "recipient": metadata.get("recipients") or "",
@@ -304,7 +341,7 @@ async def get_thread(thread_id: str, email: str = Query(...)) -> Any:
     """
     from backend.services.integration_manager import integration_manager
 
-    acc = await asyncio.to_thread(integration_manager.get_mail_account, email)
+    acc = await asyncio.to_thread(integration_manager.get_mail_account, email, resolve_secrets=False)
     if not acc:
         return {"messages": []}
 
@@ -321,14 +358,14 @@ async def get_thread(thread_id: str, email: str = Query(...)) -> Any:
             provider = await asyncio.to_thread(
                 importlib.import_module, "backend.services.hybrid_mail_service"
             )
-            mail = await asyncio.to_thread(provider.imap_get_message, email, uid_only, "INBOX")
+            mail = await _read_message_provider(provider.imap_get_message, email, uid_only, "INBOX")
             if mail and mail.get("gm_thrid"):
                 gm_thrid = mail["gm_thrid"]
             else:
                 # Can't resolve the thread; return only the current message.
                 return {"messages": [mail] if mail else []}
 
-        messages = await asyncio.to_thread(
+        messages = await _read_message_provider(
             imap_sync_service.fetch_thread_by_gm_thrid, email, gm_thrid
         )
         return {"messages": messages}
@@ -339,7 +376,7 @@ async def get_thread(thread_id: str, email: str = Query(...)) -> Any:
             importlib.import_module, "backend.services.hybrid_mail_service"
         )
 
-        thread = await asyncio.to_thread(get_thread_details, email, thread_id)
+        thread = await _read_message_provider(get_thread_details, email, thread_id)
         if not thread:
             return {"messages": []}
         messages = []

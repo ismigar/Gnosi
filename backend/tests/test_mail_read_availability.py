@@ -1,6 +1,7 @@
 """Remote read failures remain distinguishable from empty mailboxes."""
 
 import asyncio
+import json
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -41,7 +42,7 @@ def test_failed_imap_reads_have_an_error(monkeypatch, failure):
 @pytest.mark.parametrize("failure", ["provider", "exception", "timeout"])
 def test_revalidation_failure_preserves_valid_message_cache_and_expiry(monkeypatch, failure):
     email = "fixture@example.test"
-    cache_key = f"{email}|None|None|None|0|None"
+    cache_key = json.dumps([email, None, None, None, 0, None, 50], ensure_ascii=False)
     cached = {"messages": [{"id": "previous"}], "next_page_token": None, "total": 1}
     messages._MAIL_CACHE.clear()
     messages._MAIL_CACHE.set(cache_key, cached)

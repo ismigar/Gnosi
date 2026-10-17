@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-15
+last_verified: 2026-10-17
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -18,6 +18,18 @@ source_paths:
   - frontend/src/shared/api/mail.ts
   - frontend/src/shared/api/mail-specialized.ts
 tests:
+  - backend/tests/test_mail_move_identity.py
+  - backend/tests/test_mail_cache_scope.py
+  - backend/tests/test_mail_archive_listing.py
+  - backend/tests/test_mail_archive_identity.py
+  - backend/tests/test_mail_connection_lifecycle.py
+  - backend/tests/test_mail_conversation_truthfulness.py
+  - backend/tests/test_mail_ordered_header_listing.py
+  - backend/tests/test_mail_detail_responsiveness.py
+  - backend/tests/test_mail_read_negative_contract.py
+  - frontend/src/features/mail/components/MailViewer.loading.test.tsx
+  - tests/e2e/tests/disposable/mail-archive-pagination.spec.ts
+  - tests/e2e/tests/disposable/mail-reader-responsiveness.spec.ts
   - frontend/src/features/mail/page/mailAccountVisibility.test.tsx
   - backend/tests/test_mail_thread_completeness.py
   - frontend/src/features/mail/components/MailViewer.resilience.test.tsx
@@ -104,6 +116,115 @@ y compris l'identité du fil, les dates et les libellés d'envoi. Les lectures
 conservent le compte et le dossier car les UID IMAP sont propres à une boîte.
 Le lecteur résout le fil depuis le message chargé, puis développe et charge
 son élément le plus récent, y compris les réponses envoyées.
+
+Les lectures des membres d'une conversation utilisent la même validation
+complète et bornée des en-têtes que les boîtes agrégées. Les échecs de connexion
+ou de commande, ou les membres manquants lors de la récupération, produisent
+une erreur permettant une nouvelle tentative, plutôt qu'un fil vide ou partiel
+présenté comme réussi.
+
+Les lectures du corps des messages disposent d'une connexion IMAP réutilisable
+séparée des listes de boîtes et des téléchargements de pièces jointes. La
+réutilisation est liée au vault et à la configuration du compte ; l'invalidation
+des identifiants ferme les deux voies et rejette une connexion obsolète qui
+termine son authentification après l'invalidation. Une erreur de transport
+invalide uniquement sa propre voie. Les lectures du fournisseur se terminent
+par une réponse HTTP 503 permettant une nouvelle tentative après 25 secondes,
+et les mutations de l'état de lecture s'exécutent dans des threads de travail.
+Une mise à jour bloquée de la marque de lecture ne doit pas bloquer la boucle
+d'événements du serveur ni le message sélectionné suivant.
+Les requêtes du lecteur dépendent de l'identité du message dans son périmètre,
+plutôt que du remplacement d'objets ou de callbacks. Le lecteur conserve au
+maximum seize corps et une taille estimée de 4 MiB pendant cinq minutes après
+leur récupération ; changer le contexte de la requête vide ce cache mémoire.
+L’identifiant de message Internet disponible distingue les versions de sélection
+et de cache ; lorsqu’il change, le contenu est rechargé même si l’UID reste identique.
+Il s'agit d'un cache de session, pas d'une boîte hors ligne durable.
+Les identifiants RFC enregistrés des messages vont directement au stockage
+local du compte ; seuls les UID IMAP décimaux empruntent la voie distante du
+corps.
+
+Un corps déjà chargé peut servir sa copie IMAP dans un autre dossier lorsque le
+compte et l'Internet Message-ID d'origine correspondent. L'UID et le dossier du
+contenu d'origine restent associés aux images CID et aux pièces jointes ;
+l'identité des actions n'est pas fusionnée. Les lectures de corps et de
+conversations en échec proposent des reprises explicites traduites. Les
+requêtes tardives ou annulées ne peuvent pas remplacer une nouvelle sélection.
+
+Les instantanés de listes et de compteurs et la réutilisation des images intégrées
+sont également liés au vault actif. L’identité des images conserve le nom exact
+de la boîte.
+
+## Archive, listes complètes et recherche
+
+Archive dispose de sa propre entrée de navigation. Tous les messages résout la
+boîte `\All` traduite du serveur au lieu d'INBOX. Les serveurs sans boîte native
+regroupant tous les messages fusionnent des instantanés d'en-têtes de chaque
+boîte sélectionnable hors corbeille et courrier indésirable. Archive inclut
+toutes les boîtes d'archive découvertes et leurs sous-dossiers. Les listes
+natives et agrégées de Tous les messages/Archive trient tous les en-têtes
+correspondants par date avant la pagination, y compris les messages importés
+dont l'ordre des UID diffère de la date.
+Les transferts d'en-têtes utilisent des lots d'au plus 200 UID ; les lots
+sérialisés en cache sont limités à 256 KiB (au plus 32 MiB de données d'en-têtes
+dans le cache partagé de 128 entrées).
+La réutilisation exige une correspondance de l'appartenance à la boîte, du
+périmètre et d'UIDVALIDITY. L'absence d'UIDVALIDITY désactive le cache facultatif,
+conformément au modèle d'identité des boîtes du
+[RFC 9051](https://www.rfc-editor.org/rfc/rfc9051.html#section-2.3.1.1).
+Les lectures agrégées à froid peuvent nécessiter de nombreux allers-retours
+d'en-têtes ; la voie du corps reste indépendante. Les noms de dossier et les UID
+restent présents sur chaque ligne, y compris les UID réutilisés dans des
+dossiers différents. Une lecture de boîte en échec ne peut pas publier un
+résultat complet ou vide trompeur.
+
+La découverte conserve les boîtes personnalisées et les multiples dossiers
+d'archive, tout en ignorant les conteneurs non sélectionnables. Synchroniser
+une archive conserve le type de message reçu et enregistre `archived: true` ;
+cela ne classe pas le message comme supprimé. L'archivage Gmail retire le
+libellé Boîte de réception et conserve les autres libellés. Les échecs
+d'archivage distant restent des échecs, sans annoncer une opération réussie.
+
+Les déplacements d’un seul message IMAP utilisent `MOVE` natif ou, après une
+copie et une mise à jour des indicateurs confirmées, le nettoyage par
+`UID EXPUNGE` (`UIDPLUS` ou `IMAP4rev2`). Les commandes en échec restent des
+échecs. Les serveurs sans aucune de ces opérations sûres sont refusés avant
+la copie ; déplacer un message ne supprime jamais les autres messages marqués
+pour suppression. Voir [RFC 9051](https://www.rfc-editor.org/rfc/rfc9051.html#section-6.4.9)
+pour la sémantique du nettoyage limité aux UID.
+
+Les sous-dossiers d’archive utilisent le séparateur hiérarchique déclaré par
+`LIST`, y compris ceux des conteneurs d’archive non sélectionnables. Les espaces
+de noms `NIL` restent plats, comme le définit
+[RFC 9051](https://www.rfc-editor.org/rfc/rfc9051.html#section-7.3.1).
+Les sous-dossiers ordinaires héritent du contexte d’archive même lorsqu’ils se
+nomment `Sent`, `Drafts` ou `All Mail`. Les attributs d’usage spécial déclarés par
+le serveur restent prioritaires ; seul `\All` désigne une boîte native Tous les messages.
+
+Les actions d’archivage et de mise à la corbeille, individuelles ou sur une
+sélection, transmettent la boîte physique de chaque ligne. Un déplacement refusé
+vers la corbeille renvoie une erreur permettant de réessayer ; les métadonnées
+enregistrées ne changent qu’après réussite et conservent l’UID de destination.
+Une action individuelle en échec conserve sa ligne et n’entre pas dans
+l’historique d’annulation.
+
+La sentinelle de pagination appartient à la liste qui défile réellement et
+est de nouveau observée après la fin d'une page. Un fournisseur dont le curseur
+ne progresse pas exige une nouvelle tentative explicite. Les comptes
+indisponibles sont exclus de la pagination automatique ; les comptes sains
+peuvent continuer leur chargement. Les nouvelles tentatives explicites ciblent
+les comptes en échec à leurs curseurs d'échec et conservent les pages déjà
+chargées des autres comptes.
+La recherche est envoyée au fournisseur après un délai de 250 ms regroupant
+les changements ; elle peut ainsi renvoyer des correspondances hors des pages
+chargées et dans les corps. Le texte recherché fait partie du périmètre du
+cache des listes, et les requêtes obsolètes sont annulées. Les critères des vues
+enregistrées continuent de filtrer les lignes chargées ; ce ne sont ni des
+règles de courrier entrant ni un moteur complet de requêtes côté serveur.
+
+La [référence Apple Mail](../mail-apple-reference.md) consigne l'inventaire de
+l'interface distribuée, la couverture actuelle de Gnosi et le travail restant
+pour atteindre la parité.
 
 Les envois réussis invalident les listes et les compteurs en cache ; la page
 actualise les deux après la fermeture du compositeur. L'aperçu différé au

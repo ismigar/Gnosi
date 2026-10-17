@@ -14,6 +14,96 @@ import {
 const harness = setupMailListTestHarness();
 
 describe('MailList data loading', () => {
+  it('observes the actual scroll root after the first response and continues through every page', async () => {
+    let resolveFirst: ((value: MailMessages) => void) | undefined;
+    mocks.fetchMessages.mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve; }));
+    mocks.fetchMessages.mockImplementation(query => Promise.resolve({
+      messages: [message(query.offset === 1 ? 'second' : 'last')],
+      next_page_token: null,
+      total: 3,
+    }));
+    await harness.render();
+    expect(mocks.fetchMessages).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      resolveFirst?.({ messages: [message('first')], next_page_token: null, total: 3 });
+      await Promise.resolve();
+    });
+    const scrollRoot = harness.container.querySelector('[data-role="mail-list-scroll"]');
+    expect(scrollRoot?.contains(harness.container.querySelector('[data-role="mail-list-sentinel"]'))).toBe(true);
+    expect(harness.intersectionRoot()).toBe(scrollRoot);
+    await act(async () => { harness.intersect(); await Promise.resolve(); });
+    expect(harness.container.textContent).toContain('Subject second');
+    await act(async () => { harness.intersect(); await Promise.resolve(); });
+    expect(harness.container.textContent).toContain('Subject last');
+    expect(mocks.fetchMessages.mock.calls.map(([query]) => query.offset ?? 0)).toEqual([0, 1, 2]);
+    if (!(scrollRoot instanceof HTMLElement)) throw new Error('Missing mail scroll root');
+    scrollRoot.scrollTop = 300;
+    await harness.rerender({ folder: 'ARCHIVE' });
+    expect(scrollRoot.scrollTop).toBe(0);
+    expect(mocks.fetchMessages).toHaveBeenLastCalledWith({
+      email: account.email, folder: 'ARCHIVE', limit: 50,
+    }, expect.any(AbortSignal));
+  });
+
+  it('stops automatic pagination on a page that makes no progress and retains its retry cursor', async () => {
+    mocks.fetchMessages
+      .mockResolvedValueOnce({ messages: [message('first')], next_page_token: 'next', total: 2 })
+      .mockResolvedValueOnce({ messages: [], next_page_token: 'next', total: 2 })
+      .mockResolvedValueOnce({ messages: [message('last')], next_page_token: null, total: 2 });
+    await harness.render();
+    await act(async () => { harness.intersect(); await Promise.resolve(); });
+    expect(mocks.fetchMessages).toHaveBeenCalledTimes(2);
+    const retry = harness.container.querySelector('[data-mail-partial-status] button');
+    if (!(retry instanceof HTMLButtonElement)) throw new Error('Missing stalled-page retry');
+    expect(harness.container.textContent).toContain('Subject first');
+    await harness.click(retry);
+    expect(mocks.fetchMessages).toHaveBeenLastCalledWith({
+      email: account.email, folder: 'SENT', limit: 50, offset: 1, pageToken: 'next',
+    }, expect.any(AbortSignal));
+    expect(harness.container.textContent).toContain('Subject last');
+  });
+
+  it('debounces provider search, cancels stale queries and keeps body-only matches', async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveOld: ((value: MailMessages) => void) | undefined;
+      let staleSignal: AbortSignal | undefined;
+      mocks.fetchMessages.mockImplementation((query, signal) => {
+        if (query.search === 'older evidence') {
+          staleSignal = signal;
+          return new Promise(resolve => { resolveOld = resolve; });
+        }
+        return Promise.resolve({
+          messages: [message(query.search ? 'body-only-hit' : 'initial')],
+          next_page_token: null, total: 1,
+        });
+      });
+      await harness.render();
+      await harness.rerender({ searchQuery: 'old' });
+      await harness.rerender({ searchQuery: 'older evidence' });
+      await act(async () => { await vi.advanceTimersByTimeAsync(249); });
+      expect(mocks.fetchMessages).toHaveBeenCalledTimes(1);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+      expect(mocks.fetchMessages).toHaveBeenLastCalledWith({
+        email: account.email, folder: 'SENT', limit: 50, search: 'older evidence',
+      }, expect.any(AbortSignal));
+      await harness.rerender({ searchQuery: 'newer evidence' });
+      await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+      expect(staleSignal?.aborted).toBe(true);
+      expect(harness.container.textContent).toContain('Subject body-only-hit');
+      await act(async () => {
+        resolveOld?.({ messages: [message('stale')], next_page_token: null, total: 1 });
+        await Promise.resolve();
+      });
+      expect(harness.container.textContent).not.toContain('Subject stale');
+      expect(mocks.writeCache).toHaveBeenLastCalledWith(
+        'one@example.com|SENT||search="newer evidence"', [message('body-only-hit')],
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('does not prefetch remote folders while opening the inbox', async () => {
     await harness.render({ folder: 'INBOX' });
     expect(mocks.fetchMessages).toHaveBeenCalledTimes(1);

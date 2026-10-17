@@ -389,7 +389,7 @@ class ImapMailSyncCore:
                 "Draft": "Draft",
                 "Spam": "Spam",
                 "Deleted": "Deleted",
-                "Archived": "Deleted",
+                "Archived": "Received",
             }
             msg_type = type_map.get(folder_type, "Received")
             category = _detect_category(msg) if msg_type == "Received" else "Main"
@@ -401,6 +401,7 @@ class ImapMailSyncCore:
             metadata = {
                 "title": subject,
                 "id": message_id,
+                "internet_message_id": str(msg.get("Message-ID", "")).strip().strip("<>"),
                 "thread_id": message_id,
                 "type": msg_type,
                 "sender": _decode_str(msg.get("From", "Unknown")),
@@ -413,7 +414,7 @@ class ImapMailSyncCore:
                 "has_attachments": False,
                 "has_html": bool(body_html),
                 "category": category,
-                "archived": folder_type in ("Deleted", "Archived"),
+                "archived": folder_type in ("Archived", "Custom"),
                 "spam": folder_type == "Spam",
                 "account": email_account,
                 "imap_uid": uid.decode() if isinstance(uid, bytes) else str(uid),
@@ -451,13 +452,24 @@ class ImapMailSyncCore:
 
         return body_text, body_html
 
-    def _find_vault_file(self: Any, message_id: str) -> Optional[Path]:
+    def _find_vault_file(
+        self: Any, message_id: str, *, email_account: str | None = None
+    ) -> Optional[Path]:
         if not self.mail_folder:
             return None
-        files = list(self.mail_folder.glob(f"{message_id}_*.md"))
+        files: list[Path] = list(self.mail_folder.glob(f"{message_id}_*.md"))
         if not files:
             files = [f for f in self.mail_folder.glob("*.md") if message_id in f.stem]
-        return files[0] if files else None
+        if email_account is None:
+            return files[0] if files else None
+        for file_path in files:
+            meta = self._parse_meta(file_path.read_text(encoding="utf-8"))
+            if str(meta.get("account", "")).casefold() != email_account.casefold():
+                continue
+            if meta.get("id") and meta["id"] != message_id:
+                continue
+            return file_path
+        return None
 
     def _parse_meta(self: Any, content: str) -> dict[str, Any]:
         import re as _re

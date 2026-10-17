@@ -3,7 +3,9 @@ Hybrid Mail Service — queries the Gmail API and IMAP directly without a vault.
 """
 
 import email as email_lib
+import hashlib
 import imaplib
+import json
 import logging
 import re
 import threading
@@ -50,6 +52,9 @@ from backend.domains.mail.providers.gmail import (
 )
 from backend.services.integration_manager import integration_manager
 from backend.utils.safe_io import sanitize_filename_component
+from backend.domains.mail.providers.imap_listing import HEADER_FIELDS, list_all_mailboxes, search_uids
+from backend.domains.mail.sync.imap_protocol import _imap_name
+from backend.services.context_vars import active_vault_path
 
 log = logging.getLogger(__name__)
 
@@ -57,7 +62,11 @@ log = logging.getLogger(__name__)
 # A persistent connection per account. Lock per account to prevent concurrent use.
 _IMAP_POOL: dict[str, imaplib.IMAP4] = {}
 _IMAP_LOCKS: dict[str, threading.Lock] = {}
+_IMAP_MESSAGE_POOL: dict[str, imaplib.IMAP4] = {}
+_IMAP_MESSAGE_LOCKS: dict[str, threading.Lock] = {}
 _IMAP_META = threading.Lock()  # Protects _IMAP_POOL and _IMAP_LOCKS.
+_IMAP_CONNECTION_KEYS: dict[tuple[str, bool], str] = {}
+_IMAP_CONNECTION_GENERATIONS: dict[tuple[str, bool], object] = {}
 
 _IMAP_TIMEOUT = 20  # seconds
 
@@ -67,42 +76,94 @@ _IMAP_TIMEOUT = 20  # seconds
 _LAST_AUTH_ERROR: dict[str, str] = {}
 
 
-def _imap_pool_acquire(acc: dict[str, Any]) -> Optional[imaplib.IMAP4]:
+def _imap_connection_key(acc: dict[str, Any]) -> str:
+    fields = (
+        "email", "type", "provider", "imap_host", "imap_port", "imap_user",
+        "imap_username", "imap_encryption", "imap_password", "refresh_token",
+    )
+    values = [str(active_vault_path.get()), *(acc.get(field) for field in fields)]
+    return hashlib.sha256(json.dumps(values, default=str).encode()).hexdigest()
+
+
+def _close_imap_connection(connection: Any) -> None:
+    try:
+        connection.logout()
+    except Exception:
+        pass
+
+
+def _usable_imap_connection(connection: Any, same_configuration: bool) -> Any:
+    if connection is None:
+        return None
+    if same_configuration:
+        try:
+            status, _ = connection.noop()
+            if status == "OK":
+                return connection
+        except Exception:
+            pass
+    _close_imap_connection(connection)
+    return None
+
+
+def _imap_pool_acquire(
+    acc: dict[str, Any], *, message: bool = False,
+) -> Optional[imaplib.IMAP4]:
     """Returns an IMAP connection from the pool, reconnecting if needed.
     The caller must release it by calling _imap_pool_release(email)."""
     email = acc.get("email") or acc.get("imap_user")
     if not email:
         return None
 
+    # A user opening a body must not wait for a mailbox search, attachment or
+    # list refresh. Keep one reusable, independently locked connection per lane.
+    pool = _IMAP_MESSAGE_POOL if message else _IMAP_POOL
+    locks = _IMAP_MESSAGE_LOCKS if message else _IMAP_LOCKS
+    lane = (email, message)
+    identity = _imap_connection_key(acc)
     with _IMAP_META:
-        if email not in _IMAP_LOCKS:
-            _IMAP_LOCKS[email] = threading.Lock()
+        lock = locks.setdefault(email, threading.Lock())
+        generation = _IMAP_CONNECTION_GENERATIONS.setdefault(lane, object())
 
-    lock = _IMAP_LOCKS[email]
-    lock.acquire()
+    if not lock.acquire(timeout=_IMAP_TIMEOUT):
+        return None
 
-    imap = _IMAP_POOL.get(email)
-    if imap:
-        try:
-            imap.noop()
-        except Exception:
-            imap = None
-            _IMAP_POOL.pop(email, None)
-
-    if not imap:
-        imap = _imap_connect_fresh(acc)
-        if imap:
-            _IMAP_POOL[email] = imap
-        else:
+    try:
+        with _IMAP_META:
+            current = _IMAP_CONNECTION_GENERATIONS.get(lane) is generation
+            connection = pool.get(email)
+            same_configuration = _IMAP_CONNECTION_KEYS.get(lane) == identity
+        if not current:
             lock.release()
             return None
+        imap = _usable_imap_connection(connection, same_configuration)
+        if imap is None:
+            with _IMAP_META:
+                pool.pop(email, None)
+                _IMAP_CONNECTION_KEYS.pop(lane, None)
+            imap = _imap_connect_fresh(acc)
+        if imap is None:
+            lock.release()
+            return None
+        with _IMAP_META:
+            current = _IMAP_CONNECTION_GENERATIONS.get(lane) is generation
+            if current:
+                pool[email] = imap
+                _IMAP_CONNECTION_KEYS[lane] = identity
+        if not current:
+            _close_imap_connection(imap)
+            lock.release()
+            return None
+        return cast(imaplib.IMAP4, imap)
+    except Exception:
+        lock.release()
+        raise
 
-    return imap
 
-
-def _imap_pool_release(email: str) -> None:
+def _imap_pool_release(email: str, *, message: bool = False) -> None:
     """Releases the account lock so other requests can use the connection."""
-    lock = _IMAP_LOCKS.get(email)
+    locks = _IMAP_MESSAGE_LOCKS if message else _IMAP_LOCKS
+    lock = locks.get(email)
     if lock and lock.locked():
         try:
             lock.release()
@@ -110,15 +171,24 @@ def _imap_pool_release(email: str) -> None:
             pass
 
 
-def _imap_pool_invalidate(email: str) -> None:
-    """Removes the connection from the pool (used when a serious error is detected)."""
+def _imap_pool_invalidate(email: str, *, message: bool | None = None) -> None:
+    """Invalidate both credential lanes, or only one failed transport lane."""
+    lanes = (False, True) if message is None else (message,)
+    connections = []
     with _IMAP_META:
-        conn = _IMAP_POOL.pop(email, None)
-    if conn:
-        try:
-            conn.logout()
-        except Exception:
-            pass
+        for lane in lanes:
+            pool = _IMAP_MESSAGE_POOL if lane else _IMAP_POOL
+            connection = pool.pop(email, None)
+            _IMAP_CONNECTION_KEYS.pop((email, lane), None)
+            _IMAP_CONNECTION_GENERATIONS.pop((email, lane), None)
+            if connection is not None:
+                connections.append(connection)
+    if message is None:
+        from backend.domains.mail.cache import _invalidate_mail_cache
+
+        _invalidate_mail_cache()
+    for connection in connections:
+        _close_imap_connection(connection)
 
 
 _IMAP_TYPE_TO_KEY = {
@@ -127,6 +197,8 @@ _IMAP_TYPE_TO_KEY = {
     "Draft": "DRAFTS",
     "Deleted": "TRASH",
     "Spam": "SPAM",
+    "Archived": "ARCHIVE",
+    "All": "all",
 }
 
 _FOLDER_TO_TYPE = {
@@ -221,20 +293,24 @@ def _imap_connect_fresh(acc: dict[str, Any]) -> Optional[imaplib.IMAP4]:
         return None
 
 
-def _imap_folder_name(imap: Any, folder_type: str) -> Optional[str]:
+def _imap_folder_name(imap: Any, folder_type: str, *, gmail: bool = False) -> Optional[str]:
     """Returns the real IMAP folder name for a logical type."""
-    if folder_type in ("INBOX", "all", "NOT_ARCHIVED", "STARRED"):
+    if folder_type in ("INBOX", "NOT_ARCHIVED", "STARRED"):
         return "INBOX"
     from backend.services.imap_mail_sync_service import _FOLDER_TYPE_MAP_REVERSE, _discover_folders
 
-    wanted_type = _FOLDER_TYPE_MAP_REVERSE.get(folder_type)
-    folders = _discover_folders(imap)
+    wanted_type = _FOLDER_TYPE_MAP_REVERSE.get(folder_type.upper())
+    folders = _discover_folders(imap, strict=True)
+    if gmail and folder_type == "ARCHIVE":
+        return next((name for name, kind in folders if kind == "All"), None)
     for name, _ftype in folders:
         if name == folder_type:
             return name
     for name, ftype in folders:
         if wanted_type and ftype == wanted_type:
             return name
+    if folder_type.upper() == "ARCHIVE":
+        return next((name for name, kind in folders if kind == "All"), None)
     return None
 
 
@@ -259,9 +335,36 @@ def _imap_folder_name(imap: Any, folder_type: str) -> Optional[str]:
 
 
 def _imap_search_criteria(folder: str, search: str | None) -> str:
-    if folder == "STARRED":
-        return "FLAGGED"
-    return f'TEXT "{search}"' if search else "ALL"
+    text = "".join(" " if ord(character) < 32 or ord(character) == 127 else character for character in (search or ""))
+    escaped = text.replace("\\", "\\\\").replace('"', '\\"')
+    terms = ["FLAGGED"] if folder == "STARRED" else []
+    if escaped:
+        terms.append(f'TEXT "{escaped}"')
+    return " ".join(terms) or "ALL"
+
+
+def _imap_is_gmail(imap: Any, acc: dict[str, Any]) -> bool:
+    capabilities = {
+        value.decode().upper() if isinstance(value, bytes) else str(value).upper()
+        for value in getattr(imap, "capabilities", ())
+    }
+    return integration_manager.is_imap_oauth_account(acc) or "X-GM-EXT-1" in capabilities
+
+
+def _imap_aggregate_folders(imap: Any, folder: str, *, gmail: bool) -> list[tuple[str, str]] | None:
+    logical = folder.upper()
+    if logical not in ("ALL", "ARCHIVE"):
+        return None
+    from backend.domains.mail.sync.imap_protocol import _discover_folder_details
+
+    details = _discover_folder_details(imap, strict=True)
+    folders = [(info.name, info.kind) for info in details if info.selectable]
+    native_all = [entry for entry in folders if entry[1] == "All"]
+    if logical == "ALL":
+        return native_all[:1] or [entry for entry in folders if entry[1] not in ("Deleted", "Spam", "All")]
+    if gmail:
+        return native_all[:1]
+    return [entry for entry in folders if entry[1] == "Archived"]
 
 
 def _imap_fetch_metadata(fetch_data: list[Any], index: int) -> str:
@@ -297,11 +400,17 @@ def _imap_list_item(
     msg = email_lib.message_from_bytes(part[1])
     date_str = msg.get("Date", "")
     message_id = sanitize_filename_component(msg.get("Message-ID", ""))
+    internet_message_id = str(msg.get("Message-ID", "")).strip().strip("<>")
+    message_type = _FOLDER_TO_TYPE.get(folder.upper(), "Received")
+    for label, kind in (("\\trash", "Deleted"), ("\\spam", "Spam"), ("\\draft", "Draft"), ("\\sent", "Sent")):
+        if label in labels:
+            message_type = kind
+            break
     return {
         "id": f"imap_{uid}",
         "imap_uid": uid,
         "thread_id": gmail_thread_id or message_id or f"imap_{uid}",
-        "internet_message_id": message_id or None,
+        "internet_message_id": internet_message_id or None,
         "gm_thrid": gmail_thread_id,
         "subject": _decode_mime(msg.get("Subject", "(sense assumpte)")),
         "sender": _decode_mime(msg.get("From", "")),
@@ -312,9 +421,13 @@ def _imap_list_item(
         "snippet": "",
         "is_read": "\\seen" in flags,
         "is_starred": "\\flagged" in flags,
+        "archived": folder.upper() == "ARCHIVE" or (
+            labels_match is not None
+            and not any(label in labels for label in ("\\inbox", "\\draft", "\\trash", "\\spam"))
+        ),
         "has_attachments": False,
         "category": "Main",
-        "type": "Sent" if "\\sent" in labels else _FOLDER_TO_TYPE.get(folder.upper(), "Received"),
+        "type": message_type,
         "account": account_email,
         "source": "imap",
         "imap_folder": folder_name,
@@ -342,16 +455,27 @@ def imap_list_messages(
         return {"messages": [], "total": 0, "error": "Mail server temporarily unavailable. Try again shortly."}
 
     try:
-        folder_name = _imap_folder_name(imap, folder)
+        is_gmail = _imap_is_gmail(imap, acc)
+        criteria = _imap_search_criteria(folder, search)
+        aggregate = _imap_aggregate_folders(imap, folder, gmail=is_gmail)
+        if aggregate is not None:
+            if not aggregate:
+                return {"messages": [], "total": 0, "error": "The requested mail folder is unavailable."}
+            if folder.upper() == "ARCHIVE" and is_gmail:
+                criteria = 'X-GM-RAW "-in:inbox -in:drafts -in:trash -in:spam"' + (f" {criteria}" if criteria != "ALL" else "")
+            return list_all_mailboxes(
+                imap, email, aggregate, criteria, limit, offset, _imap_list_item,
+                gmail=is_gmail, logical_folder=folder,
+            )
+        folder_name = _imap_folder_name(imap, folder, gmail=is_gmail)
         if not folder_name:
             return {"messages": [], "total": 0, "error": "The requested mail folder is unavailable."}
 
-        status, _ = imap.select(f'"{folder_name}"', readonly=True)
+        status, _ = imap.select(_imap_name(folder_name, always_quote=True), readonly=True)
         if status != "OK":
             return {"messages": [], "total": 0, "error": "Unable to open the requested mail folder."}
 
-        no_charset: Any = None
-        status, data = imap.uid("search", no_charset, _imap_search_criteria(folder, search))
+        status, data = search_uids(imap, criteria)
         if status != "OK" or not data or data[0] is None:
             return {"messages": [], "total": 0, "error": "Unable to read the mail message list."}
         if not data[0]:
@@ -371,12 +495,10 @@ def imap_list_messages(
         uid_str = b",".join(selected).decode()
         # If the server is Gmail (X-GM-EXT-1), we request X-GM-THRID for the
         # transparent threading. Other IMAPs would ignore the argument.
-        is_gmail = integration_manager.is_imap_oauth_account(acc)
         # Lists use these six headers only. Trace/security headers can dominate
         # large newsletter headers; body and attachment data stay in the detail
         # request. PEEK explicitly preserves unread flags.
-        headers = "BODY.PEEK[HEADER.FIELDS (DATE SUBJECT FROM TO CC MESSAGE-ID)]"
-        fetch_args = f"(FLAGS X-GM-THRID {headers})" if is_gmail else f"(FLAGS {headers})"
+        fetch_args = f"(UID FLAGS X-GM-THRID X-GM-LABELS {HEADER_FIELDS})" if is_gmail else f"(UID FLAGS {HEADER_FIELDS})"
         status, fetch_data = imap.uid("fetch", uid_str, fetch_args)
         if status != "OK":
             return {"messages": [], "total": total, "error": "Unable to read mail message headers."}
@@ -386,12 +508,13 @@ def imap_list_messages(
             for index in range(len(fetch_data))
             if (item := _imap_list_item(fetch_data, index, folder, email, folder_name)) is not None
         ]
-        if not messages:
-            return {"messages": [], "total": total, "error": "Mail message headers are temporarily unavailable."}
+        if len(messages) != len(selected) or {str(row["imap_uid"]).encode() for row in messages} != set(selected):
+            return {"messages": [], "total": total, "error": "Mail message headers are incomplete. Try again shortly."}
         return {"messages": messages, "total": total}
-    except Exception:
-        _imap_pool_invalidate(email)
-        raise
+    except Exception as error:
+        _imap_pool_invalidate(email, message=False)
+        log.warning("Mail message list unavailable (%s)", type(error).__name__)
+        return {"messages": [], "total": 0, "error": "Mail message list is temporarily unavailable. Try again shortly."}
     finally:
         _imap_pool_release(email)
 
@@ -482,27 +605,31 @@ def _message_content(
 
 
 def imap_get_message(email: str, uid: str, folder: str = "INBOX") -> dict[str, Any] | None:
+    if not uid.isascii() or not uid.isdigit() or len(uid) > 10 or not 0 < int(uid) <= 0xFFFFFFFF:
+        return None
     acc = _get_imap_account(email)
     if not acc:
         return None
 
-    imap = _imap_pool_acquire(acc)
+    imap = _imap_pool_acquire(acc, message=True)
     if not imap:
-        return None
+        raise RuntimeError("Mail content connection is temporarily unavailable")
 
     try:
         folder_name = _imap_folder_name(imap, folder)
         if not folder_name:
             return None
 
-        status, _ = imap.select(f'"{folder_name}"', readonly=True)
+        status, _ = imap.select(_imap_name(folder_name, always_quote=True), readonly=True)
         if status != "OK":
-            return None
+            raise RuntimeError("Unable to open the message mailbox")
 
-        is_gmail = integration_manager.is_imap_oauth_account(acc)
-        fetch_args = "(FLAGS X-GM-THRID BODY[])" if is_gmail else "(FLAGS BODY[])"
+        is_gmail = _imap_is_gmail(imap, acc)
+        fetch_args = "(FLAGS X-GM-THRID BODY.PEEK[])" if is_gmail else "(FLAGS BODY.PEEK[])"
         status, data = imap.uid("fetch", uid, fetch_args)
-        if status != "OK" or not data:
+        if status != "OK":
+            raise RuntimeError("Unable to read message content")
+        if not data:
             return None
 
         raw_bytes, flags, gm_thrid = _imap_fetch_payload(data)
@@ -535,11 +662,12 @@ def imap_get_message(email: str, uid: str, folder: str = "INBOX") -> dict[str, A
         )
 
         message_id_hdr = sanitize_filename_component(msg.get("Message-ID", ""))
+        internet_message_id = str(msg.get("Message-ID", "")).strip().strip("<>")
         return {
             "id": f"imap_{uid}",
             "imap_uid": uid,
             "thread_id": gm_thrid or message_id_hdr or f"imap_{uid}",
-            "internet_message_id": message_id_hdr or None,
+            "internet_message_id": internet_message_id or None,
             "gm_thrid": gm_thrid,
             "subject": subject,
             "sender": sender,
@@ -561,11 +689,11 @@ def imap_get_message(email: str, uid: str, folder: str = "INBOX") -> dict[str, A
             "source": "imap",
             "imap_folder": folder_name,
         }
-    except Exception:
-        _imap_pool_invalidate(email)
-        return None
+    except Exception as error:
+        _imap_pool_invalidate(email, message=True)
+        raise RuntimeError("Mail content is temporarily unavailable") from error
     finally:
-        _imap_pool_release(email)
+        _imap_pool_release(email, message=True)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -590,11 +718,11 @@ def imap_get_counts(email: str) -> dict[str, Any]:
     try:
         from backend.services.imap_mail_sync_service import _discover_folders
 
-        for folder_name, folder_type in _discover_folders(imap):
-            key = _IMAP_TYPE_TO_KEY.get(folder_type)
+        for folder_name, folder_type in _discover_folders(imap, strict=True):
+            key = _IMAP_TYPE_TO_KEY.get(folder_type) or (folder_name if folder_type == "Custom" else None)
             if not key:
                 continue
-            status, data = imap.status(f'"{folder_name}"', "(MESSAGES UNSEEN)")
+            status, data = imap.status(_imap_name(folder_name, always_quote=True), "(MESSAGES UNSEEN)")
             if status != "OK" or not data or not data[0]:
                 raise RuntimeError("Unable to read mail folder counts")
             response = data[0].decode("utf-8", errors="replace")
@@ -602,9 +730,17 @@ def imap_get_counts(email: str) -> dict[str, Any]:
             unread = re.search(r"\bUNSEEN (\d+)", response, re.IGNORECASE)
             if total is None or unread is None:
                 raise RuntimeError("Invalid mail folder count response")
-            counts[key] = {"total": int(total.group(1)), "unread": int(unread.group(1))}
+            previous = counts.get(key, {"total": 0, "unread": 0})
+            counts[key] = {
+                "total": previous["total"] + int(total.group(1)),
+                "unread": previous["unread"] + int(unread.group(1)),
+            }
 
-        counts["all"] = counts.get("INBOX", {"total": 0, "unread": 0})
+        if "all" not in counts:
+            counts["all"] = {
+                field: sum(value[field] for key, value in counts.items() if key not in ("TRASH", "SPAM"))
+                for field in ("total", "unread")
+            }
         counts["NOT_ARCHIVED"] = counts.get("INBOX", {"total": 0, "unread": 0})
         counts["STARRED"] = {"total": 0, "unread": 0}
     finally:

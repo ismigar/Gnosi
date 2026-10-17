@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from threading import Event
 from types import SimpleNamespace
 
@@ -80,7 +81,7 @@ def test_cold_provider_loading_leaves_loop_available(monkeypatch, tmp_path, endp
         provider = SimpleNamespace(
             imap_get_counts=lambda email: {},
             imap_list_messages=lambda *a, **k: {"messages": []},
-            imap_get_message=lambda *a: {"id": "synthetic"},
+            imap_get_message=lambda *a: {"id": "imap_42"},
         )
 
         def slow_import(name, *args, **kwargs):
@@ -104,12 +105,18 @@ def test_cold_provider_loading_leaves_loop_available(monkeypatch, tmp_path, endp
             if endpoint == "counts":
                 assert await messages.get_mail_counts("a@example.test") == {}
             elif endpoint == "detail":
-                assert await messages.get_message("synthetic", "a@example.test", "INBOX") == {
-                    "id": "synthetic"
+                assert await messages.get_message("imap_42", "a@example.test", "INBOX") == {
+                    "id": "imap_42"
                 }
             else:
                 if endpoint == "cached-list":
-                    messages._MAIL_CACHE.set("a@example.test|None|None|None|0|None", {"messages": []})
+                    messages._MAIL_CACHE.set(
+                        messages._mail_cache_scope(json.dumps(
+                            ["a@example.test", None, None, None, 0, None, 20],
+                            ensure_ascii=False,
+                        )),
+                        {"messages": []},
+                    )
                 result = await messages.get_messages(
                     "a@example.test", None, None, 20, 0, None, None, False
                 )

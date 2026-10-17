@@ -76,7 +76,7 @@ async def _imap_fetch_raw(email: str, message_id: str, folder: str) -> Any:
         # the account's IMAP operations (attachments, CID images, reply with quoted images).
         # We invalidate the broken connection and release the lock (release is idempotent);
         # we return (None, None) so callers treat it as "not found".
-        _imap_pool_invalidate(email)
+        _imap_pool_invalidate(email, message=False)
         _imap_pool_release(email)
         return None, None
 
@@ -149,7 +149,7 @@ async def _collect_original_inline_parts(
     try:
         return extract_inline_parts_from_mime(raw_bytes, wanted)
     except Exception:
-        _imap_pool_invalidate(email)
+        _imap_pool_invalidate(email, message=False)
         raise
     finally:
         _imap_pool_release(email)

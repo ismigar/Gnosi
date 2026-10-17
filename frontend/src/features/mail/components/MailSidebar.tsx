@@ -93,6 +93,7 @@ export default function MailSidebar({
     { icon: <Inbox size={16} />, id: 'INBOX', label: t('mail.inbox'), type: 'folder' },
     { icon: <Star size={16} />, id: 'STARRED', label: t('mail.starred'), type: 'folder' },
     { icon: <Archive size={16} />, id: 'all', label: t('mail.all_mail'), type: 'folder' },
+    { icon: <Archive size={16} />, id: 'ARCHIVE', label: t('mail.archive_title', 'Archive'), type: 'folder' },
     { icon: <Send size={16} />, id: 'SENT', label: t('mail.sent'), type: 'folder' },
     { icon: <FileText size={16} />, id: 'DRAFTS', label: t('mail.drafts'), type: 'folder' },
     { icon: <Trash2 size={16} />, id: 'TRASH', label: t('mail.trash'), type: 'folder' },

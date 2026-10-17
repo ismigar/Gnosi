@@ -52,6 +52,7 @@ export function MailListBody({
       )}
       <div
         ref={listElementRef}
+        data-role="mail-list-scroll"
         onScroll={messagePreview.close}
         className="flex-1 overflow-y-auto"
         tabIndex={0}
@@ -99,11 +100,11 @@ export function MailListBody({
             </div>
           </div>
         ))}
-      </div>
-      <div ref={sentinelElementRef} className="py-3 flex justify-center">
-        {controller.loadingMore && (
-          <div className="w-4 h-4 border-2 border-[var(--gnosi-blue)] border-t-transparent rounded-full animate-spin" />
-        )}
+        <div ref={sentinelElementRef} className="py-3 flex justify-center" data-role="mail-list-sentinel">
+          {controller.loadingMore && (
+            <div className="w-4 h-4 border-2 border-[var(--gnosi-blue)] border-t-transparent rounded-full animate-spin" />
+          )}
+        </div>
       </div>
     </>
   );

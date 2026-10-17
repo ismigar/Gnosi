@@ -3396,8 +3396,8 @@ export interface paths {
          * @description Hybrid: gets the detail of a message via IMAP or Microsoft Graph.
          *
          *     All messages carry the `imap_` prefix except Microsoft ones. For
-         *     backward compatibility, if an id arrives without a prefix but the account is
-         *     IMAP, it's interpreted as a bare UID.
+         *     backward compatibility, bare decimal IDs for IMAP accounts are also UIDs.
+         *     Saved RFC message identifiers use local storage without remote UID commands.
          */
         get: operations["get_message_api_mail_messages__message_id__get"];
         put?: never;

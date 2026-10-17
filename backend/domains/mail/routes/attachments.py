@@ -91,7 +91,7 @@ async def get_attachment(
     except HTTPException:
         raise
     except Exception as e:
-        _imap_pool_invalidate(email)
+        _imap_pool_invalidate(email, message=False)
         raise HTTPException(
             status_code=500,
             detail=safe_error_detail(e, "GET /messages attachment"),

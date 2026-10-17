@@ -131,7 +131,7 @@ def test_imap_raw_names_and_aliases_resolve_without_default_fallback(monkeypatch
     monkeypatch.setattr(
         imap_mail_sync_service,
         "_discover_folders",
-        lambda _: [("Enviats", "Sent"), ("Projectes", "Received")],
+        lambda _, **_kwargs: [("Enviats", "Sent"), ("Projectes", "Received")],
     )
     assert _imap_folder_name(None, "Enviats") == "Enviats"
     assert _imap_folder_name(None, "SENT") == "Enviats"

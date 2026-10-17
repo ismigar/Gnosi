@@ -17,7 +17,7 @@ const hoistedMocks = vi.hoisted(() => ({
       folders: { name: string; type: string }[];
     }>
   >(),
-  fetchMessages: vi.fn<(query: MailMessagesQuery) => Promise<MailMessages>>(),
+  fetchMessages: vi.fn<(query: MailMessagesQuery, signal?: AbortSignal) => Promise<MailMessages>>(),
   getTags: vi.fn<
     (messages: readonly MailListMessage[]) => Promise<Record<string, string[]>>
   >(),
@@ -84,12 +84,13 @@ vi.mock('./mail-list/mailListCache', () => ({
 const observers: TestIntersectionObserver[] = [];
 
 class TestIntersectionObserver implements IntersectionObserver {
-  readonly root = null;
+  readonly root: Element | Document | null;
   readonly rootMargin = '0px';
   readonly thresholds = [0.1];
   #target: Element | null = null;
 
-  constructor(readonly callback: IntersectionObserverCallback) {
+  constructor(readonly callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+    this.root = options?.root ?? null;
     observers.push(this);
   }
 
@@ -187,6 +188,7 @@ export interface MailListTestHarness {
   readonly click: (element: HTMLElement) => Promise<void>;
   readonly container: HTMLDivElement;
   readonly intersect: () => void;
+  readonly intersectionRoot: () => Element | Document | null;
   readonly render: (overrides?: Partial<MailListProps>) => Promise<void>;
   readonly rerender: (overrides?: Partial<MailListProps>) => Promise<void>;
 }
@@ -274,8 +276,9 @@ export function setupMailListTestHarness(): MailListTestHarness {
       return container;
     },
     intersect(): void {
-      observers[0]?.intersect();
+      observers.at(-1)?.intersect();
     },
+    intersectionRoot: () => observers.at(-1)?.root ?? null,
     render,
     rerender: render,
   };

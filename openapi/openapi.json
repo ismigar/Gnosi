@@ -64911,7 +64911,7 @@
     },
     "/api/mail/messages/{message_id}": {
       "get": {
-        "description": "Hybrid: gets the detail of a message via IMAP or Microsoft Graph.\n\nAll messages carry the `imap_` prefix except Microsoft ones. For\nbackward compatibility, if an id arrives without a prefix but the account is\nIMAP, it's interpreted as a bare UID.",
+        "description": "Hybrid: gets the detail of a message via IMAP or Microsoft Graph.\n\nAll messages carry the `imap_` prefix except Microsoft ones. For\nbackward compatibility, bare decimal IDs for IMAP accounts are also UIDs.\nSaved RFC message identifiers use local storage without remote UID commands.",
         "operationId": "get_message_api_mail_messages__message_id__get",
         "parameters": [
           {

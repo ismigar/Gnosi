@@ -65,7 +65,7 @@ def test_slow_counts_leave_the_message_connection_available(monkeypatch):
     monkeypatch.setattr(hybrid, "_imap_connect_fresh", lambda _: counts_connection)
     monkeypatch.setattr(hybrid, "_imap_pool_acquire", acquire)
     monkeypatch.setattr(hybrid, "_imap_pool_release", release_list)
-    monkeypatch.setattr(imap_mail_sync_service, "_discover_folders", lambda _: [("INBOX", "Received")])
+    monkeypatch.setattr(imap_mail_sync_service, "_discover_folders", lambda _, **kwargs: [("INBOX", "Received")])
     with ThreadPoolExecutor(max_workers=2) as pool:
         counts = pool.submit(hybrid.imap_get_counts, "fixture@example.test")
         try:
@@ -88,7 +88,7 @@ def test_failed_counts_are_errors_and_close_the_temporary_connection(monkeypatch
     )
     monkeypatch.setattr(hybrid, "_get_imap_account", lambda _: {"email": "fixture@example.test"})
     monkeypatch.setattr(hybrid, "_imap_connect_fresh", lambda _: None if failure == "connect" else connection)
-    monkeypatch.setattr(imap_mail_sync_service, "_discover_folders", lambda _: [("INBOX", "Received")])
+    monkeypatch.setattr(imap_mail_sync_service, "_discover_folders", lambda _, **kwargs: [("INBOX", "Received")])
     with pytest.raises(RuntimeError):
         hybrid.imap_get_counts("fixture@example.test")
     assert connection.logout.call_count == (0 if failure == "connect" else 1)
