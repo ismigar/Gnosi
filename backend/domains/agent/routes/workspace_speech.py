@@ -83,7 +83,7 @@ async def put_speech_settings(payload: speech.SpeechSettings, request: Request,
     return await speech.settings_response()
 
 
-_AUDIO_RESPONSE = {200: {'content': {'audio/mpeg': {'schema': {'type': 'string', 'format': 'binary'}}}}}
+_AUDIO_RESPONSE: dict[int | str, dict[str, object]] = {200: {'content': {'audio/mpeg': {'schema': {'type': 'string', 'format': 'binary'}}}}}
 
 
 @router.post('/speech/preview', response_class=Response, responses=_AUDIO_RESPONSE)
