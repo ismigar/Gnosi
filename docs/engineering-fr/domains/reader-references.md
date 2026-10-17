@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-27
+last_verified: 2026-10-17
 source_paths:
   - backend/domains/configuration/source_sections_schema.py
   - frontend/src/features/vault/properties/sourceSectionRelations.ts
@@ -39,6 +39,10 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_reader_source_registry.py
+  - backend/tests/test_reader_source_routes.py
+  - backend/tests/test_feed_ingester_savepoint.py
+  - backend/tests/test_mail_ingester_savepoint.py
   - backend/tests/test_pdf_extraction_cache.py
   - backend/tests/test_llm_wiki_source_sections.py
   - frontend/src/features/vault/properties/sourceSectionRelations.test.ts
@@ -440,3 +444,21 @@ récupérer uniquement si toute la page normalisée a la même longueur et si to
 les autres caractères concordent. La valeur ne vient jamais de la citation
 demandée ; toute autre différence empêche la récupération. Les indices de
 la géométrie native d’origine sont conservés.
+
+Les abonnements font autorité dans `<Vault>/.gnosi/reader_sources.json`
+(version 1). SQLite local en est une projection identifiée par URL. Le premier
+accès migre les sources existantes si le registre est absent ; les accès suivants
+reconstruisent une base locale après déplacement du Vault ou changement du
+répertoire de données. Les identifiants restent locaux et les liens des articles
+existants sont conservés. Articles, état de lecture et identifiants du compte de
+newsletters restent dans SQLite local ; déplacer le Vault ne les transfère pas.
+
+Création et suppression de sources, import OPML et création d'expéditeurs de
+newsletters enregistrent atomiquement le registre avant de valider SQLite. Un
+verrou local sérialise les modifications et relit le registre. Une liste vide fait
+autorité : une ancienne base ne peut ressusciter les sources supprimées. Des
+métadonnées invalides, de version inconnue ou indisponibles dans le cloud
+produisent une erreur réessayable sans écrasement. Les URL contenant un nom
+d'utilisateur et un mot de passe doivent être nettoyées avant migration. Le
+verrou local ne coordonne pas les écritures simultanées entre appareils ; les
+conflits restent gérés par le fournisseur cloud.

@@ -26,6 +26,8 @@ from sqlalchemy.orm import Session
 from backend.config.env_config import load_env
 from backend.data.db import get_engine_for_path
 from backend.models.reader import Article, FeedSource, NewsletterAccount
+from pathlib import Path
+from backend.domains.reader.source_registry import source_transaction
 from backend.services.context_vars import get_active_vault_path
 from backend.utils.safe_io import sanitize_filename_component
 
@@ -252,7 +254,7 @@ def _get_or_create_sender_source(db: Session, msg: Any) -> FeedSource:
         # name to "username" when later emails arrive without From name.
         if new_is_real and existing.name != name:
             setattr(existing, "name", name)
-            db.commit()
+            db.flush()
         return existing
 
     new_source = FeedSource(
@@ -262,7 +264,7 @@ def _get_or_create_sender_source(db: Session, msg: Any) -> FeedSource:
         type="newsletter",
     )
     db.add(new_source)
-    db.commit()
+    db.flush()
     db.refresh(new_source)
     log.info(f"  ➕ New newsletter source: {new_source.name} <{addr}>")
     return new_source
@@ -418,6 +420,8 @@ def fetch_and_store_newsletters(
     _, SessionLocal = engine_factory(v_path)
     db: Session = SessionLocal()
     try:
+        with source_transaction(db, Path(v_path)):
+            pass
         cfg = _load_account_config(db)
         server = (cfg.get("server") or "").strip()
 
@@ -443,12 +447,19 @@ def fetch_and_store_newsletters(
                 pop.quit()
                 return 0
 
+            def persisted_source(session: Session, message: Any) -> Any:
+                # Keep completed messages durable before refreshing the source
+                # projection's transaction against the latest Vault registry.
+                session.commit()
+                with source_transaction(session, Path(v_path), write=True):
+                    return source_factory(session, message)
+
             new_articles_count, delete_ids = _ingest_pop3_messages(
                 db,
                 pop,
                 num_messages,
                 bool(cfg["delete_after_ingest"]),
-                source_factory,
+                persisted_source,
             )
 
             db.commit()
