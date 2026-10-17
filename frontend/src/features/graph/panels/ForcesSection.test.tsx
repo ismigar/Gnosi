@@ -88,9 +88,9 @@ describe('ForcesSection', () => {
         const repulsion = requireInput(container, '#graph-force-repulsion');
         const friction = requireInput(container, '#graph-force-friction');
         const edgeInfluence = requireInput(container, '#graph-force-edge-influence');
-        const linLog = requireInput(container, '#graph-force-linlog');
-        const strongGravity = requireInput(container, '#graph-force-strong-gravity');
-        const outbound = requireInput(container, '#graph-force-outbound');
+        const linLog = container.querySelector<HTMLElement>('[role="switch"][aria-label="Cloud Mode (LinLog)"]')!;
+        const strongGravity = container.querySelector<HTMLElement>('[role="switch"][aria-label="Strong gravity"]')!;
+        const outbound = container.querySelector<HTMLElement>('[role="switch"][aria-label="Distribute attraction by degree"]')!;
 
         setRangeValue(gravity, '1.25');
         setRangeValue(repulsion, '2500');
