@@ -28,6 +28,8 @@ os.environ.setdefault("GNOSI_DATA_DIR", tempfile.mkdtemp(prefix="gnosi-test-mail
 os.environ.setdefault("DIGITAL_BRAIN_VAULT_PATH", "/tmp/nonexistent")
 
 import email  # noqa: E402
+import json  # noqa: E402
+from pathlib import Path  # noqa: E402
 from datetime import datetime, timezone  # noqa: E402
 
 import pytest  # noqa: E402
@@ -83,9 +85,10 @@ class FakePOP3:
 
 
 @pytest.fixture()
-def db_env(monkeypatch):
+def db_env(monkeypatch, tmp_path):
     """In-memory SQLite engine with FK enabled + monkeypatch of the mail_ingester's
     environment dependencies (engine/vault). Returns (engine, SessionLocal)."""
+    (tmp_path / "vault").mkdir()
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -104,7 +107,9 @@ def db_env(monkeypatch):
 
     # The mail_ingester imports these two names into its namespace.
     monkeypatch.setattr(mail_ingester, "get_engine_for_path", lambda _p: (engine, SessionLocal))
-    monkeypatch.setattr(mail_ingester, "get_active_vault_path", lambda: "/tmp/nonexistent")
+    monkeypatch.setattr(mail_ingester, "get_active_vault_path", lambda: tmp_path / "vault")
+    from backend.domains.reader import source_registry
+    monkeypatch.setattr(source_registry, "_lock_directory", lambda: tmp_path / "source-locks")
 
     # Configure the POP3 account in the DB so cfg is valid (email/pass/host).
     s = SessionLocal()
@@ -171,6 +176,14 @@ def test_poison_message_does_not_block_others(db_env, monkeypatch):
     assert sorted(fake.deleted) == [1, 3, 5]
     assert 2 not in fake.deleted
     assert 4 not in fake.deleted
+
+    registry = Path(mail_ingester.get_active_vault_path()) / ".gnosi/reader_sources.json"
+    sources = json.loads(registry.read_text())["sources"]
+    assert {source["url"] for source in sources} == {
+        "mailto:a@example.com", "mailto:b@example.com", "mailto:c@example.com"
+    }
+    assert all(source["type"] == "newsletter" for source in sources)
+    assert "password" not in registry.read_text()
 
 
 # ── Negative control: the PRE-fix flow (a single global try) blocks everything ────────

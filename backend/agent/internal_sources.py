@@ -176,7 +176,16 @@ def _reader_session() -> Any:
     if vault_path is None:
         raise RuntimeError("There is no active Vault.")
     _engine, session_factory = get_engine_for_path(vault_path)
-    return session_factory()
+    from backend.domains.reader.source_registry import source_transaction
+
+    db = session_factory()
+    try:
+        with source_transaction(db, vault_path):
+            pass
+        return db
+    except Exception:
+        db.close()
+        raise
 
 
 def _planning_snapshot() -> Dict[str, Any]:

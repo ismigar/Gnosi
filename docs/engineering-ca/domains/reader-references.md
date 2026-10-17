@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-27
+last_verified: 2026-10-17
 source_paths:
   - backend/domains/configuration/source_sections_schema.py
   - frontend/src/features/vault/properties/sourceSectionRelations.ts
@@ -39,6 +39,10 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_reader_source_registry.py
+  - backend/tests/test_reader_source_routes.py
+  - backend/tests/test_feed_ingester_savepoint.py
+  - backend/tests/test_mail_ingester_savepoint.py
   - backend/tests/test_pdf_extraction_cache.py
   - backend/tests/test_llm_wiki_source_sections.py
   - frontend/src/features/vault/properties/sourceSectionRelations.test.ts
@@ -453,3 +457,21 @@ recuperar només si tota la pàgina normalitzada té la mateixa longitud i tots 
 altres caràcters coincideixen. El valor no es dedueix de la cita sol·licitada;
 qualsevol altra diferència impedeix la recuperació. Es conserven els índexs de
 geometria natius originals.
+
+Les subscripcions es desen de manera autoritativa a
+`<Vault>/.gnosi/reader_sources.json` (versió 1). Les files SQLite locals en són una
+projecció identificada per URL. El primer accés migra les fonts existents si no hi
+ha registre; els accessos posteriors recuperen una base local nova després de
+moure el Vault o canviar el directori de dades. Els identificadors continuen sent
+locals i es conserven els vincles dels articles existents. Els articles, l'estat
+de lectura i les credencials del compte de newsletters continuen a SQLite local;
+moure el Vault no trasllada aquests registres.
+
+La creació i eliminació de fonts, la importació OPML i els remitents de newsletters
+desen el registre atòmicament abans de confirmar la projecció local. Un bloqueig
+local serialitza els canvis i torna a llegir el registre. Una llista buida és
+autoritativa i una base antiga no pot ressuscitar fonts eliminades. Les metadades
+invàlides, de versió desconeguda o no disponibles al núvol produeixen un error
+reintentable sense sobreescriure-les. Les URL amb usuari i contrasenya incrustats
+s'han de netejar abans de migrar. El bloqueig local no coordina escriptures
+simultànies de dispositius diferents; s'aplica la gestió de conflictes del núvol.
