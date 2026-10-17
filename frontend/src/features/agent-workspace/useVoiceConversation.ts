@@ -27,7 +27,8 @@ export function useVoiceConversation(identity: WorkspaceIdentity, language: stri
   const [active, setActive] = useState(false);
   const [failed, setFailed] = useState(false);
   const output = useSpeechOutput(identity, language, active, busy, reply, replyKey);
-  const stop = useCallback(() => { output.stop(); setActive(false); }, [output.stop]);
+  const { stop: stopOutput } = output;
+  const stop = useCallback(() => { stopOutput(); setActive(false); }, [stopOutput]);
   const speaking = output.activity !== 'idle';
   const recognition = useRef<Recognition | null>(null);
   const callback = useRef(onPrompt);
