@@ -4,6 +4,7 @@ import { GraphLoadingState } from '../../shared/ui/loading/GraphLoadingState';
 import { Layout } from '../../shared/ui/layout/Layout';
 import { Legend } from './panels/Legend';
 import './styles/viewer.css';
+import './styles/sidebar.css';
 import { GraphCanvasView } from './page/GraphCanvasView';
 import { GraphSidebarView } from './page/GraphSidebarView';
 import {
