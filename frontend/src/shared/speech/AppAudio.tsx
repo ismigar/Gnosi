@@ -3,12 +3,13 @@ import { useAudioElementSpeechFocus } from './useAudioElementSpeechFocus';
 
 /** All native audio surfaces share ownership with synthesized speech playback. */
 export function AppAudio({ src, onPlay, onPlaying, onWaiting, onPause, onEnded, onError, ...props }: ComponentPropsWithoutRef<'audio'>) {
-  const focus = useAudioElementSpeechFocus(src);
-  return <audio {...props} ref={focus.ref} src={src}
-    onPlay={event => { focus.onPlay(); onPlay?.(event); }}
-    onPlaying={event => { focus.onPlaying(); onPlaying?.(event); }}
-    onWaiting={event => { focus.onWaiting(); onWaiting?.(event); }}
-    onPause={event => { focus.onPause(event); onPause?.(event); }}
-    onEnded={event => { focus.onEnded(); onEnded?.(event); }}
-    onError={event => { focus.onError(); onError?.(event); }} />;
+  const { ref: audioRef, onPlay: focusPlay, onPlaying: focusPlaying, onWaiting: focusWaiting,
+    onPause: focusPause, onEnded: focusEnded, onError: focusError } = useAudioElementSpeechFocus(src);
+  return <audio {...props} ref={audioRef} src={src}
+    onPlay={event => { focusPlay(); onPlay?.(event); }}
+    onPlaying={event => { focusPlaying(); onPlaying?.(event); }}
+    onWaiting={event => { focusWaiting(); onWaiting?.(event); }}
+    onPause={event => { focusPause(event); onPause?.(event); }}
+    onEnded={event => { focusEnded(); onEnded?.(event); }}
+    onError={event => { focusError(); onError?.(event); }} />;
 }
