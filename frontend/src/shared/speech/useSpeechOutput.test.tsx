@@ -1,10 +1,11 @@
-import { act } from 'react';
+import { act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSpeechOutput } from './useSpeechOutput';
 import { emitAppEvent } from '../platform/app-events';
 
 const api = vi.hoisted(() => ({ speak: vi.fn(), preview: vi.fn() }));
+const revokeObjectURL = vi.fn();
 vi.mock('../api/speech-output', () => ({ synthesizeWorkspaceSpeech: api.speak, previewSpeech: api.preview }));
 class AudioStub {
   static instances: AudioStub[] = [];
@@ -19,7 +20,8 @@ type Props = { active?: boolean; busy?: boolean; reply?: string; replyKey?: stri
 let value: ReturnType<typeof useSpeechOutput>;
 let root: Root; let host: HTMLDivElement;
 function Probe({ active = false, busy = false, reply = '', replyKey = '', agent = 'agent' }: Props) {
-  value = useSpeechOutput({ agent_id: agent, session_id: 'session' }, 'ca', active, busy, reply, replyKey);
+  const output = useSpeechOutput({ agent_id: agent, session_id: 'session' }, 'ca', active, busy, reply, replyKey);
+  useEffect(() => { value = output; }, [output]);
   return null;
 }
 async function render(props: Props = {}) {
@@ -31,10 +33,10 @@ beforeEach(() => {
   api.preview.mockResolvedValue(new Blob(['sample'], { type: 'audio/mpeg' }));
   vi.stubGlobal('Audio', AudioStub); vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:test') });
-  Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+  Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL });
   host = document.createElement('div'); root = createRoot(host);
 });
-afterEach(async () => { await act(async () => { root.unmount(); }); host.remove(); vi.unstubAllGlobals(); });
+afterEach(() => { act(() => { root.unmount(); }); host.remove(); vi.unstubAllGlobals(); });
 
 describe('shared synthesized speech playback', () => {
   it('keeps preparing until the media playing event and ignores a late start after stop', async () => {
@@ -42,8 +44,8 @@ describe('shared synthesized speech playback', () => {
     await render({ active: true }); await render({ active: true, reply: 'New', replyKey: 'one' });
     expect(value.state).toBe('preparing');
     const started = AudioStub.instances[0]?.onplaying;
-    await act(async () => { started?.(); }); expect(value.state).toBe('speaking');
-    await act(async () => { value.stop(); started?.(); }); expect(value.state).toBe('idle');
+    act(() => { started?.(); }); expect(value.state).toBe('speaking');
+    act(() => { value.stop(); started?.(); }); expect(value.state).toBe('idle');
   });
   it('never requests audio on mount or activation for an already visible reply', async () => {
     await render({ reply: 'Existing', replyKey: 'old' });
@@ -75,15 +77,15 @@ describe('shared synthesized speech playback', () => {
     await render({ active: true });
     await render({ active: true, reply: 'New', replyKey: 'one' });
     const audio = AudioStub.instances[0];
-    await act(async () => { emitAppEvent('gnosi:config-changed'); });
-    expect(audio?.pause).toHaveBeenCalled(); expect(audio?.onended).toBeNull(); expect(URL.revokeObjectURL).toHaveBeenCalled();
+    act(() => { emitAppEvent('gnosi:config-changed'); });
+    expect(audio?.pause).toHaveBeenCalled(); expect(audio?.onended).toBeNull(); expect(revokeObjectURL).toHaveBeenCalled();
     await render({ active: true, reply: 'Next', replyKey: 'two' });
     const second = AudioStub.instances[1];
     await render({ active: true, reply: 'Next', replyKey: 'two', agent: 'other' });
     expect(second?.pause).toHaveBeenCalled();
     await act(async () => { void value.preview(); await Promise.resolve(); });
     const preview = AudioStub.instances.at(-1);
-    await act(async () => { emitAppEvent('gnosi:vault-changed', { id: 'next', name: 'Next', slug: 'next' }); });
+    act(() => { emitAppEvent('gnosi:vault-changed', { id: 'next', name: 'Next', slug: 'next' }); });
     expect(preview?.pause).toHaveBeenCalled();
   });
   it('uses the fixed server preview without posting arbitrary conversation text', async () => {

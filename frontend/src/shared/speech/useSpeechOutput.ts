@@ -6,12 +6,32 @@ import { subscribeAppEvent } from '../platform/app-events';
 import { claimSpeechFocus, currentSpeechActivity, subscribeSpeechActivity } from './speechFocus';
 
 type SpeechState = 'idle' | 'preparing' | 'speaking';
+type SpeechSnapshot = { state: SpeechState; error: boolean };
+
+/** Media callbacks and scope cleanup update the same observable snapshot. */
+function createOutputStatus() {
+  let snapshot: SpeechSnapshot = { state: 'idle', error: false };
+  const listeners = new Set<() => void>();
+  return {
+    snapshot: () => snapshot,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
+    update: (patch: Partial<SpeechSnapshot>) => {
+      const next = { ...snapshot, ...patch };
+      if (next.state === snapshot.state && next.error === snapshot.error) return;
+      snapshot = next;
+      for (const listener of listeners) listener();
+    },
+  };
+}
 
 /** Playback only: configuration and synthesis are shared by every app consumer. */
 export function useSpeechOutput(identity: WorkspaceIdentity | undefined, language: string, active = false,
   busy = false, reply = '', replyKey = '') {
-  const [state, setState] = useState<SpeechState>('idle');
-  const [error, setError] = useState(false);
+  const [status] = useState(createOutputStatus);
+  const { state, error } = useSyncExternalStore(status.subscribe, status.snapshot, status.snapshot);
   const generation = useRef(0);
   const cleanup = useRef<(() => void) | undefined>(undefined);
   const request = useRef<AbortController | undefined>(undefined);
@@ -26,12 +46,12 @@ export function useSpeechOutput(identity: WorkspaceIdentity | undefined, languag
     request.current?.abort(); request.current = undefined;
     cleanup.current?.(); cleanup.current = undefined;
     focus.current?.release(); focus.current = undefined;
-    setState('idle');
-  }, []);
-  const progress = useCallback((next: SpeechState) => { setState(next); focus.current?.publish(next); }, []);
+    status.update({ state: 'idle' });
+  }, [status]);
+  const progress = useCallback((next: SpeechState) => { status.update({ state: next }); focus.current?.publish(next); }, [status]);
 
   const run = useCallback(async (markdown?: string) => {
-    stop(); setError(false);
+    stop(); status.update({ error: false });
     const text = markdown === undefined ? undefined : speechText(markdown);
     if (text === '') return;
     const token = generation.current;
@@ -65,11 +85,11 @@ export function useSpeechOutput(identity: WorkspaceIdentity | undefined, languag
         if (!completed) return;
         if (generation.current === token) progress('preparing');
       }
-      if (generation.current === token) { request.current = undefined; focus.current?.release(); focus.current = undefined; setState('idle'); }
+      if (generation.current === token) { request.current = undefined; focus.current.release(); focus.current = undefined; status.update({ state: 'idle' }); }
     } catch {
-      if (generation.current === token && !abort.signal.aborted) { stop(); setError(true); }
+      if (generation.current === token && !abort.signal.aborted) { stop(); status.update({ error: true }); }
     }
-  }, [stop, progress, agentId, sessionId, language]);
+  }, [stop, progress, agentId, sessionId, language, status]);
 
   useEffect(() => { stop(); }, [stop, agentId, sessionId, language]);
   useEffect(() => {

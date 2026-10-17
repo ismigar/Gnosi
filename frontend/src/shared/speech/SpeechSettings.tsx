@@ -14,15 +14,22 @@ export function SpeechSettings({ editable = false, previewDisabled = false }: { 
   const queryClient = useQueryClient();
   const queryKey = ['speech-settings', vault];
   const configuration = useQuery({ queryKey, queryFn: ({ signal }) => fetchSpeechSettings(signal), staleTime: 10000 });
-  const [draft, setDraft] = useState<Settings | undefined>(undefined);
+  const revision = configuration.data?.revision;
+  const settingsKey = JSON.stringify(configuration.data?.settings);
+  const [draftSource, setDraftSource] = useState({ vault, revision, settingsKey });
+  const [draft, setDraft] = useState<Settings | undefined>(configuration.data?.settings);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [saved, setSaved] = useState(false);
   const output = useSpeechOutput(undefined, i18n.language);
-  useEffect(() => { setDraft(configuration.data?.settings); }, [configuration.data]);
-  useEffect(() => { if (previewDisabled) output.stop(); }, [previewDisabled, output.stop]);
+  const { stop: stopOutput } = output;
+  if (draftSource.vault !== vault || draftSource.revision !== revision || draftSource.settingsKey !== settingsKey) {
+    setDraftSource({ vault, revision, settingsKey });
+    setDraft(configuration.data?.settings);
+  }
+  useEffect(() => { if (previewDisabled) stopOutput(); }, [previewDisabled, stopOutput]);
   if (configuration.isPending) return <p role="status">{t('speech.loading')}</p>;
-  if (configuration.isError || !configuration.data || !draft) return <p role="alert">{t('speech.settings_failed')}</p>;
+  if (configuration.isError || !draft) return <p role="alert">{t('speech.settings_failed')}</p>;
   const data = configuration.data;
   const language = draft.language === 'auto' ? i18n.language.toLowerCase().split(/[-_]/)[0] : draft.language;
   const localVoices = data.local_voices.filter(voice => voice.language.toLowerCase().split(/[-_]/)[0] === language);

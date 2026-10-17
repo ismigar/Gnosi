@@ -5,6 +5,7 @@ import { claimSpeechFocus } from './speechFocus';
 /** Native audio controls participate in the same focus and microphone suspension. */
 export function useAudioElementSpeechFocus(source: string | null | undefined) {
   const element = useRef<HTMLAudioElement | null>(null);
+  const bindElement = useCallback((node: HTMLAudioElement | null) => { element.current = node; }, []);
   const playingElement = useRef<HTMLAudioElement | null>(null);
   const lease = useRef<ReturnType<typeof claimSpeechFocus> | undefined>(undefined);
   const stop = useCallback(() => {
@@ -26,5 +27,5 @@ export function useAudioElementSpeechFocus(source: string | null | undefined) {
   const onPause = useCallback((event: SyntheticEvent<HTMLAudioElement>) => {
     if (event.currentTarget.paused || event.currentTarget.ended) { lease.current?.release(); lease.current = undefined; }
   }, []);
-  return { ref: element, onPlay, onPlaying, onWaiting, onPause, onEnded: stop, onError: stop };
+  return { ref: bindElement, onPlay, onPlaying, onWaiting, onPause, onEnded: stop, onError: stop };
 }
