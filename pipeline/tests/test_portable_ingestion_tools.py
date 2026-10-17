@@ -107,7 +107,8 @@ def isolated_providers(
     monkeypatch.setattr(env_config, "_read_env_file", forbidden)
     monkeypatch.setattr(env_config, "_load_keychain", forbidden)
     monkeypatch.setattr(import_module("feedparser"), "parse", forbidden)
-    monkeypatch.setattr(import_module("gtts"), "gTTS", forbidden)
+    from backend.services import workspace_speech
+    monkeypatch.setattr(workspace_speech, "generate_document", forbidden)
     monkeypatch.setattr(import_module("groq"), "Groq", forbidden)
 
     from backend.services import integration_manager as integrations
@@ -328,14 +329,12 @@ def check_rss_main_paths_and_mock_audio(
     monkeypatch.setattr(rss, "datetime", _Clock)
     monkeypatch.setattr(rss, "generate_summary", lambda _articles: "Synthetic summary")
 
-    class Audio:
-        def __init__(self, *, text: str, lang: str, slow: bool) -> None:
-            assert (text, lang, slow) == ("Synthetic summary", "en", False)
+    def audio(text: str, filename: str | Path, language: str) -> None:
+        assert (text, language) == ("Synthetic summary", "en")
+        Path(filename).write_bytes(b"synthetic audio")
 
-        def save(self, filename: str) -> None:
-            Path(filename).write_bytes(b"synthetic audio")
-
-    monkeypatch.setattr(import_module("gtts"), "gTTS", Audio)
+    from backend.services import workspace_speech
+    monkeypatch.setattr(workspace_speech, "generate_document", audio)
     args = ["--opml", str(source), "--output-dir", str(output)] if explicit else []
     run: Callable[[Sequence[str] | None], object] = rss.main
     assert run(args) is None
@@ -390,18 +389,16 @@ def check_rss_complete_flow_with_synthetic_providers(
         events.append("summary")
         return {"result": {"text": "Synthetic spoken summary"}}
 
-    class Audio:
-        def __init__(self, *, text: str, lang: str, slow: bool) -> None:
-            assert (text, lang, slow) == ("Synthetic spoken summary", "en", False)
-            events.append("tts")
-
-        def save(self, filename: str) -> None:
-            Path(filename).write_bytes(b"synthetic-mp3")
+    def audio(text: str, filename: str | Path, language: str) -> None:
+        assert (text, language) == ("Synthetic spoken summary", "en")
+        events.append("tts")
+        Path(filename).write_bytes(b"synthetic-mp3")
 
     monkeypatch.setattr(import_module("feedparser"), "parse", fetch)
     from backend.services import agent_document_work
     monkeypatch.setattr(agent_document_work, "synthesize", synthesize)
-    monkeypatch.setattr(import_module("gtts"), "gTTS", Audio)
+    from backend.services import workspace_speech
+    monkeypatch.setattr(workspace_speech, "generate_document", audio)
     rss.main(["--opml", str(source), "--output-dir", str(output)])
     assert events == ["feed", "summary", "tts"]
     assert updates == [{"status": "completed", "result": "Synthetic spoken summary"}]
@@ -429,11 +426,11 @@ def check_rss_tts_failure_is_not_reported_as_success(
 ) -> None:
     from pipeline.skills.rss_to_audio.scripts import rss_to_audio as rss
 
-    class BrokenAudio:
-        def save(self, filename: str) -> None:
-            raise RuntimeError("synthetic save failure")
+    def fail(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("synthetic save failure")
 
-    monkeypatch.setattr(import_module("gtts"), "gTTS", lambda **_kwargs: BrokenAudio())
+    from backend.services import workspace_speech
+    monkeypatch.setattr(workspace_speech, "generate_document", fail)
     generate: Callable[[str | None, str | Path], object] = rss.text_to_audio
     with pytest.raises(RuntimeError, match="synthetic save failure"):
         generate("Hello", tmp_path / "out.mp3")

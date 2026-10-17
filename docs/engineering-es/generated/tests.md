@@ -10,9 +10,9 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
-| Playwright | 30 | 97 |
-| Vitest | 714 | 3168 |
-| pytest | 699 | 5281 |
+| Playwright | 32 | 101 |
+| Vitest | 725 | 3234 |
+| pytest | 709 | 5365 |
 
 ## Archivos
 
@@ -30,7 +30,9 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Playwright | [`tests/e2e/tests/disposable/help-menu.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/help-menu.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/knowledge-parity.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/knowledge-parity.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/knowledge-progressive-load.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/knowledge-progressive-load.spec.ts) | 1 | call-pattern estimate |
+| Playwright | [`tests/e2e/tests/disposable/mail-archive-pagination.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/mail-archive-pagination.spec.ts) | 2 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/mail-message-preview.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/mail-message-preview.spec.ts) | 1 | call-pattern estimate |
+| Playwright | [`tests/e2e/tests/disposable/mail-reader-responsiveness.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/mail-reader-responsiveness.spec.ts) | 2 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/mail-thread-completeness.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/mail-thread-completeness.spec.ts) | 2 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/offline-companion.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/offline-companion.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/publishing.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/publishing.spec.ts) | 2 | call-pattern estimate |
@@ -97,6 +99,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/agent/chat/recoverChatStream.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/recoverChatStream.test.ts) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/sessionModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/sessionModel.test.ts) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/sessionRestore.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/sessionRestore.test.ts) | 8 | call-pattern estimate |
+| Vitest | [`frontend/src/features/agent/chat/spokenReply.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/spokenReply.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/streamSequence.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/streamSequence.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/submitChatTurn.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/submitChatTurn.test.ts) | 15 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/useChatAttachments.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatAttachments.test.tsx) | 3 | call-pattern estimate |
@@ -189,25 +192,29 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/mail/components/MailBody.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailBody.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailComposer.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailComposer.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailComposerDialogs.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailComposerDialogs.test.tsx) | 1 | call-pattern estimate |
-| Vitest | [`frontend/src/features/mail/components/MailList.actions.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.actions.test.tsx) | 6 | call-pattern estimate |
+| Vitest | [`frontend/src/features/mail/components/MailList.actions.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.actions.test.tsx) | 9 | call-pattern estimate |
+| Vitest | [`frontend/src/features/mail/components/MailList.archive-pagination.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.archive-pagination.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailList.navigation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.navigation.test.tsx) | 8 | call-pattern estimate |
-| Vitest | [`frontend/src/features/mail/components/MailList.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.test.tsx) | 6 | call-pattern estimate |
+| Vitest | [`frontend/src/features/mail/components/MailList.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.test.tsx) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailSidebar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSidebar.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailTagPicker.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailTagPicker.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailViewEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailViewEditor.test.tsx) | 2 | call-pattern estimate |
+| Vitest | [`frontend/src/features/mail/components/MailViewer.loading.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailViewer.loading.test.tsx) | 16 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailViewer.resilience.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailViewer.resilience.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailViewer.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailViewer.test.tsx) | 14 | call-pattern estimate |
+| Vitest | [`frontend/src/features/mail/components/MailViewer.versions.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailViewer.versions.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/mail-list/mailListCache.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/mailListCache.test.ts) | 6 | call-pattern estimate |
-| Vitest | [`frontend/src/features/mail/components/mail-list/mailListModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/mailListModel.test.ts) | 11 | call-pattern estimate |
+| Vitest | [`frontend/src/features/mail/components/mail-list/mailListModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/mailListModel.test.ts) | 12 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/mail-list/useMailListData.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/useMailListData.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/mailComposerModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailComposerModel.test.ts) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/features/mail/components/mailContentCache.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailContentCache.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/mailViewEditorModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailViewEditorModel.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/mailViewerModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailViewerModel.test.ts) | 14 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/editor/Mail/MailBlockEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/editor/Mail/MailBlockEditor.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/editor/Mail/mailBlockNoteAdapter.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/editor/Mail/mailBlockNoteAdapter.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/hooks/useMailTags.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/hooks/useMailTags.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/hooks/useMailViews.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/hooks/useMailViews.test.tsx) | 5 | call-pattern estimate |
-| Vitest | [`frontend/src/features/mail/mailIdentity.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/mailIdentity.test.ts) | 5 | call-pattern estimate |
+| Vitest | [`frontend/src/features/mail/mailIdentity.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/mailIdentity.test.ts) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/page/MailPageView.loading.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/MailPageView.loading.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/page/mailAccountVisibility.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/mailAccountVisibility.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/page/mailPageModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/mailPageModel.test.ts) | 4 | call-pattern estimate |
@@ -288,7 +295,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/settings/global-settings/TranslationPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/TranslationPanel.test.tsx) | 0 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/aiOperationsBridge.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/aiOperationsBridge.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/pluginProfileSync.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/pluginProfileSync.test.ts) | 6 | call-pattern estimate |
-| Vitest | [`frontend/src/features/settings/global-settings/settingsController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsController.test.tsx) | 21 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/global-settings/settingsController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsController.test.tsx) | 22 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/settingsGraphModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsGraphModel.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/settingsPrimitives.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsPrimitives.test.tsx) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/useSettingsModels.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsModels.test.tsx) | 1 | call-pattern estimate |
@@ -598,6 +605,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/shared/api/scheduler.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/scheduler.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/sharing.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/sharing.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/social.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/social.test.ts) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/api/speech-output.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/speech-output.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/synced-blocks.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/synced-blocks.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/system.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/system.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/tokens.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/tokens.test.ts) | 1 | call-pattern estimate |
@@ -639,7 +647,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/shared/editor/InstructionRichEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/InstructionRichEditor.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/PageHoverCard.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/PageHoverCard.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/VaultMarkdown.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultMarkdown.test.tsx) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx) | 11 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx) | 12 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/VaultMarkdown.wikiEscapes.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultMarkdown.wikiEscapes.test.tsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/WikilinkContextMenu.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/WikilinkContextMenu.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/WikilinkHoverPreview.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/WikilinkHoverPreview.test.tsx) | 1 | call-pattern estimate |
@@ -729,6 +737,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/shared/routing/vaultQuickNavigation.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/routing/vaultQuickNavigation.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/routing/vaultRouting.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/routing/vaultRouting.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/schema/fieldOrdering.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/schema/fieldOrdering.test.ts) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/speech/SpeechSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/speech/SpeechSettings.test.tsx) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/speech/speechFocus.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/speech/speechFocus.test.ts) | 2 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/speech/speechText.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/speech/speechText.test.ts) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/speech/useAudioElementSpeechFocus.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/speech/useAudioElementSpeechFocus.test.tsx) | 2 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/speech/useSpeechOutput.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/speech/useSpeechOutput.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/theme/customAppearance.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/theme/customAppearance.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/ui/PanePortal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/PanePortal.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/ui/avatars/ContactAvatar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/avatars/ContactAvatar.test.tsx) | 4 | call-pattern estimate |
@@ -838,6 +851,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_agent_view_edit.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_view_edit.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_agent_workspace.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_workspace.py) | 20 | Python AST |
 | pytest | [`backend/tests/test_agent_workspace_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_workspace_planning.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_agent_workspace_speech.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_workspace_speech.py) | 21 | Python AST |
 | pytest | [`backend/tests/test_agent_workspace_voice.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_workspace_voice.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_ai_consumption.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ai_consumption.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_ai_content_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ai_content_routes.py) | 6 | Python AST |
@@ -1065,8 +1079,14 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_lookup_normalizers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_lookup_normalizers.py) | 18 | Python AST |
 | pytest | [`backend/tests/test_mail_ai_draft_failures.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_ai_draft_failures.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_mail_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_api_contract.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_mail_archive_identity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_archive_identity.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_mail_archive_listing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_archive_listing.py) | 13 | Python AST |
+| pytest | [`backend/tests/test_mail_cache_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_cache_scope.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_mail_calendar_domain_facades.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_calendar_domain_facades.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_mail_connection_lifecycle.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_connection_lifecycle.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_mail_conversation_truthfulness.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_conversation_truthfulness.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_mail_decoding.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_decoding.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_mail_detail_responsiveness.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_detail_responsiveness.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_mail_idle_delivery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_idle_delivery.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_mail_imap_preservation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_imap_preservation.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_mail_ingester_savepoint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_ingester_savepoint.py) | 2 | Python AST |
@@ -1075,8 +1095,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_mail_local_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_local_analysis.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_mail_local_read_responsiveness.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_local_read_responsiveness.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_mail_metadata_manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_metadata_manager.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_mail_move_identity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_move_identity.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_mail_ordered_header_listing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_ordered_header_listing.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_mail_preview_regressions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_preview_regressions.py) | 18 | Python AST |
 | pytest | [`backend/tests/test_mail_read_availability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_read_availability.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_mail_read_negative_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_read_negative_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_mail_remote_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_remote_images.py) | 29 | Python AST |
 | pytest | [`backend/tests/test_mail_reply_cid.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_reply_cid.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_mail_tag_identity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_tag_identity.py) | 6 | Python AST |

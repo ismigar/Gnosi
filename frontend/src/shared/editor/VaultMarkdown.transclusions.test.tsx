@@ -8,6 +8,7 @@ import { fetchVaultPage, resolveVaultTitle, type VaultPage } from '../api/vaults
 import { emitAppEvent } from '../platform/app-events';
 import { VaultMarkdown, VaultMarkdownTransclusion } from './VaultMarkdown';
 import { MAX_TRANSCLUSION_DEPTH } from './vault-markdown/transclusionModel';
+import { claimSpeechFocus, currentSpeechActivity } from '../speech/speechFocus';
 
 vi.mock('../api/vaults', () => ({ fetchVaultPage: vi.fn(), resolveVaultTitle: vi.fn() }));
 vi.mock('../api/request-context', async importOriginal => ({
@@ -228,6 +229,21 @@ describe('rich transclusions', () => {
         expect(view.container.querySelector('audio')?.getAttribute('src')).toBe('/api/vault/assets/recording.mp3?vault=vault-a');
         expect(view.container.querySelector('video')?.getAttribute('src')).toBe('/api/vault/assets/movie.mp4?vault=vault-a');
         expect(view.container.querySelector('a')?.getAttribute('href')).toBe('/api/vault/assets/document.pdf?vault=vault-a');
+    });
+
+    it('coordinates generated speech attachments with other playback before announcing actual sound', () => {
+        const stopPrevious = vi.fn();
+        const previous = claimSpeechFocus(stopPrevious); previous.publish('speaking');
+        const view = mountTestComponent(<VaultMarkdown md={'[audio: Generated speech](data/podcasts/speech-fixture.mp3)'} vaultId="vault-a" />);
+        const audio = view.container.querySelector('audio');
+        if (!audio) throw new Error('Missing generated speech attachment');
+        vi.spyOn(audio, 'pause').mockImplementation(() => undefined);
+        act(() => { audio.dispatchEvent(new Event('play')); });
+        expect(stopPrevious).toHaveBeenCalledOnce(); expect(currentSpeechActivity()).toBe('preparing');
+        act(() => { audio.dispatchEvent(new Event('playing')); });
+        expect(currentSpeechActivity()).toBe('speaking');
+        view.unmount(); previous.release();
+        expect(currentSpeechActivity()).toBe('idle');
     });
 
     it('does not expand escaped embeds or embedded-looking examples inside mixed/long code fences', async () => {

@@ -8,6 +8,7 @@ dependencies = [
   "aiosqlite>=0.22.1",
   "alembic>=1.19.1",
   "anthropic>=0.122.0",
+  "av>=18.1.0",
   "bcrypt>=4.1",
   "beautifulsoup4>=4.15.0",
   "chromadb>=0.4.0",

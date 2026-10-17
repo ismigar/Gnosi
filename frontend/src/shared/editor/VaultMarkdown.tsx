@@ -4,6 +4,7 @@ import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import { useTranslation } from 'react-i18next';
+import { AppAudio } from '../speech/AppAudio';
 import 'katex/dist/katex.min.css';
 
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
@@ -169,7 +170,7 @@ export function VaultMarkdown({
                     const mediaUrl = defaultUrlTransform(normalizeAssetUrl(target, vaultId));
                     if (!mediaUrl) return null;
                     if (media === 'image') return <RetryableImage onClick={onActivate} src={mediaUrl} title={alt || reference.target} />;
-                    if (media === 'audio') return <audio controls preload="metadata" src={mediaUrl} aria-label={alt || reference.target} />;
+                    if (media === 'audio') return <AppAudio controls preload="metadata" src={mediaUrl} aria-label={alt || reference.target} />;
                     if (media === 'video') return <video className="max-w-full rounded-md" controls preload="metadata" src={mediaUrl} aria-label={alt || reference.target} />;
                     return <a className="text-[var(--gnosi-primary)] hover:underline" href={mediaUrl} target="_blank" rel="noopener noreferrer">{alt || reference.target}</a>;
                 }
@@ -237,7 +238,7 @@ export function VaultMarkdown({
             if (/^(?:audio|video|file): /u.test(mediaLabel)) {
                 const mediaUrl = defaultUrlTransform(normalizeAssetUrl(href, vaultId));
                 if (!mediaUrl) return null;
-                if (mediaLabel.startsWith('audio: ')) return <audio controls preload="metadata" src={mediaUrl} aria-label={mediaLabel} />;
+                if (mediaLabel.startsWith('audio: ')) return <AppAudio controls preload="metadata" src={mediaUrl} aria-label={mediaLabel} />;
                 if (mediaLabel.startsWith('video: ')) return <video className="max-w-full rounded-md" controls preload="metadata" src={mediaUrl} aria-label={mediaLabel} />;
                 return <a className="text-[var(--gnosi-primary)] hover:underline" href={mediaUrl}>{children}</a>;
             }

@@ -14,6 +14,7 @@ import { Sliders } from 'lucide-react';
 import { ToolsSettingsPanel } from '../AI/AIResourcesSettings';
 import { Zap } from 'lucide-react';
 import type { SettingsController } from './useGlobalSettingsController';
+import { SpeechSettings } from '../../../shared/speech/SpeechSettings';
 
 type Props = { context: SettingsController; focusedProfileId?: string };
 
@@ -35,6 +36,7 @@ export function AiPanel({ context, focusedProfileId }: Props) {
       items={[
         { id: 'agents', icon: Bot, label: t('settings.ai.assistant.title') },
         { id: 'memory', icon: Brain, label: t('learning.memory_title') },
+        { id: 'voice', icon: Activity, label: t('speech.title') },
         { id: 'skills', icon: Zap, label: t('settings.ai.resources.skills_tab') },
         { id: 'tools', icon: Sliders, label: t('settings.ai.resources.tools_tab') },
         { id: 'models', icon: Activity, label: t('settings.ai.resources.models_tab') },
@@ -60,6 +62,7 @@ export function AiPanel({ context, focusedProfileId }: Props) {
     <ModelConsumption context={context} />
 
     {aiSection === 'consumption' && <AIConsumptionDashboard context={context} />}
+    {aiSection === 'voice' && <Section title={t('speech.title')} icon={Activity}><SpeechSettings editable={['admin', 'owner'].includes(context.role)} /></Section>}
 
     {aiSection === 'models' && <div style={{ height: '30px' }} />}
 

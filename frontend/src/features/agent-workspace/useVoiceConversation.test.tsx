@@ -5,6 +5,8 @@ import { useVoiceConversation } from './useVoiceConversation';
 
 const local = vi.hoisted(() => ({ capture: vi.fn(), supported: false }));
 const platform = vi.hoisted(() => ({ isElectron: false }));
+const output = vi.hoisted(() => ({ state: 'idle', activity: 'idle', error: false, stop: vi.fn(), calls: vi.fn() }));
+vi.mock('../../shared/speech/useSpeechOutput', () => ({ useSpeechOutput: (...args: unknown[]) => { output.calls(...args); return output; } }));
 vi.mock('../../shared/platform/electron', () => platform);
 vi.mock('./useLocalVoiceCapture', () => ({ useLocalVoiceCapture: (...args: unknown[]) => { local.capture(...args); return { supported: local.supported }; } }));
 class Recognition {
@@ -15,7 +17,7 @@ class Recognition {
   start = vi.fn(); abort = vi.fn();
   constructor() { Recognition.instances.push(this); }
 }
-const cancel = vi.fn(); const speak = vi.fn();
+
 const identity = { agent_id: 'agent', session_id: 'session' };
 const prompt = vi.fn();
 let root: Root; let container: HTMLDivElement;
@@ -32,10 +34,10 @@ async function render(props: { busy?: boolean; reply?: string } = {}) {
 }
 beforeEach(() => {
   vi.clearAllMocks(); Recognition.instances = []; local.supported = false; platform.isElectron = false;
+  output.state = 'idle'; output.activity = 'idle';
   container = document.createElement('div'); document.body.append(container); root = createRoot(container); mounted = true;
   Object.defineProperty(window, 'SpeechRecognition', { configurable: true, value: Recognition });
   Object.defineProperty(window, 'webkitSpeechRecognition', { configurable: true, value: undefined });
-  Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: { cancel, speak } });
 });
 afterEach(async () => {
   if (mounted) await act(async () => { root.unmount(); await Promise.resolve(); });
@@ -88,7 +90,7 @@ describe('voice conversation lifecycle', () => {
     expect(listener?.abort).toHaveBeenCalled(); expect(listener?.onresult).toBeNull();
     await act(async () => { value.toggle(); await Promise.resolve(); }); const next = Recognition.instances[1];
     await act(async () => { root.unmount(); await Promise.resolve(); }); mounted = false;
-    expect(next?.abort).toHaveBeenCalled(); expect(next?.onerror).toBeNull(); expect(cancel).toHaveBeenCalled();
+    expect(next?.abort).toHaveBeenCalled(); expect(next?.onerror).toBeNull(); expect(output.stop).toHaveBeenCalled();
   });
   it('reports recognition failures and stops the listener', async () => {
     await render(); await act(async () => { value.toggle(); await Promise.resolve(); });
@@ -97,21 +99,22 @@ describe('voice conversation lifecycle', () => {
     expect(value.failed).toBe(true); expect(value.active).toBe(false);
     expect(listener?.abort).toHaveBeenCalled(); expect(listener?.onresult).toBeNull();
   });
-  it('speaks only a new reply and cancels speech on stop', async () => {
-    class Utterance {
-      lang = ''; onend: (() => void) | null = null; onerror: (() => void) | null = null;
-      constructor(readonly text: string) {}
-    }
-    vi.stubGlobal('SpeechSynthesisUtterance', Utterance);
-    try {
-      await render({ reply: 'Already visible reply' });
-      await act(async () => { value.toggle(); await Promise.resolve(); }); expect(speak).not.toHaveBeenCalled();
-      await render({ reply: 'New reply' });
-      expect(speak).toHaveBeenCalledOnce();
-      expect(speak).toHaveBeenCalledWith(expect.objectContaining({ text: 'New reply', lang: 'ca' }));
-      expect(Recognition.instances[0]?.abort).toHaveBeenCalled();
-      await act(async () => { value.toggle(); await Promise.resolve(); }); expect(cancel).toHaveBeenCalled();
-    } finally { vi.unstubAllGlobals(); }
+  it('delegates output to the shared engine and pauses capture during synthesis and playback', async () => {
+    await render({ reply: 'Already visible reply' });
+    expect(output.calls).toHaveBeenLastCalledWith(identity, 'ca', false, false, 'Already visible reply', 'Already visible reply');
+    await act(async () => { value.toggle(); await Promise.resolve(); });
+    output.state = 'preparing'; output.activity = 'preparing';
+    await render({ reply: 'New reply' });
+    expect(Recognition.instances[0]?.abort).toHaveBeenCalled();
+    output.state = 'speaking'; output.activity = 'speaking';
+    await render({ reply: 'New reply' });
+    expect(Recognition.instances).toHaveLength(1);
+    output.state = 'idle'; output.activity = 'idle';
+    await render({ reply: 'New reply' });
+    expect(Recognition.instances).toHaveLength(2);
+    await act(async () => { value.stop(); await Promise.resolve(); });
+    expect(output.stop).toHaveBeenCalled();
+    expect(value.active).toBe(false);
   });
   it('uses the local microphone fallback only after activation and passes suspension and stop', async () => {
     Object.defineProperty(window, 'SpeechRecognition', { configurable: true, value: undefined }); local.supported = true;

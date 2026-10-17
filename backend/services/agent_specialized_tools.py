@@ -14,7 +14,7 @@ T = TypeVar("T")
 ENGINES = {
     "transcription": ("capture", "Whisper"),
     "handwriting": ("capture", "TrOCR"),
-    "speech": ("podcast", "gTTS"),
+    "speech": ("podcast", "shared-speech"),
     "semantic-ranking": ("literature", "sentence-transformers"),
 }
 
@@ -27,6 +27,12 @@ def run_engine(kind: str, resource: str, invoke: Callable[[], T]) -> T:
     from backend.services import agent_execution_store as store
 
     operation, engine = ENGINES[kind]
+    speech_provider = "local-engine"
+    if kind == "speech":
+        from backend.services.workspace_speech import get_settings
+        selected = get_settings()
+        engine = "gpt-4o-mini-tts" if selected.provider == "openai" else "macos-say-pyav-v1"
+        speech_provider = selected.provider
     scope = current_scope()
     revalidate_scope(scope)
     inherited = _snapshot.get()
@@ -55,13 +61,18 @@ def run_engine(kind: str, resource: str, invoke: Callable[[], T]) -> T:
     row = AgentRun(run_id=run_id, parent_run_id=parent, agent_id=snapshot.agent_id,
         skill_id=skill_id(operation), operation=kind, origin=operation_origin(), status="running",
         created_at=time.time(), updated_at=time.time(), model=engine,
-        provider="google-tts" if kind == "speech" else "local-engine", execution_revision=snapshot.revision)
+        provider=speech_provider, execution_revision=snapshot.revision)
     store.create(row, scope, {"mode": "specialized", "resource": resource}, snapshot.model_dump())
     report_run(run_id)
     from backend.services.agent_execution_trace import append
     append(scope, run_id, "engine.request", {"engine": engine, "resource": resource, "classification": "technical_inference", "provider_internal_visibility": False})
     try:
-        result = invoke()
+        if kind == "speech":
+            from backend.services.workspace_speech import speech_session
+            with speech_session(selected):
+                result = invoke()
+        else:
+            result = invoke()
         append(scope, run_id, "engine.response", result)
         revalidate_scope(scope)
         if store.cancelled(scope, run_id) or (parent and store.cancelled(scope, parent)):
@@ -102,18 +113,19 @@ def recognize_asset(relative_path: str, language: str = "") -> dict[str, Any]:
 
 def synthesize_speech(text: str, language: str = "ca") -> dict[str, Any]:
     """Synthesize speech and save one deterministic audio artifact in the Vault."""
-    import hashlib
+    from backend.services.workspace_speech import fingerprint, effective_settings_sync, speech_session
     from backend.services.audio_summarizer import _generate_tts_atomically
     from backend.services.agent_execution_scope import current_scope
-    digest = hashlib.sha256((language + "\0" + text).encode()).hexdigest()
-    relative = Path("data") / "podcasts" / f"speech-{digest}.mp3"
-    path = Path(current_scope().vault_path) / relative
-    def generate() -> dict[str, Any]:
-        if not path.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            _generate_tts_atomically(text, path, language)
-        return {"path": relative.as_posix()}
-    return run_engine("speech", relative.as_posix(), generate)
+    with speech_session(effective_settings_sync(language)):
+        digest = fingerprint(text, language)
+        relative = Path("data") / "podcasts" / f"speech-{digest}.mp3"
+        path = Path(current_scope().vault_path) / relative
+        def generate() -> dict[str, Any]:
+            if not path.exists():
+                path.parent.mkdir(parents=True, exist_ok=True)
+                _generate_tts_atomically(text, path, language)
+            return {"path": relative.as_posix()}
+        return run_engine("speech", relative.as_posix(), generate)
 
 
 def rank_literature(query: str, works: list[dict[str, Any]]) -> dict[str, Any]:
@@ -129,7 +141,7 @@ def registrations() -> list[tuple[ToolDescriptor, Any]]:
     specs: list[tuple[str, Callable[..., Any], str]] = [
         ("transcribe_asset", transcribe_asset, "Whisper"),
         ("recognize_asset", recognize_asset, "TrOCR"),
-        ("synthesize_speech", synthesize_speech, "gTTS"),
+        ("synthesize_speech", synthesize_speech, "shared-speech"),
         ("rank_literature", rank_literature, "sentence-transformers"),
     ]
     for name, function, engine in specs:

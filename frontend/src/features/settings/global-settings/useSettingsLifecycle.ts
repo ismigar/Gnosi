@@ -24,8 +24,9 @@ export function useSettingsLifecycle(state: Input) {
     if (!isOpen) return;
     const pluginTab = requestedPluginTab();
     const requestedTab = pluginTab ?? (initialTab === 'newsletters' ? 'reader' : (initialTab ?? 'general'));
-    setActiveTab(requestedTab === 'automations' ? 'ai' : requestedTab);
+    setActiveTab(['automations', 'voice'].includes(requestedTab) ? 'ai' : requestedTab);
     if (requestedTab === 'automations') setAiSection('automations');
+    if (requestedTab === 'voice') setAiSection('voice');
     if (initialTab === 'newsletters') setReaderSection('subscriptions');
     if (['api', 'plugins'].includes(requestedTab) || pluginForSettingsTab(requestedTab) || initialPluginId) {
       setIsAdvancedOpen(true);

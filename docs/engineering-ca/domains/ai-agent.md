@@ -2,6 +2,11 @@
 status: implemented
 last_verified: 2026-10-15
 source_paths:
+  - backend/services/workspace_speech.py
+  - backend/domains/agent/routes/workspace_speech.py
+  - frontend/src/shared/speech
+  - frontend/src/shared/api/speech-output.ts
+  - backend/tests/test_agent_workspace_speech.py
   - backend/services/agent_workspace_store.py
   - backend/services/agent_workspace_files.py
   - backend/services/agent_workspace_documents.py
@@ -1683,3 +1688,9 @@ L’anàlisi Python requereix Docker i una imatge local ja instal·lada (per def
 El pont Electron exposa un contracte IPC acotat per a emissors de confiança. El treball natiu queda limitat a la finestra propietària i a la conversa autenticada. Les finestres del navegador tenen aïllament de seguretat, sessions aïllades, cap accés a Node ni a preload, finestres emergents i permisos denegats i navegació del mateix origen. Cada clic o entrada de text proposats necessiten consentiment natiu; la consulta del DOM és de només lectura i es tornen a comprovar les generacions de les capacitats abans d’enviar entrades natives limitades. Prendre el control, aturar, revocar o substituir el navegador invalida les observacions i les entrades pendents. La selecció d’aplicacions de macOS només autoritza l’aplicació seleccionada; l’entrada de text comprova el focus i utilitza un executor natiu cancel·lable. L’acció opcional de Missatges obre un esborrany perquè una persona el revisi. Les aplicacions empaquetades inclouen descripcions localitzades de la finalitat de l’automatització i del micròfon a macOS; aquestes descripcions no concedeixen permisos del sistema operatiu. Les peticions de l’agent utilitzen una cua persistent amb reserva i concessió temporal i no repeteixen mai una acció reservada després d’una desconnexió.
 
 La veu només s’inicia des del botó explícit del micròfon de la conversa. A Electron utilitza el servei local governat de transcripció Whisper, encara que Chromium exposi un constructor de reconeixement del navegador. Fora d’Electron utilitza el reconeixement del navegador quan està disponible; altrament, envia fragments d’àudio complets i de mida limitada al servei local. El micròfon es pausa mentre l’agent treballa o es reprodueix veu, i la gravació, les peticions i la reproducció s’aturen en sortir o canviar d’àmbit. La transcripció local pot descarregar el model configurat durant el primer ús explícit. El reconeixement de veu del navegador utilitza el servei configurat al navegador. Les instruccions de veu entren a la mateixa cua del torn següent delimitada per l’àmbit, sense substituir l’esborrany escrit al compositor.
+
+### Veu de sortida compartida
+
+Configuració → IA → Veu desa una única preferència `ai.speech_output` per al Vault actiu. El xat, els pòdcasts del lector, els àudios de l’agent i l’eina RSS utilitzen el mateix motor, veu, llengua i velocitat del servei `backend/services/workspace_speech.py`. La síntesi pot ser local amb les veus instal·lades de macOS o neuronal d’OpenAI, seleccionada explícitament. La clau d’API es manté al magatzem de credencials del servidor; l’opció d’OpenAI informa de l’enviament del text i del possible cost. No hi ha cap alternativa externa automàtica. El motor local només està disponible actualment a macOS.
+
+La prova de veu utilitza una mostra traduïda fixa. La preparació i la reproducció tenen estats diferenciats. La coordinació de l’àudio pausa el micròfon mentre parla l’app o es reprodueix un episodi del lector. Aturar, canviar de context o de configuració cancel·la les peticions i allibera els recursos de reproducció. Els àudios antics conserven la veu original fins que es regeneren; la memòria cau nova identifica la configuració efectiva. Es llegeix la prosa sense recitar la sintaxi Markdown ni els blocs de codi. La naturalitat i la qualitat de cada llengua requereixen proves d’escolta; els tests simulats no demostren equivalència amb ChatGPT.

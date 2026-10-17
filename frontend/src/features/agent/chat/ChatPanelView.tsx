@@ -10,6 +10,7 @@ import { ChatHeader } from './ChatHeader';
 import { ChatDock } from './ChatDock';
 import { ChatSessionList } from './ChatSessionList';
 import type { useAgentChatController } from './useAgentChatController';
+import { spokenReply } from './spokenReply';
 
 export function ChatPanelView({ controller }: { controller: ReturnType<typeof useAgentChatController> }) {
     const {
@@ -31,6 +32,7 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
         confirmConversationRewind
     } = controller;
     const learningVisible = showLearning && !notebookId && !readOnly;
+    const latestSpeech = spokenReply(messages);
     if (!isOpen && !embedded) {
         return <ChatDock isDockOpen={isDockOpen} agentIcon={agentIcon} setIsDockOpen={setIsDockOpen} setIsOpen={setIsOpen} />;
     }
@@ -127,7 +129,7 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
                     </div>
 
                     {!learningVisible && !readOnly && <PromptQueue items={controller.queueItems} error={controller.queueStorageError} update={controller.updateQueuedPrompt} remove={controller.removeQueuedPrompt} move={controller.moveQueuedPromptBy} resume={controller.resumeQueue} />}
-                    {!learningVisible && <AgentWorkspacePanel scopeKey={browserStorageScope} agentId={selectedAgentId} sessionId={sessionId} readOnly={readOnly} onPrompt={focusComposerWith} onVoicePrompt={controller.handleVoicePrompt} latestAssistantReply={[...messages].reverse().find(message => message.role === 'assistant')?.content || ''} isAgentBusy={isLoading} />}
+                    {!learningVisible && <AgentWorkspacePanel scopeKey={browserStorageScope} agentId={selectedAgentId} sessionId={sessionId} readOnly={readOnly} onPrompt={focusComposerWith} onVoicePrompt={controller.handleVoicePrompt} latestAssistantReply={latestSpeech.text} latestAssistantReplyId={latestSpeech.key} isAgentBusy={isLoading} />}
                     {/* Input Area */}
                     {!learningVisible && <ChatComposer
                         readOnly={readOnly}
