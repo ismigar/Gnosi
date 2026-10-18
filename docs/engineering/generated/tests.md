@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
-| Vitest | 733 | 3272 |
+| Vitest | 733 | 3273 |
 | pytest | 712 | 5424 |
 
 ## Files
@@ -769,7 +769,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/tests/contracts/css-modules.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/contracts/css-modules.test.ts) | 6 | call-pattern estimate |
 | Vitest | [`frontend/tests/contracts/feature-boundaries.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/contracts/feature-boundaries.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/tests/contracts/lint-generated-artifacts.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/contracts/lint-generated-artifacts.test.ts) | 1 | call-pattern estimate |
-| Vitest | [`frontend/tests/contracts/lint-runner.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/contracts/lint-runner.test.ts) | 6 | call-pattern estimate |
+| Vitest | [`frontend/tests/contracts/lint-runner.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/contracts/lint-runner.test.ts) | 7 | call-pattern estimate |
 | Vitest | [`frontend/tests/contracts/typecheck-runner.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/contracts/typecheck-runner.test.ts) | 9 | call-pattern estimate |
 | Vitest | [`frontend/tests/feature-public-entry-rule.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/feature-public-entry-rule.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/tests/frontend-ownership.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/frontend-ownership.test.ts) | 4 | call-pattern estimate |

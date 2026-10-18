@@ -5,8 +5,6 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const cwd = fileURLToPath(new URL('../', import.meta.url));
-const eslint = fileURLToPath(new URL('../node_modules/eslint/bin/eslint.js', import.meta.url));
-const batchSize = 128;
 
 function exitStatus(result) {
   if (result.error) console.error(result.error.message);
@@ -29,15 +27,12 @@ function lint() {
       throw new Error('ESLint discovery did not return a nonempty file list');
     }
 
-    // Local pre-PR and CI use the same complete, zero-warning gate. Fresh serial
-    // processes bound retained TypeScript/AST state without changing lint rules.
-    for (let offset = 0; offset < files.length; offset += batchSize) {
-      const args = [eslint, '--max-warnings=0', '--concurrency=off'];
-      const cache = process.env.GNOSI_ESLINT_CACHE;
-      if (cache) args.push('--cache', '--cache-strategy', 'content', '--cache-location', cache);
-      args.push('--', ...files.slice(offset, offset + batchSize));
-      console.log(`ESLint batch ${Math.floor(offset / batchSize) + 1}/${Math.ceil(files.length / batchSize)} (${Math.min(batchSize, files.length - offset)} files)`);
-      const result = spawnSync(process.execPath, args, { cwd, stdio: 'inherit' });
+    // Recycle after two original 128-file batches to bound retained parser
+    // state. Each cold worker exits before the next worker can start.
+    for (let offset = 0; offset < files.length; offset += 256) {
+      const result = spawnSync(process.execPath, [
+        '--expose-gc', fileURLToPath(new URL('./lint-worker.mjs', import.meta.url)), manifest, String(offset),
+      ], { cwd, stdio: 'inherit' });
       if (result.status !== 0) return exitStatus(result);
     }
     return 0;

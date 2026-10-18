@@ -128,7 +128,7 @@ def test_shared_frontend_lint_preserves_scope_cache_arguments_and_failure(
     scripts = tmp_path / "frontend/scripts"
     scripts.mkdir(parents=True)
     runner = scripts / "lint.mjs"
-    for name in ("lint.mjs", "lint-files.mjs"):
+    for name in ("lint.mjs", "lint-files.mjs", "lint-worker.mjs"):
         (scripts / name).write_text((ROOT / "frontend/scripts" / name).read_text())
     source = scripts.parent / "src"
     source.mkdir()
@@ -139,7 +139,7 @@ def test_shared_frontend_lint_preserves_scope_cache_arguments_and_failure(
     eslint = eslint_root / "bin/eslint.js"
     eslint.parent.mkdir(parents=True)
     (eslint_root / "package.json").write_text(json.dumps({
-        "name": "eslint", "type": "module", "exports": "./api.mjs",
+        "name": "eslint", "type": "commonjs", "exports": "./api.mjs",
     }))
     # The real discovery helper executes against a deterministic API shim.
     # Real ESLint traversal/rules/cache are exercised by the frontend contracts.
@@ -153,15 +153,44 @@ def test_shared_frontend_lint_preserves_scope_cache_arguments_and_failure(
         "} }\n"
     )
     calls = tmp_path / "lint-calls.jsonl"
+    cleanup = tmp_path / "lint-cleanup.txt"
     final_batch = (file_count - 1) // 128
     eslint.write_text(
-        "import { appendFileSync, existsSync, readFileSync } from 'node:fs';\n"
+        "require('../lib/cli.js').execute(process.argv, undefined).then(status => { process.exitCode = status; });\n"
+    )
+    cli = eslint_root / "lib/cli.js"
+    cli.parent.mkdir()
+    cli.write_text(
+        "const assert = require('node:assert/strict');\n"
+        "const { appendFileSync, existsSync, readFileSync } = require('node:fs');\n"
         f"const log = {json.dumps(str(calls))};\n"
+        "exports.execute = async (args, text) => {\n"
+        "assert.strictEqual(args, process.argv);\n"
+        "assert.equal(text, undefined);\n"
+        f"assert.equal(args[1], {json.dumps(str(eslint))});\n"
+        "assert.equal(typeof globalThis.gc, 'function');\n"
         "const previous = existsSync(log) ? readFileSync(log, 'utf8').trim().split('\\n').length : 0;\n"
-        "appendFileSync(log, JSON.stringify({args: process.argv.slice(2), cwd: process.cwd()}) + '\\n');\n"
+        "appendFileSync(log, JSON.stringify({args: args.slice(2), cwd: process.cwd(), pid: process.pid}) + '\\n');\n"
         "console.log('synthetic lint output');\n"
         "console.error('synthetic lint diagnostic');\n"
-        f"process.exit(previous === {final_batch} ? {status} : 0);\n"
+        f"return previous === {final_batch} ? {status} : 0;\n"
+        "};\n"
+    )
+    # Mirror the installed parser's public entrypoint and dependency resolution.
+    typescript_eslint = scripts.parent / "node_modules/typescript-eslint"
+    typescript_eslint.mkdir()
+    (typescript_eslint / "package.json").write_text(json.dumps({
+        "name": "typescript-eslint", "main": "index.cjs",
+    }))
+    (typescript_eslint / "index.cjs").write_text("module.exports = {};\n")
+    parser = scripts.parent / "node_modules/@typescript-eslint/parser"
+    parser.mkdir(parents=True)
+    (parser / "package.json").write_text(json.dumps({
+        "name": "@typescript-eslint/parser", "main": "index.cjs",
+    }))
+    (parser / "index.cjs").write_text(
+        "const { appendFileSync } = require('node:fs');\n"
+        f"exports.clearCaches = () => appendFileSync({json.dumps(str(cleanup))}, 'cleared\\n');\n"
     )
     environment = dict(os.environ)
     environment.pop("GNOSI_ESLINT_CACHE", None)
@@ -175,6 +204,9 @@ def test_shared_frontend_lint_preserves_scope_cache_arguments_and_failure(
     assert result.returncode == status
     payloads = [json.loads(line) for line in calls.read_text().splitlines()]
     assert len(payloads) == final_batch + 1
+    workers = (file_count + 255) // 256
+    assert len({payload["pid"] for payload in payloads}) == workers
+    assert cleanup.read_text() == "cleared\n" * workers
     for index, payload in enumerate(payloads):
         expected = ["--max-warnings=0", "--concurrency=off"]
         if cached:

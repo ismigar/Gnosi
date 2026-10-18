@@ -23,6 +23,7 @@ source_paths:
   - frontend/scripts/check-bundle-size.ts
   - frontend/scripts/lint.mjs
   - frontend/scripts/lint-files.mjs
+  - frontend/scripts/lint-worker.mjs
   - frontend/scripts/typecheck.mjs
   - frontend/scripts/typecheck-worker.mjs
 tests:
@@ -36,6 +37,7 @@ tests:
   - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
   - frontend/tests/contracts/lint-runner.test.ts
+  - frontend/scripts/lint-worker.test.mjs
   - frontend/tests/contracts/typecheck-runner.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -164,8 +166,13 @@ expected generated-catalog updates are the only excluded source differences.
 ## Frontend lint memory
 
 `pnpm lint:frontend` discovers files through ESLint's configured directory scan,
-then checks batches of at most 128 files in fresh, sequential processes. The
-discovery pass does not parse source or populate a lint cache; only the subsequent
+then checks batches of at most 128 files through the installed CLI. Cold workers
+run serially, each handling at most two original batches before exiting. The
+parser's normal project service remains available within that pair; an event-loop
+yield and explicit GC allow completed CLI state to be collected after each
+successful batch. Public parser caches are cleared once per worker on completion
+or failure, and its process exits before the next worker starts. The discovery
+pass does not parse source or populate a lint cache; only the subsequent
 CLI checks can establish success. All existing rules, TypeScript project-service
 checks, ignores and the zero-warning threshold apply to every batch. A failed
 batch stops the command. `GNOSI_ESLINT_CACHE` still enables content-based caching.
@@ -176,7 +183,9 @@ configuration and tool locks invalidate stale analyzer results; the default
 remains uncached.
 The mac-idle heap, process-tree memory budget and overall phase deadline stay
 unchanged. Runner regressions compare discovery with real ESLint and exercise
-later-batch failures, type-aware rules, cache invalidation and child termination.
+later-batch failures, type-aware rules, cache invalidation, fatal exit status and
+child termination. Pure Node worker tests also cover serial execution, exact
+arguments, paired service lifetimes, final cleanup and argument restoration.
 
 Before a mac-idle phase starts, readiness waits at most 90 seconds to observe
 30 consecutive seconds of normal pressure. A warning resets the normal streak;
