@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, cast
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -95,12 +95,12 @@ def _snapshot(db: Session) -> dict[str, Any]:
 
 
 def _reconcile(db: Session, sources: list[dict[str, Any]]) -> bool:
-    existing = {}
-    for row in db.query(FeedSource).all():
-        canonical, _alias = canonical_source_url(row.url)
+    existing: dict[str, FeedSource] = {}
+    for stored in db.query(FeedSource).all():
+        canonical, _alias = canonical_source_url(cast(str, stored.url))
         if canonical in existing:
             raise SourceRegistryError('Duplicate subscription URL')
-        existing[canonical] = row
+        existing[canonical] = stored
     changed = False
     for item in sources:
         row = existing.pop(item['url'], None)
