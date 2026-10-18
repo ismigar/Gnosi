@@ -476,8 +476,8 @@ reintentable sense sobreescriure-les. Les URL amb usuari i contrasenya incrustat
 s'han de netejar abans de migrar. El bloqueig local no coordina escriptures
 simultànies de dispositius diferents; s'aplica la gestió de conflictes del núvol.
 
-Les adreces de newsletters també admeten `newsletter://adreça@example.test` i es
-desen com a `mailto:adreça@example.test`, també en importar OPML o el registre.
+Les adreces de newsletters també admeten `newsletter://address@example.test` i es
+desen com a `mailto:address@example.test`, també en importar OPML o el registre.
 Es rebutgen duplicats entre els dos formats i àlies amb contrasenyes, delimitadors
 codificats, controls, camins o paràmetres. La normalització conserva els vincles
 dels articles. Les entrades RSS i mailto existents mantenen el comportament;

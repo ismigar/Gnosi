@@ -421,8 +421,8 @@ sobrescribirlos. Las URL con usuario y contraseña incrustados deben limpiarse
 antes de migrar. El bloqueo local no coordina escrituras simultáneas entre
 dispositivos; se aplica la gestión de conflictos del proveedor de nube.
 
-Las direcciones de newsletters también admiten `newsletter://dirección@example.test`
-y se guardan como `mailto:dirección@example.test`, incluso al importar OPML o el
+Las direcciones de newsletters también admiten `newsletter://address@example.test`
+y se guardan como `mailto:address@example.test`, incluso al importar OPML o el
 registro. Se rechazan duplicados entre ambos formatos y alias con contraseñas,
 delimitadores codificados, controles, rutas o parámetros. Se conservan los vínculos
 de artículos. Las entradas RSS y mailto existentes mantienen su comportamiento;

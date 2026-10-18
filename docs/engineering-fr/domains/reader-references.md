@@ -463,8 +463,8 @@ d'utilisateur et un mot de passe doivent être nettoyées avant migration. Le
 verrou local ne coordonne pas les écritures simultanées entre appareils ; les
 conflits restent gérés par le fournisseur cloud.
 
-Les adresses de newsletters acceptent aussi `newsletter://adresse@example.test`,
-enregistré sous la forme `mailto:adresse@example.test`, y compris dans les imports
+Les adresses de newsletters acceptent aussi `newsletter://address@example.test`,
+enregistré sous la forme `mailto:address@example.test`, y compris dans les imports
 OPML ou du registre. Les doublons entre ces formes et les alias contenant des mots
 de passe, séparateurs encodés, caractères de contrôle, chemins ou paramètres sont
 refusés. Les liens des articles sont conservés. Les entrées RSS et mailto gardent

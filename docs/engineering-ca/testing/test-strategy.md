@@ -23,6 +23,7 @@ source_paths:
   - frontend/scripts/check-bundle-size.ts
   - frontend/scripts/lint.mjs
   - frontend/scripts/lint-files.mjs
+  - frontend/scripts/lint-worker.mjs
   - frontend/scripts/typecheck.mjs
   - frontend/scripts/typecheck-worker.mjs
 tests:
@@ -36,6 +37,7 @@ tests:
   - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
   - frontend/tests/contracts/lint-runner.test.ts
+  - frontend/scripts/lint-worker.test.mjs
   - frontend/tests/contracts/typecheck-runner.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
