@@ -91,9 +91,9 @@ it('updates every visible boundary and the summary when Settings changes, withou
 });
 
 function editInput(input: HTMLInputElement, value: string): void {
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-    if (!setter) throw new Error('Missing native input setter');
-    setter.call(input, value);
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    if (!descriptor?.set) throw new Error('Missing native input setter');
+    descriptor.set.call(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
 }
@@ -111,13 +111,13 @@ it('rejects invalid scalar and planning edits without clearing persisted dates, 
         predecessorIds: ['before'], constraintType: 'SNET', constraintDate: '2026-10-11', deadline: '2026-10-16' });
     try {
         await act(async () => { root.render(<I18nextProvider i18n={locale}><VaultDateProperty value={value}
-            onChange={save} planningEnabled fieldConfig={{ id: 'date' }} /></I18nextProvider>); });
+            onChange={save} planningEnabled fieldConfig={{ id: 'date' }} /></I18nextProvider>); await Promise.resolve(); });
         const planning = Array.from(container.querySelectorAll('button')).find(button => button.textContent === en.schema.period_planning);
         expect(planning).toBeDefined();
-        await act(async () => { planning?.click(); });
+        await act(async () => { planning?.click(); await Promise.resolve(); });
         const inputForLabel = (text: string): HTMLInputElement => {
             const label = Array.from(container.querySelectorAll('label')).find(candidate =>
-                Array.from(candidate.querySelectorAll('span')).some(span => span.textContent?.trim() === text));
+                Array.from(candidate.querySelectorAll('span')).some(span => span.textContent.trim() === text));
             const input = label?.querySelector<HTMLInputElement>('input[type="text"]');
             if (!input) throw new Error(`Missing date control: ${text}`);
             return input;
@@ -135,26 +135,26 @@ it('rejects invalid scalar and planning edits without clearing persisted dates, 
         ]);
         // Invalid edits must preserve both scalar and planning boundaries.
         for (const input of container.querySelectorAll<HTMLInputElement>('input[type="text"]')) {
-            await act(async () => { editInput(input, '02/30/2026'); });
-            await act(async () => { input.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); });
+            await act(async () => { editInput(input, '02/30/2026'); await Promise.resolve(); });
+            await act(async () => { input.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); await Promise.resolve(); });
         }
         expect(save).not.toHaveBeenCalled();
         expect(planningStart.value).toBe('10/12/2026');
         expect(planningEnd.value).toBe('10/13/2026');
         expect(constraint.value).toBe('10/11/2026');
         expect(deadline.value).toBe('10/16/2026');
-        await act(async () => { editInput(start, '10/11/2026'); });
+        await act(async () => { editInput(start, '10/11/2026'); await Promise.resolve(); });
         expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ start: '2026-10-11', end: '2026-10-13' }));
-        await act(async () => { editInput(start, ''); });
+        await act(async () => { editInput(start, ''); await Promise.resolve(); });
         expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ start: '', end: '2026-10-13' }));
-        await act(async () => { editInput(deadline, ''); });
-        await act(async () => { deadline.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); });
+        await act(async () => { editInput(deadline, ''); await Promise.resolve(); });
+        await act(async () => { deadline.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); await Promise.resolve(); });
         expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ deadline: '' }));
-        await act(async () => { editInput(constraint, ''); });
-        await act(async () => { constraint.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); });
+        await act(async () => { editInput(constraint, ''); await Promise.resolve(); });
+        await act(async () => { constraint.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); await Promise.resolve(); });
         expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ constraintDate: '' }));
     } finally {
-        await act(async () => { root.unmount(); });
+        await act(async () => { root.unmount(); await Promise.resolve(); });
         container.remove();
     }
 });
@@ -172,19 +172,19 @@ it('uses the field format for recurrence-until and serializes its date without c
     try {
         await act(async () => { root.render(<I18nextProvider i18n={locale}><VaultDateProperty value="2026-10-12"
             onChange={save} onRruleChange={saveRule} rruleValue="FREQ=DAILY;UNTIL=20261016T235959Z"
-            fieldConfig={{ format: { dateFormat: 'DD/MM/YYYY' } }} /></I18nextProvider>); });
+            fieldConfig={{ format: { dateFormat: 'DD/MM/YYYY' } }} /></I18nextProvider>); await Promise.resolve(); });
         const repeat = container.querySelector<HTMLButtonElement>(`button[title="${en.vault_date.toggle_recurrence}"]`);
         expect(repeat).not.toBeNull();
-        await act(async () => { repeat?.click(); });
+        await act(async () => { repeat?.click(); await Promise.resolve(); });
         const inputs = Array.from(container.querySelectorAll<HTMLInputElement>('input[type="text"]'));
         expect(inputs.map(input => input.value)).toEqual(['12/10/2026', '16/10/2026']);
         const until = inputs[1];
         if (!until) throw new Error('Missing recurrence-until input');
-        await act(async () => { editInput(until, '17/10/2026'); });
+        await act(async () => { editInput(until, '17/10/2026'); await Promise.resolve(); });
         expect(saveRule).toHaveBeenLastCalledWith(expect.stringContaining('UNTIL=20261017T235959Z'));
         expect(save).not.toHaveBeenCalled();
     } finally {
-        await act(async () => { root.unmount(); });
+        await act(async () => { root.unmount(); await Promise.resolve(); });
         container.remove();
     }
 });

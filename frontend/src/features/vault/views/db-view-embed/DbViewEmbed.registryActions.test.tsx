@@ -77,6 +77,7 @@ async function renameOther(name = 'Renamed', menuIndex = 1): Promise<void> {
     await act(async () => {
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, name);
         input.dispatchEvent(new Event('input', { bubbles: true }));
+        await Promise.resolve();
     });
     await click(button('Rename'));
 }

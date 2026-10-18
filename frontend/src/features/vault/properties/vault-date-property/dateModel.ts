@@ -132,7 +132,7 @@ export function dateInputBoundary(raw: string, type: VaultDatePropertyType, loca
     const text = raw.trim();
     if (!text) return '';
     const iso = text.match(/^(-?\d{4,})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?$/);
-    let year: number, month: number, day: number, hour = 0, minute = 0;
+    let year: number, month: number, day: number, hour: number, minute: number;
     if (iso) {
         [year, month, day] = [Number(iso[1]), Number(iso[2]), Number(iso[3])];
         hour = Number(iso[4] || 0); minute = Number(iso[5] || 0);
