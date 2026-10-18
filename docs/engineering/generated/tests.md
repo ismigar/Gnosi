@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
 | Vitest | 735 | 3295 |
-| pytest | 713 | 5431 |
+| pytest | 713 | 5443 |
 
 ## Files
 
@@ -1042,7 +1042,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_index_schema_titles.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_index_schema_titles.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_indexed_page_metadata_boundary.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_indexed_page_metadata_boundary.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_inline_comments_permissions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_inline_comments_permissions.py) | 3 | Python AST |
-| pytest | [`backend/tests/test_integration_secret_storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_integration_secret_storage.py) | 15 | Python AST |
+| pytest | [`backend/tests/test_integration_secret_storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_integration_secret_storage.py) | 27 | Python AST |
 | pytest | [`backend/tests/test_integrations_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_integrations_api_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_interface_settings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_interface_settings.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_internal_sources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_internal_sources.py) | 21 | Python AST |

@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 259 | 51083 |
+| `services` | 259 | 51140 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1054 modules** and **201579 source lines**.
+Total: **1054 modules** and **201636 source lines**.
 
 ## agent
 
@@ -1032,7 +1032,7 @@ Total: **1054 modules** and **201579 source lines**.
 | [`backend/services/imap_idle_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/imap_idle_service.py) | 17 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical IMAP IDLE service. |
 | [`backend/services/imap_mail_sync_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/imap_mail_sync_service.py) | 35 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical IMAP synchronization service. |
 | [`backend/services/import_dedup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/import_dedup.py) | 140 | 0 | 5 | 0 | 3 | Deduplication in `POST /import-references`. |
-| [`backend/services/integration_manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/integration_manager.py) | 544 | 1 | 0 | 0 | 0 | No module docstring |
+| [`backend/services/integration_manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/integration_manager.py) | 601 | 1 | 0 | 0 | 0 | No module docstring |
 | [`backend/services/json_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/json_contracts.py) | 38 | 0 | 1 | 0 | 0 | JSON contract validation independent of optional format-checking packages. |
 | [`backend/services/library_paths.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/library_paths.py) | 29 | 0 | 2 | 0 | 2 | SINGLE resolution of the attachments folder: ALWAYS `<vault>/Library`. |
 | [`backend/services/literature_ai_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_ai_contracts.py) | 58 | 0 | 2 | 0 | 1 | Output contracts supplied to the governed literature executor. |
