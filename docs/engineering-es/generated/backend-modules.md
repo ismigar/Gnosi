@@ -16,7 +16,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 55 |
 | `config` | 13 | 1389 |
 | `data` | 2 | 214 |
-| `domains` | 581 | 115818 |
+| `domains` | 582 | 115981 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -24,11 +24,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 259 | 51032 |
+| `services` | 259 | 51083 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1053 modules** and **201335 source lines**.
+Total: **1054 modules** and **201549 source lines**.
 
 ## agent
 
@@ -448,7 +448,7 @@ Total: **1053 modules** and **201335 source lines**.
 | [`backend/domains/mail/routes/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail HTTP route handlers. |
 | [`backend/domains/mail/routes/actions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/actions.py) | 296 | 0 | 14 | 5 | 2 | Canonical mail actions. |
 | [`backend/domains/mail/routes/attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/attachments.py) | 144 | 0 | 3 | 3 | 2 | Canonical mail attachment routes. |
-| [`backend/domains/mail/routes/compose.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/compose.py) | 740 | 0 | 20 | 12 | 6 | Canonical mail compose. |
+| [`backend/domains/mail/routes/compose.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/compose.py) | 780 | 0 | 20 | 12 | 6 | Canonical mail compose. |
 | [`backend/domains/mail/routes/messages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/messages.py) | 570 | 0 | 11 | 10 | 7 | Canonical mail messages. |
 | [`backend/domains/mail/routes/remote_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/remote_images.py) | 39 | 1 | 1 | 1 | 1 | Mail-only route for bounded recovery of blocked remote raster images. |
 | [`backend/domains/mail/routes/tags.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/tags.py) | 354 | 0 | 16 | 0 | 0 | Canonical mail tags. |
@@ -463,13 +463,14 @@ Total: **1053 modules** and **201335 source lines**.
 | [`backend/domains/mail/services/local_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/local_analysis.py) | 395 | 4 | 15 | 0 | 1 | Conservative local extraction of literal entities from mail content. |
 | [`backend/domains/mail/services/remote_image_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/remote_image_cache.py) | 519 | 2 | 20 | 0 | 9 | Durable, URL-free cache storage for verified remote mail images. |
 | [`backend/domains/mail/services/remote_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/remote_images.py) | 596 | 7 | 15 | 8 | 8 | Durable, SSRF-hardened recovery for remote mail raster images. |
+| [`backend/domains/mail/services/submission.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/submission.py) | 94 | 1 | 6 | 1 | 1 | Bound mail submission without treating a cancelled wait as cancelled delivery. |
 | [`backend/domains/mail/sync/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail synchronization services. |
 | [`backend/domains/mail/sync/idle.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/idle.py) | 366 | 2 | 0 | 0 | 2 | IMAP IDLE service: push notifications when new messages arrive. |
 | [`backend/domains/mail/sync/imap_core.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_core.py) | 498 | 1 | 3 | 0 | 0 | IMAP pull synchronization and vault persistence. |
 | [`backend/domains/mail/sync/imap_mutations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_mutations.py) | 615 | 1 | 4 | 0 | 0 | IMAP server mutation operations. |
 | [`backend/domains/mail/sync/imap_protocol.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_protocol.py) | 249 | 1 | 10 | 0 | 5 | IMAP protocol normalization and folder discovery. |
 | [`backend/domains/mail/sync/imap_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_service.py) | 49 | 1 | 0 | 0 | 1 | IMAP mail sync service. |
-| [`backend/domains/mail/sync/smtp.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/smtp.py) | 115 | 0 | 1 | 0 | 1 | SMTP delivery for configured IMAP-compatible accounts. |
+| [`backend/domains/mail/sync/smtp.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/smtp.py) | 144 | 0 | 1 | 0 | 1 | SMTP delivery for configured IMAP-compatible accounts. |
 | [`backend/domains/mail/tag_identity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/tag_identity.py) | 69 | 1 | 3 | 0 | 3 | Stable persistence identities for mail-tag associations. |
 | [`backend/domains/media/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/media/__init__.py) | 1 | 0 | 0 | 0 | 0 | Media-center domain services. |
 | [`backend/domains/media/index_refresh.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/media/index_refresh.py) | 259 | 3 | 9 | 0 | 4 | Serve the last complete media index while a bounded refresh runs. |
@@ -1022,7 +1023,7 @@ Total: **1053 modules** and **201335 source lines**.
 | [`backend/services/gnosi_ai_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/gnosi_ai_contributions.py) | 665 | 1 | 9 | 0 | 2 | Governed core skills and tools for first-party Gnosi operations. |
 | [`backend/services/google_calendar_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/google_calendar_service.py) | 113 | 0 | 6 | 0 | 0 | Compatibility facade for the canonical Google Calendar adapter. |
 | [`backend/services/google_contacts_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/google_contacts_service.py) | 350 | 0 | 7 | 0 | 7 | No module docstring |
-| [`backend/services/google_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/google_mail_service.py) | 374 | 0 | 13 | 0 | 11 | No module docstring |
+| [`backend/services/google_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/google_mail_service.py) | 412 | 0 | 13 | 0 | 11 | No module docstring |
 | [`backend/services/graph_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/graph_service.py) | 44 | 0 | 0 | 0 | 0 | Compatibility facade for the graph domain. |
 | [`backend/services/handwriting.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/handwriting.py) | 363 | 1 | 14 | 0 | 7 | Handwriting recognition (ink → text) LOCAL with TrOCR. |
 | [`backend/services/handwriting_download.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/handwriting_download.py) | 251 | 3 | 9 | 0 | 2 | Explicit, observable and cancellable TrOCR downloads, without loading weights. |
@@ -1067,7 +1068,7 @@ Total: **1053 modules** and **201335 source lines**.
 | [`backend/services/meeting_notes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_notes.py) | 337 | 0 | 13 | 0 | 3 | Private durable meeting jobs: local transcription, validated excerpts, canonical page. |
 | [`backend/services/meeting_reminders.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_reminders.py) | 320 | 0 | 15 | 0 | 4 | AI-powered meeting reminder engine (agenda). |
 | [`backend/services/microsoft_calendar_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/microsoft_calendar_service.py) | 269 | 1 | 10 | 0 | 0 | Read-only Microsoft Graph calendars using dedicated calendar OAuth accounts. |
-| [`backend/services/microsoft_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/microsoft_mail_service.py) | 503 | 0 | 21 | 0 | 9 | Microsoft Graph API mail service. |
+| [`backend/services/microsoft_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/microsoft_mail_service.py) | 511 | 0 | 21 | 0 | 9 | Microsoft Graph API mail service. |
 | [`backend/services/model_billing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_billing.py) | 140 | 2 | 4 | 0 | 3 | Official provider plan evidence for comparison, never inference accounting. |
 | [`backend/services/model_parameter_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_parameter_review.py) | 86 | 2 | 1 | 0 | 0 | Per-model parameter source review. Supplied URLs are never fetched by the server. |
 | [`backend/services/model_parameter_seed.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_parameter_seed.py) | 201 | 2 | 0 | 0 | 0 | Reviewed manufacturer parameter disclosures; billions (10^9). |
@@ -1083,7 +1084,7 @@ Total: **1053 modules** and **201335 source lines**.
 | [`backend/services/notion_mcp_md.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_mcp_md.py) | 336 | 1 | 15 | 0 | 9 | Converter from Notion MCP's rich Markdown → Gnosi Markdown (for the exact CLONE). |
 | [`backend/services/notion_schema_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_schema_config.py) | 96 | 0 | 3 | 0 | 3 | Notion schema conversion ↔ SchemaConfigModal format (configurable import/clone). |
 | [`backend/services/notion_view_recreator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_view_recreator.py) | 63 | 0 | 0 | 0 | 0 | Compatibility facade for the typed Notion view-recreation domain. |
-| [`backend/services/oauth2_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/oauth2_helpers.py) | 184 | 1 | 5 | 0 | 6 | OAuth2 helpers shared by IMAP+XOAUTH2 and SMTP+XOAUTH2. |
+| [`backend/services/oauth2_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/oauth2_helpers.py) | 189 | 1 | 5 | 0 | 6 | OAuth2 helpers shared by IMAP+XOAUTH2 and SMTP+XOAUTH2. |
 | [`backend/services/option_catalogs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/option_catalogs.py) | 77 | 0 | 0 | 0 | 0 | Compatibility facade for table option catalogs and semantic roles. |
 | [`backend/services/optional_module_capabilities.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/optional_module_capabilities.py) | 13 | 0 | 1 | 0 | 1 | Side-effect-free availability checks for optional Python modules. |
 | [`backend/services/page_sidecar.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/page_sidecar.py) | 221 | 0 | 11 | 0 | 11 | Sidecar I/O for internal page metadata. |

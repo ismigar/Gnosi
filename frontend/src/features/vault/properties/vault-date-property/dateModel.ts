@@ -5,6 +5,7 @@ import {
     parseVaultDate,
 } from '../../../../shared/records/model/dateUtils';
 import type { PlanningScalar, VaultDatePropertyType } from './types';
+import { formatDate } from '../../../../shared/records/model/formatUtils';
 
 type ScalarDateValue = PlanningScalar | symbol | object;
 function importedText(value: unknown): string { return String(value); }
@@ -86,15 +87,18 @@ export function formattedDateInputValue(
     value: unknown,
     type: VaultDatePropertyType,
     dateLocale: string,
+    dateFormat = 'locale',
 ): string {
     const scalar = scalarDateValue(value);
     if (!scalar) return '';
     try {
         const date = parseVaultDate(parseableDateValue(scalar));
         if (Number.isNaN(date.getTime())) return primitiveText(scalar);
-        if (date.getFullYear() < 0) {
+        // Keep signed, era-ambiguous and extended years in a lossless numeric form.
+        if (date.getFullYear() < 1000 || date.getFullYear() > 9999) {
             return formatVaultDate(date, { withTime: type === 'datetime' });
         }
+        if (dateFormat !== 'locale') return formatDate(date, { dateFormat, type, locale: dateLocale });
         const options: Intl.DateTimeFormatOptions = {
             day: '2-digit',
             month: '2-digit',
@@ -103,10 +107,63 @@ export function formattedDateInputValue(
         if (type === 'datetime') {
             options.hour = '2-digit';
             options.minute = '2-digit';
+            options.hourCycle = 'h23';
         }
         return date.toLocaleString(dateLocale || 'en-US', options)
             .replace(',', '');
     } catch {
         return primitiveText(scalar);
     }
+}
+
+type DatePart = 'day' | 'month' | 'year';
+function inputDateOrder(locale: string, format: string): DatePart[] {
+    if (format === 'YYYY-MM-DD') return ['year', 'month', 'day'];
+    if (format === 'MM/DD/YYYY') return ['month', 'day', 'year'];
+    if (format === 'DD/MM/YYYY') return ['day', 'month', 'year'];
+    return new Intl.DateTimeFormat(locale || 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        .formatToParts(new Date(2006, 10, 22)).flatMap(({ type }) => (
+            type === 'day' || type === 'month' || type === 'year' ? [type] : []
+        ));
+}
+
+/** Parse the exact numeric order used by the visible editor; reject invalid dates. */
+export function dateInputBoundary(raw: string, type: VaultDatePropertyType, locale: string, format = 'locale'): string {
+    const text = raw.trim();
+    if (!text) return '';
+    const iso = text.match(/^(-?\d{4,})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?$/);
+    let year: number, month: number, day: number, hour = 0, minute = 0;
+    if (iso) {
+        [year, month, day] = [Number(iso[1]), Number(iso[2]), Number(iso[3])];
+        hour = Number(iso[4] || 0); minute = Number(iso[5] || 0);
+    } else {
+        if (!/^\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4}(?:\s+\d{1,2}:\d{2})?$/.test(text)) return '';
+        const parts = text.match(/\d+/g) ?? [];
+        const order = inputDateOrder(locale, format);
+        if ((parts[order.indexOf('year')]?.length ?? 0) < 4) return '';
+        const values = parts.map(Number);
+        year = values[order.indexOf('year')] ?? NaN;
+        month = values[order.indexOf('month')] ?? NaN;
+        day = values[order.indexOf('day')] ?? NaN;
+        hour = values[3] ?? 0; minute = values[4] ?? 0;
+    }
+    const date = new Date(0);
+    date.setFullYear(year, month - 1, day); date.setHours(hour, minute, 0, 0);
+    if (date.getFullYear() !== year || date.getMonth() + 1 !== month || date.getDate() !== day
+        || date.getHours() !== hour || date.getMinutes() !== minute) return '';
+    return formatVaultDate(date, { withTime: type === 'datetime' });
+}
+
+/** Translate pattern tokens and order them according to Settings or the language. */
+export function dateInputPlaceholder(locale: string, format: string, template: string): string {
+    const [dateTemplate = '', ...time] = template.split(/\s+/);
+    const [day = 'DD', month = 'MM', year = 'YYYY'] = dateTemplate.split('/');
+    const tokens = { day, month, year };
+    const pattern = format === 'locale'
+        ? new Intl.DateTimeFormat(locale || 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })
+            .formatToParts(new Date(2006, 10, 22)).map(part => (
+                part.type === 'day' || part.type === 'month' || part.type === 'year' ? tokens[part.type] : part.value
+            )).join('')
+        : inputDateOrder(locale, format).map(part => tokens[part]).join(format === 'YYYY-MM-DD' ? '-' : '/');
+    return [pattern, ...time].join(' ');
 }

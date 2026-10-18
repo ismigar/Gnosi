@@ -35,6 +35,9 @@ def imap_smtp_send(
 
     from backend.services.integration_manager import integration_manager
     from backend.services.mail_inline_images import build_mail_content
+    from backend.domains.mail.services.submission import (
+        MailDeliveryUnknown, in_submission, transport_timeout,
+    )
 
     # Resolve defaults (Google → smtp.gmail.com, etc.)
     account = integration_manager.resolve_imap_defaults(account)
@@ -75,7 +78,9 @@ def imap_smtp_send(
         from backend.services.oauth2_helpers import OAuth2RefreshError, ensure_fresh_token
 
         try:
-            access_token, _ = ensure_fresh_token(account_email)
+            access_token, _ = ensure_fresh_token(
+                account_email, timeout=transport_timeout() if in_submission() else None,
+            )
         except OAuth2RefreshError as e:
             log.error(f"[SMTP-XOAUTH2] {e}")
             return False
@@ -91,25 +96,49 @@ def imap_smtp_send(
         elif smtp_user and smtp_pass:
             server.login(smtp_user, smtp_pass)
 
+    server: Any = None
+    accepted = False
+    transmitting = False
     try:
         ctx = ssl.create_default_context()
-        # timeout=30 prevents a hung SMTP server from blocking the thread
-        # from FastAPI for minutes (the user clicks "Send" and nothing comes back).
+        # Socket waits are bounded as well as the caller's response deadline.
         if smtp_enc == "ssl":
-            with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx, timeout=30) as ssl_server:
-                ssl_server.ehlo()
-                _authenticate(ssl_server)
-                ssl_server.sendmail(sender_email, recipients, msg.as_bytes())
+            server = smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx, timeout=transport_timeout())
         else:
-            with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as plain_server:
-                plain_server.ehlo()
-                if smtp_enc == "starttls":
-                    plain_server.starttls(context=ctx)
-                    plain_server.ehlo()
-                _authenticate(plain_server)
-                plain_server.sendmail(sender_email, recipients, msg.as_bytes())
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=transport_timeout())
+        server.ehlo()
+        if smtp_enc == "starttls":
+            server.starttls(context=ctx)
+            server.ehlo()
+        _authenticate(server)
+        if server.sock is not None:
+            server.sock.settimeout(transport_timeout())
+        transmitting = True
+        server.sendmail(sender_email, recipients, msg.as_bytes())
+        accepted = True
+        # DATA acceptance is the delivery result. QUIT is connection cleanup;
+        # a dropped QUIT response must not turn an accepted message into failure.
+        # The interactive submission closes in finally without awaiting QUIT,
+        # so cleanup cannot outlive its deadline after acceptance is known.
+        if not in_submission():
+            try:
+                if server.sock is not None:
+                    server.sock.settimeout(1.0)
+                server.quit()
+            except Exception:
+                pass
         log.info(f"[SMTP{'-XOAUTH2' if is_oauth else ''}] Message sent from {sender_email} to {to}")
         return True
     except Exception as e:
+        if transmitting and not accepted and not isinstance(
+            e, (smtplib.SMTPRecipientsRefused, smtplib.SMTPSenderRefused, smtplib.SMTPDataError),
+        ) and in_submission():
+            raise MailDeliveryUnknown() from e
         log.error(f"[SMTP] Error sending from {sender_email}: {e}")
         return False
+    finally:
+        if server is not None:
+            try:
+                server.close()
+            except Exception:
+                pass

@@ -4024,7 +4024,9 @@
     "availability_range": "Disponible de {{start}} a {{end}}",
     "availability_inserted": "Disponibilitat inserida",
     "sent_ok": "Enviat correctament!",
-    "send_error": "Error enviant la resposta",
+    "send_error": "No s’ha pogut enviar el missatge.",
+    "send_unknown": "No s’ha pogut confirmar l’enviament. El missatge i els adjunts es conserven aquí. Comprova la carpeta Enviats abans de tornar-ho a intentar per evitar duplicats.",
+    "send_in_progress": "Aquest compte encara està enviant un missatge. Espera i comprova la carpeta Enviats abans de tornar-ho a intentar.",
     "archive_ok": "Correu arxivat",
     "archive_error": "Error en arxivar",
     "delete_ok": "Correu enviat a la paperera",
@@ -6339,6 +6341,7 @@
     "period_predecessor_count_one": "{{count}} predecessora",
     "period_predecessor_count_many": "{{count}} predecessores",
     "period_predecessor_count_other": "{{count}} predecessores",
+    "format_year_placeholder": "AAAA",
     "format_date_placeholder": "DD/MM/AAAA",
     "format_datetime_placeholder": "DD/MM/AAAA HH:MM",
     "open_calendar": "Obrir calendari"

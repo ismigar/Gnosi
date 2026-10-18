@@ -26,6 +26,8 @@ tests:
   - backend/tests/test_mail_conversation_truthfulness.py
   - backend/tests/test_mail_ordered_header_listing.py
   - backend/tests/test_mail_detail_responsiveness.py
+  - backend/tests/test_mail_submission_responsiveness.py
+  - frontend/src/shared/api/mail-specialized.test.ts
   - backend/tests/test_mail_read_negative_contract.py
   - frontend/src/features/mail/components/MailViewer.loading.test.tsx
   - frontend/src/features/mail/components/MailViewer.versions.test.tsx
@@ -298,6 +300,10 @@ per al correu. El servidor valida la identitat del remitent, els destinataris,
 les capçaleres de resposta, el contingut citat, els adjunts i el compte del
 proveïdor. Desar un esborrany i enviar-lo són efectes diferents; l'enviament
 travessa un límit extern i retorna diagnòstics del proveïdor si falla.
+
+La preparació de l’enviament i les crides al proveïdor s’executen fora del bucle d’esdeveniments del servidor. El servidor limita la resposta a 90 segons i el client limita les capçaleres i tot el cos de resposta a 95 segons. Un resultat incert conserva l’esborrany actiu i els adjunts i demana comprovar Enviats abans de reenviar; no hi ha cap reintent automàtic. El mateix compte no pot iniciar un segon enviament mentre el treballador continuï actiu, encara que la petició hagi caducat. Aquesta exclusió és local al backend en execució, no una deduplicació persistent dels lliuraments. L’acceptació de DATA per SMTP es conserva encara que falli el tancament de la connexió.
+
+Les lectures de l’historial de destinataris s’executen fora del bucle d’esdeveniments i comparteixen una exploració pendent per compte i magatzem. Després de dos segons, els suggeriments retornen els contactes disponibles sense esperar un historial bloquejat. Els camps desplegats CC i CCO precedeixen Assumpte.
 
 ## Estat relacional local
 

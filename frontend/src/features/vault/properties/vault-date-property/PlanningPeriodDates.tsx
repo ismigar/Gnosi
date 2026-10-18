@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { dateInputPlaceholder } from './dateModel';
 
 import {
     PERIOD_INPUT_CLASS,
@@ -32,16 +33,16 @@ export function PlanningPeriodDates({ model }: PlanningPeriodDatesProps) {
             Object.entries(current).filter(([candidate]) => candidate !== key),
         ));
     };
-    const placeholder = model.periodUnit === 'hours'
-        ? 'YYYY-MM-DDTHH:mm'
-        : model.periodUnit === 'days' ? 'YYYY-MM-DD' : 'YYYY';
+    const placeholder = model.periodUnit === 'years' ? t('vault_date.format_year_placeholder', 'YYYY')
+        : dateInputPlaceholder(model.dateLocale, model.dateFormat, t(model.periodUnit === 'hours'
+            ? 'vault_date.format_datetime_placeholder' : 'vault_date.format_date_placeholder'));
     const durationLabel = model.periodUnit === 'hours'
         ? 'Hours'
         : model.periodUnit === 'years' ? 'Years' : 'Days';
 
     return (
         <>
-            <label className="flex flex-col gap-1">
+            <label className={`flex min-w-0 flex-col gap-1 ${model.periodUnit === 'hours' ? 'col-span-2' : ''}`}>
                 <span className="flex h-4 items-center text-[10px] font-semibold text-[var(--text-tertiary)]">
                     {periodDateLabel(t, model.periodUnit, 'start')}
                 </span>
@@ -58,7 +59,7 @@ export function PlanningPeriodDates({ model }: PlanningPeriodDatesProps) {
                     className={PERIOD_INPUT_CLASS}
                 />
             </label>
-            <label className="flex flex-col gap-1">
+            <label className="flex min-w-0 flex-col gap-1">
                 <span className="flex h-4 items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
                     <span>
                         {t(
@@ -106,7 +107,7 @@ export function PlanningPeriodDates({ model }: PlanningPeriodDatesProps) {
                     className={PERIOD_INPUT_CLASS}
                 />
             </label>
-            <label className="flex flex-col gap-1">
+            <label className={`flex min-w-0 flex-col gap-1 ${model.periodUnit === 'hours' ? 'col-span-2' : ''}`}>
                 <span className="flex h-4 items-center text-[10px] font-semibold text-[var(--text-tertiary)]">
                     {periodDateLabel(t, model.periodUnit, 'end')}
                 </span>

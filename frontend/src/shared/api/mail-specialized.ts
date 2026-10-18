@@ -116,18 +116,67 @@ export async function fetchRemoteMailImage(
   return body.slice(0, body.size, contentType);
 }
 
-async function multipartMailStatus(path: string, body: FormData): Promise<MailStatus> {
-  const response = await transportFetch(path, { body, method: 'POST' });
-  const payload: unknown = await response.json().catch(() => undefined);
-  if (!response.ok) throw new GnosiApiError(response, payload);
-  if (!payload || typeof payload !== 'object' || !('status' in payload)) {
-    throw new GnosiApiError(response, 'The API returned an invalid mail status');
+export const MAIL_SUBMISSION_TIMEOUT_MS = 95_000;
+
+export class MailSubmissionError extends Error {
+  constructor(readonly reason: 'unknown' | 'in_progress') {
+    super(reason);
+    this.name = 'MailSubmissionError';
   }
-  return { status: String(payload.status) };
 }
 
-export function sendMailMultipart(email: string, body: FormData): Promise<MailStatus> {
-  return multipartMailStatus(apiPath('/api/mail/send', { email }), body);
+export interface MailSubmissionOptions {
+  readonly signal?: AbortSignal;
+}
+
+async function multipartMailStatus(
+  path: string, body: FormData, options: MailSubmissionOptions = {},
+): Promise<MailStatus> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let cancel: (() => void) | undefined;
+  // Race as well as abort: an unresponsive bridge must still settle the UI.
+  // Keep this deadline active until the complete JSON response has arrived.
+  const cancelled = new Promise<never>((_resolve, reject) => {
+    cancel = () => {
+      controller.abort();
+      reject(new MailSubmissionError('unknown'));
+    };
+    timer = setTimeout(cancel, MAIL_SUBMISSION_TIMEOUT_MS);
+    options.signal?.addEventListener('abort', cancel, { once: true });
+    if (options.signal?.aborted) cancel();
+  });
+  const request = async (): Promise<MailStatus> => {
+    if (controller.signal.aborted) throw new MailSubmissionError('unknown');
+    const response = await transportFetch(path, { body, method: 'POST', signal: controller.signal });
+    const payload: unknown = await response.json().catch(() => undefined);
+    if (!response.ok) {
+      const detail = payload && typeof payload === 'object' && 'detail' in payload ? payload.detail : null;
+      const code = detail && typeof detail === 'object' && 'code' in detail ? detail.code : null;
+      if (code === 'mail_delivery_unknown') throw new MailSubmissionError('unknown');
+      if (code === 'mail_send_in_progress') throw new MailSubmissionError('in_progress');
+      throw new GnosiApiError(response, payload);
+    }
+    if (!payload || typeof payload !== 'object' || !('status' in payload)) {
+      throw new MailSubmissionError('unknown');
+    }
+    return { status: String(payload.status) };
+  };
+  try {
+    return await Promise.race([request(), cancelled]);
+  } catch (error) {
+    if (error instanceof GnosiApiError || error instanceof MailSubmissionError) throw error;
+    throw new MailSubmissionError('unknown');
+  } finally {
+    clearTimeout(timer);
+    if (cancel) options.signal?.removeEventListener('abort', cancel);
+  }
+}
+
+export function sendMailMultipart(
+  email: string, body: FormData, options?: MailSubmissionOptions,
+): Promise<MailStatus> {
+  return multipartMailStatus(apiPath('/api/mail/send', { email }), body, options);
 }
 
 export function replyMailMultipart(
@@ -135,6 +184,7 @@ export function replyMailMultipart(
   email: string,
   folder: string,
   body: FormData,
+  options?: MailSubmissionOptions,
 ): Promise<MailStatus> {
   return multipartMailStatus(
     apiPath(`/api/mail/messages/${encodeURIComponent(messageId)}/reply`, {
@@ -142,5 +192,6 @@ export function replyMailMultipart(
       folder,
     }),
     body,
+    options,
   );
 }

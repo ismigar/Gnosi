@@ -1,4 +1,6 @@
-import { useEffect, useEffectEvent, useRef } from 'react';
+import { useCallback, useContext, useEffect, useEffectEvent, useMemo, useRef } from 'react';
+import { VaultEditorContext } from '../../../../shared/editor/VaultEditorContext';
+import { getActiveVaultId } from '../../../../shared/api/vault-context';
 import { fetchPageViews, fetchVaultViews, fetchVaultPagesByTable, apiErrorDetail } from './api';
 import { applyClientJoins } from './joins';
 import { decodeView, legacyText } from './decode';
@@ -6,15 +8,74 @@ import { readPinned, readText, writeText, selectedKey, pinnedKey } from './prefe
 import { reportEmbedError } from './diagnostics';
 import type { EmbedView } from './types';
 import type { EmbedInputs } from './inputs';
+export type EmbedRegistryPublisher = (update: EmbedView[] | ((views: EmbedView[]) => EmbedView[]), generation?: number) => boolean;
+export type BeginEmbedRegistryRead = () => (views: EmbedView[] | null) => boolean;
 export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t, reloadKey, setError, setLoading, setView, setRawRecords, setTableRecords, setTemplates, setQuickPresets, presetStorageKey, setPinnedViewIds, setTableViews, setActiveViewId, setLoadDuration }: EmbedInputs) {
-    const registrySourceRef = useRef(ctx.registry.views);
-    const refreshedRegistryRef = useRef(ctx.registry.views);
-    const lastSavedNonceRef = useRef<number | undefined>(0);
+    // decodeContext recreates its arrays when unrelated editor context changes.
+    // Scope cached server views to the original registry and the active embed.
+    const sourceViews = useContext(VaultEditorContext).registry.views;
+    const vaultId = getActiveVaultId();
+    const registryCacheRef = useRef<{
+        sourceViews: readonly unknown[];
+        vaultId: string;
+        pageId: string | null;
+        viewId: string;
+        views: EmbedView[];
+        savedNonce: number | undefined;
+    } | null>(null);
+    const registryRevisionRef = useRef(0);
+    const registryRequestRef = useRef(0);
+    const registryNeedsRefreshRef = useRef(false);
+    const registryPendingRef = useRef<number | null>(null);
+    const publicationScope = useMemo(() => ({ sourceViews, vaultId, pageId, viewId, nonce: ctx.viewSectionNonce }),
+        [sourceViews, vaultId, pageId, viewId, ctx.viewSectionNonce]);
+    const activeScopeRef = useRef<typeof publicationScope | null>(null);
+    useEffect(() => {
+        activeScopeRef.current = publicationScope;
+        registryNeedsRefreshRef.current = false;
+        registryPendingRef.current = null;
+        return () => { activeScopeRef.current = null; };
+    }, [publicationScope]);
+    const isRegistryScopeCurrent = useCallback(() => activeScopeRef.current === publicationScope
+        && getActiveVaultId() === vaultId, [publicationScope, vaultId]);
+    const publishRegistry: EmbedRegistryPublisher = useCallback((update, generation) => {
+        if (!isRegistryScopeCurrent()) return false;
+        if (generation !== undefined && generation !== registryRequestRef.current) return false;
+        const cached = registryCacheRef.current;
+        const sameScope = cached?.vaultId === vaultId && cached.pageId === pageId && cached.viewId === viewId
+            && cached.sourceViews === sourceViews;
+        const previous = sameScope ? cached.views : ctx.registry.views;
+        const isFullRegistry = typeof update !== 'function';
+        const views = isFullRegistry ? update : update(previous);
+        const savedNonce = isFullRegistry ? ctx.viewSectionNonce : (sameScope ? cached.savedNonce : 0);
+        registryCacheRef.current = { sourceViews, vaultId, pageId, viewId, views, savedNonce };
+        registryRevisionRef.current += 1;
+        registryRequestRef.current += 1;
+        if (isFullRegistry) registryNeedsRefreshRef.current = false;
+        else if (registryPendingRef.current !== null) registryNeedsRefreshRef.current = true;
+        registryPendingRef.current = null;
+        return true;
+    }, [isRegistryScopeCurrent, vaultId, pageId, viewId, sourceViews, ctx.registry.views, ctx.viewSectionNonce]);
+    // Allocate before network I/O so a delayed old response cannot claim freshness.
+    const beginRegistryRead: BeginEmbedRegistryRead = useCallback(() => {
+        if (!isRegistryScopeCurrent()) return () => false;
+        const generation = ++registryRequestRef.current;
+        registryPendingRef.current = generation;
+        return views => {
+            if (views !== null) return publishRegistry(views, generation);
+            if (isRegistryScopeCurrent() && generation === registryRequestRef.current) {
+                registryPendingRef.current = null;
+                registryNeedsRefreshRef.current = true;
+            }
+            return false;
+        };
+    }, [publishRegistry, isRegistryScopeCurrent]);
     const beginLoad = useEffectEvent(() => {
         const inlineSectionStr = block?.props?.section;
         if (!pageId || (!viewId && !inlineSectionStr)) return undefined;
         let cancelled = false;
-        const isCancelled = () => cancelled;
+        const registryRevision = registryRevisionRef.current;
+        const isCancelled = () => cancelled || getActiveVaultId() !== vaultId;
         const load = async () => {
             const startedAt = window.performance.now();
             setError('');
@@ -122,18 +183,28 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
                 // fresh, so the change (size/preview…) is visible live.
                 // Record writes reload the embed before the editor registry catches up.
                 // Keep the registry fetched after configuration saves across those reloads.
-                let registryViews = registrySourceRef.current === ctx.registry.views
-                    ? refreshedRegistryRef.current : ctx.registry.views;
-                if (reloadKey > 0 || ctx.viewSectionNonce !== lastSavedNonceRef.current) {
+                const cached = registryCacheRef.current;
+                const sameEmbed = cached?.vaultId === vaultId && cached.pageId === pageId && cached.viewId === viewId;
+                let registryViews = sameEmbed && cached.sourceViews === sourceViews ? cached.views : ctx.registry.views;
+                let savedNonce = sameEmbed ? cached.savedNonce : 0;
+                if (ctx.viewSectionNonce !== savedNonce || registryNeedsRefreshRef.current) {
+                    const publish = beginRegistryRead();
                     try {
-                        registryViews = await fetchVaultViews();
+                        const fresh = await fetchVaultViews();
                         if (isCancelled()) return;
-                        lastSavedNonceRef.current = ctx.viewSectionNonce;
-                    } catch { /* retain the latest known registry and retry on a later load */ }
+                        if (publish(fresh)) {
+                            registryViews = fresh;
+                            savedNonce = ctx.viewSectionNonce;
+                        }
+                    } catch { publish(null); /* retain the latest registry and retry on a later load */ }
                 }
                 if (isCancelled()) return;
-                registrySourceRef.current = ctx.registry.views;
-                refreshedRegistryRef.current = registryViews;
+                // A tab action may publish newer server views while this load awaits I/O.
+                if (registryRevision !== registryRevisionRef.current && registryCacheRef.current) {
+                    registryViews = registryCacheRef.current.views;
+                    savedNonce = registryCacheRef.current.savedNonce;
+                }
+                registryCacheRef.current = { sourceViews, vaultId, pageId, viewId, views: registryViews, savedNonce };
 
                 if (!isCancelled()) {
                     setRawRecords(records);
@@ -221,5 +292,6 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
         // (cardSize/galleryPreview/…), because editing only the size doesn't change
         // viewId/headingProp and the useEffect wouldn't re-trigger otherwise.
     });
-    useEffect(() => beginLoad(), [viewId, pageId, headingProp, reloadKey, ctx.viewSectionNonce, block?.props?.section]);
+    useEffect(() => beginLoad(), [viewId, pageId, headingProp, reloadKey, ctx.viewSectionNonce, block?.props?.section, sourceViews, vaultId]);
+    return { publishRegistry, beginRegistryRead, isRegistryScopeCurrent };
 }

@@ -3999,7 +3999,9 @@
     "availability_range": "Available from {{start}} to {{end}}",
     "availability_inserted": "Availability inserted",
     "sent_ok": "Sent successfully!",
-    "send_error": "Error sending reply",
+    "send_error": "The message could not be sent.",
+    "send_unknown": "Delivery could not be confirmed. Your message and attachments are still here. Check Sent before trying again to avoid sending a duplicate.",
+    "send_in_progress": "This account is still sending a message. Wait and check Sent before trying again.",
     "archive_ok": "Email archived",
     "archive_error": "Error archiving",
     "delete_ok": "Email moved to trash",
@@ -5790,6 +5792,7 @@
     "period_predecessors_empty": "No tasks found in this table",
     "period_predecessor_count_one": "{{count}} predecessor",
     "period_predecessor_count_other": "{{count}} predecessors",
+    "format_year_placeholder": "YYYY",
     "format_date_placeholder": "DD/MM/YYYY",
     "format_datetime_placeholder": "DD/MM/YYYY HH:MM",
     "open_calendar": "Open calendar"

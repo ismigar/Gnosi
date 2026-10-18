@@ -42,6 +42,9 @@ source_paths:
   - frontend/src/features/vault/views/VaultTable.tsx
   - frontend/src/features/vault/editor/BlockEditor.tsx
   - frontend/src/features/vault/properties/VaultDateProperty.ts
+  - frontend/src/features/vault/properties/vault-date-property/dateModel.ts
+  - frontend/src/features/vault/views/db-view-embed/useEmbedLoad.ts
+  - frontend/src/features/vault/views/db-view-embed/useEmbedTabActions.ts
   - frontend/src/shared/record-views/VaultTimeline.tsx
   - frontend/src/shared/record-views/vault-timeline
   - frontend/src/features/vault/VaultDashboard.tsx
@@ -58,6 +61,9 @@ tests:
   - frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx
   - frontend/src/shared/record-views/vault-timeline/timelineScale.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.continuity.test.tsx
+  - frontend/src/features/vault/properties/UnifiedDateEditor.i18n.test.tsx
+  - frontend/src/features/vault/properties/vault-date-property/dateModel.formatting.test.ts
   - frontend/src/features/vault/dashboard/TablePane.test.tsx
   - frontend/src/features/vault/dashboard/creationFlow.test.tsx
   - frontend/src/features/planning/ProjectPlanningPage.test.tsx
@@ -518,3 +524,7 @@ Pour toute table source, une vue intégrée déduit les métadonnées de créati
 ## Persistance de l’ordre des colonnes
 
 Faire glisser la poignée d’une colonne enregistre l’ordre configuré dans les vues de table principales, secondaires et intégrées. L’affichage, l’enregistrement et la migration de la vue principale conservent cet ordre au lieu de le reconstruire à partir du schéma. Les vues intégrées d’ancrage enregistrées sont sauvegardées dans le registre ; les anciennes sections mettent à jour leur onglet synthétique ainsi que la section. Le rechargement des enregistrements récupère la configuration actuelle du registre pour que les colonnes ne reviennent pas à un ordre antérieur. Les descripteurs composites conservent la table source et les métadonnées du champ. Une vue principale virtuelle reçoit une identité enregistrée unique lors de sa première mise à jour.
+
+La propriété de date unifiée suit le format choisi dans les paramètres pour les dates ponctuelles visibles, les bornes des périodes, les contraintes, les échéances et la fin des récurrences. La saisie convertit cet ordre numérique en dates enregistrées canoniques. La même préférence s’applique aux résumés des périodes et à la barre de formules du tableau. Une saisie non vide invalide conserve la valeur enregistrée ; il reste possible de vider explicitement un champ. Les années historiques et étendues utilisent des dates numériques canoniques pour éviter toute perte lors de la saisie.
+
+Le registre conservé des vues intégrées est limité au Vault actif, à la page conteneur et à la vue. Les changements de configuration déclenchent une nouvelle lecture ; les lectures échouées sont réessayées lors d’un rechargement ultérieur. Renommer, supprimer ou dupliquer une vue publie aussi le registre actualisé dans le même cache, afin que les enregistrements suivants conservent les onglets et les paramètres actuels. Les autres changements du contexte de l’éditeur ne rétablissent pas une ancienne copie.

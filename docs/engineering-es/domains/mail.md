@@ -26,6 +26,8 @@ tests:
   - backend/tests/test_mail_conversation_truthfulness.py
   - backend/tests/test_mail_ordered_header_listing.py
   - backend/tests/test_mail_detail_responsiveness.py
+  - backend/tests/test_mail_submission_responsiveness.py
+  - frontend/src/shared/api/mail-specialized.test.ts
   - backend/tests/test_mail_read_negative_contract.py
   - frontend/src/features/mail/components/MailViewer.loading.test.tsx
   - frontend/src/features/mail/components/MailViewer.versions.test.tsx
@@ -276,6 +278,10 @@ obligatorios y generando un Content-ID nuevo.
 ## Preparar y enviar
 
 El editor por bloques crea un borrador que se convierte en HTML y texto seguros para correo. La identidad del remitente, los destinatarios, las cabeceras de respuesta, las citas, los adjuntos y la cuenta del proveedor se validan en el servidor. Guardar un borrador y enviarlo son efectos distintos; el envío cruza un límite externo y devuelve diagnósticos del proveedor si falla.
+
+La preparación del envío y las llamadas al proveedor se ejecutan fuera del bucle de eventos del servidor. El servidor limita su respuesta a 90 segundos y el cliente limita las cabeceras y el cuerpo completo de respuesta a 95 segundos. Un resultado incierto conserva el borrador activo y los adjuntos y pide comprobar Enviados antes de reenviar; no hay reintentos automáticos. La misma cuenta no puede iniciar otro envío mientras su trabajador siga activo, aunque la petición haya caducado. Esta exclusión es local al backend en ejecución, no una deduplicación persistente de entregas. La aceptación de DATA por SMTP se conserva aunque falle el cierre de la conexión.
+
+Las lecturas del historial de destinatarios se ejecutan fuera del bucle de eventos y comparten una exploración pendiente por cuenta y almacén. Tras dos segundos, las sugerencias devuelven los contactos disponibles sin esperar un historial bloqueado. Los campos desplegados CC y CCO preceden a Asunto.
 
 ## Estado relacional local
 

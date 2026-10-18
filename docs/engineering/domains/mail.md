@@ -26,6 +26,8 @@ tests:
   - backend/tests/test_mail_conversation_truthfulness.py
   - backend/tests/test_mail_ordered_header_listing.py
   - backend/tests/test_mail_detail_responsiveness.py
+  - backend/tests/test_mail_submission_responsiveness.py
+  - frontend/src/shared/api/mail-specialized.test.ts
   - backend/tests/test_mail_read_negative_contract.py
   - frontend/src/features/mail/components/MailViewer.loading.test.tsx
   - frontend/src/features/mail/components/MailViewer.versions.test.tsx
@@ -264,6 +266,10 @@ HTML and text. Sender identity, recipients, reply headers, quoting, attachments,
 and provider account are validated server-side. Draft save and send are
 different effects; sending crosses an external boundary and returns provider
 diagnostics on failure.
+
+Submission preparation and provider calls run outside the server event loop. The server bounds its response to 90 seconds, and the client bounds headers plus the complete response body to 95 seconds. An uncertain outcome retains the active draft and attachments and asks the user to check Sent before resending; there is no automatic retry. The same account cannot submit a second message while its worker is still active, even after the request expires. This ownership is local to the running backend, not persistent delivery deduplication. Accepted SMTP DATA remains accepted if connection cleanup fails.
+
+Recipient-history reads run outside the event loop and share an outstanding scan per account and store. After two seconds, suggestions return available contacts without waiting for blocked history. Expanded CC and BCC fields precede Subject.
 
 ## Local relational state
 

@@ -26,6 +26,8 @@ tests:
   - backend/tests/test_mail_conversation_truthfulness.py
   - backend/tests/test_mail_ordered_header_listing.py
   - backend/tests/test_mail_detail_responsiveness.py
+  - backend/tests/test_mail_submission_responsiveness.py
+  - frontend/src/shared/api/mail-specialized.test.ts
   - backend/tests/test_mail_read_negative_contract.py
   - frontend/src/features/mail/components/MailViewer.loading.test.tsx
   - frontend/src/features/mail/components/MailViewer.versions.test.tsx
@@ -286,6 +288,10 @@ en générant un nouveau Content-ID.
 ## Composer et envoyer
 
 L'éditeur de blocs crée un brouillon converti en HTML et texte adaptés au courrier. L'identité de l'expéditeur, les destinataires, les en-têtes de réponse, les citations, les pièces jointes et le compte du fournisseur sont validés côté serveur. Enregistrer un brouillon et envoyer sont des effets distincts ; l'envoi franchit une frontière externe et renvoie les diagnostics du fournisseur en cas d'échec.
+
+La préparation de l’envoi et les appels au fournisseur s’exécutent hors de la boucle événementielle du serveur. Le serveur limite sa réponse à 90 secondes et le client limite les en-têtes et le corps complet de la réponse à 95 secondes. Un résultat incertain conserve le brouillon actif et les pièces jointes et demande de vérifier les messages envoyés avant de renvoyer ; aucune nouvelle tentative n’est automatique. Le même compte ne peut pas lancer un autre envoi tant que son traitement reste actif, même après expiration de la requête. Cette exclusion est locale au backend en cours, sans déduplication persistante des livraisons. L’acceptation de DATA par SMTP est conservée même si la fermeture de connexion échoue.
+
+Les lectures de l’historique des destinataires s’exécutent hors de la boucle événementielle et partagent une exploration en attente par compte et magasin. Après deux secondes, les suggestions renvoient les contacts disponibles sans attendre un historique bloqué. Les champs développés CC et CCI précèdent Objet.
 
 ## État relationnel local
 

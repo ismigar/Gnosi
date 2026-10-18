@@ -23,7 +23,7 @@ export function useEmbedController({ block }: DbViewEmbedProps) {
     const state = useEmbedState(identity);
     const preferences = useEmbedPreferences({ ...identity, ...state });
     const inputs = { ...identity, ...state, ...preferences };
-    useEmbedLoad(inputs);
+    const { publishRegistry, beginRegistryRead, isRegistryScopeCurrent } = useEmbedLoad(inputs);
     const derived = useEmbedDerived(inputs);
     const { setReloadKey } = state;
     const reload = useCallback(() => {
@@ -37,7 +37,7 @@ export function useEmbedController({ block }: DbViewEmbedProps) {
         return () => { stopSaved(); stopFocus?.(); };
     }, [identity.pageId, reload, visible]);
     const actions = useEmbedRecordActions({ ...inputs, ...derived, reload });
-    const tabs = useEmbedTabActions({ ...inputs, ...derived });
+    const tabs = useEmbedTabActions({ ...inputs, ...derived, publishRegistry, beginRegistryRead, isRegistryScopeCurrent });
     const model = { ...inputs, ...derived, ...actions, ...tabs, reload };
     const adapters = createBodyAdapters(model);
     const visibleTabs = orderedPinnedViews(state.tableViews, identity.viewId, state.pinnedViewIds);

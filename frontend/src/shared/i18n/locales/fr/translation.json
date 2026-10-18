@@ -2775,6 +2775,8 @@
     "availability_inserted": "Disponibilité insérée",
     "sent_ok": "Envoyé avec succès !",
     "send_error": "Erreur lors de l'envoi",
+    "send_unknown": "L’envoi n’a pas pu être confirmé. Le message et les pièces jointes sont conservés ici. Vérifiez les messages envoyés avant de réessayer pour éviter un doublon.",
+    "send_in_progress": "Ce compte envoie encore un message. Patientez et vérifiez les messages envoyés avant de réessayer.",
     "archive_ok": "Email archivé",
     "archive_error": "Erreur lors de l'archivage",
     "delete_ok": "Email déplacé vers la corbeille",
@@ -6339,6 +6341,7 @@
     "period_predecessor_count_one": "{{count}} prédécesseur",
     "period_predecessor_count_many": "{{count}} prédécesseurs",
     "period_predecessor_count_other": "{{count}} prédécesseurs",
+    "format_year_placeholder": "AAAA",
     "format_date_placeholder": "JJ/MM/AAAA",
     "format_datetime_placeholder": "JJ/MM/AAAA HH:MM",
     "open_calendar": "Ouvrir le calendrier"
