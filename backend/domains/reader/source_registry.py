@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from collections.abc import Iterator
-from typing import Any, cast
+from typing import Any
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -17,6 +17,7 @@ from backend.config.data_dir import default_data_dir
 from backend.models.reader import FeedSource
 from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
 from backend.utils.safe_io import safe_write_json
+from backend.domains.reader.source_urls import canonical_source_url
 
 
 class SourceRegistryError(RuntimeError):
@@ -55,6 +56,7 @@ def _validate(payload: object) -> list[dict[str, Any]]:
     if not isinstance(payload['sources'], list):
         raise SourceRegistryError('Invalid reader source list')
     seen = set()
+    normalized = []
     for item in payload['sources']:
         if not isinstance(item, dict) or set(item) != {'name', 'url', 'category', 'type', 'created_at'}:
             raise SourceRegistryError('Invalid reader source fields')
@@ -64,16 +66,19 @@ def _validate(payload: object) -> list[dict[str, Any]]:
         if not item['url'].strip():
             raise SourceRegistryError('Invalid reader source')
         try:
-            url = urlsplit(item['url'])
+            canonical, alias = canonical_source_url(item['url'])
+            url = urlsplit(canonical)
             if url.username is not None or url.password is not None:
                 raise SourceRegistryError('Subscription URLs must not contain credentials')
         except ValueError as exc:
             raise SourceRegistryError('Invalid subscription URL') from exc
         _date(item['created_at'])
-        if item['url'] in seen:
+        if canonical in seen:
             raise SourceRegistryError('Duplicate subscription URL')
-        seen.add(item['url'])
-    return cast(list[dict[str, Any]], payload['sources'])
+        seen.add(canonical)
+        normalized.append({**item, 'url': canonical,
+                           **({'type': 'newsletter'} if alias else {})})
+    return normalized
 
 
 def _snapshot(db: Session) -> dict[str, Any]:
@@ -85,18 +90,26 @@ def _snapshot(db: Session) -> dict[str, Any]:
         sources.append(dict(name=row.name, url=row.url, category=row.category,
                             type=row.type or 'rss', created_at=date.isoformat()))
     payload = {'version': 1, 'sources': sources}
-    _validate(payload)
+    payload['sources'] = _validate(payload)
     return payload
 
 
 def _reconcile(db: Session, sources: list[dict[str, Any]]) -> bool:
-    existing = {row.url: row for row in db.query(FeedSource).all()}
+    existing = {}
+    for row in db.query(FeedSource).all():
+        canonical, _alias = canonical_source_url(row.url)
+        if canonical in existing:
+            raise SourceRegistryError('Duplicate subscription URL')
+        existing[canonical] = row
     changed = False
     for item in sources:
         row = existing.pop(item['url'], None)
         if row is None:
             row = FeedSource(url=item['url'], created_at=_date(item['created_at']))
             db.add(row)
+            changed = True
+        elif row.url != item['url']:
+            row.url = item['url']
             changed = True
         for key in ('name', 'category', 'type'):
             if getattr(row, key) != item[key]:

@@ -71,3 +71,47 @@ def test_corrupt_registry_returns_retryable_error_and_preserves_database(reader)
         assert error.value.status_code == 503
         assert db.query(FeedSource).count() == 1
         assert path.read_text() == "{broken"
+
+
+def test_newsletter_alias_is_canonical_and_deduplicated(reader):
+    vault, db, _sessions = reader
+    created = routes.create_source(FeedSourceCreate(
+        name='Alias', url='newsletter://Ada+News@example.test'), db)
+    assert (created.url, created.type) == ('mailto:Ada+News@example.test', 'newsletter')
+    with pytest.raises(HTTPException) as error:
+        routes.create_source(FeedSourceCreate(name='Duplicate', url=created.url), db)
+    assert error.value.status_code == 400
+    saved = json.loads((vault / '.gnosi/reader_sources.json').read_text())['sources']
+    assert len(saved) == 1
+    assert saved[0]['url'] == created.url
+    assert saved[0]['type'] == 'newsletter'
+
+
+@pytest.mark.parametrize('mailbox', [
+    'user:secret@example.test', 'user%3Asecret@example.test',
+    'user@example.test/path', 'user@example.test?password=secret',
+    'user@example.test#secret', 'user@@example.test', 'user example@test',
+    'user@example.test\\secret', 'user@example.test\n', '',
+    'us\x00er@example.test', 'us\x07er@example.test', 'us\x1ber@example.test',
+    'us\x7fer@example.test', 'us\x9fer@example.test',
+])
+def test_newsletter_alias_rejects_secrets_and_ambiguous_input(reader, mailbox):
+    vault, db, _sessions = reader
+    with pytest.raises(HTTPException) as error:
+        routes.create_source(FeedSourceCreate(name='Invalid', url='newsletter://' + mailbox), db)
+    assert error.value.status_code == 422
+    assert db.query(FeedSource).count() == 0
+    assert not (vault / '.gnosi/reader_sources.json').exists()
+
+
+def test_opml_alias_and_mailto_share_one_source(reader):
+    _vault, db, _sessions = reader
+    content = b'''<opml><body>
+      <outline text="Alias" xmlUrl="newsletter://ada@example.test"/>
+      <outline text="Canonical" xmlUrl="mailto:ada@example.test"/>
+    </body></opml>'''
+    result = asyncio.run(routes.upload_opml(
+        UploadFile(file=BytesIO(content), filename='news.opml'), db))
+    assert result['message'] == 'Successfully imported 1 new feeds.'
+    row = db.query(FeedSource).one()
+    assert (row.url, row.type) == ('mailto:ada@example.test', 'newsletter')

@@ -50,7 +50,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2691 | 0 |
-| `features` | 1255 | 135458 | 55 |
+| `features` | 1256 | 135625 | 55 |
 | `generated` | 3 | 54141 | 560 |
 | `shared` | 345 | 36849 | 475 |
 
@@ -319,7 +319,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/graph/page/GraphFilterSections.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/page/GraphFilterSections.tsx) | 210 | `GraphFilterSections` | — |
 | [`frontend/src/features/graph/page/GraphSidebarView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/page/GraphSidebarView.tsx) | 113 | `GraphSidebarView` | — |
 | [`frontend/src/features/graph/page/graphPageModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/page/graphPageModel.ts) | 445 | `buildFilterGraph`, `deriveFieldValues`, `deriveFolderNames`, `deriveGraphSources`, `deriveIdLabels`, `deriveMediaTags`, `deriveTimelineRange`, `displayGraphFieldValue`, `findShortestPath`, `graphNodeAttributes`, `graphSettingsFromDocument`, `seedGraphConfigurationDocument` | — |
-| [`frontend/src/features/graph/page/useGraphPageController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/page/useGraphPageController.ts) | 450 | `useGraphPageController` | — |
+| [`frontend/src/features/graph/page/graphTogglePersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/page/graphTogglePersistence.ts) | 121 | `createGraphTogglePersistence` | — |
+| [`frontend/src/features/graph/page/useGraphPageController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/page/useGraphPageController.ts) | 496 | `useGraphPageController` | — |
 | [`frontend/src/features/graph/page/useGraphServerData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/page/useGraphServerData.ts) | 68 | `graphServerQueryKeys`, `useGraphServerData` | — |
 | [`frontend/src/features/graph/panels/ConnectionList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/panels/ConnectionList.tsx) | 116 | `ConnectionList` | — |
 | [`frontend/src/features/graph/panels/Controls.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/panels/Controls.tsx) | 98 | `Controls` | — |

@@ -81,3 +81,8 @@ flowchart LR
 ## Enfoque de verificación
 
 Pruebe los nodos no resueltos y aislados, la coherencia de la leyenda de grupos, el uso del frontmatter como alternativa, los umbrales de sugerencias semánticas, los fallos de directorios en la nube, el resaltado de un solo salto al pasar el puntero y la navegación desde el grafo hasta la página correcta.
+
+Los cuatro interruptores del grafo (flechas, LinLog, gravedad fuerte y atracción
+por grado) guardan sus campos de configuración al cambiar. Las escrituras se
+serializan por Vault y una respuesta antigua no sobrescribe la selección pendiente.
+Si falla el guardado, se restaura el valor confirmado y se muestra el aviso existente.

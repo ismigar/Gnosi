@@ -101,3 +101,8 @@ Proveu els nodes no resolts i aïllats, la coherència de la llegenda dels grups
 la lectura alternativa del frontmatter, els llindars de suggeriments semàntics,
 les fallades de directoris al núvol, el ressaltat d'un sol salt i la navegació
 del graf cap a la pàgina correcta.
+
+Els quatre interruptors del graf (fletxes, LinLog, gravetat forta i atracció per
+grau) desen els camps de configuració existents en canviar. Les escriptures es
+serialitzen per Vault i una resposta antiga no sobreescriu la selecció pendent.
+Si falla el desament, es recupera el valor confirmat i es mostra l’avís existent.

@@ -11,8 +11,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
-| Vitest | 732 | 3266 |
-| pytest | 712 | 5418 |
+| Vitest | 733 | 3272 |
+| pytest | 712 | 5424 |
 
 ## Archivos
 
@@ -162,6 +162,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/graph/model/graphConnections.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/model/graphConnections.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/graph/model/graphLegend.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/model/graphLegend.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/graph/page/graphPageModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/page/graphPageModel.test.ts) | 6 | call-pattern estimate |
+| Vitest | [`frontend/src/features/graph/page/useGraphPageController.persistence.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/page/useGraphPageController.persistence.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/graph/page/useGraphPageController.timeline.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/page/useGraphPageController.timeline.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/graph/page/useGraphServerData.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/page/useGraphServerData.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/graph/panels/ForcesSection.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/panels/ForcesSection.test.tsx) | 1 | call-pattern estimate |
@@ -1250,8 +1251,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_reader_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reader_api_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_reader_article_list_loading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reader_article_list_loading.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_reader_list_indexes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reader_list_indexes.py) | 2 | Python AST |
-| pytest | [`backend/tests/test_reader_source_registry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reader_source_registry.py) | 13 | Python AST |
-| pytest | [`backend/tests/test_reader_source_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reader_source_routes.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_reader_source_registry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reader_source_registry.py) | 16 | Python AST |
+| pytest | [`backend/tests/test_reader_source_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reader_source_routes.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_reading_batch_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_batch_recovery.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_reading_batches.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_batches.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_reading_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_budget.py) | 9 | Python AST |

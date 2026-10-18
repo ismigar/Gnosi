@@ -475,3 +475,10 @@ invàlides, de versió desconeguda o no disponibles al núvol produeixen un erro
 reintentable sense sobreescriure-les. Les URL amb usuari i contrasenya incrustats
 s'han de netejar abans de migrar. El bloqueig local no coordina escriptures
 simultànies de dispositius diferents; s'aplica la gestió de conflictes del núvol.
+
+Les adreces de newsletters també admeten `newsletter://adreça@example.test` i es
+desen com a `mailto:adreça@example.test`, també en importar OPML o el registre.
+Es rebutgen duplicats entre els dos formats i àlies amb contrasenyes, delimitadors
+codificats, controls, camins o paràmetres. La normalització conserva els vincles
+dels articles. Les entrades RSS i mailto existents mantenen el comportament;
+l’àlies no configura cap compte de correu ni credencials.

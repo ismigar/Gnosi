@@ -96,3 +96,8 @@ flowchart LR
 Test unresolved nodes, isolated nodes, cluster legend consistency, front-matter
 fallback, semantic suggestion thresholds, cloud-directory failures, one-hop
 hover behavior, and graph navigation back to the correct page.
+
+The four Graph switches (arrows, LinLog, strong gravity and attraction by degree)
+save their existing configuration fields when changed. Per-Vault writes are
+serialized; stale query responses cannot overwrite a pending choice. Failed saves
+restore the last confirmed value and show the existing save error notification.

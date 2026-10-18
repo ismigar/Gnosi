@@ -50,6 +50,7 @@ from backend.domains.reader.schemas import (
 )
 from backend.models import reader as models
 from backend.domains.reader.source_registry import SourceRegistryError, source_transaction
+from backend.domains.reader.source_urls import canonical_source_url
 from backend.services.workspace_service import get_workspace_context, require_role
 
 
@@ -96,6 +97,11 @@ def get_sources(db: Session = Depends(get_db)) -> RouteReturn:
 )
 def create_source(source: models.FeedSourceCreate, db: Session = Depends(get_db)) -> RouteReturn:
     """Add a new feed source"""
+    try:
+        url, alias = canonical_source_url(source.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail='Invalid newsletter mailbox alias') from exc
+    source = source.model_copy(update={'url': url, **({'type': 'newsletter'} if alias else {})})
     with _sources_transaction(db, write=True):
         db_source = db.query(models.FeedSource).filter(models.FeedSource.url == source.url).first()
         if db_source:
@@ -156,7 +162,10 @@ async def upload_opml(file: UploadFile = File(...), db: Session = Depends(get_db
             if "xmlUrl" not in outline.attrib:
                 continue
 
-            url = outline.attrib.get("xmlUrl")
+            try:
+                url, alias = canonical_source_url(outline.attrib['xmlUrl'])
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail='Invalid newsletter mailbox alias') from exc
             title = outline.attrib.get("title", outline.attrib.get("text", "Unknown"))
             log.info(f"[OPML] Processant outline #{idx}: {title} ({url})")
 
@@ -183,7 +192,8 @@ async def upload_opml(file: UploadFile = File(...), db: Session = Depends(get_db
             existing = db.query(models.FeedSource).filter(models.FeedSource.url == url).first()
             log.info(f"  [OPML] Cerca completada. Existeix? {existing is not None}")
             if not existing:
-                new_source = models.FeedSource(name=title, url=url, category=category, type="rss")
+                new_source = models.FeedSource(name=title, url=url, category=category,
+                                              type="newsletter" if alias else "rss")
                 db.add(new_source)
                 db.flush()
                 imported_count += 1

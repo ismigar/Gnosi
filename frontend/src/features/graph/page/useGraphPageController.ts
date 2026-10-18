@@ -6,10 +6,13 @@ import {
   useState,
 } from 'react';
 import { useLocation } from 'react-router-dom';
+import i18n from '../../../shared/i18n/i18n';
+import { useQueryClient } from '@tanstack/react-query';
+import type { ConfigurationDocument } from '../../../shared/api/configuration';
 
 import type { MinimapRenderer } from '../../../shared/graph/minimap/minimapRuntime';
 import { useConfigChanged } from '../../../shared/platform/configEvents';
-import { logError } from '../../../shared/notifications/notifyError';
+import { logError, notifyError } from '../../../shared/notifications/notifyError';
 import type { VaultGlobalIndex, VaultRegistryRecord } from '../../../shared/api/vaults';
 import { subscribeWindowEvent } from '../../../shared/platform/browser-events';
 import { applyFilters } from '../../../shared/graph/filtering/graphFilters';
@@ -34,7 +37,9 @@ import {
   type GraphData,
   type GraphPageGraph,
 } from './graphPageModel';
-import { useGraphServerData } from './useGraphServerData';
+import { graphServerQueryKeys, useGraphServerData } from './useGraphServerData';
+import { getActiveVaultId } from '../../../shared/api/vault-context';
+import { createGraphTogglePersistence } from './graphTogglePersistence';
 
 
 const EMPTY_GRAPH: GraphData = {
@@ -70,6 +75,8 @@ function tableName(record: VaultRegistryRecord): string | null {
 
 export function useGraphPageController() {
   const location = useLocation();
+  const queryClient = useQueryClient();
+  const vaultId = getActiveVaultId();
   const initialSearch = useRef(location.search);
   const graphViewerRef = useRef<GraphViewerHandle>(null);
   const server = useGraphServerData();
@@ -102,7 +109,7 @@ export function useGraphPageController() {
   const [activeTableFilters, setActiveTableFilters] = useState<Set<string>>(() => new Set());
   const [activeMediaTags, setActiveMediaTags] = useState<Set<string>>(() => new Set());
   const [fieldFilters, setFieldFilters] = useState<FieldFilters>({});
-  const [showArrows, setShowArrows] = useState(true);
+  const [showArrows, setShowArrowsState] = useState(true);
   const [labelThreshold, setLabelThreshold] = useState(14);
   const [nodeSize, setNodeSize] = useState(0.4);
   const [edgeThickness, setEdgeThickness] = useState(0.05);
@@ -110,9 +117,9 @@ export function useGraphPageController() {
   const [repulsionUI, setRepulsionUI] = useState(1000);
   const [frictionUI, setFrictionUI] = useState(10);
   const [edgeInfluenceUI, setEdgeInfluenceUI] = useState(0);
-  const [linLogMode, setLinLogMode] = useState(false);
-  const [strongGravityMode, setStrongGravityMode] = useState(true);
-  const [outboundAttractionDistribution, setOutboundAttractionDistribution] = useState(false);
+  const [linLogMode, setLinLogModeState] = useState(false);
+  const [strongGravityMode, setStrongGravityModeState] = useState(true);
+  const [outboundAttractionDistribution, setOutboundAttractionDistributionState] = useState(false);
   const [gravity, setGravity] = useState(0.1);
   const [repulsion, setRepulsion] = useState(1000);
   const [friction, setFriction] = useState(10);
@@ -125,6 +132,48 @@ export function useGraphPageController() {
   const [refreshing, setRefreshing] = useState(false);
   const [timelineDate, setTimelineDate] = useState<number | null>(null);
   const [timelineRange, setTimelineRange] = useState<readonly [number, number] | null>(null);
+
+  const togglePersistence = useMemo(() => createGraphTogglePersistence({
+    scope: queryClient,
+    vaultId,
+    save: mutateConfiguration,
+    acknowledge: (key, value) => {
+      queryClient.setQueryData<ConfigurationDocument>(
+        graphServerQueryKeys.configuration(vaultId),
+        (document) => {
+          if (!document) return document;
+          const graph: Readonly<Record<string, unknown>> = typeof document.graph === 'object' && document.graph !== null
+            && !Array.isArray(document.graph) ? document.graph as Readonly<Record<string, unknown>> : {};
+          const physics: Readonly<Record<string, unknown>> = typeof graph.physics === 'object' && graph.physics !== null
+            && !Array.isArray(graph.physics) ? graph.physics as Readonly<Record<string, unknown>> : {};
+          return { ...document, graph: { ...graph, ...(key === 'show_arrows'
+            ? { show_arrows: value } : { physics: { ...physics, [key]: value } }) } };
+        },
+      );
+    },
+    change: (key, value) => {
+      switch (key) {
+        case 'show_arrows': setShowArrowsState(value); break;
+        case 'lin_log_mode': setLinLogModeState(value); break;
+        case 'strong_gravity_mode': setStrongGravityModeState(value); break;
+        case 'outbound_attraction_distribution': setOutboundAttractionDistributionState(value); break;
+      }
+    },
+    onError: (error) => { notifyError('graph-config-save', error, i18n.t('settings.save_error')); },
+  }), [mutateConfiguration, queryClient, vaultId]);
+  useEffect(() => togglePersistence.subscribe(), [togglePersistence]);
+  const setShowArrows = useCallback((value: boolean) => {
+    togglePersistence.set('show_arrows', value);
+  }, [togglePersistence]);
+  const setLinLogMode = useCallback((value: boolean) => {
+    togglePersistence.set('lin_log_mode', value);
+  }, [togglePersistence]);
+  const setStrongGravityMode = useCallback((value: boolean) => {
+    togglePersistence.set('strong_gravity_mode', value);
+  }, [togglePersistence]);
+  const setOutboundAttractionDistribution = useCallback((value: boolean) => {
+    togglePersistence.set('outbound_attraction_distribution', value);
+  }, [togglePersistence]);
 
   useEffect(() => {
     const timer = setTimeout(() => { setGravity(gravityUI); }, 300);
@@ -224,7 +273,7 @@ export function useGraphPageController() {
         ...(wikiVisible ? ['__wiki__'] : []),
         ...tableFilters,
       ]));
-      if (settings.show_arrows !== undefined) setShowArrows(settings.show_arrows);
+      togglePersistence.hydrate(settings);
       if (settings.label_threshold) setLabelThreshold(settings.label_threshold);
       if (settings.node_size) setNodeSize(settings.node_size);
       if (settings.edge_thickness) setEdgeThickness(settings.edge_thickness);
@@ -241,16 +290,9 @@ export function useGraphPageController() {
       if (physics?.edge_influence !== undefined) {
         setEdgeInfluenceUI(physics.edge_influence); setEdgeInfluence(physics.edge_influence);
       }
-      if (physics?.lin_log_mode !== undefined) setLinLogMode(physics.lin_log_mode);
-      if (physics?.strong_gravity_mode !== undefined) {
-        setStrongGravityMode(physics.strong_gravity_mode);
-      }
-      if (physics?.outbound_attraction_distribution !== undefined) {
-        setOutboundAttractionDistribution(physics.outbound_attraction_distribution);
-      }
     });
     return () => { active = false; };
-  }, [settings]);
+  }, [settings, togglePersistence]);
 
   useEffect(() => {
     if (!config || !settings || settings.sources_initialized || !graphData?.nodes.length) {
@@ -273,9 +315,11 @@ export function useGraphPageController() {
         },
       })
         .then(() => {
-          replaceConfiguration(
-            seedGraphConfigurationDocument(currentConfig, selection),
-          );
+          if (getActiveVaultId() !== vaultId) return;
+          const latest = queryClient.getQueryData<ConfigurationDocument>(
+            graphServerQueryKeys.configuration(vaultId),
+          ) ?? currentConfig;
+          replaceConfiguration(seedGraphConfigurationDocument(latest, selection));
         })
         .catch((caught: unknown) => { logError('graph-source-seed', caught); });
     });
@@ -285,7 +329,9 @@ export function useGraphPageController() {
     graphData,
     mutateConfiguration,
     replaceConfiguration,
+    queryClient,
     settings,
+    vaultId,
   ]);
 
   const hasClusterData = useMemo(

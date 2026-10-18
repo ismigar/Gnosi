@@ -451,3 +451,10 @@ When PDFium returns an unknown U+FFFE glyph, a second PDF decoder can restore
 it only if the complete normalized page has the same length and every other
 character agrees. Values never come from the requested quote; any other mismatch
 rejects reconciliation. The original native geometry indices are preserved.
+
+Newsletter mailbox inputs also accept `newsletter://address@example.test` and
+store the canonical `mailto:address@example.test`, including OPML and registry
+imports. Alias/canonical duplicates are rejected; passwords, encoded delimiters,
+controls, paths and query parameters are not accepted in the alias. Existing
+article links survive normalization. Existing RSS and mailto inputs keep their
+semantics; this alias does not configure a mailbox account or credentials.

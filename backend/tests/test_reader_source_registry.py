@@ -65,6 +65,52 @@ def test_copy_and_restore_empty_database(setup, tmp_path, monkeypatch):
         fresh_engine.dispose()
 
 
+def test_alias_import_recovers_canonical_mailbox_and_preserves_articles(setup):
+    vault, sessions = setup
+    with sessions() as db:
+        row = add(db, 'newsletter://ada@example.test', 'newsletter')
+        db.flush()
+        pk = row.id
+        db.add(Article(source_id=pk, url='https://example.test/article', title='Existing'))
+        db.commit()
+        with registry.source_transaction(db, vault):
+            restored = db.query(FeedSource).one()
+            assert (restored.id, restored.url, restored.type) == (pk, 'mailto:ada@example.test', 'newsletter')
+            assert db.query(Article).one().source_id == pk
+        saved = json.loads(file(vault).read_text())['sources']
+        assert saved[0]['url'] == 'mailto:ada@example.test'
+
+
+def test_imported_registry_alias_normalizes_without_modifying_readonly_file(setup):
+    vault, sessions = setup
+    file(vault).parent.mkdir()
+    original = json.dumps({'version': 1, 'sources': [{
+        'name': 'Imported', 'url': 'newsletter://ada@example.test',
+        'category': 'News', 'type': 'newsletter', 'created_at': '2024-01-02T00:00:00Z',
+    }]})
+    file(vault).write_text(original)
+    with sessions() as db:
+        with registry.source_transaction(db, vault):
+            assert db.query(FeedSource).one().url == 'mailto:ada@example.test'
+        assert file(vault).read_text() == original
+        with registry.source_transaction(db, vault, write=True):
+            pass
+        assert json.loads(file(vault).read_text())['sources'][0]['url'] == 'mailto:ada@example.test'
+
+
+def test_alias_collision_in_registry_remains_invalid(setup):
+    vault, sessions = setup
+    item = {'name': 'Duplicate', 'url': 'newsletter://ada@example.test',
+            'category': None, 'type': 'newsletter', 'created_at': '2024-01-02T00:00:00Z'}
+    file(vault).parent.mkdir()
+    file(vault).write_text(json.dumps({'version': 1, 'sources': [item, {**item, 'url': 'mailto:ada@example.test'}]}))
+    before = file(vault).read_bytes()
+    with sessions() as db, pytest.raises(registry.SourceRegistryError, match='Duplicate'):
+        with registry.source_transaction(db, vault):
+            pass
+    assert file(vault).read_bytes() == before
+
+
 def test_last_delete_tombstone_and_stale_database(setup):
     vault, sessions = setup
     with sessions() as db:
