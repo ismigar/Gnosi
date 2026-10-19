@@ -21,7 +21,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from scripts.ci.pre_pr_commands import Step, build_steps
-from scripts.ci.pre_pr_resources import run_mac_idle, resource_environment
+from scripts.ci.pre_pr_resources import run_mac_idle, run_mac_interactive, resource_environment
 
 ROOT = Path(__file__).resolve().parents[2]
 LOG = logging.getLogger(__name__)
@@ -153,6 +153,10 @@ def run_steps(root: Path, steps: Sequence[Step], environment: Mapping[str, str],
         try:
             if resource_profile == "mac-idle":
                 result = run_mac_idle(step, root, step_environment)
+            elif resource_profile == "mac-interactive":
+                result = run_mac_interactive(step, root, step_environment)
+            elif resource_profile is not None:
+                raise ValueError("Unknown explicit resource profile")
             else:
                 result = subprocess.run(step.arguments, cwd=root, env=step_environment, check=False)
         except OSError:
@@ -185,7 +189,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--list", action="store_true", help="Show the plan without running quality gates"
     )
-    parser.add_argument("--resource-profile", choices=("mac-idle",))
+    parser.add_argument("--resource-profile", choices=("mac-idle", "mac-interactive"))
     args = parser.parse_args(argv)
     try:
         base_sha = resolve_commit(ROOT, args.base_ref)

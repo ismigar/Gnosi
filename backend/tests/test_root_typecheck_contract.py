@@ -461,7 +461,7 @@ def test_optional_typecheck_cache_absent_preserves_legacy_discovery(tmp_path: Pa
     assert "verification incomplete" not in result.stderr
 
 
-@pytest.mark.parametrize("profile", [None, "mac-idle"])
+@pytest.mark.parametrize("profile", [None, "mac-idle", "mac-interactive"])
 def test_pre_pr_typecheck_cache_pair_is_scoped_to_exact_type_phase(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, profile: str | None,
 ) -> None:
@@ -488,6 +488,7 @@ def test_pre_pr_typecheck_cache_pair_is_scoped_to_exact_type_phase(
 
     monkeypatch.setattr(pre_pr.subprocess, "run", run)
     monkeypatch.setattr(pre_pr, "run_mac_idle", idle)
+    monkeypatch.setattr(pre_pr, "run_mac_interactive", idle)
     assert pre_pr.run_steps(tmp_path, steps, environment, resource_profile=profile) == 0
     assert environment == original
     assert all(observed[0][name] == parent[name] for name in keys)
