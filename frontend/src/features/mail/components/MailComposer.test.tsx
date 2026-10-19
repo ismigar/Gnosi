@@ -190,6 +190,31 @@ function buttonContaining(container: HTMLElement, text: string): HTMLButtonEleme
 }
 
 describe('MailComposer shared Mail API migration', () => {
+    it.each([
+        ['blind@example.test', 'blind@example.test'],
+        [['blind@example.test', 'private@example.test'], 'blind@example.test, private@example.test'],
+    ] as const)('restores blind recipients from a saved draft and retains them when saving and sending (%s)', async (initialBcc, expected) => {
+        vi.useFakeTimers();
+        const { container } = renderComposer({
+            _draftId: 'draft-with-bcc', initialBcc, initialTo: 'reader@example.test', initialSubject: 'Saved draft',
+        });
+        const input = container.querySelector<HTMLInputElement>('input[aria-label="BCC"]');
+        expect(input?.value).toBe(expected);
+        const body = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="mail-body"]');
+        if (!body) throw new Error('Missing mail body');
+        act(() => { changeValue(body, '<p>Restored draft body</p>'); });
+        await act(async () => {
+            vi.advanceTimersByTime(2000);
+            await Promise.resolve();
+        });
+        expect(mocks.saveMailDraft).toHaveBeenCalledWith(expect.objectContaining({
+            bcc: expected, draft_id: 'draft-with-bcc',
+        }));
+        await act(async () => { buttonContaining(container, 'mail.send_btn').click(); });
+        expect(mocks.sendMailMultipart).toHaveBeenCalledOnce();
+        expect(mocks.sendMailMultipart.mock.calls[0]?.[1].get('bcc')).toBe(expected);
+    });
+
     it('guards repeated keyboard sends and retains content and attachment after unknown delivery', async () => {
         let rejectSend: ((reason: unknown) => void) | undefined;
         mocks.sendMailMultipart.mockImplementationOnce(() => new Promise((_resolve, reject) => {

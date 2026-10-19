@@ -25,6 +25,7 @@ export interface MailPageMessage {
   readonly account?: string | null;
   readonly account_email?: string | null;
   readonly body_text?: string | null;
+  readonly bcc?: string | readonly string[] | null;
   readonly cc?: string | readonly string[] | null;
   readonly id: string;
   readonly imap_folder?: string | null;
@@ -40,6 +41,7 @@ export interface MailPageMessage {
 export interface MailComposeData {
   readonly _draftId?: string | null;
   readonly initialBody?: string;
+  readonly initialBcc?: string | readonly string[];
   readonly initialCc?: string | readonly string[];
   readonly initialSubject?: string;
   readonly initialTo?: string | readonly string[];
@@ -225,6 +227,7 @@ export function draftComposeData(mail: MailPageMessage): MailComposeData {
   return {
     _draftId: mail.id,
     initialBody: mail.body_text ?? '',
+    initialBcc: mail.bcc || '',
     initialCc: mail.cc || '',
     initialSubject: mail.subject === '(Esborrany)' ? '' : (mail.subject ?? ''),
     initialTo: mail.recipient || '',

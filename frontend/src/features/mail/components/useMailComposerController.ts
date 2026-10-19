@@ -72,6 +72,7 @@ export function useMailComposerController({
   account = null,
   accounts = [],
   initialBody = '',
+  initialBcc = '',
   initialCc = '',
   initialSubject = '',
   initialTo = '',
@@ -89,8 +90,9 @@ export function useMailComposerController({
   );
   const [to, setTo] = useState(initialTo);
   const [cc, setCc] = useState(initialCc);
-  const [bcc, setBcc] = useState('');
-  const [showCcBcc, setShowCcBcc] = useState(Boolean(initialCc));
+  const [bcc, setBcc] = useState(() => typeof initialBcc === 'string'
+    ? initialBcc : initialBcc.join(', '));
+  const [showCcBcc, setShowCcBcc] = useState(Boolean(initialCc || initialBcc.length));
   const [subject, setSubject] = useState(initialSubject);
   const [body, setBody] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
