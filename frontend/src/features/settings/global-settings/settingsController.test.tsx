@@ -466,6 +466,22 @@ describe('settings controller persistence contracts', () => {
     expect(writes()).toEqual([]);
     expect(api.requests.some(request => request.path.startsWith('/api/credentials') || request.path === '/api/env')).toBe(false);
   });
+  it.each([{}, { lin_log_mode: true, strong_gravity_mode: false, outbound_attraction_distribution: true }, { gravity: 0.4 }, { friction: 4, custom_extension: { keep: true } }])('opens and saves preferences after partial graph updates: %j', async physics => {
+    api.configResponse = async () => Response.json({ ...configuration, graph: { physics } });
+    await mount();
+    const expected = { gravity: 0.1, repulsion: 1000, friction: 10, ...physics };
+    expect(snapshot().draft.graph.physics).toEqual(expected);
+    await advance(1600);
+    expect(writes()).toEqual([]);
+    act(() => { snapshot().setDraft(previous => ({ ...previous, settings: { ...previous.settings, theme: 'light' } })); });
+    await advance(1600);
+    expect(writes().filter(request => request.path === '/api/config').at(-1)?.body).toMatchObject({ graph: { physics: expected } });
+  });
+  it('keeps physics defaults for unset fields and preserves unknown extensions', async () => {
+    api.configResponse = async () => Response.json({ ...configuration, graph: { physics: { gravity: null, lin_log_mode: null, custom_extension: null } } });
+    await mount();
+    expect(snapshot().draft.graph.physics).toEqual({ gravity: 0.1, repulsion: 1000, friction: 10, custom_extension: null });
+  });
   it('validates dynamic documents and preserves plugin and provider extensions', async () => {
     await mount({ isOpen: false });
     const draft = hydrateDraft(snapshot().draft, configuration);
@@ -476,5 +492,6 @@ describe('settings controller persistence contracts', () => {
     expect(() => settingsAgents([{ id: 7 }])).toThrow();
     expect(() => settingsIntegrations({ calendars: [{ email: 7 }] })).toThrow();
     expect(() => hydrateDraft(snapshot().draft, { graph: { physics: 'invalid' } })).toThrow();
+    for (const physics of [{ gravity: 'bad' }, { repulsion: Infinity }, { lin_log_mode: 'true' }]) expect(() => hydrateDraft(snapshot().draft, { graph: { physics } })).toThrow('Invalid graph physics');
   });
 });

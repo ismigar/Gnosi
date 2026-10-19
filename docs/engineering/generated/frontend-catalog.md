@@ -50,7 +50,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2691 | 0 |
-| `features` | 1256 | 135798 | 55 |
+| `features` | 1256 | 135805 | 55 |
 | `generated` | 3 | 54141 | 560 |
 | `shared` | 345 | 36900 | 475 |
 
@@ -661,7 +661,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/global-settings/formatting.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/formatting.ts) | 17 | `CURRENCIES`, `DATE_FORMATS`, `DECIMAL_SYMBOLS`, `formatCost` | — |
 | [`frontend/src/features/settings/global-settings/pluginProfileSync.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/pluginProfileSync.ts) | 28 | `syncPluginProfiles` | — |
 | [`frontend/src/features/settings/global-settings/pluginSettingsNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/pluginSettingsNavigation.ts) | 14 | `pluginConfigurationForSettingsTab`, `pluginForSettingsTab` | — |
-| [`frontend/src/features/settings/global-settings/settingsDocuments.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsDocuments.ts) | 84 | `errorDetail`, `hydrateDraft`, `integrationAccount`, `settingsAgents`, `settingsIntegrations`, `settingsRegistry` | — |
+| [`frontend/src/features/settings/global-settings/settingsDocuments.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsDocuments.ts) | 91 | `errorDetail`, `hydrateDraft`, `integrationAccount`, `settingsAgents`, `settingsIntegrations`, `settingsRegistry` | — |
 | [`frontend/src/features/settings/global-settings/settingsGraphModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsGraphModel.ts) | 22 | `settingsGraphNode` | — |
 | [`frontend/src/features/settings/global-settings/settingsPanelLoaders.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsPanelLoaders.ts) | 23 | `preloadSettingsPanel`, `settingsPanelLoaders` | — |
 | [`frontend/src/features/settings/global-settings/settingsStorage.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsStorage.ts) | 12 | `configurePluginKey`, `mailDarkBodyKey`, `snippetsKey`, `syncErrorsKey`, `themeKey` | — |
