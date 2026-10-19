@@ -85,7 +85,7 @@ test('sticky fatal events after execution or yielding stop the next batch and cl
   }
 });
 
-test('cold paired workers preserve exact CLI coverage, environment and bounded parser lifetimes', async () => {
+test('cold workers preserve exact CLI coverage, environment and bounded parser lifetimes', async () => {
   for (const singleRun of [undefined, 'true', 'false']) {
     for (const cache of [undefined, '', '/fixture/cache with spaces']) {
       await withEnvironment({
@@ -116,7 +116,7 @@ test('cold paired workers preserve exact CLI coverage, environment and bounded p
                 if (workerCalls === 0) assert.equal(parserState, null);
                 else assert.equal(parserState, retainedState);
                 workerCalls += 1;
-                assert.ok(workerCalls <= 2);
+                assert.ok(workerCalls <= 16);
                 active = true;
                 parserState = retainedState;
                 assert.strictEqual(args, process.argv);
@@ -154,20 +154,20 @@ test('cold paired workers preserve exact CLI coverage, environment and bounded p
           assert.strictEqual(process.argv, originalArgv);
         }
         assert.equal(loads, 10);
-        assert.equal(seen.length, 19);
+        assert.equal(seen.length, 150);
         const consumed = [];
         for (let index = 0; index < seen.length; index += 1) {
           const prefix = [process.execPath, eslint, '--max-warnings=0', '--concurrency=off'];
           if (cache) prefix.push('--cache', '--cache-strategy', 'content', '--cache-location', cache);
           prefix.push('--');
-          const expectedFiles = files.slice(index * 128, (index + 1) * 128);
+          const expectedFiles = files.slice(index * 16, (index + 1) * 16);
           assert.deepEqual(seen[index], [...prefix, ...expectedFiles]);
           consumed.push(...seen[index].slice(prefix.length));
         }
         assert.deepEqual(consumed, files);
         const expectedEvents = [];
         for (let offset = 0; offset < files.length; offset += 256) {
-          const batches = Math.min(2, Math.ceil((files.length - offset) / 128));
+          const batches = Math.min(16, Math.ceil((files.length - offset) / 16));
           expectedEvents.push(...Array.from({ length: batches }, () => ['execute', 'yield', 'gc']).flat(), 'clear');
         }
         assert.deepEqual(events, expectedEvents);
@@ -221,7 +221,7 @@ test('throws and incompatible lifecycle APIs fail closed and restore argv', asyn
       gc: () => failAt('gc'),
       log: () => {},
     }), failure === 'status' ? /invalid exit status/ : failure === 'api' ? /requires CLI execution/ : new RegExp(`failed ${failure}`));
-    assert.equal(calls, failure === 'load' || failure === 'api' ? 0 : failure === 'clear' ? 2 : 1);
+    assert.equal(calls, failure === 'load' || failure === 'api' ? 0 : failure === 'clear' ? 16 : 1);
     assert.equal(clears, failure === 'load' || failure === 'api' ? 0 : 1);
     assert.strictEqual(process.argv, originalArgv);
   }

@@ -120,7 +120,9 @@ uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
 En macOS, usad `--resource-profile mac-idle` para la validación local acotada. Sustituye el heap predeterminado por 1536 MiB, ejecuta con prioridad 10, un worker y un hilo de cálculo, y supervisa un presupuesto RSS de 2 GiB para el comando y sus descendientes. Cada fase comienza solo después de 30 segundos de presión de memoria normal. Las comprobaciones estáticas, compilaciones y suites tienen límites de 5, 10 y 15 minutos respectivamente.
 
 `pnpm lint:frontend` descubre los archivos con el recorrido configurado de ESLint
-y los comprueba en lotes de hasta 128 archivos, con procesos nuevos y secuenciales.
+y los comprueba en lotes de hasta 16 archivos, con procesos nuevos y secuenciales.
+Cada proceso conserva el servicio de tipos durante un máximo de 256 archivos.
+Después de cada lote, cede el control y recoge la memoria temporal antes de seguir.
 El descubrimiento no analiza el código ni rellena la caché de lint; solo las
 comprobaciones CLI posteriores pueden acreditar el éxito. Cada lote conserva
 todas las reglas, la comprobación tipada con project service, las exclusiones y

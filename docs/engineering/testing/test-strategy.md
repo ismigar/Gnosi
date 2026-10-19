@@ -166,9 +166,9 @@ expected generated-catalog updates are the only excluded source differences.
 ## Frontend lint memory
 
 `pnpm lint:frontend` discovers files through ESLint's configured directory scan,
-then checks batches of at most 128 files through the installed CLI. Cold workers
-run serially, each handling at most two original batches before exiting. The
-parser's normal project service remains available within that pair; an event-loop
+then checks batches of at most 16 files through the installed CLI. Cold workers
+run serially, each handling at most 256 files before exiting. The
+parser's normal project service remains available across those batches; an event-loop
 yield and explicit GC allow completed CLI state to be collected after each
 successful batch. Public parser caches are cleared once per worker on completion
 or failure, and its process exits before the next worker starts. The discovery
@@ -185,7 +185,7 @@ The mac-idle heap, process-tree memory budget and overall phase deadline stay
 unchanged. Runner regressions compare discovery with real ESLint and exercise
 later-batch failures, type-aware rules, cache invalidation, fatal exit status and
 child termination. Pure Node worker tests also cover serial execution, exact
-arguments, paired service lifetimes, final cleanup and argument restoration.
+arguments, bounded service lifetimes, final cleanup and argument restoration.
 
 Before a mac-idle phase starts, readiness waits at most 90 seconds to observe
 30 consecutive seconds of normal pressure. A warning resets the normal streak;

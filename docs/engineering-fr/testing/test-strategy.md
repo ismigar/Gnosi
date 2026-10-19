@@ -122,8 +122,10 @@ uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
 Sur macOS, utilisez `--resource-profile mac-idle` pour une validation locale limitée. Il remplace le heap par 1536 MiB, exécute à priorité 10 avec un worker et un thread de calcul, et surveille un budget RSS de 2 GiB pour la commande et ses descendants. Chaque phase ne démarre qu’après 30 secondes de pression mémoire normale. Les contrôles statiques, builds et suites sont limités à 5, 10 et 15 minutes respectivement.
 
 `pnpm lint:frontend` découvre les fichiers avec le parcours configuré d’ESLint,
-puis les vérifie par lots de 128 fichiers au maximum, dans des processus nouveaux
-et séquentiels. La découverte n’analyse pas le code et ne remplit pas le cache de
+puis les vérifie par lots de 16 fichiers au maximum, dans des processus nouveaux
+et séquentiels. Chaque processus conserve le service de types pour 256 fichiers
+au maximum. Après chaque lot, il rend la main et récupère la mémoire temporaire.
+La découverte n’analyse pas le code et ne remplit pas le cache de
 lint ; seules les vérifications CLI suivantes peuvent établir le succès. Chaque
 lot conserve toutes les règles, le contrôle typé avec project service, les
 exclusions et le seuil de zéro avertissement. Un lot en échec arrête la commande.

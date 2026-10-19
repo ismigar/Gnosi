@@ -84,9 +84,9 @@ it.each(['.eslintcache', 'custom.cache'])('reuses %s across serial batches and r
   const environment = { GNOSI_ESLINT_CACHE: cache };
   const result = run(environment);
   expect(result.status, result.stderr).toBe(0);
-  expect(result.stdout).toContain('ESLint batch 1/3 (128 files)');
-  expect(result.stdout).toContain('ESLint batch 2/3 (128 files)');
-  expect(result.stdout).toContain('ESLint batch 3/3 (1 files)');
+  expect(result.stdout).toContain('ESLint batch 1/17 (16 files)');
+  expect(result.stdout).toContain('ESLint batch 16/17 (16 files)');
+  expect(result.stdout).toContain('ESLint batch 17/17 (1 files)');
   const first = readFileSync(join(fixture, 'rule-count.txt'), 'utf8');
   const processIds = first.split(',').filter(Boolean);
   expect(processIds).toHaveLength(257);
@@ -118,7 +118,7 @@ it.each([
   write('source/999.js', source);
   const result = run();
   expect(result.status).toBe(1);
-  expect(result.stdout).toContain('ESLint batch 3/3');
+  expect(result.stdout).toContain('ESLint batch 17/17');
   expect(result.stdout).toContain(message);
 });
 
@@ -132,12 +132,12 @@ it('executes type-aware rules with the project service across batches', () => {
   write('typed.ts', 'Promise.resolve(1);');
   const result = run();
   expect(result.status, result.stderr).toBe(1);
-  expect(result.stdout).toContain('ESLint batch 2/2 (1 files)');
+  expect(result.stdout).toContain('ESLint batch 9/9 (1 files)');
   expect(result.stdout).toContain('@typescript-eslint/no-floating-promises');
   write('typed.ts', 'void Promise.resolve(1);');
   const fixed = run();
   expect(fixed.status, fixed.stderr).toBe(0);
-  expect(fixed.stdout).toContain('ESLint batch 2/2 (1 files)');
+  expect(fixed.stdout).toContain('ESLint batch 9/9 (1 files)');
 }, 30_000);
 
 it('invalidates content cache entries across batches and never caches discovery as success', () => {
@@ -172,8 +172,8 @@ it('preserves the installed CLI fatal exit status and stops later batches', () =
   const result = run();
   expect(result.status, result.stderr).toBe(original.status);
   expect(result.stderr).toContain('fixture rule failure');
-  expect(result.stdout).not.toContain('ESLint batch 2/3');
-  expect(result.stdout).not.toContain('ESLint batch 3/3');
+  expect(result.stdout).not.toContain('ESLint batch 2/17');
+  expect(result.stdout).not.toContain('ESLint batch 17/17');
 });
 
 it.each([
@@ -197,8 +197,8 @@ it.each([
   const result = run();
   expect(result.status, result.stderr).toBe(original.status);
   expect(result.stderr).toContain('fixture detached failure');
-  expect(result.stdout).not.toContain('ESLint batch 2/3');
-  expect(result.stdout).not.toContain('ESLint batch 3/3');
+  expect(result.stdout).not.toContain('ESLint batch 2/17');
+  expect(result.stdout).not.toContain('ESLint batch 17/17');
 });
 
 it('propagates a lint child signal and does not start later batches', () => {
@@ -212,6 +212,6 @@ it('propagates a lint child signal and does not start later batches', () => {
   const result = run();
   expect(result.status).not.toBe(0);
   expect(result.stderr).toContain('SIGTERM');
-  expect(result.stdout).not.toContain('ESLint batch 2/3');
-  expect(result.stdout).not.toContain('ESLint batch 3/3');
+  expect(result.stdout).not.toContain('ESLint batch 2/17');
+  expect(result.stdout).not.toContain('ESLint batch 17/17');
 });

@@ -27,8 +27,8 @@ function lint() {
       throw new Error('ESLint discovery did not return a nonempty file list');
     }
 
-    // Recycle after two original 128-file batches to bound retained parser
-    // state. Each cold worker exits before the next worker can start.
+    // Use small serial CLI batches to release transient results sooner, while
+    // recycling the parser after 256 files. Cold workers never overlap.
     for (let offset = 0; offset < files.length; offset += 256) {
       const result = spawnSync(process.execPath, [
         '--expose-gc', fileURLToPath(new URL('./lint-worker.mjs', import.meta.url)), manifest, String(offset),

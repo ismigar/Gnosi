@@ -4,7 +4,7 @@ import { setImmediate } from 'node:timers/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const eslint = fileURLToPath(new URL('../node_modules/eslint/bin/eslint.js', import.meta.url));
-const batchSize = 128;
+const batchSize = 16;
 
 export function validateFiles(files) {
   if (!Array.isArray(files) || files.length === 0 || files.some(file => typeof file !== 'string' || file.length === 0) || new Set(files).size !== files.length) {
