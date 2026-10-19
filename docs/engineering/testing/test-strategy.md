@@ -428,3 +428,9 @@ before the complete release matrix passes.
 The generated [test catalog](../generated/tests.md) lists owned test files and
 navigation signals. Runner collection remains authoritative for executable test
 counts.
+
+## Explicit verified frontend type results
+
+An optional `GNOSI_TYPECHECK_CACHE` and `GNOSI_TYPECHECK_CACHE_SHA256` pair binds a private, owned manifest and a fixed `verify-typecheck-cache.py` helper plus the locked Python executable before any helper runs. It verifies a genuinely completed whole frontend type phase and every current source, configuration, dependency, symlink and Node fingerprint. Only explicitly reviewed non-TypeScript quality files may differ; the complete legacy `typecheck()` function, compiler, worker, roots and rules remain unchanged. A later failed whole gate remains failed.
+
+With no pair, the original checker runs unchanged. Partial, malformed or stale bindings fail without fallback or retry. Successful verification prints `VERIFIED_CACHED_WHOLE_FRONTEND_TYPES`, without invented current semantic batches. The pre-PR environment exposes the pair only to the exact `Frontend types` phase and removes both keys from every other phase, including frontend test fixtures. Resource limits, cleanup and all remaining gate obligations stay unchanged.

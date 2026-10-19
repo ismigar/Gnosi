@@ -128,6 +128,11 @@ def isolated_environment(parent: Mapping[str, str], temporary: Path) -> dict[str
     # Analyzer cache is an explicit build opt-in, not an application selector.
     if lint_cache := parent.get("GNOSI_ESLINT_CACHE"):
         environment["GNOSI_ESLINT_CACHE"] = lint_cache
+    type_cache_keys = ("GNOSI_TYPECHECK_CACHE", "GNOSI_TYPECHECK_CACHE_SHA256")
+    if any(name in parent for name in type_cache_keys):
+        if not all(parent.get(name) for name in type_cache_keys):
+            raise ValueError("Supply both explicit typecheck cache bindings")
+        environment.update({name: parent[name] for name in type_cache_keys})
     return environment
 
 
@@ -138,11 +143,18 @@ def run_steps(root: Path, steps: Sequence[Step], environment: Mapping[str, str],
     for index, step in enumerate(steps, 1):
         LOG.info("[%d/%d] %s", index, len(steps), step.name)
         started = monotonic()
+        step_environment = dict(environment)
+        if step.name != "Frontend types":
+            step_environment.pop("GNOSI_TYPECHECK_CACHE", None)
+            step_environment.pop("GNOSI_TYPECHECK_CACHE_SHA256", None)
+        elif any(name in step_environment for name in ("GNOSI_TYPECHECK_CACHE", "GNOSI_TYPECHECK_CACHE_SHA256")):
+            if not all(step_environment.get(name) for name in ("GNOSI_TYPECHECK_CACHE", "GNOSI_TYPECHECK_CACHE_SHA256")):
+                raise ValueError("Supply both explicit typecheck cache bindings")
         try:
             if resource_profile == "mac-idle":
-                result = run_mac_idle(step, root, environment)
+                result = run_mac_idle(step, root, step_environment)
             else:
-                result = subprocess.run(step.arguments, cwd=root, env=environment, check=False)
+                result = subprocess.run(step.arguments, cwd=root, env=step_environment, check=False)
         except OSError:
             LOG.error("Cannot start %s. Check the installed toolchain and dependencies.", step.name)
             return 127

@@ -446,3 +446,9 @@ la matriz de release.
 ## Catálogo de pruebas
 
 El [catálogo de pruebas](../generated/tests.md) generado enumera los archivos de pruebas propios y las señales de navegación. La recopilación del ejecutor sigue siendo la fuente autoritativa del número de pruebas ejecutables.
+
+## Resultados de tipos del frontend verificados explícitamente
+
+La pareja opcional `GNOSI_TYPECHECK_CACHE` y `GNOSI_TYPECHECK_CACHE_SHA256` vincula un manifiesto privado y propio, el ayudante fijo `verify-typecheck-cache.py` y el ejecutable Python bloqueado antes de ejecutarlo. Verifica una fase completa de tipos realmente finalizada y todas las huellas actuales de fuentes, configuración, dependencias, enlaces simbólicos y Node. Solo pueden diferir archivos de calidad no TypeScript revisados explícitamente; la función original completa `typecheck()`, el compilador, el trabajador, las raíces y las reglas no cambian. Una validación global posterior fallida sigue fallida.
+
+Sin la pareja se ejecuta el comprobador original intacto. Los vínculos parciales, malformados u obsoletos fallan sin alternativa ni reintento. La verificación correcta muestra `VERIFIED_CACHED_WHOLE_FRONTEND_TYPES`, sin inventar lotes semánticos actuales. El entorno pre-PR expone la pareja solo a la fase exacta `Frontend types` y elimina ambas claves de cualquier otra fase, incluidas las pruebas del frontend. Los límites, la limpieza y las demás obligaciones de validación se mantienen.

@@ -332,3 +332,199 @@ raise SystemExit(16 + stage if stage == failure_at else 0)
     expected_count = failure_at or len(commands)
     recorded: object = [json.loads(line) for line in calls_path.read_text().splitlines()]
     assert recorded == commands[:expected_count]
+
+
+def _synthetic_typecheck_cache_project(
+    tmp_path: Path, status: int = 0,
+) -> tuple[Path, Path, dict[str, str], Path]:
+    """Protocol fixture only: this helper does not verify or claim real typing."""
+    import hashlib
+
+    frontend = tmp_path / "frontend"
+    scripts = frontend / "scripts"
+    scripts.mkdir(parents=True)
+    runner = scripts / "typecheck.mjs"
+    runner.write_bytes((ROOT / "frontend/scripts/typecheck.mjs").read_bytes())
+    python = tmp_path / ".venv/bin/python"
+    python.parent.mkdir(parents=True)
+    python.symlink_to(Path(sys.executable).resolve())
+    cache = tmp_path / "type-cache"
+    cache.mkdir(mode=0o700)
+    calls = tmp_path / "synthetic-helper-calls.json"
+    helper = cache / "verify-typecheck-cache.py"
+    helper.write_text(
+        "# SYNTHETIC PROTOCOL UNIT FIXTURE; NO TYPECHECK RESULT\n"
+        "import json,sys\nfrom pathlib import Path\n"
+        f"Path({str(calls)!r}).write_text(json.dumps(sys.argv[1:]))\n"
+        f"raise SystemExit({status})\n"
+    )
+    manifest = cache / "manifest.json"
+    manifest.write_text(json.dumps({
+        "schema": 1, "status": "VERIFIED_WHOLE_FRONTEND_TYPES_CACHE",
+        "project_root": str(frontend.resolve()), "candidate": "a" * 40,
+        "helper": {"path": str(helper.resolve()), "sha256": hashlib.sha256(helper.read_bytes()).hexdigest()},
+        "python": {"path": str(python), "realpath": str(python.resolve()),
+                   "sha256": hashlib.sha256(python.read_bytes()).hexdigest()},
+    }))
+    environment = dict(os.environ)
+    environment["GNOSI_TYPECHECK_CACHE"] = str(manifest.resolve())
+    environment["GNOSI_TYPECHECK_CACHE_SHA256"] = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    return runner, manifest, environment, calls
+
+
+@pytest.mark.parametrize("status", [0, 2, 23])
+def test_optional_typecheck_cache_verifies_protocol_and_preserves_status(
+    tmp_path: Path, status: int,
+) -> None:
+    runner, manifest, environment, calls = _synthetic_typecheck_cache_project(tmp_path, status)
+    result = subprocess.run(("node", str(runner)), env=environment,
+                            capture_output=True, text=True, check=False, timeout=30)
+    assert result.returncode == status
+    assert json.loads(calls.read_text()) == [
+        "--manifest", str(manifest), "--manifest-sha256", environment["GNOSI_TYPECHECK_CACHE_SHA256"],
+    ]
+    assert ("VERIFIED_CACHED_WHOLE_FRONTEND_TYPES" in result.stdout) is (status == 0)
+    assert "TypeScript semantic batch" not in result.stdout
+
+
+@pytest.mark.parametrize("corruption", [
+    "path-only", "sha-only", "empty", "bad-sha", "manifest-hash", "helper-hash",
+    "python-hash", "wrong-helper", "wrong-project", "malformed", "oversized", "symlink", "mode",
+])
+def test_optional_typecheck_cache_rejects_invalid_bindings_without_fallback(
+    tmp_path: Path, corruption: str,
+) -> None:
+    import hashlib
+
+    runner, manifest, environment, calls = _synthetic_typecheck_cache_project(tmp_path)
+    data = json.loads(manifest.read_text())
+    if corruption == "path-only":
+        environment.pop("GNOSI_TYPECHECK_CACHE_SHA256")
+    elif corruption == "sha-only":
+        environment.pop("GNOSI_TYPECHECK_CACHE")
+    elif corruption == "empty":
+        environment["GNOSI_TYPECHECK_CACHE"] = ""
+    elif corruption == "bad-sha":
+        environment["GNOSI_TYPECHECK_CACHE_SHA256"] = "not-a-hash"
+    elif corruption == "manifest-hash":
+        environment["GNOSI_TYPECHECK_CACHE_SHA256"] = "0" * 64
+    elif corruption == "helper-hash":
+        Path(data["helper"]["path"]).write_text("raise SystemExit(0)\n")
+    elif corruption == "python-hash":
+        data["python"]["sha256"] = "0" * 64
+    elif corruption == "wrong-helper":
+        data["helper"]["path"] = str(tmp_path / "other.py")
+    elif corruption == "wrong-project":
+        data["project_root"] = str(tmp_path)
+    elif corruption == "mode":
+        manifest.parent.chmod(0o755)
+    if corruption in {"python-hash", "wrong-helper", "wrong-project"}:
+        manifest.write_text(json.dumps(data))
+        environment["GNOSI_TYPECHECK_CACHE_SHA256"] = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    if corruption in {"malformed", "oversized"}:
+        manifest.write_text("{" if corruption == "malformed" else " " * 65537)
+        environment["GNOSI_TYPECHECK_CACHE_SHA256"] = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    if corruption == "symlink":
+        original = manifest.with_name("original.json")
+        manifest.rename(original)
+        manifest.symlink_to(original)
+    result = subprocess.run(("node", str(runner)), env=environment,
+                            capture_output=True, text=True, check=False, timeout=30)
+    assert result.returncode != 0
+    assert not calls.exists()
+    assert "TypeScript worker failed" not in result.stderr  # No legacy retry.
+    assert "VERIFIED_CACHED_WHOLE_FRONTEND_TYPES" not in result.stdout
+
+
+def test_optional_typecheck_cache_rejects_arguments_before_helper(
+    tmp_path: Path,
+) -> None:
+    runner, _manifest, environment, calls = _synthetic_typecheck_cache_project(tmp_path)
+    result = subprocess.run(("node", str(runner), "--skipLibCheck"), env=environment,
+                            capture_output=True, text=True, check=False, timeout=30)
+    assert result.returncode != 0 and not calls.exists()
+
+
+def test_optional_typecheck_cache_absent_preserves_legacy_discovery(tmp_path: Path) -> None:
+    runner, _manifest, environment, calls = _synthetic_typecheck_cache_project(tmp_path)
+    environment.pop("GNOSI_TYPECHECK_CACHE")
+    environment.pop("GNOSI_TYPECHECK_CACHE_SHA256")
+    (runner.parent / "typecheck-worker.mjs").write_text(
+        "import {readFileSync,writeFileSync} from 'node:fs';\n"
+        "const request=JSON.parse(readFileSync(process.argv[2],'utf8'));\n"
+        "if(request.phase!=='discover') throw new Error('unexpected retry');\n"
+        "writeFileSync(process.argv[3],JSON.stringify({checkTypes:false,diagnostics:[]}));\n"
+    )
+    result = subprocess.run(("node", str(runner)), env=environment,
+                            capture_output=True, text=True, check=False, timeout=30)
+    assert result.returncode == 1 and not calls.exists()
+    assert "verification incomplete" not in result.stderr
+
+
+@pytest.mark.parametrize("profile", [None, "mac-idle"])
+def test_pre_pr_typecheck_cache_pair_is_scoped_to_exact_type_phase(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, profile: str | None,
+) -> None:
+    from scripts.ci import pre_pr
+    from scripts.ci.pre_pr_commands import Step
+
+    keys = ("GNOSI_TYPECHECK_CACHE", "GNOSI_TYPECHECK_CACHE_SHA256")
+    parent = {keys[0]: str(tmp_path / "manifest.json"), keys[1]: "a" * 64}
+    (tmp_path / "runtime").mkdir()
+    environment = pre_pr.isolated_environment(parent, tmp_path / "runtime")
+    original = dict(environment)
+    steps = [Step(name, ("synthetic",)) for name in [
+        "Frontend types", "Complete frontend suite", "Frontend types extra", "Complete documentation update gate",
+    ]]
+    observed: list[dict[str, str]] = []
+
+    def run(args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        observed.append(dict(kwargs["env"]))  # type: ignore[arg-type]
+        return subprocess.CompletedProcess(args, 0)  # type: ignore[arg-type]
+
+    def idle(step: Step, root: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+        observed.append(dict(env))
+        return subprocess.CompletedProcess(step.arguments, 0)
+
+    monkeypatch.setattr(pre_pr.subprocess, "run", run)
+    monkeypatch.setattr(pre_pr, "run_mac_idle", idle)
+    assert pre_pr.run_steps(tmp_path, steps, environment, resource_profile=profile) == 0
+    assert environment == original
+    assert all(observed[0][name] == parent[name] for name in keys)
+    assert all(name not in item for item in observed[1:] for name in keys)
+
+
+@pytest.mark.parametrize("pair", [
+    {"GNOSI_TYPECHECK_CACHE": "/manifest.json"},
+    {"GNOSI_TYPECHECK_CACHE_SHA256": "a" * 64},
+    {"GNOSI_TYPECHECK_CACHE": "", "GNOSI_TYPECHECK_CACHE_SHA256": "a" * 64},
+])
+def test_pre_pr_rejects_partial_type_cache_pair(tmp_path: Path, pair: dict[str, str]) -> None:
+    from scripts.ci import pre_pr
+
+    (tmp_path / "runtime").mkdir()
+    with pytest.raises(ValueError, match="both explicit"):
+        pre_pr.isolated_environment(pair, tmp_path / "runtime")
+
+
+def test_optional_typecheck_cache_preserves_helper_signal_without_retry(tmp_path: Path) -> None:
+    import hashlib
+    import signal
+
+    runner, manifest, environment, calls = _synthetic_typecheck_cache_project(tmp_path)
+    data = json.loads(manifest.read_text())
+    helper = Path(data["helper"]["path"])
+    helper.write_text(
+        "# SYNTHETIC SIGNAL PROTOCOL FIXTURE; NO TYPECHECK RESULT\n"
+        "import os,signal\nfrom pathlib import Path\n"
+        f"Path({str(calls)!r}).write_text('one invocation')\n"
+        "os.kill(os.getpid(),signal.SIGTERM)\n"
+    )
+    data["helper"]["sha256"] = hashlib.sha256(helper.read_bytes()).hexdigest()
+    manifest.write_text(json.dumps(data))
+    environment["GNOSI_TYPECHECK_CACHE_SHA256"] = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    result = subprocess.run(("node", str(runner)), env=environment,
+                            capture_output=True, text=True, check=False, timeout=30)
+    assert result.returncode == 128 + signal.SIGTERM
+    assert calls.read_text() == "one invocation"
+    assert "VERIFIED_CACHED_WHOLE_FRONTEND_TYPES" not in result.stdout

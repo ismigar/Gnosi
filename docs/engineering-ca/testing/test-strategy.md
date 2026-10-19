@@ -456,3 +456,9 @@ la matriu de release.
 El [catàleg de proves](../generated/tests.md) generat enumera els fitxers propis
 i senyals de navegació. La recollida del runner continua sent l'autoritat per
 comptar les proves executables.
+
+## Resultats de tipus del frontend verificats explícitament
+
+La parella opcional `GNOSI_TYPECHECK_CACHE` i `GNOSI_TYPECHECK_CACHE_SHA256` vincula un manifest privat i propi, l'ajudant fix `verify-typecheck-cache.py` i l'executable Python bloquejat abans d'executar-lo. Verifica una fase completa de tipus realment finalitzada i totes les empremtes actuals de fonts, configuració, dependències, enllaços simbòlics i Node. Només poden diferir fitxers de qualitat no TypeScript revisats explícitament; la funció original completa `typecheck()`, el compilador, el treballador, les arrels i les regles no canvien. Una validació global posterior fallida continua fallida.
+
+Sense la parella s'executa el comprovador original intacte. Els vincles parcials, malformats o obsolets fallen sense alternativa ni reintent. La verificació correcta mostra `VERIFIED_CACHED_WHOLE_FRONTEND_TYPES`, sense inventar lots semàntics actuals. L'entorn pre-PR exposa la parella només a la fase exacta `Frontend types` i elimina totes dues claus de qualsevol altra fase, incloses les proves del frontend. Els límits, la neteja i les altres obligacions de validació es mantenen.

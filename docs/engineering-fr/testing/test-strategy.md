@@ -455,3 +455,9 @@ ne pas publier 3.0 avant la réussite de toute la matrice de release.
 ## Catalogue des tests
 
 Le [catalogue de tests](../generated/tests.md) généré répertorie les fichiers de tests propres au projet et les repères de navigation. La collecte par les exécuteurs de tests reste la référence pour le nombre de tests exécutables.
+
+## Résultats de types frontend explicitement vérifiés
+
+La paire facultative `GNOSI_TYPECHECK_CACHE` et `GNOSI_TYPECHECK_CACHE_SHA256` lie un manifeste privé appartenant à l'utilisateur, l'assistant fixe `verify-typecheck-cache.py` et l'exécutable Python verrouillé avant toute exécution. Elle vérifie une phase complète de types réellement terminée et toutes les empreintes actuelles des sources, configurations, dépendances, liens symboliques et Node. Seuls des fichiers de qualité non TypeScript explicitement examinés peuvent différer ; la fonction originale complète `typecheck()`, le compilateur, le processus de travail, les racines et les règles restent inchangés. Une validation globale ultérieure en échec reste en échec.
+
+Sans la paire, le vérificateur original s'exécute sans modification. Les liens partiels, mal formés ou périmés échouent sans solution de repli ni nouvelle tentative. La vérification réussie affiche `VERIFIED_CACHED_WHOLE_FRONTEND_TYPES`, sans inventer de lots sémantiques actuels. L'environnement pré-PR expose la paire uniquement à la phase exacte `Frontend types` et retire les deux clés de toutes les autres phases, y compris les tests frontend. Les limites, le nettoyage et les autres obligations de validation restent inchangés.
