@@ -210,7 +210,10 @@ describe('MailComposer shared Mail API migration', () => {
         expect(mocks.saveMailDraft).toHaveBeenCalledWith(expect.objectContaining({
             bcc: expected, draft_id: 'draft-with-bcc',
         }));
-        await act(async () => { buttonContaining(container, 'mail.send_btn').click(); });
+        await act(async () => {
+            buttonContaining(container, 'mail.send_btn').click();
+            await Promise.resolve();
+        });
         expect(mocks.sendMailMultipart).toHaveBeenCalledOnce();
         expect(mocks.sendMailMultipart.mock.calls[0]?.[1].get('bcc')).toBe(expected);
     });
