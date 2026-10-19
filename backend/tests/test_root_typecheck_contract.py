@@ -120,10 +120,14 @@ def test_frontend_lint_and_guardrails_fail_closed() -> None:
     assert _scripts()["lint:frontend"] == "pnpm --filter @gnosi/frontend lint"
 
 
-@pytest.mark.parametrize("cached,status", [(False, 0), (True, 0), (False, 2), (True, 23)])
-@pytest.mark.parametrize("file_count", [1, 257])
+@pytest.mark.parametrize("cached,status,failure_position", [
+    (False, 0, "final"), (True, 0, "final"),
+    (False, 2, "early"), (True, 23, "early"),
+    (False, 2, "final"), (True, 23, "final"),
+])
+@pytest.mark.parametrize("file_count", [1, 17, 384, 385])
 def test_shared_frontend_lint_preserves_scope_cache_arguments_and_failure(
-    tmp_path: Path, cached: bool, status: int, file_count: int,
+    tmp_path: Path, cached: bool, status: int, failure_position: str, file_count: int,
 ) -> None:
     scripts = tmp_path / "frontend/scripts"
     scripts.mkdir(parents=True)
@@ -154,7 +158,9 @@ def test_shared_frontend_lint_preserves_scope_cache_arguments_and_failure(
     )
     calls = tmp_path / "lint-calls.jsonl"
     cleanup = tmp_path / "lint-cleanup.txt"
-    final_batch = (file_count - 1) // 128
+    final_batch = (file_count - 1) // 16
+    # Preserve both early-stop and final-batch failure coverage across workers.
+    failure_batch = min(1, final_batch) if failure_position == "early" else final_batch
     eslint.write_text(
         "require('../lib/cli.js').execute(process.argv, undefined).then(status => { process.exitCode = status; });\n"
     )
@@ -173,7 +179,7 @@ def test_shared_frontend_lint_preserves_scope_cache_arguments_and_failure(
         "appendFileSync(log, JSON.stringify({args: args.slice(2), cwd: process.cwd(), pid: process.pid}) + '\\n');\n"
         "console.log('synthetic lint output');\n"
         "console.error('synthetic lint diagnostic');\n"
-        f"return previous === {final_batch} ? {status} : 0;\n"
+        f"return previous === {failure_batch} ? {status} : 0;\n"
         "};\n"
     )
     # Mirror the installed parser's public entrypoint and dependency resolution.
@@ -203,17 +209,28 @@ def test_shared_frontend_lint_preserves_scope_cache_arguments_and_failure(
     )
     assert result.returncode == status
     payloads = [json.loads(line) for line in calls.read_text().splitlines()]
-    assert len(payloads) == final_batch + 1
-    workers = (file_count + 255) // 256
+    assert len(payloads) == failure_batch + 1
+    executed_file_count = min(file_count, len(payloads) * 16)
+    workers = (executed_file_count + 383) // 384
     assert len({payload["pid"] for payload in payloads}) == workers
     assert cleanup.read_text() == "cleared\n" * workers
     for index, payload in enumerate(payloads):
         expected = ["--max-warnings=0", "--concurrency=off"]
         if cached:
             expected.extend(["--cache", "--cache-strategy", "content", "--cache-location", cache])
-        expected.extend(["--", *(str(path) for path in files[index * 128:(index + 1) * 128])])
+        expected.extend(["--", *(str(path) for path in files[index * 16:(index + 1) * 16])])
         assert payload["args"] == expected
         assert Path(payload["cwd"]).resolve() == (tmp_path / "frontend").resolve()
+    visited_files = [argument for payload in payloads
+                     for argument in payload["args"][payload["args"].index("--") + 1:]]
+    assert visited_files == [str(path) for path in files[:executed_file_count]]
+    if status and failure_position == "early" and file_count >= 384:
+        assert executed_file_count == 32 < file_count
+        assert workers == 1  # A failed worker must not launch remaining batches/workers.
+    if status and failure_position == "final" and file_count == 385:
+        assert executed_file_count == file_count
+        assert workers == 2  # The final failure must also clear the second parser worker.
+        assert payloads[0]["pid"] != payloads[-1]["pid"]
     assert result.stdout.count("synthetic lint output") == len(payloads)
     assert "synthetic lint diagnostic" in result.stderr
 
