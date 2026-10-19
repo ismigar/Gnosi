@@ -50,7 +50,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2691 | 0 |
-| `features` | 1256 | 135805 | 55 |
+| `features` | 1256 | 135812 | 55 |
 | `generated` | 3 | 54141 | 560 |
 | `shared` | 345 | 36900 | 475 |
 
@@ -415,14 +415,14 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/mail/components/mail-list/useMailListNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/useMailListNavigation.ts) | 139 | `useMailListNavigation` | — |
 | [`frontend/src/features/mail/components/mail-list/useMailMessagePreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/useMailMessagePreview.tsx) | 57 | `useMailMessagePreview` | — |
 | [`frontend/src/features/mail/components/mailComposerModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailComposerModel.ts) | 152 | `accountAddress`, `appendUniqueFiles`, `buildMailFormData`, `composerInitialHtml`, `hasComposerContent`, `mailSnippets` | — |
-| [`frontend/src/features/mail/components/mailComposerTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailComposerTypes.ts) | 75 | — | — |
+| [`frontend/src/features/mail/components/mailComposerTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailComposerTypes.ts) | 76 | — | — |
 | [`frontend/src/features/mail/components/mailContentCache.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailContentCache.ts) | 58 | `createMailContentCache` | — |
 | [`frontend/src/features/mail/components/mailFolderUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailFolderUtils.ts) | 49 | `translateFolderName` | — |
 | [`frontend/src/features/mail/components/mailRemoteImageRecovery.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailRemoteImageRecovery.ts) | 304 | `installRemoteMailImageRecovery` | — |
 | [`frontend/src/features/mail/components/mailViewEditorModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailViewEditorModel.ts) | 336 | `ALL_ACTIONS`, `ALL_FIELDS`, `FILTER_FIELDS`, `addDefaultFilter`, `createMailViewEditorForm`, `defaultOperatorForField`, `defaultValueForField`, `errorMessage`, `getOperatorsForField`, `legacyFilterValue`, `legacyTruthyFilterValue`, `removeFilterAt`, `reorderFields`, `toggleAction`, `toggleFieldVisibility`, `updateFilterAt` | — |
 | [`frontend/src/features/mail/components/mailViewerModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailViewerModel.ts) | 414 | `MAIL_DARK_BODY_EVENT`, `MAIL_DARK_BODY_KEY`, `buildMailHtmlDocument`, `buildQuotedMailHtml`, `cleanMailAddress`, `detectMailFormLinks`, `escapeMailHtml`, `isSentMail`, `isSpamMail`, `linkPlainMailText`, `mailErrorDetail`, `normalizeMailEntities`, `readMailDarkBody`, `sanitizeMailHtml` | — |
 | [`frontend/src/features/mail/components/mailViewerTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailViewerTypes.ts) | 175 | — | — |
-| [`frontend/src/features/mail/components/useMailComposerController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/useMailComposerController.ts) | 427 | `useMailComposerController` | — |
+| [`frontend/src/features/mail/components/useMailComposerController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/useMailComposerController.ts) | 429 | `useMailComposerController` | — |
 | [`frontend/src/features/mail/components/useMailReaderContent.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/useMailReaderContent.ts) | 188 | `useMailReaderContent` | — |
 | [`frontend/src/features/mail/components/useMailThreadBodies.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/useMailThreadBodies.ts) | 155 | `useMailThreadBodies` | — |
 | [`frontend/src/features/mail/components/useMailViewerController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/useMailViewerController.ts) | 470 | `useMailViewerController` | — |
@@ -435,7 +435,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/mail/mailIdentity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/mailIdentity.ts) | 260 | `canUseMailBody`, `hydrateMailMessageIdentity`, `isSameMailMessage`, `isSameMailMessageContent`, `isSelectedMailBody`, `mailContentVersion`, `mailMessageIdentity`, `mailThreadIdentity`, `selectMailDisplayMessage`, `tryMailIdentityScope`, `tryMailMessageIdentity` | — |
 | [`frontend/src/features/mail/page/MailPageView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/MailPageView.tsx) | 215 | `MailPageView` | — |
 | [`frontend/src/features/mail/page/MailUndoToast.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/MailUndoToast.tsx) | 34 | `MailUndoToast` | — |
-| [`frontend/src/features/mail/page/mailPageModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/mailPageModel.ts) | 237 | `adjacentMail`, `buildMailAccountCatalog`, `draftComposeData`, `isVaultDraft`, `mailAccountAddress`, `mergeMailCounts` | — |
+| [`frontend/src/features/mail/page/mailPageModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/mailPageModel.ts) | 240 | `adjacentMail`, `buildMailAccountCatalog`, `draftComposeData`, `isVaultDraft`, `mailAccountAddress`, `mergeMailCounts` | — |
 | [`frontend/src/features/mail/page/useMailCounts.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/useMailCounts.ts) | 66 | `useMailCounts` | — |
 | [`frontend/src/features/mail/page/useMailPageController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/page/useMailPageController.ts) | 438 | `useMailPageController` | — |
 | [`frontend/src/features/media/MediaCenter.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/MediaCenter.tsx) | 73 | `MediaCenter`, `function` | — |
@@ -940,7 +940,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/editor/block-editor/page-editor/PageTitle.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PageTitle.tsx) | 124 | `PageTitle` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/PropertyValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PropertyValue.tsx) | 143 | `PropertyValue` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/ScalarPropertyValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/ScalarPropertyValue.tsx) | 123 | `ScalarPropertyValue` | — |
-| [`frontend/src/features/vault/editor/block-editor/page-editor/SchemaPropertyRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/SchemaPropertyRow.tsx) | 73 | `SchemaPropertyRow` | — |
+| [`frontend/src/features/vault/editor/block-editor/page-editor/SchemaPropertyRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/SchemaPropertyRow.tsx) | 74 | `SchemaPropertyRow` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/ZoteroPropertyValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/ZoteroPropertyValue.tsx) | 24 | `ZoteroPropertyValue` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/contextBridge.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/contextBridge.ts) | 56 | `pageContextCallbacks` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/internalMetadata.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/internalMetadata.ts) | 12 | `INTERNAL_METADATA_KEYS`, `INTERNAL_METADATA_KEY_SET` | — |
