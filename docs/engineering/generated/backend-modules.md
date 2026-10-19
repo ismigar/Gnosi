@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 2 | 55 |
 | `config` | 13 | 1389 |
 | `data` | 2 | 214 |
-| `domains` | 582 | 116011 |
+| `domains` | 582 | 116017 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -28,7 +28,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1054 modules** and **201636 source lines**.
+Total: **1054 modules** and **201642 source lines**.
 
 ## agent
 
@@ -470,7 +470,7 @@ Total: **1054 modules** and **201636 source lines**.
 | [`backend/domains/mail/sync/imap_mutations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_mutations.py) | 615 | 1 | 4 | 0 | 0 | IMAP server mutation operations. |
 | [`backend/domains/mail/sync/imap_protocol.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_protocol.py) | 249 | 1 | 10 | 0 | 5 | IMAP protocol normalization and folder discovery. |
 | [`backend/domains/mail/sync/imap_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_service.py) | 49 | 1 | 0 | 0 | 1 | IMAP mail sync service. |
-| [`backend/domains/mail/sync/smtp.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/smtp.py) | 174 | 0 | 4 | 0 | 1 | SMTP delivery for configured IMAP-compatible accounts. |
+| [`backend/domains/mail/sync/smtp.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/smtp.py) | 180 | 0 | 4 | 0 | 1 | SMTP delivery for configured IMAP-compatible accounts. |
 | [`backend/domains/mail/tag_identity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/tag_identity.py) | 69 | 1 | 3 | 0 | 3 | Stable persistence identities for mail-tag associations. |
 | [`backend/domains/media/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/media/__init__.py) | 1 | 0 | 0 | 0 | 0 | Media-center domain services. |
 | [`backend/domains/media/index_refresh.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/media/index_refresh.py) | 259 | 3 | 9 | 0 | 4 | Serve the last complete media index while a bounded refresh runs. |

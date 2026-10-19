@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
 | Vitest | 735 | 3295 |
-| pytest | 713 | 5443 |
+| pytest | 714 | 5445 |
 
 ## Fichiers
 
@@ -1309,6 +1309,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_shared_task_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_shared_task_evaluations.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_skill_catalog_startup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_skill_catalog_startup.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_skill_instruction_language.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_skill_instruction_language.py) | 1 | Python AST |
+| pytest | [`backend/tests/test_smtp_bcc_privacy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_smtp_bcc_privacy.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_snapshot_sort_accent_parity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_snapshot_sort_accent_parity.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_social_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_social_api_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_social_clients_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_social_clients_contract.py) | 6 | Python AST |

@@ -57,6 +57,7 @@ def _deliver_smtp(
     recipients: list[str],
     message: Message,
 ) -> bool:
+    import copy
     import smtplib
     import ssl
 
@@ -81,8 +82,13 @@ def _deliver_smtp(
         authenticate(server)
         if server.sock is not None:
             server.sock.settimeout(transport_timeout())
+        # Blind recipients stay in the envelope, never the transmitted headers.
+        # Preserve the caller's local message and remove every matching header.
+        wire_message = copy.copy(message)
+        del wire_message["Bcc"]
+        del wire_message["Resent-Bcc"]
         transmitting = True
-        server.sendmail(sender, recipients, message.as_bytes())
+        server.sendmail(sender, recipients, wire_message.as_bytes())
         accepted = True
         return True
     except Exception as error:
