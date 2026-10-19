@@ -467,7 +467,7 @@ describe('settings controller persistence contracts', () => {
     expect(api.requests.some(request => request.path.startsWith('/api/credentials') || request.path === '/api/env')).toBe(false);
   });
   it.each([{}, { lin_log_mode: true, strong_gravity_mode: false, outbound_attraction_distribution: true }, { gravity: 0.4 }, { friction: 4, custom_extension: { keep: true } }])('opens and saves preferences after partial graph updates: %j', async physics => {
-    api.configResponse = async () => Response.json({ ...configuration, graph: { physics } });
+    api.configResponse = () => Promise.resolve(Response.json({ ...configuration, graph: { physics } }));
     await mount();
     const expected = { gravity: 0.1, repulsion: 1000, friction: 10, ...physics };
     expect(snapshot().draft.graph.physics).toEqual(expected);
@@ -478,7 +478,7 @@ describe('settings controller persistence contracts', () => {
     expect(writes().filter(request => request.path === '/api/config').at(-1)?.body).toMatchObject({ graph: { physics: expected } });
   });
   it('keeps physics defaults for unset fields and preserves unknown extensions', async () => {
-    api.configResponse = async () => Response.json({ ...configuration, graph: { physics: { gravity: null, lin_log_mode: null, custom_extension: null } } });
+    api.configResponse = () => Promise.resolve(Response.json({ ...configuration, graph: { physics: { gravity: null, lin_log_mode: null, custom_extension: null } } }));
     await mount();
     expect(snapshot().draft.graph.physics).toEqual({ gravity: 0.1, repulsion: 1000, friction: 10, custom_extension: null });
   });
