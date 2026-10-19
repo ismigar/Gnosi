@@ -80,19 +80,19 @@ it.each(['.eslintcache', 'custom.cache'])('reuses %s across serial batches and r
         create: () => ({ Program: () => appendFileSync('rule-count.txt', process.pid + ',') })
       } } } }, rules: { 'fixture/count': 'error' } },
     ];`);
-  for (let index = 0; index < 257; index += 1) write(`source/${String(index)}.js`, 'export {};');
+  for (let index = 0; index < 385; index += 1) write(`source/${String(index)}.js`, 'export {};');
   const environment = { GNOSI_ESLINT_CACHE: cache };
   const result = run(environment);
   expect(result.status, result.stderr).toBe(0);
-  expect(result.stdout).toContain('ESLint batch 1/17 (16 files)');
-  expect(result.stdout).toContain('ESLint batch 16/17 (16 files)');
-  expect(result.stdout).toContain('ESLint batch 17/17 (1 files)');
+  expect(result.stdout).toContain('ESLint batch 1/25 (16 files)');
+  expect(result.stdout).toContain('ESLint batch 24/25 (16 files)');
+  expect(result.stdout).toContain('ESLint batch 25/25 (1 files)');
   const first = readFileSync(join(fixture, 'rule-count.txt'), 'utf8');
   const processIds = first.split(',').filter(Boolean);
-  expect(processIds).toHaveLength(257);
+  expect(processIds).toHaveLength(385);
   expect(new Set(processIds).size).toBe(2);
   const counts = [...new Set(processIds)].map(id => processIds.filter(value => value === id).length);
-  expect(counts.sort((left, right) => left - right)).toEqual([1, 256]);
+  expect(counts.sort((left, right) => left - right)).toEqual([1, 384]);
   expect(run(environment).status).toBe(0);
   expect(readFileSync(join(fixture, 'rule-count.txt'), 'utf8')).toBe(first);
 });
@@ -114,11 +114,11 @@ it.each([
   ['warning', 'console.log(1);', 'no-console'],
   ['syntax error', 'export const = ;', 'Parsing error'],
 ])('fails on a %s after an earlier batch succeeds', (_kind, source, message) => {
-  for (let index = 0; index < 257; index += 1) write(`source/${String(index).padStart(3, '0')}.js`, 'export {};');
+  for (let index = 0; index < 385; index += 1) write(`source/${String(index).padStart(3, '0')}.js`, 'export {};');
   write('source/999.js', source);
   const result = run();
   expect(result.status).toBe(1);
-  expect(result.stdout).toContain('ESLint batch 17/17');
+  expect(result.stdout).toContain('ESLint batch 25/25');
   expect(result.stdout).toContain(message);
 });
 
@@ -141,7 +141,7 @@ it('executes type-aware rules with the project service across batches', () => {
 }, 30_000);
 
 it('invalidates content cache entries across batches and never caches discovery as success', () => {
-  for (let index = 0; index < 257; index += 1) write(`source/${String(index).padStart(3, '0')}.js`, 'export {};');
+  for (let index = 0; index < 385; index += 1) write(`source/${String(index).padStart(3, '0')}.js`, 'export {};');
   const environment = { GNOSI_ESLINT_CACHE: join(fixture, 'lint.cache') };
   expect(run(environment).status).toBe(0);
   expect(readFileSync(environment.GNOSI_ESLINT_CACHE, 'utf8')).toContain('000.js');
@@ -166,14 +166,14 @@ it('preserves the installed CLI fatal exit status and stops later batches', () =
       create: () => ({ Program: () => { throw new Error('fixture rule failure'); } })
     } } } }, rules: { 'fixture/fail': 'error' } },
   ];`);
-  for (let index = 0; index < 257; index += 1) write(`source/${String(index)}.js`, 'export {};');
+  for (let index = 0; index < 385; index += 1) write(`source/${String(index)}.js`, 'export {};');
   const original = node(['node_modules/eslint/bin/eslint.js', '.', '--max-warnings=0']);
   expect(original.status, original.stderr).toBe(2);
   const result = run();
   expect(result.status, result.stderr).toBe(original.status);
   expect(result.stderr).toContain('fixture rule failure');
-  expect(result.stdout).not.toContain('ESLint batch 2/17');
-  expect(result.stdout).not.toContain('ESLint batch 17/17');
+  expect(result.stdout).not.toContain('ESLint batch 2/25');
+  expect(result.stdout).not.toContain('ESLint batch 25/25');
 });
 
 it.each([
@@ -191,14 +191,14 @@ it.each([
         } })
       } } } }, rules: { 'fixture/fail': 'error' } },
     ];`);
-  for (let index = 0; index < 257; index += 1) write(`source/${String(index)}.js`, 'export {};');
+  for (let index = 0; index < 385; index += 1) write(`source/${String(index)}.js`, 'export {};');
   const original = node(['node_modules/eslint/bin/eslint.js', '.', '--max-warnings=0']);
   expect(original.status, original.stderr).toBe(2);
   const result = run();
   expect(result.status, result.stderr).toBe(original.status);
   expect(result.stderr).toContain('fixture detached failure');
-  expect(result.stdout).not.toContain('ESLint batch 2/17');
-  expect(result.stdout).not.toContain('ESLint batch 17/17');
+  expect(result.stdout).not.toContain('ESLint batch 2/25');
+  expect(result.stdout).not.toContain('ESLint batch 25/25');
 });
 
 it('propagates a lint child signal and does not start later batches', () => {
@@ -208,10 +208,10 @@ it('propagates a lint child signal and does not start later batches', () => {
       create: () => ({ Program: () => process.kill(process.pid, 'SIGTERM') })
     } } } }, rules: { 'fixture/terminate': 'error' } },
   ];`);
-  for (let index = 0; index < 257; index += 1) write(`source/${String(index)}.js`, 'export {};');
+  for (let index = 0; index < 385; index += 1) write(`source/${String(index)}.js`, 'export {};');
   const result = run();
   expect(result.status).not.toBe(0);
   expect(result.stderr).toContain('SIGTERM');
-  expect(result.stdout).not.toContain('ESLint batch 2/17');
-  expect(result.stdout).not.toContain('ESLint batch 17/17');
+  expect(result.stdout).not.toContain('ESLint batch 2/25');
+  expect(result.stdout).not.toContain('ESLint batch 25/25');
 });

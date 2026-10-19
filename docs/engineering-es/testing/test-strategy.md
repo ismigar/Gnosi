@@ -121,7 +121,7 @@ En macOS, usad `--resource-profile mac-idle` para la validación local acotada. 
 
 `pnpm lint:frontend` descubre los archivos con el recorrido configurado de ESLint
 y los comprueba en lotes de hasta 16 archivos, con procesos nuevos y secuenciales.
-Cada proceso conserva el servicio de tipos durante un máximo de 256 archivos.
+Cada proceso conserva el servicio de tipos durante un máximo de 384 archivos.
 Después de cada lote, cede el control y recoge la memoria temporal antes de seguir.
 El descubrimiento no analiza el código ni rellena la caché de lint; solo las
 comprobaciones CLI posteriores pueden acreditar el éxito. Cada lote conserva

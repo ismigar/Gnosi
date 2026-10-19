@@ -34,7 +34,7 @@ export async function runLintWorker(files, {
   hasFatalError = () => false,
 } = {}) {
   validateFiles(files);
-  if (!Number.isInteger(startOffset) || startOffset < 0 || startOffset >= files.length || startOffset % 128 !== 0) {
+  if (!Number.isInteger(startOffset) || startOffset < 0 || startOffset >= files.length || startOffset % 384 !== 0) {
     throw new Error('ESLint worker requires a valid batch-aligned start offset');
   }
   if (typeof gc !== 'function') throw new Error('ESLint worker requires --expose-gc');
@@ -51,7 +51,7 @@ export async function runLintWorker(files, {
     if (typeof execute !== 'function' || typeof clearCaches !== 'function') {
       throw new Error('ESLint worker requires CLI execution and parser cache clearing');
     }
-    const endOffset = Math.min(startOffset + 256, files.length);
+    const endOffset = Math.min(startOffset + 384, files.length);
     for (let offset = startOffset; offset < endOffset; offset += batchSize) {
       if (hasFatalError()) return 2;
       const args = [process.execPath, eslint, '--max-warnings=0', '--concurrency=off'];

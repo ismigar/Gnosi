@@ -52,7 +52,7 @@ test('import is inert and malformed discovery fails before loading or GC', async
   await assert.rejects(runLintWorker(['file'], {
     load: () => assert.fail('must not load CLI without explicit GC'), gc: null,
   }), /--expose-gc/);
-  for (const startOffset of [-1, 1, 128.5, 2388, Infinity, '0']) {
+  for (const startOffset of [-1, 1, 128, 256, 128.5, 2388, Infinity, '0']) {
     await assert.rejects(runLintWorker(files, {
       startOffset,
       load: () => assert.fail('must not load CLI for malformed worker offsets'),
@@ -116,7 +116,7 @@ test('cold workers preserve exact CLI coverage, environment and bounded parser l
                 if (workerCalls === 0) assert.equal(parserState, null);
                 else assert.equal(parserState, retainedState);
                 workerCalls += 1;
-                assert.ok(workerCalls <= 16);
+                assert.ok(workerCalls <= 24);
                 active = true;
                 parserState = retainedState;
                 assert.strictEqual(args, process.argv);
@@ -148,12 +148,12 @@ test('cold workers preserve exact CLI coverage, environment and bounded parser l
           },
           log: () => {},
         };
-        for (let startOffset = 0; startOffset < files.length; startOffset += 256) {
+        for (let startOffset = 0; startOffset < files.length; startOffset += 384) {
           assert.equal(await runLintWorker(files, { ...options, startOffset }), 0);
           assert.equal(parserState, null);
           assert.strictEqual(process.argv, originalArgv);
         }
-        assert.equal(loads, 10);
+        assert.equal(loads, 7);
         assert.equal(seen.length, 150);
         const consumed = [];
         for (let index = 0; index < seen.length; index += 1) {
@@ -166,8 +166,8 @@ test('cold workers preserve exact CLI coverage, environment and bounded parser l
         }
         assert.deepEqual(consumed, files);
         const expectedEvents = [];
-        for (let offset = 0; offset < files.length; offset += 256) {
-          const batches = Math.min(16, Math.ceil((files.length - offset) / 16));
+        for (let offset = 0; offset < files.length; offset += 384) {
+          const batches = Math.min(24, Math.ceil((files.length - offset) / 16));
           expectedEvents.push(...Array.from({ length: batches }, () => ['execute', 'yield', 'gc']).flat(), 'clear');
         }
         assert.deepEqual(events, expectedEvents);
@@ -221,7 +221,7 @@ test('throws and incompatible lifecycle APIs fail closed and restore argv', asyn
       gc: () => failAt('gc'),
       log: () => {},
     }), failure === 'status' ? /invalid exit status/ : failure === 'api' ? /requires CLI execution/ : new RegExp(`failed ${failure}`));
-    assert.equal(calls, failure === 'load' || failure === 'api' ? 0 : failure === 'clear' ? 16 : 1);
+    assert.equal(calls, failure === 'load' || failure === 'api' ? 0 : failure === 'clear' ? 24 : 1);
     assert.equal(clears, failure === 'load' || failure === 'api' ? 0 : 1);
     assert.strictEqual(process.argv, originalArgv);
   }
