@@ -18,7 +18,7 @@ from backend.services.imap_mail_sync_service import imap_sync_service
 
 def test_message_opens_while_the_mailbox_connection_is_busy(monkeypatch):
     account = {"email": "fixture@example.test"}
-    raw = b"Subject: Synthetic detail\r\nMessage-ID: <fixture@example.test>\r\n\r\nReadable body"
+    raw = b"Subject: Synthetic detail\r\nBcc: blind@example.test\r\nMessage-ID: <fixture@example.test>\r\n\r\nReadable body"
     connections = []
 
     def connect(_):
@@ -48,6 +48,7 @@ def test_message_opens_while_the_mailbox_connection_is_busy(monkeypatch):
             except TimeoutError:
                 raise AssertionError("Message detail waited for the background mailbox connection") from None
             assert result["body_text"] == "Readable body"
+            assert result["bcc"] == "blind@example.test"
             assert len(connections) == 2
             # Another message reuses the independent authenticated connection.
             assert hybrid.imap_get_message(account["email"], "43", "INBOX")["id"] == "imap_43"

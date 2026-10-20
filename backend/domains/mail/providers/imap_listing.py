@@ -11,7 +11,7 @@ from backend.domains.mail.cache import _MAIL_CACHE
 from backend.domains.mail.sync.imap_protocol import _imap_name
 from backend.services.context_vars import active_vault_path
 
-HEADER_FIELDS = "BODY.PEEK[HEADER.FIELDS (DATE SUBJECT FROM TO CC MESSAGE-ID)]"
+HEADER_FIELDS = "BODY.PEEK[HEADER.FIELDS (DATE SUBJECT FROM TO CC BCC MESSAGE-ID)]"
 _HEADER_BATCH_SIZE = 200
 # Serialized snapshots keep the shared 128-entry cache bounded to at most 32 MiB
 # of header payloads. Oversized batches remain readable without being cached.

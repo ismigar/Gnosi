@@ -63,7 +63,7 @@ class HeaderMailbox:
             ).encode()
             info = (
                 f"1 (UID {row.uid} FLAGS (\\Seen) X-GM-THRID {1000 + row.uid} "
-                f"X-GM-LABELS ({row.labels}) BODY[HEADER.FIELDS (DATE SUBJECT FROM TO CC MESSAGE-ID)] {{{len(raw)}}}"
+                f"X-GM-LABELS ({row.labels}) BODY[HEADER.FIELDS (DATE SUBJECT FROM TO CC BCC MESSAGE-ID)] {{{len(raw)}}}"
             ).encode()
             result.extend([(info, raw), b")"])
         return "OK", result
@@ -104,7 +104,7 @@ def test_native_all_orders_imported_messages_by_date_before_pagination(logical_f
     assert len(mailbox.searches) == 3 and len(mailbox.fetches) == 1
     assert mailbox.fetches[0][2] == (
         "(UID FLAGS X-GM-THRID X-GM-LABELS "
-        "BODY.PEEK[HEADER.FIELDS (DATE SUBJECT FROM TO CC MESSAGE-ID)])"
+        "BODY.PEEK[HEADER.FIELDS (DATE SUBJECT FROM TO CC BCC MESSAGE-ID)])"
     )
 
 
@@ -139,7 +139,7 @@ def test_generic_all_keeps_folder_types_and_archive_metadata():
     assert rows["Borradores"]["type"] == "Draft"
     assert rows["Archivo"]["type"] == rows["Projects"]["type"] == "Received"
     assert all(fetch[2] == (
-        "(UID FLAGS BODY.PEEK[HEADER.FIELDS (DATE SUBJECT FROM TO CC MESSAGE-ID)])"
+        "(UID FLAGS BODY.PEEK[HEADER.FIELDS (DATE SUBJECT FROM TO CC BCC MESSAGE-ID)])"
     ) for fetch in mailbox.fetches)
 
 

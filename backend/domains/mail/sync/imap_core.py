@@ -407,7 +407,7 @@ class ImapMailSyncCore:
                 "sender": _decode_str(msg.get("From", "Unknown")),
                 "recipients": _decode_str(msg.get("To", "")),
                 "cc": _decode_str(msg.get("Cc", "")),
-                "bcc": "",
+                "bcc": _decode_str(msg.get("Bcc", "")),
                 "date": msg.get("Date", ""),
                 "is_read": is_seen,
                 "is_starred": is_flagged,

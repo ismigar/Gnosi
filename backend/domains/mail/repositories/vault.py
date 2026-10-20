@@ -180,6 +180,7 @@ def _load_vault_drafts(account_email: str) -> list[Any]:
                     "sender": metadata.get("sender") or account_email,
                     "recipient": metadata.get("recipients") or "",
                     "cc": metadata.get("cc") or "",
+                    "bcc": metadata.get("bcc") or "",
                     "date": str(date_val) if date_val else "",
                     "timestamp": get_unix_timestamp(date_val) if date_val else 0,
                     "body_text": body or "",

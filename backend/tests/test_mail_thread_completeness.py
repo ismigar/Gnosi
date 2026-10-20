@@ -52,7 +52,7 @@ def test_gmail_thread_reads_localized_all_mail_and_every_header(monkeypatch, met
     assert messages[1]["type"] == "Sent"
     assert messages[1]["cc"] == "copy@example.test"
     assert messages[1]["internet_message_id"]
-    assert "BODY.PEEK[HEADER.FIELDS (DATE SUBJECT FROM TO CC MESSAGE-ID)]" in connection.uid.call_args.args[2]
+    assert "BODY.PEEK[HEADER.FIELDS (DATE SUBJECT FROM TO CC BCC MESSAGE-ID)]" in connection.uid.call_args.args[2]
     connection.select.assert_called_once_with(f'"{folder}"', readonly=True)
 
 
