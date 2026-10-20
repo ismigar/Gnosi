@@ -7530,7 +7530,9 @@
         "highlights": {
           "teams": "Configura bots y perfiles en una sola lista, elige al principal desde su ficha y define cómo participa cada uno en el equipo. Utiliza un asistente solo para un turno con su comando.",
           "models": "Compara precios, ventanas de contexto y capacidades de cada proveedor, consulta la idoneidad por rol y ejecuta evaluaciones sintéticas autorizadas explícitamente.",
-          "templates": "Explora y busca plantillas de espacio de trabajo con vistas previas traducidas, y revisa los archivos incluidos y el posible contenido sensible antes de compartirlas."
+          "templates": "Explora y busca plantillas de espacio de trabajo con vistas previas traducidas, y revisa los archivos incluidos y el posible contenido sensible antes de compartirlas.",
+          "agent_workspace": "Trabaja con asistentes en espacios dedicados, con permisos explícitos, habilidades reutilizables e integración con el escritorio.",
+          "voice": "Dicta y escucha las conversaciones con los asistentes, con controles de voz compartidos y transcripción local opcional."
         },
         "improvements": {
           "profiles": "Edita las instrucciones, habilidades y fuentes delimitadas de los asistentes, incluido el acceso al correo por cuenta, con una configuración guardada más clara y alias personales de modelos.",
@@ -7541,7 +7543,11 @@
           "model_guidance": "Cada bot muestra el perfil LLM recomendado según sus tareas y habilidades. Desactivar un plugin desactiva y oculta su bot; la configuración se conserva para reactivarlo.",
           "reasoning": "Puedes ajustar el nivel de razonamiento de cada asistente con modelos compatibles de OpenRouter; se guarda automáticamente y también se aplica cuando utiliza herramientas.",
           "processing_progress": "Sigue el procesamiento de las fuentes desde una tarjeta compacta de progreso después de cerrar el diálogo o cambiar de página.",
-          "gallery_reading": "Lee las notas de la galería en tarjetas de ancho completo que crecen con su contenido, una debajo de otra. Elige una altura limitada o según el contenido para cualquier vista dentro de una página."
+          "gallery_reading": "Lee las notas de la galería en tarjetas de ancho completo que crecen con su contenido, una debajo de otra. Elige una altura limitada o según el contenido para cualquier vista dentro de una página.",
+          "calendar": "Conecta calendarios de Microsoft en modo de solo lectura y utiliza las herramientas de calendario y planificación del espacio de trabajo.",
+          "bookmarks": "Agrupa los favoritos y los marcadores, y conserva las suscripciones del Lector en el Vault activo.",
+          "tables": "Trabaja con cuadrículas de registros de tipo hoja de cálculo, cronologías interactivas, fechas coherentes y vistas incrustadas más flexibles.",
+          "transclusions": "Edita directamente el contenido de las notas incrustadas, con guardado automático, y crea páginas traducidas a partir del contenido existente."
         },
         "fixes": {
           "reader": "Abre los documentos adjuntos en el lector interno con los recursos PDF incluidos en las versiones de escritorio.",
@@ -7552,7 +7558,10 @@
           "source_processing": "Reanuda el procesamiento de fuentes extensas conservando el contexto global del documento y corrige las referencias inválidas sin reescribir las notas válidas.",
           "view_editing": "La configuración de las vistas conserva sus valores y cambios; Espacio entra en las notas agrupadas y Esc vuelve al grupo y lo pliega. Los archivos lentos de la nube ya no bloquean otras peticiones al comprobar el uso de una vista. Las vistas nuevas permiten elegir la tabla de origen cuando no hay una tabla activa y muestran sus campos en todas las pestañas. El límite de altura se puede ajustar del 1 al 100% de la ventana (70% por defecto) y se conserva al cambiar de modo. Se puede agrupar por cualquier tipo de campo y las pistas de las pestañas se ocultan mientras el menú está abierto.",
           "desktop_bootstrap": "La configuración inicial se guarda fuera de la app para que el primer arranque mantenga intacta la firma de la instalación.",
-          "page_properties": "Las propiedades de las páginas muestran correctamente las casillas, los valores cero, los iconos y los campos calculados. Las fechas y selecciones respetan el bloqueo de la página, y los recursos Zotero se pueden abrir desde su propiedad. Los campos siguen el orden configurado y Gestionar campos permite consultar y eliminar las propiedades locales de la página sin duplicar el título. Los campos numéricos permiten mostrar una barra o un anillo de progreso en páginas y vistas, con escala configurable y porcentaje visible."
+          "page_properties": "Las propiedades de las páginas muestran correctamente las casillas, los valores cero, los iconos y los campos calculados. Las fechas y selecciones respetan el bloqueo de la página, y los recursos Zotero se pueden abrir desde su propiedad. Los campos siguen el orden configurado y Gestionar campos permite consultar y eliminar las propiedades locales de la página sin duplicar el título. Los campos numéricos permiten mostrar una barra o un anillo de progreso en páginas y vistas, con escala configurable y porcentaje visible.",
+          "mail": "Abre el correo con mayor agilidad y controla la visibilidad de las cuentas conservando los archivos locales, las credenciales guardadas, los borradores y los destinatarios en copia oculta.",
+          "planning": "Mantén aislados los planes de los proyectos y recalcula los calendarios sin modificar las tareas originales.",
+          "desktop_stream": "Cancela correctamente las respuestas progresivas de los asistentes en la app de escritorio."
         }
       }
     }

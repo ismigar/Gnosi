@@ -7530,7 +7530,9 @@
         "highlights": {
           "teams": "Configurez les bots et profils dans une seule liste, choisissez le principal depuis sa fiche et définissez la participation de chacun à l’équipe. Utilisez un assistant pour un seul tour avec sa commande.",
           "models": "Comparez les prix, les fenêtres de contexte et les capacités de chaque fournisseur, consultez l’adéquation aux rôles et lancez des évaluations synthétiques explicitement autorisées.",
-          "templates": "Parcourez et recherchez des modèles d’espace de travail avec des aperçus traduits, et examinez les fichiers inclus et le contenu potentiellement sensible avant de les partager."
+          "templates": "Parcourez et recherchez des modèles d’espace de travail avec des aperçus traduits, et examinez les fichiers inclus et le contenu potentiellement sensible avant de les partager.",
+          "agent_workspace": "Travaillez avec des assistants dans des espaces dédiés, avec des autorisations explicites, des compétences réutilisables et une intégration au bureau.",
+          "voice": "Dictez et écoutez les conversations avec les assistants, avec des commandes vocales partagées et une transcription locale facultative."
         },
         "improvements": {
           "profiles": "Modifiez les instructions, les compétences et les sources délimitées des assistants, y compris l’accès au courrier par compte, avec des paramètres enregistrés plus clairs et des alias personnels de modèles.",
@@ -7541,7 +7543,11 @@
           "model_guidance": "Chaque bot affiche un profil LLM recommandé selon ses tâches et compétences. Désactiver un plugin désactive et masque son bot ; sa configuration est conservée pour le réactiver.",
           "reasoning": "Réglez le niveau de raisonnement de chaque assistant avec les modèles OpenRouter compatibles ; le réglage est enregistré automatiquement et s’applique aussi lors de l’utilisation d’outils.",
           "processing_progress": "Suivez le traitement des sources dans une carte de progression compacte après avoir fermé la boîte de dialogue ou changé de page.",
-          "gallery_reading": "Lisez les notes de la galerie dans des cartes de pleine largeur qui grandissent avec leur contenu, les unes sous les autres. Choisissez une hauteur limitée ou selon le contenu pour toute vue intégrée dans une page."
+          "gallery_reading": "Lisez les notes de la galerie dans des cartes de pleine largeur qui grandissent avec leur contenu, les unes sous les autres. Choisissez une hauteur limitée ou selon le contenu pour toute vue intégrée dans une page.",
+          "calendar": "Connectez les calendriers Microsoft en lecture seule et utilisez les outils de calendrier et de planification de l’espace de travail.",
+          "bookmarks": "Regroupez les favoris et les signets, et conservez les abonnements du Lecteur dans le Vault actif.",
+          "tables": "Travaillez avec des grilles de fiches de type tableur, des chronologies interactives, des dates cohérentes et des vues intégrées plus souples.",
+          "transclusions": "Modifiez directement le contenu des notes intégrées, avec enregistrement automatique, et créez des pages traduites à partir du contenu existant."
         },
         "fixes": {
           "reader": "Ouvrez les documents joints dans le lecteur interne avec les ressources PDF incluses dans les versions de bureau.",
@@ -7552,7 +7558,10 @@
           "source_processing": "Reprenez le traitement des sources longues en préservant le contexte global du document et corrigez les références invalides sans réécrire les notes valides.",
           "view_editing": "Les paramètres des vues conservent leurs valeurs et modifications ; Espace entre dans les notes groupées et Échap revient au groupe et le replie. Les fichiers lents du cloud ne bloquent plus les autres requêtes lors de la vérification de l’utilisation d’une vue. Les nouvelles vues permettent de choisir une table source lorsqu’aucune table n’est active et proposent ses champs dans chaque onglet. La limite de hauteur est réglable de 1 à 100 % de la fenêtre (70 % par défaut) et est conservée lors des changements de mode. Le regroupement prend en charge tous les types de champs et les infobulles des onglets restent masquées lorsque le menu est ouvert.",
           "desktop_bootstrap": "La configuration initiale est enregistrée hors de l’app afin de préserver la signature de l’installation au premier démarrage.",
-          "page_properties": "Les propriétés des pages affichent correctement les cases à cocher, les valeurs zéro, les icônes et les résultats calculés. Les dates et sélections respectent le verrouillage de la page, et les ressources Zotero peuvent être ouvertes depuis leur propriété. Les champs suivent l’ordre configuré et Gérer les champs permet de consulter et de supprimer les propriétés propres à la page sans dupliquer le titre. Les champs numériques peuvent afficher une barre ou un anneau de progression dans les pages et vues, avec une échelle configurable et un pourcentage visible."
+          "page_properties": "Les propriétés des pages affichent correctement les cases à cocher, les valeurs zéro, les icônes et les résultats calculés. Les dates et sélections respectent le verrouillage de la page, et les ressources Zotero peuvent être ouvertes depuis leur propriété. Les champs suivent l’ordre configuré et Gérer les champs permet de consulter et de supprimer les propriétés propres à la page sans dupliquer le titre. Les champs numériques peuvent afficher une barre ou un anneau de progression dans les pages et vues, avec une échelle configurable et un pourcentage visible.",
+          "mail": "Ouvrez le courrier plus rapidement et contrôlez la visibilité des comptes tout en préservant les archives locales, les identifiants enregistrés, les brouillons et les destinataires en copie cachée.",
+          "planning": "Gardez les plans des projets séparés et recalculez les calendriers sans modifier les tâches d’origine.",
+          "desktop_stream": "Annulez correctement les réponses progressives des assistants dans l’application de bureau."
         }
       }
     }
