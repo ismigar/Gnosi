@@ -214,7 +214,7 @@ export function SkillEditor({
                 </button>
                 {skill && onValidate ? (
                     <button
-                        className="btn-gnosi-secondary"
+                        className="btn-gnosi btn-gnosi-secondary whitespace-nowrap"
                         disabled={validating || !canSave}
                         onClick={() => {
                             void handleValidate();
