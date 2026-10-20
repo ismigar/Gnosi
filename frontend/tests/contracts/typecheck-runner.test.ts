@@ -123,6 +123,7 @@ it.each([
   compare(false);
 });
 
+// Allow for three real compiler/runner invocations on the shared CI host.
 it('preserves declaration diagnostics with noEmit and never creates declarations or build info', () => {
   config({ declaration: true, incremental: true, tsBuildInfoFile: 'build.tsbuildinfo' });
   write('src/main.ts', 'export const value = new class { private hidden = 1; }();');
@@ -132,7 +133,7 @@ it('preserves declaration diagnostics with noEmit and never creates declarations
   expect(run().status).toBe(1);
   expect(existsSync(join(fixture, 'build.tsbuildinfo'))).toBe(false);
   expect(existsSync(join(fixture, 'src/main.d.ts'))).toBe(false);
-});
+}, 30_000);
 
 it.each([
   ['root array', 'tsconfig.json', '{"compilerOptions":['],

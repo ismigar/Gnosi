@@ -72,6 +72,7 @@ it('discovers the same paths as real ESLint, including extra extensions, dotfile
   expect(run().status).toBe(0);
 });
 
+// Multiple real CLI passes can exceed Vitest's 5s default on the shared CI host.
 it.each(['.eslintcache', 'custom.cache'])('reuses %s across serial batches and repeated runs', cache => {
   write('eslint.config.mjs', `import { appendFileSync } from 'node:fs';
     export default [
@@ -95,7 +96,7 @@ it.each(['.eslintcache', 'custom.cache'])('reuses %s across serial batches and r
   expect(counts.sort((left, right) => left - right)).toEqual([1, 384]);
   expect(run(environment).status).toBe(0);
   expect(readFileSync(join(fixture, 'rule-count.txt'), 'utf8')).toBe(first);
-});
+}, 30_000);
 
 it('allows config diagnostics on stdout without corrupting file discovery', () => {
   write('source.js', 'export {};');
@@ -150,7 +151,7 @@ it('invalidates content cache entries across batches and never caches discovery 
   const result = run(environment);
   expect(result.status).toBe(1);
   expect(result.stdout).toContain('no-debugger');
-});
+}, 30_000);
 
 it('fails on config errors and empty discovery instead of silently accepting', () => {
   write('eslint.config.mjs', 'throw new Error("fixture config failure");');
