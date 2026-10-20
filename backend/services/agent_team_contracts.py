@@ -32,19 +32,40 @@ def standalone_clarification(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def explicit_output_keys(request: str) -> set[str]:
-    """Read a complete JSON format example after an unquoted format directive."""
-    directive = re.compile(r"\b(?:(?:return|retorna|devuelve|retourne)\s+(?:(?:only|només|solo|seulement|exactly|exactament|exactamente|exactement)\s+)?JSON\s*:?|(?:contract|contracte|contrato|contrat)\s*:)[ \n]*", re.I)
-    for match in reversed(list(directive.finditer(request))):
+_OUTPUT_DIRECTIVE = re.compile(r"\b(?:(?:return|retorna|devuelve|retourne)\s+(?:(?:only|només|solo|seulement|exactly|exactament|exactamente|exactement)\s+)?JSON\s*:?|(?:contract|contracte|contrato|contrat)\s*:)[ \n]*", re.I)
+
+
+def _output_directives(request: str):
+    for match in _OUTPUT_DIRECTIVE.finditer(request):
         prefix = request[:match.start()]
-        if _quoted(prefix) or (prefix.strip() and prefix.rstrip(" \t")[-1] not in ".!?;\n"):
+        if _quoted(prefix) or (prefix.strip() and prefix.rstrip(" \t")[-1] not in ".!?;\n"
+                               and not re.search(r"\b(?:and|i|y|et)\s+$", prefix, re.I)):
             continue
+        yield match
+
+
+def output_contract_requested(request: str) -> bool:
+    """Require semantic planning for an unquoted JSON output instruction."""
+    return any("json" in match.group().casefold() or request[match.end():].lstrip().startswith(("{", "["))
+               for match in _output_directives(request))
+
+
+def explicit_output_keys(request: str) -> set[str]:
+    """Read a JSON example or an explicit named-key list from the current request."""
+    for match in reversed(list(_output_directives(request))):
+        remaining = request[match.end():].lstrip()
         try:
-            value, _ = json.JSONDecoder().raw_decode(request[match.end():].lstrip())
+            value, _ = json.JSONDecoder().raw_decode(remaining)
         except ValueError:
-            continue
+            value = None
         if isinstance(value, dict) and value:
             return set(value)
+        named = re.match(r"(?:with|amb|con|avec)\s+(?:(?:the|la|el|les|els|las)\s+)?(?:keys?|claus?|claves?|clés?)\s*:?\s*([^.!?;\n]+)", remaining, re.I)
+        if named:
+            names = named.group(1).strip()
+            key = r"`?[A-Za-z_][A-Za-z0-9_-]*`?"
+            if re.fullmatch(key + r"(?:(?:\s*,\s*|\s+(?:and|i|y|et)\s+)" + key + r")*", names, re.I):
+                return {name.strip("`") for name in re.split(r"\s*,\s*|\s+(?:and|i|y|et)\s+", names, flags=re.I)}
     return set()
 
 
@@ -162,7 +183,8 @@ def operation_skills(members: list[dict[str, Any]]) -> dict[str, str]:
 
 
 def validate_plan_contract(plan: TeamPlan, members: list[dict[str, Any]], owner_id: str,
-                           *, legacy_response: bool = False, required_operation: str = "", output_keys: set[str] | None = None) -> None:
+                           *, legacy_response: bool = False, required_operation: str = "", output_keys: set[str] | None = None,
+                           require_output_contract: bool = False) -> None:
     schema = output_schema(plan)
     operations = operation_skills(members)
     operation = required_operation or plan.operation
@@ -182,6 +204,8 @@ def validate_plan_contract(plan: TeamPlan, members: list[dict[str, Any]], owner_
         if operation and plan.response_kind not in {"clarification", "unavailable"}:
             raise ValueError("agent_team_work_requires_task: use a bounded task for a deliverable")
         return
+    if require_output_contract and schema is None:
+        raise ValueError("agent_team_output_contract_required: define the requested JSON output")
     if output_keys and (schema is None or schema.get("type") != "object" or set(schema.get("properties", {})) != output_keys):
         raise ValueError("agent_team_output_contract_mismatch: preserve the current request's explicit JSON keys " + ", ".join(sorted(output_keys)))
     if operation == "tables" and schema is not None and schema.get("type") == "object" and not schema.get("properties"):

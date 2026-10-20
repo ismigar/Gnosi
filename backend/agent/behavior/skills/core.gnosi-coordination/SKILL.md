@@ -24,6 +24,16 @@ result, acceptance criteria, and prior
 task IDs on which it depends. At most four tasks and two temporary specialists are allowed.
 Only independently useful reading tasks may run together. Writers run sequentially.
 
+Classify quality before execution. Set quality.mode=elaborate automatically for
+research, integrating multiple sources, substantive document creation, analysis
+with competing explanations, or a deliverable requiring several dependent steps.
+Give a concise reason and observable acceptance criteria derived from the original
+task; never put predicted answers or invented facts into the criteria. The runtime
+freezes them and reviews the candidate in a fresh context, then corrects verified
+defects while progress and the existing shared budget permit. Do not add reviewer
+tasks to the plan: the runtime owns this cycle. Use routine for greetings, simple
+lookups, short transformations, clarifications and exact mechanical actions.
+
 Temporary specialists may use only the listed models and skills. Their instructions must
 describe a reusable procedure, with no source quotations, personal details, credentials,
 or conversation history. Record concrete acceptance criteria. Creating an agent cannot

@@ -28,6 +28,19 @@ describe('existing chat stream recovery', () => {
     const f = fixture(); replay.mockResolvedValueOnce([{ type: 'message', sequence: 3, content: 'original' }]).mockResolvedValueOnce([{ type: 'message', sequence: 3, content: 'duplicate' }, { type: 'done', sequence: 4 }]);
     await expect(f.recover()).resolves.toBe(true); expect(f.pause).toHaveBeenCalledTimes(1); expect(f.messages()).toHaveLength(1); expect(f.messages()[0]?.content).toBe('original'); expect(replay.mock.calls[1]?.[1]).toBe(3);
   });
+  it.each([
+    { status: 'incomplete', rounds: 2, finding_count: 1, stop_reason: 'budget' },
+    null,
+    { status: 'unknown', rounds: 2, finding_count: 1, stop_reason: 'budget' },
+  ])('replaces cached acceptance with the bounded recovered review: %j', async gauntlet => {
+    const f = fixture([{ role: 'assistant', content: 'Old answer', turnId: 'turn',
+      gauntlet: { status: 'accepted', rounds: 1, finding_count: 0, stop_reason: 'accepted' } }]);
+    replay.mockResolvedValueOnce([{ type: 'message', sequence: 3, content: 'Recovered answer',
+      gauntlet: gauntlet ? { ...gauntlet, findings: ['PRIVATE-REVIEW'] } : null }, { type: 'done', sequence: 4 }]);
+    await expect(f.recover()).resolves.toBe(true);
+    expect(f.messages()[0]?.gauntlet).toEqual(gauntlet?.status === 'incomplete' ? gauntlet : null);
+    expect(JSON.stringify(f.messages())).not.toContain('PRIVATE-REVIEW');
+  });
   it('does not call a terminal-only replay a recovered response', async () => {
     const f = fixture(); replay.mockResolvedValueOnce([{ type: 'done', sequence: 3 }]).mockResolvedValueOnce(null);
     await expect(f.recover()).resolves.toBe(false); expect(f.messages()).toEqual([]); expect(replay).toHaveBeenCalledTimes(2);

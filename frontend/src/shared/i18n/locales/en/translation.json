@@ -5829,6 +5829,23 @@
     "privacy_title": "Privacy",
     "privacy_summary": "{{classification}} · {{count}} private sources · data minimized: {{minimized}}",
     "privacy_remote_processing": "Required private evidence may be processed by the configured remote model.",
+    "gauntlet_title": "Quality review",
+    "gauntlet_summary": "{{status}} · reviews: {{reviews}} · unresolved findings: {{findings}}",
+    "gauntlet_status": {
+      "accepted": "Accepted",
+      "stagnated": "No further improvement",
+      "incomplete": "Incomplete"
+    },
+    "gauntlet_stop_reason": {
+      "accepted": "The review was accepted.",
+      "stagnated": "Further review did not resolve the remaining findings.",
+      "budget": "The review reached its time or usage limit.",
+      "unavailable": "The quality review was unavailable.",
+      "invalid_review": "The review result could not be validated.",
+      "interrupted": "The review was interrupted.",
+      "unverified_evidence": "Required evidence could not be verified.",
+      "action_review": "The action is awaiting your confirmation."
+    },
     "verification_title": "Verification",
     "verification_summary": "{{status}} · {{count}} evidence items",
     "verification_limitations": "Limitations: {{limitations}}",

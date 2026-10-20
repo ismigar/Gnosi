@@ -13,7 +13,7 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from backend.agent.action_confirmations import confirmation_event
 from backend.agent.model_router import usage_from_message
 from backend.domains.agent.routes.chat_stream_state import AgentStreamState
-from backend.domains.agent.routes.checkpoints import _acquire_turn_lock
+from backend.domains.agent.routes.checkpoints import _acquire_turn_lock, _public_gauntlet_metadata
 from backend.domains.agent.routes.shared import _message_text, _tool_stream_event
 
 
@@ -133,6 +133,7 @@ def _assistant_event(
                 "job": metadata.get("gnosi_job"),
                 "explanation": metadata.get("gnosi_explanation"),
                 "quality": metadata.get("gnosi_quality"),
+                "gauntlet": _public_gauntlet_metadata(metadata.get("gnosi_gauntlet")),
                 "conflicts": metadata.get("gnosi_conflicts"),
                 "evidence_security": metadata.get("gnosi_evidence_security"),
                 "provider_fallback": metadata.get("gnosi_provider_fallback"),
@@ -190,6 +191,9 @@ def _message_events(
         pending = confirmation_event(json.dumps(native_confirmation, ensure_ascii=False))
         if pending:
             state.answer_count += 1
+            gauntlet = _public_gauntlet_metadata(getattr(message, 'additional_kwargs', {}).get('gnosi_gauntlet'))
+            if gauntlet is not None:
+                pending['gauntlet'] = gauntlet
             return [json.dumps(pending, ensure_ascii=False) + '\n']
     if message.type == "tool":
         state.active_tool_names.discard(str(message.name or "").strip())

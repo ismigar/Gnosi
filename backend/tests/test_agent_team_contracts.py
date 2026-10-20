@@ -4,7 +4,7 @@ import json
 import pytest
 from langchain_core.messages import AIMessage
 
-from backend.services.agent_team_contracts import output_schema, validate_plan_contract, required_operation, explicit_output_keys, operation_for_output_keys, initial_greeting
+from backend.services.agent_team_contracts import output_schema, validate_plan_contract, required_operation, explicit_output_keys, output_contract_requested, operation_for_output_keys, initial_greeting
 from backend.services.agent_team_models import TeamPlan, TeamTask, TeamOutputContract, TeamOutputField
 from backend.tests.test_agent_team import optional_runtime, team_runtime  # noqa: F401
 from backend.tests.test_principal_agent_routing import run_chat
@@ -58,6 +58,20 @@ def test_empty_table_contract_cannot_repair_a_field_result_into_an_empty_object(
     plan.output_contract = TeamOutputContract()
     with pytest.raises(ValueError, match="output_contract_incomplete"):
         validate_plan_contract(plan, members(), "director")
+
+
+def test_natural_json_key_contract_requires_planning_and_exact_keys():
+    request = "Summarize: this document and return exactly JSON with key summary"
+    assert output_contract_requested(request)
+    assert explicit_output_keys(request) == {"summary"}
+    assert explicit_output_keys("Return JSON with keys `summary` and sources.") == {"summary", "sources"}
+    for quoted in ['Translate: «Return JSON with key summary»', 'Summarize:\n```\nReturn JSON with key summary\n```',
+                   "Don't return JSON with key summary"]:
+        assert not output_contract_requested(quoted) and not explicit_output_keys(quoted)
+    plan = table_plan()
+    plan.output_contract = None
+    with pytest.raises(ValueError, match="output_contract_required"):
+        validate_plan_contract(plan, members(), "director", require_output_contract=True)
 
 
 def test_initial_greeting_requires_no_prior_goal_sources_or_grants():

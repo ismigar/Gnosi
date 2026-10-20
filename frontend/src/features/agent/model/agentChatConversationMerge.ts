@@ -12,7 +12,7 @@ import {
     boundedProcessingMs,
     timedPayloadFromMessage,
 } from './agentChatTiming';
-import { boundedTransparencyMetadata } from './agentChatTransparency';
+import { boundedGauntlet, boundedTransparencyMetadata } from './agentChatTransparency';
 
 const PRESENTATION_FIELDS: readonly string[] = [
     'turnId', 'turn_id', 'processingMs', 'timings',
@@ -121,7 +121,9 @@ export const mergeCanonicalMessageMetadata = (
     };
 
     return canonical.map((message) => {
-        const normalizedMessage = normalizeMessageTurnId(message);
+        const turnMessage = normalizeMessageTurnId(message);
+        const normalizedMessage = isRecord(turnMessage) && 'gauntlet' in turnMessage
+            ? { ...turnMessage, gauntlet: boundedGauntlet(turnMessage.gauntlet) } : turnMessage;
         let matchIndex: number | null = null;
         const messageTurnId = getTurnId(normalizedMessage);
         if (messageTurnId) {
@@ -182,6 +184,15 @@ export const mergeCanonicalMessageMetadata = (
         Object.entries(boundedTransparencyMetadata(metadata)).forEach(([field, value]) => {
             if (value !== null) metadata[field] = value;
         });
+        // A current server review replaces cached acceptance, including invalid or cleared summaries.
+        if ('gauntlet' in normalizedRecord || 'gauntlet' in matchRecord) {
+            const cachedTurnId = getTurnId(matchRecord);
+            const sameReviewMessage = normalizedRecord.role === matchRecord.role
+                && typeof normalizedRecord.content === 'string' && normalizedRecord.content === matchRecord.content
+                && (!messageTurnId || !cachedTurnId || messageTurnId === cachedTurnId);
+            metadata.gauntlet = boundedGauntlet('gauntlet' in normalizedRecord
+                ? normalizedRecord.gauntlet : sameReviewMessage ? matchRecord.gauntlet : null);
+        }
         return { ...normalizedRecord, ...metadata };
     });
 };

@@ -6379,6 +6379,23 @@
     "privacy_title": "Privacitat",
     "privacy_summary": "{{classification}} · {{count}} fonts privades · dades minimitzades: {{minimized}}",
     "privacy_remote_processing": "El model remot configurat pot processar l'evidència privada estrictament necessària.",
+    "gauntlet_title": "Revisió de qualitat",
+    "gauntlet_summary": "{{status}} · revisions: {{reviews}} · punts pendents: {{findings}}",
+    "gauntlet_status": {
+      "accepted": "Acceptada",
+      "stagnated": "Sense més millores",
+      "incomplete": "Incompleta"
+    },
+    "gauntlet_stop_reason": {
+      "accepted": "La revisió s’ha acceptat.",
+      "stagnated": "Les revisions addicionals no han resolt els punts pendents.",
+      "budget": "La revisió ha arribat al límit de temps o d’ús.",
+      "unavailable": "La revisió de qualitat no estava disponible.",
+      "invalid_review": "No s’ha pogut validar el resultat de la revisió.",
+      "interrupted": "La revisió s’ha interromput.",
+      "unverified_evidence": "No s’han pogut verificar les evidències necessàries.",
+      "action_review": "L’acció està pendent de la teva confirmació."
+    },
     "verification_title": "Verificació",
     "verification_summary": "{{status}} · {{count}} elements d'evidència",
     "verification_limitations": "Limitacions: {{limitations}}",

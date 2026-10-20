@@ -163,6 +163,19 @@ export function MessageDetails({ msg, onJobAction, onFocusComposer }: Props) {
                     )}
                 </div>
             )}
+            {msg.gauntlet && (
+                <div style={{ marginTop: '5px' }}>
+                    <strong>{t('chat.gauntlet_title', 'Quality review')}</strong>
+                    <div>{t('chat.gauntlet_summary', '{{status}} · reviews: {{reviews}} · unresolved findings: {{findings}}', {
+                        status: t(`chat.gauntlet_status.${msg.gauntlet.status}`),
+                        reviews: msg.gauntlet.rounds,
+                        findings: msg.gauntlet.finding_count,
+                    })}</div>
+                    {msg.gauntlet.status === 'incomplete' && (
+                        <div>{t(`chat.gauntlet_stop_reason.${msg.gauntlet.stop_reason}`)}</div>
+                    )}
+                </div>
+            )}
             {msg.evidenceSecurity?.status === 'tainted' && (
                 <div style={{ marginTop: '5px' }}>
                     <strong>{t('chat.evidence_security_title', 'Untrusted evidence detected')}</strong>

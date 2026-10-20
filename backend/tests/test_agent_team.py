@@ -109,19 +109,25 @@ def team_runtime(monkeypatch, tmp_path):
     return scope, snapshot, calls, config
 
 
-def test_direct_operation_calls_only_worker_and_records_child(team_runtime):
+def test_operation_routes_through_quality_planner_before_specialist(team_runtime):
     from backend.services.agent_execution_scope import execution_scope
     from backend.services.agent_execution import execute_operation
     from backend.services.agent_execution_models import AgentOperation
     from backend.services import agent_execution_store as store
     from backend.agent.action_confirmations import confirmation_context
     scope, snapshot, calls, _ = team_runtime
+    plan = {"operation": "writing", "tasks": [{"id": "draft", "agent_id": "worker",
+        "objective": "Complete the original writing request",
+        "skill_ids": [skill for skill in snapshot.skill_ids if skill != TEAM_SKILL]}],
+        "result_task": "draft", "quality": {"mode": "routine"}}
+    team_runtime[3]["_responses"] = {"director": [json.dumps(plan)], "worker": ['{"result":"done"}']}
     with execution_scope(scope), confirmation_context(vault_scope="test", workspace_id="test", user_id="alice", role="owner", agent_id="director", session_id="s"):
         run = asyncio.run(execute_operation(AgentOperation(skill_id=snapshot.skill_ids[0], operation="writing", input="Summarize this", output_schema={"type": "object"}), snapshot=snapshot))
-    assert calls == ["worker"]
+    assert calls == ["director", "worker"]
     assert json.loads(run.result) == {"result": "done"}
     children = [r for r in store.list_runs(scope) if r.parent_run_id == run.run_id]
-    assert len(children) == 1 and children[0].agent_id == "worker" and children[0].model_calls == 1
+    assert len(children) == 2 and {child.agent_id for child in children} == {"director", "worker"}
+    assert sum(child.model_calls for child in children) == 2
     assert run.model_calls == 0
 
 
@@ -153,8 +159,13 @@ def test_direct_route_does_not_escape_configured_shortlist(team_runtime):
     config["agents"].insert(1, other)
     snapshot.profile["team"]["members"].insert(0, {"agent_id": "unlisted", "roles": ["worker"]})
     config["agents"][0]["team"] = snapshot.profile["team"]
+    config["_responses"] = {"director": [json.dumps({"operation": "writing", "tasks": [{
+        "id": "draft", "agent_id": "worker", "objective": "Complete the writing request",
+        "skill_ids": [skill for skill in snapshot.skill_ids if skill != TEAM_SKILL]}],
+        "result_task": "draft", "quality": {"mode": "routine"}})],
+        "worker": ['{"result":"done"}']}
     run_operation(team_runtime)
-    assert calls == ["worker"]
+    assert calls == ["director", "worker"]
 
 
 def test_format_repair_calls_executor_once_without_replanning(team_runtime):

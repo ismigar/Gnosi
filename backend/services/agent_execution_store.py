@@ -124,6 +124,17 @@ def read(scope: ExecutionScope, run_id: str) -> AgentRun:
         return AgentRun.model_validate_json(str(_row(db, scope, run_id)["payload"]))
 
 
+def redact_private_input(scope: ExecutionScope, run_id: str) -> None:
+    """Drop ephemeral model input and snapshot after an internal private operation."""
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        row = _row(db, scope, run_id)
+        run = AgentRun.model_validate_json(str(row["payload"]))
+        if run.status in {"queued", "running", "resuming"}:
+            raise ValueError("agent_private_operation_still_active")
+        db.execute("UPDATE agent_runs SET request='{}',snapshot='{}' WHERE run_id=?", (run_id,))
+
+
 def update(scope: ExecutionScope, run_id: str, **changes: Any) -> AgentRun:
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")

@@ -6379,6 +6379,23 @@
     "privacy_title": "Confidentialité",
     "privacy_summary": "{{classification}} · {{count}} sources privées · données minimisées : {{minimized}}",
     "privacy_remote_processing": "Le modèle distant configuré peut traiter les seules preuves privées nécessaires.",
+    "gauntlet_title": "Contrôle de qualité",
+    "gauntlet_summary": "{{status}} · contrôles : {{reviews}} · points non résolus : {{findings}}",
+    "gauntlet_status": {
+      "accepted": "Accepté",
+      "stagnated": "Aucune amélioration supplémentaire",
+      "incomplete": "Incomplet"
+    },
+    "gauntlet_stop_reason": {
+      "accepted": "Le contrôle a été accepté.",
+      "stagnated": "Les contrôles supplémentaires n’ont pas résolu les points restants.",
+      "budget": "Le contrôle a atteint sa limite de temps ou d’utilisation.",
+      "unavailable": "Le contrôle de qualité était indisponible.",
+      "invalid_review": "Le résultat du contrôle n’a pas pu être validé.",
+      "interrupted": "Le contrôle a été interrompu.",
+      "unverified_evidence": "Les éléments nécessaires n’ont pas pu être vérifiés.",
+      "action_review": "L’action attend votre confirmation."
+    },
     "verification_title": "Vérification",
     "verification_summary": "{{status}} · {{count}} éléments de preuve",
     "verification_limitations": "Limites : {{limitations}}",

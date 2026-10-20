@@ -180,6 +180,31 @@ def _checkpoint_content(message: Any, role: str) -> str:
     return content[: min(marker_positions)] if marker_positions else content
 
 
+def _public_gauntlet_metadata(value: Any) -> Dict[str, Any] | None:
+    """Expose only the finite review summary, never private review material."""
+    if not isinstance(value, dict):
+        return None
+    status = value.get("status")
+    stop_reason = value.get("stop_reason")
+    if not isinstance(status, str) or status not in {"accepted", "stagnated", "incomplete"}:
+        return None
+    if not isinstance(stop_reason, str) or stop_reason not in {
+        "accepted", "stagnated", "budget", "unavailable", "invalid_review",
+        "interrupted", "unverified_evidence", "action_review",
+    }:
+        return None
+    rounds = value.get("rounds")
+    finding_count = value.get("finding_count")
+    if any(type(count) is not int or not 0 <= count <= 9_007_199_254_740_991
+           for count in (rounds, finding_count)):
+        return None
+    if (status == "accepted" and (stop_reason != "accepted" or finding_count != 0 or rounds < 1)
+            or status == "stagnated" and stop_reason != "stagnated"
+            or status == "incomplete" and stop_reason in {"accepted", "stagnated"}):
+        return None
+    return {"status": status, "rounds": rounds, "finding_count": finding_count, "stop_reason": stop_reason}
+
+
 def _checkpoint_public_message(
     message: Any,
     *,
@@ -221,6 +246,9 @@ def _checkpoint_public_message(
             value = assistant_metadata.get(internal_key)
             if value is not None:
                 public_message[public_key] = value
+        gauntlet = _public_gauntlet_metadata(assistant_metadata.get("gnosi_gauntlet"))
+        if gauntlet is not None:
+            public_message["gauntlet"] = gauntlet
     if turn_id:
         public_message["turn_id"] = turn_id
     return public_message

@@ -40,6 +40,7 @@ class AgentSessionMessageResponse(_AgentResponseModel):
     job: JsonValue | None = None
     explanation: JsonValue | None = None
     quality: JsonValue | None = None
+    gauntlet: JsonValue | None = None
     conflicts: JsonValue | None = None
     evidence_security: JsonValue | None = None
     timings: JsonValue | None = None

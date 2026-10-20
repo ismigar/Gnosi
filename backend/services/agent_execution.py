@@ -417,7 +417,7 @@ def _operation_output(text: str, request: AgentOperation, validator: Callable[[s
     return validator(text) if validator is not None else text
 
 
-async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None) -> AgentRun:
+async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, private_result: bool = False) -> AgentRun:
     from backend.domains.agent.team_help import OptionalTeamHelpDeclined
     from backend.services.agent_cancellation import AgentTurnCancelled, create_cancel_token, release, cancel
 
@@ -474,7 +474,11 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                 revalidate_scope(snapshot.scope)
                 if store.cancelled(snapshot.scope, run_id) or (row.parent_run_id and store.cancelled(snapshot.scope, row.parent_run_id)):
                     raise AgentTurnCancelled("agent_run_cancelled")
-                return store.update(snapshot.scope, run_id, status="completed", result=text)
+                completed = store.update(snapshot.scope, run_id, status="completed", result="" if private_result else text)
+                # Independent review text can contain private source evidence and
+                # criticism. Return it only to the in-process coordinator; the
+                # run record and its public API keep it ephemeral.
+                return completed.model_copy(update={"result": text}) if private_result else completed
             except (ValueError, jsonschema.ValidationError) as validation_error:
                 from backend.services.structured_output_diagnostics import repair_diagnostic, reading_error
                 diagnostic = repair_diagnostic(reading_error(validation_error, text, request.output_schema)
@@ -509,19 +513,26 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     except BaseException as error:
         cancel(cancel_token)
         status = "cancelled" if isinstance(error, (AgentTurnCancelled, asyncio.CancelledError)) else "failed"
-        store.update(snapshot.scope, run_id, status=status, error=type(error).__name__ + ": " + str(error)[:512])
+        error_text = "agent_internal_operation_failed" if private_result else type(error).__name__ + ": " + str(error)[:512]
+        store.update(snapshot.scope, run_id, status=status, error=error_text)
         raise
     finally:
-        if row.parent_run_id:
-            store.aggregate(snapshot.scope, row.parent_run_id)
-        _tokens.pop(run_id, None)
-        release(cancel_token)
-        _call_limit.reset(call_limit_token)
-        _operation_timeout.reset(timeout_token)
-        _operation_tool_mode.reset(tool_mode_token)
-        _snapshot.reset(snapshot_token)
-        frozen_resources.reset(resource_token)
-        _run.reset(run_token)
+        try:
+            if private_result:
+                store.redact_private_input(snapshot.scope, run_id)
+        finally:
+            try:
+                if row.parent_run_id:
+                    store.aggregate(snapshot.scope, row.parent_run_id)
+            finally:
+                _tokens.pop(run_id, None)
+                release(cancel_token)
+                _call_limit.reset(call_limit_token)
+                _operation_timeout.reset(timeout_token)
+                _operation_tool_mode.reset(tool_mode_token)
+                _snapshot.reset(snapshot_token)
+                frozen_resources.reset(resource_token)
+                _run.reset(run_token)
 
 
 def run_sync(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None) -> AgentRun:

@@ -1,6 +1,6 @@
 import { confirmationRecord } from '../../../shared/api/chat-confirmations';
 import { mergeConfirmationRecords, type ConfirmationRecord } from '../model/agentConfirmationUtils';
-import { boundedTransparencyMetadata } from '../model/agentChatTransparency';
+import { boundedGauntlet, boundedTransparencyMetadata } from '../model/agentChatTransparency';
 import { boundedTurnMetrics } from '../model/agentChatTiming';
 import { isRecord, stringifyLooseValue } from '../model/agentChatMessageTypes';
 import { readLiveChatMessages } from './liveConversationModel';
@@ -38,13 +38,14 @@ export function applyChatStreamEvent(state: ChatStreamState, value: unknown, con
   const addAssistant = !state.assistantAdded;
   state.assistantAdded = true;
   if (type === 'confirmation_required') {
-    const parsed = confirmationRecord(value);
+    const parsed = confirmationRecord({ ...value, ...(value.gauntlet !== undefined ? { gauntlet: boundedGauntlet(value.gauntlet) } : {}) });
     if (!parsed) throw new Error('Stream confirmation is missing its identifier');
     const confirmation = { ...parsed, status: 'pending', client_scope: requestScope, agent_id: context.agentId, session_id: context.sessionId };
     setMessages((previous) => {
       if (activeScopeRef.current !== requestScope) return previous;
       return readLiveChatMessages(mergeConfirmationRecords<ConfirmationRecord>(previous, [confirmation], () => context.confirmationSummary(confirmation)))
-        .map((message) => message.confirmation?.confirmation_id === confirmation.confirmation_id ? { ...message, turnId } : message);
+        .map((message) => message.confirmation?.confirmation_id === confirmation.confirmation_id
+          ? { ...message, turnId, ...(value.gauntlet !== undefined ? { gauntlet: boundedGauntlet(value.gauntlet) } : {}) } : message);
     });
     return;
   }

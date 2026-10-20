@@ -16,6 +16,7 @@ export {
     boundedEvidenceSecurity,
     boundedExplanation,
     boundedFreshness,
+    boundedGauntlet,
     boundedJob,
     boundedPrivacy,
     boundedQuality,
