@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
 | Vitest | 735 | 3297 |
-| pytest | 714 | 5459 |
+| pytest | 714 | 5460 |
 
 ## Files
 
@@ -1115,7 +1115,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_mail_submission_responsiveness.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_submission_responsiveness.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_mail_tag_identity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_tag_identity.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_mail_thread_completeness.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_thread_completeness.py) | 3 | Python AST |
-| pytest | [`backend/tests/test_mail_vault_repository.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_vault_repository.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_mail_vault_repository.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_vault_repository.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_management_migration_integration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_management_migration_integration.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_markdown_import_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_markdown_import_response_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_mcp_retry_after.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mcp_retry_after.py) | 5 | Python AST |
