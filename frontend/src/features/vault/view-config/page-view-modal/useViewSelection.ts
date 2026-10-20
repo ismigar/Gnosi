@@ -1,3 +1,4 @@
+import { readPinnedViews } from './pinned-views';
 import { useEffect, useEffectEvent, useRef } from 'react';
 import { treeFromSource } from './filter-tree';
 import type { ModalInput } from './useViewController';
@@ -10,7 +11,7 @@ export function useViewSelection({
     setViewName, setVisibleProperties, setJoins, setViewType,
     setFilterTree, setResultSnapshot, setResultSnapshotLimit, applyTypeOptions,
     setSorts, skipNextAutosaveRef, setFormBaselineRevision, setSaveToTableViews,
-    api
+    api, pageId, setModalPinnedViewIds
 }: Pick<
     useViewStateResult & useViewAppearanceResult & useViewSessionResult & ModalInput,
     'selectedExistingViewId'
@@ -30,6 +31,8 @@ export function useViewSelection({
     | 'setFormBaselineRevision'
     | 'setSaveToTableViews'
     | 'api'
+    | 'pageId'
+    | 'setModalPinnedViewIds'
 >) {
     const appliedSelectionRef = useRef('');
     const hydrate1 = useEffectEvent(() => {
@@ -43,6 +46,7 @@ export function useViewSelection({
         if (!v) return;
         if (appliedSelectionRef.current !== selectedExistingViewId) {
             appliedSelectionRef.current = selectedExistingViewId;
+            setModalPinnedViewIds(readPinnedViews(pageId, selectedExistingViewId, Array.isArray(v.tabs) ? v.tabs.map(String) : []));
             setViewName(v.name || '');
             setVisibleProperties(Array.isArray(v.visibleProperties) && v.visibleProperties.length ? v.visibleProperties : ['title']);
             setJoins(Array.isArray(v.joins) ? v.joins : []);

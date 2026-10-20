@@ -70,7 +70,7 @@ export function SortableTab({
                 onClick={() => {
                     onSelect?.(view.id);
                 }}
-                title={view.name ?? undefined}
+                title={view.displayTitle?.trim() || view.name || undefined}
             >
                 <span
                     {...listeners}
@@ -87,8 +87,8 @@ export function SortableTab({
                             : 'text-[var(--text-tertiary)]',
                     })}
                 </span>
-                <span className="truncate flex-1 min-w-0" title={view.name ?? undefined}>
-                    {view.name}
+                <span className="truncate flex-1 min-w-0" title={view.displayTitle?.trim() || view.name || undefined}>
+                    {view.displayTitle?.trim() || view.name}
                 </span>
                 {isPrimaryView && (
                     <span

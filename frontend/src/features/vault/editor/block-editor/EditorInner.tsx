@@ -48,7 +48,7 @@ export function EditorInner(props: PageEditorBodyProps) {
         requestInsertContent: insert.requestInsertContent, setLinkPasteCtx: links.setLinkPasteCtx, setIsCitePickerOpen,
     });
     const providerValue = {
-        ...props.contextValue, requestInsertContent: insert.requestInsertContent,
+        ...props.contextValue, isEditable: props.isEditable, requestInsertContent: insert.requestInsertContent,
         registerEmbedNav: navigation.registerEmbedNav, exitEmbedToEditor: navigation.exitEmbedToEditor,
     };
     // Unknown input must not expose an empty editable document that could be autosaved.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rasterize the checked-in vector mark to every desktop and PWA icon.
+"""Rasterize the checked-in vector mark to desktop, PWA and integration icons.
 
 The canonical favicon contains paths, not system-font text. No glyph rebuilding
 or platform font selection is allowed here. Outputs go to the assets directory
@@ -34,6 +34,16 @@ def main() -> None:
         sizes = [(size, size) for size in (16, 32, 48, 64, 128, 256)]
         image.save(ASSETS_DIR / "icon.ico", format="ICO", sizes=sizes)
         image.save(PUBLIC_DIR / "favicon.ico", format="ICO", sizes=sizes)
+        integrations = (
+            (DESKTOP_DIR.parent / "extensions" / "web-clipper" / "icons", (16, 32, 48, 128, 512)),
+            (PUBLIC_DIR / "word-addin" / "assets", (16, 32, 64, 80)),
+        )
+        for directory, icon_sizes in integrations:
+            directory.mkdir(parents=True, exist_ok=True)
+            for size in icon_sizes:
+                image.resize((size, size), Image.Resampling.LANCZOS).save(
+                    directory / f"icon-{size}.png", format="PNG"
+                )
 
 
 if __name__ == "__main__":

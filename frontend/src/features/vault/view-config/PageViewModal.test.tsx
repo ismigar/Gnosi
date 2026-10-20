@@ -355,3 +355,30 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
         }));
     });
 });
+
+describe('view titles and exposed filters', () => {
+    it('saves and reopens the short title without renaming the catalog entry', async () => {
+        const view = { ...existingView, name: 'Tasks per project - Kanban', type: 'board' };
+        const { api, rerender } = await renderModal(undefined, { mode: 'table', editingView: view, editingBlock: null });
+        const modal = requireContainer();
+        const title = requireElement(modal, 'input[placeholder="Tasks per project - Kanban"]', HTMLInputElement);
+        await actAndFlush(() => { updateInput(title, 'Kanban'); });
+        await act(async () => { await vi.advanceTimersByTimeAsync(800); });
+        expect(api.updateVaultView).toHaveBeenLastCalledWith(view.id, expect.objectContaining({ name: view.name, displayTitle: 'Kanban' }));
+        await rerender({ isOpen: false });
+        await rerender({ isOpen: true, editingView: { ...view, displayTitle: 'Kanban' } });
+        expect(requireElement(requireContainer(), 'input[placeholder="Tasks per project - Kanban"]', HTMLInputElement).value).toBe('Kanban');
+    });
+    it('persists exposed filter switches in both the tree and flat representation', async () => {
+        const view = { ...existingView, filters: [{ field: 'title', operator: 'contains', value: 'Task' }] };
+        const { api } = await renderModal(undefined, { mode: 'table', editingView: view, editingBlock: null });
+        await actAndFlush(() => { requireButton(requireContainer(), 'Filters').click(); });
+        const toggle = requireElement(requireContainer(), '[role="switch"][aria-label="view.expose_filter"]', HTMLDivElement);
+        await actAndFlush(() => { toggle.click(); });
+        await act(async () => { await vi.advanceTimersByTimeAsync(800); });
+        expect(api.updateVaultView).toHaveBeenLastCalledWith(view.id, expect.objectContaining({
+            filters: [{ field: 'title', operator: 'contains', value: 'Task', exposed: true }],
+            filterTree: { conjunction: 'and', rules: [{ field: 'title', operator: 'contains', value: 'Task', exposed: true }] },
+        }));
+    });
+});

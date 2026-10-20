@@ -113,19 +113,11 @@ export function buildSchemaFromTableProperties(
         if (prop.skip_non_working_days !== undefined) config.skip_non_working_days = prop.skip_non_working_days;
         if (typeof prop.period_unit === 'string' && ['hours', 'days', 'years'].includes(prop.period_unit)) config.period_unit = prop.period_unit;
         if (isRecord(prop.format)) config.format = prop.format;
-        // Explicit select/multi_select/status options: the fixed catalog of
-        // selectable values. There are two possible sources and they can diverge:
-        //   - `config.options` (nested): written by the inline options PATCH.
-        //   - `prop.options` (top level): written by the modal save.
-        // The PATCH does NOT touch the top level, but the modal's save
-        // replaces the entire table and erases the nested `config`. So, if
-        // `config.options` exists, it's because the last write was a PATCH
-        // (it's the freshest) → it takes priority. Otherwise, we use the top level. Without
-        // this, creating/deleting an option inline wasn't reflected: the read
-        // was picking up the old top-level value.
+        // Prefer the canonical nested catalog over legacy top-level options,
+        // including an explicitly empty list.
         const propOptions = Array.isArray(prop.config?.options) ? prop.config.options
             : (Array.isArray(prop.options) ? prop.options : null);
-        if (propOptions && propOptions.length > 0) config.options = propOptions;
+        if (propOptions) config.options = propOptions;
         if (prop.id) config.id = prop.id;
         if (Object.keys(config).length > 0) {
             schema[`${prop.name}${RESERVED_KEYS_SUFFIX}`] = config;
@@ -296,11 +288,21 @@ export function buildTablePropertiesFromSchema(
     schema: VaultSchema = {},
 ): TableProperty[] {
     return getSchemaFieldNames(schema).map(name => {
-        const config = getFieldConfig(schema, name);
+        const config = { ...getFieldConfig(schema, name) };
+        const catalogConfig: Record<string, unknown> = {};
+        // These settings are read from property.config by the backend. Keep
+        // them together so linking, unlinking and defaults survive a reopen.
+        for (const key of ['options', 'catalog_ref', 'default_option', 'option_groups', 'role', 'plugin_roles', 'plugin_option_values']) {
+            if (Object.hasOwn(config, key)) {
+                catalogConfig[key] = config[key];
+                Reflect.deleteProperty(config, key);
+            }
+        }
         return {
             name,
             type: getFieldType(schema, name),
             ...config,
+            ...(Object.keys(catalogConfig).length ? { config: catalogConfig } : {}),
         };
     });
 }

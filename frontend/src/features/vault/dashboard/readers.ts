@@ -26,7 +26,7 @@ export function readView(value: unknown): View {
   const view = record(value);
   if (typeof view.id !== 'string')
     throw new TypeError('Invalid Vault view ID');
-  return { ...view, id: view.id, name: text(view.name), type: text(view.type, 'table') };
+  return { ...view, id: view.id, name: text(view.name), displayTitle: text(view.displayTitle), type: text(view.type, 'table') };
 }
 export function readViewDraft(value: unknown): ViewDraft {
   return record(value);

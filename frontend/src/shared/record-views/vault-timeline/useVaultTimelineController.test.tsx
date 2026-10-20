@@ -284,4 +284,36 @@ describe('useVaultTimelineController open contracts', () => {
         expect(period.predecessorIds).toEqual([]);
         expect(period.self).toBe(period);
     });
+    it('persists row order and restores it after refreshed notes arrive', async () => {
+        const onUpdateNote = vi.fn<NonNullable<VaultTimelineProps['onUpdateNote']>>();
+        render({ ...scheduleProps, onUpdateNote });
+        await act(async () => { await controller().moveRow('dependent', 'down'); });
+        const updated = schedulingNotes.map(note => ({ ...note, metadata: {
+            ...note.metadata,
+            ...onUpdateNote.mock.calls.find(([id]) => id === note.id)?.[1].metadata,
+        } }));
+        render({ ...scheduleProps, notes: updated, onUpdateNote });
+        expect(controller().chartData.map(note => note.id)).toEqual(['successor', 'dependent', 'predecessor']);
+        await act(async () => { await controller().moveRow('dependent', 'indent'); });
+        expect(onUpdateNote.mock.lastCall?.[1].metadata.parent_id).toBe('successor');
+    });
+
+    it('blocks sorted and read-only moves and exposes failed saves', async () => {
+        render(scheduleProps);
+        expect(controller().canMoveRow('dependent')).toBe(false);
+        const failure = new Error('save failed');
+        const onUpdateNote = vi.fn<NonNullable<VaultTimelineProps['onUpdateNote']>>()
+            .mockRejectedValue(failure);
+        render({ ...scheduleProps, activeView: { ...scheduleProps.activeView,
+            sorts: [{ field: 'Start', direction: 'asc' }] }, onUpdateNote });
+        expect(controller().canMoveRow('dependent')).toBe(false);
+        await act(async () => { await controller().moveRow('dependent', 'down'); });
+        expect(onUpdateNote).not.toHaveBeenCalled();
+        render({ ...scheduleProps, onUpdateNote });
+        await act(async () => { await controller().moveRow('dependent', 'down'); });
+        expect(controller().moveError).toBe(true);
+        expect(controller().movingRow).toBe(false);
+        expect(logError).toHaveBeenCalledWith('timeline-row-move', failure);
+    });
+
 });

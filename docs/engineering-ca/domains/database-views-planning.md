@@ -399,3 +399,25 @@ respecten la referència explícita; les opcions locals no es fusionen
 automàticament amb el catàleg global.
 Proves: `backend/tests/test_status_catalog_isolation.py` i
 `frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.
+
+## Títols visibles i filtres exposats
+
+Les vistes tenen un `displayTitle` opcional independent del `name` del catàleg.
+La llista d’inserció conserva el nom llarg; les capçaleres i pestanyes inserides
+mostren el títol curt quan està definit. Si és buit, es conserva el comportament
+anterior. El camp funciona en tots els tipus de vista i es conserva tant al
+registre com a les seccions locals i al desament automàtic del diàleg.
+
+L’acció «Reanomenar», inclòs el doble clic a les pestanyes inserides, modifica
+només `displayTitle` i parteix del títol visible actual. El nom del catàleg
+s’edita a «Configurar». La vista principal també permet canviar aquest títol
+i conserva el bloqueig de supressió.
+
+Cada regla de filtre pot activar `exposed: true`. El control del valor, adaptat
+al tipus de camp, i un interruptor apareixen sobre les vistes inserides i les
+vistes de taula. Els canvis són temporals per a aquella instància i configuració
+de pàgina o pestanya; «Restableix els filtres» recupera els valors desats.
+Es respecten els grups AND/OR i les regles fixes. La cerca a tota la taula
+desactiva temporalment els controls. El recompte segueix els resultats filtrats
+i els canvis de disposició no desen els filtres temporals. Es conserven el zero,
+els booleans i el límit del període en serialitzar els filtres.

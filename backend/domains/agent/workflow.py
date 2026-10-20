@@ -87,13 +87,23 @@ def _model_strategy_metadata(profile: ProfileSetup, model: ModelSetup) -> dict[s
 
 
 def _runtime_unavailable_tool_ids(profile: ProfileSetup, tools: ToolSetup) -> list[str]:
-    """Combine unresolved and capacity-omitted capabilities deterministically."""
+    """Report failures without treating the bounded tool belt as a failure."""
     runtime_ids = (
         []
         if tools.notebook_context_only
         else list(getattr(profile.resolved_runtime, "unavailable_tool_ids", ()) or ())
     )
-    return sorted(set(runtime_ids + tools.omitted_runtime_tool_ids))
+    omitted_ids = set(tools.omitted_runtime_tool_ids)
+    failed_omissions = [
+        str(item.get("id") or "")
+        for item in tools.runtime_tool_metadata
+        if item.get("id") in omitted_ids
+        and (
+            item.get("dynamic_context")
+            or (item.get("health") or {}).get("status") == "quarantined"
+        )
+    ]
+    return sorted(set(runtime_ids + failed_omissions))
 
 
 def _context_ref_metadata(context_refs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -135,6 +145,10 @@ def _selection_metadata(
             else list(getattr(profile.resolved_runtime, "missing_skill_ids", ()) or ())
         ),
         "unavailable_tool_ids": _runtime_unavailable_tool_ids(profile, tools),
+        "capacity_omitted_tool_ids": sorted(
+            set(tools.omitted_runtime_tool_ids)
+            - set(_runtime_unavailable_tool_ids(profile, tools))
+        ),
         "catalog_revision": str(getattr(profile.resolved_runtime, "catalog_revision", "") or ""),
         "supports_tools": tools.supports_tools,
         "tool_count": len(tools.bound_tool_names),

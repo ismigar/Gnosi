@@ -1,5 +1,7 @@
-import type { ChangeEvent, MouseEvent } from 'react';
-import { Calendar, ExternalLink, FileText, Plus } from 'lucide-react';
+import { RecordSubitemAction } from '../RecordSubitemAction';
+import { useState, type ChangeEvent, type MouseEvent } from 'react';
+import type { TimelineMove, TimelinePlacement } from './timelineMoves';
+import { ArrowUp, ArrowDown, IndentIncrease, IndentDecrease, GripVertical, Calendar, ExternalLink, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import type {
@@ -16,6 +18,8 @@ interface TimelineGridProps {
 
 interface TimelineRowProps extends TimelineGridProps {
     readonly note: TimelineChartNote;
+    readonly draggedId: string | null;
+    readonly setDraggedId: (id: string | null) => void;
 }
 
 
@@ -24,8 +28,10 @@ function percent(value: number): string {
 }
 
 
-function TimelineRow({ controller, note, onNoteSelect }: TimelineRowProps) {
+function TimelineRow({ controller, note, onNoteSelect, draggedId, setDraggedId }: TimelineRowProps) {
     const { t } = useTranslation();
+    const [dropPlacement, setDropPlacement] = useState<TimelinePlacement | null>(null);
+    const actions = [['up', ArrowUp], ['down', ArrowDown], ['indent', IndentIncrease], ['outdent', IndentDecrease]] as const;
     const barStart = note.isParent ? note.summaryStart ?? note.start : note.start;
     const barEnd = note.isParent ? note.summaryEnd ?? note.end : note.end;
     const startPosition = controller.calculatePosition(barStart);
@@ -42,12 +48,37 @@ function TimelineRow({ controller, note, onNoteSelect }: TimelineRowProps) {
         controller.toggleSelect(note.id, isShift);
     };
 
-    return <div className="group flex h-12 border-b border-[var(--border-primary)] transition-colors hover:bg-[var(--bg-secondary)]/50">
+    return <div data-record-id={note.id} tabIndex={0}
+        onKeyDown={(event) => {
+            if (event.target !== event.currentTarget || !event.altKey) return;
+            const action: TimelineMove | undefined = event.key === 'ArrowUp' ? 'up' : event.key === 'ArrowDown' ? 'down' : event.key === 'ArrowRight' ? 'indent' : event.key === 'ArrowLeft' ? 'outdent' : undefined;
+            if (action && controller.canMoveRow(note.id, action)) {
+                event.preventDefault();
+                void controller.moveRow(note.id, action);
+            }
+        }} className="focus:outline-2 focus:outline-[var(--gnosi-primary)] group flex h-12 border-b border-[var(--border-primary)] transition-colors hover:bg-[var(--bg-secondary)]/50">
         <div
             className={`sticky left-0 z-10 flex w-64 shrink-0 cursor-pointer items-center gap-2 overflow-hidden border-r border-[var(--border-primary)] pr-4 ${selected
                 ? 'bg-[var(--gnosi-primary)]/10'
                 : 'bg-[var(--bg-primary)]'}`}
-            style={{ paddingLeft: `${String(16 + note.depth * 16)}px` }}
+            onDragOver={(event) => {
+                if (!draggedId || draggedId === note.id || !controller.canMoveRow(draggedId)) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+                const bounds = event.currentTarget.getBoundingClientRect();
+                const y = (event.clientY - bounds.top) / bounds.height;
+                setDropPlacement(y < 0.25 ? 'before' : y > 0.75 ? 'after' : 'inside');
+            }}
+            onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropPlacement(null);
+            }}
+            onDrop={(event) => {
+                event.preventDefault();
+                if (draggedId && dropPlacement) void controller.dropRow(draggedId, note.id, dropPlacement);
+                setDropPlacement(null);
+                setDraggedId(null);
+            }}
+            style={{ outline: draggedId && dropPlacement ? '2px solid var(--gnosi-primary)' : undefined, outlineOffset: '-2px', paddingLeft: `${String(16 + note.depth * 16)}px` }}
         >
             <button type="button" aria-label={t('common.open')} onClick={(event) => { event.stopPropagation(); onNoteSelect?.(note.id); }} className="shrink-0 p-1">
                 <ExternalLink size={14} />
@@ -67,21 +98,38 @@ function TimelineRow({ controller, note, onNoteSelect }: TimelineRowProps) {
                     type="checkbox"
                 />
             </label>
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-xs">
-                <FileText className="text-[var(--text-tertiary)]" size={14} />
-            </div>
+            <span draggable={controller.canMoveRow(note.id)}
+                onDragStart={(event) => {
+                    event.dataTransfer.setData('text/plain', note.id);
+                    event.dataTransfer.effectAllowed = 'move';
+                    setDraggedId(note.id);
+                }}
+                onDragEnd={() => { setDraggedId(null); setDropPlacement(null); }}
+                title={t('timeline.drag_row', 'Drag before, inside or after another task')}
+                className="shrink-0 cursor-grab text-[var(--text-tertiary)]"
+            ><GripVertical size={14} /></span>
             <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex min-w-0 items-center gap-1">
                 <span
                     className={`${note.isParent ? 'font-bold' : 'font-semibold'} truncate text-xs text-[var(--text-primary)] transition-colors group-hover:text-[var(--gnosi-primary)]`}
                     {...controller.titlePreview.getTitleProps(note.id)}
                 >
                     {note.title || 'Sense Títol'}
                 </span>
-                <div className="flex items-center gap-2">
+                <RecordSubitemAction recordId={note.id} />
+                </div>
+                <div className="flex items-center gap-1">
                     <span className="text-[9px] font-medium text-[var(--text-tertiary)]">
                         {controller.formatTimelineDate(note.start)}
                     </span>
+                    {actions.map(([action, Icon]) => <button key={action} type="button"
+                        disabled={!controller.canMoveRow(note.id, action)}
+                        title={t(`timeline.move_${action}`)} aria-label={t(`timeline.move_${action}`)}
+                        className="rounded p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-30"
+                        onClick={() => { void controller.moveRow(note.id, action); }}
+                    ><Icon size={12} /></button>)}
                 </div>
+                {draggedId && dropPlacement ? <span className="text-[9px] text-[var(--gnosi-primary)]">{t(`timeline.drop_${dropPlacement}`)}</span> : null}
             </div>
             <button
                 className="p-1 text-[var(--gnosi-primary)] opacity-0 transition-all hover:rounded hover:bg-[var(--gnosi-primary)]/10 group-hover:opacity-100"
@@ -167,7 +215,10 @@ function TimelineRow({ controller, note, onNoteSelect }: TimelineRowProps) {
 
 export function VaultTimelineGrid({ controller, onNoteSelect }: TimelineGridProps) {
     const { t } = useTranslation();
+    const [draggedId, setDraggedId] = useState<string | null>(null);
     return <div className="flex flex-1 flex-col overflow-hidden">
+        {controller.activeSortsCount > 0 ? <p className="px-4 py-1 text-xs text-[var(--text-secondary)]">{t('timeline.manual_sort_hint')}</p> : null}
+        {controller.moveError ? <p role="alert" className="px-4 py-1 text-xs text-[var(--text-secondary)]">{t('timeline.move_error')}</p> : null}
         <div
             className="custom-scrollbar relative flex-1 overflow-x-auto overflow-y-auto bg-[var(--bg-primary)] pt-vault-header-top"
             id={controller.scrollContainerId}
@@ -214,6 +265,8 @@ export function VaultTimelineGrid({ controller, onNoteSelect }: TimelineGridProp
                 <div className="relative z-0">
                     {controller.chartData.map((note) => <TimelineRow
                         controller={controller}
+                        draggedId={draggedId}
+                        setDraggedId={setDraggedId}
                         key={note.id}
                         note={note}
                         onNoteSelect={onNoteSelect}

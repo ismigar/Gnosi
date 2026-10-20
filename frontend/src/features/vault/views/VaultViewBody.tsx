@@ -1,7 +1,10 @@
+import { RecordSubitemProvider } from './RecordSubitemProvider';
+import { RecordViewFrame } from './RecordViewFrame';
+import type { TableNavApi } from './vault-table/types';
 import { loadGenogramView } from '../../genograms';
 import { PluginRoute } from '../../../shared/plugins/PluginGate';
 import { useTranslation } from 'react-i18next';
-import { useMemo, lazy, Suspense, type ReactNode } from 'react';
+import { useCallback, useRef, useMemo, lazy, Suspense, type ReactNode } from 'react';
 import { VaultTable } from './VaultTable';
 import { VaultKanban } from './VaultKanban';
 import { VaultGallery } from './VaultGallery';
@@ -126,6 +129,11 @@ export function VaultViewBody({
 }: VaultViewBodyProps) {
     const { t: translate } = useTranslation();
     const t = type.toLowerCase();
+    const navigation = useRef<TableNavApi | null>(null);
+    const registerNavigation = useCallback((api: TableNavApi | null) => {
+        navigation.current = api;
+        registerNavApi?.(api);
+    }, [registerNavApi]);
     const tableTemplateOptions = useMemo(() => tableTemplates(templates), [templates]);
 
     // Props common to components that share the same signature.
@@ -186,10 +194,13 @@ export function VaultViewBody({
         body = (
             <VaultGallery
                 {...common}
-                registerNavApi={registerNavApi}
+                registerNavApi={registerNavigation}
                 onExitTop={onExitTop}
                 onExitBottom={onExitBottom}
-                onFocusShell={onFocusShell}
+                onFocusShell={() => {
+                    if (document.activeElement instanceof HTMLElement) document.activeElement.closest<HTMLElement>('[data-record-view-shell]')?.focus();
+                    (onEscape ?? onFocusShell)?.();
+                }}
                 onOpenParallel={onOpenParallel}
             />
         );
@@ -275,7 +286,7 @@ export function VaultViewBody({
                 actionRules={actionRules}
                 functionalities={functionalities}
                 onRecordFocusRestored={onRecordFocusRestored}
-                registerNavApi={registerNavApi}
+                registerNavApi={registerNavigation}
                 onExitTop={onExitTop}
                 onExitBottom={onExitBottom}
                 onEscape={onEscape}
@@ -291,7 +302,16 @@ export function VaultViewBody({
     // view/type identity (view or table change).
     return (
         <VaultViewErrorBoundary resetKeys={[t, activeView.id, schema, notes, allNotes, isEmbedded]}>
-            {body}
+            <RecordSubitemProvider key={`subitems:${t}:${activeView.id ?? ''}`}
+                enabled={activeView.enableSubitems === true && !!onCreateRecord} records={viewFilteredNotes}
+                tableId={activeView.table_id} schema={schema}
+                onSaved={onCellSaved ?? (() => onUpdateView?.(activeView))}>
+            <RecordViewFrame key={`${t}:${activeView.id ?? ''}`} records={viewFilteredNotes} navigation={navigation}
+                onOpen={onNoteSelect} onExit={onEscape ?? onFocusShell} adaptive={!!maxHeight}
+                registerNavApi={['table', 'list', 'gallery'].includes(t) ? undefined : registerNavigation}>
+                {body}
+            </RecordViewFrame>
+            </RecordSubitemProvider>
         </VaultViewErrorBoundary>
     );
 }

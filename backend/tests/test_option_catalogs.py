@@ -128,11 +128,22 @@ def test_assign_roles_skips_wrong_types():
 
 # --- Seeds --------------------------------------------------------------------
 
-def test_ensure_status_seed_base_only():
+def test_ensure_status_seed_preserves_custom_catalog():
     t = _table([{"id": "f1", "name": "Estat", "type": "select", "config": {"options": ["Custom"]}}])
     assert oc.ensure_status_seed(t) is True
     names = oc.option_names(t["properties"][0]["config"]["options"])
-    assert names == ["Custom", oc.STATUS_DRAFT, oc.STATUS_REVIEWED]
+    assert names == ["Custom"]
+
+
+@pytest.mark.parametrize("options", [[], [{"name": "Fet", "color": "green", "group": "Final"}]])
+def test_status_catalog_edits_survive_repeated_table_saves(options):
+    from copy import deepcopy
+
+    t = _table([{"id": "f1", "name": "Estat", "type": "status",
+                 "config": {"options": deepcopy(options)}}])
+    for _ in range(2):
+        oc.ensure_table_seeds(t)
+        assert t["properties"][0]["config"]["options"] == options
 
 
 def test_ensure_status_seed_features_add_their_states():

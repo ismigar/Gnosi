@@ -1,3 +1,4 @@
+import { isCellFormula, supportsCellFormula } from './spreadsheetFormula';
 import { isComputedType } from '../../properties/cellGridUtils';
 import { resolveSystemDateValue } from '../../../../shared/records/model/schemaUtils';
 import { CellButton } from './CellButton';
@@ -40,7 +41,11 @@ export function createCellRenderer(model: TableController) {
 
     if (isEditing && isComputedType(type)) {
       setTimeout(() => { setEditingCell(null); }, 0);
-    } else if (isEditing) { return <CellEditor model={model} value={value} type={type} noteId={noteId} field={field} originalMetaKey={originalMetaKey} />; }
+    } else if (isEditing) { return <CellEditor model={model} value={note?.metadata?.[originalMetaKey] ?? value} type={type} noteId={noteId} field={field} originalMetaKey={originalMetaKey} />; }
+
+    if (supportsCellFormula(type) && isCellFormula(note?.metadata?.[originalMetaKey])) {
+      return <span title={note.metadata[originalMetaKey]} className="text-sm tabular-nums">{typeof value === 'boolean' ? (value ? 'TRUE' : 'FALSE') : cellNode(value)}</span>;
+    }
 
     const isEmptyValue = value === undefined || value === null || value === '';
     if (isEmptyValue && type !== 'formula' && type !== 'rollup') {

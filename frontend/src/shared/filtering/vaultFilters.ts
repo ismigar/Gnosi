@@ -21,6 +21,7 @@ export interface FilterItem {
 }
 
 export interface FilterRule {
+    exposed?: boolean;
     field?: string | null;
     operator?: string | null;
     periodPart?: string | null;

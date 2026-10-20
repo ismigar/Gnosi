@@ -36,11 +36,15 @@ export function useEmbedTabActions({ pageId, viewId, tableId, ctx, setTableViews
         onOpenViewConfig({ type: type, name: '', table_id: tableId }, (saved: unknown) => {
             const savedView = decodeView(saved);
             if (savedView.id) {
+                // The registry refresh can finish after this callback. Add the
+                // saved view now so its pinned tab and settings render immediately.
+                setTableViews(prev => [...prev.filter(view => view.id !== savedView.id), savedView]);
                 pinView(savedView.id);
                 setActiveViewId(savedView.id);
+                try { writeText(selectedKey(pageId, viewId), savedView.id); } catch { /* local fallback */ }
             }
         });
-    }, [tableId, onOpenViewConfig, pinView, setActiveViewId]);
+    }, [tableId, onOpenViewConfig, setTableViews, pinView, setActiveViewId, pageId, viewId]);
 
     const handleDeleteView = useCallback((v: EmbedView) => {
         if (!v.id) return;
@@ -81,9 +85,10 @@ export function useEmbedTabActions({ pageId, viewId, tableId, ctx, setTableViews
         const v = renameView;
         setRenameView(null);
         if (!v?.id) return;
-        if (!name || name === (v.name || v.heading)) return;
+        const displayTitle = name.trim();
+        if (!displayTitle || displayTitle === (v.displayTitle?.trim() || v.name || v.heading)) return;
         try {
-            await updateVaultView(v.id, { ...v, name });
+            await updateVaultView(v.id, { displayTitle });
             await refetchTableViews();
         } catch (e) { reportEmbedError('rename view failed', e); }
     }, [renameView, setRenameView, refetchTableViews]);
