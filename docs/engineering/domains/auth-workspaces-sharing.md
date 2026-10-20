@@ -197,3 +197,13 @@ sharing tests. Browser QA checks login/logout, account updates, workspace
 switching, and anonymous share access in a clean session.
 
 Resolving a registered Vault is read-only. If its folder is absent, the identity is unavailable and canonical routes return 404; requests never recreate the old location. Explicit folder creation remains owned by the create-library flow. Selecting another existing folder preserves both registry identities and their paths.
+
+## Public table forms
+
+`domains/forms/` publishes an explicit question schema for one registered table. Anonymous GET `/api/forms/public/{token}` reveals that schema; POST its `/submissions` validates every selected field and creates a page through the canonical idempotent creation pipeline. Formula, relation and reserved metadata fields are never writable through a form. Schema drift disables stale forms instead of rebinding questions to other fields. The `share-links` plugin gates publication and use.
+
+Both forms and bookings use `public_workflow_scope.py` to pin workspace, vault and owner and revalidate current membership, write access, storage and plugins. Visitor cookies, headers and query parameters never select public storage. Management and token responses are `no-store`; token pages use no-referrer and noindex. The frontend public client omits session credentials and workspace headers. Migration `mgmt_0006` adds durable form/booking definitions and request receipts without changing existing rows.
+
+Form publication requires a lifetime of 1–365 days (30 by default). Every new token stores a deadline; missing or expired stored deadlines reject both reads and submissions. The owner can revoke a link before its deadline.
+
+The frozen backend includes `management_0006.py` in its reviewed resources so desktop installations can apply the same schema migration for public forms and bookings.

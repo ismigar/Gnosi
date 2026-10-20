@@ -30,6 +30,8 @@ const LiteraturePage = lazy(applicationRouteLoaders.resources);
 const ProjectPlanningPage = lazy(applicationRouteLoaders.planning);
 const ZoteroReaderPage = lazy(applicationRouteLoaders.document);
 const SharedPage = lazy(() => import('../features/sharing/SharedPage'));
+const PublicFormPage = lazy(() => import('../features/forms/FormPage'));
+const BookingPage = lazy(() => import('../features/booking/BookingPage'));
 
 interface VaultRouteScopeProps {
   readonly children: ReactNode;
@@ -104,6 +106,8 @@ export function SharedRoutes() {
     <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/s/:token" element={<SharedPage />} />
+            <Route path="/forms/:token" element={<PublicFormPage />} />
+            <Route path="/book/:token" element={<BookingPage />} />
           </Routes>
         </Suspense>
   );

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { availableCalendarSources, calendarConfigsFor, calendarSettings, hybridCalendarEntry } from './calendarPageModel';
 import { calendarSearchNote } from './calendarSearchModel';
 import { externalEvent, LOCAL_EVENT } from '../components/calendar-sidebar-right/calendarTestFixtures';
+import { eventCalendarChoices } from '../components/calendar-sidebar-right/eventFormModel';
 
 describe('calendar page source model', () => {
     it('preserves provider metadata, recurrence, exclusive ends and readonly state', () => {
@@ -32,5 +33,40 @@ describe('calendar page source model', () => {
     it('preserves nested search metadata and navigation fields', () => {
         const note = {...LOCAL_EVENT, path: '/Calendar/local.md', metadata: {...LOCAL_EVENT.metadata, tags: ['medicine'], custom: {enabled: true, value: 2}}};
         expect(calendarSearchNote(note)).toEqual(note);
+    });
+    it('offers every discovered empty CalDAV calendar as a creation destination', () => {
+        const settings = calendarSettings({ calendars: [{ email: 'caldav@example.test' }] });
+        const calendars = ['work', 'personal'].map(name => ({
+            id: `/home/${name}/`, account: 'caldav@example.test', name, provider: 'caldav',
+        }));
+        const configs = calendarConfigsFor(availableCalendarSources([], [], [], settings), settings, [], calendars);
+        expect(configs.map(config => config.google_calendar_id)).toEqual(['/home/work/', '/home/personal/']);
+        expect(configs.every(config => config.provider === 'caldav')).toBe(true);
+    });
+    it.each([
+        ['caldav', '/home/work-b/'],
+        ['google', '/home/work-a/'],
+    ])('retains distinct destinations and booking sources with %s duplicate calendar names', (provider, secondId) => {
+        const account = 'owner@example.test';
+        const source = `${account} - Work`;
+        const settings = calendarSettings({ calendars: [{ email: account }],
+            calendar_aliases: { [source]: 'Team' }, calendar_colors: { [source]: '#123456' }, default_calendar: source });
+        const calendars = [
+            { id: '/home/work-a/', account, name: 'Work', provider: 'caldav' },
+            { id: secondId, account, name: 'Work', provider },
+        ];
+        const configs = calendarConfigsFor([account, source], settings, [], calendars);
+        const choices = eventCalendarChoices(configs);
+        expect(choices).toHaveLength(2);
+        expect(new Set(choices.map(choice => choice.calendar.id)).size).toBe(2);
+        expect(new Set(choices.map(choice => choice.label)).size).toBe(2);
+        expect(configs.find(config => config.source === source)).toMatchObject({ name: 'Team', color: '#123456' });
+        expect(choices.map(choice => choice.calendar)).toEqual(expect.arrayContaining([
+            expect.objectContaining({ provider: 'caldav', account, google_calendar_id: '/home/work-a/' }),
+            expect.objectContaining({ provider, account, google_calendar_id: secondId }),
+        ]));
+        const renamed = calendarConfigsFor([account, source], settings, [], calendars.map(calendar => ({ ...calendar, name: 'Renamed' })));
+        expect(new Set(renamed.filter(config => config.google_calendar_id).map(config => config.id)))
+            .toEqual(new Set(choices.map(choice => choice.calendar.id)));
     });
 });

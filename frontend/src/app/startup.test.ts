@@ -23,6 +23,7 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  window.history.replaceState(null, '', '/');
   mocks.calls.length = 0;
   mocks.routing.mockReset().mockImplementation(() => {
     mocks.calls.push('routing');
@@ -38,9 +39,16 @@ beforeEach(() => {
   });
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); window.history.replaceState(null, '', '/'); });
 
 describe('overlapping application startup', () => {
+  it.each(['/forms/token', '/book/token', '/s/token'])('boots %s without reading private workspace state', async (path) => {
+    window.history.replaceState(null, '', path);
+    const bootstrap = vi.fn(async (ready: Promise<void>) => { await ready; });
+    await startApplication(() => Promise.resolve({ bootstrap }));
+    expect(bootstrap).toHaveBeenCalledOnce();
+    expect(mocks.calls).toEqual([]);
+  });
   it('starts routing and the application download independently, with the vault cookie ready', async () => {
     const routing = deferred<undefined>();
     mocks.routing.mockImplementation(() => { mocks.calls.push('routing'); return routing.promise; });

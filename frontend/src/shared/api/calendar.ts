@@ -60,6 +60,9 @@ export interface CalendarEventDeleteInput {
   readonly email: string;
   readonly eventId: string;
   readonly vaultPath?: string;
+  readonly etag?: string;
+  readonly resourceUrl?: string;
+  readonly provider?: string;
 }
 
 
@@ -165,12 +168,15 @@ export async function deleteCalendarEvent({
   email,
   eventId,
   vaultPath,
+  etag,
+  resourceUrl,
+  provider,
 }: CalendarEventDeleteInput): Promise<CalendarStatus> {
   return unwrapApiResult<CalendarStatus, unknown>(
     await apiClient.DELETE('/api/calendar/events/{event_id}', {
       params: {
         path: { event_id: eventId },
-        query: { calendar_id: calendarId, email, vault_path: vaultPath },
+        query: { calendar_id: calendarId, email, vault_path: vaultPath, etag, resource_url: resourceUrl, provider },
       },
     }),
   );

@@ -37,6 +37,8 @@ class CalendarEventPatchRequest(CalendarRequest):
     """Provider-neutral partial event update, including local Vault fields."""
 
     provider: JsonValue | None = None
+    etag: str | None = None
+    resource_url: str | None = None
     vault_path: JsonValue | None = None
     date: JsonValue | None = None
     end_date: JsonValue | None = None

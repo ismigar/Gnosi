@@ -1,7 +1,9 @@
 import { CalendarPlus, Clock, Sun } from 'lucide-react';
 import type { EventFormController } from './useEventForm';
+import { eventCalendarChoices } from './eventFormModel';
 export function EventDates({controller}: {controller: EventFormController}) {
  const {title, setTitle, allDay, setAllDay, startDate, setStartDate, endDate, setEndDate, startTime, setStartTime, endTime, setEndTime, calendarId, setCalendarId, titleRef, t, calendars, handleFieldBlur, padTime, inputClass, labelClass} = controller;
+ const calendarChoices = eventCalendarChoices(calendars);
  return <>                {/* Title */}
                 <div>
                     <label className={labelClass}>{t('calendar.event_title', "Title")}</label>
@@ -79,9 +81,9 @@ export function EventDates({controller}: {controller: EventFormController}) {
                         <CalendarPlus size={10} />
                         {t('calendar.label', "Calendar")}
                     </label>
-                    <select value={calendarId} onChange={(e) => { setCalendarId(e.target.value); }} onBlur={handleFieldBlur} className={inputClass}>
-                        {calendars.map(cal => (
-                            <option key={cal.id} value={cal.id}>{cal.name}</option>
+                    <select aria-label={t('calendar.label', 'Calendar')} value={calendarId} onChange={(e) => { setCalendarId(e.target.value); }} onBlur={handleFieldBlur} className={inputClass}>
+                        {calendarChoices.map(({ calendar, label }) => (
+                            <option key={calendar.id} value={calendar.id}>{label}</option>
                         ))}
                     </select>
                 </div>

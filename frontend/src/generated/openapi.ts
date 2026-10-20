@@ -1864,6 +1864,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/booking/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Availability */
+        post: operations["availability_api_booking_availability_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/booking/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Links */
+        get: operations["list_links_api_booking_links_get"];
+        put?: never;
+        /** New Link */
+        post: operations["new_link_api_booking_links_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/booking/links/{link_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Link */
+        delete: operations["delete_link_api_booking_links__link_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/booking/public/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Info */
+        get: operations["public_info_api_booking_public__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/booking/public/{token}/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Reserve */
+        post: operations["public_reserve_api_booking_public__token__reservations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/booking/public/{token}/slots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Slots */
+        get: operations["public_slots_api_booking_public__token__slots_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/calendar/attendees/search": {
         parameters: {
             query?: never;
@@ -1925,7 +2028,7 @@ export interface paths {
         put?: never;
         /**
          * Post Event
-         * @description Creates a new event in Google Calendar.
+         * @description Create an event using the connected account provider.
          */
         post: operations["post_event_api_calendar_events_post"];
         delete?: never;
@@ -2669,6 +2772,92 @@ export interface paths {
          * @description Update local settings and route credentials to secure storage.
          */
         post: operations["update_env_api_env_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Forms */
+        get: operations["list_forms_api_forms_get"];
+        put?: never;
+        /** Publish Form */
+        post: operations["publish_form_api_forms_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forms/{form_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke Form */
+        delete: operations["revoke_form_api_forms__form_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forms/public/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Public Form */
+        get: operations["read_public_form_api_forms_public__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forms/public/{token}/submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Public Form */
+        post: operations["submit_public_form_api_forms_public__token__submissions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forms/tables/{table_id}/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Form Candidates */
+        get: operations["get_form_candidates_api_forms_tables__table_id__fields_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -12586,6 +12775,187 @@ export interface components {
             /** File */
             file: string;
         };
+        /** BookingAvailabilityRequest */
+        BookingAvailabilityRequest: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            schedule: components["schemas"]["BookingSchedule"];
+        };
+        /** BookingCalendar */
+        BookingCalendar: {
+            /**
+             * Account
+             * @default
+             */
+            account: string;
+            /** Calendar Id */
+            calendar_id: string;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "google" | "caldav" | "vault";
+        };
+        /** BookingLinkCreate */
+        BookingLinkCreate: {
+            destination: components["schemas"]["BookingCalendar"];
+            /**
+             * Expires Days
+             * @default 30
+             */
+            expires_days: number;
+            schedule: components["schemas"]["BookingSchedule"];
+            /** Title */
+            title: string;
+        };
+        /** BookingLinkResponse */
+        BookingLinkResponse: {
+            destination: components["schemas"]["BookingCalendar"];
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Id */
+            id: string;
+            /**
+             * Pending Reservations
+             * @default 0
+             */
+            pending_reservations: number;
+            /** Revoked */
+            revoked: boolean;
+            schedule: components["schemas"]["BookingSchedule"];
+            /** Title */
+            title: string;
+            /** Token */
+            token: string;
+        };
+        /** BookingPublicInfo */
+        BookingPublicInfo: {
+            /** Duration Minutes */
+            duration_minutes: number;
+            /**
+             * First Date
+             * Format: date
+             */
+            first_date: string;
+            /**
+             * Last Date
+             * Format: date
+             */
+            last_date: string;
+            /** Timezone */
+            timezone: string;
+            /** Title */
+            title: string;
+        };
+        /** BookingReservationRequest */
+        BookingReservationRequest: {
+            /** Email */
+            email: string;
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Name */
+            name: string;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+        };
+        /** BookingReservationResponse */
+        BookingReservationResponse: {
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Id */
+            id: string;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "confirmed" | "pending" | "failed";
+        };
+        /** BookingRevocationResponse */
+        BookingRevocationResponse: {
+            /** Revoked */
+            revoked: boolean;
+        };
+        /** BookingSchedule */
+        BookingSchedule: {
+            /**
+             * Buffer Minutes
+             * @default 0
+             */
+            buffer_minutes: number;
+            /** Calendars */
+            calendars: components["schemas"]["BookingCalendar"][];
+            /**
+             * Duration Minutes
+             * @default 30
+             */
+            duration_minutes: number;
+            /**
+             * Horizon Days
+             * @default 30
+             */
+            horizon_days: number;
+            /**
+             * Notice Minutes
+             * @default 60
+             */
+            notice_minutes: number;
+            /** Timezone */
+            timezone: string;
+            /** Weekdays */
+            weekdays?: number[];
+            /**
+             * Working End
+             * @default 18:00
+             */
+            working_end: string;
+            /**
+             * Working Start
+             * @default 09:00
+             */
+            working_start: string;
+        };
+        /** BookingSlot */
+        BookingSlot: {
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+        };
+        /** BookingSlotsResponse */
+        BookingSlotsResponse: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Slots */
+            slots: components["schemas"]["BookingSlot"][];
+            /** Timezone */
+            timezone: string;
+        };
         /** BrainDictationResponse */
         BrainDictationResponse: {
             /** Corrected */
@@ -12892,8 +13262,12 @@ export interface components {
             description?: components["schemas"]["JsonValue"] | null;
             end?: components["schemas"]["JsonValue"] | null;
             end_date?: components["schemas"]["JsonValue"] | null;
+            /** Etag */
+            etag?: string | null;
             location?: components["schemas"]["JsonValue"] | null;
             provider?: components["schemas"]["JsonValue"] | null;
+            /** Resource Url */
+            resource_url?: string | null;
             start?: components["schemas"]["JsonValue"] | null;
             summary?: components["schemas"]["JsonValue"] | null;
             title?: components["schemas"]["JsonValue"] | null;
@@ -12938,6 +13312,8 @@ export interface components {
              * @default
              */
             end: string;
+            /** Etag */
+            etag?: string | null;
             /** Event Type */
             event_type?: string | null;
             /** Id */
@@ -12947,6 +13323,11 @@ export interface components {
              * @default false
              */
             is_read_only: boolean;
+            /**
+             * Join Url
+             * @default
+             */
+            join_url: string;
             /**
              * Link
              * @default
@@ -12964,6 +13345,8 @@ export interface components {
             recurrence?: components["schemas"]["JsonValue"] | null;
             /** Recurring Event Id */
             recurring_event_id?: string | null;
+            /** Resource Url */
+            resource_url?: string | null;
             /**
              * Source
              * @default
@@ -13182,6 +13565,10 @@ export interface components {
         };
         /** CalendarStatusResponse */
         CalendarStatusResponse: {
+            /** Etag */
+            etag?: string | null;
+            /** Resource Url */
+            resource_url?: string | null;
             /**
              * Status
              * @enum {string}
@@ -15177,6 +15564,122 @@ export interface components {
             /** Style */
             style: string;
         };
+        /** FormCandidatesResponse */
+        FormCandidatesResponse: {
+            /** Fields */
+            fields: components["schemas"]["FormFieldCandidate"][];
+        };
+        /** FormCreateRequest */
+        FormCreateRequest: {
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Expires In Days
+             * @default 30
+             */
+            expires_in_days: number;
+            /** Fields */
+            fields: components["schemas"]["FormFieldChoice"][];
+            /** Table Id */
+            table_id: string;
+            /** Title */
+            title: string;
+        };
+        /** FormFieldCandidate */
+        FormFieldCandidate: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "title" | "text" | "number" | "date" | "select" | "multi_select" | "checkbox" | "email" | "url" | "phone" | "status";
+            /** Label */
+            label: string;
+            /** Options */
+            options?: string[];
+            /** Ref */
+            ref: string;
+        };
+        /** FormFieldChoice */
+        FormFieldChoice: {
+            /**
+             * Help
+             * @default
+             */
+            help: string;
+            /** Label */
+            label: string;
+            /** Ref */
+            ref: string;
+            /**
+             * Required
+             * @default false
+             */
+            required: boolean;
+        };
+        /** FormListResponse */
+        FormListResponse: {
+            /** Forms */
+            forms: components["schemas"]["FormResponse"][];
+        };
+        /** FormResponse */
+        FormResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Description */
+            description: string;
+            /** Expires At */
+            expires_at: string | null;
+            /** Fields */
+            fields: components["schemas"]["PublicFormField"][];
+            /** Id */
+            id: string;
+            /** Revoked */
+            revoked: boolean;
+            /** Table Id */
+            table_id: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /** FormRevokedResponse */
+        FormRevokedResponse: {
+            /**
+             * Status
+             * @default revoked
+             * @constant
+             */
+            status: "revoked";
+        };
+        /** FormSubmissionResponse */
+        FormSubmissionResponse: {
+            /**
+             * Status
+             * @default accepted
+             * @constant
+             */
+            status: "accepted";
+        };
+        /** FormSubmitRequest */
+        FormSubmitRequest: {
+            /** Request Id */
+            request_id: string;
+            /** Values */
+            values: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Website
+             * @default
+             */
+            website: string;
+        };
         /** FreeBusyCalendarResponse */
         FreeBusyCalendarResponse: {
             /** Busy */
@@ -15749,6 +16252,8 @@ export interface components {
             recurrence?: string[] | null;
             /** Recurringeventid */
             recurringEventId?: string | null;
+            /** Resource Url */
+            resource_url?: string | null;
             /** Sequence */
             sequence?: number | null;
             start?: components["schemas"]["GoogleEventTimeResponse"] | null;
@@ -21637,6 +22142,36 @@ export interface components {
             status: string;
             /** Table */
             table?: string | null;
+        };
+        /** PublicFormField */
+        PublicFormField: {
+            /**
+             * Help
+             * @default
+             */
+            help: string;
+            /** Key */
+            key: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "title" | "text" | "number" | "date" | "select" | "multi_select" | "checkbox" | "email" | "url" | "phone" | "status";
+            /** Label */
+            label: string;
+            /** Options */
+            options?: string[];
+            /** Required */
+            required: boolean;
+        };
+        /** PublicFormResponse */
+        PublicFormResponse: {
+            /** Description */
+            description: string;
+            /** Fields */
+            fields: components["schemas"]["PublicFormField"][];
+            /** Title */
+            title: string;
         };
         /** PublicPageRequest */
         PublicPageRequest: {
@@ -29549,6 +30084,259 @@ export interface operations {
             };
         };
     };
+    availability_api_booking_availability_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingAvailabilityRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingSlotsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_links_api_booking_links_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingLinkResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    new_link_api_booking_links_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingLinkCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingLinkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_link_api_booking_links__link_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                link_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingRevocationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_info_api_booking_public__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingPublicInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_reserve_api_booking_public__token__reservations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingReservationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingReservationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_slots_api_booking_public__token__slots_get: {
+        parameters: {
+            query: {
+                date: string;
+            };
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingSlotsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     search_attendees_api_calendar_attendees_search_get: {
         parameters: {
             query: {
@@ -29757,6 +30545,9 @@ export interface operations {
             query: {
                 calendar_id?: string;
                 email: string;
+                etag?: string | null;
+                provider?: string | null;
+                resource_url?: string | null;
                 vault_path?: string | null;
             };
             header?: {
@@ -31631,6 +32422,226 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnvironmentUpdateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_forms_api_forms_get: {
+        parameters: {
+            query?: {
+                table_id?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_form_api_forms_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_form_api_forms__form_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                form_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormRevokedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_public_form_api_forms_public__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicFormResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_public_form_api_forms_public__token__submissions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormSubmitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormSubmissionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_form_candidates_api_forms_tables__table_id__fields_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                table_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormCandidatesResponse"];
                 };
             };
             /** @description Validation Error */

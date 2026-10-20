@@ -184,3 +184,13 @@ coordinada del contrato OpenAPI/cliente.
 Ejecute las pruebas del control central, del indicador que exige autenticación, de cuentas, cuentas provisionales, mayúsculas y minúsculas del correo electrónico, contraseñas, PAT, interfaces públicas, respuestas tipadas directas, condiciones de carrera del workspace, membresías y contenido compartido. La QA en el navegador comprueba el inicio y cierre de sesión, las actualizaciones de cuenta, el cambio de workspace y el acceso anónimo a enlaces compartidos en una sesión limpia.
 
 Resolver una biblioteca registrada es una operación de lectura. Si falta la carpeta, la identidad no está disponible y las rutas canónicas devuelven 404; las peticiones no recrean la ubicación antigua. La creación explícita de carpetas sigue en el flujo de creación de bibliotecas. Elegir otra carpeta existente conserva ambas identidades y sus rutas.
+
+## Formularios públicos de tabla
+
+`domains/forms/` publica preguntas explícitas de una tabla registrada. GET anónimo `/api/forms/public/{token}` devuelve ese esquema; POST `/submissions` valida cada campo y crea la página mediante el proceso canónico idempotente. Las fórmulas, relaciones y metadatos reservados no son modificables. Un cambio incompatible de esquema desactiva el formulario. El complemento `share-links` regula publicación y acceso.
+
+Formularios y reservas utilizan `public_workflow_scope.py` para fijar espacio, vault y propietario y comprobar pertenencia, escritura, almacenamiento y complementos. Las cookies, cabeceras y parámetros del visitante no seleccionan el destino. Las respuestas son `no-store`; las páginas públicas no envían referente ni se indexan. El cliente público omite credenciales y cabeceras del espacio. La migración `mgmt_0006` añade definiciones y recibos persistentes sin modificar registros existentes.
+
+La publicación de un formulario exige una vigencia de 1 a 365 días (30 por defecto). Cada token nuevo guarda una fecha de vencimiento; si falta o ya ha pasado, se rechazan tanto las consultas como los envíos. El propietario puede revocar el enlace antes de que caduque.
+
+El paquete del backend incluye `management_0006.py` entre sus recursos revisados para que las instalaciones de escritorio puedan aplicar la misma migración de esquema para formularios públicos y reservas.

@@ -71,7 +71,7 @@
     },
     "management": {
       "branch": "management",
-      "head": "mgmt_0005",
+      "head": "mgmt_0006",
       "revisions": {
         "mgmt_0001": [
           "89c8f34c9345afb6d1dcb594eb1b9a7df4409d8cdfdbdfb652b1bdac121d3ec0"
@@ -87,6 +87,9 @@
         ],
         "mgmt_0005": [
           "1a4b4a5d64f9a34670410ad0939ed56f2cb3c86dfce20cef882b82c9a3c457f0"
+        ],
+        "mgmt_0006": [
+          "deedc00da20eb91c626afdbf90eb96cd36b2b1e1efcc87e18113b3978d0f1e37"
         ]
       }
     },

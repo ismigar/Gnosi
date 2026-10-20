@@ -9,12 +9,14 @@ from backend.api import (
     ai_routes,
     analytics_routes,
     auth_routes,
+    booking_routes,
     calendar_routes,
     collab_routes,
     config_routes,
     contacts_routes,
     credentials_routes,
     env_routes,
+    form_routes,
     google_auth_routes,
     handwriting_routes,
     identity_routes,
@@ -89,6 +91,8 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(vault_views_routes.router, prefix="/api", tags=["Vault Views"])
     app.include_router(collab_routes.router, prefix="/api/vault", tags=["Collaboration"])
     app.include_router(share_routes.router, prefix="/api", tags=["Share"])
+    app.include_router(form_routes.router, prefix="/api", tags=["Forms"])
+    app.include_router(booking_routes.router)
 
     app.include_router(
         calendar_routes.router,

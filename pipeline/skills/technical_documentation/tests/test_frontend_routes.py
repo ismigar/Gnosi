@@ -204,7 +204,7 @@ def test_frontend_routes_inventory_preserves_current_application_routes() -> Non
     """Inspect real source without generating outputs or importing the application."""
     routes = collect_frontend_routes(APP_ROOT)
     expected_paths = {
-        "/s/:token", "/", "/dashboard", "/:vaultHandle/graph/*",
+        "/s/:token", "/forms/:token", "/book/:token", "/", "/dashboard", "/:vaultHandle/graph/*",
         "/:vaultHandle/knowledge/document", "/:vaultHandle/knowledge/*",
         "/:vaultHandle/calendar/*", "/:vaultHandle/reader/*", "/:vaultHandle/mail/*",
         "/:vaultHandle/automations/*", "/:vaultHandle/social/compose/*",
@@ -217,10 +217,16 @@ def test_frontend_routes_inventory_preserves_current_application_routes() -> Non
     }
 
     assert {route.path for route in routes} == expected_paths
-    assert len(routes) == len(expected_paths) == 32
+    assert len(routes) == len(expected_paths) == 34
     assert all(route.source != "unresolved" for route in routes)
     assert FrontendRoute(
         "/s/:token", "SharedPage", "frontend/src/features/sharing/SharedPage.tsx"
+    ) in routes
+    assert FrontendRoute(
+        "/forms/:token", "PublicFormPage", "frontend/src/features/forms/FormPage.tsx"
+    ) in routes
+    assert FrontendRoute(
+        "/book/:token", "BookingPage", "frontend/src/features/booking/BookingPage.tsx"
     ) in routes
     assert FrontendRoute(
         "/dashboard", "Dashboard", "frontend/src/features/control-center/Dashboard.tsx"

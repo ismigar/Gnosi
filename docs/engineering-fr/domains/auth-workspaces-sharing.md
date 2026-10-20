@@ -190,3 +190,13 @@ vérifie connexion et déconnexion, mises à jour du compte, changement de works
 et accès anonyme aux partages dans une session vierge.
 
 Résoudre une bibliothèque enregistrée est une opération de lecture. Si son dossier est absent, l’identité est indisponible et les routes canoniques renvoient 404 ; les requêtes ne recréent jamais l’ancien emplacement. La création explicite des dossiers reste dans le flux de création de bibliothèque. Choisir un autre dossier existant conserve les deux identités et leurs chemins.
+
+## Formulaires publics de table
+
+`domains/forms/` publie des questions explicites d'une table enregistrée. GET anonyme `/api/forms/public/{token}` renvoie ce schéma ; POST `/submissions` valide chaque champ et crée une page par le processus canonique idempotent. Les formules, relations et métadonnées réservées ne sont pas modifiables. Une modification incompatible du schéma désactive le formulaire. Le module `share-links` contrôle publication et accès.
+
+Formulaires et réservations utilisent `public_workflow_scope.py` pour fixer espace, vault et propriétaire et revérifier appartenance, écriture, stockage et modules. Les cookies, en-têtes et paramètres du visiteur ne sélectionnent pas la destination. Les réponses sont `no-store` ; les pages publiques n'envoient pas de référent et ne sont pas indexées. Le client public omet identifiants et en-têtes d'espace. La migration `mgmt_0006` ajoute définitions et reçus persistants sans modifier les enregistrements existants.
+
+La publication d’un formulaire exige une durée de validité de 1 à 365 jours (30 par défaut). Chaque nouveau jeton conserve une échéance ; si elle manque ou est dépassée, les lectures et les réponses sont refusées. Le propriétaire peut révoquer le lien avant son expiration.
+
+Le backend distribué inclut `management_0006.py` parmi ses ressources vérifiées pour que les installations de bureau puissent appliquer la même migration de schéma aux formulaires publics et aux réservations.

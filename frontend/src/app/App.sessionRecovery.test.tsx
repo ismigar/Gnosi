@@ -49,6 +49,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+    auth.loading = false;
     auth.requireAuth = false;
     auth.gnosiMode = 'personal';
     auth.sessionRecovery = null;
@@ -107,11 +108,13 @@ it('keeps failed recovery visible and retries only through the explicit action',
     expect(view.querySelector('[role="alert"]')).toBeNull();
 });
 
-it('leaves public shared pages outside session recovery and the login gate', async () => {
+it.each(['/s/synthetic-share', '/forms/synthetic-form', '/book/synthetic-booking'])(
+  'opens public link %s without awaiting a private session', async (path) => {
+    auth.loading = true;
     auth.requireAuth = true;
     pluginFailure.authenticationRequired = true;
     auth.sessionRecovery = { recover: mocks.recover };
-    window.history.replaceState(null, '', '/s/synthetic-share');
+    window.history.replaceState(null, '', path);
     const view = await mount();
 
     expect(view.querySelector('[data-shared-route]')).not.toBeNull();

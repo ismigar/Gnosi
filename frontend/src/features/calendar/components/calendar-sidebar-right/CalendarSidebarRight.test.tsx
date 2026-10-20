@@ -4,18 +4,20 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { CalendarSidebarRight } from '../CalendarSidebarRight';
 import { EventForm } from './EventForm';
 import { createVaultPage, patchVaultPage, deleteVaultPage } from '../../../../shared/api/vaults';
-import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, fetchCalendarFreeBusy, geocodeCalendarLocation, searchCalendarAttendees } from '../../../../shared/api/calendar';
+import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, geocodeCalendarLocation, searchCalendarAttendees } from '../../../../shared/api/calendar';
+import { fetchBookingAvailability, fetchBookingLinks } from '../../../../shared/api/booking';
 import { toast } from '../../../../shared/notifications/toast';
 import { CALENDARS, LOCAL_EVENT, mutation } from './calendarTestFixtures';
 import type { EventFormProps } from './calendarTypes';
 
 vi.mock('react-i18next', () => {
     const t = (key: string, fallback?: unknown) => typeof fallback === 'string' ? fallback : key;
-    return {useTranslation: () => ({t})};
+    return {useTranslation: () => ({t, i18n: { language: 'en' }})};
 });
 vi.mock('../../../../shared/notifications/toast', () => ({toast: {error: vi.fn(), success: vi.fn()}}));
 vi.mock('../../../../shared/api/vaults', () => ({createVaultPage: vi.fn(), patchVaultPage: vi.fn(), deleteVaultPage: vi.fn()}));
 vi.mock('../../../../shared/api/calendar', () => ({createCalendarEvent: vi.fn(), updateCalendarEvent: vi.fn(), deleteCalendarEvent: vi.fn(), fetchCalendarFreeBusy: vi.fn(), geocodeCalendarLocation: vi.fn(), searchCalendarAttendees: vi.fn()}));
+vi.mock('../../../../shared/api/booking', () => ({fetchBookingAvailability: vi.fn(), fetchBookingLinks: vi.fn()}));
 let container: HTMLDivElement;
 let root: Root;
 beforeAll(() => { (globalThis as typeof globalThis & {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true; });
@@ -27,6 +29,7 @@ beforeEach(() => {
     vi.mocked(createCalendarEvent).mockResolvedValue({id: 'created-external'});
     vi.mocked(updateCalendarEvent).mockResolvedValue({status: 'success'});
     vi.mocked(deleteCalendarEvent).mockResolvedValue({status: 'success'});
+    vi.mocked(fetchBookingLinks).mockResolvedValue([]);
 });
 afterEach(async () => { await act(async () => { root.unmount(); await Promise.resolve(); }); container.remove(); vi.clearAllMocks(); vi.useRealTimers(); });
 async function render(node: ReactNode) { await act(async () => { root.render(node); await Promise.resolve(); }); await tick(160); }
@@ -90,8 +93,12 @@ describe('calendar sidebar behavior', () => {
         expect(createCalendarEvent).toHaveBeenCalledWith(expect.objectContaining<Record<string, unknown>>({email: provider + '@example.test', calendarId: 'primary', event: expect.objectContaining<Record<string, unknown>>({summary: 'External meeting', end: {date: '2026-09-03'}})}));
         expect(createVaultPage).not.toHaveBeenCalled();
         await change('input[required][type=text]', 'Updated external'); await tick(460);
-        expect(updateCalendarEvent).toHaveBeenCalledWith(expect.objectContaining<Record<string, unknown>>({eventId: 'created-external', email: provider + '@example.test'}));
+        expect(updateCalendarEvent).toHaveBeenCalledWith(expect.objectContaining<Record<string, unknown>>({eventId: 'created-external', email: provider + '@example.test', event: expect.objectContaining<Record<string, unknown>>({provider})}));
         expect(createCalendarEvent).toHaveBeenCalledOnce();
+        await click('Delete'); await click('Delete');
+        expect(deleteCalendarEvent).toHaveBeenCalledWith(expect.objectContaining<Record<string, unknown>>({
+            eventId: 'created-external', email: provider + '@example.test', calendarId: 'primary', provider,
+        }));
     });
     it('initializes editing without saving and preserves recurrence controls', async () => {
         await render(form({mode: 'edit', eventData: {...LOCAL_EVENT, metadata: {...LOCAL_EVENT.metadata, rrule: 'FREQ=WEEKLY;BYDAY=MO,WE;COUNT=4'}}}));
@@ -105,7 +112,7 @@ describe('calendar sidebar behavior', () => {
         await render(form({mode: 'edit', eventData: {...LOCAL_EVENT, id: 'caldav-existing', metadata: {...LOCAL_EVENT.metadata, end_date: '2026-09-04', _end_exclusive: true, _provider: 'caldav', _account: 'caldav@example.test', _calendar_id: 'work', rrule: ['RRULE:FREQ=DAILY']}}}));
         expect(element('input[type=date][min]', HTMLInputElement).value).toBe('2026-09-03');
         await change('input[required][type=text]', 'CalDAV edit'); await tick(460);
-        expect(updateCalendarEvent).toHaveBeenCalledWith(expect.objectContaining<Record<string, unknown>>({email: 'caldav@example.test', calendarId: 'work', event: expect.objectContaining<Record<string, unknown>>({end: '2026-09-04'})}));
+        expect(updateCalendarEvent).toHaveBeenCalledWith(expect.objectContaining<Record<string, unknown>>({email: 'caldav@example.test', calendarId: 'work', event: expect.objectContaining<Record<string, unknown>>({provider: 'caldav', end: '2026-09-04'})}));
         expect(patchVaultPage).not.toHaveBeenCalled();
     });
     it('surfaces a failed silent save without a retry loop', async () => {
@@ -148,14 +155,18 @@ describe('calendar sidebar behavior', () => {
         expect(container.querySelector('a[href*="openstreetmap.org"]')).not.toBeNull();
     });
     it('shows search results, switches to availability and excludes busy slots', async () => {
-        vi.mocked(fetchCalendarFreeBusy).mockResolvedValue({calendars: {primary: {busy: [{start: '2026-09-02T09:00:00', end: '2026-09-02T10:00:00'}]}}});
+        vi.mocked(fetchBookingAvailability).mockResolvedValue({timezone: 'UTC', date: '2026-09-02', slots: [{start: '2026-09-02T10:00:00Z', end: '2026-09-02T10:30:00Z'}]});
         const onEventEdit = vi.fn();
         await render(<CalendarSidebarRight searchQuery="Local" onSearchChange={vi.fn()} onEventEdit={onEventEdit} allNotes={[LOCAL_EVENT]} calendars={CALENDARS} />);
         await click('Local appointment2026-09-02'); expect(onEventEdit).toHaveBeenCalledWith('local-event');
-        await click('Availability'); await change('input[type=date]', '2026-09-02'); await click('calendar.availability.search_btn');
-        expect(fetchCalendarFreeBusy).toHaveBeenCalledWith(expect.objectContaining<Record<string, unknown>>({email: 'google@example.test', calendarIds: ['primary'], timeMin: new Date('2026-09-02T00:00:00').toISOString()}));
-        expect(container.textContent).toContain('10:00 - 10:30');
-        expect(container.textContent).not.toContain('09:00 - 09:30');
+        await click('Availability'); await change('input[type=date]', '2026-09-02'); await click('Check availability');
+        expect(fetchBookingAvailability).toHaveBeenCalledWith('2026-09-02', expect.objectContaining<Record<string, unknown>>({calendars: expect.arrayContaining([
+            {provider: 'vault', account: '', calendar_id: 'gnosi'},
+            {provider: 'google', account: 'google@example.test', calendar_id: 'primary'},
+            {provider: 'caldav', account: 'caldav@example.test', calendar_id: 'primary'},
+        ])}));
+        expect(container.textContent).toContain('10:00');
+        expect(container.textContent).not.toContain('09:30');
         expect(toast.error).not.toHaveBeenCalled();
     });
 });

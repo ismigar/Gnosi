@@ -180,6 +180,11 @@ PUBLIC_RULES: tuple[PublicRule, ...] = (
     _rule("GET", r"/api/auth/microsoft/desktop/callback", "Native Microsoft callback; authenticated by one-use expiring state and PKCE"),
     # 3. Endpoints carrying their own credential.
     _rule("GET", r"/api/share/[^/]+", "the token in the URL is the credential"),
+    _rule("GET", r"/api/forms/public/[^/]+", "scoped, expiring and revocable form token"),
+    _rule("POST", r"/api/forms/public/[^/]+/submissions", "form token authorizes only validated submissions"),
+    _rule("GET", r"/api/booking/public/[^/]+", "scoped, expiring and revocable booking token"),
+    _rule("GET", r"/api/booking/public/[^/]+/slots", "booking token returns availability without event details"),
+    _rule("POST", r"/api/booking/public/[^/]+/reservations", "booking token authorizes a revalidated reservation"),
     # Enumerated rather than a `/api/public/*` wildcard: token MANAGEMENT
     # (`/api/tokens`) is session-only, and a wildcard here would quietly exempt
     # any future endpoint someone drops under the same prefix.

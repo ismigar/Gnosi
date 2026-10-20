@@ -26,6 +26,8 @@ from backend.domains.calendar import api_contracts as calendar_requests
 from backend.domains.calendar import mutations as calendar_mutations
 from backend.domains.calendar import runtime as calendar_runtime
 from backend.domains.calendar import schemas as calendar_schemas
+from backend.domains.calendar import provider_operations
+from backend.domains.calendar.provider_errors import CalendarProviderError
 from backend.domains.calendar.timing import (
     calendar_phase,
     calendar_to_thread,
@@ -292,7 +294,10 @@ async def get_event(
     """Return the details of an event (Google Calendar or CalDAV)."""
     from backend.services.hybrid_calendar_service import get_event as _get_event
 
-    ev = await asyncio.to_thread(_get_event, email, event_id, calendar_id)
+    try:
+        ev = await asyncio.to_thread(_get_event, email, event_id, calendar_id)
+    except CalendarProviderError as error:
+        raise HTTPException(error.status_code, error.detail) from error
     if ev:
         return ev
     raise HTTPException(status_code=404, detail="Event not found")
@@ -312,17 +317,20 @@ async def post_event(
     calendar_id: str = Query("primary"),
     event_data: calendar_requests.CalendarEventCreateRequest = Body(...),
 ) -> dict[str, Any]:
-    """Creates a new event in Google Calendar."""
+    """Create an event using the connected account provider."""
     try:
-        event = create_google_calendar_event(
-            email,
+        event = await asyncio.to_thread(
+            provider_operations.create_provider_event, email, calendar_id,
             event_data.model_dump(exclude_unset=True, by_alias=True),
-            calendar_id,
         )
         if isinstance(event, dict) and event:
             _invalidate_calendar_cache()
             return event
         raise HTTPException(status_code=500, detail="Failed to create event")
+    except CalendarProviderError as error:
+        raise HTTPException(error.status_code, error.detail) from error
+    except HTTPException:
+        raise
     except Exception as e:
         log.error(f"POST /events: {e}")
         raise HTTPException(status_code=500, detail=safe_error_detail(e, "POST /events"))
@@ -354,7 +362,20 @@ async def patch_event(
                 _invalidate_calendar_cache()
                 return {"status": "success"}
 
-    # Google Calendar — pass calendar_id via patch_data so update_google_event accepts it
+    try:
+        provider = patch.pop("provider", None)
+        account = await asyncio.to_thread(
+            provider_operations.configured_account, email, calendar_id, provider
+        )
+        if provider_operations.account_provider(account) == "caldav":
+            result = await asyncio.to_thread(
+                provider_operations.mutate_caldav_event, email, event_id, calendar_id, patch,
+                etag=patch.get("etag"), resource_url=patch.get("resource_url"),
+            )
+            _invalidate_calendar_cache()
+            return result
+    except CalendarProviderError as error:
+        raise HTTPException(error.status_code, error.detail) from error
     patch.setdefault("calendar_id", calendar_id)
     ok = update_google_event(email, event_id, patch)
     if ok:
@@ -396,6 +417,9 @@ async def delete_event(
     email: str = Query(...),
     calendar_id: str = Query("primary"),
     vault_path: Optional[str] = Query(None),
+    etag: Optional[str] = Query(None),
+    resource_url: Optional[str] = Query(None),
+    provider: Optional[str] = Query(None),
 ) -> dict[str, str]:
     """Deletes an event from Google Calendar or the vault."""
     if vault_path:
@@ -417,6 +441,21 @@ async def delete_event(
             _invalidate_calendar_cache()
             return {"status": "success"}
 
+    try:
+        account = await asyncio.to_thread(
+            provider_operations.configured_account, email, calendar_id,
+            provider if isinstance(provider, str) else None,
+        )
+        if provider_operations.account_provider(account) == "caldav":
+            result = await asyncio.to_thread(
+                provider_operations.mutate_caldav_event, email, event_id, calendar_id, None,
+                etag=etag if isinstance(etag, str) else None,
+                resource_url=resource_url if isinstance(resource_url, str) else None,
+            )
+            _invalidate_calendar_cache()
+            return result
+    except CalendarProviderError as error:
+        raise HTTPException(error.status_code, error.detail) from error
     from backend.services.google_calendar_service import get_google_calendar_service
 
     service = get_google_calendar_service(email)

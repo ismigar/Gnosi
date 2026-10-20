@@ -2,12 +2,16 @@ import { syncActiveVaultCookie } from '../shared/resources/fileResourcePaths';
 import { initializeVaultRouting } from '../shared/routing/vaultRouting';
 import { preloadApplicationRoute } from './routePreload';
 import { fetchSystemHealth } from '../shared/api/system';
+import { isPublicTokenPath } from '../shared/routing/publicRoutes';
 
 type ApplicationLoader = () => Promise<{
   readonly bootstrap: (routingReady: Promise<void>) => Promise<void>;
 }>;
 
 function beginStartup(): { routingReady: Promise<void>; importsReady: Promise<void> } {
+  if (isPublicTokenPath(window.location.pathname)) {
+    return { routingReady: Promise.resolve(), importsReady: Promise.resolve() };
+  }
   // Images and streams inherit the same vault as the initial API requests.
   syncActiveVaultCookie();
   const routingReady = initializeVaultRouting().then(() => undefined);

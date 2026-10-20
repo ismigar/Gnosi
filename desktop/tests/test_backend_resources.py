@@ -103,6 +103,7 @@ def test_plan_keeps_required_runtime_without_importing_application(repository: P
     assert "extensions.marketplace.signing_policy" not in first.modules
     assert "backend/migrations/alembic/versions/literature_0001.py" in first.resources
     assert "backend/migrations/alembic/versions/management_0005.py" in first.resources
+    assert "backend/migrations/alembic/versions/management_0006.py" in first.resources
     assert "backend/migrations/alembic/versions/vault_0004.py" in first.resources
     assert "backend/migrations/alembic/versions/vault_0005.py" in first.resources
     assert "backend/migrations/alembic/versions/vault_0006.py" in first.resources
@@ -440,6 +441,7 @@ def test_bundle_keeps_legitimate_data_and_dependency_certificates(
     bundle = make_bundle(tmp_path, plan, layout)
     policy.verify_bundle(bundle, plan)
     assert (bundle / layout / "backend/migrations/alembic/script.py.mako").is_file()
+    assert (bundle / layout / "backend/migrations/alembic/versions/management_0006.py").is_file()
 
 
 @pytest.mark.parametrize("name", policy.DATA_FILES)

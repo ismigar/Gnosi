@@ -212,3 +212,13 @@ les actualitzacions de compte, el canvi d'espai de treball i l'accés anònim
 als enllaços compartits en una sessió neta.
 
 Resoldre una biblioteca registrada és una operació de lectura. Si la carpeta falta, la identitat no està disponible i les rutes canòniques retornen 404; les peticions no recreen el camí antic. La creació explícita de carpetes continua al flux de creació de biblioteques. Triar una altra carpeta existent conserva les dues identitats i les seves rutes.
+
+## Formularis públics de taula
+
+`domains/forms/` publica preguntes explícites d'una taula registrada. GET anònim `/api/forms/public/{token}` retorna aquest esquema; POST `/submissions` valida cada camp i crea la pàgina mitjançant el procés canònic idempotent. Les fórmules, relacions i metadades reservades no són modificables. Un canvi incompatible d'esquema desactiva el formulari. El complement `share-links` regula la publicació i l'accés.
+
+Formularis i reserves utilitzen `public_workflow_scope.py` per fixar espai, vault i propietari i comprovar de nou pertinença, escriptura, emmagatzematge i complements. Les galetes, capçaleres i paràmetres del visitant no seleccionen el destí. Les respostes són `no-store`; les pàgines públiques no envien referent ni s'indexen. El client públic omet credencials i capçaleres de l'espai. La migració `mgmt_0006` afegeix definicions i rebuts persistents sense modificar els registres existents.
+
+La publicació d’un formulari exigeix una vigència d’1 a 365 dies (30 per defecte). Cada token nou desa una data de venciment; si falta o ja ha passat, es rebutgen tant les consultes com les respostes. El propietari pot revocar l’enllaç abans que caduqui.
+
+El paquet del backend inclou `management_0006.py` entre els recursos revisats perquè les instal·lacions d’escriptori puguin aplicar la mateixa migració d’esquema per als formularis públics i les reserves.

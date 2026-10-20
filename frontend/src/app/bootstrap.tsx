@@ -7,11 +7,13 @@ import { legacyBrowserPathToCanonical } from '../shared/routing/vaultRouting';
 import App from './App';
 import { AppProviders } from './AppProviders';
 import { prepareStartup } from './startup';
+import { isPublicTokenPath } from '../shared/routing/publicRoutes';
 
 export async function bootstrap(routingReady: Promise<void> = prepareStartup()): Promise<void> {
   await Promise.all([
     routingReady,
-    initializeInterfaceLanguage(i18n),
+    initializeInterfaceLanguage(i18n, isPublicTokenPath(window.location.pathname)
+      ? { fetchSettings: () => Promise.resolve({}) } : undefined),
   ]);
   const canonicalPath = legacyBrowserPathToCanonical(window.location.pathname);
   if (canonicalPath !== window.location.pathname && canonicalPath.startsWith('/@')) {
