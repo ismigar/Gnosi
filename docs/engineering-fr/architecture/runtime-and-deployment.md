@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-10-13
 source_paths:
+  - compose.production.yml
+  - docker/frontend-production.conf
+  - frontend/src/features/offline
   - .github/workflows/ci.yml
   - scripts/runtime/run_native_dev.sh
   - scripts/runtime/run_native_frontend.sh
@@ -259,3 +262,9 @@ du stockage personnel. Ces contrôles ciblés ne certifient ni toute la suite
 E2E, ni la matrice Docker/Electron, ni une publication. Le responsable de
 l’intégration réalise les contrôles restants du navigateur réel, de la CI, du
 SOP, de la génération documentaire et de l’acceptation par plateforme.
+
+## Frontend web compilé sur le serveur personnel
+
+La surcharge facultative `compose.production.yml` sélectionne la cible de production de `Dockerfile.frontend`. Initialisez d’abord les sous-modules récursifs fixés. L’image compile les ressources du lecteur et les deux entrées web ; Nginx sert les fichiers compilés avec un proxy API et WebSocket de même origine. La cible Compose habituelle reste le serveur de développement. La commande de production est `docker compose -f docker-compose.yml -f compose.production.yml up -d --build` ; conservez le nom du projet Compose, les surcharges de stockage et les volumes existants.
+
+Utilisez HTTPS pour l’accès mobile. Le compagnon hors connexion exige un contexte de navigateur sécurisé ; localhost est l’exception de développement. Le worker ne conserve que l’interface publique compilée hors connexion, jamais les réponses API. Les API reçoivent des en-têtes no-store, les ressources compilées absentes renvoient 404, et worker et HTML sont revalidés. Consultez la recette de déploiement du code pour la configuration. Une compilation locale réussie du frontend ne vérifie ni l’image Docker ni le proxy TLS externe.

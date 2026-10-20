@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-10-13
 source_paths:
+  - compose.production.yml
+  - docker/frontend-production.conf
+  - frontend/src/features/offline
   - .github/workflows/ci.yml
   - scripts/runtime/run_native_dev.sh
   - scripts/runtime/run_native_frontend.sh
@@ -255,3 +258,9 @@ Estas comprobaciones acotadas no acreditan toda la suite E2E, la matriz
 Docker/Electron ni una publicación. El responsable de integración realiza
 las comprobaciones restantes de navegador real, CI, SOP, generación de
 documentación y aceptación por plataforma.
+
+## Frontend web compilado en el servidor propio
+
+La sustitución opcional `compose.production.yml` selecciona el destino de producción de `Dockerfile.frontend`. Inicialice primero los submódulos recursivos fijados. La imagen compila los recursos del lector y las dos entradas web; Nginx sirve los archivos compilados con proxy API y WebSocket del mismo origen. El destino Compose habitual sigue siendo el servidor de desarrollo. La orden de producción es `docker compose -f docker-compose.yml -f compose.production.yml up -d --build`; conserve el nombre del proyecto Compose, las sustituciones de almacenamiento y los volúmenes existentes.
+
+Utilice HTTPS para acceder desde móviles. El complemento sin conexión requiere un contexto seguro del navegador; localhost es la excepción de desarrollo. El worker solo guarda la interfaz pública compilada sin conexión, nunca respuestas API. Las API reciben cabeceras no-store, los recursos compilados ausentes devuelven 404 y se revalidan worker y HTML. Consulte la receta de despliegue del código para configurarlo. Una compilación local correcta del frontend no verifica una imagen Docker ni el proxy TLS externo.

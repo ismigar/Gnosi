@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-10-13
 source_paths:
+  - frontend/src/features/sharing/publishing
+  - frontend/src/features/offline
   - backend/server.py
   - backend/app/lifespan.py
   - backend/config/app_config.py
@@ -150,3 +152,7 @@ Comproveu qui gestiona el procés, `/api/health`, `/api/config` i
 petició de vault buida o fallida indica un problema de configuració o de
 proveïdor de fitxers, no un servidor aturat. Consulteu la
 [guia d'operacions](../operations/runbook.md).
+
+## Entrades públiques i sense connexió independents
+
+Els URL de llocs publicats es gestionen abans de l’arrencada autenticada. Només carreguen el lector de la instantània pública, sense peticions d’inicialització de compte, connectors o Vault. L’entrada compilada sense connexió carrega la seva col·lecció local xifrada i un service worker només per a fitxers estàtics. Editors de codi, dreceres i aparença de l’aplicació principal continuen dins de l’arrencada autenticada. Els fragments de tema rebutgen recursos de xarxa; el mode d’aparença segur i l’ordre de restabliment permeten recuperar una interfície mal configurada.

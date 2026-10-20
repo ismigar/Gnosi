@@ -4690,6 +4690,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/published/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Publication */
+        get: operations["read_publication_api_published__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/reader/analysis": {
         parameters: {
             query?: never;
@@ -6057,6 +6074,40 @@ export interface paths {
          *     with the new etag.
          */
         post: operations["bulk_update_metadata_api_vault_bulk_update_metadata_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/composer/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Composer */
+        post: operations["apply_composer_api_vault_composer_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/composer/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Composer */
+        post: operations["preview_composer_api_vault_composer_preview_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9474,6 +9525,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/publishing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Publications */
+        get: operations["list_publications_api_vault_publishing_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/publishing/{site_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke Publication */
+        post: operations["revoke_publication_api_vault_publishing__site_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/publishing/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commit Publication */
+        post: operations["commit_publication_api_vault_publishing_commit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/publishing/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Publication Pages */
+        get: operations["publication_pages_api_vault_publishing_pages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/publishing/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Publication */
+        post: operations["preview_publication_api_vault_publishing_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/raw/{rel_path}": {
         parameters: {
             query?: never;
@@ -9688,6 +9824,23 @@ export interface paths {
          *     Now we redirect it to table creation if needed, or save it as a local file.
          */
         post: operations["save_schema_api_vault_schema_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Vault */
+        get: operations["search_vault_api_vault_search_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -13823,6 +13976,30 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** ComposerApplyRequest */
+        ComposerApplyRequest: {
+            request: components["schemas"]["ComposerRequest"];
+            /** Token */
+            token: string;
+        };
+        /** ComposerChange */
+        ComposerChange: {
+            /** After */
+            after: string;
+            /** Before */
+            before: string;
+            /**
+             * Created
+             * @default false
+             */
+            created: boolean;
+            /** Etag */
+            etag: string | null;
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+        };
         /** ComposeRequest */
         ComposeRequest: {
             /**
@@ -13867,6 +14044,57 @@ export interface components {
             provider: string | null;
             /** Source Lang */
             source_lang: string;
+        };
+        /** ComposerPreview */
+        ComposerPreview: {
+            /** Changes */
+            changes: components["schemas"]["ComposerChange"][];
+            request: components["schemas"]["ComposerRequest"];
+            /** Rewritten Links */
+            rewritten_links: number;
+            /** Token */
+            token: string;
+        };
+        /** ComposerRequest */
+        ComposerRequest: {
+            /** End Line */
+            end_line?: number | null;
+            /**
+             * Heading
+             * @default
+             */
+            heading: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "extract" | "merge";
+            /**
+             * Selection
+             * @default note
+             * @enum {string}
+             */
+            selection: "note" | "heading" | "lines";
+            /** Source Id */
+            source_id: string;
+            /** Start Line */
+            start_line?: number | null;
+            /** Target Id */
+            target_id?: string | null;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+        };
+        /** ComposerResult */
+        ComposerResult: {
+            /** Changes */
+            changes: components["schemas"]["ComposerChange"][];
+            /** Source Id */
+            source_id: string;
+            /** Target Id */
+            target_id: string;
         };
         /**
          * ConfigurationDocument
@@ -21605,6 +21833,31 @@ export interface components {
             /** Success */
             success: boolean;
         };
+        /** PublicationBundle */
+        PublicationBundle: {
+            /** Expires At */
+            expires_at: number | null;
+            /** Pages */
+            pages: components["schemas"]["PublicationPage"][];
+            /** Published At */
+            published_at: number;
+            /** Revision */
+            revision: number;
+            /** Title */
+            title: string;
+        };
+        /** PublicationCandidate */
+        PublicationCandidate: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+        };
+        /** PublicationCommit */
+        PublicationCommit: {
+            /** Preview Id */
+            preview_id: string;
+        };
         /** PublicationNetworkResult */
         PublicationNetworkResult: {
             /** Error */
@@ -21616,6 +21869,25 @@ export interface components {
             /** Url */
             url?: string | null;
         };
+        /** PublicationPage */
+        PublicationPage: {
+            /** Id */
+            id: string;
+            /** Markdown */
+            markdown: string;
+            /** Omissions */
+            omissions: number;
+            /** Title */
+            title: string;
+        };
+        /** PublicationPreviewResponse */
+        PublicationPreviewResponse: {
+            bundle: components["schemas"]["PublicationBundle"];
+            /** Preview Expires At */
+            preview_expires_at: number;
+            /** Preview Id */
+            preview_id: string;
+        };
         /** PublicationResponse */
         PublicationResponse: {
             /** Record Id */
@@ -21626,6 +21898,45 @@ export interface components {
             };
             /** Status */
             status: string;
+        };
+        /** PublicationRevoke */
+        PublicationRevoke: {
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /** PublicationSelection */
+        PublicationSelection: {
+            /** Expected Revision */
+            expected_revision?: number | null;
+            /** Expires In Days */
+            expires_in_days?: number | null;
+            /** Page Ids */
+            page_ids: string[];
+            /** Site Id */
+            site_id?: string | null;
+            /** Title */
+            title: string;
+        };
+        /** PublicationSummary */
+        PublicationSummary: {
+            /** Created At */
+            created_at: number;
+            /** Expires At */
+            expires_at: number | null;
+            /** Id */
+            id: string;
+            /** Page Ids */
+            page_ids: string[];
+            /** Revision */
+            revision: number;
+            /** Revoked */
+            revoked: boolean;
+            /** Title */
+            title: string;
+            /** Token */
+            token: string;
+            /** Updated At */
+            updated_at: number;
         };
         /** PublicClipResponse */
         PublicClipResponse: {
@@ -24920,6 +25231,32 @@ export interface components {
             views: components["schemas"]["RegistryRecord"][];
         } & {
             [key: string]: unknown;
+        };
+        /** VaultSearchHit */
+        VaultSearchHit: {
+            /** Excerpt */
+            excerpt: string;
+            /** Id */
+            id: string;
+            /** Line */
+            line?: number | null;
+            /** Path */
+            path: string;
+            /** Tags */
+            tags?: string[];
+            /** Title */
+            title: string;
+        };
+        /** VaultSearchResponse */
+        VaultSearchResponse: {
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Results */
+            results: components["schemas"]["VaultSearchHit"][];
+            /** Total */
+            total: number;
         };
         /**
          * VaultSummaryRequest
@@ -36322,6 +36659,37 @@ export interface operations {
             };
         };
     };
+    read_publication_api_published__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationBundle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_reader_analyses_api_reader_analysis_get: {
         parameters: {
             query?: {
@@ -38978,6 +39346,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BulkPageMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_composer_api_vault_composer_apply_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComposerApplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposerResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_composer_api_vault_composer_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComposerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposerPreview"];
                 };
             };
             /** @description Validation Error */
@@ -46423,6 +46871,200 @@ export interface operations {
             };
         };
     };
+    list_publications_api_vault_publishing_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_publication_api_vault_publishing__site_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicationRevoke"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    commit_publication_api_vault_publishing_commit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicationCommit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publication_pages_api_vault_publishing_pages_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationCandidate"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_publication_api_vault_publishing_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicationSelection"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationPreviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     serve_vault_raw_file_api_vault_raw__rel_path__get: {
         parameters: {
             query?: never;
@@ -46872,6 +47514,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegistryRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_vault_api_vault_search_get: {
+        parameters: {
+            query: {
+                limit?: number;
+                offset?: number;
+                q: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultSearchResponse"];
                 };
             };
             /** @description Validation Error */

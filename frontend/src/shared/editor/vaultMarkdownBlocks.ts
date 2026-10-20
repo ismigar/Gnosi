@@ -1,5 +1,5 @@
 const TOGGLE_START_RE = /^:{3,}(toggle-heading|toggle)(?:\s|(?=\{)|$)(.*)$/;
-const FENCE_RE = /^(`{3,}|~{3,})/;
+const FENCE_RE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 
 type MarkdownInput =
   | string
@@ -62,7 +62,7 @@ export function parseVaultMarkdownBlocks(
   const parseRange = (startIndex: number): ParseRangeResult => {
     const blocks: VaultMarkdownBlock[] = [];
     const markdownLines: string[] = [];
-    let inCodeFence = false;
+    let codeFence: { marker: string; length: number } | null = null;
     let index = startIndex;
 
     const flushMarkdown = (): void => {
@@ -78,19 +78,26 @@ export function parseVaultMarkdownBlocks(
       const line = lines[index] ?? '';
       const trimmed = line.trim();
 
-      if (FENCE_RE.test(trimmed)) {
-        inCodeFence = !inCodeFence;
+      const fence = FENCE_RE.exec(line);
+      if (codeFence) {
+        if (fence?.[1]?.[0] === codeFence.marker && fence[1].length >= codeFence.length && !fence[2]?.trim()) codeFence = null;
+        markdownLines.push(line);
+        index += 1;
+        continue;
+      }
+      if (fence?.[1] && !(fence[1][0] === '`' && fence[2]?.includes('`'))) {
+        codeFence = { marker: fence[1][0] ?? '`', length: fence[1].length };
         markdownLines.push(line);
         index += 1;
         continue;
       }
 
-      if (!inCodeFence && /^:{3,}$/.test(trimmed)) {
+      if (/^:{3,}$/.test(trimmed)) {
         flushMarkdown();
         return { blocks, nextIndex: index + 1 };
       }
 
-      const toggle = !inCodeFence ? parseToggleHeader(line) : null;
+      const toggle = parseToggleHeader(line);
       if (toggle) {
         flushMarkdown();
         const childResult = parseRange(index + 1);

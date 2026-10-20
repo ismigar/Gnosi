@@ -34,3 +34,19 @@ Un Vault local no aparece automáticamente en otro ordenador. Pertenencia, sincr
 ## Catálogo y moderación de plantillas de Vault
 
 En modo personal, Configuración → General → Estructura de archivos → Vaults → Desde el repositorio abre el catálogo verificado. La búsqueda, los filtros por categoría y las vistas previas del contenido ayudan a elegir una plantilla; la instalación crea un Vault nuevo. Publicar plantilla abre un inventario con búsqueda de archivos incluidos, exclusiones y posibles datos sensibles. Actualizar el inventario borra la aceptación anterior.
+
+## Disposiciones guardadas y notas en el canvas
+
+Las disposiciones guardadas recuerdan notas abiertas, dibujos, lectores PDF y EPUB, documento activo y tamaños de paneles. También restauran las posiciones de lectura. Si un destino ya no existe, Gnosi informa del problema antes de sustituir la disposición actual.
+
+En una tarjeta de página del canvas, utiliza **Editar** y **Guardar** para modificar su nota. Los borradores se conservan al cambiar de disposición durante la sesión; guárdalos antes de cerrar la aplicación. La importación y exportación JSON Canvas conservan las tarjetas, conexiones y metadatos compatibles. Importar no copia archivos adjuntos y Gnosi informa de las estructuras no compatibles.
+
+## Lleva notas seleccionadas sin conexión
+
+Inicia sesión en el servidor Gnosi, selecciona cuenta, espacio de trabajo y Vault y abre el complemento de notas sin conexión desde Ajustes → General. Crea una colección cifrada con una contraseña separada, carga la lista del servidor y añade las notas de texto necesarias. Utiliza **Guardar localmente** después de editar. Tras la primera carga correcta de producción, el complemento puede volver a abrirse sin red. En el navegador móvil, añádelo a la pantalla de inicio; el servidor debe utilizar HTTPS.
+
+Reconecta y sincroniza explícitamente. Si ambas copias cambiaron, compara el texto original, local y del servidor y elige o escribe una versión combinada. Conserva la contraseña: no se puede recuperar y borrar los datos del navegador elimina los cambios no sincronizados. Los adjuntos y las notas incrustadas no se descargan con la nota. El servidor sigue utilizando el almacenamiento existente; esta colección local cifrada no es una copia de seguridad.
+
+## Publica una colección de notas
+
+Con el plugin de compartir activado, abre los controles de compartir de una nota y elige la publicación de varias páginas. Selecciona las notas, pon nombre al sitio y, opcionalmente, define su caducidad. Revisa la vista previa pública antes de publicar. Navegación y búsqueda solo incluyen las páginas seleccionadas; se indican los adjuntos, transclusiones privadas, HTML y consultas guardadas que se omiten. Los cambios del origen solo se publican después de previsualizar y publicar una actualización. Revoca el sitio desde el mismo gestor para impedir lecturas futuras; los visitantes pueden haber guardado copias.

@@ -10,6 +10,7 @@ export function createEditorSchema(contextValue: VaultEditorContextValue) {
         const baseSchema = BlockNoteSchema.create({
             blockSpecs: {
                 ...defaultBlockSpecs,
+                query: { ...blocks.query(), group: 'bnBlock' },
                 database: { ...blocks.database(), group: "bnBlock" },
                 gnosi_view: { ...blocks.gnosi_view(), group: "bnBlock" },
                 transclusion: { ...blocks.transclusion(), group: "bnBlock" },

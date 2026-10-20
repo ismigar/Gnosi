@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installBrowserLocks } from '../../../tests/browser-locks';
 import { requestAt, resetApiTestStorage, writeApiTestStorage } from '../../../tests/api-request';
-import { createRecoverablePage, pendingPageCreations } from './page-creation-recovery';
+import { createRecoverablePage, pendingPageCreations, resumePageCreation } from './page-creation-recovery';
+import { subscribeAppEvent } from '../platform/app-events';
 
 const input = { title: 'QA', content: '', metadata: { zero: 0, checked: false }, force: false, is_database: false };
 const result = { id: 'page', title: 'QA', content: '', metadata: input.metadata, folder: '', status: 'created', message: 'created' };
@@ -9,6 +10,22 @@ beforeEach(installBrowserLocks);
 afterEach(() => { resetApiTestStorage(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('durable page creation identity', () => {
+  it('announces a successful creation resume and preserves content invalidation on a failed resume', async () => {
+    const invalidate = vi.fn();
+    const stop = subscribeAppEvent('gnosi:invalidatePreview', invalidate);
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(result))
+      .mockResolvedValueOnce(Response.json({ detail: 'Synthetic resume failure' }, { status: 503 })));
+    try {
+      await expect(resumePageCreation('completed')).resolves.toEqual(result);
+      expect(invalidate).toHaveBeenCalledTimes(1);
+      await expect(resumePageCreation('failed')).rejects.toMatchObject({ status: 503 });
+      expect(invalidate).toHaveBeenCalledTimes(1);
+    } finally {
+      stop();
+    }
+  });
+
   it('recovers after a lost response and module reload without another POST', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockRejectedValueOnce(new TypeError('connection lost'))
       .mockResolvedValueOnce(Response.json({ status: 'completed', page_id: 'page', result }));

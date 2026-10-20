@@ -1,3 +1,4 @@
+import { JsonCanvasNodeShapeUtil } from '../json-canvas/JsonCanvasNodeShape';
 import type { ComponentType, Context, ReactNode } from 'react';
 import {
     defaultShapeUtils,
@@ -34,6 +35,7 @@ interface CanvasPageProviderProps {
 export const CANVAS_SHAPE_UTILS: readonly TLAnyShapeUtilConstructor[] = [
     ...defaultShapeUtils,
     PageCardShapeUtil,
+    JsonCanvasNodeShapeUtil,
 ];
 
 const typedCanvasContext = CanvasPageContext as unknown as Context<CanvasPageContextValue>;

@@ -4,6 +4,7 @@ import { bootstrapQueryKeys } from './bootstrap-query-keys';
 import { fetchCachedQuery, invalidateCachedQuery } from './cached-query';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
+import type { RequestContext } from './request-context';
 
 export {
   bulkApplyVaultTemplate,
@@ -267,11 +268,18 @@ export async function invalidateVaultSidebarSummary(): Promise<void> {
 export async function fetchVaultPage(
   pageId: string,
   signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<VaultPage> {
   return unwrapApiResult<VaultPage, unknown>(
     await apiClient.GET('/api/vault/pages/{page_id}', {
       params: { path: { page_id: pageId } },
       signal,
+      headers: context ? {
+        'X-Vault-ID': context.vaultId,
+        'X-Workspace-ID': context.workspaceId,
+        'X-User-ID': context.userId,
+        'X-User-Email': context.userEmail,
+      } : undefined,
     }),
   );
 }
@@ -354,11 +362,18 @@ export async function warmVaultPagePreviews(
 export async function resolveVaultTitle(
   title: string,
   signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<VaultTitleResolution> {
   return unwrapApiResult<VaultTitleResolution, unknown>(
     await apiClient.GET('/api/vault/resolve-by-title', {
       params: { query: { title } },
       signal,
+      headers: context ? {
+        'X-Vault-ID': context.vaultId,
+        'X-Workspace-ID': context.workspaceId,
+        'X-User-ID': context.userId,
+        'X-User-Email': context.userEmail,
+      } : undefined,
     }),
   );
 }

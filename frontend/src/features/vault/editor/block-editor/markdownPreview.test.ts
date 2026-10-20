@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractSectionPreview, markdownToPlainText, parseMarkdownHeading } from './markdownPreview';
+import { extractSectionMarkdown, extractSectionPreview, markdownToPlainText, parseMarkdownHeading } from './markdownPreview';
 import { extractOutgoingPageLinks, normalizeLinkedPageRef } from './outgoingLinks';
 
 describe('editor markdown section previews', () => {
@@ -24,6 +24,35 @@ describe('editor markdown section previews', () => {
     it('removes embeds, wiki links, code, HTML and Markdown delimiters from preview text', () => {
         expect(markdownToPlainText('One ![[image]] [[Link]] ```code``` <b>two</b> **three**')).toBe('One two three');
         expect(markdownToPlainText(null)).toBe('');
+    });
+});
+
+describe('rich Markdown section extraction', () => {
+    it('retains the selected heading, nested structure, math, tables, images and code verbatim', () => {
+        const selected = '## **Details**\n\n| Key | Value |\n| --- | --- |\n| A | B |\n\n### Nested\n$E=mc^2$\n\n![Image](Assets/photo.png)\n\n```md\n## Fake peer\n```';
+        expect(extractSectionMarkdown(`# Start\n\n${selected}\n\n## Stop\nHidden`, 'DETAILS')).toBe(selected);
+    });
+    it('ignores headings and block ids inside variable-length and tilde fences', () => {
+        const markdown = '````md\n```\n# Fake\nFake ^target\n````\n~~~md\n# Fake\nFake ^target\n~~~\n# Real\nFirst **line**\nsecond line ^target\n# End';
+        expect(extractSectionMarkdown(markdown, 'fake')).toBeNull();
+        expect(extractSectionMarkdown(markdown, '^TARGET')).toBe('First **line**\nsecond line');
+        expect(extractSectionMarkdown(markdown, '^missing')).toBeNull();
+    });
+    it('keeps a full paragraph for inline markers and a complete table or code block for standalone markers', () => {
+        expect(extractSectionMarkdown('Before\n\nFirst\nsecond **line** ^part\n\nAfter', '^part')).toBe('First\nsecond **line**');
+        const table = '| A | B |\n| --- | --- |\n| one | two |';
+        expect(extractSectionMarkdown(`${table}\n\n^table`, '^table')).toBe(table);
+        const code = '```ts\nconst example = "^literal";\n```';
+        expect(extractSectionMarkdown(`${code}\n\n^code`, '^code')).toBe(code);
+        const list = '- First\n- **Second**';
+        expect(extractSectionMarkdown(`${list}\n\n^list`, '^list')).toBe(list);
+    });
+    it('supports setext headings, distinguishes missing/empty targets, and leaves whole-note content intact', () => {
+        expect(extractSectionMarkdown('Selected\n--------\n**Content**\n\nNext\n----\nHidden', 'Selected')).toBe('Selected\n--------\n**Content**');
+        expect(extractSectionMarkdown('# Empty\n# Next', 'Empty')).toBe('# Empty');
+        expect(extractSectionMarkdown('^empty', '^empty')).toBe('');
+        expect(extractSectionMarkdown('# Other', 'missing')).toBeNull();
+        expect(extractSectionMarkdown('**Body**\n\n![[Nested]]', '')).toBe('**Body**\n\n![[Nested]]');
     });
 });
 

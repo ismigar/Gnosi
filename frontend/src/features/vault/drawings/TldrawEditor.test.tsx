@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import TldrawEditor from './TldrawEditor';
 
+vi.mock('@tldraw/assets/imports.vite.js', () => ({
+    getAssetUrlsByImport: () => ({ fonts: {}, icons: {}, translations: {}, embedIcons: {} }),
+}));
+
 interface ReactTestGlobal {
     IS_REACT_ACT_ENVIRONMENT?: boolean;
 }

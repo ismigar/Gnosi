@@ -7,9 +7,13 @@ import TableOfContentsBlock from '../TableOfContentsBlock';
 import MermaidBlock from '../MermaidBlock';
 import LinkCardBlock from '../LinkCardBlock';
 import SyncedBlock from '../SyncedBlock';
+import { QueryBlock } from './QueryBlock';
 
 export function createBlockSpecs() {
     return {
+            query: createReactBlockSpec({
+                type: 'query', propSchema: { query: { default: '' } }, content: 'none',
+            }, { render: (props) => <QueryBlock query={props.block.props.query} editable={props.editor.isEditable} onChange={(query) => { props.editor.updateBlock(props.block, { props: { query } }); }} /> }),
             database: createReactBlockSpec({
                 type: "database",
                 propSchema: { database_table_id: { default: "" }, viewId: { default: "" }, filters: { default: "" }, sort: { default: "" }, search: { default: "" }, visibleProperties: { default: "" }, viewType: { default: "table" } },

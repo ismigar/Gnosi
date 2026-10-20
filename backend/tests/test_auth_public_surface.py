@@ -85,6 +85,17 @@ def test_share_rule_is_single_segment():
     assert is_public_endpoint("GET", "/api/share/tok/children") is False
 
 
+def test_published_snapshot_allows_only_exact_token_reads() -> None:
+    path = "/api/published/" + "a" * 43
+    assert is_public_endpoint("GET", path)
+    for method in ("POST", "PUT", "PATCH", "DELETE", "HEAD"):
+        assert not is_public_endpoint(method, path)
+    for suffix in ("/children", "\n", "/", "a"):
+        assert not is_public_endpoint("GET", path + suffix)
+    assert not is_public_endpoint("GET", path[:-1])
+    assert not is_public_endpoint("GET", "/api/vault/publishing")
+
+
 @pytest.mark.parametrize("bad", ["", None])
 def test_tolerates_missing_input(bad):
     assert is_public_endpoint(bad, "/api/health") is False
@@ -108,7 +119,7 @@ def test_a_trailing_newline_does_not_slip_through(path: str):
 
 # --- the allowlist must not drift away from the real routes ------------------
 
-def test_every_rule_matches_a_real_route():
+def test_every_rule_matches_a_real_route(isolated_validation_runtime):
     """A rule that matches nothing is dead weight that reads as coverage.
 
     Nothing consults `is_public_endpoint` yet (enforcement is phase 4), so

@@ -395,6 +395,20 @@ Le générateur prépare Research Starter Workspace 2.1.0, Study Workspace 1.0.0
 Le tableau privé de modération place les envois en quarantaine et enregistre une approbation ou un rejet définitifs. Les modèles de Vault approuvés proposent un reçu lié au ZIP exact par SHA-256 et taille. L’opérateur de publication télécharge les deux depuis le tableau authentifié, exécute `python -m extensions.marketplace.reviewed_templates`, puis transmet `--reviewed-dir` au générateur du catalogue. La validation rejette les archives dangereuses, les identités divergentes, les identifiants secrets et les identités de modèle dupliquées avant de charger la clé officielle. Les reçus sont des traces d’audit, pas des approbations cryptographiques : ils doivent provenir du processus de maintenance de confiance. Approuver ne signe ni ne publie ; les extensions suivent leur propre processus de publication.
 
 
+## Contrat de recherche et d’éditeur source des plugins d’interface
+
+L’environnement isolé d’interface à origine opaque expose ces méthodes supplémentaires de l’API v2 :
+
+| Méthode | Permission | Comportement |
+|---|---|---|
+| `gnosi.vault.search(query, {offset})` | `vault:read` | Utilise la même API de recherche du contenu complet que l’interface du Vault. Renvoie résultats contextuels et pagination. Les requêtes sont fixées au compte, espace de travail et Vault actifs ; tout changement de contexte les annule et rejette les résultats périmés, y compris depuis un autre onglet. Le plugin ne peut pas indiquer un autre Vault. |
+| `gnosi.editor.getSelection()` | `vault:read` | Renvoie `vaultId`, `documentId`, `sessionId`, `documentVersion`, `selectionVersion`, `readOnly`, `mainIndex` et `ranges` (`from`, `to`, `text`) de l’éditeur source Markdown actif. Échoue sans éditeur source actif. |
+| `gnosi.editor.replaceSelection(text, snapshot)` | `vault:write` | Remplace chaque sélection actuelle dans une seule transaction annulable. L’instantané doit toujours correspondre aux mêmes Vault, page, session, version du document et version de sélection. Pages verrouillées, sélections modifiées et instantanés périmés sont rejetés. La persistance suit le parcours habituel du brouillon et de la sauvegarde automatique. Le texte inséré est limité au total à un million de caractères. |
+
+Lisez la sélection juste avant une transformation asynchrone, puis transmettez le même instantané pour le remplacement. En cas de rejet, obtenez une nouvelle sélection et laissez l’utilisateur décider s’il souhaite relancer la transformation. Ne réessayez pas automatiquement sur une sélection modifiée. Les éditeurs se désinscrivent lorsque leur page devient inactive ou est démontée ; les changements de compte, espace de travail et Vault invalident leurs capacités, même en revenant au contexte précédent. Un éditeur monté conserve son contexte original lors de sa réactivation.
+
+L’iframe conserve `sandbox="allow-scripts"` sans `allow-same-origin` ; ces méthodes transmettent des données sérialisables sur le pont de messages existant qui vérifie les permissions. Elles n’exposent ni DOM parent ni instance CodeMirror. Les plugins d’éditeur enrichi et la compatibilité binaire avec des plugins Obsidian arbitraires sont hors de ce contrat.
+
 ## Contrat d’activation des modules facultatifs
 
 L’activation est propre au vault. La désactivation retire l’interface facultative

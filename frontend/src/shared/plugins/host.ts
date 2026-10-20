@@ -14,6 +14,8 @@
  *   gnosi.registerSidebarPanel({id, title, render})   → sidebar panel
  *   gnosi.registerSettingsPanel({id, title, render})  → sandboxed Settings panel
  *   gnosi.vault.readPage(id) / writePage(id, content) → data API (gated)
+ *   gnosi.vault.search(query, {offset?})              → active-Vault content search (gated)
+ *   gnosi.editor.getSelection() / replaceSelection(text, snapshot) → guarded source edits (gated)
  *   gnosi.fetch(url, opts)                             → network (gated)
  *   gnosi.log/warn/error(...)                          → host console
  *

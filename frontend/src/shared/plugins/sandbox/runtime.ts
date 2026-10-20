@@ -55,6 +55,7 @@ export function installSandboxRuntime(scope: SandboxScope): void {
       });
     },
     vault: {
+      search: (query, options) => call('vault.search', { query, offset: options?.offset ?? 0 }),
       readPage: (id) => call('vault.readPage', { pageId: id }),
       writePage(id, patch) {
         const data = typeof patch === 'string' ? { content: patch } : (patch || {});
@@ -63,6 +64,10 @@ export function installSandboxRuntime(scope: SandboxScope): void {
       createPage: (options) => call('vault.createPage', options || {}),
       queryDB: (tableId, options) => call('vault.queryDB', { tableId, limit: options?.limit || 200 }),
       listTables: () => call('vault.listTables', {}),
+    },
+    editor: {
+      getSelection: () => call('editor.getSelection', {}),
+      replaceSelection: (text, expected) => call('editor.replaceSelection', { text, expected }),
     },
     settings: {
       get: () => call('settings.get', {}),

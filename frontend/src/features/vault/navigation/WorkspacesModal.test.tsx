@@ -8,15 +8,10 @@ import {
     stringStorageCodec,
 } from '../../../shared/platform/browser-storage';
 import WorkspacesModal from './WorkspacesModal';
+import type { SavedWorkspace } from './workspacesModel';
 
 interface ReactTestGlobal {
     IS_REACT_ACT_ENVIRONMENT?: boolean;
-}
-
-interface RestoredTab {
-    readonly id: string;
-    readonly isTable: boolean;
-    readonly title: string;
 }
 
 const reactTestGlobal = globalThis as typeof globalThis & ReactTestGlobal;
@@ -79,9 +74,9 @@ describe('WorkspacesModal', () => {
         delete reactTestGlobal.IS_REACT_ACT_ENVIRONMENT;
     });
 
-    it('saves only page and table tabs and restores their exact payload', () => {
+    it('saves all document kinds and restores their exact payload', () => {
         const onClose = vi.fn<() => void>();
-        const onRestore = vi.fn<(tabs: readonly RestoredTab[]) => void>();
+        const onRestore = vi.fn<(workspace: SavedWorkspace) => void>();
         act(() => {
             root.render(
                 <WorkspacesModal
@@ -102,7 +97,7 @@ describe('WorkspacesModal', () => {
         if (!(input instanceof HTMLInputElement)) {
             throw new Error('Missing workspace name input');
         }
-        expect(input.placeholder).toContain('2 open tabs');
+        expect(input.placeholder).toContain('4 open tabs');
         setInput(input, 'Research');
         act(() => {
             findButton(container, 'Save').click();
@@ -111,10 +106,17 @@ describe('WorkspacesModal', () => {
             findButton(container, 'Research').click();
         });
 
-        expect(onRestore).toHaveBeenCalledWith([
-            { id: 'page-1', isTable: false, title: 'Page' },
-            { id: 'table-1', isTable: true, title: 'Table' },
-        ]);
+        expect(onRestore).toHaveBeenCalledWith(expect.objectContaining({
+            version: 2,
+            name: 'Research',
+            tabs: [
+                { id: 'page-1', type: 'page', title: 'Page' },
+                { id: 'table-1', type: 'table', isTable: true, tableId: 'table-1', title: 'Table' },
+                { id: 'pdf-1', type: 'document', isPdf: true, kind: 'pdf', src: '', location: null, title: 'PDF' },
+                { id: 'drawing-1', type: 'drawing', isDrawing: true, title: 'Drawing' },
+            ],
+            layout: { activeTabId: 'page-1', activeTableId: null, activeViewId: null, viewMode: 'editor', splitTabIds: [], splitTableIds: [], paneSizes: [100] },
+        }));
         expect(onClose).toHaveBeenCalledOnce();
     });
 });

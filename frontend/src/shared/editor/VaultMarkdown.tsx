@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
-import ReactMarkdown, { type Components } from 'react-markdown';
+import { forwardRef, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import ReactMarkdown, { defaultUrlTransform, type Components } from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -11,6 +11,11 @@ import { openCitation } from '../resources/fileResource';
 import { WikilinkInline } from './WikilinkInline';
 import { stripManagedBlockMarkers } from './managedMarkdownUtils';
 import { remarkHideComments } from './remarkHideComments';
+import { remarkVaultLinks } from './remarkVaultLinks';
+import { VaultEditorContext } from './VaultEditorContext';
+import { EmbeddedVaultSearch } from '../page-search/EmbeddedVaultSearch';
+import { VaultTransclusion } from './vault-markdown/VaultTransclusion';
+import { embeddedMediaKind, parseTransclusionReference, TRANSCLUSION_HREF_SENTINEL, transclusionKey } from './vault-markdown/transclusionModel';
 import {
     parseVaultMarkdownBlocks,
     type VaultMarkdownBlock,
@@ -20,7 +25,6 @@ import {
     STYLE_HREF_SENTINEL,
     WIKILINK_HREF_SENTINEL,
     convertInlineHtmlToMd,
-    convertWikilinksToMd,
     decodeStylePayload,
     normalizeAssetUrl,
     wikilinkUrlTransform,
@@ -36,6 +40,7 @@ import {
 
 
 interface VaultMarkdownProps {
+    readonly allowVaultQueries?: boolean;
     readonly idToTitle?: Readonly<Record<string, string>>;
     readonly imageTitle?: string;
     readonly md: string;
@@ -44,10 +49,12 @@ interface VaultMarkdownProps {
     readonly onOpenInNewTab?: (pageId: string) => void;
     readonly onOpenParallel?: (pageId: string) => void;
     readonly vaultId?: string | null;
+    readonly sourcePageId?: string | null;
+    readonly transclusionPath?: readonly string[];
 }
 
 
-const MARKDOWN_PLUGINS = [remarkGfm, remarkMath, remarkHideComments];
+const MARKDOWN_PLUGINS = [remarkGfm, remarkMath, remarkHideComments, remarkVaultLinks];
 const REHYPE_PLUGINS = [rehypeKatex];
 const HEADING_CLASSES: Readonly<Partial<Record<number, string>>> = {
     1: 'text-2xl font-bold',
@@ -99,6 +106,7 @@ function renderVaultBlocks(
 
 
 export function VaultMarkdown({
+    allowVaultQueries,
     md,
     idToTitle,
     imageTitle = '',
@@ -107,8 +115,13 @@ export function VaultMarkdown({
     onOpenInNewTab,
     onOpenParallel,
     vaultId,
+    sourcePageId,
+    transclusionPath,
 }: VaultMarkdownProps) {
     const { t } = useTranslation();
+    const editorContext = useContext(VaultEditorContext);
+    const canQueryVault = allowVaultQueries ?? Boolean(editorContext.pageId);
+    const openPage = onOpenInCurrentTab ?? editorContext.onOpenInCurrentTab ?? editorContext.onOpenPage ?? undefined;
     const [evidence, setEvidence] = useState<CitationEvidence | null>(null);
     const [evidenceLoading, setEvidenceLoading] = useState(false);
     const evidenceRef = useRef<HTMLElement>(null);
@@ -147,6 +160,30 @@ export function VaultMarkdown({
 
     const markdownComponents = useMemo<Components>(() => ({
         img: ({ src = '', alt = '' }) => {
+            if (src.startsWith(TRANSCLUSION_HREF_SENTINEL)) {
+                let target = src.slice(TRANSCLUSION_HREF_SENTINEL.length);
+                try { target = decodeURIComponent(target); } catch { /* Keep malformed references readable. */ }
+                const reference = parseTransclusionReference(target, alt);
+                const media = embeddedMediaKind(reference.target);
+                if (media) {
+                    const mediaUrl = defaultUrlTransform(normalizeAssetUrl(target, vaultId));
+                    if (!mediaUrl) return null;
+                    if (media === 'image') return <RetryableImage onClick={onActivate} src={mediaUrl} title={alt || reference.target} />;
+                    if (media === 'audio') return <audio controls preload="metadata" src={mediaUrl} aria-label={alt || reference.target} />;
+                    if (media === 'video') return <video className="max-w-full rounded-md" controls preload="metadata" src={mediaUrl} aria-label={alt || reference.target} />;
+                    return <a className="text-[var(--gnosi-primary)] hover:underline" href={mediaUrl} target="_blank" rel="noopener noreferrer">{alt || reference.target}</a>;
+                }
+                return canQueryVault ? <VaultMarkdownTransclusion
+                    {...reference}
+                    idToTitle={idToTitle}
+                    onOpenInCurrentTab={onOpenInCurrentTab}
+                    onOpenInNewTab={onOpenInNewTab}
+                    onOpenParallel={onOpenParallel}
+                    sourcePageId={sourcePageId}
+                    transclusionPath={transclusionPath}
+                    vaultId={vaultId}
+                /> : <span className="text-[var(--text-tertiary)]">{alt || target}</span>;
+            }
             const normalized = normalizeAssetUrl(src, vaultId);
             return normalized
                 ? <RetryableImage onClick={onActivate} src={normalized} title={alt || imageTitle} />
@@ -196,9 +233,20 @@ export function VaultMarkdown({
                     >{children}</a>
                 );
             }
+            const mediaLabel = reactNodeText(children, '');
+            if (/^(?:audio|video|file): /u.test(mediaLabel)) {
+                const mediaUrl = defaultUrlTransform(normalizeAssetUrl(href, vaultId));
+                if (!mediaUrl) return null;
+                if (mediaLabel.startsWith('audio: ')) return <audio controls preload="metadata" src={mediaUrl} aria-label={mediaLabel} />;
+                if (mediaLabel.startsWith('video: ')) return <video className="max-w-full rounded-md" controls preload="metadata" src={mediaUrl} aria-label={mediaLabel} />;
+                return <a className="text-[var(--gnosi-primary)] hover:underline" href={mediaUrl}>{children}</a>;
+            }
             return <a className="text-[var(--gnosi-primary)] hover:underline" href={href} {...rest}>{children}</a>;
         },
         code: ({ className, children, node: _node, ...props }) => {
+            if (canQueryVault && /(?:^|\s)language-(?:query|search)(?:\s|$)/u.test(className ?? '')) {
+                return <EmbeddedVaultSearch query={reactNodeText(children, '').trim()} onOpenPage={openPage} vaultId={vaultId} />;
+            }
             const isBlock = /language-/.test(className ?? '')
                 || reactNodeText(children, '').includes('\n');
             return isBlock ? (
@@ -207,8 +255,14 @@ export function VaultMarkdown({
                 <code className="rounded bg-[var(--bg-tertiary)] px-1 py-0.5 text-[12px]" {...props}>{children}</code>
             );
         },
+        pre: ({ children, node, ...props }) => {
+            const isQuery = canQueryVault && node?.children.some(child => child.type === 'element'
+                && child.tagName === 'code' && Array.isArray(child.properties.className)
+                && child.properties.className.some(value => value === 'language-query' || value === 'language-search'));
+            return isQuery ? <div className="my-2">{children}</div> : <pre {...props}>{children}</pre>;
+        },
     }), [handleCitation, idToTitle, imageTitle, onActivate, onOpenInCurrentTab,
-        onOpenInNewTab, onOpenParallel, vaultId]);
+        onOpenInNewTab, onOpenParallel, vaultId, canQueryVault, openPage, sourcePageId, transclusionPath]);
 
     const renderMarkdown = useCallback((content: string, key: string, inline = false): ReactNode => (
         <ReactMarkdown
@@ -218,9 +272,9 @@ export function VaultMarkdown({
             key={key}
             rehypePlugins={REHYPE_PLUGINS}
             remarkPlugins={MARKDOWN_PLUGINS}
-            urlTransform={wikilinkUrlTransform}
+            urlTransform={url => url.startsWith(TRANSCLUSION_HREF_SENTINEL) ? url : wikilinkUrlTransform(url)}
         >
-            {convertWikilinksToMd(convertInlineHtmlToMd(latexFencesToMath(content))) ?? ''}
+            {convertInlineHtmlToMd(latexFencesToMath(content)) ?? ''}
         </ReactMarkdown>
     ), [markdownComponents]);
 
@@ -244,6 +298,51 @@ export function VaultMarkdown({
     );
 }
 
+
+interface VaultMarkdownTransclusionProps extends Omit<VaultMarkdownProps, 'md' | 'allowVaultQueries'> {
+    readonly target: string;
+    readonly alias?: string;
+    readonly section?: string;
+}
+
+/** The editor and Markdown previews share exactly the same rich embed view. */
+export const VaultMarkdownTransclusion = forwardRef<HTMLDivElement, VaultMarkdownTransclusionProps>(({
+    target, alias, section, idToTitle, sourcePageId, transclusionPath, vaultId,
+    onOpenInCurrentTab, onOpenInNewTab, onOpenParallel,
+}, ref) => {
+    const context = useContext(VaultEditorContext);
+    const currentPageId = sourcePageId ?? context.pageId;
+    const index = idToTitle ?? context.idToTitle;
+    const ancestry = useMemo(() => transclusionPath ?? (currentPageId ? [transclusionKey(currentPageId)] : []), [currentPageId, transclusionPath]);
+    const openCurrent = onOpenInCurrentTab ?? context.onOpenInCurrentTab ?? context.onOpenPage ?? undefined;
+    const openNew = onOpenInNewTab ?? context.onOpenInNewTab ?? undefined;
+    const openParallel = onOpenParallel ?? context.onOpenParallel ?? undefined;
+    return <VaultTransclusion
+        containerRef={ref}
+        target={target}
+        alias={alias}
+        section={section}
+        idToTitle={index}
+        sourcePageId={currentPageId}
+        ancestry={ancestry}
+        vaultId={vaultId}
+        onOpenInCurrentTab={openCurrent}
+        onOpenInNewTab={openNew}
+        onOpenParallel={openParallel}
+        renderContent={({ markdown, pageId, ancestry: path }) => <VaultMarkdown
+            allowVaultQueries
+            md={markdown}
+            idToTitle={index}
+            sourcePageId={pageId}
+            transclusionPath={path}
+            vaultId={vaultId}
+            onOpenInCurrentTab={openCurrent}
+            onOpenInNewTab={openNew}
+            onOpenParallel={openParallel}
+        />}
+    />;
+});
+VaultMarkdownTransclusion.displayName = 'VaultMarkdownTransclusion';
 
 export { RetryableImage } from './vault-markdown/RetryableImage';
 export default VaultMarkdown;

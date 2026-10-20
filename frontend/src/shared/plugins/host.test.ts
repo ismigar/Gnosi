@@ -14,6 +14,7 @@ const {
 }));
 
 vi.mock('../api/page-etag', () => ({ getCachedPageEtag: vi.fn() }));
+vi.mock('../api/vault-search', () => ({ searchVaultContent: vi.fn() }));
 vi.mock('../api/plugin-runtime', () => ({
     createPluginHostPage: vi.fn(),
     fetchForUiPlugin: vi.fn(),

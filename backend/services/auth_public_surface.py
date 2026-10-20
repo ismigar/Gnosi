@@ -145,6 +145,17 @@ async def enforce_authentication(conn: HTTPConnection) -> None:
     if is_public_endpoint(conn.scope.get("method", ""), conn.url.path):
         return
 
+    expected_user = conn.headers.get("x-gnosi-expected-user-id")
+    if expected_user is not None:
+        # Offline edits may outlive the cookie account that downloaded them.
+        # This precondition can only reject a request; it never supplies identity.
+        actual_user = await asyncio.to_thread(resolve_identity, conn)
+        if not actual_user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        if actual_user != expected_user:
+            raise HTTPException(status_code=409, detail={"code": "account_changed"})
+        return
+
     if not await _request_requires_auth():
         return
 
@@ -180,6 +191,7 @@ PUBLIC_RULES: tuple[PublicRule, ...] = (
     _rule("GET", r"/api/auth/microsoft/desktop/callback", "Native Microsoft callback; authenticated by one-use expiring state and PKCE"),
     # 3. Endpoints carrying their own credential.
     _rule("GET", r"/api/share/[^/]+", "the token in the URL is the credential"),
+    _rule("GET", r"/api/published/[A-Za-z0-9_-]{43}", "unguessable token authorizes one immutable published snapshot"),
     # Enumerated rather than a `/api/public/*` wildcard: token MANAGEMENT
     # (`/api/tokens`) is session-only, and a wildcard here would quietly exempt
     # any future endpoint someone drops under the same prefix.

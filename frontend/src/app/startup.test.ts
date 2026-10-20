@@ -38,9 +38,28 @@ beforeEach(() => {
   });
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); window.history.replaceState(null, '', '/'); });
 
 describe('overlapping application startup', () => {
+  it.each(['/p/' + 'a'.repeat(43), '/p/broken-token', '/p'])('keeps public path %s out of authenticated startup', async path => {
+    window.history.replaceState(null, '', path);
+    const privateLoader = vi.fn();
+    const bootstrapPublication = vi.fn(() => Promise.resolve());
+    await startApplication(privateLoader, () => Promise.resolve({ bootstrapPublication }));
+    expect(bootstrapPublication).toHaveBeenCalledOnce();
+    expect(privateLoader).not.toHaveBeenCalled();
+    expect(mocks.calls).toEqual([]);
+  });
+
+  it('preserves single-page share startup', async () => {
+    window.history.replaceState(null, '', '/s/existing-share');
+    const bootstrap = vi.fn(() => Promise.resolve());
+    const publicLoader = vi.fn();
+    await startApplication(() => Promise.resolve({ bootstrap }), publicLoader);
+    expect(bootstrap).toHaveBeenCalledOnce();
+    expect(publicLoader).not.toHaveBeenCalled();
+  });
+
   it('starts routing and the application download independently, with the vault cookie ready', async () => {
     const routing = deferred<undefined>();
     mocks.routing.mockImplementation(() => { mocks.calls.push('routing'); return routing.promise; });

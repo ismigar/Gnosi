@@ -163,6 +163,25 @@ def test_universal_lock_covers_every_release_environment() -> None:
     ]
 
 
+def test_publication_migration_survives_data_analysis_and_bundle(
+    repository: Path,
+    tmp_path: Path,
+) -> None:
+    name = "backend/migrations/alembic/versions/management_0006.py"
+    source = (ROOT / name).read_text(encoding="utf-8")
+    write(repository, name, source)
+    plan = policy.build_plan(repository)
+    data, modules = toc(plan)
+    policy.validate_analysis(data, modules, [], plan)
+    bundle = make_bundle(tmp_path, plan)
+    policy.verify_bundle(bundle, plan)
+    packaged = bundle / "_internal" / name
+    assert packaged.read_text(encoding="utf-8") == source
+    packaged.unlink()
+    with pytest.raises(policy.ResourcePolicyError, match="missing required resources"):
+        policy.verify_bundle(bundle, plan)
+
+
 def test_unselected_local_state_is_never_read_or_collected(
     repository: Path,
     monkeypatch: pytest.MonkeyPatch,

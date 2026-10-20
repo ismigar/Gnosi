@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-09-12
+last_verified: 2026-10-13
 source_paths:
+  - backend/domains/vault/publishing
+  - frontend/src/features/sharing/publishing
+  - frontend/src/features/offline
+  - frontend/src/shared/offline
   - backend/api/auth_routes.py
   - backend/api/workspace_routes.py
   - backend/api/vaults_routes.py
@@ -10,6 +14,7 @@ source_paths:
   - backend/api/public_routes.py
   - backend/models/management.py
   - backend/services/auth_service.py
+  - backend/services/auth_public_surface.py
   - backend/services/workspace_service.py
   - backend/services/vault_routing.py
   - backend/services/active_vault_middleware.py
@@ -20,6 +25,7 @@ source_paths:
   - frontend/src/shared/routing
   - frontend/src/features/workspaces
 tests:
+  - backend/tests/test_auth_expected_account.py
   - frontend/src/features/auth/LoginPage.test.tsx
   - frontend/src/features/auth/public-entry.test.ts
   - backend/tests/test_auth_central_gate.py
@@ -39,6 +45,12 @@ tests:
 ---
 
 # Autenticació, espais de treball i compartició
+
+## Notes sense connexió i llocs publicats
+
+El complement de notes sense connexió s’obre des de Configuració → General i utilitza el mateix origen del servidor. En una compilació de producció, el service worker només desa la interfície pública compilada. L’usuari tria les notes de text explícitament i protegeix la col·lecció local amb una contrasenya separada. Les desades locals xifren la col·lecció a IndexedDB; bloquejar-la esborra el text desxifrat conservat per l’aplicació. La sincronització comprova compte, espai de treball, Vault i versió de pàgina i mostra les dues versions si hi ha conflicte. El servidor continua conservant notes llegibles ordinàries. Adjunts, dibuixos i bases de dades queden fora d’aquesta col·lecció.
+
+La publicació de diverses pàgines utilitza el connector de compartició i el backend del servidor propi. Un editor selecciona notes i revisa la instantània pública exacta abans de publicar-la. El visitant només rep aquella instantània; la navegació i la cerca es limiten a les pàgines seleccionades. S’ometen visiblement adjunts, HTML, transclusions privades i consultes desades. Les actualitzacions requereixen una previsualització nova; revisions, caducitat i revocació es desen a la base de dades de gestió. Les lectures anònimes utilitzen una ruta de token acotada, ometen credencials i no arrenquen l’aplicació privada. Publicar no desplega un altre servei ni actualitza automàticament els canvis de les notes originals.
 
 ## Modes operatius
 
@@ -77,6 +89,8 @@ JWT signat en una galeta HttpOnly amb SameSite=Lax. Els clients API admesos
 també poden enviar un token bearer a `Authorization`. Els Personal Access
 Tokens utilitzen un format opac separat; només se'n desa un hash SHA-256 i
 el prefix visible.
+
+Els clients que conserven canvis entre sessions poden enviar `X-Gnosi-Expected-User-ID`. El control central compara aquesta precondició amb la identitat autenticada per galeta/PAT abans d’atendre rutes protegides: si falta identitat retorna 401, i un canvi de compte retorna 409 amb `code: account_changed`. La capçalera mai no selecciona un usuari ni concedeix permisos, tampoc en instal·lacions locals amb autenticació opcional. Es continuen comprovant els rols d’espai de treball/Vault. Les excepcions públiques d’accés, sortida i salut conserven el comportament existent.
 
 El secret de signatura ha de ser robust en desplegaments exposats. El backend
 rebutja l'arrencada amb el valor públic de desenvolupament quan la política

@@ -164,6 +164,9 @@ function viewBlock(payload: MarkdownRecord): MarkdownBlock {
 function promoteCustomFence(block: MarkdownBlock): MarkdownBlock {
     if (block.type !== 'codeBlock') return block;
     const language = legacyStringOrEmpty(propsOf(block).language).toLowerCase();
+    if (language === 'query' || language === 'search') {
+        return { type: 'query', props: { query: codeBlockText(block) } };
+    }
     if (language === 'mermaid') {
         return { type: 'mermaid', props: { code: codeBlockText(block) } };
     }

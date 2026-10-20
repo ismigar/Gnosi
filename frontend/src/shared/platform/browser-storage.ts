@@ -53,6 +53,17 @@ function runtimeStorage(area: StorageArea): Storage | null {
 }
 
 
+/** Match a storage event without assuming browser storage access is available. */
+export function storageEventIsFrom(
+  event: Pick<StorageEvent, 'storageArea'>,
+  area: StorageArea,
+  storage?: Storage | null,
+): boolean {
+  const target = storage === undefined ? runtimeStorage(area) : storage;
+  return target !== null && event.storageArea === target;
+}
+
+
 export function listStorageKeyNames(
   area: StorageArea,
   prefix = '',

@@ -2,6 +2,13 @@ import type { OutgoingPageLink } from './outgoingLinks';
 
 export type CodeEditorMetadata = Record<string, unknown> & { title?: string };
 export interface MarkdownCodeEditorProps {
+    readonly readOnly?: boolean;
+    readonly isActivePage?: boolean;
+    readonly registerSave?: (flush: (() => Promise<boolean>) | null) => void;
+    readonly vaultId?: string | null;
+    readonly onOpenInCurrentTab?: (pageId: string) => void;
+    readonly onOpenInNewTab?: (pageId: string) => void;
+    readonly onOpenParallel?: (pageId: string) => void;
     readonly noteFilename?: string | null;
     readonly initialContent?: unknown;
     readonly metadata?: CodeEditorMetadata | null;

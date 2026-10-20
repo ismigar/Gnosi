@@ -56,7 +56,7 @@ export function usePageMetadata(state: Input) {
         return false;
       }
     };
-    const promise = runSave(currentMetadata, removeKeys).finally(async () => {
+    const promise = runSave(currentMetadata, removeKeys).then(async (saved) => {
       // Flush the latest coalesced snapshot, if any, then clear state.
       const pending = pendingMetaRef.current;
       const pendingKeys = pendingRemoveKeysRef.current;
@@ -65,8 +65,9 @@ export function usePageMetadata(state: Input) {
       metaSaveInFlightRef.current = null;
       if (pending) {
         metaSaveInFlightRef.current = saveMetadata(pending, pendingKeys);
-        await metaSaveInFlightRef.current;
+        return await metaSaveInFlightRef.current && saved;
       }
+      return saved;
     });
     metaSaveInFlightRef.current = promise;
     return promise;

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { requestAt, resetApiTestStorage } from '../../../tests/api-request';
+import { subscribeAppEvent } from '../platform/app-events';
 import {
   emptyVaultTrash,
   fetchVaultAliasIndex,
@@ -15,6 +16,22 @@ import {
 afterEach(() => { resetApiTestStorage(); vi.unstubAllGlobals(); });
 
 describe('vault title resolution and trash API', () => {
+  it('announces successful restoration and does not invalidate content after a failed restore', async () => {
+    const invalidate = vi.fn();
+    const stop = subscribeAppEvent('gnosi:invalidatePreview', invalidate);
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ id: 'restored', status: 'restored' }))
+      .mockResolvedValueOnce(Response.json({ detail: 'Synthetic missing note' }, { status: 404 })));
+    try {
+      await restoreVaultPage('restored');
+      expect(invalidate).toHaveBeenCalledTimes(1);
+      await expect(restoreVaultPage('missing')).rejects.toMatchObject({ status: 404 });
+      expect(invalidate).toHaveBeenCalledTimes(1);
+    } finally {
+      stop();
+    }
+  });
+
   it('resolves titles and performs recoverable trash operations', async () => {
     const resolved = { id: 'page-1', title: 'Page one' };
     const trash = {

@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-09-12
+last_verified: 2026-10-13
 source_paths:
+  - backend/domains/vault/publishing
+  - frontend/src/features/sharing/publishing
+  - frontend/src/features/offline
+  - frontend/src/shared/offline
   - backend/api/auth_routes.py
   - backend/api/workspace_routes.py
   - backend/api/vaults_routes.py
@@ -10,6 +14,7 @@ source_paths:
   - backend/api/public_routes.py
   - backend/models/management.py
   - backend/services/auth_service.py
+  - backend/services/auth_public_surface.py
   - backend/services/workspace_service.py
   - backend/services/vault_routing.py
   - backend/services/active_vault_middleware.py
@@ -20,6 +25,7 @@ source_paths:
   - frontend/src/shared/routing
   - frontend/src/features/workspaces
 tests:
+  - backend/tests/test_auth_expected_account.py
   - frontend/src/features/auth/LoginPage.test.tsx
   - frontend/src/features/auth/public-entry.test.ts
   - backend/tests/test_auth_central_gate.py
@@ -39,6 +45,12 @@ tests:
 ---
 
 # Authentification, espaces de travail et partage
+
+## Notes hors connexion et sites publiés
+
+Le compagnon de notes hors connexion s’ouvre dans Paramètres → Général et utilise la même origine serveur. Dans une compilation de production, son service worker ne met en cache que l’interface publique compilée. L’utilisateur choisit explicitement les notes textuelles et protège la collection locale avec une phrase secrète distincte. Les sauvegardes locales chiffrent la collection dans IndexedDB ; le verrouillage efface le texte déchiffré détenu par l’application. La synchronisation vérifie compte, espace de travail, Vault et version de page, puis présente les deux versions en cas de conflit. Le serveur conserve toujours des notes ordinaires lisibles. Pièces jointes, dessins et bases de données sont hors de cette collection.
+
+La publication de plusieurs pages utilise le plugin de partage et le backend du serveur personnel. Un éditeur sélectionne les notes et vérifie l’instantané public exact avant de publier. Le visiteur ne reçoit que cet instantané ; navigation et recherche se limitent aux pages sélectionnées. Pièces jointes, HTML, transclusions privées et requêtes enregistrées sont visiblement omis. Une mise à jour exige un nouvel aperçu ; révisions, expiration et révocation sont stockées dans la base de gestion. Les lectures anonymes utilisent une route de jeton étroitement définie, omettent les identifiants et ne démarrent pas l’application privée. Publier ne déploie pas un autre service et ne répercute pas automatiquement les modifications des notes originales.
 
 ## Modes de fonctionnement
 
@@ -69,6 +81,8 @@ un vault d'organisation.
 ## Authentification de session et de jetons
 
 La connexion par adresse e-mail et mot de passe vérifie le hachage du mot de passe et émet un JWT signé dans un cookie HttpOnly, SameSite=Lax. Les clients API acceptés peuvent également envoyer un jeton bearer dans `Authorization`. Les Personal Access Tokens utilisent un format opaque distinct ; seuls un hachage SHA-256 et un préfixe d'affichage sont stockés.
+
+Les clients conservant des modifications entre sessions peuvent envoyer `X-Gnosi-Expected-User-ID`. Le contrôle central compare cette précondition à l’identité authentifiée par cookie/PAT avant de servir les routes protégées : une identité absente renvoie 401, et un changement de compte renvoie 409 avec `code: account_changed`. Cet en-tête ne sélectionne jamais un utilisateur et n’accorde aucune autorisation, même dans les installations locales à authentification facultative. Les rôles de l’espace de travail/Vault restent vérifiés. Les exceptions publiques de connexion, déconnexion et santé gardent leur comportement existant.
 
 Le secret de signature doit être robuste sur les déploiements exposés. Le backend refuse de démarrer avec la valeur publique de développement lorsque la protection est requise par le déploiement effectif.
 

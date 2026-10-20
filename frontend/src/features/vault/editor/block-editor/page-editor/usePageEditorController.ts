@@ -5,6 +5,7 @@ import { usePropertyNavigation } from './usePropertyNavigation';
 import { usePageLinks } from './usePageLinks';
 import { usePageLayout } from './usePageLayout';
 import { usePageContext } from './usePageContext';
+import { useNoteComposer } from './useNoteComposer';
 import type { PageEditorProps } from './types';
 export function usePageEditorController(props: PageEditorProps) {
   const s0 = usePageEditorState(props);
@@ -14,6 +15,7 @@ export function usePageEditorController(props: PageEditorProps) {
   const s4 = usePageLinks({ ...s0, ...s1, ...s2, ...s3 });
   const s5 = usePageLayout({ ...s0, ...s1, ...s2, ...s3, ...s4 });
   const s6 = usePageContext({ ...s0, ...s1, ...s2, ...s3, ...s4, ...s5 });
-  return { ...s0, ...s1, ...s2, ...s3, ...s4, ...s5, ...s6 };
+  const s7 = useNoteComposer({ ...s0, ...s1 });
+  return { ...s0, ...s1, ...s2, ...s3, ...s4, ...s5, ...s6, ...s7 };
 }
 export type PageEditorController = ReturnType<typeof usePageEditorController>;

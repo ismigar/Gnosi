@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-10-13
 source_paths:
+  - frontend/src/features/sharing/publishing
+  - frontend/src/features/offline
   - backend/server.py
   - backend/app/lifespan.py
   - backend/config/app_config.py
@@ -128,3 +130,7 @@ modèle de données.
 ## Diagnostic des échecs
 
 Vérifiez le propriétaire du processus, `/api/health`, `/api/config` et `/api/vault/pages`, dans cet ordre. Une réponse de santé réussie accompagnée d'une requête de vault vide ou en échec indique un problème de configuration ou de fournisseur de fichiers plutôt qu'un serveur arrêté. Consultez le [guide d'exploitation](../operations/runbook.md).
+
+## Entrées publiques et hors connexion indépendantes
+
+Les URL de sites publiés sont traitées avant le démarrage authentifié. Elles ne chargent que le lecteur d’instantané public, sans requêtes d’initialisation du compte, des plugins ou du Vault. L’entrée compilée hors connexion charge sa collection locale chiffrée et un service worker réservé aux fichiers statiques. Éditeurs source, raccourcis et apparence de l’application principale restent dans le démarrage authentifié. Les extraits de thème rejettent les ressources réseau ; le mode d’apparence sûr et la commande de réinitialisation permettent de récupérer une interface mal configurée.

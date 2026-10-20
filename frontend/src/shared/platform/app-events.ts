@@ -78,6 +78,8 @@ export interface AppEventMap {
   readonly 'gnosi:genograms-prepared': null;
   readonly 'app-error': AppErrorEventDetail;
   readonly 'db-theme-changed': null;
+  readonly 'gnosi:hotkeys-changed': null;
+  readonly 'gnosi:appearance-changed': null;
   readonly 'gnosi-mail-dark-body-changed': null;
   readonly 'gnosi:config-changed': null;
   readonly 'gnosi:create-notebook': { readonly resourceIds: readonly string[] };

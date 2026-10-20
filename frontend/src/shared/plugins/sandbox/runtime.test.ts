@@ -6,7 +6,7 @@ describe('serialized plugin API v2', () => {
     const { api, postMessage } = runtimeHarness();
     expect(postMessage).toHaveBeenCalledExactlyOnceWith({ __gnosi: true, type: 'ready' }, '*');
     expect(Object.keys(api).sort()).toEqual([
-      'error', 'fetch', 'log', 'registerCommand', 'registerSettingsPanel',
+      'editor', 'error', 'fetch', 'log', 'registerCommand', 'registerSettingsPanel',
       'registerSidebarPanel', 'registerView', 'settings', 'vault', 'warn',
     ]);
   });
@@ -85,6 +85,19 @@ describe('serialized plugin API v2', () => {
     expect(resolved).not.toHaveBeenCalled();
     deliver(reply); deliver({ ...reply, result: 'duplicate' }); await request;
     expect(resolved).toHaveBeenCalledExactlyOnceWith('exact'); expect(postMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it('forwards search and guarded editor snapshots without exposing parent objects', async () => {
+    const { api, deliver, postMessage } = runtimeHarness();
+    const expected = { documentId: 'page', sessionId: 'session', documentVersion: 2, selectionVersion: 3, vaultId: 'vault' };
+    const requests = [api.vault.search('content:phrase', { offset: 50 }), api.editor.getSelection(), api.editor.replaceSelection('Replacement', expected)];
+    expect(postMessage.mock.calls.slice(1)).toEqual([
+      [{ __gnosi: true, type: 'host-call', id: 'c1', method: 'vault.search', args: { query: 'content:phrase', offset: 50 } }, '*'],
+      [{ __gnosi: true, type: 'host-call', id: 'c2', method: 'editor.getSelection', args: {} }, '*'],
+      [{ __gnosi: true, type: 'host-call', id: 'c3', method: 'editor.replaceSelection', args: { text: 'Replacement', expected } }, '*'],
+    ]);
+    requests.forEach((_request, index) => { deliver({ __gnosi_host: true, type: 'host-result', id: `c${String(index + 1)}`, ok: true, result: expected }); });
+    await expect(Promise.all(requests)).resolves.toEqual([expected, expected, expected]);
   });
 
   it.each([['rejected', 'rejected'], ['', 'host error'], [{ toString: (): string => 'legacy error' }, 'legacy error']])(

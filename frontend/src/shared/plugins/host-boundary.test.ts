@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type * as Runtime from '../api/plugin-runtime';
 import type * as Plugins from '../api/plugins';
 import { dispatchWindowEvent } from '../platform/browser-events';
+import { registerPluginSourceEditor, type PluginEditorSelection } from './editor-bridge';
 
 const mocks = vi.hoisted(() => ({
   list: vi.fn<typeof Plugins.fetchInstalledPlugins>(),
@@ -21,6 +22,7 @@ vi.mock('../api/plugin-runtime', () => ({
   createPluginHostPage: mocks.create,
 }));
 vi.mock('../api/page-etag', () => ({ getCachedPageEtag: () => undefined }));
+vi.mock('../api/vault-search', () => ({ searchVaultContent: vi.fn() }));
 vi.mock('../api/vaults', () => ({ fetchVaultPagesByTable: vi.fn(), fetchVaultTables: vi.fn() }));
 
 import { getContributions, loadPlugins, mountSettingsPanel, runCommand } from './host';
@@ -49,6 +51,27 @@ function send(iframe: HTMLIFrameElement, data: unknown, source: MessageEventSour
 }
 
 describe('UI plugin host boundary', () => {
+  it('gates editor methods by Vault grants and returns stale-selection errors through RPC', async () => {
+    const { iframe, reply } = await mount(['ui:command', 'vault:read']);
+    const snapshot: PluginEditorSelection = { vaultId: '', documentId: 'page', sessionId: 'session', documentVersion: 0, selectionVersion: 0,
+      readOnly: false, mainIndex: 0, ranges: [{ from: 0, to: 4, text: 'Text' }] };
+    const replace = vi.fn(() => snapshot);
+    const registration = registerPluginSourceEditor({ getSelection: () => snapshot, replaceSelection: replace });
+    try {
+      send(iframe, { __gnosi: true, type: 'host-call', id: 'read', method: 'editor.getSelection' });
+      send(iframe, { __gnosi: true, type: 'host-call', id: 'write', method: 'editor.replaceSelection', args: { text: 'Changed', expected: snapshot } });
+      await vi.waitFor(() => { expect(reply).toHaveBeenCalledTimes(2); });
+      expect(reply).toHaveBeenCalledWith(expect.objectContaining({ id: 'read', ok: true, result: snapshot }), '*');
+      expect(reply).toHaveBeenCalledWith(expect.objectContaining({ id: 'write', ok: false, error: 'permís denegat: vault:write' }), '*');
+      expect(replace).not.toHaveBeenCalled();
+      const writable = await mount(['ui:command', 'vault:write']);
+      send(writable.iframe, { __gnosi: true, type: 'host-call', id: 'stale', method: 'editor.replaceSelection', args: { text: 'Changed', expected: { ...snapshot, selectionVersion: -1 } } });
+      await vi.waitFor(() => { expect(writable.reply).toHaveBeenCalledOnce(); });
+      expect(writable.reply).toHaveBeenCalledWith(expect.objectContaining({ id: 'stale', ok: false }), '*');
+      expect(writable.reply.mock.calls[0]?.[0]).toHaveProperty('error', 'Editor selection changed; read it again before replacing');
+      expect(replace).not.toHaveBeenCalled();
+    } finally { registration.dispose(); }
+  });
   it('drops old-document RPC after reparenting and renders only after panel registration', async () => {
     let resolveSettings: (value: Runtime.PluginSettingsResponse) => void = () => { throw new Error('Not initialized'); };
     const pending = new Promise<Runtime.PluginSettingsResponse>(resolve => { resolveSettings = resolve; });

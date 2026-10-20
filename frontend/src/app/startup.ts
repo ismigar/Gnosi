@@ -2,6 +2,7 @@ import { syncActiveVaultCookie } from '../shared/resources/fileResourcePaths';
 import { initializeVaultRouting } from '../shared/routing/vaultRouting';
 import { preloadApplicationRoute } from './routePreload';
 import { fetchSystemHealth } from '../shared/api/system';
+import { isPublicationPath, loadPublication } from '../features/sharing';
 
 type ApplicationLoader = () => Promise<{
   readonly bootstrap: (routingReady: Promise<void>) => Promise<void>;
@@ -29,7 +30,12 @@ export async function prepareStartup(): Promise<void> {
 
 export async function startApplication(
   loadApplication: ApplicationLoader = () => import('./bootstrap'),
+  loadPublicApplication: () => Promise<{ bootstrapPublication: () => Promise<void> }> = loadPublication,
 ): Promise<void> {
+  if (isPublicationPath(window.location.pathname)) {
+    await (await loadPublicApplication()).bootstrapPublication();
+    return;
+  }
   // Begin reading routing data before React DOM and the application shell have
   // finished downloading. Rendering still waits for both routing and language.
   const { routingReady, importsReady } = beginStartup();
