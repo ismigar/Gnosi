@@ -11,7 +11,7 @@ import { BookmarkForm, type BookmarkPage } from './BookmarkForm';
 import { BookmarkRow } from './BookmarkRows';
 import { currentBookmarkRoute } from './bookmark-routes';
 import { dragBookmark, groupedBookmarks } from './bookmark-order';
-import { bookmarkScope, isBookmark, moveBookmark, normalizeBookmarkDestination, type BookmarkSortMode, type VaultBookmark } from './bookmarks';
+import { bookmarkLabel, bookmarkScope, isBookmark, moveBookmark, normalizeBookmarkDestination, type BookmarkSortMode, type VaultBookmark } from './bookmarks';
 import { useBookmarks } from './useBookmarks';
 
 const VaultMarkdown = lazy(() => import('../editor/VaultMarkdown'));
@@ -50,14 +50,14 @@ function ScopedBookmarks({ onPageSelect, pages, activePageId, expanded: controll
   const create = () => {
     const current = pages.find((page) => page.id === activePageId);
     setActionError(null); setLocalExpanded(true); onExpandedChange?.(true);
-    setDraft({ id: crypto.randomUUID(), kind: 'page', label: current?.title ?? '', target: current?.id ?? '', group: '' });
+    setDraft({ id: crypto.randomUUID(), kind: 'page', label: bookmarkLabel(current?.title ?? '', current?.id), target: current?.id ?? '', group: '' });
   };
   const createView = () => {
     if (!currentView) return;
     const current = pages.find((page) => page.id === activePageId);
     const label = current?.title || document.title.replace(/\s*[·|—]\s*Gnosi.*$/u, '').trim() || t('bookmarks.route', 'Gnosi view');
     setActionError(null); setLocalExpanded(true); onExpandedChange?.(true);
-    setDraft(normalizeBookmarkDestination({ id: crypto.randomUUID(), kind: 'route', label: label.slice(0, 200), target: currentView, group: '' }));
+    setDraft(normalizeBookmarkDestination({ id: crypto.randomUUID(), kind: 'route', label: bookmarkLabel(label), target: currentView, group: '' }));
   };
   const save = () => {
     if (!draft || disabled) return;

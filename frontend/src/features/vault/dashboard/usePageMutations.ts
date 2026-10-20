@@ -2,6 +2,7 @@ import type { Metadata } from './types';
 import { useCallback } from 'react';
 import { tabBookmarkTarget } from './bookmark-target';
 import { useBookmarks } from '../../../shared/bookmarks/useBookmarks';
+import { bookmarkLabel } from '../../../shared/bookmarks/bookmarks';
 import { bulkApplyVaultTemplate } from '../../../shared/api/vaults';
 import { duplicateVaultPage } from '../../../shared/api/vaults';
 import { patchVaultTableProperty } from '../../../shared/api/vaults';
@@ -55,8 +56,9 @@ export function usePageMutations(context: Context) {
         const destination = tabBookmarkTarget(page, context.activeViewId);
         if (!page || !destination) return;
         try {
-            if (destination.kind === 'page') await bookmarks.setPage(destination.target, page.title, !bookmarks.pageIds.has(destination.target));
-            else await bookmarks.setRoute(destination.target, page.title, !bookmarks.routeTargets.has(destination.target));
+            const label = bookmarkLabel(page.title, page.id);
+            if (destination.kind === 'page') await bookmarks.setPage(destination.target, label, !bookmarks.pageIds.has(destination.target));
+            else await bookmarks.setRoute(destination.target, label, !bookmarks.routeTargets.has(destination.target));
         } catch (error) {
             notifyError('page-bookmark', error, t('bookmarks.save_failed', 'Could not save the bookmark. Try again.'));
         }

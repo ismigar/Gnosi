@@ -71,6 +71,21 @@ describe('editor and page mutations', () => {
     expect(vault.patchVaultPage).not.toHaveBeenCalled();
     expect(harness.current.tabs[0]?.content).toBe('body');
   });
+  it('can add and remove pages whose titles exceed the bookmark name limit', async () => {
+    const title = 'Long page title '.repeat(20);
+    await harness.run(state => { state.setTabs([{ ...PAGE, title, content: 'keep body' }]); });
+    await harness.run(state => state.handleToggleFavorite(PAGE_ID));
+    const label = pageBookmarks.setPage.mock.calls[0]?.[1];
+    expect(label).toBeTruthy();
+    expect(label?.length).toBeLessThanOrEqual(200);
+    expect(harness.current.bookmarkedPageIds.has(PAGE_ID)).toBe(true);
+    await harness.run(state => state.handleToggleFavorite(PAGE_ID));
+    expect(pageBookmarks.setPage).toHaveBeenLastCalledWith(PAGE_ID, label, false);
+    expect(harness.current.bookmarkedPageIds.has(PAGE_ID)).toBe(false);
+    expect(harness.current.tabs[0]?.title).toBe(title);
+    expect(harness.current.tabs[0]?.content).toBe('keep body');
+    expect(vault.patchVaultPage).not.toHaveBeenCalled();
+  });
   it('uses a saved-view route for table stars without writing a synthetic page id', async () => {
     await harness.run(state => { state.setTabs([{ id: 'table:table', tableId: 'table', title: 'Table view', isTable: true }]); state.setActiveViewId('kanban'); });
     await harness.run(state => state.handleToggleFavorite('table:table'));

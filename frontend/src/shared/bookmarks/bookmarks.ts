@@ -13,6 +13,16 @@ export interface VaultBookmark {
   readonly created_at?: number;
 }
 
+/** Bound automatic names without splitting a Unicode character. */
+export function bookmarkLabel(title: string, fallback = ''): string {
+  let label = '';
+  for (const character of title.trim() || fallback.trim()) {
+    if (label.length + character.length > 200) break;
+    label += character;
+  }
+  return label;
+}
+
 export function normalizeBookmarkDestination(entry: VaultBookmark): VaultBookmark {
   const pageId = entry.kind === 'route' ? pageIdFromBookmarkRoute(entry.target) : null;
   return pageId ? { ...entry, kind: 'page', target: pageId } : entry;
