@@ -38,17 +38,7 @@ def reconcile(ai: dict[str, Any], state: dict[str, Any]) -> bool:
     except RuntimeError:
         default = {}
     changed = False
-    for personal in agents:
-        if not isinstance(personal, dict) or personal.get("managed_by") or "behavior_migration" in personal:
-            continue
-        original = profile_defaults("")
-        legacy = str(personal.get("persona") or "")
-        personal["behavior_migration"] = {"version": 1, "original": original,
-            "original_revision": revision(original), "legacy_persona": legacy,
-            "legacy_context": str(personal.get("context") or "")}
-        if not legacy.strip():
-            personal["persona"] = original
-        changed = True
+    changed = _migrate_personal_profiles(agents)
     for plugin, template in declarations().items():
         current = by_id.get(template["id"])
         enabled = is_enabled(state, plugin)
@@ -156,3 +146,19 @@ def validate_preserved(current: dict[str, Any], requested: dict[str, Any]) -> No
             raise ValueError("plugin_profile_must_be_preserved")
         if replacement.get("plugin_suspended", False) != profile.get("plugin_suspended", False):
             raise ValueError("plugin_profile_lifecycle_owned_by_plugin")
+
+
+def _migrate_personal_profiles(agents: list[Any]) -> bool:
+    changed = False
+    for personal in agents:
+        if not isinstance(personal, dict) or personal.get("managed_by") or "behavior_migration" in personal:
+            continue
+        original = profile_defaults("")
+        legacy = str(personal.get("persona") or "")
+        personal["behavior_migration"] = {"version": 1, "original": original,
+            "original_revision": revision(original), "legacy_persona": legacy,
+            "legacy_context": str(personal.get("context") or "")}
+        if not legacy.strip():
+            personal["persona"] = original
+        changed = True
+    return changed
