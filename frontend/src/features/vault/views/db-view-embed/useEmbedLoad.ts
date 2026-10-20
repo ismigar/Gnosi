@@ -7,6 +7,8 @@ import { reportEmbedError } from './diagnostics';
 import type { EmbedView } from './types';
 import type { EmbedInputs } from './inputs';
 export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t, reloadKey, setError, setLoading, setView, setRawRecords, setTableRecords, setTemplates, setQuickPresets, presetStorageKey, setPinnedViewIds, setTableViews, setActiveViewId, setLoadDuration }: EmbedInputs) {
+    const registrySourceRef = useRef(ctx.registry.views);
+    const refreshedRegistryRef = useRef(ctx.registry.views);
     const lastSavedNonceRef = useRef<number | undefined>(0);
     const beginLoad = useEffectEvent(() => {
         const inlineSectionStr = block?.props?.section;
@@ -118,14 +120,20 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
                 // (viewSectionNonce has changed) this one goes stale — saving touches
                 // the backend, not to ctx.registry—, so we reread the views
                 // fresh, so the change (size/preview…) is visible live.
-                let registryViews = ctx.registry.views;
+                // Record writes reload the embed before the editor registry catches up.
+                // Keep the registry fetched after configuration saves across those reloads.
+                let registryViews = registrySourceRef.current === ctx.registry.views
+                    ? refreshedRegistryRef.current : ctx.registry.views;
                 if (ctx.viewSectionNonce !== lastSavedNonceRef.current) {
-                    lastSavedNonceRef.current = ctx.viewSectionNonce;
                     try {
-                        const fresh = await fetchVaultViews();
-                        registryViews = fresh;
-                    } catch { /* fallback: ctx.registry */ }
+                        registryViews = await fetchVaultViews();
+                        if (isCancelled()) return;
+                        lastSavedNonceRef.current = ctx.viewSectionNonce;
+                    } catch { /* retain the latest known registry and retry on a later load */ }
                 }
+                if (isCancelled()) return;
+                registrySourceRef.current = ctx.registry.views;
+                refreshedRegistryRef.current = registryViews;
 
                 if (!isCancelled()) {
                     setRawRecords(records);
