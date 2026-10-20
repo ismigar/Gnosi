@@ -48,7 +48,7 @@ export function GraphSidebarView({ controller }: GraphSidebarViewProps) {
       pathResult={controller.pathResult}
       getNodeLabel={getNodeLabel}
       afterWidgets={(
-        <div style={{ marginTop: '20px', paddingRight: '10px' }}>
+        <div className="graph-sidebar-widgets">
           <VisualizationSection
             showArrows={controller.showArrows}
             onShowArrowsChange={controller.setShowArrows}

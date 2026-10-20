@@ -72,7 +72,7 @@ describe('graph Sidebar', () => {
         });
 
         const search = container.querySelector<HTMLInputElement>('#search-input');
-        const semantic = container.querySelector<HTMLInputElement>('#semantic-suggestions-toggle');
+        const semantic = container.querySelector<HTMLElement>('[role="switch"][aria-label="Show semantic connections"]');
         const pathButton = Array.from(container.querySelectorAll('button'))
             .find((button) => button.textContent.includes('Stop search'));
         const clearButton = Array.from(container.querySelectorAll('button'))

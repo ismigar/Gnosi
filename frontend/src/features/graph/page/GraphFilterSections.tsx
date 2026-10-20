@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react';
+import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import { Trans, useTranslation } from 'react-i18next';
 
 import { CollapsibleSection } from '../../../shared/ui/sections/CollapsibleSection';
@@ -32,36 +32,11 @@ function FilterCheckbox({
 }: FilterCheckboxProps) {
   return (
     <div className="filter-item-advanced" style={small ? { marginBottom: '4px' } : undefined}>
-      <input
-        type="checkbox"
-        id={id}
-        checked={active}
-        onChange={onToggle}
-        style={{ display: 'none' }}
-      />
-      <label
-        htmlFor={id}
-        style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-      >
-        <span
-          className="custom-checkbox"
-          style={{
-            backgroundColor: color,
-            height: small ? '14px' : undefined,
-            opacity: active ? 1 : (small ? 0.2 : 0.3),
-            width: small ? '14px' : undefined,
-          }}
-        >
-          {active && <Check size={small ? 8 : 10} color="white" />}
-        </span>
-        <span
-          className="filter-label-text"
-          style={small ? { fontSize: '0.75rem' } : undefined}
-          title={title}
-        >
-          {label}
-        </span>
-      </label>
+      <div className="graph-switch-row" id={id}>
+        <GnosiToggle active={active} label={typeof label === 'string' ? label : title ?? id} onChange={onToggle} />
+        <span className="cluster-dot" aria-hidden="true" style={{ backgroundColor: color }} />
+        <span className="filter-label-text" title={title}>{label}</span>
+      </div>
     </div>
   );
 }

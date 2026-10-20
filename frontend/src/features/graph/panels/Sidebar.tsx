@@ -1,3 +1,4 @@
+import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -99,17 +100,10 @@ export function Sidebar({
             {hasClusterData && <div className="section">
                 <h2 className="filter-title gnosi-sidebar-section-title">{t('graph.sidebar.color_by', "Color by")}</h2>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                    <label style={{ cursor: 'pointer' }}>
-                        <input
-                            type="checkbox"
-                            checked={colorMode === 'cluster'}
-                            onChange={() => {
-                                toggleColorMode('cluster');
-                            }}
-                            style={{ marginRight: '5px' }}
-                        />
+                    <div className="graph-switch-row">
+                        <GnosiToggle active={colorMode === 'cluster'} label={t('graph.sidebar.color_cluster', 'Cluster')} onChange={() => { toggleColorMode('cluster'); }} />
                         {t('graph.sidebar.color_cluster', "Cluster")}
-                    </label>
+                    </div>
                 </div>
             </div>}
 
@@ -248,47 +242,24 @@ export function Sidebar({
 
             {hasSemanticData && <div className="section">
                 <h2 className="filter-title gnosi-sidebar-section-title">{t('graph.legend.semantic_similarity', 'Semantic connections')}</h2>
-                <div className="filter-item">
-                    <input
-                        type="checkbox"
-                        id="semantic-suggestions-toggle"
-                        checked={showSemanticSuggestions}
-                        onChange={(event) => {
-                            onShowSemanticSuggestionsChange(event.target.checked);
-                        }}
-                    />
-                    <label htmlFor="semantic-suggestions-toggle">
-                        {t('graph.connections_panel.show_semantic', 'Show semantic connections')}
-                    </label>
+                <div className="graph-switch-row">
+                    <GnosiToggle active={showSemanticSuggestions} label={t('graph.connections_panel.show_semantic', 'Show semantic connections')} onChange={() => { onShowSemanticSuggestionsChange(!showSemanticSuggestions); }} />
+                    <span>{t('graph.connections_panel.show_semantic', 'Show semantic connections')}</span>
                 </div>
-                <p style={{ margin: '6px 0 0 24px', color: 'var(--text-tertiary)', fontSize: '0.78rem' }}>
+                <p style={{ margin: '6px 0 0', color: 'var(--text-tertiary)', fontSize: '0.78rem' }}>
                     {t('graph.connections_panel.show_semantic_hint', 'Pending Brain proposals; they do not modify notes.')}
                 </p>
             </div>}
 
             <div className="section">
-                <div className="filter-item">
-                    <input
-                        type="checkbox"
-                        id="isolated-nodes-filter"
-                        checked={hideIsolated}
-                        onChange={(event) => {
-                            onHideIsolatedChange(event.target.checked);
-                        }}
-                    />
-                    <label htmlFor="isolated-nodes-filter">{t('graph.sidebar.hide_isolated_nodes', "Hide isolated nodes")}</label>
+                <div className="graph-switch-row">
+                    <GnosiToggle active={hideIsolated} label={t('graph.sidebar.hide_isolated_nodes', 'Hide isolated nodes')} onChange={() => { onHideIsolatedChange(!hideIsolated); }} />
+                    <span>{t('graph.sidebar.hide_isolated_nodes', 'Hide isolated nodes')}</span>
                 </div>
 
-                <div className="filter-item">
-                    <input
-                        type="checkbox"
-                        id="only-isolated-filter"
-                        checked={onlyIsolated}
-                        onChange={(event) => {
-                            onOnlyIsolatedChange(event.target.checked);
-                        }}
-                    />
-                    <label htmlFor="only-isolated-filter">{t('graph.sidebar.show_only_isolated_nodes', "Show only isolated nodes")}</label>
+                <div className="graph-switch-row">
+                    <GnosiToggle active={onlyIsolated} label={t('graph.sidebar.show_only_isolated_nodes', 'Show only isolated nodes')} onChange={() => { onOnlyIsolatedChange(!onlyIsolated); }} />
+                    <span>{t('graph.sidebar.show_only_isolated_nodes', 'Show only isolated nodes')}</span>
                 </div>
             </div>
             {afterWidgets}

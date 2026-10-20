@@ -1,3 +1,4 @@
+import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CollapsibleSection } from '../../../shared/ui/sections/CollapsibleSection';
@@ -65,19 +66,11 @@ export function ForcesSection({
     return (
         <CollapsibleSection title={t('graph.forces.title', 'Forces')} defaultOpen={false}>
             {/* LinLog Mode (Cloud Mode) */}
-            <div style={{ ...sliderContainerStyle, display: 'flex', alignItems: 'center' }}>
-                <input
-                    type="checkbox"
-                    id="graph-force-linlog"
-                    checked={linLogMode}
-                    onChange={(e) => {
-                        onLinLogModeChange(e.target.checked);
-                    }}
-                    style={{ marginRight: '8px', cursor: 'pointer' }}
-                />
-                <label htmlFor="graph-force-linlog" style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>
+            <div className="graph-switch-row">
+                <GnosiToggle active={linLogMode} label={t('graph.forces.cloud_mode', 'Cloud Mode (LinLog)')} onChange={() => { onLinLogModeChange(!linLogMode); }} />
+                <span style={{ ...labelStyle, marginBottom: 0 }}>
                     {t('graph.forces.cloud_mode', "Cloud Mode (LinLog)")} - <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{t('graph.forces.cloud_mode_hint', "Better for clusters")}</span>
-                </label>
+                </span>
             </div>
 
             {/* Gravity (Centering Force) */}
@@ -164,35 +157,19 @@ export function ForcesSection({
             </div>
 
             {/* Strong Gravity Mode */}
-            <div style={{ ...sliderContainerStyle, display: 'flex', alignItems: 'center' }}>
-                <input
-                    type="checkbox"
-                    id="graph-force-strong-gravity"
-                    checked={strongGravityMode}
-                    onChange={(e) => {
-                        onStrongGravityModeChange(e.target.checked);
-                    }}
-                    style={{ marginRight: '8px', cursor: 'pointer' }}
-                />
-                <label htmlFor="graph-force-strong-gravity" style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>
+            <div className="graph-switch-row">
+                <GnosiToggle active={strongGravityMode} label={t('graph.forces.strong_gravity', 'Strong gravity')} onChange={() => { onStrongGravityModeChange(!strongGravityMode); }} />
+                <span style={{ ...labelStyle, marginBottom: 0 }}>
                     {t('graph.forces.strong_gravity', "Strong gravity")} - <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{t('graph.forces.strong_gravity_hint', "Prevents orphans from escaping")}</span>
-                </label>
+                </span>
             </div>
 
             {/* Outbound Attraction Distribution */}
-            <div style={{ ...sliderContainerStyle, display: 'flex', alignItems: 'center' }}>
-                <input
-                    type="checkbox"
-                    id="graph-force-outbound"
-                    checked={outboundAttractionDistribution}
-                    onChange={(e) => {
-                        onOutboundAttractionDistributionChange(e.target.checked);
-                    }}
-                    style={{ marginRight: '8px', cursor: 'pointer' }}
-                />
-                <label htmlFor="graph-force-outbound" style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>
+            <div className="graph-switch-row">
+                <GnosiToggle active={outboundAttractionDistribution} label={t('graph.forces.outbound', 'Distribute attraction by degree')} onChange={() => { onOutboundAttractionDistributionChange(!outboundAttractionDistribution); }} />
+                <span style={{ ...labelStyle, marginBottom: 0 }}>
                     {t('graph.forces.outbound', "Distribute attraction by degree")} - <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{t('graph.forces.outbound_hint', "Compresses hubs (off = Obsidian-style radial)")}</span>
-                </label>
+                </span>
             </div>
 
             <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '8px', fontStyle: 'italic' }}>
