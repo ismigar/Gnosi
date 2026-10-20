@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import MailComposer from './MailComposer';
+import { MailSubmissionError } from '../../../shared/api/mail-specialized';
 import type { MailComposerProps } from './mailComposerTypes';
 
 
@@ -62,7 +63,8 @@ vi.mock('../../../shared/api/mail', () => ({
     saveMailDraft: mocks.saveMailDraft,
 }));
 
-vi.mock('../../../shared/api/mail-specialized', () => ({
+vi.mock('../../../shared/api/mail-specialized', async (importOriginal) => ({
+    ...await importOriginal<typeof import('../../../shared/api/mail-specialized')>(),
     replyMailMultipart: mocks.replyMailMultipart,
     sendMailMultipart: mocks.sendMailMultipart,
 }));
@@ -188,6 +190,95 @@ function buttonContaining(container: HTMLElement, text: string): HTMLButtonEleme
 }
 
 describe('MailComposer shared Mail API migration', () => {
+    it.each([
+        ['blind@example.test', 'blind@example.test'],
+        [['blind@example.test', 'private@example.test'], 'blind@example.test, private@example.test'],
+    ] as const)('restores blind recipients from a saved draft and retains them when saving and sending (%s)', async (initialBcc, expected) => {
+        vi.useFakeTimers();
+        const { container } = renderComposer({
+            _draftId: 'draft-with-bcc', initialBcc, initialTo: 'reader@example.test', initialSubject: 'Saved draft',
+        });
+        const input = container.querySelector<HTMLInputElement>('input[aria-label="BCC"]');
+        expect(input?.value).toBe(expected);
+        const body = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="mail-body"]');
+        if (!body) throw new Error('Missing mail body');
+        act(() => { changeValue(body, '<p>Restored draft body</p>'); });
+        await act(async () => {
+            vi.advanceTimersByTime(2000);
+            await Promise.resolve();
+        });
+        expect(mocks.saveMailDraft).toHaveBeenCalledWith(expect.objectContaining({
+            bcc: expected, draft_id: 'draft-with-bcc',
+        }));
+        await act(async () => {
+            buttonContaining(container, 'mail.send_btn').click();
+            await Promise.resolve();
+        });
+        expect(mocks.sendMailMultipart).toHaveBeenCalledOnce();
+        expect(mocks.sendMailMultipart.mock.calls[0]?.[1].get('bcc')).toBe(expected);
+    });
+
+    it('guards repeated keyboard sends and retains content and attachment after unknown delivery', async () => {
+        let rejectSend: ((reason: unknown) => void) | undefined;
+        mocks.sendMailMultipart.mockImplementationOnce(() => new Promise((_resolve, reject) => {
+            rejectSend = reject;
+        }));
+        const onClose = vi.fn();
+        const { container } = renderComposer({
+            _draftId: 'draft-existing', initialTo: 'charles@example.test', initialSubject: 'Notes', onClose,
+        });
+        const body = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="mail-body"]');
+        if (!body) throw new Error('Missing mail body');
+        act(() => { changeValue(body, '<p>Keep this content</p>'); });
+        const file = new File([new Uint8Array(414 * 1024)], 'fixture.png', { type: 'image/png' });
+        const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+        if (!input) throw new Error('Missing attachment input');
+        Object.defineProperty(input, 'files', { configurable: true, value: [file] });
+        act(() => { input.dispatchEvent(new Event('change', { bubbles: true })); });
+        act(() => {
+            body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
+            body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true }));
+        });
+        expect(mocks.sendMailMultipart).toHaveBeenCalledOnce();
+        expect(buttonContaining(container, 'mail.send_btn').disabled).toBe(true);
+        await act(async () => {
+            rejectSend?.(new MailSubmissionError('unknown'));
+            await Promise.resolve();
+        });
+        expect(buttonContaining(container, 'mail.send_btn').disabled).toBe(false);
+        expect(body.value).toBe('<p>Keep this content</p>');
+        expect(container.textContent).toContain('fixture.png');
+        expect(mocks.toast.error).toHaveBeenCalledWith('mail.send_unknown');
+        expect(mocks.deleteMailDraft).not.toHaveBeenCalled();
+        expect(onClose).not.toHaveBeenCalled();
+        expect(mocks.sendMailMultipart).toHaveBeenCalledOnce();
+    });
+
+    it('aborts on unmount and ignores a late successful response', async () => {
+        let resolveSend: ((result: { status: string }) => void) | undefined;
+        mocks.sendMailMultipart.mockImplementationOnce(() => new Promise((resolve) => { resolveSend = resolve; }));
+        const onClose = vi.fn();
+        const onSent = vi.fn();
+        const { container } = renderComposer({ initialTo: 'charles@example.test', onClose, onSent });
+        const body = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="mail-body"]');
+        if (!body) throw new Error('Missing mail body');
+        act(() => { changeValue(body, '<p>Content</p>'); });
+        act(() => { buttonContaining(container, 'mail.send_btn').click(); });
+        const signal = mocks.sendMailMultipart.mock.calls[0]?.[2]?.signal;
+        const mounted = mountedRoots.pop();
+        if (!mounted) throw new Error('Missing mounted composer');
+        act(() => { mounted.root.unmount(); });
+        mounted.container.remove();
+        expect(signal?.aborted).toBe(true);
+        await act(async () => {
+            resolveSend?.({ status: 'success' });
+            await Promise.resolve();
+        });
+        expect(onSent).not.toHaveBeenCalled();
+        expect(onClose).not.toHaveBeenCalled();
+        expect(mocks.toast.success).not.toHaveBeenCalled();
+    });
+
     it('auto-saves the current draft and reports only the first successful save', async () => {
         vi.useFakeTimers();
         const onDraftSaved = vi.fn();

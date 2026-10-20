@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-27
+last_verified: 2026-10-17
 source_paths:
   - backend/domains/configuration/source_sections_schema.py
   - frontend/src/features/vault/properties/sourceSectionRelations.ts
@@ -39,6 +39,10 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_reader_source_registry.py
+  - backend/tests/test_reader_source_routes.py
+  - backend/tests/test_feed_ingester_savepoint.py
+  - backend/tests/test_mail_ingester_savepoint.py
   - backend/tests/test_pdf_extraction_cache.py
   - backend/tests/test_llm_wiki_source_sections.py
   - frontend/src/features/vault/properties/sourceSectionRelations.test.ts
@@ -399,3 +403,27 @@ puede recuperarlo solo si toda la página normalizada tiene la misma longitud y
 todos los demás caracteres coinciden. El valor no se deduce de la cita solicitada;
 cualquier otra diferencia impide la recuperación. Se conservan los índices de
 geometría nativos originales.
+
+Las suscripciones son autoritativas en `<Vault>/.gnosi/reader_sources.json`
+(versión 1). SQLite local es una proyección identificada por URL. El primer acceso
+migra las fuentes existentes si falta el registro; después permite reconstruir
+una base local nueva al mover el Vault o cambiar el directorio de datos. Los
+identificadores siguen siendo locales y se conservan los vínculos de artículos
+existentes. Artículos, estado de lectura y credenciales de newsletters siguen
+en SQLite local; mover el Vault no traslada esos registros.
+
+Crear y eliminar fuentes, importar OPML y crear remitentes de newsletters guarda
+el registro atómicamente antes de confirmar SQLite. Un bloqueo local serializa
+los cambios y relee el registro. Una lista vacía es autoritativa: una base antigua
+no puede resucitar fuentes eliminadas. Los metadatos inválidos, de versión
+desconocida o no disponibles en la nube generan un error reintentable sin
+sobrescribirlos. Las URL con usuario y contraseña incrustados deben limpiarse
+antes de migrar. El bloqueo local no coordina escrituras simultáneas entre
+dispositivos; se aplica la gestión de conflictos del proveedor de nube.
+
+Las direcciones de newsletters también admiten `newsletter://address@example.test`
+y se guardan como `mailto:address@example.test`, incluso al importar OPML o el
+registro. Se rechazan duplicados entre ambos formatos y alias con contraseñas,
+delimitadores codificados, controles, rutas o parámetros. Se conservan los vínculos
+de artículos. Las entradas RSS y mailto existentes mantienen su comportamiento;
+el alias no configura una cuenta de correo ni credenciales.

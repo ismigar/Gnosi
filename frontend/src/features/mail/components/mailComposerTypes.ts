@@ -27,6 +27,7 @@ export interface MailComposerProps {
   readonly account?: MailComposerAccount | null;
   readonly accounts?: readonly MailComposerAccount[];
   readonly initialBody?: string;
+  readonly initialBcc?: string | readonly string[];
   readonly initialCc?: string;
   readonly initialSubject?: string;
   readonly initialTo?: string;

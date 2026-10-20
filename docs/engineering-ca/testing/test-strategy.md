@@ -23,6 +23,7 @@ source_paths:
   - frontend/scripts/check-bundle-size.ts
   - frontend/scripts/lint.mjs
   - frontend/scripts/lint-files.mjs
+  - frontend/scripts/lint-worker.mjs
   - frontend/scripts/typecheck.mjs
   - frontend/scripts/typecheck-worker.mjs
 tests:
@@ -36,6 +37,7 @@ tests:
   - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
   - frontend/tests/contracts/lint-runner.test.ts
+  - frontend/scripts/lint-worker.test.mjs
   - frontend/tests/contracts/typecheck-runner.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -119,12 +121,20 @@ uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
 A macOS, feu servir `--resource-profile mac-idle` per a la validació local acotada. Substitueix el heap predeterminat per 1536 MiB, executa amb prioritat 10, un worker i un fil de càlcul, i supervisa un pressupost RSS de 2 GiB per a l’ordre i els descendents. Cada fase comença només després de 30 segons de pressió de memòria normal. Les comprovacions estàtiques, els builds i les suites tenen límits de 5, 10 i 15 minuts respectivament.
 
 `pnpm lint:frontend` descobreix els fitxers amb el recorregut configurat d’ESLint i
-els comprova en lots de com a màxim 128 fitxers, amb processos nous i seqüencials.
+els comprova en lots de com a màxim 16 fitxers, amb processos nous i seqüencials.
+Cada procés conserva el servei de tipus durant com a màxim 384 fitxers. Després
+de cada lot, cedeix el control i recull la memòria temporal abans de continuar.
 La descoberta no analitza el codi ni omple la memòria cau de lint; només les
 comprovacions CLI posteriors poden acreditar l’èxit. Cada lot conserva totes les
 regles, la comprovació tipada amb project service, les exclusions i el llindar de
 zero avisos. Un lot fallit atura l’ordre. `GNOSI_ESLINT_CACHE` continua activant la
-cau basada en contingut. Els límits de heap, RSS i durada de mac-idle no canvien.
+cau basada en contingut. L’entorn canònic de validació conserva aquesta opció
+explícita de l’analitzador i continua aïllant els selectors de l’aplicació, les
+credencials i els indicadors de proves contra serveis reals. Prepareu les memòries
+cau reutilitzades amb `scripts/ci/prepare_analysis_cache.py` perquè els tipus de
+fonts importades, la configuració i els fitxers de dependències invalidin els
+resultats obsolets; per defecte no es fa servir cau.
+Els límits de heap, RSS i durada de mac-idle no canvien.
 Les regressions comparen la descoberta amb ESLint real i cobreixen errors en lots
 posteriors, regles tipades, invalidació de cau i terminació del procés fill.
 
@@ -446,3 +456,15 @@ la matriu de release.
 El [catàleg de proves](../generated/tests.md) generat enumera els fitxers propis
 i senyals de navegació. La recollida del runner continua sent l'autoritat per
 comptar les proves executables.
+
+## Resultats de tipus del frontend verificats explícitament
+
+La parella opcional `GNOSI_TYPECHECK_CACHE` i `GNOSI_TYPECHECK_CACHE_SHA256` vincula un manifest privat i propi, l'ajudant fix `verify-typecheck-cache.py` i l'executable Python bloquejat abans d'executar-lo. Verifica una fase completa de tipus realment finalitzada i totes les empremtes actuals de fonts, configuració, dependències, enllaços simbòlics i Node. Només poden diferir fitxers de qualitat no TypeScript revisats explícitament; la funció original completa `typecheck()`, el compilador, el treballador, les arrels i les regles no canvien. Una validació global posterior fallida continua fallida.
+
+Sense la parella s'executa el comprovador original intacte. Els vincles parcials, malformats o obsolets fallen sense alternativa ni reintent. La verificació correcta mostra `VERIFIED_CACHED_WHOLE_FRONTEND_TYPES`, sense inventar lots semàntics actuals. L'entorn pre-PR exposa la parella només a la fase exacta `Frontend types` i elimina totes dues claus de qualsevol altra fase, incloses les proves del frontend. Els límits, la neteja i les altres obligacions de validació es mantenen.
+
+## Validació interactiva explícita a macOS
+
+El perfil separat i opcional `mac-interactive` se selecciona amb `--resource-profile mac-interactive` quan la validació ha de conviure amb `Codex` obert. Requereix 30 segons continus de pressió no crítica dins la mateixa finestra prèvia de 90 segons. El nivell d'avís de l'amfitrió `2` es registra com a convivència, inclosos els canvis de nivell durant el treball propi; no atura aquest perfil. El perfil original `mac-idle` i el comportament de `--resource-profile mac-idle` no canvien: calen 30 segons normals i un avís sostingut durant dos segons atura el treball propi. Els resultats interactius han d'identificar el perfil i no poden presentar-se com a acceptació estricta en repòs.
+
+Tots dos perfils s'aturen davant del nivell crític `4`, sondes de pressió desconegudes o fallides, RSS propi superior a 2 GiB, terminis o processos fills orfes. Mantenen el sostre Node de 1536 MiB, un treballador/fil, nice 10, límits estàtics/compilació/suites de 300/600/900 segons i sondes de processos de dos segons. El mode interactiu només canvia el tractament dels avisos de pressió de fons observats; no afegeix reintents, alternatives silencioses, augments de recursos ni cap obligació de tancar aplicacions. La neteja pròpia i les altres obligacions de validació continuen sent obligatòries.

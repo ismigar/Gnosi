@@ -8,8 +8,9 @@ export function isMicrosoftMailAddress(email: string): boolean {
   return parts.length === 2 && !!parts[0] && MICROSOFT_MAIL_DOMAINS.includes(parts[1] ?? '');
 }
 
-export function microsoftSignInPath(email: string): string {
+export function microsoftSignInPath(email: string, accountType: string = 'mail'): string {
   const params = new URLSearchParams();
+  if (accountType === 'calendar') params.set('type', 'calendar');
   if (email.trim()) params.set('login_hint', email.trim());
   return '/api/auth/microsoft/login' + (params.size ? '?' + params.toString() : '');
 }

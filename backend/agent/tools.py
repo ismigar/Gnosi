@@ -1,10 +1,32 @@
 import logging
 from typing import Any
 from langchain_core.tools import StructuredTool
-from pydantic import create_model
+from copy import deepcopy
+
+from backend.services.mcp_contracts import compile_mcp_schema, validate_mcp_value
 from backend.mcp.client import MultiServerMCPClient
 
 log = logging.getLogger(__name__)
+
+class MCPStructuredTool(StructuredTool):
+    """Executable MCP handler whose original schema must survive binding."""
+
+
+def provider_tool_definitions(tools: list[Any]) -> list[Any]:
+    """Bypass LangChain's lossy dereferencing only for validated MCP schemas."""
+    return [
+        {"type": "function", "function": {
+            "name": tool.name, "description": tool.description,
+            "parameters": deepcopy(tool.args_schema),
+        }} if isinstance(tool, MCPStructuredTool) else tool
+        for tool in tools
+    ]
+
+
+def bind_model_tools(model: Any, tools: list[Any], **kwargs: Any) -> Any:
+    """Bind exact MCP contracts while keeping executable tools in the graph."""
+    return model.bind_tools(provider_tool_definitions(tools), **kwargs)
+
 
 def create_mcp_tool(
     tool_def: dict[str, Any],
@@ -16,44 +38,30 @@ def create_mcp_tool(
     """
     Creates a LangChain tool from an MCP definition.
     """
-    name = str(tool_def["name"])
+    name = tool_def["name"]
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("MCP tool name must be a nonempty string")
     description = str(tool_def.get("description", ""))
     raw_schema = tool_def.get("inputSchema")
-    schema_def = raw_schema if isinstance(raw_schema, dict) else {}
-    
-    # Build dynamic Pydantic model for arguments
-    fields: dict[str, Any] = {}
-    # `required` from the MCP's JSON Schema: fields that are NOT there must be OPTIONAL.
-    # Previously ALL were marked as required (`...`), so an MCP tool with
-    # optional parameters (e.g. `limit`, `encoding`) would fail Pydantic validation
-    # of the args_schema when the LLM omitted them → the tool call was rejected.
-    required = set(schema_def.get("required", []) or [])
-    properties = schema_def.get("properties")
-    if isinstance(properties, dict):
-        for prop_name, _prop_schema in properties.items():
-            # Simplification: the type stays as Any (the full JSON mapping
-            # Schema→Pydantic by type is still pending). But we DO respect `required`.
-            normalized_name = str(prop_name)
-            if normalized_name in required:
-                fields[normalized_name] = (Any, ...)   # obligatori
-            else:
-                fields[normalized_name] = (Any, None)  # opcional (default None)
-    
-    # If no schema, use empty model
-    ArgsModel = create_model(f"{name}_args", **fields)
+    if raw_schema is not None and not isinstance(raw_schema, dict):
+        raise ValueError("MCP inputSchema must be an object")
+    schema_def = deepcopy(raw_schema if raw_schema is not None else {"type": "object", "properties": {}})
+    validator = compile_mcp_schema(schema_def)
 
     async def tool_func(**kwargs: Any) -> Any:
-        # This function will be called by the agent when it uses the tool
+        # Validate the original values without Pydantic coercion or synthesized
+        # defaults. A missing optional argument must remain absent, not null.
+        validate_mcp_value(kwargs, validator)
         if server_name:
             return await client.call_server_tool(server_name, name, kwargs)
         return await client.call_tool(name, kwargs)
 
-    return StructuredTool.from_function(
+    return MCPStructuredTool.from_function(
         func=None,
         coroutine=tool_func,
         name=exposed_name or name,
         description=description,
-        args_schema=ArgsModel
+        args_schema=schema_def
     )
 
 def get_mcp_tools(

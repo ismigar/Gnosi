@@ -81,3 +81,8 @@ flowchart LR
 ## Aspects de vérification
 
 Testez les nœuds non résolus et isolés, la cohérence de la légende des groupes, le repli du frontmatter, les seuils de suggestions sémantiques, les erreurs des répertoires cloud, le survol limité à un saut et la navigation du graphe vers la bonne page.
+
+Les quatre commutateurs du graphe (flèches, LinLog, gravité forte et attraction
+par degré) enregistrent leurs champs de configuration à chaque changement. Les
+écritures sont sérialisées par Vault ; une réponse ancienne ne remplace pas un
+choix en attente. Un échec restaure la valeur confirmée et affiche l’alerte existante.

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { CalendarPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -12,6 +12,7 @@ import {
 
 
 export interface RecurrenceEditorProps {
+    readonly renderUntilDate?: (value: string, onChange: (value: string) => void) => ReactNode;
     readonly inputClass?: string;
     readonly labelClass?: string;
     readonly onChange: (value: string | null) => void;
@@ -43,6 +44,7 @@ function RecurrenceEditorContent({
     inputClass,
     labelClass,
     onChange,
+    renderUntilDate,
 }: RecurrenceEditorContentProps) {
     const { t } = useTranslation();
     const [state, setState] = useState(initialState);
@@ -143,14 +145,16 @@ function RecurrenceEditorContent({
                     />
                     <div className="flex flex-1 items-center gap-1.5">
                         <span className="text-[12px] text-[var(--text-secondary)]">{t('calendar.recurrence_end_until', 'On the day')}</span>
-                        <input
+                        {renderUntilDate ? renderUntilDate(state.untilDate, untilDate => {
+                            updateState({ endType: 'until', untilDate });
+                        }) : <input
                             className="h-6 flex-1 rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-1.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                             onChange={(event) => {
                                 updateState({ endType: 'until', untilDate: event.target.value });
                             }}
                             type="date"
                             value={state.untilDate}
-                        />
+                        />}
                     </div>
                 </label>
             </div>

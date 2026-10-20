@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-27
+last_verified: 2026-10-17
 source_paths:
   - backend/domains/configuration/source_sections_schema.py
   - frontend/src/features/vault/properties/sourceSectionRelations.ts
@@ -39,6 +39,10 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_reader_source_registry.py
+  - backend/tests/test_reader_source_routes.py
+  - backend/tests/test_feed_ingester_savepoint.py
+  - backend/tests/test_mail_ingester_savepoint.py
   - backend/tests/test_pdf_extraction_cache.py
   - backend/tests/test_llm_wiki_source_sections.py
   - frontend/src/features/vault/properties/sourceSectionRelations.test.ts
@@ -313,6 +317,24 @@ entry cannot roll back the whole batch. Excerpts and full-text extraction are
 separate; truncation at ingest must not permanently discard recoverable source
 content.
 
+Subscriptions are authoritative in `<Vault>/.gnosi/reader_sources.json` (version 1).
+The local SQLite source rows are a projection, keyed by feed URL. First access
+migrates existing database sources when the registry is absent; subsequent
+access restores a fresh local database after moving the Vault or changing the
+application data directory. Source IDs remain local and existing article links
+are preserved. Articles, read state, newsletter account credentials and bodies
+remain in local SQLite; moving the Vault does not migrate those records.
+
+Creating/deleting a source, OPML import and newsletter sender creation publish
+the registry atomically before committing the local projection. A local process
+lock serializes changes; the registry is read again inside the lock. An empty
+source list is authoritative, so deleted sources cannot be resurrected by an old
+local database. Invalid, unsupported or unavailable cloud metadata fails closed
+with a retryable error instead of replacing it with an empty list. URLs with
+embedded user/password credentials must be cleaned before registry migration.
+Cloud synchronization still uses the provider's normal file-conflict handling;
+this local lock does not coordinate simultaneous writes on different devices.
+
 ## Reader navigation and Resources capture
 
 The article list keeps read and unread articles visible. Arrow Up and Arrow
@@ -429,3 +451,10 @@ When PDFium returns an unknown U+FFFE glyph, a second PDF decoder can restore
 it only if the complete normalized page has the same length and every other
 character agrees. Values never come from the requested quote; any other mismatch
 rejects reconciliation. The original native geometry indices are preserved.
+
+Newsletter mailbox inputs also accept `newsletter://address@example.test` and
+store the canonical `mailto:address@example.test`, including OPML and registry
+imports. Alias/canonical duplicates are rejected; passwords, encoded delimiters,
+controls, paths and query parameters are not accepted in the alias. Existing
+article links survive normalization. Existing RSS and mailto inputs keep their
+semantics; this alias does not configure a mailbox account or credentials.

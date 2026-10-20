@@ -1,5 +1,8 @@
 import type { Metadata } from './types';
 import { useCallback } from 'react';
+import { tabBookmarkTarget } from './bookmark-target';
+import { useBookmarks } from '../../../shared/bookmarks/useBookmarks';
+import { bookmarkLabel } from '../../../shared/bookmarks/bookmarks';
 import { bulkApplyVaultTemplate } from '../../../shared/api/vaults';
 import { duplicateVaultPage } from '../../../shared/api/vaults';
 import { patchVaultTableProperty } from '../../../shared/api/vaults';
@@ -12,9 +15,9 @@ import type { useDataLoading } from './useDataLoading';
 import type { useGlobalIndex } from './useGlobalIndex';
 import type { usePageLoading } from './usePageLoading';
 import type { useRecordCatalog } from './useRecordCatalog';
-type Context = Pick<DashboardState, 'pagesRef' | 'setActiveTableId' | 'setIsSchemaModalOpen' | 'setPages' | 'setTabs' | 't' | 'tabs'> & Pick<ReturnType<typeof useDataLoading>, 'fetchPages' | 'fetchPagesByTable' | 'fetchRegistry'> & Pick<ReturnType<typeof useGlobalIndex>, 'fetchGlobalIndex'> & Pick<ReturnType<typeof usePageLoading>, 'loadPage'> & Pick<ReturnType<typeof useRecordCatalog>, 'resolvePageTableId'>;
+type Context = Pick<DashboardState, 'pagesRef' | 'activeViewId' | 'setActiveTableId' | 'setIsSchemaModalOpen' | 'setTabs' | 't' | 'tabs'> & Pick<ReturnType<typeof useDataLoading>, 'fetchPages' | 'fetchPagesByTable' | 'fetchRegistry'> & Pick<ReturnType<typeof useGlobalIndex>, 'fetchGlobalIndex'> & Pick<ReturnType<typeof usePageLoading>, 'loadPage'> & Pick<ReturnType<typeof useRecordCatalog>, 'resolvePageTableId'>;
 export function usePageMutations(context: Context) {
-    const { fetchGlobalIndex, fetchPages, fetchPagesByTable, fetchRegistry, loadPage, pagesRef, resolvePageTableId, setActiveTableId, setIsSchemaModalOpen, setPages, setTabs, t, tabs } = context;
+    const { fetchGlobalIndex, fetchPages, fetchPagesByTable, fetchRegistry, loadPage, pagesRef, resolvePageTableId, setActiveTableId, setIsSchemaModalOpen, setTabs, t, tabs } = context;
     const handleDuplicatePage = useCallback(async (pageId: string) => {
         try {
             const duplicate = await duplicateVaultPage(pageId);
@@ -45,52 +48,21 @@ export function usePageMutations(context: Context) {
             toast.error(t('errors.rename_page'));
         }
     }, [fetchGlobalIndex, fetchPages, setTabs, t]);
+    const bookmarks = useBookmarks();
     const handleToggleFavorite = useCallback(async (pageId: string) => {
-        if (!pageId)
+        if (!pageId || !bookmarks.isReady || bookmarks.isPending)
             return;
-        // Computes the new value from local state (it resolves faster than
-        // a GET, and also serves as the basis for the optimistic patch that makes
-        // the Favorites section appear right away in the sidebar without
-        // waiting for the subsequent PATCH).
-        const currentPage = pagesRef.current.find(p => p.id === pageId)
-            || tabs.find(t => t.id === pageId);
-        const wasFav = currentPage?.metadata?.favorite === true
-            || currentPage?.metadata?.favorite === 'true';
-        const nextFav = !wasFav;
-        // 1) Optimista: actualitza pages i tabs immediatament.
-        setPages(prev => {
-            const next = prev.map(p => p.id === pageId
-                ? { ...p, metadata: { ...(p.metadata || {}), favorite: nextFav } }
-                : p);
-            pagesRef.current = next;
-            return next;
-        });
-        setTabs(prevTabs => prevTabs.map(t => t.id === pageId
-            ? { ...t, metadata: { ...(t.metadata || {}), favorite: nextFav } }
-            : t));
-        // Patch only the changed field. Reading a page and writing its whole
-        // body back can overwrite an autosave completed after that read.
+        const page = tabs.find(item => item.id === pageId) || pagesRef.current.find(item => item.id === pageId);
+        const destination = tabBookmarkTarget(page, context.activeViewId);
+        if (!page || !destination) return;
         try {
-            await patchVaultPage(pageId, { metadata: { favorite: nextFav } });
-            // We don't wait for fetchPages (it's slow on saturated networks); the
-            // optimistic patch has already refreshed the UI.
+            const label = bookmarkLabel(page.title, page.id);
+            if (destination.kind === 'page') await bookmarks.setPage(destination.target, label, !bookmarks.pageIds.has(destination.target));
+            else await bookmarks.setRoute(destination.target, label, !bookmarks.routeTargets.has(destination.target));
+        } catch (error) {
+            notifyError('page-bookmark', error, t('bookmarks.save_failed', 'Could not save the bookmark. Try again.'));
         }
-        catch (err) {
-            console.error(err);
-            // Revertir optimista
-            setPages(prev => {
-                const next = prev.map(p => p.id === pageId
-                    ? { ...p, metadata: { ...(p.metadata || {}), favorite: wasFav } }
-                    : p);
-                pagesRef.current = next;
-                return next;
-            });
-            setTabs(prevTabs => prevTabs.map(tt => tt.id === pageId
-                ? { ...tt, metadata: { ...(tt.metadata || {}), favorite: wasFav } }
-                : tt));
-            toast.error(t('errors.toggle_favorites'));
-        }
-    }, [pagesRef, tabs, setPages, setTabs, t]);
+    }, [bookmarks, context.activeViewId, pagesRef, tabs, t]);
     const handleEditSchema = useCallback((table: Partial<Table> | null | undefined, tabMetadata?: Metadata) => {
         const tid = table?.id || resolvePageTableId({ metadata: tabMetadata });
         if (!tid) {
@@ -136,5 +108,5 @@ export function usePageMutations(context: Context) {
             toast.error(t('bulk_actions.template_apply_error'));
         }
     }, [fetchPagesByTable, t]);
-    return { handleDuplicatePage, handleRenamePage, handleToggleFavorite, handleEditSchema, handleAddSchemaOption, handleApplyTemplate };
+    return { handleDuplicatePage, handleRenamePage, handleToggleFavorite, handleEditSchema, handleAddSchemaOption, handleApplyTemplate, bookmarkedPageIds: bookmarks.pageIds, bookmarkedRoutes: bookmarks.routeTargets, bookmarksReady: bookmarks.isReady && !bookmarks.isPending };
 }

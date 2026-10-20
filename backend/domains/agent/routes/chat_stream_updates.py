@@ -129,6 +129,7 @@ def _assistant_event(
                 "privacy": metadata.get("gnosi_privacy"),
                 "verification": metadata.get("gnosi_verification"),
                 "citations": metadata.get("gnosi_citations"),
+                "memory_provenance": metadata.get("memory_provenance"),
                 "freshness": metadata.get("gnosi_freshness"),
                 "job": metadata.get("gnosi_job"),
                 "explanation": metadata.get("gnosi_explanation"),

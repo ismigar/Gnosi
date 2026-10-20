@@ -9,6 +9,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build  # type: ignore[import-untyped]
 
 from backend.services.mail_inline_images import InlineImage, MimeAsset, build_mail_content
+from backend.domains.mail.services.submission import MailDeliveryUnknown, in_submission, transport_timeout
 
 log = logging.getLogger(__name__)
 
@@ -55,10 +56,20 @@ def get_gmail_service(email: str) -> Any | None:
         if creds.expired and creds.refresh_token:
             from google.auth.transport.requests import Request
 
-            creds.refresh(Request())  # type: ignore[no-untyped-call]
+            from functools import partial
+
+            request = Request()
+            creds.refresh(partial(request, timeout=transport_timeout()) if in_submission() else request)  # type: ignore[no-untyped-call]
             if isinstance(creds.token, str):
                 integration_manager.update_mail_account_token(email, creds.token)
             log.info(f"[Gmail] Token renewed for {email}")
+        if in_submission():
+            import httplib2  # type: ignore[import-untyped]
+            from google_auth_httplib2 import AuthorizedHttp  # type: ignore[import-untyped]
+
+            return build("gmail", "v1", http=AuthorizedHttp(
+                creds, http=httplib2.Http(timeout=transport_timeout()),
+            ))
         return build("gmail", "v1", credentials=creds)
     except Exception as e:
         log.error(f"[Gmail] Failed to initialize service for {email}: {e}")
@@ -154,6 +165,7 @@ def send_reply(
     if not service:
         return False
 
+    transmitting = False
     try:
         thread = service.users().threads().get(userId="me", id=thread_id).execute()
         last_msg = thread["messages"][-1]
@@ -189,12 +201,20 @@ def send_reply(
         )
 
         raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+        if in_submission():
+            transport_timeout()
+        transmitting = True
         service.users().messages().send(
             userId="me", body={"raw": raw_message, "threadId": thread_id}
         ).execute()
 
         return True
     except Exception as e:
+        if transmitting and in_submission():
+            from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
+
+            if not isinstance(e, HttpError) or int(e.resp.status) >= 500:
+                raise MailDeliveryUnknown() from e
         log.error(f"Error sending reply/forward to thread {thread_id}: {e}")
         return False
 
@@ -283,6 +303,7 @@ def send_new_message(
     service = get_gmail_service(email)
     if not service:
         return False
+    transmitting = False
     try:
         message = MIMEText(body, "html" if body.strip().startswith("<") else "plain")
         message["To"] = to
@@ -294,9 +315,17 @@ def send_new_message(
             message["Bcc"] = bcc
 
         raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        if in_submission():
+            transport_timeout()
+        transmitting = True
         service.users().messages().send(userId="me", body={"raw": raw_message}).execute()
         return True
     except Exception as e:
+        if transmitting and in_submission():
+            from googleapiclient.errors import HttpError
+
+            if not isinstance(e, HttpError) or int(e.resp.status) >= 500:
+                raise MailDeliveryUnknown() from e
         log.error(f"Error sending new message from {email}: {e}")
         return False
 
@@ -315,6 +344,7 @@ def send_new_message_with_attachments(
     service = get_gmail_service(email)
     if not service:
         return False
+    transmitting = False
     try:
         msg = build_mail_content(body, attachments=attachments, inline_images=inline_images)
         msg["To"] = to
@@ -326,9 +356,17 @@ def send_new_message_with_attachments(
             msg["Bcc"] = bcc
 
         raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+        if in_submission():
+            transport_timeout()
+        transmitting = True
         service.users().messages().send(userId="me", body={"raw": raw_message}).execute()
         return True
     except Exception as e:
+        if transmitting and in_submission():
+            from googleapiclient.errors import HttpError
+
+            if not isinstance(e, HttpError) or int(e.resp.status) >= 500:
+                raise MailDeliveryUnknown() from e
         log.error(f"Error sending message with attachments from {email}: {e}")
         return False
 

@@ -1,7 +1,30 @@
 ---
 status: implemented
-last_verified: 2026-10-06
+last_verified: 2026-10-15
 source_paths:
+  - backend/services/workspace_speech.py
+  - backend/domains/agent/routes/workspace_speech.py
+  - frontend/src/shared/speech
+  - frontend/src/shared/api/speech-output.ts
+  - backend/tests/test_agent_workspace_speech.py
+  - backend/services/agent_workspace_store.py
+  - backend/services/agent_workspace_files.py
+  - backend/services/agent_workspace_documents.py
+  - backend/services/agent_workspace_analysis.py
+  - backend/services/agent_workspace_tools.py
+  - backend/services/agent_native_bridge.py
+  - desktop/agent-workspace.js
+  - desktop/electron-builder.yml
+  - desktop/scripts/after-pack.cjs
+  - desktop/scripts/native-privacy.cjs
+  - desktop/assets/native-privacy.json
+  - frontend/src/features/agent-workspace
+  - frontend/src/shared/api/agent-workspace.ts
+  - frontend/src/shared/api/agent-workspace-voice.ts
+  - backend/services/mcp_contracts.py
+  - backend/services/mcp_tool_contributions.py
+  - backend/tests/test_mcp_schema_validation.py
+  - backend/tests/test_agent_memory_provenance.py
   - frontend/src/shared/api/resource-processing.ts
   - frontend/src/features/literature/records/process-resource/useProcessResourceController.ts
   - frontend/src/features/literature/records/process-resource/resourceProcessingTasks.ts
@@ -127,6 +150,14 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_workspace.py
+  - backend/tests/test_agent_native_bridge.py
+  - backend/tests/test_agent_workspace_voice.py
+  - frontend/src/features/agent-workspace/AgentWorkspacePanel.test.tsx
+  - frontend/src/features/agent-workspace/useVoiceConversation.test.tsx
+  - frontend/src/features/agent/chat/promptQueue.test.ts
+  - desktop/agent-workspace.test.js
+  - desktop/native-privacy.test.js
   - backend/tests/test_agent_exact_inventory_filters.py
   - backend/tests/test_agent_exact_actions.py
   - backend/tests/test_agent_learning_review.py
@@ -1700,3 +1731,33 @@ Las claves entre comillas se conservan como propiedades JSON literales. Las plan
 Las revisiones Gauntlet utilizan un contexto nuevo con la solicitud original, los criterios fijos, el resultado candidato y las evidencias de las fuentes dentro del ámbito autorizado, sin herramientas ni delegación. Las evidencias ausentes u omitidas producen una verificación incompleta. Una llamada de corrección separada conserva el esquema de salida y recibe una nueva revisión. El bucle comparte los límites de llamadas y tiempo de la tarea principal, termina al aceptar el resultado o después de dos correcciones consecutivas sin mejora medible y propaga la cancelación y la revocación de permisos. Las correcciones no repiten acciones; una revisión interrumpida se reanuda como incompleta.
 
 El texto de las críticas, las solicitudes y las instantáneas de las fases internas no se guardan de forma persistente. Los registros de las fases solo conservan metadatos operativos y un resultado vacío. Los artefactos privados de recuperación conservan el candidato, los criterios y los metadatos de las fases con la retención existente de las ejecuciones. Los detalles del chat, la recuperación del flujo y las conversaciones guardadas solo exponen el estado de aceptación, el número de revisiones y de hallazgos pendientes y un motivo de detención finito.
+
+## Capacidades MCP gobernadas y fuentes de memoria de las respuestas
+
+Los esquemas de las herramientas MCP se conservan íntegros en el contrato de argumentos de LangChain. El anfitrión valida los valores exactos de los argumentos con JSON Schema antes de enviarlos al conector y antes de crear una confirmación gobernada, incluidos los objetos anidados, las listas, las enumeraciones y las referencias locales. Los argumentos opcionales siguen ausentes cuando se omiten. El adaptador de enlace proporciona directamente los diccionarios de funciones MCP y conserva las referencias recursivas locales, en vez de permitir que LangChain las resuelva con restricciones más débiles. Los destinos de las referencias locales se comprueban antes de admitirlos en el catálogo; las referencias sin destino o remotas solo hacen rechazar la capacidad malformada. La validación nunca recupera un esquema desde una URL proporcionada por el conector.
+
+`backend/config/mcp_config.py` define `MCP_TOOL_POLICIES`, cuya clave es el par exacto `(server_name, tool_name)`. Cada entrada de confianza declara `effects`, `minimum_role` y `confirmation`. Las definiciones desconocidas, incluidas las que solo anuncian `readOnlyHint`, siguen sin estar disponibles. Las herramientas con consecuencias requieren como mínimo acceso de editor; las escrituras externas y las acciones destructivas requieren confirmación `always` mediante el flujo existente de confirmación de un solo uso vinculado al ámbito. Las anotaciones del servidor y los campos de política incrustados no pueden conceder autorización. La antigua lista de nombres permitidos del perfil no puede conceder acceso MCP; los conectores deben asignarse explícitamente mediante el catálogo de habilidades gobernado.
+
+Los mensajes del asistente incluyen `memory_provenance` en los eventos del flujo y en el historial de la sesión. Cada entrada registra el identificador de la memoria, la revisión, el agente propietario, el texto, la categoría, el ámbito, el estado de activación y la caducidad capturados en la solicitud del flujo de trabajo. Las entradas de memoria se añaden atómicamente después de distribuir el presupuesto de instrucciones y contexto, con identificadores y revisiones explícitos; las entradas que no caben no aparecen ni en la solicitud ni en las fuentes. La procedencia se registra en el momento de la inclusión y nunca se infiere de fragmentos de texto. Estas fuentes describen el contexto seleccionado para la solicitud, sin afirmar que el modelo se haya basado causalmente en una memoria. La corrección utiliza la API existente de actualización de memoria dentro del ámbito y su comprobación `expected_revision`; la eliminación respeta los mismos límites de agente, usuario y Vault. La procedencia histórica conserva la revisión original tras ediciones posteriores de la memoria.
+
+## Banco de trabajo de la conversación
+
+El espacio de trabajo desplegable del agente en el chat agrupa archivos, edición de documentos, análisis Python, navegación nativa y voz para la conversación actual. La actividad de las herramientas y las tarjetas de confirmación existentes siguen mostrando el progreso. Los comprobantes del banco de trabajo se guardan en `system/agent_workspace.sqlite`, delimitados por el usuario autenticado, el espacio de trabajo, el Vault, el agente y la conversación. Los cambios de ámbito reinician el panel, cancelan las solicitudes pendientes y revocan las capacidades nativas. La cola persistente de solicitudes del navegador conserva instrucciones y adjuntos editables y reordenables para el siguiente turno; un Web Lock serializa las escrituras y la entrega de la cola entre pestañas. Las entregas inciertas se detienen para su revisión en vez de repetir automáticamente una instrucción con consecuencias.
+
+La salida del asistente utiliza el renderizador Markdown compartido, conserva las citas y puede guardarse en una página del Vault y abrirse desde el chat. Las fuentes de memoria de las respuestas muestran las revisiones exactas guardadas y utilizan los controles existentes de corrección y olvido.
+
+El acceso a carpetas comienza con el selector nativo de la aplicación de escritorio. Una acreditación firmada de corta duración vincula el directorio seleccionado a todo el ámbito autenticado del banco de trabajo; quien realiza la llamada no puede autorizar una ruta arbitraria. Se rechazan los recorridos fuera del directorio mediante rutas relativas, los enlaces simbólicos y los archivos no regulares, incluidas las FIFO sin bloquear al lector. Las transferencias exigen coincidencia del tamaño en bytes y del SHA-256, nunca sobrescriben un archivo existente y conservan comprobantes idempotentes. Las autorizaciones pueden revocarse desde el panel.
+
+Las sesiones de documentos capturan la página de origen y su etag. La interfaz muestra una vista previa de las diferencias antes de un guardado explícito; al aplicarlas, comprueba la etag capturada mediante la API existente de modificación del Vault. Una página modificada genera un conflicto en vez de sobrescribirla. Las sesiones y los comprobantes de operaciones guardados pueden volver a abrirse; un guardado incierto conserva la misma identidad de solicitud al reintentarlo.
+
+El análisis Python requiere Docker y una imagen local ya instalada (por defecto, `python:3.11-slim`). Nunca recurre a ejecutar código generado en el anfitrión ni descarga una imagen automáticamente. Cada ejecución desactiva el acceso a la red, elimina capacidades y utiliza una raíz de solo lectura, límites de recursos, un tmpfs de escritura limitado y un plazo de 30 segundos. Solo se montan como entradas de solo lectura los artefactos anteriores seleccionados explícitamente y con el hash verificado. Los usuarios pueden importar archivos locales de entrada, reutilizar artefactos conservados, descargar resultados verificados y detener un contenedor en ejecución. Los comprobantes interrumpidos siguen siendo inciertos y no se ejecutan de nuevo automáticamente.
+
+El puente Electron expone un contrato IPC acotado para emisores de confianza. El trabajo nativo queda limitado a la ventana propietaria y a la conversación autenticada. Las ventanas del navegador tienen aislamiento de seguridad, sesiones aisladas, ningún acceso a Node ni a preload, ventanas emergentes y permisos denegados y navegación del mismo origen. Cada clic o entrada de texto propuestos necesitan consentimiento nativo; la consulta del DOM es de solo lectura y se vuelven a comprobar las generaciones de las capacidades antes de enviar entradas nativas limitadas. Tomar el control, detener, revocar o sustituir el navegador invalida las observaciones y las entradas pendientes. La selección de aplicaciones de macOS solo autoriza la aplicación seleccionada; la entrada de texto comprueba el foco y utiliza un ejecutor nativo cancelable. La acción opcional de Mensajes abre un borrador para que una persona lo revise. Las aplicaciones empaquetadas incluyen descripciones localizadas de la finalidad de la automatización y del micrófono en macOS; estas descripciones no conceden permisos del sistema operativo. Las solicitudes del agente utilizan una cola persistente con reserva y concesión temporal y nunca repiten una acción reservada tras una desconexión.
+
+La voz solo se inicia desde el botón explícito del micrófono de la conversación. En Electron utiliza el servicio local gobernado de transcripción Whisper, aunque Chromium exponga un constructor de reconocimiento del navegador. Fuera de Electron utiliza el reconocimiento del navegador cuando está disponible; en caso contrario, envía fragmentos de audio completos y de tamaño limitado al servicio local. El micrófono se pausa mientras el agente trabaja o se reproduce voz, y la grabación, las solicitudes y la reproducción se detienen al salir o cambiar de ámbito. La transcripción local puede descargar el modelo configurado durante el primer uso explícito. El reconocimiento de voz del navegador utiliza el servicio configurado en el navegador. Las instrucciones de voz entran en la misma cola del siguiente turno delimitada por el ámbito, sin sustituir el borrador escrito en el compositor.
+
+### Voz de salida compartida
+
+Configuración → IA → Voz guarda una única preferencia `ai.speech_output` para el Vault activo. El chat, los pódcasts del lector, los audios del agente y la herramienta RSS utilizan el mismo motor, voz, idioma y velocidad en `backend/services/workspace_speech.py`. La síntesis puede ser local con las voces instaladas de macOS o neuronal de OpenAI, seleccionada explícitamente. La clave de API permanece en el almacén de credenciales del servidor; la opción de OpenAI informa del envío del texto y del posible coste. No hay alternativa externa automática. El motor local solo está disponible actualmente en macOS.
+
+La prueba de voz utiliza una muestra traducida fija. La preparación y la reproducción tienen estados diferenciados. La coordinación del audio pausa el micrófono mientras habla la app o se reproduce un episodio del lector. Detener, cambiar de contexto o de configuración cancela las peticiones y libera los recursos. Los audios antiguos conservan su voz hasta que se regeneran; la caché nueva identifica la configuración efectiva. Se lee la prosa sin recitar sintaxis Markdown ni bloques de código. La naturalidad y la calidad por idioma requieren pruebas de escucha; los tests simulados no demuestran equivalencia con ChatGPT.

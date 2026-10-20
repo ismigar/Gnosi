@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import ast
+import gc
 import json
 import os
 import shutil
 import subprocess
 import sys
 import tomllib
+import weakref
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -74,6 +76,8 @@ def make_bundle(tmp_path: Path, plan: policy.ResourcePlan, layout: str = "_inter
         shutil.copyfile(plan.repository / name, destination)
     write(bundle, "cervell_backend", "synthetic executable; never executed")
     write(payload, "certifi/cacert.pem", "-----BEGIN CERTIFICATE-----\npublic certificate\n")
+    for name in policy.DEPENDENCY_DATA_FILES:
+        write(payload, name, "synthetic ONNX model; never executed")
     write(payload, "base_library.zip", "synthetic dependency archive")
     write(payload, "libpython.dylib", "synthetic library")
     return bundle
@@ -599,47 +603,140 @@ class FakeAnalysis:
     pure: list[policy.TocEntry]
     binaries: list[policy.TocEntry]
     scripts: list[policy.TocEntry]
+    graph: object | None = None
 
 
 @pytest.mark.parametrize("contaminated", (False, True))
+@pytest.mark.parametrize("missing_voice", (False, True))
+@pytest.mark.parametrize("platform", ("darwin", "linux"))
+@pytest.mark.parametrize("collection_failure", (False, True))
 def test_generated_spec_uses_real_policy_before_collect_with_fake_build_adapters(
     repository: Path,
     monkeypatch: pytest.MonkeyPatch,
     contaminated: bool,
+    missing_voice: bool,
+    platform: str,
+    collection_failure: bool,
 ) -> None:
     plan = policy.build_plan(repository)
     events: list[str] = []
+    refs: dict[str, weakref.ReferenceType[object]] = {}
+    tables: dict[str, list[policy.TocEntry]] = {}
+    config: dict[str, dict[int, object]] = {"code_cache": {99: "unrelated analysis"}}
+    config_module = ModuleType("PyInstaller.config")
+    config_module.__dict__["CONF"] = config
+    monkeypatch.setitem(sys.modules, "PyInstaller.config", config_module)
+    gc_module = ModuleType("gc")
+    def release_graph() -> int:
+        events.append("release")
+        count = gc.collect()
+        assert refs["analysis"]() is None and refs["pyz"]() is None
+        assert config["code_cache"] == {99: "unrelated analysis"}
+        return count
+    gc_module.__dict__["collect"] = release_graph
+    monkeypatch.setitem(sys.modules, "gc", gc_module)
     hooks = ModuleType("PyInstaller.utils.hooks")
     hooks.__dict__["collect_submodules"] = lambda name: ["keyring.backends.null"]
+    voice_source = write(repository.parent, "vendor/faster_whisper/assets/silero_vad_v6.onnx")
+    voice_data = [(str(voice_source), "faster_whisper/assets")]
+    def collect_data(package: str, *, includes: list[str]) -> list[tuple[str, str]]:
+        assert package == "faster_whisper"
+        assert includes == ["assets/silero_vad_v6.onnx"]
+        return [] if missing_voice else voice_data
+    hooks.__dict__["collect_data_files"] = collect_data
+    osx = ModuleType("PyInstaller.utils.osx")
+    architecture_result = (False, ["arm64"])
+    inspection_error = ValueError("synthetic invalid binary")
+    collection_error = ValueError("synthetic collection failure")
+
+    @dataclass
+    class MachOGraph:
+        parent: object | None = None
+
+    def binary_architectures(filename: str) -> tuple[bool, list[str]]:
+        if filename == "invalid":
+            raise inspection_error
+        assert filename == "runtime.dylib"
+        graph = MachOGraph()
+        graph.parent = graph
+        refs["macho"] = weakref.ref(graph)
+        return architecture_result
+
+    def dependency_paths(filename: str, target_rpath: str) -> None:
+        assert filename == "runtime.dylib" and target_rpath == "@loader_path"
+        assert refs["macho"]() is None
+        graph = MachOGraph()
+        graph.parent = graph
+        refs["paths"] = weakref.ref(graph)
+
+    osx.__dict__.update(
+        get_binary_architectures=binary_architectures,
+        set_dylib_dependency_paths=dependency_paths,
+    )
     monkeypatch.setitem(sys.modules, "PyInstaller", ModuleType("PyInstaller"))
     monkeypatch.setitem(sys.modules, "PyInstaller.utils", ModuleType("PyInstaller.utils"))
     monkeypatch.setitem(sys.modules, "PyInstaller.utils.hooks", hooks)
+    monkeypatch.setitem(sys.modules, "PyInstaller.utils.osx", osx)
     monkeypatch.setattr(sys, "path", sys.path.copy())
+    monkeypatch.setattr(sys, "platform", platform)
 
     def analysis(entries: list[str], **kwargs: object) -> FakeAnalysis:
         events.append("analysis")
         assert entries == [str(repository / "backend/server.py")]
         assert kwargs["pathex"] == [str(repository)]
-        assert kwargs["datas"] == plan.datas
+        assert kwargs["datas"] == plan.datas + voice_data
         assert set(plan.modules) <= set(cast(list[str], kwargs["hiddenimports"]))
         assert "unittest" not in cast(list[str], kwargs["excludes"])
         assert "PIL" not in cast(list[str], kwargs["excludes"])
         data, modules = toc(plan)
+        data.append(("faster_whisper/assets/silero_vad_v6.onnx", str(voice_source), "DATA"))
         if contaminated:
             data.append(("backend/.env", "/synthetic-hook/secret", "DATA"))
-        return FakeAnalysis(data, modules, [], [])
+        binary_source = write(repository.parent, "vendor/runtime.dylib")
+        binaries = [("runtime.dylib", str(binary_source), "BINARY")]
+        value = FakeAnalysis(data, modules, binaries, [])
+        value.graph = value  # Exercise cyclic graph release rather than only refcounts.
+        refs["analysis"] = weakref.ref(value)
+        tables.update(binaries=binaries, datas=data)
+        config["code_cache"][id(modules)] = {"compiled": "synthetic code"}
+        return value
+
+    class FakePyz:
+        pass
 
     def pyz(*args: object, **kwargs: object) -> object:
         events.append("pyz")
-        return object()
+        value = FakePyz()
+        refs["pyz"] = weakref.ref(value)
+        return value
 
     def exe(*args: object, **kwargs: object) -> object:
         events.append("exe")
         assert kwargs["contents_directory"] == "_internal"
+        assert refs["analysis"]() is not None and refs["pyz"]() is not None
         return object()
 
     def collect(*args: object, **kwargs: object) -> object:
         events.append("collect")
+        assert args[1] is tables["binaries"] and args[2] is tables["datas"]
+        assert tables["binaries"] and tables["datas"]
+        assert refs["analysis"]() is None and refs["pyz"]() is None
+        if platform == "darwin":
+            assert osx.get_binary_architectures is not binary_architectures
+            assert osx.set_dylib_dependency_paths is not dependency_paths
+            for _ in range(2):
+                assert osx.get_binary_architectures(filename="runtime.dylib") is architecture_result
+                assert refs["macho"]() is None
+                assert osx.set_dylib_dependency_paths(
+                    "runtime.dylib", target_rpath="@loader_path",
+                ) is None
+                # The next native tool must not overlap completed parser cycles.
+                assert refs["paths"]() is None
+            with pytest.raises(ValueError) as raised:
+                osx.get_binary_architectures("invalid")
+            assert raised.value is inspection_error
+        if collection_failure:
+            raise collection_error
         return object()
 
     namespace: dict[str, object] = {
@@ -649,14 +746,27 @@ def test_generated_spec_uses_real_policy_before_collect_with_fake_build_adapters
         "COLLECT": collect,
     }
     spec = policy.render_spec(repository, HELPER.parent)
-    if contaminated:
+    if missing_voice:
+        with pytest.raises(RuntimeError, match="Whisper voice activity model"):
+            exec(compile(spec, "backend.spec", "exec"), namespace)
+        assert events == []
+    elif contaminated:
         # The spec imports its helper under its standalone CLI module name.
         with pytest.raises(ValueError, match="Prohibited resource path"):
             exec(compile(spec, "backend.spec", "exec"), namespace)
         assert events == ["analysis"]
     else:
-        exec(compile(spec, "backend.spec", "exec"), namespace)
-        assert events == ["analysis", "pyz", "exe", "collect"]
+        if collection_failure:
+            with pytest.raises(ValueError) as raised:
+                exec(compile(spec, "backend.spec", "exec"), namespace)
+            assert raised.value is collection_error
+        else:
+            exec(compile(spec, "backend.spec", "exec"), namespace)
+        assert events == ["analysis", "pyz", "exe", "release", "collect"] + (
+            ["release"] * 5 if platform == "darwin" else []
+        )
+    assert osx.get_binary_architectures is binary_architectures
+    assert osx.set_dylib_dependency_paths is dependency_paths
 
 
 def test_spec_windows_paths_are_literal_without_backslash_or_quote_corruption() -> None:
@@ -694,6 +804,12 @@ elif args[:2] == ['-m', 'PyInstaller']:
         output = bundle / name
         output.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(plan.repository / name, output)
+    for name in backend_resources.DEPENDENCY_DATA_FILES:
+        output = bundle / name
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_bytes(b'synthetic ONNX model')
+    if mode == 'missing-voice':
+        (bundle / backend_resources.DEPENDENCY_DATA_FILES[0]).unlink()
     if mode == 'contaminated':
         (bundle / 'backend/.env').write_text('synthetic; never read')
     if mode == 'missing':
@@ -729,7 +845,8 @@ output.chmod(0o755)
 @pytest.mark.parametrize("layout", ("bin/python", "Scripts/python.exe"))
 @pytest.mark.parametrize(
     "failure",
-    ("", "uv-sync", "pyinstaller", "no-output", "contaminated", "missing", "source"),
+    ("", "uv-sync", "pyinstaller", "no-output", "contaminated", "missing",
+     "missing-voice", "source"),
 )
 def test_real_shell_with_simulated_build_commands_and_paths_with_spaces(
     repository: Path,
@@ -783,7 +900,7 @@ def test_real_shell_with_simulated_build_commands_and_paths_with_spaces(
         assert not smoke
         if failure == "source":
             assert not uv_calls
-        if failure in {"contaminated", "missing"}:
+        if failure in {"contaminated", "missing", "missing-voice"}:
             assert "Backend resource policy failed" in result.stderr
         assert previous.read_text() == "preserve on failure"
     else:
@@ -815,3 +932,19 @@ def test_cli_failure_is_redacted(repository: Path, caplog: pytest.LogCaptureFixt
     assert policy.main(["check-source", "--repository", str(repository)]) == 1
     assert "fixture-secret-value" not in caplog.text
     assert "model_catalog.json" in caplog.text
+
+
+@pytest.mark.parametrize("layout", ["_internal", "."])
+@pytest.mark.parametrize("missing", [True, False])
+def test_bundle_requires_nonempty_whisper_vad_model(
+    tmp_path: Path, repository: Path, layout: str, missing: bool,
+) -> None:
+    plan = policy.build_plan(repository)
+    bundle = make_bundle(tmp_path, plan, layout)
+    model = bundle / layout / "faster_whisper/assets/silero_vad_v6.onnx"
+    if missing:
+        model.unlink()
+    else:
+        model.write_bytes(b"")
+    with pytest.raises((policy.ResourcePolicyError, OSError)):
+        policy.verify_bundle(bundle, plan)

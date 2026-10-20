@@ -9,6 +9,7 @@ import jsonschema
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.utils.function_calling import convert_to_openai_tool
 
+from backend.agent.tools import provider_tool_definitions
 from backend.services.agent_behavior import resource
 from backend.services.agent_execution_trace import record
 
@@ -17,7 +18,7 @@ class JsonToolModel:
     def __init__(self, model: Any, tools: list[Any] | None = None) -> None:
         self.model = model
         self.model_name = str(getattr(model, "model_name", "") or getattr(model, "model", ""))
-        self.schemas = [convert_to_openai_tool(tool)["function"] for tool in tools or []]
+        self.schemas = [convert_to_openai_tool(tool)["function"] for tool in provider_tool_definitions(tools or [])]
         self.kwargs = {"tools": self.schemas, "transport": "validated-json"}
 
     def bind_tools(self, tools: Any, **kwargs: Any) -> JsonToolModel:

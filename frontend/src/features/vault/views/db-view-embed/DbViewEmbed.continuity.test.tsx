@@ -9,8 +9,9 @@ import { VaultGallery } from '../VaultGallery';
 import { VaultTimeline } from '../../../../shared/record-views/VaultTimeline';
 import { VaultEditorContext, type VaultEditorContextValue } from '../../../../shared/editor/VaultEditorContext';
 import type { VaultViewBodyProps } from '../VaultViewBody';
-import { defineStorageKey, removeStorage, stringStorageCodec } from '../../../../shared/platform/browser-storage';
+import { defineStorageKey, readStorage, removeStorage, stringStorageCodec } from '../../../../shared/platform/browser-storage';
 import * as api from './api';
+import { ACTIVE_VAULT_ID_KEY, storageSet } from '../../../../shared/api/vault-context';
 import { pinnedKey, selectedKey } from './preferences';
 import type { EmbedBlock, EmbedView, NavApi } from './types';
 
@@ -260,24 +261,101 @@ it('forwards parallel opening from an embedded view to its editor', async () => 
     expect(openPage).not.toHaveBeenCalled();
 });
 
-it('refreshes registry settings and retains removed timeline sorting through consecutive record-save reloads', async () => {
+it('retains saved timeline settings across two record saves and unrelated editor rerenders', async () => {
     const sorted = { ...anchor, type: 'timeline', sorts: [{ field: 'title', direction: 'desc' }] };
     context = { ...context, registry: { ...context.registry, views: [sorted, other] } };
     await render();
     expect(fixture.body?.activeView?.sort).toEqual(sorted.sorts);
-    vi.mocked(api.fetchVaultViews).mockResolvedValue([{ ...sorted, sorts: [], sort: null }, other]);
+    const saved = { ...sorted, sorts: [], sort: null, visibleProperties: ['title', 'Status'] };
+    vi.mocked(api.fetchVaultViews).mockResolvedValue([saved, other]);
     context = { ...context, viewSectionNonce: 1 };
     await render();
     expect(fixture.body?.activeView?.sort).toEqual([]);
-    expect(api.fetchVaultViews).toHaveBeenCalledTimes(1);
+    expect(fixture.body?.activeView?.visibleProperties).toEqual(saved.visibleProperties);
+    // A redundant registry read must not undo the settings just saved.
+    vi.mocked(api.fetchVaultViews).mockResolvedValue([sorted, other]);
     for (const id of ['a', 'b']) {
-        const columns = ['title', id === 'a' ? 'Status' : 'Date'];
-        vi.mocked(api.fetchVaultViews).mockResolvedValue([{ ...sorted, sorts: [], sort: null, visibleProperties: columns }, other]);
-        await act(async () => {
-            await fixture.body?.onUpdateNote?.(id, { metadata: { timeline_order: 1 } });
-        });
+        context = { ...context, idToTitle: { page: `Editor rerender ${id}` } };
+        await render();
+        await act(async () => { await fixture.body?.onUpdateNote?.(id, { metadata: { timeline_order: 1 } }); });
         expect(fixture.body?.activeView?.sort).toEqual([]);
-        expect(fixture.body?.activeView?.visibleProperties).toEqual(columns);
+        expect(fixture.body?.activeView?.visibleProperties).toEqual(saved.visibleProperties);
     }
-    expect(api.fetchVaultViews).toHaveBeenCalledTimes(3);
+    expect(api.fetchVaultViews).toHaveBeenCalledTimes(1);
+    const next = { ...saved, visibleProperties: ['title', 'Date'] };
+    vi.mocked(api.fetchVaultViews).mockResolvedValue([next, other]);
+    context = { ...context, viewSectionNonce: 2 };
+    await render();
+    expect(fixture.body?.activeView?.visibleProperties).toEqual(next.visibleProperties);
+    expect(api.fetchVaultViews).toHaveBeenCalledTimes(2);
+});
+
+it('retries a failed configuration refresh on a later record reload', async () => {
+    await render();
+    vi.mocked(api.fetchVaultViews).mockRejectedValueOnce(new Error('temporary registry failure'));
+    context = { ...context, viewSectionNonce: 1 };
+    await render();
+    expect(fixture.body?.activeView?.visibleProperties).toEqual(['title']);
+    vi.mocked(api.fetchVaultViews).mockResolvedValue([{ ...anchor, visibleProperties: ['title', 'Date'] }, other]);
+    await act(async () => { await fixture.body?.onUpdateNote?.('a', { metadata: { timeline_order: 1 } }); });
+    expect(fixture.body?.activeView?.visibleProperties).toEqual(['title', 'Date']);
+    await act(async () => { await fixture.body?.onUpdateNote?.('b', { metadata: { timeline_order: 2 } }); });
+    expect(api.fetchVaultViews).toHaveBeenCalledTimes(2);
+});
+
+it('ignores a cancelled registry response and keeps the newer configuration cached', async () => {
+    await render();
+    let finish: ((views: EmbedView[]) => void) | undefined;
+    vi.mocked(api.fetchVaultViews).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+    context = { ...context, viewSectionNonce: 1 };
+    await render();
+    expect(api.fetchVaultViews).toHaveBeenCalledTimes(1);
+    vi.mocked(api.fetchVaultViews).mockResolvedValue([{ ...anchor, visibleProperties: ['title', 'Date'] }, other]);
+    context = { ...context, viewSectionNonce: 2 };
+    await render();
+    expect(fixture.body?.activeView?.visibleProperties).toEqual(['title', 'Date']);
+    await act(async () => { finish?.([{ ...anchor, visibleProperties: ['title', 'Stale'] }, other]); await Promise.resolve(); });
+    expect(fixture.body?.activeView?.visibleProperties).toEqual(['title', 'Date']);
+    await act(async () => { await fixture.body?.onUpdateNote?.('a', { metadata: { timeline_order: 1 } }); });
+    expect(fixture.body?.activeView?.visibleProperties).toEqual(['title', 'Date']);
+    expect(api.fetchVaultViews).toHaveBeenCalledTimes(2);
+});
+
+it('uses a replacement source registry even when the view and nonce are unchanged', async () => {
+    await render();
+    vi.mocked(api.fetchVaultViews).mockResolvedValue([{ ...anchor, visibleProperties: ['title', 'Saved'] }, other]);
+    context = { ...context, viewSectionNonce: 1 };
+    await render();
+    expect(fixture.body?.activeView?.visibleProperties).toEqual(['title', 'Saved']);
+    context = { ...context,
+        registry: { ...context.registry, views: [{ ...anchor, visibleProperties: ['title', 'Replacement'] }, other] } };
+    await render();
+    expect(fixture.body?.activeView?.visibleProperties).toEqual(['title', 'Replacement']);
+    expect(api.fetchVaultViews).toHaveBeenCalledTimes(1);
+});
+
+it.each(['page', 'vault'])('scopes saved settings to the %s even when the source registry has identical view ids', async scope => {
+    // Restore the browser's active vault even if an assertion fails.
+    const vaultKey = defineStorageKey(ACTIVE_VAULT_ID_KEY, stringStorageCodec);
+    const originalVaultId = readStorage(vaultKey);
+    try {
+        await render();
+        vi.mocked(api.fetchVaultViews).mockResolvedValue([{ ...anchor, visibleProperties: ['title', 'Old scope'] }, other]);
+        context = { ...context, viewSectionNonce: 1 };
+        await render();
+        expect(fixture.body?.activeView?.visibleProperties).toEqual(['title', 'Old scope']);
+        if (scope === 'page') context = { ...context, pageId: 'another-page', viewSectionNonce: 0 };
+        else {
+            storageSet(ACTIVE_VAULT_ID_KEY, 'another-vault');
+            context = { ...context, viewSectionNonce: 0 };
+        }
+        await render();
+        expect(fixture.body?.activeView?.visibleProperties).toEqual(['title']);
+        await act(async () => { await fixture.body?.onUpdateNote?.('a', { metadata: { timeline_order: 1 } }); });
+        expect(fixture.body?.activeView?.visibleProperties).toEqual(['title']);
+        expect(api.fetchVaultViews).toHaveBeenCalledTimes(1);
+    } finally {
+        if (originalVaultId === undefined) removeStorage(vaultKey);
+        else storageSet(ACTIVE_VAULT_ID_KEY, originalVaultId);
+    }
 });

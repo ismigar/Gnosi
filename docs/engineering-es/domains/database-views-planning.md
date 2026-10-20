@@ -42,6 +42,9 @@ source_paths:
   - frontend/src/features/vault/views/VaultTable.tsx
   - frontend/src/features/vault/editor/BlockEditor.tsx
   - frontend/src/features/vault/properties/VaultDateProperty.ts
+  - frontend/src/features/vault/properties/vault-date-property/dateModel.ts
+  - frontend/src/features/vault/views/db-view-embed/useEmbedLoad.ts
+  - frontend/src/features/vault/views/db-view-embed/useEmbedTabActions.ts
   - frontend/src/shared/record-views/VaultTimeline.tsx
   - frontend/src/shared/record-views/vault-timeline
   - frontend/src/features/vault/VaultDashboard.tsx
@@ -58,6 +61,9 @@ tests:
   - frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx
   - frontend/src/shared/record-views/vault-timeline/timelineScale.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.continuity.test.tsx
+  - frontend/src/features/vault/properties/UnifiedDateEditor.i18n.test.tsx
+  - frontend/src/features/vault/properties/vault-date-property/dateModel.formatting.test.ts
   - frontend/src/features/vault/dashboard/TablePane.test.tsx
   - frontend/src/features/vault/dashboard/creationFlow.test.tsx
   - frontend/src/features/planning/ProjectPlanningPage.test.tsx
@@ -508,3 +514,7 @@ Para cualquier tabla de origen, una vista insertada obtiene los metadatos de cre
 ## Persistencia del orden de las columnas
 
 Arrastrar el control de una columna guarda el orden configurado en las vistas de tabla principales, secundarias e insertadas. La visualización, el guardado y la migración de la vista principal conservan ese orden en lugar de reconstruirlo a partir del esquema. Las vistas insertadas de anclaje registradas se guardan en el registro; las secciones antiguas actualizan tanto la pestaña sintética como la sección. Al recargar los registros se consulta la configuración actual del registro para que las columnas no recuperen un orden anterior. Los descriptores compuestos conservan la tabla de origen y los metadatos del campo. Una vista principal virtual recibe una identidad guardada única en su primera actualización.
+
+La propiedad de fecha unificada sigue el formato elegido en los ajustes para las fechas puntuales visibles, los límites de los períodos, las restricciones, las fechas límite y el fin de las repeticiones. La edición convierte ese orden numérico en fechas guardadas canónicas. La misma preferencia se aplica a los resúmenes de los períodos y a la barra de fórmulas de la tabla. Una edición no vacía inválida conserva el valor guardado; sigue siendo posible vaciar un campo explícitamente. Los años históricos y extensos utilizan fechas numéricas canónicas para evitar pérdidas al editar.
+
+El registro conservado de las vistas incrustadas queda limitado al Vault activo, la página contenedora y la vista. Los cambios de configuración solicitan una nueva lectura; las lecturas fallidas se reintentan en una recarga posterior. Renombrar, eliminar o duplicar una vista también publica el registro actualizado en la misma caché, de modo que los guardados posteriores de registros conservan las pestañas y los ajustes actuales. Los demás cambios del contexto del editor no recuperan una copia antigua.

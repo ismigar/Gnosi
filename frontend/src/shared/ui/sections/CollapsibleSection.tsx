@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 
 export interface CollapsibleSectionProps {
     readonly badge?: number;
@@ -18,23 +18,33 @@ export function CollapsibleSection({
     badge,
 }: CollapsibleSectionProps) {
     const [isOpen, setIsOpen] = useState(defaultOpen);
+    const contentId = useId();
 
     return (
         <div className="section collapsible-section">
-            <div
+            <button
+                type="button"
+                aria-expanded={isOpen}
+                aria-controls={contentId}
                 className="collapsible-header"
                 onClick={() => {
                     setIsOpen(!isOpen);
                 }}
                 style={{
                     display: 'flex',
+                    width: '100%',
+                    border: 0,
+                    padding: 0,
+                    background: 'transparent',
+                    color: 'inherit',
+                    textAlign: 'start',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     cursor: 'pointer',
                     userSelect: 'none'
                 }}
             >
-                <h2 className="filter-title gnosi-sidebar-section-title" style={{ margin: 0 }}>
+                <span className="filter-title gnosi-sidebar-section-title" style={{ margin: 0 }}>
                     {title}
                     {badge !== undefined && badge > 0 && (
                         <span style={{
@@ -48,16 +58,16 @@ export function CollapsibleSection({
                             {badge}
                         </span>
                     )}
-                </h2>
-                <span style={{
+                </span>
+                <span aria-hidden="true" style={{
                     fontSize: '0.9rem',
                     transition: 'transform 0.2s',
                     transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)'
                 }}>
                     ▼
                 </span>
-            </div>
-            <div style={{
+            </button>
+            <div id={contentId} inert={!isOpen} style={{
                 maxHeight: isOpen ? '1000px' : '0',
                 overflow: 'hidden',
                 transition: 'max-height 0.3s ease-in-out',

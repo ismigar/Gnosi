@@ -56,7 +56,7 @@ def test_preserving_old_message_still_downloads_new_message_and_updates_flags(tm
     before = (old.read_bytes(), old_html.read_bytes())
     raw = (
         b"From: sender@example.test\r\nTo: one@example.test\r\n"
-        b"Subject: New message\r\nMessage-ID: <new@example.test>\r\n"
+        b"Bcc: blind@example.test\r\nSubject: New message\r\nMessage-ID: <new@example.test>\r\n"
         b"Content-Type: text/plain; charset=utf-8\r\n\r\nNew body"
     )
     imap = Mock()
@@ -75,6 +75,7 @@ def test_preserving_old_message_still_downloads_new_message_and_updates_flags(tm
     downloaded = next(p for p in tmp_path.glob("*.md") if p != old)
     metadata = core._parse_meta(downloaded.read_text())
     assert metadata["imap_uid"] == "2"
+    assert metadata["bcc"] == "blind@example.test"
     assert metadata["is_read"] is True
     assert metadata["is_starred"] is True
     assert "New body" in downloaded.read_text()

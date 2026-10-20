@@ -40,8 +40,22 @@ export interface FilesystemPickResult {
   readonly entries: readonly { readonly path: string; readonly isDir: boolean }[];
 }
 
+export interface WorkspaceNativeRequest {
+  readonly scopeKey: string;
+  readonly agentId: string;
+  readonly sessionId: string;
+  readonly action: 'pick-folder' | 'browser-open' | 'browser-snapshot' | 'browser-click'
+    | 'browser-type' | 'browser-takeover' | 'browser-stop' | 'app-open' | 'app-type'
+    | 'messages-compose' | 'revoke';
+  readonly url?: string;
+  readonly selector?: string;
+  readonly text?: string;
+  readonly labels?: Readonly<Record<string, string>>;
+}
+
 /** Exact wire arguments, including the existing preload envelopes. */
 export interface DesktopRequestMap {
+  'workspace-operation': { args: [request: WorkspaceNativeRequest]; result: Record<string, unknown> };
   'choose-vault-container': { args: []; result: boolean };
   'pick-filesystem': { args: [options: FilesystemPickOptions]; result: FilesystemPickResult };
   'get-app-version': { args: []; result: string };
@@ -94,6 +108,7 @@ export interface FormFillerDependencies {
 
 /** Main owns mutable state, menu construction, backend IO and native actions. */
 export interface DesktopIpcDependencies extends FormFillerDependencies {
+  readonly workspaceOperation?: (owner: Electron.WebContents, request: WorkspaceNativeRequest) => Promise<Record<string, unknown>>;
   readonly chooseVaultContainer?: () => Promise<boolean>;
   readonly pickFilesystem?: (options: FilesystemPickOptions) => Promise<FilesystemPickResult>;
   readonly ipcMain: Pick<Electron.IpcMain, 'handle'>;
@@ -112,6 +127,7 @@ export interface DesktopIpcDependencies extends FormFillerDependencies {
 }
 
 export interface GnosiElectronApi {
+  readonly workspaceOperation: DesktopInvoke<'workspace-operation'>;
   readonly chooseVaultContainer: DesktopInvoke<'choose-vault-container'>;
   readonly pickFilesystem: DesktopInvoke<'pick-filesystem'>;
   readonly getAppVersion: DesktopInvoke<'get-app-version'>;

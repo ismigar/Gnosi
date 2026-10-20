@@ -156,20 +156,14 @@ def _safe_mcp_definitions(
     definitions: list[dict[str, Any]],
     explicit_allowlist: Sequence[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Keep MCP tools explicitly declared read-only or exactly allowlisted."""
-    allowed_names = {str(name) for name in (explicit_allowlist or [])}
-    safe = []
-    for definition in definitions or []:
-        if not isinstance(definition, dict) or not definition.get("name"):
-            continue
-        annotations = definition.get("annotations") or {}
-        declared_read_only = (
-            annotations.get("readOnlyHint") is True
-            and annotations.get("destructiveHint") is not True
-        )
-        if declared_read_only or definition["name"] in allowed_names:
-            safe.append(definition)
-    return safe
+    """Disable the legacy MCP bypass; only assigned catalog tools may run.
+
+    Retained for compatibility with callers inspecting rejected definitions.
+    Neither server hints nor a profile name-only allowlist grants capability.
+    Host-authorized tools must use governed descriptors from the MCP catalog,
+    which retain effects, minimum role and confirmation policy.
+    """
+    return []
 
 
 def _rejected_mcp_names(
@@ -279,7 +273,7 @@ def _tool_schema_chars(tools: Sequence[Any]) -> int:
     for item in tools:
         schema = getattr(item, "args_schema", None)
         try:
-            payload = schema.model_json_schema() if schema else {}
+            payload = schema if isinstance(schema, dict) else schema.model_json_schema() if schema else {}
         except Exception:
             payload = {}
         total += len(str(getattr(item, "name", "")))

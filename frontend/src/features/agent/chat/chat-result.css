@@ -1,0 +1,23 @@
+.chat-result {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow-x: auto;
+}
+
+.chat-result table {
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+
+.chat-result th,
+.chat-result td {
+  padding: 6px 10px;
+  border: 1px solid var(--settings-border);
+  text-align: start;
+}
+
+.chat-result pre {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre;
+}

@@ -161,7 +161,16 @@ def validate_arguments(arguments: Mapping[str, Any], descriptor: Any = None) -> 
             raise ValueError(f"Tool argument `{key}` exceeds the bounded size limit.")
     schema = _descriptor_value(descriptor, "input_schema", {}) if descriptor is not None else {}
     if isinstance(schema, Mapping):
-        validate_json_schema(arguments, schema)
+        origin = _descriptor_value(descriptor, "origin", None)
+        origin_type = getattr(origin, "type", None)
+        if getattr(origin_type, "value", origin_type) == "mcp":
+            from backend.services.mcp_contracts import compile_mcp_schema, validate_mcp_value
+            try:
+                validate_mcp_value(dict(arguments), compile_mcp_schema(dict(schema)))
+            except Exception as error:
+                raise ValueError(f"Invalid MCP tool arguments: {error}") from error
+        else:
+            validate_json_schema(arguments, schema)
 
 
 def bound_result(result: Any) -> Any:

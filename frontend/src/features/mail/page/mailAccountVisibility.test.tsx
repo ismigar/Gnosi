@@ -42,7 +42,10 @@ it('applies persistent visibility to every list scope, counts and detail, includ
   window.matchMedia = vi.fn().mockReturnValue({ matches: false });
   const host = document.createElement('div'); document.body.append(host);
   let root = createRoot(host);
-  const mount = async () => { await update(() => { root.render(<Harness />); }); };
+  const mount = async () => {
+    await update(() => { root.render(<Harness />); });
+    await update(() => { host.querySelector<HTMLButtonElement>('button[aria-expanded="false"]')?.click(); });
+  };
   const toggle = async (index: number) => { await update(() => { (host.querySelectorAll('[role=switch]')[index] as HTMLElement).click(); }); };
   const list = () => {
     const value = fixtures.lists.at(-1);
@@ -109,6 +112,7 @@ it('preserves explicit selection of an account with synchronization disabled whi
     return value;
   };
   const toggle = async () => {
+    await update(() => { host.querySelector<HTMLButtonElement>('button[aria-expanded="false"]')?.click(); });
     await update(() => {
       const control = host.querySelector<HTMLElement>('[role=switch]');
       if (!control) throw new Error('Account visibility switch is missing');

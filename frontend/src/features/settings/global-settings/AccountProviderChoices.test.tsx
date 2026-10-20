@@ -141,3 +141,15 @@ describe('account provider detection and choices', () => {
     expect(context.setMailSmtpUser).toHaveBeenCalledWith('user@icloud.com');
   });
 });
+
+it('starts calendar-specific Microsoft authorization from calendar settings', () => {
+  const location = { href: '' };
+  vi.stubGlobal('location', location);
+  context.activeTab = 'calendar';
+  context.addAccountEmail = 'calendar@alumno.uned.es';
+  render();
+  act(() => { providerButtons()[0]?.click(); });
+  const destination = new URL(location.href, 'https://gnosi.test');
+  expect(destination.searchParams.get('type')).toBe('calendar');
+  expect(destination.searchParams.get('login_hint')).toBe('calendar@alumno.uned.es');
+});

@@ -1,3 +1,4 @@
+import { GraphToggleRow } from './GraphToggleRow';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -99,22 +100,13 @@ export function Sidebar({
             {hasClusterData && <div className="section">
                 <h2 className="filter-title gnosi-sidebar-section-title">{t('graph.sidebar.color_by', "Color by")}</h2>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                    <label style={{ cursor: 'pointer' }}>
-                        <input
-                            type="checkbox"
-                            checked={colorMode === 'cluster'}
-                            onChange={() => {
-                                toggleColorMode('cluster');
-                            }}
-                            style={{ marginRight: '5px' }}
-                        />
-                        {t('graph.sidebar.color_cluster', "Cluster")}
-                    </label>
+                    <GraphToggleRow active={colorMode === 'cluster'} label={t('graph.sidebar.color_cluster', 'Cluster')} onChange={() => { toggleColorMode('cluster'); }}>{t('graph.sidebar.color_cluster', "Cluster")}
+                    </GraphToggleRow>
                 </div>
             </div>}
 
             {/* --- PATHFINDING SECTION --- */}
-            <div className="section" style={{ border: isPathfindingMode ? '2px solid var(--gnosi-blue)' : 'none', borderRadius: '8px', padding: isPathfindingMode ? '10px' : '0' }}>
+            <div className={`section graph-path-section${isPathfindingMode ? ' graph-path-section--active' : ''}`}>
                 <h2 className="filter-title gnosi-sidebar-section-title" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                     {t('graph.sidebar.pathfinding_title', "Path search")}
                 </h2>
@@ -123,16 +115,8 @@ export function Sidebar({
                         onClick={() => {
                             onPathfindingModeChange(!isPathfindingMode);
                         }}
-                        style={{
-                            width: '100%',
-                            padding: '8px',
-                            backgroundColor: isPathfindingMode ? 'var(--status-error)' : 'var(--gnosi-action-bg)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontWeight: 'bold'
-                        }}
+                        className={`btn-gnosi ${isPathfindingMode ? 'btn-gnosi-danger' : 'btn-gnosi-primary'}`}
+                        style={{ width: '100%' }}
                     >
                         {isPathfindingMode ? t('graph.sidebar.pathfinding_stop', "Stop search") : t('graph.sidebar.pathfinding_start', "Start search")}
                     </button>
@@ -248,48 +232,19 @@ export function Sidebar({
 
             {hasSemanticData && <div className="section">
                 <h2 className="filter-title gnosi-sidebar-section-title">{t('graph.legend.semantic_similarity', 'Semantic connections')}</h2>
-                <div className="filter-item">
-                    <input
-                        type="checkbox"
-                        id="semantic-suggestions-toggle"
-                        checked={showSemanticSuggestions}
-                        onChange={(event) => {
-                            onShowSemanticSuggestionsChange(event.target.checked);
-                        }}
-                    />
-                    <label htmlFor="semantic-suggestions-toggle">
-                        {t('graph.connections_panel.show_semantic', 'Show semantic connections')}
-                    </label>
-                </div>
-                <p style={{ margin: '6px 0 0 24px', color: 'var(--text-tertiary)', fontSize: '0.78rem' }}>
+                <GraphToggleRow active={showSemanticSuggestions} label={t('graph.connections_panel.show_semantic', 'Show semantic connections')} onChange={() => { onShowSemanticSuggestionsChange(!showSemanticSuggestions); }}><span>{t('graph.connections_panel.show_semantic', 'Show semantic connections')}</span>
+                </GraphToggleRow>
+                <p style={{ margin: '6px 0 0', color: 'var(--text-tertiary)', fontSize: '0.78rem' }}>
                     {t('graph.connections_panel.show_semantic_hint', 'Pending Brain proposals; they do not modify notes.')}
                 </p>
             </div>}
 
             <div className="section">
-                <div className="filter-item">
-                    <input
-                        type="checkbox"
-                        id="isolated-nodes-filter"
-                        checked={hideIsolated}
-                        onChange={(event) => {
-                            onHideIsolatedChange(event.target.checked);
-                        }}
-                    />
-                    <label htmlFor="isolated-nodes-filter">{t('graph.sidebar.hide_isolated_nodes', "Hide isolated nodes")}</label>
-                </div>
+                <GraphToggleRow active={hideIsolated} label={t('graph.sidebar.hide_isolated_nodes', 'Hide isolated nodes')} onChange={() => { onHideIsolatedChange(!hideIsolated); }}><span>{t('graph.sidebar.hide_isolated_nodes', 'Hide isolated nodes')}</span>
+                </GraphToggleRow>
 
-                <div className="filter-item">
-                    <input
-                        type="checkbox"
-                        id="only-isolated-filter"
-                        checked={onlyIsolated}
-                        onChange={(event) => {
-                            onOnlyIsolatedChange(event.target.checked);
-                        }}
-                    />
-                    <label htmlFor="only-isolated-filter">{t('graph.sidebar.show_only_isolated_nodes', "Show only isolated nodes")}</label>
-                </div>
+                <GraphToggleRow active={onlyIsolated} label={t('graph.sidebar.show_only_isolated_nodes', 'Show only isolated nodes')} onChange={() => { onOnlyIsolatedChange(!onlyIsolated); }}><span>{t('graph.sidebar.show_only_isolated_nodes', 'Show only isolated nodes')}</span>
+                </GraphToggleRow>
             </div>
             {afterWidgets}
         </>

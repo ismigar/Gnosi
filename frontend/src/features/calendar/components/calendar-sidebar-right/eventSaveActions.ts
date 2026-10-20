@@ -13,7 +13,7 @@ export function eventSaveActions(props: EventFormProps, state: EventFieldState, 
  const {title, allDay, startDate, endDate, startTime, endTime, calendarId, location, locationLat, locationLon, reminder, recurrence, selectedDays, endType, endCount, untilDate, description, attendees, travelTime} = fields;
     const handleSubmit = async (e: {preventDefault: () => void} | null = null, silent = true, snapshot: string | null = null, isSeries = false, isInstanceOnly = false, isFollowing = false) => {
         if (e) e.preventDefault();
-        if (!title.trim() || !startDate || eventData?.metadata.readonly) return;
+        if (!title.trim() || !startDate || eventData?.metadata.readonly || calendars.find(calendar => calendar.id === calendarId)?.provider === 'microsoft') return;
 
         // Prevents a second creation (POST) while the first one is still in flight
         if (!eventData?.id && !createdIdRef.current && isCreatingRef.current) return;

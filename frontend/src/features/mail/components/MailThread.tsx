@@ -6,7 +6,8 @@ import { ContactAvatar } from '../../../shared/ui/avatars/ContactAvatar';
 
 import { MailAttachments } from './MailAttachments';
 import { MailBody } from './MailBody';
-import { isSameMailMessage, mailMessageIdentity } from '../mailIdentity';
+import { MailReaderError } from './MailReaderError';
+import { isSelectedMailBody, mailMessageIdentity } from '../mailIdentity';
 import { cleanMailAddress } from './mailViewerModel';
 import type { MailViewerController } from './useMailViewerController';
 
@@ -15,17 +16,14 @@ export function MailThread({ controller }: { readonly controller: MailViewerCont
   const { t } = controller;
   return (
     <div className="space-y-2 mb-8">
-      {controller.allThreadMessages.map((message, index) => {
+      {controller.allThreadMessages.map((message) => {
         const identity = mailMessageIdentity(message, controller.account?.email);
-        const scopedMain = isSameMailMessage(
+        const main = isSelectedMailBody(
           message,
           controller.mailData,
+          controller.selectedMail,
           controller.account?.email,
         );
-        const summaryHasAccount = Boolean(message.account || message.account_email);
-        const main = scopedMain
-          || (!summaryHasAccount && controller.mailData?.id === message.id)
-          || (index === 0 && !controller.mailData);
         const expanded = controller.expandedThreadIds.has(identity);
         const sent = controller.isSentMessage(message);
         const sender = sent
@@ -74,8 +72,12 @@ export function MailThread({ controller }: { readonly controller: MailViewerCont
                       <MailAttachments attachments={content.attachments ?? []} email={contentEmail || ''} folder={contentFolder} messageId={content.id || message.id} />
                     )}
                   </>
+                ) : controller.threadMessageErrors.has(identity) ? (
+                  <MailReaderError kind="thread-message" onRetry={() => { controller.retryThreadMessage(message); }} retryLabel={t('common.retry', 'Try again')}>
+                    {t('mail.reader_message_error', 'The message could not be loaded. Try again.')}
+                  </MailReaderError>
                 ) : (
-                  <div className="flex items-center justify-center py-8"><div className="w-5 h-5 border-2 border-[var(--gnosi-blue)] border-t-transparent rounded-full animate-spin" /></div>
+                  <div aria-label={t('mail.loading')} data-mail-body-loading="true" role="status" className="flex items-center justify-center py-8"><div className="w-5 h-5 border-2 border-[var(--gnosi-blue)] border-t-transparent rounded-full animate-spin" /></div>
                 )}
               </div>
             )}

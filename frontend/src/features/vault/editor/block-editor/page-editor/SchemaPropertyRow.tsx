@@ -12,6 +12,7 @@ export function SchemaPropertyRow({ context, prop }: { context: PageEditorContro
 
   const propDesc = prop.description || prop.config?.description || getPropConfig(prop).description;
   const isHelpOpen = !!openPropHelp[prop.name];
+  const variableHeight = ['files', 'autoria', 'relation', 'multi_select', 'select', 'status', 'date', 'datetime', 'period', 'rich_text', 'image', 'formula', 'rollup', 'virtual'].includes(prop.type);
   return (
     <React.Fragment key={prop.name}>
       <div
@@ -22,7 +23,7 @@ export function SchemaPropertyRow({ context, prop }: { context: PageEditorContro
         onClick={() => { setActiveProp(prop.name); }}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveProp(prop.name); } }}
         title={t('editor.property_select_hint', { defaultValue: "Select the property (↑↓ navigate · ⌘C/⌘V copy/paste)" })}
-        className={`flex items-center gap-1.5 group py-1 h-8 cursor-pointer rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 ${activeProp === prop.name ? 'bg-[var(--gnosi-primary)]/10 ring-1 ring-[var(--gnosi-primary)]/40' : ''} ${['files', 'autoria', 'relation', 'multi_select', 'select', 'status', 'period', 'rich_text', 'image', 'formula', 'rollup', 'virtual'].includes(prop.type) ? 'self-start' : ''}`}
+        className={`flex items-center gap-1.5 group py-1 h-8 cursor-pointer rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 ${activeProp === prop.name ? 'bg-[var(--gnosi-primary)]/10 ring-1 ring-[var(--gnosi-primary)]/40' : ''} ${variableHeight ? 'self-start' : ''}`}
       >
         <div className="p-1.5 rounded-md bg-[var(--bg-secondary)] text-[var(--text-tertiary)]/60 group-hover:bg-[var(--gnosi-primary)]/10 group-hover:text-[var(--gnosi-primary)] transition-colors shrink-0">
           <PropertyIcon type={prop.type} />
@@ -48,7 +49,7 @@ export function SchemaPropertyRow({ context, prop }: { context: PageEditorContro
           </button>
         )}
       </div>
-      <div data-prop-value={prop.name} className={`min-w-0 flex items-center gap-1.5 group ${['files', 'autoria', 'relation', 'multi_select', 'select', 'status', 'period', 'rich_text', 'image', 'formula', 'rollup', 'virtual'].includes(prop.type) ? 'min-h-[2rem] py-1' : 'h-8'}`}>
+      <div data-prop-value={prop.name} className={`min-w-0 flex items-center gap-1.5 group ${variableHeight ? 'min-h-[2rem] py-1' : 'h-8'}`}>
         <PropertyValue prop={prop} context={context} />
         {!currentTable && (
           <button onClick={() => { void handleRemoveProperty(prop.name); }} className="opacity-0 group-hover:opacity-100 p-1.5 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-all shrink-0" title={t('editor.remove_property')}><X size={14} /></button>

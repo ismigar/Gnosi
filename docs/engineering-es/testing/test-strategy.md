@@ -23,6 +23,7 @@ source_paths:
   - frontend/scripts/check-bundle-size.ts
   - frontend/scripts/lint.mjs
   - frontend/scripts/lint-files.mjs
+  - frontend/scripts/lint-worker.mjs
   - frontend/scripts/typecheck.mjs
   - frontend/scripts/typecheck-worker.mjs
 tests:
@@ -36,6 +37,7 @@ tests:
   - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
   - frontend/tests/contracts/lint-runner.test.ts
+  - frontend/scripts/lint-worker.test.mjs
   - frontend/tests/contracts/typecheck-runner.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -118,12 +120,20 @@ uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
 En macOS, usad `--resource-profile mac-idle` para la validación local acotada. Sustituye el heap predeterminado por 1536 MiB, ejecuta con prioridad 10, un worker y un hilo de cálculo, y supervisa un presupuesto RSS de 2 GiB para el comando y sus descendientes. Cada fase comienza solo después de 30 segundos de presión de memoria normal. Las comprobaciones estáticas, compilaciones y suites tienen límites de 5, 10 y 15 minutos respectivamente.
 
 `pnpm lint:frontend` descubre los archivos con el recorrido configurado de ESLint
-y los comprueba en lotes de hasta 128 archivos, con procesos nuevos y secuenciales.
+y los comprueba en lotes de hasta 16 archivos, con procesos nuevos y secuenciales.
+Cada proceso conserva el servicio de tipos durante un máximo de 384 archivos.
+Después de cada lote, cede el control y recoge la memoria temporal antes de seguir.
 El descubrimiento no analiza el código ni rellena la caché de lint; solo las
 comprobaciones CLI posteriores pueden acreditar el éxito. Cada lote conserva
 todas las reglas, la comprobación tipada con project service, las exclusiones y
 el umbral de cero avisos. Un lote fallido detiene el comando. `GNOSI_ESLINT_CACHE`
-sigue activando la caché basada en contenido. Los límites de heap, RSS y duración
+sigue activando la caché basada en contenido. El entorno canónico de validación
+conserva esta opción explícita del analizador y sigue aislando los selectores de
+la aplicación, las credenciales y los indicadores de pruebas contra servicios
+reales. Preparad las cachés reutilizadas con `scripts/ci/prepare_analysis_cache.py`
+para que los tipos de fuentes importadas, la configuración y los archivos de
+dependencias invaliden los resultados obsoletos; por defecto no se usa caché.
+Los límites de heap, RSS y duración
 de mac-idle no cambian. Las regresiones comparan el descubrimiento con ESLint real
 y cubren errores en lotes posteriores, reglas tipadas, invalidación de caché y
 terminación del proceso hijo.
@@ -436,3 +446,15 @@ la matriz de release.
 ## Catálogo de pruebas
 
 El [catálogo de pruebas](../generated/tests.md) generado enumera los archivos de pruebas propios y las señales de navegación. La recopilación del ejecutor sigue siendo la fuente autoritativa del número de pruebas ejecutables.
+
+## Resultados de tipos del frontend verificados explícitamente
+
+La pareja opcional `GNOSI_TYPECHECK_CACHE` y `GNOSI_TYPECHECK_CACHE_SHA256` vincula un manifiesto privado y propio, el ayudante fijo `verify-typecheck-cache.py` y el ejecutable Python bloqueado antes de ejecutarlo. Verifica una fase completa de tipos realmente finalizada y todas las huellas actuales de fuentes, configuración, dependencias, enlaces simbólicos y Node. Solo pueden diferir archivos de calidad no TypeScript revisados explícitamente; la función original completa `typecheck()`, el compilador, el trabajador, las raíces y las reglas no cambian. Una validación global posterior fallida sigue fallida.
+
+Sin la pareja se ejecuta el comprobador original intacto. Los vínculos parciales, malformados u obsoletos fallan sin alternativa ni reintento. La verificación correcta muestra `VERIFIED_CACHED_WHOLE_FRONTEND_TYPES`, sin inventar lotes semánticos actuales. El entorno pre-PR expone la pareja solo a la fase exacta `Frontend types` y elimina ambas claves de cualquier otra fase, incluidas las pruebas del frontend. Los límites, la limpieza y las demás obligaciones de validación se mantienen.
+
+## Validación interactiva explícita en macOS
+
+El perfil separado y opcional `mac-interactive` se selecciona con `--resource-profile mac-interactive` cuando la validación debe convivir con `Codex` abierto. Requiere 30 segundos continuos de presión no crítica dentro de la misma ventana previa de 90 segundos. El nivel de aviso del anfitrión `2` se registra como convivencia, incluidos los cambios de nivel durante el trabajo propio; no detiene este perfil. El perfil original `mac-idle` y el comportamiento de `--resource-profile mac-idle` no cambian: se requieren 30 segundos normales y un aviso sostenido durante dos segundos detiene el trabajo propio. Los resultados interactivos deben identificar el perfil y no pueden presentarse como aceptación estricta en reposo.
+
+Ambos perfiles se detienen ante el nivel crítico `4`, sondas de presión desconocidas o fallidas, RSS propio superior a 2 GiB, plazos o procesos hijos huérfanos. Mantienen el techo Node de 1536 MiB, un trabajador/hilo, nice 10, límites estáticos/compilación/suites de 300/600/900 segundos y sondas de procesos de dos segundos. El modo interactivo solo cambia el tratamiento de los avisos observados de presión de fondo; no añade reintentos, alternativas silenciosas, aumentos de recursos ni obligación de cerrar aplicaciones. La limpieza propia y las demás obligaciones de validación siguen siendo obligatorias.

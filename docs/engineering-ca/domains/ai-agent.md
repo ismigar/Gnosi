@@ -1,7 +1,30 @@
 ---
 status: implemented
-last_verified: 2026-10-06
+last_verified: 2026-10-15
 source_paths:
+  - backend/services/workspace_speech.py
+  - backend/domains/agent/routes/workspace_speech.py
+  - frontend/src/shared/speech
+  - frontend/src/shared/api/speech-output.ts
+  - backend/tests/test_agent_workspace_speech.py
+  - backend/services/agent_workspace_store.py
+  - backend/services/agent_workspace_files.py
+  - backend/services/agent_workspace_documents.py
+  - backend/services/agent_workspace_analysis.py
+  - backend/services/agent_workspace_tools.py
+  - backend/services/agent_native_bridge.py
+  - desktop/agent-workspace.js
+  - desktop/electron-builder.yml
+  - desktop/scripts/after-pack.cjs
+  - desktop/scripts/native-privacy.cjs
+  - desktop/assets/native-privacy.json
+  - frontend/src/features/agent-workspace
+  - frontend/src/shared/api/agent-workspace.ts
+  - frontend/src/shared/api/agent-workspace-voice.ts
+  - backend/services/mcp_contracts.py
+  - backend/services/mcp_tool_contributions.py
+  - backend/tests/test_mcp_schema_validation.py
+  - backend/tests/test_agent_memory_provenance.py
   - frontend/src/shared/api/resource-processing.ts
   - frontend/src/features/literature/records/process-resource/useProcessResourceController.ts
   - frontend/src/features/literature/records/process-resource/resourceProcessingTasks.ts
@@ -127,6 +150,14 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_workspace.py
+  - backend/tests/test_agent_native_bridge.py
+  - backend/tests/test_agent_workspace_voice.py
+  - frontend/src/features/agent-workspace/AgentWorkspacePanel.test.tsx
+  - frontend/src/features/agent-workspace/useVoiceConversation.test.tsx
+  - frontend/src/features/agent/chat/promptQueue.test.ts
+  - desktop/agent-workspace.test.js
+  - desktop/native-privacy.test.js
   - backend/tests/test_agent_exact_inventory_filters.py
   - backend/tests/test_agent_exact_actions.py
   - backend/tests/test_agent_learning_review.py
@@ -1633,3 +1664,33 @@ Les claus entre cometes es conserven com a propietats JSON literals. Les plantil
 Les revisions Gauntlet utilitzen un context nou amb la petició original, els criteris fixos, el resultat candidat i les evidències de les fonts dins de l'àmbit autoritzat, sense eines ni delegació. Les evidències absents o omeses produeixen una verificació incompleta. Una crida de correcció separada conserva l'esquema de sortida i rep una nova revisió. El bucle comparteix els límits de crides i temps de la tasca principal, s'atura en acceptar el resultat o després de dues correccions consecutives sense millora mesurable i propaga la cancel·lació i la revocació de permisos. Les correccions no repeteixen accions; una revisió interrompuda es reprèn com a incompleta.
 
 El text de les crítiques, les peticions i les instantànies de les fases internes no es desen de manera persistent. Els registres de les fases només conserven metadades operatives i un resultat buit. Els artefactes privats de recuperació conserven el candidat, els criteris i les metadades de les fases amb la retenció existent de les execucions. Els detalls del xat, la recuperació del flux i les converses desades només exposen l'estat d'acceptació, el nombre de revisions i de troballes pendents i un motiu d'aturada finit.
+
+## Capacitats MCP governades i fonts de memòria de les respostes
+
+Els esquemes de les eines MCP es conserven íntegres al contracte d’arguments de LangChain. L’amfitrió valida els valors exactes dels arguments amb JSON Schema abans d’enviar-los al connector i abans de crear una confirmació governada, inclosos els objectes imbricats, les llistes, les enumeracions i les referències locals. Els arguments opcionals continuen absents quan s’ometen. L’adaptador d’enllaç proporciona directament els diccionaris de funcions MCP i conserva les referències recursives locals, en lloc de permetre que LangChain les resolgui amb restriccions més febles. Els destins de les referències locals es comproven abans d’admetre’ls al catàleg; les referències sense destí o remotes només fan rebutjar la capacitat malformada. La validació no recupera mai un esquema des d’un URL proporcionat pel connector.
+
+`backend/config/mcp_config.py` defineix `MCP_TOOL_POLICIES`, amb el parell exacte `(server_name, tool_name)` com a clau. Cada entrada de confiança declara `effects`, `minimum_role` i `confirmation`. Les definicions desconegudes, incloses les que només anuncien `readOnlyHint`, continuen sense estar disponibles. Les eines amb conseqüències requereixen com a mínim accés d’editor; les escriptures externes i les accions destructives requereixen confirmació `always` mitjançant el flux existent de confirmació d’un sol ús vinculat a l’àmbit. Les anotacions del servidor i els camps de política incrustats no poden concedir autorització. L’antiga llista de noms permesos del perfil no pot concedir accés MCP; els connectors s’han d’assignar explícitament mitjançant el catàleg d’habilitats governat.
+
+Els missatges de l’assistent inclouen `memory_provenance` als esdeveniments del flux i a l’historial de la sessió. Cada entrada registra l’identificador de la memòria, la revisió, l’agent propietari, el text, la categoria, l’àmbit, l’estat d’activació i la caducitat capturats a la petició del flux de treball. Les entrades de memòria s’afegeixen atòmicament després de distribuir el pressupost d’instruccions i context, amb identificadors i revisions explícits; les entrades que no hi caben no apareixen ni a la petició ni a les fonts. La procedència es registra en el moment de la inclusió i no s’infereix mai de fragments de text. Aquestes fonts descriuen el context seleccionat per a la petició, sense afirmar que el model s’hagi basat causalment en una memòria. La correcció utilitza l’API existent d’actualització de memòria dins de l’àmbit i la seva comprovació `expected_revision`; la supressió respecta els mateixos límits d’agent, usuari i Vault. La procedència històrica conserva la revisió original després d’edicions posteriors de la memòria.
+
+## Banc de treball de la conversa
+
+L’espai de treball desplegable de l’agent al xat agrupa fitxers, edició de documents, anàlisi Python, navegació nativa i veu per a la conversa actual. L’activitat de les eines i les targetes de confirmació existents continuen mostrant el progrés. Els comprovants del banc de treball es desen a `system/agent_workspace.sqlite`, delimitats per l’usuari autenticat, l’espai de treball, el Vault, l’agent i la conversa. Els canvis d’àmbit reinicien el panell, cancel·len les peticions pendents i revoquen les capacitats natives. La cua persistent de peticions del navegador conserva instruccions i adjunts editables i reordenables per al torn següent; un Web Lock serialitza les escriptures i el lliurament de la cua entre pestanyes. Els lliuraments incerts s’aturen per revisar-los en lloc de repetir automàticament una instrucció amb conseqüències.
+
+La sortida de l’assistent utilitza el renderitzador Markdown compartit, conserva les citacions i es pot desar en una pàgina del Vault i obrir des del xat. Les fonts de memòria de les respostes mostren les revisions exactes desades i utilitzen els controls existents de correcció i oblit.
+
+L’accés a carpetes comença amb el selector natiu de l’aplicació d’escriptori. Una acreditació signada de curta durada vincula el directori seleccionat a tot l’àmbit autenticat del banc de treball; qui fa la crida no pot autoritzar un camí arbitrari. Es rebutgen els recorreguts fora del directori mitjançant camins relatius, els enllaços simbòlics i els fitxers no regulars, incloses les FIFO sense bloquejar el lector. Les transferències exigeixen coincidència de la mida en bytes i del SHA-256, no sobreescriuen mai un fitxer existent i conserven comprovants idempotents. Les autoritzacions es poden revocar des del panell.
+
+Les sessions de documents capturen la pàgina d’origen i la seva etag. La interfície mostra una previsualització de les diferències abans d’un desament explícit; en aplicar-les, comprova l’etag capturada mitjançant l’API existent de modificació del Vault. Una pàgina modificada genera un conflicte en lloc de sobreescriure-la. Les sessions i els comprovants d’operacions desats es poden tornar a obrir; un desament incert conserva la mateixa identitat de petició en reintentar-lo.
+
+L’anàlisi Python requereix Docker i una imatge local ja instal·lada (per defecte, `python:3.11-slim`). No recorre mai a executar codi generat a l’amfitrió ni descarrega una imatge automàticament. Cada execució desactiva l’accés a la xarxa, elimina capacitats i utilitza una arrel de només lectura, límits de recursos, un tmpfs d’escriptura limitat i un termini de 30 segons. Només es munten com a entrades de només lectura els artefactes anteriors seleccionats explícitament i amb el hash verificat. Els usuaris poden importar fitxers locals d’entrada, reutilitzar artefactes conservats, descarregar resultats verificats i aturar un contenidor en execució. Els comprovants interromputs continuen sent incerts i no s’executen de nou automàticament.
+
+El pont Electron exposa un contracte IPC acotat per a emissors de confiança. El treball natiu queda limitat a la finestra propietària i a la conversa autenticada. Les finestres del navegador tenen aïllament de seguretat, sessions aïllades, cap accés a Node ni a preload, finestres emergents i permisos denegats i navegació del mateix origen. Cada clic o entrada de text proposats necessiten consentiment natiu; la consulta del DOM és de només lectura i es tornen a comprovar les generacions de les capacitats abans d’enviar entrades natives limitades. Prendre el control, aturar, revocar o substituir el navegador invalida les observacions i les entrades pendents. La selecció d’aplicacions de macOS només autoritza l’aplicació seleccionada; l’entrada de text comprova el focus i utilitza un executor natiu cancel·lable. L’acció opcional de Missatges obre un esborrany perquè una persona el revisi. Les aplicacions empaquetades inclouen descripcions localitzades de la finalitat de l’automatització i del micròfon a macOS; aquestes descripcions no concedeixen permisos del sistema operatiu. Les peticions de l’agent utilitzen una cua persistent amb reserva i concessió temporal i no repeteixen mai una acció reservada després d’una desconnexió.
+
+La veu només s’inicia des del botó explícit del micròfon de la conversa. A Electron utilitza el servei local governat de transcripció Whisper, encara que Chromium exposi un constructor de reconeixement del navegador. Fora d’Electron utilitza el reconeixement del navegador quan està disponible; altrament, envia fragments d’àudio complets i de mida limitada al servei local. El micròfon es pausa mentre l’agent treballa o es reprodueix veu, i la gravació, les peticions i la reproducció s’aturen en sortir o canviar d’àmbit. La transcripció local pot descarregar el model configurat durant el primer ús explícit. El reconeixement de veu del navegador utilitza el servei configurat al navegador. Les instruccions de veu entren a la mateixa cua del torn següent delimitada per l’àmbit, sense substituir l’esborrany escrit al compositor.
+
+### Veu de sortida compartida
+
+Configuració → IA → Veu desa una única preferència `ai.speech_output` per al Vault actiu. El xat, els pòdcasts del lector, els àudios de l’agent i l’eina RSS utilitzen el mateix motor, veu, llengua i velocitat del servei `backend/services/workspace_speech.py`. La síntesi pot ser local amb les veus instal·lades de macOS o neuronal d’OpenAI, seleccionada explícitament. La clau d’API es manté al magatzem de credencials del servidor; l’opció d’OpenAI informa de l’enviament del text i del possible cost. No hi ha cap alternativa externa automàtica. El motor local només està disponible actualment a macOS.
+
+La prova de veu utilitza una mostra traduïda fixa. La preparació i la reproducció tenen estats diferenciats. La coordinació de l’àudio pausa el micròfon mentre parla l’app o es reprodueix un episodi del lector. Aturar, canviar de context o de configuració cancel·la les peticions i allibera els recursos de reproducció. Els àudios antics conserven la veu original fins que es regeneren; la memòria cau nova identifica la configuració efectiva. Es llegeix la prosa sense recitar la sintaxi Markdown ni els blocs de codi. La naturalitat i la qualitat de cada llengua requereixen proves d’escolta; els tests simulats no demostren equivalència amb ChatGPT.

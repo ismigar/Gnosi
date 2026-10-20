@@ -23,6 +23,11 @@ from backend.agent.gnosi_tools import (
     replace_reference_ids_in_titles,
 )
 from backend.domains.agent.routes.router import router
+from backend.domains.agent.routes import workspace as _workspace_routes
+from backend.domains.agent.routes import native_workspace as _native_workspace_routes
+from backend.domains.agent.routes import workspace_inputs as _workspace_input_routes
+from backend.domains.agent.routes import workspace_voice as _workspace_voice_routes
+from backend.domains.agent.routes import workspace_speech as _workspace_speech_routes
 from backend.domains.agent.routes.contracts import (
     ACTION_ID_RE,
     ATTACHMENT_EXTRACTION_SECONDS,

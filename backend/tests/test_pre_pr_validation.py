@@ -120,9 +120,11 @@ def test_missing_ci_test_collection_fails_closed(tmp_path: Path) -> None:
         build_steps(tmp_path, "a" * 40, quick=True)
 
 
+@pytest.mark.parametrize("lint_cache", [None, "", "/synthetic/analyzer cache/eslint"])
 def test_environment_contains_no_live_credentials_or_user_runtime_selectors(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    lint_cache: str | None,
 ) -> None:
     parent = {
         "HOME": "/synthetic/home",
@@ -143,9 +145,15 @@ def test_environment_contains_no_live_credentials_or_user_runtime_selectors(
         "pnpm_config_verify_deps_before_run": "install",
         "GNOSI_VITEST_MAX_WORKERS": "20",
     }
+    if lint_cache is not None:
+        parent["GNOSI_ESLINT_CACHE"] = lint_cache
     original = dict(parent)
     environment = pre_pr.isolated_environment(parent, tmp_path)
     assert parent == original
+    if lint_cache:
+        assert environment["GNOSI_ESLINT_CACHE"] == lint_cache
+    else:
+        assert "GNOSI_ESLINT_CACHE" not in environment
     assert environment["HOME"] == parent["HOME"]
     assert environment["CODEX_HOME"] == parent["CODEX_HOME"]
     assert "must-not-leak" not in environment.values()
@@ -376,3 +384,29 @@ def test_cli_reports_scope_and_cleans_only_its_disposable_runtime(
     else:
         assert "GitHub still must pass all five checks" in caplog.text
         assert ("QUICK SUBSET" in caplog.text) == (mode == "quick")
+
+
+def test_canonical_runner_passes_only_explicit_lint_cache_to_real_child(tmp_path: Path) -> None:
+    cache = str(tmp_path / "owned analyzer cache" / "eslint")
+    environment = pre_pr.isolated_environment({
+        "GNOSI_ESLINT_CACHE": cache,
+        "GNOSI_ESLINT_CACHE_UNEXPECTED_PATH": "/private/user-data",
+        "GNOSI_API_TOKEN": "synthetic-credential",
+        "OPENAI_API_KEY": "synthetic-credential",
+        "GNOSI_BACKEND_URL": "https://production.invalid",
+        "GNOSI_DATA_DIR": "/private/user-data",
+        "GNOSI_RUN_LIVE_E2E": "1",
+    }, tmp_path)
+    code = (
+        "import os,sys; "
+        "assert os.environ['GNOSI_ESLINT_CACHE'] == sys.argv[1]; "
+        "assert 'GNOSI_ESLINT_CACHE_UNEXPECTED_PATH' not in os.environ; "
+        "assert 'OPENAI_API_KEY' not in os.environ; "
+        "assert os.environ['GNOSI_API_TOKEN'] == ''; "
+        "assert os.environ['GNOSI_BACKEND_URL'] == 'http://127.0.0.1:9'; "
+        "assert os.environ['GNOSI_DATA_DIR'] == sys.argv[2]; "
+        "assert os.environ['GNOSI_RUN_LIVE_E2E'] == '0'"
+    )
+    step = Step("Synthetic lint child", (sys.executable, "-c", code, cache,
+                                          str(tmp_path / "data")))
+    assert pre_pr.run_steps(tmp_path, [step], environment) == 0

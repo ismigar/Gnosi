@@ -27,6 +27,7 @@ test('the native session resolves the redirect and the browser receives the emai
       assert.equal(request.origin, 'http://localhost:43123');
       assert.equal(request.pathname, '/api/auth/microsoft/login');
       assert.equal(request.searchParams.get('login_hint'), 'user+calendar@example.test');
+      assert.equal(request.searchParams.get('type'), 'calendar');
       assert.equal(request.searchParams.get('desktop'), 'true');
       assert.equal(request.searchParams.get('ui_locales'), 'ca-ES');
       assert.equal(options.credentials, 'include');

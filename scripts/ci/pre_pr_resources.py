@@ -44,20 +44,45 @@ def pressure_level(timeout: float = 2) -> int:
     return level
 
 
-def idle_preflight() -> None:
+def _record_pressure(
+    level: int, phase: str, elapsed: float, normal_required: bool,
+    observations: list[dict[str, int | float | str]] | None,
+) -> None:
+    profile = "mac-idle" if normal_required else "mac-interactive"
+    if observations is not None:
+        observations.append({"profile": profile, "phase": phase, "elapsed_seconds": elapsed, "level": level})
+    if not normal_required:
+        if level == 2:
+            LOG.warning("mac-interactive: host warning pressure 2 during %s; coexistence observed, owned limits remain enforced", phase)
+        else:
+            LOG.info("mac-interactive: host pressure %d during %s", level, phase)
+
+
+def idle_preflight(
+    *, normal_required: bool = True,
+    observations: list[dict[str, int | float | str]] | None = None,
+) -> None:
+    if not isinstance(normal_required, bool):
+        raise ValueError("Explicit pressure policy required")
     if platform.system() != "Darwin":
-        raise ValueError("mac-idle requires macOS")
+        raise ValueError("mac-idle requires macOS" if normal_required else "mac-interactive requires macOS")
     started = monotonic()
     normal_since: float | None = None
+    previous_level: int | None = None
     while True:
         remaining = PREFLIGHT_WAIT_SECONDS - (monotonic() - started)
         if remaining <= 0:
             raise ValueError("Memory pressure is not normal; validation is incomplete")
         level = pressure_level(timeout=min(2, remaining))
         now = monotonic()
+        if level not in (1, 2, 4):
+            raise ValueError("Unknown macOS memory pressure")
+        if level != previous_level:
+            _record_pressure(level, "preflight", now - started, normal_required, observations)
+            previous_level = level
         if level == 4 or now - started >= PREFLIGHT_WAIT_SECONDS:
             raise ValueError("Memory pressure is not normal; validation is incomplete")
-        if level == 1:
+        if level == 1 or (not normal_required and level == 2):
             normal_since = now if normal_since is None else normal_since
             if now - normal_since >= 30:
                 return
@@ -110,15 +135,27 @@ def step_timeout(step: Step) -> int:
     return 300
 
 
-def monitor(process: subprocess.Popen[bytes], timeout: float, tracked: set[int]) -> tuple[int, int]:
+def monitor(
+    process: subprocess.Popen[bytes], timeout: float, tracked: set[int],
+    *, normal_required: bool = True,
+    observations: list[dict[str, int | float | str]] | None = None,
+) -> tuple[int, int]:
+    if not isinstance(normal_required, bool):
+        raise ValueError("Explicit pressure policy required")
     started = monotonic()
     warning_since: float | None = None
+    previous_level: int | None = None
     peak = 0
     while True:
         level = pressure_level()
         now = monotonic()
+        if level not in (1, 2, 4):
+            raise ValueError("Unknown macOS memory pressure")
+        if level != previous_level:
+            _record_pressure(level, "monitor", now - started, normal_required, observations)
+            previous_level = level
         warning_since = (warning_since if warning_since is not None else now) if level == 2 else None
-        if level == 4 or (warning_since is not None and now - warning_since >= 2):
+        if level == 4 or (normal_required and warning_since is not None and now - warning_since >= 2):
             return 75, peak
         rss = process_tree_rss(process.pid, tracked)
         peak = max(peak, rss)
@@ -154,4 +191,30 @@ def run_mac_idle(step: Step, root: Path, environment: Mapping[str, str]) -> subp
     finally:
         stop_tree(process, tracked)
     LOG.info("Resource result: %s exit=%d duration=%.2fs peak_rss_kib=%s", step.name, status, monotonic() - started, peak)
+    return subprocess.CompletedProcess(step.arguments, status)
+
+
+def run_mac_interactive(step: Step, root: Path, environment: Mapping[str, str]) -> subprocess.CompletedProcess[bytes]:
+    observations: list[dict[str, int | float | str]] = []
+    LOG.info("Resource profile: mac-interactive; host warning 2 is reported coexistence, critical pressure and all owned limits fail closed")
+    idle_preflight(normal_required=False, observations=observations)
+    started = monotonic()
+    process = subprocess.Popen(
+        ("nice", "-n", "10", *step.arguments), cwd=root,
+        env=resource_environment(environment), start_new_session=True,
+    )
+    tracked: set[int] = set()
+    peak: int | None = None
+    try:
+        status, peak = monitor(process, step_timeout(step), tracked,
+                               normal_required=False, observations=observations)
+    except KeyboardInterrupt:
+        status = 130
+    except (OSError, ValueError, subprocess.SubprocessError):
+        LOG.exception("Resource supervision failed; validation is incomplete")
+        status = 125
+    finally:
+        stop_tree(process, tracked)
+    LOG.info("Resource result: %s exit=%d duration=%.2fs peak_rss_kib=%s", step.name, status, monotonic() - started, peak)
+    LOG.info("Resource profile observations: mac-interactive %s", observations)
     return subprocess.CompletedProcess(step.arguments, status)

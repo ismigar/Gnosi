@@ -24,6 +24,7 @@ import {
   saveMailDraft,
 } from '../../../shared/api/mail';
 import {
+  MailSubmissionError,
   replyMailMultipart,
   sendMailMultipart,
 } from '../../../shared/api/mail-specialized';
@@ -71,6 +72,7 @@ export function useMailComposerController({
   account = null,
   accounts = [],
   initialBody = '',
+  initialBcc = '',
   initialCc = '',
   initialSubject = '',
   initialTo = '',
@@ -88,12 +90,22 @@ export function useMailComposerController({
   );
   const [to, setTo] = useState(initialTo);
   const [cc, setCc] = useState(initialCc);
-  const [bcc, setBcc] = useState('');
-  const [showCcBcc, setShowCcBcc] = useState(Boolean(initialCc));
+  const [bcc, setBcc] = useState(() => typeof initialBcc === 'string'
+    ? initialBcc : initialBcc.join(', '));
+  const [showCcBcc, setShowCcBcc] = useState(Boolean(initialCc || initialBcc.length));
   const [subject, setSubject] = useState(initialSubject);
   const [body, setBody] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
+  const submissionRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      submissionRef.current?.abort();
+    };
+  }, []);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [showAvailability, setShowAvailability] = useState(false);
   const [showSnippets, setShowSnippets] = useState(false);
@@ -213,10 +225,14 @@ export function useMailComposerController({
   };
 
   const handleSend = async (): Promise<void> => {
+    // State updates are asynchronous; the ref also guards same-tick shortcuts.
+    if (submissionRef.current) return;
     if (!to.trim() || !body.trim() || !fromAccount?.email) {
       toast.error(t('mail.compose_missing_fields'));
       return;
     }
+    const submission = new AbortController();
+    submissionRef.current = submission;
     setSending(true);
     try {
       const formData = buildMailFormData({
@@ -237,8 +253,10 @@ export function useMailComposerController({
           smtpEmail,
           sourceFolder,
           formData,
+          { signal: submission.signal },
         )
-        : await sendMailMultipart(smtpEmail, formData);
+        : await sendMailMultipart(smtpEmail, formData, { signal: submission.signal });
+      if (!mountedRef.current || submission.signal.aborted) return;
       if (result.status !== 'success' && !('message_id' in result)) {
         toast.error(t('mail.send_error'));
         return;
@@ -257,10 +275,14 @@ export function useMailComposerController({
       onSent?.();
       onClose();
     } catch (error) {
+      if (!mountedRef.current || submission.signal.aborted) return;
       logError('mail-composer.send', error);
-      toast.error(t('mail.send_error'));
+      toast.error(t(error instanceof MailSubmissionError
+        ? error.reason === 'in_progress' ? 'mail.send_in_progress' : 'mail.send_unknown'
+        : 'mail.send_error'));
     } finally {
-      setSending(false);
+      if (submissionRef.current === submission) submissionRef.current = null;
+      if (mountedRef.current) setSending(false);
     }
   };
 

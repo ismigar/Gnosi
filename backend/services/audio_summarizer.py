@@ -2,17 +2,14 @@
 
 from backend.services.agent_behavior import task_input
 
-import io
 import os
 import re
 import threading
 from collections.abc import Callable, Sequence
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, TypedDict
 
-from gtts import gTTS  # type: ignore[import-untyped]
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation
 from sqlalchemy.orm import Session
 
@@ -66,7 +63,6 @@ def get_generation_status() -> GenerationStatus:
 MAX_SNIPPET_CHARS = 500  # Content chars per article
 MAX_BATCH_CHARS = 20000  # ~5k input tokens per batch
 MAX_BATCHES = 5  # Max batches (avoid >5 min wait)
-MAX_TTS_WORKERS = 4  # Bounded parallelism for independent sentence requests
 
 PODCAST_LANGUAGES = {
     "ca": "Catalan",
@@ -193,39 +189,10 @@ def _split_into_sentences(text: str) -> list[str]:
     return result
 
 
-def _synthesize_tts_sentence(payload: tuple[int, str, str]) -> bytes:
-    """Synthesize one indexed sentence and return its MP3 bytes."""
-    index, sentence, language_code = payload
-    try:
-        tts = gTTS(text=sentence, lang=language_code, slow=False)
-        buf = io.BytesIO()
-        tts.write_to_fp(buf)
-        return buf.getvalue()
-    except Exception as exc:
-        log.warning("TTS failed for sentence %s: %s", index + 1, exc)
-        return b""
-
-
 def _generate_tts_by_sentences(text: str, output_path: str | Path, language_code: str) -> None:
-    """
-    Generate TTS audio sentence by sentence to avoid mid-sentence pauses.
-    """
-    sentences = _split_into_sentences(text)
-    log.info(f"TTS: {len(sentences)} sentences to process.")
-
-    payloads = [
-        (index, sentence, language_code)
-        for index, sentence in enumerate(sentences)
-        if sentence.strip()
-    ]
-    worker_count = min(MAX_TTS_WORKERS, len(payloads)) or 1
-    with ThreadPoolExecutor(max_workers=worker_count) as executor:
-        audio_chunks = executor.map(_synthesize_tts_sentence, payloads)
-        with open(output_path, "wb") as output_file:
-            for audio_chunk in audio_chunks:
-                output_file.write(audio_chunk)
-
-    log.info(f"TTS completed: {os.path.getsize(output_path)} bytes")
+    """Use the same centrally configured engine as conversational playback."""
+    from backend.services.workspace_speech import generate_document
+    generate_document(text, output_path, language_code)
 
 
 def _generate_tts_atomically(text: str, output_path: str | Path, language_code: str,
@@ -423,21 +390,22 @@ def _generate_daily_podcast() -> str | None:
         try:
             from backend.services.agent_specialized_tools import run_engine
             def publish_audio() -> None:
-                import hashlib
                 import shutil
                 import tempfile
-                digest = hashlib.sha256((language_code + "\0" + full_script).encode()).hexdigest()
-                cached = Path(audio_output_dir) / ".generated" / f"{digest}.mp3"
-                cached.parent.mkdir(parents=True, exist_ok=True)
-                if not cached.is_file():
-                    _generate_tts_atomically(full_script, cached, language_code)
-                with tempfile.NamedTemporaryFile(dir=audio_output_dir, suffix=".tmp", delete=False) as temporary:
-                    temporary_path = Path(temporary.name)
-                try:
-                    shutil.copyfile(cached, temporary_path)
-                    _publish_podcast_audio(llm, temporary_path, audio_path)
-                finally:
-                    temporary_path.unlink(missing_ok=True)
+                from backend.services.workspace_speech import fingerprint, effective_settings_sync, speech_session
+                with speech_session(effective_settings_sync(language_code)):
+                    digest = fingerprint(full_script, language_code)
+                    cached = Path(audio_output_dir) / ".generated" / f"{digest}.mp3"
+                    cached.parent.mkdir(parents=True, exist_ok=True)
+                    if not cached.is_file():
+                        _generate_tts_atomically(full_script, cached, language_code)
+                    with tempfile.NamedTemporaryFile(dir=audio_output_dir, suffix=".tmp", delete=False) as temporary:
+                        temporary_path = Path(temporary.name)
+                    try:
+                        shutil.copyfile(cached, temporary_path)
+                        _publish_podcast_audio(llm, temporary_path, audio_path)
+                    finally:
+                        temporary_path.unlink(missing_ok=True)
             run_engine("speech", audio_filename, publish_audio)
             log.info(f"Podcast generated successfully: {audio_filename}")
             _generation_state()["result_filename"] = audio_filename

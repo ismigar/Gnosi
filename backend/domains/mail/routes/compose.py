@@ -29,6 +29,7 @@ from backend.domains.mail.repositories.vault import (
     parse_frontmatter,
 )
 from backend.domains.mail.routing import router
+from backend.domains.mail.services.submission import submit_mail, transport_timeout
 from backend.domains.mail.services.accounts import (
     _is_imap_account,
     _is_microsoft_account,
@@ -54,6 +55,8 @@ from backend.utils.errors import safe_error_detail
 from backend.utils.safe_io import safe_write_text
 
 log = logging.getLogger(__name__)
+_RECIPIENT_HISTORY_TIMEOUT_S = 2.0
+_recipient_history_reads: dict[tuple[str, str], asyncio.Task[Any]] = {}
 
 
 @router.post(
@@ -292,7 +295,30 @@ async def suggest_recipients(
     3. Previous individual recipients from sent mail
     """
     query = q.strip().lower()
-    recipient_freq, co_map = _sent_recipient_history(email)
+    # A cloud-backed cached message can stall read_text(). This scan includes
+    # received mail too, because its type is only known after reading metadata.
+    # Keep at most one outstanding scan per scope/account across keystrokes.
+    from backend.services.context_vars import active_vault_path
+
+    scope = (str(active_vault_path.get()), (email or "").strip().casefold())
+    pending = _recipient_history_reads.get(scope)
+    if pending is None:
+        pending = asyncio.create_task(asyncio.to_thread(_sent_recipient_history, email))
+        _recipient_history_reads[scope] = pending
+
+        def finished(task: asyncio.Task[Any]) -> None:
+            if _recipient_history_reads.get(scope) is task:
+                _recipient_history_reads.pop(scope, None)
+            if not task.cancelled():
+                task.exception()
+
+        pending.add_done_callback(finished)
+    try:
+        recipient_freq, co_map = await asyncio.wait_for(
+            asyncio.shield(pending), timeout=_RECIPIENT_HISTORY_TIMEOUT_S,
+        )
+    except (TimeoutError, OSError):
+        recipient_freq, co_map = {}, {}
     contacts, seen = _contact_suggestions(mgmt_db, x_workspace_id, q, recipient_freq)
     candidates = contacts + _history_suggestions(query, recipient_freq, seen)
     if query:
@@ -341,67 +367,74 @@ async def send_mail(
             }
         )
 
-    # Images pasted into the composer point to /api/vault/assets/ (URL
-    # that only resolves within local Gnosi): they get converted into inline attachments
-    # with a Content-ID so the recipient can see them.
-    body, inline_images = extract_vault_inline_images(body)
-    # Drafts resumed from a reply/forward carry the quoted images as
-    # URL /api/mail/.../cid/ (self-contained) — these are also turned into inline parts.
-    body = await _embed_quoted_cid_images(email, body, inline_images)
+    async def deliver() -> bool:
+        nonlocal body
+        # Images pasted into the composer point to /api/vault/assets/ (URL
+        # that only resolves within local Gnosi): they get converted into inline attachments
+        # with a Content-ID so the recipient can see them.
+        body, inline_images = extract_vault_inline_images(body)
+        # Drafts resumed from a reply/forward carry the quoted images as
+        # URL /api/mail/.../cid/ (self-contained) — these are also turned into inline parts.
+        body = await _embed_quoted_cid_images(email, body, inline_images)
 
-    # Resolve the SMTP account (handles aliases: email may be the alias, smtp_email is the parent)
-    from backend.services.integration_manager import integration_manager
+        # Resolve the SMTP account (handles aliases: email may be the alias, smtp_email is the parent)
+        from backend.services.integration_manager import integration_manager
 
-    smtp_email = email
-    acc = integration_manager.get_mail_account(email)
-    if acc is None:
-        # Try alias resolution: find the parent account that owns this alias
-        acc = integration_manager.get_account_by_alias(email)
-        if acc:
-            smtp_email = acc.get("email") or acc.get("username") or email
+        smtp_email = email
+        acc = integration_manager.get_mail_account(email)
+        if acc is None:
+            # Try alias resolution: find the parent account that owns this alias
+            acc = integration_manager.get_account_by_alias(email)
+            if acc:
+                smtp_email = acc.get("email") or acc.get("username") or email
 
-    if _is_microsoft_account(smtp_email):
-        from backend.services.microsoft_mail_service import microsoft_send_message
+        transport_timeout()
+        if _is_microsoft_account(smtp_email):
+            from backend.services.microsoft_mail_service import microsoft_send_message
 
-        success = microsoft_send_message(
-            smtp_email,
-            to,
-            subject,
-            body,
-            cc,
-            bcc,
-            attachments=attachment_data or None,
-            inline_images=inline_images or None,
-        )
-    elif _is_imap_account(smtp_email):
-        from backend.services.imap_mail_sync_service import imap_smtp_send
+            success = microsoft_send_message(
+                smtp_email,
+                to,
+                subject,
+                body,
+                cc,
+                bcc,
+                attachments=attachment_data or None,
+                inline_images=inline_images or None,
+            )
+        elif _is_imap_account(smtp_email):
+            from backend.services.imap_mail_sync_service import imap_smtp_send
 
-        imap_acc = acc or integration_manager.get_mail_account(smtp_email) or {}
-        success = imap_smtp_send(
-            imap_acc,
-            to,
-            subject,
-            body,
-            cc,
-            bcc,
-            attachment_data or None,
-            from_email=from_email or email,
-            from_name=from_name or imap_acc.get("display_name"),
-            inline_images=inline_images or None,
-        )
-    elif attachment_data or inline_images:
-        success = send_new_message_with_attachments(
-            smtp_email,
-            to,
-            subject,
-            body,
-            cc,
-            bcc,
-            attachment_data,
-            inline_images=inline_images or None,
-        )
-    else:
-        success = send_new_message(smtp_email, to, subject, body, cc, bcc)
+            imap_acc = acc or integration_manager.get_mail_account(smtp_email) or {}
+            success = imap_smtp_send(
+                imap_acc,
+                to,
+                subject,
+                body,
+                cc,
+                bcc,
+                attachment_data or None,
+                from_email=from_email or email,
+                from_name=from_name or imap_acc.get("display_name"),
+                inline_images=inline_images or None,
+            )
+        elif attachment_data or inline_images:
+            success = send_new_message_with_attachments(
+                smtp_email,
+                to,
+                subject,
+                body,
+                cc,
+                bcc,
+                attachment_data,
+                inline_images=inline_images or None,
+            )
+        else:
+            success = send_new_message(smtp_email, to, subject, body, cc, bcc)
+
+        return bool(success)
+
+    success = await submit_mail(email, deliver)
 
     if success:
         _invalidate_mail_cache()
@@ -577,6 +610,10 @@ async def mark_as_read(
     sidebar kept showing the old counter.
 
     """
+    return await asyncio.to_thread(_mark_as_read, message_id, email, folder)
+
+
+def _mark_as_read(message_id: str, email: str, folder: str | None) -> Any:
     if _is_microsoft_account(email):
         from backend.services.microsoft_mail_service import microsoft_mark_read
 
@@ -656,43 +693,50 @@ async def reply_message(
             }
         )
 
-    # Same conversion as in /send: vault images → inline CID attachments.
-    body, inline_images = extract_vault_inline_images(body)
-    # The quoted content of a reply/forward references the inline images of the message
-    # original (URL /cid/ or raw cid:); they need to be embedded as their own parts
-    # so the recipient doesn't get them broken.
-    body = await _embed_quoted_cid_images(
-        email,
-        body,
-        inline_images,
-        source_message_id=message_id,
-        source_folder=folder,
-    )
-
-    if _is_microsoft_account(email):
-        from backend.services.microsoft_mail_service import microsoft_reply_message
-
-        success = microsoft_reply_message(
+    async def deliver() -> bool:
+        nonlocal body
+        # Same conversion as in /send: vault images → inline CID attachments.
+        body, inline_images = extract_vault_inline_images(body)
+        # The quoted content of a reply/forward references the inline images of the message
+        # original (URL /cid/ or raw cid:); they need to be embedded as their own parts
+        # so the recipient doesn't get them broken.
+        body = await _embed_quoted_cid_images(
             email,
-            message_id,
             body,
-            cast(str, to),
-            cast(str, cc),
-            cast(str, bcc),
-            attachments=att_list or None,
-            inline_images=inline_images or None,
+            inline_images,
+            source_message_id=message_id,
+            source_folder=folder,
         )
-    else:
-        success = send_reply(
-            email=email,
-            thread_id=message_id,
-            body=body,
-            to_recipients=cast(str, to),
-            cc_recipients=cast(str, cc),
-            bcc_recipients=cast(str, bcc),
-            attachments=att_list or None,
-            inline_images=inline_images or None,
-        )
+
+        transport_timeout()
+        if _is_microsoft_account(email):
+            from backend.services.microsoft_mail_service import microsoft_reply_message
+
+            success = microsoft_reply_message(
+                email,
+                message_id,
+                body,
+                cast(str, to),
+                cast(str, cc),
+                cast(str, bcc),
+                attachments=att_list or None,
+                inline_images=inline_images or None,
+            )
+        else:
+            success = send_reply(
+                email=email,
+                thread_id=message_id,
+                body=body,
+                to_recipients=cast(str, to),
+                cc_recipients=cast(str, cc),
+                bcc_recipients=cast(str, bcc),
+                attachments=att_list or None,
+                inline_images=inline_images or None,
+            )
+        return bool(success)
+
+    success = await submit_mail(email, deliver)
+
     if success:
         _invalidate_mail_cache()
         return {"status": "success"}

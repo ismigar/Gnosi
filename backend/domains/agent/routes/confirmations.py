@@ -96,11 +96,11 @@ def _minimum_role_allows(current_role: str, required_role: str) -> bool:
     return weights.get(current_role, -1) >= weights.get(required_role, 0)
 
 
-async def _invoke_governed_handler(handler: Any, arguments: Dict[str, Any]) -> Any:
+async def _invoke_governed_handler(handler: Any, arguments: Dict[str, Any], config: Dict[str, Any] | None = None) -> Any:
     if callable(getattr(handler, "ainvoke", None)):
-        return await handler.ainvoke(arguments)
+        return await handler.ainvoke(arguments, config=config)
     if callable(getattr(handler, "invoke", None)):
-        return await asyncio.to_thread(handler.invoke, arguments)
+        return await asyncio.to_thread(handler.invoke, arguments, config=config)
     if asyncio.iscoroutinefunction(handler):
         return await handler(**arguments)
     return await asyncio.to_thread(handler, **arguments)
@@ -158,6 +158,14 @@ async def _execute_governed_tool(
             descriptor = current_descriptor
             handler = current_handler
             break
+    if descriptor is None and tool_id.startswith('core.workspace-'):
+        from backend.services.agent_workspace_tools import workspace_tool_contributions
+        workspace_tools, workspace_metadata, _guarded = workspace_tool_contributions(scope['agent_id'])
+        for current_handler, item in zip(workspace_tools, workspace_metadata):
+            if item['id'] == tool_id:
+                descriptor = item['_descriptor']
+                handler = current_handler
+                break
     if descriptor is None or handler is None:
         raise PermissionError("The governed tool is no longer assigned.")
     visible_name = str(getattr(handler, "name", "") or getattr(handler, "__name__", "") or "")
@@ -184,7 +192,7 @@ async def _execute_governed_tool(
         for effect in (getattr(descriptor, "effects", None) or [])
     ]
     try:
-        result = await _invoke_governed_handler(handler, call_arguments)
+        result = await _invoke_governed_handler(handler, call_arguments, config={'configurable': {'workbench_session_id': scope['session_id']}})
     except Exception as error:
         await asyncio.to_thread(
             record_capability_event,

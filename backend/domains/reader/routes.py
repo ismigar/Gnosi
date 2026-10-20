@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+from contextlib import contextmanager
+from collections.abc import Iterator
 import logging
 import os
 from typing import Any, List, Optional, TypedDict, cast
@@ -47,6 +49,8 @@ from backend.domains.reader.schemas import (
     ReaderMessageResponse,
 )
 from backend.models import reader as models
+from backend.domains.reader.source_registry import SourceRegistryError, source_transaction
+from backend.domains.reader.source_urls import canonical_source_url
 from backend.services.workspace_service import get_workspace_context, require_role
 
 
@@ -70,11 +74,20 @@ router = APIRouter(
 )
 
 
+@contextmanager
+def _sources_transaction(db: Session, *, write: bool = False) -> Iterator[None]:
+    try:
+        with source_transaction(db, _require_active_vault(), write=write):
+            yield
+    except SourceRegistryError as exc:
+        raise HTTPException(status_code=503, detail="Reader sources are unavailable; retry later") from exc
+
+
 @router.get("/sources", response_model=List[models.FeedSourceResponse])
 def get_sources(db: Session = Depends(get_db)) -> RouteReturn:
     """List all feed sources"""
-    sources = db.query(models.FeedSource).all()
-    return sources
+    with _sources_transaction(db):
+        return db.query(models.FeedSource).all()
 
 
 @router.post(
@@ -84,13 +97,17 @@ def get_sources(db: Session = Depends(get_db)) -> RouteReturn:
 )
 def create_source(source: models.FeedSourceCreate, db: Session = Depends(get_db)) -> RouteReturn:
     """Add a new feed source"""
-    db_source = db.query(models.FeedSource).filter(models.FeedSource.url == source.url).first()
-    if db_source:
-        raise HTTPException(status_code=400, detail="Source URL already registered")
-
-    new_source = models.FeedSource(**source.dict())
-    db.add(new_source)
-    db.commit()
+    try:
+        url, alias = canonical_source_url(source.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail='Invalid newsletter mailbox alias') from exc
+    source = source.model_copy(update={'url': url, **({'type': 'newsletter'} if alias else {})})
+    with _sources_transaction(db, write=True):
+        db_source = db.query(models.FeedSource).filter(models.FeedSource.url == source.url).first()
+        if db_source:
+            raise HTTPException(status_code=400, detail="Source URL already registered")
+        new_source = models.FeedSource(**source.model_dump())
+        db.add(new_source)
     db.refresh(new_source)
     return new_source
 
@@ -102,12 +119,11 @@ def create_source(source: models.FeedSourceCreate, db: Session = Depends(get_db)
 )
 def delete_source(source_id: int, db: Session = Depends(get_db)) -> RouteReturn:
     """Delete a source and its articles"""
-    db_source = db.query(models.FeedSource).filter(models.FeedSource.id == source_id).first()
-    if not db_source:
-        raise HTTPException(status_code=404, detail="Source not found")
-
-    db.delete(db_source)
-    db.commit()
+    with _sources_transaction(db, write=True):
+        db_source = db.query(models.FeedSource).filter(models.FeedSource.id == source_id).first()
+        if not db_source:
+            raise HTTPException(status_code=404, detail="Source not found")
+        db.delete(db_source)
     return {"message": "Source deleted successfully"}
 
 
@@ -138,48 +154,51 @@ async def upload_opml(file: UploadFile = File(...), db: Session = Depends(get_db
     parent_map = {child: parent for parent in tree.iter() for child in parent}
     log.info(f"[OPML] parent_map generat. Mida: {len(parent_map)}")
 
-    imported_count = 0
-    outlines = tree.findall(".//outline")
-    log.info("[OPML] Found %d outline elements", len(outlines))
-    for idx, outline in enumerate(outlines):
-        if "xmlUrl" not in outline.attrib:
-            continue
+    with _sources_transaction(db, write=True):
+        imported_count = 0
+        outlines = tree.findall(".//outline")
+        log.info("[OPML] Found %d outline elements", len(outlines))
+        for idx, outline in enumerate(outlines):
+            if "xmlUrl" not in outline.attrib:
+                continue
 
-        url = outline.attrib.get("xmlUrl")
-        title = outline.attrib.get("title", outline.attrib.get("text", "Unknown"))
-        log.info(f"[OPML] Processant outline #{idx}: {title} ({url})")
+            try:
+                url, alias = canonical_source_url(outline.attrib['xmlUrl'])
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail='Invalid newsletter mailbox alias') from exc
+            title = outline.attrib.get("title", outline.attrib.get("text", "Unknown"))
+            log.info(f"[OPML] Processant outline #{idx}: {title} ({url})")
 
-        category = "Uncategorized"
-        ancestor = parent_map.get(outline)
-        log.info(f"  [OPML] Ancestor inicial: {ancestor.tag if ancestor is not None else None}")
+            category = "Uncategorized"
+            ancestor = parent_map.get(outline)
+            log.info(f"  [OPML] Ancestor inicial: {ancestor.tag if ancestor is not None else None}")
 
-        step = 0
-        while ancestor is not None and ancestor.tag == "outline":
-            step += 1
-            log.info(
-                f"    [OPML] Pas de bucle {step}: ancestor={ancestor.tag}, attrib={ancestor.attrib}"
-            )
-            if "xmlUrl" not in ancestor.attrib:
-                category = ancestor.attrib.get("title", ancestor.attrib.get("text", category))
-                log.info(f"    [OPML] Categoria trobada: {category}. Surt del bucle.")
-                break
-            ancestor = parent_map.get(ancestor)
-            if step > 1000:
-                log.error("[OPML] BUCLE INFINIT DETECTAT EN ELS ANCESTORS!")
-                break
+            step = 0
+            while ancestor is not None and ancestor.tag == "outline":
+                step += 1
+                log.info(
+                    f"    [OPML] Pas de bucle {step}: ancestor={ancestor.tag}, attrib={ancestor.attrib}"
+                )
+                if "xmlUrl" not in ancestor.attrib:
+                    category = ancestor.attrib.get("title", ancestor.attrib.get("text", category))
+                    log.info(f"    [OPML] Categoria trobada: {category}. Surt del bucle.")
+                    break
+                ancestor = parent_map.get(ancestor)
+                if step > 1000:
+                    log.error("[OPML] BUCLE INFINIT DETECTAT EN ELS ANCESTORS!")
+                    break
 
-        log.info(f"  [OPML] Categoria resolta: {category}. Cerca a DB...")
-        existing = db.query(models.FeedSource).filter(models.FeedSource.url == url).first()
-        log.info(f"  [OPML] Cerca completada. Existeix? {existing is not None}")
-        if not existing:
-            new_source = models.FeedSource(name=title, url=url, category=category, type="rss")
-            db.add(new_source)
-            imported_count += 1
-            log.info(f"  [OPML] Afegida nova font a la sessió.")
+            log.info(f"  [OPML] Categoria resolta: {category}. Cerca a DB...")
+            existing = db.query(models.FeedSource).filter(models.FeedSource.url == url).first()
+            log.info(f"  [OPML] Cerca completada. Existeix? {existing is not None}")
+            if not existing:
+                new_source = models.FeedSource(name=title, url=url, category=category,
+                                              type="newsletter" if alias else "rss")
+                db.add(new_source)
+                db.flush()
+                imported_count += 1
+                log.info(f"  [OPML] Afegida nova font a la sessió.")
 
-    log.info("[OPML] Committing to the database; newly imported: %d", imported_count)
-    db.commit()
-    log.info("[OPML] Commit completat amb èxit!")
     return {"message": f"Successfully imported {imported_count} new feeds."}
 
 

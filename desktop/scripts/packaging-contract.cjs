@@ -10,6 +10,7 @@ const BACKEND_RESOURCE_VERIFY_TIMEOUT_MS = 10 * 60 * 1000;
 
 const REQUIRED_RUNTIME_FILES = Object.freeze([
   'main.js',
+  'agent-workspace.js',
   'preload.js',
   'ipc-security.js',
   'google-sign-in.js',

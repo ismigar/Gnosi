@@ -11,6 +11,10 @@ import { ModelPriceOffer } from './ModelPriceOffer';
 
 const billingDefaults = { source_url: '', stale: false };
 const i18n = createInstance();
+const expectedAmount = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+});
 const currency = { code: 'EUR', symbol: '€', usd_rate: .9, source: 'test', fetched_at: '2026-10-04' };
 const base: AiModelComparisonEntry['routes'][number] = { provider: 'opencode-go', provider_name: 'OpenCode Go', model_id: 'kimi-k2.6', model_name: 'Kimi', cost_in: 0, cost_out: 0, context_window: 262144, is_local: false, quality: 4, tags: [] };
 const subscribed = { ...base, billing: { ...billingDefaults, kind: 'subscription' as const, source_url: 'https://opencode.ai/docs/go', checked_at: '2026-10-04', plans: [{ name: 'Go', currency: 'USD', monthly_fee: 10, monthly_fee_usd: 10, quota: 60, quota_unit: 'usd' as const, quota_period: 'month' as const, input_units_per_million: .95, output_units_per_million: 4 }] } };
@@ -38,8 +42,8 @@ async function mount(route: typeof base, field: 'monthly_cost' | 'input_price' =
 
 it('shows the equivalent tariff, subscription minimum and official evidence in the configured currency', async () => {
     await mount(subscribed);
-    expect(container.textContent).toContain('0.14 €*');
-    expect(container.textContent).toContain('Quota mensual: 9.00 €');
+    expect(container.textContent).toContain(`${expectedAmount.format(0.14)} €*`);
+    expect(container.textContent).toContain(`Quota mensual: ${expectedAmount.format(9)} €`);
     expect(container.textContent).toContain('Equivalent amb tota la quota consumida');
     expect(container.querySelector('a')?.href).toBe('https://opencode.ai/docs/go');
     const star = container.querySelector('span[tabindex="0"]');
@@ -55,15 +59,15 @@ it('shows the equivalent tariff, subscription minimum and official evidence in t
 
 it('shows the full monthly subscription instead of a misleading fractional bill', async () => {
     await mount(subscribed, 'monthly_cost');
-    expect(container.querySelector('strong')?.textContent).toBe('9.00 €*');
+    expect(container.querySelector('strong')?.textContent).toBe(`${expectedAmount.format(9)} €*`);
 });
 
 it('labels an unconvertible credit plan and explains it on keyboard focus', async () => {
     const unknown = { ...base, provider: 'alibaba-token-plan', provider_name: 'Alibaba Token Plan', billing: { ...billingDefaults, ...subscribed.billing, source_url: 'https://www.alibabacloud.com/help/en/model-studio/token-plan-personal-overview', model_covered: false, plans: [{ name: 'Lite', monthly_fee: 8, currency: 'USD', monthly_fee_usd: 8, quota: 11500, quota_unit: 'credits' as const, quota_period: 'month' as const }] } };
     await mount(unknown);
     expect(container.querySelector('strong')?.textContent).toBe('Requereix quota*');
-    expect(container.textContent).not.toContain('0.00 €');
-    expect(container.textContent).toContain('Quota mensual: 7.20 €');
+    expect(container.textContent).not.toContain(`${expectedAmount.format(0)} €`);
+    expect(container.textContent).toContain(`Quota mensual: ${expectedAmount.format(7.2)} €`);
     const star = container.querySelector<HTMLSpanElement>('span[tabindex="0"]');
     act(() => { star?.focus(); });
     expect(document.getElementById('gnosi-global-tooltip')?.textContent).toContain('11.500 crèdits');
@@ -73,6 +77,6 @@ it('labels an unconvertible credit plan and explains it on keyboard focus', asyn
 
 it('marks unverified remote zero tariffs without labeling them free', async () => {
     await mount({ ...base, billing: { ...billingDefaults, kind: 'unknown', source_url: 'https://example.test/prices' } });
-    expect(container.textContent).not.toContain('0.00 €');
+    expect(container.textContent).not.toContain(`${expectedAmount.format(0)} €`);
     expect(container.querySelector('span')?.getAttribute('aria-label')).toContain('Tarifa pendent de verificar');
 });

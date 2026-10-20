@@ -236,6 +236,7 @@ def _checkpoint_public_message(
             ("privacy", "gnosi_privacy"),
             ("verification", "gnosi_verification"),
             ("citations", "gnosi_citations"),
+            ("memory_provenance", "memory_provenance"),
             ("freshness", "gnosi_freshness"),
             ("job", "gnosi_job"),
             ("explanation", "gnosi_explanation"),

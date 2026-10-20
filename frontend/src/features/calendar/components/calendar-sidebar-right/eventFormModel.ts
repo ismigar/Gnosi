@@ -176,3 +176,8 @@ export function buildLocalMetadata(fields: EventFields, {eventData, calendars}: 
 
  return { metadata, removeMetaKeys };
 }
+
+export function defaultWritableCalendarId(calendars: readonly CalendarConfig[], preferred = ''): string {
+    const writable = calendars.filter(calendar => calendar.provider !== 'microsoft');
+    return writable.find(calendar => calendar.id === preferred)?.id || writable.find(calendar => calendar.is_default)?.id || writable[0]?.id || '';
+}

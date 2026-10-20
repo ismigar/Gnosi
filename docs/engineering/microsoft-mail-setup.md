@@ -1,10 +1,13 @@
 ---
 status: implemented
-last_verified: 2026-09-16
+last_verified: 2026-10-16
 source_paths:
   - backend/api/microsoft_auth_routes.py
   - backend/services/auth_public_surface.py
   - backend/services/microsoft_mail_service.py
+  - backend/services/microsoft_calendar_service.py
+  - backend/tests/test_microsoft_calendar_service.py
+  - backend/tests/test_calendar_oauth_account_preservation.py
   - desktop/microsoft-sign-in.js
   - desktop/main.js
   - frontend/src/shared/api/microsoft-auth.ts
@@ -59,3 +62,24 @@ and can read mail. Local mocked tests do not establish that a registration or
 institutional consent exists.
 
 Reference: https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow
+
+## Read-only Microsoft calendars
+
+Calendar settings now start a separate Microsoft authorization with delegated
+`Calendars.Read`, `User.Read`, and `offline_access`. Mail permissions and mail
+accounts are unchanged. The native public-client registration above is reused;
+institutional consent policy can still require an administrator's approval.
+
+Calendar credentials are stored separately in `calendars` using secure-store
+references. Reconnecting or refreshing one identity preserves other calendar
+entries, including entries without IDs, and all mail/contact configuration.
+
+The connector reads calendar lists and paginated `calendarView` ranges, including
+recurring occurrences. Events are read-only: Microsoft calendars cannot be
+selected as new-event destinations, and provider mutation endpoints reject them.
+It does not import, overwrite, remove or reconcile existing Vault calendar files.
+A web Outlook login alone does not grant Gnosi calendar access; the dedicated
+calendar consent must succeed before live discovery is available.
+
+References: [calendarView](https://learn.microsoft.com/en-us/graph/api/calendar-list-calendarview?view=graph-rest-1.0)
+and [calendar lists](https://learn.microsoft.com/en-us/graph/api/user-list-calendars?view=graph-rest-1.0).

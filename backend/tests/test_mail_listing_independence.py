@@ -20,7 +20,7 @@ def test_list_fetches_only_needed_headers_without_changing_flags(monkeypatch, oa
     calls = []
     raw_headers = (b"Date: Tue, 8 Sep 2026 10:00:00 +0000\r\nSubject: Synthetic\r\n"
                    b"From: sender@example.test\r\nTo: fixture@example.test\r\n"
-                   b"Cc: copy@example.test\r\nMessage-ID: <synthetic@example.test>\r\n\r\n")
+                   b"Cc: copy@example.test\r\nBcc: blind@example.test\r\nMessage-ID: <synthetic@example.test>\r\n\r\n")
 
     def uid(command, *args):
         calls.append((command, args))
@@ -40,10 +40,11 @@ def test_list_fetches_only_needed_headers_without_changing_flags(monkeypatch, oa
     assert message["id"] == "imap_2" and message["thread_id"] == "123"
     assert message["subject"] == "Synthetic"
     assert message["cc"] == "copy@example.test"
+    assert message["bcc"] == "blind@example.test"
     assert message["is_starred"] is True and message["is_read"] is False
     connection.select.assert_called_once_with('"INBOX"', readonly=True)
     requested = calls[-1][1][1]
-    assert "BODY.PEEK[HEADER.FIELDS (DATE SUBJECT FROM TO CC MESSAGE-ID)]" in requested
+    assert "BODY.PEEK[HEADER.FIELDS (DATE SUBJECT FROM TO CC BCC MESSAGE-ID)]" in requested
     assert "RFC822.HEADER" not in requested
     assert ("X-GM-THRID" in requested) is oauth
     release.assert_called_once_with(account["email"])
@@ -65,7 +66,7 @@ def test_slow_counts_leave_the_message_connection_available(monkeypatch):
     monkeypatch.setattr(hybrid, "_imap_connect_fresh", lambda _: counts_connection)
     monkeypatch.setattr(hybrid, "_imap_pool_acquire", acquire)
     monkeypatch.setattr(hybrid, "_imap_pool_release", release_list)
-    monkeypatch.setattr(imap_mail_sync_service, "_discover_folders", lambda _: [("INBOX", "Received")])
+    monkeypatch.setattr(imap_mail_sync_service, "_discover_folders", lambda _, **kwargs: [("INBOX", "Received")])
     with ThreadPoolExecutor(max_workers=2) as pool:
         counts = pool.submit(hybrid.imap_get_counts, "fixture@example.test")
         try:
@@ -88,7 +89,7 @@ def test_failed_counts_are_errors_and_close_the_temporary_connection(monkeypatch
     )
     monkeypatch.setattr(hybrid, "_get_imap_account", lambda _: {"email": "fixture@example.test"})
     monkeypatch.setattr(hybrid, "_imap_connect_fresh", lambda _: None if failure == "connect" else connection)
-    monkeypatch.setattr(imap_mail_sync_service, "_discover_folders", lambda _: [("INBOX", "Received")])
+    monkeypatch.setattr(imap_mail_sync_service, "_discover_folders", lambda _, **kwargs: [("INBOX", "Received")])
     with pytest.raises(RuntimeError):
         hybrid.imap_get_counts("fixture@example.test")
     assert connection.logout.call_count == (0 if failure == "connect" else 1)

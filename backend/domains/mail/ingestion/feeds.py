@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import feedparser  # type: ignore[import-untyped]
+from pathlib import Path
+from backend.domains.reader.source_registry import source_transaction
 import requests
 from sqlalchemy.orm import Session
 
@@ -112,6 +114,8 @@ def fetch_and_store_feeds(
     _, SessionLocal = engine_factory(v_path)
     db: Session = SessionLocal()
     try:
+        with source_transaction(db, Path(v_path)):
+            pass
         sources = db.query(FeedSource).filter(FeedSource.type.in_(["rss", "youtube"])).all()
         _ = datetime.now(timezone.utc) - timedelta(hours=24)
         new_articles_count = 0

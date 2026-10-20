@@ -27,6 +27,10 @@ from pathlib import Path, PurePosixPath
 LOG = logging.getLogger(__name__)
 TocEntry = tuple[str, str, str]
 
+# The locked faster-whisper 1.2.1 runtime loads this VAD model by package path.
+# Python module discovery does not include binary package data.
+DEPENDENCY_DATA_FILES = ("faster_whisper/assets/silero_vad_v6.onnx",)
+
 # Source-only discovery avoids collect_submodules('backend'), which imports the
 # application and can initialize real configuration, databases and automation.
 MODULE_TREES = (
@@ -641,6 +645,10 @@ def verify_bundle(bundle: Path, plan: ResourcePlan) -> None:
                 _check_content(header, packaged_name)
 
     inspect(bundle)
+    for name in DEPENDENCY_DATA_FILES:
+        resource = _regular_path(payload, name)
+        if resource.stat().st_size == 0:
+            raise ResourcePolicyError(f"Empty dependency runtime resource: {name}")
     if missing := set(expected) - found:
         raise ResourcePolicyError(f"Bundle is missing required resources: {sorted(missing)}")
 
@@ -648,19 +656,24 @@ def verify_bundle(bundle: Path, plan: ResourcePlan) -> None:
 def render_spec(repository: Path, helper_directory: Path) -> str:
     """Use repr for paths: spaces, quotes and Windows backslashes stay literal."""
     return f"""# -*- mode: python ; coding: utf-8 -*-
+import gc
 import sys
 from pathlib import Path
 sys.path.insert(0, {str(helper_directory)!r})
 from backend_resources import build_plan, validate_analysis
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.config import CONF
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 plan = build_plan(Path({str(repository)!r}))
 hiddenimports = list(plan.modules) + {list(THIRD_PARTY_IMPORTS)!r}
 hiddenimports += collect_submodules('keyring.backends')
+voice_data = collect_data_files('faster_whisper', includes=['assets/silero_vad_v6.onnx'])
+if not voice_data:
+    raise RuntimeError('Locked Whisper voice activity model is missing')
 a = Analysis(
     [{str(repository / "backend/server.py")!r}],
     pathex=[{str(repository)!r}],
-    binaries=[], datas=plan.datas, hiddenimports=hiddenimports,
+    binaries=[], datas=plan.datas + voice_data, hiddenimports=hiddenimports,
     hookspath=[], runtime_hooks=[],
     excludes=['tkinter', 'test', 'matplotlib', 'pandas', 'scipy'],
     noarchive=False,
@@ -670,8 +683,34 @@ pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True,
           name='cervell_backend', debug=False, strip=False, upx=True,
           console=True, contents_directory='_internal')
-coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=True,
-               name='cervell_backend')
+# PYZ and EXE have consumed the analysis graph and its compiled-code cache.
+# COLLECT needs only the executable and these already validated file tables.
+collected_binaries, collected_datas = a.binaries, a.datas
+CONF['code_cache'].pop(id(a.pure), None)
+del a, pyz
+gc.collect()
+# MachO headers reference their parent and retain every binary section. Release
+# completed inspections before another parser or native signing tool runs.
+inspection_functions = {{}}
+if sys.platform == 'darwin':
+    from PyInstaller.utils import osx
+    def release_inspection_cycles(function):
+        def inspected(*args, **kwargs):
+            try:
+                return function(*args, **kwargs)
+            finally:
+                gc.collect()
+        return inspected
+    for name in ('get_binary_architectures', 'set_dylib_dependency_paths'):
+        inspection_functions[name] = getattr(osx, name)
+        setattr(osx, name, release_inspection_cycles(inspection_functions[name]))
+try:
+    coll = COLLECT(exe, collected_binaries, collected_datas, strip=False, upx=True,
+                   name='cervell_backend')
+finally:
+    if inspection_functions:
+        for name, function in inspection_functions.items():
+            setattr(osx, name, function)
 """
 
 

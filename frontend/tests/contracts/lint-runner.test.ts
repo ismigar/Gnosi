@@ -41,7 +41,7 @@ function eslintPaths(output: string): string[] {
 beforeEach(() => {
   fixture = mkdtempSync(join(tmpdir(), 'gnosi-lint-'));
   mkdirSync(join(fixture, 'scripts'));
-  for (const script of ['lint.mjs', 'lint-files.mjs']) {
+  for (const script of ['lint.mjs', 'lint-files.mjs', 'lint-worker.mjs']) {
     cpSync(join(frontend, 'scripts', script), join(fixture, 'scripts', script));
   }
   symlinkSync(join(frontend, 'node_modules'), join(fixture, 'node_modules'), 'dir');
@@ -72,7 +72,8 @@ it('discovers the same paths as real ESLint, including extra extensions, dotfile
   expect(run().status).toBe(0);
 });
 
-it.each(['.eslintcache', 'custom.cache'])('reuses %s across fresh batches and repeated runs', cache => {
+// Multiple real CLI passes can exceed Vitest's 5s default on the shared CI host.
+it.each(['.eslintcache', 'custom.cache'])('reuses %s across serial batches and repeated runs', cache => {
   write('eslint.config.mjs', `import { appendFileSync } from 'node:fs';
     export default [
       { ignores: ['scripts/**', 'eslint.config.mjs'] },
@@ -80,18 +81,22 @@ it.each(['.eslintcache', 'custom.cache'])('reuses %s across fresh batches and re
         create: () => ({ Program: () => appendFileSync('rule-count.txt', process.pid + ',') })
       } } } }, rules: { 'fixture/count': 'error' } },
     ];`);
-  for (let index = 0; index < 257; index += 1) write(`source/${String(index)}.js`, 'export {};');
+  for (let index = 0; index < 385; index += 1) write(`source/${String(index)}.js`, 'export {};');
   const environment = { GNOSI_ESLINT_CACHE: cache };
-  expect(run(environment).status).toBe(0);
+  const result = run(environment);
+  expect(result.status, result.stderr).toBe(0);
+  expect(result.stdout).toContain('ESLint batch 1/25 (16 files)');
+  expect(result.stdout).toContain('ESLint batch 24/25 (16 files)');
+  expect(result.stdout).toContain('ESLint batch 25/25 (1 files)');
   const first = readFileSync(join(fixture, 'rule-count.txt'), 'utf8');
   const processIds = first.split(',').filter(Boolean);
-  expect(processIds).toHaveLength(257);
-  expect(new Set(processIds).size).toBe(3);
+  expect(processIds).toHaveLength(385);
+  expect(new Set(processIds).size).toBe(2);
   const counts = [...new Set(processIds)].map(id => processIds.filter(value => value === id).length);
-  expect(counts.sort((left, right) => left - right)).toEqual([1, 128, 128]);
+  expect(counts.sort((left, right) => left - right)).toEqual([1, 384]);
   expect(run(environment).status).toBe(0);
   expect(readFileSync(join(fixture, 'rule-count.txt'), 'utf8')).toBe(first);
-});
+}, 30_000);
 
 it('allows config diagnostics on stdout without corrupting file discovery', () => {
   write('source.js', 'export {};');
@@ -110,30 +115,34 @@ it.each([
   ['warning', 'console.log(1);', 'no-console'],
   ['syntax error', 'export const = ;', 'Parsing error'],
 ])('fails on a %s after an earlier batch succeeds', (_kind, source, message) => {
-  for (let index = 0; index < 257; index += 1) write(`source/${String(index).padStart(3, '0')}.js`, 'export {};');
+  for (let index = 0; index < 385; index += 1) write(`source/${String(index).padStart(3, '0')}.js`, 'export {};');
   write('source/999.js', source);
   const result = run();
   expect(result.status).toBe(1);
-  expect(result.stdout).toContain('ESLint batch 3/3');
+  expect(result.stdout).toContain('ESLint batch 25/25');
   expect(result.stdout).toContain(message);
 });
 
-it('executes type-aware rules with the project service', () => {
+it('executes type-aware rules with the project service across batches', () => {
   write('eslint.config.mjs', `import ts from 'typescript-eslint';
     export default ts.config({ ignores: ['scripts/**', 'eslint.config.mjs'] },
       { files: ['**/*.ts'], extends: [ts.configs.strictTypeChecked],
         languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname } } });`);
   write('tsconfig.json', '{"compilerOptions":{"target":"ES2022","strict":true},"include":["*.ts"]}');
+  for (let index = 0; index < 128; index += 1) write(`safe${String(index).padStart(3, '0')}.ts`, 'export {};');
   write('typed.ts', 'Promise.resolve(1);');
   const result = run();
   expect(result.status, result.stderr).toBe(1);
+  expect(result.stdout).toContain('ESLint batch 9/9 (1 files)');
   expect(result.stdout).toContain('@typescript-eslint/no-floating-promises');
   write('typed.ts', 'void Promise.resolve(1);');
-  expect(run().status).toBe(0);
+  const fixed = run();
+  expect(fixed.status, fixed.stderr).toBe(0);
+  expect(fixed.stdout).toContain('ESLint batch 9/9 (1 files)');
 }, 30_000);
 
 it('invalidates content cache entries across batches and never caches discovery as success', () => {
-  for (let index = 0; index < 257; index += 1) write(`source/${String(index).padStart(3, '0')}.js`, 'export {};');
+  for (let index = 0; index < 385; index += 1) write(`source/${String(index).padStart(3, '0')}.js`, 'export {};');
   const environment = { GNOSI_ESLINT_CACHE: join(fixture, 'lint.cache') };
   expect(run(environment).status).toBe(0);
   expect(readFileSync(environment.GNOSI_ESLINT_CACHE, 'utf8')).toContain('000.js');
@@ -142,13 +151,55 @@ it('invalidates content cache entries across batches and never caches discovery 
   const result = run(environment);
   expect(result.status).toBe(1);
   expect(result.stdout).toContain('no-debugger');
-});
+}, 30_000);
 
 it('fails on config errors and empty discovery instead of silently accepting', () => {
   write('eslint.config.mjs', 'throw new Error("fixture config failure");');
   expect(run().status).not.toBe(0);
   write('eslint.config.mjs', "export default [{ ignores: ['**'] }];");
   expect(run().status).not.toBe(0);
+});
+
+it('preserves the installed CLI fatal exit status and stops later batches', () => {
+  write('eslint.config.mjs', `export default [
+    { ignores: ['scripts/**', 'eslint.config.mjs'] },
+    { plugins: { fixture: { rules: { fail: {
+      create: () => ({ Program: () => { throw new Error('fixture rule failure'); } })
+    } } } }, rules: { 'fixture/fail': 'error' } },
+  ];`);
+  for (let index = 0; index < 385; index += 1) write(`source/${String(index)}.js`, 'export {};');
+  const original = node(['node_modules/eslint/bin/eslint.js', '.', '--max-warnings=0']);
+  expect(original.status, original.stderr).toBe(2);
+  const result = run();
+  expect(result.status, result.stderr).toBe(original.status);
+  expect(result.stderr).toContain('fixture rule failure');
+  expect(result.stdout).not.toContain('ESLint batch 2/25');
+  expect(result.stdout).not.toContain('ESLint batch 25/25');
+});
+
+it.each([
+  ['unhandled rejection', "Promise.reject(new Error('fixture detached failure'));"],
+  ['uncaught exception', "throw new Error('fixture detached failure');"],
+])('preserves fatal status for a detached %s and stops later batches', (_kind, failure) => {
+  write('eslint.config.mjs', `let scheduled = false;
+    export default [
+      { ignores: ['scripts/**', 'eslint.config.mjs'] },
+      { plugins: { fixture: { rules: { fail: {
+        create: () => ({ Program: () => {
+          if (scheduled) return;
+          scheduled = true;
+          setImmediate(() => { ${failure} });
+        } })
+      } } } }, rules: { 'fixture/fail': 'error' } },
+    ];`);
+  for (let index = 0; index < 385; index += 1) write(`source/${String(index)}.js`, 'export {};');
+  const original = node(['node_modules/eslint/bin/eslint.js', '.', '--max-warnings=0']);
+  expect(original.status, original.stderr).toBe(2);
+  const result = run();
+  expect(result.status, result.stderr).toBe(original.status);
+  expect(result.stderr).toContain('fixture detached failure');
+  expect(result.stdout).not.toContain('ESLint batch 2/25');
+  expect(result.stdout).not.toContain('ESLint batch 25/25');
 });
 
 it('propagates a lint child signal and does not start later batches', () => {
@@ -158,10 +209,10 @@ it('propagates a lint child signal and does not start later batches', () => {
       create: () => ({ Program: () => process.kill(process.pid, 'SIGTERM') })
     } } } }, rules: { 'fixture/terminate': 'error' } },
   ];`);
-  for (let index = 0; index < 257; index += 1) write(`source/${String(index)}.js`, 'export {};');
+  for (let index = 0; index < 385; index += 1) write(`source/${String(index)}.js`, 'export {};');
   const result = run();
   expect(result.status).not.toBe(0);
   expect(result.stderr).toContain('SIGTERM');
-  expect(result.stdout).not.toContain('ESLint batch 2/3');
-  expect(result.stdout).not.toContain('ESLint batch 3/3');
+  expect(result.stdout).not.toContain('ESLint batch 2/25');
+  expect(result.stdout).not.toContain('ESLint batch 25/25');
 });

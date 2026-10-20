@@ -14,6 +14,11 @@ const mocks = vi.hoisted(() => ({
     useModalKeyboard: vi.fn(),
 }));
 
+const expectedParameterCount = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+});
+
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
@@ -292,7 +297,7 @@ describe('AIModelComparisonModal', () => {
     });
 
     it.each([
-        ['Qwen3 30B A3B (Reasoning)', 'Alibaba', '30.5 B', 'https://huggingface.co/Qwen/Qwen3-30B-A3B'],
+        ['Qwen3 30B A3B (Reasoning)', 'Alibaba', `${expectedParameterCount.format(30.5)} B`, 'https://huggingface.co/Qwen/Qwen3-30B-A3B'],
         ['GPT-6 Astra (max)', 'OpenAI', 'model_comparison.parameters_not_published', 'https://developers.openai.com/api/docs/models'],
     ])('renders parameter evidence for %s', (name, creator, label, source) => {
         const implementation = mocks.useData.getMockImplementation();

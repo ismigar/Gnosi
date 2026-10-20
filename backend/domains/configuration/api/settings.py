@@ -339,6 +339,10 @@ def _update_config_document(new_config: dict[str, Any]) -> None:
         _migrate_system_password(new_config)
         merged_config = deep_merge(current_config, new_config)
         _validate_agent_strategies(new_config, merged_config)
+        if isinstance(new_config.get("ai"), dict) and "speech_output" in new_config["ai"]:
+            from backend.services.workspace_speech import SpeechSettings
+            speech_settings = SpeechSettings.model_validate(merged_config["ai"]["speech_output"])
+            merged_config["ai"]["speech_output"] = speech_settings.model_dump()
         _replace_provider_map(new_config, merged_config)
         _secure_ai_config(merged_config)
 

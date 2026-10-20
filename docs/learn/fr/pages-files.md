@@ -48,7 +48,9 @@ ouvrez Gnosi avec `?gnosi-safe-appearance=1` et réinitialisez l'apparence.
 
 Dans le menu **⋯** d’une note, choisissez **Combiner et extraire des notes**. Sélectionnez la note entière, un titre ou des lignes Markdown complètes, puis choisissez une nouvelle note ou une destination existante. **Prévisualiser les modifications** montre la source, la destination et les liens affectés. Vérifiez chaque changement avant de l’appliquer. La source conserve une transclusion et son historique. Si un autre éditeur modifie un fichier, préparez un nouvel aperçu.
 
-Dans les **Favoris** de la barre latérale, enregistrez notes, sections, recherches, vues de graphe ou liens web et attribuez-leur un groupe. Modifiez un favori pour le renommer, le déplacer ou le supprimer. Ces favoris appartiennent au compte, à l’espace de travail et au Vault sélectionnés sur cet appareil.
+Dans les **Signets** de la barre latérale, enregistrez notes, sections, recherches, vues du graphe ou liens web et attribuez-leur un groupe. L’étoile d’une note ajoute ou retire cette note de la même liste. Les anciens favoris et les signets de cet appareil sont importés automatiquement en conservant leurs noms et groupes. Les signets appartiennent au compte, à l’espace de travail et au Vault sélectionnés. Ils se synchronisent via le même serveur Gnosi ou lorsque le dossier du même Vault est synchronisé entre appareils. Les changements sont actualisés périodiquement et à votre retour dans l’application ; utilisez Actualiser pour vérifier immédiatement. En cas d’échec, les éléments enregistrés et les modifications en cours sont conservés pour réessayer.
+
+Utilisez **Enregistrer la vue actuelle** pour ajouter un tableau, une vue enregistrée, un dessin ou une autre vue stable de Gnosi. Les adresses sont enregistrées par rapport au Vault pour que chaque appareil utilise son adresse locale. Les tableaux de bord, fiches et modèles utilisent le même type de signet de page ; le catalogue des tableaux de bord reste accessible.
 
 ## Résultat attendu {#expected-result}
 

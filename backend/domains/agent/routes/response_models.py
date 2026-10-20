@@ -36,6 +36,7 @@ class AgentSessionMessageResponse(_AgentResponseModel):
     privacy: JsonValue | None = None
     verification: JsonValue | None = None
     citations: JsonValue | None = None
+    memory_provenance: list[dict[str, JsonValue]] | None = None
     freshness: JsonValue | None = None
     job: JsonValue | None = None
     explanation: JsonValue | None = None

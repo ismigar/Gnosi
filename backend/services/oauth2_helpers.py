@@ -65,7 +65,9 @@ def _record_refresh_outcome(email: str, error: str | None) -> None:
         pass  # best-effort, we don't want this to bring down the refresh because of it
 
 
-def ensure_fresh_token(email: str) -> tuple[str | None, dict[str, Any] | None]:
+def ensure_fresh_token(
+    email: str, *, timeout: float | None = None,
+) -> tuple[str | None, dict[str, Any] | None]:
     """Returns `(access_token, account_dict)` for a Google account.
 
     - If the current access_token is valid, it's returned unchanged.
@@ -118,7 +120,10 @@ def ensure_fresh_token(email: str) -> tuple[str | None, dict[str, Any] | None]:
 
         if (creds.expired or needs_refresh) and creds.refresh_token:
             try:
-                creds.refresh(Request())  # type: ignore[no-untyped-call]  # Google SDK lacks typing
+                from functools import partial
+
+                request = Request()
+                creds.refresh(request if timeout is None else partial(request, timeout=timeout))  # type: ignore[no-untyped-call]
                 refreshed_token = creds.token
                 if not isinstance(refreshed_token, str) or not refreshed_token:
                     raise RuntimeError("Google OAuth2 refresh returned no access token")

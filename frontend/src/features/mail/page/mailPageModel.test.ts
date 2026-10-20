@@ -77,6 +77,7 @@ describe('mailPageModel', () => {
 
     expect(draftComposeData({
       body_text: 'Body',
+      bcc: ['blind@example.test', 'private@example.test'],
       cc: ['copy@example.test', 'other@example.test'],
       id: 'draft',
       recipient: ['reader@example.test'],
@@ -84,9 +85,16 @@ describe('mailPageModel', () => {
     })).toEqual({
       _draftId: 'draft',
       initialBody: 'Body',
+      initialBcc: ['blind@example.test', 'private@example.test'],
       initialCc: ['copy@example.test', 'other@example.test'],
       initialSubject: '',
       initialTo: ['reader@example.test'],
     });
+  });
+
+  it('retains a string BCC and defaults missing blind recipients to an empty field', () => {
+    expect(draftComposeData({ id: 'with-bcc', bcc: 'blind@example.test' }).initialBcc)
+      .toBe('blind@example.test');
+    expect(draftComposeData({ id: 'without-bcc' }).initialBcc).toBe('');
   });
 });

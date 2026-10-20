@@ -349,7 +349,10 @@ def caldav_list_calendars(email: str) -> list[JsonObject]:
 
 
 def caldav_list_events(
-    email: str, time_min: str, time_max: str, search: str | None = None,
+    email: str,
+    time_min: str,
+    time_max: str,
+    search: str | None = None,
     calendar_id: str | None = None,
 ) -> list[JsonObject]:
     from backend.domains.calendar.caldav_resources import event_query
@@ -360,12 +363,18 @@ def caldav_list_events(
     client = CalDAVClient(acc)
     calendars = client.calendars(email)
     if calendar_id:
-        calendars = [calendar for calendar in calendars if calendar_id in {calendar["id"], calendar["url"]}]
+        calendars = [
+            calendar for calendar in calendars if calendar_id in {calendar["id"], calendar["url"]}
+        ]
     events: list[JsonObject] = []
     for calendar in calendars:
         try:
-            result = client.request("REPORT", calendar["url"], data=event_query(time_min=time_min, time_max=time_max),
-                                    headers={"Depth": "1", "Content-Type": "application/xml; charset=utf-8"})
+            result = client.request(
+                "REPORT",
+                calendar["url"],
+                data=event_query(time_min=time_min, time_max=time_max),
+                headers={"Depth": "1", "Content-Type": "application/xml; charset=utf-8"},
+            )
             events.extend(_parse_caldav_response(result.text, email, calendar, search))
         except CalendarProviderError as error:
             log.warning("CalDAV event query failed: %s", error.detail)
@@ -408,7 +417,9 @@ def _parse_caldav_response(
                     continue
                 ev = _normalize_caldav_event(component, email, cal)
                 ev["etag"] = resp.findtext(".//{DAV:}getetag", "")
-                ev["resource_url"] = checked_url(cal["url"], resp.findtext("{DAV:}href", ""), collection=cal["url"])
+                ev["resource_url"] = checked_url(
+                    cal["url"], resp.findtext("{DAV:}href", ""), collection=cal["url"]
+                )
                 if (
                     q
                     and q not in ev["title"].lower()
@@ -425,19 +436,28 @@ def _parse_caldav_response(
 def _caldav_attendees(component: Any, email: str) -> list[JsonObject]:
     values = component.get("ATTENDEE", [])
     values = values if isinstance(values, list) else [values]
-    return [{
-        "email": display_address(value),
-        "name": str(value.params.get("CN", "")),
-        "rsvp": {"ACCEPTED": "accepted", "DECLINED": "declined", "TENTATIVE": "tentative"}.get(str(value.params.get("PARTSTAT", "")), "needsAction"),
-        "self": str(value).lower() == "mailto:" + email.lower(),
-    } for value in values]
+    return [
+        {
+            "email": display_address(value),
+            "name": str(value.params.get("CN", "")),
+            "rsvp": {"ACCEPTED": "accepted", "DECLINED": "declined", "TENTATIVE": "tentative"}.get(
+                str(value.params.get("PARTSTAT", "")), "needsAction"
+            ),
+            "self": str(value).lower() == "mailto:" + email.lower(),
+        }
+        for value in values
+    ]
 
 
 def _normalize_caldav_event(component: Any, email: str, cal: JsonObject) -> JsonObject:
     uid = _ical_prop(component, "UID")
     title = _ical_prop(component, "SUMMARY", "(sense títol)")
     start = _ical_prop(component, "DTSTART")
-    end = _ical_prop(component, "DTEND") or _ical_prop(component, "DUE") or _normalize_dt(effective_event_end(component))
+    end = (
+        _ical_prop(component, "DTEND")
+        or _ical_prop(component, "DUE")
+        or _normalize_dt(effective_event_end(component))
+    )
     all_day = "T" not in start if start else False
     source = f"{email} - {cal['name']}" if cal.get("name") and cal["name"] != email else email
     rrule_obj = component.get("RRULE")
@@ -469,7 +489,8 @@ def _normalize_caldav_event(component: Any, email: str, cal: JsonObject) -> Json
         "organizer": display_address(_ical_prop(component, "ORGANIZER")),
         "recurrence": rrule_str,
         "recurring_event_id": None,
-        "is_read_only": cal.get("access_role") == "reader" or any(component.get(key) for key in ("RRULE", "RDATE", "EXDATE", "RECURRENCE-ID")),
+        "is_read_only": cal.get("access_role") == "reader"
+        or any(component.get(key) for key in ("RRULE", "RDATE", "EXDATE", "RECURRENCE-ID")),
     }
 
 
@@ -480,6 +501,12 @@ def list_calendars(email: str) -> list[JsonObject]:
     acc = _get_account(email, resolve_secrets=False)
     if not acc:
         return []
+    if acc.get("provider") == "microsoft":
+        from backend.services.microsoft_calendar_service import (
+            list_calendars as microsoft_list_calendars,
+        )
+
+        return microsoft_list_calendars(email)
     if acc.get("provider") == "google":
         return google_list_calendars(email)
     if _is_caldav_account(acc):
@@ -497,6 +524,10 @@ def list_events(
     acc = _get_account(email, resolve_secrets=False)
     if not acc:
         return []
+    if acc.get("provider") == "microsoft":
+        from backend.services.microsoft_calendar_service import list_events as microsoft_list_events
+
+        return microsoft_list_events(email, time_min, time_max, search, calendar_id)
     if acc.get("provider") == "google":
         return google_list_events(email, time_min, time_max, search, calendar_id)
     if _is_caldav_account(acc):
@@ -513,6 +544,17 @@ def get_event(email: str, event_id: str, calendar_id: str | None = None) -> Json
         accounts = integration_manager.get_calendar_accounts(email, resolve_secrets=False)
     if not accounts:
         return None
+    microsoft = [
+        account
+        for account in accounts
+        if account.get("provider") == "microsoft" and account.get("type") == "calendar"
+    ]
+    if microsoft:
+        if len(accounts) != 1:
+            raise CalendarProviderError(409, "Calendar account is ambiguous")
+        from backend.services.microsoft_calendar_service import get_event as microsoft_get_event
+
+        return microsoft_get_event(email, event_id, calendar_id or "primary")
     account = provider_operations.select_account_reference(accounts, calendar_id or "primary")
     if provider_operations.account_provider(account) == "google":
         return google_get_event(email, event_id, calendar_id or "primary")

@@ -1,10 +1,13 @@
 ---
 status: implemented
-last_verified: 2026-09-16
+last_verified: 2026-10-16
 source_paths:
   - backend/api/microsoft_auth_routes.py
   - backend/services/auth_public_surface.py
   - backend/services/microsoft_mail_service.py
+  - backend/services/microsoft_calendar_service.py
+  - backend/tests/test_microsoft_calendar_service.py
+  - backend/tests/test_calendar_oauth_account_preservation.py
   - desktop/microsoft-sign-in.js
   - desktop/main.js
   - frontend/src/shared/api/microsoft-auth.ts
@@ -60,3 +63,23 @@ puede leer correo. Las pruebas locales con simulaciones no demuestran que exista
 el registro ni el consentimiento institucional.
 
 Referencia: https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow
+
+## Calendarios de Microsoft de solo lectura
+
+La configuración de calendarios inicia una autorización separada con
+`Calendars.Read`, `User.Read` y `offline_access`. Conserva las cuentas y permisos
+de correo. Reutiliza el registro público nativo; la institución puede exigir
+el consentimiento de un administrador.
+
+Las credenciales se guardan por separado en `calendars` mediante referencias al
+almacén seguro. La reconexión y renovación preservan los demás calendarios,
+incluso sin identificador, y la configuración de correo y contactos.
+
+El conector consulta listas e intervalos paginados de `calendarView`, incluidas
+las ocurrencias recurrentes. Los eventos son de solo lectura y no se ofrecen
+como destinos de creación. No importa, sobrescribe ni elimina archivos del Vault.
+Iniciar sesión en Outlook web no concede acceso a Gnosi: se necesita el
+consentimiento específico de calendarios.
+
+Referencias: [calendarView](https://learn.microsoft.com/en-us/graph/api/calendar-list-calendarview?view=graph-rest-1.0)
+y [listas de calendarios](https://learn.microsoft.com/en-us/graph/api/user-list-calendars?view=graph-rest-1.0).

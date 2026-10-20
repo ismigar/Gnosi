@@ -16,7 +16,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from importlib import import_module
 from pathlib import Path
-from typing import Protocol, TypedDict, TypeGuard, runtime_checkable
+from typing import TypedDict, TypeGuard
 
 from bs4 import BeautifulSoup
 
@@ -49,11 +49,6 @@ class Article(TypedDict):
 class _Arguments(argparse.Namespace):
     opml: Path
     output_dir: Path
-
-
-@runtime_checkable
-class _Audio(Protocol):
-    def save(self, filename: str) -> None: ...
 
 
 DateTuple = tuple[int, int, int, int, int, int, int, int, int]
@@ -186,21 +181,15 @@ def generate_summary(articles: Sequence[Article]) -> str:
 
 
 def text_to_audio(text: str | None, filename: str | Path) -> None:
-    """Converts English text to audio using gTTS."""
+    """Generate audio with the same saved engine as every Gnosi speech action."""
     from backend.services.agent_execution_scope import personal_scheduler_scope
     from backend.services.agent_specialized_tools import run_engine
+    from backend.services.audio_summarizer import _generate_tts_atomically
 
-    def synthesize() -> None:
-        factory: object = import_module("gtts").gTTS
-        if not callable(factory):
-            raise TypeError("gtts.gTTS must be callable")
-        tts: object = factory(text=text, lang="en", slow=False)
-        if not isinstance(tts, _Audio):
-            raise TypeError("gtts.gTTS must provide save(filename)")
-        tts.save(str(filename))
-
+    if text is None:
+        raise TypeError("Speech text must be a string")
     with personal_scheduler_scope(origin="worker"):
-        run_engine("speech", str(filename), synthesize)
+        run_engine("speech", str(filename), lambda: _generate_tts_atomically(text, filename, "en"))
     print(f"Podcast saved successfully to: {filename}")
 
 

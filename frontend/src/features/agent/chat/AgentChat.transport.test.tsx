@@ -68,15 +68,15 @@ function requestPath(input: RequestInfo | URL): string {
 }
 
 async function submit(text: string): Promise<void> {
-  const input = container.querySelector('textarea');
+  const form = container.querySelector('form');
+  if (!form) throw new Error('Missing chat form');
+  const input = form.querySelector('textarea');
   if (!input) throw new Error('Missing chat composer');
   await act(async () => {
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(input, text);
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await Promise.resolve();
   });
-  const form = container.querySelector('form');
-  if (!form) throw new Error('Missing chat form');
   await act(async () => {
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await Promise.resolve();

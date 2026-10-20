@@ -41,3 +41,13 @@ describe('calendar form model', () => {
         expect(result.end).toEqual({dateTime: new Date('2026-09-02T10:00:00').toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone});
     });
 });
+
+
+import { defaultWritableCalendarId } from './eventFormModel';
+import type { CalendarConfig } from './calendarTypes';
+it('never chooses a read-only Microsoft calendar as a new event destination', () => {
+    const base = { source: '', name: '', kind: 'external' as const, account: '', google_calendar_id: '', color: '' };
+    const calendars: CalendarConfig[] = [{ ...base, id: 'ms', provider: 'microsoft', is_default: true }, { ...base, id: 'local', kind: 'table', provider: null }];
+    expect(defaultWritableCalendarId(calendars, 'ms')).toBe('local');
+    expect(defaultWritableCalendarId(calendars.slice(0, 1), 'ms')).toBe('');
+});

@@ -36,6 +36,14 @@ function requireInput(container: HTMLElement, selector: string): HTMLInputElemen
     return input;
 }
 
+function requireButton(container: HTMLElement, selector: string): HTMLButtonElement {
+    const button = container.querySelector(selector);
+    if (!(button instanceof HTMLButtonElement)) {
+        throw new Error(`Missing force switch: ${selector}`);
+    }
+    return button;
+}
+
 describe('ForcesSection', () => {
     let container: HTMLDivElement;
     let root: Root;
@@ -88,9 +96,9 @@ describe('ForcesSection', () => {
         const repulsion = requireInput(container, '#graph-force-repulsion');
         const friction = requireInput(container, '#graph-force-friction');
         const edgeInfluence = requireInput(container, '#graph-force-edge-influence');
-        const linLog = requireInput(container, '#graph-force-linlog');
-        const strongGravity = requireInput(container, '#graph-force-strong-gravity');
-        const outbound = requireInput(container, '#graph-force-outbound');
+        const linLog = requireButton(container, '[role="switch"][aria-label="Cloud Mode (LinLog)"]');
+        const strongGravity = requireButton(container, '[role="switch"][aria-label="Strong gravity"]');
+        const outbound = requireButton(container, '[role="switch"][aria-label="Distribute attraction by degree"]');
 
         setRangeValue(gravity, '1.25');
         setRangeValue(repulsion, '2500');

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { columnLabel, supportsCellFormula } from './spreadsheetFormula';
-import { displayString } from './fieldConfig';
+import { displayString, getTableFieldConfig } from './fieldConfig';
+import { formatUnifiedDate } from '../../../../shared/dates/unifiedDate';
+import { resolveFieldFormat } from '../../../../shared/records/model/formatUtils';
 import { getMetaKey } from './metadata';
 import type { TableController } from './useTableController';
 
@@ -10,7 +12,11 @@ export function TableFormulaBar({ model }: { model: TableController }) {
   const column = model.gridColumns.find(col => col.key === cell?.field);
   const raw = note && cell ? cell.field === 'title' ? note.title : note.metadata?.[getMetaKey(note, cell.field)] : '';
   const editable = !!cell && !!note && !!column && (column.key === 'title' || supportsCellFormula(column.type));
-  const value = raw == null ? '' : typeof raw === 'object' ? JSON.stringify(raw) : displayString(raw);
+  const format = resolveFieldFormat(getTableFieldConfig(model.schema, cell?.field ?? ''), model.localeSettings);
+  const value = column && ['date', 'datetime', 'period'].includes(column.type)
+    ? formatUnifiedDate(raw, { legacyType: column.type, dateFormat: format.dateFormat,
+      locale: format.dateLocale || model.i18n.language, pending: model.t('vault_date.end_pending') })
+    : raw == null ? '' : typeof raw === 'object' ? JSON.stringify(raw) : displayString(raw);
   return <div className="flex shrink-0 items-center gap-2 border-b border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-xs">
     <span className="w-12 shrink-0 text-center font-mono text-[var(--text-tertiary)]">
       {cell ? `${columnLabel(model.colIndexByKey.get(cell.field) ?? 0)}${String((model.navRowIndexById.get(cell.rowId) ?? 0) + 1)}` : 'fx'}

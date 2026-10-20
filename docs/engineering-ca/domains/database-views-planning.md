@@ -42,6 +42,9 @@ source_paths:
   - frontend/src/features/vault/views/VaultTable.tsx
   - frontend/src/features/vault/editor/BlockEditor.tsx
   - frontend/src/features/vault/properties/VaultDateProperty.ts
+  - frontend/src/features/vault/properties/vault-date-property/dateModel.ts
+  - frontend/src/features/vault/views/db-view-embed/useEmbedLoad.ts
+  - frontend/src/features/vault/views/db-view-embed/useEmbedTabActions.ts
   - frontend/src/shared/record-views/VaultTimeline.tsx
   - frontend/src/shared/record-views/vault-timeline
   - frontend/src/features/vault/VaultDashboard.tsx
@@ -58,6 +61,9 @@ tests:
   - frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx
   - frontend/src/shared/record-views/vault-timeline/timelineScale.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.continuity.test.tsx
+  - frontend/src/features/vault/properties/UnifiedDateEditor.i18n.test.tsx
+  - frontend/src/features/vault/properties/vault-date-property/dateModel.formatting.test.ts
   - frontend/src/features/vault/dashboard/TablePane.test.tsx
   - frontend/src/features/vault/dashboard/creationFlow.test.tsx
   - frontend/src/features/planning/ProjectPlanningPage.test.tsx
@@ -512,3 +518,7 @@ Per a qualsevol taula d’origen, una vista incrustada obté les metadades de cr
 ## Persistència de l’ordre de les columnes
 
 Arrossegar l’agafador d’una columna desa l’ordre configurat a les vistes de taula principals, secundàries i incrustades. La visualització, el desament i la migració de la vista principal conserven aquest ordre en lloc de reconstruir-lo a partir de l’esquema. Les vistes incrustades d’ancoratge registrades es desen al registre; les seccions antigues actualitzen tant la pestanya sintètica com la secció. En recarregar els registres es consulta la configuració actual del registre perquè les columnes no recuperin un ordre anterior. Els descriptors compostos conserven la taula d’origen i les metadades del camp. Una vista principal virtual rep una identitat desada única en la primera actualització.
+
+La propietat de data unificada segueix el format triat als ajustos per a les dates puntuals visibles, els límits dels períodes, les restriccions, les dates límit i la fi de les repeticions. En editar, converteix aquest ordre numèric en dates desades canòniques. La mateixa preferència s’aplica als resums dels períodes i a la barra de fórmules de la taula. Una edició no buida invàlida conserva el valor desat; es continua podent buidar un camp explícitament. Els anys històrics i extensos utilitzen dates numèriques canòniques per evitar pèrdues en editar.
+
+El registre conservat de les vistes incrustades queda limitat al Vault actiu, la pàgina contenidora i la vista. Els canvis de configuració en demanen una nova lectura; les lectures fallides es tornen a intentar en una recàrrega posterior. Reanomenar, eliminar o duplicar una vista també publica el registre actualitzat a la mateixa memòria cau, de manera que els desaments posteriors de registres conserven les pestanyes i els ajustos actuals. Els altres canvis del context de l’editor no recuperen una còpia antiga.

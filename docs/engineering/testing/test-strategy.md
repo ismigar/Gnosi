@@ -23,6 +23,7 @@ source_paths:
   - frontend/scripts/check-bundle-size.ts
   - frontend/scripts/lint.mjs
   - frontend/scripts/lint-files.mjs
+  - frontend/scripts/lint-worker.mjs
   - frontend/scripts/typecheck.mjs
   - frontend/scripts/typecheck-worker.mjs
 tests:
@@ -36,6 +37,7 @@ tests:
   - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
   - frontend/tests/contracts/lint-runner.test.ts
+  - frontend/scripts/lint-worker.test.mjs
   - frontend/tests/contracts/typecheck-runner.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -164,14 +166,26 @@ expected generated-catalog updates are the only excluded source differences.
 ## Frontend lint memory
 
 `pnpm lint:frontend` discovers files through ESLint's configured directory scan,
-then checks batches of at most 128 files in fresh, sequential processes. The
-discovery pass does not parse source or populate a lint cache; only the subsequent
+then checks batches of at most 16 files through the installed CLI. Cold workers
+run serially, each handling at most 384 files before exiting. The
+parser's normal project service remains available across those batches; an event-loop
+yield and explicit GC allow completed CLI state to be collected after each
+successful batch. Public parser caches are cleared once per worker on completion
+or failure, and its process exits before the next worker starts. The discovery
+pass does not parse source or populate a lint cache; only the subsequent
 CLI checks can establish success. All existing rules, TypeScript project-service
 checks, ignores and the zero-warning threshold apply to every batch. A failed
 batch stops the command. `GNOSI_ESLINT_CACHE` still enables content-based caching.
+The canonical pre-PR environment preserves this explicit analyzer opt-in while
+isolating application selectors, credentials and live-test flags. Prepare reused
+caches with `scripts/ci/prepare_analysis_cache.py` so imported source types,
+configuration and tool locks invalidate stale analyzer results; the default
+remains uncached.
 The mac-idle heap, process-tree memory budget and overall phase deadline stay
 unchanged. Runner regressions compare discovery with real ESLint and exercise
-later-batch failures, type-aware rules, cache invalidation and child termination.
+later-batch failures, type-aware rules, cache invalidation, fatal exit status and
+child termination. Pure Node worker tests also cover serial execution, exact
+arguments, bounded service lifetimes, final cleanup and argument restoration.
 
 Before a mac-idle phase starts, readiness waits at most 90 seconds to observe
 30 consecutive seconds of normal pressure. A warning resets the normal streak;
@@ -414,3 +428,15 @@ before the complete release matrix passes.
 The generated [test catalog](../generated/tests.md) lists owned test files and
 navigation signals. Runner collection remains authoritative for executable test
 counts.
+
+## Explicit verified frontend type results
+
+An optional `GNOSI_TYPECHECK_CACHE` and `GNOSI_TYPECHECK_CACHE_SHA256` pair binds a private, owned manifest and a fixed `verify-typecheck-cache.py` helper plus the locked Python executable before any helper runs. It verifies a genuinely completed whole frontend type phase and every current source, configuration, dependency, symlink and Node fingerprint. Only explicitly reviewed non-TypeScript quality files may differ; the complete legacy `typecheck()` function, compiler, worker, roots and rules remain unchanged. A later failed whole gate remains failed.
+
+With no pair, the original checker runs unchanged. Partial, malformed or stale bindings fail without fallback or retry. Successful verification prints `VERIFIED_CACHED_WHOLE_FRONTEND_TYPES`, without invented current semantic batches. The pre-PR environment exposes the pair only to the exact `Frontend types` phase and removes both keys from every other phase, including frontend test fixtures. Resource limits, cleanup and all remaining gate obligations stay unchanged.
+
+## Explicit interactive macOS validation
+
+The separate, opt-in `mac-interactive` profile is selected with `--resource-profile mac-interactive` when validation must coexist with open `Codex`. It requires 30 continuous seconds of noncritical host pressure within the same 90-second preflight window. Host warning level `2` is logged and recorded as coexistence, including level changes during owned work; it does not stop this profile. The original `mac-idle` profile and `--resource-profile mac-idle` behavior are unchanged: 30 normal seconds are required, and a sustained two-second warning stops owned work. Interactive results must identify their profile and cannot be presented as strict idle acceptance.
+
+Both profiles stop on critical level `4`, unknown or failed pressure probes, owned RSS above 2 GiB, deadlines or orphaned children. Both retain the 1536 MiB Node ceiling, one worker/thread, nice 10, static/build/suite limits of 300/600/900 seconds and two-second process probes. Interactive mode changes only how reported background warning pressure is treated; it adds no retry, silent fallback, resource increase or requirement to close user applications. Owned cleanup and all remaining validation obligations stay mandatory.

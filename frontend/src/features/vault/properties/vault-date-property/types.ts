@@ -13,6 +13,7 @@ export interface VaultPlanningNote {
 }
 
 export interface VaultDateFieldConfig {
+    readonly format?: { readonly dateFormat?: string | null } | null;
     readonly aliases?: readonly string[] | null;
     readonly id?: string | null;
     readonly period_unit?: unknown;

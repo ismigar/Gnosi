@@ -9,6 +9,15 @@ import * as views from '../../../shared/api/vault-views';
 import { useDashboardActions, type DashboardActions } from './useDashboardActions';
 import type { VaultPage, VaultPageSummary, VaultPageMutation } from '../../../shared/api/vaults';
 import type { Registry } from './types';
+const bookmarkFixture = vi.hoisted(() => ({
+    entries: [], pageIds: new Set<string>(), routeTargets: new Set<string>(), sortMode: 'manual', isReady: true, isPending: false, error: false,
+    setRoute: vi.fn<(target: string, label: string, enabled: boolean) => Promise<void>>(),
+    setPage: vi.fn<(id: string, label: string, enabled: boolean) => Promise<void>>(),
+    refresh: vi.fn(() => Promise.resolve()), save: vi.fn(() => Promise.resolve()), remove: vi.fn(() => Promise.resolve()),
+    reorder: vi.fn(() => Promise.resolve()), setSortMode: vi.fn(() => Promise.resolve()),
+}));
+vi.mock('../../../shared/bookmarks/useBookmarks', () => ({ useBookmarks: () => bookmarkFixture }));
+export const pageBookmarks = bookmarkFixture;
 const plugins = vi.hoisted(() => ({ isEnabled: () => false }));
 vi.mock('../../../shared/plugins/usePlugins', () => ({ usePlugins: () => plugins }));
 vi.mock('../../../shared/notifications/toast', () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), dismiss: vi.fn() }) }));
@@ -20,6 +29,18 @@ export const PAGE: VaultPageSummary = { id: PAGE_ID, title: 'Page', folder: '', 
 export const DETAIL: VaultPage = { id: PAGE_ID, title: 'Page', content: 'body', metadata: { table_id: 'table' }, etag: 'etag-1', folder: '' };
 export const CREATED: VaultPageMutation = { ...DETAIL, status: 'created', message: 'created', id: OTHER_ID };
 export function installApiDefaults() {
+    pageBookmarks.pageIds.clear();
+    pageBookmarks.routeTargets.clear();
+    pageBookmarks.setRoute.mockReset().mockImplementation((target, _label, enabled) => {
+        if (enabled) pageBookmarks.routeTargets.add(target); else pageBookmarks.routeTargets.delete(target);
+        return Promise.resolve();
+    });
+    pageBookmarks.isReady = true;
+    pageBookmarks.isPending = false;
+    pageBookmarks.setPage.mockReset().mockImplementation((id, _label, enabled) => {
+        if (enabled) pageBookmarks.pageIds.add(id); else pageBookmarks.pageIds.delete(id);
+        return Promise.resolve();
+    });
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
     vi.mocked(vault.fetchVaultPages).mockResolvedValue([PAGE]);
     vi.mocked(vault.fetchVaultSidebarSummary).mockResolvedValue([PAGE]);

@@ -7,17 +7,25 @@ import { writeText, pinnedKey, selectedKey } from './preferences';
 import type { EmbedView } from './types';
 import type { EmbedInputs } from './inputs';
 import type { EmbedDerived } from './useEmbedDerived';
-export function useEmbedTabActions({ pageId, viewId, tableId, ctx, setTableViews, setPinnedViewIds, setActiveViewId, tableViews, t, setConfirmDeleteView, setDeleteViewUsage, confirmDeleteView, activeViewId, view, renameView, setRenameView, block, headingProp, headingLevelProp, columns }: EmbedInputs & EmbedDerived) {
+import type { BeginEmbedRegistryRead, EmbedRegistryPublisher } from './useEmbedLoad';
+export function useEmbedTabActions({ pageId, viewId, tableId, ctx, setTableViews, setPinnedViewIds, setActiveViewId, tableViews, t, setConfirmDeleteView, setDeleteViewUsage, confirmDeleteView, activeViewId, view, renameView, setRenameView, block, headingProp, headingLevelProp, columns, publishRegistry, beginRegistryRead, isRegistryScopeCurrent }: EmbedInputs & EmbedDerived & { publishRegistry: EmbedRegistryPublisher; beginRegistryRead: BeginEmbedRegistryRead; isRegistryScopeCurrent: () => boolean }) {
     const { onOpenViewConfig, onOpenPageViewModal } = ctx;
     const persistPinned = useCallback((set: Set<string>) => { try { writeText(pinnedKey(pageId, viewId), JSON.stringify([...set])); } catch { /* local fallback */ } }, [pageId, viewId]);
     const persistServerTabs = useCallback((set: Set<string>) => { void updateVaultView(viewId, { tabs: [...set] }).catch(() => { }); }, [viewId]);
     const refetchTableViews = useCallback(async () => {
+        if (!isRegistryScopeCurrent()) return { scopeCurrent: false, published: false };
+        const publish = beginRegistryRead();
         try {
             const all = await fetchVaultViews();
-            setTableViews(all.filter(v => String(v.table_id) === String(tableId)
+            const published = publish(all);
+            if (published) setTableViews(all.filter(v => String(v.table_id) === String(tableId)
                 || (Array.isArray(v.joins) && v.joins.some(j => String(j.tableId) === String(tableId)))));
-        } catch { /* keep the current state */ }
-    }, [setTableViews, tableId]);
+            return { scopeCurrent: isRegistryScopeCurrent(), published };
+        } catch {
+            publish(null);
+            return { scopeCurrent: isRegistryScopeCurrent(), published: false };
+        }
+    }, [setTableViews, tableId, beginRegistryRead, isRegistryScopeCurrent]);
 
     const pinView = useCallback((id: string) => {
         if (!id || id === viewId) return;
@@ -36,6 +44,7 @@ export function useEmbedTabActions({ pageId, viewId, tableId, ctx, setTableViews
         onOpenViewConfig({ type: type, name: '', table_id: tableId }, (saved: unknown) => {
             const savedView = decodeView(saved);
             if (savedView.id) {
+                if (!publishRegistry(previous => [...previous.filter(view => view.id !== savedView.id), savedView])) return;
                 // The registry refresh can finish after this callback. Add the
                 // saved view now so its pinned tab and settings render immediately.
                 setTableViews(prev => [...prev.filter(view => view.id !== savedView.id), savedView]);
@@ -44,7 +53,7 @@ export function useEmbedTabActions({ pageId, viewId, tableId, ctx, setTableViews
                 try { writeText(selectedKey(pageId, viewId), savedView.id); } catch { /* local fallback */ }
             }
         });
-    }, [tableId, onOpenViewConfig, setTableViews, pinView, setActiveViewId, pageId, viewId]);
+    }, [tableId, onOpenViewConfig, setTableViews, pinView, setActiveViewId, pageId, viewId, publishRegistry]);
 
     const handleDeleteView = useCallback((v: EmbedView) => {
         if (!v.id) return;
@@ -63,10 +72,10 @@ export function useEmbedTabActions({ pageId, viewId, tableId, ctx, setTableViews
         if (!v?.id) return;
         try {
             await deleteVaultView(v.id);
-            await refetchTableViews();
-            if (activeViewId === v.id) setActiveViewId(view?.view_id || '');
+            if (!(await refetchTableViews()).scopeCurrent) return;
+            setActiveViewId(previous => previous === v.id ? (view?.view_id || '') : previous);
         } catch (e) { reportEmbedError('delete view failed', e); }
-    }, [confirmDeleteView, setConfirmDeleteView, setDeleteViewUsage, refetchTableViews, activeViewId, setActiveViewId, view]);
+    }, [confirmDeleteView, setConfirmDeleteView, setDeleteViewUsage, refetchTableViews, setActiveViewId, view]);
 
     // Removes the view from this block ("unpins" it); does NOT delete it from the registry.
     // The section's view (anchor) cannot be removed.
@@ -136,7 +145,7 @@ export function useEmbedTabActions({ pageId, viewId, tableId, ctx, setTableViews
                 // (isPageEmbedView filters it out of the table tabs).
                 embedded: true,
             });
-            await refetchTableViews();
+            if (!(await refetchTableViews()).scopeCurrent) return;
             if (data.id) { pinView(data.id); setActiveViewId(data.id); }
         } catch (e) { reportEmbedError('duplicate view failed', e); }
     }, [tableId, columns, refetchTableViews, pinView, setActiveViewId]);

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-15
+last_verified: 2026-10-16
 source_paths:
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -37,6 +37,7 @@ source_paths:
   - frontend/src/shared/page-search
   - backend/domains/vault/search
   - frontend/src/shared/bookmarks
+  - frontend/src/shared/api/bookmarks.ts
 tests:
   - backend/tests/test_e2e_option_catalogs.py
   - backend/tests/test_translation_lifecycle_binding_contract.py
@@ -45,6 +46,12 @@ tests:
   - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
   - frontend/src/shared/api/vault-search.test.ts
   - frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx
+  - backend/tests/test_vault_bookmarks.py
+  - frontend/src/shared/api/bookmarks.test.ts
+  - frontend/src/shared/bookmarks/useBookmarks.test.tsx
+  - frontend/src/shared/bookmarks/bookmark-routes.test.ts
+  - frontend/src/features/vault/dashboard/bookmark-target.test.ts
+  - frontend/src/shared/bookmarks/BookmarksSection.test.tsx
   - frontend/src/shared/bookmarks/bookmarks.test.ts
   - tests/e2e/tests/disposable/knowledge-parity.spec.ts
   - frontend/src/features/vault/dashboard/Dashboard.document-controls.test.tsx
@@ -139,7 +146,7 @@ Les desades completes amb PUT conserven la detecció inicial de conflictes i tor
 
 La gramàtica admet frases entre cometes, AND implícit o explícit, OR, NOT, negació amb menys, parèntesis i expressions regulars amb indicadors `i`, `m`, `s`. Els camps són `title`, `path`, `file`, `tag`, `is`, `content`, `line`, `block`, `section`, `task`, `task-todo` i `task-done`; `[name]` i `[name:value]` consulten les metadades inicials. La coincidència literal ignora majúscules i accents. Les etiquetes literals conserven els límits jeràrquics dins dels grups. Els límits dels tokens CommonMark distingeixen seccions, blocs i tasques dels exemples de codi. La mida, la profunditat, les expressions regulars i el temps total tenen límits explícits; les consultes invàlides o massa costoses retornen 422. Aquesta cerca textual determinista és independent de la cerca semàntica i dels sistemes de recuperació dels quaderns.
 
-El diàleg de cerca global i els blocs Markdown `query`/`search` comparteixen API i paginació. L’editor visual ofereix un bloc de consulta. La identitat de la petició inclou Vault, espai de treball i usuari; canviar qualsevol àmbit esborra els resultats visibles i rebutja les respostes pendents. El Markdown públic no executa consultes al Vault. Els marcadors agrupats són locals al compte/espai de treball/Vault del dispositiu i admeten pàgines, referències a encapçalaments o blocs, consultes, rutes de graf i enllaços HTTP(S).
+El diàleg de cerca global i els blocs Markdown `query`/`search` comparteixen API i paginació. L’editor visual ofereix un bloc de consulta. La identitat de la petició inclou Vault, espai de treball i usuari; canviar qualsevol àmbit esborra els resultats visibles i rebutja les respostes pendents. El Markdown públic no executa consultes al Vault. Els marcadors unificats admeten pàgines, referències a encapçalaments o blocs, consultes, rutes de graf, vistes portables de Gnosi i enllaços HTTP(S); l’estrella de la pàgina és una drecera a la mateixa col·lecció.
 
 Les transclusions mostren Markdown enriquit complet per a `![[note]]`, encapçalaments i referències de bloc. Comparteixen els enllaços i recursos amb la previsualització Markdown, conserven els exemples literals, s’actualitzen amb l’origen i indiquen els destins absents o buits. Una comprovació d’ancestres per branca i un límit de profunditat eviten la recursió. Les lectures fixen el context capturat i descarten respostes obsoletes. Compartir una pàgina públicament no autoritza lectures de transclusions privades.
 
@@ -154,6 +161,61 @@ El compositor de notes previsualitza l’extracció a una nota nova o la fusió 
 Les targetes de pàgina del canvas admeten edició explícita i desades condicionals. Els esborranys es conserven en memòria quan una disposició desmunta un dibuix, limitats al compte, espai de treball, Vault i pàgina. Abans de tancar l’aplicació cal desar-los. La importació/exportació JSON Canvas conserva nodes, arestes i metadades personalitzades compatibles; rebutja explícitament estructures no compatibles i no copia recursos. Les disposicions desades restauren pestanyes de notes, dibuixos, PDF i EPUB, document actiu, posició del lector i geometria dels panells després de validar els destins.
 
 Es pot retirar del registre un àlies inactiu si una altra entrada del mateix espai de treball conserva la carpeta. L’eliminació fa servir la mateixa identitat seleccionada que el catàleg i continua protegint l’entrada activa i l’última entrada del vault principal. Retirar una entrada compartida conserva la carpeta, les bases de dades locals, les memòries cau i l’índex de fitxers; no es permet esborrar els fitxers mentre un altre vault registrat faci servir la mateixa ruta, encara que pertanyi a un altre espai de treball.
+
+## Marcadors unificats i sincronització entre dispositius
+
+La barra lateral mostra una única col·lecció de **Marcadors**. La pertinença
+d’una pàgina sencera determina tant l’estrella de la pàgina com el seu menú
+contextual; la metadada `favorite` de la pàgina és una entrada de migració,
+mai una segona llista mutable de favorits. Les etiquetes de pàgina poden
+conservar àlies personalitzats, i els grups, l’ordre manual i l’ordenació
+pertanyen a la col·lecció. Els taulells, registres i plantilles continuen sent
+destinacions de pàgina. Les taules, vistes desades, dibuixos, lectors de
+documents (PDF/EPUB/instantània), quaderns i altres seccions de l’aplicació amb
+ruta utilitzen una destinació `route` relativa al Vault (per exemple,
+`/knowledge/table/<table>/view/<view>`). Les dreceres del lector conserven
+l’origen, el tipus i el número de pàgina. El client resol cada ruta amb el slug
+actual del Vault al dispositiu. Només s’admeten les dotze arrels d’aplicació
+auditades; es rebutgen els orígens externs, el prefix d’un altre Vault, els
+caràcters de control, les barres inverses i la travessia de camins codificada.
+Això conserva els tipus de destinació sense duplicar categories com ara
+favorits, taulells i notes en el model de dreceres.
+
+`/api/vault/bookmarks` i les seves operacions d’importació, element, pàgina,
+ordre i ordenació resolen `get_workspace_context`, amb la identitat autenticada
+en lloc de `X-User-ID`. Cada col·lecció d’usuari i espai de treball es desa al
+Vault seleccionat, sota `.gnosi/bookmarks/<scope-hash>/`. Els usuaris amb rol
+de lector poden gestionar les seves dreceres sense escriure el contingut de
+les notes. Les marques compartides de favorits existents es descobreixen al
+servidor a partir de l’índex complet de pàgines amb les metadades recuperades,
+incloses les que arriben més tard del núvol. Cada navegador importa la seva
+llista antiga per àmbit i l’ordre dels favorits només després de la confirmació
+del servidor; les entrades locals originals es conserven per poder reintentar
+l’operació. Els rebuts de migració mantenen els àlies i grups diferents i eviten
+que les importacions eliminades reapareguin quan es reconnecta un altre dispositiu.
+
+Cada modificació afegeix una operació JSON atòmica i immutable. Els processos
+locals utilitzen un bloqueig de fitxer fora del Vault sincronitzat. Els
+dispositius independents poden intercanviar els fitxers d’operacions mitjançant
+la sincronització habitual de carpetes sense substituir tota la col·lecció.
+La reproducció utilitza rellotges Lamport i UUID d’operació; els canvis
+concurrents en elements diferents es conserven, mentre que els canvis
+concurrents en un mateix element tenen un guanyador determinista. Es conserven
+l’historial i els rebuts d’eliminació; el cost de reproducció és lineal respecte
+a la longitud del diari i actualment no es compacta. Les metadades corruptes,
+no disponibles al núvol o amb enllaços simbòlics fallen de manera visible
+sense ser substituïdes.
+
+Els clients utilitzen una memòria cau limitada al compte, correu electrònic,
+espai de treball i Vault, l’actualitzen cada quinze segons i en recuperar el
+focus o la connexió, i serialitzen les lectures amb les escriptures. Les
+modificacions capturen el context seleccionat i no es poden enviar a un altre
+compte o Vault. Els elements en memòria cau continuen visibles quan hi ha
+errors; l’edició requereix una sincronització inicial correcta i els errors
+desant conserven l’esborrany d’edició. La sincronització requereix el mateix
+servidor o una còpia sincronitzada del mateix Vault i la mateixa identitat
+autenticada de compte i espai de treball. Els Vaults locals independents no
+adquireixen automàticament un nou transport al núvol.
 
 ## Contractes de comentaris i traduccions
 

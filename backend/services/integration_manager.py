@@ -63,6 +63,9 @@ class IntegrationManager:
 
     def _externalize_secrets(self, value: Any, path: tuple[str, ...] = ()) -> tuple[Any, bool]:
         """Replace plaintext integration credentials with secure-store refs."""
+        if not path:
+            # Reject the entire document before overwriting any canonical secret.
+            self._validate_no_masked_secrets(value)
         changed = False
         if isinstance(value, dict):
             secured_dict: dict[str, Any] = {}
@@ -72,6 +75,8 @@ class IntegrationManager:
                     if item.startswith("__keychain__:"):
                         secured_dict[key] = item
                         continue
+                    if item.startswith("********"):
+                        raise ValueError(f"Masked integration field {key} has no stored credential")
                     credential_key = self._credential_key(current_path)
                     if not get_keychain().save_credential(credential_key, item):
                         raise RuntimeError(
@@ -92,6 +97,20 @@ class IntegrationManager:
                 changed = changed or nested_changed
             return secured_list, changed
         return value, False
+
+    def _validate_no_masked_secrets(self, value: Any) -> None:
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if (
+                    self._is_sensitive_field(key)
+                    and isinstance(item, str)
+                    and item.startswith("********")
+                ):
+                    raise ValueError(f"Masked integration field {key} has no stored credential")
+                self._validate_no_masked_secrets(item)
+        elif isinstance(value, list):
+            for item in value:
+                self._validate_no_masked_secrets(item)
 
     def _resolve_secret_refs(self, value: Any) -> Any:
         if isinstance(value, dict):
@@ -193,8 +212,8 @@ class IntegrationManager:
     def _mask_dict(self, d: dict[str, Any]) -> dict[str, Any]:
         safe_d: dict[str, Any] = {}
         for k, v in d.items():
-            # Fields of type _status are not sensitive (they are connection metadata)
-            if k.endswith("_status"):
+            # Connection metadata must survive safe-view identity roundtrips.
+            if k.lower().endswith(("_status", "_uri", "_url")):
                 safe_d[k] = v
                 continue
 
@@ -280,9 +299,31 @@ class IntegrationManager:
         merged = old_d.copy()
         for k, v in new_d.items():
             if v and isinstance(v, str) and v.startswith("********"):
+                if self._is_sensitive_field(k) and not old_d.get(k):
+                    raise ValueError(f"Masked integration field {k} has no stored credential")
                 continue  # Keep the old one
             merged[k] = v
         return merged
+
+    @staticmethod
+    def _legacy_mail_identity(item: dict[str, Any]) -> tuple[Any, ...] | None:
+        """Identify an idless mail account without using secrets or display metadata."""
+        email = item.get("email")
+        username = item.get("username")
+        if not (isinstance(email, str) and email.strip()) and not (
+            isinstance(username, str) and username.strip()
+        ):
+            return None
+        fields = (
+            "email", "username", "provider", "auth_type", "type", "server_url",
+            "token_uri", "client_id",
+            "imap_host", "imap_port", "imap_user", "imap_username", "imap_encryption",
+            "smtp_host", "smtp_port", "smtp_user", "smtp_encryption",
+        )
+        values = tuple(item.get(field) for field in fields)
+        if any(not isinstance(value, (str, int, bool, type(None))) for value in values):
+            return None
+        return tuple((type(value), value) for value in values)
 
     def _update_single_key(self, config: dict[str, Any], key: str, data: Any) -> None:
         """Internal helper to update a single key in the dictionary without saving."""
@@ -292,33 +333,48 @@ class IntegrationManager:
                 config[key] = data
                 return
 
-            # Expecting a list of dicts with 'id'. Merge by ID.
+            # Updates merge rather than replace: retain unmatched legacy rows too.
             old_list = config.get(key, [])
             if not isinstance(old_list, list):
                 old_list = []
 
-            # Create a map of existing items by ID
-            merged_dict = {
-                item.get("id"): item for item in old_list if isinstance(item, dict) and "id" in item
+            merged_list = list(old_list)
+            positions = {
+                item.get("id"): index for index, item in enumerate(old_list)
+                if isinstance(item, dict) and item.get("id")
             }
-
-            # Update with new items
+            identities = [
+                self._legacy_mail_identity(item)
+                if key in ("emails", "mail_accounts") and not item.get("id") else None
+                for item in data
+            ]
             for item in data:
-                if not isinstance(item, dict):
-                    continue
                 item_id = item.get("id")
+                position = positions.get(item_id) if item_id else None
                 if not item_id:
-                    import uuid
-
-                    item_id = str(uuid.uuid4())
-                    item["id"] = item_id
-
-                if item_id in merged_dict:
-                    merged_dict[item_id] = self._merge_dict(merged_dict[item_id], item)
+                    identity = (
+                        self._legacy_mail_identity(item)
+                        if key in ("emails", "mail_accounts") else None
+                    )
+                    matches = [
+                        index for index, old in enumerate(old_list)
+                        if isinstance(old, dict) and not old.get("id")
+                        and identity is not None and self._legacy_mail_identity(old) == identity
+                    ]
+                    if len(matches) == 1 and identities.count(identity) == 1:
+                        position = matches[0]
+                if position is not None:
+                    merged_list[position] = self._merge_dict(merged_list[position], item)
                 else:
-                    merged_dict[item_id] = item
+                    added = dict(item)
+                    if not item_id:
+                        import uuid
 
-            config[key] = list(merged_dict.values())
+                        added["id"] = str(uuid.uuid4())
+                    positions[added["id"]] = len(merged_list)
+                    merged_list.append(added)
+
+            config[key] = merged_list
         else:
             old_val = config.get(key)
             if isinstance(data, dict) and (isinstance(old_val, dict) or old_val is None):
@@ -330,7 +386,7 @@ class IntegrationManager:
     def update(self, key: str, data: Any) -> None:
         """Updates a specific integration configuration."""
         with self._lock:
-            config = self._load_secured()
+            config = dict(self._load_persisted())
             self._update_single_key(config, key, data)
             self._save(config)
 
@@ -344,7 +400,7 @@ class IntegrationManager:
 
         """
         with self._lock:
-            config = self._load_secured()
+            config = dict(self._load_persisted())
             config[key] = value
             self._save(config)
 
@@ -357,10 +413,42 @@ class IntegrationManager:
             del config[key]
             self._save(config)
 
+    def upsert_calendar_oauth_account(self, account: dict[str, Any]) -> None:
+        """Merge one Microsoft calendar identity without dropping unrelated entries."""
+        email = str(account.get("email") or "").strip().casefold()
+        if not email or account.get("provider") != "microsoft" or account.get("type") != "calendar":
+            raise ValueError("Invalid Microsoft calendar account")
+        with self._lock:
+            config = self._load_secured()
+            calendars = config.get("calendars", [])
+            if not isinstance(calendars, list):
+                raise ValueError("Calendar configuration is not a list")
+            matches = [
+                index
+                for index, item in enumerate(calendars)
+                if isinstance(item, dict)
+                and item.get("provider") == "microsoft"
+                and item.get("type") == "calendar"
+                and str(item.get("email") or "").strip().casefold() == email
+            ]
+            if len(matches) > 1:
+                raise ValueError("Microsoft calendar account is ambiguous")
+            updated = list(calendars)
+            if matches:
+                index = matches[0]
+                merged = self._merge_dict(updated[index], account)
+                merged["id"] = updated[index].get("id") or f"microsoft_calendar_{email}"
+                updated[index] = merged
+            else:
+                updated.append({**account, "id": f"microsoft_calendar_{email}"})
+            config["calendars"] = updated
+            self._save(config)
+
     def bulk_update(self, updates: dict[str, Any]) -> None:
         """Updates multiple integration keys and saves once."""
         with self._lock:
-            config = self._load_secured()
+            # Save validates the complete merged document before migrating plaintext.
+            config = dict(self._load_persisted())
             for key, data in updates.items():
                 self._update_single_key(config, key, data)
             self._save(config)
@@ -400,7 +488,10 @@ class IntegrationManager:
             return False
 
     def get_mail_account(
-        self, email: str, *, resolve_secrets: bool = True,
+        self,
+        email: str,
+        *,
+        resolve_secrets: bool = True,
     ) -> dict[str, Any] | None:
         """Select one mail account; provider dispatch can use reference metadata."""
         email_lower = email.strip().lower()

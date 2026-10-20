@@ -53,7 +53,9 @@ export function useMailListController(props: MailListProps) {
     onMessagesLoaded: props.onMessagesLoaded,
     readMail: props.readMail,
     removedMail: props.removedMail,
+    searchQuery,
   });
+  const { loadMore } = data;
   const {
     createTag,
     deleteTag,
@@ -90,10 +92,11 @@ export function useMailListController(props: MailListProps) {
     config: effectiveConfig,
     folder: props.folder,
     messageTags,
-    searchQuery,
+    searchQuery: searchQuery.trim() === data.search ? '' : searchQuery,
     unreadOnly,
   }), [
     data.messages,
+    data.search,
     effectiveConfig,
     messageTags,
     props.activeTagId,
@@ -141,6 +144,10 @@ export function useMailListController(props: MailListProps) {
     };
   }, [accounts, props.account, props.category, props.folder]);
 
+  useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = 0;
+  }, [data.search, props.account, props.activeTagId, props.activeView, props.category, props.folder]);
+
   const toggleSelect = useCallback((
     event: Pick<ReactMouseEvent<HTMLElement>, 'stopPropagation'>,
     message: MailListMessage,
@@ -183,27 +190,21 @@ export function useMailListController(props: MailListProps) {
     setSelectedIds,
   });
 
-  const hasMoreRef = useRef(data.hasMore);
-  const loadingMoreRef = useRef(data.loadingMore);
-  const loadMoreRef = useRef(data.loadMore);
-  useEffect(() => {
-    hasMoreRef.current = data.hasMore;
-    loadingMoreRef.current = data.loadingMore;
-    loadMoreRef.current = data.loadMore;
-  }, [data.hasMore, data.loadMore, data.loadingMore]);
   useEffect(() => {
     const sentinel = sentinelRef.current;
-    if (!sentinel) return undefined;
+    const scrollRoot = listRef.current;
+    if (!sentinel || !scrollRoot || !data.hasMore || data.loading
+      || data.loadingMore || data.syncing
+      || searchQuery.trim() !== data.search) return undefined;
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry?.isIntersecting && hasMoreRef.current && !loadingMoreRef.current) {
-        loadMoreRef.current();
-      }
-    }, { threshold: 0.1 });
+      if (entry?.isIntersecting) loadMore();
+    }, { root: scrollRoot, threshold: 0.1 });
     observer.observe(sentinel);
     return () => {
       observer.disconnect();
     };
-  }, []);
+  }, [data.hasMore, data.loading, data.loadingMore, data.search,
+    data.syncing, loadMore, processedMessages.length, searchQuery]);
 
   const setListElement = useCallback((element: HTMLDivElement | null): void => {
     listRef.current = element;

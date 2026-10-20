@@ -1,6 +1,8 @@
 """Structured operations with optional governed read tools."""
 from __future__ import annotations
 
+from backend.agent.tools import bind_model_tools
+
 from typing import Any
 
 from langchain_core.messages import SystemMessage
@@ -41,8 +43,8 @@ def operation_workflow(model: Any, instructions: str, context_window: int, *, te
     # The Responses transport auto-parses structured operation output and
     # requires every accompanying function tool to declare a strict schema.
     binding = {"strict": True} if provider == "openrouter" and output_schema is not None else {}
-    read_model = model.bind_tools(tools, **binding) if tools else model
-    selected_model = model.bind_tools([*tools, help_tool], **binding) if team_help else read_model
+    read_model = bind_model_tools(model, tools, **binding) if tools else model
+    selected_model = bind_model_tools(model, [*tools, help_tool], **binding) if team_help else read_model
     def execute(state: AgentState) -> dict[str, Any]:
         messages = [SystemMessage(content=instructions), *state["messages"]]
         from backend.services.agent_context_budget import OperationContextExceeded, messages_budget

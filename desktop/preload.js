@@ -120,6 +120,10 @@ function subscribe(channel, listener) {
 
 /** @type {import('./ipc-contract').GnosiElectronApi} */
 const electronAPI = {
+  workspaceOperation: request => invoke('workspace-operation', value => {
+    if (!isRecord(value)) throw new TypeError('Invalid workspace response');
+    return value;
+  }, request),
   chooseVaultContainer: () => invoke('choose-vault-container', readBoolean),
   pickFilesystem: options => invoke('pick-filesystem', readFilesystemPick, options),
   getAppVersion: () => invoke('get-app-version', readString),

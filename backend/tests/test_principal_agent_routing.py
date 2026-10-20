@@ -47,15 +47,17 @@ def plan_for(identifier="worker", *, read_only=True):
         skill_ids=["core.gnosi-operation-writing"], read_only=read_only)], result_task="work")
 
 
-@pytest.mark.parametrize("message", [
-    'A tots els registres de la vista activa, al títol canvia "TFM · " per "TFM — "',
-    "Revisa l'argumentació d'aquest text sobre una taula.",
-    "Fes el mateix amb aquests.",
-    "Cambia los títulos de los registros seleccionados.",
-    "Please put the selected items in alphabetical order.",
-    "Peux-tu relire ce passage et proposer une meilleure version ?",
+@pytest.mark.parametrize("message, requires_action_evidence", [
+    ('A tots els registres de la vista activa, al títol canvia "TFM · " per "TFM — "', True),
+    ("Revisa l'argumentació d'aquest text sobre una taula.", False),
+    ("Fes el mateix amb aquests.", False),
+    ("Cambia los títulos de los registros seleccionados.", True),
+    ("Please put the selected items in alphabetical order.", False),
+    ("Peux-tu relire ce passage et proposer une meilleure version ?", False),
 ])
-def test_free_form_principal_request_plans_and_delegates_without_requesting_help(optional_runtime, message):
+def test_free_form_principal_request_plans_and_delegates_without_requesting_help(
+    optional_runtime, message, requires_action_evidence,
+):
     fixture, bindings = optional_runtime
     fixture[1].profile["team"]["direct_routes"] = []
     fixture[3]["_responses"] = {"director": [AIMessage(content=plan_for().model_dump_json())],
@@ -63,7 +65,16 @@ def test_free_form_principal_request_plans_and_delegates_without_requesting_help
     messages, selection = run_chat(fixture, message)
     assert fixture[2] == ["director", "worker"]
     assert selection["mode"] == "team"
-    assert messages[-1].content == "Completed by the specialist"
+    if requires_action_evidence:
+        # Delegation cannot certify a model's mutation claim without a tool result.
+        verification = messages[-1].additional_kwargs["gnosi_verification"]
+        assert verification["status"] == "blocked"
+        assert verification["limitations"] == ["action_completion_without_tool_evidence"]
+        assert verification["tool_count"] == 0
+        assert verification["checks"]["action_claim_supported"] is False
+        assert messages[-1].content != "Completed by the specialist"
+    else:
+        assert messages[-1].content == "Completed by the specialist"
     assert messages[-1].additional_kwargs["gnosi_team_usage"]["model_calls"] == 2
     assert messages[-1].additional_kwargs["gnosi_team_usage"]["agent_ids"] == ["director", "worker"]
     assert not any(isinstance(t, dict) and t.get("function", {}).get("name") == "request_team_help"
@@ -180,7 +191,16 @@ def test_principal_can_execute_its_own_specialty_without_recursing(optional_runt
     messages, _ = run_chat(fixture, "Processa aquesta tasca de la teva especialitat.")
     assert fixture[2] == ["director"]
     assert messages[-1].content == '{"result":"own work"}'
-    assert bindings == []
+    # Scoped workspace reads are available even when this specialty has no
+    # assigned tools. Neither recursive team help nor unapproved writes bind.
+    assert len(bindings) == 1
+    bound_names = {tool.name for tool in bindings[0]}
+    assert "request_team_help" not in bound_names
+    assert bound_names == {
+        "workspace_list_grants", "workspace_list_files", "workspace_read_text",
+        "workspace_analysis_result", "workspace_capture_document",
+        "workspace_preview_document", "workspace_native_result",
+    }
 
 
 @pytest.mark.parametrize("invalid_assignment", ["principal_overlap", "unassigned_skill", "missing_executor", "unknown_executor"])

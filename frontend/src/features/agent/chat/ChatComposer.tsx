@@ -89,9 +89,9 @@ export function ChatComposer({
                 />
                 <button
                     type="submit"
-                    disabled={isLoading || !agentHasModel || (!inputValue.trim() && attachments.length === 0)}
-                    aria-label={t('chat.send_message', "Send message")}
-                    title={agentHasModel ? t('chat.send_message', "Send message") : t('chat.model_required', 'Configure this agent before sending a message')}
+                    disabled={isUploadingAttachment || !agentHasModel || (!inputValue.trim() && attachments.length === 0)}
+                    aria-label={isLoading ? t('chat.queue.add', 'Queue next turn') : t('chat.send_message', 'Send message')}
+                    title={agentHasModel ? (isLoading ? t('chat.queue.add', 'Queue next turn') : t('chat.send_message', 'Send message')) : t('chat.model_required', 'Configure this agent before sending a message')}
                     style={{
                         width: '36px', height: '36px', borderRadius: '12px',
                         backgroundColor: agentHasModel && (inputValue.trim() || attachments.length > 0) ? 'var(--gnosi-blue, #2563eb)' : '#e5e7eb',

@@ -58,7 +58,14 @@ export function hydrateDraft(previous: SettingsDraft, config: Record<string, unk
   for (const key of ['visible_databases', 'visible_tables', 'visible_fields']) if (!optional(graph[key], strings)) throw new TypeError(`Invalid graph ${key}`);
   for (const key of ['label_threshold', 'node_size', 'edge_thickness']) if (!optional(graph[key], number)) throw new TypeError(`Invalid graph ${key}`);
   if (!optional(graph.show_arrows, boolean) || !optional(graph.field_defaults, recordStrings)) throw new TypeError('Invalid graph options');
-  if (!optional(graph.physics, physics => isJsonRecord(physics) && ['gravity', 'repulsion', 'friction'].every(key => number(physics[key])))) throw new TypeError('Invalid graph physics');
+  if (!optional(graph.physics, isJsonRecord)) throw new TypeError('Invalid graph physics');
+  const physics = section(graph.physics);
+  const physicsNumbers = ['gravity', 'repulsion', 'friction', 'edge_influence'];
+  const physicsBooleans = ['lin_log_mode', 'strong_gravity_mode', 'outbound_attraction_distribution'];
+  if (!physicsNumbers.every(key => optional(physics[key], value => number(value) && Number.isFinite(value)))
+    || !physicsBooleans.every(key => optional(physics[key], boolean))) throw new TypeError('Invalid graph physics');
+  const physicsKeys = [...physicsNumbers, ...physicsBooleans];
+  const physicsPatch = Object.fromEntries(Object.entries(physics).filter(([key, value]) => !physicsKeys.includes(key) || (value !== null && value !== undefined)));
   const ai = section(config.ai);
   if (!optional(ai.active_agent_id, string)) throw new TypeError('Invalid active agent');
   const agents = settingsAgents(ai.agents);
@@ -66,7 +73,7 @@ export function hydrateDraft(previous: SettingsDraft, config: Record<string, unk
     ...previous,
     settings: { ...previous.settings, ...settings },
     paths: { ...previous.paths, ...paths },
-    graph: { ...previous.graph, ...graph },
+    graph: { ...previous.graph, ...graph, physics: { ...previous.graph.physics, ...physicsPatch } },
     ai: { ...previous.ai, providers: section(ai.providers), agents: syncPluginProfiles(agents, agents), active_agent_id: typeof ai.active_agent_id === 'string' ? ai.active_agent_id : '' },
   };
 }

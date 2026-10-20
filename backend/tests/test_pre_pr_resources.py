@@ -186,3 +186,183 @@ def test_timeout_stops_child_and_propagates_heap(tmp_path: Path, monkeypatch: py
     assert heap == "--max-old-space-size=1536"
     state = subprocess.run(("ps", "-p", pid, "-o", "stat="), capture_output=True, text=True, check=False)
     assert not state.stdout.strip() or state.stdout.strip().startswith("Z")
+
+
+@pytest.mark.parametrize("normal_required", [True, False])
+def test_warning_readiness_is_explicit_interactive_policy_only(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, normal_required: bool,
+) -> None:
+    monkeypatch.setattr(resources.platform, "system", lambda: "Darwin")
+    clock = [0.0]
+    monkeypatch.setattr(resources, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(resources, "sleep", lambda duration: clock.__setitem__(0, clock[0] + duration))
+    monkeypatch.setattr(resources, "pressure_level", lambda **_: 2)
+    observations: list[dict[str, int | float | str]] = []
+    if normal_required:
+        with pytest.raises(ValueError, match="not normal"):
+            resources.idle_preflight(observations=observations)
+        assert clock[0] == resources.PREFLIGHT_WAIT_SECONDS
+        assert observations[0]["profile"] == "mac-idle"
+    else:
+        resources.idle_preflight(normal_required=False, observations=observations)
+        assert 30 <= clock[0] < resources.PREFLIGHT_WAIT_SECONDS
+        assert observations == [{"profile": "mac-interactive", "phase": "preflight", "elapsed_seconds": 0.0, "level": 2}]
+        assert "mac-interactive: host warning pressure 2" in caplog.text
+
+
+@pytest.mark.parametrize("normal_required,expected", [(True, 75), (False, 0)])
+def test_sustained_warning_is_observed_but_only_interactive_can_finish(
+    monkeypatch: pytest.MonkeyPatch, normal_required: bool, expected: int,
+) -> None:
+    from unittest.mock import Mock
+
+    process = Mock(pid=42)
+    process.poll.side_effect = [None] * 15 + [0]
+    clock = [0.0]
+    monkeypatch.setattr(resources, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(resources, "sleep", lambda duration: clock.__setitem__(0, clock[0] + duration))
+    monkeypatch.setattr(resources, "pressure_level", lambda: 2)
+    monkeypatch.setattr(resources, "process_tree_rss", lambda *_: 0)
+    observations: list[dict[str, int | float | str]] = []
+    result, _peak = resources.monitor(process, 20, set(), normal_required=normal_required, observations=observations)
+    assert result == expected
+    assert observations[0]["level"] == 2
+    assert observations[0]["profile"] == ("mac-idle" if normal_required else "mac-interactive")
+
+
+@pytest.mark.parametrize("normal_required", [True, False])
+@pytest.mark.parametrize("reason,expected", [("critical", 75), ("memory", 137), ("timeout", 124), ("orphan", 125)])
+def test_both_pressure_profiles_keep_critical_owned_budget_deadline_and_orphan_failures(
+    monkeypatch: pytest.MonkeyPatch, normal_required: bool, reason: str, expected: int,
+) -> None:
+    from unittest.mock import Mock
+
+    process = Mock(pid=42)
+    process.poll.return_value = 0 if reason == "orphan" else None
+    monkeypatch.setattr(resources, "monotonic", lambda: 0.0)
+    monkeypatch.setattr(resources, "pressure_level", lambda: 4 if reason == "critical" else 2)
+    samples = iter([0, 10])
+    monkeypatch.setattr(resources, "process_tree_rss", lambda *_: next(samples) if reason == "orphan" else resources.RSS_LIMIT_KIB + 1)
+    if reason == "timeout":
+        monkeypatch.setattr(resources, "process_tree_rss", lambda *_: 0)
+    status, _ = resources.monitor(process, 0 if reason == "timeout" else 300, set(), normal_required=normal_required)
+    assert status == expected
+
+
+@pytest.mark.parametrize("interactive", [False, True])
+@pytest.mark.parametrize("failure", ["critical", "unknown", "probe-error"])
+def test_pressure_profiles_never_launch_after_critical_unknown_or_failed_preflight_probe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, interactive: bool, failure: str,
+) -> None:
+    monkeypatch.setattr(resources.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(resources, "monotonic", lambda: 0.0)
+    probes = []
+
+    def pressure(**kwargs: object) -> int:
+        probes.append(kwargs)
+        if failure == "probe-error":
+            raise subprocess.CalledProcessError(1, "synthetic sysctl")
+        return 4 if failure == "critical" else 3
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        pytest.fail("Preflight failure launched an owned command")
+
+    monkeypatch.setattr(resources, "pressure_level", pressure)
+    monkeypatch.setattr(resources.subprocess, "Popen", forbidden)
+    runner = resources.run_mac_interactive if interactive else resources.run_mac_idle
+    with pytest.raises((ValueError, subprocess.SubprocessError)):
+        runner(Step("fixture", ("never-start",)), tmp_path, {})
+    assert len(probes) == 1  # No probe retry or implicit fallback profile.
+
+
+@pytest.mark.parametrize("failure,expected", [(0, 0), (75, 75), (124, 124), (137, 137), ("probe-error", 125), ("interrupt", 130)])
+def test_interactive_runner_preserves_environment_priority_status_and_owned_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
+    failure: int | str, expected: int,
+) -> None:
+    from unittest.mock import Mock
+    import logging
+
+    caplog.set_level(logging.INFO)
+    process = Mock(pid=42)
+    starts = Mock(return_value=process)
+    stopped = Mock()
+    observed: list[dict[str, int | float | str]] = []
+
+    def preflight(*, normal_required: bool = True, observations: list | None = None) -> None:
+        assert normal_required is False and observations is not None
+        observed.append({"profile": "mac-interactive", "phase": "preflight", "level": 2})
+        observations.extend(observed)
+
+    def monitor(process: object, timeout: int, tracked: set[int], *, normal_required: bool = True,
+                observations: list | None = None) -> tuple[int, int]:
+        assert normal_required is False and observations == observed and timeout == 300
+        if failure == "probe-error":
+            raise ValueError("Unsupervised pressure")
+        if failure == "interrupt":
+            raise KeyboardInterrupt
+        assert isinstance(failure, int)
+        return failure, 1234
+
+    monkeypatch.setattr(resources, "idle_preflight", preflight)
+    monkeypatch.setattr(resources, "monitor", monitor)
+    monkeypatch.setattr(resources.subprocess, "Popen", starts)
+    monkeypatch.setattr(resources, "stop_tree", stopped)
+    step = Step("fixture", ("synthetic", "literal argument"))
+    environment = {"NODE_OPTIONS": "--max-old-space-size=9999", "GNOSI_VITEST_MAX_WORKERS": "99"}
+    result = resources.run_mac_interactive(step, tmp_path, environment)
+    assert result.returncode == expected
+    starts.assert_called_once()
+    assert starts.call_args.args[0] == ("nice", "-n", "10", *step.arguments)
+    assert starts.call_args.kwargs["start_new_session"] is True
+    assert starts.call_args.kwargs["env"] == resources.resource_environment(environment)
+    assert starts.call_args.kwargs["env"]["NODE_OPTIONS"] == "--max-old-space-size=1536"
+    assert starts.call_args.kwargs["env"]["GNOSI_VITEST_MAX_WORKERS"] == "1"
+    stopped.assert_called_once_with(process, set())
+    assert "Resource result: fixture" in caplog.text
+    assert "Resource profile observations: mac-interactive" in caplog.text
+    assert environment["NODE_OPTIONS"] == "--max-old-space-size=9999"
+
+
+def test_interactive_observations_record_only_level_changes(monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import Mock
+
+    process = Mock(pid=42)
+    process.poll.side_effect = [None, None, None, 0]
+    levels = iter([2, 2, 1, 2])
+    monkeypatch.setattr(resources, "monotonic", lambda: 0.0)
+    monkeypatch.setattr(resources, "sleep", lambda _: None)
+    monkeypatch.setattr(resources, "pressure_level", lambda: next(levels))
+    monkeypatch.setattr(resources, "process_tree_rss", lambda *_: 0)
+    observations: list[dict[str, int | float | str]] = []
+    assert resources.monitor(process, 300, set(), normal_required=False, observations=observations)[0] == 0
+    assert [item["level"] for item in observations] == [2, 1, 2]
+
+
+@pytest.mark.parametrize("profile", ["mac-idle", "mac-interactive", "unknown"])
+def test_pre_pr_uses_only_explicit_named_pressure_runner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, profile: str,
+) -> None:
+    from scripts.ci import pre_pr
+
+    calls = []
+
+    def run(name: str):
+        def invoke(step: Step, root: Path, environment: dict[str, str]) -> subprocess.CompletedProcess[bytes]:
+            calls.append(name)
+            return subprocess.CompletedProcess(step.arguments, 0)
+        return invoke
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        pytest.fail("Explicit resource profile silently downgraded to an unbounded command")
+
+    monkeypatch.setattr(pre_pr, "run_mac_idle", run("mac-idle"))
+    monkeypatch.setattr(pre_pr, "run_mac_interactive", run("mac-interactive"))
+    monkeypatch.setattr(pre_pr.subprocess, "run", forbidden)
+    if profile == "unknown":
+        with pytest.raises(ValueError, match="Unknown explicit"):
+            pre_pr.run_steps(tmp_path, [Step("fixture", ("synthetic",))], {}, resource_profile=profile)
+        assert calls == []
+    else:
+        assert pre_pr.run_steps(tmp_path, [Step("fixture", ("synthetic",))], {}, resource_profile=profile) == 0
+        assert calls == [profile]

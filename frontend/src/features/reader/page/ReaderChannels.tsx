@@ -9,8 +9,11 @@ import {
     X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
 
 import type { ReaderPodcastInfo } from '../../../shared/api/reader';
+import { SpeechSettings } from '../../../shared/speech/SpeechSettings';
+import { AppAudio } from '../../../shared/speech/AppAudio';
 import {
     readerFaviconUrl,
     type ReaderSourceGroup,
@@ -54,6 +57,7 @@ export function ReaderChannels({
     unreadCount,
 }: ReaderChannelsProps) {
     const { t } = useTranslation();
+    const [voiceOpen, setVoiceOpen] = useState(false);
     const sourceCountLabel = sourceCount === 1
         ? t('reader_sources_count_one')
         : t('reader_sources_count_other', { count: sourceCount });
@@ -128,10 +132,11 @@ export function ReaderChannels({
                     </div>
                     <button onClick={onGeneratePodcast} title={t('reader_podcast_regenerate')} className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors p-1 -mr-1" type="button"><RotateCw size={12} /></button>
                 </div>
-                <audio controls preload="none" className="w-full h-8" src={podcastUrl}>{t('reader_podcast_unsupported')}</audio>
+                <AppAudio controls preload="none" className="w-full h-8" src={podcastUrl}>{t('reader_podcast_unsupported')}</AppAudio>
             </div> : <button onClick={onGeneratePodcast} className="w-full flex items-center justify-center gap-2 py-2 rounded-md text-xs text-slate-600 dark:text-slate-300 hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors border border-[var(--border-primary)]" type="button">
                 <Play size={12} fill="currentColor" /><span>{t('reader_podcast_generate')}</span>
             </button>}
+            <details onToggle={event => { setVoiceOpen(event.currentTarget.open); }}><summary>{t('speech.title')}</summary>{voiceOpen && <SpeechSettings previewDisabled={generatingPodcast} />}</details>
         </div> : null}
     </aside>;
 }

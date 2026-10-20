@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from threading import Lock
 from typing import Any, cast
 from weakref import WeakValueDictionary
 
+from backend.services.context_vars import active_vault_path
 from backend.utils.cache import SimpleCache
 
 _MAIL_CACHE = SimpleCache(default_ttl=120, max_size=128)
@@ -55,8 +57,13 @@ _INLINE_PARTS_CACHE = SimpleCache(default_ttl=120, max_size=16)
 _MAX_INLINE_PARTS_BYTES = 5 * 1024 * 1024
 
 
+def _mail_cache_scope(key: str) -> str:
+    vault = active_vault_path.get()
+    return key if vault is None else json.dumps([str(vault), key], ensure_ascii=False)
+
+
 def _cache_key(email: str, folder: str | None, category: str | None) -> str:
-    return f"{email}|{folder or ''}|{category or ''}"
+    return _mail_cache_scope(json.dumps([email, folder, category], ensure_ascii=False))
 
 
 def _get_cached_messages(email: str, folder: str | None, category: str | None) -> list[Any] | None:
@@ -79,7 +86,7 @@ def _invalidate_mail_cache() -> None:
 
 
 def _inline_parts_key(email: str, message_id: str, folder: str) -> str:
-    return f"{email.casefold()}|{folder.casefold()}|{message_id}"
+    return _mail_cache_scope(json.dumps([email.casefold(), folder, message_id], ensure_ascii=False))
 
 
 def _get_cached_inline_parts(

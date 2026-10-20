@@ -103,27 +103,16 @@ def test_summarize_batch_uses_shared_executor_and_preserves_language(monkeypatch
 
 
 def test_generate_tts_uses_selected_language(monkeypatch, tmp_path):
+    from backend.services import workspace_speech
     observed = []
-
-    class FakeTts:
-        def __init__(self, text, lang, slow):
-            observed.append((text, lang, slow))
-
-        def write_to_fp(self, buffer):
-            buffer.write(b"audio")
-
-    monkeypatch.setattr(audio_summarizer, "gTTS", FakeTts)
+    def generate(text, output_path, language):
+        observed.append((text, language))
+        output_path.write_bytes(b"audio")
+    monkeypatch.setattr(workspace_speech, "generate_document", generate)
     output_path = tmp_path / "podcast.mp3"
-
-    audio_summarizer._generate_tts_by_sentences(
-        "Primera frase. Segona frase.", output_path, "ca"
-    )
-
-    assert sorted(observed) == sorted([
-        ("Primera frase.", "ca", False),
-        ("Segona frase.", "ca", False),
-    ])
-    assert output_path.read_bytes() == b"audioaudio"
+    audio_summarizer._generate_tts_by_sentences("First. Second.", output_path, "ca")
+    assert observed == [("First. Second.", "ca")]
+    assert output_path.read_bytes() == b"audio"
 
 
 def test_generate_tts_publishes_audio_atomically(monkeypatch, tmp_path):

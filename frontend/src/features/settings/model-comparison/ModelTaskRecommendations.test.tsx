@@ -16,6 +16,10 @@ vi.mock('../../../shared/api/ai-activity', () => ({
     fetchTaskEvaluationSuite: mocks.suite, fetchRoleEvaluations: mocks.reports, fetchAgentRuns: mocks.runs, runRoleEvaluation: mocks.invoke }));
 vi.mock('../../../shared/hooks/useActiveVaultId', () => ({ useActiveVaultId: () => mocks.vault }));
 const i18n = createInstance();
+const expectedCost = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+});
 const models = [1, 2, 3].map(value => ({ id: String(value), name: `Model ${String(value)}`, intelligence: value,
     routes: [{ provider: 'p', provider_name: 'Proveïdor P', model_id: String(value), model_name: String(value),
         context_window: 64000, input_modes: ['text'], output_modes: ['text'], tool_call: true, tags: ['json'],
@@ -57,7 +61,7 @@ it('presents three explained choices with currency, retry allowance and pending 
     expect(container.textContent).toContain('Model 3');
     expect(container.textContent).toContain('Els tres criteris coincideixen en la mateixa oferta');
     expect(container.textContent).toContain('no tres costos acumulats');
-    expect(container.textContent).toContain('0.38 €'); // Two attempts, EUR FX.
+    expect(container.textContent).toContain(`${expectedCost.format(0.38)} €`); // Two attempts, EUR FX.
     expect(container.textContent).toContain('comprensió global, cobertura i fidelitat');
     expect(container.textContent).toContain('cites literals amb la font correcta, continuïtat entre passatges');
     expect(container.textContent).not.toContain('model_comparison.recommend.');

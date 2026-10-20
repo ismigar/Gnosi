@@ -30,6 +30,30 @@ describe('typed chat submission', () => {
     expect(api.start).not.toHaveBeenCalled(); expect(f.messages()).toEqual([]);
     expect(f.context.clearDraftAttachments).not.toHaveBeenCalled(); expect(f.context.setIsLoading).not.toHaveBeenCalled();
   });
+  it('rejects a queued callback captured before a scope change without aborting the new request', async () => {
+    const newerRequest = new AbortController();
+    const f = chatTurnFixture(locale.t, { queuedTurnId: 'old-turn', requestAbortRef: { current: newerRequest } });
+    // The queue callback may have waited for a contended write lock before entering submission.
+    f.context.activeScopeRef.current = 'scope:agent:new-session';
+    await submitChatTurn(f.context);
+    expect(api.start).not.toHaveBeenCalled(); expect(f.messages()).toEqual([]);
+    expect(newerRequest.signal.aborted).toBe(false);
+    expect(f.context.setIsLoading).not.toHaveBeenCalled();
+    expect(f.context.clearDraftAttachments).not.toHaveBeenCalled();
+  });
+  it('uses the durable turn identity and advances only after a successful terminal response', async () => {
+    const onOutcome = vi.fn();
+    const f = chatTurnFixture(locale.t, { queuedTurnId: 'queued-turn', onOutcome });
+    api.start.mockResolvedValueOnce(streamResponse(done)); await submitChatTurn(f.context);
+    expect(api.start.mock.calls[0]?.[0].turn_id).toBe('queued-turn');
+    expect(onOutcome).toHaveBeenCalledWith(true);
+  });
+  it('pauses the queue on an uncertain or failed delivery', async () => {
+    const onOutcome = vi.fn();
+    const f = chatTurnFixture(locale.t, { queuedTurnId: 'queued-turn', onOutcome });
+    api.start.mockRejectedValueOnce(new Error('connection lost')); await submitChatTurn(f.context);
+    expect(onOutcome).toHaveBeenCalledWith(false);
+  });
   it('preserves the exact request, visible mentions and attachment shape, without internal ids', async () => {
     const f = chatTurnFixture(locale.t, {
       inputValue: 'ask @Page ', notebookId: 'notebook',

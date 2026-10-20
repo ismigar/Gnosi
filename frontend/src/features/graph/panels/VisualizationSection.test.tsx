@@ -70,11 +70,11 @@ describe('VisualizationSection', () => {
             );
         });
 
-        const arrowToggle = container.querySelector('button[aria-label="Arrows"]');
+        const arrowToggle = container.querySelector('[role="switch"][aria-label="Arrows"]');
         const threshold = container.querySelector('#graph-label-threshold');
         const nodeSize = container.querySelector('#graph-node-size');
         const edgeThickness = container.querySelector('#graph-edge-thickness');
-        if (!(arrowToggle instanceof HTMLButtonElement)) throw new Error('Missing arrows toggle');
+        if (!(arrowToggle instanceof HTMLElement)) throw new Error('Missing arrows toggle');
         if (!(threshold instanceof HTMLInputElement)) throw new Error('Missing label threshold');
         if (!(nodeSize instanceof HTMLInputElement)) throw new Error('Missing node size');
         if (!(edgeThickness instanceof HTMLInputElement)) throw new Error('Missing edge thickness');

@@ -113,6 +113,25 @@ export function MailComposerFields({ controller }: MailComposerFieldsProps) {
           value={to}
         />
 
+        {showCcBcc && (
+          <div className="animate-in slide-in-from-top-1 duration-200">
+            <AddressInput
+              accountEmail={account?.email || undefined}
+              label={t('mail.cc_label')}
+              onChange={setCc}
+              placeholder={t('mail.cc_email_placeholder', 'cc@example.com')}
+              value={cc}
+            />
+            <AddressInput
+              accountEmail={account?.email || undefined}
+              label={t('mail.bcc_label', 'BCC')}
+              onChange={setBcc}
+              placeholder={t('mail.bcc_email_placeholder', 'bcc@example.com')}
+              value={bcc}
+            />
+          </div>
+        )}
+
         <div className="flex items-center border-b border-[var(--border-primary)] py-2">
           <span className="w-20 shrink-0 text-[13px] font-bold uppercase text-[var(--text-secondary)]">
             {t('mail.subject_label')}:
@@ -139,25 +158,6 @@ export function MailComposerFields({ controller }: MailComposerFieldsProps) {
             />
           </button>
         </div>
-
-        {showCcBcc && (
-          <div className="animate-in slide-in-from-top-1 duration-200">
-            <AddressInput
-              accountEmail={account?.email || undefined}
-              label={t('mail.cc_label')}
-              onChange={setCc}
-              placeholder={t('mail.cc_email_placeholder', 'cc@example.com')}
-              value={cc}
-            />
-            <AddressInput
-              accountEmail={account?.email || undefined}
-              label={t('mail.bcc_label', 'BCC')}
-              onChange={setBcc}
-              placeholder={t('mail.bcc_email_placeholder', 'bcc@example.com')}
-              value={bcc}
-            />
-          </div>
-        )}
 
         <div className="min-h-[200px] pt-6">
           <MailBlockEditor

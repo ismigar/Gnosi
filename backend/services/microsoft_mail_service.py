@@ -110,6 +110,10 @@ def _headers(token: str) -> dict[str, str]:
 
 def _graph(method: str, path: str, token: str, **kwargs: Any) -> http.Response:
     """Wrapper around requests that retries once after a 401 with a refreshed token."""
+    from backend.domains.mail.services.submission import in_submission, transport_timeout
+
+    if in_submission():
+        kwargs.setdefault("timeout", transport_timeout())
     request: Any = getattr(http, method)
     resp: http.Response = request(f"{GRAPH}{path}", headers=_headers(token), **kwargs)
     return resp
@@ -161,6 +165,10 @@ def _authed_post(
         token = _refresh_token(account)
         if token:
             resp = _graph("post", path, token, json=json_body, **kwargs)
+    from backend.domains.mail.services.submission import MailDeliveryUnknown, in_submission
+
+    if in_submission() and resp.status_code >= 500:
+        raise MailDeliveryUnknown()
     if not resp.ok:
         log.error(f"[Microsoft] POST {path} → {resp.status_code}: {resp.text[:200]}")
         return False

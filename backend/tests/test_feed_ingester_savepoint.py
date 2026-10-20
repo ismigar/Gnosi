@@ -37,7 +37,8 @@ class _Parsed:
 
 
 @pytest.fixture()
-def in_memory_db(monkeypatch):
+def in_memory_db(monkeypatch, tmp_path):
+    (tmp_path / "vault").mkdir()
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -49,7 +50,9 @@ def in_memory_db(monkeypatch):
     # The real engine is requested via get_engine_for_path(vault_path); the
     # we replace it so it always returns our in-memory engine.
     monkeypatch.setattr(fi, "get_engine_for_path", lambda _p: (engine, SessionLocal))
-    monkeypatch.setattr(fi, "get_active_vault_path", lambda: "/tmp/vault-test")
+    monkeypatch.setattr(fi, "get_active_vault_path", lambda: tmp_path / "vault")
+    from backend.domains.reader import source_registry
+    monkeypatch.setattr(source_registry, "_lock_directory", lambda: tmp_path / "source-locks")
 
     seed = SessionLocal()
     src = FeedSource(name="Test", url="http://feed.test/rss", category="x", type="rss")
@@ -109,3 +112,20 @@ def test_un_article_fallit_no_esborra_el_lot(in_memory_db, monkeypatch):
     assert total == 2
     # And the returned counter must match what's actually in the DB.
     assert count == 2
+
+
+def test_background_fetch_restores_sources_after_local_database_reset(in_memory_db, monkeypatch):
+    _engine, sessions, _source_id = in_memory_db
+    observed = []
+
+    def fetch(source):
+        observed.append(source.url)
+        return source, _Parsed([])
+
+    monkeypatch.setattr(fi, "_fetch_feed", fetch)
+    fi.fetch_and_store_feeds()
+    with sessions() as db:
+        db.query(FeedSource).delete()
+        db.commit()
+    fi.fetch_and_store_feeds()
+    assert observed == ["http://feed.test/rss", "http://feed.test/rss"]

@@ -1,0 +1,4 @@
+.gnosi-speech-settings { display: flex; flex-direction: column; gap: 8px; color: var(--text-primary); }
+.gnosi-speech-settings label { display: flex; flex-direction: column; gap: 4px; }
+.gnosi-speech-settings .gnosi-select { width: 100%; min-width: 0; }
+.gnosi-speech-settings__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }

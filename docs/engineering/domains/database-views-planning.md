@@ -42,6 +42,9 @@ source_paths:
   - frontend/src/features/vault/views/VaultTable.tsx
   - frontend/src/features/vault/editor/BlockEditor.tsx
   - frontend/src/features/vault/properties/VaultDateProperty.ts
+  - frontend/src/features/vault/properties/vault-date-property/dateModel.ts
+  - frontend/src/features/vault/views/db-view-embed/useEmbedLoad.ts
+  - frontend/src/features/vault/views/db-view-embed/useEmbedTabActions.ts
   - frontend/src/shared/record-views/VaultTimeline.tsx
   - frontend/src/shared/record-views/vault-timeline
   - frontend/src/features/vault/VaultDashboard.tsx
@@ -58,6 +61,9 @@ tests:
   - frontend/src/shared/record-views/vault-timeline/useVaultTimelineController.test.tsx
   - frontend/src/shared/record-views/vault-timeline/timelineScale.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.continuity.test.tsx
+  - frontend/src/features/vault/properties/UnifiedDateEditor.i18n.test.tsx
+  - frontend/src/features/vault/properties/vault-date-property/dateModel.formatting.test.ts
   - frontend/src/features/vault/dashboard/TablePane.test.tsx
   - frontend/src/features/vault/dashboard/creationFlow.test.tsx
   - frontend/src/features/planning/ProjectPlanningPage.test.tsx
@@ -456,3 +462,7 @@ For any source table, an embedded view infers creation metadata from active `equ
 ## Column order persistence
 
 Dragging a column grip saves the configured order for main, secondary and embedded table views. Main-view rendering, saving and migration preserve that order instead of rebuilding it from the schema. Registered embedded anchor views save to the registry; legacy sections update their synthetic tab as well as the section. Record reloads fetch the current registry configuration so the columns do not return to an older order. Composite descriptors retain their source table and field metadata. A virtual main view receives a unique saved identity on its first update.
+
+The unified date property follows the date format chosen in Settings for visible scalar dates, period boundaries, constraints, deadlines and recurrence end dates. Editing converts that numeric order back to canonical stored dates. The same preference applies to period summaries and the table formula bar. Invalid nonempty edits retain the saved value; explicitly clearing a field remains available. Historical and extended years use canonical numeric dates to keep editing lossless.
+
+The retained embedded-view registry is scoped to the active Vault, containing page and view. Configuration changes trigger a fresh read; failed reads retry on a later reload. Renaming, deleting or duplicating a view publishes the refreshed registry to the same cache, so later record saves preserve the current tabs and settings. Unrelated editor context updates do not restore an older snapshot.

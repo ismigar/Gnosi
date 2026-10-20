@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-15
+last_verified: 2026-10-17
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -18,6 +18,22 @@ source_paths:
   - frontend/src/shared/api/mail.ts
   - frontend/src/shared/api/mail-specialized.ts
 tests:
+  - backend/tests/test_mail_move_identity.py
+  - backend/tests/test_mail_cache_scope.py
+  - backend/tests/test_mail_archive_listing.py
+  - backend/tests/test_mail_archive_identity.py
+  - backend/tests/test_mail_connection_lifecycle.py
+  - backend/tests/test_mail_conversation_truthfulness.py
+  - backend/tests/test_mail_ordered_header_listing.py
+  - backend/tests/test_mail_detail_responsiveness.py
+  - backend/tests/test_mail_submission_responsiveness.py
+  - frontend/src/shared/api/mail-specialized.test.ts
+  - backend/tests/test_mail_read_negative_contract.py
+  - frontend/src/features/mail/components/MailViewer.loading.test.tsx
+  - frontend/src/features/mail/components/MailViewer.versions.test.tsx
+  - frontend/src/features/mail/mailIdentity.test.ts
+  - tests/e2e/tests/disposable/mail-archive-pagination.spec.ts
+  - tests/e2e/tests/disposable/mail-reader-responsiveness.spec.ts
   - frontend/src/features/mail/page/mailAccountVisibility.test.tsx
   - backend/tests/test_mail_thread_completeness.py
   - frontend/src/features/mail/components/MailViewer.resilience.test.tsx
@@ -112,6 +128,115 @@ conserven el compte i la carpeta perquè els UID IMAP pertanyen a una bústia.
 El visor resol el fil des del missatge carregat i desplega i carrega l'element
 més recent, incloses les respostes enviades.
 
+Les lectures dels membres d'una conversa utilitzen la mateixa validació de
+capçaleres completa i acotada que les bústies agregades. Les connexions o ordres
+fallides, o els membres que falten en recuperar-los, produeixen un error que
+permet reintentar, en lloc d'un fil buit o parcial presentat com a correcte.
+
+Les lectures del cos dels missatges tenen una connexió IMAP reutilitzable
+separada de les llistes de bústies i de les descàrregues d'adjunts. La
+reutilització queda vinculada al vault i a la configuració del compte; la
+invalidació de credencials tanca ambdues vies i rebutja una connexió obsoleta
+que acaba d'autenticar-se després de la invalidació. Un error de transport
+invalida només la seva pròpia via. Les lectures del proveïdor acaben amb un
+HTTP 503 que permet reintentar al cap de 25 segons, i les mutacions de l'estat
+de lectura s'executen en fils de treball. Una actualització encallada de la
+marca de lectura no ha de bloquejar el bucle d'esdeveniments del servidor ni
+el següent missatge seleccionat.
+Les peticions del lector depenen de la identitat del missatge dins del seu
+àmbit, i no de la substitució d'objectes o callbacks. El lector conserva com a
+màxim setze cossos i una mida estimada de 4 MiB durant cinc minuts després de
+recuperar-los; canviar el context de la petició buida aquesta memòria cau.
+L’identificador de missatge d’Internet, quan és disponible, diferencia les
+versions de selecció i de memòria cau; si canvia, el contingut es torna a carregar
+encara que l’UID sigui el mateix.
+És una memòria cau de sessió, no una bústia duradora sense connexió.
+Els identificadors RFC desats dels missatges van directament a l'emmagatzematge
+local del compte; només els UID IMAP decimals entren a la via remota del cos.
+
+Un cos ja carregat pot servir la seva còpia IMAP en una altra carpeta quan el
+compte i l'Internet Message-ID original coincideixen. L'UID i la carpeta del
+contingut original continuen vinculats a les imatges CID i als adjunts; la
+identitat de les accions no es fusiona. Les lectures fallides de cossos i
+converses ofereixen reintents explícits traduïts. Les peticions tardanes o
+cancel·lades no poden substituir una selecció nova.
+Les respostes que contradiuen un compte, una bústia, un proveïdor o un UID
+indicats es rebutgen, també amb capçaleres parcialment identificades. Un cos
+rebutjat acaba la càrrega i espera un reintent explícit.
+
+Les instantànies de llistes i recomptes i la reutilització d’imatges incrustades
+també queden vinculades al vault actiu. La identitat de les imatges conserva
+el nom exacte de la bústia.
+
+## Arxiu, llistes completes i cerca
+
+L'Arxiu té una entrada pròpia a la navegació. Tot el correu resol la bústia
+`\All` traduïda del servidor en lloc d'INBOX. Els servidors sense una bústia
+nativa de tot el correu combinen instantànies només de capçaleres de totes les
+bústies seleccionables que no siguin de paperera ni de correu brossa. L'Arxiu
+inclou totes les bústies d'arxiu descobertes i les seves subcarpetes. Tant les
+llistes natives com les agregades de Tot el correu/Arxiu ordenen totes les
+capçaleres coincidents per data abans de paginar, inclosos els missatges
+importats en què l'ordre dels UID difereix de la data.
+Les transferències de capçaleres utilitzen lots de 200 UID com a màxim; els
+lots serialitzats en memòria cau tenen un límit de 256 KiB (com a màxim 32 MiB
+de dades de capçaleres a la memòria cau compartida de 128 entrades).
+La reutilització exigeix que coincideixin els membres de la bústia, l'àmbit i
+UIDVALIDITY. L'absència d'UIDVALIDITY desactiva la memòria cau opcional, seguint
+el model d'identitat de bústies de
+[l'RFC 9051](https://www.rfc-editor.org/rfc/rfc9051.html#section-2.3.1.1).
+Les lectures agregades en fred poden requerir molts intercanvis de capçaleres;
+la via del cos continua sent independent. Els noms de carpeta i els UID es
+conserven a cada fila, inclosos els UID reutilitzats en carpetes diferents.
+Una lectura fallida d'una bústia no pot publicar un resultat complet o buit
+que indueixi a error.
+
+El descobriment conserva les bústies personalitzades i les múltiples carpetes
+d'arxiu, i omet els contenidors no seleccionables. Sincronitzar una bústia
+d'arxiu conserva el tipus de missatge rebut i registra `archived: true`; no classifica
+el missatge com a eliminat. Arxivar a Gmail elimina l'etiqueta Safata d'entrada
+i conserva les altres etiquetes. Els errors en arxivar remotament continuen
+sent errors, sense informar que l'operació ha estat correcta.
+
+Els moviments d’un únic missatge IMAP utilitzen `MOVE` natiu o, després d’una
+còpia i una actualització d’indicadors confirmades, la neteja amb `UID EXPUNGE`
+(`UIDPLUS` o `IMAP4rev2`). Les ordres fallides continuen sent fallades. Els
+servidors sense cap de les dues operacions segures es rebutgen abans de copiar;
+moure un missatge no elimina els altres missatges marcats per esborrar.
+Vegeu [RFC 9051](https://www.rfc-editor.org/rfc/rfc9051.html#section-6.4.9) per a
+la semàntica de la neteja limitada als UID.
+
+Les subcarpetes d’arxiu utilitzen el separador de jerarquia declarat per `LIST`,
+incloses les de contenidors d’arxiu no seleccionables. Els espais de noms `NIL`
+es mantenen plans, tal com defineix
+[RFC 9051](https://www.rfc-editor.org/rfc/rfc9051.html#section-7.3.1).
+Les subcarpetes ordinàries hereten el context de l’arxiu encara que es diguin
+`Sent`, `Drafts` o `All Mail`. Els atributs de funció especial declarats pel
+servidor tenen prioritat; només `\All` designa una bústia nativa de Tot el correu.
+
+Les accions d’arxivar i enviar a la paperera, tant individuals com en seleccions,
+transmeten la bústia física de cada fila. Si es rebutja el moviment a la paperera,
+es retorna un error que permet reintentar; les metadades desades només canvien
+després de l’èxit i registren l’UID de destinació. Una acció individual fallida
+conserva la fila i no s’afegeix a l’historial de desfer.
+
+El sentinella de paginació pertany a la llista que realment es desplaça i es
+torna a observar quan es completa una pàgina. Un proveïdor que no fa avançar el
+cursor exigeix un reintent explícit. Els comptes no disponibles s'exclouen de
+la paginació automàtica; els comptes sans poden continuar carregant-se. Els
+reintents explícits es dirigeixen als comptes fallits en els seus cursors
+fallits i conserven les pàgines ja carregades d'altres comptes.
+La cerca s'envia al proveïdor després d'un retard de 250 ms per agrupar els
+canvis, de manera que pot retornar coincidències fora de les pàgines carregades
+i dins dels cossos. El text de cerca forma part de l'àmbit de la memòria cau de
+llistes, i les peticions obsoletes es cancel·len. Els criteris de les vistes
+desades continuen filtrant les files carregades; no són regles de correu
+entrant ni un motor complet de consultes al servidor.
+
+La [referència d'Apple Mail](../mail-apple-reference.md) recull l'inventari de
+la interfície distribuïda, la cobertura actual de Gnosi i el treball pendent
+per assolir la paritat.
+
 Els enviaments correctes invaliden les llistes i els recomptes en memòria cau;
 la pàgina els actualitza quan el compositor acaba. La previsualització diferida
 en passar el cursor carrega tot el text o HTML sanejat sense marcar el missatge
@@ -175,6 +300,10 @@ per al correu. El servidor valida la identitat del remitent, els destinataris,
 les capçaleres de resposta, el contingut citat, els adjunts i el compte del
 proveïdor. Desar un esborrany i enviar-lo són efectes diferents; l'enviament
 travessa un límit extern i retorna diagnòstics del proveïdor si falla.
+
+La preparació de l’enviament i les crides al proveïdor s’executen fora del bucle d’esdeveniments del servidor. El servidor limita la resposta a 90 segons i el client limita les capçaleres i tot el cos de resposta a 95 segons. Un resultat incert conserva l’esborrany actiu i els adjunts i demana comprovar Enviats abans de reenviar; no hi ha cap reintent automàtic. El mateix compte no pot iniciar un segon enviament mentre el treballador continuï actiu, encara que la petició hagi caducat. Aquesta exclusió és local al backend en execució, no una deduplicació persistent dels lliuraments. L’acceptació de DATA per SMTP es conserva encara que falli el tancament de la connexió.
+
+Les lectures de l’historial de destinataris s’executen fora del bucle d’esdeveniments i comparteixen una exploració pendent per compte i magatzem. Després de dos segons, els suggeriments retornen els contactes disponibles sense esperar un historial bloquejat. Els camps desplegats CC i CCO precedeixen Assumpte.
 
 ## Estat relacional local
 

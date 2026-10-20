@@ -3,6 +3,7 @@ import {AnimatePresence, motion} from 'framer-motion';
 import {normalizeUrl} from './model';
 import {MediaMetadataPanel} from './MediaMetadataPanel';
 import type {MediaCenterState} from './useMediaCenter';
+import { AppAudio } from '../../../shared/speech/AppAudio';
 export function MediaLightbox({state}: {state: MediaCenterState}) {
 const {selectedPhoto, slideshowActive, setSlideshowActive, isFullscreen, viewerRootRef, currentIndex, hasPrev, hasNext, goPrev, goNext, closeViewer, toggleFullscreen, t, filteredMedia} = state;
 return <><AnimatePresence>
@@ -93,7 +94,7 @@ return <><AnimatePresence>
                   />
                 )}
                 {selectedPhoto.kind === 'audio' && (
-                  <audio
+                  <AppAudio
                     key={selectedPhoto.id}
                     src={normalizeUrl(selectedPhoto.url)}
                     controls
