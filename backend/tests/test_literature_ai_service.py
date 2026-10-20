@@ -67,6 +67,9 @@ def test_query_strategy_uses_selected_agent_and_auto_framework(monkeypatch):
     )
 
     assert "agent_id" not in captured
+    assert set(captured["output_schema"]["required"]) == {
+        "framework", "concepts", "synonyms", "boolean_query", "cautions",
+    }
     import json
     assert json.loads(captured["prompt"])["data"]["framework"] == "AUTO"
     from backend.services.agent_behavior import resource

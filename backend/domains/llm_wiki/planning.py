@@ -11,6 +11,7 @@ from collections.abc import Callable
 from backend.utils.open_values import integer_value
 
 from backend.domains.llm_wiki.reading_skill import INSTRUCTIONS
+from backend.domains.llm_wiki.source_structure import document_key, section_path
 
 LocatorLabel = Callable[[dict[str, object]], str]
 NormalizeText = Callable[[object], str]
@@ -82,6 +83,7 @@ def validate_and_reduce_plans(
             "origin_label": origin.get("label") or origin.get("kind"),
             "snapshot_id": origin.get("snapshot_id"),
             "source_url": origin.get("source_url"),
+            "document_key": document_key(origin),
         }
         for origin in origins
         for segment in _mapping_list(origin.get("segments"))
@@ -141,6 +143,9 @@ def validate_and_reduce_plans(
                     "origin_label": first_segment["origin_label"],
                     "source_segment_id": first_segment_id,
                     "segment_order": integer_value(first_segment.get("order") or 0),
+                    "source_section_path": section_path(first_segment.get("locator")),
+                    "source_document_key": first_segment["document_key"],
+                    "source_document_label": first_segment["origin_label"],
                 }
             )
 

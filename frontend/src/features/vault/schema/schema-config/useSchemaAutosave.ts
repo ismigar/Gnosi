@@ -9,7 +9,7 @@ export function useSchemaAutosave(state: SchemaState, props: ResolvedProps, vali
     const { t } = useTranslation();
     const { isOpen, onSave, onSchemaUpdated, folder } = props;
     const {
-        initializedRef, isInitializedForSave, pendingSaveRef, fields, functionalities, enableSubitems,
+        initializedRef, isInitializedForSave, pendingSaveRef, activeSaveRef, savedCatalogRefsRef, fields, functionalities, enableSubitems,
         enableTranslation, enableDrupalSync, drupalBundle, drupalFieldMapping,
     } = state;
     const scheduleSave = useEffectEvent(() => {
@@ -25,20 +25,29 @@ export function useSchemaAutosave(state: SchemaState, props: ResolvedProps, vali
         }
         // Saves the current state. We save it in a ref so we can trigger it
         // also on unmount (flush) if the debounce hasn't fired yet.
-        const doSave = async () => {
-            pendingSaveRef.current = null;
-            try {
-                const { newSchemaObj, visibleProperties } = buildPayload(fields, enableTranslation);
-                if (onSave) {
-                    await onSave(newSchemaObj, { enableSubitems, visibleProperties, enableTranslation, enableDrupalSync, drupalBundle, drupalFieldMapping, functionalities });
-                } else {
-                    await saveVaultFolderSchema(folder, newSchemaObj);
+        let scheduledSave: Promise<void> | null = null;
+        const doSave = () => {
+            if (scheduledSave) return scheduledSave;
+            if (pendingSaveRef.current === doSave) pendingSaveRef.current = null;
+            // Keep scope changes ordered with earlier saves and let option rewrites
+            // wait until a catalog has actually been unlinked on the server.
+            scheduledSave = (activeSaveRef.current || Promise.resolve()).then(async () => {
+                try {
+                    const { newSchemaObj, visibleProperties } = buildPayload(fields, enableTranslation);
+                    if (onSave) {
+                        await onSave(newSchemaObj, { enableSubitems, visibleProperties, enableTranslation, enableDrupalSync, drupalBundle, drupalFieldMapping, functionalities });
+                    } else {
+                        await saveVaultFolderSchema(folder, newSchemaObj);
+                    }
+                    savedCatalogRefsRef.current = Object.fromEntries(fields.map(field => [field.id, field.catalogRef || '']));
+                    void onSchemaUpdated?.(newSchemaObj);
+                } catch (err) {
+                    console.error(err);
+                    toast.error(t('schema.error_saving'));
                 }
-                void onSchemaUpdated?.(newSchemaObj);
-            } catch (err) {
-                console.error(err);
-                toast.error(t('schema.error_saving'));
-            }
+            });
+            activeSaveRef.current = scheduledSave;
+            return scheduledSave;
         };
         pendingSaveRef.current = doSave;
         const handle = setTimeout(() => { void doSave(); }, 600);

@@ -5,7 +5,7 @@ import json
 from collections.abc import Callable
 from typing import Any, cast
 
-import jsonschema  # type: ignore[import-untyped]
+import jsonschema
 
 from backend.domains.llm_wiki.chunking import split_segment
 from backend.services.agent_behavior import task_input, revision, snapshot_instruction_text
@@ -13,9 +13,30 @@ from backend.services.agent_execution_models import AgentOperation, AgentExecuti
 from backend.services.agent_operation_catalog import skill_id
 from backend.services.agent_context_budget import count_tokens
 
-ACTION_SCHEMA = {"type": "object", "required": ["action", "arguments"], "properties": {
+ACTION_SCHEMA: dict[str, Any] = {"type": "object", "required": ["action", "arguments"], "properties": {
     "action": {"enum": ["index", "read", "search", "remember", "finish"]},
     "arguments": {"type": "object"}}, "additionalProperties": False}
+
+
+def document_action_schema(output_schema: dict[str, Any]) -> dict[str, Any]:
+    """Expose the complete action contract instead of an arbitrary JSON object."""
+    arguments = {
+        "offset": {"type": ["integer", "null"]},
+        "part_id": {"type": ["string", "null"]},
+        "query": {"type": ["string", "null"]},
+        "text": {"type": ["string", "null"]},
+        "result": {"anyOf": [output_schema, {"type": "null"}]},
+        "reviewed": {"type": ["boolean", "null"]},
+        "citations": {"type": ["array", "null"], "items": {
+            "type": "object", "properties": {"source_id": {"type": "string"}, "quote": {"type": "string"}},
+            "required": ["source_id", "quote"], "additionalProperties": False,
+        }},
+    }
+    return {**ACTION_SCHEMA, "properties": {
+        "action": ACTION_SCHEMA["properties"]["action"],
+        "arguments": {"type": "object", "properties": arguments,
+                      "required": list(arguments), "additionalProperties": False},
+    }}
 
 
 def synthesize(operation: str, sources: list[dict[str, Any]], request: str, *, snapshot: AgentExecutionSnapshot,
@@ -58,7 +79,7 @@ def synthesize(operation: str, sources: list[dict[str, Any]], request: str, *, s
                                 "search": {"query": "string", "offset": "integer"}, "remember": {"text": "string"},
                                 "finish": {"result": "result_schema", "citations": "list of source_id and exact quote", "reviewed": "boolean"}})
         response = run_sync(AgentOperation(skill_id=skill_id(operation), operation=f"{operation}.analyze.action",
-                                          input=prompt, origin=snapshot.origin, output_schema=ACTION_SCHEMA,
+                                          input=prompt, origin=snapshot.origin, output_schema=document_action_schema(output_schema),
                                           resume_requires_parent=True), snapshot=snapshot)
         answer = json.loads(response.result)
         args = answer["arguments"]
@@ -118,7 +139,7 @@ def _finish_document(args: dict[str, Any], read: set[str], parts: dict[str, dict
 def _document_action(action: str, args: dict[str, Any], parts: dict[str, dict[str, Any]], read: set[str], memory: str, budget: int, count: Callable[[str], int]) -> tuple[Any, str]:
     result: Any = {}
     if action == "index":
-        offset = max(0, int(args.get("offset", 0)))
+        offset = max(0, int(args.get("offset") or 0))
         result = {"parts": [{"part_id": key, "read": key in read} for key in list(parts)[offset:offset + 100]], "total": len(parts), "next_offset": offset + 100}
     elif action == "read":
         key = str(args["part_id"])
@@ -129,7 +150,7 @@ def _document_action(action: str, args: dict[str, Any], parts: dict[str, dict[st
         if not query.strip():
             raise ValueError("query_required")
         matches = [key for key, part in parts.items() if query in str(part["text"]).casefold()]
-        offset = max(0, int(args.get("offset", 0)))
+        offset = max(0, int(args.get("offset") or 0))
         result = {"part_ids": matches[offset:offset + 100], "total": len(matches), "next_offset": offset + 100}
     elif action == "remember":
         replacement = str(args["text"])

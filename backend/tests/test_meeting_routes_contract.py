@@ -48,3 +48,16 @@ def test_meeting_status_preserves_known_and_extension_fields(monkeypatch) -> Non
         "title": "Weekly sync",
         "queued_seconds": 4,
     }
+
+
+def test_explicit_language_is_forwarded_before_starting_worker(monkeypatch, tmp_path):
+    from backend.api import meeting_routes
+    from fastapi import UploadFile
+    from io import BytesIO
+    from unittest.mock import Mock
+    monkeypatch.setattr(meeting_routes, '_audio_dir', lambda: tmp_path)
+    monkeypatch.setattr(meeting_routes.meeting_notes, 'get_status', lambda: {'running': False})
+    start = Mock(return_value=True)
+    monkeypatch.setattr(meeting_routes.meeting_notes, 'start_async', start)
+    asyncio.run(meeting_routes.record_meeting(UploadFile(file=BytesIO(b'fixture')), 'Title', 'online', 'ca'))
+    assert start.call_args.args[1:] == ('Title', 'online', 'ca')

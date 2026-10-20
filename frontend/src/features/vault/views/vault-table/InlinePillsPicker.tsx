@@ -18,6 +18,7 @@ export const InlinePillsPicker = ({
   relationItems = false,
   onOpenRelation,
   onRemoveRelation,
+  single = false,
 }: InlinePillsPickerProps) => {
   const { t } = useTranslation();
   const [localValues, setLocalValues] = useState(value);
@@ -37,7 +38,7 @@ export const InlinePillsPicker = ({
 
   const toggle = (val: string) => {
     setLocalValues(prev =>
-      prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]
+      prev.includes(val) ? prev.filter(v => v !== val) : single ? [val] : [...prev, val]
     );
   };
 

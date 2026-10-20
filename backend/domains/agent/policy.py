@@ -137,8 +137,24 @@ def _record_policy_audit(
 ) -> None:
     """Record policy metadata without making tool execution depend on audit I/O."""
     try:
+        try:
+            audit_scope = current_confirmation_scope()
+        except RuntimeError:
+            # A button operation has an authenticated execution scope but no
+            # chat confirmation session. Derive audit identity only: this does
+            # not establish confirmation context or grant any write tool.
+            import hashlib
+            from pathlib import Path
+            from backend.services.agent_execution import _run, _snapshot, _operation_tool_mode
+            snapshot = _snapshot.get()
+            if snapshot is None or not _run.get() or _operation_tool_mode.get() != "read":
+                raise
+            scope = snapshot.scope
+            audit_scope = {"vault_scope": hashlib.sha256(str(Path(scope.vault_path).resolve()).encode()).hexdigest()[:20],
+                           "workspace_id": scope.workspace_id, "user_id": scope.user_id, "role": scope.role,
+                           "agent_id": snapshot.agent_id, "session_id": _run.get()}
         record_capability_event(
-            current_confirmation_scope(),
+            audit_scope,
             tool_id=str(policy.get("id") or tool_name),
             tool_name=tool_name,
             effects=list(policy.get("effects") or []),
@@ -188,7 +204,12 @@ def _execute_policy_tool(
     record("tool.request", {"name": tool_name, "call": tool_call, "definition": policy.get("_descriptor")})
     try:
         from backend.services.agent_execution import before_tool_call
-        before_tool_call(tool_name, dynamic_context=bool(getattr(policy.get("_descriptor"), "metadata", {}).get("dynamic_context")))
+        descriptor = policy.get("_descriptor")
+        before_tool_call(
+            tool_name,
+            tool_id=str(getattr(descriptor, "id", "") or ""),
+            dynamic_context=bool(getattr(descriptor, "metadata", {}).get("dynamic_context")),
+        )
         with observability_span(
             "agent.tool",
             trace_id=str(state.get("trace_id") or ""),

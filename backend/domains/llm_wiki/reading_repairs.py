@@ -5,7 +5,7 @@ from copy import deepcopy
 import json
 from typing import Any
 
-import jsonschema  # type: ignore[import-untyped]
+import jsonschema
 
 from backend.domains.llm_wiki.reading_contracts import ReadingPlanError
 from backend.services.agent_output_repair import OutputRepair

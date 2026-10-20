@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { runSkillTrial, saveLearnedSkill, type LearnedSkill, type SkillTrialResult } from '../../shared/api/agent-learning';
 import { GnosiToggle } from '../../shared/ui/settings/SettingsPrimitives';
 import { SkillResourcesEditor } from './SkillResourcesEditor';
+import { InstructionMarkdownEditor } from '../../shared/editor/InstructionMarkdownEditor';
 
 interface Props {
     readonly initialSkill: LearnedSkill;
@@ -53,7 +54,8 @@ export function LearnedSkillEditor({ initialSkill, agentId, sessionId = '', onSa
         <p className="agent-learning__muted">{t('learning.review_help')}</p>
         <label>{t('learning.name')}<input className="gnosi-input" value={skill.name} maxLength={160} disabled={busy} onChange={event => { change({ name: event.target.value }); }} /></label>
         <label>{t('learning.description')}<textarea className="gnosi-input" value={skill.description || ''} rows={2} maxLength={2000} disabled={busy} onChange={event => { change({ description: event.target.value }); }} /></label>
-        <label>{t('learning.instructions')}<textarea className="gnosi-input" value={skill.instructions} rows={8} maxLength={24000} disabled={busy} onChange={event => { change({ instructions: event.target.value }); }} /></label>
+        <InstructionMarkdownEditor label={t('learning.instructions')} value={skill.instructions}
+            maxLength={24000} disabled={busy} onChange={instructions => { change({ instructions }); }} />
         <label>{t('learning.criteria')}<textarea className="gnosi-input" value={criteria} rows={4} disabled={busy} onChange={event => { setCriteria(event.target.value); setTrial(null); setSaved(''); }} /></label>
         {Boolean(skill.tool_ids?.length) && <details><summary>{t('learning.dependencies')}</summary><p className="agent-learning__muted">{t('learning.dependencies_help')}</p><ul>{skill.tool_ids?.map(tool => <li key={tool}><code>{tool}</code></li>)}</ul></details>}
         <SkillResourcesEditor skill={skill} disabled={busy} onChange={change} />
@@ -64,8 +66,14 @@ export function LearnedSkillEditor({ initialSkill, agentId, sessionId = '', onSa
             <button className="btn-gnosi btn-gnosi-secondary" type="button" disabled={busy || !valid || !testInput.trim()} onClick={() => { void runTrial(); }}>{t(busy ? 'common.loading' : 'learning.run_trial')}</button>
             {trial && <>
                 <pre>{trial.output}</pre>
+                {Boolean(trial.missing_inputs?.length) && <div><strong>{t('learning.missing_trial_inputs')}</strong><ul>{trial.missing_inputs?.map((item, index) => <li key={index}>{item}</li>)}</ul></div>}
                 <p className="agent-learning__muted">{t('learning.trial_review_help')}</p>
-                <ul>{trial.checks.map((check, index) => <li key={index}><strong>{t(check.met ? 'learning.met' : 'learning.unmet')}: {check.criterion}</strong><p>{check.evidence}</p></li>)}</ul>
+                <ul>{trial.checks.map((check, index) => <li key={index}>
+                    <strong>{t(check.met ? 'learning.met' : 'learning.unmet')}: {check.criterion}</strong>
+                    <p>{check.evidence}</p>
+                    {check.input_quote && <p><strong>{t('learning.input_evidence')}</strong> <q>{check.input_quote}</q></p>}
+                    {check.output_quote && <p><strong>{t('learning.output_evidence')}</strong> <q>{check.output_quote}</q></p>}
+                </li>)}</ul>
                 <button className="btn-gnosi btn-gnosi-secondary" type="button" disabled={(skill.examples || []).length >= 8 || testInput.length > 8000 || trial.output.length > 8000} onClick={() => { change({ examples: [...(skill.examples || []), { name: t('learning.validated_example'), input: testInput, expected: trial.output }] }); }}>{t('learning.keep_example')}</button>
             </>}
         </section>

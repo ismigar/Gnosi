@@ -15,6 +15,7 @@ vi.mock('../../../shared/api/ai', () => ({ generateAiContent: vi.fn() }));
 import { normalizeSkill, normalizeTool } from './aiSettingsUtils';
 
 
+vi.mock('../../../shared/editor/InstructionRichEditor', () => ({ default: () => null }));
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
         i18n: { language: 'en', resolvedLanguage: 'en' },
@@ -198,7 +199,7 @@ describe('AI resource settings components', () => {
         const container = render(<SkillsSettingsPanel agents={[]} onAgentsChanged={vi.fn()} resources={{ skills: [skill], tools: [], cloneSkill, createSkill, updateSkill: vi.fn(), validateSkill: vi.fn(), deleteSkill: vi.fn(), reload: vi.fn(), issues: [], loading: false, error: '' }} />);
         const customize = [...container.querySelectorAll('button')].find(button => button.textContent.includes('customize'));
         act(() => { customize?.click(); });
-        expect(container.querySelector('textarea[rows="7"]')?.textContent).toBe(skill.instructions);
+        expect(container.querySelector<HTMLTextAreaElement>('textarea[aria-label="settings.ai.resources.instructions"]')?.value).toBe(skill.instructions);
         expect(cloneSkill).not.toHaveBeenCalled(); expect(createSkill).not.toHaveBeenCalled();
         const cancel = [...container.querySelectorAll('button')].find(button => button.textContent.includes('common.cancel'));
         act(() => { cancel?.click(); });

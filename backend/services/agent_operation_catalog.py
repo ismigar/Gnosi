@@ -56,7 +56,8 @@ def descriptors() -> list[SkillDescriptor]:
 def extend_descriptors(existing: Iterable[SkillDescriptor]) -> list[SkillDescriptor]:
     """Attach functional procedures to their existing chat skill identities."""
     extensions = {entry.id: entry for entry in descriptors()}
-    engines = {"core.gnosi-knowledge-capture": ["core.transcribe-asset", "core.recognize-asset"],
+    engines = {"core.gnosi-meeting-preparation": ["core.transcribe-asset"],
+               "core.gnosi-knowledge-capture": ["core.transcribe-asset", "core.recognize-asset"],
                "core.gnosi-daily-briefing": ["core.synthesize-speech"],
                "core.gnosi-literature": ["core.rank-literature"]}
     result = []

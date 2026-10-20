@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 import type { MeetingMode } from '../../shared/api/meeting-specialized';
-import { useMeetingRecorder } from './useMeetingRecorder';
+import { useMeetingRecorder, type MeetingLanguage } from './useMeetingRecorder';
 
 
 function formatDuration(seconds: number): string {
@@ -75,6 +75,20 @@ export default function MeetingRecorder() {
                   placeholder={t('meeting.title_placeholder')}
                   className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm outline-none focus:border-blue-500"
                 />
+                <label className="flex flex-col gap-1 text-sm">
+                  {t('meeting.language')}
+                  <select
+                    value={recorder.language}
+                    onChange={(event) => { recorder.setLanguage(event.target.value as MeetingLanguage); }}
+                    className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2"
+                  >
+                    <option value="ca">Català</option>
+                    <option value="es">Español</option>
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                    <option value="auto">{t('meeting.language_auto')}</option>
+                  </select>
+                </label>
                 <div className="grid grid-cols-2 gap-2">
                   {modes.map(({ id, label }) => (
                     <button

@@ -79,18 +79,20 @@ def build_page_frontmatter(title: str, metadata: Optional[Dict[str, Any]] = None
     return yaml.safe_dump(meta, allow_unicode=True, sort_keys=False).strip()
 
 
-def build_cornell_note(title: str, *, cues: List[str], notes: str, summary: str) -> str:
+def build_cornell_note(title: str, *, cues: List[str], notes: str, summary: str, language: str = "ca") -> str:
     """Builds a Cornell-method study note in Markdown (pure).
 
     Structure: Notes (body) | Cues/questions (left column as a list) | Summary (footer).
 
     """
+    from backend.services.capture_contracts import CORNELL_LABELS, capture_language
+    notes_label, cues_label, summary_label = CORNELL_LABELS[capture_language(language)]
     cue_block = "\n".join(f"- {c.strip()}" for c in cues if c.strip()) or "_—_"
     return (
         f"# {title}\n\n"
-        f"## 📝 Notes\n\n{notes.strip()}\n\n"
-        f"## 🔑 Pistes / preguntes\n\n{cue_block}\n\n"
-        f"## 🧭 Resum\n\n{summary.strip()}\n"
+        f"## 📝 {notes_label}\n\n{notes.strip()}\n\n"
+        f"## 🔑 {cues_label}\n\n{cue_block}\n\n"
+        f"## 🧭 {summary_label}\n\n{summary.strip()}\n"
     )
 
 
@@ -316,51 +318,49 @@ def propose_links(page_id_or_title: str, k: int = 8) -> str:
 
 
 @tool
-def summarize_to_cornell(source: str, title: str = "", folder: str = "Summaries") -> str:
+def summarize_to_cornell(source: str, title: str = "", folder: str = "Summaries", language: str = "ca") -> str:
     """Summarizes a page or PDF into a Cornell note and saves it as a new Vault page."""
     from functools import partial
     from backend.services.agent_execution import generate_for
+    from backend.services.capture_contracts import CORNELL_LABELS, CORNELL_SCHEMA, capture_language, parse_cornell_content, validate_cornell_output
+
+    language = capture_language(language)
 
     generate_text = partial(generate_for, "capture")
 
     is_pdf = str(source).lower().endswith(".pdf")
     raw = _tool_function(read_pdf)(source) if is_pdf else _tool_function(read_page)(source)
-    if raw.startswith("No ") or raw.startswith("Error"):
+    if raw.startswith(("No ", "Error", "Access denied:", "PDF does not exist:")) or raw == "(PDF has no extractable text; it may be scanned)":
         return raw
-    prompt = task_input("capture.cornell", source=raw, title=title)
-    generated, _model = generate_text(prompt)
-    text = str(generated)
-    notes, cues, summary = _parse_cornell_json(text)
-    note_title = title or (f"Summary: {source}")
-    md = build_cornell_note(note_title, cues=cues, notes=notes, summary=summary)
-    return _tool_function(create_page)(note_title, md, folder)
+    if not raw.strip():
+        return "Error: source has no content."
+    source_metadata: dict[str, Any] = {}
+    if not is_pdf and raw.startswith("---\n"):
+        import yaml
+        frontmatter = re.split(r"(?m)^---[ \t]*$", raw, maxsplit=2)
+        if len(frontmatter) != 3:
+            raise ValueError("Incomplete source metadata")
+        parsed: object = yaml.safe_load(frontmatter[1])
+        if parsed is not None and not isinstance(parsed, dict):
+            raise ValueError("Source metadata must be an object")
+        source_metadata = dict(parsed) if isinstance(parsed, dict) else {}
+    source_excerpt = is_pdf or raw.endswith("[Page content truncated by Gnosi.]")
+    prompt = task_input("capture.cornell", source=raw, title=title, language=language,
+                        source_coverage="bounded_excerpt" if source_excerpt else "complete_page")
+    generated, _model = generate_text(prompt, output_schema=CORNELL_SCHEMA, output_validator=validate_cornell_output)
+    content = parse_cornell_content(generated)
+    note_title = title or f"{CORNELL_LABELS[language][2]}: {source}"
+    md = build_cornell_note(note_title, cues=list(content.cues), notes=content.notes, summary=content.summary, language=language)
+    return _tool_function(create_page)(note_title, md, folder, metadata={"source_reference": source,
+        "source_attribution": source_metadata, "capture_language": language, "source_excerpt": source_excerpt})
 
 
 def _parse_cornell_json(text: str) -> tuple[str, list[str], str]:
-    """Tolerant: extracts notes/cues/summary from a JSON (or degrades to plain text)."""
-    import json
+    """Accept only the Cornell consumer contract; never fall back to raw text."""
+    from backend.services.capture_contracts import parse_cornell_content
 
-    m = re.search(r"\{.*\}", text or "", re.DOTALL)
-    if m:
-        try:
-            payload = json.loads(m.group(0))
-            if not isinstance(payload, dict):
-                raise ValueError("Cornell payload must be an object")
-            raw_cues = payload.get("cues") or []
-            if isinstance(raw_cues, str):
-                cues = [cue for cue in re.split(r"[\n;]", raw_cues) if cue.strip()]
-            elif isinstance(raw_cues, list):
-                cues = [str(cue) for cue in raw_cues]
-            else:
-                cues = []
-            return (
-                str(payload.get("notes", "")).strip(),
-                cues,
-                str(payload.get("summary", "")).strip(),
-            )
-        except Exception:
-            pass
-    return (text or "").strip(), [], ""
+    content = parse_cornell_content(text)
+    return content.notes, list(content.cues), content.summary
 
 
 # Exportable list for registering with the "brain" agent (factory.py)

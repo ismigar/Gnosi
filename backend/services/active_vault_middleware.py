@@ -303,6 +303,15 @@ class ActiveVaultMiddleware:
         token: Token[Path | None] | None = None
         if vault_id:
             identity = canonical_identity or await _resolve_request_vault_identity(vault_id)
+            # Permission dependencies consume X-Vault-ID. They must authorize
+            # the same selection used by ContextVars, including query/cookie
+            # selectors and unknown IDs (which must not fall back silently).
+            effective_id = identity[0] if identity else vault_id
+            scope = dict(scope)
+            scope["headers"] = [
+                (key, value) for key, value in scope.get("headers", [])
+                if key.lower() != b"x-vault-id"
+            ] + [(b"x-vault-id", effective_id.encode("utf-8"))]
             if identity:
                 token = active_vault_path.set(Path(identity[1]))
         try:

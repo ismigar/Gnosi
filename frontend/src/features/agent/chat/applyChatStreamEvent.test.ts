@@ -3,14 +3,18 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { applyChatStreamEvent } from './applyChatStreamEvent';
 import { createChatStreamState, type StreamEventContext } from './streamEventModel';
 import type { StoredChatMessage } from './sessionModel';
+import ca from '../../../shared/i18n/locales/ca/translation.json';
+import es from '../../../shared/i18n/locales/es/translation.json';
+import en from '../../../shared/i18n/locales/en/translation.json';
+import fr from '../../../shared/i18n/locales/fr/translation.json';
 
 const locale = createInstance();
 beforeAll(async () => { await locale.init({ lng: 'en', fallbackLng: 'en', resources: {}, interpolation: { escapeValue: false } }); });
-function fixture(initial: readonly StoredChatMessage[] = []) {
+function fixture(initial: readonly StoredChatMessage[] = [], t = locale.t) {
   let messages = initial;
   const state = createChatStreamState();
   const context: StreamEventContext = {
-    t: locale.t, requestScope: 'scope:agent:session', agentId: 'agent', sessionId: 'session', turnId: 'turn',
+    t, requestScope: 'scope:agent:session', agentId: 'agent', sessionId: 'session', turnId: 'turn',
     activeScopeRef: { current: 'scope:agent:session' }, activeStreamRef: { current: '' },
     setMessages: (update) => { messages = typeof update === 'function' ? update(messages) : update; },
     setAgentRuntime: vi.fn(), setProcessingPhase: vi.fn(), confirmationSummary: () => 'Review action',
@@ -19,6 +23,25 @@ function fixture(initial: readonly StoredChatMessage[] = []) {
 }
 
 describe('typed stream event processing', () => {
+  it.each(Object.entries({ ca, es, en, fr }))('preserves localized backend errors and their codes in %s', async (language, translation) => {
+    const i18n = createInstance();
+    await i18n.init({lng: language, fallbackLng: false, resources: {[language]: {translation}}});
+    const texts: Readonly<Record<string, string>> = {ca: 'La resposta ha superat el límit de 77 segons.', es: 'La respuesta ha superado el límite de 77 segundos.',
+      en: 'The response exceeded the 77-second limit.', fr: 'La réponse a dépassé la limite de 77 secondes.'};
+    const text = texts[language];
+    if (!text) throw new Error(`Missing localized fixture: ${language}`);
+    for (const code of ['agent_turn_timeout', 'agent_loop_exhausted', 'rate_limit', 'auth']) {
+      const f = fixture([], i18n.t);
+      f.send({type: 'error', code, content: text, content_language: language, retryable: false,
+        recovery: {automatic: false, max_attempts: 1}});
+      f.send({type: 'done', has_response: false, message_count: 0});
+      expect(f.messages()).toHaveLength(1);
+      expect(f.messages()[0]?.content).toBe(`❌ ${translation.chat.error_prefix}: ${text}`);
+      expect(f.messages()[0]?.content).not.toContain('120');
+      expect(f.messages()[0]).toMatchObject({errorCode: code, recovery: {automatic: false}});
+      expect(f.state.terminal).toBe(true);
+    }
+  });
   it('acknowledges memory without claiming a model response and ignores replay or stale scope', () => {
     const f = fixture();
     f.send({ type: 'memory_saved', sequence: 1, memory_id: 'synthetic' });

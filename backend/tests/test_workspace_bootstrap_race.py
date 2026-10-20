@@ -15,6 +15,7 @@ its own connection, reproducing the real multi-connection race.
 import threading
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import create_engine, event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -25,6 +26,40 @@ from backend.services import workspace_service as ws
 from backend.services.auth_service import PLACEHOLDER_EMAIL, REQUIRE_AUTH_ENV
 
 USER_ID = "u1"
+
+
+def test_existing_non_owner_personal_membership_is_not_recreated(session_factory, tmp_path):
+    _seed_user(session_factory)
+    with session_factory() as db:
+        db.add(Workspace(id="personal", name="Personal"))
+        db.add(Membership(user_id=USER_ID, workspace_id="personal", role="viewer"))
+        db.commit()
+        with pytest.raises(HTTPException) as error:
+            ws._ensure_personal_exists(db, USER_ID, tmp_path)
+        assert error.value.status_code == 403
+        assert error.value.detail == {"code": "personal_owner_required"}
+        assert db.query(Membership).one().role == "viewer"
+        assert db.query(Vault).count() == 0
+
+
+def test_explicit_personal_vault_never_falls_back(session_factory, tmp_path):
+    with session_factory() as db:
+        db.add(Workspace(id="personal", name="Personal"))
+        db.add(Workspace(id="other", name="Other"))
+        db.add(Vault(id="offline", workspace_id="personal", name="Offline", path_override=str(tmp_path / "missing-mount/vault")))
+        db.add(Vault(id="foreign", workspace_id="other", name="Foreign", path_override=str(tmp_path)))
+        db.add(Vault(id="default", workspace_id="personal", name="Default"))
+        db.commit()
+        assert ws._resolve_personal_vault(db, "personal", None, tmp_path) == tmp_path
+        assert ws._resolve_personal_vault(db, "personal", "default", tmp_path) == tmp_path
+        for identifier in ["missing", "foreign"]:
+            with pytest.raises(HTTPException) as error:
+                ws._resolve_personal_vault(db, "personal", identifier, tmp_path)
+            assert error.value.status_code == 404
+        with pytest.raises(HTTPException) as error:
+            ws._resolve_personal_vault(db, "personal", "offline", tmp_path)
+        assert error.value.status_code == 503
+        assert not (tmp_path / "missing-mount").exists()
 
 
 @pytest.fixture

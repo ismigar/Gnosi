@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "gnosi": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "${PLUGIN_ROOT}",
+        "gnosi-connector"
+      ],
+      "cwd": "${PLUGIN_ROOT}"
+    }
+  }
+}

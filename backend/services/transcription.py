@@ -60,6 +60,7 @@ class TranscriptionResult(TypedDict):
 
 
 _MODEL: WhisperModel | None = None
+_MODEL_KEY: tuple[str, str] | None = None
 _MODEL_LOCK = threading.Lock()
 
 
@@ -94,21 +95,18 @@ def is_available() -> bool:
 
 
 def get_model() -> WhisperModel:
-    """Loads (lazily) and returns the `WhisperModel` singleton."""
-    global _MODEL
-    if _MODEL is not None:
-        return _MODEL
+    """Reuse only weights loaded for the current model and canonical cache."""
+    global _MODEL, _MODEL_KEY
+    size, cache = _model_size(), _cache_dir()
+    key = (size, cache)
     with _MODEL_LOCK:
-        if _MODEL is None:
+        if _MODEL is None or _MODEL_KEY != key:
             from faster_whisper import WhisperModel as FasterWhisperModel
-
-            size = _model_size()
             log.info(f"transcription: carregant WhisperModel '{size}' (CPU/int8)…")
-            _MODEL = FasterWhisperModel(
-                size, device="cpu", compute_type="int8", download_root=_cache_dir()
-            )
+            model = FasterWhisperModel(size, device="cpu", compute_type="int8", download_root=cache)
+            _MODEL, _MODEL_KEY = model, key
             log.info("transcription: model carregat.")
-    return _MODEL
+        return _MODEL
 
 
 def transcribe(audio_path: str, language: Optional[str] = None) -> TranscriptionResult:

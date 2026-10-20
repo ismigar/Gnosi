@@ -227,7 +227,12 @@ export function matchesRule(
     // match (the main view was hiding rows that DID contain the value) and
     // made `not_equals` ALWAYS match. We compare by membership, in lowercase
     // (case-insensitive, consistent with the rest of the filter).
-    const arr = textValues(rawVal);
+    const metadata = item.metadata || {};
+    const includeSections = metadata.llm_wiki_section_field === filter.field
+        && (filter.operator === 'contains' || filter.operator === 'not_contains');
+    const arr = includeSections
+        ? [...textValues(rawVal), ...textValues(metadata.llm_wiki_section_ancestor_ids)]
+        : textValues(rawVal);
     const arrLower = arr.map(s => s.toLowerCase());
     // A multi-select filter can carry several selected options. Those options
     // match when any selected value belongs to the record's value array.

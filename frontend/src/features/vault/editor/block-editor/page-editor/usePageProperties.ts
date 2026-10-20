@@ -8,7 +8,7 @@ import { sortFieldItems } from '../../../../../shared/schema/fieldOrdering';
 import { useEffect, useMemo, useState } from 'react';
 import { namedPropertyMetadata, pagePropertyConfig, pagePropertyValue } from './propertyModel';
 import { fetchOptionCatalogs } from '../../../../../shared/api/vault-schema';
-import { normalizeOptions, STATUS_CATALOG_REF } from '../../../../../shared/records/model/optionCatalogUtils';
+import { normalizeOptions } from '../../../../../shared/records/model/optionCatalogUtils';
 import type { usePageEditorState } from './usePageEditorState';
 import type { usePageMetadata } from './usePageMetadata';
 type Input = Pick<ReturnType<typeof usePageEditorState>, 'metadata' | 'allTables' | 'allNotes' | 't' | 'referenceTableId' | 'newPropName' | 'setIsAddingProp' | 'setNewPropName' | 'idToTitle'> & Pick<ReturnType<typeof usePageMetadata>, 'handleMetaChange'>;
@@ -28,7 +28,6 @@ export function usePageProperties(state: Input) {
       const configuredReference = prop.config?.catalog_ref;
       const reference = typeof configuredReference === 'string' ? configuredReference.trim() : '';
       if (reference) references.add(reference);
-      else if (prop.type === 'status') references.add(STATUS_CATALOG_REF);
     }
     return Array.from(references).sort();
   }, [currentTable]);
@@ -73,7 +72,7 @@ export function usePageProperties(state: Input) {
     const configuredReference = prop.config?.catalog_ref;
     const reference = typeof configuredReference === 'string' && configuredReference.trim()
       ? configuredReference.trim()
-      : (prop.type === 'status' ? STATUS_CATALOG_REF : '');
+      : '';
     if (reference && Object.prototype.hasOwnProperty.call(sharedOptionCatalogs, reference)) {
       return normalizeOptions(sharedOptionCatalogs[reference]).map(option => ({ ...option }));
     }

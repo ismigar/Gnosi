@@ -73,16 +73,25 @@ export function useTableActions({
         toast.error(t('schema.no_assignments_error', 'No field assignments configured for this functionality'));
         return;
       }
-      for (const assignment of assignments) {
-        if (!assignment.field) continue;
+      const evaluatedAssignments = assignments.map(assignment => {
         let value = assignment.value ?? '';
         if (typeof value === 'string' && (value.includes('(') || value.includes('{') || value.includes('+'))) {
           const evaluated = evaluateTableFormula(value, note.metadata || {}, note.title || '');
           if (evaluated !== null) value = evaluated;
         }
-        await handleCellSave(note.id, assignment.field, value, assignment.field);
-      }
-      toast.success(t('schema.functionality_executed_success', 'Functionality executed successfully'));
+        return { field: assignment.field || '', value };
+      });
+      setExecutingButtonKey(buttonKey);
+      try {
+        const response = await executeVaultTableButtonAction({ note_id: note.id, button_action: 'set_fields',
+          button_config: { assignments: evaluatedAssignments } });
+        if (response.status === 'ok') {
+          toast.success(t('schema.functionality_executed_success', 'Functionality executed successfully'));
+          onTranslated?.({});
+        }
+      } catch (error) {
+        toast.error(apiErrorDetail(error, t('schema.functionality_execute_error', 'Could not execute functionality')));
+      } finally { setExecutingButtonKey(null); }
       return;
     }
 

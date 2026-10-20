@@ -151,6 +151,29 @@ def _index_created_page(page_id: str, file_path: Path) -> None:
         _vault._clear_page_index_cache()
 
 
+def _verify_created_page_index(page_id: str, file_path: Path) -> bool:
+    vault = _vault.get_active_vault_path()
+    if not vault or not file_path.resolve().is_relative_to(vault.resolve()):
+        return False
+    key = str(vault)
+    try:
+        expected = _vault._build_page_cache_entry(file_path, file_path.stat())
+        if _vault._canonicalize_id(expected.get("id")) != _vault._canonicalize_id(page_id):
+            return False
+        with _vault._page_index_lock:
+            entry = _vault._page_index_entries.get(key, {}).get(str(file_path))
+            mapped = _vault._page_id_to_path.get(key, {}).get(page_id)
+            if entry != expected or mapped != str(file_path):
+                return False
+        resolved = _vault.path_resolver.find_path(page_id, vault)
+        # Read the already-populated file list directly; list_all_files has an
+        # expensive whole-vault discovery fallback on a cache miss.
+        files = _vault.path_resolver._vault_files.get(key, [])
+        return resolved is not None and resolved.resolve() == file_path.resolve() and file_path in files
+    except (OSError, ValueError, TypeError):
+        return False
+
+
 def _queue_planning_recalculation(background_tasks: BackgroundTasks) -> None:
     try:
         from backend.services.planning_scheduler import enqueue_recalculation
@@ -211,6 +234,8 @@ _CREATE_PAGE_DEPENDENCIES = _page_create_service.CreatePageDependencies(
         metadata, path
     ),
     emit_created=_emit_page_created,
+    find_page_by_id=lambda page_id: _vault.find_page_path(page_id, allow_full_scan=False),
+    verify_index_created=_verify_created_page_index,
 )
 create_page: _page_commands_api.CreateHandler = _page_commands_api.register_create_route(
     router,
@@ -409,3 +434,10 @@ async def list_vault_tags() -> _tags_query.TagResponse:
 
     """
     return await _tags_query.list_vault_tags()
+
+
+async def recover_feature_page_creation(context: _page_commands_api.UserContext, key: str) -> dict[str, object]:
+    """Recover a feature's original receipt through the same canonical ports."""
+    from backend.domains.vault.pages.creation_recovery import recover_page_creation, recovery_access_guard
+    return await recover_page_creation(context.user_id, context.workspace_id, context.vault_path,
+        key, _CREATE_PAGE_DEPENDENCIES, guard=recovery_access_guard(context))

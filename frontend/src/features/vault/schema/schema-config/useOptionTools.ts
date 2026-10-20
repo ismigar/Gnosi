@@ -8,8 +8,16 @@ import { apiErrorDetail, readCounts } from './readers';
 import type { OptionTools } from './types';
 export function useOptionTools(state: SchemaState, props: ResolvedProps) {
     const { t } = useTranslation();
-    const { sharedCatalogs, setSharedCatalogs } = state;
+    const { sharedCatalogs, setSharedCatalogs, fields, pendingSaveRef, activeSaveRef, savedCatalogRefsRef } = state;
     const { tableId } = props;
+    const ensureCatalogSaved = async (fieldId: string) => {
+        const reference = fields.find(field => field.id === fieldId)?.catalogRef || '';
+        await pendingSaveRef.current?.();
+        await activeSaveRef.current;
+        if (savedCatalogRefsRef.current[fieldId] !== reference) {
+            throw new Error(t('schema.error_saving'));
+        }
+    };
     const optionTools: OptionTools = {
         sharedCatalogs,
         fetchUsage: tableId ? async (fieldId) => {
@@ -19,6 +27,7 @@ export function useOptionTools(state: SchemaState, props: ResolvedProps) {
         renameEverywhere: tableId ? async (fieldId, oldVal, newVal) => {
             if (!fieldId) return;
             try {
+                await ensureCatalogSaved(fieldId);
                 const data = await renameTableOption(tableId, fieldId, oldVal, newVal);
                 const n = typeof data.files_changed === 'number' ? data.files_changed : 0;
                 if (Array.isArray(data.options)) {
@@ -33,6 +42,7 @@ export function useOptionTools(state: SchemaState, props: ResolvedProps) {
         removeEverywhere: tableId ? async (fieldId, value, reassignTo) => {
             if (!fieldId) return;
             try {
+                await ensureCatalogSaved(fieldId);
                 const data = await removeTableOption(tableId, fieldId, value, reassignTo || undefined);
                 const n = typeof data.files_changed === 'number' ? data.files_changed : 0;
                 if (Array.isArray(data.options)) {

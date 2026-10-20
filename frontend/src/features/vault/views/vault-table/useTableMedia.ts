@@ -5,6 +5,7 @@ import { toast } from '../../../../shared/notifications/toast';
 import { transportFetch } from '../../../../shared/api/transports';
 import { displayString, getTableFieldConfig, isRecord } from './fieldConfig';
 import { getMetaKey } from './metadata';
+import { sourceSectionOptions, sourceSectionTitle } from '../../properties/sourceSectionRelations';
 import type { TableInputs } from './tableInputs';
 import type { TableNote } from './types';
 import type { useTableData } from './useTableData';
@@ -112,18 +113,13 @@ export function useTableMedia({
       toast.error(message);
     }
   }, [t]);
-  const getRelationContext = (field: string) => {
+  const getRelationContext = (field: string, note?: TableNote) => {
     const config = getTableFieldConfig(schema, field);
     const relatedTableId = config.relation_database_id;
-    const relatedNotes = relatedTableId
-      ? allNotes.filter(n => {
-        const nTableId = n.resolved_table_id || n.metadata?.table_id || n.metadata?.database_table_id;
-        return nTableId === relatedTableId;
-      })
-      : [];
+    const relatedNotes = relatedTableId ? sourceSectionOptions(allNotes, config, note?.metadata) : [];
     const displayMap = {
       ...idToTitle,
-      ...Object.fromEntries(relatedNotes.map(n => [n.id, n.title || idToTitle[n.id] || n.id])),
+      ...Object.fromEntries(relatedNotes.map(n => [n.id, sourceSectionTitle(n, Boolean(note) && config.source_sections === true) || idToTitle[n.id] || n.id])),
     };
     return { relatedTableId, relatedNotes, displayMap };
   };

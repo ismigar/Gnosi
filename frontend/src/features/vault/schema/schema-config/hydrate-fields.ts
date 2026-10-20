@@ -1,5 +1,5 @@
 import { getFieldConfig, getFieldType, getSchemaFieldNames } from '../../../../shared/records/model/schemaUtils';
-import { normalizeOptions, STATUS_CATALOG_REF } from '../../../../shared/records/model/optionCatalogUtils';
+import { normalizeOptions } from '../../../../shared/records/model/optionCatalogUtils';
 import { generateFieldId } from './field-id';
 import { readString, readNumberOrString, readFormat } from './readers';
 import type { Field } from './types';
@@ -39,7 +39,7 @@ export function hydrateFields(currentSchema: VaultSchema | null | undefined, ini
                     // Rich catalog: normalizes legacy strings into {name,color,group}.
                     options: normalizeOptions(cfg.options),
                     defaultOption: readString(cfg.default_option) || '',
-                    catalogRef: readString(cfg.catalog_ref) || (getFieldType(currentSchema || {}, name) === 'status' ? STATUS_CATALOG_REF : ''),
+                    catalogRef: readString(cfg.catalog_ref) || '',
                     // Registry CRU config: buildPayload starts from it to do
                     // round-trip of keys that the UI doesn't manage (role,
                     // option_groups…) — without this, every save would erase them.

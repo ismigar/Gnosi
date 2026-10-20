@@ -31,13 +31,35 @@ describe('schema configuration persistence contracts', () => {
 
     it('persists global status references without copying catalogs and retains shared defaults', () => {
         const fields = hydrateFields({
-            Status: 'status', Status_config: { id: 'fld_00000002', options: ['Open'], default_option: 'Outside' },
+            Status: 'status', Status_config: { id: 'fld_00000002', catalog_ref: 'status', options: ['Open'], default_option: 'Outside' },
             Tags: 'multi_select', Tags_config: { id: 'fld_00000003', options: ['one'], default_option: 'missing' },
         }, null);
         expect(buildPayload(fields, false).newSchemaObj).toEqual({
             Status: 'status', Status_config: { id: 'fld_00000002', catalog_ref: 'status', default_option: 'Outside' },
             Tags: 'multi_select', Tags_config: { id: 'fld_00000003', options: [expect.objectContaining({ name: 'one' })] },
         });
+    });
+
+    it('preserves the source-section relation when editing its name', () => {
+        const fields = hydrateFields({ Apartat: 'relation', Apartat_config: {
+            id: 'fld_00000004', relation_database_id: 'sections', cardinality: 'many-to-one', source_sections: true,
+        } }, ['Apartat']);
+        const section = fields[0];
+        if (!section) throw new Error('Missing section field');
+        section.name = 'Chapter';
+        expect(buildPayload(fields, false).newSchemaObj.Chapter_config).toEqual({
+            id: 'fld_00000004', relation_database_id: 'sections', cardinality: 'many-to-one', source_sections: true,
+        });
+    });
+
+    it('keeps independent status options when hydrating and saving two tables', () => {
+        for (const names of [['Pending', 'Done'], ['Accepted', 'Rejected']]) {
+            const fields = hydrateFields({ Status: 'status', Status_config: { id: 'fld_00000002', options: names } }, null);
+            expect(fields[0]?.catalogRef).toBe('');
+            expect(buildPayload(fields, false).newSchemaObj.Status_config).toMatchObject({
+                id: 'fld_00000002', options: names.map(name => ({ name })),
+            });
+        }
     });
 
     it('round-trips rollup, relation, virtual, period, file and display-format payloads', () => {

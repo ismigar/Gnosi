@@ -99,6 +99,8 @@ function recorderController(
     closePanel: vi.fn(),
     errMsg: '',
     mode: 'presencial',
+    language: 'ca',
+    setLanguage: vi.fn(),
     open: false,
     openMinutes: vi.fn(),
     openPanel: vi.fn(),

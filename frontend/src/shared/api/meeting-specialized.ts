@@ -11,11 +11,13 @@ export async function uploadMeetingRecording(
   title: string,
   mode: MeetingMode,
   signal?: AbortSignal,
+  language?: 'ca' | 'es' | 'en' | 'fr',
 ): Promise<MeetingStart> {
   const body = new FormData();
   body.set('audio', audio, 'meeting.webm');
   body.set('title', title);
   body.set('mode', mode);
+  if (language) body.set('language', language);
 
   const response = await transportFetch('/api/meetings/record', {
     body,
@@ -30,6 +32,19 @@ export async function uploadMeetingRecording(
     !('status' in payload) ||
     typeof payload.status !== 'string'
   ) {
+    throw new GnosiApiError(response, 'The API returned an invalid meeting status');
+  }
+  return { status: payload.status };
+}
+
+/** Continue the original private meeting job, without uploading or creating another job. */
+export async function resumeMeetingProcessing(jobId: string): Promise<MeetingStart> {
+  const response = await transportFetch(`/api/meetings/${encodeURIComponent(jobId)}/resume`, {
+    method: 'POST',
+  });
+  const payload: unknown = await response.json().catch(() => undefined);
+  if (!response.ok) throw new GnosiApiError(response, payload);
+  if (!payload || typeof payload !== 'object' || !('status' in payload) || typeof payload.status !== 'string') {
     throw new GnosiApiError(response, 'The API returned an invalid meeting status');
   }
   return { status: payload.status };

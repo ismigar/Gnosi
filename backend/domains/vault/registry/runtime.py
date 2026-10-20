@@ -109,6 +109,37 @@ def load_registry() -> RegistryData:
     return _legacy.registry_repository.load()
 
 
+def load_registry_for_write() -> RegistryData:
+    """Read the actual schema for mutations; never authorize from stale cache."""
+    registry_path = _legacy.get_p("REGISTRY")
+    path = registry_path.resolve()
+    vault = _legacy.get_p("VAULT").resolve()
+    if not path.is_relative_to(vault):
+        raise HTTPException(403, "Registry is outside the selected vault")
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise HTTPException(503, "Current table schema is unavailable") from exc
+    except (ValueError, UnicodeError) as exc:
+        raise HTTPException(422, "Current table schema is invalid") from exc
+    if not is_record(value):
+        raise HTTPException(422, "Current table schema is invalid")
+    tables = value.get("tables")
+    if not isinstance(tables, list):
+        raise HTTPException(422, "Current table schema is invalid")
+    for table in tables:
+        if not is_record(table) or not isinstance(table.get("id"), str):
+            raise HTTPException(422, "Current table schema is invalid")
+        properties = table.get("properties", [])
+        if not isinstance(properties, list) or any(not is_record(prop) for prop in properties):
+            raise HTTPException(422, "Current table schema is invalid")
+    # The canonical patch workflow also reads this repository. Keep its schema
+    # consistent with the exact definitions just used to validate the button.
+    with _legacy.registry_repository.state.mutation_lock:
+        _legacy.registry_repository.update_cache(registry_path, value)
+    return value
+
+
 def _enabled_vault_calendar_tables() -> list[str]:
     from backend.services.integration_manager import integration_manager
 
@@ -132,6 +163,11 @@ def _set_last_vault_sync_time(value: float) -> None:
     _legacy.page_state.last_vault_sync_time = value
 
 
+def _resolve_index_title(metadata: RegistryData, path: Path) -> object:
+    from backend.domains.vault.pages.foundation import _query_page_title
+    return _query_page_title(metadata, path)
+
+
 _legacy.page_index_entries.configure(
     _legacy.page_index_entries.PageIndexEntryDependencies(
         parse_frontmatter=lambda content, path: _legacy.parse_frontmatter(content, path),
@@ -140,6 +176,7 @@ _legacy.page_index_entries.configure(
         process_metadata_paths=lambda metadata: _legacy._process_metadata_paths(metadata),
         vault_root=lambda: _legacy.get_p("VAULT"),
         logger=_legacy.log,
+        resolve_title=_resolve_index_title,
     )
 )
 _legacy.page_index_service.configure(

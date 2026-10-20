@@ -21,8 +21,8 @@ export function OptionsEditor({ options = [], onChange, fieldType = 'select', gr
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
     // With a shared catalog (config.catalog_ref), the options LIVE in the root
-    // registry and are edited there (all linked tables see them). Dedicated
-    // `status` fields always use the reserved global status catalog.
+    // registry and are edited there (all linked tables see them). Status
+    // fields can also keep their own options.
     const isShared = Boolean(catalogRef);
     const isGlobalStatus = fieldType === 'status' && catalogRef === STATUS_CATALOG_REF;
     const richOptions = normalizeOptions(isShared ? (sharedCatalogs[catalogRef] || []) : options);
@@ -224,7 +224,7 @@ export function OptionsEditor({ options = [], onChange, fieldType = 'select', gr
                         <Plus size={14} /> {t('common.add', "Add")}
                     </button>
                 </div>
-                {onLinkCatalog && !isGlobalStatus && (
+                {onLinkCatalog && (
                     <div className="flex items-center gap-2 pt-1">
                         <Link2 size={12} className="text-[var(--text-tertiary)]/60" />
                         <label className="text-[10px] text-[var(--text-tertiary)]/80">

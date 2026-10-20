@@ -16,11 +16,26 @@ import { usePageDeletion } from './usePageDeletion';
 import { useRelationHistory } from './useRelationHistory';
 import { useUndoRedo } from './useUndoRedo';
 import { usePageMutations } from './usePageMutations';
+import { useExternalCatalogRefresh } from './useExternalCatalogRefresh';
+import { fetchVaultPages, fetchVaultSidebarSummary, fetchVaultGlobalIndex } from '../../../shared/api/vaults';
+import { readPages } from './readers';
 export function useDashboardActions() {
     const state = useDashboardState();
     const records = useRecordCatalog(state);
     const index = useGlobalIndex(state);
     const data = useDataLoading({ ...state, ...records, ...index });
+    useExternalCatalogRefresh(async signal => {
+        const [pages, globalIndex] = await Promise.all([
+            state.fullPageCatalogLoadedRef.current ? fetchVaultPages({}, signal) : fetchVaultSidebarSummary(signal),
+            fetchVaultGlobalIndex(signal),
+        ]);
+        return { pages: readPages(pages), globalIndex };
+    }, ({ pages, globalIndex }) => {
+        // Catalog/search state is separate from tabs and editor document state.
+        // Do not call loadPage or replace editor content on external changes.
+        records.syncPagesState(pages);
+        state.setGlobalIndex(globalIndex);
+    });
     const navigation = useNavigationHistory(state);
     const loading = usePageLoading({ ...state, ...records, ...data, ...navigation });
     const catalog = useViewCatalog({ ...state, ...data });

@@ -17,6 +17,7 @@ from backend.domains.agent.gnosi_support import (
     _resolve_page,
     _resolve_snapshotted_row_path,
     _rollback_page_items,
+    _sidecar_snapshot,
     _table,
     _table_delete_snapshot,
     _trash_snapshot,
@@ -42,6 +43,7 @@ def _prepare_table_rows(snapshot: dict[str, Any], table_id: str) -> list[dict[st
                 "id": row["id"],
                 "path": path,
                 "original": path.read_bytes(),
+                **_sidecar_snapshot(path, str(row["id"])),
                 "metadata": metadata,
                 "body": body,
             }

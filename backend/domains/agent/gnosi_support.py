@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, cast
 import yaml
 
 from backend.services.content_revision import tree_revision
+from backend.domains.vault.registry.records import is_record
 from backend.utils.safe_io import safe_write_bytes, safe_write_text
 
 MAX_LIST_ITEMS = 100
@@ -376,15 +377,49 @@ def _serialize_page(path: Path, *, include_body: bool = False) -> Dict[str, Any]
     return result
 
 
-def _write_page(path: Path, metadata: Dict[str, Any], body: str) -> None:
-    from backend.api.vault_routes import _create_page_version, register_page_in_index
+def _sidecar_snapshot(path: Path, page_id: str) -> Dict[str, Any]:
+    from backend.services.page_sidecar import sidecar_path_for, vault_root_for
+
+    root = vault_root_for(path)
+    if root is None or not page_id:
+        return {}
+    sidecar = sidecar_path_for(root, page_id)
+    if sidecar.resolve().parent != (root / ".gnosi/page_meta").resolve():
+        raise ValueError("Invalid page identity for sidecar storage.")
+    return {"sidecar_path": sidecar, "sidecar_original": sidecar.read_bytes() if sidecar.exists() else None}
+
+
+def _restore_sidecar(snapshot: Dict[str, Any]) -> None:
+    path = snapshot.get("sidecar_path")
+    if path is None:
+        return
+    if snapshot["sidecar_original"] is None:
+        path.unlink(missing_ok=True)
+    else:
+        safe_write_bytes(path, snapshot["sidecar_original"])
+
+
+def _write_page(path: Path, metadata: object, body: str) -> None:
+    from backend.api.vault_routes import _create_page_version, register_page_in_index, save_page_md
+
+    if not is_record(metadata):
+        raise ValueError("Page metadata must be an object")
 
     create_page_version = cast(Callable[[str, Path, bool], object], _create_page_version)
     index_page = cast(Callable[[Path], None], register_page_in_index)
     if path.exists():
         create_page_version(str(metadata.get("id") or ""), path, True)
-    frontmatter = yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False).strip()
-    safe_write_text(path, f"---\n{frontmatter}\n---\n\n{body.rstrip()}\n")
+    sidecar = _sidecar_snapshot(path, str(metadata.get("id") or ""))
+    original = path.read_bytes() if path.exists() else None
+    try:
+        save_page_md(path, metadata, body)
+    except BaseException:
+        _restore_sidecar(sidecar)
+        if original is None:
+            path.unlink(missing_ok=True)
+        else:
+            safe_write_bytes(path, original)
+        raise
     index_page(path)
 
 
@@ -397,6 +432,7 @@ def _rollback_page_items(items: Iterable[Dict[str, Any]]) -> List[str]:
     for item in reversed(list(items)):
         try:
             safe_write_bytes(item["path"], item["original"])
+            _restore_sidecar(item)
             index_page(item["path"])
         except Exception:
             failed.append(str(item["id"]))

@@ -105,7 +105,10 @@ def get_prop_options(
 
 
 def is_global_status_prop(prop: Metadata) -> bool:
-    return str(prop.get("type") or "").strip() == "status"
+    return (
+        str(prop.get("type") or "").strip() == "status"
+        and str(get_prop_config(prop).get("catalog_ref") or "").strip() == "status"
+    )
 
 
 def set_prop_options(prop: Metadata, options: list[Option]) -> None:

@@ -149,14 +149,10 @@ export function useSidebarController(props: VaultSidebarProps) {
         return () => { window.cancelAnimationFrame(frame); };
     }, [databases.length]);
     const toggleWorkspace = () => {
-        setIsWorkspaceExpanded(prev => {
-            const next = !prev;
-            if (next) {
-                setWikiScrollTop(0);
-                requestAnimationFrame(() => { if (wikiViewportRef.current) wikiViewportRef.current.scrollTop = 0; });
-            }
-            return next;
-        });
+        // The viewport is shared with favorites and databases. Expanding Wiki
+        // must not scroll those sections back to the top.
+        setWikiScrollTop(wikiViewportRef.current?.scrollTop ?? 0);
+        setIsWorkspaceExpanded(prev => !prev);
         setExpandedWikiNodes({});
     };
     return {

@@ -7,7 +7,7 @@ export interface Field {
     type?: string;
     relation_database_id?: string;
     options?: unknown;
-    config?: { options?: unknown };
+    config?: { options?: unknown; source_sections?: boolean };
     label?: string;
     displayName?: string;
 }

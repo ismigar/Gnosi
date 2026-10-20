@@ -203,6 +203,15 @@ def test_coder_tools_exclude_personal_data_sources():
         ("Buida la paperera", {"empty_trash"}),
         ("Elimina la taula Projectes", {"delete_table"}),
         (
+            'Necessito que busquis totes les entrada de la taula Cervell Digital '
+            'on recurs és "El papa de mis sueños" i assignis "En revisió" al camp estat.',
+            {"bulk_update_rows"},
+        ),
+        ('Assigna "En revisió" al camp estat de la fila Nota', {"update_table_row"}),
+        ('Asigna "En revisión" al campo estado de todas las entradas de la tabla Notas', {"bulk_update_rows"}),
+        ('Find all entries in the table Notes and set the status field to "In review"', {"bulk_update_rows"}),
+        ('Attribue "À revoir" au champ statut de toutes les lignes du tableau Notes', {"bulk_update_rows"}),
+        (
             "Substitueix els ids dels títols de la taula Cervell digital",
             {"replace_reference_ids_in_titles"},
         ),
@@ -251,6 +260,12 @@ def test_vague_or_quoted_content_does_not_authorize_writes(message):
         "Modifie la page, mais ne la change pas",
         "Sí, fes-la",
         "OK",
+        'No assignis "En revisió" al camp estat de totes les entrades de la taula Notes',
+        'Explica com assignar "En revisió" al camp estat de la taula Notes',
+        'Can this agent set the status field of all rows in the table?',
+        'Mostra les entrades de la taula on recurs és "Assigna el camp estat"',
+        '"Assigna En revisió al camp estat de la taula Notes"',
+        'Set the status field of all rows, but do not actually change anything',
     ],
 )
 def test_negated_meta_or_quoted_intent_never_authorizes_writes(message):

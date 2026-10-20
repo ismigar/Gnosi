@@ -6,6 +6,9 @@ import { definedTransparency, type ChatStreamState, type StreamEventContext } fr
 
 function streamError(data: LooseRecord, t: TFunction): string {
   let content = typeof data.content === 'string' ? data.content.trim() : '';
+  const localized = Boolean(content) && typeof data.content_language === 'string'
+    && ['ca', 'es', 'en', 'fr'].includes(data.content_language);
+  if (localized) return `❌ ${t('chat.error_prefix', 'Error')}: ${content}`;
   content ||= t('errors.unknown', 'Unknown error');
   if (data.code === 'agent_model_unavailable') content = t('chat.agent_model_unavailable', 'The selected agent model is unavailable. Configure the agent and try again.');
   else if (data.code === 'agent_turn_timeout') content = t('chat.turn_timeout', 'The response exceeded the 120-second processing limit. Please try again.');

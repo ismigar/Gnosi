@@ -233,6 +233,68 @@ def test_stream_protocol_wraps_legacy_events():
     assert [event["sequence"] for event in events] == [1, 2, 3]
 
 
+def test_stream_disconnect_closes_source_in_its_own_context():
+    from contextvars import ContextVar
+
+    context = ContextVar("test_stream_context", default="caller")
+
+    async def exercise():
+        closed = asyncio.Event()
+        waiting = asyncio.Event()
+
+        async def source():
+            token = context.set("source")
+            try:
+                yield '{"type":"message","content":"first"}'
+                waiting.set()
+                await asyncio.Event().wait()
+            finally:
+                context.reset(token)
+                closed.set()
+
+        stream = protocolize_stream(source(), stream_id="disconnect", trace_id="disconnect")
+        assert json.loads(await anext(stream))["type"] == "stream_open"
+        assert json.loads(await anext(stream))["type"] == "message"
+        await waiting.wait()
+        assert context.get() == "caller"
+        await stream.aclose()
+        assert closed.is_set()
+
+    asyncio.run(exercise())
+
+
+def test_stream_source_error_propagates_after_prior_events():
+    async def source():
+        yield '{"type":"message","content":"first"}'
+        raise ValueError("source failed")
+
+    async def exercise():
+        events = []
+        with pytest.raises(ValueError, match="source failed"):
+            async for item in protocolize_stream(source(), stream_id="failed", trace_id="failed"):
+                events.append(json.loads(item)["type"])
+        assert events == ["stream_open", "message"]
+
+    asyncio.run(exercise())
+
+
+def test_stream_source_cancellation_reaches_consumer():
+    async def source():
+        yield '{"type":"message","content":"first"}'
+        raise asyncio.CancelledError("source cancelled")
+
+    async def collect():
+        return [item async for item in protocolize_stream(
+            source(), stream_id="cancelled", trace_id="cancelled",
+        )]
+
+    async def exercise():
+        with pytest.raises(asyncio.CancelledError, match="source cancelled"):
+            await asyncio.wait_for(collect(), timeout=1)
+
+    asyncio.run(exercise())
+
+
 def test_factory_fallback_candidates_preserve_provider_locality(monkeypatch):
     created = []
 
@@ -257,3 +319,21 @@ def test_universal_eval_corpus_keeps_latency_budgets_bounded():
         # The deterministic planner is the first line of defence against a
         # request that could otherwise fan out indefinitely.
         assert int(plan.get("budgets", {}).get("timeout_seconds", 0) or 0) <= 120
+
+
+def test_provider_timeout_is_propagated_without_waiting_for_turn_deadline():
+    from concurrent.futures import ThreadPoolExecutor
+    class ProviderTimeout(TimeoutError):
+        pass
+    class TimeoutModel:
+        async def ainvoke(self, prompt):
+            raise ProviderTimeout('provider request timed out')
+    token = create_cancel_token()
+    with ThreadPoolExecutor(max_workers=1) as worker:
+        result = worker.submit(invoke_cancellable, TimeoutModel(), ['synthetic'], token)
+        try:
+            with pytest.raises(ProviderTimeout, match='provider request timed out'):
+                result.result(timeout=2)
+        finally:
+            cancel(token)
+            release(token)

@@ -185,9 +185,14 @@ def resolve_page_context_from_path(
     dependencies: TableRowQueryDependencies,
 ) -> tuple[str, str | None]:
     """Return vault-relative folder and resolved table ID for one page."""
-    relative_folder = str(file_path.parent.relative_to(dependencies.vault_root())).replace(
-        "\\", "/"
-    )
+    root = dependencies.vault_root()
+    try:
+        relative = file_path.parent.relative_to(root)
+    except ValueError:
+        # macOS temporary paths and configured vault roots can pass through
+        # symlinks. Resolve both sides, while still refusing an outside path.
+        relative = file_path.parent.resolve().relative_to(root.resolve())
+    relative_folder = str(relative).replace("\\", "/")
     if relative_folder == ".":
         relative_folder = ""
     folder_to_table = build_table_folder_index(dependencies.load_registry())

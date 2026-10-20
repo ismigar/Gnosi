@@ -4,6 +4,7 @@ import { invalidateCachedQuery } from './cached-query';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
 import { queuePageWrite } from './page-write-queue';
+import { createRecoverablePage } from './page-creation-recovery';
 
 type VaultPageSaveRequest = components['schemas']['PageSaveRequest'];
 type VaultPagePatchRequest = components['schemas']['PagePatchRequest'];
@@ -39,9 +40,7 @@ export async function createVaultPage(
   input: VaultPageSaveInput,
 ): Promise<VaultPageMutation> {
   return invalidateSidebarAfter(
-    apiClient
-      .POST('/api/vault/pages', { body: materializeVaultPageSaveRequest(input) })
-      .then((result) => unwrapApiResult<VaultPageMutation, unknown>(result)),
+    createRecoverablePage(materializeVaultPageSaveRequest(input)),
   );
 }
 

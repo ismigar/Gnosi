@@ -1,0 +1,27 @@
+services:
+  gnosi-connector:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8787:8787"
+    environment:
+      GNOSI_BASE_URL: ${GNOSI_BASE_URL:?Set the reachable Gnosi API origin}
+      GNOSI_VAULT_SLUG: ${GNOSI_VAULT_SLUG:-}
+      GNOSI_WEB_URL: ${GNOSI_WEB_URL:-}
+      GNOSI_WORKSPACE_ID: ${GNOSI_WORKSPACE_ID:-}
+      GNOSI_ALLOW_PRIVATE_HTTP: ${GNOSI_ALLOW_PRIVATE_HTTP:-0}
+      GNOSI_MCP_ALLOWED_HOSTS: ${GNOSI_MCP_ALLOWED_HOSTS:-}
+      GNOSI_TOKEN_FILE: /run/secrets/gnosi_token
+      GNOSI_MCP_TOKEN_FILE: /run/secrets/mcp_token
+    secrets:
+      - gnosi_token
+      - mcp_token
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+secrets:
+  gnosi_token:
+    file: ${GNOSI_TOKEN_FILE:?Set the host path to the Gnosi PAT file}
+  mcp_token:
+    file: ${GNOSI_MCP_TOKEN_FILE:?Set the host path to the connector key file}

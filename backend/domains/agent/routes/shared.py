@@ -9,7 +9,7 @@ from langgraph.errors import GraphRecursionError
 from backend.agent.action_confirmations import confirmation_event
 from backend.agent.factory import _explicit_brain_write_tool_names
 from backend.agent.gnosi_tools import replace_reference_ids_in_titles
-from backend.domains.agent.routes.contracts import IDENTIFIER_RE, SKILL_IDENTIFIER_RE
+from backend.domains.agent.routes.contracts import IDENTIFIER_RE, PROFILE_IDENTIFIER_RE, SKILL_IDENTIFIER_RE
 from backend.services.context_vars import get_active_vault_path
 from backend.services.workspace_service import WorkspaceContext
 
@@ -24,12 +24,22 @@ def _agent_stream_error_code(error: BaseException) -> Optional[str]:
         return "agent_turn_timeout"
     if isinstance(error, GraphRecursionError):
         return "agent_loop_exhausted"
+    code = str(error).partition(":")[0]
+    if code in {
+        "agent_execution_tool_revoked", "agent_execution_skill_revoked",
+        "agent_execution_scope_or_skill_mismatch", "agent_execution_membership_revoked",
+        "agent_execution_vault_unavailable", "agent_budget_exceeded",
+        "agent_turn_incomplete_limit_reached", "agent_model_context_exceeded",
+        "agent_invalid_result", "agent_empty_result",
+    }:
+        return code
     return None
 
 
 def _validated_identifier(value: str, label: str) -> str:
     candidate = (value or "").strip()
-    if not IDENTIFIER_RE.fullmatch(candidate):
+    pattern = PROFILE_IDENTIFIER_RE if label in {"agent_id", "profile_id"} else IDENTIFIER_RE
+    if not pattern.fullmatch(candidate):
         raise HTTPException(status_code=422, detail=f"Invalid {label}")
     return candidate
 

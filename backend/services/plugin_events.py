@@ -23,6 +23,7 @@ sandbox on a separate thread with a timeout; errors are logged, not propagated.
 from __future__ import annotations
 
 import threading
+from contextvars import copy_context
 from typing import Any, Callable, Dict, List
 
 from backend.config.logger_config import get_logger
@@ -102,6 +103,7 @@ def emit(event: str, payload: Dict[str, Any] | None = None) -> None:
                 logger.exception("Plugin dispatcher failed for %s", event)
 
     try:
-        threading.Thread(target=_run, name=f"plugin-evt-{event}", daemon=True).start()
+        context = copy_context()
+        threading.Thread(target=context.run, args=(_run,), name=f"plugin-evt-{event}", daemon=True).start()
     except Exception:  # noqa: BLE001
         logger.exception("Could not start event thread %s", event)

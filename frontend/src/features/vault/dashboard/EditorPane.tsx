@@ -136,7 +136,7 @@ export function EditorPane({ dashboard, tabId }: {
       brainTableId={context.brainTableId}
       onCreateFromSource={(tableId: unknown) => { setCreateSourceTableId(text(tableId) || null); }}
       initialContent={tab.content}
-      initialMetadata={editorMetadata(tab.metadata)}
+      initialMetadata={editorMetadata(tab.metadata, tab.title)}
       isCodeView={Boolean(codeViewByTabId[tab.id])}
       isEditLocked={Boolean(editLockedByPageId[tab.id])}
       onUpdate={((id, content, patch) => { handleEditorUpdate(id, typeof content === 'string' ? content : undefined, patch); }) satisfies PublicBlockEditorProps['onUpdate']}

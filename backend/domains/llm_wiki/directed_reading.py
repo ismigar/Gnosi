@@ -101,7 +101,7 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
 
 
 def validate_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], answer: dict[str, object]) -> None:
-    import jsonschema  # type: ignore[import-untyped]
+    import jsonschema
     output_schema, argument_schemas = action_schemas(reader.dimensions)
     try:
         jsonschema.validate(answer, output_schema)

@@ -79,6 +79,13 @@ describe('typed read boundaries', () => {
     expect(editorMetadata({ table_id: null, title: 42, extension: nested })).toEqual({ extension: nested });
     expect(editorNote({ id: 'page', title: 'Page', resolved_table_id: null }).resolved_table_id).toBeUndefined();
   });
+  it('uses the API document title for localized metadata without changing the source or an explicit empty title', () => {
+    const original = { Títol: 'El papa de mis sueños', extension: { id: 'keep' } };
+    expect(editorMetadata(original, 'El papa de mis sueños')).toEqual({ ...original, title: 'El papa de mis sueños' });
+    expect(original).not.toHaveProperty('title');
+    expect(editorMetadata({ title: '' }, 'Fallback')).toEqual({ title: '' });
+    expect(editorNote({ id: 'p', title: 'API title', metadata: { Títol: 'API title' } }).metadata?.title).toBe('API title');
+  });
   it('preserves editor field IDs, options, rollups and formatting through actual validation', () => {
     const config = { id: 'fld_status', options: [{ name: 'Done', color: 'blue', extension: 42 }] };
     const rollup = { name: 'Rollup', id: 'fld_rollup', type: 'rollup', targetProperty: 'fld_target', aggregation: 'sum', format: { decimals: 2 }, config };

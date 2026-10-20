@@ -4,6 +4,7 @@ import { dispatchWindowEvent } from '../../../shared/platform/browser-events';
 import { useDashboardController } from './useDashboardController';
 import { DashboardSidebar } from './DashboardSidebar';
 import { DashboardContent } from './DashboardContent';
+import { CreationRecoveryPanel } from './CreationRecoveryPanel';
 
 const BrowseDialogs = lazy(() => import('./BrowseDialogs').then(module => ({ default: module.BrowseDialogs })));
 const ConfirmationDialogs = lazy(() => import('./ConfirmationDialogs').then(module => ({ default: module.ConfirmationDialogs })));
@@ -46,6 +47,7 @@ export default function Dashboard() {
         dashboard.handleTabClose(dashboard.activeTabId);
     }}
   >
+    <CreationRecoveryPanel onOpen={dashboard.loadPage} />
     <DashboardContent {...dashboard} />
     <Suspense fallback={null}>
       {hasBrowseDialog && <BrowseDialogs {...dashboard} />}

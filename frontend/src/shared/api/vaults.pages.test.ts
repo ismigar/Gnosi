@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { installBrowserLocks } from '../../../tests/browser-locks';
 import { requestAt, resetApiTestStorage, writeApiTestStorage } from '../../../tests/api-request';
 import { queryClient } from './query-client';
 import {
@@ -16,6 +17,7 @@ import {
   warmVaultPagePreviews,
 } from './vaults';
 
+beforeEach(installBrowserLocks);
 afterEach(() => { queryClient.clear(); resetApiTestStorage(); vi.unstubAllGlobals(); });
 
 describe('vault pages API', () => {

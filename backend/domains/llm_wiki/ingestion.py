@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Protocol, cast
 
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
+from backend.domains.llm_wiki.source_structure import bind_note_structure, document_key, structure_catalog
 from backend.domains.vault.registry.records import is_record
 from backend.utils.open_values import iterable_values
 
@@ -169,7 +170,8 @@ def process_resource(
         metadata,
     )
     reading_revision = fingerprint([dependencies.execution_revision, source_title, language,
-                                    source_dimensions, ai_dimensions, brain_index, sources.chunks])
+                                    source_dimensions, ai_dimensions, brain_index, sources.chunks,
+                                    [document_key(origin) for origin in sources.origins]])
     plan, models = _resolve_plan(
         source_title,
         language,
@@ -185,6 +187,8 @@ def process_resource(
     notes = _plan_notes(plan)
     if not notes:
         raise RuntimeError("The persisted or generated plan contains no reading notes")
+    bind_note_structure(notes, sources.origins)
+    plan["source_structure"] = structure_catalog(sources.origins)
     _persist_reduced_plan(
         plan,
         models,

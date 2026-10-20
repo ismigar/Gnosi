@@ -136,6 +136,12 @@ def extract_resource_sources(
                     if origin.get("kind") == "pdf":
                         origin["_annotation_source_uri"] = value
                         origin["_annotation_pdf_path"] = str(path)
+            for origin in extracted:
+                # Distinguish same-named attachments without exposing their paths
+                # in section labels or depending on mutable content hashes.
+                origin["source_identity"] = hashlib.sha256(
+                    f"{input_kind}|{value}|{origin.get('kind')}".encode("utf-8")
+                ).hexdigest()
             origins.extend(extracted)
         except Exception as exc:  # noqa: BLE001
             message = f"{input_kind} {value}: {exc}"
@@ -667,6 +673,8 @@ def _extract_streaming_url(url: str, input_order: int) -> list[dict[str, object]
         if not path.exists():
             raise ExtractionError("The streaming source could not be downloaded")
         segments = _extract_audio(path)
+        from backend.domains.llm_wiki.media_structure import timed_sections
+        segments = timed_sections(segments, info.get("chapters"))
         if not segments:
             raise ExtractionError("The streaming source did not produce a transcript")
         return [

@@ -5,6 +5,7 @@ from __future__ import annotations
 from backend.services.agent_behavior import task_input
 
 import json
+from functools import partial
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, TypeVar
 
@@ -30,7 +31,8 @@ def configured_invoker(agent: Mapping[str, object], ai: Mapping[str, object]) ->
         def __call__(self, instruction: str, data: str) -> str:
             return self.structured(instruction, data, None)
 
-        def structured(self, instruction: str, data: str, schema: dict[str, Any] | None) -> str:
+        def structured(self, instruction: str, data: str, schema: dict[str, Any] | None,
+                       output_validator: Callable[[str], str] | None = None) -> str:
             nonlocal calls
             if calls >= 3:
                 raise ValueError("The model call budget has been reached.")
@@ -38,13 +40,16 @@ def configured_invoker(agent: Mapping[str, object], ai: Mapping[str, object]) ->
             calls += allowance
             result = run_sync(AgentOperation(
                 skill_id=skill_id("learning"), operation="learning.text-trial",
-                input=instruction + "\n\n" + data, timeout_seconds=45,
+                input=instruction + "\n\n" + data,
                 output_schema=schema, max_model_calls=allowance,
-            ), snapshot=snapshot)
+            ), snapshot=snapshot, output_validator=output_validator)
             calls -= allowance - result.model_calls
             if len(result.result) > 60_000:
                 raise ValueError("The model returned an oversized answer.")
             return result.result
+
+        def review(self, instruction: str, data: str, schema: dict[str, Any], validator: Callable[[str], str]) -> str:
+            return self.structured(instruction, data, schema, output_validator=validator)
 
     return Invoker()
 
@@ -93,16 +98,32 @@ class TrialChecks(BaseModel):
 
 
 def trial_skill(request: SkillTrialRequest, invoke: ModelInvoker) -> SkillTrialResult:
-    instruction = task_input("learning.trial", skill=request.skill.model_dump())
-    output = invoke(instruction, request.input)
-    rubric = task_input("learning.review", output_schema=TrialChecks.model_json_schema())
-    checks = invoke_contract(invoke, rubric, json.dumps({
+    from backend.services.json_contracts import validate_json_value
+    trial_schema = {"type": "object", "properties": {
+        "output": {"type": "string", "minLength": 1, "maxLength": 60000},
+        "missing_inputs": {"type": "array", "maxItems": 16, "items": {"type": "string", "minLength": 1, "maxLength": 1000}},
+    }, "required": ["output", "missing_inputs"], "additionalProperties": False}
+    instruction = task_input("learning.trial", skill=request.skill.model_dump(), output_schema=trial_schema)
+    structured = getattr(invoke, "structured", None)
+    missing_inputs: list[str] = []
+    if callable(structured):
+        raw_trial = structured(instruction, request.input, trial_schema)
+        trial = json.loads(raw_trial)
+        validate_json_value(trial, trial_schema)
+        output, missing_inputs = trial["output"], trial["missing_inputs"]
+    else:
+        output = invoke(instruction, request.input)
+    from backend.services.agent_learning_review import review_schema, validate_review, review_results
+    schema = review_schema(request.skill.criteria)
+    rubric = task_input("learning.review", output_schema=schema)
+    data = json.dumps({
         "criteria": request.skill.criteria, "input": request.input, "output": output,
-    }, ensure_ascii=False), TrialChecks).checks
-    if len(checks) != len(request.skill.criteria):
-        raise ValueError("The trial did not evaluate every acceptance criterion.")
-    checks = [
-        check.model_copy(update={"criterion": criterion})
-        for criterion, check in zip(request.skill.criteria, checks, strict=True)
-    ]
-    return SkillTrialResult(output=output, checks=checks)
+        "missing_inputs": missing_inputs, "tools_invoked": [], "external_actions_performed": False,
+    }, ensure_ascii=False)
+    validator = partial(validate_review, criteria=request.skill.criteria, source=request.input, output=output)
+    review = getattr(invoke, "review", None)
+    structured = getattr(invoke, "structured", None)
+    raw = review(rubric, data, schema, validator) if callable(review) else (
+        structured(rubric, data, schema) if callable(structured) else invoke(rubric, data))
+    checks = review_results(validator(raw))
+    return SkillTrialResult(output=output, checks=checks, missing_inputs=missing_inputs)

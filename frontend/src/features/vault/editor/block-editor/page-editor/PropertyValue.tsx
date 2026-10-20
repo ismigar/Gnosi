@@ -12,25 +12,24 @@ import { dedupeAuthors } from '../../../properties/autoriaUtils';
 import { normalizeOption } from '../../../../../shared/records/model/optionCatalogUtils';
 import type { PageEditorController } from './usePageEditorController';
 import type { PageProperty } from './types';
+import { sourceSectionOptions, sourceSectionTitle } from '../../../properties/sourceSectionRelations';
 export function PropertyValue({ context, prop }: { context: PageEditorController; prop: PageProperty }) {
   const { allNotes, metadata, idToTitle, handleMetaChange, t, onOpenInNewTab, onOpenPage, handleRelationRemove, getPropOptions, onAddSchemaOption, currentTableId, rawTableId, getPropValue, getPropConfig } = context;
   const isEditor = context.isEditor && !isPagePropertyReadOnly(prop);
   const value = getPropValue(prop);
   const config = getPropConfig(prop);
   return (prop.type === 'relation' ? (() => {
-    const relatedTableId = config.relation_database_id;
-    const relatedNotes = allNotes.filter(n => {
-      const nTableId = n.resolved_table_id || n.metadata?.table_id || n.metadata?.database_table_id;
-      return nTableId === relatedTableId;
-    });
+    const relatedNotes = sourceSectionOptions(allNotes, config, metadata);
     const options = relatedNotes.map(n => n.id);
-    const relatedMap = { ...idToTitle, ...Object.fromEntries(relatedNotes.map(n => [n.id, n.title || idToTitle[n.id] || n.id])) };
+    const relatedMap = { ...idToTitle, ...Object.fromEntries(relatedNotes.map(n => [n.id, sourceSectionTitle(n, config.source_sections === true)])) };
     return (
       <MultiSelectPills
+        single={config.source_sections === true}
         label={prop.name}
         disabled={!isEditor}
         value={value}
-        onChange={val => { if (isEditor) handleMetaChange(prop.name, val); }}
+        onChange={val => { if (isEditor) handleMetaChange(prop.name,
+          config.source_sections === true ? (val ? [val] : []) : val); }}
         options={options}
         idToTitle={relatedMap}
         placeholder={isEditor ? t('editor.add_options') : t('common.empty')}

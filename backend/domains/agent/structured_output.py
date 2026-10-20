@@ -5,6 +5,22 @@ from copy import deepcopy
 from typing import Any
 
 
+def _has_dynamic_object(schema: Any) -> bool:
+    """Strict provider schemas cannot represent arbitrary concept-map keys."""
+    if isinstance(schema, list):
+        return any(_has_dynamic_object(item) for item in schema)
+    if not isinstance(schema, dict):
+        return False
+    if any(key in schema for key in ("oneOf", "allOf", "if", "then", "else", "prefixItems")):
+        # These local contracts are outside the provider's strict subset.
+        return True
+    if schema.get("type") == "object" and (
+        "properties" not in schema or isinstance(schema.get("additionalProperties"), dict)
+    ):
+        return True
+    return any(_has_dynamic_object(value) for value in schema.values())
+
+
 def constrain_output(model: Any, provider: str, schema: dict[str, Any] | None) -> Any:
     """Keep routing preferences and refuse silent parameter-dropping upstream."""
     if provider != "openrouter" or schema is None:
@@ -23,9 +39,10 @@ def constrain_output(model: Any, provider: str, schema: dict[str, Any] | None) -
     preferences = {**extra.get("provider", {}), **bound_extra.get("provider", {})}
     extra.update(bound_extra)
     extra["provider"] = {**preferences, "require_parameters": True}
-    # A generic object contract has no field schema to enforce. JSON mode still
-    # constrains its syntax; domain-specific validators remain authoritative.
-    response_format = {"type": "json_object"} if schema == {"type": "object"} else {
+    # Dynamic dictionaries are valid JSON Schema but cannot be represented by
+    # strict provider schemas. Keep the complete contract in the operation
+    # envelope and validate/repair locally; constrain the transport to JSON.
+    response_format = {"type": "json_object"} if _has_dynamic_object(schema) else {
         "type": "json_schema",
         "json_schema": {"name": "gnosi_operation", "strict": True, "schema": deepcopy(schema)},
     }

@@ -14,7 +14,6 @@ export function CellButton({ model, noteId, field }: { model: TableController, v
     t,
     executingButtonKey,
     setPendingAction,
-    handleCellSave,
     setExecutingButtonKey,
     onTranslated,
   } = model;
@@ -46,16 +45,25 @@ export function CellButton({ model, noteId, field }: { model: TableController, v
       const note = noteById.get(noteId);
       const metadata = note?.metadata || {};
       const title = note?.title || '';
-      for (const assign of assignments) {
-        if (!assign.field) continue;
-        let val = assign.value || '';
+      const evaluatedAssignments = assignments.map(assign => {
+        let val = assign.value ?? '';
         if (typeof val === 'string' && (val.includes('(') || val.includes('{') || val.includes('+'))) {
           const evaluated = evaluateTableFormula(val, metadata, title);
           if (evaluated !== null) val = evaluated;
         }
-        await handleCellSave(noteId, assign.field, val, assign.field);
-      }
-      toast.success(t('schema.button_executed_success', "Acció executada correctament"));
+        return { field: assign.field || '', value: val };
+      });
+      setExecutingButtonKey(btnKey);
+      try {
+        const result = await executeVaultTableButtonAction({ note_id: noteId, button_action: 'set_fields',
+          button_config: { assignments: evaluatedAssignments } });
+        if (result.status === 'ok') {
+          toast.success(t('schema.button_executed_success', "Acció executada correctament"));
+          onTranslated?.({});
+        }
+      } catch (error) {
+        toast.error(apiErrorDetail(error, t('schema.functionality_execute_error', 'Could not execute functionality')));
+      } finally { setExecutingButtonKey(null); }
       return;
     }
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import type { NormalizedTool } from './aiSettingsUtils';
 import { domainLabel, localizedResourceSearchText, resourceDomain, resourceStatusLabel, toolDisplayDescription, toolDisplayName } from './aiResourceI18n';
 import { originLabel } from './aiResourceLabels';
@@ -15,9 +16,11 @@ export function ToolPicker({ tools, selected, onToggle }: {
     const [domain, setDomain] = useState('all');
     const [effect, setEffect] = useState('all');
     const [availability, setAvailability] = useState('all');
+    const [activeOnly, setActiveOnly] = useState(false);
     const domains = [...new Set(tools.map(resourceDomain))].sort();
     const filtered = tools.filter(tool => (
         localizedResourceSearchText(t, tool, 'tool').includes(search.trim().toLowerCase())
+        && (!activeOnly || selected.includes(tool.id))
         && (domain === 'all' || resourceDomain(tool) === domain)
         && (availability === 'all' || tool.available === (availability === 'available'))
         && (effect === 'all' || tool.effects.some(value => ['local_write', 'external_write', 'destructive', 'bulk_write'].includes(value)) === (effect === 'write'))
@@ -38,8 +41,16 @@ export function ToolPicker({ tools, selected, onToggle }: {
                 <option value="all">{t('settings.ai.resources.all_statuses')}</option><option value="available">{t('settings.ai.resources.status_available')}</option><option value="unavailable">{t('settings.ai.resources.status_unavailable')}</option>
             </select>
         </div>
-        <div className="ai-resource-tool-options">{filtered.map(tool => <label className="ai-resource-tool-option" key={tool.id}>
-            <input type="checkbox" checked={selected.includes(tool.id)} disabled={!tool.available && !selected.includes(tool.id)} onChange={() => { onToggle(tool.id); }} />
+        <div className="inline-flex items-center gap-2">
+            <GnosiToggle
+                label={t('settings.ai.resources.active_tools_only')}
+                active={activeOnly}
+                onChange={() => { setActiveOnly(value => !value); }}
+            />
+            <span>{t('settings.ai.resources.active_tools_only')}</span>
+        </div>
+        <div className="ai-resource-tool-options">{filtered.map(tool => <div className="ai-resource-tool-option" key={tool.id}>
+            <GnosiToggle label={toolDisplayName(t, tool)} active={selected.includes(tool.id)} disabled={!tool.available && !selected.includes(tool.id)} onChange={() => { onToggle(tool.id); }} />
             <span className="ai-resource-tool-option__copy">
                 <strong>{toolDisplayName(t, tool)}</strong>
                 <span>{toolDisplayDescription(t, tool)}</span>
@@ -47,7 +58,7 @@ export function ToolPicker({ tools, selected, onToggle }: {
                 <EffectBadges effects={tool.effects} />
                 {!tool.available && <span role="status">{t('settings.ai.resources.tool_unavailable_help', { status: resourceStatusLabel(t, tool.status) })}</span>}
             </span>
-        </label>)}</div>
+        </div>)}</div>
         {filtered.length === 0 && <p>{t('settings.ai.resources.no_matching_tools')}</p>}
     </div>;
 }

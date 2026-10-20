@@ -52,9 +52,12 @@ class CreatePageDependencies:
     propagate_relations: Callable[[str, str | None, Metadata, Metadata], object]
     resolve_page_context: Callable[[Metadata, Path], tuple[str, str | None]]
     emit_created: Callable[[str, str], None]
+    find_page_by_id: Callable[[str], Path | None] | None = None
+    checkpoint_post_save: Callable[[Path, Metadata, str], None] | None = None
+    verify_index_created: Callable[[str, Path], bool] | None = None
 
 
-async def _prepare_metadata(
+def _prepare_metadata(
     request: PageSaveRequest,
     page_id: str,
     user_id: str | None,
@@ -77,12 +80,7 @@ async def _prepare_metadata(
     if metadata.get("is_dashboard") is True:
         metadata.pop("content_format", None)
     try:
-        metadata = await asyncio.to_thread(
-            dependencies.process_updates,
-            page_id,
-            {},
-            metadata,
-        )
+        metadata = dependencies.process_updates(page_id, {}, metadata)
     except Exception as exc:
         log.error("Error processing automations on create for %s: %s", page_id, exc)
     dependencies.stamp_author(metadata, user_id, True)
@@ -116,6 +114,9 @@ def _find_existing_path(
     canonical_id = dependencies.canonicalize_id(requested_id) if requested_id else ""
     if not canonical_id:
         return None
+    if dependencies.find_page_by_id is not None:
+        candidate = dependencies.find_page_by_id(canonical_id)
+        return candidate if candidate is not None and candidate.parent.resolve() == target_dir.resolve() else None
     try:
         for candidate in target_dir.iterdir():
             if not candidate.is_file() or candidate.suffix != ".md":
@@ -136,7 +137,7 @@ def _find_existing_path(
     return None
 
 
-async def create_page(
+def _create_page_sync(
     request: PageSaveRequest,
     background_tasks: BackgroundTasks,
     user_id: str | None,
@@ -144,7 +145,7 @@ async def create_page(
 ) -> dict[str, object]:
     """Create a page while preserving all index and relation side effects."""
     page_id = dependencies.new_id()
-    metadata = await _prepare_metadata(request, page_id, user_id, dependencies)
+    metadata = _prepare_metadata(request, page_id, user_id, dependencies)
     target_dir = _target_directory(metadata, dependencies)
     target_dir.mkdir(parents=True, exist_ok=True)
     existing_path = _find_existing_path(target_dir, metadata, dependencies)
@@ -163,6 +164,8 @@ async def create_page(
     try:
         relation_snapshot = dict(metadata)
         dependencies.save_page(file_path, metadata, request.content)
+        if dependencies.checkpoint_post_save is not None:
+            dependencies.checkpoint_post_save(file_path, relation_snapshot, request.title)
         table_id = dependencies.get_table_id(metadata)
         if table_id:
             background_tasks.add_task(
@@ -202,6 +205,16 @@ async def create_page(
     except Exception as exc:
         log.error("Error creating the page: %s", exc)
         raise HTTPException(status_code=500, detail="Error writing the page file") from exc
+
+
+async def create_page(
+    request: PageSaveRequest,
+    background_tasks: BackgroundTasks,
+    user_id: str | None,
+    dependencies: CreatePageDependencies,
+) -> dict[str, object]:
+    """Keep cloud file reads, writes and metadata callbacks off the event loop."""
+    return await asyncio.to_thread(_create_page_sync, request, background_tasks, user_id, dependencies)
 
 
 __all__ = ["CreatePageDependencies", "create_page"]

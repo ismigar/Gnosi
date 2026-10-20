@@ -10,7 +10,7 @@ import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from backend.config.app_config import load_params
-from backend.domains.configuration.config_response_cache import ConfigResponseCache
+from backend.domains.configuration.config_response_cache import configuration_response_cache
 from backend.domains.configuration.settings_schemas import (
     ConfigurationDocument,
     ConfigurationUpdateRequest,
@@ -33,7 +33,7 @@ from backend.utils.safe_io import safe_write_text
 # blocks access in organization mode.
 router = APIRouter(dependencies=[Depends(require_role("admin"))])
 log = logging.getLogger(__name__)
-_CONFIG_RESPONSE_CACHE = ConfigResponseCache()
+_CONFIG_RESPONSE_CACHE = configuration_response_cache
 
 # Note: We now fetch the dynamic path from app_config at runtime
 
@@ -54,7 +54,7 @@ def _read_ui_parameters() -> dict[str, Any]:
     if "paths" not in safe_params:
         safe_params["paths"] = {}
 
-    vault_ui_path = os.environ.get("VAULT_HOST_PATH") or (
+    vault_ui_path = str(active_vault_path.get() or "") or os.environ.get("VAULT_HOST_PATH") or (
         str(cfg.paths.get("VAULT")) if cfg.paths.get("VAULT") else ""
     )
     if vault_ui_path:

@@ -167,3 +167,26 @@ def test_unreadable_source_cannot_disappear_from_coverage(monkeypatch, tmp_path)
     snapshot = AgentExecutionSnapshot(scope=scope, agent_id='bot', profile={}, skill_ids=[], instructions=[], catalog_revision='1', revision='1')
     with pytest.raises(ValueError, match='source_unreadable:missing'):
         synthesize('notebook', [{'id': 'readable', 'text': 'Full text'}, {'id': 'missing', 'text': ''}], 'Analyze', snapshot=snapshot, output_schema={'type': 'object'})
+
+
+def test_document_action_schema_has_complete_provider_contract():
+    import jsonschema
+    from backend.services.agent_document_work import document_action_schema
+    from backend.domains.agent.structured_output import _has_dynamic_object
+    schema = document_action_schema({'type':'object','properties':{'text':{'type':'string'}},'required':['text'],'additionalProperties':False})
+    arguments = dict.fromkeys(schema['properties']['arguments']['required'])
+    arguments.update(result={'text':'Supported fact'}, reviewed=True, citations=[{'source_id':'original','quote':'Supported fact'}])
+    jsonschema.validate({'action':'finish','arguments':arguments}, schema)
+    assert not _has_dynamic_object(schema)
+    arguments['invented_argument'] = 'untrusted extra'
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({'action':'finish','arguments':arguments}, schema)
+
+
+def test_document_index_and_search_allow_unused_nullable_offset():
+    from backend.services.agent_document_work import _document_action
+    parts = {'one':{'source_id':'original','text':'Supported fact'}}
+    result,_ = _document_action('index',{'offset':None},parts,set(),'notes',1000,len)
+    assert result['total'] == 1
+    result,_ = _document_action('search',{'offset':None,'query':'Supported'},parts,set(),'notes',1000,len)
+    assert result['part_ids'] == ['one']

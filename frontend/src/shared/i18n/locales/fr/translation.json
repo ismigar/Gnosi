@@ -1,4 +1,16 @@
 {
+  "instruction_editor": {
+    "source_required": "L’édition visuelle n’a pas pu être chargée. Ouvrez Markdown pour modifier le texte original.",
+    "rich_help": "Écrivez directement. Sélectionnez du texte pour le mettre en forme ou tapez / pour insérer un titre, une liste ou un bloc de code.",
+    "too_long": "Les instructions ne peuvent pas dépasser {{count}} caractères.",
+    "controls": "Commandes de l’éditeur Markdown",
+    "edit": "Modifier",
+    "preview": "Aperçu",
+    "expand": "Agrandir l’éditeur",
+    "reduce": "Réduire l’éditeur",
+    "empty": "Aucune instruction pour le moment.",
+    "help": "Écrivez en Markdown. Ctrl/Cmd + ] indente les lignes sélectionnées ; Ctrl/Cmd + [ retire l’indentation."
+  },
   "_meta": {
     "nativeName": "Français",
     "intlLocale": "fr-FR",
@@ -824,6 +836,7 @@
         "instructions_translation_rate_limit": "Le fournisseur IA a limité les requêtes ou épuisé son quota. Réessayez plus tard ou vérifiez son quota. Le texte original est conservé.",
         "instructions_translation_authentication": "Le fournisseur IA a rejeté la clé d’accès du profil de traduction. Vérifiez la connexion du fournisseur, ou choisissez un modèle d’un fournisseur connecté dans le profil Traduction. Réessayez ensuite. Le texte original est conservé.",
         "active_skills_only": "Uniquement les compétences activées",
+        "active_tools_only": "Uniquement les outils activés",
         "back_to_profile": "Retour au profil"
       },
       "catalog": {
@@ -3668,6 +3681,8 @@
     "unnamed": "(sans nom)",
     "op_equals": "égal",
     "op_not_equals": "différent",
+    "section_contains": "Inclut cette section et ses sous-sections",
+    "section_not_contains": "Exclut cette section et ses sous-sections",
     "op_contains": "contient",
     "op_not_contains": "ne contient pas",
     "op_is_empty": "est vide",
@@ -4657,6 +4672,19 @@
     "recognize_error": "Erreur de reconnaissance du texte",
     "recognize_title": "Reconnaît l'écriture manuscrite sélectionnée (ou tout le canevas) et l'insère comme texte",
     "recognizing": "Reconnaissance…",
+    "ocr_not_downloaded": "Modèle à télécharger",
+    "ocr_downloaded": "Modèle téléchargé",
+    "ocr_downloading": "Téléchargement du modèle…",
+    "ocr_loading": "Chargement du modèle en mémoire…",
+    "ocr_ready": "Reconnaissance disponible",
+    "ocr_cancelled": "Téléchargement arrêté",
+    "ocr_failed": "Le modèle n’a pas pu être préparé",
+    "ocr_unavailable": "Moteur indisponible",
+    "ocr_cancelling": "Arrêt…",
+    "ocr_size": "{{done}} / {{total}} MiB",
+    "ocr_cancel_download": "Arrêter le téléchargement",
+    "ocr_disk_space": "L’espace libre est insuffisant. Libérez de l’espace avant de réessayer.",
+    "ocr_cancel_error": "Le téléchargement n’a pas pu être arrêté. Réessayez.",
     "to_text": "Convertir en texte",
     "pen_only": "Stylet uniquement",
     "pen_only_title": "Mode stylet uniquement : ignore le toucher pour ne pas dessiner avec la paume (palm rejection)",
@@ -4717,6 +4745,9 @@
     "open_minutes": "Ouvrir le compte rendu",
     "new": "Nouveau",
     "generic_error": "Une erreur s'est produite.",
+    "language": "Langue de la réunion",
+    "language_auto": "Détecter automatiquement",
+    "error_interrupted": "Le traitement a été interrompu. La transcription enregistrée peut être récupérée.",
     "error_processing": "Erreur de traitement de la réunion",
     "no_audio_support": "Ce navigateur ne prend pas en charge l'enregistrement audio.",
     "share_screen_required": "Vous devez partager un onglet ou un écran (avec la case audio cochée).",
@@ -7471,6 +7502,7 @@
     "engineering": "Documentation technique"
   },
   "activity": {
+    "scheduled_history": "Planifications et services",
     "open_activity": "Voir l’activité et les automatisations",
     "schedules": "Programmations",
     "runs": "Exécutions",
@@ -7599,6 +7631,9 @@
     "trial_error": "Impossible de terminer le test. Vérifiez le modèle et réessayez.",
     "trial_review_help": "Il s’agit d’une évaluation du modèle. Vérifiez les preuves avant de valider le résultat.",
     "met": "Respecté",
+    "input_evidence": "Extrait de l’entrée :",
+    "missing_trial_inputs": "Informations manquantes pour terminer le test :",
+    "output_evidence": "Extrait du résultat :",
     "unmet": "Non respecté",
     "validated_example": "Exemple vérifié",
     "keep_example": "J’ai vérifié le résultat : le conserver comme exemple",
@@ -7787,6 +7822,9 @@
     "lab_director_routes": "Directeur avec routage direct",
     "lab_pass": "Réussi",
     "lab_fail": "Échoué",
+    "lab_fail_format": "La réponse n’est pas du JSON sans texte supplémentaire.",
+    "lab_fail_contract": "Le résultat ne respecte pas le contrat attendu.",
+    "lab_fail_execution": "L’appel au modèle n’a pas pu être effectué.",
     "lab_measured": "Résultat synthétique validé",
     "lab_blend": "Score : 50% catalogue et 50% test synthétique. Les lacunes générales restent visibles.",
     "reuse_specialty": "Spécialiste réutilisable pour les compétences indiquées. Comparez couverture et modèle aux agents existants avant de le conserver.",
@@ -7838,5 +7876,22 @@
   "accessibility": {
     "skip_to_content": "Aller au contenu principal",
     "route_loaded": "Page chargée : {{page}}"
+  },
+  "creation_recovery": {
+    "title": "Créations à confirmer",
+    "check": "Vérifier le résultat",
+    "open": "Ouvrir la page",
+    "pending": "La création est toujours en cours. Vérifiez le résultat avant de réessayer.",
+    "unknown": "Le résultat n’a pas pu être confirmé. Ne recréez pas la page.",
+    "completed": "Création terminée",
+    "unconfirmed": "Résultat pas encore vérifié",
+    "check_failed": "Impossible de vérifier le résultat. Réessayez la vérification.",
+    "storage_unavailable": "Impossible d’enregistrer la demande en attente. Vérifiez le stockage du navigateur avant de créer la page.",
+    "not_found": "Le serveur ne trouve pas encore la demande. Renvoyer le même formulaire conserve la même demande.",
+    "coordination_unavailable": "Ce navigateur ne permet pas de coordonner la création entre fenêtres. Ouvrez Gnosi dans un navigateur compatible avant de créer la page.",
+    "unknown_saved": "La page a été enregistrée, mais toutes les mises à jour associées n’ont pas été confirmées.",
+    "open_saved": "Ouvrir la page enregistrée",
+    "resume": "Terminer les étapes en attente",
+    "resuming": "Finalisation des étapes…"
   }
 }

@@ -85,8 +85,7 @@ export function useSchemaEdits(state: SchemaState, _props: ResolvedProps) {
                 updatedField.translatable = false;
             }
             if (key === 'type' && value === 'status') {
-                // Dedicated status fields always use the vault-wide lifecycle catalog.
-                updatedField.catalogRef = STATUS_CATALOG_REF;
+                // Status options belong to this field unless a catalog was explicitly linked.
                 if (normalizeOptions(updatedField.options).length === 0) {
                     updatedField.options = seedOptionsForFeature('base');
                 }

@@ -354,6 +354,7 @@ def save_snapshot(
     """Persist normalized evidence and return its stable snapshot descriptor."""
     stable_payload = {
         "kind": origin.get("kind"),
+        "source_identity": origin.get("source_identity"),
         "label": origin.get("label"),
         "source_url": origin.get("source_url"),
         "content_hash": origin.get("content_hash"),

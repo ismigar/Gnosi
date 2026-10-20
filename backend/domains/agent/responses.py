@@ -10,7 +10,10 @@ from typing import Any
 
 def _response_language(message: str) -> str:
     """Resolve a deterministic response language from strong request markers."""
-    decomposed = unicodedata.normalize("NFKD", str(message or "").casefold())
+    # Quoted titles and field values can be in a different language from the
+    # user's instruction. They must not select the answer language.
+    instruction = re.sub(r'["«“][^"»”]*["»”]', " ", str(message or ""))
+    decomposed = unicodedata.normalize("NFKD", instruction.casefold())
     text = " ".join(
         re.sub(
             r"[^a-z0-9]+",
@@ -293,7 +296,8 @@ def _inventory_context_response(tool_content: Any, user_message: str) -> str:
             "unresolved": "No hi ha cap tipus adjunt que correspongui a: {types}.",
             "more": "Es mostren {shown} de {count}; continua des de l’índex {offset}.",
             "method": (
-                "Abast: cerca exhaustiva de text, metadades i relacions " + "dins el Vault adjunt."
+                "Abast: cerca exhaustiva dels registres indexats del Vault adjunt. "
+                "Els canvis externs encara no indexats poden no aparèixer."
             ),
             "error": "No he pogut consultar l’inventari del Vault adjunt.",
             "untitled": "Sense títol",
@@ -314,8 +318,8 @@ def _inventory_context_response(tool_content: Any, user_message: str) -> str:
             "unresolved": "No hay ningún tipo adjunto que corresponda a: {types}.",
             "more": "Se muestran {shown} de {count}; continúa desde el índice {offset}.",
             "method": (
-                "Alcance: búsqueda exhaustiva de texto, metadatos y relaciones "
-                + "dentro del Vault adjunto."
+                "Alcance: búsqueda exhaustiva de los registros indexados del Vault adjunto. "
+                "Los cambios externos aún no indexados pueden no aparecer."
             ),
             "error": "No he podido consultar el inventario del Vault adjunto.",
             "untitled": "Sin título",
@@ -336,8 +340,8 @@ def _inventory_context_response(tool_content: Any, user_message: str) -> str:
             "unresolved": "Aucun type joint ne correspond à : {types}.",
             "more": "{shown} résultats sur {count} sont affichés ; continuez à l’index {offset}.",
             "method": (
-                "Portée : recherche exhaustive du texte, des métadonnées et des "
-                + "relations du Vault joint."
+                "Portée : recherche exhaustive des enregistrements indexés du Vault joint. "
+                "Les modifications externes non encore indexées peuvent ne pas apparaître."
             ),
             "error": "Je n’ai pas pu consulter l’inventaire du Vault joint.",
             "untitled": "Sans titre",
@@ -358,8 +362,8 @@ def _inventory_context_response(tool_content: Any, user_message: str) -> str:
             "unresolved": "No attached record type corresponds to: {types}.",
             "more": "Showing {shown} of {count}; continue from index {offset}.",
             "method": (
-                "Scope: exhaustive text, metadata, and relation search within "
-                + "the attached Vault data."
+                "Scope: exhaustive search of indexed records in the attached Vault. "
+                "External changes not yet indexed may not appear."
             ),
             "error": "I could not query the attached Vault inventory.",
             "untitled": "Untitled",
@@ -374,6 +378,13 @@ def _inventory_context_response(tool_content: Any, user_message: str) -> str:
         payload = json.loads(str(tool_content or ""))
     except (TypeError, ValueError, json.JSONDecodeError):
         return strings["error"]
+    if isinstance(payload, dict) and payload.get("error") == "inventory_changed_restart_pagination":
+        return {
+            "ca": "Els resultats han canviat des de la pàgina anterior. Cal repetir la cerca des del principi per obtenir una llista coherent.",
+            "es": "Los resultados han cambiado desde la página anterior. Hay que repetir la búsqueda desde el principio para obtener una lista coherente.",
+            "fr": "Les résultats ont changé depuis la page précédente. Il faut relancer la recherche depuis le début pour obtenir une liste cohérente.",
+            "en": "The results have changed since the previous page. Restart the search from the beginning to obtain a consistent list.",
+        }[language]
     if not isinstance(payload, dict) or payload.get("error"):
         return strings["error"]
     records: list[Any] = payload.get("records") or []
@@ -384,6 +395,12 @@ def _inventory_context_response(tool_content: Any, user_message: str) -> str:
     count, offset = _inventory_numbers(payload, records)
     query = _escaped_markdown_text(payload.get("query"), "")
     subject = f"«{query}»" if query else strings["all_subject"]
+    filters = payload.get("property_filters")
+    if isinstance(filters, dict) and filters:
+        subject = ", ".join(
+            f"{_escaped_markdown_text(field, '')} = «{_escaped_markdown_text(value, '')}»"
+            for field, value in filters.items()
+        )
     unresolved = _inventory_unresolved(payload)
     if count == 0:
         return "\n".join(_empty_inventory_lines(strings, subject, unresolved))

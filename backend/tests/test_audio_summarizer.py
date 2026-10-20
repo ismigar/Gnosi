@@ -171,11 +171,11 @@ def test_podcast_output_dir_is_inside_selected_vault(tmp_path):
 def test_async_generation_preserves_selected_vault(monkeypatch, tmp_path):
     observed_paths = []
 
-    def fake_generate():
+    def fake_generate(snapshot=None):
         from backend.services.context_vars import get_active_vault_path
 
         observed_paths.append(get_active_vault_path())
-        audio_summarizer.generation_status["running"] = False
+        audio_summarizer._generation_state()["running"] = False
 
     class ImmediateThread:
         def __init__(self, target, daemon, args=()):
@@ -184,9 +184,19 @@ def test_async_generation_preserves_selected_vault(monkeypatch, tmp_path):
         def start(self):
             self.target()
 
-    audio_summarizer.generation_status["running"] = False
     monkeypatch.setattr(audio_summarizer, "generate_daily_podcast", fake_generate)
     monkeypatch.setattr(audio_summarizer.threading, "Thread", ImmediateThread)
 
-    assert audio_summarizer.start_generation_async(vault_path=tmp_path) is True
+    from backend.services.agent_execution_models import ExecutionScope
+    from backend.services.agent_execution_scope import execution_scope
+    monkeypatch.setattr("backend.services.agent_execution_scope.revalidate_scope", lambda _: None)
+    scope = ExecutionScope(user_id="alice", workspace_id="team", role="owner", vault_path=str(tmp_path))
+    from backend.services.agent_execution_models import AgentExecutionSnapshot
+    from backend.services import agent_execution_store as store
+    snapshot = AgentExecutionSnapshot(scope=scope, agent_id='personal', profile={'id': 'personal'}, skill_ids=[], instructions=[], catalog_revision='1', revision='1')
+    monkeypatch.setattr(audio_summarizer, '_resolve_podcast_llm', lambda: (snapshot, 'fixture', 'fixture'))
+    monkeypatch.setattr(store, 'resolve_data_dir', lambda **_: tmp_path)
+    with execution_scope(scope):
+        audio_summarizer._generation_state()["running"] = False
+        assert audio_summarizer.start_generation_async(vault_path=tmp_path) is True
     assert observed_paths == [Path(tmp_path)]

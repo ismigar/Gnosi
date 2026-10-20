@@ -176,6 +176,14 @@ describe('page shell, navigation and knowledge contracts', () => {
       { name: 'Publicat', color: 'green' },
     ]);
   });
+  it('keeps local status options even when another field loads the global catalog', async () => {
+    const property = { id: 'local', name: 'Workflow', type: 'status', config: { options: ['Accepted', 'Rejected'] } };
+    const shared = { id: 'shared', name: 'Estat', type: 'status', config: { catalog_ref: 'status' } };
+    await mount({ initialMetadata: { title: 'Fixture', table_id: 'table' }, allTables: [{ id: 'table', properties: [property, shared] }] });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(state().getPropOptions(property)).toEqual(['Accepted', 'Rejected']);
+    expect(state().getPropOptions(shared)).toHaveLength(2);
+  });
   it('preserves history and focus-mode signals', async () => {
     await mount({ view: true, historyOpenSignal: 1 });
     expect(state().isHistoryOpen).toBe(true);

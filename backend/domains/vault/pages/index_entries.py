@@ -42,6 +42,7 @@ class PageIndexEntryDependencies:
     process_metadata_paths: Callable[[Metadata], Metadata]
     vault_root: Callable[[], Path]
     logger: logging.Logger
+    resolve_title: Callable[[Metadata, Path], object] | None = None
 
 
 _dependencies: PageIndexEntryDependencies | None = None
@@ -59,6 +60,12 @@ def _deps() -> PageIndexEntryDependencies:
     if _dependencies is None:
         raise RuntimeError("Page index entries have not been configured")
     return _dependencies
+
+
+def _resolved_entry_title(metadata: Metadata, file_path: Path) -> str:
+    resolver = _deps().resolve_title
+    title = resolver(metadata, file_path) if resolver is not None else metadata.get("title") or file_path.stem
+    return humanize_relation_index_title(file_path.stem if title is None else title, metadata)
 
 
 def _collect_partial_lines(file_handle: TextIO, state: PartialReadState) -> list[str]:
@@ -249,10 +256,7 @@ def build_page_cache_entry(
     # relation-index pages can have a filename such as ``Index · Projecte:
     # <uuid>`` while their relation metadata still contains ``[[Name|uuid]]``;
     # prefer that human title for table rows and page lists.
-    title = metadata.get("title")
-    if not title:
-        title = file_path.stem
-    title = humanize_relation_index_title(title, metadata)
+    title = _resolved_entry_title(metadata, file_path)
 
     entry: PageCacheEntry = {
         "path": str(file_path),
@@ -306,7 +310,7 @@ def build_cache_entry_from_memory(
     if rel_folder == ".":
         rel_folder = ""
 
-    title = md.get("title") or file_path.stem
+    title = _resolved_entry_title(md, file_path)
 
     return {
         "path": str(file_path),

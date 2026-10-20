@@ -97,6 +97,7 @@ export function buildSchemaFromTableProperties(
         if (prop.aggregation) config.aggregation = prop.aggregation;
         if (prop.relation_database_id) config.relation_database_id = prop.relation_database_id;
         if (prop.cardinality) config.cardinality = prop.cardinality;
+        if (prop.config?.source_sections === true) config.source_sections = true;
         if (prop.limit !== undefined && prop.limit !== '') config.limit = prop.limit;
         if (prop.fallbackValue !== undefined && prop.fallbackValue !== '') config.fallbackValue = prop.fallbackValue;
         if (prop.file_mode) config.file_mode = prop.file_mode;

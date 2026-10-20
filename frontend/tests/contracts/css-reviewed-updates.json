@@ -102,7 +102,7 @@
   {
     "file": "src/features/settings/AI/styles/resource-editor.css",
     "before": "\n.ai-resource-tool-option > input {\n    margin-top: 4px;\n    accent-color: var(--gnosi-blue);\n}\n\n.ai-resource-tool-option__copy {\n",
-    "after": "\n.ai-resource-tool-option > input {\n    margin-top: 4px;\n    accent-color: var(--gnosi-primary);\n}\n\n.ai-resource-tool-option__copy {\n"
+    "after": "\n.ai-resource-tool-option > .gnosi-toggle {\n    margin-top: 4px;\n    flex-shrink: 0;\n}\n\n.ai-resource-tool-option__copy {\n"
   },
   {
     "file": "src/features/settings/AI/styles/resource-editor.css",
@@ -228,5 +228,10 @@
     "file": "src/shared/ui/settings/SettingsSectionTabs.css",
     "before": "\n.ai-settings-sections button.is-active {\n    background: var(--settings-bg);\n    color: var(--sidebar-item-active-text);\n    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);\n}\n",
     "after": "\n.ai-settings-sections button.is-active {\n    background: var(--settings-bg);\n    color: var(--gnosi-link);\n    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);\n}\n"
+  },
+  {
+    "file": "src/features/settings/AI/styles/resource-editor.css",
+    "before": "    border: 1px solid var(--settings-border);\n    border-radius: 12px;\n    cursor: pointer;\n}\n\n.ai-resource-tool-option.is-unavailable",
+    "after": "    border: 1px solid var(--settings-border);\n    border-radius: 12px;\n}\n\n.ai-resource-tool-option.is-unavailable"
   }
 ]

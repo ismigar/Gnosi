@@ -8,4 +8,6 @@ Use the task variant:
 - literature.screen: return suggestions with id, suggestion (include/exclude/uncertain), rationale, confidence and evidence_level. Never claim full-text review unless verified_full_text is supplied.
 - literature.synthesize: use only selected works; return summary, themes, contradictions, gaps, next_searches, citations using supplied ids and evidence levels.
 - literature.snowball: propose backward and forward citation searches; distinguish retrieved identifiers from proposed queries. Return backward_queries, forward_queries, identifiers, cautions.
+- literature.rerank: rank only the supplied works by relevance to the query. Return ranking entries with id, score, original_rank and semantic_rank, and an explanation. Preserve each work's original position; do not introduce new identifiers.
+Follow the output_schema supplied with the operation, including its field types and allowed identifiers. Screening confidence is a number between 0 and 1. Synthesis citations are the supplied work identifiers, never invented references.
 Return JSON only for these operations.

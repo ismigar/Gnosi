@@ -10,7 +10,7 @@ export function useSchemaInitialization(state: SchemaState, props: ResolvedProps
     const {
         setFields, setFunctionalities, setIsInitializedForSave, setAllTables, setVirtualComputers,
         setEnableSubitems, setEnableTranslation, setSharedCatalogs, setEnableDrupalSync,
-        setDrupalBundle, setDrupalFieldMapping, setEnableSocialPublish, initializedRef,
+        setDrupalBundle, setDrupalFieldMapping, setEnableSocialPublish, initializedRef, savedCatalogRefsRef,
     } = state;
     const {
         isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties,
@@ -28,6 +28,7 @@ export function useSchemaInitialization(state: SchemaState, props: ResolvedProps
         {
             // Transform object to array for editing.
             const fieldsArray = hydrateFields(currentSchema, initialVisibleProperties);
+            savedCatalogRefsRef.current = Object.fromEntries(fieldsArray.map(field => [field.id, field.catalogRef || '']));
             setFields(fieldsArray.filter((field) => field.type !== 'button'));
             setFunctionalities(normalizeTableFunctionalities(initialFunctionalities, currentSchema).map((item) => ({ ...item, config: readActionConfig(item.config) })));
             setEnableSubitems(initialEnableSubitems);

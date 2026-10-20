@@ -14,10 +14,10 @@ vi.mock('../../../shared/hooks/useActiveVaultId', () => ({ useActiveVaultId: () 
 vi.mock('../../../shared/api/ai-activity', () => ({
     fetchEvaluationAgents: () => Promise.resolve([]),
     fetchRoleEvaluations: () => Promise.resolve([{
-        id: 'report', kind: 'strategies', model: 'Example', version: 'v1', score: 100,
+        id: 'report', kind: 'strategies', model: 'Example', version: 'v1', score: 0,
         created_at: '2026-09-26',
-        cases: ['allrounder', 'director_always', 'director_routes'].map(strategy => ({
-            id: 'case', strategy, passed: true, model_calls: 1, director_calls: 0, avoidable_director_calls: 0, latency_ms: 10, cost_usd: null,
+        cases: ['allrounder', 'director_always', 'director_routes'].map((strategy, index) => ({
+            id: 'case', strategy, passed: false, failure: ['json_format_mismatch', 'contract_mismatch', 'TimeoutError'][index], model_calls: 1, director_calls: 0, avoidable_director_calls: 0, latency_ms: 10, cost_usd: null,
         })),
     }]),
     runRoleEvaluation: vi.fn(),
@@ -34,6 +34,9 @@ describe('evaluation lab translations', () => {
             await act(async () => { await Promise.resolve(); container.querySelector<HTMLButtonElement>('button[aria-expanded]')?.click(); });
             expect(container.textContent).toContain(translation.model_comparison.profile);
             expect(container.textContent).toContain(translation.model_comparison.unknown_cost);
+            expect(container.textContent).toContain(translation.agent_team.lab_fail_format);
+            expect(container.textContent).toContain(translation.agent_team.lab_fail_contract);
+            expect(container.textContent).toContain(translation.agent_team.lab_fail_execution);
             expect(container.textContent).not.toMatch(/agent_team\.|model_comparison\.|common\./);
             const kind = container.querySelector<HTMLSelectElement>('select');
             await act(async () => { await Promise.resolve();

@@ -16,6 +16,7 @@ const REQUIRED_RUNTIME_FILES = Object.freeze([
   'microsoft-sign-in.js',
   'ipc-handlers.js',
   'backend-process.js',
+  'backend-proxy.js',
   'vault-startup.js',
   'vault-folders.js',
   'installer-cleanup.js',

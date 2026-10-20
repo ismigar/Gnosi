@@ -8,7 +8,7 @@ import { displayString } from './fieldConfig';
 import { getMetaKey } from './metadata';
 import { tableClipboard } from './cellValues';
 import type { TableInputs } from './tableInputs';
-import type { CellUpdate, GridColumn, MetadataPatch } from './types';
+import type { CellUpdate, GridColumn, MetadataPatch, TableNote } from './types';
 import type { useTableColumns } from './useTableColumns';
 import type { useTableIdentity } from './useTableIdentity';
 import type { useTableMedia } from './useTableMedia';
@@ -167,12 +167,12 @@ export function useTableClipboard({
     if (onCellSaved) onCellSaved();
     else if (onUpdateView) onUpdateView(activeView);
   }, [setOptimisticPatches, propagateBulkToParents, onCellSaved, onUpdateView, activeView, t]);
-  const coercionCtxFor = useCallback((col: GridColumn) => {
+  const coercionCtxFor = useCallback((col: GridColumn, note?: TableNote) => {
     if (col.type === 'select' || col.type === 'status' || col.type === 'multi_select') {
       return { options: getAvailableOptions(col.key, col.type), idToTitle };
     }
     if (col.type === 'relation') {
-      return { relatedNotes: getRelationContext(col.key).relatedNotes, idToTitle };
+      return { relatedNotes: getRelationContext(col.key, note).relatedNotes, idToTitle };
     }
     return {};
   }, [getAvailableOptions, idToTitle, getRelationContext]);
@@ -203,7 +203,7 @@ export function useTableClipboard({
         if (!col) continue;
         if (!isPasteableType(col.type)) continue;
         const raw = srcMatrix[(r - rect.r0) % srcRows]?.[(c - rect.c0) % srcCols];
-        const res = coerceValueForField(raw, col.type, coercionCtxFor(col));
+        const res = coerceValueForField(raw, col.type, coercionCtxFor(col, note));
         if (res.skip) { skipped++; continue; }
         const metaKey = getMetaKey(note, col.key);
         if (sameCellValue(note.metadata?.[metaKey], res.value)) continue;

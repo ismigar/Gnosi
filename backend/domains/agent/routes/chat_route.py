@@ -12,6 +12,7 @@ from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
 
 from backend.agent.context_safety import sanitize_untrusted_context
+from backend.agent.recovery import recovery_metadata
 from backend.agent.factory import (
     _explicit_brain_write_tool_names,
     build_agent_turn_plan,
@@ -21,6 +22,8 @@ from backend.domains.agent.routes.attachments import (
     _consume_attachment_context,
 )
 from backend.domains.agent.routes.chat_stream import stream_agent_events
+from backend.domains.agent.responses import _response_language
+from backend.domains.agent.routes.chat_error_messages import failure_message
 from backend.domains.agent.routes.checkpoints import (
     _chat_thread_id,
     _checkpoint_key,
@@ -201,9 +204,16 @@ def _unavailable_response(
     agent_id: str,
     session_id: str,
 ) -> StreamingResponse:
+    language = _response_language(chat_req.message)
+    message_key = "agent_model_unavailable" if error_code == "agent_model_unavailable" else "service_unavailable"
+
     async def unavailable_generator() -> AsyncIterator[str]:
-        yield json.dumps({"type": "error", "code": error_code, "content": error_code}) + "\n"
-        yield json.dumps({"type": "done", "has_response": True, "message_count": 1}) + "\n"
+        yield json.dumps({
+            "type": "error", "code": error_code,
+            "content": failure_message(language, message_key),
+            "content_language": language, "recovery": recovery_metadata(error_code),
+        }) + "\n"
+        yield json.dumps({"type": "done", "has_response": False, "message_count": 0}) + "\n"
 
     return StreamingResponse(
         protocolize_stream(

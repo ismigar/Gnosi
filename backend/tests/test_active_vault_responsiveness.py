@@ -42,6 +42,7 @@ def test_cold_lookup_keeps_request_loop_available_and_restores_context(monkeypat
 
         async def inner(scope, receive, send):
             received.append(scope["path"])
+            assert dict(scope["headers"])[b"x-vault-id"] == b"vault-id"
             assert active_vault_path.get() == expected_path
             assert await asyncio.to_thread(active_vault_path.get) == expected_path
 
@@ -70,6 +71,42 @@ def test_cold_lookup_keeps_request_loop_available_and_restores_context(monkeypat
             await routing.ActiveVaultMiddleware(inner)(scope, receive, send)
             assert received == ["/api/vault/pages"]
             assert active_vault_path.get() == outer_path
+        finally:
+            active_vault_path.reset(token)
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("signal", ["header", "query", "cookie"])
+def test_unknown_selection_reaches_permission_dependency_without_context_fallback(monkeypatch, signal):
+    async def scenario():
+        monkeypatch.setattr(routing, "_read_vault_identity", lambda _: None)
+        scope = {
+            "type": "http", "path": "/api/config/editor",
+            "query_string": b"vault=missing" if signal == "query" else b"",
+            "headers": [],
+        }
+        if signal == "header":
+            scope["headers"] = [(b"x-vault-id", b"missing")]
+        elif signal == "cookie":
+            scope["headers"] = [(b"cookie", b"gnosi_active_vault=missing")]
+        received = []
+
+        async def inner(request, receive, send):
+            received.append(dict(request["headers"])[b"x-vault-id"])
+            assert active_vault_path.get() is None
+
+        async def receive():
+            return {"type": "http.request", "body": b""}
+
+        async def send(_message):
+            pass
+
+        token = active_vault_path.set(None)
+        try:
+            await routing.ActiveVaultMiddleware(inner)(scope, receive, send)
+            assert received == [b"missing"]
+            assert active_vault_path.get() is None
         finally:
             active_vault_path.reset(token)
 

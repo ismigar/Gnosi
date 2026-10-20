@@ -13,7 +13,7 @@ import os
 from collections.abc import Awaitable
 from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import Protocol, TypedDict, cast
+from typing import ClassVar, Protocol, TypedDict, cast
 
 from backend.domains.vault.daily.service import DailySource
 from backend.domains.vault.pages.index_entries import PageCacheEntry
@@ -33,7 +33,11 @@ class RuleEnginePort(Protocol):
 
 
 class PathIndexPort(Protocol):
+    _vault_files: ClassVar[dict[str, list[Path]]]
+
     def add_file(self, vault: Path, page_id: str, path: Path) -> None: ...
+
+    def find_path(self, record_id: str, vault_path: Path) -> Path | None: ...
 
 
 class ActionRulesPort(Protocol):
@@ -59,6 +63,8 @@ class CoreVaultPort(Protocol):
     def _safe_filename(self, name: str, directory: Path) -> str: ...
 
     def get_active_vault_path(self) -> Path | None: ...
+
+    def find_page_path(self, page_id: str, *, allow_full_scan: bool = True) -> Path | None: ...
 
     def _build_page_cache_entry(self, path: Path, stat: os.stat_result) -> PageCacheEntry: ...
 

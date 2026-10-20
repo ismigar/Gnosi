@@ -63,6 +63,31 @@ def test_turn_plan_exposes_bounded_mode_budget():
     }
 
 
+def test_filtered_row_assignment_keeps_context_reads_and_bulk_action_available():
+    message = (
+        'Necessito que busquis totes les entrada de la taula Cervell Digital '
+        'on recurs és "El papa de mis sueños" i assignis "En revisió" al camp estat.'
+    )
+    authorized = factory._explicit_brain_write_tool_names(message)
+    plan = factory.build_agent_turn_plan(
+        message,
+        context_refs=[{"id": "vault", "type": "vault", "ref": "active-vault"}],
+        authorized_tool_names=authorized,
+        tool_metadata=[
+            {"name": "inventory_context", "effects": ["read"], "dynamic_context": True},
+            {"name": "query_context_table", "effects": ["read"], "dynamic_context": True},
+            {"name": "bulk_update_rows", "effects": ["bulk_write"], "confirmation": "always"},
+            {"name": "delete_table", "effects": ["destructive"], "confirmation": "always"},
+        ],
+    )
+    assert plan["mode"] == "action"
+    assert plan["required_tool"] is None
+    assert set(plan["allowed_tool_names"]) == {
+        "inventory_context", "query_context_table", "bulk_update_rows",
+    }
+    assert plan["budgets"]["max_model_calls"] > 0
+
+
 def test_remote_and_local_private_processing_are_distinguished():
     refs = [{"id": "page", "type": "page", "ref": "page-1"}]
     tools = [{

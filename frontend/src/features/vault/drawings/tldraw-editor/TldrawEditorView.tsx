@@ -1,4 +1,6 @@
 import { useEffect, type RefObject } from 'react';
+import type { HandwritingStatusResponse } from '../../../../shared/api/drawings';
+import { HandwritingModelStatus } from './HandwritingModelStatus';
 import {
     AlertTriangle,
     FilePlus2,
@@ -44,6 +46,8 @@ interface TldrawEditorViewProps {
     readonly openSearch: () => void;
     readonly penOnly: boolean;
     readonly recognizing: boolean;
+    readonly handwritingStatus?: HandwritingStatusResponse;
+    readonly onCancelDownload?: () => Promise<void>;
     readonly retryLoad: () => void;
     readonly selectedPage: SelectedCanvasPage | null;
     readonly setPenOnly: (enabled: boolean) => void;
@@ -71,6 +75,8 @@ export function TldrawEditorView({
     openSearch,
     penOnly,
     recognizing,
+    handwritingStatus,
+    onCancelDownload,
     retryLoad,
     selectedPage,
     setPenOnly,
@@ -108,18 +114,20 @@ export function TldrawEditorView({
 
     return (
         <div className="flex flex-col h-full w-full">
-            <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200 shrink-0">
-                <h2 className="text-sm font-semibold text-slate-700 truncate">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b shrink-0"
+                style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}>
+                <h2 className="text-sm font-semibold truncate">
                     {title || t('tldraw.untitled_drawing')}
                 </h2>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2" style={{ flex: '1 1 16rem', minWidth: 0 }}>
+                    {handwritingStatus && <HandwritingModelStatus status={handwritingStatus} onCancel={onCancelDownload} />}
                     {loadState === 'ready' && (
                         <button
                             type="button"
                             onClick={() => {
                                 void onRecognize();
                             }}
-                            disabled={recognizing}
+                            disabled={recognizing || handwritingStatus?.available === false}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-md hover:bg-indigo-50 hover:text-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-wait"
                             title={t('tldraw.recognize_title')}
                         >

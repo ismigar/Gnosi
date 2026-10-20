@@ -18,6 +18,7 @@ from backend.domains.agent.context import (
     _deterministic_reader_context_call,
     _deterministic_vault_context_call,
     _inventory_continuation_requested,
+    _inventory_request_arguments,
     _latest_context_tool_since_latest_user,
     _latest_reader_analysis_job_id,
     _latest_tool_message_since_latest_user,
@@ -256,6 +257,14 @@ class AgentWorkflowNodes:
             ref.get("type") in {"page", "table", "database", "vault"} for ref in self.context_refs
         )
         has_other = any(ref.get("type") in {"file", "url", "source"} for ref in self.context_refs)
+        if request_mode == "action" and has_vault and "inventory_context" in self.context_tool_names:
+            exact_arguments = _inventory_request_arguments(latest_user)
+            if exact_arguments.get("property_filters"):
+                return ContextRoute(
+                    required_tool="inventory_context", reader_message=latest_user,
+                    inventory_arguments=exact_arguments, has_notebook=has_notebook,
+                    has_vault=True,
+                )
         if has_notebook and request_mode != "action":
             return ContextRoute(
                 required_tool="search_notebook_context",
@@ -314,10 +323,6 @@ class AgentWorkflowNodes:
         authorized_names = _turn_authorized_tool_names(state)
         route = self._context_route(messages, latest_user, request_mode)
         directed = bool(frozen_resources.get())
-        if directed:
-            route = ContextRoute(reader_message=latest_user,
-                                 has_notebook=any(ref.get("type") == "notebook" for ref in self.context_refs),
-                                 has_vault=any(ref.get("type") in {"page", "table", "database", "vault"} for ref in self.context_refs))
         required_reads = {route.required_tool} if route.required_tool else set()
         turn_plan = build_agent_turn_plan(
             latest_user,
@@ -337,7 +342,10 @@ class AgentWorkflowNodes:
             required_read_tool_names=required_reads,
         )
         planned_names = set(turn_plan.get("allowed_tool_names") or ())
-        tools = tools if directed else [tool for tool in tools if _tool_name(tool) in planned_names]
+        # A frozen behavior snapshot changes instruction provenance, not the
+        # mandatory context read or the deterministic inventory budget.
+        if not directed or route.required_tool:
+            tools = [tool for tool in tools if _tool_name(tool) in planned_names]
         if not directed and request_mode == "conversation" and not authorized_names and not route.has_notebook:
             tools = []
         elif (
@@ -516,6 +524,28 @@ class AgentWorkflowNodes:
         self, turn: BrainTurn, progress: BrainProgress
     ) -> dict[str, Any] | None:
         """Bypass the model for exact tool calls and trusted renderers."""
+        if (
+            progress.inventory_message is not None
+            and "bulk_update_rows" in turn.authorized_names
+            and "bulk_update_rows" in turn.bound_tool_names
+            and _latest_tool_message_since_latest_user(turn.messages, "bulk_update_rows") is None
+        ):
+            from backend.domains.agent.exact_actions import exact_assignment_call
+
+            try:
+                call = exact_assignment_call(turn.latest_user, str(progress.inventory_message.content))
+            except (ValueError, TypeError, KeyError):
+                from backend.domains.agent.responses import _response_language
+
+                content = {
+                    "ca": "No he preparat cap canvi perquè no he pogut validar la llista completa de files, el camp o el valor demanat.",
+                    "es": "No he preparado ningún cambio porque no he podido validar la lista completa de filas, el campo o el valor solicitado.",
+                    "en": "I have not prepared any changes because I could not validate the complete row list, field, or requested value.",
+                    "fr": "Je n’ai préparé aucune modification, car je n’ai pas pu valider la liste complète des lignes, le champ ou la valeur demandée.",
+                }[_response_language(turn.latest_user)]
+                return self._verified_final(turn, content)
+            if call is not None:
+                return {"messages": [AIMessage(content="", tool_calls=[call])], "next": "supervisor"}
         if progress.personal_resources_requested and not progress.personal_resources_result:
             return {
                 "messages": [
@@ -646,12 +676,10 @@ class AgentWorkflowNodes:
         turn = self._prepare_brain_turn(state)
         turn.system_prompt = (self.combined_persona + self._citation_prompt(turn) + self._tool_access_prompt(turn)) if frozen_resources.get() else self._brain_system_prompt(turn)
         progress = self._brain_progress(turn)
-        if frozen_resources.get() and (progress.repeated_tool_name or progress.tool_budget_reached or progress.read_budget_reached or progress.model_budget_reached or progress.soft_deadline_reached):
-            raise RuntimeError("agent_turn_incomplete_limit_reached")
-        deterministic = None if frozen_resources.get() else self._deterministic_brain_result(turn, progress)
+        deterministic = self._deterministic_brain_result(turn, progress)
         if deterministic is not None:
             return deterministic
-        controlled = None if frozen_resources.get() else self._apply_brain_control(turn, progress)
+        controlled = self._apply_brain_control(turn, progress)
         if controlled is not None:
             return controlled
         try:

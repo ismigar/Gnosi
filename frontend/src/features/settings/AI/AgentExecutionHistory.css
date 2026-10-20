@@ -1,0 +1,59 @@
+/* Execution history uses the shared resource cards and standard controls. */
+.agent-execution-history__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.agent-trace-retention {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 14px;
+}
+
+.agent-trace-retention > label {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    max-width: 100%;
+    color: var(--text-primary);
+    font-size: 0.78rem;
+    font-weight: 750;
+}
+
+.agent-trace-retention .gnosi-input {
+    width: 120px;
+    max-width: 100%;
+}
+
+.agent-trace-retention > [role="alert"] {
+    flex-basis: 100%;
+    margin: 0;
+}
+
+.agent-execution-card__error {
+    margin: 0;
+    padding: 0 18px 16px;
+    color: var(--status-error-text);
+    font-size: 0.8rem;
+    overflow-wrap: anywhere;
+}
+
+.agent-execution-card > .btn-gnosi {
+    margin: 0 18px 18px;
+}
+
+.agent-execution-card .ai-resource-details {
+    padding-inline-start: 18px;
+}
+
+.agent-execution-card .ai-resource-card__copy {
+    overflow-wrap: anywhere;
+}
+
+.agent-execution-card .ai-resource-details > .flex {
+    flex-direction: row;
+    flex-wrap: wrap;
+}

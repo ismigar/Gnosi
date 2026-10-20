@@ -52,6 +52,15 @@ def invalidate_page_responses() -> None:
         page_state.response_cache.clear()
 
 
+def invalidate_vault_page_responses(vault_key: str) -> None:
+    """Drop derived table/list snapshots only for the refreshed vault."""
+    prefixes = (f"by-table:{vault_key}:", f"snapshot:{vault_key}:")
+    with page_state.response_cache_lock:
+        for key in list(page_state.response_cache):
+            if key.startswith(prefixes):
+                page_state.response_cache.pop(key, None)
+
+
 def set_indexer_status(vault_key: str, **fields: object) -> None:
     """Merge fields into the background indexer status for one vault."""
     with page_state.indexer_status_lock:

@@ -45,6 +45,29 @@ describe('typed page properties', { timeout: 20_000 }, () => {
   }
   function value(name: string) { return element(`[data-prop-value="${name}"]`, HTMLDivElement); }
 
+  it('replaces a source section with one option from the same source', async () => {
+    const source = { llm_wiki_resource_id: 'book', llm_wiki_source_table_id: 'sources' };
+    await mountProperties({
+      initialMetadata: { ...metadata, ...source, Apartat: ['opening'] },
+      allTables: [{ id: 'table', properties: [{ name: 'Apartat', type: 'relation',
+        config: { relation_database_id: 'sections', source_sections: true } }] }],
+      allNotes: [
+        { id: 'opening', title: 'Book › Opening', resolved_table_id: 'sections', metadata: { ...source, llm_wiki_section_path: 'Opening' } },
+        { id: 'ending', title: 'Book › Ending', resolved_table_id: 'sections', metadata: { ...source, llm_wiki_section_path: 'Ending' } },
+        { id: 'foreign', title: 'Other book › Foreign', resolved_table_id: 'sections', metadata: { ...source, llm_wiki_resource_id: 'other-book', llm_wiki_section_path: 'Foreign' } },
+      ],
+    });
+    const picker = value('Apartat').querySelector<HTMLElement>('[role="combobox"]');
+    expect(picker).not.toBeNull();
+    act(() => { picker?.click(); });
+    const options = Array.from(document.body.querySelectorAll<HTMLElement>('[role="option"]'));
+    expect(options.map(option => option.textContent)).toEqual(['Opening', 'Ending']);
+    act(() => { options[1]?.click(); });
+    expect(state().metadata.Apartat).toEqual(['ending']);
+    await advance(1600);
+    expect(patches().at(-1)?.body).toMatchObject({ metadata: { Apartat: ['ending'] } });
+  });
+
   it('uses configured field order for rows, keyboard navigation and preview after a schema reorder', async () => {
     const configured = (names: string[]) => names.map(name => {
       const field = properties.find(property => property.name === name);

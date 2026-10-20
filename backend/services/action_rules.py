@@ -241,10 +241,10 @@ def status_effect(
         prop = oc.find_role_prop(table, role)
         if not prop:
             continue
-        if oc.is_global_status_prop(prop):
-            # Keep the in-memory table copy complete for the caller while the
-            # route persists the same value in the root catalog. The loader
-            # removes this compatibility copy on the next registry read.
+        if str(prop.get("type") or "").strip() == "status":
+            # Status effects preserve the field's config protocol. Catalog
+            # ownership is resolved by the caller: shared status fields use
+            # a compatibility copy which the registry loader later removes.
             cfg = prop.setdefault("config", {})
             local_options = oc.normalize_options(get_value(cfg, "options"))
             if value in {option["name"] for option in local_options}:
@@ -277,7 +277,7 @@ def on_stale_effect(table: JsonMap) -> tuple[Property | None, str | None, bool]:
         prop = oc.find_role_prop(table, role)
         if not prop:
             continue
-        if oc.is_global_status_prop(prop):
+        if str(prop.get("type") or "").strip() == "status":
             cfg = prop.setdefault("config", {})
             local_options = oc.normalize_options(get_value(cfg, "options"))
             if value in {option["name"] for option in local_options}:

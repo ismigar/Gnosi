@@ -181,6 +181,39 @@ def _mention_write_tools(
     return authorized
 
 
+def _row_field_write_tools(text: str, mentions: Sequence[object]) -> set[str]:
+    """Recognize explicit field assignments within a row/table request."""
+    masked = _mask_quoted_text(text)
+    row_scope = re.search(
+        r"\b(?:taul(?:a|es)|tabl(?:a|as|e|es|eau|eaux)|fil(?:a|es|as)|rows?|"
+        r"entrad(?:a|es|as)|entr(?:y|ies)|registr(?:e|es|o|os)|records?|"
+        r"lignes?|enregistrements?)\b", masked,
+    )
+    mention_scope = any(
+        str(mention.get("type", "") if isinstance(mention, dict) else getattr(mention, "type", ""))
+        in {"table", "database"}
+        for mention in mentions
+    )
+    if not row_scope and not mention_scope:
+        return set()
+    assignments = re.finditer(
+        r"\b(?:assign(?:a|ar|i|is|eu|es)?|asign(?:a|ar|e|es)|"
+        r"actualitz(?:a|ar|i|is|eu)|actualiz(?:a|ar|e|es)|"
+        r"canvi(?:a|ar|ï|ïs|eu)|cambi(?:a|ar|e|es)|"
+        r"set|update|change|modifi(?:e|er|ez)|attribu(?:e|er|ez))\b"
+        r"(?=[^.!?;\n]{0,200}\b(?:camp|camps|campo|campos|field|fields|"
+        r"champ|champs|estat|estado|status|statut)\b)", masked,
+    )
+    if not any(_affirmative_pattern_present(text, [match.group(0)]) for match in assignments):
+        return set()
+    bulk = re.search(
+        r"\b(?:tots|totes|todos|todas|all|every|tous|toutes|"
+        r"files|filas|rows|entrades|entradas|entries|registres|registros|"
+        r"records|lignes|enregistrements)\b", masked,
+    )
+    return {"bulk_update_rows" if bulk else "update_table_row"}
+
+
 def _explicit_brain_write_tool_names(
     message: str,
     mentions: Optional[Sequence[object]] = None,
@@ -426,6 +459,7 @@ def _explicit_brain_write_tool_names(
     }
     authorized.update(_matching_pattern_tools(text, confirmation_request_patterns))
     authorized.update(_mention_write_tools(text, mentions or ()))
+    authorized.update(_row_field_write_tools(text, mentions or ()))
 
     return authorized
 

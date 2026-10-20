@@ -14,7 +14,7 @@ export interface AgentSkillCatalogResponse extends JsonRecord {
 
 export interface GenerateButtonActionInput {
   [key: string]: unknown;
-  fields: Array<{ name: string; type: string }>;
+  fields: Array<{ id: string; name: string; type: string; options: Array<{ name: string }> }>;
   prompt: string;
 }
 

@@ -23,7 +23,7 @@ export interface VaultTablePagePatchInput {
 
 
 export interface VaultTableButtonActionInput extends JsonRecord {
-  button_action: 'ai_prompt' | 'run_skill';
+  button_action: 'set_fields' | 'ai_prompt' | 'run_skill';
   button_config: JsonRecord;
   note_id: string;
 }

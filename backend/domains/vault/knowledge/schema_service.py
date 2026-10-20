@@ -174,9 +174,20 @@ def ensure_brain_table_schema(
     table_id: str, locale: str = "en", property_id_hints: dict[str, str] | None = None
 ) -> int:
     """Add missing Brain fields and stable property ids idempotently."""
-    return _llm_wiki_schema.ensure_brain_table_schema(
+    added = _llm_wiki_schema.ensure_brain_table_schema(
         table_id, locale, property_id_hints, _BRAIN_SCHEMA_DEPENDENCIES
     )
+    from backend.domains.configuration.source_sections_schema import ensure_source_sections
+    with _legacy.registry_mutation():
+        registry = _legacy.load_registry()
+        table = next((item for item in iterable_values(registry.get("tables"))
+                      if is_record(item) and item.get("id") == table_id), None)
+        if table:
+            previous_count = len(list(iterable_values(table.get("properties") or [])))
+            if ensure_source_sections(registry, table, locale):
+                added += len(list(iterable_values(table.get("properties") or []))) - previous_count
+                _legacy.save_registry(registry)
+    return added
 
 
 def _brain_schema_token(value: object) -> str:
@@ -195,6 +206,10 @@ def _infer_brain_roles(table: RecordReader | None) -> dict[str, str]:
         if is_record(prop) and prop.get("id")
     ]
     roles = {}
+    section_prop = next((prop for prop in properties if prop.get("type") == "relation"
+                         and get_value(prop.get("config") or {}, "source_sections")), None)
+    if section_prop:
+        roles["section"] = str(section_prop["id"])
     for role, (tokens, expected_type) in _BRAIN_ROLE_SPECS.items():
         candidate = next(
             (

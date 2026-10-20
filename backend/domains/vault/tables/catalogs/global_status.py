@@ -1,4 +1,4 @@
-"""Registry-wide status catalog migration."""
+"""Maintenance of explicitly shared status catalogs."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ from backend.utils.open_values import get_value, set_value, pop_value
 
 from backend.domains.vault.tables.catalogs.core import (
     auto_color,
-    get_prop_config,
     get_prop_options,
     is_global_status_prop,
     normalize_options,
@@ -110,7 +109,7 @@ def _configure_status_property(prop: Metadata) -> bool:
 
 
 def ensure_global_status_catalog(registry: Metadata) -> bool:
-    """Merge dedicated status fields into one stable registry catalog."""
+    """Maintain the global catalog only for fields explicitly linked to it."""
     if not isinstance(registry, dict):
         return False
     members = _status_members(registry)

@@ -19,8 +19,9 @@ from backend.services.workspace_service import require_role
 
 def trigger_podcast_generation() -> RouteReturn:
     """Launches podcast generation in the background"""
-    from backend.services.audio_summarizer import start_generation_async, generation_status
+    from backend.services.audio_summarizer import start_generation_async, get_generation_status
 
+    generation_status = get_generation_status()
     if generation_status["running"]:
         return {
             "status": "already_running",
@@ -37,8 +38,9 @@ def trigger_podcast_generation() -> RouteReturn:
 
 def get_podcast_status() -> RouteReturn:
     """Returns the current status of podcast generation"""
-    from backend.services.audio_summarizer import generation_status
+    from backend.services.audio_summarizer import get_generation_status
 
+    generation_status = get_generation_status()
     return {
         "running": generation_status["running"],
         "progress": generation_status["progress"],

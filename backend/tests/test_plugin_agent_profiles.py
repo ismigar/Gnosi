@@ -4,7 +4,7 @@ from copy import deepcopy
 import pytest
 
 from backend.services import plugin_agent_profiles as profiles
-from backend.services.agent_operation_catalog import skill_id
+from backend.services.agent_operation_catalog import OPERATIONS, skill_id
 
 
 def config():
@@ -52,6 +52,31 @@ def test_missing_skill_never_falls_back_to_personal():
     with pytest.raises(RuntimeError, match="plugin_profile_unavailable"):
         profiles.select_profile(ai, skill_id("mail"))
     assert profiles.select_profile(ai, "user.personal")["id"] == "personal"
+
+
+@pytest.mark.parametrize('operation', sorted(OPERATIONS))
+def test_every_declared_operation_selects_its_profile_and_rejects_suspension(operation):
+    from backend.domains.agent.routes.shared import _validated_identifier
+
+    ai = config()
+    plugins = list(profiles.declarations())
+    profiles.reconcile(ai, state(*plugins))
+    owner = OPERATIONS[operation][0]
+    expected_id = f'builtin.{owner}.default'
+    owned = next(profile for profile in ai['agents'] if profile['id'] == expected_id)
+    owned.update(model=f'{operation}-model', persona=f'{operation}-instructions')
+    selected = profiles.select_profile(ai, skill_id(operation))
+    assert _validated_identifier(selected['id'], 'profile_id') == expected_id
+    assert _validated_identifier(selected['id'], 'agent_id') == expected_id
+    assert selected['model'] == f'{operation}-model'
+    assert selected['persona'] == f'{operation}-instructions'
+    assert skill_id(operation) in selected['skill_ids']
+    owned['model'] = 'changed-after-selection'
+    assert selected['model'] == f'{operation}-model'
+    profiles.reconcile(ai, state(*(plugin for plugin in plugins if plugin != owner)))
+    with pytest.raises(RuntimeError, match='plugin_profile_unavailable'):
+        profiles.select_profile(ai, skill_id(operation))
+    assert ai['agents'][0]['model'] == 'small'
 
 
 def test_owned_identity_protected_but_configuration_editable():

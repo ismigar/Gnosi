@@ -347,7 +347,8 @@ def prepare_agent_runtime(
 
 def _tool_name(item: Any) -> str:
     """Return the model-visible name of a BaseTool or plain callable."""
-    return str(getattr(item, "name", "") or getattr(item, "__name__", "") or "")
+    from backend.services.agent_tool_identity import runtime_tool_name
+    return runtime_tool_name(item)
 
 
 def _deduplicate_tools(tools: Iterable[Any]) -> List[Any]:

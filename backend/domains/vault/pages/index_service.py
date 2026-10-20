@@ -121,6 +121,8 @@ def bump_page_index_version(vault_key: str) -> None:
     """Mark one vault index as changed while its index lock is held."""
     dependencies = _deps()
     dependencies.index_version[vault_key] = dependencies.index_version.get(vault_key, 0) + 1
+    from backend.domains.vault.pages.cache import invalidate_vault_page_responses
+    invalidate_vault_page_responses(vault_key)
 
 
 def refresh_page_index_entry(
@@ -214,11 +216,11 @@ def _filter_by_search_paths(
 ) -> list[PageCacheEntry]:
     if not search_paths:
         return list(entries)
-    prefixes = [str(path) for path in search_paths]
+    roots = [Path(path) for path in search_paths]
     return [
         entry
         for entry in entries
-        if any(str(entry.get("path") or "").startswith(prefix) for prefix in prefixes)
+        if entry.get("path") and any(Path(str(entry["path"])).is_relative_to(root) for root in roots)
     ]
 
 
@@ -383,11 +385,13 @@ def _merge_index(
             )
         else:
             entries = dependencies.index_entries.setdefault(vault_key, {})
+            # A scoped refresh replaces that scope, including external deletions.
+            # Keep sibling folders and other tables untouched.
+            for entry in _filter_by_search_paths(list(entries.values()), search_paths):
+                entries.pop(str(entry["path"]), None)
             entries.update(updated)
-            id_map = dependencies.id_to_path.setdefault(vault_key, {})
-            id_map.update(
-                {str(entry["id"]): path for path, entry in updated.items() if entry.get("id")}
-            )
+            id_map = _reverse_id_map(entries)
+            dependencies.id_to_path[vault_key] = id_map
             dependencies.update_path_resolver(
                 vault_path,
                 id_map,
@@ -400,6 +404,7 @@ def _merge_index(
 def get_cached_page_entries(
     search_paths: list[Path] | None = None,
     force_refresh: bool = False,
+    require_refresh: bool = False,
 ) -> list[PageCacheEntry]:
     """Return cached entries, refreshing the requested vault scope when needed."""
     dependencies = _deps()
@@ -410,6 +415,8 @@ def get_cached_page_entries(
     with dependencies.index_lock:
         refresh_lock = dependencies.refresh_locks.setdefault(vault_key, Lock())
     if not refresh_lock.acquire(blocking=False):
+        if require_refresh:
+            raise RuntimeError("vault_index_refresh_in_progress")
         # Other requests may use the last snapshot immediately, without a
         # second walk or a request thread waiting for a cloud filesystem.
         with dependencies.index_lock:

@@ -327,6 +327,35 @@ INVENTORY_QUERY_STOPWORDS = {
 
 def _inventory_request_arguments(message: str) -> dict[str, Any]:
     """Extract generic record types and subject terms from an inventory request."""
+    # An explicit quoted equality is a field predicate, not lexical search.
+    # Keep the original title intact, including accents and short words.
+    condition = re.search(
+        r"\b(?:where|whose|on|cuyo|cuya|dont)\s+([\wÀ-ÿ _-]+?)\s+"
+        r"(?:és|es|is|equals?|est|=)\s+(?:(?:exactly|exactament|exactamente|exactement)\s+)?"
+        r'["«“]([^"»”]+)["»”]', message, re.IGNORECASE,
+    )
+    table = re.search(r"\b(?:in|from)\s+(?:the\s+)?(.+?)\s+table\b", message, re.IGNORECASE)
+    if table is None:
+        table = re.search(
+            r"\b(?:taula|tabla|table)\s+([^,.;]+?)(?=\s+(?:where|whose|on|cuyo|cuya|dont)\b|[,.;])",
+            message, re.IGNORECASE,
+        )
+    if condition and table:
+        filters = {condition.group(1).strip(): condition.group(2).strip()}
+        for additional in re.finditer(
+            r"\b(?:and|i|y|et)\s+([\wÀ-ÿ _-]+?)\s+"
+            r"(?:és|es|is|equals?|est|=)\s+(?:(?:exactly|exactament|exactamente|exactement)\s+)?"
+            r'["«“]([^"»”]+)["»”]', message[condition.end():], re.IGNORECASE,
+        ):
+            field, value = additional.group(1).strip(), additional.group(2).strip()
+            if field in filters and filters[field] != value:
+                raise ValueError("inventory_conflicting_field_predicates")
+            filters[field] = value
+        return {
+            "query": "", "record_types": [table.group(1).strip()],
+            "include_relations": True, "offset": 0, "limit": 100,
+            "property_filters": filters,
+        }
     text = _normalized_request_text(message)
     include_relations = not bool(
         re.search(
@@ -604,7 +633,7 @@ def _previous_inventory_arguments(
             limit = max(1, min(100, int(raw_limit)))
         except (TypeError, ValueError):
             return None
-        return {
+        arguments: dict[str, Any] = {
             "query": str(payload.get("query") or "")[:500],
             "record_types": [
                 str(value)[:128]
@@ -615,6 +644,11 @@ def _previous_inventory_arguments(
             "offset": offset,
             "limit": limit,
         }
+        if isinstance(payload.get("property_filters"), dict) and payload["property_filters"]:
+            arguments["property_filters"] = payload["property_filters"]
+        if isinstance(payload.get("snapshot_revision"), str) and payload["snapshot_revision"]:
+            arguments["expected_revision"] = payload["snapshot_revision"]
+        return arguments
     return None
 
 

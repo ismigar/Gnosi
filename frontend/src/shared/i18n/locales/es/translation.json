@@ -1,4 +1,16 @@
 {
+  "instruction_editor": {
+    "source_required": "No se ha podido cargar la edición visual. Abre Markdown para editar el texto original.",
+    "rich_help": "Escribe directamente. Selecciona texto para darle formato o escribe / para insertar un título, una lista o un bloque de código.",
+    "too_long": "Las instrucciones no pueden superar los {{count}} caracteres.",
+    "controls": "Controles del editor Markdown",
+    "edit": "Editar",
+    "preview": "Vista previa",
+    "expand": "Ampliar el editor",
+    "reduce": "Reducir el editor",
+    "empty": "Todavía no hay instrucciones.",
+    "help": "Escribe en Markdown. Ctrl/Cmd + ] sangra las líneas seleccionadas; Ctrl/Cmd + [ quita la sangría."
+  },
   "_meta": {
     "nativeName": "Español",
     "intlLocale": "es-ES",
@@ -2615,6 +2627,7 @@
         "instructions_translation_rate_limit": "El proveedor de IA ha limitado las peticiones o ha agotado su cuota. Inténtalo más tarde o revisa la cuota del proveedor. Se conserva el texto original.",
         "instructions_translation_authentication": "El proveedor de IA ha rechazado la clave de acceso del perfil de traducción. Revisa la conexión del proveedor, o elige un modelo de un proveedor conectado en el perfil de Traducción. Después inténtalo de nuevo. Se conserva el texto original.",
         "active_skills_only": "Solo habilidades activadas",
+        "active_tools_only": "Solo herramientas activadas",
         "back_to_profile": "Volver al perfil"
       },
       "catalog": {
@@ -4321,6 +4334,8 @@
     "unnamed": "(sin nombre)",
     "op_equals": "igual",
     "op_not_equals": "distinto",
+    "section_contains": "Incluye este apartado y sus subapartados",
+    "section_not_contains": "Excluye este apartado y sus subapartados",
     "op_contains": "contiene",
     "op_not_contains": "no contiene",
     "op_is_empty": "está vacío",
@@ -4764,6 +4779,19 @@
     "recognize_error": "Error reconociendo el texto",
     "recognize_title": "Reconoce la escritura a mano seleccionada (o todo el lienzo) y la inserta como texto",
     "recognizing": "Reconociendo…",
+    "ocr_not_downloaded": "Modelo pendiente de descargar",
+    "ocr_downloaded": "Modelo descargado",
+    "ocr_downloading": "Descargando el modelo…",
+    "ocr_loading": "Cargando el modelo en memoria…",
+    "ocr_ready": "Reconocimiento disponible",
+    "ocr_cancelled": "Descarga detenida",
+    "ocr_failed": "No se ha podido preparar el modelo",
+    "ocr_unavailable": "Motor no disponible",
+    "ocr_cancelling": "Deteniendo…",
+    "ocr_size": "{{done}} / {{total}} MiB",
+    "ocr_cancel_download": "Detener la descarga",
+    "ocr_disk_space": "No hay suficiente espacio libre. Libera espacio antes de volver a intentarlo.",
+    "ocr_cancel_error": "No se ha podido detener la descarga. Vuelve a intentarlo.",
     "to_text": "Pasar a texto",
     "pen_only": "Solo lápiz",
     "pen_only_title": "Modo solo lápiz: ignora el tacto para no dibujar con la palma (palm rejection)",
@@ -4824,6 +4852,9 @@
     "open_minutes": "Abre el acta",
     "new": "Nueva",
     "generic_error": "Ha habido un error.",
+    "language": "Idioma de la reunión",
+    "language_auto": "Detectar automáticamente",
+    "error_interrupted": "El proceso se ha interrumpido. La transcripción guardada se puede recuperar.",
     "error_processing": "Error procesando la reunión",
     "no_audio_support": "Este navegador no soporta grabación de audio.",
     "share_screen_required": "Hay que compartir una pestaña o pantalla (con la casilla de audio marcada).",
@@ -7471,6 +7502,7 @@
     "engineering": "Documentación técnica"
   },
   "activity": {
+    "scheduled_history": "Programaciones y servicios",
     "open_activity": "Ver actividad y automatizaciones",
     "schedules": "Programaciones",
     "runs": "Ejecuciones",
@@ -7599,6 +7631,9 @@
     "trial_error": "No se ha podido completar la prueba. Revisa el modelo e inténtalo de nuevo.",
     "trial_review_help": "Esta es una revisión del modelo. Comprueba las evidencias antes de dar el resultado por validado.",
     "met": "Cumplido",
+    "input_evidence": "Fragmento de la entrada:",
+    "missing_trial_inputs": "Información que falta para completar la prueba:",
+    "output_evidence": "Fragmento del resultado:",
     "unmet": "Pendiente de resolver",
     "validated_example": "Ejemplo revisado",
     "keep_example": "He revisado el resultado: guardarlo como ejemplo",
@@ -7787,6 +7822,9 @@
     "lab_director_routes": "Directivo con rutas directas",
     "lab_pass": "Superado",
     "lab_fail": "No superado",
+    "lab_fail_format": "La respuesta no es JSON sin texto adicional.",
+    "lab_fail_contract": "El resultado no cumple el contrato esperado.",
+    "lab_fail_execution": "No se ha podido completar la llamada del modelo.",
     "lab_measured": "Resultado sintético verificado",
     "lab_blend": "Valoración: 50% catálogo y 50% prueba sintética. Las carencias generales siguen visibles.",
     "reuse_specialty": "Especialista reutilizable en las habilidades indicadas. Compara cobertura y modelo con los agentes existentes antes de conservarlo.",
@@ -7838,5 +7876,22 @@
   "accessibility": {
     "skip_to_content": "Saltar al contenido principal",
     "route_loaded": "Se ha cargado {{page}}"
+  },
+  "creation_recovery": {
+    "title": "Creaciones pendientes de confirmar",
+    "check": "Comprueba el resultado",
+    "open": "Abre la página",
+    "pending": "Todavía se está creando. Comprueba el resultado antes de repetirla.",
+    "unknown": "No se ha podido confirmar el resultado. No vuelvas a crear la página.",
+    "completed": "Creación completada",
+    "unconfirmed": "Resultado aún no comprobado",
+    "check_failed": "No se ha podido consultar el resultado. Vuelve a comprobarlo.",
+    "storage_unavailable": "No se puede guardar la petición pendiente. Comprueba el almacenamiento del navegador antes de crear la página.",
+    "not_found": "El servidor todavía no encuentra la petición. Volver a enviar el mismo formulario conserva la misma petición.",
+    "coordination_unavailable": "Este navegador no permite coordinar la creación entre ventanas. Abre Gnosi en un navegador compatible antes de crear la página.",
+    "unknown_saved": "La página se ha guardado, pero no se han confirmado todas las actualizaciones relacionadas.",
+    "open_saved": "Abre la página guardada",
+    "resume": "Completar los pasos pendientes",
+    "resuming": "Completando los pasos…"
   }
 }

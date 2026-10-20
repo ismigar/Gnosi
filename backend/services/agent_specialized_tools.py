@@ -29,6 +29,9 @@ def run_engine(kind: str, resource: str, invoke: Callable[[], T]) -> T:
     operation, engine = ENGINES[kind]
     scope = current_scope()
     revalidate_scope(scope)
+    inherited = _snapshot.get()
+    if kind == "transcription" and inherited is not None and skill_id("meeting") in inherited.skill_ids:
+        operation = "meeting"
     snapshot = prepare_snapshot(skill_id(operation))
     if snapshot.scope != scope:
         raise PermissionError("agent_execution_scope_changed")
@@ -40,14 +43,16 @@ def run_engine(kind: str, resource: str, invoke: Callable[[], T]) -> T:
     runtime = resolve_agent_runtime(current, vault_path=Path(scope.vault_path), active_skill_ids=[skill_id(operation)])
     if skill_id(operation) not in runtime.active_skill_ids:
         raise PermissionError("agent_execution_skill_revoked")
+    if operation == "meeting" and not any(tool.id == "core.transcribe-asset" for tool in runtime.tool_descriptors):
+        raise PermissionError("agent_execution_transcription_tool_revoked")
     if kind == "speech" and scope.role == "viewer":
         raise PermissionError("agent_execution_write_forbidden")
-    parent = _run.get()
+    parent = _run.get() or snapshot.parent_run_id
     if parent and store.cancelled(scope, parent):
         from backend.services.agent_cancellation import AgentTurnCancelled
         raise AgentTurnCancelled("agent_run_cancelled")
     run_id = uuid.uuid4().hex
-    row = AgentRun(run_id=run_id, parent_run_id=_run.get(), agent_id=snapshot.agent_id,
+    row = AgentRun(run_id=run_id, parent_run_id=parent, agent_id=snapshot.agent_id,
         skill_id=skill_id(operation), operation=kind, origin=operation_origin(), status="running",
         created_at=time.time(), updated_at=time.time(), model=engine,
         provider="google-tts" if kind == "speech" else "local-engine", execution_revision=snapshot.revision)

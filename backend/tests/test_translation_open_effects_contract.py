@@ -38,7 +38,7 @@ def option_dependencies(registry: RegistryData, saves: list[RegistryData]) -> st
 @pytest.mark.parametrize("global_status", [True, False])
 def test_status_options_use_real_catalog_contracts_and_preserve_unknown_keys(global_status: bool) -> None:
     opaque = object()
-    prop: RegistryData = {9: opaque, "id": "status", "name": "Status", "type": "status" if global_status else "select"}
+    prop: RegistryData = {9: opaque, "id": "status", "name": "Status", "type": "status", "config": {"catalog_ref": "status"} if global_status else {}}
     table: RegistryData = {8: opaque, "id": "table", "properties": [prop]}
     registry: RegistryData = {7: opaque, "tables": [table]}
     saves: list[RegistryData] = []
@@ -72,7 +72,7 @@ def test_global_catalog_keeps_existing_list_or_original_repair_policy(catalog: o
 
 
 def test_status_option_failure_after_mutation_does_not_undo_shared_record() -> None:
-    prop: RegistryData = {"id": "status", "name": "Status", "type": "status"}
+    prop: RegistryData = {"id": "status", "name": "Status", "type": "status", "config": {"catalog_ref": "status"}}
     registry: RegistryData = {"tables": [{"id": "table", "properties": [prop]}]}
     saves: list[RegistryData] = []
     deps = option_dependencies(registry, saves)
