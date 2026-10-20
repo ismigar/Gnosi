@@ -244,10 +244,13 @@ async def chat_endpoint(
     notebook_turn: Optional[Dict[str, Any]] = None
     try:
         agent_id = _validated_identifier(chat_req.agent_id, "agent_id")
-        from backend.services.principal_agent_migration import ensure_migrated, principal_profile
-        principal = principal_profile(ensure_migrated())
-        if agent_id != principal["id"]:
-            raise HTTPException(status_code=409, detail="principal_agent_changed")
+        # Checkpoint identity stays stable when the conversation changes profile.
+        profile_id = _validated_identifier(chat_req.profile_id or agent_id, "profile_id")
+        from backend.services.principal_agent_migration import ensure_migrated
+        profiles = ensure_migrated().get("agents", [])
+        if not any(p.get("id") == profile_id and p.get("enabled", True) and not p.get("plugin_suspended")
+                   and p.get("managed_by") != "llm-wiki" for p in profiles if isinstance(p, dict)):
+            raise HTTPException(status_code=409, detail="conversation_profile_unavailable")
         session_id = _validated_identifier(chat_req.session_id, "session_id")
         requested_skill_ids = _validated_skill_ids(chat_req.active_skill_ids)
         vault, vault_scope = _vault_scope()
@@ -306,10 +309,8 @@ async def chat_endpoint(
             turn_context_refs = notebook_turn["contexts"]
         workflow, llm_selection = await get_agent_workflow(
             request,
-            agent_id,
-            llm_mode=chat_req.llm_mode,
-            llm_provider=chat_req.llm_provider,
-            llm_model=chat_req.llm_model,
+            profile_id,
+            llm_mode="agent_default",
             user_message=chat_req.message,
             vault_scope=vault_scope,
             vault_path=vault,

@@ -45,6 +45,7 @@ export function AgentSkillsField({
 }: AgentSkillsFieldProps) {
     const { t } = useTranslation();
     const [search, setSearch] = useState('');
+    const [activeOnly, setActiveOnly] = useState(false);
     const normalizedSearch = search.trim().toLowerCase();
     const assignable = skills.filter((skill) => skill.assignable);
     const requiredIds = requiredSkillIdsForAgent(
@@ -52,8 +53,9 @@ export function AgentSkillsField({
         assignable,
     );
     const visibleSkills = assignable.filter((skill) => (
-        !normalizedSearch
-        || localizedResourceSearchText(t, skill, 'skill').includes(normalizedSearch)
+        (!activeOnly || selectedIds.includes(skill.id))
+        && (!normalizedSearch
+            || localizedResourceSearchText(t, skill, 'skill').includes(normalizedSearch))
     ));
     const knownIds = new Set(assignable.map((skill) => skill.id));
     const missingIds = selectedIds.filter((id) => !knownIds.has(id));
@@ -85,6 +87,14 @@ export function AgentSkillsField({
                 placeholder={t('settings.ai.resources.search_assignable_skills')}
                 value={search}
             />
+            <div className="inline-flex items-center gap-2">
+                <GnosiToggle
+                    label={t('settings.ai.resources.active_skills_only')}
+                    active={activeOnly}
+                    onChange={() => { setActiveOnly(value => !value); }}
+                />
+                <span>{t('settings.ai.resources.active_skills_only')}</span>
+            </div>
             <div className="ai-agent-skills__list">
                 {missingIds.map((skillId) => (
                     <div
@@ -133,7 +143,7 @@ export function AgentSkillsField({
                             <span className="ai-agent-skill__copy">
                                 <strong>{onSelectSkill ? <a
                                     href={`#skill-${encodeURIComponent(skill.id)}`}
-                                    className="text-[var(--gnosi-blue)] underline underline-offset-2"
+                                    className="text-[var(--gnosi-primary)] underline underline-offset-2"
                                     title={`${t('common.open')}: ${skillDisplayName(t, skill)}`}
                                     onClick={event => {
                                         event.preventDefault();

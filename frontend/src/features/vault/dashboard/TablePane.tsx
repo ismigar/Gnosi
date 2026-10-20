@@ -6,6 +6,9 @@ import { prepareDashboardViewContext, VIEW_WRAPPERS } from './view-context';
 import { applyDashboardJoins } from './joins';
 import type { DashboardController } from './useDashboardController';
 import { tableBodyCallbacks } from './table-callbacks';
+import { searchesWholeTable } from '../../../shared/records/hooks/useViewSearch';
+import { activeViewRecordCount } from '../views/vault-views-header/viewModel';
+import { ViewSearchEmptyState } from '../views/ViewSearchScope';
 interface Props {
   dashboard: DashboardController;
   tableId: string;
@@ -26,6 +29,11 @@ export function TablePane({ dashboard: d, tableId, mode }: Props) {
     : d.activeTableId === tableId ? (d.activeViewId || first.id) : first.id;
   const view = views.find(candidate => candidate.id === currentViewId) || first;
   const { mergedView, mergedSchema } = prepareDashboardViewContext(view, table, d.registry.tables);
+  const wholeTable = searchesWholeTable(d.searchTerm, d.searchScope);
+  const searchView = wholeTable ? { ...mergedView, filters: [], filterTree: undefined } : mergedView;
+  const bodyNotes = wholeTable ? notes : applyDashboardJoins(notes, view.joins, d.pages, d.resolvePageTableId);
+  const noSearchResults = Boolean(d.searchTerm.trim()) && view.type !== 'graph' && view.type !== 'genogram'
+    && activeViewRecordCount(bodyNotes, [view], view.id, bodyNotes.length, d.searchTerm, d.searchScope) === 0;
   const selectTable = () => {
     if (!inline)
       d.setActiveTableId(tableId);
@@ -56,9 +64,10 @@ export function TablePane({ dashboard: d, tableId, mode }: Props) {
     onDuplicateTemplate: d.handleDuplicateTemplate,
     onSetDefaultTemplate: d.handleSetDefaultTemplate,
   } : {};
-  const body = view.type === 'graph' ? (<VaultGraph
+  const body = noSearchResults ? <ViewSearchEmptyState scope={d.searchScope} onScopeChange={d.setSearchScope} />
+  : view.type === 'graph' ? (<VaultGraph
     tableId={tableId}
-    view={view}
+    view={searchView}
     searchTerm={d.searchTerm}
     isDarkMode={document.documentElement.classList.contains('dark')}
     onNodeClick={nodeId => { void d.loadPage(nodeId); }}
@@ -67,12 +76,12 @@ export function TablePane({ dashboard: d, tableId, mode }: Props) {
     {...tableBodyCallbacks(d, tableId, inline ? view.id : currentViewId, split)}
     type={mergedView.type}
     functionalities={table?.functionalities}
-    notes={applyDashboardJoins(notes, view.joins, d.pages, d.resolvePageTableId)}
+    notes={bodyNotes}
     templates={templates}
     schema={mergedSchema}
     idToTitle={d.globalIndex}
     allNotes={d.pages}
-    activeView={mergedView}
+    activeView={searchView}
     searchTerm={d.searchTerm}
     {...(mode === 'tab' ? {} : { isEmbedded: split, actionRules: table?.action_rules })}
     restoreRecordFocus={d.recordReturnFocus?.isArmed === true && d.recordReturnFocus.tableId === tableId
@@ -88,7 +97,7 @@ export function TablePane({ dashboard: d, tableId, mode }: Props) {
       {...headerExtra}
       tableName={table?.title || table?.name || d.t('common.table')}
       recordCount={notes.length}
-      notes={notes}
+      notes={bodyNotes}
       referenceTableId={d.refTableId === tableId ? tableId : undefined}
       brainTableId={d.brainTableId === tableId ? tableId : undefined}
       onReferencesImported={d.fetchPages}
@@ -119,6 +128,8 @@ export function TablePane({ dashboard: d, tableId, mode }: Props) {
       onSetDefaultTemplate={template => d.handleSetDefaultTemplate(readPage(template))}
       onDeleteTemplate={template => { d.setTemplateToDelete(readPage(template)); }}
       searchTerm={d.searchTerm}
+      searchScope={d.searchScope}
+      setSearchScope={d.setSearchScope}
       setSearchTerm={d.setSearchTerm}
       templates={templates}
       {...(split ? { onClose: () => { d.setSplitTableIds(previous => previous.filter(id => id !== tableId)); } } : {})}

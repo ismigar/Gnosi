@@ -12819,6 +12819,8 @@ export interface components {
             message: string;
             /** Notebook Id */
             notebook_id?: string | null;
+            /** Profile Id */
+            profile_id?: string | null;
             /**
              * Session Id
              * @default default

@@ -124,6 +124,10 @@ def _validate_automation_target(context: WorkspaceContext, *, agent_id: str, ski
     except AgentNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     normalized = skill_id.strip().lower()
+    from backend.services.plugin_agent_profiles import owner_for_skill
+    owner = owner_for_skill(normalized)
+    if owner and (agent.get("managed_by") != owner or agent.get("plugin_suspended")):
+        raise HTTPException(status_code=409, detail="skill requires its active plugin profile")
     assigned = {
         str(value).strip().lower() for value in iterate_values(agent.get("skill_ids") or [])
     }

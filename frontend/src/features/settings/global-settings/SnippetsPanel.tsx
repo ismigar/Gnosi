@@ -38,7 +38,7 @@ export function SnippetsPanel({ context }: Props) {
               <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                 <button
                   onClick={() => { handleEditSnippet(s); }}
-                  style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--gnosi-blue)', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                  style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--gnosi-primary)', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
                 >
                   {t('common.edit')}
                 </button>
@@ -105,7 +105,7 @@ export function SnippetsPanel({ context }: Props) {
           <button
             onClick={handleAddSnippet}
             disabled={!snippetDraft.title.trim() || !snippetDraft.content.trim()}
-            style={{ padding: '10px 24px', borderRadius: '12px', border: 'none', background: 'var(--gnosi-blue)', color: 'white', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', opacity: (!snippetDraft.title.trim() || !snippetDraft.content.trim()) ? 0.5 : 1 }}
+            style={{ padding: '10px 24px', borderRadius: '12px', border: 'none', background: 'var(--gnosi-primary)', color: 'white', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', opacity: (!snippetDraft.title.trim() || !snippetDraft.content.trim()) ? 0.5 : 1 }}
           >
             <Plus size={16} />
             {editingSnippetId ? tn('snippets.update') : tn('snippets.add')}

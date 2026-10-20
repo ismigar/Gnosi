@@ -23,7 +23,7 @@ export function GraphEntities({ context }: Props) {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <PenTool size={18} color="var(--gnosi-blue)" />
+        <PenTool size={18} color="var(--gnosi-primary)" />
         <h5 style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '800' }}>
           {tn('graph.system_entities')}
         </h5>
@@ -63,8 +63,8 @@ export function GraphEntities({ context }: Props) {
                       }));
                     }}
                   />
-                  <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: `${entity.color || '#3b82f6'}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <entity.icon size={16} color={entity.color || '#3b82f6'} />
+                  <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: `${entity.color || 'var(--gnosi-primary)'}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <entity.icon size={16} color={entity.color || 'var(--gnosi-primary)'} />
                   </div>
                   <span style={{ fontWeight: '900', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{entity.name}</span>
                 </div>

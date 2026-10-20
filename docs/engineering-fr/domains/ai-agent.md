@@ -254,37 +254,11 @@ Vault ni d'un fournisseur cloud. Les tests injectent ce même résolveur canoniq
 et les clés de chiffrement des flux restent dans le sous-répertoire `secrets`
 du répertoire local de données.
 
-La sélection du modèle à l'exécution relève du profil de l'agent. `pinned`
-utilise uniquement le fournisseur et le modèle attribués ; `resilient` commence
-par ceux-ci et n'autorise un basculement qu'en cas d'erreur transitoire ;
-`adaptive` peut choisir parmi le modèle principal et la liste explicitement
-autorisée du profil. Chaque alternative doit être une entrée activée du registre,
-avec la même localité, locale ou distante ; les identifiants d'accès et les
-valeurs par défaut du catalogue n'élargissent jamais la liste autorisée. Les
-erreurs d'authentification, de politique et de contenu ne provoquent jamais de
-basculement. Le modèle de repli sélectionné est indiqué dans les métadonnées du
-message et dans le compte rendu du flux, de sorte qu'un modèle local ne puisse
-pas envoyer inopinément du contexte privé à un fournisseur distant.
-
-Les profils adaptatifs peuvent définir `decision_engine: jev` en conservant
-l’identité, la mémoire et les outils de l’assistant. Gnosi filtre le modèle principal
-et les alternatives explicites selon la disponibilité, la fenêtre de contexte, les
-capacités, les quotas et le budget avant de les transmettre à l’adaptateur. Les profils
-locaux n’appellent jamais Jev. L’adaptateur envoie uniquement la demande actuelle
-(jusqu’à 12 000 caractères) et les métadonnées des candidats au point HTTPS fixe de
-TypeSafe ; les identifiants utilisent le stockage sécurisé existant. Une seule requête
-bornée est autorisée, sans redirection ni nouvelle tentative. La distribution validée
-doit choisir un candidat autorisé avec une confiance et une probabilité d’au moins 0,75 ;
-ce seuil est une heuristique de sélection, pas une garantie d’exactitude. En l’absence
-d’identifiants, en cas d’incertitude ou d’erreur, la sélection interne est conservée.
-L’utilisation est ajoutée au registre partagé des dépenses, avec des estimations
-prudentes si un délai dépassé laisse la facturation incertaine. Les opérations gouvernées
-réservent un appel de modèle pour la décision et en conservent un pour la réponse.
-Les flux non fixes sont reconstruits à chaque tour pour éviter de réutiliser une
-sélection antérieure en cache. Les paramètres proposent les trois modes et les
-identifiants TypeSafe facultatifs ; les détails de réponse indiquent Jev ou la
-sélection interne. La couverture se trouve dans
-`backend/tests/test_agent_model_decisions.py` et
+Profile execution uses `pinned`: exactly the configured provider and model.
+Legacy `resilient`, `adaptive`, and `decision_engine: jev` settings no longer
+select alternatives for profiles. The settings form saves one model with no
+fallbacks. Legacy strategy helpers remain covered in
+`backend/tests/test_agent_model_decisions.py`; profile editing is covered in
 `frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`.
 
 Le client MCP stdio valide les objets aux frontières JSON-RPC, type explicitement
@@ -1280,3 +1254,10 @@ La traduction utilise un bouton compact aligné à droite. Les limites de requê
 L’IA fonctionnelle passe par l’exécuteur partagé de l’Agent principal. Boutons, chat et programmations utilisent les compétences attribuées, la politique de modèles du principal, une mémoire délimitée et un registre commun de consommation. Les opérations structurées autorisent une seule réparation de format dans le même budget. Les phases longues conservent un instantané du profil et réutilisent les points de reprise terminés.
 
 L’Activité présente les identifiants d’exécution, l’annulation et les reprises compatibles. La migration versionnée sauvegarde la configuration, retire uniquement le profil Brain géré, préserve les profils personnels et déplace les instructions de Connaissances vers une compétence complémentaire. Les anciennes URL et celles de Connaissances partagent les mêmes traitements et autorisations ; Notion reste facultatif.
+
+
+## Profils et conversations
+
+Créez des profils dans **Profils supplémentaires (avancé)**. Dans le chat, ouvrez le sélecteur du nom de l’assistant et choisissez le **Profil de la conversation**. Ce changement s’applique aux demandes suivantes et conserve l’historique. Chaque conversation mémorise son profil. **Utiliser par défaut**, dans les paramètres, choisit le profil des nouvelles conversations et des actions de l’application, sans modifier les conversations existantes.
+
+Chaque profil possède un seul LLM. Pour utiliser un autre modèle, choisissez un autre profil ou modifiez son modèle. Il n’y a ni sélection automatique ni modèle de remplacement en cas d’échec. Si un profil est supprimé ou son modèle indisponible, choisissez un autre profil dans le chat. Pour supprimer le profil par défaut, choisissez-en d’abord un autre. Désactivez le plugin IA pour désactiver l’IA.

@@ -14,7 +14,7 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
         t, embedded, readOnly, notebookId, conversationMode, storageIdentity, contextRefs,
         showLearning, setShowLearning, learningGoal, setLearningGoal, sessionId, browserStorageScope,
         isOpen, isDockOpen, agentIcon, setIsDockOpen, setIsOpen, isMinimized, handleChatKeyDown,
-        isLoading, runtimeLimited, agentHasModel, agentName, selectedAgentId, runtimeStatusLabel,
+        isLoading, runtimeLimited, agentHasModel, agentName, selectedAgentId, selectedProfileId, runtimeStatusLabel,
         agentModel, runtimeStatusHelp, agentList, archiveCurrentSession, setIsMinimized,
         setSelectedAgentId, setShowSessionsView, messagesContainerRef, showSessionsView,
         sortedSessions, selectSession, deleteSessionById, messages, isRewinding, detailsMessageIndex,
@@ -54,7 +54,7 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
             transition: 'all 0.3s ease-in-out'
             }}
         >
-            <ChatHeader embedded={embedded} isMinimized={isMinimized} isLoading={isLoading} runtimeLimited={runtimeLimited} agentHasModel={agentHasModel} agentIcon={agentIcon} agentName={agentName} selectedAgentId={selectedAgentId} runtimeStatusLabel={runtimeStatusLabel} agentModel={agentModel} runtimeStatusHelp={runtimeStatusHelp} agentList={agentList} archiveCurrentSession={archiveCurrentSession} setIsMinimized={setIsMinimized} setSelectedAgentId={setSelectedAgentId} setShowSessionsView={setShowSessionsView} setIsOpen={setIsOpen} />
+            <ChatHeader embedded={embedded} isMinimized={isMinimized} isLoading={isLoading || isRewinding || readOnly || isUploadingAttachment} runtimeLimited={runtimeLimited} agentHasModel={agentHasModel} agentIcon={agentIcon} agentName={agentName} selectedAgentId={selectedProfileId} runtimeStatusLabel={runtimeStatusLabel} agentModel={agentModel} runtimeStatusHelp={runtimeStatusHelp} agentList={agentList} archiveCurrentSession={archiveCurrentSession} setIsMinimized={setIsMinimized} setSelectedAgentId={setSelectedAgentId} setShowSessionsView={setShowSessionsView} setIsOpen={setIsOpen} />
 
             {!isMinimized && (
                 <>

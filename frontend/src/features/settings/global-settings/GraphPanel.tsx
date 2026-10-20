@@ -29,8 +29,8 @@ export function GraphPanel({ context }: Props) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '50px', marginBottom: '50px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-              <Palette size={18} color="var(--gnosi-blue)" />
-              <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--gnosi-blue)', fontWeight: '1000', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{tn('graph.aesthetics')}</h4>
+              <Palette size={18} color="var(--gnosi-primary)" />
+              <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--gnosi-primary)', fontWeight: '1000', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{tn('graph.aesthetics')}</h4>
             </div>
             <FormGroup label={tn('graph.node_size_value', { value: draft.graph.node_size.toFixed(1) })}>
               <input type="range" className="gnosi-range" min="0.1" max="5" step="0.1" value={draft.graph.node_size} onChange={e => { setDraft({ ...draft, graph: { ...draft.graph, node_size: parseFloat(e.target.value) } }); }} />
@@ -50,8 +50,8 @@ export function GraphPanel({ context }: Props) {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-              <Zap size={18} color="var(--gnosi-blue)" />
-              <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--gnosi-blue)', fontWeight: '1000', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{tn('graph.physics_realtime')}</h4>
+              <Zap size={18} color="var(--gnosi-primary)" />
+              <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--gnosi-primary)', fontWeight: '1000', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{tn('graph.physics_realtime')}</h4>
             </div>
             <FormGroup label={tn('graph.gravity_value', { value: draft.graph.physics.gravity })}>
               <input type="range" className="gnosi-range" min="0" max="2" step="0.05" value={draft.graph.physics.gravity} onChange={e => { setDraft({ ...draft, graph: { ...draft.graph, physics: { ...draft.graph.physics, gravity: parseFloat(e.target.value) } } }); }} />

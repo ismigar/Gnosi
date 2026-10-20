@@ -115,3 +115,42 @@ def test_metadata_lookup_domain_does_not_import_http_facade() -> None:
         source_path = Path(module.__file__ or "")
         assert source_path.is_file()
         assert "backend.api.vault_routes" not in source_path.read_text(encoding="utf-8")
+
+
+def test_isbn_lookup_includes_real_edition_cover() -> None:
+    url = "https://openlibrary.org/api/books?bibkeys=ISBN:9780306406157&format=json&jscmd=data"
+    cover = "https://covers.openlibrary.org/b/id/42-L.jpg"
+    dependencies = _dependencies({url: json.dumps({"ISBN:9780306406157": {
+        "title": "Book", "cover": {"large": cover},
+    }})}, [])
+    result = asyncio.run(metadata_lookup.resolve_metadata({"isbn": "isbn:9780306406157"}, dependencies))
+    assert result["suggested"]["cover"] == cover
+    assert result["suggested"]["Citation Key"] == "stable-key"
+
+
+def test_doi_lookup_uses_primary_publisher_page_for_cover() -> None:
+    calls: list[str] = []
+    doi_url = "https://api.crossref.org/works/10.1/cover"
+    publisher = "https://publisher.example/article"
+    dependencies = _dependencies({
+        doi_url: json.dumps({"message": {
+            "title": "Paper", "URL": "https://doi.org/10.1/cover",
+            "resource": {"primary": {"URL": publisher}},
+        }}),
+        f"public:{publisher}": '<meta property="og:image" content="/paper.jpg">',
+    }, calls)
+    result = asyncio.run(metadata_lookup.resolve_metadata({"doi": "doi:10.1/cover"}, dependencies))
+    assert result["suggested"]["cover"] == "https://publisher.example/paper.jpg"
+    assert result["suggested"]["Title"] == "Paper"
+    assert calls == [doi_url, f"public:{publisher}"]
+
+
+def test_url_cover_reuses_downloaded_html() -> None:
+    calls: list[str] = []
+    url = "https://example.org/report"
+    dependencies = _dependencies({
+        f"public:{url}": '<meta name="twitter:image" content="/report.png">',
+    }, calls)
+    result = asyncio.run(metadata_lookup.resolve_metadata({"url": url}, dependencies))
+    assert result["suggested"]["cover"] == "https://example.org/report.png"
+    assert calls == [f"public:{url}"]

@@ -41,7 +41,7 @@ export function PluginCatalogGallery({ controller }: PluginCatalogGalleryProps) 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         {visible.map((entry) => (
                             <div key={entry.id} style={{ alignItems: 'center', background: 'var(--bg-primary, #fff)', border: '1px solid var(--border-primary, #e2e8f0)', borderRadius: 10, display: 'flex', gap: 12, padding: '10px 14px' }}>
-                                <Puzzle size={16} style={{ color: '#6366f1', flexShrink: 0 }} />
+                                <Puzzle size={16} style={{ color: 'var(--gnosi-primary)', flexShrink: 0 }} />
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ alignItems: 'center', color: 'var(--text-primary, #0f172a)', display: 'flex', fontSize: 13, fontWeight: 600, gap: 6 }}>
                                         {entry.name}

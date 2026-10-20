@@ -40,7 +40,7 @@ export function ModelBudget({ context }: Props) {
               height: '100%',
               background: aiUsage.over_cap
                 ? 'var(--color-danger, #ef4444)'
-                : ((aiUsage.ratio ?? 0) > 0.8 ? 'var(--color-warning, #f59e0b)' : 'var(--color-primary, #3b82f6)'),
+                : ((aiUsage.ratio ?? 0) > 0.8 ? 'var(--color-warning, #f59e0b)' : 'var(--color-primary, var(--gnosi-primary))'),
               transition: 'width 0.3s ease'
             }} />
           </div>

@@ -225,6 +225,7 @@ async def stream_agent_events(
         user_id=workspace_context.user_id,
         role=workspace_context.role,
         agent_id=agent_id,
+        profile_id=chat_req.profile_id or agent_id,
         session_id=session_id,
     )
     try:

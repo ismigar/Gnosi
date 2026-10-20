@@ -45,6 +45,10 @@ const BUNDLED_DOMAINS = new Set<string>([
 ]);
 
 const WORKFLOW_IDS = new Set<string>([
+    'core.gnosi-operation-writing',
+    'core.gnosi-operation-tables',
+    'core.gnosi-operation-knowledge',
+    'core.gnosi-operation-learning',
     'core.gnosi-daily-briefing',
     'core.gnosi-follow-up-manager',
     'core.gnosi-inbox-triage',

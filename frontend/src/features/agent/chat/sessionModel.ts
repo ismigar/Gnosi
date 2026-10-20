@@ -26,6 +26,7 @@ export interface StoredChatSession {
   readonly title: string;
   readonly archived: boolean;
   readonly agentId: string;
+  readonly profileId?: string;
   readonly messages: readonly StoredChatMessage[];
   readonly createdAt: number;
   readonly updatedAt: number;
@@ -70,6 +71,7 @@ export function boundedChatSessions(input: unknown): StoredChatSession[] {
       title: typeof session.title === 'string' ? session.title : '',
       archived: Boolean(session.archived),
       agentId: typeof session.agentId === 'string' ? session.agentId : '',
+      profileId: typeof session.profileId === 'string' ? session.profileId : undefined,
       createdAt: timestamp(session.createdAt),
       updatedAt: timestamp(session.updatedAt),
       messages: Array.isArray(session.messages)

@@ -124,7 +124,7 @@ export function MailAccountForm({ context }: Props) {
 
     {/* IMAP SECTION */}
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
-      <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-blue)', fontWeight: '900', textTransform: 'uppercase' }}>{tn('accounts.imap_section')}</h4>
+      <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-primary)', fontWeight: '900', textTransform: 'uppercase' }}>{tn('accounts.imap_section')}</h4>
       <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '10px' }}>
         <FormGroup label={tn('accounts.server')}><input type="text" className="gnosi-input" value={mailImapHost} onChange={e => { setMailImapHost(e.target.value); }} placeholder="imap.pangea.org" /></FormGroup>
         <FormGroup label={tn('accounts.port')}><input type="text" className="gnosi-input" value={mailImapPort} onChange={e => { setMailImapPort(e.target.value); }} placeholder="993" /></FormGroup>
@@ -142,7 +142,7 @@ export function MailAccountForm({ context }: Props) {
 
     {/* SMTP SECTION */}
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
-      <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-blue)', fontWeight: '900', textTransform: 'uppercase' }}>{tn('accounts.smtp_section')}</h4>
+      <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-primary)', fontWeight: '900', textTransform: 'uppercase' }}>{tn('accounts.smtp_section')}</h4>
       <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '10px' }}>
         <FormGroup label={tn('accounts.server')}><input type="text" className="gnosi-input" value={mailSmtpHost} onChange={e => { setMailSmtpHost(e.target.value); }} placeholder="smtp.pangea.org" /></FormGroup>
         <FormGroup label={tn('accounts.port')}><input type="text" className="gnosi-input" value={mailSmtpPort} onChange={e => { setMailSmtpPort(e.target.value); }} placeholder="465" /></FormGroup>

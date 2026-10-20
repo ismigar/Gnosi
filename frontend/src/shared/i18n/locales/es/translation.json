@@ -1246,6 +1246,12 @@
     }
   },
   "views_header": {
+    "search_scope": "Ámbito de la búsqueda",
+    "search_scope_view": "Esta vista",
+    "search_scope_table": "Toda la tabla",
+    "search_entire_table": "Buscar en toda la tabla",
+    "no_search_results_view": "No hay coincidencias en esta vista. Sus filtros siguen activos.",
+    "no_search_results_table": "No hay coincidencias en esta tabla.",
     "main_view": "Vista principal",
     "main_view_locked": "Vista principal (bloqueada)",
     "more_actions": "Más acciones",
@@ -2153,7 +2159,10 @@
       "context_add_page": "Página",
       "context_add_file": "Archivo",
       "context_add_vault": "Todo el vault",
-      "context_whole_vault": "Todo el vault",
+      "context_whole_vault": "Todo el vault activo",
+      "context_back_sources": "Volver a las fuentes de Gnosi",
+      "context_vault_description": "Páginas y bases de datos del vault activo.",
+      "context_vault_specific": "Páginas o bases de datos concretas",
       "context_remove_source": "Quitar del contexto",
       "context_configure_source": "Configurar el ámbito de la fuente",
       "context_add_internal": "Fuente de Gnosi",
@@ -2446,6 +2455,8 @@
         "reload": "Actualizar catálogos",
         "search_skills": "Buscar habilidades…",
         "search_tools": "Buscar herramientas…",
+        "active_skills_only": "Solo habilidades activadas",
+        "back_to_profile": "Volver al perfil",
         "search_assignable_skills": "Buscar habilidades asignables…",
         "all_origins": "Todos los orígenes",
         "all_statuses": "Todos los estados",
@@ -2582,8 +2593,8 @@
         "instructions_translation_error": "No se han podido traducir las instrucciones. Se muestra el texto guardado.",
         "instructions_translate": "Traducir al español",
         "instructions_translation_readonly": "Traducción de lectura. El asistente sigue utilizando el texto original.",
-        "instructions_translation_rate_limit": "El proveedor de IA ha limitado las peticiones o ha agotado su cuota. Inténtalo más tarde o revisa la cuota del proveedor. Se conserva el texto original.",
-        "instructions_translation_authentication": "El proveedor de IA ha rechazado la clave de acceso del perfil de traducción. Revisa la conexión del proveedor, o elige un modelo de un proveedor conectado en el perfil de Traducción. Después inténtalo de nuevo. Se conserva el texto original."
+        "instructions_translation_authentication": "El proveedor de IA ha rechazado la clave de acceso del perfil de traducción. Revisa la conexión del proveedor, o elige un modelo de un proveedor conectado en el perfil de Traducción. Después inténtalo de nuevo. Se conserva el texto original.",
+        "instructions_translation_rate_limit": "El proveedor de IA ha limitado las peticiones o ha agotado su cuota. Inténtalo más tarde o revisa la cuota del proveedor. Se conserva el texto original."
       },
       "catalog": {
         "domain_skill_name": "Gnosi · {{domain}}",
@@ -2681,7 +2692,11 @@
           "plugin_llm_wiki_process_source": "Procesa una fuente del Conocimiento",
           "plugin_llm_wiki_process_status": "Consulta el progreso del procesamiento del Conocimiento",
           "plugin_llm_wiki_maintain": "Mantén los índices del Conocimiento",
-          "plugin_llm_wiki_propose_connections": "Propón conexiones en el Conocimiento"
+          "plugin_llm_wiki_propose_connections": "Propón conexiones en el Conocimiento",
+          "core_gnosi_operation_writing": "Redacción y corrección",
+          "core_gnosi_operation_tables": "Acciones de tablas",
+          "core_gnosi_operation_knowledge": "Conexiones y refinamiento del conocimiento",
+          "core_gnosi_operation_learning": "Aprendizaje y evaluación de habilidades"
         },
         "tool_names": {
           "add_page_comment": "Añade un comentario a una página",
@@ -2868,7 +2883,11 @@
           "core_gnosi_notebooks": "Consulta cuadernos y evidencias citables; crea y organiza cuadernos privados a partir de Recursos existentes.",
           "core_gnosi_literature": "Busca en fuentes académicas configuradas, consulta resultados y revisiones e importa referencias en Recursos.",
           "core_gnosi_media": "Localiza archivos multimedia y edita sus etiquetas y descripción sin modificar su contenido.",
-          "core_gnosi_activity": "Consulta tus automatizaciones, resultados y servicios programados sin alterar permisos ni programaciones."
+          "core_gnosi_activity": "Consulta tus automatizaciones, resultados y servicios programados sin alterar permisos ni programaciones.",
+          "core_gnosi_operation_writing": "Redacta, resume y corrige textos conservando el significado y el formato.",
+          "core_gnosi_operation_tables": "Propone configuraciones y valores de campos a partir del esquema y del registro proporcionados.",
+          "core_gnosi_operation_knowledge": "Propone conexiones y reformulaciones a partir de las notas y evidencias disponibles, sin guardar cambios.",
+          "core_gnosi_operation_learning": "Extrae procedimientos de las instrucciones aprobadas y evalúa habilidades según criterios explícitos."
         },
         "examples": {
           "core_gnosi_daily_briefing": "Prepara la agenda, las prioridades y los mensajes pendientes de hoy.",
@@ -3104,19 +3123,46 @@
       },
       "assistant": {
         "title": "Asistente",
-        "principal": "Asistente principal",
-        "help": "Elige el modelo y las instrucciones generales de tu asistente.",
+        "principal": "Asistente predeterminado",
+        "help": "El asistente usa el perfil que eliges en cada conversación. Cada perfil guarda un único modelo, instrucciones, fuentes y habilidades.",
         "advanced": "Perfiles adicionales (avanzado)",
-        "profiles_help": "Crea otro perfil solo si necesitas otro modelo, instrucciones, fuentes o habilidades. Cambiar el principal no modifica las automatizaciones guardadas.",
+        "profiles_help": "Perfiles guardados para elegir desde el chat. Cada conversación conserva su perfil y el historial cuando lo cambias.",
         "create_profile": "Crear perfil",
         "setup": "Configurar asistente",
-        "make_principal": "Hacer principal",
+        "make_principal": "Usar por defecto",
         "profile": "Perfil del asistente",
         "other_profile": "Usar otro perfil (avanzado)",
-        "automation_help": "Ejecutará la habilidad con {{name}}. El perfil se guarda con la automatización.",
+        "automation_help": "Esta habilidad utilizará el perfil {{name}}. Puedes editarlo en la configuración del asistente.",
         "no_skills": "Asigna habilidades a este asistente en Configuración → IA → Asistente para programarlas.",
+        "principal_help": "El perfil predeterminado se utiliza en conversaciones nuevas. Los plugins utilizan sus propios perfiles. Cambiar el perfil de un chat no afecta a otras conversaciones.",
+        "principal_profile": "Perfil predeterminado",
+        "additional_profile": "Perfil adicional",
+        "new_profile": "Nuevo perfil",
+        "profile_name": "Nombre del perfil",
+        "configure_action": "Configurar",
+        "save_changes": "Guardar cambios",
+        "configure_profile": "Configurar el perfil {{name}}",
+        "delete_profile": "Eliminar el perfil {{name}}",
+        "delete_profile_title": "Eliminar el perfil",
+        "delete_profile_message": "¿Quieres eliminar el perfil «{{name}}» y su configuración? Se conservarán los modelos, las fuentes y las habilidades originales.",
+        "restore_help": "Este perfil está desactivado. Guarda su configuración para volver a activarlo.",
+        "conversation_profile": "Perfil de la conversación",
+        "profile_model": "Modelo del perfil",
+        "plugin_profiles": "Perfiles de los plugins",
+        "plugin_profile": "Perfil de plugin",
+        "plugin_owner": "Utilizado por: {{name}}",
+        "plugin_suspended": "Plugin desactivado. Se conserva tu configuración.",
+        "plugin_profiles_help": "Cada plugin utiliza su perfil para las acciones de IA. Puedes editar el modelo, las instrucciones, las fuentes y las habilidades. Las actualizaciones del plugin conservan tus cambios.",
         "builtin_profiles": {
-          "translation": "Traducción"
+          "ai-platform": "Escritura y captura de conocimiento",
+          "feeds-reader": "Canales y pódcasts",
+          "grounded-notebooks": "Cuadernos con fuentes",
+          "resources": "Asistencia bibliográfica",
+          "mail": "Correo",
+          "social-publishing": "Publicación social",
+          "calendar": "Reuniones",
+          "translation": "Traducción",
+          "llm-wiki": "Conocimiento"
         }
       },
       "model_strategy": {
@@ -4395,6 +4441,11 @@
     "type_genogram": "Genograma"
   },
   "metadata_lookup": {
+    "creating_resource": "Preparando el recurso…",
+    "saving_file": "Guardando el PDF…",
+    "creating_cover": "Creando la portada…",
+    "saving_resource": "Guardando el recurso…",
+    "opening_resource": "Abriendo el recurso…",
     "button": "Rellenar",
     "button_title": "Rellenar metadatos desde DOI/ISBN/arXiv/URL",
     "applied_many": "Se han actualizado {{count}} campos",

@@ -53,6 +53,8 @@ interface AutomationDraft extends AutomationBudgetFields {
 
 
 interface AISettingsAgent {
+    managed_by?: string;
+    plugin_suspended?: boolean;
     enabled?: boolean;
     id: string;
     name?: string | null;
@@ -119,10 +121,22 @@ export const AutomationsSettingsPanel = ({
     const [saving, setSaving] = useState(false);
     const [runningId, setRunningId] = useState('');
     const principal = principalAssistant(agents, principalAgentId);
-    const selectedAgent = principal;
-    const assignedIds = new Set(selectedAgent?.skill_ids || []);
+    const available = agents.filter(agent => agent.enabled !== false && !agent.plugin_suspended);
+    const profileForSkill = (skill: OperationSkill | undefined) => {
+        if (!skill) return principal;
+        const metadata = skill.metadata as { application_operation?: string; required_plugins?: string[] } | undefined;
+        const origin = skill.origin as { type?: string; id?: string } | undefined;
+        const plugin = metadata?.application_operation ? metadata.required_plugins?.[0] : undefined;
+        const originId = origin?.id;
+        const owner = plugin ? `builtin:${plugin}` : origin?.type === 'plugin' && originId
+            ? (agents.some(agent => agent.managed_by === `builtin:${originId}`) ? `builtin:${originId}` : `plugin:${originId}`) : '';
+        if (!owner) return principal;
+        const owners = available.filter(agent => agent.managed_by === owner && agent.skill_ids?.includes(skill.id));
+        return owners.length === 1 ? owners[0] : undefined;
+    };
+    const selectedAgent = profileForSkill(resources.skills.find(skill => skill.id === draft?.skill_id));
     const skills = resources.skills.filter(skill => (
-        skill.assignable && assignedIds.has(skill.id)
+        skill.assignable && profileForSkill(skill)?.skill_ids?.includes(skill.id)
     ));
     const valid = draft !== null && Boolean(
         draft.name.trim()
@@ -140,7 +154,7 @@ export const AutomationsSettingsPanel = ({
         if (draft === null || !valid || saving) return;
         setSaving(true);
         try {
-            await resources.saveAutomation(draft);
+            await resources.saveAutomation({ ...draft, agent_id: selectedAgent?.id || draft.agent_id });
             setDraft(null);
             toast.success(t('settings.ai.operations.automation_saved'));
         } catch (error) {
@@ -234,7 +248,7 @@ export const AutomationsSettingsPanel = ({
                     </div>
                     <p>{t('settings.ai.assistant.automation_help', { name: selectedAgent?.name || selectedAgent?.id || '—' })}</p>
                     {!skills.length && <p role="status">{t('settings.ai.assistant.no_skills')}</p>}
-                    <PrincipalAgentReference operation="automation" />
+                    <PrincipalAgentReference operation="automation" profileId={selectedAgent?.id} />
                     <ScheduleFields schedule={draft.schedule || defaultSchedule()} onChange={schedule => { update({ schedule }); }} />
                     <label>
                         <span>{t('settings.ai.operations.instruction')}</span>

@@ -25,7 +25,7 @@ export function profileDisplayName(
         ? t(`settings.ai.assistant.builtin_profiles.${owner}`, { defaultValue: name }) : name;
 }
 
-/** Include the assigned route beside a profile wherever users choose it. */
+/** Add the assigned model to a profile label wherever users choose a profile. */
 export function profileModelLabel(
     name: string | undefined,
     provider?: string,
@@ -34,4 +34,15 @@ export function profileModelLabel(
     const route = [provider, model].filter(Boolean).join('/');
     if (route && name) return `${name} — ${route}`;
     return route || name || '';
+}
+
+/** Return a model's recommendation label from the model catalogue, if assigned. */
+export function modelRecommendationLabel(
+    profile: string | undefined,
+    t: (key: string, options?: { defaultValue?: string }) => string,
+): string | undefined {
+    if (!profile) return undefined;
+    const key = `model_comparison.profiles.${profile}`;
+    const label = t(key, { defaultValue: '' });
+    return label && label !== key ? label : undefined;
 }

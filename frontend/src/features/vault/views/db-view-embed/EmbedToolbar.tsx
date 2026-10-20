@@ -4,7 +4,7 @@ import { BrainTools } from '../../../agent/inbox/BrainTools';
 import { ViewActionsBar } from './ViewActionsBar';
 import type { EmbedModel } from './useEmbedController';
 export function EmbedToolbar({ model }: { model: EmbedModel ;}) {
-    const { displayHeading, displayLevel, t, rows, ctx, tableId, reload, handleCreate, handleAddView, templates, handleOpenConfig, searchTerm, setSearchTerm, showSearch, setShowSearch, feedDensity, viewType, toggleFeedDensity, activeFilterCount, rawRecords, quickPresets, saveQuickPreset, applyQuickPreset, renameQuickPreset, deleteQuickPreset, exportQuickPresets, setIsImportQuickPresetOpen, feedGroupMode, toggleFeedGroupMode, loadDuration } = model;
+    const { displayHeading, displayLevel, t, rows, ctx, tableId, reload, handleCreate, handleAddView, templates, handleOpenConfig, searchTerm, setSearchTerm, showSearch, setShowSearch, feedDensity, viewType, toggleFeedDensity, activeFilterCount, quickPresets, saveQuickPreset, applyQuickPreset, renameQuickPreset, deleteQuickPreset, exportQuickPresets, setIsImportQuickPresetOpen, feedGroupMode, toggleFeedGroupMode, loadDuration } = model;
     const { onOpenPageViewModal } = ctx;
     return (<div className="vault-view-toolbar flex items-center justify-between gap-3 mb-2">
         <div className="flex items-baseline gap-2 min-w-0">
@@ -28,6 +28,8 @@ export function EmbedToolbar({ model }: { model: EmbedModel ;}) {
                 templates={templates}
                 onOpenConfig={onOpenPageViewModal && tableId ? handleOpenConfig : null}
                 searchTerm={searchTerm}
+                searchScope={model.searchScope}
+                setSearchScope={model.setSearchScope}
                 setSearchTerm={setSearchTerm}
                 showSearch={showSearch}
                 setShowSearch={setShowSearch}
@@ -35,7 +37,7 @@ export function EmbedToolbar({ model }: { model: EmbedModel ;}) {
                 onToggleDensity={viewType === 'feed' ? toggleFeedDensity : null}
                 activeFilterCount={activeFilterCount}
                 resultCount={rows.length}
-                totalCount={rawRecords.length}
+                totalCount={model.tableRecords.length}
                 presets={quickPresets}
                 onSavePreset={saveQuickPreset}
                 onApplyPreset={applyQuickPreset}

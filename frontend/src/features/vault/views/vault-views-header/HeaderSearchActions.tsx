@@ -1,16 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { Search, Settings, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { ViewSearchScopeSelect } from '../ViewSearchScope';
+import type { ViewSearchScope } from '../../../../shared/records/hooks/useViewSearch';
 
 interface HeaderSearchActionsProps {
     readonly onEditSchema?: ((section: string) => unknown) | null;
     readonly searchTerm: string;
+    readonly searchScope?: ViewSearchScope;
+    readonly setSearchScope?: (scope: ViewSearchScope) => void;
     readonly setSearchTerm: (value: string) => unknown;
 }
 
 export function HeaderSearchActions({
     onEditSchema,
     searchTerm,
+    searchScope = 'view',
+    setSearchScope,
     setSearchTerm,
 }: HeaderSearchActionsProps) {
     const { t } = useTranslation();
@@ -23,8 +29,11 @@ export function HeaderSearchActions({
 
     return (
         <>
-            <div className="flex items-center">
-                {showSearch ? (
+            <div className="flex items-center gap-1" onBlur={event => {
+                if (!searchRef.current?.value && !event.currentTarget.contains(event.relatedTarget)) setShowSearch(false);
+            }}>
+                {showSearch || searchTerm ? (
+                    <>
                     <div className="flex items-center gap-1 bg-[var(--bg-primary)] border border-[var(--gnosi-primary)]/40 rounded-md px-2 py-1 shadow-sm animate-in slide-in-from-right-4 duration-200">
                         <Search size={14} className="text-[var(--gnosi-primary)]" />
                         <input
@@ -33,9 +42,6 @@ export function HeaderSearchActions({
                             value={searchTerm}
                             onChange={(event) => {
                                 setSearchTerm(event.target.value);
-                            }}
-                            onBlur={(event) => {
-                                if (!event.currentTarget.value) setShowSearch(false);
                             }}
                             placeholder={t('views_header.search_placeholder')}
                             className="text-xs outline-none w-32 md:w-48 text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-transparent"
@@ -50,6 +56,8 @@ export function HeaderSearchActions({
                             <X size={14} />
                         </button>
                     </div>
+                    {setSearchScope && <ViewSearchScopeSelect scope={searchScope} onScopeChange={setSearchScope} />}
+                    </>
                 ) : (
                     <button
                         onClick={() => {

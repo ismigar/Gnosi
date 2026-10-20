@@ -33,8 +33,8 @@
 }
 
 .account-row:hover {
-    border-color: var(--gnosi-blue) !important;
-    box-shadow: 0 12px 30px -10px rgba(59, 130, 246, 0.15) !important;
+    border-color: var(--gnosi-primary) !important;
+    box-shadow: 0 12px 30px -10px color-mix(in srgb, var(--gnosi-primary) 15%, transparent) !important;
     transform: translateY(-2px) !important;
 }
 
@@ -67,9 +67,9 @@
 }
 
 .settings-sidebar__item.active {
-    background: var(--gnosi-blue) !important;
+    background: var(--gnosi-primary) !important;
     color: white !important;
-    box-shadow: 0 8px 16px -4px rgba(59, 130, 246, 0.3) !important;
+    box-shadow: 0 8px 16px -4px color-mix(in srgb, var(--gnosi-primary) 30%, transparent) !important;
 }
 
 .settings-sidebar__item.active svg {
@@ -90,9 +90,9 @@
     gap: 22px;
     margin-bottom: 40px;
     padding: 22px 24px;
-    border: 1px solid rgba(59, 130, 246, 0.24);
+    border: 1px solid color-mix(in srgb, var(--gnosi-primary) 24%, transparent);
     border-radius: 22px;
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.05));
+    background: linear-gradient(135deg, color-mix(in srgb, var(--gnosi-primary) 12%, transparent), rgba(139, 92, 246, 0.05));
 }
 
 .ai-comparison-launcher strong,

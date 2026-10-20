@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import type { LucideIcon } from 'lucide-react';
+import { GnosiApiError } from '../../../shared/api/errors';
 
 import type { BuiltinPluginDefinition } from '../../../shared/plugins/registry';
 import type { VaultRegistryRecord } from '../../../shared/api/vaults';
@@ -155,12 +156,10 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
 }
 
 export function lifecycleConflict(error: unknown): LifecycleConflict | null {
-    if (!isRecord(error)) return null;
-    const response = error.response;
-    if (!isRecord(response) || response.status !== 409 || !isRecord(response.data)) {
+    if (!(error instanceof GnosiApiError) || error.status !== 409 || !isRecord(error.payload)) {
         return null;
     }
-    const detail = response.data.detail;
+    const detail = error.payload.detail;
     if (!isRecord(detail) || detail.code !== 'plugin_dependency_confirmation_required') {
         return null;
     }
