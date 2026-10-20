@@ -18,6 +18,8 @@ const MailComposer = lazy(() => import('../components/MailComposer'));
 const MailViewer = lazy(() => import('../components/MailViewer'));
 
 interface MailSidebarBoundaryProps {
+  readonly hiddenAccounts?: readonly string[];
+  readonly onToggleAccountVisibility?: (account: MailAccount) => void;
   readonly accounts: readonly MailAccount[];
   readonly activeCategory: string | null;
   readonly activeFolder: string | null;
@@ -118,6 +120,8 @@ export function MailPageView({ controller }: MailPageViewProps) {
               selectedAccount={controller.selectedAccount}
               onSelectAccount={controller.setSelectedAccount}
               accounts={controller.accounts}
+              hiddenAccounts={controller.hiddenAccounts}
+              onToggleAccountVisibility={controller.toggleAccountVisibility}
               activeFolder={controller.activeFolder}
               activeCategory={controller.activeCategory}
               activeViewId={controller.activeView?.id}
@@ -136,8 +140,9 @@ export function MailPageView({ controller }: MailPageViewProps) {
         <div className="mail-workspace__content">
           <div className={`mail-workspace__list ${hasDetail ? 'mail-workspace__list--with-detail' : ''}`}>
             <MailList
-              account={controller.selectedAccount}
-              accounts={controller.accounts}
+              key={JSON.stringify([controller.selectedAccount?.email, controller.visibleAccounts.map(account => account.email || account.username)])}
+              account={null}
+              accounts={controller.visibleAccounts}
               accountsLoading={controller.accountsLoading}
               folder={controller.activeFolder}
               category={controller.activeCategory}
