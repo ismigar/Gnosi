@@ -6249,6 +6249,7 @@
     "period_predecessor_count_one": "{{count}} prédécesseur",
     "period_predecessor_count_many": "{{count}} prédécesseurs",
     "period_predecessor_count_other": "{{count}} prédécesseurs",
+    "format_year_placeholder": "AAAA",
     "format_date_placeholder": "JJ/MM/AAAA",
     "format_datetime_placeholder": "JJ/MM/AAAA HH:MM",
     "open_calendar": "Ouvrir le calendrier"

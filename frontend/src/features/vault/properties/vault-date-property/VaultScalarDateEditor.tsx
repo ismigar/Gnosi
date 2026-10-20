@@ -7,7 +7,8 @@ import {
     formattedDateInputValue,
     htmlDateValue,
     isSignedDateValue,
-    toLocalDateString,
+    dateInputBoundary,
+    dateInputPlaceholder,
 } from './dateModel';
 import { RecurrenceEditor } from '../../../calendar/components/RecurrenceEditor';
 import type { VaultDatePropertyProps } from './types';
@@ -17,10 +18,11 @@ type ScalarDateEditorProps = Pick<
     'onChange' | 'type' | 'value'
 > & Pick<
     VaultDatePropertyProps,
-    'onRruleChange' | 'rruleValue'
+    'onRruleChange' | 'rruleValue' | 'fieldConfig'
 >;
 
 interface InputState {
+    readonly dateFormat: string;
     readonly dateLocale: string;
     readonly source: VaultDatePropertyProps['value'];
     readonly type: VaultDatePropertyProps['type'];
@@ -28,6 +30,7 @@ interface InputState {
 }
 
 export function VaultScalarDateEditor({
+    fieldConfig,
     onChange,
     onRruleChange,
     rruleValue,
@@ -35,56 +38,41 @@ export function VaultScalarDateEditor({
     value,
 }: ScalarDateEditorProps) {
     const { t } = useTranslation();
-    const { dateLocale } = useLocaleSettings();
+    const settings = useLocaleSettings();
+    const dateLocale = settings.dateLocale;
+    const dateFormat = fieldConfig?.format?.dateFormat || settings.dateFormat || 'locale';
     const inputRef = useRef<HTMLInputElement>(null);
     const hiddenInputRef = useRef<HTMLInputElement>(null);
     const [showRecurrence, setShowRecurrence] = useState(false);
     const [inputState, setInputState] = useState<InputState>(() => ({
         dateLocale,
+        dateFormat,
         source: value,
         type,
-        value: formattedDateInputValue(value, type, dateLocale),
+        value: formattedDateInputValue(value, type, dateLocale, dateFormat),
     }));
 
     if (
         inputState.source !== value
         || inputState.type !== type
         || inputState.dateLocale !== dateLocale
+        || inputState.dateFormat !== dateFormat
     ) {
         setInputState({
             dateLocale,
+            dateFormat,
             source: value,
             type,
-            value: formattedDateInputValue(value, type, dateLocale),
+            value: formattedDateInputValue(value, type, dateLocale, dateFormat),
         });
     }
 
     const handleInputChange = (event: ChangeEvent<HTMLInputElement>): void => {
         const raw = event.target.value;
         setInputState((current) => ({ ...current, value: raw }));
-        if (/^-\d{4,}-\d{2}-\d{2}(?:T\d{2}:\d{2})?$/.test(raw)) {
-            onChange(raw);
-            return;
-        }
-        if (raw.length < 10) return;
-        const parts = raw.split(/[/\- :]/);
-        const first = parts.at(0);
-        const second = parts.at(1);
-        const third = parts.at(2);
-        if (!first || !second || !third) return;
-        const [day, month, year] = first.length === 4
-            ? [third, second, first]
-            : [first, second, third];
-        const hour = type === 'datetime' ? Number(parts.at(3) ?? 0) : 0;
-        const minute = type === 'datetime' ? Number(parts.at(4) ?? 0) : 0;
-        const date = new Date(
-            Number(year),
-            Number(month) - 1,
-            Number(day),
-            hour,
-            minute,
-        );
-        if (!Number.isNaN(date.getTime())) onChange(toLocalDateString(date, type));
+        if (raw === '') { onChange(''); return; }
+        const boundary = dateInputBoundary(raw, type, dateLocale, dateFormat);
+        if (boundary) onChange(boundary);
     };
 
     const triggerPicker = (): void => {
@@ -114,10 +102,10 @@ export function VaultScalarDateEditor({
                     if (!inputState.value) triggerPicker();
                 }}
                 onClick={triggerPicker}
-                placeholder={type === 'datetime'
+                placeholder={dateInputPlaceholder(dateLocale, dateFormat, type === 'datetime'
                     ? t('vault_date.format_datetime_placeholder', 'DD/MM/YYYY HH:MM')
-                    : t('vault_date.format_date_placeholder', 'DD/MM/YYYY')}
-                className="w-full bg-transparent text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] rounded px-1 -ml-1 transition-colors"
+                    : t('vault_date.format_date_placeholder', 'DD/MM/YYYY'))}
+                className="gnosi-input min-w-0 flex-1"
             />
             <button
                 type="button"
@@ -165,6 +153,10 @@ export function VaultScalarDateEditor({
                                 <RecurrenceEditor
                                     value={rruleValue}
                                     onChange={onRruleChange}
+                                    inputClass="gnosi-input"
+                                    renderUntilDate={(untilDate, update) => <VaultScalarDateEditor
+                                        type="date" value={untilDate} fieldConfig={fieldConfig}
+                                        onChange={next => { if (typeof next === 'string') update(next); }} />}
                                 />
                             </div>
                         </>

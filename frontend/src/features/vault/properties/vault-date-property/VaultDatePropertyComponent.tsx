@@ -43,6 +43,7 @@ export function VaultDateProperty({
 
     return (
         <VaultScalarDateEditor
+            fieldConfig={fieldConfig}
             onChange={onChange}
             onRruleChange={onRruleChange}
             rruleValue={rruleValue}

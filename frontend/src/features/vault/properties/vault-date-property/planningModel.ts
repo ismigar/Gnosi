@@ -45,7 +45,8 @@ const CONSTRAINTS_REQUIRING_DATE: ReadonlySet<string> = new Set([
     'SNET', 'SNLT', 'FNET', 'FNLT', 'MSO', 'MFO',
 ]);
 
-export const PERIOD_INPUT_CLASS = 'w-full h-9 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 py-1.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--gnosi-primary)]/50 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20';
+import { dateInputBoundary, formattedDateInputValue } from './dateModel';
+export const PERIOD_INPUT_CLASS = 'gnosi-input min-w-0';
 
 function scalarText(value: unknown): string {
     if (typeof value === 'string') return value;
@@ -84,6 +85,8 @@ function dependencyType(value: string): PeriodDependency['type'] {
 }
 
 export interface PlanningPeriodModel {
+    readonly dateFormat: string;
+    readonly dateLocale: string;
     readonly candidates: readonly VaultPlanningNote[];
     readonly commitConstraintDate: (value: string) => void;
     readonly commitDeadline: (value: string) => void;
@@ -146,7 +149,7 @@ export function createPlanningPeriodModel({
     onChange,
     planningSettings: settingsInput,
     value,
-}: PeriodEditorProps, dateLocale: string): PlanningPeriodModel {
+}: PeriodEditorProps, dateLocale: string, dateFormat = 'locale'): PlanningPeriodModel {
     const period = parsePeriod(value);
     const periodUnit = normalizePeriodUnit(fieldConfig.period_unit);
     const predecessorsEnabled = fieldConfig.predecessors_enabled !== false;
@@ -173,14 +176,15 @@ export function createPlanningPeriodModel({
     const periodInputValue = (raw: string, isEnd = false): string => {
         const dateTime = asInputDateTime(raw, isEnd);
         if (!dateTime) return '';
-        if (periodUnit === 'hours') return dateTime;
-        if (periodUnit === 'days') return dateTime.slice(0, 10);
-        return dateTime.match(/^-?\d{4,}/)?.[0] ?? '';
+        if (periodUnit === 'years') return dateTime.match(/^-?\d{4,}/)?.[0] ?? '';
+        return formattedDateInputValue(dateTime, periodUnit === 'hours' ? 'datetime' : 'date', dateLocale, dateFormat);
     };
     const periodInputToBoundary = (raw: string): string => {
         if (!raw) return '';
-        if (periodUnit === 'hours') return raw;
-        if (periodUnit === 'days') return `${raw}T${workdayStart}`;
+        if (periodUnit !== 'years') {
+            const boundary = dateInputBoundary(raw, periodUnit === 'hours' ? 'datetime' : 'date', dateLocale, dateFormat);
+            return periodUnit === 'days' && boundary ? `${boundary}T${workdayStart}` : boundary;
+        }
         if (!/^-?\d+$/.test(raw)) return '';
         const numericYear = Number(raw);
         if (!Number.isInteger(numericYear)) return '';
@@ -374,6 +378,8 @@ export function createPlanningPeriodModel({
     ).format(displayDuration);
 
     return {
+        dateLocale,
+        dateFormat,
         candidates,
         commitConstraintDate: (constraintDate) => {
             commit({ ...period, constraintDate });

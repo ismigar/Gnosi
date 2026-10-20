@@ -5,6 +5,7 @@ import { dateBoundary, dateDuration, dateWithDuration, unifiedDate } from '../..
 import { parseVaultDate } from '../../../../shared/records/model/dateUtils';
 import { VaultScalarDateEditor } from './VaultScalarDateEditor';
 import { PlanningPeriodEditor } from './PlanningPeriodEditor';
+import { PERIOD_INPUT_CLASS } from './planningModel';
 import type { VaultDatePropertyProps } from './types';
 
 export function UnifiedDateEditor(props: VaultDatePropertyProps) {
@@ -34,7 +35,7 @@ export function UnifiedDateEditor(props: VaultDatePropertyProps) {
             <div className="flex flex-wrap items-center gap-3">
                 <select aria-label={t('vault_date.modality')} value={date.kind}
                     onChange={event => { commit({ ...date, kind: event.target.value === 'period' ? 'period' : 'point' }); }}
-                    className="rounded border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2 py-1 text-xs text-[var(--text-primary)]">
+                    className="gnosi-select min-w-0 max-w-40">
                     <option value="point">{t('vault_date.point')}</option>
                     <option value="period">{t('schema.type_period')}</option>
                 </select>
@@ -47,6 +48,7 @@ export function UnifiedDateEditor(props: VaultDatePropertyProps) {
             <label className="flex min-w-0 flex-col gap-1">
                 {date.kind === 'period' && <span className="text-xs text-[var(--text-tertiary)]">{t('vault_date.period_calculation_start')}</span>}
                 <VaultScalarDateEditor type={scalarType} value={dateBoundary(date, 'start')}
+                    fieldConfig={props.fieldConfig}
                     onChange={value => { updateBoundary('start', value); }}
                     onRruleChange={props.onRruleChange} rruleValue={props.rruleValue} />
             </label>
@@ -54,24 +56,25 @@ export function UnifiedDateEditor(props: VaultDatePropertyProps) {
                 <label className="flex min-w-0 flex-col gap-1">
                     <span className="text-xs text-[var(--text-tertiary)]">{t('vault_date.period_calculation_finish')}</span>
                     <VaultScalarDateEditor type={scalarType} value={dateBoundary(date, 'end')}
+                        fieldConfig={props.fieldConfig}
                         onChange={value => { updateBoundary('end', value); }} />
                 </label>
                 {!date.end && <span className="text-xs text-[var(--text-tertiary)]">{t('vault_date.end_pending')}</span>}
-                <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                <label className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
                     {t('vault_date.period_calculation_duration')}
                     <input type="number" min={date.withTime ? 0 : 1} step={date.withTime ? '0.25' : '1'}
                         aria-label={t('vault_date.period_calculation_duration')} value={duration === null ? '' : Number(duration.toFixed(4))}
                         disabled={!date.start} onChange={event => {
                             if (event.target.value === '') { commit({ ...date, end: '', endMode: 'manual', mode: 'manual' }); return; }
                             commit(dateWithDuration(date, Number(event.target.value)));
-                        }} className="w-20 rounded border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2 py-1 disabled:opacity-40" />
+                        }} className={`${PERIOD_INPUT_CLASS} max-w-24 disabled:opacity-40`} />
                     {t(`vault_date.period_duration_${date.withTime ? 'hours' : 'days'}`)}
                 </label>
                 {date.end && <button type="button" onClick={() => { commit({ ...date, end: '', endMode: 'manual', mode: 'manual' }); }}
-                    className="w-fit text-xs text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]">{t('vault_date.clear_end')}</button>}
+                    className="btn-gnosi btn-gnosi-secondary w-fit">{t('vault_date.clear_end')}</button>}
                 {props.planningEnabled && <>
                     <button type="button" aria-expanded={advanced} onClick={() => { setAdvanced(!advanced); }}
-                        className="w-fit text-xs text-[var(--gnosi-primary)]">{t('schema.period_planning')}</button>
+                        className="btn-gnosi btn-gnosi-secondary w-fit">{t('schema.period_planning')}</button>
                     {advanced && <PlanningPeriodEditor fieldConfig={{ ...props.fieldConfig,
                         period_unit: date.withTime ? 'hours' : (props.fieldConfig?.period_unit === 'years' ? 'years' : 'days') }}
                         fieldName={props.fieldName ?? ''} idToTitle={props.idToTitle ?? {}}
@@ -81,8 +84,8 @@ export function UnifiedDateEditor(props: VaultDatePropertyProps) {
                 </>}
             </>}
             {(date.start || date.end) && <button type="button" onClick={() => { commit({ ...date, start: '', end: '', startMode: 'manual', endMode: 'manual', mode: 'manual' }); }}
-                className="w-fit text-xs text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]">{t('vault_date.clear_date')}</button>}
-            {error && <span role="alert" className="text-xs text-red-500">{error}</span>}
+                className="btn-gnosi btn-gnosi-secondary w-fit">{t('vault_date.clear_date')}</button>}
+            {error && <span role="alert" className="text-xs text-[var(--status-error)]">{error}</span>}
         </div>
     );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { dateInputPlaceholder } from './dateModel';
 
 import {
     PERIOD_INPUT_CLASS,
@@ -30,7 +31,7 @@ export function PlanningConstraints({ model }: PlanningConstraintsProps) {
     }, [model.period.constraintType]);
 
     const draftValue = (key: string, persisted: string): string => (
-        Object.hasOwn(drafts, key) ? drafts[key] ?? '' : persisted
+        Object.hasOwn(drafts, key) ? drafts[key] ?? '' : model.periodInputValue(persisted, key === 'deadline')
     );
     const updateDraft = (key: string, value: string): void => {
         setDrafts((current) => ({ ...current, [key]: value }));
@@ -44,9 +45,9 @@ export function PlanningConstraints({ model }: PlanningConstraintsProps) {
             Object.entries(current).filter(([candidate]) => candidate !== key),
         ));
     };
-    const placeholder = model.periodUnit === 'hours'
-        ? 'YYYY-MM-DDTHH:mm'
-        : model.periodUnit === 'days' ? 'YYYY-MM-DD' : 'YYYY';
+    const placeholder = model.periodUnit === 'years' ? t('vault_date.format_year_placeholder', 'YYYY')
+        : dateInputPlaceholder(model.dateLocale, model.dateFormat, t(model.periodUnit === 'hours'
+            ? 'vault_date.format_datetime_placeholder' : 'vault_date.format_date_placeholder'));
     const constraintDate = draftValue(
         'constraintDate',
         model.period.constraintDate,
