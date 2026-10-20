@@ -1246,6 +1246,12 @@
     }
   },
   "views_header": {
+    "search_scope": "Àmbit de la cerca",
+    "search_scope_view": "Aquesta vista",
+    "search_scope_table": "Tota la taula",
+    "search_entire_table": "Cerca a tota la taula",
+    "no_search_results_view": "No hi ha coincidències en aquesta vista. Els seus filtres continuen actius.",
+    "no_search_results_table": "No hi ha coincidències en aquesta taula.",
     "main_view": "Vista principal",
     "main_view_locked": "Vista principal (bloquejada)",
     "more_actions": "Més accions",

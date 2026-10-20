@@ -1287,6 +1287,12 @@
     }
   },
   "views_header": {
+    "search_scope": "Search in",
+    "search_scope_view": "This view",
+    "search_scope_table": "Entire table",
+    "search_entire_table": "Search the entire table",
+    "no_search_results_view": "No matches in this view. Its filters still apply.",
+    "no_search_results_table": "No matches in this table.",
     "main_view": "Main view",
     "main_view_locked": "Main view (locked)",
     "more_actions": "More actions",
