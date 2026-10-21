@@ -43,6 +43,8 @@ source_paths:
   - desktop/electron-builder.yml
   - desktop/package.json
   - desktop/release.sh
+  - desktop/scripts/release-session.py
+  - desktop/RELEASING.md
   - desktop/scripts/after-pack.cjs
   - desktop/scripts/packaging-contract.cjs
   - desktop/scripts/smoke-packaged-backend.py
@@ -75,6 +77,7 @@ tests:
   - desktop/tests/test_genogram_resources.py
   - desktop/release-artifacts.test.js
   - desktop/release-workflow-collection.test.js
+  - desktop/tests/test_release_session.py
   - backend/tests/test_packaged_backend_smoke.py
   - backend/tests/test_validation_runtime.py
   - frontend/src/app/desktop/DesktopUpdateNotice.test.tsx
@@ -455,10 +458,20 @@ d’usuari ni secrets. El workflow té permisos de només lectura sobre el
 repositori i no crea esborranys de GitHub, no publica versions ni modifica
 recursos públics existents o canals d’actualització.
 
-La distribució pública continua desactivada fins a completar l’acceptació
-nativa, de Docker, dels instal·ladors i de l’actualització des de 2.x, i fins
-que es revisi separadament un procés de publicació. Un candidat correcte no
-autoritza a publicar 3.0.0.
+El workflow de candidats no publica mai. El procediment local separat
+`desktop/release.sh session` fixa el codi etiquetat i els locks, reutilitza els
+artefactes importats que no han canviat i munta el candidat amb els validadors
+de signatures existents. L’ordre explícita `publish` exigeix vuit rebuts
+conservats d’acceptació de l’operador i els cinc jobs de CI al commit exacte;
+les pujades a l’esborrany es reprenen sense sobreescriure artefactes en conflicte.
+`finalize` consulta els digests públics, l’etiqueta remota, la promoció fusionada
+que només canvia metadades i els seus cinc checks superats abans d’eliminar
+únicament el directori temporal propietat de la sessió. Les proves
+d’instal·lació, els manifests i els rebuts queden fora d’aquest directori.
+Si manca verificació, el contingut ha canviat o hi ha rutes inesperades, la
+neteja s’atura. El procediment detallat és a `desktop/RELEASING.md`; les proves
+d’instal·lació de cada plataforma i la revisió de la promoció continuen sent
+passos explícits de l’operador.
 
 ## Clients web i ofimàtics
 

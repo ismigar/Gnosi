@@ -43,6 +43,8 @@ source_paths:
   - desktop/electron-builder.yml
   - desktop/package.json
   - desktop/release.sh
+  - desktop/scripts/release-session.py
+  - desktop/RELEASING.md
   - desktop/scripts/after-pack.cjs
   - desktop/scripts/packaging-contract.cjs
   - desktop/scripts/smoke-packaged-backend.py
@@ -75,6 +77,7 @@ tests:
   - desktop/tests/test_genogram_resources.py
   - desktop/release-artifacts.test.js
   - desktop/release-workflow-collection.test.js
+  - desktop/tests/test_release_session.py
   - backend/tests/test_packaged_backend_smoke.py
   - backend/tests/test_validation_runtime.py
   - frontend/src/app/desktop/DesktopUpdateNotice.test.tsx
@@ -467,10 +470,20 @@ datos de usuario ni secretos. El flujo tiene permisos de solo lectura sobre
 el repositorio y no crea borradores en GitHub, no publica versiones ni modifica
 artefactos públicos existentes o canales de actualización.
 
-La distribución pública sigue desactivada hasta completar la aceptación del
-modo nativo, Docker, los instaladores y las actualizaciones desde 2.x, y revisar
-por separado una vía de publicación. Un candidato correcto no autoriza a
-publicar 3.0.0.
+El flujo de candidatos nunca publica. El procedimiento local separado
+`desktop/release.sh session` fija el código etiquetado y los locks, reutiliza
+los artefactos importados sin cambios y ensambla el candidato con los validadores
+de firmas existentes. La orden explícita `publish` exige ocho recibos
+conservados de aceptación del operador y los cinco jobs de CI en el commit
+exacto; las subidas al borrador se reanudan sin sobrescribir artefactos en
+conflicto. `finalize` consulta los digests públicos, la etiqueta remota, la
+promoción fusionada que solo modifica metadatos y sus cinco checks superados
+antes de eliminar únicamente el directorio temporal propiedad de la sesión.
+Las pruebas de instalación, los manifiestos y los recibos quedan fuera de ese
+directorio. Si falta verificación, cambia el contenido o hay rutas inesperadas,
+la limpieza se detiene. El procedimiento detallado está en
+`desktop/RELEASING.md`; las pruebas de instalación por plataforma y la revisión
+de la promoción siguen siendo pasos explícitos del operador.
 
 ## Clientes web y ofimáticos
 

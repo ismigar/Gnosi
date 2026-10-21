@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
 | Vitest | 735 | 3297 |
-| pytest | 714 | 5460 |
+| pytest | 715 | 5477 |
 
 ## Files
 
@@ -1456,6 +1456,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/translation_open_fixtures.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/translation_open_fixtures.py) | 0 | Python AST |
 | pytest | [`desktop/tests/test_backend_resources.py`](https://github.com/ismigar/Gnosi/blob/main/desktop/tests/test_backend_resources.py) | 35 | Python AST |
 | pytest | [`desktop/tests/test_genogram_resources.py`](https://github.com/ismigar/Gnosi/blob/main/desktop/tests/test_genogram_resources.py) | 1 | Python AST |
+| pytest | [`desktop/tests/test_release_session.py`](https://github.com/ismigar/Gnosi/blob/main/desktop/tests/test_release_session.py) | 17 | Python AST |
 | pytest | [`extensions/examples/test_build_index.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/examples/test_build_index.py) | 3 | Python AST |
 | pytest | [`extensions/marketplace/test_reviewed_templates.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/marketplace/test_reviewed_templates.py) | 6 | Python AST |
 | pytest | [`extensions/marketplace/test_signing_policy.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/marketplace/test_signing_policy.py) | 5 | Python AST |
