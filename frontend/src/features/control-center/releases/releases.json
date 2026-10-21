@@ -1,13 +1,15 @@
 [
   {
     "version": "3.2.0",
-    "date": "2026-09-28",
+    "date": "2026-10-21",
     "channel": "prerelease",
     "sections": {
       "highlights": [
         "release_notes.entries.v3_2_0.highlights.teams",
         "release_notes.entries.v3_2_0.highlights.models",
-        "release_notes.entries.v3_2_0.highlights.templates"
+        "release_notes.entries.v3_2_0.highlights.templates",
+        "release_notes.entries.v3_2_0.highlights.agent_workspace",
+        "release_notes.entries.v3_2_0.highlights.voice"
       ],
       "improvements": [
         "release_notes.entries.v3_2_0.improvements.profiles",
@@ -18,7 +20,11 @@
         "release_notes.entries.v3_2_0.improvements.model_guidance",
         "release_notes.entries.v3_2_0.improvements.reasoning",
         "release_notes.entries.v3_2_0.improvements.processing_progress",
-        "release_notes.entries.v3_2_0.improvements.gallery_reading"
+        "release_notes.entries.v3_2_0.improvements.gallery_reading",
+        "release_notes.entries.v3_2_0.improvements.calendar",
+        "release_notes.entries.v3_2_0.improvements.bookmarks",
+        "release_notes.entries.v3_2_0.improvements.tables",
+        "release_notes.entries.v3_2_0.improvements.transclusions"
       ],
       "fixes": [
         "release_notes.entries.v3_2_0.fixes.reader",
@@ -29,7 +35,10 @@
         "release_notes.entries.v3_2_0.fixes.source_processing",
         "release_notes.entries.v3_2_0.fixes.view_editing",
         "release_notes.entries.v3_2_0.fixes.desktop_bootstrap",
-        "release_notes.entries.v3_2_0.fixes.page_properties"
+        "release_notes.entries.v3_2_0.fixes.page_properties",
+        "release_notes.entries.v3_2_0.fixes.mail",
+        "release_notes.entries.v3_2_0.fixes.planning",
+        "release_notes.entries.v3_2_0.fixes.desktop_stream"
       ]
     }
   },
