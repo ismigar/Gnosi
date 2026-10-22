@@ -9,8 +9,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 ## Summary
 
 - Registered routers: **42**
-- Discovered operations: **340**
-- Unregistered route modules: **10**
+- Discovered operations: **347**
+- Unregistered route modules: **11**
 
 ## Router registrations
 
@@ -403,6 +403,13 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `GET` | `/views/{view_id}` | `get_view` | — | [Depends(get_workspace_context)] | Get view | [`backend/domains/vault/tables/routes.py:472`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L472) |
 | `PUT` | `/views/{view_id}` | `update_view` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Update view | [`backend/domains/vault/tables/routes.py:496`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L496) |
 | `GET` | `/views/{view_id}/usage` | `get_view_usage` | — | [Depends(get_workspace_context)] | Find all pages/notes in the vault where this view_id is embedded or referenced. | [`backend/domains/vault/tables/routes.py:477`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L477) |
+| `GET` | `/web-publishing/newsletter` | `newsletter_status` | web-publishing | [Depends(require_authenticated)] | Newsletter status | [`backend/domains/vault/publishing/web.py:229`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/web.py#L229) |
+| `POST` | `/web-publishing/newsletter/preview` | `newsletter_preview` | web-publishing | [Depends(require_authenticated)] | Newsletter preview | [`backend/domains/vault/publishing/web.py:234`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/web.py#L234) |
+| `POST` | `/web-publishing/newsletter/send` | `newsletter_send` | web-publishing | [Depends(require_authenticated)] | Newsletter send | [`backend/domains/vault/publishing/web.py:241`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/web.py#L241) |
+| `POST` | `/web-publishing/preview` | `preview` | web-publishing | [Depends(require_authenticated)] | Preview | [`backend/domains/vault/publishing/web.py:210`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/web.py#L210) |
+| `POST` | `/web-publishing/publish` | `publish` | web-publishing | [Depends(require_authenticated)] | Publish | [`backend/domains/vault/publishing/web.py:219`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/web.py#L219) |
+| `POST` | `/web-publishing/rollback` | `rollback` | web-publishing | [Depends(require_authenticated)] | Rollback | [`backend/domains/vault/publishing/web.py:224`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/web.py#L224) |
+| `GET` | `/web-publishing/status` | `status` | web-publishing | [Depends(require_authenticated)] | Status | [`backend/domains/vault/publishing/web.py:203`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/web.py#L203) |
 
 ## Unregistered modules
 
@@ -417,4 +424,5 @@ These files contain an `APIRouter` or route-oriented module name but are not mou
 - [`backend/domains/configuration/ai/model_parameter_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/model_parameter_routes.py)
 - [`backend/domains/configuration/ai/usage_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/usage_routes.py)
 - [`backend/domains/vault/knowledge/aliases.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/aliases.py)
+- [`backend/domains/vault/publishing/web.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/web.py)
 - [`backend/domains/vault/tables/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py)
