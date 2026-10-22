@@ -140,6 +140,11 @@ Configured targets are not evidence of successful installation or upgrade.
 
 ## Release preparation is not publication
 
+For repeatable local collection, resumable publication and verified automatic
+cleanup, use the [release session procedure](RELEASING.md). Its explicit
+`publish` command is separate from immutable packaging and the candidate-only
+workflow, and requires complete CI plus fresh/upgrade installation acceptance.
+
 Release work uses three explicit modes. `desktop/release.sh prepare <version>`
 requires a clean tree, synchronizes only the four reviewed version fields, marks
 the catalog entry as unpublished (`prerelease` without `downloadUrl`) and renders

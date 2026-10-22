@@ -64,6 +64,7 @@ CI_COMMANDS = {
     ],
     "backend": [
         "python3 scripts/ci/classify_changes.py",
+        "pnpm install --frozen-lockfile --ignore-scripts --filter @gnosi/desktop",
         "python scripts/ci/prepare_python_environment.py",
         "python scripts/ci/prepare_analysis_cache.py",
         "uv sync --frozen",

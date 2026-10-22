@@ -43,6 +43,8 @@ source_paths:
   - desktop/electron-builder.yml
   - desktop/package.json
   - desktop/release.sh
+  - desktop/scripts/release-session.py
+  - desktop/RELEASING.md
   - desktop/scripts/after-pack.cjs
   - desktop/scripts/packaging-contract.cjs
   - desktop/scripts/smoke-packaged-backend.py
@@ -75,6 +77,7 @@ tests:
   - desktop/tests/test_genogram_resources.py
   - desktop/release-artifacts.test.js
   - desktop/release-workflow-collection.test.js
+  - desktop/tests/test_release_session.py
   - backend/tests/test_packaged_backend_smoke.py
   - backend/tests/test_validation_runtime.py
   - frontend/src/app/desktop/DesktopUpdateNotice.test.tsx
@@ -405,9 +408,23 @@ It is not confidential storage and must never contain user data or secrets.
 The workflow has read-only repository permissions and does not create GitHub
 drafts, publish releases or modify existing public assets or updater channels.
 
-Public distribution stays disabled pending full native, Docker, installer and
-2.x upgrade acceptance and a separately reviewed publication path. A successful
-candidate is not permission to publish 3.0.0.
+The candidate workflow never publishes. The separate local
+`desktop/release.sh session` procedure pins the tagged source and frozen locks,
+reuses unchanged imported artifacts and assembles with the existing signature
+validators. Its explicit `publish` command requires eight retained operator
+acceptance receipts and all five CI jobs at the exact source commit; draft
+uploads resume without overwriting conflicting assets. `finalize` queries the
+public asset digests, remote tag, merged metadata-only promotion and its five
+successful checks before deleting only the session-owned scratch directory.
+Installation evidence, manifests and receipts remain outside scratch. Missing
+verification, altered content or unexpected paths stop cleanup. The detailed
+procedure is `desktop/RELEASING.md`; platform
+installation tests and promotion review remain explicit operator steps.
+
+Python CI installs the frozen desktop JavaScript dependencies without lifecycle
+scripts before running pytest. The composed release test uses the actual
+collector and pinned updater parsers, so it must not rely on packages left by
+another job or bypass assembly on a clean runner.
 
 ## Web and office clients
 
