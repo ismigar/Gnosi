@@ -25,6 +25,9 @@ source_paths:
   - frontend/src/shared/routing
   - frontend/src/features/workspaces
 tests:
+  - backend/tests/test_web_publishing.py
+  - frontend/src/features/sharing/publishing/WebPublishingManager.test.tsx
+  - frontend/src/shared/api/web-publishing.test.ts
   - backend/tests/test_auth_expected_account.py
   - frontend/src/features/auth/LoginPage.test.tsx
   - frontend/src/features/auth/public-entry.test.ts
@@ -51,6 +54,14 @@ tests:
 The separate offline notes companion opens from Settings → General and uses the same server origin. In a production build, its service worker caches only the compiled public shell. Users choose text notes explicitly and protect the local collection with a separate passphrase. Local saves encrypt the collection in IndexedDB; locking clears application-held plaintext. Synchronization checks account, workspace, Vault and page revision, and presents both versions when changes conflict. The server continues to hold ordinary readable notes. Attachments, drawings and databases are outside this offline collection.
 
 Multi-page publishing uses the existing sharing plugin and self-hosted backend. An editor selects notes and reviews the exact public snapshot before publishing. Only that snapshot is served to a visitor; navigation and search run within its selected pages. Attachments, raw HTML, private transclusions and saved queries are visibly omitted. Updates require a new preview; revisions, expiry and revocation are stored in the management database. Anonymous reads use a narrowly matched token route, omit credentials and never bootstrap the private application. Publication does not deploy another service or automatically update when the original notes change.
+
+## Staging website publication
+
+The sharing dialog also offers **Publish to web** for an administrator-configured staging website. `/api/vault/web-publishing` requires an authenticated editor and the sharing plugin. The adapter resolves the authorized Vault from the workspace context, applies the recovery access guard, and invokes only the configured Python driver through JSON standard input. Requests cannot set a Vault path, executable, shell command or production target. Configure the absolute `.py` path with `GNOSI_WEB_PUBLISH_DRIVER` and optionally an explicit Python interpreter with `GNOSI_WEB_PUBLISH_PYTHON`; the default is `python3` from PATH, never the frozen application's executable. The subprocess receives a small runtime environment, has a 600-second timeout and returns validated typed responses with sanitized errors.
+
+Editors explicitly choose additions/updates and withdrawals; unselected published pages are preserved. Translation changes appear in the reviewed change list. Publishing and test newsletter delivery consume a short-lived, single-use preview token bound to the authenticated account, workspace and resolved Vault. A change of scope removes private UI state and aborts outstanding browser requests. Selection edits, refresh and stale-preview errors require another review. Staging release history offers rollback. Drupal remains the production website.
+
+Subscription counts expose pending, active and unsubscribed states with language-specific campaign history. Newsletter content supports the website languages `ca`, `es` and `en-gb`; interface locales remain independent. Newsletter drafts have a sandboxed, network-blocked HTML preview. The adapter accepts only `test_mode: true` responses; queuing writes to the driver's test capture and cannot deliver real mail. Preview tokens are in process memory and expire after 15 minutes; a backend restart requires a new review. Browser cancellation stops waiting but does not undo an already-running release; refresh status before retrying an uncertain action.
 
 ## Operating modes
 

@@ -25,6 +25,9 @@ source_paths:
   - frontend/src/shared/routing
   - frontend/src/features/workspaces
 tests:
+  - backend/tests/test_web_publishing.py
+  - frontend/src/features/sharing/publishing/WebPublishingManager.test.tsx
+  - frontend/src/shared/api/web-publishing.test.ts
   - backend/tests/test_auth_expected_account.py
   - frontend/src/features/auth/LoginPage.test.tsx
   - frontend/src/features/auth/public-entry.test.ts
@@ -216,3 +219,11 @@ La publication d’un formulaire exige une durée de validité de 1 à 365 jours
 Le backend distribué inclut `management_0006.py` parmi ses ressources vérifiées pour que les installations de bureau puissent appliquer la même migration de schéma aux formulaires publics et aux réservations.
 
 Les migrations de gestion suivent une séquence unique : `mgmt_0006` ajoute les formulaires et les réservations ; `mgmt_0007` ajoute les aperçus, sites et révisions de publication. Les deux font partie des ressources du backend de bureau. Les nouvelles bases et les mises à niveau conservent les deux schémas et les données existantes. Une base incompatible portant la même étiquette de révision est rejetée selon l’empreinte exacte du schéma avant toute modification ; l’étiquette seule n’autorise jamais son adoption.
+
+## Publication sur le site de test
+
+Le dialogue de partage propose **Publier sur le web** pour un site de test configuré par l’administrateur. `/api/vault/web-publishing` exige un éditeur authentifié et le module de partage. Le serveur résout le coffre autorisé et exécute uniquement le pilote Python configuré, avec une entrée JSON, un environnement minimal et une limite de 600 secondes. Les requêtes ne peuvent modifier le coffre, l’exécutable ou la destination de production. `GNOSI_WEB_PUBLISH_DRIVER` définit le chemin absolu `.py` ; `GNOSI_WEB_PUBLISH_PYTHON` permet de définir l’interpréteur.
+
+Les ajouts, actualisations et retraits sont explicites. Les autres pages publiées sont conservées et les traductions apparaissent dans la liste à vérifier. La publication consomme un aperçu à usage unique lié au compte, à l’espace de travail et au coffre. Un changement de contexte annule les requêtes et efface les données privées de l’interface. Modifier la sélection ou rencontrer un aperçu périmé exige une nouvelle vérification. L’historique permet de restaurer une version de test ; Drupal reste en production.
+
+La lettre affiche les abonnements en attente, actifs et résiliés, les langues et l’historique. Le contenu de la lettre accepte les langues du site `ca`, `es` et `en-gb`, indépendamment de la langue de l’interface. L’aperçu HTML est isolé et sans accès au réseau. Seul `test_mode: true` est accepté : la file enregistre les messages de test sans envoyer de courriels réels. Les aperçus expirent après 15 minutes ou au redémarrage du serveur. Annuler dans le navigateur n’annule pas une publication déjà lancée ; il faut actualiser l’état avant de répéter une action incertaine.

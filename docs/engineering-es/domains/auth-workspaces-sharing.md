@@ -25,6 +25,9 @@ source_paths:
   - frontend/src/shared/routing
   - frontend/src/features/workspaces
 tests:
+  - backend/tests/test_web_publishing.py
+  - frontend/src/features/sharing/publishing/WebPublishingManager.test.tsx
+  - frontend/src/shared/api/web-publishing.test.ts
   - backend/tests/test_auth_expected_account.py
   - frontend/src/features/auth/LoginPage.test.tsx
   - frontend/src/features/auth/public-entry.test.ts
@@ -210,3 +213,11 @@ La publicación de un formulario exige una vigencia de 1 a 365 días (30 por def
 El paquete del backend incluye `management_0006.py` entre sus recursos revisados para que las instalaciones de escritorio puedan aplicar la misma migración de esquema para formularios públicos y reservas.
 
 Las migraciones de gestión siguen una única secuencia: `mgmt_0006` añade formularios y reservas; `mgmt_0007` incorpora vistas previas, sitios y revisiones de publicación. Ambas se incluyen en los recursos del backend de escritorio. Las bases nuevas y las actualizaciones conservan los dos esquemas y los datos existentes. Una base incompatible con la misma etiqueta de revisión se rechaza por la huella exacta del esquema antes de modificarla; la etiqueta por sí sola no autoriza su adopción.
+
+## Publicación en la web de pruebas
+
+El diálogo para compartir ofrece **Publicar en la web** para una web de pruebas configurada por el administrador. `/api/vault/web-publishing` requiere un editor autenticado y el complemento para compartir. El servidor resuelve el vault autorizado y ejecuta únicamente el controlador Python configurado, con entrada JSON, entorno mínimo y un límite de 600 segundos. Las peticiones no pueden cambiar el vault, el ejecutable ni el destino de producción. `GNOSI_WEB_PUBLISH_DRIVER` define la ruta absoluta `.py`; `GNOSI_WEB_PUBLISH_PYTHON` permite definir el intérprete.
+
+Las incorporaciones, actualizaciones y retiradas se eligen explícitamente. Las demás páginas publicadas se conservan y las traducciones aparecen en la revisión. Publicar consume una vista previa de un solo uso vinculada a la cuenta, espacio de trabajo y vault. Los cambios de ámbito cancelan las peticiones y eliminan los datos privados de la interfaz. Cambiar la selección o encontrar una vista previa caducada exige otra revisión. El historial permite restaurar versiones de pruebas; Drupal sigue en producción.
+
+El boletín muestra suscripciones pendientes, activas y de baja, idiomas e historial. El contenido del boletín admite los idiomas de la web `ca`, `es` y `en-gb`, independientemente del idioma de la interfaz. La vista previa HTML está aislada y sin acceso a la red. Solo se acepta `test_mode: true`: la cola guarda mensajes en el registro de pruebas sin enviar correos reales. Las vistas previas caducan a los 15 minutos o al reiniciar el servidor. Cancelar en el navegador no deshace una publicación iniciada; hay que actualizar el estado antes de repetir una acción incierta.

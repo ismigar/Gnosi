@@ -11043,6 +11043,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/web-publishing/newsletter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Newsletter Status */
+        get: operations["newsletter_status_api_vault_web_publishing_newsletter_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/web-publishing/newsletter/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Newsletter Preview */
+        post: operations["newsletter_preview_api_vault_web_publishing_newsletter_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/web-publishing/newsletter/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Newsletter Send */
+        post: operations["newsletter_send_api_vault_web_publishing_newsletter_send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/web-publishing/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview */
+        post: operations["preview_api_vault_web_publishing_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/web-publishing/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish */
+        post: operations["publish_api_vault_web_publishing_publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/web-publishing/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rollback */
+        post: operations["rollback_api_vault_web_publishing_rollback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/web-publishing/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Status */
+        get: operations["status_api_vault_web_publishing_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vaults": {
         parameters: {
             query?: never;
@@ -21211,6 +21330,21 @@ export interface components {
             /** Password */
             password?: string | null;
         };
+        /** NewsletterCampaign */
+        NewsletterCampaign: {
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Language */
+            language: string;
+            /** Recipient Count */
+            recipient_count: number;
+            /** Status */
+            status: string;
+            /** Subject */
+            subject: string;
+        };
         /**
          * NewsletterConnectionTestResponse
          * @description Result of a POP3 connection test.
@@ -21222,6 +21356,57 @@ export interface components {
             messages: number;
             /** Ok */
             ok: boolean;
+        };
+        /** NewsletterDraft */
+        NewsletterDraft: {
+            /** Body Markdown */
+            body_markdown: string;
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "ca" | "es" | "en-gb";
+            /** Subject */
+            subject: string;
+        };
+        /** NewsletterPreview */
+        NewsletterPreview: {
+            /** Body Html */
+            body_html: string;
+            /** Preview Id */
+            preview_id: string;
+            /** Recipient Count */
+            recipient_count: number;
+            /** Subject */
+            subject: string;
+            /**
+             * Test Mode
+             * @constant
+             */
+            test_mode: true;
+        };
+        /** NewsletterQueued */
+        NewsletterQueued: {
+            /** Campaign Id */
+            campaign_id: string;
+            /** Queued */
+            queued: number;
+            /**
+             * Test Mode
+             * @constant
+             */
+            test_mode: true;
+        };
+        /** NewsletterStatus */
+        NewsletterStatus: {
+            /** Campaigns */
+            campaigns: components["schemas"]["NewsletterCampaign"][];
+            subscribers: components["schemas"]["SubscriberCounts"];
+            /**
+             * Test Mode
+             * @constant
+             */
+            test_mode: true;
         };
         /**
          * NewsletterSyncResponse
@@ -25272,6 +25457,15 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** SubscriberCounts */
+        SubscriberCounts: {
+            /** Active */
+            active: number;
+            /** Pending */
+            pending: number;
+            /** Unsubscribed */
+            unsubscribed: number;
+        };
         /** SyncDrupalRowRequest */
         SyncDrupalRowRequest: {
             /** Button Action */
@@ -26858,6 +27052,114 @@ export interface components {
         VirtualFieldsResponse: {
             /** Computers */
             computers: components["schemas"]["VirtualFieldComputerResponse"][];
+        };
+        /** WebChange */
+        WebChange: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "create" | "update" | "withdraw" | "translation";
+            /** Language */
+            language: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /** WebPage */
+        WebPage: {
+            /** Eligible */
+            eligible: boolean;
+            /** Id */
+            id: string;
+            /** Language */
+            language: string;
+            /** Published */
+            published: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
+            /** Url */
+            url?: string | null;
+        };
+        /** WebPreview */
+        WebPreview: {
+            /** Changes */
+            changes: components["schemas"]["WebChange"][];
+            /** Expires At */
+            expires_at: string;
+            /** Preview Id */
+            preview_id: string;
+            /**
+             * Target
+             * @constant
+             */
+            target: "staging";
+            /** Warnings */
+            warnings?: string[];
+        };
+        /** WebPreviewReference */
+        WebPreviewReference: {
+            /** Preview Id */
+            preview_id: string;
+        };
+        /** WebPublished */
+        WebPublished: {
+            /** Changes */
+            changes?: components["schemas"]["WebChange"][];
+            /** Release Id */
+            release_id: string;
+            /** Staging Url */
+            staging_url: string;
+            /**
+             * Target
+             * @constant
+             */
+            target: "staging";
+        };
+        /** WebRelease */
+        WebRelease: {
+            /** Created At */
+            created_at: string;
+            /** Current */
+            current: boolean;
+            /** Id */
+            id: string;
+            /** Url */
+            url: string;
+        };
+        /** WebRollback */
+        WebRollback: {
+            /** Release Id */
+            release_id: string;
+        };
+        /** WebSelection */
+        WebSelection: {
+            /** Page Ids */
+            page_ids?: string[];
+            /** Withdraw Ids */
+            withdraw_ids?: string[];
+        };
+        /** WebStatus */
+        WebStatus: {
+            /** Configured */
+            configured: boolean;
+            /** Pages */
+            pages?: components["schemas"]["WebPage"][];
+            /** Releases */
+            releases?: components["schemas"]["WebRelease"][];
+            /** Staging Url */
+            staging_url?: string | null;
+            /**
+             * Target
+             * @default staging
+             * @constant
+             */
+            target: "staging";
         };
         /**
          * WorklogCreateResponse
@@ -51514,6 +51816,278 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VirtualFieldsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    newsletter_status_api_vault_web_publishing_newsletter_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewsletterStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    newsletter_preview_api_vault_web_publishing_newsletter_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewsletterDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewsletterPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    newsletter_send_api_vault_web_publishing_newsletter_send_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebPreviewReference"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewsletterQueued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_api_vault_web_publishing_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebSelection"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_api_vault_web_publishing_publish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebPreviewReference"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebPublished"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rollback_api_vault_web_publishing_rollback_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebRollback"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebPublished"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    status_api_vault_web_publishing_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebStatus"];
                 };
             };
             /** @description Validation Error */
