@@ -230,10 +230,14 @@ def test_smtp_acceptance_survives_quit_failure_and_transport_failure_is_unknown(
 
 @pytest.mark.parametrize("accepted", [True, False])
 def test_loopback_smtp_single_data_with_attachment_and_lost_response(monkeypatch, accepted):
+    import socket
     import socketserver
     from threading import Thread
 
     transactions = []
+    # SMTP resolves its EHLO name after connecting. Keep this loopback fixture
+    # independent of host DNS/mDNS latency without relaxing its socket deadline.
+    monkeypatch.setattr(socket, "getfqdn", lambda *args: "smtp-fixture.invalid")
 
     class Handler(socketserver.StreamRequestHandler):
         def handle(self):
