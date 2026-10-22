@@ -11,7 +11,7 @@ export type NewsletterPreview = components['schemas']['NewsletterPreview'];
 function headers(context: RequestContext) {
     return { 'X-Vault-ID': context.vaultId, 'X-Workspace-ID': context.workspaceId,
         'X-User-ID': context.userId, 'X-User-Email': context.userEmail,
-        'X-Gnosi-Expected-User-ID': context.userId };
+        'X-Gnosi-Web-Expected-User-ID': context.userId };
 }
 export async function webStatus(context: RequestContext, signal?: AbortSignal): Promise<WebStatus> {
     return unwrapApiResult(await apiClient.GET('/api/vault/web-publishing/status', { headers: headers(context), signal }));

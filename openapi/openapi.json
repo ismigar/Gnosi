@@ -118912,6 +118912,15 @@
             }
           },
           {
+            "in": "header",
+            "name": "X-Gnosi-Web-Expected-User-ID",
+            "required": true,
+            "schema": {
+              "title": "X-Gnosi-Web-Expected-User-Id",
+              "type": "string"
+            }
+          },
+          {
             "in": "cookie",
             "name": "gnosi_session",
             "required": false,
@@ -119023,6 +119032,15 @@
                 }
               ],
               "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Gnosi-Web-Expected-User-ID",
+            "required": true,
+            "schema": {
+              "title": "X-Gnosi-Web-Expected-User-Id",
+              "type": "string"
             }
           },
           {
@@ -119150,6 +119168,15 @@
             }
           },
           {
+            "in": "header",
+            "name": "X-Gnosi-Web-Expected-User-ID",
+            "required": true,
+            "schema": {
+              "title": "X-Gnosi-Web-Expected-User-Id",
+              "type": "string"
+            }
+          },
+          {
             "in": "cookie",
             "name": "gnosi_session",
             "required": false,
@@ -119271,6 +119298,15 @@
                 }
               ],
               "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Gnosi-Web-Expected-User-ID",
+            "required": true,
+            "schema": {
+              "title": "X-Gnosi-Web-Expected-User-Id",
+              "type": "string"
             }
           },
           {
@@ -119398,6 +119434,15 @@
             }
           },
           {
+            "in": "header",
+            "name": "X-Gnosi-Web-Expected-User-ID",
+            "required": true,
+            "schema": {
+              "title": "X-Gnosi-Web-Expected-User-Id",
+              "type": "string"
+            }
+          },
+          {
             "in": "cookie",
             "name": "gnosi_session",
             "required": false,
@@ -119522,6 +119567,15 @@
             }
           },
           {
+            "in": "header",
+            "name": "X-Gnosi-Web-Expected-User-ID",
+            "required": true,
+            "schema": {
+              "title": "X-Gnosi-Web-Expected-User-Id",
+              "type": "string"
+            }
+          },
+          {
             "in": "cookie",
             "name": "gnosi_session",
             "required": false,
@@ -119643,6 +119697,15 @@
                 }
               ],
               "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Gnosi-Web-Expected-User-ID",
+            "required": true,
+            "schema": {
+              "title": "X-Gnosi-Web-Expected-User-Id",
+              "type": "string"
             }
           },
           {

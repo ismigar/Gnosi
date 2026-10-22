@@ -9,10 +9,9 @@ import threading
 import time
 from typing import Annotated, Any, Literal, TypeVar, cast
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from backend.services.auth_service import require_authenticated
 from backend.services.workspace_service import WorkspaceContext, require_role
 
 
@@ -195,8 +194,18 @@ def _consume(context: WorkspaceContext, action: str, token: str) -> str:
     return item[2]
 
 
-Editor = Annotated[WorkspaceContext, Depends(require_role("editor"))]
-router = APIRouter(prefix="/web-publishing", tags=["web-publishing"], dependencies=[Depends(require_authenticated)])
+def web_editor(
+    context: Annotated[WorkspaceContext, Depends(require_role("editor"))],
+    expected_user_id: Annotated[str, Header(alias="X-Gnosi-Web-Expected-User-ID")],
+) -> WorkspaceContext:
+    """Restrict an already-resolved identity without supplying an account."""
+    if expected_user_id != context.user_id:
+        raise HTTPException(409, {"code": "account_changed"})
+    return context
+
+
+Editor = Annotated[WorkspaceContext, Depends(web_editor)]
+router = APIRouter(prefix="/web-publishing", tags=["web-publishing"])
 
 
 @router.get("/status", response_model=WebStatus)

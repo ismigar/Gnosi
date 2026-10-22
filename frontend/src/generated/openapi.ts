@@ -51832,8 +51832,9 @@ export interface operations {
     newsletter_status_api_vault_web_publishing_newsletter_get: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
                 authorization?: string | null;
+                "X-Gnosi-Web-Expected-User-ID": string;
                 "x-user-id"?: string | null;
                 "x-vault-id"?: string | null;
                 "x-workspace-id"?: string | null;
@@ -51868,8 +51869,9 @@ export interface operations {
     newsletter_preview_api_vault_web_publishing_newsletter_preview_post: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
                 authorization?: string | null;
+                "X-Gnosi-Web-Expected-User-ID": string;
                 "x-user-id"?: string | null;
                 "x-vault-id"?: string | null;
                 "x-workspace-id"?: string | null;
@@ -51908,8 +51910,9 @@ export interface operations {
     newsletter_send_api_vault_web_publishing_newsletter_send_post: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
                 authorization?: string | null;
+                "X-Gnosi-Web-Expected-User-ID": string;
                 "x-user-id"?: string | null;
                 "x-vault-id"?: string | null;
                 "x-workspace-id"?: string | null;
@@ -51948,8 +51951,9 @@ export interface operations {
     preview_api_vault_web_publishing_preview_post: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
                 authorization?: string | null;
+                "X-Gnosi-Web-Expected-User-ID": string;
                 "x-user-id"?: string | null;
                 "x-vault-id"?: string | null;
                 "x-workspace-id"?: string | null;
@@ -51988,8 +51992,9 @@ export interface operations {
     publish_api_vault_web_publishing_publish_post: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
                 authorization?: string | null;
+                "X-Gnosi-Web-Expected-User-ID": string;
                 "x-user-id"?: string | null;
                 "x-vault-id"?: string | null;
                 "x-workspace-id"?: string | null;
@@ -52028,8 +52033,9 @@ export interface operations {
     rollback_api_vault_web_publishing_rollback_post: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
                 authorization?: string | null;
+                "X-Gnosi-Web-Expected-User-ID": string;
                 "x-user-id"?: string | null;
                 "x-vault-id"?: string | null;
                 "x-workspace-id"?: string | null;
@@ -52068,8 +52074,9 @@ export interface operations {
     status_api_vault_web_publishing_status_get: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
                 authorization?: string | null;
+                "X-Gnosi-Web-Expected-User-ID": string;
                 "x-user-id"?: string | null;
                 "x-vault-id"?: string | null;
                 "x-workspace-id"?: string | null;
