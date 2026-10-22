@@ -473,6 +473,12 @@ neteja s’atura. El procediment detallat és a `desktop/RELEASING.md`; les prov
 d’instal·lació de cada plataforma i la revisió de la promoció continuen sent
 passos explícits de l’operador.
 
+La CI de Python instal·la les dependències JavaScript d’escriptori fixades pels
+locks, sense scripts d’instal·lació, abans d’executar pytest. La prova composta
+de release fa servir el col·lector real i els parsers fixats de l’actualitzador;
+no pot dependre de paquets deixats per un altre job ni ometre l’assemblatge en
+un runner net.
+
 ## Clients web i ofimàtics
 
 El capturador web envia `POST /api/public/clip` amb un token d’accés personal

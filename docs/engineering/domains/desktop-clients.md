@@ -421,6 +421,11 @@ verification, altered content or unexpected paths stop cleanup. The detailed
 procedure is `desktop/RELEASING.md`; platform
 installation tests and promotion review remain explicit operator steps.
 
+Python CI installs the frozen desktop JavaScript dependencies without lifecycle
+scripts before running pytest. The composed release test uses the actual
+collector and pinned updater parsers, so it must not rely on packages left by
+another job or bypass assembly on a clean runner.
+
 ## Web and office clients
 
 The web clipper sends `POST /api/public/clip` with a Personal Access Token and

@@ -140,6 +140,27 @@ def test_extra_capacity_does_not_expand_permissions_or_fork_access(
     assert {"run": "uv run pytest", "if": "steps.scope.outputs.runtime_required != 'false'"} in steps
 
 
+def test_python_release_integration_has_locked_desktop_dependencies(
+    workflow: dict[str, object],
+) -> None:
+    backend = _mapping(_mapping(workflow["jobs"])["backend"])
+    steps = backend["steps"]
+    assert isinstance(steps, list)
+    install = next(_mapping(step) for step in steps if _mapping(step).get("name") ==
+                   "Install locked release collector dependencies")
+    assert install["run"] == (
+        "pnpm install --frozen-lockfile --ignore-scripts --filter @gnosi/desktop"
+    )
+    assert install["if"] == "steps.scope.outputs.runtime_required != 'false'"
+    assert install["timeout-minutes"] == 10
+    setup = next(_mapping(step) for step in steps if _mapping(step).get("uses") ==
+                 "pnpm/action-setup@v6")
+    assert _mapping(setup["with"])["version"] == "11.19.0"
+    pytest_step = next(_mapping(step) for step in steps if _mapping(step).get("run") ==
+                       "uv run pytest")
+    assert steps.index(setup) < steps.index(install) < steps.index(pytest_step)
+
+
 def test_frontend_disables_remote_package_cache(
     workflow: dict[str, object],
 ) -> None:

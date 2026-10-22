@@ -494,6 +494,12 @@ inattendu arrête le nettoyage. La procédure détaillée figure dans
 `desktop/RELEASING.md` ; les tests d’installation par plateforme et la revue de
 la promotion restent des étapes explicites de l’opérateur.
 
+La CI Python installe les dépendances JavaScript de bureau fixées par les
+verrous, sans scripts d’installation, avant pytest. Le test composé de release
+utilise le collecteur réel et les analyseurs fixés du système de mise à jour ;
+il ne doit ni dépendre de paquets laissés par un autre job ni omettre
+l’assemblage sur un runner propre.
+
 ## Clients web et bureautiques
 
 L’extension de capture web envoie `POST /api/public/clip` avec un jeton d’accès

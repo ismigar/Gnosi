@@ -485,6 +485,12 @@ la limpieza se detiene. El procedimiento detallado está en
 `desktop/RELEASING.md`; las pruebas de instalación por plataforma y la revisión
 de la promoción siguen siendo pasos explícitos del operador.
 
+La CI de Python instala las dependencias JavaScript de escritorio fijadas por
+los locks, sin scripts de instalación, antes de ejecutar pytest. La prueba
+compuesta de release utiliza el colector real y los parsers fijados del
+actualizador; no puede depender de paquetes dejados por otro job ni omitir el
+ensamblaje en un runner limpio.
+
 ## Clientes web y ofimáticos
 
 El capturador web envía `POST /api/public/clip` con un token de acceso personal
