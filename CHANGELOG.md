@@ -2,13 +2,15 @@
 
 ## Gnosi 3.2.0
 
-_2026-09-28 · Release candidate_
+_2026-10-21 · Stable_
 
 ### Highlights
 
 - Configure bots and profiles in one list, choose the primary assistant on its card, and set how each participates in the team. Select an assistant for a single turn with its command.
 - Compare provider-specific prices, context windows and capabilities, inspect role suitability and run explicitly authorized synthetic evaluations.
 - Browse and search workspace templates with localized previews, and inspect included files and possible sensitive content before sharing.
+- Work with assistants in dedicated workspaces with explicit permissions, reusable skills and desktop integration.
+- Dictate and listen to assistant conversations, with shared speech controls and optional local transcription.
 
 ### Improvements
 
@@ -21,6 +23,10 @@ _2026-09-28 · Release candidate_
 - Set reasoning effort per assistant for compatible OpenRouter models, with automatic saving and support for tool use.
 - Follow source processing from a compact progress card after closing the dialog or moving to another page.
 - Read gallery notes in full-width cards that grow with their content, one below another. Choose limited or content-sized height for any view embedded in a page.
+- Connect Microsoft calendars in read-only mode and work with calendar and planning tools in the workspace.
+- Keep favorites and bookmarks together, and preserve Reader subscriptions in the active Vault.
+- Work with spreadsheet-style record grids, interactive timelines, consistent dates and more flexible embedded views.
+- Edit embedded note content directly, with automatic saving, and create translated pages from existing content.
 
 ### Fixes
 
@@ -33,6 +39,9 @@ _2026-09-28 · Release candidate_
 - View settings retain their values and edits; Space enters grouped notes and Escape returns to and collapses the group. Slow cloud files no longer block other requests while checking view usage. New views allow choosing a source table when no table is active, making its fields available in every settings tab. The height limit is adjustable from 1 to 100% of the window (70% by default) and is retained when switching modes. Grouping supports every field type, and tab hints stay hidden while the menu is open.
 - First-start configuration is stored outside the app so its installed signature remains intact.
 - Page properties correctly display checkboxes, zero values, field icons and calculated results. Dates and selections respect the page lock, and Zotero resources can be opened from their property. Fields follow their configured order, and Manage Fields lets you inspect and remove page-only properties without duplicating the title. Numeric fields can display progress bars or rings across pages and views, with a configurable scale and visible percentage.
+- Open mail more responsively and control account visibility while preserving local archives, saved credentials, drafts and blind-copy recipients.
+- Keep project plans isolated and rebuild schedules without changing the underlying tasks.
+- Cancel streamed assistant responses reliably in the desktop app.
 
 ## Gnosi 3.1.0
 

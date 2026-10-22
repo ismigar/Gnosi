@@ -24,6 +24,7 @@ usage() {
     echo "  ./desktop/release.sh prepare <version>"
     echo "  ./desktop/release.sh package <version>"
     echo "  ./desktop/release.sh promote <version> <verified-artifact-groups> <published-release-url>"
+    echo "  ./desktop/release.sh session <doctor|init|import|assemble|receipt-template|accept|publish|finalize|status> ..."
 }
 
 fail() {
@@ -173,6 +174,10 @@ promote_release() {
 }
 
 MODE="${1:-}"
+if [ "$MODE" = "session" ]; then
+    shift
+    exec "${GNOSI_PYTHON_CMD:-python3}" "$SCRIPT_DIR/scripts/release-session.py" "$@"
+fi
 VERSION="${2:-}"
 [ -n "$MODE" ] && [ -n "$VERSION" ] || { usage; exit 1; }
 

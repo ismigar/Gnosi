@@ -7530,7 +7530,9 @@
         "highlights": {
           "teams": "Configura els bots i perfils en una sola llista, tria el principal des de la seva fitxa i defineix com participa cadascun en l’equip. Utilitza un assistent només per a un torn amb la seva comanda.",
           "models": "Compara preus, finestres de context i capacitats de cada proveïdor, consulta la idoneïtat per rol i executa avaluacions sintètiques autoritzades explícitament.",
-          "templates": "Explora i cerca plantilles d’espai de treball amb previsualitzacions traduïdes, i revisa els fitxers inclosos i el possible contingut sensible abans de compartir-les."
+          "templates": "Explora i cerca plantilles d’espai de treball amb previsualitzacions traduïdes, i revisa els fitxers inclosos i el possible contingut sensible abans de compartir-les.",
+          "agent_workspace": "Treballa amb assistents en espais dedicats, amb permisos explícits, habilitats reutilitzables i integració amb l’escriptori.",
+          "voice": "Dicta i escolta les converses amb els assistents, amb controls de veu compartits i transcripció local opcional."
         },
         "improvements": {
           "profiles": "Edita les instruccions, habilitats i fonts delimitades dels assistents, inclòs l’accés al correu per compte, amb una configuració desada més clara i àlies personals dels models.",
@@ -7541,7 +7543,11 @@
           "model_guidance": "Cada bot mostra el perfil LLM recomanat segons les seves tasques i habilitats. Desactivar un plugin desactiva i amaga el seu bot; la configuració es conserva per reactivar-lo.",
           "reasoning": "Pots ajustar el nivell de raonament de cada assistent amb models compatibles d’OpenRouter; es desa automàticament i també s’aplica quan utilitza eines.",
           "processing_progress": "Segueix el processament de les fonts des d’una targeta compacta de progrés després de tancar el diàleg o canviar de pàgina.",
-          "gallery_reading": "Llegeix les notes de la galeria en targetes d’ample complet que creixen amb el contingut, una sota l’altra. Tria una alçada limitada o segons el contingut per a qualsevol vista dins d’una pàgina."
+          "gallery_reading": "Llegeix les notes de la galeria en targetes d’ample complet que creixen amb el contingut, una sota l’altra. Tria una alçada limitada o segons el contingut per a qualsevol vista dins d’una pàgina.",
+          "calendar": "Connecta calendaris de Microsoft en mode de només lectura i utilitza les eines de calendari i planificació de l’espai de treball.",
+          "bookmarks": "Agrupa els favorits i els marcadors, i conserva les subscripcions del Lector al Vault actiu.",
+          "tables": "Treballa amb graelles de registres de tipus full de càlcul, cronologies interactives, dates coherents i vistes incrustades més flexibles.",
+          "transclusions": "Edita directament el contingut de les notes incrustades, amb desament automàtic, i crea pàgines traduïdes a partir del contingut existent."
         },
         "fixes": {
           "reader": "Obre els documents adjunts al lector intern amb els recursos PDF inclosos a les versions d’escriptori.",
@@ -7552,7 +7558,10 @@
           "source_processing": "Reprèn el processament de fonts llargues conservant el context global del document i corregeix les referències invàlides sense reescriure les notes vàlides.",
           "view_editing": "La configuració de les vistes conserva els valors i els canvis; Espai entra a les notes agrupades i Esc torna al grup i el plega. Els fitxers lents del núvol ja no bloquegen altres peticions en comprovar l’ús d’una vista. Les vistes noves permeten triar la taula d’origen quan no hi ha una taula activa, i mostren els seus camps a totes les pestanyes. El límit d’alçada es pot ajustar de l’1 al 100% de la finestra (70% per defecte) i es conserva en canviar de mode. Es pot agrupar per qualsevol tipus de camp, i les pistes de les pestanyes s’amaguen quan el menú és obert.",
           "desktop_bootstrap": "La configuració inicial es desa fora de l’app perquè el primer arrencament mantingui intacta la firma de la instal·lació.",
-          "page_properties": "Les propietats de les pàgines mostren correctament els checkbox, els valors zero, les icones i els camps calculats. Les dates i seleccions respecten el bloqueig de la pàgina, i els recursos Zotero es poden obrir des de la propietat. Els camps segueixen l’ordre configurat i Gestionar camps permet consultar i eliminar les propietats locals de la pàgina sense duplicar el títol. Els camps numèrics permeten mostrar una barra o un anell de progrés a les pàgines i vistes, amb escala configurable i percentatge visible."
+          "page_properties": "Les propietats de les pàgines mostren correctament els checkbox, els valors zero, les icones i els camps calculats. Les dates i seleccions respecten el bloqueig de la pàgina, i els recursos Zotero es poden obrir des de la propietat. Els camps segueixen l’ordre configurat i Gestionar camps permet consultar i eliminar les propietats locals de la pàgina sense duplicar el títol. Els camps numèrics permeten mostrar una barra o un anell de progrés a les pàgines i vistes, amb escala configurable i percentatge visible.",
+          "mail": "Obre el correu amb més agilitat i controla la visibilitat dels comptes conservant els arxius locals, les credencials desades, els esborranys i els destinataris en còpia oculta.",
+          "planning": "Mantén aïllats els plans dels projectes i recalcula els calendaris sense modificar les tasques originals.",
+          "desktop_stream": "Cancel·la correctament les respostes progressives dels assistents a l’app d’escriptori."
         }
       }
     }

@@ -43,6 +43,8 @@ source_paths:
   - desktop/electron-builder.yml
   - desktop/package.json
   - desktop/release.sh
+  - desktop/scripts/release-session.py
+  - desktop/RELEASING.md
   - desktop/scripts/after-pack.cjs
   - desktop/scripts/packaging-contract.cjs
   - desktop/scripts/smoke-packaged-backend.py
@@ -75,6 +77,7 @@ tests:
   - desktop/tests/test_genogram_resources.py
   - desktop/release-artifacts.test.js
   - desktop/release-workflow-collection.test.js
+  - desktop/tests/test_release_session.py
   - backend/tests/test_packaged_backend_smoke.py
   - backend/tests/test_validation_runtime.py
   - frontend/src/app/desktop/DesktopUpdateNotice.test.tsx
@@ -476,10 +479,26 @@ de permissions en lecture seule sur le dépôt et ne crée pas de brouillons
 GitHub, ne publie pas de versions et ne modifie ni les artefacts publics
 existants ni les canaux de mise à jour.
 
-La distribution publique reste désactivée jusqu’à l’acceptation complète du
-mode natif, de Docker, des installateurs et des mises à niveau depuis 2.x, ainsi
-qu’à l’examen distinct d’une voie de publication. Un candidat réussi n’autorise
-pas la publication de 3.0.0.
+Le workflow des candidats ne publie jamais. La procédure locale distincte
+`desktop/release.sh session` fixe le code étiqueté et les verrous, réutilise les
+artefacts importés inchangés et assemble le candidat avec les validateurs de
+signatures existants. La commande explicite `publish` exige huit reçus conservés
+d’acceptation de l’opérateur et les cinq jobs CI au commit exact ; les envois
+vers le brouillon reprennent sans écraser les artefacts en conflit. `finalize`
+vérifie les empreintes publiques, l’étiquette distante, la promotion fusionnée
+qui ne modifie que les métadonnées et ses cinq contrôles réussis avant de
+supprimer uniquement le répertoire temporaire appartenant à la session. Les
+preuves d’installation, les manifestes et les reçus restent en dehors de ce
+répertoire. Toute vérification manquante, modification du contenu ou chemin
+inattendu arrête le nettoyage. La procédure détaillée figure dans
+`desktop/RELEASING.md` ; les tests d’installation par plateforme et la revue de
+la promotion restent des étapes explicites de l’opérateur.
+
+La CI Python installe les dépendances JavaScript de bureau fixées par les
+verrous, sans scripts d’installation, avant pytest. Le test composé de release
+utilise le collecteur réel et les analyseurs fixés du système de mise à jour ;
+il ne doit ni dépendre de paquets laissés par un autre job ni omettre
+l’assemblage sur un runner propre.
 
 ## Clients web et bureautiques
 

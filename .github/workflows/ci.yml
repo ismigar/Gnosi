@@ -190,10 +190,19 @@ jobs:
           CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           CI_RELEASE_CANDIDATE: ${{ inputs.release_candidate }}
         run: python3 scripts/ci/classify_changes.py
+      - uses: pnpm/action-setup@v6
+        if: steps.scope.outputs.runtime_required != 'false'
+        with:
+          version: 11.19.0
       - uses: actions/setup-node@v7
         if: steps.scope.outputs.runtime_required != 'false'
         with:
           node-version: '22.22.2'
+          package-manager-cache: false
+      - name: Install locked release collector dependencies
+        if: steps.scope.outputs.runtime_required != 'false'
+        timeout-minutes: 10
+        run: pnpm install --frozen-lockfile --ignore-scripts --filter @gnosi/desktop
       - uses: actions/setup-python@v7
         if: steps.scope.outputs.runtime_required != 'false'
         with:
