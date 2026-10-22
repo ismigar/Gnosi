@@ -50,7 +50,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2691 | 0 |
-| `features` | 1256 | 135812 | 55 |
+| `features` | 1256 | 135825 | 55 |
 | `generated` | 3 | 54141 | 560 |
 | `shared` | 345 | 36900 | 475 |
 
@@ -551,7 +551,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/reader/feed-manager/feed-manager/feedManagerModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/feed-manager/feed-manager/feedManagerModel.ts) | 41 | `groupFeedSources`, `readerSchedulerTasks`, `taskInterval` | — |
 | [`frontend/src/features/reader/feed-manager/feed-manager/useFeedManagerController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/feed-manager/feed-manager/useFeedManagerController.ts) | 235 | `useFeedManagerController` | — |
 | [`frontend/src/features/reader/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/index.ts) | 3 | `ReaderDashboard` | — |
-| [`frontend/src/features/reader/page/ReaderArticleContent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderArticleContent.tsx) | 172 | `ReaderArticleContent` | — |
+| [`frontend/src/features/reader/page/ReaderArticleContent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderArticleContent.tsx) | 185 | `ReaderArticleContent` | — |
 | [`frontend/src/features/reader/page/ReaderArticleList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderArticleList.tsx) | 115 | `ReaderArticleList` | — |
 | [`frontend/src/features/reader/page/ReaderChannels.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderChannels.tsx) | 142 | `ReaderChannels` | — |
 | [`frontend/src/features/reader/page/ReaderResourceButton.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderResourceButton.tsx) | 69 | `ReaderResourceButton` | — |
