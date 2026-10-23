@@ -344,7 +344,7 @@ def _generate_daily_podcast() -> str | None:
             {"id": str(article.id), "title": str(article.title or ""), "text": article.full_content}
             for article in articles
         ], language_name, snapshot=llm, check_active=lambda: _check_podcast_publication(llm),
-            progress=lambda text: _generation_state().update(progress=text))]
+            progress=lambda text: _generation_state().update({"progress": text}))]
 
         if not all_summaries:
             log.error("No summaries generated. All calls failed.")

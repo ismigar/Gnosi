@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 import jsonschema
 
@@ -74,18 +74,21 @@ class _Briefing:
             raise RuntimeError("podcast_complete_briefing_context_insufficient")
         key = "podcast-coverage-v1:" + revision([self.snapshot.revision, request.model_dump()])
         parent = self.snapshot.parent_run_id
+        schema = request.output_schema
+        if schema is None:
+            raise ValueError("podcast_result_schema_required")
         def checked(text: str) -> str:
             result = json.loads(text)
-            jsonschema.validate(result, request.output_schema)
+            jsonschema.validate(result, schema)
             validate(result)
             return text
         saved = work_checkpoint(self.snapshot.scope, parent, key) if parent else None
         if saved is not None:
             checked(json.dumps(saved["result"]))
-            return saved["result"]
+            return cast(dict[str, Any], saved["result"])
         response = run_sync(request, snapshot=self.snapshot, output_validator=checked)
         checked(response.result)
-        result = json.loads(response.result)
+        result: dict[str, Any] = json.loads(response.result)
         self.check_active()
         if parent:
             work_checkpoint(self.snapshot.scope, parent, key, {"result": result})
@@ -136,7 +139,7 @@ def build_podcast_script(sources: list[dict[str, Any]], language: str, *, snapsh
         raise RuntimeError("podcast_complete_briefing_context_insufficient")
     context = _Briefing(snapshot, language, budget, count, check_active)
     parts = _parts(sources, budget, count)
-    briefs = []
+    briefs: list[dict[str, Any]] = []
     for batch in context.batches(parts):
         progress(f"Preparing source briefs: {len(briefs)}/{len(parts)}")
         request = context.request("podcast.coverage.briefs", {"sources": batch}, _brief_schema(batch))
