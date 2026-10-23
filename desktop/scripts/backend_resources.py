@@ -191,6 +191,7 @@ DATA_FILES = (
     "backend/agent/behavior/operations/notebook/SKILL.md",
     "backend/agent/behavior/operations/notebook/skill.json",
     "backend/agent/behavior/operations/podcast/SKILL.md",
+    "backend/agent/behavior/operations/podcast/segment-contract.md",
     "backend/agent/behavior/operations/podcast/skill.json",
     "backend/agent/behavior/operations/reader/SKILL.md",
     "backend/agent/behavior/operations/reader/skill.json",
