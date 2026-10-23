@@ -290,3 +290,16 @@ def test_oversized_theme_uses_recursive_bounded_digests_without_losing_ids():
     assert calls.count('podcast.coverage.digest') > 14  # More than one reduction level.
     assert {p for s in sections for p in s['part_ids']} == {b['part_id'] for b in briefs}
     assert budget == 1500 and 1400 < sum(len(s['narration'].split()) for s in sections) < 1600
+
+
+def test_planning_never_asks_model_to_classify_or_repeat_hundreds_of_source_ids(pipeline):
+    sources = [{'id': f'article-original-id-{i}', 'title': f'Topic {i}', 'text': f'Evidence {i}'} for i in range(110)]
+    text = pipeline.run(sources)
+    plans = [c for c in pipeline.calls if c['task'].endswith('plan')]
+    assert len(plans) >= 4
+    assert all(len(c['data']['cards']) <= 48 for c in plans)
+    assert all(len(card['part_ids']) == 1 and card['part_ids'][0].startswith('card:')
+               for c in plans for card in c['data']['cards'])
+    assert all(f'Topic {i}' in text for i in range(110))
+    report = pipeline.saved['podcast-coverage-report']
+    assert {p for g in report['outline'] for p in g['part_ids']} == {f'{s["id"]}:0' for s in sources}

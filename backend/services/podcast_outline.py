@@ -40,26 +40,37 @@ def _plan_request(context: _Briefing, cards: list[dict[str, Any]]) -> Any:
     return _request(context, "plan", {"cards": cards}, schema)
 
 
+def _planning_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    # Route opaque card handles; expand original evidence IDs only on the server.
+    return [{"topic": card["topic"], "part_ids": [f"card:{i}"]} for i, card in enumerate(cards)]
+
+
+def _route(context: _Briefing, cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    visible = _planning_cards(cards)
+    result = context.stage(_plan_request(context, visible), lambda r: _partition(r["topics"], visible))
+    mapping = {f"card:{i}": card["part_ids"] for i, card in enumerate(cards)}
+    return [{"topic": g["topic"], "part_ids": [p for handle in g["part_ids"] for p in mapping[handle]]}
+            for g in result["topics"]]
+
+
 def _outline(context: _Briefing, briefs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    # Compact subjects, not whole prose, let distant duplicate reports meet globally.
     cards = [{"topic": b["topic"], "part_ids": [b["part_id"]]} for b in briefs]
-    limit = min(80_000, context.budget)
-    while context.cost(_plan_request(context, cards)) > limit:
+    limit = min(40_000, context.budget)
+    def fits(candidate: list[dict[str, Any]]) -> bool:
+        return len(candidate) <= 48 and context.cost(_plan_request(context, _planning_cards(candidate))) <= limit
+    while not fits(cards):
         batches: list[list[dict[str, Any]]] = [[]]
         for card in cards:
-            candidate = [*batches[-1], card]
-            if batches[-1] and context.cost(_plan_request(context, candidate)) > limit:
+            if batches[-1] and not fits([*batches[-1], card]):
                 batches.append([])
             batches[-1].append(card)
         compressed = []
         for batch in batches:
-            result = context.stage(_plan_request(context, batch), lambda r: _partition(r["topics"], batch))
-            compressed.extend(result["topics"])
+            compressed.extend(_route(context, batch))
         if len(compressed) >= len(cards):
             raise RuntimeError("podcast_outline_context_insufficient")
         cards = compressed
-    result = context.stage(_plan_request(context, cards), lambda r: _partition(r["topics"], cards))
-    return list(result["topics"])
+    return _route(context, cards)
 
 
 def _digest(context: _Briefing, records: list[dict[str, Any]]) -> list[dict[str, Any]]:

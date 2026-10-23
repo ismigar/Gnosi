@@ -480,7 +480,9 @@ missing, extra or wrongly quoted entries fail validation before checkpointing.
 Validated briefs have versioned private checkpoints, independent of optional
 model conversation memory. `podcast_outline.py` groups compact subjects across the
 whole day into at most twelve themes, so distant duplicate reports share a theme.
-Oversized planning inputs are grouped hierarchically without dropping source IDs.
+Planning calls contain at most 48 compact cards with opaque handles. Original
+source-ID expansion stays on the server; hierarchical merging never asks the
+model to repeat hundreds of IDs and never drops evidence.
 Each theme receives an equal share of a 1,500-word episode budget on broad news
 days; sparse collections use a smaller budget. Duplicate-heavy feeds cannot crowd
 out minority themes. The writer merges repeated events and summarizes distinct

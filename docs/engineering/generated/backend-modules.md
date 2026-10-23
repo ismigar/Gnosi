@@ -24,11 +24,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 262 | 51469 |
+| `services` | 262 | 51480 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1058 modules** and **202244 source lines**.
+Total: **1058 modules** and **202255 source lines**.
 
 ## agent
 
@@ -1104,7 +1104,7 @@ Total: **1058 modules** and **202244 source lines**.
 | [`backend/services/plugin_signing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_signing.py) | 167 | 0 | 8 | 0 | 6 | Plugin signing and trust (phase 3 of plugin_system.md). |
 | [`backend/services/plugin_system.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_system.py) | 256 | 0 | 14 | 0 | 12 | Compatibility facade for the typed third-party plugin domain. |
 | [`backend/services/podcast_briefing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_briefing.py) | 160 | 1 | 7 | 0 | 0 | Durable whole-day podcast coverage, independent of model conversation memory. |
-| [`backend/services/podcast_outline.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_outline.py) | 126 | 0 | 6 | 0 | 0 | Global thematic deduplication and a checked word budget for a ten-minute episode. |
+| [`backend/services/podcast_outline.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_outline.py) | 137 | 0 | 8 | 0 | 0 | Global thematic deduplication and a checked word budget for a ten-minute episode. |
 | [`backend/services/podcast_sources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_sources.py) | 22 | 0 | 1 | 0 | 1 | Readable source selection for daily podcasts. |
 | [`backend/services/principal_agent_migration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/principal_agent_migration.py) | 119 | 0 | 3 | 0 | 0 | Idempotent, backed-up migration from feature-owned agents to the principal. |
 | [`backend/services/project_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/project_planning.py) | 492 | 3 | 14 | 0 | 12 | Vault-scoped storage and pure calculations for project planning resources. |
