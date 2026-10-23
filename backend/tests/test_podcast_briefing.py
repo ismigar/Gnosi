@@ -23,6 +23,8 @@ def pipeline(monkeypatch):
     monkeypatch.setattr('backend.services.agent_execution_store.work_checkpoint', checkpoint)
     def model(request, **kwargs):
         payload = json.loads(request.input)
+        payload['_options'] = request.options
+        payload['_timeout'] = request.timeout_seconds
         calls.append(payload)
         data = payload['data']
         if payload['task'].endswith('briefs'):
@@ -55,7 +57,7 @@ def test_stateless_model_sees_all_batches_again_in_final_briefing(pipeline):
     delivered = [p for batch in extraction for p in batch]
     for source in sources:
         assert ''.join(p['text'] for p in delivered if p['source_id'] == source['id']) == source['text']
-    final = pipeline.calls[-1]['data']['briefs']
+    final = [b for c in pipeline.calls if c['task'].endswith('segment') for b in c['data']['briefs']]
     assert {b['part_id'] for b in final} == {p['part_id'] for p in delivered}
     assert {b['source_id'] for b in final} == {s['id'] for s in sources}
     assert all(s['title'] in narration for s in sources)
@@ -118,18 +120,57 @@ def test_final_sections_cannot_drop_duplicate_or_invent_sources(pipeline, ids):
     assert 'podcast-coverage-report' not in pipeline.saved
 
 
-def test_final_context_overflow_fails_before_any_brief_is_dropped(pipeline):
+def test_collection_exceeding_one_context_is_fully_narrated_in_bounded_segments(pipeline):
     def model(request, **kwargs):
         data = json.loads(request.input)['data']
-        assert request.operation.endswith('briefs'), 'Oversized final request must not be sent'
-        result = {'briefs': {p['part_id']: {'topic': 'Topic', 'summary': 'Long summary ' * 30,
-            'quote': p['text']} for p in data['sources']}}
-        return SimpleNamespace(result=json.dumps(result))
+        if request.operation.endswith('briefs'):
+            result = {'briefs': {p['part_id']: {'topic': p['title'], 'summary': 'Long summary ' * 30,
+                'quote': p['text']} for p in data['sources']}}
+            return SimpleNamespace(result=json.dumps(result))
+        assert len(data['briefs']) <= 16, 'Oversized narration request must not be sent'
+        assert briefing._Briefing.cost(SimpleNamespace(count=len), request) <= 21952
+        return pipeline.model(request, **kwargs)
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
-    with pytest.raises(RuntimeError, match='complete_briefing_context_insufficient'):
-        pipeline.run([{'id': str(i), 'title': f'Topic {i}', 'text': f'Evidence {i}'} for i in range(70)])
-    assert 'podcast-coverage-report' not in pipeline.saved
-    assert len(pipeline.saved) > 1
+    narration = pipeline.run([{'id': str(i), 'title': f'Topic {i}.', 'text': f'Evidence {i}'} for i in range(70)])
+    groups = [c for c in pipeline.calls if c['task'].endswith('segment')]
+    assert len(groups) > 1
+    assert [b['source_id'] for c in groups for b in c['data']['briefs']] == [str(i) for i in range(70)]
+    assert all(f'Topic {i}.' in narration for i in range(70))
+    assert pipeline.saved['podcast-coverage-report']['narration_segments'] == len(groups)
+
+
+def test_interrupted_narration_resumes_every_segment_without_repeating_extraction(pipeline):
+    sources = [{'id': str(i), 'title': f'Topic {i}.', 'text': f'Evidence {i}'} for i in range(40)]
+    def interrupted(request, **kwargs):
+        if request.operation.endswith('segment') and json.loads(request.input)['data']['segment'] == 2:
+            raise RuntimeError('narration interrupted')
+        return pipeline.model(request, **kwargs)
+    pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', interrupted)
+    with pytest.raises(RuntimeError, match='narration interrupted'):
+        pipeline.run(sources)
+    assert len(pipeline.calls) == 6  # Five extraction groups and one validated narration group.
+    pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', pipeline.model)
+    narration = pipeline.run(sources)
+    assert len(pipeline.calls) == 8
+    assert all(f'Topic {i}.' in narration for i in range(40))
+    assert pipeline.saved['podcast-coverage-report']['narration_segments'] == 3
+
+
+def test_resumed_old_snapshot_gets_explicit_segment_contract_and_continuity(pipeline):
+    from backend.services.agent_behavior import frozen_resources
+    token = frozen_resources.set({'operations/podcast/SKILL.md': 'Legacy global synthesis and short duration.'})
+    try:
+        pipeline.run([{'id': str(i), 'title': f'Topic {i}', 'text': f'Evidence {i}'} for i in range(40)])
+    finally:
+        frozen_resources.reset(token)
+    groups = [c for c in pipeline.calls if c['task'].endswith('segment')]
+    assert [c['_options']['episode_opening'] for c in groups] == [True, False, False]
+    assert [c['_options']['episode_closing'] for c in groups] == [False, False, True]
+    assert all('coverage takes priority' in c['_options']['segment_contract'] for c in groups)
+    assert all(c['_options']['soft_word_budget'] > 0 and c['_timeout'] == 300 for c in groups)
+    assert not groups[0]['data']['previous_ending']
+    assert all(0 < len(c['data']['previous_ending']) <= 256 for c in groups[1:])
+    assert all(c['_options'] == {} and c['_timeout'] == 300 for c in pipeline.calls if c['task'].endswith('briefs'))
 
 
 def test_cancellation_is_checked_even_when_all_briefs_are_cached(pipeline):

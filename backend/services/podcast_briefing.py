@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
@@ -9,7 +10,7 @@ from typing import Any, cast
 import jsonschema
 
 from backend.domains.llm_wiki.chunking import split_segment
-from backend.services.agent_behavior import operation_input, revision, snapshot_instruction_text, task_input
+from backend.services.agent_behavior import operation_input, resource, revision, snapshot_instruction_text, task_input
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation
 
 
@@ -111,6 +112,38 @@ class _Briefing:
             batches.append(current)
         return batches
 
+    def segment_request(self, briefs: list[dict[str, Any]], index: int, total: int,
+                        words: int, previous: str = "") -> AgentOperation:
+        request = self.request("podcast.coverage.segment", {
+            "briefs": briefs, "segment": index, "total_segments": total,
+            "previous_ending": previous[-256:],
+        }, _section_schema(briefs))
+        return request.model_copy(update={"options": {
+            "segment_contract": resource("operations/podcast/segment-contract.md"),
+            "episode_opening": index == 1, "episode_closing": index == total,
+            "soft_word_budget": words,
+        }})
+
+    def narration_batches(self, briefs: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+        limit = min(40_000, self.budget)
+        groups: list[list[dict[str, Any]]] = []
+        current: list[dict[str, Any]] = []
+        def cost(candidate: list[dict[str, Any]]) -> int:
+            # Reserve the fully escaped ending and worst-case numeric metadata.
+            request = self.segment_request(candidate, len(briefs), len(briefs), max(40, 24 * len(briefs)))
+            return self.cost(request) + 2048
+        for brief in briefs:
+            candidate = [*current, brief]
+            if current and (len(candidate) > 16 or cost(candidate) > limit):
+                groups.append(current)
+                current = []
+            current.append(brief)
+            if cost(current) > limit:
+                raise RuntimeError("podcast_narration_part_context_insufficient")
+        if current:
+            groups.append(current)
+        return groups
+
 
 def _parts(sources: list[dict[str, Any]], budget: int, count: Callable[[str], int]) -> list[dict[str, Any]]:
     result = []
@@ -146,13 +179,25 @@ def build_podcast_script(sources: list[dict[str, Any]], language: str, *, snapsh
         result = context.stage(request, lambda value: _validate_briefs(value, batch))
         briefs.extend({"part_id": p["part_id"], "source_id": p["source_id"], "title": p.get("title", ""),
                        **result["briefs"][p["part_id"]]} for p in batch)
-    progress(f"Writing whole-day briefing: {len(sources)} articles")
-    request = context.request("podcast.coverage.narration", {"briefs": briefs}, _section_schema(briefs))
-    result = context.stage(request, lambda value: _validate_sections(value, briefs))
+    groups = context.narration_batches(briefs)
+    source_parts = Counter(brief["source_id"] for brief in briefs)
+    sections: list[dict[str, Any]] = []
+    completed = 0
+    for index, group in enumerate(groups, 1):
+        progress(f"Writing whole-day briefing: {index}/{len(groups)} segments ({completed}/{len(briefs)} notes)")
+        words = max(40, round(sum(24 / source_parts[brief["source_id"]] for brief in group)))
+        previous = sections[-1]["narration"] if sections else ""
+        request = context.segment_request(group, index, len(groups), words, previous)
+        if context.cost(request) > min(40_000, budget):
+            raise RuntimeError("podcast_narration_part_context_insufficient")
+        result = context.stage(request, lambda value: _validate_sections(value, group))
+        sections.extend(result["sections"])
+        completed += len(group)
+    _validate_sections({"sections": sections}, briefs)
     check_active()
     if snapshot.parent_run_id:
         work_checkpoint(snapshot.scope, snapshot.parent_run_id, "podcast-coverage-report", {
-            "version": 1, "article_ids": sorted({p["source_id"] for p in parts}),
-            "parts": len(parts), "briefs": briefs, "sections": result["sections"],
+            "version": 2, "narration_segments": len(groups), "article_ids": sorted({p["source_id"] for p in parts}),
+            "parts": len(parts), "briefs": briefs, "sections": sections,
         })
-    return "\n\n".join(section["narration"].strip() for section in result["sections"])
+    return "\n\n".join(section["narration"].strip() for section in sections)

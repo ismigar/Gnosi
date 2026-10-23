@@ -478,11 +478,14 @@ leaves the previous MP3 intact.
 batches. Each part must produce a nonempty brief with an exact original quote;
 missing, extra or wrongly quoted entries fail validation before checkpointing.
 Validated briefs have versioned private checkpoints, independent of optional
-model conversation memory. The final request receives every brief together.
-If they cannot fit, it fails explicitly rather than slicing off sources.
+model conversation memory. Narration uses deterministic groups of at most sixteen
+briefs, bounded by the complete serialized request budget. Each group is checkpointed
+separately; resuming reuses validated extraction and narration. A source that cannot
+fit alone fails explicitly rather than being dropped.
 
-The final result contains ordered spoken sections. Their part IDs must form an
-exact, nonduplicated partition of the complete collection, and each narration
+The final result concatenates every group’s spoken sections without a final model
+rewrite. Part IDs must form exact, nonduplicated partitions both within each group
+and across the complete collection, and each narration
 must be nonempty. Only narration reaches speech synthesis; internal topic labels,
 IDs and evidence are not voiced. `podcast-coverage-report` retains the briefs and
 section assignments for audit. This structural partition is not proof of semantic
@@ -493,8 +496,11 @@ section content with the source briefs.
 Extraction groups at most eight source parts per request, splitting originals into
 parts of at most 10,000 counted tokens. Each brief has at most 400 summary characters
 and 160 quote characters. Extraction has a bounded 300-second allowance and 16,384 output tokens per call.
-Whole-day narration has 600 seconds and 32,768 output tokens, including provider
-reasoning, to plan and speak the full collection. Neither uses optional team handoff.
+Each narration group has 300 seconds and 16,384 output tokens, including provider
+reasoning. Explicit task options provide the segment contract even when resuming an
+older frozen snapshot: continuity context is not evidence, only the first/last group
+opens/closes the episode, and source-weighted word guidance yields to faithful
+coverage. Neither extraction nor narration uses optional team handoff.
 Explicit profile output choices remain intact. The principal agent and scoped
 atomic audio publication remain shared with the rest of the application. Failed
 or cancelled work cannot replace the previous episode.

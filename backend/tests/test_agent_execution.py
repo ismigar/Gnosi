@@ -992,6 +992,7 @@ def test_oversized_complete_synthesis_is_returned_to_the_reader_without_full_sou
     ('podcast.analyze.action', None, 16384),
     ('podcast.coverage.briefs', None, 16384),
     ('podcast.coverage.narration', None, 32768),
+    ('podcast.coverage.segment', None, 16384),
     ('podcast.analyze.action', 24000, None),
     ('writing.analyze.action', None, None),
     ('podcast.segment', None, None),
@@ -1014,7 +1015,7 @@ def test_podcast_action_has_bounded_default_output_without_changing_other_operat
         assert captured['operation_team_help'] is False
 
 
-@pytest.mark.parametrize('operation', ['podcast.coverage.briefs', 'podcast.coverage.narration'])
+@pytest.mark.parametrize('operation', ['podcast.coverage.briefs', 'podcast.coverage.narration', 'podcast.coverage.segment'])
 @pytest.mark.parametrize('key', ['max_tokens', 'max_output_tokens'])
 def test_podcast_coverage_preserves_explicit_profile_output_limit(runtime, monkeypatch, operation, key):
     _, snapshot = runtime
