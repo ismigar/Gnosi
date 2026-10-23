@@ -29,7 +29,7 @@ def _validate_briefs(result: dict[str, Any], parts: list[dict[str, Any]]) -> Non
         brief = result["briefs"][part["part_id"]]
         if not all(brief[key].strip() for key in ("topic", "summary", "quote")):
             raise ValueError("podcast_empty_source_brief")
-        if brief["quote"] not in part["text"]:
+        if brief["quote"] not in part["text"] and brief["quote"] not in str(part.get("title") or ""):
             raise ValueError(f"podcast_quote_not_in_original:{part['part_id']}")
 
 

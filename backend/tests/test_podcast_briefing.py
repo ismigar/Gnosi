@@ -148,3 +148,18 @@ def test_extraction_bounds_each_call_without_dropping_sources(pipeline):
     assert len(batches) == 4
     assert all(len(batch) <= 8 for batch in batches)
     assert [p['source_id'] for batch in batches for p in batch] == [s['id'] for s in sources]
+
+
+def test_exact_quote_from_original_title_is_valid_source_evidence(pipeline):
+    def model(request, **kwargs):
+        if not request.operation.endswith('briefs'):
+            return pipeline.model(request, **kwargs)
+        part = json.loads(request.input)['data']['sources'][0]
+        return SimpleNamespace(result=json.dumps({'briefs': {part['part_id']: {
+            'topic': 'Sports', 'summary': 'The athlete arrives to receive the award.',
+            'quote': 'His father was excited about the award'}}}))
+    pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
+    narration = pipeline.run([{'id': '691', 'title': 'His father was excited about the award',
+                              'text': 'The athlete arrived in Oviedo and met supporters.'}])
+    assert 'The athlete arrives to receive the award.' in narration
+    assert pipeline.saved['podcast-coverage-report']['article_ids'] == ['691']
