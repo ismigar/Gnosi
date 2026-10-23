@@ -212,6 +212,7 @@ def test_batched_document_reads_preserve_originals_and_resume_hundreds_of_source
         data = json.loads(request.input)['data']
         prompts.append(data)
         assert len(request.input.encode()) < 12000
+        assert request.timeout_seconds == (300 if data['read_parts'] == data['total_parts'] else 120)
         result = data['last_result']
         if result.get('delivery') == 'batch':
             for part in result['parts']:
@@ -264,3 +265,12 @@ def test_batched_reads_only_mark_delivered_parts_and_keep_citation_guards():
     single_read = set()
     single, _ = _document_action('read', {'part_id': '0'}, parts, single_read, '', 2000, len)
     assert single == parts['0'] and single_read == {'0'}
+
+
+@pytest.mark.parametrize('operation, read, total, expected', [
+    ('podcast', 0, 186, 120), ('podcast', 186, 186, 300),
+    ('notebook', 186, 186, 120), ('reader', 186, 186, 120),
+])
+def test_document_action_timeout_only_extends_complete_podcast_script(operation, read, total, expected):
+    from backend.services.agent_document_work import _document_action_timeout
+    assert _document_action_timeout(operation, read, total) == expected

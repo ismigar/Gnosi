@@ -39,6 +39,11 @@ def document_action_schema(output_schema: dict[str, Any]) -> dict[str, Any]:
     }}
 
 
+def _document_action_timeout(operation: str, read_parts: int, total_parts: int) -> int:
+    """Allow the complete spoken script longer than a bounded reading action."""
+    return 300 if operation == "podcast" and read_parts == total_parts else 120
+
+
 def synthesize(operation: str, sources: list[dict[str, Any]], request: str, *, snapshot: AgentExecutionSnapshot,
                output_schema: dict[str, Any], heartbeat: Callable[[], Any] | None = None,
                max_steps: int = 64, batch_reads: bool = False) -> dict[str, Any]:
@@ -80,7 +85,8 @@ def synthesize(operation: str, sources: list[dict[str, Any]], request: str, *, s
                                 "finish": {"result": "result_schema", "citations": "list of source_id and exact quote", "reviewed": "boolean"}})
         response = run_sync(AgentOperation(skill_id=skill_id(operation), operation=f"{operation}.analyze.action",
                                           input=prompt, origin=snapshot.origin, output_schema=document_action_schema(output_schema),
-                                          resume_requires_parent=True), snapshot=snapshot)
+                                          resume_requires_parent=True,
+                                          timeout_seconds=_document_action_timeout(operation, len(read), len(parts))), snapshot=snapshot)
         answer = json.loads(response.result)
         args = answer["arguments"]
         record("document.action", {"operation": operation, "step": step, **answer})

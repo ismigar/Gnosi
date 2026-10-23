@@ -475,3 +475,8 @@ the working context budget. Coverage records only delivered parts; citations
 remain tied to each original source. Agent models absent from the routing
 registry use their exact provider/model catalog context metadata, with the small
 fallback retained for unknown models and explicit registry limits taking priority.
+
+Once all podcast originals have been delivered, script composition receives a
+bounded 300-second operation allowance. Reading actions and other document
+operations retain the 120-second allowance. A failed composition can resume
+from the scoped checkpoint without reading the originals again.
