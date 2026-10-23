@@ -8916,6 +8916,10 @@
     "reviewMail": "Previsualitza el butlletí",
     "queue": "Posa l’enviament de prova a la cua",
     "queued": "{{count}} missatges de prova a la cua.",
-    "failed": "No s’ha pogut completar l’acció a proves. Actualitza i revisa una previsualització nova."
+    "failed": "No s’ha pogut completar l’acció a proves. Actualitza i revisa una previsualització nova.",
+    "loadingWeb": "Carregant les pàgines i les versions del web…",
+    "loadingNewsletter": "Carregant les subscripcions i els butlletins…",
+    "webReadFailed": "No s’han pogut carregar les pàgines del web. Prem Actualitza per tornar-ho a provar.",
+    "newsletterReadFailed": "No s’han pogut carregar les subscripcions i els butlletins. Pots continuar amb les pàgines del web o prémer Actualitza per tornar-ho a provar."
   }
 }

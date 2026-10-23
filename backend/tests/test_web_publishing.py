@@ -32,7 +32,7 @@ def test_driver_uses_context_path_safe_argv_and_minimal_environment(state, monke
         assert argv[0] == "/usr/bin/python3"
         assert len(argv) == 2 and argv[1].endswith("driver.py")
         assert options.get("shell", False) is False
-        assert options["timeout"] == 600
+        assert options["timeout"] == 60
         assert "GNOSI_JWT_SECRET" not in options["env"]
         assert json.loads(options["input"]) == {
             "action": "status", "vault_path": str(state.vault_path.resolve()), "request": {},
@@ -94,7 +94,7 @@ def test_driver_stale_error_is_safe_even_on_nonzero_exit(state, monkeypatch):
         returncode=1, stdout=json.dumps({"error": {"code": "preview_stale", "message": "SECRET-PATH"}}),
     ))
     with pytest.raises(web.HTTPException) as error:
-        web.status(state)
+        web._driver("publish", state, {"preview_id": "synthetic"})
     assert error.value.status_code == 409
     assert "SECRET" not in str(error.value.detail)
 
@@ -274,3 +274,24 @@ def test_general_expected_account_semantics_stay_auth_only(web_http):
     assert response.status_code == 409
     assert response.json()["detail"] == {"code": "account_changed"}
     assert web_http.seen == []
+
+
+@pytest.mark.parametrize("action", ["status", "newsletter_status"])
+@pytest.mark.parametrize("code", ["publication_failed", "publication_read_timeout", "publication_busy"])
+def test_read_failures_are_not_reported_as_expired_previews(state, monkeypatch, action, code):
+    monkeypatch.setattr(web.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(
+        returncode=1, stdout=json.dumps({"error": {"code": code, "message": "PRIVATE-PATH-SECRET"}}),
+    ))
+    with pytest.raises(web.HTTPException) as caught:
+        web._driver(action, state, {})
+    assert caught.value.status_code == 503
+    assert caught.value.detail == {"code": "web_publishing_unavailable"}
+
+
+def test_publication_actions_keep_their_existing_long_timeout(state, monkeypatch):
+    def run(*args, **kwargs):
+        assert kwargs["timeout"] == 600
+        return SimpleNamespace(returncode=0, stdout='{}')
+    monkeypatch.setattr(web.subprocess, "run", run)
+    for action in ("publish", "preview", "rollback", "newsletter_send", "newsletter_preview"):
+        assert web._driver(action, state, {}) == {}

@@ -8860,6 +8860,10 @@
     "reviewMail": "Preview newsletter",
     "queue": "Queue test delivery",
     "queued": "{{count}} test messages queued.",
-    "failed": "Could not complete the staging action. Refresh and review a new preview."
+    "failed": "Could not complete the staging action. Refresh and review a new preview.",
+    "loadingWeb": "Loading website pages and releases…",
+    "loadingNewsletter": "Loading subscriptions and newsletters…",
+    "webReadFailed": "Could not load the website pages. Use Refresh to try again.",
+    "newsletterReadFailed": "Could not load subscriptions and newsletters. You can continue with website pages or use Refresh to try again."
   }
 }

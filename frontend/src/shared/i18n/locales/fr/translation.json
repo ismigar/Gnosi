@@ -8916,6 +8916,10 @@
     "reviewMail": "Aperçu de la lettre",
     "queue": "Mettre l’envoi de test en file",
     "queued": "{{count}} messages de test en file.",
-    "failed": "L’action sur le site de test a échoué. Actualisez et vérifiez un nouvel aperçu."
+    "failed": "L’action sur le site de test a échoué. Actualisez et vérifiez un nouvel aperçu.",
+    "loadingWeb": "Chargement des pages et des versions du site…",
+    "loadingNewsletter": "Chargement des abonnements et des lettres d’information…",
+    "webReadFailed": "Impossible de charger les pages du site. Utilisez Actualiser pour réessayer.",
+    "newsletterReadFailed": "Impossible de charger les abonnements et les lettres d’information. Vous pouvez continuer avec les pages du site ou utiliser Actualiser pour réessayer."
   }
 }
