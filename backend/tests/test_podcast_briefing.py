@@ -30,9 +30,21 @@ def pipeline(monkeypatch):
         if payload['task'].endswith('briefs'):
             result = {'briefs': {p['part_id']: {'topic': p['title'],
                 'summary': f"{p['title']}: {p['text'][-70:]}", 'quote': p['text'][:60]} for p in data['sources']}}
+        elif payload['task'].endswith('plan'):
+            groups = {}
+            for index, card in enumerate(data['cards']):
+                key = card['topic'] if len(data['cards']) <= 12 else str(index % 10)
+                group = groups.setdefault(key, {'topic': key, 'part_ids': []})
+                group['part_ids'].extend(card['part_ids'])
+            result = {'topics': list(groups.values())}
         else:
-            result = {'sections': [{'topic': 'INTERNAL editorial metadata', 'part_ids': [b['part_id']],
-                'narration': f"Notícia de {b['title']}: {b['summary']}"} for b in data['briefs']]}
+            briefs = data['briefs']
+            text = ' '.join(f"{b['title']}: {b['summary'][-55:]}" for b in briefs)
+            words = text.split()
+            minimum = request.options.get('min_words', 0)
+            text += ' Context.' * max(0, minimum - len(words))
+            result = {'sections': [{'topic': 'INTERNAL editorial metadata',
+                'part_ids': [b['part_id'] for b in briefs], 'narration': text.strip()}]}
         text = json.dumps(result)
         kwargs['output_validator'](text)
         return SimpleNamespace(result=text)
@@ -57,7 +69,7 @@ def test_stateless_model_sees_all_batches_again_in_final_briefing(pipeline):
     delivered = [p for batch in extraction for p in batch]
     for source in sources:
         assert ''.join(p['text'] for p in delivered if p['source_id'] == source['id']) == source['text']
-    final = [b for c in pipeline.calls if c['task'].endswith('segment') for b in c['data']['briefs']]
+    final = [b for c in pipeline.calls if c['task'].endswith('concise') for b in c['data']['briefs']]
     assert {b['part_id'] for b in final} == {p['part_id'] for p in delivered}
     assert {b['source_id'] for b in final} == {s['id'] for s in sources}
     assert all(s['title'] in narration for s in sources)
@@ -127,14 +139,16 @@ def test_collection_exceeding_one_context_is_fully_narrated_in_bounded_segments(
             result = {'briefs': {p['part_id']: {'topic': p['title'], 'summary': 'Long summary ' * 30,
                 'quote': p['text']} for p in data['sources']}}
             return SimpleNamespace(result=json.dumps(result))
+        if request.operation.endswith('plan'):
+            return pipeline.model(request, **kwargs)
         assert len(data['briefs']) <= 16, 'Oversized narration request must not be sent'
         assert briefing._Briefing.cost(SimpleNamespace(count=len), request) <= 21952
         return pipeline.model(request, **kwargs)
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
     narration = pipeline.run([{'id': str(i), 'title': f'Topic {i}.', 'text': f'Evidence {i}'} for i in range(70)])
-    groups = [c for c in pipeline.calls if c['task'].endswith('segment')]
+    groups = [c for c in pipeline.calls if c['task'].endswith('concise')]
     assert len(groups) > 1
-    assert [b['source_id'] for c in groups for b in c['data']['briefs']] == [str(i) for i in range(70)]
+    assert {b['source_id'] for c in groups for b in c['data']['briefs']} == {str(i) for i in range(70)}
     assert all(f'Topic {i}.' in narration for i in range(70))
     assert pipeline.saved['podcast-coverage-report']['narration_segments'] == len(groups)
 
@@ -142,18 +156,19 @@ def test_collection_exceeding_one_context_is_fully_narrated_in_bounded_segments(
 def test_interrupted_narration_resumes_every_segment_without_repeating_extraction(pipeline):
     sources = [{'id': str(i), 'title': f'Topic {i}.', 'text': f'Evidence {i}'} for i in range(40)]
     def interrupted(request, **kwargs):
-        if request.operation.endswith('segment') and json.loads(request.input)['data']['segment'] == 2:
+        if request.operation.endswith('concise') and len([c for c in pipeline.calls if c['task'].endswith('concise')]) == 1:
             raise RuntimeError('narration interrupted')
         return pipeline.model(request, **kwargs)
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', interrupted)
     with pytest.raises(RuntimeError, match='narration interrupted'):
         pipeline.run(sources)
-    assert len(pipeline.calls) == 6  # Five extraction groups and one validated narration group.
+    assert len([c for c in pipeline.calls if c['task'].endswith('briefs')]) == 5
+    assert len([c for c in pipeline.calls if c['task'].endswith('concise')]) == 1
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', pipeline.model)
     narration = pipeline.run(sources)
-    assert len(pipeline.calls) == 8
+    assert len([c for c in pipeline.calls if c['task'].endswith('briefs')]) == 5
     assert all(f'Topic {i}.' in narration for i in range(40))
-    assert pipeline.saved['podcast-coverage-report']['narration_segments'] == 3
+    assert pipeline.saved['podcast-coverage-report']['narration_segments'] == 10
 
 
 def test_resumed_old_snapshot_gets_explicit_segment_contract_and_continuity(pipeline):
@@ -163,13 +178,11 @@ def test_resumed_old_snapshot_gets_explicit_segment_contract_and_continuity(pipe
         pipeline.run([{'id': str(i), 'title': f'Topic {i}', 'text': f'Evidence {i}'} for i in range(40)])
     finally:
         frozen_resources.reset(token)
-    groups = [c for c in pipeline.calls if c['task'].endswith('segment')]
-    assert [c['_options']['episode_opening'] for c in groups] == [True, False, False]
-    assert [c['_options']['episode_closing'] for c in groups] == [False, False, True]
-    assert all('coverage takes priority' in c['_options']['segment_contract'] for c in groups)
-    assert all(c['_options']['soft_word_budget'] > 0 and c['_timeout'] == 300 for c in groups)
-    assert not groups[0]['data']['previous_ending']
-    assert all(0 < len(c['data']['previous_ending']) <= 256 for c in groups[1:])
+    groups = [c for c in pipeline.calls if c['task'].endswith('concise')]
+    assert [c['_options']['episode_opening'] for c in groups] == [True] + [False] * 9
+    assert [c['_options']['episode_closing'] for c in groups] == [False] * 9 + [True]
+    assert all('STRICTLY' in c['_options']['concise_contract'] for c in groups)
+    assert all(c['_options']['max_words'] > c['_options']['min_words'] > 0 and c['_timeout'] == 300 for c in groups)
     assert all(c['_options'] == {} and c['_timeout'] == 300 for c in pipeline.calls if c['task'].endswith('briefs'))
 
 
@@ -204,3 +217,76 @@ def test_exact_quote_from_original_title_is_valid_source_evidence(pipeline):
                               'text': 'The athlete arrived in Oviedo and met supporters.'}])
     assert 'The athlete arrives to receive the award.' in narration
     assert pipeline.saved['podcast-coverage-report']['article_ids'] == ['691']
+
+
+def test_distant_duplicate_reports_share_global_theme_and_minor_topics_keep_space(pipeline):
+    sources = [{'id': str(i), 'title': 'Repeated event' if i % 2 == 0 else f'Minor {i}',
+                'text': f'Evidence {i}'} for i in range(20)]
+    def model(request, **kwargs):
+        if request.operation.endswith('plan'):
+            cards = json.loads(request.input)['data']['cards']
+            groups = {}
+            for card in cards:
+                label = 'Repeated event' if card['topic'] == 'Repeated event' else 'Minor roundup'
+                groups.setdefault(label, {'topic': label, 'part_ids': []})['part_ids'].extend(card['part_ids'])
+            text = json.dumps({'topics': list(groups.values())})
+            kwargs['output_validator'](text)
+            return SimpleNamespace(result=text)
+        return pipeline.model(request, **kwargs)
+    pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
+    text = pipeline.run(sources)
+    groups = [c['data']['briefs'] for c in pipeline.calls if c['task'].endswith('concise')]
+    assert len(groups) == 2
+    assert {b['source_id'] for b in groups[0]} == {str(i) for i in range(0, 20, 2)}
+    assert all(f'Minor {i}' in text for i in range(1, 20, 2))
+    assert 1350 <= len(text.split()) <= 1650
+    assert pipeline.saved['podcast-coverage-report']['word_budget'] == 1500
+
+
+@pytest.mark.parametrize('words', [1, 5000])
+def test_unbounded_model_output_is_rejected_before_publishing_or_caching(pipeline, words):
+    def model(request, **kwargs):
+        if not request.operation.endswith('concise'):
+            return pipeline.model(request, **kwargs)
+        briefs = json.loads(request.input)['data']['briefs']
+        return SimpleNamespace(result=json.dumps({'sections': [{'topic': 'News',
+            'part_ids': [b['part_id'] for b in briefs], 'narration': 'word ' * words}]}))
+    pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
+    with pytest.raises(ValueError, match='podcast_word_budget'):
+        pipeline.run([{'id': 'a', 'title': 'Title', 'text': 'Evidence'}])
+    assert 'podcast-coverage-report' not in pipeline.saved
+    assert not any('sections' in checkpoint['result'] for checkpoint in pipeline.saved.values())
+
+
+def test_oversized_theme_uses_recursive_bounded_digests_without_losing_ids():
+    from backend.services.podcast_outline import narrate_day
+    calls = []
+    class Context:
+        budget = 12000
+        def request(self, task, data, schema):
+            return briefing.AgentOperation(skill_id='core.gnosi-daily-briefing', operation=task,
+                input=json.dumps(data), output_schema=schema)
+        def cost(self, request):
+            return len(briefing.operation_input(request)) + 1024
+        def stage(self, request, validate):
+            assert self.cost(request) <= self.budget
+            data = json.loads(request.input)
+            calls.append(request.operation)
+            if request.operation.endswith('plan'):
+                result = {'topics': [{'topic': 'Complete collection',
+                    'part_ids': [p for c in data['cards'] for p in c['part_ids']]}]}
+            else:
+                records = data.get('briefs', data.get('digests'))
+                ids = [p for r in records for p in r.get('part_ids', [r.get('part_id')])]
+                words = 160 if request.operation.endswith('digest') else request.options['min_words']
+                result = {'sections': [{'topic': 'Complete collection', 'part_ids': ids,
+                                        'narration': 'evidence ' * words}]}
+            briefing.jsonschema.validate(result, request.output_schema)
+            validate(result)
+            return result
+    briefs = [{'part_id': f'{i}:0', 'source_id': str(i), 'title': 'Title',
+               'topic': 'Shared issue', 'summary': 'Evidence ' * 45, 'quote': 'Exact quote'} for i in range(110)]
+    sections, outline, budget = narrate_day(Context(), briefs, lambda _: None)
+    assert calls.count('podcast.coverage.digest') > 14  # More than one reduction level.
+    assert {p for s in sections for p in s['part_ids']} == {b['part_id'] for b in briefs}
+    assert budget == 1500 and 1400 < sum(len(s['narration'].split()) for s in sections) < 1600

@@ -478,29 +478,32 @@ leaves the previous MP3 intact.
 batches. Each part must produce a nonempty brief with an exact original quote;
 missing, extra or wrongly quoted entries fail validation before checkpointing.
 Validated briefs have versioned private checkpoints, independent of optional
-model conversation memory. Narration uses deterministic groups of at most sixteen
-briefs, bounded by the complete serialized request budget. Each group is checkpointed
-separately; resuming reuses validated extraction and narration. A source that cannot
-fit alone fails explicitly rather than being dropped.
+model conversation memory. `podcast_outline.py` groups compact subjects across the
+whole day into at most twelve themes, so distant duplicate reports share a theme.
+Oversized planning inputs are grouped hierarchically without dropping source IDs.
+Each theme receives an equal share of a 1,500-word episode budget on broad news
+days; sparse collections use a smaller budget. Duplicate-heavy feeds cannot crowd
+out minority themes. The writer merges repeated events and summarizes distinct
+minor developments within each theme. Oversized theme evidence uses recursive, context-bounded
+internal digest calls, each returning at most 160 words in one combined section. Every stage is durable and independently context-checked.
 
-The final result concatenates every group’s spoken sections without a final model
-rewrite. Part IDs must form exact, nonduplicated partitions both within each group
-and across the complete collection, and each narration
-must be nonempty. Only narration reaches speech synthesis; internal topic labels,
-IDs and evidence are not voiced. `podcast-coverage-report` retains the briefs and
-section assignments for audit. This structural partition is not proof of semantic
-coverage: the procedure also requires proportionate treatment of the day's main
-clusters and distinct minor developments, and live verification should compare
-section content with the source briefs.
+Spoken word counts are validated against each theme's hard range (95–105% of its
+allocation) and the complete episode's ceiling before publication. Invalid prose
+gets the operation's existing bounded validation retry; it is never truncated.
+Only narration reaches speech synthesis. Internal labels, evidence and production
+instructions are not voiced. `podcast-coverage-report` version 3 retains the global
+outline, briefs, section assignments and actual spoken word count for audit.
+Part IDs must form exact, nonduplicated partitions within themes and across the
+whole day. This structural partition is not semantic proof: live verification must
+also compare the script against the briefs for distinct themes and qualifications,
+and measure the generated audio against the approximately ten-minute target.
 
-Extraction groups at most eight source parts per request, splitting originals into
-parts of at most 10,000 counted tokens. Each brief has at most 400 summary characters
-and 160 quote characters. Extraction has a bounded 300-second allowance and 16,384 output tokens per call.
-Each narration group has 300 seconds and 16,384 output tokens, including provider
-reasoning. Explicit task options provide the segment contract even when resuming an
-older frozen snapshot: continuity context is not evidence, only the first/last group
-opens/closes the episode, and source-weighted word guidance yields to faithful
-coverage. Neither extraction nor narration uses optional team handoff.
+Extraction groups at most eight complete source parts per request, with at most
+10,000 counted tokens per part, 400 summary characters and 160 quote characters.
+Planning, digest and concise narration calls have a 300-second allowance and 16,384
+output tokens including provider reasoning. Explicit options carry the current
+concise contract even under older frozen snapshots. Only the first/last theme
+opens/closes the episode. These internal calls do not use optional team handoff.
 Explicit profile output choices remain intact. The principal agent and scoped
 atomic audio publication remain shared with the rest of the application. Failed
 or cancelled work cannot replace the previous episode.
