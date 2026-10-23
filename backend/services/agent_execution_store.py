@@ -164,7 +164,19 @@ def list_runs(scope: ExecutionScope, limit: int = 50) -> list[AgentRun]:
             "SELECT run_id FROM agent_runs WHERE user_id=? AND workspace_id=? AND vault_path=? ORDER BY rowid DESC LIMIT ?",
             (scope.user_id, scope.workspace_id, scope.vault_path, max(1, min(200, limit))),
         ).fetchall()
-        return [AgentRun.model_validate_json(str(_row(db, scope, row[0])["payload"])) for row in rows]
+        runs = [AgentRun.model_validate_json(str(_row(db, scope, row[0])["payload"])) for row in rows]
+        # A bounded window of child calls must retain its job's resume control.
+        seen = {run.run_id for run in runs}
+        for parent_id in dict.fromkeys(run.parent_run_id for run in runs if run.parent_run_id):
+            if parent_id in seen:
+                continue
+            try:
+                parent = AgentRun.model_validate_json(str(_row(db, scope, parent_id)["payload"]))
+            except LookupError:
+                continue
+            runs.append(parent)
+            seen.add(parent_id)
+        return runs
 
 
 def cancel(scope: ExecutionScope, run_id: str) -> AgentRun:

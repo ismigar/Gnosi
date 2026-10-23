@@ -1028,3 +1028,37 @@ def test_podcast_coverage_preserves_explicit_profile_output_limit(runtime, monke
     asyncio.run(execution._operation_application(request, snapshot, {}, None))
     assert captured['operation_max_output_tokens'] is None
     assert captured['prepared_agent_data'][key] == 24000
+
+
+def test_recent_child_window_retains_old_podcast_resume_control(runtime):
+    from backend.services.agent_execution_models import AgentRun
+    scope, snapshot = runtime
+    def record(identifier, parent='', owner=scope):
+        run = AgentRun(run_id=identifier, parent_run_id=parent, agent_id=snapshot.agent_id,
+            skill_id=snapshot.skill_ids[0], operation='podcast', origin='button', status='failed',
+            created_at=1, updated_at=1)
+        request = {'mode': 'job', 'operation': 'podcast'} if not parent else {'resume_requires_parent': True}
+        store.create(run, owner, request, {**snapshot.model_dump(), 'behavior_resources': {'test': True}})
+    record('old-day')
+    for index in range(60):
+        record(f'part-{index}', 'old-day')
+    runs = store.list_runs(scope)
+    assert len(runs) == 51
+    assert runs[0].run_id == 'part-59'
+    parent = next(run for run in runs if run.run_id == 'old-day')
+    assert parent.resumable and parent.status == 'failed'
+    assert sum(run.run_id == 'old-day' for run in runs) == 1
+
+
+@pytest.mark.parametrize('exists', [False, True])
+def test_recent_children_cannot_expose_missing_or_foreign_parent(runtime, exists):
+    from backend.services.agent_execution_models import AgentRun
+    scope, snapshot = runtime
+    def record(identifier, owner, parent=''):
+        store.create(AgentRun(run_id=identifier, parent_run_id=parent, agent_id=snapshot.agent_id,
+            skill_id=snapshot.skill_ids[0], operation='writing', origin='button', status='failed',
+            created_at=1, updated_at=1), owner, {}, snapshot.model_dump())
+    if exists:
+        record('foreign', scope.model_copy(update={'workspace_id': 'other'}))
+    record('child', scope, 'foreign')
+    assert [run.run_id for run in store.list_runs(scope, limit=1)] == ['child']

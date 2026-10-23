@@ -499,6 +499,11 @@ Explicit profile output choices remain intact. The principal agent and scoped
 atomic audio publication remain shared with the rest of the application. Failed
 or cancelled work cannot replace the previous episode.
 
+Execution history keeps the authorized parent of each recent child call alongside
+the bounded recent-call window. A long briefing therefore retains its job-level
+resume control after more than 50 internal calls; missing or foreign-scope parents
+are never exposed.
+
 Agent models absent from the routing registry use exact provider/model catalog
 context metadata. Unknown models retain the small fallback, and explicit registry
 limits take priority. Other document operations retain their existing guards.
