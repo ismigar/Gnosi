@@ -313,6 +313,19 @@ def test_length_repair_rebudgets_near_limit_without_discarding_source_evidence()
     assert 'previous_draft' not in requests[-1]
 
 
+def test_broad_topics_get_more_words_without_expanding_episode_or_repeating_subjects():
+    from backend.services.podcast_automatic import _word_allocations
+    outline = [{'topic': str(i), 'subjects': [f'{i}:{j}' for j in range(size)]}
+               for i, size in enumerate([40, 8, 51, 9, 22, 19, 25, 15, 17, 22, 13, 13])]
+    allocations = _word_allocations(outline, 1380)
+    assert sum(allocations) == 1380 and min(allocations) >= 30
+    assert allocations[0] > 180 and allocations[2] > allocations[0]
+    assert allocations[1] < allocations[0] and allocations[1] >= 30
+    outline[0]['subjects'] *= 3
+    assert _word_allocations(outline, 1380) == allocations
+    assert _word_allocations([{'topic': 'One subject'}], 160) == [160]
+
+
 def test_oversized_theme_uses_recursive_bounded_digests_without_losing_ids():
     from backend.services.podcast_outline import narrate_day
     calls = []

@@ -95,18 +95,31 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
 
 
 
+def _word_allocations(outline: list[dict[str, Any]], budget: int) -> list[int]:
+    # Reserve a short roundup for every group, then fund its distinct child subjects.
+    floor = min(30, budget // len(outline))
+    weights = [max(1, len(set(t.get("subjects", [t["topic"]])))) for t in outline]
+    total = sum(weights)
+    remaining = budget - floor * len(outline)
+    allocations = [floor + remaining * w // total for w in weights]
+    order = sorted(range(len(outline)), key=lambda i: -(remaining * weights[i] % total))
+    for index in order[:budget - sum(allocations)]:
+        allocations[index] += 1
+    return allocations
+
+
 def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[dict[str, Any]],
               progress: Callable[[str], None]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
     from backend.services.podcast_outline import TARGET_WORDS
     budget = TARGET_WORDS if len({b["source_id"] for b in briefs}) >= 20 else min(TARGET_WORDS, max(160, 65 * len(briefs)))
-    base, remainder = divmod(budget, len(outline))
+    allocations = _word_allocations(outline, budget)
     sections: list[dict[str, Any]] = []
     for index, topic in enumerate(outline):
         progress(f"Writing and reviewing daily briefing: {index + 1}/{len(outline)} topics")
         evidence = [b for b in briefs if b["part_id"] in set(topic["part_ids"])]
         feedback: list[str] = []
         for attempt in range(3):
-            section = _write_theme(context, evidence, topic, index, len(outline), base + (index < remainder), feedback)
+            section = _write_theme(context, evidence, topic, index, len(outline), allocations[index], feedback)
             issues = _review_theme(context, evidence, section["narration"])
             if not issues:
                 break
@@ -128,7 +141,7 @@ def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[di
         revised = []
         for index, topic in enumerate(outline):
             evidence = [b for b in briefs if b["part_id"] in set(topic["part_ids"])]
-            section = _write_theme(context, evidence, topic, index, len(outline), base + (index < remainder),
+            section = _write_theme(context, evidence, topic, index, len(outline), allocations[index],
                 [*issues, "Previous complete episode: " + "\n\n".join(s["narration"] for s in sections)])
             if _review_theme(context, evidence, section["narration"]):
                 raise ValueError("podcast_semantic_review_failed")
