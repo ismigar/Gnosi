@@ -204,19 +204,20 @@ def test_podcast_normalizes_bodies_before_deciding_to_skip():
     assert skipped == [{'id': '109', 'title': 'Article 109'}]
 
 
+@pytest.mark.parametrize('resources', [{}, {'fixture': True}])
 @pytest.mark.parametrize('resuming', [False, True])
 @pytest.mark.parametrize('all_empty', [False, True])
 @pytest.mark.parametrize('body, expected', [('Actual news evidence.', 'Actual news evidence.'), ('<p>&lt;br&gt;</p>', '<br>')])
-def test_podcast_omissions_do_not_abort_readable_sources(monkeypatch, tmp_path, resuming, all_empty, body, expected):
+def test_podcast_omissions_do_not_abort_readable_sources(monkeypatch, tmp_path, resources, resuming, all_empty, body, expected):
     from contextlib import nullcontext
     from unittest.mock import Mock
-    from backend.services import agent_document_work, agent_execution_store, workspace_speech
+    from backend.services import podcast_briefing, agent_execution_store, workspace_speech
 
     articles = [SimpleNamespace(id=109, title='Missing', full_content='<p> </p>', content='', source=None)]
     if not all_empty:
         articles.append(SimpleNamespace(id=110, title='Readable', full_content='', content=body, source=None))
     state = dict(running=False, progress='', error=None, result_filename=None, skipped_articles=[])
-    snapshot = SimpleNamespace(scope='test', parent_run_id='job', behavior_resources={'fixture': True})
+    snapshot = SimpleNamespace(scope='test', parent_run_id='job', behavior_resources=resources)
     saved = {}
     if resuming:
         saved['podcast-input'] = dict(articles=[dict(id=a.id, title=a.title, full_content=a.full_content,
@@ -235,23 +236,14 @@ def test_podcast_omissions_do_not_abort_readable_sources(monkeypatch, tmp_path, 
     monkeypatch.setattr(audio_summarizer, '_resolve_podcast_language', lambda: ('ca', 'Catalan'))
     monkeypatch.setattr(agent_execution_store, 'work_checkpoint', checkpoint)
     calls = []
-    def synthesize(operation, sources, request, **kwargs):
-        # Exercise the actual guard that previously rejected source 109.
-        parts = agent_document_work._document_parts(sources, 1000, len)
-        assert len(parts) == 1
+    def build_script(sources, language, **kwargs):
         assert sources == [{'id': '110', 'title': 'Readable', 'text': expected}]
-        assert kwargs['batch_reads'] is True
+        assert language == 'Catalan'
+        assert kwargs['snapshot'] is snapshot
+        assert callable(kwargs['check_active']) and callable(kwargs['progress'])
         calls.append(sources)
-        import jsonschema
-        schema = kwargs['output_schema']
-        jsonschema.validate({'narration': 'Verified script'}, schema)
-        with pytest.raises(jsonschema.ValidationError):
-            jsonschema.validate({'text': "GUIÓ DE L'EPISODI — només text per locutar"}, schema)
-        with pytest.raises(jsonschema.ValidationError):
-            jsonschema.validate({'narration': 'Verified script', 'production_notes': 'Do not read citations'}, schema)
-        return {'result': {'narration': 'Verified script'},
-                'citations': [{'source_id': '110', 'quote': expected}]}
-    monkeypatch.setattr(agent_document_work, 'synthesize', synthesize)
+        return 'Verified script'
+    monkeypatch.setattr(podcast_briefing, 'build_podcast_script', build_script)
     monkeypatch.setattr(audio_summarizer, 'get_podcast_output_dir', lambda: tmp_path)
     monkeypatch.setattr('backend.services.agent_specialized_tools.run_engine', lambda kind, name, action: action())
     monkeypatch.setattr(workspace_speech, 'effective_settings_sync', lambda language: {})
@@ -279,3 +271,57 @@ def test_podcast_omissions_do_not_abort_readable_sources(monkeypatch, tmp_path, 
         assert (tmp_path / result).read_bytes() == b'complete audio'
         if resuming:
             assert result == 'frozen.mp3'
+
+
+def test_daily_selection_includes_read_articles_and_freezes_legacy_resume(monkeypatch):
+    import copy
+    from datetime import datetime, timedelta, timezone
+    from unittest.mock import Mock
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+    from backend.models.reader import Article, FeedSource
+    from backend.services import agent_execution_store, podcast_briefing
+
+    engine = create_engine('sqlite://')
+    FeedSource.__table__.create(engine)
+    Article.__table__.create(engine)
+    now = datetime.now(timezone.utc)
+    with Session(engine) as session:
+        session.add_all([
+            Article(id=1, title='Unread climate', full_content='Climate evidence', is_read=False, published_at=now-timedelta(hours=1)),
+            Article(id=2, title='Read housing', full_content='Housing evidence', is_read=True, published_at=now-timedelta(hours=2)),
+            Article(id=3, title='Too old', full_content='Older evidence', published_at=now-timedelta(days=2)),
+            Article(id=4, title='Future', full_content='Future evidence', published_at=now+timedelta(days=1)),
+        ])
+        session.commit()
+        db = Mock(wraps=session)
+        def database():
+            yield db
+        saved, observed = {}, []
+        def checkpoint(scope, parent, key, value=None):
+            if value is not None:
+                saved[key] = copy.deepcopy(value)
+            return copy.deepcopy(saved.get(key))
+        def interrupted(sources, language, **kwargs):
+            observed.append((sources, language))
+            raise RuntimeError('interrupted before speech')
+        state = dict(running=False, progress='', error=None, result_filename=None, skipped_articles=[])
+        snapshot = SimpleNamespace(scope='owner', parent_run_id='legacy-day', behavior_resources={})
+        monkeypatch.setattr('backend.data.db.get_db', database)
+        monkeypatch.setattr(agent_execution_store, 'work_checkpoint', checkpoint)
+        monkeypatch.setattr(podcast_briefing, 'build_podcast_script', interrupted)
+        monkeypatch.setattr(audio_summarizer, '_generation_state', lambda: state)
+        monkeypatch.setattr(audio_summarizer, '_resolve_podcast_llm', lambda: (snapshot, 'fake', 'fake'))
+        languages = iter([('ca', 'Catalan'), ('fr', 'French')])
+        monkeypatch.setattr(audio_summarizer, '_resolve_podcast_language', lambda: next(languages))
+        assert audio_summarizer._generate_daily_podcast() is None
+        assert {a['id'] for a in observed[0][0]} == {'1', '2'}
+        session.query(Article).filter(Article.id == 1).update({'published_at': now-timedelta(days=3)})
+        session.add(Article(id=5, title='Arrived later', full_content='Later evidence', published_at=now))
+        session.commit()
+        assert audio_summarizer._generate_daily_podcast() is None
+        assert observed[1] == observed[0]
+        assert observed[1][1] == 'Catalan'
+        assert db.query.call_count == 1
+        assert saved['podcast-input']['period_start'] < saved['podcast-input']['period_end']
+    engine.dispose()

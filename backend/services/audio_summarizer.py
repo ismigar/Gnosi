@@ -302,15 +302,16 @@ def _generate_daily_podcast() -> str | None:
         from backend.services.agent_execution_store import work_checkpoint
         podcast_input = work_checkpoint(llm.scope, llm.parent_run_id, "podcast-input") if llm.parent_run_id else None
         articles: list[Any]
-        # 1. Unread articles from the last 24h
-        target_time = datetime.now(timezone.utc) - timedelta(hours=24)
+        # 1. All articles from the last 24h, independent of Reader read status.
+        period_end = datetime.now(timezone.utc)
+        target_time = period_end - timedelta(hours=24)
         if podcast_input is not None:
             from types import SimpleNamespace
             articles = [SimpleNamespace(**{**row, "source": SimpleNamespace(name=row["source"])}) for row in podcast_input["articles"]]
         else:
             articles = (
                 db.query(Article)
-                .filter(Article.is_read == False, Article.published_at > target_time)
+                .filter(Article.published_at > target_time, Article.published_at <= period_end)
                 .all()
             )
 
@@ -320,68 +321,30 @@ def _generate_daily_podcast() -> str | None:
             _generation_state()["progress"] = "No new articles found."
             return None
 
-        log.info(f"Found {len(articles)} unread articles.")
+        log.info(f"Found {len(articles)} articles in the daily period.")
         _generation_state()["progress"] = f"Found {len(articles)} articles."
 
         # 3. Resolve the model from the latest Settings state.
         language_code, language_name = _resolve_podcast_language()
         if podcast_input is not None:
             language_code, language_name = podcast_input["language_code"], podcast_input["language_name"]
-        elif llm.parent_run_id and llm.behavior_resources:
+        elif llm.parent_run_id:
             podcast_input = {"articles": [{"id": str(article.id), "title": str(article.title or ""),
                 "full_content": str(article.full_content or ""), "content": str(article.content or ""),
                 "source": str(article.source.name if article.source else "")} for article in articles],
                 "language_code": language_code, "language_name": language_name,
+                "period_start": target_time.isoformat(), "period_end": period_end.isoformat(),
                 "audio_filename": f"daily_podcast_{datetime.now().strftime('%Y_%m_%d')}.mp3"}
             work_checkpoint(llm.scope, llm.parent_run_id, "podcast-input", podcast_input)
         articles = _prepare_podcast_articles(articles, llm)
 
-        batches = _build_batches(articles)
-        total_batches = len(batches)
         _generation_state()["progress"] = f"Processing {len(articles)} readable articles."
-        model_label = f"{provider}/{model}"
-        all_summaries: list[str] = []
-
-        if llm.behavior_resources:
-            from backend.services.agent_document_work import synthesize
-            outcome = synthesize("podcast", [
-                {"id": str(article.id), "title": str(article.title or ""), "text": article.full_content}
-                for article in articles
-            ], task_input("podcast.script", language=language_name), snapshot=llm, batch_reads=True,
-                output_schema={"type": "object", "required": ["narration"], "additionalProperties": False,
-                    "properties": {"narration": {"type": "string", "minLength": 1,
-                        "description": "Only words for the listener, ready to speak verbatim. No production notes, headings or source identifiers."}}})
-            all_summaries.append(outcome["result"]["narration"])
-        else:
-            for i, batch in enumerate(batches):
-                batch_num = i + 1
-                _generation_state()["progress"] = (
-                    f"Batch {batch_num}/{total_batches}: calling {model_label}..."
-                )
-                log.info(
-                    "Batch %s/%s: %s articles, calling %s.",
-                    batch_num,
-                    total_batches,
-                    len(batch),
-                    model_label,
-                )
-
-                try:
-                    summary = _summarize_batch(
-                        llm,
-                        batch,
-                        batch_num,
-                        total_batches,
-                        provider,
-                        model,
-                        language_name,
-                    )
-                    all_summaries.append(summary)
-                    log.info(f"Batch {batch_num} completed ({len(summary)} chars).")
-                except Exception as e:
-                    log.error(f"Error in batch {batch_num}: {e}")
-                    _generation_state()["progress"] = f"Error in batch {batch_num}: {e}"
-                    raise  # A partial episode must not be reported as complete.
+        from backend.services.podcast_briefing import build_podcast_script
+        all_summaries = [build_podcast_script([
+            {"id": str(article.id), "title": str(article.title or ""), "text": article.full_content}
+            for article in articles
+        ], language_name, snapshot=llm, check_active=lambda: _check_podcast_publication(llm),
+            progress=lambda text: _generation_state().update(progress=text))]
 
         if not all_summaries:
             log.error("No summaries generated. All calls failed.")

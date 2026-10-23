@@ -459,24 +459,43 @@ controls, paths and query parameters are not accepted in the alias. Existing
 article links survive normalization. Existing RSS and mailto inputs keep their
 semantics; this alias does not configure a mailbox account or credentials.
 
-### Podcast articles without readable text
+### Whole-day podcast coverage and unreadable articles
 
-Podcast generation normalizes the full article body, then tries the feed summary
-if that body is empty. Articles with neither are omitted before synthesis; the
-remaining articles can still produce an episode. The status response exposes
-`skipped_articles` (IDs and titles), and the Reader displays a localized omission
-notice. This report is checkpointed per private job and is recomputed from the
-frozen input when resuming. If all articles are unreadable, generation returns
-`podcast_no_readable_articles` without synthesizing or replacing the previous
-MP3. The shared document synthesis guard remains strict for other operations.
+The daily podcast selects all articles published within the preceding 24 hours,
+including articles already marked as read, and excludes future-dated articles.
+The original selection, period boundaries, language and output filename are
+frozen for the private parent job, including older snapshots without behavior
+resources. Retrying does not silently change the source collection or language.
 
-Podcast action reads can deliver several adjacent original parts within half of
-the working context budget. Coverage records only delivered parts; citations
-remain tied to each original source. Agent models absent from the routing
-registry use their exact provider/model catalog context metadata, with the small
-fallback retained for unknown models and explicit registry limits taking priority.
+Generation normalizes the full article body, then tries the feed summary if that
+body is empty. Articles with neither are omitted before synthesis. The status
+response exposes `skipped_articles` (IDs and titles), and the Reader displays a
+localized omission notice. The report is scoped to the job and recomputed from
+its frozen inputs. If every article is unreadable, `podcast_no_readable_articles`
+leaves the previous MP3 intact.
 
-Once all podcast originals have been delivered, script composition receives a
-bounded 300-second operation allowance. Reading actions and other document
-operations retain the 120-second allowance. A failed composition can resume
-from the scoped checkpoint without reading the originals again.
+`podcast_briefing.py` divides complete originals into bounded parts and extraction
+batches. Each part must produce a nonempty brief with an exact original quote;
+missing, extra or wrongly quoted entries fail validation before checkpointing.
+Validated briefs have versioned private checkpoints, independent of optional
+model conversation memory. The final request receives every brief together.
+If they cannot fit, it fails explicitly rather than slicing off sources.
+
+The final result contains ordered spoken sections. Their part IDs must form an
+exact, nonduplicated partition of the complete collection, and each narration
+must be nonempty. Only narration reaches speech synthesis; internal topic labels,
+IDs and evidence are not voiced. `podcast-coverage-report` retains the briefs and
+section assignments for audit. This structural partition is not proof of semantic
+coverage: the procedure also requires proportionate treatment of the day's main
+clusters and distinct minor developments, and live verification should compare
+section content with the source briefs.
+
+Extraction receives a bounded 120-second allowance per batch and final narration
+300 seconds, with 16,384 output tokens by default and no optional team handoff.
+Explicit profile output choices remain intact. The principal agent and scoped
+atomic audio publication remain shared with the rest of the application. Failed
+or cancelled work cannot replace the previous episode.
+
+Agent models absent from the routing registry use exact provider/model catalog
+context metadata. Unknown models retain the small fallback, and explicit registry
+limits take priority. Other document operations retain their existing guards.
