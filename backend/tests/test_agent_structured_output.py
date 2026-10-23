@@ -284,3 +284,50 @@ def test_capped_podcast_action_preserves_fallback_transport_and_provider_setting
     assert sent[0]['provider'] == {'order': ['chosen'], 'require_parameters': True}
     assert 'tools' not in sent[0]
     assert model.max_tokens is None
+
+
+@pytest.mark.parametrize('optional', [True, False, None])
+@pytest.mark.parametrize('responses', [True, False])
+def test_binary_off_default_preserves_schema_transport_and_provider_policy(monkeypatch, optional, responses):
+    from backend.domains.agent.structured_output import constrain_default_reasoning
+    monkeypatch.setattr('backend.services.model_reasoning.reasoning_options',
+        lambda *_: {'supported_efforts': [], 'supports_reasoning_disable': optional})
+    model = ChatOpenAI(model='binary', api_key='fixture', use_responses_api=responses,
+        extra_body={'provider': {'order': ['chosen'], 'allow_fallbacks': False}})
+    formatted = constrain_output(model, 'openrouter', ACTION_SCHEMA).bind(max_tokens=16384)
+    result = constrain_default_reasoning(formatted, 'openrouter', 'off_if_optional')
+    if optional is not True:
+        assert result is formatted
+        return
+    payload = model._get_request_payload([HumanMessage(content='One bounded assignment')], **result.kwargs)
+    assert payload['extra_body']['reasoning'] == {'enabled': False}
+    assert payload['extra_body']['provider'] == {'order': ['chosen'], 'allow_fallbacks': False, 'require_parameters': True}
+    assert ('text' in payload) is responses
+    assert 'reasoning' not in model.extra_body
+    assert result.kwargs['max_tokens'] == 16384
+
+
+@pytest.mark.parametrize('explicit', [{'reasoning': {}}, {'reasoning': {'enabled': True}},
+    {'reasoning': {'enabled': False}}, {'thinking': {'type': 'enabled'}}, {'thinking': {'type': 'disabled'}}])
+def test_binary_off_never_overrides_explicit_native_or_gateway_choice(monkeypatch, explicit):
+    from backend.domains.agent.structured_output import constrain_default_reasoning
+    monkeypatch.setattr('backend.services.model_reasoning.reasoning_options', lambda *_: pytest.fail('explicit setting wins'))
+    model = ChatOpenAI(model='binary', api_key='fixture', extra_body=explicit)
+    assert constrain_default_reasoning(model, 'openrouter', 'off_if_optional') is model
+
+
+def test_optional_binary_default_keeps_fallback_tool_protocol(monkeypatch):
+    from backend.agent.json_tool_model import JsonToolModel
+    from backend.domains.agent.structured_output import constrain_default_reasoning
+    from backend.domains.agent.team_help import HELP_TOOL
+    monkeypatch.setattr('backend.services.model_reasoning.reasoning_options',
+        lambda *_: {'supported_efforts': [], 'supports_reasoning_disable': True})
+    model = ChatOpenAI(model='binary', api_key='fixture', extra_body={'provider': {'order': ['chosen']}})
+    wrapped = JsonToolModel(model).bind_tools([HELP_TOOL])
+    constrained = constrain_default_reasoning(constrain_output(wrapped, 'openrouter', ACTION_SCHEMA),
+        'openrouter', 'off_if_optional')
+    assert isinstance(constrained, JsonToolModel) and constrained.schemas == wrapped.schemas
+    payload = model._get_request_payload([HumanMessage(content='Return JSON')], **constrained.model.kwargs)
+    assert payload['extra_body']['reasoning'] == {'enabled': False}
+    assert payload['response_format'] == {'type': 'json_object'}
+    assert payload['extra_body']['provider'] == {'order': ['chosen'], 'require_parameters': True}

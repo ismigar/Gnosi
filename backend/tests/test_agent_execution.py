@@ -49,6 +49,13 @@ def test_migration_preserves_personal_brain_and_disabled_features():
     ('knowledge.process-source.phase', None, True, 'low'),
     ('knowledge.process-source.phase', 'max', False, None),
     ('knowledge.process-source.phase', 'low', False, None),
+    ('podcast.coverage.plan', None, False, 'off_if_optional'),
+    ('podcast.coverage.write', None, True, 'off_if_optional'),
+    ('podcast.coverage.digest', None, False, 'off_if_optional'),
+    ('podcast.coverage.audit', None, False, None),
+    ('podcast.coverage.plan', 'max', False, None),
+    ('podcast.coverage.write', 'high', False, None),
+    ('podcast.coverage.digest', 'low', True, None),
     ('team.plan', None, False, 'one_step_lower'),
     ('team.replan', None, False, None),
     ('team.plan', None, True, None),
@@ -1014,7 +1021,8 @@ def test_podcast_action_has_bounded_default_output_without_changing_other_operat
     request = AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation)
     asyncio.run(execution._operation_application(request, snapshot, {}, None))
     assert captured['operation_max_output_tokens'] == expected
-    assert captured['operation_default_reasoning_effort'] is None
+    assert captured['operation_default_reasoning_effort'] == (
+        'off_if_optional' if operation in {'podcast.coverage.plan', 'podcast.coverage.write', 'podcast.coverage.digest'} else None)
     assert captured['prepared_agent_data'] is snapshot.profile
     if operation.startswith('podcast.coverage.'):
         assert captured['operation_team_help'] is False

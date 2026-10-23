@@ -8,6 +8,14 @@ import pytest
 from backend.services import podcast_briefing as briefing
 
 
+def planned(cards, groups):
+    limit = min(12, len(cards))
+    labels = [g['topic'] for g in groups]
+    labels.extend(f'Unused {i}' for i in range(limit - len(labels)))
+    return {'topics': labels, 'assignments': {handle: index for index, group in enumerate(groups)
+        for handle in group['part_ids']}}
+
+
 @pytest.fixture
 def pipeline(monkeypatch):
     saved, calls = {}, []
@@ -37,7 +45,7 @@ def pipeline(monkeypatch):
                 key = card['topic'] if len(data['cards']) <= 12 else str(index % 10)
                 group = groups.setdefault(key, {'topic': key, 'part_ids': []})
                 group['part_ids'].extend(card['part_ids'])
-            result = {'topics': list(groups.values())}
+            result = planned(data['cards'], list(groups.values()))
         elif payload['task'].endswith('audit'):
             result = {'issues': []}
         else:
@@ -231,7 +239,7 @@ def test_distant_duplicate_reports_share_global_theme_and_minor_topics_keep_spac
             for card in cards:
                 label = 'Repeated event' if card['topic'] == 'Repeated event' else 'Minor roundup'
                 groups.setdefault(label, {'topic': label, 'part_ids': []})['part_ids'].extend(card['part_ids'])
-            text = json.dumps({'topics': list(groups.values())})
+            text = json.dumps(planned(cards, list(groups.values())))
             kwargs['output_validator'](text)
             return SimpleNamespace(result=text)
         return pipeline.model(request, **kwargs)
@@ -274,8 +282,8 @@ def test_oversized_theme_uses_recursive_bounded_digests_without_losing_ids():
             data = json.loads(request.input)
             calls.append(request.operation)
             if request.operation.endswith('plan'):
-                result = {'topics': [{'topic': 'Complete collection',
-                    'part_ids': [p for c in data['cards'] for p in c['part_ids']]}]}
+                result = planned(data['cards'], [{'topic': 'Complete collection',
+                    'part_ids': [p for c in data['cards'] for p in c['part_ids']]}])
             elif request.operation.endswith('audit'):
                 result = {'issues': []}
             else:
@@ -357,3 +365,25 @@ def test_writer_schema_is_narration_only_and_planning_retains_every_child_subjec
             assert 'automatic_contract' in call['_options']
             assert set(call['_schema']['properties']) == {'narration'}
     assert any(c['task'].endswith('audit') and c['data'].get('whole_episode') for c in pipeline.calls)
+
+
+@pytest.mark.parametrize('bad', ['missing', 'foreign', 'outside', 'old_list'])
+def test_routing_requires_exactly_one_typed_assignment_for_every_source(pipeline, bad):
+    def model(request, **kwargs):
+        if not request.operation.endswith('plan'):
+            return pipeline.model(request, **kwargs)
+        cards = json.loads(request.input)['data']['cards']
+        result = planned(cards, [{'topic': 'Daily subjects', 'part_ids': [c['part_ids'][0] for c in cards]}])
+        if bad == 'missing':
+            result['assignments'].pop(cards[-1]['part_ids'][0])
+        elif bad == 'foreign':
+            result['assignments']['foreign'] = 0
+        elif bad == 'outside':
+            result['assignments'][cards[0]['part_ids'][0]] = 12
+        else:
+            result = {'topics': [{'topic': 'News', 'part_ids': ['card:0', 'card:0']}]}
+        return SimpleNamespace(result=json.dumps(result))
+    pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
+    with pytest.raises(briefing.jsonschema.ValidationError):
+        pipeline.run([{'id': str(i), 'title': f'Topic {i}', 'text': f'Evidence {i}'} for i in range(3)])
+    assert 'podcast-coverage-report' not in pipeline.saved

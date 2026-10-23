@@ -32,12 +32,14 @@ def _partition(groups: list[dict[str, Any]], cards: list[dict[str, Any]]) -> Non
 
 
 def _plan_request(context: _Briefing, cards: list[dict[str, Any]]) -> Any:
-    ids = [identifier for c in cards for identifier in c["part_ids"]]
-    schema = _object({"topics": {"type": "array", "minItems": 1, "maxItems": MAX_TOPICS,
-        "items": _object({"topic": {"type": "string", "minLength": 1, "maxLength": 180},
-                          "part_ids": {"type": "array", "minItems": 1,
-                                       "items": {"type": "string", "enum": ids}}})}})
-    return _request(context, "plan", {"cards": cards}, schema)
+    # Required object keys make missing/duplicated source-list entries impossible.
+    limit = min(MAX_TOPICS, len(cards))
+    schema = _object({"topics": {"type": "array", "minItems": limit, "maxItems": limit,
+        "items": {"type": "string", "minLength": 1, "maxLength": 180}},
+        "assignments": _object({c["part_ids"][0]: {"type": "integer", "enum": list(range(limit))}
+                                for c in cards})})
+    return context.request("podcast.coverage.plan", {"cards": cards}, schema).model_copy(update={
+        "options": {"planning_contract": resource("operations/podcast/assignment-contract.md")}})
 
 
 def _planning_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -48,12 +50,21 @@ def _planning_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _route(context: _Briefing, cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
     visible = _planning_cards(cards)
-    result = context.stage(_plan_request(context, visible), lambda r: _partition(r["topics"], visible))
-    mapping = {f"card:{i}": card for i, card in enumerate(cards)}
-    return [{"topic": g["topic"], "part_ids": [p for handle in g["part_ids"] for p in mapping[handle]["part_ids"]],
-             "subjects": list(dict.fromkeys(t for handle in g["part_ids"]
-                 for t in mapping[handle].get("subjects", [mapping[handle]["topic"]])))}
-            for g in result["topics"]]
+    def checked(value: dict[str, Any]) -> None:
+        if any(not label.strip() for label in value["topics"]):
+            raise ValueError("podcast_empty_outline_topic")
+    result = context.stage(_plan_request(context, visible), checked)
+    groups: dict[str, dict[str, Any]] = {}
+    for handle, card in zip((c["part_ids"][0] for c in visible), cards, strict=True):
+        label = result["topics"][result["assignments"][handle]].strip()
+        group = groups.setdefault(label, {"topic": label, "part_ids": [], "subjects": []})
+        group["part_ids"].extend(card["part_ids"])
+        group["subjects"].extend(card.get("subjects", [card["topic"]]))
+    for group in groups.values():
+        group["subjects"] = list(dict.fromkeys(group["subjects"]))
+    routed = list(groups.values())
+    _partition(routed, cards)
+    return routed
 
 
 def _outline(context: _Briefing, briefs: list[dict[str, Any]]) -> list[dict[str, Any]]:

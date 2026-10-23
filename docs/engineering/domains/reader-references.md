@@ -527,3 +527,12 @@ correct findings automatically; unresolved defects fail before publication. A
 new frozen contract/schema excludes earlier editorial checkpoints. The selected
 profile and provider safeguards remain intact. Timeouts/refusals fail explicitly
 instead of permitting omitted themes or externally authored scripts.
+
+Planning v2 returns one required assignment field per opaque card and a fixed
+label array. Source memberships are constructed on the server; model-authored
+ID lists can no longer omit or duplicate a card. Internal planning, writing and
+digest operations use reasoning off only when provider metadata explicitly
+declares optional reasoning and the profile/effective client has no explicit
+reasoning or native thinking choice. Effort selection remains separate; missing
+effort metadata never invents a low setting. Semantic audits retain their normal
+reasoning. No model route, safeguard, output choice or timeout is changed.
