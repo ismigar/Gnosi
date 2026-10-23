@@ -267,6 +267,52 @@ def test_unbounded_model_output_is_rejected_before_publishing_or_caching(pipelin
     assert not any('narration' in checkpoint['result'] for checkpoint in pipeline.saved.values())
 
 
+def test_word_count_failure_is_repaired_automatically_without_caching_invalid_prose(pipeline):
+    writes = []
+    def model(request, **kwargs):
+        if not request.operation.endswith('write'):
+            return pipeline.model(request, **kwargs)
+        data = json.loads(request.input)['data']
+        writes.append(data)
+        if 'previous_draft' not in data:
+            text = json.dumps({'narration': 'word ' * (request.options['max_words'] + 2)})
+            kwargs['output_validator'](text)
+        assert 'Server counted' in data['feedback'][-1]
+        return pipeline.model(request, **kwargs)
+    pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
+    result = pipeline.run([{'id': 'a', 'title': 'Title', 'text': 'Evidence'}])
+    assert len(writes) == 2 and 'previous_draft' in writes[-1]
+    assert len(result.split()) <= 174
+    assert all(len(v['result']['narration'].split()) <= 174 for v in pipeline.saved.values()
+               if 'narration' in v.get('result', {}))
+
+
+def test_length_repair_rebudgets_near_limit_without_discarding_source_evidence():
+    from backend.services.podcast_automatic import _bounded_write
+    requests = []
+    class Context:
+        budget = 2000
+        def request(self, task, data, schema):
+            return briefing.AgentOperation(skill_id='core.gnosi-daily-briefing', operation=task,
+                input=json.dumps(data), output_schema=schema)
+        def cost(self, request):
+            return 1950 if 'previous_draft' not in json.loads(request.input) else 2500
+        def stage(self, request, validate):
+            assert self.cost(request) <= self.budget
+            data = json.loads(request.input)
+            requests.append(data)
+            result = {'narration': 'word ' * (127 if len(requests) == 1 else 115)}
+            validate(result)
+            return result
+    evidence = [{'part_id': 'a:0', 'summary': 'Evidence'}]
+    result = _bounded_write(Context(), {'briefs': evidence, 'feedback': []},
+                            {'min_words': 104, 'max_words': 125, 'target_words': 115})
+    assert len(result['narration'].split()) == 115 and len(requests) == 2
+    assert all(r['briefs'] == evidence for r in requests)
+    assert 'Server counted 127' in requests[-1]['feedback'][-1]
+    assert 'previous_draft' not in requests[-1]
+
+
 def test_oversized_theme_uses_recursive_bounded_digests_without_losing_ids():
     from backend.services.podcast_outline import narrate_day
     calls = []

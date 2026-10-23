@@ -43,27 +43,56 @@ def _review_theme(context: _Briefing, evidence: list[dict[str, Any]], narration:
 
 def _write_theme(context: _Briefing, evidence: list[dict[str, Any]], topic: dict[str, Any],
                  index: int, count: int, words: int, feedback: list[str]) -> dict[str, Any]:
-    from backend.services.podcast_outline import _digest
     minimum, maximum = ceil(words * .9), int(words * 1.09)
     data: dict[str, Any] = {"topic": topic["topic"], "briefs": evidence, "feedback": feedback}
     options = {"min_words": minimum, "max_words": maximum, "target_words": words,
                "episode_opening": index == 0, "episode_closing": index == count - 1}
+    result = _bounded_write(context, data, options)
+    return {"topic": topic["topic"], "part_ids": [b["part_id"] for b in evidence],
+            "narration": result["narration"].strip()}
+
+
+def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> Any:
+    from backend.services.podcast_outline import _digest
     request = _request(context, "write", data, TEXT_SCHEMA, **options)
-    records = evidence
-    while context.cost(request) > min(80_000, context.budget):
+    limit = min(80_000, context.budget)
+    if context.cost(request) > limit and "previous_draft" in data:
+        data = {k: v for k, v in data.items() if k != "previous_draft"}
+        request = _request(context, "write", data, TEXT_SCHEMA, **options)
+    while context.cost(request) > limit:
         before = context.cost(request)
-        records = _digest(context, records)
-        data = {"topic": topic["topic"], "digests": records, "feedback": feedback}
+        records = _digest(context, data.get("briefs", data.get("digests", [])))
+        data = {k: v for k, v in data.items() if k not in {"briefs", "digests"}}
+        data["digests"] = records
         request = _request(context, "write", data, TEXT_SCHEMA, **options)
         if context.cost(request) >= before:
             raise RuntimeError("podcast_theme_context_insufficient")
+    return request
+
+
+def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> dict[str, Any]:
+    minimum, maximum = options["min_words"], options["max_words"]
+    previous = ""
     def checked(result: dict[str, Any]) -> None:
-        actual = len(result["narration"].split())
+        nonlocal previous
+        previous = result["narration"]
+        actual = len(previous.split())
         if not minimum <= actual <= maximum:
-            raise ValueError(f"podcast_word_budget: expected {minimum}..{maximum}; received {actual}. Rewrite complete prose within the range; retain distinct subjects.")
-    result = context.stage(request, checked)
-    return {"topic": topic["topic"], "part_ids": [b["part_id"] for b in evidence],
-            "narration": result["narration"].strip()}
+            raise ValueError(f"podcast_word_budget: expected {minimum}..{maximum}; received {actual}.")
+    for attempt in range(3):
+        try:
+            return context.stage(_write_request(context, data, options), checked)
+        except ValueError as error:
+            if not str(error).startswith("podcast_word_budget:") or attempt == 2:
+                raise
+            actual, target = len(previous.split()), options["target_words"]
+            feedback = f"Server counted {actual} words. Rewrite toward {target}, strictly within {minimum}..{maximum}. "
+            feedback += f"Change the word count by about {target - actual}; preserve all distinct subjects and qualifications."
+            data = {**data, "feedback": [*data.get("feedback", []), feedback]}
+            if actual <= maximum * 4:
+                data["previous_draft"] = previous
+    raise ValueError("podcast_word_budget")
+
 
 
 def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[dict[str, Any]],
