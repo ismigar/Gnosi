@@ -986,3 +986,25 @@ def test_oversized_complete_synthesis_is_returned_to_the_reader_without_full_sou
         asyncio.run(execution.execute_operation(request, snapshot=snapshot, output_validator=validate))
     assert caught.value.text == draft and len(calls) == 1
     assert store.list_runs(scope)[0].status == 'failed'
+
+
+@pytest.mark.parametrize(('operation', 'profile_limit', 'expected'), [
+    ('podcast.analyze.action', None, 16384),
+    ('podcast.analyze.action', 24000, None),
+    ('writing.analyze.action', None, None),
+    ('podcast.segment', None, None),
+])
+def test_podcast_action_has_bounded_default_output_without_changing_other_operations(runtime, monkeypatch, operation, profile_limit, expected):
+    _, snapshot = runtime
+    captured = {}
+    if profile_limit:
+        snapshot.profile['max_output_tokens'] = profile_limit
+    async def workflow(*args, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(compile=lambda: 'compiled'), {}
+    monkeypatch.setattr('backend.agent.factory.create_agent_workflow', workflow)
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation)
+    asyncio.run(execution._operation_application(request, snapshot, {}, None))
+    assert captured['operation_max_output_tokens'] == expected
+    assert captured['operation_default_reasoning_effort'] is None
+    assert captured['prepared_agent_data'] is snapshot.profile

@@ -258,3 +258,29 @@ def test_fallback_tool_transport_keeps_its_protocol_and_validates_final_answer()
     assert requests[0]["provider"]["require_parameters"] is True
     unwrapped = constrain_output(JsonToolModel(model), "openrouter", ACTION_SCHEMA)
     assert unwrapped.model.kwargs["response_format"]["type"] == "json_schema"
+
+
+def test_capped_podcast_action_preserves_fallback_transport_and_provider_settings(monkeypatch):
+    from backend.agent.json_tool_model import JsonToolModel
+    from backend.domains.agent import operation_graph
+    from backend.domains.agent.team_help import HELP_TOOL
+    monkeypatch.setattr(operation_graph, '_invoke_agent_model', lambda model, messages, state: model.invoke(messages))
+    sent = []
+    def respond(request):
+        sent.append(json.loads(request.content))
+        return httpx.Response(200, json={'id': 'fixture', 'model': 'fixture', 'object': 'chat.completion',
+            'choices': [{'index': 0, 'finish_reason': 'stop', 'message': {'role': 'assistant',
+                'content': json.dumps({'action': 'finish', 'text': '{"action":"index","arguments":{}}'})}}]})
+    with httpx.Client(transport=httpx.MockTransport(respond)) as transport:
+        model = ChatOpenAI(model='fixture', api_key='fixture', http_client=transport,
+            base_url='https://test.invalid/v1', extra_body={'provider': {'order': ['chosen']}})
+        wrapped = JsonToolModel(model).bind_tools([HELP_TOOL])
+        graph = operation_graph.operation_workflow(wrapped, 'Return one action', 32000,
+            provider='openrouter', output_schema=ACTION_SCHEMA, max_output_tokens=16384).compile()
+        result = graph.invoke({'messages': [HumanMessage(content='Read this passage')], 'team_help_allowed': False})
+    assert json.loads(result['messages'][-1].content) == {'action': 'index', 'arguments': {}}
+    assert sent[0]['max_completion_tokens'] == 16384
+    assert sent[0]['response_format'] == {'type': 'json_object'}
+    assert sent[0]['provider'] == {'order': ['chosen'], 'require_parameters': True}
+    assert 'tools' not in sent[0]
+    assert model.max_tokens is None

@@ -396,7 +396,9 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         operation_max_output_tokens=((8192 if request.options.get("reading_prose") else 16384)
                                      if request.operation == "knowledge.process-source.phase"
                                      else 1536 if request.operation == 'team.view_edit'
-                                     else 4096 if classifying_notes else None),
+                                     else 4096 if classifying_notes
+                                     else 16384 if request.operation == "podcast.analyze.action"
+                                     and not any(snapshot.profile.get(key) for key in ("max_tokens", "max_output_tokens")) else None),
         # Routing needs a validated assignment, not a solution to the task.
         # A rejected plan gets the existing repair call at the model's normal
         # effort. Explicit profile choices and specialist effort stay intact.
