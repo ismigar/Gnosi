@@ -540,3 +540,5 @@ reasoning. No model route, safeguard, output choice or timeout is changed.
 Word-budget failures trigger bounded automatic rewrites with the server’s exact count and the previous model draft. Invalid-length prose is neither checkpointed as valid narration nor published; semantic audits still run after the rewrite.
 
 The episode word budget is shared according to each group’s distinct child subjects, with a minimum allocation for short roundups. Broad groups receive more words; repeated identical child subjects do not inflate their share. Allocation preserves the exact global budget through integer remainder distribution.
+
+Semantic objections carry exact supplied narration and evidence quotes, validated before checkpointing and independently contrasted by a second model pass before requesting a rewrite. False objections are discarded automatically; genuine omissions remain blocking. Per-block length tolerance is wider than the strict episode budget; systematic overshoot triggers proportional target adjustment and re-review of the full episode.
