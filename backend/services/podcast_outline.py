@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from backend.services.podcast_briefing import _Briefing
 
 
-TARGET_WORDS = 1500
+TARGET_WORDS = 1380
 MAX_TOPICS = 12
 
 
@@ -42,14 +42,17 @@ def _plan_request(context: _Briefing, cards: list[dict[str, Any]]) -> Any:
 
 def _planning_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
     # Route opaque card handles; expand original evidence IDs only on the server.
-    return [{"topic": card["topic"], "part_ids": [f"card:{i}"]} for i, card in enumerate(cards)]
+    return [{"topic": card["topic"], "subjects": card.get("subjects", [card["topic"]]),
+             "part_ids": [f"card:{i}"]} for i, card in enumerate(cards)]
 
 
 def _route(context: _Briefing, cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
     visible = _planning_cards(cards)
     result = context.stage(_plan_request(context, visible), lambda r: _partition(r["topics"], visible))
-    mapping = {f"card:{i}": card["part_ids"] for i, card in enumerate(cards)}
-    return [{"topic": g["topic"], "part_ids": [p for handle in g["part_ids"] for p in mapping[handle]]}
+    mapping = {f"card:{i}": card for i, card in enumerate(cards)}
+    return [{"topic": g["topic"], "part_ids": [p for handle in g["part_ids"] for p in mapping[handle]["part_ids"]],
+             "subjects": list(dict.fromkeys(t for handle in g["part_ids"]
+                 for t in mapping[handle].get("subjects", [mapping[handle]["topic"]])))}
             for g in result["topics"]]
 
 
@@ -102,36 +105,5 @@ def narrate_day(context: _Briefing, briefs: list[dict[str, Any]],
                 progress: Callable[[str], None]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
     progress("Grouping the complete day by topic")
     outline = _outline(context, briefs)
-    # Equal thematic floors prevent duplicate-heavy feeds from crowding out minor themes.
-    budget = TARGET_WORDS if len({b["source_id"] for b in briefs}) >= 20 else min(TARGET_WORDS, max(160, 65 * len(briefs)))
-    base, remainder = divmod(budget, len(outline))
-    sections = []
-    for index, topic in enumerate(outline):
-        progress(f"Writing concise daily briefing: {index + 1}/{len(outline)} topics")
-        ids = set(topic["part_ids"])
-        evidence = [b for b in briefs if b["part_id"] in ids]
-        words = base + (index < remainder)
-        minimum, maximum = int(words * .95), int(words * 1.05)
-        data = {"topic": topic["topic"], "briefs": evidence}
-        options = {"min_words": minimum, "max_words": maximum,
-                   "episode_opening": index == 0, "episode_closing": index == len(outline) - 1}
-        request = _request(context, "concise", data, _section_schema(evidence), **options)
-        records = evidence
-        while context.cost(request) > min(80_000, context.budget):
-            before = context.cost(request)
-            records = _digest(context, records)
-            data = {"topic": topic["topic"], "digests": records}
-            request = _request(context, "concise", data, _section_schema(evidence), **options)
-            if context.cost(request) >= before:
-                raise RuntimeError("podcast_theme_context_insufficient")
-        def checked(result: dict[str, Any]) -> None:
-            _validate_sections(result, evidence)
-            actual = sum(len(s["narration"].split()) for s in result["sections"])
-            if not minimum <= actual <= maximum:
-                raise ValueError(f"podcast_word_budget: expected {minimum}..{maximum} spoken words; received {actual}. Rewrite concisely, merging repetitions while retaining every distinct theme.")
-        result = context.stage(request, checked)
-        sections.extend(result["sections"])
-    total = sum(len(s["narration"].split()) for s in sections)
-    if not int(budget * .88) <= total <= int(budget * 1.1):
-        raise ValueError("podcast_episode_word_budget_exceeded")
-    return sections, outline, budget
+    from backend.services.podcast_automatic import write_day
+    return write_day(context, briefs, outline, progress)

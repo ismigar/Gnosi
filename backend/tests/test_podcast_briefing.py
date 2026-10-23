@@ -25,6 +25,7 @@ def pipeline(monkeypatch):
         payload = json.loads(request.input)
         payload['_options'] = request.options
         payload['_timeout'] = request.timeout_seconds
+        payload['_schema'] = request.output_schema
         calls.append(payload)
         data = payload['data']
         if payload['task'].endswith('briefs'):
@@ -37,14 +38,15 @@ def pipeline(monkeypatch):
                 group = groups.setdefault(key, {'topic': key, 'part_ids': []})
                 group['part_ids'].extend(card['part_ids'])
             result = {'topics': list(groups.values())}
+        elif payload['task'].endswith('audit'):
+            result = {'issues': []}
         else:
             briefs = data['briefs']
             text = ' '.join(f"{b['title']}: {b['summary'][-55:]}" for b in briefs)
             words = text.split()
             minimum = request.options.get('min_words', 0)
             text += ' Context.' * max(0, minimum - len(words))
-            result = {'sections': [{'topic': 'INTERNAL editorial metadata',
-                'part_ids': [b['part_id'] for b in briefs], 'narration': text.strip()}]}
+            result = {'narration': text.strip()}
         text = json.dumps(result)
         kwargs['output_validator'](text)
         return SimpleNamespace(result=text)
@@ -69,7 +71,7 @@ def test_stateless_model_sees_all_batches_again_in_final_briefing(pipeline):
     delivered = [p for batch in extraction for p in batch]
     for source in sources:
         assert ''.join(p['text'] for p in delivered if p['source_id'] == source['id']) == source['text']
-    final = [b for c in pipeline.calls if c['task'].endswith('concise') for b in c['data']['briefs']]
+    final = [b for c in pipeline.calls if c['task'].endswith('write') for b in c['data']['briefs']]
     assert {b['part_id'] for b in final} == {p['part_id'] for p in delivered}
     assert {b['source_id'] for b in final} == {s['id'] for s in sources}
     assert all(s['title'] in narration for s in sources)
@@ -139,14 +141,14 @@ def test_collection_exceeding_one_context_is_fully_narrated_in_bounded_segments(
             result = {'briefs': {p['part_id']: {'topic': p['title'], 'summary': 'Long summary ' * 30,
                 'quote': p['text']} for p in data['sources']}}
             return SimpleNamespace(result=json.dumps(result))
-        if request.operation.endswith('plan'):
+        if request.operation.endswith(('plan', 'audit')):
             return pipeline.model(request, **kwargs)
         assert len(data['briefs']) <= 16, 'Oversized narration request must not be sent'
         assert briefing._Briefing.cost(SimpleNamespace(count=len), request) <= 21952
         return pipeline.model(request, **kwargs)
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
     narration = pipeline.run([{'id': str(i), 'title': f'Topic {i}.', 'text': f'Evidence {i}'} for i in range(70)])
-    groups = [c for c in pipeline.calls if c['task'].endswith('concise')]
+    groups = [c for c in pipeline.calls if c['task'].endswith('write')]
     assert len(groups) > 1
     assert {b['source_id'] for c in groups for b in c['data']['briefs']} == {str(i) for i in range(70)}
     assert all(f'Topic {i}.' in narration for i in range(70))
@@ -156,14 +158,14 @@ def test_collection_exceeding_one_context_is_fully_narrated_in_bounded_segments(
 def test_interrupted_narration_resumes_every_segment_without_repeating_extraction(pipeline):
     sources = [{'id': str(i), 'title': f'Topic {i}.', 'text': f'Evidence {i}'} for i in range(40)]
     def interrupted(request, **kwargs):
-        if request.operation.endswith('concise') and len([c for c in pipeline.calls if c['task'].endswith('concise')]) == 1:
+        if request.operation.endswith('write') and len([c for c in pipeline.calls if c['task'].endswith('write')]) == 1:
             raise RuntimeError('narration interrupted')
         return pipeline.model(request, **kwargs)
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', interrupted)
     with pytest.raises(RuntimeError, match='narration interrupted'):
         pipeline.run(sources)
     assert len([c for c in pipeline.calls if c['task'].endswith('briefs')]) == 5
-    assert len([c for c in pipeline.calls if c['task'].endswith('concise')]) == 1
+    assert len([c for c in pipeline.calls if c['task'].endswith('write')]) == 1
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', pipeline.model)
     narration = pipeline.run(sources)
     assert len([c for c in pipeline.calls if c['task'].endswith('briefs')]) == 5
@@ -178,10 +180,10 @@ def test_resumed_old_snapshot_gets_explicit_segment_contract_and_continuity(pipe
         pipeline.run([{'id': str(i), 'title': f'Topic {i}', 'text': f'Evidence {i}'} for i in range(40)])
     finally:
         frozen_resources.reset(token)
-    groups = [c for c in pipeline.calls if c['task'].endswith('concise')]
+    groups = [c for c in pipeline.calls if c['task'].endswith('write')]
     assert [c['_options']['episode_opening'] for c in groups] == [True] + [False] * 9
     assert [c['_options']['episode_closing'] for c in groups] == [False] * 9 + [True]
-    assert all('STRICTLY' in c['_options']['concise_contract'] for c in groups)
+    assert all('server owns source membership' in c['_options']['automatic_contract'] for c in groups)
     assert all(c['_options']['max_words'] > c['_options']['min_words'] > 0 and c['_timeout'] == 300 for c in groups)
     assert all(c['_options'] == {} and c['_timeout'] == 300 for c in pipeline.calls if c['task'].endswith('briefs'))
 
@@ -235,34 +237,33 @@ def test_distant_duplicate_reports_share_global_theme_and_minor_topics_keep_spac
         return pipeline.model(request, **kwargs)
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
     text = pipeline.run(sources)
-    groups = [c['data']['briefs'] for c in pipeline.calls if c['task'].endswith('concise')]
+    groups = [c['data']['briefs'] for c in pipeline.calls if c['task'].endswith('write')]
     assert len(groups) == 2
     assert {b['source_id'] for b in groups[0]} == {str(i) for i in range(0, 20, 2)}
     assert all(f'Minor {i}' in text for i in range(1, 20, 2))
-    assert 1350 <= len(text.split()) <= 1650
-    assert pipeline.saved['podcast-coverage-report']['word_budget'] == 1500
+    assert 1200 <= len(text.split()) <= 1510
+    assert pipeline.saved['podcast-coverage-report']['word_budget'] == 1380
 
 
 @pytest.mark.parametrize('words', [1, 5000])
 def test_unbounded_model_output_is_rejected_before_publishing_or_caching(pipeline, words):
     def model(request, **kwargs):
-        if not request.operation.endswith('concise'):
+        if not request.operation.endswith('write'):
             return pipeline.model(request, **kwargs)
         briefs = json.loads(request.input)['data']['briefs']
-        return SimpleNamespace(result=json.dumps({'sections': [{'topic': 'News',
-            'part_ids': [b['part_id'] for b in briefs], 'narration': 'word ' * words}]}))
+        return SimpleNamespace(result=json.dumps({'narration': 'word ' * words}))
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
     with pytest.raises(ValueError, match='podcast_word_budget'):
         pipeline.run([{'id': 'a', 'title': 'Title', 'text': 'Evidence'}])
     assert 'podcast-coverage-report' not in pipeline.saved
-    assert not any('sections' in checkpoint['result'] for checkpoint in pipeline.saved.values())
+    assert not any('narration' in checkpoint['result'] for checkpoint in pipeline.saved.values())
 
 
 def test_oversized_theme_uses_recursive_bounded_digests_without_losing_ids():
     from backend.services.podcast_outline import narrate_day
     calls = []
     class Context:
-        budget = 12000
+        budget = 22000
         def request(self, task, data, schema):
             return briefing.AgentOperation(skill_id='core.gnosi-daily-briefing', operation=task,
                 input=json.dumps(data), output_schema=schema)
@@ -275,12 +276,14 @@ def test_oversized_theme_uses_recursive_bounded_digests_without_losing_ids():
             if request.operation.endswith('plan'):
                 result = {'topics': [{'topic': 'Complete collection',
                     'part_ids': [p for c in data['cards'] for p in c['part_ids']]}]}
+            elif request.operation.endswith('audit'):
+                result = {'issues': []}
             else:
                 records = data.get('briefs', data.get('digests'))
                 ids = [p for r in records for p in r.get('part_ids', [r.get('part_id')])]
                 words = 160 if request.operation.endswith('digest') else request.options['min_words']
-                result = {'sections': [{'topic': 'Complete collection', 'part_ids': ids,
-                                        'narration': 'evidence ' * words}]}
+                result = ({'narration': 'evidence ' * words} if request.operation.endswith('write') else
+                    {'sections': [{'topic': 'Complete collection', 'part_ids': ids, 'narration': 'evidence ' * words}]})
             briefing.jsonschema.validate(result, request.output_schema)
             validate(result)
             return result
@@ -289,7 +292,7 @@ def test_oversized_theme_uses_recursive_bounded_digests_without_losing_ids():
     sections, outline, budget = narrate_day(Context(), briefs, lambda _: None)
     assert calls.count('podcast.coverage.digest') > 14  # More than one reduction level.
     assert {p for s in sections for p in s['part_ids']} == {b['part_id'] for b in briefs}
-    assert budget == 1500 and 1400 < sum(len(s['narration'].split()) for s in sections) < 1600
+    assert budget == 1380 and 1200 < sum(len(s['narration'].split()) for s in sections) < 1510
 
 
 def test_planning_never_asks_model_to_classify_or_repeat_hundreds_of_source_ids(pipeline):
@@ -303,3 +306,54 @@ def test_planning_never_asks_model_to_classify_or_repeat_hundreds_of_source_ids(
     assert all(f'Topic {i}' in text for i in range(110))
     report = pipeline.saved['podcast-coverage-report']
     assert {p for g in report['outline'] for p in g['part_ids']} == {f'{s["id"]}:0' for s in sources}
+
+
+def test_automatic_audit_repairs_source_note_and_request_certainty_without_manual_input(pipeline):
+    writes = []
+    def model(request, **kwargs):
+        data = json.loads(request.input)['data']
+        if request.operation.endswith('write'):
+            writes.append(data)
+            wrong = not data['feedback']
+            text = ('The requested extension was granted. Source has no text.' if wrong else
+                    'The party requests an extension; no ruling is reported.')
+            text += ' Context.' * (request.options['min_words'] - len(text.split()))
+            result = {'narration': text}
+        elif request.operation.endswith('audit') and not data.get('whole_episode'):
+            result = {'issues': ['Requested is not granted; remove spoken source-access note.']
+                      if 'was granted' in data['narration'] else []}
+        else:
+            return pipeline.model(request, **kwargs)
+        text = json.dumps(result);kwargs['output_validator'](text)
+        return SimpleNamespace(result=text)
+    pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
+    text = pipeline.run([{'id': 'a', 'title': 'Extension request', 'text': 'The party requests an extension.'}])
+    assert len(writes) == 2 and writes[1]['feedback']
+    assert 'was granted' not in text and 'Source has no text' not in text
+    assert 'requests an extension' in text
+    assert pipeline.saved['podcast-coverage-report']['pipeline'] == 'automatic-narration-v2'
+
+
+def test_unresolved_semantic_failure_never_publishes_coverage_report(pipeline):
+    def model(request, **kwargs):
+        if not request.operation.endswith('audit'):
+            return pipeline.model(request, **kwargs)
+        text = json.dumps({'issues': ['Distinct minority subject is absent.']})
+        kwargs['output_validator'](text)
+        return SimpleNamespace(result=text)
+    pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
+    with pytest.raises(ValueError, match='podcast_semantic_review_failed'):
+        pipeline.run([{'id': 'a', 'title': 'Minority topic', 'text': 'Actual evidence.'}])
+    assert 'podcast-coverage-report' not in pipeline.saved
+
+
+def test_writer_schema_is_narration_only_and_planning_retains_every_child_subject(pipeline):
+    sources = [{'id': str(i), 'title': f'Minority topic {i}', 'text': f'Evidence {i}'} for i in range(110)]
+    pipeline.run(sources)
+    report = pipeline.saved['podcast-coverage-report']
+    assert {s for g in report['outline'] for s in g['subjects']} == {s['title'] for s in sources}
+    for call in pipeline.calls:
+        if call['task'].endswith('write'):
+            assert 'automatic_contract' in call['_options']
+            assert set(call['_schema']['properties']) == {'narration'}
+    assert any(c['task'].endswith('audit') and c['data'].get('whole_episode') for c in pipeline.calls)

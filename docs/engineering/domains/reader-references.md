@@ -483,17 +483,17 @@ whole day into at most twelve themes, so distant duplicate reports share a theme
 Planning calls contain at most 48 compact cards with opaque handles. Original
 source-ID expansion stays on the server; hierarchical merging never asks the
 model to repeat hundreds of IDs and never drops evidence.
-Each theme receives an equal share of a 1,500-word episode budget on broad news
+Each theme receives an equal share of a 1,380-word episode budget on broad news
 days; sparse collections use a smaller budget. Duplicate-heavy feeds cannot crowd
 out minority themes. The writer merges repeated events and summarizes distinct
 minor developments within each theme. Oversized theme evidence uses recursive, context-bounded
 internal digest calls, each returning at most 160 words in one combined section. Every stage is durable and independently context-checked.
 
-Spoken word counts are validated against each theme's hard range (95–105% of its
+Spoken word counts are validated against each theme's hard range (90–109% of its
 allocation) and the complete episode's ceiling before publication. Invalid prose
 gets the operation's existing bounded validation retry; it is never truncated.
 Only narration reaches speech synthesis. Internal labels, evidence and production
-instructions are not voiced. `podcast-coverage-report` version 3 retains the global
+instructions are not voiced. `podcast-coverage-report` version 4 retains the global
 outline, briefs, section assignments and actual spoken word count for audit.
 Part IDs must form exact, nonduplicated partitions within themes and across the
 whole day. This structural partition is not semantic proof: live verification must
@@ -518,3 +518,12 @@ are never exposed.
 Agent models absent from the routing registry use exact provider/model catalog
 context metadata. Unknown models retain the small fallback, and explicit registry
 limits take priority. Other document operations retain their existing guards.
+
+Automatic narration v2 retains the child-subject ledger through hierarchical
+planning. Writers return only narration; the server owns section IDs. Separate
+bounded audits compare every brief with its narration and review the whole
+episode for missing subjects, contradictions and repetition. Up to three rounds
+correct findings automatically; unresolved defects fail before publication. A
+new frozen contract/schema excludes earlier editorial checkpoints. The selected
+profile and provider safeguards remain intact. Timeouts/refusals fail explicitly
+instead of permitting omitted themes or externally authored scripts.

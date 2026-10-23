@@ -153,7 +153,7 @@ def build_podcast_script(sources: list[dict[str, Any]], language: str, *, snapsh
     check_active()
     if snapshot.parent_run_id:
         work_checkpoint(snapshot.scope, snapshot.parent_run_id, "podcast-coverage-report", {
-            "version": 3, "narration_segments": len(sections), "outline": outline,
+            "version": 4, "pipeline": "automatic-narration-v2", "narration_segments": len(sections), "outline": outline,
             "word_budget": word_budget, "spoken_words": sum(len(s["narration"].split()) for s in sections), "article_ids": sorted({p["source_id"] for p in parts}),
             "parts": len(parts), "briefs": briefs, "sections": sections,
         })
