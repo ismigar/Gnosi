@@ -41,7 +41,7 @@ def document_action_schema(output_schema: dict[str, Any]) -> dict[str, Any]:
 
 def synthesize(operation: str, sources: list[dict[str, Any]], request: str, *, snapshot: AgentExecutionSnapshot,
                output_schema: dict[str, Any], heartbeat: Callable[[], Any] | None = None,
-               max_steps: int = 64) -> dict[str, Any]:
+               max_steps: int = 64, batch_reads: bool = False) -> dict[str, Any]:
     from backend.services.agent_execution import run_sync
     from backend.services.agent_execution_trace import record
     from backend.domains.agent.runtime_tools import _model_context_window
@@ -75,7 +75,7 @@ def synthesize(operation: str, sources: list[dict[str, Any]], request: str, *, s
         prompt = task_input(f"{operation}.analyze.actions", request=request, step=step, memory=memory,
                             last_result=result, total_parts=len(parts), read_parts=len(read),
                             result_schema=output_schema, available_actions={
-                                "index": {"offset": "integer"}, "read": {"part_id": "string"},
+                                "index": {"offset": "integer"}, "read": {"part_id": "string", "delivery": "Requested part and adjacent unread parts that fit the context" if batch_reads else "Requested part"},
                                 "search": {"query": "string", "offset": "integer"}, "remember": {"text": "string"},
                                 "finish": {"result": "result_schema", "citations": "list of source_id and exact quote", "reviewed": "boolean"}})
         response = run_sync(AgentOperation(skill_id=skill_id(operation), operation=f"{operation}.analyze.action",
@@ -86,7 +86,7 @@ def synthesize(operation: str, sources: list[dict[str, Any]], request: str, *, s
         record("document.action", {"operation": operation, "step": step, **answer})
         try:
             if answer["action"] != "finish":
-                result, memory = _document_action(answer["action"], args, parts, read, memory, budget, count)
+                result, memory = _document_action(answer["action"], args, parts, read, memory, budget, count, batch_reads=batch_reads)
             else:
                 completed = _finish_document(args, read, parts, output_schema)
                 if parent:
@@ -136,14 +136,37 @@ def _finish_document(args: dict[str, Any], read: set[str], parts: dict[str, dict
     return completed
 
 
-def _document_action(action: str, args: dict[str, Any], parts: dict[str, dict[str, Any]], read: set[str], memory: str, budget: int, count: Callable[[str], int]) -> tuple[Any, str]:
+def _read_batch(key: str, parts: dict[str, dict[str, Any]], read: set[str],
+                budget: int, count: Callable[[str], int]) -> dict[str, Any]:
+    """Deliver adjacent originals within a conservative serialized-result budget."""
+    selected = [key]
+    keys = list(parts)
+    def delivery(identifiers: list[str]) -> dict[str, Any]:
+        delivered = read | set(identifiers)
+        return {"delivery": "batch", "parts": [parts[identifier] for identifier in identifiers],
+                "delivered_part_ids": identifiers, "read_parts": len(delivered), "total_parts": len(parts),
+                "next_unread_part_id": next((identifier for identifier in keys if identifier not in delivered), None)}
+    result = delivery(selected)
+    for identifier in keys[keys.index(key) + 1:]:
+        if identifier in read:
+            continue
+        candidate = delivery([*selected, identifier])
+        if count(json.dumps(candidate, ensure_ascii=False)) > budget // 2:
+            break
+        selected.append(identifier)
+        result = candidate
+    read.update(selected)
+    return result
+
+
+def _document_action(action: str, args: dict[str, Any], parts: dict[str, dict[str, Any]], read: set[str], memory: str, budget: int, count: Callable[[str], int], *, batch_reads: bool = False) -> tuple[Any, str]:
     result: Any = {}
     if action == "index":
         offset = max(0, int(args.get("offset") or 0))
         result = {"parts": [{"part_id": key, "read": key in read} for key in list(parts)[offset:offset + 100]], "total": len(parts), "next_offset": offset + 100}
     elif action == "read":
         key = str(args["part_id"])
-        result = parts[key]
+        result = _read_batch(key, parts, read, budget, count) if batch_reads else parts[key]
         read.add(key)
     elif action == "search":
         query = str(args["query"]).casefold()

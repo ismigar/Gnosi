@@ -190,3 +190,77 @@ def test_document_index_and_search_allow_unused_nullable_offset():
     assert result['total'] == 1
     result,_ = _document_action('search',{'offset':None,'query':'Supported'},parts,set(),'notes',1000,len)
     assert result['part_ids'] == ['one']
+
+
+def test_batched_document_reads_preserve_originals_and_resume_hundreds_of_sources(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from backend.services.agent_document_work import synthesize
+    from backend.services.agent_execution_models import AgentExecutionSnapshot
+    monkeypatch.setattr(store, 'resolve_data_dir', lambda **kwargs: tmp_path)
+    monkeypatch.setattr('backend.domains.agent.runtime_tools._model_context_window', lambda *_: 16000)
+    scope = ExecutionScope(user_id='alice', workspace_id='team', vault_path=str(tmp_path), role='owner')
+    row = AgentRun(run_id='batched', agent_id='bot', skill_id='skill', operation='podcast',
+                   origin='button', status='running', created_at=time.time(), updated_at=time.time())
+    store.create(row, scope, {}, {})
+    snapshot = AgentExecutionSnapshot(scope=scope, agent_id='bot', profile={}, skill_ids=[],
+        instructions=[], catalog_revision='1', revision='1', parent_run_id='batched')
+    sources = [{'id': str(index), 'title': f'Article {index}', 'text': f'Original evidence {index}. ' + 'details ' * 35}
+               for index in range(198)]
+    delivered = {}
+    prompts = []
+    def invoke(request, **kwargs):
+        data = json.loads(request.input)['data']
+        prompts.append(data)
+        assert len(request.input.encode()) < 12000
+        result = data['last_result']
+        if result.get('delivery') == 'batch':
+            for part in result['parts']:
+                assert part['text'] == sources[int(part['source_id'])]['text']
+                delivered[part['part_id']] = part['text']
+            assert data['read_parts'] == len(delivered)
+            following = result['next_unread_part_id']
+        else:
+            following = result['parts'][0]['part_id']
+        if following is not None:
+            action = {'action': 'read', 'arguments': {'part_id': following}}
+        else:
+            action = {'action': 'finish', 'arguments': {'result': {'text': 'Verified briefing'},
+                'reviewed': True, 'citations': [{'source_id': '0', 'quote': 'Original evidence 0.'}]}}
+        return SimpleNamespace(result=json.dumps(action))
+    monkeypatch.setattr('backend.services.agent_execution.run_sync', invoke)
+    options = dict(snapshot=snapshot, output_schema={'type': 'object', 'required': ['text']}, batch_reads=True)
+    with pytest.raises(RuntimeError, match='resume_required'):
+        synthesize('podcast', sources, 'Create a briefing', max_steps=2, **options)
+    with store.connect() as db:
+        saved = json.loads(db.execute('SELECT payload FROM agent_work_checkpoints WHERE run_id=?', ('batched',)).fetchone()[0])
+    assert len(saved['read']) > 2
+    result = synthesize('podcast', sources, 'Create a briefing', **options)
+    assert prompts[2]['last_result'] == saved['result']
+    assert result['coverage_complete'] and len(result['read_parts']) == 198
+    assert len(delivered) == 198
+    assert len(prompts) < 64
+    calls = len(prompts)
+    assert synthesize('podcast', sources, 'Create a briefing', **options) == result
+    assert len(prompts) == calls
+
+
+def test_batched_reads_only_mark_delivered_parts_and_keep_citation_guards():
+    from backend.services.agent_document_work import _document_action, _finish_document
+    parts = {str(index): {'part_id': str(index), 'source_id': str(index), 'text': 'Evidence ' + 'x' * 400}
+             for index in range(3)}
+    read = set()
+    result, memory = _document_action('read', {'part_id': '0'}, parts, read, 'notes', 2000, len, batch_reads=True)
+    assert memory == 'notes'
+    assert read == {'0'}
+    assert len(json.dumps(result, ensure_ascii=False)) <= 1000
+    assert result['next_unread_part_id'] == '1'
+    assert result['delivered_part_ids'] == ['0']
+    args = {'result': {'text': 'Briefing'}, 'reviewed': True,
+            'citations': [{'source_id': '0', 'quote': 'Invented quote'}]}
+    with pytest.raises(ValueError, match='coverage_incomplete'):
+        _finish_document(args, read, parts, {'type': 'object'})
+    with pytest.raises(ValueError, match='citation_not_in_original'):
+        _finish_document(args, set(parts), parts, {'type': 'object'})
+    single_read = set()
+    single, _ = _document_action('read', {'part_id': '0'}, parts, single_read, '', 2000, len)
+    assert single == parts['0'] and single_read == {'0'}

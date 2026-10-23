@@ -262,6 +262,11 @@ def _model_context_window(provider_name: str, model_name: Optional[str]) -> int:
         )
         if match:
             return max(2_048, int(match.get("context_window") or 0))
+        from backend.agent.model_catalog import catalog_model_metadata_index
+
+        metadata = catalog_model_metadata_index().get(f"{provider_name}:{model_name}")
+        if metadata:
+            return max(2_048, int(metadata.get("context_window") or DEFAULT_CONTEXT_WINDOW_TOKENS))
     except Exception:
         pass
     return DEFAULT_CONTEXT_WINDOW_TOKENS

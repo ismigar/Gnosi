@@ -240,6 +240,7 @@ def test_podcast_omissions_do_not_abort_readable_sources(monkeypatch, tmp_path, 
         parts = agent_document_work._document_parts(sources, 1000, len)
         assert len(parts) == 1
         assert sources == [{'id': '110', 'title': 'Readable', 'text': expected}]
+        assert kwargs['batch_reads'] is True
         calls.append(sources)
         return {'result': {'text': 'Verified script'}}
     monkeypatch.setattr(agent_document_work, 'synthesize', synthesize)

@@ -469,3 +469,9 @@ notice. This report is checkpointed per private job and is recomputed from the
 frozen input when resuming. If all articles are unreadable, generation returns
 `podcast_no_readable_articles` without synthesizing or replacing the previous
 MP3. The shared document synthesis guard remains strict for other operations.
+
+Podcast action reads can deliver several adjacent original parts within half of
+the working context budget. Coverage records only delivered parts; citations
+remain tied to each original source. Agent models absent from the routing
+registry use their exact provider/model catalog context metadata, with the small
+fallback retained for unknown models and explicit registry limits taking priority.

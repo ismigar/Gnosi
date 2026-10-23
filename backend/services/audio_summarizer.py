@@ -347,7 +347,7 @@ def _generate_daily_podcast() -> str | None:
             outcome = synthesize("podcast", [
                 {"id": str(article.id), "title": str(article.title or ""), "text": article.full_content}
                 for article in articles
-            ], task_input("podcast.script", language=language_name), snapshot=llm,
+            ], task_input("podcast.script", language=language_name), snapshot=llm, batch_reads=True,
                 output_schema={"type": "object", "required": ["text"], "properties": {"text": {"type": "string", "minLength": 1}}})
             all_summaries.append(outcome["result"]["text"])
         else:
