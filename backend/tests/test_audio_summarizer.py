@@ -242,7 +242,15 @@ def test_podcast_omissions_do_not_abort_readable_sources(monkeypatch, tmp_path, 
         assert sources == [{'id': '110', 'title': 'Readable', 'text': expected}]
         assert kwargs['batch_reads'] is True
         calls.append(sources)
-        return {'result': {'text': 'Verified script'}}
+        import jsonschema
+        schema = kwargs['output_schema']
+        jsonschema.validate({'narration': 'Verified script'}, schema)
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate({'text': "GUIÓ DE L'EPISODI — només text per locutar"}, schema)
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate({'narration': 'Verified script', 'production_notes': 'Do not read citations'}, schema)
+        return {'result': {'narration': 'Verified script'},
+                'citations': [{'source_id': '110', 'quote': expected}]}
     monkeypatch.setattr(agent_document_work, 'synthesize', synthesize)
     monkeypatch.setattr(audio_summarizer, 'get_podcast_output_dir', lambda: tmp_path)
     monkeypatch.setattr('backend.services.agent_specialized_tools.run_engine', lambda kind, name, action: action())

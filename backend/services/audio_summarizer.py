@@ -348,8 +348,10 @@ def _generate_daily_podcast() -> str | None:
                 {"id": str(article.id), "title": str(article.title or ""), "text": article.full_content}
                 for article in articles
             ], task_input("podcast.script", language=language_name), snapshot=llm, batch_reads=True,
-                output_schema={"type": "object", "required": ["text"], "properties": {"text": {"type": "string", "minLength": 1}}})
-            all_summaries.append(outcome["result"]["text"])
+                output_schema={"type": "object", "required": ["narration"], "additionalProperties": False,
+                    "properties": {"narration": {"type": "string", "minLength": 1,
+                        "description": "Only words for the listener, ready to speak verbatim. No production notes, headings or source identifiers."}}})
+            all_summaries.append(outcome["result"]["narration"])
         else:
             for i, batch in enumerate(batches):
                 batch_num = i + 1
