@@ -60,7 +60,7 @@ class _Briefing:
     def request(self, task: str, data: dict[str, Any], schema: dict[str, Any]) -> AgentOperation:
         return AgentOperation(skill_id="core.gnosi-daily-briefing", operation=task,
             input=task_input(task, language=self.language, **data), origin=self.snapshot.origin,
-            output_schema=schema, timeout_seconds=300,
+            output_schema=schema, timeout_seconds=600 if task.endswith("narration") else 300,
             resume_requires_parent=True)
 
     def cost(self, request: AgentOperation) -> int:

@@ -397,7 +397,8 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
                                      if request.operation == "knowledge.process-source.phase"
                                      else 1536 if request.operation == 'team.view_edit'
                                      else 4096 if classifying_notes
-                                     else 16384 if request.operation in {"podcast.analyze.action", "podcast.coverage.briefs", "podcast.coverage.narration"}
+                                     else (32768 if request.operation == "podcast.coverage.narration" else 16384)
+                                     if request.operation in {"podcast.analyze.action", "podcast.coverage.briefs", "podcast.coverage.narration"}
                                      and not any(snapshot.profile.get(key) for key in ("max_tokens", "max_output_tokens")) else None),
         # Routing needs a validated assignment, not a solution to the task.
         # A rejected plan gets the existing repair call at the model's normal

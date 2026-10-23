@@ -991,7 +991,7 @@ def test_oversized_complete_synthesis_is_returned_to_the_reader_without_full_sou
 @pytest.mark.parametrize(('operation', 'profile_limit', 'expected'), [
     ('podcast.analyze.action', None, 16384),
     ('podcast.coverage.briefs', None, 16384),
-    ('podcast.coverage.narration', None, 16384),
+    ('podcast.coverage.narration', None, 32768),
     ('podcast.analyze.action', 24000, None),
     ('writing.analyze.action', None, None),
     ('podcast.segment', None, None),
