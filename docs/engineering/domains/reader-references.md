@@ -490,8 +490,11 @@ coverage: the procedure also requires proportionate treatment of the day's main
 clusters and distinct minor developments, and live verification should compare
 section content with the source briefs.
 
-Extraction receives a bounded 120-second allowance per batch and final narration
-300 seconds, with 16,384 output tokens by default and no optional team handoff.
+Extraction groups at most eight source parts per request, splitting originals into
+parts of at most 10,000 counted tokens. Each brief has at most 400 summary characters
+and 160 quote characters. Both extraction and final narration have a bounded
+300-second allowance per call; their default output caps are 8,192 and 16,384
+tokens respectively, with no optional team handoff.
 Explicit profile output choices remain intact. The principal agent and scoped
 atomic audio publication remain shared with the rest of the application. Failed
 or cancelled work cannot replace the previous episode.

@@ -19,8 +19,8 @@ def _object(properties: dict[str, Any]) -> dict[str, Any]:
 
 def _brief_schema(parts: list[dict[str, Any]]) -> dict[str, Any]:
     entry = _object({"topic": {"type": "string", "minLength": 1, "maxLength": 100},
-                     "summary": {"type": "string", "minLength": 1, "maxLength": 800},
-                     "quote": {"type": "string", "minLength": 1, "maxLength": 240}})
+                     "summary": {"type": "string", "minLength": 1, "maxLength": 400},
+                     "quote": {"type": "string", "minLength": 1, "maxLength": 160}})
     return _object({"briefs": _object({part["part_id"]: entry for part in parts})})
 
 
@@ -60,7 +60,7 @@ class _Briefing:
     def request(self, task: str, data: dict[str, Any], schema: dict[str, Any]) -> AgentOperation:
         return AgentOperation(skill_id="core.gnosi-daily-briefing", operation=task,
             input=task_input(task, language=self.language, **data), origin=self.snapshot.origin,
-            output_schema=schema, timeout_seconds=300 if task.endswith("narration") else 120,
+            output_schema=schema, timeout_seconds=300,
             resume_requires_parent=True)
 
     def cost(self, request: AgentOperation) -> int:
@@ -92,13 +92,13 @@ class _Briefing:
         return result
 
     def batches(self, parts: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
-        limit = min(120_000, self.budget // 2)
+        limit = min(40_000, self.budget // 2)
         batches: list[list[dict[str, Any]]] = []
         current: list[dict[str, Any]] = []
         for part in parts:
             candidate = [*current, part]
             request = self.request("podcast.coverage.briefs", {"sources": candidate}, _brief_schema(candidate))
-            if current and (len(candidate) > 24 or self.cost(request) > limit):
+            if current and (len(candidate) > 8 or self.cost(request) > limit):
                 batches.append(current)
                 current = []
             current.append(part)
@@ -117,7 +117,7 @@ def _parts(sources: list[dict[str, Any]], budget: int, count: Callable[[str], in
     for source in sources:
         if not str(source.get("text") or "").strip():
             raise ValueError("podcast_source_unreadable")
-        for index, part in enumerate(split_segment(source, min(30_000, budget // 8), count)):
+        for index, part in enumerate(split_segment(source, min(10_000, budget // 8), count)):
             result.append({**part, "source_id": str(source["id"]), "part_id": f"{source['id']}:{index}"})
     return result
 

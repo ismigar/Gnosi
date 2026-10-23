@@ -990,7 +990,7 @@ def test_oversized_complete_synthesis_is_returned_to_the_reader_without_full_sou
 
 @pytest.mark.parametrize(('operation', 'profile_limit', 'expected'), [
     ('podcast.analyze.action', None, 16384),
-    ('podcast.coverage.briefs', None, 16384),
+    ('podcast.coverage.briefs', None, 8192),
     ('podcast.coverage.narration', None, 16384),
     ('podcast.analyze.action', 24000, None),
     ('writing.analyze.action', None, None),
@@ -1012,3 +1012,19 @@ def test_podcast_action_has_bounded_default_output_without_changing_other_operat
     assert captured['prepared_agent_data'] is snapshot.profile
     if operation.startswith('podcast.coverage.'):
         assert captured['operation_team_help'] is False
+
+
+@pytest.mark.parametrize('operation', ['podcast.coverage.briefs', 'podcast.coverage.narration'])
+@pytest.mark.parametrize('key', ['max_tokens', 'max_output_tokens'])
+def test_podcast_coverage_preserves_explicit_profile_output_limit(runtime, monkeypatch, operation, key):
+    _, snapshot = runtime
+    snapshot.profile[key] = 24000
+    captured = {}
+    async def workflow(*args, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(compile=lambda: 'compiled'), {}
+    monkeypatch.setattr('backend.agent.factory.create_agent_workflow', workflow)
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation)
+    asyncio.run(execution._operation_application(request, snapshot, {}, None))
+    assert captured['operation_max_output_tokens'] is None
+    assert captured['prepared_agent_data'][key] == 24000

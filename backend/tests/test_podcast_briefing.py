@@ -122,12 +122,12 @@ def test_final_context_overflow_fails_before_any_brief_is_dropped(pipeline):
     def model(request, **kwargs):
         data = json.loads(request.input)['data']
         assert request.operation.endswith('briefs'), 'Oversized final request must not be sent'
-        result = {'briefs': {p['part_id']: {'topic': 'Topic', 'summary': 'Long summary ' * 60,
+        result = {'briefs': {p['part_id']: {'topic': 'Topic', 'summary': 'Long summary ' * 30,
             'quote': p['text']} for p in data['sources']}}
         return SimpleNamespace(result=json.dumps(result))
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
     with pytest.raises(RuntimeError, match='complete_briefing_context_insufficient'):
-        pipeline.run([{'id': str(i), 'title': f'Topic {i}', 'text': f'Evidence {i}'} for i in range(35)])
+        pipeline.run([{'id': str(i), 'title': f'Topic {i}', 'text': f'Evidence {i}'} for i in range(70)])
     assert 'podcast-coverage-report' not in pipeline.saved
     assert len(pipeline.saved) > 1
 
@@ -139,3 +139,12 @@ def test_cancellation_is_checked_even_when_all_briefs_are_cached(pipeline):
         raise PermissionError('scope changed or cancelled')
     with pytest.raises(PermissionError, match='scope changed'):
         pipeline.run(sources, cancelled)
+
+
+def test_extraction_bounds_each_call_without_dropping_sources(pipeline):
+    sources = [{'id': str(i), 'title': f'Topic {i}', 'text': f'Evidence {i}'} for i in range(25)]
+    pipeline.run(sources)
+    batches = [c['data']['sources'] for c in pipeline.calls if c['task'].endswith('briefs')]
+    assert len(batches) == 4
+    assert all(len(batch) <= 8 for batch in batches)
+    assert [p['source_id'] for batch in batches for p in batch] == [s['id'] for s in sources]
