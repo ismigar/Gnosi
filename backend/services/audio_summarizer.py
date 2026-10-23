@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from backend.config.logger_config import get_logger
 from backend.models.reader import Article
+from backend.services.podcast_sources import readable_podcast_articles as _readable_podcast_articles
 
 log = get_logger(__name__)
 
@@ -27,6 +28,7 @@ class GenerationStatus(TypedDict):
     progress: str
     error: str | None
     result_filename: str | None
+    skipped_articles: list[dict[str, str]]
 
 
 _generation_lock = threading.RLock()
@@ -39,7 +41,7 @@ def _generation_state() -> GenerationStatus:
     key = (scope.user_id, scope.workspace_id, str(Path(scope.vault_path).resolve()))
     with _generation_lock:
         return _generation_states.setdefault(key, {
-            "running": False, "progress": "", "error": None, "result_filename": None,
+            "running": False, "progress": "", "error": None, "result_filename": None, "skipped_articles": [],
         })
 
 
@@ -56,6 +58,8 @@ def get_generation_status() -> GenerationStatus:
         state["running"] = job.status in {"queued", "running", "resuming"}
         state["error"] = job.error or None
         state["result_filename"] = job.result or None
+        report = store.work_checkpoint(current_scope(), job.run_id, "podcast-skipped")
+        state["skipped_articles"] = report["articles"] if report else []
     return state
 
 
@@ -264,6 +268,18 @@ def generate_daily_podcast(snapshot: AgentExecutionSnapshot | None = None) -> st
         raise
 
 
+def _prepare_podcast_articles(articles: Sequence[Any], snapshot: AgentExecutionSnapshot) -> list[Any]:
+    from backend.services.agent_execution_store import work_checkpoint
+
+    readable, skipped = _readable_podcast_articles(articles)
+    _generation_state()["skipped_articles"] = skipped
+    if snapshot.parent_run_id:
+        work_checkpoint(snapshot.scope, snapshot.parent_run_id, "podcast-skipped", {"articles": skipped})
+    if not readable:
+        raise ValueError("podcast_no_readable_articles")
+    return readable
+
+
 def _generate_daily_podcast() -> str | None:
     """
     Collect unread articles from the last 24 hours, generate a batched script
@@ -273,6 +289,7 @@ def _generate_daily_podcast() -> str | None:
     _generation_state()["running"] = True
     _generation_state()["error"] = None
     _generation_state()["result_filename"] = None
+    _generation_state()["skipped_articles"] = []
 
     # Get DB session dynamically
     from backend.data.db import get_db
@@ -306,15 +323,6 @@ def _generate_daily_podcast() -> str | None:
         log.info(f"Found {len(articles)} unread articles.")
         _generation_state()["progress"] = f"Found {len(articles)} articles."
 
-        # 2. Split into batches.
-        batches = _build_batches(articles)
-        total_batches = len(batches)
-        total_articles = sum(len(b) for b in batches)
-        log.info(f"Processing {total_articles} articles in {total_batches} batches.")
-        _generation_state()["progress"] = (
-            f"Processing {total_articles} articles in {total_batches} batches..."
-        )
-
         # 3. Resolve the model from the latest Settings state.
         language_code, language_name = _resolve_podcast_language()
         if podcast_input is not None:
@@ -326,14 +334,18 @@ def _generate_daily_podcast() -> str | None:
                 "language_code": language_code, "language_name": language_name,
                 "audio_filename": f"daily_podcast_{datetime.now().strftime('%Y_%m_%d')}.mp3"}
             work_checkpoint(llm.scope, llm.parent_run_id, "podcast-input", podcast_input)
+        articles = _prepare_podcast_articles(articles, llm)
+
+        batches = _build_batches(articles)
+        total_batches = len(batches)
+        _generation_state()["progress"] = f"Processing {len(articles)} readable articles."
         model_label = f"{provider}/{model}"
         all_summaries: list[str] = []
 
         if llm.behavior_resources:
             from backend.services.agent_document_work import synthesize
-            from backend.domains.reader.analysis import _article_text
             outcome = synthesize("podcast", [
-                {"id": str(article.id), "title": str(article.title or ""), "text": _article_text(article)}
+                {"id": str(article.id), "title": str(article.title or ""), "text": article.full_content}
                 for article in articles
             ], task_input("podcast.script", language=language_name), snapshot=llm,
                 output_schema={"type": "object", "required": ["text"], "properties": {"text": {"type": "string", "minLength": 1}}})
@@ -450,7 +462,7 @@ def start_generation_async(vault_path: str | Path | None = None) -> bool:
             return False  # A generation is already in progress
         # Sets the flag INSIDE the lock so no one else passes the check before
         # the thread starts. The thread itself will overwrite the progress.
-        _generation_state().update({"running": True, "progress": "", "error": None, "result_filename": None})
+        _generation_state().update({"running": True, "progress": "", "error": None, "result_filename": None, "skipped_articles": []})
 
     from backend.services.agent_execution import create_job_run
     from backend.services import agent_execution_store as store
@@ -508,7 +520,7 @@ def resume_podcast(snapshot: AgentExecutionSnapshot) -> None:
         if any(state["running"] for key, state in _generation_states.items()
                if key[2] == str(Path(scope.vault_path).resolve())):
             raise RuntimeError("podcast_generation_already_running")
-        _generation_state().update({"running": True, "progress": "", "error": None, "result_filename": None})
+        _generation_state().update({"running": True, "progress": "", "error": None, "result_filename": None, "skipped_articles": []})
     def worker() -> None:
         try:
             with operation_session(snapshot):

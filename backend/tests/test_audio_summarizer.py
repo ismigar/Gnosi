@@ -189,3 +189,84 @@ def test_async_generation_preserves_selected_vault(monkeypatch, tmp_path):
         audio_summarizer._generation_state()["running"] = False
         assert audio_summarizer.start_generation_async(vault_path=tmp_path) is True
     assert observed_paths == [Path(tmp_path)]
+
+
+def test_podcast_normalizes_bodies_before_deciding_to_skip():
+    def article(identifier, full, summary):
+        return SimpleNamespace(id=identifier, title=f'Article {identifier}',
+                               full_content=full, content=summary, source=None)
+    readable, skipped = audio_summarizer._readable_podcast_articles([
+        article(109, '<p> </p>', None),
+        article(110, '<p> </p>', '<p>Feed evidence</p>'),
+        article(111, '<p>Full evidence</p>', 'Summary'),
+    ])
+    assert [(a.id, a.content) for a in readable] == [(110, 'Feed evidence'), (111, 'Full evidence')]
+    assert skipped == [{'id': '109', 'title': 'Article 109'}]
+
+
+@pytest.mark.parametrize('resuming', [False, True])
+@pytest.mark.parametrize('all_empty', [False, True])
+@pytest.mark.parametrize('body, expected', [('Actual news evidence.', 'Actual news evidence.'), ('<p>&lt;br&gt;</p>', '<br>')])
+def test_podcast_omissions_do_not_abort_readable_sources(monkeypatch, tmp_path, resuming, all_empty, body, expected):
+    from contextlib import nullcontext
+    from unittest.mock import Mock
+    from backend.services import agent_document_work, agent_execution_store, workspace_speech
+
+    articles = [SimpleNamespace(id=109, title='Missing', full_content='<p> </p>', content='', source=None)]
+    if not all_empty:
+        articles.append(SimpleNamespace(id=110, title='Readable', full_content='', content=body, source=None))
+    state = dict(running=False, progress='', error=None, result_filename=None, skipped_articles=[])
+    snapshot = SimpleNamespace(scope='test', parent_run_id='job', behavior_resources={'fixture': True})
+    saved = {}
+    if resuming:
+        saved['podcast-input'] = dict(articles=[dict(id=a.id, title=a.title, full_content=a.full_content,
+            content=a.content, source='') for a in articles], language_code='ca', language_name='Catalan', audio_filename='frozen.mp3')
+    def checkpoint(scope, run, key, value=None):
+        if value is not None:
+            saved[key] = value
+        return saved.get(key)
+    db = Mock()
+    db.query.return_value.filter.return_value.all.return_value = articles
+    def database():
+        yield db
+    monkeypatch.setattr('backend.data.db.get_db', database)
+    monkeypatch.setattr(audio_summarizer, '_generation_state', lambda: state)
+    monkeypatch.setattr(audio_summarizer, '_resolve_podcast_llm', lambda: (snapshot, 'test', 'test'))
+    monkeypatch.setattr(audio_summarizer, '_resolve_podcast_language', lambda: ('ca', 'Catalan'))
+    monkeypatch.setattr(agent_execution_store, 'work_checkpoint', checkpoint)
+    calls = []
+    def synthesize(operation, sources, request, **kwargs):
+        # Exercise the actual guard that previously rejected source 109.
+        parts = agent_document_work._document_parts(sources, 1000, len)
+        assert len(parts) == 1
+        assert sources == [{'id': '110', 'title': 'Readable', 'text': expected}]
+        calls.append(sources)
+        return {'result': {'text': 'Verified script'}}
+    monkeypatch.setattr(agent_document_work, 'synthesize', synthesize)
+    monkeypatch.setattr(audio_summarizer, 'get_podcast_output_dir', lambda: tmp_path)
+    monkeypatch.setattr('backend.services.agent_specialized_tools.run_engine', lambda kind, name, action: action())
+    monkeypatch.setattr(workspace_speech, 'effective_settings_sync', lambda language: {})
+    monkeypatch.setattr(workspace_speech, 'speech_session', lambda settings: nullcontext())
+    monkeypatch.setattr(workspace_speech, 'fingerprint', lambda text, language: 'fixture')
+    def generate(text, path, language):
+        assert text == 'Verified script'
+        path.write_bytes(b'complete audio')
+    monkeypatch.setattr(audio_summarizer, '_generate_tts_atomically', generate)
+    monkeypatch.setattr(audio_summarizer, '_publish_podcast_audio', lambda llm, staged, target: staged.replace(target))
+    previous = tmp_path / 'previous.mp3'
+    previous.write_bytes(b'previous audio')
+    result = audio_summarizer._generate_daily_podcast()
+    assert state['skipped_articles'] == [{'id': '109', 'title': 'Missing'}]
+    assert saved['podcast-skipped']['articles'] == state['skipped_articles']
+    assert not state['running']
+    assert previous.read_bytes() == b'previous audio'
+    if all_empty:
+        assert result is None
+        assert state['error'] == 'podcast_no_readable_articles'
+        assert calls == []
+        assert list(tmp_path.iterdir()) == [previous]
+    else:
+        assert state['error'] is None
+        assert (tmp_path / result).read_bytes() == b'complete audio'
+        if resuming:
+            assert result == 'frozen.mp3'

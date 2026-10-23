@@ -4356,6 +4356,10 @@
   "reader_show_history": "Mostrar tots (històric)",
   "reader_podcast_starting": "Iniciant generació…",
   "reader_podcast_in_progress": "Ja en curs…",
+  "reader_podcast_skipped_articles": "Articles no inclosos perquè no tenien contingut llegible ({{count}}): {{titles}}",
+  "reader_podcast_skipped_more": "; i {{count}} més",
+  "reader_podcast_untitled_article": "Article {{id}}",
+  "reader_podcast_no_readable_articles": "No s’ha pogut generar el resum d’àudio perquè cap dels articles seleccionats tenia contingut llegible.",
   "reader_podcast_error": "Error iniciant la generació del podcast.",
   "feed": {
     "updated_at": "Actualitzat el {{date}}",

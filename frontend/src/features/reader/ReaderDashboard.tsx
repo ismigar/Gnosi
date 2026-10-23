@@ -148,7 +148,24 @@ export default function ReaderDashboard() {
             setPodcastProgress(status.progress || '');
             if (status.running) return;
             stopPodcastGeneration();
-            if (status.error) toast.error(`${t('reader_podcast_error_prefix', 'Error')}: ${status.error}`);
+            const skippedArticles = Array.isArray(status.skipped_articles) ? status.skipped_articles : [];
+            if (skippedArticles.length > 0) {
+                const titles = skippedArticles.slice(0, 3).map((article) => {
+                    const title = article.title.trim() || t('reader_podcast_untitled_article', { id: article.id });
+                    return title.length > 100 ? `${title.slice(0, 100)}…` : title;
+                }).join('; ');
+                const more = skippedArticles.length > 3
+                    ? t('reader_podcast_skipped_more', { count: skippedArticles.length - 3 }) : '';
+                toast(t('reader_podcast_skipped_articles', {
+                    count: skippedArticles.length,
+                    titles: `${titles}${more}`,
+                }), { icon: '⚠️', duration: 10_000 });
+            }
+            if (status.error) {
+                const errorMessage = status.error === 'podcast_no_readable_articles'
+                    ? t('reader_podcast_no_readable_articles') : status.error;
+                toast.error(`${t('reader_podcast_error_prefix', 'Error')}: ${errorMessage}`);
+            }
             else if (status.result_filename) {
                 setGeneratedPodcastUrl(readerPodcastUrl(Date.now()));
                 await podcastInfoQuery.refetch();

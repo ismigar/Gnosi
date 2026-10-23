@@ -4326,6 +4326,10 @@
   "reader_show_history": "Show all (history)",
   "reader_podcast_starting": "Starting generation…",
   "reader_podcast_in_progress": "Already running…",
+  "reader_podcast_skipped_articles": "Articles not included because they had no readable content ({{count}}): {{titles}}",
+  "reader_podcast_skipped_more": "; and {{count}} more",
+  "reader_podcast_untitled_article": "Article {{id}}",
+  "reader_podcast_no_readable_articles": "The audio summary could not be generated because none of the selected articles had readable content.",
   "reader_podcast_error": "Error starting podcast generation.",
   "feed": {
     "updated_at": "Updated {{date}}",

@@ -458,3 +458,14 @@ imports. Alias/canonical duplicates are rejected; passwords, encoded delimiters,
 controls, paths and query parameters are not accepted in the alias. Existing
 article links survive normalization. Existing RSS and mailto inputs keep their
 semantics; this alias does not configure a mailbox account or credentials.
+
+### Podcast articles without readable text
+
+Podcast generation normalizes the full article body, then tries the feed summary
+if that body is empty. Articles with neither are omitted before synthesis; the
+remaining articles can still produce an episode. The status response exposes
+`skipped_articles` (IDs and titles), and the Reader displays a localized omission
+notice. This report is checkpointed per private job and is recomputed from the
+frozen input when resuming. If all articles are unreadable, generation returns
+`podcast_no_readable_articles` without synthesizing or replacing the previous
+MP3. The shared document synthesis guard remains strict for other operations.

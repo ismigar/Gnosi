@@ -4302,6 +4302,10 @@
   "reader_show_history": "Mostrar todos (histórico)",
   "reader_podcast_starting": "Iniciando generación…",
   "reader_podcast_in_progress": "Ya en curso…",
+  "reader_podcast_skipped_articles": "Artículos no incluidos porque no tenían contenido legible ({{count}}): {{titles}}",
+  "reader_podcast_skipped_more": "; y {{count}} más",
+  "reader_podcast_untitled_article": "Artículo {{id}}",
+  "reader_podcast_no_readable_articles": "No se ha podido generar el resumen de audio porque ninguno de los artículos seleccionados tenía contenido legible.",
   "reader_podcast_error": "Error iniciando la generación del podcast.",
   "feed": {
     "updated_at": "Actualizado el {{date}}",
