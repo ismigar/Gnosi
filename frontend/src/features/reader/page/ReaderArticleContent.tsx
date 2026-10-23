@@ -86,6 +86,19 @@ const ARTICLE_IFRAME_CSS = `
     }
     th, td { border: 1px solid #cbd5e1; padding: 0.5em 0.75em; text-align: left; vertical-align: top; }
     th { background: rgba(0,0,0,0.04); font-weight: 600; }
+    /* Email layout tables must not acquire data-table borders or compound spacing.
+       Keep semantic data tables styled even when embedded in a newsletter. */
+    table:is([role="presentation"], [role="none"], [border="0"], :has(table):not(:has(> caption, > thead, > tbody > tr > th, > tfoot > tr > th))),
+    table table:not(:has(th, thead, caption)) {
+        border: 0;
+        margin: 0;
+        font-size: inherit;
+    }
+    table:is([role="presentation"], [role="none"], [border="0"], :has(table):not(:has(> caption, > thead, > tbody > tr > th, > tfoot > tr > th))) > :is(thead, tbody, tfoot) > tr > :is(td, th),
+    table table:not(:has(th, thead, caption)) > :is(thead, tbody, tfoot) > tr > td {
+        border: 0;
+        padding: 0;
+    }
     hr { border: none; border-top: 1px solid #cbd5e1; margin: 2em 0; }
     figure { margin: 1em 0; }
     figcaption { font-size: 0.85em; color: #64748b; margin-top: 0.5em; text-align: center; }
