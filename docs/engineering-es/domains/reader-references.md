@@ -427,3 +427,82 @@ registro. Se rechazan duplicados entre ambos formatos y alias con contraseñas,
 delimitadores codificados, controles, rutas o parámetros. Se conservan los vínculos
 de artículos. Las entradas RSS y mailto existentes mantienen su comportamiento;
 el alias no configura una cuenta de correo ni credenciales.
+
+### Cobertura del día completo y artículos sin contenido
+
+El pódcast diario fija todos los artículos publicados durante las 24 horas
+anteriores, incluidos los ya leídos, y excluye los fechados en el futuro. Los
+reintentos conservan la selección, el período, el idioma y el nombre del archivo
+del trabajo principal privado, también en instantáneas antiguas sin recursos de
+comportamiento.
+
+La generación normaliza el cuerpo completo y después prueba el resumen del canal.
+Los artículos sin ninguno de los dos se omiten antes de la síntesis. El estado
+expone `skipped_articles` con identificadores y títulos; el Lector muestra un
+aviso localizado. Si ninguno es legible, `podcast_no_readable_articles` conserva
+el MP3 anterior. Los avisos pertenecen al trabajo y a sus entradas fijadas.
+
+`podcast_briefing.py` divide los originales completos en partes y lotes de hasta
+ocho partes. Cada parte contiene como máximo 10.000 tokens contados y debe
+producir una nota no vacía con una cita literal del original, un resumen de hasta
+400 caracteres y una cita de hasta 160. Las entradas ausentes, sobrantes o con
+citas incorrectas fallan antes de guardarse. Los puntos de recuperación privados
+y versionados no dependen de la memoria opcional de conversación del modelo.
+
+`podcast_outline.py` clasifica conjuntamente todas las tarjetas con sus resúmenes
+cuando la petición cabe en el límite de 80.000 tokens y en el contexto de la
+aplicación, con hasta 32 grupos editoriales. Las colecciones mayores utilizan una
+jerarquía acotada de hasta 48 tarjetas y 40.000 tokens por petición, respetando el
+contexto. Los campos obligatorios cubren cada identificador opaco. El servidor
+expande las fuentes, valida particiones exactas sin duplicados y conserva todos
+los asuntos de cada grupo.
+
+El redactor compone el episodio completo con todas las notas y grupos en un solo
+campo de narración. Los grupos provisionales no imponen límites separados de
+palabras ni impiden reunir noticias relacionadas. Los días con mucha actualidad
+tienen un objetivo de 1.380 palabras; las colecciones pequeñas tienen uno menor.
+El guion completo debe estar entre el 90 y el 109% del objetivo global antes de
+publicarse. Los recuentos exactos del servidor y los borradores del modelo guían
+reescrituras automáticas acotadas. El texto de longitud inválida no se guarda
+como narración válida, no se recorta ni se sustituye manualmente. Las evidencias
+demasiado grandes pasan por resúmenes internos recursivos de hasta 160 palabras,
+sin perder sus fuentes. Cada petición se comprueba contra el contexto actual,
+también durante las correcciones de longitud.
+
+`podcast_review.py` valida citas exactas del guion y de las evidencias antes de
+guardar objeciones semánticas. Las omisiones identifican evidencias; las
+distorsiones factuales requieren una afirmación citada y evidencias que la
+contradigan directamente. La ausencia en un lote no desmiente una noticia
+fundamentada en otro. Las notas de producción y las repeticiones citan el guion
+real. Otra pasada del modelo contrasta las objeciones y solo puede conservar las
+demostradas sin modificarlas. Las confirmaciones se dividen en lotes sin eliminar
+sus fuentes. Las omisiones reales sin resolver bloquean la publicación.
+
+Todas las notas completas se revisan frente a la narración entera en lotes
+acotados. La revisión del episodio comprueba también los asuntos minoritarios y
+las repeticiones. Hasta tres rondas completas de redacción y revisión corrigen
+las objeciones automáticamente. Solo la prosa para el oyente llega a la síntesis
+de voz: no se locutan etiquetas, evidencias, avisos de acceso ni instrucciones de
+producción. Los fallos, rechazos y cancelaciones conservan el audio anterior.
+
+`podcast-coverage-report`, versión 4, conserva el esquema, todas las notas, las
+asignaciones del servidor y el recuento de palabras. La cobertura estructural y
+las citas literales no prueban por sí solas la corrección semántica: la prueba
+real debe comparar el guion con todos los temas y matices y medir el MP3 respecto
+al objetivo aproximado de diez minutos.
+
+Las operaciones internas de planificación, resumen, redacción y revisión tienen
+300 segundos y 16.384 tokens de salida, incluido el razonamiento, salvo un límite
+explícito del perfil. Los contratos actuales acompañan las instantáneas antiguas;
+estas operaciones no utilizan delegación opcional. La planificación, redacción y
+resumen solo desactivan el razonamiento si los metadatos del proveedor lo declaran
+opcional y no existe una elección explícita en el perfil o cliente. Las revisiones
+mantienen el razonamiento habitual. Se conservan el modelo, las salvaguardas,
+preferencias de salida, límites de tiempo, ámbito autorizado y publicación atómica.
+
+El historial conserva los trabajos principales autorizados junto con las llamadas
+recientes, manteniendo su control de reanudación tras más de 50 llamadas internas.
+Nunca expone padres ausentes o de otro ámbito. Los metadatos exactos de contexto
+admiten modelos ausentes del registro; los límites explícitos tienen prioridad y
+los modelos desconocidos conservan el valor prudente. Las demás operaciones
+documentales mantienen sus protecciones.
