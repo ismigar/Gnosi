@@ -122,7 +122,7 @@ A macOS, feu servir `--resource-profile mac-idle` per a la validació local acot
 
 `pnpm lint:frontend` descobreix els fitxers amb el recorregut configurat d’ESLint i
 els comprova en lots de com a màxim 16 fitxers, amb processos nous i seqüencials.
-Cada procés conserva el servei de tipus durant com a màxim 384 fitxers. Després
+Cada procés conserva el servei de tipus durant com a màxim 192 fitxers. Després
 de cada lot, cedeix el control i recull la memòria temporal abans de continuar.
 La descoberta no analitza el codi ni omple la memòria cau de lint; només les
 comprovacions CLI posteriors poden acreditar l’èxit. Cada lot conserva totes les

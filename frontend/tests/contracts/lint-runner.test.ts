@@ -91,9 +91,9 @@ it.each(['.eslintcache', 'custom.cache'])('reuses %s across serial batches and r
   const first = readFileSync(join(fixture, 'rule-count.txt'), 'utf8');
   const processIds = first.split(',').filter(Boolean);
   expect(processIds).toHaveLength(385);
-  expect(new Set(processIds).size).toBe(2);
+  expect(new Set(processIds).size).toBe(3);
   const counts = [...new Set(processIds)].map(id => processIds.filter(value => value === id).length);
-  expect(counts.sort((left, right) => left - right)).toEqual([1, 384]);
+  expect(counts.sort((left, right) => left - right)).toEqual([1, 192, 192]);
   expect(run(environment).status).toBe(0);
   expect(readFileSync(join(fixture, 'rule-count.txt'), 'utf8')).toBe(first);
 }, 30_000);
@@ -129,16 +129,16 @@ it('executes type-aware rules with the project service across batches', () => {
       { files: ['**/*.ts'], extends: [ts.configs.strictTypeChecked],
         languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname } } });`);
   write('tsconfig.json', '{"compilerOptions":{"target":"ES2022","strict":true},"include":["*.ts"]}');
-  for (let index = 0; index < 128; index += 1) write(`safe${String(index).padStart(3, '0')}.ts`, 'export {};');
+  for (let index = 0; index < 256; index += 1) write(`safe${String(index).padStart(3, '0')}.ts`, 'export {};');
   write('typed.ts', 'Promise.resolve(1);');
   const result = run();
   expect(result.status, result.stderr).toBe(1);
-  expect(result.stdout).toContain('ESLint batch 9/9 (1 files)');
+  expect(result.stdout).toContain('ESLint batch 17/17 (1 files)');
   expect(result.stdout).toContain('@typescript-eslint/no-floating-promises');
   write('typed.ts', 'void Promise.resolve(1);');
   const fixed = run();
   expect(fixed.status, fixed.stderr).toBe(0);
-  expect(fixed.stdout).toContain('ESLint batch 9/9 (1 files)');
+  expect(fixed.stdout).toContain('ESLint batch 17/17 (1 files)');
 }, 30_000);
 
 it('invalidates content cache entries across batches and never caches discovery as success', () => {

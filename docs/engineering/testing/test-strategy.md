@@ -167,7 +167,7 @@ expected generated-catalog updates are the only excluded source differences.
 
 `pnpm lint:frontend` discovers files through ESLint's configured directory scan,
 then checks batches of at most 16 files through the installed CLI. Cold workers
-run serially, each handling at most 384 files before exiting. The
+run serially, each handling at most 192 files before exiting. The
 parser's normal project service remains available across those batches; an event-loop
 yield and explicit GC allow completed CLI state to be collected after each
 successful batch. Public parser caches are cleared once per worker on completion

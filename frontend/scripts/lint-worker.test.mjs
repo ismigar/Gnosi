@@ -116,7 +116,7 @@ test('cold workers preserve exact CLI coverage, environment and bounded parser l
                 if (workerCalls === 0) assert.equal(parserState, null);
                 else assert.equal(parserState, retainedState);
                 workerCalls += 1;
-                assert.ok(workerCalls <= 24);
+                assert.ok(workerCalls <= 12);
                 active = true;
                 parserState = retainedState;
                 assert.strictEqual(args, process.argv);
@@ -148,12 +148,12 @@ test('cold workers preserve exact CLI coverage, environment and bounded parser l
           },
           log: () => {},
         };
-        for (let startOffset = 0; startOffset < files.length; startOffset += 384) {
+        for (let startOffset = 0; startOffset < files.length; startOffset += 192) {
           assert.equal(await runLintWorker(files, { ...options, startOffset }), 0);
           assert.equal(parserState, null);
           assert.strictEqual(process.argv, originalArgv);
         }
-        assert.equal(loads, 7);
+        assert.equal(loads, 13);
         assert.equal(seen.length, 150);
         const consumed = [];
         for (let index = 0; index < seen.length; index += 1) {
@@ -166,8 +166,8 @@ test('cold workers preserve exact CLI coverage, environment and bounded parser l
         }
         assert.deepEqual(consumed, files);
         const expectedEvents = [];
-        for (let offset = 0; offset < files.length; offset += 384) {
-          const batches = Math.min(24, Math.ceil((files.length - offset) / 16));
+        for (let offset = 0; offset < files.length; offset += 192) {
+          const batches = Math.min(12, Math.ceil((files.length - offset) / 16));
           expectedEvents.push(...Array.from({ length: batches }, () => ['execute', 'yield', 'gc']).flat(), 'clear');
         }
         assert.deepEqual(events, expectedEvents);
@@ -221,7 +221,7 @@ test('throws and incompatible lifecycle APIs fail closed and restore argv', asyn
       gc: () => failAt('gc'),
       log: () => {},
     }), failure === 'status' ? /invalid exit status/ : failure === 'api' ? /requires CLI execution/ : new RegExp(`failed ${failure}`));
-    assert.equal(calls, failure === 'load' || failure === 'api' ? 0 : failure === 'clear' ? 24 : 1);
+    assert.equal(calls, failure === 'load' || failure === 'api' ? 0 : failure === 'clear' ? 12 : 1);
     assert.equal(clears, failure === 'load' || failure === 'api' ? 0 : 1);
     assert.strictEqual(process.argv, originalArgv);
   }
