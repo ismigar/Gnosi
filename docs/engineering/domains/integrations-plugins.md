@@ -451,3 +451,5 @@ although the resources application route currently uses the builtin switch.
 ## Website management
 
 The optional `web-publishing` capability adds a multi-site manager at `/websites` and vault-scoped `/api/vault/sites` operations. Editorial configuration is synchronized; private service state and credentials stay local or on the configured server. Sources require explicit public fields, body and attachments. Reviewed snapshots use Astro and Pagefind; contact forms, subscribers and newsletter queues use a separate PHP/SQLite service. Production and real delivery remain disabled during the Temenos pilot. See `extensions/web-publishing/README.md` for the deployment and testing contract.
+
+Catalogue validation errors remain visible without hiding existing websites or preventing manual-page editing. Publication still requires a successful review and unchanged source validation.

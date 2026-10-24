@@ -400,3 +400,5 @@ de recursos utiliza el interruptor del módulo integrado.
 ## Gestión de sitios web
 
 El complemento opcional `web-publishing` incorpora un gestor de varios sitios en `/websites` y operaciones por vault en `/api/vault/sites`. La configuración editorial se sincroniza; los datos privados y las credenciales permanecen en el dispositivo o servidor configurado. Los campos, cuerpos y adjuntos públicos requieren selección explícita. Las versiones revisadas se generan con Astro y Pagefind; formularios, suscriptores y colas de boletines usan un servicio PHP/SQLite separado. Producción y correo real siguen desactivados durante el piloto de Temenos. Consulte la `extensions/web-publishing/README.md`.
+
+Los errores de validación del catálogo se muestran sin ocultar los sitios existentes ni impedir editar páginas manuales. La publicación sigue exigiendo una revisión correcta y la validación de las fuentes.

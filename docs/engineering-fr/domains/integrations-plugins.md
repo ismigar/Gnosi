@@ -462,3 +462,5 @@ l’interrupteur du module intégré.
 ## Gestion de sites web
 
 La capacité facultative `web-publishing` ajoute un gestionnaire multisite dans `/websites` et des opérations par coffre dans `/api/vault/sites`. La configuration éditoriale est synchronisée; les données privées et les identifiants restent sur l’appareil ou le serveur configuré. Les champs, contenus et pièces jointes publics exigent une sélection explicite. Astro et Pagefind génèrent les versions approuvées; les formulaires, abonnés et files de newsletters utilisent un service PHP/SQLite distinct. La production et l’envoi réel restent désactivés pendant le pilote Temenos. Voir le `extensions/web-publishing/README.md`.
+
+Les erreurs de validation du catalogue restent visibles sans masquer les sites existants ni empêcher la modification des pages manuelles. La publication exige toujours une révision réussie et la validation des sources.

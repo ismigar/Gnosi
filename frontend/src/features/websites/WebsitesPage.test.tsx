@@ -4,6 +4,7 @@ import { mountTestComponent } from '../../../tests/mount-react';
 import { currentRequestContext } from '../../shared/api/request-context';
 import { dispatchWindowEvent } from '../../shared/platform/browser-events';
 import * as api from '../../shared/api/sites';
+import { GnosiApiError } from '../../shared/api/errors';
 import WebsitesPage from './WebsitesPage';
 
 vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget'].map(name => [name, vi.fn()])));
@@ -36,6 +37,20 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); });
 
 describe('Webs manager', () => {
+  it('loads existing websites despite a catalogue conflict and still refuses a failed publication review', async () => {
+    const conflict = new GnosiApiError(new Response(null, { status: 409 }), { detail: 'Duplicate note identities must be resolved before publication' });
+    vi.mocked(api.siteCatalogue).mockRejectedValue(conflict);
+    vi.mocked(api.previewSite).mockRejectedValue(conflict);
+    const view = mountTestComponent(<WebsitesPage />); await settle();
+    expect(control(view.container, 'websites.website').value).toBe(base.id);
+    expect(view.container.textContent).toContain(conflict.message);
+    expect(api.getSite).toHaveBeenCalledWith(base.id, context, expect.any(AbortSignal));
+    tab(view.container, 'publishing'); await settle();
+    act(() => { button(view.container, 'websites.reviewChanges').click(); }); await settle();
+    expect(button(view.container, 'websites.publishReviewed').disabled).toBe(true);
+    expect(api.publishSite).not.toHaveBeenCalled();
+  });
+
   it('keeps a new source and its fields private until explicitly selected and saves only the chosen field', async () => {
     const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'sources');
     act(() => { button(view.container, 'websites.addSource').click(); });

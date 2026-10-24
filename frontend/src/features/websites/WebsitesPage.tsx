@@ -72,10 +72,14 @@ function Session({ context }: { context: RequestContext }) {
 
   useEffect(() => {
     let active = true;
-    void Promise.all([request(signal => api.listSites(context, signal)), request(signal => api.siteCatalogue(context, signal))]).then(([items, available]) => {
-      if (!active) return; setSites(items); setCatalogue(available); setSaved(Object.fromEntries(items.map(site => [site.id, site])));
-      setDrafts(previous => Object.fromEntries(items.map(site => [site.id, previous[site.id] ?? site])));
-      setSelectedId(previous => items.some(site => site.id === previous) ? previous : items[0]?.id ?? '');
+    void Promise.allSettled([request(signal => api.listSites(context, signal)), request(signal => api.siteCatalogue(context, signal))]).then(([items, available]) => {
+      if (!active) return;
+      setCatalogue(available.status === 'fulfilled' ? available.value : []);
+      if (items.status === 'rejected') { setError(apiErrorDetail(items.reason, t('websites.loadFailed'))); return; }
+      setSites(items.value); setSaved(Object.fromEntries(items.value.map(site => [site.id, site])));
+      setDrafts(previous => Object.fromEntries(items.value.map(site => [site.id, previous[site.id] ?? site])));
+      setSelectedId(previous => items.value.some(site => site.id === previous) ? previous : items.value[0]?.id ?? '');
+      if (available.status === 'rejected') setError(apiErrorDetail(available.reason, t('websites.loadFailed')));
     }).catch((failure: unknown) => { if (active) setError(apiErrorDetail(failure, t('websites.loadFailed'))); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [context, refreshRevision, request, t]);

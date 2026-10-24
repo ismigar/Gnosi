@@ -52,7 +52,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2697 | 0 |
-| `features` | 1269 | 136666 | 55 |
+| `features` | 1269 | 136670 | 55 |
 | `generated` | 3 | 56679 | 584 |
 | `shared` | 347 | 37078 | 499 |
 
@@ -1346,7 +1346,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/websites/PrivatePanels.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PrivatePanels.tsx) | 121 | `CampaignsPanel`, `MessagesPanel`, `PrivateSettingsEditor`, `SubscribersPanel` | — |
 | [`frontend/src/features/websites/PublishingPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PublishingPanel.tsx) | 70 | `PublishingPanel` | — |
 | [`frontend/src/features/websites/SourcesEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/SourcesEditor.tsx) | 35 | `SourcesEditor` | — |
-| [`frontend/src/features/websites/WebsitesPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesPage.tsx) | 169 | `WebsitesPage`, `function` | — |
+| [`frontend/src/features/websites/WebsitesPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesPage.tsx) | 173 | `WebsitesPage`, `function` | — |
 | [`frontend/src/features/websites/components.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/components.tsx) | 42 | `Card`, `Empty`, `Field`, `FileImportButton`, `Input`, `ListInput`, `ReorderActions`, `Select`, `Textarea`, `Toggle` | — |
 | [`frontend/src/features/websites/helpers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/helpers.ts) | 19 | `escaped`, `filterValueText`, `moveItem`, `newId`, `safePreviewDocument`, `splitList` | — |
 | [`frontend/src/features/websites/serviceModels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/serviceModels.ts) | 38 | `count`, `decodeCampaignPreview`, `decodeCampaigns`, `decodeMessages`, `decodeQueue`, `decodeSubscribers`, `list`, `parseCsv`, `record`, `text` | — |
