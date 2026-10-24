@@ -511,9 +511,14 @@ respectant el context. Els camps obligatoris d'assignació cobreixen cada
 identificador opac. El servidor expandeix les fonts, valida particions exactes
 sense duplicats i conserva tots els assumptes de cada grup.
 
-El redactor compon l'episodi complet a partir de totes les notes i grups en un
-únic camp de narració. Els grups provisionals no imposen límits separats de
-paraules ni impedeixen reunir notícies relacionades. Els dies amb molta
+El redactor compon l'episodi complet amb totes les notes i grups. Si hi ha
+diversos grups, la resposta exigeix un paràgraf per a cada clau opaca i el
+servidor els uneix en l'ordre del pla, sense locutar claus ni metadades. Un
+paràgraf buit exigeix declarar explícitament que no té contingut editorial;
+les revisions de les fonts i del conjunt ho comproven igualment. Els camps
+obligatoris eviten perdre silenciosament un grup, però no demostren cobertura
+semàntica. Tots els paràgrafs comparteixen un pressupost global sense límits
+individuals de paraules. Els dies amb molta
 actualitat tenen un objectiu de 1.380 paraules; les col·leccions petites en tenen
 menys. El guió complet ha d'estar entre el 90 i el 109% de l'objectiu global abans
 de publicar-se. Els recomptes exactes del servidor i els esborranys del model

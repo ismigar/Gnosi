@@ -7,16 +7,16 @@ from math import ceil
 from typing import Any, TYPE_CHECKING
 
 from backend.services.agent_behavior import resource
-from backend.services.podcast_briefing import _object
+from backend.services.podcast_composition import schema as composition_schema, spoken_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from backend.services.podcast_briefing import _Briefing
 
-TEXT_SCHEMA = _object({"narration": {"type": "string", "minLength": 1}})
-
 
 def _request(context: _Briefing, phase: str, data: dict[str, Any], schema: dict[str, Any], **options: Any) -> Any:
+    if phase == "write" and data.get("composition_groups"):
+        options["composition_contract"] = resource("operations/podcast/composition-contract.md")
     return context.request("podcast.coverage." + phase, data, schema).model_copy(update={"options": {
         "automatic_contract": resource("operations/podcast/automatic-contract.md"), **options}})
 
@@ -49,6 +49,9 @@ def _write_episode(context: _Briefing, evidence: list[dict[str, Any]], outline: 
                    words: int, feedback: list[dict[str, Any]], previous_draft: str = "") -> dict[str, Any]:
     data: dict[str, Any] = {"topic": "Complete daily briefing", "briefs": evidence, "feedback": feedback,
         "subject_groups": [{"topic": t["topic"], "subjects": t.get("subjects", [t["topic"]])} for t in outline]}
+    if len(outline) > 1:
+        data["composition_groups"] = [{"key": f"group:{i}", "topic": group["topic"]}
+                                      for i, group in enumerate(data["subject_groups"])]
     if previous_draft:
         data["previous_draft"] = previous_draft
     options = {"min_words": ceil(words * .9), "max_words": int(words * 1.09), "target_words": words,
@@ -61,22 +64,22 @@ def _write_episode(context: _Briefing, evidence: list[dict[str, Any]], outline: 
 def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> Any:
     from backend.services.podcast_outline import _digest
     previous_draft = data.get("previous_draft")
-    request = _request(context, "write", data, TEXT_SCHEMA, **options)
+    request = _request(context, "write", data, composition_schema(data), **options)
     limit = min(80_000, context.budget)
     if context.cost(request) > limit and "previous_draft" in data:
         data = {k: v for k, v in data.items() if k != "previous_draft"}
-        request = _request(context, "write", data, TEXT_SCHEMA, **options)
+        request = _request(context, "write", data, composition_schema(data), **options)
     while context.cost(request) > limit:
         before = context.cost(request)
         records = _digest(context, data.get("briefs", data.get("digests", [])))
         data = {k: v for k, v in data.items() if k not in {"briefs", "digests"}}
         data["digests"] = records
-        request = _request(context, "write", data, TEXT_SCHEMA, **options)
+        request = _request(context, "write", data, composition_schema(data), **options)
         if context.cost(request) >= before:
             raise RuntimeError("podcast_theme_context_insufficient")
     if previous_draft and "previous_draft" not in data:
         restored = {**data, "previous_draft": previous_draft}
-        candidate = _request(context, "write", restored, TEXT_SCHEMA, **options)
+        candidate = _request(context, "write", restored, composition_schema(data), **options)
         if context.cost(candidate) <= limit:
             data, request = restored, candidate
     if "length_repair" in data and "previous_draft" not in data:
@@ -84,7 +87,7 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
         data = {**data, "length_repair": {k: v for k, v in state.items()
                 if k in {"target_words", "min_words", "max_words"}}}
         data["length_repair"]["mode"] = "fresh_composition"
-        request = _request(context, "write", data, TEXT_SCHEMA, **options)
+        request = _request(context, "write", data, composition_schema(data), **options)
     return request
 
 
@@ -93,7 +96,7 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
     previous = ""
     def checked(result: dict[str, Any]) -> None:
         nonlocal previous
-        previous = result["narration"]
+        previous = spoken_text(result, data)
         actual = len(previous.split())
         if not minimum <= actual <= maximum:
             direction = "Reduce" if actual > maximum else "Expand"
@@ -103,7 +106,8 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
                              "preserving every distinct subject and qualification; return the complete episode.")
     for attempt in range(3):
         try:
-            return context.stage(_write_request(context, data, options), checked)
+            result = context.stage(_write_request(context, data, options), checked)
+            return {"narration": spoken_text(result, data)}
         except ValueError as error:
             if not str(error).startswith("podcast_word_budget:") or attempt == 2:
                 raise

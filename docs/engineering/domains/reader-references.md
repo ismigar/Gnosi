@@ -486,9 +486,13 @@ cards and a 40,000-token/context bound per planning call. Required assignment
 fields cover every opaque card handle. The server expands source memberships,
 validates exact nonduplicated partitions and retains every child subject.
 
-The writer composes the complete episode from all briefs and subject groups in
-one narration field. Provisional group boundaries cannot impose separate word
-caps or prevent rearranging related stories. Broad news days target 1,380 spoken
+The writer composes the complete episode from all briefs and subject groups.
+For multiple groups, the response requires one spoken paragraph per opaque group
+key; the server joins them in plan order without voicing keys or metadata. An
+empty paragraph requires an explicit non-editorial declaration, independently
+checked by the unchanged source and whole-episode reviews. Required fields prevent
+silently dropping an entire planned group; they do not prove semantic coverage.
+Paragraphs share one global word budget with no individual word caps. Broad news days target 1,380 spoken
 words; sparse collections have a smaller budget. The complete script must fall
 within 90–109% of its global target before publication. Exact server word counts
 and previous model drafts drive bounded automatic rewrites; invalid-length prose

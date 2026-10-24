@@ -500,9 +500,13 @@ limite du contexte. Les champs obligatoires couvrent chaque identifiant opaque.
 Le serveur développe les sources, valide des partitions exactes sans doublons
 et conserve tous les sujets de chaque groupe.
 
-Le rédacteur compose l'épisode complet à partir de toutes les notes et de tous
-les groupes dans un seul champ de narration. Les groupes provisoires n'imposent
-pas de plafonds séparés de mots et permettent de rapprocher les informations.
+Le rédacteur compose l'épisode complet avec toutes les notes et tous les groupes.
+Pour plusieurs groupes, la réponse exige un paragraphe par clé opaque ; le
+serveur les assemble dans l'ordre du plan sans lire les clés ni les métadonnées.
+Un paragraphe vide exige une déclaration explicite d'absence de contenu éditorial,
+vérifiée par les contrôles des sources et de l'ensemble. Les champs obligatoires
+évitent la disparition silencieuse d'un groupe, sans prouver sa couverture
+sémantique. Tous partagent un budget global, sans plafond individuel de mots.
 Les journées riches en actualités visent 1 380 mots ; les petites collections
 ont un objectif inférieur. Le texte complet doit respecter 90 à 109 % de
 l'objectif global avant publication. Les comptes exacts du serveur et les

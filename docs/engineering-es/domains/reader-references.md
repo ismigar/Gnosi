@@ -457,9 +457,14 @@ contexto. Los campos obligatorios cubren cada identificador opaco. El servidor
 expande las fuentes, valida particiones exactas sin duplicados y conserva todos
 los asuntos de cada grupo.
 
-El redactor compone el episodio completo con todas las notas y grupos en un solo
-campo de narración. Los grupos provisionales no imponen límites separados de
-palabras ni impiden reunir noticias relacionadas. Los días con mucha actualidad
+El redactor compone el episodio completo con todas las notas y grupos. Con
+varios grupos, la respuesta exige un párrafo por clave opaca; el servidor los
+une en el orden del plan sin locutar claves ni metadatos. Un párrafo vacío
+exige declarar explícitamente que no tiene contenido editorial, algo que
+comprueban igualmente las revisiones de fuentes y del conjunto. Los campos
+obligatorios evitan perder un grupo silenciosamente, pero no demuestran su
+cobertura semántica. Todos comparten un presupuesto global sin límites de
+palabras individuales. Los días con mucha actualidad
 tienen un objetivo de 1.380 palabras; las colecciones pequeñas tienen uno menor.
 El guion completo debe estar entre el 90 y el 109% del objetivo global antes de
 publicarse. Los recuentos exactos del servidor y los borradores del modelo guían

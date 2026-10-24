@@ -17,6 +17,17 @@ def planned(cards, groups):
         for handle in group['part_ids']}}
 
 
+def written(request, text):
+    """Fake model transport uses the requested prose shape; assertions audit the result."""
+    groups = json.loads(request.input).get('data', {}).get('composition_groups', [])
+    if not groups:
+        return {'narration': text}
+    words = text.split()
+    return {'paragraphs': {g['key']: {
+        'text': ' '.join(words[len(words) * i // len(groups):len(words) * (i + 1) // len(groups)]),
+        'non_editorial': False} for i, g in enumerate(groups)}}
+
+
 @pytest.fixture
 def pipeline(monkeypatch):
     saved, calls = {}, []
@@ -59,7 +70,7 @@ def pipeline(monkeypatch):
             words = text.split()
             minimum = request.options.get('min_words', 0)
             text += ' Context.' * max(0, minimum - len(words))
-            result = {'narration': text.strip()}
+            result = written(request, text.strip())
         text = json.dumps(result)
         kwargs['output_validator'](text)
         return SimpleNamespace(result=text)
@@ -426,7 +437,7 @@ def test_unresolved_semantic_failure_never_publishes_coverage_report(pipeline):
     assert 'podcast-coverage-report' not in pipeline.saved
 
 
-def test_writer_schema_is_narration_only_and_planning_retains_every_child_subject(pipeline):
+def test_writer_requires_group_prose_and_planning_retains_every_child_subject(pipeline):
     sources = [{'id': str(i), 'title': f'Minority topic {i}', 'text': f'Evidence {i}'} for i in range(110)]
     pipeline.run(sources)
     report = pipeline.saved['podcast-coverage-report']
@@ -434,7 +445,9 @@ def test_writer_schema_is_narration_only_and_planning_retains_every_child_subjec
     for call in pipeline.calls:
         if call['task'].endswith('write'):
             assert 'automatic_contract' in call['_options']
-            assert set(call['_schema']['properties']) == {'narration'}
+            assert set(call['_schema']['properties']) == {'paragraphs'}
+            groups = call['data']['composition_groups']
+            assert set(call['_schema']['properties']['paragraphs']['required']) == {g['key'] for g in groups}
     assert any(c['task'].endswith('audit') and c['data'].get('whole_episode') for c in pipeline.calls)
 
 
@@ -504,16 +517,20 @@ def test_global_overshoot_is_rewritten_without_clipping_or_local_caps(pipeline):
             return pipeline.model(request, **kwargs)
         data = json.loads(request.input)['data']
         calls.append(data)
-        count = request.options['target_words'] if 'previous_draft' in data else 1587
-        text = json.dumps({'narration': 'word ' * count})
+        count = request.options['target_words'] if 'length_repair' in data else 1587
+        text = json.dumps(written(request, 'word ' * count))
         kwargs['output_validator'](text)
         return SimpleNamespace(result=text)
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
     result = pipeline.run([{'id': str(i), 'title': f'Subject {i}', 'text': 'Evidence'} for i in range(20)])
     assert len(result.split()) == 1380 and len(calls) == 2
-    assert calls[-1]['length_repair']['current_words'] == 1587
-    assert calls[-1]['length_repair']['word_delta'] == -207
-    assert len(calls[-1]['previous_draft'].split()) == 1587
+    state = calls[-1]['length_repair']
+    if state['mode'] == 'revise_draft':
+        assert state['current_words'] == 1587 and state['word_delta'] == -207
+        assert len(calls[-1]['previous_draft'].split()) == 1587
+    else:
+        assert state['mode'] == 'fresh_composition' and state['target_words'] == 1380
+        assert 'previous_draft' not in calls[-1] and 'word_delta' not in state
 
 
 def test_audit_confirmation_batches_findings_without_discarding_evidence():

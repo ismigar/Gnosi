@@ -23,8 +23,8 @@ def _mapping(value: Any) -> dict[str, Any]:
     return value.model_dump() if callable(getattr(value, "model_dump", None)) else {}
 
 
-def observe(value: Any) -> None:
-    state = _active.get()
+def observe(value: Any, *, state: dict[str, Any] | None = None) -> None:
+    state = state if state is not None else _active.get()
     if state is None:
         return
     payload = _mapping(value)
@@ -32,8 +32,10 @@ def observe(value: Any) -> None:
     usage = _mapping(response.get("usage"))
     if usage:
         state["raw_usage"] = usage
-        state["generation_id"] = str(response.get("id") or "")
-        state["actual_model"] = str(response.get("model") or state["model"])
+    if response.get("id"):
+        state["generation_id"] = str(response["id"])
+    if response.get("model"):
+        state["actual_model"] = str(response["model"])
 
 
 class ObservedStream:
@@ -61,7 +63,19 @@ class ObservedStream:
         return getattr(self.stream, name)
 
 
+def _observe_http_response(response: Any, *, state: dict[str, Any] | None = None) -> None:
+    """Inspect only already buffered bodies, without consuming live streams."""
+    if response is not None and getattr(response, "is_stream_consumed", False):
+        try:
+            observe(response.json(), state=state)
+        except (ValueError, RuntimeError):
+            pass
+
+
 def _observed_result(value: Any) -> Any:
+    if callable(getattr(value, "parse", None)) and not hasattr(value, "model_dump"):
+        _observe_http_response(getattr(value, "http_response", None))
+        return ObservedResource(value)
     observe(value)
     if not isinstance(value, (dict, str)) and not hasattr(value, "model_dump") and (hasattr(value, "__iter__") or hasattr(value, "__aiter__")):
         return ObservedStream(value)
@@ -90,14 +104,6 @@ class ObservedResource:
                 async def finish() -> Any:
                     return _observed_result(await result)
                 return finish()
-            if callable(getattr(result, "parse", None)) and not hasattr(result, "model_dump"):
-                raw_response = getattr(result, "http_response", None)
-                if raw_response is not None and getattr(raw_response, "is_stream_consumed", False):
-                    try:
-                        observe(raw_response.json())
-                    except (ValueError, RuntimeError):
-                        pass
-                return ObservedResource(result)
             return _observed_result(result)
         return call
 
@@ -202,17 +208,13 @@ class UsageCallback(BaseCallbackHandler):
     def on_llm_end(self, response: Any, *, run_id: Any, **kwargs: Any) -> None:
         self._finish(run_id, response)
     def on_llm_error(self, error: BaseException, *, run_id: Any, **kwargs: Any) -> None:
-        # The SDK can throw while parsing a structured response, before its
-        # completion reaches our transport wrapper. It retains the raw usage
-        # on LengthFinishReasonError.completion (including billed reasoning).
-        completion = _mapping(getattr(error, "completion", None))
-        if completion.get("usage"):
-            with self.lock:
-                state = self.pending.get(str(run_id))
-                if state is not None:
-                    state["raw_usage"] = _mapping(completion["usage"])
-                    state["generation_id"] = str(completion.get("id") or "")
-                    state["actual_model"] = str(completion.get("model") or self.model)
+        # SDK parse failures may retain a completion or a buffered HTTP
+        # response. Recover metadata by run ID even outside the call context.
+        with self.lock:
+            state = self.pending.get(str(run_id))
+            if state is not None:
+                observe(getattr(error, "completion", None), state=state)
+                _observe_http_response(getattr(error, "response", None), state=state)
         self._finish(run_id, result=kwargs.get("response"), error=error)
 
 
