@@ -80,6 +80,7 @@ extraResources:
       - "!**/*.map"
       - "!**/.cache/**"
       - "!**/.astro/**"
+      - "!**/.vite/**"
   - from: ../frontend/dist/
     to: frontend/dist/
     filter:

@@ -18,6 +18,41 @@ from backend.services.workspace_service import WorkspaceContext
 
 
 @pytest.mark.skipif(not (extension_root() / "renderer/node_modules/node/bin/node").is_file(), reason="Pinned renderer runtime must be prepared")
+def test_packaged_renderer_never_writes_to_sealed_dependency_cache(tmp_path, monkeypatch):
+    runtime = tmp_path / 'sealed-extension'
+    renderer = runtime / 'renderer'
+    renderer.mkdir(parents=True)
+    source = extension_root() / 'renderer'
+    for name in ('src', 'scripts', 'astro.config.mjs', 'package.json'):
+        (renderer / name).symlink_to(source / name, target_is_directory=(source / name).is_dir())
+    modules = renderer / 'node_modules'
+    modules.mkdir()
+    for package in (source / 'node_modules').iterdir():
+        if not package.name.startswith('.'):
+            (modules / package.name).symlink_to(package.resolve(), target_is_directory=package.is_dir())
+    sealed = modules / '.astro'
+    sealed.mkdir()
+    marker = sealed / 'signed-resource'
+    marker.write_text('must stay byte-identical')
+    sealed.chmod(0o555)
+    modules.chmod(0o555)
+    monkeypatch.setattr('backend.domains.sites.renderer.extension_root', lambda: runtime)
+    try:
+        site = SiteConfig(name='Sealed runtime')
+        site.pages = [SitePage(title='Public preview', path='/ca', enabled=True)]
+        output = tmp_path / 'public'
+        render_bundle(SiteBundle(site=site).model_dump(mode='json'), output)
+        assert (output / 'ca/index.html').is_file()
+        assert (output / 'pagefind/pagefind.js').is_file()
+        assert marker.read_text() == 'must stay byte-identical'
+        assert list(sealed.iterdir()) == [marker]
+        assert not (modules / '.vite').exists()
+    finally:
+        modules.chmod(0o755)
+        sealed.chmod(0o755)
+
+
+@pytest.mark.skipif(not (extension_root() / "renderer/node_modules/node/bin/node").is_file(), reason="Pinned renderer runtime must be prepared")
 def test_actual_astro_output_scopes_assets_and_forms_without_private_snapshot(tmp_path):
     site = SiteConfig(name="Example", origin="https://example.invalid")
     site.forms[0].enabled = True
