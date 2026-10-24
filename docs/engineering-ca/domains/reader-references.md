@@ -483,8 +483,82 @@ codificats, controls, camins o paràmetres. La normalització conserva els vincl
 dels articles. Les entrades RSS i mailto existents mantenen el comportament;
 l’àlies no configura cap compte de correu ni credencials.
 
-La generació omet els articles sense cos llegible ni resum. La resposta d’estat exposa `skipped_articles` amb identificadors i títols; si tots són il·legibles, `podcast_no_readable_articles` conserva l’MP3 anterior.
+### Cobertura del dia complet i articles sense contingut
 
-`podcast_briefing.py` divideix els originals complets en parts limitades i valida que cada resum contingui una citació original exacta abans de desar el checkpoint. `podcast_outline.py` agrupa els assumptes del dia en un màxim de dotze temes; cada crida de planificació conté com a màxim 48 fitxes compactes. El servidor conserva l’expansió dels identificadors i les proves.
+El pòdcast diari fixa tots els articles publicats durant les 24 hores anteriors,
+inclosos els ja llegits, i exclou els datats en el futur. Els reintents conserven
+la selecció, el període, l'idioma i el nom del fitxer dins del treball principal
+privat, també en captures antigues sense recursos de comportament.
 
-L’informe `podcast-coverage-report`, versió 4, conserva l’esquema global, els resums, les assignacions de secció i el recompte real de paraules narrades per auditar-los. Les particions han de ser exactes i sense duplicats; la revisió semàntica també ha de contrastar el guió amb els resums.
+La generació normalitza el cos complet de l'article i després prova el resum del
+canal. Els articles sense cap dels dos s'ometen abans de la síntesi. L'estat exposa
+`skipped_articles` amb identificadors i títols; el Lector mostra un avís localitzat.
+Si cap article és llegible, `podcast_no_readable_articles` conserva l'MP3 anterior.
+Els avisos corresponen exclusivament al treball i les seves entrades fixades.
+
+`podcast_briefing.py` divideix els originals complets en parts i lots de fins a
+vuit parts. Cada part té com a màxim 10.000 tokens comptats i ha de produir una
+nota no buida amb una cita literal de l'original, un resum de fins a 400 caràcters
+i una cita de fins a 160. Les entrades absents, sobrants o amb cites incorrectes
+fallen abans de desar-se. Els punts de recuperació privats i versionats no
+depenen de la memòria opcional de conversa del model.
+
+`podcast_outline.py` classifica conjuntament totes les targetes amb els seus
+resums quan la petició cap dins del límit de 80.000 tokens i del context de
+l'aplicació, amb un màxim de 32 grups editorials. Les col·leccions més grans fan
+servir una jerarquia acotada de fins a 48 targetes i 40.000 tokens per petició,
+respectant el context. Els camps obligatoris d'assignació cobreixen cada
+identificador opac. El servidor expandeix les fonts, valida particions exactes
+sense duplicats i conserva tots els assumptes de cada grup.
+
+El redactor compon l'episodi complet a partir de totes les notes i grups en un
+únic camp de narració. Els grups provisionals no imposen límits separats de
+paraules ni impedeixen reunir notícies relacionades. Els dies amb molta
+actualitat tenen un objectiu de 1.380 paraules; les col·leccions petites en tenen
+menys. El guió complet ha d'estar entre el 90 i el 109% de l'objectiu global abans
+de publicar-se. Els recomptes exactes del servidor i els esborranys del model
+guien reescriptures automàtiques acotades. Un text de longitud invàlida no es
+desa com a narració vàlida, no es retalla ni es substitueix manualment. Les
+evidències massa grans passen per resums interns recursius de fins a 160
+paraules, sense perdre les fonts. Cada petició es comprova contra el context
+actual, també durant les correccions de longitud.
+
+`podcast_review.py` valida cites exactes del guió i de les evidències abans de
+desar objeccions semàntiques. Les omissions identifiquen les evidències; les
+distorsions factuals exigeixen una afirmació citada i evidències que la
+contradiguin directament. L'absència en un lot no desmenteix una notícia
+fonamentada en un altre. Les notes de producció i les repeticions citen el guió
+real. Una altra passada del model contrasta les objeccions i només pot conservar
+les demostrades sense modificar-les. Les confirmacions es divideixen en lots
+sense eliminar-ne les fonts. Les omissions reals no resoltes bloquegen la
+publicació.
+
+Totes les notes completes es revisen contra la narració sencera en lots acotats.
+La revisió de l'episodi també comprova els assumptes minoritaris i les repeticions.
+Fins a tres rondes completes de redacció i revisió corregeixen les objeccions
+automàticament. Només la prosa per a l'oient arriba a la síntesi de veu; no es
+locuten etiquetes, evidències, avisos d'accés a fonts ni instruccions de producció.
+Les fallades, els rebutjos i la cancel·lació conserven l'àudio anterior.
+
+`podcast-coverage-report`, versió 4, conserva l'esquema, totes les notes, les
+assignacions del servidor i el recompte de paraules. La cobertura estructural i
+les cites literals no demostren per si soles la correcció semàntica: la prova real
+ha de comparar el guió amb tots els temes i matisos i mesurar l'MP3 respecte de
+l'objectiu aproximat de deu minuts.
+
+Les operacions internes de planificació, resum, redacció i revisió disposen de
+300 segons i 16.384 tokens de sortida, inclòs el raonament, tret que el perfil
+fixi un límit explícit. Els contractes actuals acompanyen les captures antigues;
+aquestes operacions no fan servir delegació opcional. La planificació, la
+redacció i el resum només desactiven el raonament si les metadades del proveïdor
+el declaren opcional i no hi ha cap elecció explícita al perfil o client. Les
+revisions mantenen el raonament habitual. Es conserven el model, les salvaguardes,
+les preferències de sortida, els límits de temps, l'àmbit autoritzat i la
+publicació atòmica de l'àudio.
+
+L'historial conserva els treballs principals autoritzats al costat de les crides
+recents, de manera que els treballs llargs mantenen el control de represa després
+de més de 50 crides internes. Mai no s'exposen pares absents o d'un altre àmbit.
+Les metadades exactes de context admeten models absents del registre; els límits
+explícits tenen prioritat i els models desconeguts mantenen el valor conservador.
+La resta d'operacions documentals conserva les seves proteccions.

@@ -40,14 +40,14 @@ def _review_theme(context: _Briefing, evidence: list[dict[str, Any]], narration:
     return list(dict.fromkeys(issues))
 
 
-def _write_theme(context: _Briefing, evidence: list[dict[str, Any]], topic: dict[str, Any],
-                 index: int, count: int, words: int, feedback: list[str]) -> dict[str, Any]:
-    minimum, maximum = ceil(words * .9), int(words * 1.2)
-    data: dict[str, Any] = {"topic": topic["topic"], "briefs": evidence, "feedback": feedback}
-    options = {"min_words": minimum, "max_words": maximum, "target_words": words,
-               "episode_opening": index == 0, "episode_closing": index == count - 1}
+def _write_episode(context: _Briefing, evidence: list[dict[str, Any]], outline: list[dict[str, Any]],
+                   words: int, feedback: list[str]) -> dict[str, Any]:
+    data: dict[str, Any] = {"topic": "Complete daily briefing", "briefs": evidence, "feedback": feedback,
+        "subject_groups": [{"topic": t["topic"], "subjects": t.get("subjects", [t["topic"]])} for t in outline]}
+    options = {"min_words": ceil(words * .9), "max_words": int(words * 1.09), "target_words": words,
+               "episode_opening": True, "episode_closing": True}
     result = _bounded_write(context, data, options)
-    return {"topic": topic["topic"], "part_ids": [b["part_id"] for b in evidence],
+    return {"topic": "Complete daily briefing", "part_ids": [b["part_id"] for b in evidence],
             "narration": result["narration"].strip()}
 
 
@@ -94,58 +94,19 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
 
 
 
-def _word_allocations(outline: list[dict[str, Any]], budget: int) -> list[int]:
-    # Reserve a short roundup for every group, then fund its distinct child subjects.
-    floor = min(30, budget // len(outline))
-    weights = [max(1, len(set(t.get("subjects", [t["topic"]])))) for t in outline]
-    total = sum(weights)
-    remaining = budget - floor * len(outline)
-    allocations = [floor + remaining * w // total for w in weights]
-    order = sorted(range(len(outline)), key=lambda i: -(remaining * weights[i] % total))
-    for index in order[:budget - sum(allocations)]:
-        allocations[index] += 1
-    return allocations
-
-
 def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[dict[str, Any]],
               progress: Callable[[str], None]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
     from backend.services.podcast_outline import TARGET_WORDS
     budget = TARGET_WORDS if len({b["source_id"] for b in briefs}) >= 20 else min(TARGET_WORDS, max(160, 65 * len(briefs)))
-    allocations = _word_allocations(outline, budget)
-    sections: list[dict[str, Any]] = []
-    for index, topic in enumerate(outline):
-        progress(f"Writing and reviewing daily briefing: {index + 1}/{len(outline)} topics")
-        evidence = [b for b in briefs if b["part_id"] in set(topic["part_ids"])]
-        feedback: list[str] = []
-        for attempt in range(3):
-            section = _write_theme(context, evidence, topic, index, len(outline), allocations[index], feedback)
-            issues = _review_theme(context, evidence, section["narration"])
-            if not issues:
-                break
-            feedback = [*feedback, *issues]
-        else:
-            raise ValueError("podcast_semantic_review_failed")
-        sections.append(section)
-    # Theme audits retain full evidence; this pass sees the complete subject ledger.
+    feedback: list[str] = []
     for attempt in range(3):
-        issues = _audit(context, {"whole_episode": True, "sections": sections,
-                                 "subjects": [t.get("subjects", [t["topic"]]) for t in outline]})
-        total = sum(len(s["narration"].split()) for s in sections)
-        if not issues and int(budget * .9) <= total <= int(budget * 1.09):
-            return sections, outline, budget
-        if attempt == 2:
-            raise ValueError("podcast_episode_review_failed")
-        if not int(budget * .9) <= total <= int(budget * 1.09):
-            adjusted = max(len(outline), round(sum(allocations) * budget / max(1, total)))
-            allocations = _word_allocations(outline, adjusted)
-            issues = [*issues, f"Server counted {total} episode words; rewrite toward {budget} with the adjusted section targets."]
-        revised = []
-        for index, topic in enumerate(outline):
-            evidence = [b for b in briefs if b["part_id"] in set(topic["part_ids"])]
-            section = _write_theme(context, evidence, topic, index, len(outline), allocations[index],
-                [*issues, "Previous complete episode: " + "\n\n".join(s["narration"] for s in sections)])
-            if _review_theme(context, evidence, section["narration"]):
-                raise ValueError("podcast_semantic_review_failed")
-            revised.append(section)
-        sections = revised
-    raise ValueError("podcast_episode_review_failed")
+        progress(f"Writing and reviewing complete daily briefing: pass {attempt + 1}/3")
+        section = _write_episode(context, briefs, outline, budget, feedback)
+        issues = _review_theme(context, briefs, section["narration"])
+        if not issues:
+            issues = _audit(context, {"whole_episode": True, "sections": [section],
+                                     "subjects": [t.get("subjects", [t["topic"]]) for t in outline]})
+        if not issues:
+            return [section], outline, budget
+        feedback = [*feedback, *issues, "Previous complete episode: " + section["narration"]]
+    raise ValueError("podcast_semantic_review_failed")

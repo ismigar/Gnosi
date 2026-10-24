@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 TARGET_WORDS = 1380
-MAX_TOPICS = 12
+MAX_TOPICS = 32
 
 
 def _request(context: _Briefing, task: str, data: dict[str, Any], schema: dict[str, Any], **options: Any) -> Any:
@@ -45,7 +45,7 @@ def _plan_request(context: _Briefing, cards: list[dict[str, Any]]) -> Any:
 def _planning_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
     # Route opaque card handles; expand original evidence IDs only on the server.
     return [{"topic": card["topic"], "subjects": card.get("subjects", [card["topic"]]),
-             "part_ids": [f"card:{i}"]} for i, card in enumerate(cards)]
+             "summary": card.get("summary", ""), "part_ids": [f"card:{i}"]} for i, card in enumerate(cards)]
 
 
 def _route(context: _Briefing, cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -68,7 +68,9 @@ def _route(context: _Briefing, cards: list[dict[str, Any]]) -> list[dict[str, An
 
 
 def _outline(context: _Briefing, briefs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    cards = [{"topic": b["topic"], "part_ids": [b["part_id"]]} for b in briefs]
+    cards = [{"topic": b["topic"], "summary": b["summary"], "part_ids": [b["part_id"]]} for b in briefs]
+    if context.cost(_plan_request(context, _planning_cards(cards))) <= min(80_000, context.budget):
+        return _route(context, cards)
     limit = min(40_000, context.budget)
     def fits(candidate: list[dict[str, Any]]) -> bool:
         return len(candidate) <= 48 and context.cost(_plan_request(context, _planning_cards(candidate))) <= limit

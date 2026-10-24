@@ -470,8 +470,84 @@ de passe, séparateurs encodés, caractères de contrôle, chemins ou paramètre
 refusés. Les liens des articles sont conservés. Les entrées RSS et mailto gardent
 leur comportement ; cet alias ne configure aucun compte ni identifiant de messagerie.
 
-La génération omet les articles sans corps lisible ni résumé. La réponse d’état expose `skipped_articles` avec les identifiants et titres ; si tous sont illisibles, `podcast_no_readable_articles` conserve le MP3 précédent.
+### Couverture de la journée complète et articles sans contenu
 
-`podcast_briefing.py` divise les originaux complets en parties bornées et vérifie que chaque résumé contient une citation originale exacte avant d’enregistrer le checkpoint. `podcast_outline.py` regroupe les sujets du jour en douze thèmes au maximum ; chaque appel de planification contient au plus 48 fiches compactes. Le serveur conserve l’expansion des identifiants et les preuves.
+Le podcast quotidien fige tous les articles publiés pendant les 24 heures
+précédentes, y compris ceux déjà lus, et exclut les articles datés dans le futur.
+Les nouvelles tentatives conservent la sélection, la période, la langue et le
+nom du fichier de la tâche principale privée, même pour les anciens instantanés
+sans ressources de comportement.
 
-Le rapport `podcast-coverage-report`, version 4, conserve le plan global, les résumés, les affectations aux sections et le nombre réel de mots prononcés pour l’audit. Les partitions doivent être exactes et sans doublons ; la révision sémantique doit aussi comparer le script aux résumés.
+La génération normalise le corps complet, puis essaie le résumé du flux. Les
+articles dépourvus des deux sont omis avant la synthèse. L'état expose
+`skipped_articles` avec identifiants et titres ; le Lecteur affiche un avis
+localisé. Si aucun article n'est lisible, `podcast_no_readable_articles` conserve
+le MP3 précédent. Les avis concernent uniquement la tâche et ses entrées figées.
+
+`podcast_briefing.py` découpe les originaux complets en parties et lots de huit
+parties au maximum. Chaque partie contient au plus 10 000 tokens comptés et doit
+produire une note non vide avec une citation exacte de l'original, un résumé de
+400 caractères au plus et une citation de 160 caractères au plus. Les entrées
+manquantes, supplémentaires ou mal citées échouent avant leur sauvegarde. Les
+points de reprise privés et versionnés ne dépendent pas de la mémoire facultative
+de conversation du modèle.
+
+`podcast_outline.py` classe ensemble toutes les fiches et leurs résumés lorsque
+la requête respecte la limite de 80 000 tokens et le contexte de l'application,
+avec au plus 32 groupes éditoriaux. Les collections plus grandes utilisent une
+hiérarchie bornée de 48 fiches et 40 000 tokens au maximum par requête, dans la
+limite du contexte. Les champs obligatoires couvrent chaque identifiant opaque.
+Le serveur développe les sources, valide des partitions exactes sans doublons
+et conserve tous les sujets de chaque groupe.
+
+Le rédacteur compose l'épisode complet à partir de toutes les notes et de tous
+les groupes dans un seul champ de narration. Les groupes provisoires n'imposent
+pas de plafonds séparés de mots et permettent de rapprocher les informations.
+Les journées riches en actualités visent 1 380 mots ; les petites collections
+ont un objectif inférieur. Le texte complet doit respecter 90 à 109 % de
+l'objectif global avant publication. Les comptes exacts du serveur et les
+brouillons du modèle guident des réécritures automatiques bornées. Un texte de
+longueur invalide n'est pas sauvegardé comme narration valide, tronqué ou remplacé
+manuellement. Les preuves trop volumineuses utilisent des résumés internes
+récursifs de 160 mots au maximum, conservant toutes les sources. Chaque requête
+est vérifiée par rapport au contexte actuel, y compris les corrections de longueur.
+
+`podcast_review.py` valide les citations exactes du texte et des preuves fournies
+avant de sauvegarder les objections sémantiques. Les omissions identifient les
+preuves ; les déformations factuelles exigent une affirmation citée et une preuve
+qui la contredit directement. L'absence dans un lot ne réfute pas une information
+étayée dans un autre. Les notes de production et répétitions citent le texte réel.
+Un autre passage du modèle confronte les objections et ne peut conserver que les
+objets démontrés, sans les modifier. Les confirmations sont réparties en lots
+sans retirer leurs sources. Les omissions réelles non résolues bloquent la
+publication.
+
+Toutes les notes complètes sont comparées à la narration entière en lots bornés.
+La révision de l'épisode vérifie également les sujets minoritaires et répétitions.
+Jusqu'à trois cycles complets de rédaction et révision corrigent les objections
+automatiquement. Seule la prose destinée à l'auditeur atteint la synthèse vocale ;
+les étiquettes, preuves, avis d'accès aux sources et instructions de production
+ne sont pas prononcés. Les échecs, refus et annulations conservent l'audio précédent.
+
+`podcast-coverage-report`, version 4, conserve le plan, toutes les notes, les
+affectations du serveur et le nombre de mots. La couverture structurelle et les
+citations exactes ne prouvent pas seules la justesse sémantique : la vérification
+réelle doit comparer le texte à tous les thèmes et nuances et mesurer le MP3 par
+rapport à l'objectif d'environ dix minutes.
+
+Les opérations internes de planification, résumé, rédaction et révision disposent
+de 300 secondes et 16 384 tokens de sortie, raisonnement inclus, sauf limite
+explicite du profil. Les contrats actuels accompagnent les anciens instantanés ;
+ces opérations n'utilisent pas de délégation facultative. Planification, rédaction
+et résumé ne désactivent le raisonnement que si les métadonnées du fournisseur le
+déclarent facultatif et si aucun choix explicite du profil ou client ne s'applique.
+Les révisions conservent le raisonnement habituel. Le modèle, les protections,
+préférences de sortie, délais, périmètre autorisé et publication atomique sont
+préservés.
+
+L'historique conserve les tâches principales autorisées avec les appels récents,
+maintenant leur commande de reprise après plus de 50 appels internes. Les parents
+absents ou hors périmètre ne sont jamais exposés. Les métadonnées exactes de
+contexte prennent en charge les modèles absents du registre ; les limites
+explicites priment et les modèles inconnus conservent la valeur prudente. Les
+autres opérations documentaires gardent leurs protections.
