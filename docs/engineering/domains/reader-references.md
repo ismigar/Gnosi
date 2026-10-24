@@ -461,84 +461,77 @@ semantics; this alias does not configure a mailbox account or credentials.
 
 ### Whole-day podcast coverage and unreadable articles
 
-The daily podcast selects all articles published within the preceding 24 hours,
-including articles already marked as read, and excludes future-dated articles.
-The original selection, period boundaries, language and output filename are
-frozen for the private parent job, including older snapshots without behavior
-resources. Retrying does not silently change the source collection or language.
+The daily podcast freezes all articles published within the preceding 24 hours,
+including articles already read and excluding future-dated entries. Retries keep
+the original selection, period, language and filename under the private parent
+job, including older snapshots without behavior resources.
 
-Generation normalizes the full article body, then tries the feed summary if that
-body is empty. Articles with neither are omitted before synthesis. The status
-response exposes `skipped_articles` (IDs and titles), and the Reader displays a
-localized omission notice. The report is scoped to the job and recomputed from
-its frozen inputs. If every article is unreadable, `podcast_no_readable_articles`
-leaves the previous MP3 intact.
+Generation normalizes the complete article body, then tries its feed summary.
+Articles with neither are omitted before synthesis. The status exposes
+`skipped_articles` with IDs and titles; the Reader shows a localized omission
+notice. If every article is unreadable, `podcast_no_readable_articles` preserves
+the previous MP3. Omission reports are scoped to the job and its frozen inputs.
 
-`podcast_briefing.py` divides complete originals into bounded parts and extraction
-batches. Each part must produce a nonempty brief with an exact original quote;
-missing, extra or wrongly quoted entries fail validation before checkpointing.
-Validated briefs have versioned private checkpoints, independent of optional
-model conversation memory. `podcast_outline.py` groups compact subjects across the
-whole day into at most twelve themes, so distant duplicate reports share a theme.
-Planning calls contain at most 48 compact cards with opaque handles. Original
-source-ID expansion stays on the server; hierarchical merging never asks the
-model to repeat hundreds of IDs and never drops evidence.
-Each theme receives an equal share of a 1,380-word episode budget on broad news
-days; sparse collections use a smaller budget. Duplicate-heavy feeds cannot crowd
-out minority themes. The writer merges repeated events and summarizes distinct
-minor developments within each theme. Oversized theme evidence uses recursive, context-bounded
-internal digest calls, each returning at most 160 words in one combined section. Every stage is durable and independently context-checked.
+`podcast_briefing.py` splits complete originals into bounded parts and extraction
+batches of at most eight. Each part is at most 10,000 counted tokens and must
+produce a nonempty brief with an exact original quote, a summary of at most 400
+characters and a quote of at most 160 characters. Missing, extra or incorrectly
+quoted entries fail before checkpointing. Versioned private checkpoints do not
+depend on optional model conversation memory.
 
-Spoken word counts are validated against each theme's hard range (90–109% of its
-allocation) and the complete episode's ceiling before publication. Invalid prose
-gets the operation's existing bounded validation retry; it is never truncated.
-Only narration reaches speech synthesis. Internal labels, evidence and production
-instructions are not voiced. `podcast-coverage-report` version 4 retains the global
-outline, briefs, section assignments and actual spoken word count for audit.
-Part IDs must form exact, nonduplicated partitions within themes and across the
-whole day. This structural partition is not semantic proof: live verification must
-also compare the script against the briefs for distinct themes and qualifications,
-and measure the generated audio against the approximately ten-minute target.
+`podcast_outline.py` classifies all summary-aware cards together when the request
+fits the 80,000-token/application-context bound, producing up to 32 editorial
+groups. Larger collections use bounded hierarchical routing with at most 48
+cards and a 40,000-token/context bound per planning call. Required assignment
+fields cover every opaque card handle. The server expands source memberships,
+validates exact nonduplicated partitions and retains every child subject.
 
-Extraction groups at most eight complete source parts per request, with at most
-10,000 counted tokens per part, 400 summary characters and 160 quote characters.
-Planning, digest and concise narration calls have a 300-second allowance and 16,384
-output tokens including provider reasoning. Explicit options carry the current
-concise contract even under older frozen snapshots. Only the first/last theme
-opens/closes the episode. These internal calls do not use optional team handoff.
-Explicit profile output choices remain intact. The principal agent and scoped
-atomic audio publication remain shared with the rest of the application. Failed
-or cancelled work cannot replace the previous episode.
+The writer composes the complete episode from all briefs and subject groups in
+one narration field. Provisional group boundaries cannot impose separate word
+caps or prevent rearranging related stories. Broad news days target 1,380 spoken
+words; sparse collections have a smaller budget. The complete script must fall
+within 90–109% of its global target before publication. Exact server word counts
+and previous model drafts drive bounded automatic rewrites; invalid-length prose
+is not checkpointed as valid narration, clipped or manually substituted.
+Oversized evidence uses recursive context-bounded internal digests of at most
+160 words, retaining all source memberships. Every request is checked against
+its current context budget, including length repairs.
 
-Execution history keeps the authorized parent of each recent child call alongside
-the bounded recent-call window. A long briefing therefore retains its job-level
-resume control after more than 50 internal calls; missing or foreign-scope parents
-are never exposed.
+`podcast_review.py` validates exact narration and supplied-evidence quotes for
+semantic objections before checkpointing. Omission findings identify evidence;
+factual distortions require a quoted draft claim and positive contradicting
+evidence. Absence from one source batch cannot disprove a story supported in
+another. Production notes and duplicate accounts quote the actual draft.
+A separate model pass contrasts proposed findings and may retain only unchanged,
+demonstrated objections. Confirmation requests batch findings without dropping
+their source evidence. Genuine unresolved omissions remain blocking.
 
-Agent models absent from the routing registry use exact provider/model catalog
-context metadata. Unknown models retain the small fallback, and explicit registry
-limits take priority. Other document operations retain their existing guards.
+All full briefs are reviewed against the complete narration in bounded evidence
+batches. The whole-episode pass also checks the subject ledger for minority
+omissions and repeated accounts. Up to three complete writing/review rounds
+correct findings automatically. Only listener-facing narration reaches speech
+synthesis; labels, evidence, source-access notices and production instructions
+are not voiced. Failures, refusals and cancellation preserve the previous audio.
 
-Automatic narration v2 retains the child-subject ledger through hierarchical
-planning. Writers return only narration; the server owns section IDs. Separate
-bounded audits compare every brief with its narration and review the whole
-episode for missing subjects, contradictions and repetition. Up to three rounds
-correct findings automatically; unresolved defects fail before publication. A
-new frozen contract/schema excludes earlier editorial checkpoints. The selected
-profile and provider safeguards remain intact. Timeouts/refusals fail explicitly
-instead of permitting omitted themes or externally authored scripts.
+`podcast-coverage-report` version 4 retains the outline, all briefs, server-owned
+section assignments and spoken word count. Structural coverage and literal
+quotation alone are not semantic proof: live verification must compare the final
+script with all source themes/qualifications and measure the actual MP3 against
+the approximately ten-minute target.
 
-Planning v2 returns one required assignment field per opaque card and a fixed
-label array. Source memberships are constructed on the server; model-authored
-ID lists can no longer omit or duplicate a card. Internal planning, writing and
-digest operations use reasoning off only when provider metadata explicitly
-declares optional reasoning and the profile/effective client has no explicit
-reasoning or native thinking choice. Effort selection remains separate; missing
-effort metadata never invents a low setting. Semantic audits retain their normal
-reasoning. No model route, safeguard, output choice or timeout is changed.
+Internal planning, digest, writing and audit calls use a 300-second allowance and
+16,384 output tokens including provider reasoning unless the profile explicitly
+chooses an output limit. Current contracts accompany resumed older snapshots;
+these internal operations do not use optional team handoff. Planning, writing and
+digest use reasoning off only when provider metadata explicitly declares it
+optional and the profile/effective client has no reasoning/native-thinking choice.
+Semantic audits retain normal reasoning. No model route, provider safeguard,
+explicit output preference or timeout is overridden. Principal/scope checks and
+atomic audio publication remain shared with the application.
 
-Word-budget failures trigger bounded automatic rewrites with the server’s exact count and the previous model draft. Invalid-length prose is neither checkpointed as valid narration nor published; semantic audits still run after the rewrite.
-
-The episode word budget is shared according to each group’s distinct child subjects, with a minimum allocation for short roundups. Broad groups receive more words; repeated identical child subjects do not inflate their share. Allocation preserves the exact global budget through integer remainder distribution.
-
-Semantic objections carry exact supplied narration and evidence quotes, validated before checkpointing and independently contrasted by a second model pass before requesting a rewrite. False objections are discarded automatically; genuine omissions remain blocking. Per-block length tolerance is wider than the strict episode budget; systematic overshoot triggers proportional target adjustment and re-review of the full episode.
+Execution history retains authorized parents alongside recent child calls, so
+long jobs keep their resume control after more than 50 internal calls. Missing or
+foreign-scope parents are never exposed. Exact provider/model context metadata
+supports models absent from the routing registry; explicit registry limits take
+priority and unknown models retain the small fallback. Other document operations
+retain their existing guards.
