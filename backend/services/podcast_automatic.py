@@ -12,8 +12,6 @@ if TYPE_CHECKING:
     from backend.services.podcast_briefing import _Briefing
 
 TEXT_SCHEMA = _object({"narration": {"type": "string", "minLength": 1}})
-ISSUE_SCHEMA = _object({"issues": {"type": "array", "maxItems": 32,
-    "items": {"type": "string", "minLength": 1, "maxLength": 500}}})
 
 
 def _request(context: _Briefing, phase: str, data: dict[str, Any], schema: dict[str, Any], **options: Any) -> Any:
@@ -22,17 +20,18 @@ def _request(context: _Briefing, phase: str, data: dict[str, Any], schema: dict[
 
 
 def _audit(context: _Briefing, data: dict[str, Any]) -> list[str]:
-    request = _request(context, "audit", data, ISSUE_SCHEMA)
-    result = context.stage(request, lambda r: None)
-    return list(result["issues"])
+    from backend.services.podcast_review import review
+    return review(context, data, _request)
 
 
 def _review_theme(context: _Briefing, evidence: list[dict[str, Any]], narration: str) -> list[str]:
+    from backend.services.podcast_review import _schema
     batches: list[list[dict[str, Any]]] = [[]]
     for brief in evidence:
         candidate = [*batches[-1], brief]
-        request = _request(context, "audit", {"briefs": candidate, "narration": narration}, ISSUE_SCHEMA)
-        if batches[-1] and (len(candidate) > 32 or context.cost(request) > min(80_000, context.budget)):
+        data = {"briefs": candidate, "narration": narration}
+        request = _request(context, "audit", data, _schema(data))
+        if batches[-1] and (len(candidate) > 32 or context.cost(request) > min(80_000, context.budget) - 4096):
             batches.append([])
         batches[-1].append(brief)
     issues = []
@@ -43,7 +42,7 @@ def _review_theme(context: _Briefing, evidence: list[dict[str, Any]], narration:
 
 def _write_theme(context: _Briefing, evidence: list[dict[str, Any]], topic: dict[str, Any],
                  index: int, count: int, words: int, feedback: list[str]) -> dict[str, Any]:
-    minimum, maximum = ceil(words * .9), int(words * 1.09)
+    minimum, maximum = ceil(words * .9), int(words * 1.2)
     data: dict[str, Any] = {"topic": topic["topic"], "briefs": evidence, "feedback": feedback}
     options = {"min_words": minimum, "max_words": maximum, "target_words": words,
                "episode_opening": index == 0, "episode_closing": index == count - 1}
@@ -136,8 +135,10 @@ def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[di
             return sections, outline, budget
         if attempt == 2:
             raise ValueError("podcast_episode_review_failed")
-        if not issues:
-            issues = ["Rewrite the episode within the overall word budget, preserving all distinct subjects."]
+        if not int(budget * .9) <= total <= int(budget * 1.09):
+            adjusted = max(len(outline), round(sum(allocations) * budget / max(1, total)))
+            allocations = _word_allocations(outline, adjusted)
+            issues = [*issues, f"Server counted {total} episode words; rewrite toward {budget} with the adjusted section targets."]
         revised = []
         for index, topic in enumerate(outline):
             evidence = [b for b in briefs if b["part_id"] in set(topic["part_ids"])]

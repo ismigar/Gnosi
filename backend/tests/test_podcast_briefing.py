@@ -387,7 +387,10 @@ def test_automatic_audit_repairs_source_note_and_request_certainty_without_manua
             text += ' Context.' * (request.options['min_words'] - len(text.split()))
             result = {'narration': text}
         elif request.operation.endswith('audit') and not data.get('whole_episode'):
-            result = {'issues': ['Requested is not granted; remove spoken source-access note.']
+            result = {'issues': [{'kind': 'distortion', 'detail': 'Requested is not granted; remove spoken source-access note.',
+                       'narration_quotes': ['The requested extension was granted.'],
+                       'source_part_ids': [data['briefs'][0]['part_id']],
+                       'evidence_quote': 'The party requests an extension.'}]
                       if 'was granted' in data['narration'] else []}
         else:
             return pipeline.model(request, **kwargs)
@@ -405,7 +408,10 @@ def test_unresolved_semantic_failure_never_publishes_coverage_report(pipeline):
     def model(request, **kwargs):
         if not request.operation.endswith('audit'):
             return pipeline.model(request, **kwargs)
-        text = json.dumps({'issues': ['Distinct minority subject is absent.']})
+        data = json.loads(request.input)['data']
+        text = json.dumps({'issues': [{'kind': 'omission', 'detail': 'Distinct minority subject is absent.',
+            'narration_quotes': [], 'source_part_ids': [data['briefs'][0]['part_id']],
+            'evidence_quote': data['briefs'][0]['quote']}]})
         kwargs['output_validator'](text)
         return SimpleNamespace(result=text)
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
@@ -446,3 +452,77 @@ def test_routing_requires_exactly_one_typed_assignment_for_every_source(pipeline
     with pytest.raises(briefing.jsonschema.ValidationError):
         pipeline.run([{'id': str(i), 'title': f'Topic {i}', 'text': f'Evidence {i}'} for i in range(3)])
     assert 'podcast-coverage-report' not in pipeline.saved
+
+
+@pytest.mark.parametrize('changed', ['narration', 'evidence', 'confirmation'])
+def test_audit_cannot_invent_quoted_passages_or_change_confirmed_finding(changed):
+    from backend.services.podcast_review import _validate
+    data = {'narration': 'The party requests an extension.', 'briefs': [
+        {'part_id': 'a:0', 'quote': 'The party requests an extension.'}]}
+    finding = {'kind': 'distortion', 'detail': 'Check certainty.',
+               'narration_quotes': ['The party requests an extension.'],
+               'source_part_ids': ['a:0'], 'evidence_quote': 'The party requests an extension.'}
+    if changed == 'narration':
+        finding['narration_quotes'] = ['Rosalia performs amid smoke and gunfire.']
+    elif changed == 'evidence':
+        finding['evidence_quote'] = 'A ruling granted the extension.'
+    else:
+        data['candidate_findings'] = []
+    with pytest.raises(ValueError, match='podcast_audit_'):
+        _validate({'issues': [finding]}, data)
+
+
+def test_false_absence_claim_is_contrasted_before_automatic_rewrite(pipeline):
+    def model(request, **kwargs):
+        data = json.loads(request.input)['data']
+        if not request.operation.endswith('audit') or data.get('whole_episode'):
+            return pipeline.model(request, **kwargs)
+        issues = [] if 'candidate_findings' in data else [{
+            'kind': 'omission', 'detail': 'The extension request is missing.',
+            'narration_quotes': [], 'source_part_ids': [data['briefs'][0]['part_id']],
+            'evidence_quote': data['briefs'][0]['quote']}]
+        text = json.dumps({'issues': issues});kwargs['output_validator'](text)
+        pipeline.calls.append({'task': request.operation, 'data': data})
+        return SimpleNamespace(result=text)
+    pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
+    text = pipeline.run([{'id': 'a', 'title': 'Extension request', 'text': 'The party requests an extension.'}])
+    assert 'Extension request' in text
+    assert len([c for c in pipeline.calls if c['task'].endswith('write')]) == 1
+    assert any('candidate_findings' in c['data'] for c in pipeline.calls)
+
+
+def test_systematic_local_overshoot_is_automatically_rebalanced_globally(pipeline):
+    targets = []
+    def model(request, **kwargs):
+        if not request.operation.endswith('write'):
+            return pipeline.model(request, **kwargs)
+        targets.append(request.options['target_words'])
+        text = json.dumps({'narration': 'word ' * int(request.options['target_words'] * 1.15)})
+        kwargs['output_validator'](text)
+        return SimpleNamespace(result=text)
+    pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
+    result = pipeline.run([{'id': str(i), 'title': f'Subject {i}', 'text': 'Evidence'} for i in range(20)])
+    report = pipeline.saved['podcast-coverage-report']
+    assert report['word_budget'] == 1380 and 1242 <= len(result.split()) <= 1504
+    count = len(report['outline'])
+    assert len(targets) > count and sum(targets[-count:]) < sum(targets[:count])
+
+
+def test_audit_confirmation_batches_findings_without_discarding_evidence():
+    from backend.services.podcast_review import _confirm, _schema
+    data = {'narration': 'A supported headline.', 'briefs': [{'part_id': 'a:0', 'quote': 'Evidence.'}]}
+    findings = [{'kind': 'omission', 'detail': str(i), 'narration_quotes': [],
+                 'source_part_ids': ['a:0'], 'evidence_quote': 'Evidence.'} for i in range(5)]
+    calls = []
+    class Context:
+        budget = 1000
+        def cost(self, value):
+            return 400 + 300 * len(value['candidate_findings'])
+        def stage(self, value, validate):
+            assert value['briefs'] == data['briefs'] and self.cost(value) <= self.budget
+            calls.append(value)
+            result = {'issues': value['candidate_findings']}
+            validate(result)
+            return result
+    result = _confirm(Context(), data, findings, lambda context, phase, value, schema: value, _schema(data))
+    assert result == findings and [len(c['candidate_findings']) for c in calls] == [2, 2, 1]
