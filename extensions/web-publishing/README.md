@@ -10,7 +10,7 @@ The editor uses Gnosi’s regular authenticated API at `/api/vault/sites` (also 
 npm ci --prefix extensions/web-publishing/renderer --no-audit --no-fund
 ```
 
-The pinned Node executable is included by that package and is used for construction. Desktop packaging prepares and verifies the host architecture automatically, then includes the renderer/service outside the application archive. PHP with PDO SQLite, DOM and OpenSSL is required for the private service and local PHP preview. Destination probes report missing runtime capabilities.
+The pinned Node executable is included by that package and is used for construction. Astro and Vite caches belong to each private temporary build directory; the installed dependencies and signed application remain immutable. Desktop packaging prepares and verifies the host architecture automatically, then includes the renderer/service outside the application archive. PHP with PDO SQLite, DOM and OpenSSL is required for the private service and local PHP preview. Destination probes report missing runtime capabilities.
 
 ## Editorial and private state
 
