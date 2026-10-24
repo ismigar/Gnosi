@@ -18,6 +18,7 @@ export const applicationRouteLoaders = {
   contacts: () => import('../features/contacts/ContactsPage'),
   resources: () => import('../features/literature/LiteraturePage'),
   planning: () => import('../features/planning/ProjectPlanningPage'),
+  websites: () => import('../features/websites/WebsitesPage'),
   document: () => import('../features/reader/zotero/ZoteroReaderTab')
     .then(module => ({ default: module.ZoteroReaderPage })),
 };

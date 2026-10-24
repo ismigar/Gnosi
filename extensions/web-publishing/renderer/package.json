@@ -1,0 +1,21 @@
+{
+  "name": "gnosi-web-renderer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  },
+  "dependencies": {
+    "astro": "7.4.2",
+    "pagefind": "1.5.2",
+    "sanitize-html": "2.18.1",
+    "postcss": "8.5.31"
+  },
+  "devDependencies": {
+    "node": "22.23.4"
+  }
+}

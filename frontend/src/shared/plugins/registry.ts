@@ -23,6 +23,7 @@ export const BUILTIN_PLUGINS: readonly BuiltinPluginDefinition[] = [
     { id: 'tags-page', name: 'Tags page', description: 'Index of every vault tag with counts and navigation.', icon: 'Hash', group: 'vault', requires: [], routes: [] },
     { id: 'page-comments', name: 'Comments', description: 'Per-page comment threads.', icon: 'MessageSquare', group: 'vault', requires: [], routes: [] },
     { id: 'share-links', name: 'External sharing', description: 'Public read-only links for pages.', icon: 'Share2', group: 'vault', requires: [], routes: [] },
+    { id: 'web-publishing', name: 'Websites', description: 'Publish websites, configure appearance and contact forms, and manage subscribers and newsletters.', icon: 'Globe', group: 'connections', settingsTab: 'websites', requires: [], routes: ['/websites'] },
     { id: 'canvas-cards', name: 'Canvas cards', description: 'Embed pages as live cards on the drawing canvas.', icon: 'LayoutDashboard', group: 'vault', requires: [], routes: [] },
     { id: 'web-clipper', name: 'Web Clipper', description: 'Save web pages from the browser into the Vault.', icon: 'Scissors', group: 'connections', settingsTab: 'web-clipper', requires: [], routes: [] },
     { id: 'project-planning', name: 'Project planning', description: 'Durations, predecessors, work calendars and resource planning.', icon: 'CalendarRange', group: 'knowledge', settingsTab: 'project-planning', requires: [], routes: ['/planning'] },
@@ -61,6 +62,7 @@ export function pluginForPath(pathname: string): string | null {
         social: 'social-publishing',
         media: 'social-publishing',
         notebooks: 'grounded-notebooks',
+        websites: 'web-publishing',
         automations: 'automations',
     };
     if (canonicalApp) {

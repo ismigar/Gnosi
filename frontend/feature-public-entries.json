@@ -64,6 +64,7 @@
   "features/vault/styles/vault-responsive.css": "Application-owned ordering of vault responsive styles.",
   "features/vault/views/styles/vault-feed-card.css": "Application-owned ordering of record feed card styles.",
   "features/vault/views/styles/vault-feed.css": "Application-owned ordering of record feed styles.",
+  "features/websites/WebsitesPage.tsx": "Deferred multi-site website manager route.",
   "features/workspaces/Navigation/WorkspaceSwitcher.tsx": "Workspace selector composed by the application shell.",
   "features/workspaces/Workspace/WorkspaceMembersPanel.tsx": "Workspace membership administration embedded in settings.",
   "features/workspaces/styles/workspaces.css": "Application-owned ordering of workspace styles."
