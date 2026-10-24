@@ -65,11 +65,12 @@ def _write_episode(context: _Briefing, evidence: list[dict[str, Any]], outline: 
 
 def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> Any:
     from backend.services.podcast_outline import _digest
-    previous_draft = data.get("previous_draft")
+    previous: dict[str, Any] = {key: data[key] for key in ("previous_draft", "previous_composition") if key in data}
+    source_part_ids = [brief["part_id"] for brief in data.get("briefs", [])]
     request = _request(context, "write", data, composition_schema(data), **options)
     limit = min(80_000, context.budget)
-    if context.cost(request) > limit and "previous_draft" in data:
-        data = {k: v for k, v in data.items() if k != "previous_draft"}
+    if context.cost(request) > limit and previous:
+        data = {k: v for k, v in data.items() if k not in previous}
         request = _request(context, "write", data, composition_schema(data), **options)
     while context.cost(request) > limit:
         before = context.cost(request)
@@ -79,12 +80,22 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
         request = _request(context, "write", data, composition_schema(data), **options)
         if context.cost(request) >= before:
             raise RuntimeError("podcast_theme_context_insufficient")
-    if previous_draft and "previous_draft" not in data:
-        restored = {**data, "previous_draft": previous_draft}
+    if previous and not any(key in data for key in previous):
+        restored: dict[str, Any] = {**data, **previous}
         candidate = _request(context, "write", restored, composition_schema(data), **options)
         if context.cost(candidate) <= limit:
             data, request = restored, candidate
-    if "length_repair" in data and "previous_draft" not in data:
+    state = data.get("length_repair", {})
+    if ("previous_composition" in previous and "previous_composition" not in data
+            and state.get("current_words", 0) > options.get("max_words", 0)
+            and data.get("composition_groups") and data.get("subject_groups") and source_part_ids):
+        lean: dict[str, Any] = {key: data[key] for key in ("topic", "subject_groups", "composition_groups") if key in data}
+        lean.update(previous_composition=previous["previous_composition"], source_part_ids=source_part_ids,
+                    length_repair={**state, "mode": "shorten_composition"})
+        candidate = _request(context, "write", lean, composition_schema(lean), **options)
+        if context.cost(candidate) <= limit:
+            return candidate
+    if "length_repair" in data and not any(key in data for key in previous):
         state = data["length_repair"]
         data = {**data, "length_repair": {k: v for k, v in state.items()
                 if k in {"target_words", "min_words", "max_words"}}}
@@ -96,9 +107,12 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
 def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> dict[str, Any]:
     minimum, maximum = options["min_words"], options["max_words"]
     previous = ""
+    previous_composition: dict[str, Any] | None = None
     def checked(result: dict[str, Any]) -> None:
-        nonlocal previous
+        nonlocal previous, previous_composition
         previous = spoken_text(result, data)
+        # Copy the exact validated model object; never reconstruct paragraphs from speech.
+        previous_composition = json.loads(json.dumps(result)) if data.get("composition_groups") else None
         actual = len(previous.split())
         if not minimum <= actual <= maximum:
             direction = "Reduce" if actual > maximum else "Expand"
@@ -118,8 +132,14 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
             state = {"mode": "revise_draft", "current_words": actual, "target_words": target,
                      "min_words": minimum, "max_words": maximum, "word_delta": target - actual,
                      "draft_sha256": hashlib.sha256(previous.encode()).hexdigest()}
-            data = {**{k: v for k, v in data.items() if k != "previous_draft"}, "length_repair": state}
-            if actual <= maximum * 4:
+            data = {**{k: v for k, v in data.items() if k not in {"previous_draft", "previous_composition"}},
+                    "length_repair": state}
+            if previous_composition is not None:
+                encoded = json.dumps(previous_composition, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+                state["composition_sha256"] = hashlib.sha256(encoded.encode()).hexdigest()
+                state.update(word_guidance(previous_composition, data, target))
+                data["previous_composition"] = previous_composition
+            elif actual <= maximum * 4:
                 data["previous_draft"] = previous
     raise ValueError("podcast_word_budget")
 

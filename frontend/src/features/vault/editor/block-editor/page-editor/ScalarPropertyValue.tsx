@@ -40,19 +40,21 @@ export function ScalarPropertyValue({ context, prop }: { context: PageEditorCont
   // Explicit `image` type: always thumbnail/picker, whatever the name.
   if (prop.type === 'image' || ((!prop.type || prop.type === 'text') && isImageFieldName(prop.name))) {
     const imgMeta = parseImageField(v);
-    const previewUrl = toAssetPreviewUrl(imgMeta.src);
+    const previewUrl = toAssetPreviewUrl(imgMeta.src, prop.type === 'image');
     const imgAlt = imgMeta.alt || prop.name;
     if (previewUrl) {
       if (!isEditor) return <ImageHoverPreview src={previewUrl} alt={imgAlt} />;
       return (
-        <button
-          type="button"
-          onClick={() => { setImagePickerProp(prop.name); }}
-          title={t('table.change_image', { defaultValue: "Change image" })}
-          className="inline-flex items-center rounded hover:opacity-90 focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40"
-        >
-          <ImageHoverPreview src={previewUrl} alt={imgAlt} />
-        </button>
+        <ImageHoverPreview src={previewUrl} alt={imgAlt}>
+          <button
+            type="button"
+            onClick={() => { setImagePickerProp(prop.name); }}
+            title={t('table.change_image', { defaultValue: "Change image" })}
+            className="inline-flex items-center rounded hover:opacity-90 focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40"
+          >
+            <img src={previewUrl} alt={imgAlt} className="w-14 h-10 object-cover rounded border border-[var(--border-primary)]" />
+          </button>
+        </ImageHoverPreview>
       );
     }
     if (isEditor) {

@@ -8,9 +8,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Domain | Status | Guide | Source files | Test files | Directives found |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 920 | 327 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1151 | 325 | 0 |
-| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 537 | 166 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 921 | 328 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1152 | 326 | 0 |
+| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 538 | 167 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 70 | 42 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 145 | 58 | 0 |
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 342 | 142 | 0 |

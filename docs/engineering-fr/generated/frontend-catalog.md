@@ -52,9 +52,9 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2697 | 0 |
-| `features` | 1269 | 136633 | 55 |
+| `features` | 1269 | 136666 | 55 |
 | `generated` | 3 | 56679 | 584 |
-| `shared` | 347 | 37048 | 499 |
+| `shared` | 347 | 37078 | 499 |
 
 ## app
 
@@ -942,8 +942,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/editor/block-editor/page-editor/PagePropertiesPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PagePropertiesPanel.tsx) | 168 | `PagePropertiesPanel` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/PageSpellLanguage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PageSpellLanguage.tsx) | 28 | `PageSpellLanguage` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/PageTitle.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PageTitle.tsx) | 124 | `PageTitle` | — |
-| [`frontend/src/features/vault/editor/block-editor/page-editor/PropertyValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PropertyValue.tsx) | 143 | `PropertyValue` | — |
-| [`frontend/src/features/vault/editor/block-editor/page-editor/ScalarPropertyValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/ScalarPropertyValue.tsx) | 123 | `ScalarPropertyValue` | — |
+| [`frontend/src/features/vault/editor/block-editor/page-editor/PropertyValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PropertyValue.tsx) | 149 | `PropertyValue` | — |
+| [`frontend/src/features/vault/editor/block-editor/page-editor/ScalarPropertyValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/ScalarPropertyValue.tsx) | 125 | `ScalarPropertyValue` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/SchemaPropertyRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/SchemaPropertyRow.tsx) | 74 | `SchemaPropertyRow` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/ZoteroPropertyValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/ZoteroPropertyValue.tsx) | 24 | `ZoteroPropertyValue` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/contextBridge.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/contextBridge.ts) | 56 | `pageContextCallbacks` | — |
@@ -1070,8 +1070,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/navigation/vaultTagTree.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vaultTagTree.ts) | 72 | `buildTagTree`, `noteTags`, `tagNoteIcon` | — |
 | [`frontend/src/features/vault/navigation/workspacesModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/workspacesModel.ts) | 90 | `defaultWorkspaceLayout`, `readWorkspaces`, `saveWorkspaceTab` | — |
 | [`frontend/src/features/vault/properties/AutoriaField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/AutoriaField.tsx) | 281 | `AutoriaDisplay`, `AutoriaEditor` | — |
-| [`frontend/src/features/vault/properties/FileAttachmentField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/FileAttachmentField.tsx) | 207 | `FileAttachmentField` | — |
-| [`frontend/src/features/vault/properties/FileFieldValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/FileFieldValue.tsx) | 194 | `FileFieldValue` | — |
+| [`frontend/src/features/vault/properties/FileAttachmentField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/FileAttachmentField.tsx) | 218 | `FileAttachmentField` | — |
+| [`frontend/src/features/vault/properties/FileFieldValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/FileFieldValue.tsx) | 196 | `FileFieldValue` | — |
 | [`frontend/src/features/vault/properties/RelationItem.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/RelationItem.tsx) | 85 | `RelationItem` | — |
 | [`frontend/src/features/vault/properties/VaultDateProperty.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/VaultDateProperty.ts) | 4 | — | — |
 | [`frontend/src/features/vault/properties/autoriaUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/autoriaUtils.ts) | 82 | `authorFullName`, `authorSortLabel`, `dedupeAuthors`, `emptyAuthor`, `sameAuthor` | — |
@@ -1243,11 +1243,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/views/tableRecordFocusUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/tableRecordFocusUtils.ts) | 156 | `getTableFocusTarget`, `getTableRecordFocusPreparation` | — |
 | [`frontend/src/features/vault/views/templateMenuUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/templateMenuUtils.ts) | 58 | `getTemplateMenuIcon` | — |
 | [`frontend/src/features/vault/views/useVaultFeedController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/useVaultFeedController.ts) | 396 | `useVaultFeedController` | — |
-| [`frontend/src/features/vault/views/useVaultFeedPills.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/useVaultFeedPills.tsx) | 205 | `useVaultFeedPills` | — |
+| [`frontend/src/features/vault/views/useVaultFeedPills.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/useVaultFeedPills.tsx) | 208 | `useVaultFeedPills` | — |
 | [`frontend/src/features/vault/views/vault-chart/VaultChartRenderers.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-chart/VaultChartRenderers.tsx) | 162 | `HorizontalBars`, `LineChart`, `PieChart`, `VerticalBars` | — |
 | [`frontend/src/features/vault/views/vault-chart/vaultChartModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-chart/vaultChartModel.ts) | 127 | `aggregateChartValues`, `buildChartData`, `chartCategoryLabels`, `chartNumber`, `chartScalarText`, `formatChartNumber`, `truncateChartLabel` | — |
 | [`frontend/src/features/vault/views/vault-gallery/VaultGalleryCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-gallery/VaultGalleryCard.tsx) | 211 | `VaultGalleryCard` | — |
-| [`frontend/src/features/vault/views/vault-gallery/VaultGalleryPropertyValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-gallery/VaultGalleryPropertyValue.tsx) | 210 | `VaultGalleryPropertyValue` | `/api/vault/open-resource` |
+| [`frontend/src/features/vault/views/vault-gallery/VaultGalleryPropertyValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-gallery/VaultGalleryPropertyValue.tsx) | 213 | `VaultGalleryPropertyValue` | `/api/vault/open-resource` |
 | [`frontend/src/features/vault/views/vault-gallery/VaultGallerySections.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-gallery/VaultGallerySections.tsx) | 103 | `VaultGallerySections` | — |
 | [`frontend/src/features/vault/views/vault-gallery/useVaultGalleryNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-gallery/useVaultGalleryNavigation.ts) | 245 | `useVaultGalleryNavigation` | — |
 | [`frontend/src/features/vault/views/vault-gallery/vaultGalleryModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-gallery/vaultGalleryModel.ts) | 188 | `buildGallerySections`, `galleryCardHeightClass`, `galleryCardSize`, `galleryCoverFitClass`, `galleryCoverHeightClass`, `galleryGridClass`, `galleryGroupField`, `galleryMetadataValue`, `galleryPreviewMode`, `galleryText`, `galleryVisibleProperties`, `normalizeGalleryMetadataKey` | — |
@@ -1304,7 +1304,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/views/vault-table/useTableIdentity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableIdentity.ts) | 66 | `useTableIdentity` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableInput.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableInput.ts) | 59 | `useTableInput` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableKeyboard.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableKeyboard.ts) | 223 | `useTableKeyboard` | — |
-| [`frontend/src/features/vault/views/vault-table/useTableMedia.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableMedia.ts) | 142 | `useTableMedia` | `/api/vault/assets/`, `/api/vault/open-resource` |
+| [`frontend/src/features/vault/views/vault-table/useTableMedia.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableMedia.ts) | 148 | `useTableMedia` | `/api/vault/assets/`, `/api/vault/open-resource` |
 | [`frontend/src/features/vault/views/vault-table/useTableNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableNavigation.ts) | 303 | `useTableNavigation` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableOptimistic.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableOptimistic.ts) | 119 | `useTableOptimistic` | — |
 | [`frontend/src/features/vault/views/vault-table/useTableOptions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/useTableOptions.ts) | 126 | `useTableOptions` | — |
@@ -1662,7 +1662,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/shared/resources/fileResource.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResource.ts) | 47 | — | — |
 | [`frontend/src/shared/resources/fileResourceNaming.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResourceNaming.ts) | 122 | `interpolateNamePattern`, `parseAuthorsString` | — |
 | [`frontend/src/shared/resources/fileResourceOpen.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResourceOpen.ts) | 333 | `findCitationAttachment`, `findDocAttachment`, `openCitation`, `openFileResource` | `/api/vault/open-local-path` |
-| [`frontend/src/shared/resources/fileResourcePaths.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResourcePaths.ts) | 280 | `ACTIVE_VAULT_KEY`, `buildImageValue`, `canonicalStorageFolder`, `documentKindForHref`, `documentResourceKey`, `documentTabId`, `documentWindowName`, `fileKindFromValue`, `fileResourceString`, `fileTargetKey`, `filenameFromTarget`, `getActiveVaultId`, `getImageSrc`, `isImageFieldName`, `parseFileEntries`, `parseImageField`, `servedUrlToVaultPath`, `setActiveVaultCookie`, `syncActiveVaultCookie`, `toAssetPreviewUrl`, `toServedAssetUrl`, `withActiveVault` | `/api/vault/`, `/api/vault/assets/` |
+| [`frontend/src/shared/resources/fileResourcePaths.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResourcePaths.ts) | 287 | `ACTIVE_VAULT_KEY`, `buildImageValue`, `canonicalStorageFolder`, `documentKindForHref`, `documentResourceKey`, `documentTabId`, `documentWindowName`, `fileKindFromValue`, `fileResourceString`, `fileTargetKey`, `filenameFromTarget`, `getActiveVaultId`, `getImageSrc`, `isImageFieldName`, `parseFileEntries`, `parseImageField`, `servedUrlToVaultPath`, `setActiveVaultCookie`, `syncActiveVaultCookie`, `toAssetPreviewUrl`, `toServedAssetUrl`, `withActiveVault` | `/api/vault/`, `/api/vault/assets/` |
 | [`frontend/src/shared/resources/parseVaultResourceValue.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/parseVaultResourceValue.ts) | 23 | `parseVaultResourceValue` | — |
 | [`frontend/src/shared/resources/pdfCover.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/pdfCover.ts) | 34 | `createPdfCover` | — |
 | [`frontend/src/shared/routing/publicRoutes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/routing/publicRoutes.ts) | 4 | `isPublicTokenPath` | — |
@@ -1699,7 +1699,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/shared/ui/navigation/panelKeyboardNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/navigation/panelKeyboardNavigation.ts) | 21 | `getPanelScrollTarget` | — |
 | [`frontend/src/shared/ui/previews/DeferredLucideIcon.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/previews/DeferredLucideIcon.tsx) | 106 | `DeferredLucideIcon` | — |
 | [`frontend/src/shared/ui/previews/IconRenderer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/previews/IconRenderer.tsx) | 105 | `IconRenderer` | `/api/vault/assets/` |
-| [`frontend/src/shared/ui/previews/ImageHoverPreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/previews/ImageHoverPreview.tsx) | 130 | `ImageHoverPreview` | — |
+| [`frontend/src/shared/ui/previews/ImageHoverPreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/previews/ImageHoverPreview.tsx) | 153 | `ImageHoverPreview` | — |
 | [`frontend/src/shared/ui/previews/VaultAssetImage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/previews/VaultAssetImage.tsx) | 63 | `VaultAssetImage` | `/api/vault/assets/` |
 | [`frontend/src/shared/ui/previews/hoverPreviewLayout.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/previews/hoverPreviewLayout.ts) | 136 | `HOVER_PREVIEW_ARROW_STEP`, `HOVER_PREVIEW_MARGIN`, `adaptiveHoverPreviewStyle`, `isHoverPreviewScrollable`, `positionHoverPreview`, `scrollHoverPreviewByKey` | — |
 | [`frontend/src/shared/ui/previews/viewPopoverLayout.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/previews/viewPopoverLayout.ts) | 75 | `getViewPopoverLayout` | — |

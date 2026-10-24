@@ -7,6 +7,8 @@ Els camps Data comparteixen un editor amb modalitat puntual o període i hores o
 
 En una vista incrustada en una pàgina, un filtre com **Contenidor = Aquesta pàgina** omple automàticament aquest camp amb la pàgina contenidora quan afegeixes un registre. Funciona amb qualsevol taula, també amb plantilles i subitems. Així, els registres nous continuen a la vista quan el valor que faltava era aquesta relació amb la pàgina.
 
+Passa el punter per una propietat d’imatge o pel nom o el botó d’obertura d’un fitxer d’imatge per veure’n una previsualització més gran a les propietats de pàgina, taules, galeries i canals. Els enllaços a imatges de les propietats URL també mostren una previsualització. Enfocar un enllaç o botó amb el teclat mostra la mateixa previsualització; **Esc** la tanca. Les miniatures i les accions de clic continuen disponibles.
+
 ## Abans de començar {#before-you-begin}
 
 Un Vault amb escriptura. Les vistes generals formen part del coneixement; la programació avançada de projectes requereix Planificació.

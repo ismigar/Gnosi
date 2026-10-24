@@ -337,7 +337,15 @@ def test_full_episode_has_one_shared_budget_and_all_subject_groups(pipeline):
     writes = [c for c in pipeline.calls if c['task'].endswith('write')]
     assert len(writes) == 1 and writes[0]['_options']['target_words'] == 1380
     assert len(writes[0]['data']['subject_groups']) > 1
-    assert {b['source_id'] for b in writes[0]['data']['briefs']} == {str(i) for i in range(40)}
+    data = writes[0]['data']
+    if 'briefs' in data:
+        assert {b['source_id'] for b in data['briefs']} == {str(i) for i in range(40)}
+    else:
+        assert {part for digest in data['digests'] for part in digest['part_ids']} == {f'{i}:0' for i in range(40)}
+        digest_inputs = [b for call in pipeline.calls if call['task'].endswith('digest')
+                         for b in call['data']['briefs']]
+        assert {b['source_id'] for b in digest_inputs} == {str(i) for i in range(40)}
+        assert {b['part_id'] for b in digest_inputs} == {f'{i}:0' for i in range(40)}
     assert {x for t in writes[0]['data']['subject_groups'] for x in t['subjects']} == {f'Subject {i}' for i in range(40)}
 
 
@@ -525,9 +533,10 @@ def test_global_overshoot_is_rewritten_without_clipping_or_local_caps(pipeline):
     result = pipeline.run([{'id': str(i), 'title': f'Subject {i}', 'text': 'Evidence'} for i in range(20)])
     assert len(result.split()) == 1380 and len(calls) == 2
     state = calls[-1]['length_repair']
-    if state['mode'] == 'revise_draft':
+    if state['mode'] in {'revise_draft', 'shorten_composition'}:
         assert state['current_words'] == 1587 and state['word_delta'] == -207
-        assert len(calls[-1]['previous_draft'].split()) == 1587
+        from backend.services.podcast_composition import spoken_text
+        assert len(spoken_text(calls[-1]['previous_composition'], calls[-1]).split()) == 1587
     else:
         assert state['mode'] == 'fresh_composition' and state['target_words'] == 1380
         assert 'previous_draft' not in calls[-1] and 'word_delta' not in state

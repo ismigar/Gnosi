@@ -1,3 +1,4 @@
+import { ImageHoverPreview } from '../../../shared/ui/previews/ImageHoverPreview';
 import { formatUnifiedDate } from '../../../shared/dates/unifiedDate';
 import { pageReferenceTitle } from '../../../shared/records/pageReferenceTitle';
 import { NumberValue } from '../../../shared/records/NumberValue';
@@ -168,7 +169,9 @@ export function useVaultFeedPills({
     }
     if (type === 'url') {
       const url = feedValueString(value);
-      return <a href={url} target="_blank" rel="noreferrer" onClick={(event) => { event.stopPropagation(); }} className="flex max-w-sm items-center gap-1 truncate text-sm text-indigo-500 hover:text-indigo-600 hover:underline"><LinkIcon size={14} /> URL</a>;
+      const link = <a href={url} target="_blank" rel="noreferrer" onClick={(event) => { event.stopPropagation(); }} className="flex max-w-sm items-center gap-1 truncate text-sm text-indigo-500 hover:text-indigo-600 hover:underline"><LinkIcon size={14} /> URL</a>;
+      const preview = toAssetPreviewUrl(url);
+      return preview ? <ImageHoverPreview src={preview} alt={field}>{link}</ImageHoverPreview> : link;
     }
     if (type === 'files') return <FileFieldValue value={value} field={field} variant="feed" />;
     if (type === 'zotero') {
@@ -183,8 +186,8 @@ export function useVaultFeedPills({
     }
     if (type === 'image' || (typeof value === 'object' && !Array.isArray(value))) {
       const source = getImageSrc(value);
-      const preview = toAssetPreviewUrl(source);
-      if (preview) return <img src={preview} alt={imageAlt(value, field)} className="h-10 w-10 rounded object-cover" />;
+      const preview = toAssetPreviewUrl(source, type === 'image');
+      if (preview) return <ImageHoverPreview src={preview} alt={imageAlt(value, field)} thumbClassName="h-10 w-10 rounded object-cover" />;
       return source ? <span className="inline-block max-w-xs truncate text-sm text-[var(--text-secondary)]" title={source}>{source}</span> : null;
     }
     const text = Array.isArray(value)

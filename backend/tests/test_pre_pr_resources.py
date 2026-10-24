@@ -366,3 +366,18 @@ def test_pre_pr_uses_only_explicit_named_pressure_runner(
     else:
         assert pre_pr.run_steps(tmp_path, [Step("fixture", ("synthetic",))], {}, resource_profile=profile) == 0
         assert calls == [profile]
+
+
+@pytest.mark.parametrize(("name", "expected"), [
+    ("Frontend lint", 600),
+    ("Frontend lint preparation", 300),
+    ("Frontend types", 300),
+    ("Python lint", 300),
+    ("Complete backend types", 300),
+    ("Production frontend build", 600),
+    ("Documentation build", 600),
+    ("Complete frontend suite", 900),
+    ("CI and pre-PR regressions", 900),
+])
+def test_only_complete_frontend_lint_has_a_longer_static_deadline(name: str, expected: int) -> None:
+    assert resources.step_timeout(Step(name, ("fixture",))) == expected

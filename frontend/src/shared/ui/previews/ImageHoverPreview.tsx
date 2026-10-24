@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type MouseEvent } from 'react';
+import { useCallback, useRef, useState, type MouseEvent, type ReactNode, type FocusEvent, type KeyboardEvent } from 'react';
 import { createPanePortal as createPortal } from '../createPanePortal';
 
 const PREVIEW_SIZE = 320;
@@ -10,6 +10,8 @@ interface PreviewPosition {
 }
 
 export interface ImageHoverPreviewProps {
+    readonly children?: ReactNode;
+    readonly className?: string;
     readonly alt?: string;
     readonly href?: string;
     readonly src: string;
@@ -18,13 +20,16 @@ export interface ImageHoverPreviewProps {
 
 export const ImageHoverPreview = ({
     src,
+    children,
+    className = 'inline-flex items-center',
     alt = '',
     href,
     thumbClassName = 'w-14 h-10 object-cover rounded border border-[var(--border-primary)]',
 }: ImageHoverPreviewProps) => {
-    const [show, setShow] = useState(false);
+    const [activeSource, setActiveSource] = useState('');
     const [pos, setPos] = useState<PreviewPosition>({ top: 0, left: 0 });
     const [loaded, setLoaded] = useState(false);
+    const [failed, setFailed] = useState(false);
     const anchorRef = useRef<HTMLElement | null>(null);
     const setAnchor = useCallback((node: HTMLElement | null): void => {
         anchorRef.current = node;
@@ -55,11 +60,15 @@ export const ImageHoverPreview = ({
 
     const handleEnter = useCallback(() => {
         updatePosition();
-        setShow(true);
-    }, [updatePosition]);
+        if (activeSource !== src || failed) {
+            setFailed(false);
+            setLoaded(false);
+        }
+        setActiveSource(src);
+    }, [activeSource, failed, src, updatePosition]);
 
     const handleLeave = useCallback(() => {
-        setShow(false);
+        setActiveSource('');
         setLoaded(false);
     }, []);
 
@@ -67,7 +76,21 @@ export const ImageHoverPreview = ({
         event.stopPropagation();
     }, []);
 
-    const thumbnail = <img src={src} alt={alt} className={thumbClassName} />;
+    const thumbnail = children ?? <img src={src} alt={alt} className={thumbClassName} />;
+    const triggerEvents = {
+        onMouseEnter: handleEnter,
+        onMouseLeave: handleLeave,
+        onFocus: handleEnter,
+        onBlur: (event: FocusEvent<HTMLElement>) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) handleLeave();
+        },
+        onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+            if (event.key === 'Escape' && activeSource === src && src && !failed) {
+                event.stopPropagation();
+                handleLeave();
+            }
+        },
+    };
 
     return (
         <>
@@ -77,31 +100,30 @@ export const ImageHoverPreview = ({
                     href={href}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center"
+                    className={className}
                     onClick={stopLinkClick}
-                    onMouseEnter={handleEnter}
-                    onMouseLeave={handleLeave}
+                    {...triggerEvents}
                 >
                     {thumbnail}
                 </a>
             ) : (
                 <span
                     ref={setAnchor}
-                    className="inline-flex items-center"
-                    onMouseEnter={handleEnter}
-                    onMouseLeave={handleLeave}
+                    tabIndex={children ? undefined : 0}
+                    className={className}
+                    {...triggerEvents}
                 >
                     {thumbnail}
                 </span>
             )}
-            {show && createPortal(
+            {activeSource === src && Boolean(src) && !failed && createPortal(
                 <div
                     style={{
                         position: 'fixed',
                         top: pos.top,
                         left: pos.left,
-                        width: PREVIEW_SIZE,
-                        height: PREVIEW_SIZE,
+                        width: `min(${String(PREVIEW_SIZE)}px, calc(100vw - ${String(VIEWPORT_MARGIN * 2)}px))`,
+                        height: `min(${String(PREVIEW_SIZE)}px, calc(100vh - ${String(VIEWPORT_MARGIN * 2)}px))`,
                         zIndex: 'var(--z-popover)',
                         pointerEvents: 'none',
                     }}
@@ -113,6 +135,7 @@ export const ImageHoverPreview = ({
                         </div>
                     )}
                     <img
+                        onError={() => { setFailed(true); }}
                         src={src}
                         alt={alt}
                         onLoad={() => {

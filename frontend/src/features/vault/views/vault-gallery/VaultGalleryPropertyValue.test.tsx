@@ -59,6 +59,33 @@ describe('VaultGalleryPropertyValue open inputs', () => {
         act(() => { root.render(<VaultGalleryPropertyValue {...baseProps} {...overrides} />); });
     }
 
+    it.each([
+        ['image', { src: 'Assets/covers/book.png', alt: 'Book cover' }, 'h-9 w-9 rounded object-cover'],
+        ['image', 'https://example.test/image/123', 'h-9 w-9 rounded object-cover'],
+        ['url', 'https://example.test/cover.jpg', null],
+    ] as const)('previews gallery %s values while retaining inline presentation', (type, value, size) => {
+        render({ type, value });
+        const trigger = container.querySelector('a') ?? container.querySelector('span');
+        if (!trigger) throw new Error('Missing image trigger');
+        expect(document.body.querySelectorAll('img')).toHaveLength(size ? 1 : 0);
+        if (size) expect(container.querySelector('img')?.className).toBe(size);
+        act(() => { trigger.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); });
+        expect(document.body.querySelectorAll('img')).toHaveLength(size ? 2 : 1);
+        act(() => { trigger.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body })); });
+        expect(document.body.querySelectorAll('img')).toHaveLength(size ? 1 : 0);
+    });
+
+    it('keeps document and ordinary URL links without fetching image previews', () => {
+        for (const value of ['https://example.test/paper.pdf', 'https://example.test/page']) {
+            render({ type: 'url', value });
+            const link = container.querySelector('a');
+            if (!link) throw new Error('Missing URL link');
+            act(() => { link.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); });
+            expect(document.body.querySelector('img')).toBeNull();
+            expect(link.getAttribute('href')).toBe(value);
+        }
+    });
+
     it('renders percentage rollups as progress, including zero', () => {
         render({ field: 'Progress', type: 'rollup', value: '0%', schema: { Progress: 'rollup', Progress_config: { aggregation: 'percent_checked' } } });
         expect(container.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('0');
