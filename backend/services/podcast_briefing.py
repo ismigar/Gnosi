@@ -11,6 +11,8 @@ import jsonschema
 from backend.domains.llm_wiki.chunking import split_segment
 from backend.services.agent_behavior import operation_input, resource, revision, snapshot_instruction_text, task_input
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation
+from backend.services.agent_output_repair import RepairBuilder
+from backend.services.podcast_brief_repair import InvalidBriefQuotes, brief_quote_repair, invalid_quote_ids
 
 
 def _object(properties: dict[str, Any]) -> dict[str, Any]:
@@ -29,8 +31,9 @@ def _validate_briefs(result: dict[str, Any], parts: list[dict[str, Any]]) -> Non
         brief = result["briefs"][part["part_id"]]
         if not all(brief[key].strip() for key in ("topic", "summary", "quote")):
             raise ValueError("podcast_empty_source_brief")
-        if brief["quote"] not in part["text"] and brief["quote"] not in str(part.get("title") or ""):
-            raise ValueError(f"podcast_quote_not_in_original:{part['part_id']}")
+    invalid = invalid_quote_ids(result, parts)
+    if invalid:
+        raise InvalidBriefQuotes(invalid)
 
 
 def _section_schema(briefs: list[dict[str, Any]]) -> dict[str, Any]:
@@ -66,7 +69,8 @@ class _Briefing:
     def cost(self, request: AgentOperation) -> int:
         return self.count(operation_input(request)) + 1024
 
-    def stage(self, request: AgentOperation, validate: Callable[[dict[str, Any]], None]) -> dict[str, Any]:
+    def stage(self, request: AgentOperation, validate: Callable[[dict[str, Any]], None],
+              *, output_repair: RepairBuilder | None = None) -> dict[str, Any]:
         from backend.services.agent_execution import run_sync
         from backend.services.agent_execution_store import work_checkpoint
         self.check_active()
@@ -86,7 +90,7 @@ class _Briefing:
         if saved is not None:
             checked(json.dumps(saved["result"]))
             return cast(dict[str, Any], saved["result"])
-        response = run_sync(request, snapshot=self.snapshot, output_validator=checked)
+        response = run_sync(request, snapshot=self.snapshot, output_validator=checked, output_repair=output_repair)
         checked(response.result)
         result: dict[str, Any] = json.loads(response.result)
         self.check_active()
@@ -144,7 +148,8 @@ def build_podcast_script(sources: list[dict[str, Any]], language: str, *, snapsh
     for batch in context.batches(parts):
         progress(f"Preparing source briefs: {len(briefs)}/{len(parts)}")
         request = context.request("podcast.coverage.briefs", {"sources": batch}, _brief_schema(batch))
-        result = context.stage(request, lambda value: _validate_briefs(value, batch))
+        result = context.stage(request, lambda value: _validate_briefs(value, batch),
+                               output_repair=brief_quote_repair(batch, _brief_schema(batch)))
         briefs.extend({"part_id": p["part_id"], "source_id": p["source_id"], "title": p.get("title", ""),
                        **result["briefs"][p["part_id"]]} for p in batch)
     from backend.services.podcast_outline import narrate_day

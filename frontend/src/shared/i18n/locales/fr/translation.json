@@ -1434,6 +1434,10 @@
         },
         "reasoning_effort": "Niveau de raisonnement",
         "reasoning_help": "Un effort accru peut prendre plus de temps et consommer plus de tokens. Ce réglage concerne uniquement cet assistant.",
+        "upstream_provider": "Fournisseur OpenRouter fixe",
+        "upstream_provider_help": "Identifiant du fournisseur pour ce modèle, par exemple deepinfra. Laisser vide pour le routage automatique. Un choix fixe utilise uniquement ce fournisseur.",
+        "routing_automatic": "Automatique",
+        "upstream_provider_invalid": "Saisissez un identifiant de fournisseur valide, comme deepinfra.",
         "reasoning_default": "Valeur par défaut du modèle",
         "reasoning_default_level": "Valeur par défaut du modèle ({{level}})",
         "reasoning_levels": {
