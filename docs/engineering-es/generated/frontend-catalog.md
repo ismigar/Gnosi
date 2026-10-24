@@ -50,7 +50,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2691 | 0 |
-| `features` | 1257 | 136030 | 55 |
+| `features` | 1257 | 136041 | 55 |
 | `generated` | 3 | 54737 | 567 |
 | `shared` | 346 | 36968 | 482 |
 
@@ -1067,7 +1067,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/navigation/vaultTagTree.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vaultTagTree.ts) | 72 | `buildTagTree`, `noteTags`, `tagNoteIcon` | — |
 | [`frontend/src/features/vault/navigation/workspacesModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/workspacesModel.ts) | 90 | `defaultWorkspaceLayout`, `readWorkspaces`, `saveWorkspaceTab` | — |
 | [`frontend/src/features/vault/properties/AutoriaField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/AutoriaField.tsx) | 281 | `AutoriaDisplay`, `AutoriaEditor` | — |
-| [`frontend/src/features/vault/properties/FileAttachmentField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/FileAttachmentField.tsx) | 207 | `FileAttachmentField` | — |
+| [`frontend/src/features/vault/properties/FileAttachmentField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/FileAttachmentField.tsx) | 218 | `FileAttachmentField` | — |
 | [`frontend/src/features/vault/properties/FileFieldValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/FileFieldValue.tsx) | 196 | `FileFieldValue` | — |
 | [`frontend/src/features/vault/properties/RelationItem.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/RelationItem.tsx) | 85 | `RelationItem` | — |
 | [`frontend/src/features/vault/properties/VaultDateProperty.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/VaultDateProperty.ts) | 4 | — | — |
