@@ -542,6 +542,17 @@ automàticament. Només la prosa per a l'oient arriba a la síntesi de veu; no e
 locuten etiquetes, evidències, avisos d'accés a fonts ni instruccions de producció.
 Les fallades, els rebutjos i la cancel·lació conserven l'àudio anterior.
 
+Les revisions de fonts comproven per separat la fidelitat factual i la cobertura
+temàtica, amb fins a 16 notes per lot i la llista completa d'assumptes. L'estat dels
+fets, les atribucions i l'abast de les xifres tenen una comprovació específica.
+Si el proveïdor esgota la sortida, només es divideix recursivament el lot de fonts
+o objeccions fallit; la confirmació conserva totes les evidències originals.
+Una fallada indivisible bloqueja la publicació. Cada ronda també revisa l'episodi
+sencer encara que hi hagi objeccions sobre fonts. Les objeccions actuals conserven
+el tipus i les fonts; les antigues i els guions anteriors no s'acumulen en les
+instruccions de correcció. Només el darrer guió es proporciona com a context
+opcional separat. Es mantenen els límits de model, sortida, temps i cancel·lació.
+
 `podcast-coverage-report`, versió 4, conserva l'esquema, totes les notes, les
 assignacions del servidor i el recompte de paraules. La cobertura estructural i
 les cites literals no demostren per si soles la correcció semàntica: la prova real

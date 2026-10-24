@@ -487,6 +487,18 @@ las objeciones automáticamente. Solo la prosa para el oyente llega a la síntes
 de voz: no se locutan etiquetas, evidencias, avisos de acceso ni instrucciones de
 producción. Los fallos, rechazos y cancelaciones conservan el audio anterior.
 
+Las revisiones de fuentes comprueban por separado la fidelidad factual y la
+cobertura temática, con hasta 16 notas por lote y la lista completa de asuntos.
+El estado de los hechos, las atribuciones y el alcance de las cifras tienen una
+comprobación específica. Si el proveedor agota la salida, solo se divide de forma
+recursiva el lote fallido de fuentes u objeciones; la confirmación conserva todas
+las evidencias originales. Un fallo indivisible bloquea la publicación. Cada
+ronda revisa también el episodio completo aunque queden objeciones sobre fuentes.
+Las objeciones actuales conservan el tipo y las fuentes; las antiguas y los
+guiones previos no se acumulan en las instrucciones de corrección. Solo el último
+guion se ofrece como contexto opcional separado. Se mantienen los límites de
+modelo, salida, tiempo y cancelación.
+
 `podcast-coverage-report`, versión 4, conserva el esquema, todas las notas, las
 asignaciones del servidor y el recuento de palabras. La cobertura estructural y
 las citas literales no prueban por sí solas la corrección semántica: la prueba

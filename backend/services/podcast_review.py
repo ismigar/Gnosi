@@ -1,7 +1,9 @@
 """Ground model criticisms in exact supplied evidence before automatic rewrites."""
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, cast
+
+from openai import LengthFinishReasonError
 
 from backend.services.podcast_briefing import _object
 
@@ -11,6 +13,10 @@ def _schema(data: dict[str, Any]) -> dict[str, Any]:
     kinds = ['omission', 'production', 'duplicate']
     if not data.get('whole_episode'):
         kinds.append('distortion')
+    if data.get('review_focus') == 'fidelity':
+        kinds = ['distortion']
+    elif data.get('review_focus') == 'coverage':
+        kinds = ['omission']
     finding = _object({
         'kind': {'type': 'string', 'enum': kinds},
         'detail': {'type': 'string', 'minLength': 1, 'maxLength': 500},
@@ -67,15 +73,43 @@ def _confirm(context: Any, data: dict[str, Any], issues: list[dict[str, Any]],
     confirmed = []
     for batch in batches:
         confirmation = {**data, 'candidate_findings': batch}
-        result = context.stage(request(context, 'audit', confirmation, schema),
-                               lambda r: _validate(r, confirmation))
+        result = _stage(context, confirmation, request)
         confirmed.extend(result['issues'])
     return confirmed
 
 
-def review(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> list[str]:
+def _stage(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> dict[str, Any]:
+    """Split only exhausted work; a failed indivisible leaf never approves."""
+    try:
+        return cast(dict[str, Any], context.stage(
+            request(context, 'audit', data, _schema(data)), lambda r: _validate(r, data)))
+    except LengthFinishReasonError:
+        key = 'candidate_findings' if 'candidate_findings' in data else (
+            'subjects' if data.get('whole_episode') else 'briefs')
+        values = data[key]
+        if len(values) < 2:
+            raise
+        middle = len(values) // 2
+        leaves = [_stage(context, {**data, key: part}, request)
+                  for part in (values[:middle], values[middle:])]
+        return {'issues': [issue for leaf in leaves for issue in leaf['issues']]}
+
+
+def review(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> list[dict[str, Any]]:
     schema = _schema(data)
-    result = context.stage(request(context, 'audit', data, schema), lambda r: _validate(r, data))
-    issues = _confirm(context, data, result['issues'], request, schema) if result['issues'] else []
-    return [f"{i['detail']} Evidence: {i['evidence_quote']} Draft: {' / '.join(i['narration_quotes'])}"
-            for i in issues]
+    operation = request(context, 'audit', data, schema)
+    exhausted = context.cost(operation) > min(80_000, context.budget)
+    if not exhausted:
+        try:
+            result = context.stage(operation, lambda r: _validate(r, data))
+        except LengthFinishReasonError:
+            exhausted = True
+        else:
+            return _confirm(context, data, result['issues'], request, schema) if result['issues'] else []
+    key = 'subjects' if data.get('whole_episode') else 'briefs'
+    values = data[key]
+    if len(values) < 2:
+        raise RuntimeError('podcast_review_indivisible_work_exhausted')
+    middle = len(values) // 2
+    return [issue for part in (values[:middle], values[middle:])
+            for issue in review(context, {**data, key: part}, request)]

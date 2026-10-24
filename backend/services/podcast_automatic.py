@@ -1,6 +1,7 @@
 """Bounded narration-only writing, semantic review and automatic revision."""
 from __future__ import annotations
 
+import json
 from math import ceil
 from typing import Any, TYPE_CHECKING
 
@@ -19,31 +20,36 @@ def _request(context: _Briefing, phase: str, data: dict[str, Any], schema: dict[
         "automatic_contract": resource("operations/podcast/automatic-contract.md"), **options}})
 
 
-def _audit(context: _Briefing, data: dict[str, Any]) -> list[str]:
+def _audit(context: _Briefing, data: dict[str, Any]) -> list[dict[str, Any]]:
     from backend.services.podcast_review import review
     return review(context, data, _request)
 
 
-def _review_theme(context: _Briefing, evidence: list[dict[str, Any]], narration: str) -> list[str]:
+def _review_theme(context: _Briefing, evidence: list[dict[str, Any]], narration: str,
+                  subjects: list[list[str]]) -> list[dict[str, Any]]:
     from backend.services.podcast_review import _schema
-    batches: list[list[dict[str, Any]]] = [[]]
-    for brief in evidence:
-        candidate = [*batches[-1], brief]
-        data = {"briefs": candidate, "narration": narration}
-        request = _request(context, "audit", data, _schema(data))
-        if batches[-1] and (len(candidate) > 32 or context.cost(request) > min(80_000, context.budget) - 4096):
-            batches.append([])
-        batches[-1].append(brief)
     issues = []
-    for batch in batches:
-        issues.extend(_audit(context, {"briefs": batch, "narration": narration}))
-    return list(dict.fromkeys(issues))
+    for focus in ('fidelity', 'coverage'):
+        batches: list[list[dict[str, Any]]] = [[]]
+        for brief in evidence:
+            candidate = [*batches[-1], brief]
+            data = {"briefs": candidate, "narration": narration, "review_focus": focus, "subjects": subjects}
+            request = _request(context, "audit", data, _schema(data))
+            if batches[-1] and (len(candidate) > 16 or context.cost(request) > min(80_000, context.budget) - 4096):
+                batches.append([])
+            batches[-1].append(brief)
+        for batch in batches:
+            issues.extend(_audit(context, {"briefs": batch, "narration": narration,
+                                          "review_focus": focus, "subjects": subjects}))
+    return list({json.dumps(i, sort_keys=True): i for i in issues}.values())
 
 
 def _write_episode(context: _Briefing, evidence: list[dict[str, Any]], outline: list[dict[str, Any]],
-                   words: int, feedback: list[str]) -> dict[str, Any]:
+                   words: int, feedback: list[dict[str, Any]], previous_draft: str = "") -> dict[str, Any]:
     data: dict[str, Any] = {"topic": "Complete daily briefing", "briefs": evidence, "feedback": feedback,
         "subject_groups": [{"topic": t["topic"], "subjects": t.get("subjects", [t["topic"]])} for t in outline]}
+    if previous_draft:
+        data["previous_draft"] = previous_draft
     options = {"min_words": ceil(words * .9), "max_words": int(words * 1.09), "target_words": words,
                "episode_opening": True, "episode_closing": True}
     result = _bounded_write(context, data, options)
@@ -98,15 +104,16 @@ def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[di
               progress: Callable[[str], None]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
     from backend.services.podcast_outline import TARGET_WORDS
     budget = TARGET_WORDS if len({b["source_id"] for b in briefs}) >= 20 else min(TARGET_WORDS, max(160, 65 * len(briefs)))
-    feedback: list[str] = []
+    feedback: list[dict[str, Any]] = []
+    previous_draft = ""
+    subjects = [t.get("subjects", [t["topic"]]) for t in outline]
     for attempt in range(3):
         progress(f"Writing and reviewing complete daily briefing: pass {attempt + 1}/3")
-        section = _write_episode(context, briefs, outline, budget, feedback)
-        issues = _review_theme(context, briefs, section["narration"])
-        if not issues:
-            issues = _audit(context, {"whole_episode": True, "sections": [section],
-                                     "subjects": [t.get("subjects", [t["topic"]]) for t in outline]})
+        section = _write_episode(context, briefs, outline, budget, feedback, previous_draft)
+        issues = _review_theme(context, briefs, section["narration"], subjects)
+        issues.extend(_audit(context, {"whole_episode": True, "sections": [section], "subjects": subjects}))
         if not issues:
             return [section], outline, budget
-        feedback = [*feedback, *issues, "Previous complete episode: " + section["narration"]]
+        feedback = list({json.dumps(i, sort_keys=True): i for i in issues}.values())
+        previous_draft = section["narration"]
     raise ValueError("podcast_semantic_review_failed")

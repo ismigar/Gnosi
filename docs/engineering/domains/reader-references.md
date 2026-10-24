@@ -515,6 +515,17 @@ correct findings automatically. Only listener-facing narration reaches speech
 synthesis; labels, evidence, source-access notices and production instructions
 are not voiced. Failures, refusals and cancellation preserve the previous audio.
 
+Source reviews separately check factual fidelity and thematic coverage, with up to
+16 briefs per batch and the complete subject ledger. Status, attribution and
+numeric scope receive a dedicated check. A provider output-length failure
+recursively splits only the failed evidence or finding batch; confirmation keeps
+all its original evidence. An indivisible failed leaf blocks publication.
+Every revision also runs the whole-episode review even when source issues remain.
+Structured current findings retain their kinds and source identities; obsolete
+findings and drafts do not accumulate in writer feedback. Only the latest draft
+is supplied separately as optional context. Existing model, output, time and
+cancellation limits remain unchanged.
+
 `podcast-coverage-report` version 4 retains the outline, all briefs, server-owned
 section assignments and spoken word count. Structural coverage and literal
 quotation alone are not semantic proof: live verification must compare the final

@@ -532,6 +532,19 @@ automatiquement. Seule la prose destinée à l'auditeur atteint la synthèse voc
 les étiquettes, preuves, avis d'accès aux sources et instructions de production
 ne sont pas prononcés. Les échecs, refus et annulations conservent l'audio précédent.
 
+Les vérifications des sources contrôlent séparément la fidélité factuelle et la
+couverture thématique, avec au plus 16 notes par lot et la liste complète des
+sujets. Le statut des faits, les attributions et la portée des chiffres font
+l'objet d'un contrôle spécifique. Si le fournisseur épuise la sortie, seul le
+lot de sources ou d'objections en échec est subdivisé récursivement ; la
+confirmation conserve toutes les preuves originales. Un échec indivisible
+bloque la publication. Chaque tour vérifie aussi l'épisode complet même si des
+objections sur les sources subsistent. Les objections actuelles conservent leur
+type et leurs sources ; les anciennes et les anciens scripts ne s'accumulent
+pas dans les consignes de correction. Seul le dernier script est fourni comme
+contexte facultatif séparé. Les limites de modèle, de sortie, de durée et
+d'annulation sont conservées.
+
 `podcast-coverage-report`, version 4, conserve le plan, toutes les notes, les
 affectations du serveur et le nombre de mots. La couverture structurelle et les
 citations exactes ne prouvent pas seules la justesse sémantique : la vérification

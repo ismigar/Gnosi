@@ -389,7 +389,7 @@ def test_automatic_audit_repairs_source_note_and_request_certainty_without_manua
                     'The party requests an extension; no ruling is reported.')
             text += ' Context.' * (request.options['min_words'] - len(text.split()))
             result = {'narration': text}
-        elif request.operation.endswith('audit') and not data.get('whole_episode'):
+        elif request.operation.endswith('audit') and data.get('review_focus') == 'fidelity':
             result = {'issues': [{'kind': 'distortion', 'detail': 'Requested is not granted; remove spoken source-access note.',
                        'narration_quotes': ['The requested extension was granted.'],
                        'source_part_ids': [data['briefs'][0]['part_id']],
@@ -412,6 +412,8 @@ def test_unresolved_semantic_failure_never_publishes_coverage_report(pipeline):
         if not request.operation.endswith('audit'):
             return pipeline.model(request, **kwargs)
         data = json.loads(request.input)['data']
+        if data.get('review_focus') != 'coverage':
+            return pipeline.model(request, **kwargs)
         text = json.dumps({'issues': [{'kind': 'omission', 'detail': 'Distinct minority subject is absent.',
             'narration_quotes': [], 'source_part_ids': [data['briefs'][0]['part_id']],
             'evidence_quote': data['briefs'][0]['quote']}]})
@@ -478,7 +480,7 @@ def test_audit_cannot_invent_quoted_passages_or_change_confirmed_finding(changed
 def test_false_absence_claim_is_contrasted_before_automatic_rewrite(pipeline):
     def model(request, **kwargs):
         data = json.loads(request.input)['data']
-        if not request.operation.endswith('audit') or data.get('whole_episode'):
+        if not request.operation.endswith('audit') or data.get('review_focus') != 'coverage':
             return pipeline.model(request, **kwargs)
         issues = [] if 'candidate_findings' in data else [{
             'kind': 'omission', 'detail': 'The extension request is missing.',
@@ -589,3 +591,114 @@ def test_nonshrinking_internal_reduction_cannot_send_oversized_writer_request_or
         _write_request(Context(), {'briefs': [{'part_id': 'a:0', 'topic': 'Subject', 'summary': 'Evidence'}]},
                        {'min_words': 1242, 'max_words': 1504, 'target_words': 1380})
     assert calls == ['podcast.coverage.digest']
+
+
+@pytest.mark.parametrize('confirmation', [False, True])
+def test_output_exhaustion_splits_only_failed_work_and_preserves_all_evidence(confirmation):
+    from openai import LengthFinishReasonError
+    from backend.services.podcast_review import _stage
+    briefs = [{'part_id': f'{i}:0', 'quote': f'Evidence {i}'} for i in range(5)]
+    findings = [{'kind': 'omission', 'detail': str(i), 'narration_quotes': [],
+                 'source_part_ids': [b['part_id']], 'evidence_quote': b['quote']} for i, b in enumerate(briefs)]
+    data = {'narration': 'The current complete episode.', 'briefs': briefs}
+    if confirmation:
+        data['candidate_findings'] = findings
+    leaves = []
+    class Context:
+        def stage(self, value, validate):
+            key = 'candidate_findings' if confirmation else 'briefs'
+            assert value['narration'] == data['narration']
+            if confirmation:
+                assert value['briefs'] == briefs
+            if len(value[key]) > 2:
+                raise LengthFinishReasonError(completion=SimpleNamespace(usage=None))
+            leaves.extend(value[key])
+            result = {'issues': value['candidate_findings'] if confirmation else []}
+            validate(result)
+            return result
+    result = _stage(Context(), data, lambda context, phase, value, schema: value)
+    assert leaves == (findings if confirmation else briefs)
+    assert result['issues'] == (findings if confirmation else [])
+
+
+@pytest.mark.parametrize('failure', ['length', 'cancel', 'filter'])
+def test_failed_indivisible_audit_never_becomes_approval(failure):
+    from openai import LengthFinishReasonError, ContentFilterFinishReasonError
+    from backend.services.podcast_review import _stage
+    error = (LengthFinishReasonError(completion=SimpleNamespace(usage=None)) if failure == 'length'
+             else ContentFilterFinishReasonError() if failure == 'filter' else RuntimeError('cancelled'))
+    class Context:
+        def stage(self, request, validate):
+            raise error
+    with pytest.raises(type(error)):
+        _stage(Context(), {'briefs': [{'part_id': 'a:0'}]}, lambda context, phase, data, schema: data)
+
+
+def test_every_revision_reviews_facts_coverage_and_ledger_without_stale_feedback(monkeypatch):
+    from backend.services import podcast_automatic as automatic
+    writes, reviews = [], []
+    def write(context, briefs, outline, budget, feedback, previous_draft):
+        writes.append((feedback, previous_draft))
+        return {'topic': 'Day', 'part_ids': ['a:0'], 'narration': f'Draft {len(writes)}'}
+    def source_review(context, briefs, narration, subjects):
+        reviews.append(('source', narration))
+        return [{'kind': 'distortion', 'detail': narration, 'source_part_ids': ['a:0']}]
+    def ledger_review(context, data):
+        reviews.append(('ledger', data['sections'][0]['narration']))
+        return [{'kind': 'omission', 'detail': 'Minority domain', 'source_part_ids': []}]
+    monkeypatch.setattr(automatic, '_write_episode', write)
+    monkeypatch.setattr(automatic, '_review_theme', source_review)
+    monkeypatch.setattr(automatic, '_audit', ledger_review)
+    with pytest.raises(ValueError, match='podcast_semantic_review_failed'):
+        automatic.write_day(None, [{'source_id': 'a'}], [{'topic': 'Domain'}], lambda _: None)
+    assert len(reviews) == 6
+    assert writes[0] == ([], '')
+    assert [i['detail'] for i in writes[2][0]] == ['Draft 2', 'Minority domain']
+    assert writes[2][1] == 'Draft 2'
+
+
+def test_fidelity_and_coverage_each_review_every_source_with_full_ledger():
+    from backend.services.podcast_automatic import _review_theme
+    data_seen = []
+    briefs = [{'part_id': f'{i}:0', 'summary': 'A request, not completion.'} for i in range(35)]
+    class Context:
+        budget = 80000
+        def request(self, operation, data, schema):
+            return SimpleNamespace(model_copy=lambda update: data)
+        def cost(self, request):
+            return 100
+        def stage(self, request, validate):
+            data_seen.append(request)
+            assert request['subjects'] == [['Minority domain', 'Shared domain']]
+            assert len(request['briefs']) <= 16
+            result = {'issues': []}
+            validate(result)
+            return result
+    assert _review_theme(Context(), briefs, 'The whole narration.', [['Minority domain', 'Shared domain']]) == []
+    for focus in ('fidelity', 'coverage'):
+        assert [b for d in data_seen if d['review_focus'] == focus for b in d['briefs']] == briefs
+
+
+@pytest.mark.parametrize('whole_episode', [False, True])
+def test_review_leaf_approvals_cover_all_original_obligations_after_length_failure(whole_episode):
+    from openai import LengthFinishReasonError
+    from backend.services.podcast_review import review
+    briefs = [{'part_id': f'{i}:0', 'quote': f'Evidence {i}'} for i in range(7)]
+    data = ({'whole_episode': True, 'sections': [{'narration': 'The complete episode.'}],
+             'subjects': [[f'Domain {i}'] for i in range(7)]} if whole_episode else
+            {'narration': 'The complete episode.', 'briefs': briefs, 'review_focus': 'coverage'})
+    key = 'subjects' if whole_episode else 'briefs'
+    approved = []
+    class Context:
+        budget = 80000
+        def cost(self, request):
+            return 100
+        def stage(self, value, validate):
+            if len(value[key]) > 2:
+                raise LengthFinishReasonError(completion=SimpleNamespace(usage=None))
+            approved.extend(value[key])
+            result = {'issues': []}
+            validate(result)
+            return result
+    assert review(Context(), data, lambda context, phase, value, schema: value) == []
+    assert approved == data[key]
