@@ -519,9 +519,11 @@ menys. El guió complet ha d'estar entre el 90 i el 109% de l'objectiu global ab
 de publicar-se. Els recomptes exactes del servidor i els esborranys del model
 guien reescriptures automàtiques acotades. Un text de longitud invàlida no es
 desa com a narració vàlida, no es retalla ni es substitueix manualment. Les
-evidències massa grans passen per resums interns recursius de fins a 160
-paraules, sense perdre les fonts. Cada petició es comprova contra el context
-actual, també durant les correccions de longitud.
+evidències massa grans passen per resums interns recursius amb un objectiu
+orientatiu d'unes 160 paraules, sense perdre les fonts. Es comprova el context
+real de cada petició i cada reducció ha de disminuir la mida. El límit de
+paraules del guió locutat continua sent estricte. Cada petició es comprova contra
+el context actual, també durant les correccions de longitud.
 
 `podcast_review.py` valida cites exactes del guió i de les evidències abans de
 desar objeccions semàntiques. Les omissions identifiquen les evidències; les

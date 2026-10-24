@@ -543,55 +543,49 @@ def test_planner_uses_complete_evidence_when_global_request_fits(pipeline):
     assert all(card['part_ids'] == [f'card:{i}'] for i, card in enumerate(plans[0]['data']['cards']))
 
 
-def test_digest_repairs_actual_overshoots_with_numeric_feedback_and_all_sources():
+def test_internal_digest_overshoot_retains_exact_sources_without_becoming_spoken_text():
     from backend.services.podcast_outline import _digest
     calls = []
-    evidence = [{'part_id': 'climate:0', 'topic': 'Climate', 'summary': 'Climate evidence'},
-                {'part_id': 'culture:0', 'topic': 'Culture', 'summary': 'Culture evidence'}]
+    evidence = [{'part_id': f'{i}:0', 'topic': f'Subject {i}', 'summary': f'Evidence {i}'} for i in range(8)]
     class Context:
-        budget = 2000
-        def request(self, task, data, schema):
-            return briefing.AgentOperation(skill_id='core.gnosi-daily-briefing', operation=task,
-                input=json.dumps(data), output_schema=schema)
-        def cost(self, request):
-            # The evidence fits, but the rejected draft cannot be included safely.
-            return 2500 if 'previous_draft' in json.loads(request.input) else 1950
-        def stage(self, request, validate):
-            assert self.cost(request) <= self.budget
-            data = json.loads(request.input)
-            calls.append(data)
-            words = [266, 168, 144][len(calls) - 1]
-            result = {'sections': [{'topic': 'Climate and culture',
-                'part_ids': ['climate:0', 'culture:0'], 'narration': 'Climate culture ' + 'evidence ' * (words - 2)}]}
-            briefing.jsonschema.validate(result, request.output_schema)
-            validate(result)
-            return result
-    result = _digest(Context(), evidence)
-    assert len(result[0]['summary'].split()) == 144
-    assert result[0]['part_ids'] == ['climate:0', 'culture:0']
-    assert len(calls) == 3 and all(call['briefs'] == evidence for call in calls)
-    assert 'Server counted 266' in calls[1]['feedback'][-1]
-    assert 'Server counted 168' in calls[2]['feedback'][-1]
-    assert all('previous_draft' not in call for call in calls)
-
-
-def test_digest_stops_after_bounded_unresolved_rewrites_without_returning_invalid_text():
-    from backend.services.podcast_outline import _digest
-    calls = []
-    class Context:
-        budget = 40000
+        budget = 22000
         def request(self, task, data, schema):
             return briefing.AgentOperation(skill_id='core.gnosi-daily-briefing', operation=task,
                 input=json.dumps(data), output_schema=schema)
         def cost(self, request):
             return len(request.input)
         def stage(self, request, validate):
-            data = json.loads(request.input)
-            calls.append(data)
-            result = {'sections': [{'topic': 'Shared subject', 'part_ids': ['a:0'], 'narration': 'evidence ' * 168}]}
+            assert self.cost(request) <= self.budget
+            calls.append(json.loads(request.input))
+            result = {'sections': [{'topic': 'Internal evidence',
+                'part_ids': [b['part_id'] for b in evidence], 'narration': 'Evidence ' * 163}]}
+            briefing.jsonschema.validate(result, request.output_schema)
             validate(result)
             return result
-    with pytest.raises(ValueError, match='podcast_digest_word_budget: expected at most 160; received 168'):
-        _digest(Context(), [{'part_id': 'a:0', 'topic': 'Shared subject', 'summary': 'Actual evidence'}])
-    assert len(calls) == 3
-    assert calls[1]['previous_draft']['sections'][0]['narration'] == 'evidence ' * 168
+    result = _digest(Context(), evidence)
+    assert len(calls) == 1 and calls[0]['briefs'] == evidence
+    assert result == [{'topic': 'Internal evidence', 'part_ids': [b['part_id'] for b in evidence],
+                       'summary': 'Evidence ' * 163}]
+
+
+def test_nonshrinking_internal_reduction_cannot_send_oversized_writer_request_or_loop():
+    from backend.services.podcast_automatic import _write_request
+    calls = []
+    class Context:
+        budget = 22000
+        def request(self, task, data, schema):
+            return briefing.AgentOperation(skill_id='core.gnosi-daily-briefing', operation=task,
+                input=json.dumps(data), output_schema=schema)
+        def cost(self, request):
+            return 1000 if request.operation.endswith('digest') else 30000
+        def stage(self, request, validate):
+            assert request.operation.endswith('digest') and self.cost(request) <= self.budget
+            calls.append(request.operation)
+            result = {'sections': [{'topic': 'Internal evidence', 'part_ids': ['a:0'],
+                                    'narration': 'Evidence ' * 163}]}
+            validate(result)
+            return result
+    with pytest.raises(RuntimeError, match='podcast_theme_context_insufficient'):
+        _write_request(Context(), {'briefs': [{'part_id': 'a:0', 'topic': 'Subject', 'summary': 'Evidence'}]},
+                       {'min_words': 1242, 'max_words': 1504, 'target_words': 1380})
+    assert calls == ['podcast.coverage.digest']

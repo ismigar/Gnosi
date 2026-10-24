@@ -493,8 +493,10 @@ words; sparse collections have a smaller budget. The complete script must fall
 within 90–109% of its global target before publication. Exact server word counts
 and previous model drafts drive bounded automatic rewrites; invalid-length prose
 is not checkpointed as valid narration, clipped or manually substituted.
-Oversized evidence uses recursive context-bounded internal digests of at most
-160 words, retaining all source memberships. Every request is checked against
+Oversized evidence uses recursive context-bounded internal digests aiming for
+about 160 words, retaining all source memberships. Internal word counts are
+guidance: actual request context is checked and each reduction must shrink.
+The final spoken word range remains strict. Every request is checked against
 its current context budget, including length repairs.
 
 `podcast_review.py` validates exact narration and supplied-evidence quotes for

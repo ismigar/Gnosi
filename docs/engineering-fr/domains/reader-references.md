@@ -509,8 +509,11 @@ l'objectif global avant publication. Les comptes exacts du serveur et les
 brouillons du modèle guident des réécritures automatiques bornées. Un texte de
 longueur invalide n'est pas sauvegardé comme narration valide, tronqué ou remplacé
 manuellement. Les preuves trop volumineuses utilisent des résumés internes
-récursifs de 160 mots au maximum, conservant toutes les sources. Chaque requête
-est vérifiée par rapport au contexte actuel, y compris les corrections de longueur.
+récursifs visant environ 160 mots, en conservant toutes les sources. Ce nombre
+interne est indicatif : le contexte réel de chaque requête est vérifié et chaque
+réduction doit diminuer la taille. La plage de mots du texte parlé reste stricte.
+Chaque requête est vérifiée par rapport au contexte actuel, y compris les
+corrections de longueur.
 
 `podcast_review.py` valide les citations exactes du texte et des preuves fournies
 avant de sauvegarder les objections sémantiques. Les omissions identifient les

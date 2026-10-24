@@ -92,16 +92,11 @@ def _outline(context: _Briefing, briefs: list[dict[str, Any]]) -> list[dict[str,
 def _digest(context: _Briefing, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     digests: list[dict[str, Any]] = []
     batches: list[list[dict[str, Any]]] = [[]]
-    def request_for(batch: list[dict[str, Any]], feedback: list[str] | None = None, previous: dict[str, Any] | None = None) -> Any:
+    def request_for(batch: list[dict[str, Any]]) -> Any:
         ids = [{"part_id": identifier} for b in batch for identifier in b.get("part_ids", [b.get("part_id")])]
         schema = _section_schema(ids)
         schema["properties"]["sections"]["maxItems"] = 1
-        data: dict[str, Any] = {"briefs": batch}
-        if feedback:
-            data["feedback"] = feedback
-        if previous:
-            data["previous_draft"] = previous
-        return _request(context, "digest", data, schema, max_words=160)
+        return _request(context, "digest", {"briefs": batch}, schema, max_words=160)
     for record in records:
         candidate = [*batches[-1], record]
         if batches[-1] and (len(candidate) > 8 or context.cost(request_for(candidate)) > min(40_000, context.budget)):
@@ -109,31 +104,10 @@ def _digest(context: _Briefing, records: list[dict[str, Any]]) -> list[dict[str,
         batches[-1].append(record)
     for batch in batches:
         expected = [{"part_id": identifier} for b in batch for identifier in b.get("part_ids", [b.get("part_id")])]
-        previous: dict[str, Any] = {}
-        def checked(result: dict[str, Any]) -> None:
-            nonlocal previous
-            _validate_sections(result, expected)
-            previous = result
-            actual = sum(len(s["narration"].split()) for s in result["sections"])
-            if actual > 160:
-                raise ValueError(f"podcast_digest_word_budget: expected at most 160; received {actual}.")
-        feedback: list[str] = []
-        for attempt in range(3):
-            draft = previous if sum(len(s["narration"].split()) for s in previous.get("sections", [])) <= 640 else None
-            request = request_for(batch, feedback, draft)
-            if context.cost(request) > min(40_000, context.budget):
-                request = request_for(batch, feedback)
-            if context.cost(request) > min(40_000, context.budget):
-                raise RuntimeError("podcast_theme_context_insufficient")
-            try:
-                result = context.stage(request, checked)
-                break
-            except ValueError as error:
-                if not str(error).startswith("podcast_digest_word_budget:") or attempt == 2:
-                    raise
-                actual = sum(len(s["narration"].split()) for s in previous["sections"])
-                feedback.append(f"Server counted {actual} words. Rewrite toward 144 words, at most 160. "
-                                f"Change the word count by about {144 - actual}; preserve every distinct subject and qualification.")
+        request = request_for(batch)
+        if context.cost(request) > min(40_000, context.budget):
+            raise RuntimeError("podcast_theme_context_insufficient")
+        result = context.stage(request, lambda value: _validate_sections(value, expected))
         digests.extend({"topic": s["topic"], "part_ids": s["part_ids"], "summary": s["narration"]}
                        for s in result["sections"])
     return digests

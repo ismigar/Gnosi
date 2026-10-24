@@ -465,9 +465,11 @@ El guion completo debe estar entre el 90 y el 109% del objetivo global antes de
 publicarse. Los recuentos exactos del servidor y los borradores del modelo guían
 reescrituras automáticas acotadas. El texto de longitud inválida no se guarda
 como narración válida, no se recorta ni se sustituye manualmente. Las evidencias
-demasiado grandes pasan por resúmenes internos recursivos de hasta 160 palabras,
-sin perder sus fuentes. Cada petición se comprueba contra el contexto actual,
-también durante las correcciones de longitud.
+demasiado grandes pasan por resúmenes internos recursivos con un objetivo
+orientativo de unas 160 palabras, sin perder sus fuentes. Se comprueba el contexto
+real de cada petición y cada reducción debe disminuir el tamaño. El límite de
+palabras del guion hablado sigue siendo estricto. Cada petición se comprueba
+contra el contexto actual, también durante las correcciones de longitud.
 
 `podcast_review.py` valida citas exactas del guion y de las evidencias antes de
 guardar objeciones semánticas. Las omisiones identifican evidencias; las
