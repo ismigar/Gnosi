@@ -7,7 +7,7 @@ import * as api from '../../shared/api/sites';
 import { GnosiApiError } from '../../shared/api/errors';
 import WebsitesPage from './WebsitesPage';
 
-vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget'].map(name => [name, vi.fn()])));
+vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont'].map(name => [name, vi.fn()])));
 vi.mock('../../shared/api/request-context', () => ({ currentRequestContext: vi.fn() }));
 vi.mock('../../shared/hooks/useModalKeyboard', () => ({ useModalKeyboard: () => undefined }));
 vi.mock('../../shared/ui/layout/AppHeader', () => ({ AppHeader: ({ children, title }: { children: React.ReactNode; title: string }) => <header><h1>{title}</h1>{children}</header> }));
@@ -37,6 +37,30 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); });
 
 describe('Webs manager', () => {
+  it('withdraws one imported translation using its public identity without selecting a private vault note', async () => {
+    const initial = structuredClone(base);
+    initial.legacy_pilot = true;
+    initial.sources = [{ id: 'baseline-blog', kind: 'page', source_id: 'imported:blog', title: 'Blog', enabled: true, include_body: true, field_ids: [], attachment_field_ids: [], page_ids: [], withdrawn_ids: [], filters: [], selection_mode: 'all', sort_descending: false, presentation: 'cards', path_prefix: '/blog' }];
+    const publicId = '11111111-1111-4111-8111-111111111111';
+    vi.mocked(api.listSites).mockResolvedValue([initial]);
+    vi.mocked(api.getSite).mockResolvedValue({ site: initial, jobs: [], releases: [], service_available: true });
+    vi.mocked(api.siteCatalogue).mockResolvedValue([
+      { id: 'imported:blog', kind: 'page', title: 'Imported Blog' },
+      { id: publicId, kind: 'record', title: 'Public translated article', source_ids: ['imported:blog'], languages: ['ca', 'es'] },
+      { id: 'native-private-note', kind: 'page', title: 'Private vault note' },
+    ]);
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'sources');
+    const details = view.container.querySelector('details');
+    expect(details?.textContent).toContain('Public translated article');
+    expect(details?.textContent).not.toContain('Private vault note');
+    expect([...control(view.container, 'websites.source').querySelectorAll('option')].some(option => option.value.startsWith('record:'))).toBe(false);
+    const translations = [...view.container.querySelectorAll<HTMLButtonElement>('[role="switch"][aria-label="websites.withdrawTranslation"]')];
+    expect(translations).toHaveLength(2);
+    act(() => { translations[1]?.click(); });
+    act(() => { button(view.container, 'websites.save').click(); }); await settle();
+    expect(vi.mocked(api.saveSite).mock.calls[0]?.[0].sources?.[0]).toMatchObject({ withdrawn_versions: { [publicId]: ['es'] }, withdrawn_ids: [], source_id: 'imported:blog' });
+  });
+
   it('loads existing websites despite a catalogue conflict and still refuses a failed publication review', async () => {
     const conflict = new GnosiApiError(new Response(null, { status: 409 }), { detail: 'Duplicate note identities must be resolved before publication' });
     vi.mocked(api.siteCatalogue).mockRejectedValue(conflict);
@@ -121,6 +145,49 @@ describe('Webs manager', () => {
     if (kind === 'gallery') expect(saved?.pages?.[0]?.blocks?.[0]?.images).toEqual(['/first.png', '/second.png']);
     if (kind === 'filter') expect(saved?.sources?.[0]?.filters?.[0]?.value).toEqual(['first', 'second']);
     expect(button(view.container, 'websites.save').disabled).toBe(true);
+  });
+
+  it('searches typefaces with real isolated font samples and saves only the chosen typography token', async () => {
+    const oldFonts = Object.getOwnPropertyDescriptor(document, 'fonts');
+    const oldFace = Object.getOwnPropertyDescriptor(globalThis, 'FontFace');
+    const add = vi.fn(); const remove = vi.fn();
+    Object.defineProperty(document, 'fonts', { configurable: true, value: { add, delete: remove } });
+    class SampleFace { constructor(public family: string) {} load() { return Promise.resolve(this); } }
+    vi.stubGlobal('FontFace', SampleFace);
+    const initial = structuredClone(base);
+    if (!initial.theme) throw new Error('Missing fixture theme');
+    initial.theme.tokens = { 'font-body': '"Crimson Pro", Georgia, serif', 'font-heading': '"Nunito", system-ui, sans-serif' };
+    initial.theme.fonts = [{ family: 'Crimson Pro', src: '/fonts/crimson.woff2', weight: '400', style: 'normal' }, { family: 'Nunito', src: '/fonts/nunito.woff2', weight: '400', style: 'normal' }];
+    vi.mocked(api.listSites).mockResolvedValue([initial]);
+    vi.mocked(api.getSite).mockResolvedValue({ site: initial, jobs: [], releases: [], service_available: true });
+    const blob = new Blob(['wOF2font']);
+    Object.defineProperty(blob, 'arrayBuffer', { value: () => Promise.resolve(new ArrayBuffer(8)) });
+    vi.mocked(api.previewSiteFont).mockResolvedValue(blob);
+    const view = mountTestComponent(<WebsitesPage />);
+    try {
+      await settle(); tab(view.container, 'appearance'); await settle(); await settle();
+      expect(add).toHaveBeenCalledTimes(2);
+      const picker = view.container.querySelector<HTMLElement>('[role="combobox"][aria-label="websites.tokens.font-body"]');
+      if (!picker) throw new Error('Missing typeface selector');
+      act(() => { picker.click(); }); await settle();
+      const search = document.querySelector<HTMLInputElement>('[data-property-dropdown] input');
+      if (!search) throw new Error('Missing autocomplete search');
+      act(() => { changeInput(search, 'nuni'); }); await settle();
+      const options = [...document.querySelectorAll<HTMLElement>('[data-property-dropdown] [role="option"]')];
+      expect(options).toHaveLength(1);
+      expect(options[0]?.textContent).toContain('Nunito');
+      expect(options[0]?.querySelector<HTMLElement>('.websites-font-sample')?.style.fontFamily).toContain('GnosiWebFont-test-site-1');
+      act(() => { search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }); await settle();
+      expect(document.querySelector('[data-property-dropdown]')).toBeNull();
+      expect(document.activeElement).toBe(picker);
+      act(() => { button(view.container, 'websites.save').click(); }); await settle();
+      expect(vi.mocked(api.saveSite).mock.calls[0]?.[0].theme?.tokens).toEqual({ 'font-body': '"Nunito", Georgia, serif', 'font-heading': '"Nunito", system-ui, sans-serif' });
+      view.unmount(); expect(remove).toHaveBeenCalledTimes(2);
+    } finally {
+      view.unmount();
+      if (oldFonts) Object.defineProperty(document, 'fonts', oldFonts); else Reflect.deleteProperty(document, 'fonts');
+      if (oldFace) Object.defineProperty(globalThis, 'FontFace', oldFace); else Reflect.deleteProperty(globalThis, 'FontFace');
+    }
   });
 
   it('offers theme import through a focusable native button wired to the file picker', async () => {

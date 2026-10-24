@@ -48,6 +48,9 @@ def safe_link(value: str, *, image: bool = False) -> None:
 
 def validate_site(site: SiteConfig) -> None:
     safe_link(site.origin, image=True)
+    for source in site.sources:
+        if any(language not in site.languages for languages in source.withdrawn_versions.values() for language in languages):
+            raise HTTPException(422, "A withdrawn translation uses an unconfigured language")
     validate_css(site.theme.advanced_css)
     for key, value in site.theme.tokens.items():
         if not re.fullmatch(r"[a-z][a-z0-9-]{0,60}", key) or len(value) > 300 or any(c in value for c in "{};<>\\") or re.search(r"url\s*\(|@import|expression\s*\(", value, re.I):

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 
 from backend.services.plugin_access import require_plugins
 from backend.services.workspace_service import WorkspaceContext, require_role
@@ -130,6 +131,14 @@ def import_theme(site_id: str, request: SiteTheme, context: Editor) -> SiteConfi
     site = store.load(site_id)
     site.theme = request
     return store.save(site)
+
+
+@router.get("/{site_id}/theme/font", response_class=Response, responses={200: {"content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}}})
+def font_preview(site_id: str, source: str, context: Editor) -> Response:
+    from .fonts import preview_font
+    store = store_for(context)
+    raw, media_type = preview_font(store, store.load(site_id), source)
+    return Response(raw, media_type=media_type, headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
 
 
 @router.get("/{site_id}/theme/history", response_model=list[SiteTheme])

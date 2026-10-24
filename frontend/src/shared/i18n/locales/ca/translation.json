@@ -9348,6 +9348,15 @@
     "managedBridgeHelp": "Aquesta destinació utilitza el pont Pangea / Suweb del pilot importat. El pont gestiona la connexió i els directoris remots. Pots comprovar-ne la connexió aquí.",
     "jobErrors": {
       "worker_start_pending": "La versió del web ja està activa, però encara no s’ha pogut iniciar el procés del servei privat. Prova la connexió de la destinació i torna a revisar i publicar per reintentar-ne l’inici."
-    }
+    },
+    "withdrawTranslation": "Retira la versió {{language}}",
+    "fontSystem": "Tipografia del sistema",
+    "fontSerif": "Amb serifa",
+    "fontSans": "Sense serifa",
+    "fontMono": "Monoespaiada",
+    "chooseFont": "Tria una tipografia",
+    "fontNotFound": "No s’ha trobat cap tipografia.",
+    "fontPickerHelp": "Cerca una font del tema o una família del sistema. Cada nom mostra una mostra de la tipografia.",
+    "fontSampleUnavailable": "No s’ha pogut carregar alguna mostra. Revisa els fitxers de les fonts i desa els canvis."
   }
 }

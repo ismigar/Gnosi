@@ -9348,6 +9348,15 @@
     "managedBridgeHelp": "Cette destination utilise le pont Pangea / Suweb du pilote importé. Le pont gère la connexion et les répertoires distants. Vous pouvez tester sa connexion ici.",
     "jobErrors": {
       "worker_start_pending": "La version du site web est déjà active, mais le processus du service privé n’a pas encore démarré. Testez la connexion de la destination, puis vérifiez et publiez à nouveau pour réessayer de le démarrer."
-    }
+    },
+    "withdrawTranslation": "Retirer la version {{language}}",
+    "fontSystem": "Police du système",
+    "fontSerif": "Avec empattements",
+    "fontSans": "Sans empattement",
+    "fontMono": "À chasse fixe",
+    "chooseFont": "Choisir une police",
+    "fontNotFound": "Aucune police correspondante.",
+    "fontPickerHelp": "Recherchez une police du thème ou une famille système. Chaque nom présente sa propre typographie.",
+    "fontSampleUnavailable": "Certains aperçus ne se chargent pas. Vérifiez les fichiers de police et enregistrez les modifications."
   }
 }

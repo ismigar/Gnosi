@@ -18,9 +18,9 @@ export const labels = lang => ({
 
 export function href(value) {
   const text = String(value || '');
-  if (!text || /[\u0000-\u0020\\]/.test(text) || text.startsWith('//')) return '#';
+  if (!text || /[\u0000-\u001f\u007f\\]/.test(text) || text.startsWith('//')) return '#';
   if (text.startsWith('#')) return text;
-  if (text.startsWith('/')) return prefix(text);
+  if (text.startsWith('/')) {const parsed=new URL(text,site.origin);return prefix(parsed.pathname)+parsed.search+parsed.hash;}
   try {
     const parsed = new URL(text);
     if (!['http:', 'https:', 'mailto:', 'tel:'].includes(parsed.protocol)) return '#';
@@ -34,12 +34,17 @@ export function linkProps(value) {
 }
 export function html(value) {
   return sanitizeHtml(String(value || ''), {
-    allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img', 'figure', 'figcaption'],
-    allowedAttributes: {...sanitizeHtml.defaults.allowedAttributes, '*':['id','class','lang'],img:['src','alt','width','height','loading']},
+    allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img','figure','figcaption','picture','source','details','summary','video','audio','iframe','math','semantics','mrow','mi','mo','mn','msup','msub','mfrac','annotation'],
+    allowedAttributes: {...sanitizeHtml.defaults.allowedAttributes, '*':['id','class','lang','dir'],img:['src','alt','title','width','height','loading'],source:['src','type','media'],iframe:['src','title','width','height','allowfullscreen','loading'],video:['src','controls','poster'],audio:['src','controls'],td:['colspan','rowspan'],th:['colspan','rowspan','scope'],annotation:['encoding']},
+    allowedIframeHostnames: ['www.youtube.com','www.youtube-nocookie.com','player.vimeo.com'],
     allowedSchemes: ['https','http','mailto','tel'], allowProtocolRelative: false,
     transformTags: {
-      a: (tagName, attributes) => ({tagName, attribs:{...attributes,href:href(attributes.href),...linkProps(attributes.href)}}),
+      a: (tagName, attributes) => {
+        try {const url=new URL(attributes.href,site.origin);if(url.origin===new URL(site.origin).origin && (bundle.withdrawn_paths || []).includes(decodeURI(url.pathname)))return {tagName:'span',attribs:{}};}catch{}
+        return {tagName, attribs:{...attributes,href:href(attributes.href),...linkProps(attributes.href)}};
+      },
       img: (tagName, attributes) => ({tagName, attribs:{...attributes,src:href(attributes.src),alt:attributes.alt || '',loading:'lazy'}}),
+      source: (tagName,attributes) => ({tagName,attribs:{...attributes,src:href(attributes.src)}}),
     },
   });
 }
@@ -63,8 +68,20 @@ for (const page of pages) {
 }
 export function selection(block, lang) {
   const wanted = new Set(block.page_ids || []);
+  if(block.type==='selected' && !wanted.size)return [];
+  const home=site.legacy_pilot && block.type==='selected' && site.pages.some(page=>page.template==='home' && page.blocks.some(candidate=>candidate.id===block.id));
+  if(home && wanted.size){
+    const complete=records.filter(record=>record.source_ids.some(id=>site.sources.some(source=>source.id===id && source.source_id==='imported:blog')) && sanitizeHtml(record.body_html,{allowedTags:[],allowedAttributes:{}}).trim());
+    const result=[];
+    const append=id=>{const versions=complete.filter(record=>record.id===id);const chosen=versions.find(record=>record.language===lang)||versions.find(record=>record.language===site.default_language)||versions[0];if(chosen && !result.some(record=>record.id===id))result.push(chosen);};
+    for(const id of block.page_ids)append(id);
+    for(const record of [...complete].sort((a,b)=>Number(b.presentation?.created||0)-Number(a.presentation?.created||0))) {if(result.length>=(block.limit||3))break;append(record.id);}
+    return result.slice(0,block.limit||3);
+  }
   const selected = records.filter(record => record.language === lang && (!block.source_id || record.source_ids.includes(block.source_id)) && (!wanted.size || wanted.has(record.id)));
   if(wanted.size) selected.sort((a,b)=>block.page_ids.indexOf(a.id)-block.page_ids.indexOf(b.id));
+  else if(site.legacy_pilot && ['imported:research','imported:stories'].includes(site.sources.find(source=>source.id===block.source_id)?.source_id)) selected.sort((a,b)=>Number(b.presentation?.year||0)-Number(a.presentation?.year||0) || a.title.localeCompare(b.title,lang));
+  else if(site.legacy_pilot && ['imported:blog','imported:design'].includes(site.sources.find(source=>source.id===block.source_id)?.source_id))selected.sort((a,b)=>Number(b.presentation?.created||0)-Number(a.presentation?.created||0));
   else if(block.source_id) selected.sort((a,b)=>(a.source_order?.[block.source_id]??0)-(b.source_order?.[block.source_id]??0));
   return selected.slice(0,block.limit || 100);
 }

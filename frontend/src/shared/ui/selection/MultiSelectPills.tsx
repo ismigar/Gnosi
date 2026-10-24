@@ -18,6 +18,7 @@ export const MultiSelectPills = ({
     onDeleteOption,
     single = false,
     renderValue,
+    renderOption,
     label,
     portalZIndex,
     emptyMessage,
@@ -98,6 +99,7 @@ export const MultiSelectPills = ({
             const isCurrent = currentValues[0] === val;
             onChange(isCurrent ? '' : val);
             setIsOpen(false);
+            containerRef.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
             return;
         }
         const next = currentValues.includes(val)
@@ -183,6 +185,7 @@ export const MultiSelectPills = ({
                             autoFocus
                             aria-label={label || t('common.search_placeholder')}
                             role="combobox"
+                            aria-autocomplete="list"
                             aria-expanded="true"
                             aria-controls={listId}
                             aria-activedescendant={filteredOptions[highlightedIndex] !== undefined ? `${listId}-${String(highlightedIndex)}` : undefined}
@@ -215,7 +218,7 @@ export const MultiSelectPills = ({
                                         {Boolean(optionColorByKey[opt]) && (
                                             <span className="shrink-0 w-2 h-2 rounded-full" style={{ backgroundColor: optionColorHex(optionColorByKey[opt]) }} />
                                         )}
-                                        <span className="truncate">{pageReferenceTitle(opt, idToTitle)}</span>
+                                        <span className="truncate">{renderOption ? renderOption(opt) : pageReferenceTitle(opt, idToTitle)}</span>
                                     </span>
                                     <span className="flex items-center gap-1 shrink-0">
                                         {onDeleteOption && (

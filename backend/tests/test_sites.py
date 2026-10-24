@@ -1103,3 +1103,54 @@ def test_generated_ssh_upload_program_verifies_and_activates_without_network(web
     service_status = runtime.remote_service(website.store, site, target.id, "status", {})
     assert service_status["test_mode"] is True
     assert service_status["messages"]["new"] == 0
+
+
+def test_font_preview_only_reads_selected_local_fonts_and_rejects_escapes(website, tmp_path):
+    from backend.domains.sites.fonts import preview_font
+    from backend.domains.sites.models import SiteFont
+    font = website.vault / "sample.woff2"
+    font.write_bytes(b"wOF2" + b"public-font-fixture")
+    secret = website.vault / "not-selected.woff2"
+    secret.write_bytes(b"wOF2" + b"NEVER-PREVIEW-UNSELECTED")
+    site = website.site.model_copy(deep=True)
+    site.theme.fonts = [SiteFont(family="Sample", src="sample.woff2")]
+    assert preview_font(website.store, site, "sample.woff2") == (font.read_bytes(), "font/woff2")
+    with pytest.raises(HTTPException) as denied:
+        preview_font(website.store, site, "not-selected.woff2")
+    assert denied.value.status_code == 404
+    external = "https://example.invalid/font.woff2"
+    site.theme.fonts.append(SiteFont(family="External", src=external))
+    with pytest.raises(HTTPException):
+        preview_font(website.store, site, external)
+    outside = tmp_path / "outside.woff2"
+    outside.write_bytes(b"wOF2" + b"NEVER-PREVIEW-OUTSIDE")
+    link = website.vault / "linked.woff2"
+    link.symlink_to(outside)
+    site.theme.fonts.append(SiteFont(family="Outside", src="linked.woff2"))
+    with pytest.raises(HTTPException) as escaped:
+        preview_font(website.store, site, "linked.woff2")
+    assert escaped.value.status_code == 409
+
+
+def test_font_preview_http_requires_editor_and_never_caches_font_bytes(website, monkeypatch):
+    from backend.domains.sites.models import SiteFont
+    path = website.vault / "preview.woff2"
+    path.write_bytes(b"wOF2" + b"public-font-fixture")
+    site = website.store.load(website.site.id)
+    site.theme.fonts = [SiteFont(family="Preview", src="/preview.woff2")]
+    website.store.save(site)
+    app = FastAPI()
+    app.include_router(api.router, prefix="/api/vault")
+    app.dependency_overrides[api.router.dependencies[0].dependency] = lambda: None
+    app.dependency_overrides[get_workspace_context] = lambda: website.context
+    monkeypatch.setattr(api, "store_for", lambda context: SiteStore(context))
+    with TestClient(app) as client:
+        url = "/api/vault/sites/" + site.id + "/theme/font"
+        response = client.get(url, params={"source": "/preview.woff2"})
+        assert response.status_code == 200 and response.content == path.read_bytes()
+        assert response.headers['content-type'] == 'font/woff2'
+        assert response.headers['cache-control'] == 'no-store'
+        website.context.role = "viewer"
+        assert client.get(url, params={"source": "/preview.woff2"}).status_code == 403
+        website.context.role = "editor"
+        assert client.get(url, params={"source": "/preview.woff2"}).status_code == 200

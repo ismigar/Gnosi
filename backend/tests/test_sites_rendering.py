@@ -76,7 +76,8 @@ def test_actual_astro_output_scopes_assets_and_forms_without_private_snapshot(tm
     assert 'action="/_gnosi-proof/current/api/contact.php"' in html
     assert 'href="/_gnosi-proof/current/_astro/' in html
     assert 'name="values[email]"' in html and 'name="values[message]"' in html
-    assert "https://example.invalid/ca" in (output / "sitemap.xml").read_text()
+    assert "https://example.invalid/_gnosi-proof/current/ca" in (output / "sitemap.xml").read_text()
+    assert 'rel="canonical" href="https://example.invalid/ca"' in html
     assert (output / "pagefind/pagefind.js").is_file()
     from bs4 import BeautifulSoup
     search = BeautifulSoup((output / "ca/search/node/index.html").read_text(), "html.parser")

@@ -105,3 +105,9 @@ export async function localTargetStatus(siteId: string, targetId: string, contex
 export async function stopLocalTarget(siteId: string, targetId: string, context: RequestContext, signal?: AbortSignal) {
   return unwrapApiResult(await apiClient.POST('/api/vault/sites/{site_id}/targets/{target_id}/stop', { params: { path: { site_id: siteId, target_id: targetId } }, ...scope(context, signal) }));
 }
+
+export async function previewSiteFont(siteId: string, source: string, context: RequestContext, signal?: AbortSignal): Promise<Blob> {
+  return unwrapApiResult<Blob, unknown>(await apiClient.GET('/api/vault/sites/{site_id}/theme/font', {
+    params: { path: { site_id: siteId }, query: { source } }, parseAs: 'blob', ...scope(context, signal),
+  }));
+}

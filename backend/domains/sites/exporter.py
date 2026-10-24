@@ -411,6 +411,7 @@ class Projection:
     all_notes: list[Note]
     previous_records: list[dict[str, JsonValue]]
     hashes: dict[str, str]
+    previous_withdrawn: list[str] = field(default_factory=list)
     public: dict[tuple[str, str], PublicRecord] = field(default_factory=dict)
     bodies: dict[tuple[str, str], Note] = field(default_factory=dict)
     asset: AssetExporter = field(init=False)
@@ -438,6 +439,8 @@ class Projection:
         key = _note_identity(note, self.translations)
         if key[1] not in self.site.languages:
             return
+        if key[1] in source.withdrawn_versions.get(str(note.metadata["id"]), []):
+            return
         record = self.public.setdefault(key, _record(note, source, self.translations, self.paths))
         record.source_ids.append(source.id)
         record.source_order[source.id] = position
@@ -451,15 +454,18 @@ class Projection:
     def import_baseline(self) -> None:
         if not self.site.legacy_pilot:
             return
-        from .importer import merge_imported_bundle
-        merge_imported_bundle(self.store, self.site, self.public, self.asset.assets, self.hashes)
+        from .importer import imported_record_ids, merge_imported_bundle
+        excluded: set[tuple[str, str]] = set()
+        candidates = imported_record_ids(self.store, self.site) | {key[0] for key in self.public}
         for note in self.all_notes:
             if not is_public_metadata(note.metadata):
                 identity = public_id(note.metadata, self.site)
-                if not any(key[0] == identity for key in self.public):
+                if identity not in candidates:
                     continue
                 for language in self.translations.private_languages(note.metadata):
+                    excluded.add((identity, language))
                     self.public.pop((identity, language), None)
+        merge_imported_bundle(self.store, self.site, self.public, self.asset.assets, self.hashes, excluded=excluded)
 
     def guard_missing_files(self) -> None:
         enabled_sources = {source.id for source in self.site.sources if source.enabled}
@@ -471,7 +477,12 @@ class Projection:
                 continue
             retained = enabled_sources.intersection(str(value) for value in source_ids)
             missing = str(old.get("id")) not in known_ids and str(old.get("id")) not in withdrawn
-            if retained and missing and (str(old.get("id")), str(old.get("language"))) not in self.public:
+            explicit = all(
+                str(old.get("id")) in source.withdrawn_ids
+                or str(old.get("language")) in source.withdrawn_versions.get(str(old.get("id")), [])
+                for source in self.site.sources if source.id in retained
+            )
+            if retained and missing and not explicit and (str(old.get("id")), str(old.get("language"))) not in self.public:
                 raise HTTPException(409, "A previously published source file is missing; select an explicit withdrawal after checking OneDrive")
 
     def render_bodies(self) -> None:
@@ -494,7 +505,8 @@ def _projection(store: SiteStore, site: SiteConfig, target_id: str) -> Projectio
     raw_records = previous.get("records", []) if previous else []
     previous_records = [record for record in raw_records if isinstance(record, dict)] if isinstance(raw_records, list) else []
     hashes = {"BD/vault_db_registry.json": registry_hash} if registry_hash else {}
-    return Projection(store, site, data, all_notes, previous_records, hashes)
+    previous_withdrawn = previous.get("withdrawn_paths", []) if previous else []
+    return Projection(store, site, data, all_notes, previous_records, hashes, [str(path) for path in previous_withdrawn] if isinstance(previous_withdrawn, list) else [])
 
 
 def _exported_site(site: SiteConfig, asset: AssetExporter) -> SiteConfig:
@@ -513,10 +525,37 @@ def _exported_site(site: SiteConfig, asset: AssetExporter) -> SiteConfig:
             if block.image and not urlsplit(block.image).scheme:
                 block.image = asset(block.image)
             block.images = [asset(value) if not urlsplit(value).scheme else value for value in block.images]
-    exported.sources = [source.model_copy(update={"filters": [], "page_ids": [], "withdrawn_ids": [], "sort_field_id": None, "selection_mode": "all"}) for source in exported.sources if source.enabled]
+    exported.sources = [source.model_copy(update={"filters": [], "page_ids": [], "withdrawn_ids": [], "withdrawn_versions": {}, "sort_field_id": None, "selection_mode": "all"}) for source in exported.sources if source.enabled]
     exported.pages = [page for page in exported.pages if page.enabled]
     exported.forms = [form for form in exported.forms if form.enabled]
     return exported
+
+
+def _withdrawn_paths(projection: Projection, exported: SiteConfig) -> list[str]:
+    """Retire aliases with their page and carry tombstones across later builds."""
+    current = {record.path for record in projection.public.values()} | {page.path for page in exported.pages}
+    current |= {"/" + language + suffix for language in exported.languages for suffix in ("/search/node", "/mapa-web", "")}
+    current |= {"/" + language + source.path_prefix for language in exported.languages for source in exported.sources}
+    withdrawn = (set(projection.previous_withdrawn) | {str(record["path"]) for record in projection.previous_records}) - current
+    if exported.legacy_pilot:
+        path = projection.store.site_dir(exported.id) / "imported/baseline.json"
+        data = json.loads(path.read_text()).get("data", {})
+        withdrawn |= {str(node["url"]) for node in data.get("nodes", [])} - current
+    # A restored alias must cease being a tombstone before alias propagation.
+    available = set(current)
+    while True:
+        resolved = {origin for origin, destination in exported.redirects.items() if destination in available}
+        if resolved <= available:
+            break
+        available |= resolved
+    withdrawn -= available
+    while True:
+        aliases = {origin for origin, destination in exported.redirects.items() if destination in withdrawn}
+        if aliases <= withdrawn:
+            break
+        withdrawn |= aliases
+    exported.redirects = {origin: destination for origin, destination in exported.redirects.items() if origin not in withdrawn}
+    return sorted(withdrawn)
 
 
 def build_bundle(store: SiteStore, site: SiteConfig, target_id: str) -> SiteBundle:
@@ -527,10 +566,13 @@ def build_bundle(store: SiteStore, site: SiteConfig, target_id: str) -> SiteBund
     projection.guard_missing_files()
     projection.render_bodies()
     exported = _exported_site(site, projection.asset)
-    bundle = SiteBundle(site=exported, records=list(projection.public.values()), assets=list(projection.asset.assets.values()), source_hashes=projection.hashes)
+    withdrawn = _withdrawn_paths(projection, exported)
+    from .importer import imported_feed_aliases
+    feed_aliases = imported_feed_aliases(store, site)
+    bundle = SiteBundle(site=exported, records=list(projection.public.values()), assets=list(projection.asset.assets.values()), source_hashes=projection.hashes, withdrawn_paths=withdrawn, feed_aliases=feed_aliases)
     public_paths = [record.path for record in bundle.records] + [page.path for page in exported.pages]
     if len(public_paths) != len(set(public_paths)):
         raise HTTPException(422, "Two selected pages own the same public URL")
-    bundle.fingerprint = fingerprint({"site": site.model_dump(mode="json"), "records": [record.model_dump(mode="json") for record in bundle.records], "hashes": projection.hashes, "assets": [{"path": item.path, "sha256": item.sha256} for item in bundle.assets]})
+    bundle.fingerprint = fingerprint({"site": site.model_dump(mode="json"), "records": [record.model_dump(mode="json") for record in bundle.records], "hashes": projection.hashes, "assets": [{"path": item.path, "sha256": item.sha256} for item in bundle.assets], "withdrawn": withdrawn, "feed_aliases": feed_aliases})
     private_json(store.site_dir(site.id) / "last-export.json", {"fingerprint": bundle.fingerprint, "records": len(bundle.records)})
     return bundle

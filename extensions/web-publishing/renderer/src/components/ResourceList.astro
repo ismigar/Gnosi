@@ -1,0 +1,5 @@
+---
+import {prefix} from '../lib/site.mjs';
+const {items}=Astro.props;
+---
+<ul class="resource-list">{items.map(record=><li><span class="resource-year">{record.presentation?.year}</span><a href={prefix(record.path)}>{record.title}</a></li>)}</ul>

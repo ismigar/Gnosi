@@ -9292,6 +9292,15 @@
     "managedBridgeHelp": "This destination uses the Pangea / Suweb bridge from the imported pilot. The bridge manages its connection and remote directories. You can test its connection here.",
     "jobErrors": {
       "worker_start_pending": "The website release is already active, but the private service worker has not started yet. Test the destination connection, then review and publish again to retry starting it."
-    }
+    },
+    "withdrawTranslation": "Withdraw {{language}} version",
+    "fontSystem": "System typeface",
+    "fontSerif": "Serif",
+    "fontSans": "Sans serif",
+    "fontMono": "Monospaced",
+    "chooseFont": "Choose a typeface",
+    "fontNotFound": "No matching typeface.",
+    "fontPickerHelp": "Search the theme fonts or a system family. Each name previews its typeface.",
+    "fontSampleUnavailable": "Some font samples could not load. Check the font files and save your changes."
   }
 }

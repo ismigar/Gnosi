@@ -1,30 +1,58 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
-import {bundle,site,pages,records,prefix,base} from '../src/lib/site.mjs';
+import {bundle,site,pages,records,prefix,base,deployment,html,selection} from '../src/lib/site.mjs';
 
 const output=path.resolve('dist');
 function run(command,args){const result=spawnSync(command,args,{stdio:'inherit'});if(result.status!==0)throw new Error('Website build failed');}
 run(process.execPath,['node_modules/astro/bin/astro.mjs','build']);
 const escape=value=>String(value??'').replace(/[<>&"']/g,char=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[char]));
-const canonical=value=>new URL(value,site.origin).href;
+const canonical=value=>new URL(prefix(value),deployment.origin).href;
 function file(relative,content){const target=path.join(output,relative.replace(/^\//,''));fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target,content);}
+function feed(language,selected,title=site.name){
+  const items=selected.map(record=>{
+    const guid=(site.legacy_pilot?'':site.id+':')+record.id+':'+record.language;
+    const seconds=Number(record.presentation?.created);const date=new Date(seconds*1000);
+    const published=Number.isFinite(seconds)&&seconds>0&&!Number.isNaN(date.valueOf())?`<pubDate>${date.toUTCString()}</pubDate>`:'';
+    return `<item><title>${escape(record.title)}</title><link>${escape(canonical(record.path))}</link><guid isPermaLink="false">${escape(guid)}</guid>${published}<description>${escape(html(record.body_html))}</description></item>`;
+  }).join('');
+  return `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>${escape(title)}</title><link>${escape(canonical('/'+language))}</link><description>${escape(site.name)}</description><language>${language}</language>${items}</channel></rss>`;
+}
 for(const language of site.languages){
-  const selected=records.filter(record=>record.language===language);
-  const feed=`<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>${escape(site.name)}</title><link>${escape(canonical('/'+language))}</link><description>${escape(site.name)}</description><language>${language}</language>${selected.map(record=>`<item><title>${escape(record.title)}</title><link>${escape(canonical(record.path))}</link><guid isPermaLink="false">${escape(site.id+':'+record.id+':'+record.language)}</guid><description>${escape(record.body_html)}</description></item>`).join('')}</channel></rss>`;
-  file(`/${language}/rss.xml`,feed);
+  const selected=records.filter(record=>record.language===language && (!site.legacy_pilot || ['article','recurs','disseny'].includes(record.presentation?.kind)));
+  if(site.legacy_pilot)selected.sort((a,b)=>Number(b.presentation?.created||0)-Number(a.presentation?.created||0));
+  file(`/${language}/rss.xml`,feed(language,selected));
   for(const source of site.sources.filter(source=>source.enabled)){
-    const scoped=selected.filter(record=>record.source_ids.includes(source.id));
-    const section=feed.replace(/<item>[\s\S]*<\/item>/,scoped.map(record=>`<item><title>${escape(record.title)}</title><link>${escape(canonical(record.path))}</link><guid isPermaLink="false">${escape(site.id+':'+record.id+':'+record.language)}</guid></item>`).join(''));
-    file(`/${language}${source.path_prefix}.xml`,section);
+    const scoped=selection({source_id:source.id,limit:100000},language);
+    const content=feed(language,scoped,site.name+' · '+(source.title||site.name));
+    file(`/${language}${source.path_prefix}.xml`,content);
+    if(site.legacy_pilot && language===site.default_language && ['imported:blog','imported:research','imported:stories','imported:design'].includes(source.source_id))file(source.path_prefix+'.xml',content);
   }
 }
 file('/rss.xml',fs.readFileSync(path.join(output,site.default_language,'rss.xml'),'utf8'));
+if(site.legacy_pilot){
+  const defaults=new Map();
+  for(const page of site.pages.filter(page=>page.enabled && page.translation_id?.startsWith('imported:tag:'))){
+    const tid=page.translation_id.slice('imported:tag:'.length);
+    if(!/^\d+$/.test(tid))continue;
+    const block=page.blocks.find(block=>block.type==='selected');
+    const content=feed(page.language,block?selection(block,page.language):[],site.name+' · '+page.title);
+    file(page.path+'/feed',content);
+    if(!defaults.has(tid)||page.language===site.default_language)defaults.set(tid,content);
+  }
+  for(const [tid,content] of defaults)file('/taxonomy/term/'+tid+'/feed',content);
+}
+for(const [origin,destination] of Object.entries(bundle.feed_aliases||{})){
+  const content=fs.readFileSync(path.join(output,destination.slice(1)),'utf8');
+  const target=path.join(output,origin.slice(1));
+  if(fs.existsSync(target)&&fs.readFileSync(target,'utf8')!==content)throw new Error('Feed alias conflicts with a generated public file');
+  file(origin,content);
+}
 file('/sitemap.xml',`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.filter(page=>page.template!=='search').map(page=>`<url><loc>${escape(canonical(page.path))}</loc></url>`).join('')}</urlset>`);
 file('/robots.txt','User-agent: *\nDisallow: /\n');
 const redirects={...site.redirects};
 if(!pages.some(page=>page.path==='/'))redirects['/']='/'+site.default_language;
-const rewrites=['AddDefaultCharset UTF-8','Options -Indexes -MultiViews','DirectorySlash Off','DirectoryIndex index.html','<IfModule mod_headers.c>','Header always set X-Robots-Tag "noindex, nofollow"','Header always set X-Content-Type-Options "nosniff"','</IfModule>','AddType application/wasm .wasm','RewriteEngine On'];
+const rewrites=['AddDefaultCharset UTF-8','Options -Indexes -MultiViews','DirectorySlash Off','DirectoryIndex index.html','<IfModule mod_headers.c>','Header always set X-Robots-Tag "noindex, nofollow"','Header always set X-Content-Type-Options "nosniff"','</IfModule>','AddType application/wasm .wasm','<FilesMatch "^feed$">','ForceType application/rss+xml','</FilesMatch>','RewriteEngine On'];
 if(base)rewrites.push(`RewriteBase ${base}/`);
 const routeFile=value=>value==='/'?'index.html':value.replace(/^\//,'')+'/index.html';
 for(const [from,to] of Object.entries(redirects)){

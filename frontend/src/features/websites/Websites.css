@@ -51,3 +51,6 @@ textarea.websites-input{resize:vertical;min-height:80px}
 .websites-spacer{margin-top:16px}
 .websites-page :is(button,a,input,textarea,select):focus-visible{outline:2px solid var(--accent-color,var(--text-primary));outline-offset:3px}
 @media(max-width:760px){.websites-shell{padding:16px 12px 32px}.websites-grid,.websites-grid-three,.websites-inbox{grid-template-columns:1fr}.websites-card{padding:14px}.websites-toolbar{align-items:stretch}.websites-toolbar>div{width:100%}.websites-tabs{max-width:100%}.websites-actions{gap:8px}.websites-preview{padding:6px}}
+
+.websites-font-sample{font-size:16px;line-height:1.5;overflow-wrap:anywhere}
+.websites-color>[class*=relative]{width:100%;min-width:0}

@@ -49,6 +49,7 @@ class SiteSource(Contract):
     page_ids: list[str] = Field(default_factory=list)
     selection_mode: Literal["all", "selected"] = "all"
     withdrawn_ids: list[str] = Field(default_factory=list)
+    withdrawn_versions: dict[str, list[str]] = Field(default_factory=dict)
 
     @field_validator("path_prefix")
     @classmethod
@@ -235,10 +236,12 @@ class SiteCreate(Contract):
 
 class CatalogueItem(Contract):
     id: str
-    kind: Literal["table", "view", "page"]
+    kind: Literal["table", "view", "page", "record"]
     title: str
     table_id: str | None = None
     fields: list[dict[str, str]] = Field(default_factory=list)
+    source_ids: list[str] = Field(default_factory=list)
+    languages: list[str] = Field(default_factory=list)
 
 
 class PublicRecord(Contract):
@@ -252,6 +255,7 @@ class PublicRecord(Contract):
     source_ids: list[str] = Field(default_factory=list)
     source_order: dict[str, int] = Field(default_factory=dict)
     translation_id: str | None = None
+    presentation: dict[str, JsonValue] = Field(default_factory=dict)
 
 
 class BundleAsset(Contract):
@@ -265,9 +269,21 @@ class SiteBundle(Contract):
     site: SiteConfig
     records: list[PublicRecord] = Field(default_factory=list)
     assets: list[BundleAsset] = Field(default_factory=list)
+    withdrawn_paths: list[str] = Field(default_factory=list)
+    feed_aliases: dict[str, str] = Field(default_factory=dict)
     source_hashes: dict[str, str] = Field(default_factory=dict)
     fingerprint: str = ""
     created_at: str = Field(default_factory=timestamp)
+
+    @field_validator("feed_aliases")
+    @classmethod
+    def safe_feed_aliases(cls, value: dict[str, str]) -> dict[str, str]:
+        for origin, destination in value.items():
+            safe_path(origin)
+            safe_path(destination)
+            if not origin.endswith(".xml") or not destination.endswith(".xml"):
+                raise ValueError("Feed aliases must use plain XML website paths")
+        return value
 
 
 class SiteChange(Contract):

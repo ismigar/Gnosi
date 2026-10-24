@@ -5,9 +5,10 @@ import hashlib
 import json
 import re
 import shutil
-from html import escape
+from html import escape, unescape
 from pathlib import Path
 from typing import cast
+from urllib.parse import unquote, urlsplit
 
 from fastapi import HTTPException
 from pydantic import JsonValue
@@ -89,7 +90,7 @@ def seed_import(store: SiteStore, site: SiteConfig, pilot_root: Path) -> None:
     home = obj(data.get("home_content", {}))
     selection = obj(json.loads((pilot_root / "config/homepage.json").read_text()))
     nids = selection.get("reading_ids", [])
-    reading_ids = list(dict.fromkeys(str(node["uuid"]) for node in nodes if isinstance(nids, list) and node.get("nid") in nids))
+    reading_ids = list(dict.fromkeys(str(node["uuid"]) for nid in nids for node in nodes if node.get("nid") == nid)) if isinstance(nids, list) else []
     contact = site.forms[0]
     contact.enabled = True
     for lang in site.languages:
@@ -97,13 +98,19 @@ def seed_import(store: SiteStore, site: SiteConfig, pilot_root: Path) -> None:
         site.pages.append(SitePage(id="home-" + lang, translation_id="imported:home", title=str(text.get("tagline", site.name)), path="/" + lang, language=lang, template="home", enabled=True, blocks=[
             SiteBlock(type="split", title="", body=str(text.get("intro", "")), image=str(selection.get("photograph", "")), alt=site.name),
             SiteBlock(type="selected", title={"ca": "Lectures per començar", "es": "Lecturas para empezar"}.get(lang, "Selected reading"), page_ids=reading_ids, limit=3),
+            *[SiteBlock(type="collection", title=_COLLECTION_TITLES.get(lang, {}).get(group, definitions[group][0]), source_id="imported-" + group, limit=5 if group != "design" else 3) for group in ("research", "stories", "design")],
+            SiteBlock(type="collaborators", title=_COLLECTION_TITLES.get(lang, {}).get("collaborators", "Collaborators"), source_id="imported-collaborators"),
         ]))
         site.pages.append(SitePage(id="contact-" + lang, translation_id="imported:contact", title=contact.title.get(lang, "Contact"), path="/" + lang + "/form/contact", language=lang, enabled=True, blocks=[SiteBlock(type="form", form_id=contact.id)]))
         _add_imported_collections(site, lang, definitions)
         about = next((node for node in nodes if node.get("nid") == 2656 and node.get("lang") == lang), None)
         if about:
             site.navigation.insert(0, NavigationLink(label=str(about["title"]), href=str(about["url"]), language=lang))
+        profile = next((node for node in nodes if node.get("nid") == 5 and node.get("lang") == lang), None)
+        if profile:
+            site.navigation.append(NavigationLink(label=str(profile["title"]), href=str(profile["url"]), language=lang))
         site.navigation.append(NavigationLink(label=contact.title.get(lang, "Contact"), href="/" + lang + "/form/contact", language=lang))
+        site.footer.extend(NavigationLink(label=str(node["title"]), href=str(node["url"]), language=lang) for node in nodes if node.get("lang") == lang and node.get("nid") in {1, 2, 4, 16})
     for route in rows(data.get("routes", [])):
         if route.get("kind") != "tag":
             continue
@@ -123,7 +130,25 @@ def seed_import(store: SiteStore, site: SiteConfig, pilot_root: Path) -> None:
 
 
 def imported_catalogue(store: SiteStore) -> list[CatalogueItem]:
-    return [CatalogueItem(id=source.source_id, kind="page", title=site.name + " · " + source.title) for site in store.list() if site.legacy_pilot for source in site.sources if source.source_id.startswith("imported:")]
+    result: list[CatalogueItem] = []
+    for site in store.list():
+        if not site.legacy_pilot:
+            continue
+        result.extend(CatalogueItem(id=source.source_id, kind="page", title=site.name + " · " + source.title) for source in site.sources if source.source_id.startswith("imported:"))
+        path = store.site_dir(site.id) / "imported/baseline.json"
+        if not path.is_file():
+            raise HTTPException(409, "The imported website catalogue is unavailable")
+        payload = obj(json.loads(path.read_text()))
+        grouped: dict[str, CatalogueItem] = {}
+        for node in rows(obj(payload.get("data", {})).get("nodes", [])):
+            identity = str(node["uuid"])
+            item = grouped.setdefault(identity, CatalogueItem(id=identity, kind="record", title=str(node["title"])))
+            item.languages = sorted(set(item.languages + [str(node["lang"])]), key=lambda language: site.languages.index(language) if language in site.languages else len(site.languages))
+            item.source_ids = sorted(set(item.source_ids + ["imported:" + group for group in _groups(node, obj(payload.get("type_map", {})))]))
+            if node.get("lang") == site.default_language:
+                item.title = str(node["title"])
+        result.extend(grouped.values())
+    return result
 
 
 def eligible_note(metadata: dict[str, JsonValue]) -> bool:
@@ -135,7 +160,40 @@ def eligible_note(metadata: dict[str, JsonValue]) -> bool:
     return not bool(names & excluded)
 
 
-def merge_imported_bundle(store: SiteStore, site: SiteConfig, public: dict[tuple[str, str], PublicRecord], assets: dict[str, BundleAsset], hashes: dict[str, str]) -> None:
+def imported_record_ids(store: SiteStore, site: SiteConfig) -> set[str]:
+    path = store.site_dir(site.id) / "imported/baseline.json"
+    if not path.is_file():
+        raise HTTPException(409, "Import the existing public pilot snapshot again")
+    payload = obj(json.loads(path.read_text()))
+    return {str(node["uuid"]) for node in rows(obj(payload.get("data", {})).get("nodes", []))}
+
+
+def imported_feed_aliases(store: SiteStore, site: SiteConfig) -> dict[str, str]:
+    if not site.legacy_pilot:
+        return {}
+    from .models import safe_path
+    payload = obj(json.loads((store.site_dir(site.id) / "imported/baseline.json").read_text()))
+    sources = {source.source_id: source for source in site.sources if source.enabled}
+    result: dict[str, str] = {}
+    for alias in rows(obj(payload.get("data", {})).get("aliases", [])):
+        path = str(alias.get("alias", ""))
+        if not path.endswith(".xml"):
+            continue
+        language = str(alias.get("langcode", site.default_language))
+        if language not in site.languages:
+            language = site.default_language
+        original = str(alias.get("path", ""))
+        section = next((name for pattern, name in (("relats|relatos", "stories"), ("investigacio", "research"), ("dissenys", "design")) if re.search(pattern, original)), None)
+        source = sources.get("imported:" + section) if section else None
+        if section and not source:
+            continue
+        destination = "/" + language + (source.path_prefix if source else "/rss") + ".xml"
+        for origin in (path, "/" + language + path):
+            result[safe_path(origin)] = safe_path(destination)
+    return result
+
+
+def merge_imported_bundle(store: SiteStore, site: SiteConfig, public: dict[tuple[str, str], PublicRecord], assets: dict[str, BundleAsset], hashes: dict[str, str], *, excluded: set[tuple[str, str]] | None = None) -> None:
     if not site.legacy_pilot:
         return
     path = store.site_dir(site.id) / "imported/baseline.json"
@@ -155,21 +213,25 @@ def merge_imported_bundle(store: SiteStore, site: SiteConfig, public: dict[tuple
             continue
         groups = _groups(node, type_map)
         key = str(node["uuid"]), str(node["lang"])
-        selected = [source for source in site.sources if source.enabled and source.source_id in {"imported:" + group for group in groups} and key[0] not in source.withdrawn_ids and (source.selection_mode != "selected" or key[0] in source.page_ids)]
+        if excluded and key in excluded:
+            continue
+        selected = [source for source in site.sources if source.enabled and source.source_id in {"imported:" + group for group in groups} and key[0] not in source.withdrawn_ids and key[1] not in source.withdrawn_versions.get(key[0], []) and (source.selection_mode != "selected" or key[0] in source.page_ids)]
         existing = public.get(key)
         if existing:
             existing.path = str(node["url"])
             existing.translation_id = key[0]
             existing.source_ids = list(dict.fromkeys(existing.source_ids + [source.id for source in selected]))
+            existing.presentation = _presentation(node, baseline_nodes)
             continue
         if not selected:
             continue
-        body = _imported_body(node, any(source.include_body for source in selected))
-        public[key] = PublicRecord(id=key[0], language=key[1], path=str(node["url"]), title=str(node["title"]), body_html=body, source_ids=[source.id for source in selected], translation_id=key[0])
+        presentation = _presentation(node, baseline_nodes)
+        body = _imported_body(node, any(source.include_body for source in selected), presentation)
+        public[key] = PublicRecord(id=key[0], language=key[1], path=str(node["url"]), title=str(node["title"]), body_html=body, source_ids=[source.id for source in selected], translation_id=key[0], presentation=presentation)
     references = _public_references(site, public)
     for entry in rows(payload.get("assets", [])):
         asset = BundleAsset.model_validate(entry)
-        if asset.path not in references:
+        if unquote(asset.path) not in references:
             continue
         asset_source = Path(asset.private_source)
         if not asset_source.is_file() or hashlib.sha256(asset_source.read_bytes()).hexdigest() != asset.sha256:
@@ -177,28 +239,63 @@ def merge_imported_bundle(store: SiteStore, site: SiteConfig, public: dict[tuple
         assets[asset.path] = asset
 
 
-def _imported_body(node: dict[str, JsonValue], show_body: bool) -> str:
+def _presentation(node: dict[str, JsonValue], baseline: list[dict[str, JsonValue]]) -> dict[str, JsonValue]:
+    """Allow only metadata already displayed on the established public pilot."""
+    fields = obj(node.get("fields", {}))
+    images = rows(fields.get("field_image", []))
+    links = rows(fields.get("field_enllac", []))
+    if node.get("type") == "col_laboradora" and not links:
+        links = [link for version in baseline if version.get("uuid") == node.get("uuid") for link in rows(obj(version.get("fields", {})).get("field_enllac", []))]
+    image: dict[str, JsonValue] = {key: images[0][key] for key in ("url", "alt", "title") if key in images[0]} if images else {}
+    href = next((str(link.get("uri", "")) for link in links if urlsplit(str(link.get("uri", ""))).scheme in {"https", "http"}), "")
+    tags: list[JsonValue] = [{key: tag[key] for key in ("tid", "label") if key in tag} for tag in rows(node.get("tags", []))]
+    years = rows(fields.get("field_any", []))
+    return {"kind": node.get("type", "page"), "nid": node.get("nid"), "created": node.get("created"), "changed": node.get("changed"), "summary": node.get("summary", ""), "image": image, "href": href, "tags": tags, "year": years[0].get("value", "") if years else ""}
+
+
+def _imported_body(node: dict[str, JsonValue], show_body: bool, presentation: dict[str, JsonValue] | None = None) -> str:
     if not show_body:
         return ""
     body = str(node.get("body_html", ""))
     fields = obj(node.get("fields", {}))
     for image in rows(fields.get("field_image", [])):
-        body = '<figure><img src="' + escape(str(image.get("url", "")), quote=True) + '" alt="' + escape(str(image.get("alt", "")), quote=True) + '"></figure>' + body
+        picture = '<img src="' + escape(str(image.get("url", "")), quote=True) + '" alt="' + escape(str(image.get("alt") or node.get("title", "")), quote=True) + '">'
+        if node.get("type") == "col_laboradora" and presentation and presentation.get("href"):
+            picture = '<a href="' + escape(str(presentation["href"]), quote=True) + '">' + picture + '</a>'
+        body = '<figure>' + picture + '</figure>' + body
+    for material in rows(fields.get("field_materials", [])):
+        label = {"ca": "Materials", "es": "Materiales", "en-gb": "Materials", "fr": "Matériaux"}.get(str(node.get("lang")), "Materials")
+        body += '<section class="materials"><h2>' + label + '</h2><p>' + escape(str(material.get("value", ""))) + '</p></section>'
     for attachment in rows(fields.get("field_fitxer", [])):
-        body += '<p><a href="' + escape(str(attachment.get("url", "")), quote=True) + '">' + escape(str(attachment.get("description") or attachment.get("name") or "Download")) + '</a></p>'
+        size = attachment.get("bytes")
+        details = str(attachment.get("mime", ""))
+        if isinstance(size, (int, float)) and size >= 0:
+            details += " · " + f"{size / 1024 / 1024:.1f}" + " MB"
+        body += '<p><a href="' + escape(str(attachment.get("url", "")), quote=True) + '">' + escape(str(attachment.get("description") or attachment.get("name") or "Download")) + '</a>'
+        if details:
+            body += '<small> ' + escape(details) + '</small>'
+        body += '</p>'
+    if node.get("type") != "col_laboradora":
+        for link in rows(fields.get("field_enllac", [])):
+            body += '<p><a href="' + escape(str(link.get("uri", "")), quote=True) + '">' + escape(str(link.get("title") or link.get("uri", ""))) + '</a></p>'
     return body
 
 
 def _public_references(site: SiteConfig, public: dict[tuple[str, str], PublicRecord]) -> set[str]:
     references = {site.theme.logo, site.theme.favicon} | {font.src for font in site.theme.fonts}
+    icons = {"mastodon": "mastodon", "linkedin": "linkedin-in", "facebook": "facebook-f", "telegram": "telegram"}
+    references.update("/icons/social/" + icons[link.label.lower()] + ".svg" for link in site.social_links if link.label.lower() in icons)
     for record in public.values():
         references.update(re.findall(r'(?:src|href)=["\']([^"\']+)', record.body_html))
+        image = obj(record.presentation.get("image", {}))
+        if image.get("url"):
+            references.add(str(image["url"]))
     for page in site.pages:
         if page.enabled:
             for block in page.blocks:
                 references.add(block.image)
                 references.update(block.images)
-    return references
+    return {unquote(urlsplit(unescape(value)).path) for value in references if isinstance(value, str)}
 
 
 _COLLECTION_TITLES = {

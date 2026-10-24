@@ -9348,6 +9348,15 @@
     "managedBridgeHelp": "Este destino utiliza el puente Pangea / Suweb del piloto importado. El puente gestiona la conexión y los directorios remotos. Puedes comprobar su conexión aquí.",
     "jobErrors": {
       "worker_start_pending": "La versión del sitio web ya está activa, pero aún no se ha podido iniciar el proceso del servicio privado. Prueba la conexión del destino y vuelve a revisar y publicar para reintentar su inicio."
-    }
+    },
+    "withdrawTranslation": "Retira la versión {{language}}",
+    "fontSystem": "Tipografía del sistema",
+    "fontSerif": "Con serifa",
+    "fontSans": "Sin serifa",
+    "fontMono": "Monoespaciada",
+    "chooseFont": "Elige una tipografía",
+    "fontNotFound": "No se ha encontrado ninguna tipografía.",
+    "fontPickerHelp": "Busca una fuente del tema o una familia del sistema. Cada nombre muestra una muestra de la tipografía.",
+    "fontSampleUnavailable": "No se ha podido cargar alguna muestra. Revisa los archivos de fuentes y guarda los cambios."
   }
 }
