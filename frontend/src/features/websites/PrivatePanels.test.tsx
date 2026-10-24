@@ -48,8 +48,8 @@ describe('website private service management', () => {
     const load = vi.fn().mockResolvedValue(value); const save = vi.fn().mockRejectedValue(new Error('unavailable'));
     const view = mountTestComponent(<PrivateSettingsEditor site={site} load={load} save={save} />); await settle();
     act(() => { change(input(view.container, 'websites.smtpHost'), 'smtp.example.invalid'); });
-    act(() => { button(view.container, 'websites.savePrivateSettings').click(); }); await settle();
-    expect(view.container.querySelector('[role="alert"]')?.textContent).toBe('websites.settingsFailed');
+    await act(async () => { vi.advanceTimersByTime(650); await Promise.resolve(); }); await settle();
+    expect(view.container.querySelector('[role="alert"]')?.textContent).toBe('skill_autosave.error');
     expect(input(view.container, 'websites.smtpHost').value).toBe('smtp.example.invalid');
   });
 
@@ -65,7 +65,7 @@ describe('website private service management', () => {
       act(() => { change(field, field.value + character); });
       expect(field.value).toBe(expected);
     }
-    act(() => { button(view.container, 'websites.savePrivateSettings').click(); }); await settle();
+    await act(async () => { vi.advanceTimersByTime(650); await Promise.resolve(); }); await settle();
     expect(save).toHaveBeenCalledOnce();
     expect(save.mock.calls[0]?.[0]?.forms?.contact?.recipients).toEqual(['first@example.invalid', 'second@example.invalid']);
   });

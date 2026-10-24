@@ -459,3 +459,5 @@ The Temenos import preserves public attachment URLs, publication years, material
 Legacy section and taxonomy RSS URLs, XML aliases, GUIDs, publication dates and full item descriptions are retained; feed navigation remains scoped to the selected deployment.
 
 Typeface controls use the shared searchable selector and render each option with its own font. The editor-scoped `/api/vault/sites/{site_id}/theme/font` endpoint serves only saved, explicitly configured local WOFF/WOFF2 files with no-store headers and vault/import namespace checks. Samples use isolated font-family aliases and are removed on scope changes or unmount; they never restyle the Gnosi interface.
+
+Website configuration autosaves through the shared draft writer and save-status badge. Writes are serialized, new edits survive an earlier response, and configuration revisions rebase only after acknowledgement. Review and publication wait for pending changes; failures retain the draft and offer retry. Private service settings and target connections also autosave, while publishing and campaign delivery remain explicit actions.

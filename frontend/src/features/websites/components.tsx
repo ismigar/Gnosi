@@ -12,7 +12,7 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) { return <in
 export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) { return <textarea {...props} className={`websites-input ${props.className ?? ''}`} />; }
 // Keep the editable text separate from its parsed value: a trailing comma or
 // newline is meaningful while typing, although it is not yet another item.
-// Publish parsed values immediately so the first Save click uses the latest text.
+// Publish parsed values immediately so autosave uses the latest text.
 export function ListInput({ value, onChange, multiline = false, delimiter = 'comma' }: { value: string[]; onChange: (value: string[]) => void; multiline?: boolean; delimiter?: 'comma' | 'newline' }) {
   const serialized = JSON.stringify(value);
   const [draft, setDraft] = useState({ serialized, text: value.join(multiline ? '\n' : ', ') });

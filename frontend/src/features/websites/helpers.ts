@@ -1,3 +1,7 @@
+import type { SiteConfig } from '../../shared/api/sites';
+
+export const configurationKey = (site: SiteConfig) => JSON.stringify({ ...site, revision: 0 });
+
 export function moveItem<T>(items: T[], index: number, direction: -1 | 1): T[] {
   const result = [...items];
   const item = result.splice(index, 1)[0];
