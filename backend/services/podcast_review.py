@@ -79,11 +79,11 @@ def _confirm(context: Any, data: dict[str, Any], issues: list[dict[str, Any]],
 
 
 def _stage(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> dict[str, Any]:
-    """Split only exhausted work; a failed indivisible leaf never approves."""
+    """Split only exhausted or timed-out work; an indivisible failure never approves."""
     try:
         return cast(dict[str, Any], context.stage(
             request(context, 'audit', data, _schema(data)), lambda r: _validate(r, data)))
-    except LengthFinishReasonError:
+    except (LengthFinishReasonError, TimeoutError):
         key = 'candidate_findings' if 'candidate_findings' in data else (
             'subjects' if data.get('whole_episode') else 'briefs')
         values = data[key]
@@ -102,7 +102,7 @@ def review(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> l
     if not exhausted:
         try:
             result = context.stage(operation, lambda r: _validate(r, data))
-        except LengthFinishReasonError:
+        except (LengthFinishReasonError, TimeoutError):
             exhausted = True
         else:
             return _confirm(context, data, result['issues'], request, schema) if result['issues'] else []

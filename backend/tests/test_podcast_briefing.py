@@ -621,8 +621,9 @@ def test_nonshrinking_internal_reduction_cannot_send_oversized_writer_request_or
     assert calls == ['podcast.coverage.digest']
 
 
+@pytest.mark.parametrize('exhaustion', ['length', 'timeout'])
 @pytest.mark.parametrize('confirmation', [False, True])
-def test_output_exhaustion_splits_only_failed_work_and_preserves_all_evidence(confirmation):
+def test_review_exhaustion_splits_only_failed_work_and_preserves_all_evidence(confirmation, exhaustion):
     from openai import LengthFinishReasonError
     from backend.services.podcast_review import _stage
     briefs = [{'part_id': f'{i}:0', 'quote': f'Evidence {i}'} for i in range(5)]
@@ -639,7 +640,8 @@ def test_output_exhaustion_splits_only_failed_work_and_preserves_all_evidence(co
             if confirmation:
                 assert value['briefs'] == briefs
             if len(value[key]) > 2:
-                raise LengthFinishReasonError(completion=SimpleNamespace(usage=None))
+                raise (TimeoutError() if exhaustion == 'timeout' else
+                       LengthFinishReasonError(completion=SimpleNamespace(usage=None)))
             leaves.extend(value[key])
             result = {'issues': value['candidate_findings'] if confirmation else []}
             validate(result)
@@ -649,11 +651,12 @@ def test_output_exhaustion_splits_only_failed_work_and_preserves_all_evidence(co
     assert result['issues'] == (findings if confirmation else [])
 
 
-@pytest.mark.parametrize('failure', ['length', 'cancel', 'filter'])
+@pytest.mark.parametrize('failure', ['length', 'timeout', 'cancel', 'filter'])
 def test_failed_indivisible_audit_never_becomes_approval(failure):
     from openai import LengthFinishReasonError, ContentFilterFinishReasonError
     from backend.services.podcast_review import _stage
     error = (LengthFinishReasonError(completion=SimpleNamespace(usage=None)) if failure == 'length'
+             else TimeoutError() if failure == 'timeout'
              else ContentFilterFinishReasonError() if failure == 'filter' else RuntimeError('cancelled'))
     class Context:
         def stage(self, request, validate):
@@ -707,8 +710,9 @@ def test_fidelity_and_coverage_each_review_every_source_with_full_ledger():
         assert [b for d in data_seen if d['review_focus'] == focus for b in d['briefs']] == briefs
 
 
+@pytest.mark.parametrize('exhaustion', ['length', 'timeout'])
 @pytest.mark.parametrize('whole_episode', [False, True])
-def test_review_leaf_approvals_cover_all_original_obligations_after_length_failure(whole_episode):
+def test_review_leaf_approvals_cover_all_original_obligations_after_exhaustion(whole_episode, exhaustion):
     from openai import LengthFinishReasonError
     from backend.services.podcast_review import review
     briefs = [{'part_id': f'{i}:0', 'quote': f'Evidence {i}'} for i in range(7)]
@@ -723,7 +727,8 @@ def test_review_leaf_approvals_cover_all_original_obligations_after_length_failu
             return 100
         def stage(self, value, validate):
             if len(value[key]) > 2:
-                raise LengthFinishReasonError(completion=SimpleNamespace(usage=None))
+                raise (TimeoutError() if exhaustion == 'timeout' else
+                       LengthFinishReasonError(completion=SimpleNamespace(usage=None)))
             approved.extend(value[key])
             result = {'issues': []}
             validate(result)
@@ -783,3 +788,49 @@ def test_latest_draft_is_restored_when_complete_digested_evidence_and_draft_fit(
     assert result['digests'] == records and result['previous_draft'] == data['previous_draft']
     assert result['subject_groups'] == data['subject_groups'] and result['length_repair'] == data['length_repair']
     assert data['briefs'] == evidence
+
+
+def test_automatic_pipeline_finishes_all_reviews_after_timeout_without_manual_resume(pipeline):
+    original = pipeline.model
+    failures, approved = [], []
+    def timed_model(request, **kwargs):
+        data = json.loads(request.input)['data']
+        if request.operation.endswith('audit'):
+            key = 'subjects' if data.get('whole_episode') else 'briefs'
+            if len(data[key]) > 2:
+                failures.append((key, len(data[key])))
+                raise TimeoutError()
+            approved.append(data)
+        return original(request, **kwargs)
+    pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', timed_model)
+    script = pipeline.run(diverse_sources())
+    report = pipeline.saved['podcast-coverage-report']
+    assert failures and report['version'] == 4 and report['pipeline'] == 'automatic-narration-v2'
+    assert script == '\n\n'.join(s['narration'] for s in report['sections'])
+    expected = [b['part_id'] for b in report['briefs']]
+    for focus in ('fidelity', 'coverage'):
+        assert [b['part_id'] for d in approved if d.get('review_focus') == focus for b in d['briefs']] == expected
+    assert [group for d in approved if d.get('whole_episode') for group in d['subjects']] == [
+        t.get('subjects', [t['topic']]) for t in report['outline']]
+    assert all(c['_timeout'] == 300 for c in pipeline.calls if c['task'].endswith('audit'))
+
+
+@pytest.mark.parametrize('failure', ['cancel', 'filter', 'validation'])
+@pytest.mark.parametrize('entry', ['stage', 'review'])
+def test_multivalue_review_does_not_split_cancellation_filter_or_validation_failure(failure, entry):
+    from openai import ContentFilterFinishReasonError
+    from backend.services.podcast_review import _stage, review
+    error = (ContentFilterFinishReasonError() if failure == 'filter' else
+             ValueError('invalid evidence') if failure == 'validation' else RuntimeError('cancelled'))
+    attempts = []
+    class Context:
+        budget = 80000
+        def cost(self, request):
+            return 100
+        def stage(self, request, validate):
+            attempts.append(request)
+            raise error
+    data = {'narration': 'The complete current episode.', 'briefs': [{'part_id': f'{i}:0'} for i in range(4)]}
+    with pytest.raises(type(error)):
+        (_stage if entry == 'stage' else review)(Context(), data, lambda context, phase, value, schema: value)
+    assert attempts == [data]
