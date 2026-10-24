@@ -1076,3 +1076,27 @@ def test_recent_children_cannot_expose_missing_or_foreign_parent(runtime, exists
         record('foreign', scope.model_copy(update={'workspace_id': 'other'}))
     record('child', scope, 'foreign')
     assert [run.run_id for run in store.list_runs(scope, limit=1)] == ['child']
+
+
+@pytest.mark.parametrize('invalid,accepted', [(1241,1242),(1505,1504)])
+def test_podcast_word_boundary_repair_uses_real_executor_and_latest_draft(runtime, monkeypatch, invalid, accepted):
+    from backend.services.podcast_automatic import _bounded_write
+    from backend.services.podcast_briefing import _Briefing
+    scope, snapshot = runtime
+    rejected = json.dumps({'narration': 'word ' * invalid})
+    calls = install_workflow(monkeypatch, [rejected, json.dumps({'narration': 'word ' * accepted})])
+    class Context(_Briefing):
+        def request(self, task, data, schema):
+            return super().request(task, data, schema).model_copy(update={'skill_id': snapshot.skill_ids[0]})
+    context = Context(snapshot, 'English', 80000, lambda _: 100, lambda: None)
+    with execution_scope(scope):
+        result = _bounded_write(context, {'briefs': [], 'feedback': []},
+                                {'min_words': 1242, 'max_words': 1504, 'target_words': 1380})
+    assert len(result['narration'].split()) == accepted and len(calls) == 2
+    messages = calls[1]['messages']
+    assert messages[-2].content == rejected
+    assert f'received {invalid}' in messages[-1].content and 'Target 1380' in messages[-1].content
+    assert ('Expand' if invalid < 1242 else 'Reduce') in messages[-1].content
+    runs = store.list_runs(scope)
+    assert len(runs) == 1 and runs[0].status == 'completed'
+    assert len(json.loads(runs[0].result)['narration'].split()) == accepted

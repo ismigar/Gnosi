@@ -525,6 +525,15 @@ real de cada petició i cada reducció ha de disminuir la mida. El límit de
 paraules del guió locutat continua sent estricte. Cada petició es comprova contra
 el context actual, també durant les correccions de longitud.
 
+Les correccions de longitud fan servir un estat numèric actual separat, que
+substitueix els recomptes i ajustos antics i conserva les objeccions semàntiques.
+El servidor aporta el darrer guió rebutjat quan hi cap després de comprimir les
+fonts. Si encara no hi cap, la petició següent demana una composició nova amb un
+objectiu absolut, sense aplicar ajustos a un text absent. Cada reintent de
+validació també rep el recompte, el sentit del canvi i l'objectiu del guió que
+acaba de rebutjar. No es publica ni es retalla una narració invàlida i es mantenen
+els límits de crides i context.
+
 `podcast_review.py` valida cites exactes del guió i de les evidències abans de
 desar objeccions semàntiques. Les omissions identifiquen les evidències; les
 distorsions factuals exigeixen una afirmació citada i evidències que la

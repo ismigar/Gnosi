@@ -471,6 +471,15 @@ real de cada petición y cada reducción debe disminuir el tamaño. El límite d
 palabras del guion hablado sigue siendo estricto. Cada petición se comprueba
 contra el contexto actual, también durante las correcciones de longitud.
 
+Las correcciones de longitud usan un estado numérico actual separado, que
+sustituye los recuentos y ajustes antiguos y conserva las objeciones semánticas.
+El servidor aporta el último guion rechazado si cabe después de comprimir las
+fuentes. Si aún no cabe, la siguiente petición solicita una composición nueva
+con un objetivo absoluto, sin aplicar ajustes a un texto ausente. Cada reintento
+de validación recibe también el recuento, el sentido del cambio y el objetivo
+del guion recién rechazado. No se publica ni se recorta una narración inválida
+y se mantienen los límites de llamadas y contexto.
+
 `podcast_review.py` valida citas exactas del guion y de las evidencias antes de
 guardar objeciones semánticas. Las omisiones identifican evidencias; las
 distorsiones factuales requieren una afirmación citada y evidencias que la

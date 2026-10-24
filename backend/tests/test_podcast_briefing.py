@@ -284,7 +284,7 @@ def test_word_count_failure_is_repaired_automatically_without_caching_invalid_pr
         if 'previous_draft' not in data:
             text = json.dumps({'narration': 'word ' * (request.options['max_words'] + 2)})
             kwargs['output_validator'](text)
-        assert 'Server counted' in data['feedback'][-1]
+        assert data['length_repair']['current_words'] == request.options['max_words'] + 2
         return pipeline.model(request, **kwargs)
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
     result = pipeline.run([{'id': 'a', 'title': 'Title', 'text': 'Evidence'}])
@@ -316,7 +316,8 @@ def test_length_repair_rebudgets_near_limit_without_discarding_source_evidence()
                             {'min_words': 104, 'max_words': 125, 'target_words': 115})
     assert len(result['narration'].split()) == 115 and len(requests) == 2
     assert all(r['briefs'] == evidence for r in requests)
-    assert 'Server counted 127' in requests[-1]['feedback'][-1]
+    assert requests[-1]['length_repair']['mode'] == 'fresh_composition'
+    assert 'word_delta' not in requests[-1]['length_repair']
     assert 'previous_draft' not in requests[-1]
 
 
@@ -510,7 +511,8 @@ def test_global_overshoot_is_rewritten_without_clipping_or_local_caps(pipeline):
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
     result = pipeline.run([{'id': str(i), 'title': f'Subject {i}', 'text': 'Evidence'} for i in range(20)])
     assert len(result.split()) == 1380 and len(calls) == 2
-    assert 'Server counted 1587' in calls[-1]['feedback'][-1]
+    assert calls[-1]['length_repair']['current_words'] == 1587
+    assert calls[-1]['length_repair']['word_delta'] == -207
     assert len(calls[-1]['previous_draft'].split()) == 1587
 
 
@@ -702,3 +704,56 @@ def test_review_leaf_approvals_cover_all_original_obligations_after_length_failu
             return result
     assert review(Context(), data, lambda context, phase, value, schema: value) == []
     assert approved == data[key]
+
+
+def test_rejected_length_state_replaces_previous_delta_without_changing_semantic_findings():
+    from backend.services.podcast_automatic import _bounded_write
+    captured = []
+    findings = [{'kind': 'omission', 'detail': 'A distinct domain is absent.'}]
+    class Context:
+        budget = 80000
+        def request(self, task, data, schema):
+            return briefing.AgentOperation(skill_id='core.gnosi-daily-briefing', operation=task,
+                input=json.dumps(data), output_schema=schema)
+        def cost(self, request):
+            return 100
+        def stage(self, request, validate):
+            data = json.loads(request.input)
+            captured.append(data)
+            result = {'narration': 'word ' * [1580, 900, 1380][len(captured)-1]}
+            validate(result)
+            return result
+    result = _bounded_write(Context(), {'briefs': [], 'feedback': findings},
+                            {'min_words': 1242, 'max_words': 1504, 'target_words': 1380})
+    assert len(result['narration'].split()) == 1380
+    assert all(d['feedback'] == findings for d in captured)
+    assert captured[1]['length_repair']['word_delta'] == -200
+    assert captured[2]['length_repair']['word_delta'] == 480
+    assert captured[2]['length_repair']['current_words'] == len(captured[2]['previous_draft'].split()) == 900
+    import hashlib
+    assert captured[2]['length_repair']['draft_sha256'] == hashlib.sha256(captured[2]['previous_draft'].encode()).hexdigest()
+
+
+def test_latest_draft_is_restored_when_complete_digested_evidence_and_draft_fit(monkeypatch):
+    from backend.services.podcast_automatic import _write_request
+    evidence = [{'part_id': 'a:0', 'summary': 'Complete source'}]
+    records = [{'part_ids': ['a:0'], 'summary': 'Compact complete source'}]
+    def digest(context, values):
+        assert values == evidence
+        return records
+    monkeypatch.setattr('backend.services.podcast_outline._digest', digest)
+    class Context:
+        budget = 80000
+        def request(self, task, data, schema):
+            return briefing.AgentOperation(skill_id='core.gnosi-daily-briefing', operation=task,
+                input=json.dumps(data), output_schema=schema)
+        def cost(self, request):
+            data = json.loads(request.input)
+            return (90000 if 'briefs' in data else 20000) + (5000 if 'previous_draft' in data else 0)
+    data = {'briefs': evidence, 'previous_draft': 'The matching latest draft.',
+            'subject_groups': [{'topic': 'Minority domain'}],
+            'length_repair': {'mode': 'revise_draft', 'current_words': 4, 'word_delta': 1376}}
+    result = json.loads(_write_request(Context(), data, {}).input)
+    assert result['digests'] == records and result['previous_draft'] == data['previous_draft']
+    assert result['subject_groups'] == data['subject_groups'] and result['length_repair'] == data['length_repair']
+    assert data['briefs'] == evidence

@@ -499,6 +499,14 @@ guidance: actual request context is checked and each reduction must shrink.
 The final spoken word range remains strict. Every request is checked against
 its current context budget, including length repairs.
 
+Length corrections use a separate current numeric state, replacing older count
+and delta guidance while retaining semantic findings. The server supplies the
+matching latest rejected draft when it fits after evidence compression. If it
+still cannot fit, the next request uses an absolute fresh-composition target,
+without applying a delta to absent text. Each validation retry also receives the
+fresh count, direction and target for its immediately preceding rejected draft.
+No invalid narration is published or clipped, and call/context limits stay fixed.
+
 `podcast_review.py` validates exact narration and supplied-evidence quotes for
 semantic objections before checkpointing. Omission findings identify evidence;
 factual distortions require a quoted draft claim and positive contradicting

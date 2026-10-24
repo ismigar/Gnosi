@@ -515,6 +515,16 @@ réduction doit diminuer la taille. La plage de mots du texte parlé reste stric
 Chaque requête est vérifiée par rapport au contexte actuel, y compris les
 corrections de longueur.
 
+Les corrections de longueur utilisent un état numérique actuel distinct, qui
+remplace les anciens comptes et ajustements tout en conservant les objections
+sémantiques. Le serveur fournit le dernier script rejeté s'il tient après la
+compression des sources. Sinon, la requête suivante demande une composition
+nouvelle avec une cible absolue, sans appliquer d'ajustement à un texte absent.
+Chaque nouvelle tentative de validation reçoit aussi le compte, le sens de la
+modification et la cible du script qui vient d'être rejeté. Aucune narration
+invalide n'est publiée ou tronquée et les limites d'appels et de contexte restent
+inchangées.
+
 `podcast_review.py` valide les citations exactes du texte et des preuves fournies
 avant de sauvegarder les objections sémantiques. Les omissions identifient les
 preuves ; les déformations factuelles exigent une affirmation citée et une preuve

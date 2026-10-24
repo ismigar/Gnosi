@@ -1,6 +1,7 @@
 """Bounded narration-only writing, semantic review and automatic revision."""
 from __future__ import annotations
 
+import hashlib
 import json
 from math import ceil
 from typing import Any, TYPE_CHECKING
@@ -59,6 +60,7 @@ def _write_episode(context: _Briefing, evidence: list[dict[str, Any]], outline: 
 
 def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> Any:
     from backend.services.podcast_outline import _digest
+    previous_draft = data.get("previous_draft")
     request = _request(context, "write", data, TEXT_SCHEMA, **options)
     limit = min(80_000, context.budget)
     if context.cost(request) > limit and "previous_draft" in data:
@@ -72,6 +74,17 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
         request = _request(context, "write", data, TEXT_SCHEMA, **options)
         if context.cost(request) >= before:
             raise RuntimeError("podcast_theme_context_insufficient")
+    if previous_draft and "previous_draft" not in data:
+        restored = {**data, "previous_draft": previous_draft}
+        candidate = _request(context, "write", restored, TEXT_SCHEMA, **options)
+        if context.cost(candidate) <= limit:
+            data, request = restored, candidate
+    if "length_repair" in data and "previous_draft" not in data:
+        state = data["length_repair"]
+        data = {**data, "length_repair": {k: v for k, v in state.items()
+                if k in {"target_words", "min_words", "max_words"}}}
+        data["length_repair"]["mode"] = "fresh_composition"
+        request = _request(context, "write", data, TEXT_SCHEMA, **options)
     return request
 
 
@@ -83,7 +96,11 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
         previous = result["narration"]
         actual = len(previous.split())
         if not minimum <= actual <= maximum:
-            raise ValueError(f"podcast_word_budget: expected {minimum}..{maximum}; received {actual}.")
+            direction = "Reduce" if actual > maximum else "Expand"
+            change = abs(options["target_words"] - actual)
+            raise ValueError(f"podcast_word_budget: expected {minimum}..{maximum}; received {actual}. "
+                             f"Target {options['target_words']}. {direction} this draft by about {change} words, "
+                             "preserving every distinct subject and qualification; return the complete episode.")
     for attempt in range(3):
         try:
             return context.stage(_write_request(context, data, options), checked)
@@ -91,9 +108,10 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
             if not str(error).startswith("podcast_word_budget:") or attempt == 2:
                 raise
             actual, target = len(previous.split()), options["target_words"]
-            feedback = f"Server counted {actual} words. Rewrite toward {target}, strictly within {minimum}..{maximum}. "
-            feedback += f"Change the word count by about {target - actual}; preserve all distinct subjects and qualifications."
-            data = {**data, "feedback": [*data.get("feedback", []), feedback]}
+            state = {"mode": "revise_draft", "current_words": actual, "target_words": target,
+                     "min_words": minimum, "max_words": maximum, "word_delta": target - actual,
+                     "draft_sha256": hashlib.sha256(previous.encode()).hexdigest()}
+            data = {**{k: v for k, v in data.items() if k != "previous_draft"}, "length_repair": state}
             if actual <= maximum * 4:
                 data["previous_draft"] = previous
     raise ValueError("podcast_word_budget")
