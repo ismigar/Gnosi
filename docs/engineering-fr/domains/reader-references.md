@@ -469,3 +469,9 @@ OPML ou du registre. Les doublons entre ces formes et les alias contenant des mo
 de passe, séparateurs encodés, caractères de contrôle, chemins ou paramètres sont
 refusés. Les liens des articles sont conservés. Les entrées RSS et mailto gardent
 leur comportement ; cet alias ne configure aucun compte ni identifiant de messagerie.
+
+La génération omet les articles sans corps lisible ni résumé. La réponse d’état expose `skipped_articles` avec les identifiants et titres ; si tous sont illisibles, `podcast_no_readable_articles` conserve le MP3 précédent.
+
+`podcast_briefing.py` divise les originaux complets en parties bornées et vérifie que chaque résumé contient une citation originale exacte avant d’enregistrer le checkpoint. `podcast_outline.py` regroupe les sujets du jour en douze thèmes au maximum ; chaque appel de planification contient au plus 48 fiches compactes. Le serveur conserve l’expansion des identifiants et les preuves.
+
+Le rapport `podcast-coverage-report`, version 4, conserve le plan global, les résumés, les affectations aux sections et le nombre réel de mots prononcés pour l’audit. Les partitions doivent être exactes et sans doublons ; la révision sémantique doit aussi comparer le script aux résumés.

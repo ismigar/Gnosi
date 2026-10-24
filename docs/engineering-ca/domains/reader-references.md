@@ -482,3 +482,9 @@ Es rebutgen duplicats entre els dos formats i àlies amb contrasenyes, delimitad
 codificats, controls, camins o paràmetres. La normalització conserva els vincles
 dels articles. Les entrades RSS i mailto existents mantenen el comportament;
 l’àlies no configura cap compte de correu ni credencials.
+
+La generació omet els articles sense cos llegible ni resum. La resposta d’estat exposa `skipped_articles` amb identificadors i títols; si tots són il·legibles, `podcast_no_readable_articles` conserva l’MP3 anterior.
+
+`podcast_briefing.py` divideix els originals complets en parts limitades i valida que cada resum contingui una citació original exacta abans de desar el checkpoint. `podcast_outline.py` agrupa els assumptes del dia en un màxim de dotze temes; cada crida de planificació conté com a màxim 48 fitxes compactes. El servidor conserva l’expansió dels identificadors i les proves.
+
+L’informe `podcast-coverage-report`, versió 4, conserva l’esquema global, els resums, les assignacions de secció i el recompte real de paraules narrades per auditar-los. Les particions han de ser exactes i sense duplicats; la revisió semàntica també ha de contrastar el guió amb els resums.

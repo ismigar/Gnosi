@@ -427,3 +427,9 @@ registro. Se rechazan duplicados entre ambos formatos y alias con contraseñas,
 delimitadores codificados, controles, rutas o parámetros. Se conservan los vínculos
 de artículos. Las entradas RSS y mailto existentes mantienen su comportamiento;
 el alias no configura una cuenta de correo ni credenciales.
+
+La generación omite los artículos sin cuerpo legible ni resumen. La respuesta de estado expone `skipped_articles` con identificadores y títulos; si todos son ilegibles, `podcast_no_readable_articles` conserva el MP3 anterior.
+
+`podcast_briefing.py` divide los originales completos en partes acotadas y valida que cada resumen contenga una cita original exacta antes de guardar el checkpoint. `podcast_outline.py` agrupa los asuntos del día en un máximo de doce temas; cada llamada de planificación contiene como máximo 48 fichas compactas. El servidor conserva la expansión de los identificadores y las pruebas.
+
+El informe `podcast-coverage-report`, versión 4, conserva el esquema global, los resúmenes, las asignaciones de sección y el recuento real de palabras narradas para su auditoría. Las particiones deben ser exactas y sin duplicados; la revisión semántica también debe contrastar el guion con los resúmenes.
