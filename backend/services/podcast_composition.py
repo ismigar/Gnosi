@@ -27,3 +27,32 @@ def spoken_text(result: dict[str, Any], data: dict[str, Any]) -> str:
         if text:
             paragraphs.append(text)
     return "\n\n".join(paragraphs)
+
+
+def advisory_targets(words: int, weights: dict[str, int], *, minimum: int = 0) -> dict[str, int]:
+    """Apportion a shared target exactly; these shares are never acceptance caps."""
+    if not weights:
+        return {}
+    keys = list(weights)
+    values = [max(0, weights[key]) for key in keys]
+    if not any(values):
+        values = [1] * len(keys)
+    floor = min(minimum, words // len(keys))
+    remaining = words - floor * len(keys)
+    total = sum(values)
+    shares = [divmod(remaining * value, total) for value in values]
+    targets = [floor + quotient for quotient, _ in shares]
+    order = sorted(range(len(keys)), key=lambda i: (-shares[i][1], i))
+    for index in order[:words - sum(targets)]:
+        targets[index] += 1
+    return dict(zip(keys, targets, strict=True))
+
+
+def word_guidance(result: dict[str, Any], data: dict[str, Any], words: int) -> dict[str, Any]:
+    groups = data.get("composition_groups", [])
+    if not groups:
+        return {}
+    counts = {g["key"]: len(result["paragraphs"][g["key"]]["text"].split()) for g in groups}
+    targets = advisory_targets(words, counts)
+    return {"paragraph_word_guidance": {key: {"current": count, "suggested": targets[key]}
+                                         for key, count in counts.items()}}

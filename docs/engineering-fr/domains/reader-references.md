@@ -581,3 +581,5 @@ absents ou hors périmètre ne sont jamais exposés. Les métadonnées exactes d
 contexte prennent en charge les modèles absents du registre ; les limites
 explicites priment et les modèles inconnus conservent la valeur prudente. Les
 autres opérations documentaires gardent leurs protections.
+
+Les objectifs indicatifs des paragraphes totalisent exactement le budget global. Les nouvelles tentatives de validation reçoivent les comptes actuels par paragraphe et une répartition proportionnelle suggérée, recalculée depuis la réponse immédiatement rejetée. Les mots peuvent être redistribués ; seuls la plage globale et les contrôles sémantiques déterminent l'acceptation.

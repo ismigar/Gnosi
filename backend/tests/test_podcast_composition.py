@@ -70,3 +70,53 @@ def test_explicit_exclusion_of_editorial_theme_still_requires_automatic_semantic
 def test_sdk_filter_error_is_classified_as_provider_refusal():
     from backend.agent.model_reliability import classify_failure
     assert classify_failure(ContentFilterFinishReasonError()) == "content_filter"
+
+
+@pytest.mark.parametrize("weights", [{"a": 1, "b": 1, "c": 1}, {"a": 40, "b": 1, "c": 0},
+                                      {"a": 0, "b": 0, "c": 0}])
+def test_advisory_shares_sum_exactly_to_one_global_budget(weights):
+    from backend.services.podcast_composition import advisory_targets
+    initial = advisory_targets(1380, weights, minimum=12)
+    assert sum(initial.values()) == 1380 and min(initial.values()) >= 12
+    retry = advisory_targets(1380, weights)
+    assert sum(retry.values()) == 1380 and list(retry) == list(weights)
+    if any(weights.values()):
+        assert all(retry[key] == 0 for key, value in weights.items() if value == 0)
+
+
+def test_latest_rejected_paragraphs_drive_proportional_guidance():
+    from backend.services.podcast_composition import word_guidance
+    result = {"paragraphs": {"group:0": {"text": "word " * 70, "non_editorial": False},
+                             "group:1": {"text": "word " * 90, "non_editorial": False}}}
+    guidance = word_guidance(result, DATA, 100)["paragraph_word_guidance"]
+    assert guidance == {"group:0": {"current": 70, "suggested": 44},
+                        "group:1": {"current": 90, "suggested": 56}}
+    result["paragraphs"]["group:0"]["text"] = "word " * 20
+    assert word_guidance(result, DATA, 100)["paragraph_word_guidance"]["group:0"]["current"] == 20
+
+
+def test_advisory_shares_are_not_per_group_acceptance_caps():
+    from backend.services.podcast_automatic import _bounded_write
+    from backend.services.agent_execution_models import AgentOperation
+    class Context:
+        budget = 80000
+        def request(self, task, data, contract):
+            return AgentOperation(skill_id="core.gnosi-daily-briefing", operation=task,
+                                  input=json.dumps(data), output_schema=contract)
+        def cost(self, request):
+            return 100
+        def stage(self, request, validate):
+            result = {"paragraphs": {"group:0": {"text": "word " * 100, "non_editorial": False},
+                                     "group:1": {"text": "Minority subject.", "non_editorial": False}}}
+            validate(result)
+            return result
+    data = {"briefs": [], "composition_groups": [{**group, "target_words": 50}
+                                                  for group in DATA["composition_groups"]]}
+    result = _bounded_write(Context(), data, {"min_words": 90, "max_words": 109, "target_words": 100})
+    assert len(result["narration"].split()) == 102
+
+
+def test_initial_composition_guidance_has_exact_global_sum(pipeline):
+    pipeline.run([{"id": str(i), "title": f"Topic {i}", "text": "Evidence"} for i in range(20)])
+    writes = [call for call in pipeline.calls if call["task"].endswith("write")]
+    assert writes and sum(g["target_words"] for g in writes[0]["data"]["composition_groups"]) == 1380

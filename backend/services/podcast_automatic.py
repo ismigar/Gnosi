@@ -7,7 +7,7 @@ from math import ceil
 from typing import Any, TYPE_CHECKING
 
 from backend.services.agent_behavior import resource
-from backend.services.podcast_composition import schema as composition_schema, spoken_text
+from backend.services.podcast_composition import advisory_targets, schema as composition_schema, spoken_text, word_guidance
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -50,8 +50,10 @@ def _write_episode(context: _Briefing, evidence: list[dict[str, Any]], outline: 
     data: dict[str, Any] = {"topic": "Complete daily briefing", "briefs": evidence, "feedback": feedback,
         "subject_groups": [{"topic": t["topic"], "subjects": t.get("subjects", [t["topic"]])} for t in outline]}
     if len(outline) > 1:
-        data["composition_groups"] = [{"key": f"group:{i}", "topic": group["topic"]}
-                                      for i, group in enumerate(data["subject_groups"])]
+        targets = advisory_targets(words, {f"group:{i}": len(set(group["subjects"]))
+                                          for i, group in enumerate(data["subject_groups"])}, minimum=12)
+        data["composition_groups"] = [{"key": key, "topic": group["topic"], "target_words": targets[key]}
+            for key, group in zip(targets, data["subject_groups"], strict=True)]
     if previous_draft:
         data["previous_draft"] = previous_draft
     options = {"min_words": ceil(words * .9), "max_words": int(words * 1.09), "target_words": words,
@@ -103,7 +105,8 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
             change = abs(options["target_words"] - actual)
             raise ValueError(f"podcast_word_budget: expected {minimum}..{maximum}; received {actual}. "
                              f"Target {options['target_words']}. {direction} this draft by about {change} words, "
-                             "preserving every distinct subject and qualification; return the complete episode.")
+                             "preserving every distinct subject and qualification; return the complete episode. "
+                             + json.dumps(word_guidance(result, data, options["target_words"]), separators=(",", ":")))
     for attempt in range(3):
         try:
             result = context.stage(_write_request(context, data, options), checked)

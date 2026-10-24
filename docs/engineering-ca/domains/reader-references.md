@@ -589,3 +589,5 @@ de més de 50 crides internes. Mai no s'exposen pares absents o d'un altre àmbi
 Les metadades exactes de context admeten models absents del registre; els límits
 explícits tenen prioritat i els models desconeguts mantenen el valor conservador.
 La resta d'operacions documentals conserva les seves proteccions.
+
+Els objectius orientatius dels paràgrafs sumen exactament el pressupost global. Els reintents de validació reben els recomptes actuals de cada paràgraf i una distribució proporcional suggerida, recalculada a partir de la resposta immediatament rebutjada. Es poden redistribuir les paraules; només el límit global i les revisions semàntiques determinen l'acceptació.

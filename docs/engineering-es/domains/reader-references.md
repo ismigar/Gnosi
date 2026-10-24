@@ -534,3 +534,5 @@ Nunca expone padres ausentes o de otro ámbito. Los metadatos exactos de context
 admiten modelos ausentes del registro; los límites explícitos tienen prioridad y
 los modelos desconocidos conservan el valor prudente. Las demás operaciones
 documentales mantienen sus protecciones.
+
+Los objetivos orientativos de los párrafos suman exactamente el presupuesto global. Los reintentos de validación reciben los recuentos actuales por párrafo y una distribución proporcional sugerida, recalculada a partir de la respuesta inmediatamente rechazada. Las palabras pueden redistribuirse; solo el límite global y las revisiones semánticas determinan la aceptación.

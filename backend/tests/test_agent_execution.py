@@ -1100,3 +1100,31 @@ def test_podcast_word_boundary_repair_uses_real_executor_and_latest_draft(runtim
     runs = store.list_runs(scope)
     assert len(runs) == 1 and runs[0].status == 'completed'
     assert len(json.loads(runs[0].result)['narration'].split()) == accepted
+
+
+
+def test_group_length_repair_reaches_real_executor_with_current_counts(runtime, monkeypatch):
+    from backend.services.podcast_automatic import _bounded_write
+    from backend.services.podcast_briefing import _Briefing
+    scope, snapshot = runtime
+    def output(first, second):
+        return json.dumps({"paragraphs": {"group:0": {"text": "word " * first, "non_editorial": False},
+                                          "group:1": {"text": "word " * second, "non_editorial": False}}})
+    rejected = output(1000, 505)
+    calls = install_workflow(monkeypatch, [rejected, output(900, 480)])
+    class Context(_Briefing):
+        def request(self, task, data, schema):
+            return super().request(task, data, schema).model_copy(update={"skill_id": snapshot.skill_ids[0]})
+    context = Context(snapshot, "English", 80000, lambda _: 100, lambda: None)
+    groups = [{"key": "group:0", "topic": "Housing", "target_words": 690},
+              {"key": "group:1", "topic": "Community", "target_words": 690}]
+    with execution_scope(scope):
+        result = _bounded_write(context, {"briefs": [], "composition_groups": groups},
+                                {"min_words": 1242, "max_words": 1504, "target_words": 1380})
+    assert len(result["narration"].split()) == 1380 and len(calls) == 2
+    assert calls[1]["messages"][-2].content == rejected
+    diagnostic = json.loads(calls[1]["messages"][-1].content.split("\n")[-1])["validation_error"]
+    guidance = json.loads(diagnostic[diagnostic.index('{'):])["paragraph_word_guidance"]
+    assert guidance["group:0"]["current"] == 1000 and guidance["group:1"]["current"] == 505
+    assert sum(value["suggested"] for value in guidance.values()) == 1380
+    assert len(store.list_runs(scope)) == 1 and store.list_runs(scope)[0].status == "completed"

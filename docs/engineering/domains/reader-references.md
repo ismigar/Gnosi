@@ -560,3 +560,5 @@ foreign-scope parents are never exposed. Exact provider/model context metadata
 supports models absent from the routing registry; explicit registry limits take
 priority and unknown models retain the small fallback. Other document operations
 retain their existing guards.
+
+Initial advisory paragraph targets share the global budget exactly. Existing validation retries receive exact current paragraph counts and proportional suggested shares, recomputed from the immediately rejected response. Shares can be redistributed; only the global word range and semantic reviews decide acceptance.
