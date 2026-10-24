@@ -1,3 +1,5 @@
+import { ImageHoverPreview } from '../../../../../shared/ui/previews/ImageHoverPreview';
+import { toAssetPreviewUrl } from '../../../../../shared/resources/fileResource';
 import { isPagePropertyReadOnly, propertyDisplayText } from './propertyModel';
 import { ZoteroPropertyValue } from './ZoteroPropertyValue';
 import { inputValue, legacyText, arrayValues } from './valueBoundaries';
@@ -18,6 +20,12 @@ export function PropertyValue({ context, prop }: { context: PageEditorController
   const isEditor = context.isEditor && !isPagePropertyReadOnly(prop);
   const value = getPropValue(prop);
   const config = getPropConfig(prop);
+  const urlLink = prop.type === 'url' ? (
+    <a href={legacyText(value)} target="_blank" rel="noreferrer" onClick={e => { e.stopPropagation(); }} title={t('editor.open_url')} aria-label={t('editor.open_url')} className="shrink-0 p-1 rounded-md text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--bg-secondary)] transition-colors">
+      <ExternalLink size={14} />
+    </a>
+  ) : null;
+  const urlPreview = prop.type === 'url' ? toAssetPreviewUrl(legacyText(value)) : '';
   return (prop.type === 'relation' ? (() => {
     const relatedNotes = sourceSectionOptions(allNotes, config, metadata);
     const options = relatedNotes.map(n => n.id);
@@ -131,9 +139,7 @@ export function PropertyValue({ context, prop }: { context: PageEditorController
     <div className="flex items-center gap-1 w-full">
       <input aria-label={prop.name} disabled={!isEditor} type="url" value={inputValue(value)} onChange={e => { handleMetaChange(prop.name, e.target.value); }} placeholder={t('common.empty')} className="flex-1 min-w-0 bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-7 disabled:cursor-not-allowed" />
       {Boolean(value) && (
-        <a href={legacyText(value)} target="_blank" rel="noreferrer" onClick={e => { e.stopPropagation(); }} title={t('editor.open_url')} aria-label={t('editor.open_url')} className="shrink-0 p-1 rounded-md text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--bg-secondary)] transition-colors">
-          <ExternalLink size={14} />
-        </a>
+        urlPreview ? <ImageHoverPreview src={urlPreview} alt={prop.name}>{urlLink}</ImageHoverPreview> : urlLink
       )}
     </div>
   ) : prop.type === 'rich_text' ? (

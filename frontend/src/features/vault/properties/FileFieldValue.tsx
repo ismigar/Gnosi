@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react';
+import { Fragment, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -145,17 +145,16 @@ export function FileFieldValue({
                     openFileResource(openTarget, { title: entry.label, navigate, t });
                 };
 
-                return (
+                const chip = (
                     <span
-                        key={idx}
                         className="inline-flex items-center gap-1.5 max-w-full overflow-hidden rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-1.5 py-0.5"
                         title={entry.target}
                     >
                         {previewUrl ? (
-                            <ImageHoverPreview
+                            <img
                                 src={previewUrl}
                                 alt={entry.label || field}
-                                thumbClassName={`${size.thumb} object-cover rounded border border-[var(--border-primary)] shrink-0`}
+                                className={`${size.thumb} object-cover rounded border border-[var(--border-primary)] shrink-0`}
                             />
                         ) : (
                             <Icon size={size.icon} className="shrink-0 text-[var(--gnosi-primary)]" />
@@ -186,6 +185,9 @@ export function FileFieldValue({
                         )}
                     </span>
                 );
+                return previewUrl
+                    ? <ImageHoverPreview key={idx} src={previewUrl} alt={entry.label || field} className="inline-flex max-w-full">{chip}</ImageHoverPreview>
+                    : <Fragment key={idx}>{chip}</Fragment>;
             })}
         </div>
     );

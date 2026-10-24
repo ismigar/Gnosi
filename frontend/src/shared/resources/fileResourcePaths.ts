@@ -135,10 +135,17 @@ export function toServedAssetUrl(rawValue: unknown): string {
   return '';
 }
 
-export function toAssetPreviewUrl(value: unknown): string {
+/** Only a declared image property may opt into sources without an image extension. */
+export function toAssetPreviewUrl(value: unknown, declaredImage = false): string {
   const normalized = fileResourceString(value).trim().toLowerCase();
-  if (!normalized.startsWith('data:image/') && !IMAGE_EXT.test(normalized)) return '';
-  return toServedAssetUrl(value);
+  const servedUrl = toServedAssetUrl(value);
+  // Legacy file URIs under Assets are served through the Vault API, never as file URLs.
+  const legacyFileAsset = normalized.startsWith('file://') && servedUrl.startsWith('/api/');
+  if (/^[a-z][a-z0-9+.-]*:/i.test(normalized)
+    && !/^https?:\/\//i.test(normalized) && !normalized.startsWith('data:image/')
+    && !legacyFileAsset) return '';
+  if (!declaredImage && !normalized.startsWith('data:image/') && !IMAGE_EXT.test(normalized)) return '';
+  return servedUrl;
 }
 
 export function isImageFieldName(name: unknown): boolean {

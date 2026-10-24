@@ -9,6 +9,7 @@ import {
   parseImageField,
   servedUrlToVaultPath,
   toServedAssetUrl,
+  toAssetPreviewUrl,
 } from './fileResource';
 
 vi.mock('../api/notebooks', () => ({ fetchNotebookEvidence: vi.fn() }));
@@ -19,6 +20,18 @@ vi.mock('../notifications/toast', () => ({
 }));
 
 describe('file resource normalization', () => {
+  it('requires image evidence and accepts extensionless sources only for declared image fields', () => {
+    expect(toAssetPreviewUrl('https://example.test/image/123')).toBe('');
+    expect(toAssetPreviewUrl('https://example.test/image/123', true)).toBe('https://example.test/image/123');
+    expect(toAssetPreviewUrl('https://example.test/cover.jpg?size=small')).toBe('https://example.test/cover.jpg?size=small');
+    expect(toAssetPreviewUrl('Assets/covers/123', true)).toContain('/api/vault/assets/covers/123');
+    expect(toAssetPreviewUrl('Assets/covers/book.png')).toContain('/api/vault/assets/covers/book.png');
+    expect(toAssetPreviewUrl('https://example.test/paper.pdf')).toBe('');
+    for (const source of ['javascript:alert(1).png', 'data:text/html,image.png', 'file:///tmp/image.png', 'blob:https://example.test/id']) {
+      expect(toAssetPreviewUrl(source, true)).toBe('');
+      expect(toAssetPreviewUrl(source)).toBe('');
+    }
+  });
   it('keeps legacy storage and asset paths compatible', () => {
     expect(canonicalStorageFolder(' Biblioteca ')).toBe('library');
     expect(toServedAssetUrl('Assets/Covers/book cover.jpg')).toContain(
@@ -27,6 +40,19 @@ describe('file resource normalization', () => {
     expect(servedUrlToVaultPath('/api/vault/assets/Covers/book.jpg?vault=main')).toBe(
       'Covers/book.jpg',
     );
+  });
+
+  it('serves legacy file URIs only when they resolve to a Vault asset', () => {
+    for (const legacy of ['file:///Users/test/Vault/Assets/covers/book.png', 'file://localhost/Users/test/Vault/Assets/covers/book.png']) {
+      expect(toAssetPreviewUrl(legacy)).toBe(toServedAssetUrl('Assets/covers/book.png'));
+      expect(toAssetPreviewUrl(legacy, true)).toBe(toServedAssetUrl('Assets/covers/book.png'));
+    }
+    expect(toAssetPreviewUrl('file:///Users/test/Vault/Assets/covers/123', true))
+      .toBe(toServedAssetUrl('Assets/covers/123'));
+    for (const source of ['file:///tmp/cover.png', 'file:///Users/test/Vault/library/book.png', 'javascript:fake/Assets/cover.png', 'custom:///vault/Assets/cover.png']) {
+      expect(toAssetPreviewUrl(source)).toBe('');
+      expect(toAssetPreviewUrl(source, true)).toBe('');
+    }
   });
 
   it('reads legacy image strings and emits composite values only when needed', () => {

@@ -7,6 +7,8 @@ Los campos Fecha comparten un editor con modalidad puntual o período y horas op
 
 En una vista insertada en una página, un filtro como **Contenedor = Esta página** rellena automáticamente ese campo con la página contenedora al añadir un registro. Funciona con cualquier tabla, también con plantillas y subitems. Así, los registros nuevos permanecen en la vista cuando el valor que faltaba era esa relación con la página.
 
+Pasa el puntero por una propiedad de imagen o por el nombre o el botón de apertura de un archivo de imagen para ver una vista previa más grande en las propiedades de página, tablas, galerías y canales. Los enlaces a imágenes de las propiedades URL también muestran una vista previa. Enfocar un enlace o botón con el teclado muestra la misma vista previa; **Esc** la cierra. Las miniaturas y las acciones de clic siguen disponibles.
+
 ## Antes de empezar {#before-you-begin}
 
 Un Vault con escritura. Las vistas generales forman parte del conocimiento; la programación avanzada de proyectos requiere Planificación.

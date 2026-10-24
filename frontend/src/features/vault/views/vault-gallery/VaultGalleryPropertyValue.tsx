@@ -1,3 +1,4 @@
+import { ImageHoverPreview } from '../../../../shared/ui/previews/ImageHoverPreview';
 import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
 import { NumberValue } from '../../../../shared/records/NumberValue';
 import type { ReactNode } from 'react';
@@ -160,7 +161,7 @@ export function VaultGalleryPropertyValue({
     }
     if (type === 'url') {
         const url = displayText(value);
-        return <a
+        const link = <a
             className="flex items-center gap-1 truncate text-xs text-[var(--gnosi-primary)] hover:underline"
             href={url}
             onClick={(event) => {
@@ -171,6 +172,8 @@ export function VaultGalleryPropertyValue({
         >
             <LinkIcon size={12} /> URL
         </a>;
+        const preview = toAssetPreviewUrl(url);
+        return preview ? <ImageHoverPreview src={preview} alt={field}>{link}</ImageHoverPreview> : link;
     }
     if (type === 'files') return <FileFieldValue field={field} value={value} variant="gallery" />;
     if (type === 'zotero') return <button
@@ -193,11 +196,11 @@ export function VaultGalleryPropertyValue({
         <LinkIcon size={12} /> Zotero
     </button>;
     const source = getImageSrc(value);
-    const previewUrl = toAssetPreviewUrl(source);
+    const previewUrl = toAssetPreviewUrl(source, type === 'image');
     if ((type === 'image' || typeof value === 'object') && previewUrl) {
-        return <img
+        return <ImageHoverPreview
             alt={imageAlt(value, field)}
-            className="h-9 w-9 rounded object-cover"
+            thumbClassName="h-9 w-9 rounded object-cover"
             src={previewUrl}
         />;
     }

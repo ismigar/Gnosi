@@ -7,6 +7,8 @@ Les champs Date partagent un éditeur avec une modalité ponctuelle ou période 
 
 Dans une vue intégrée à une page, un filtre comme **Conteneur = Cette page** renseigne automatiquement ce champ avec la page contenant la vue lors de l’ajout d’un document. Cela fonctionne avec toute table, y compris les modèles et les sous-éléments. Les nouveaux documents restent ainsi dans la vue lorsque cette relation avec la page était la valeur manquante.
 
+Survolez une propriété image, le nom ou le bouton d’ouverture d’un fichier image pour afficher un aperçu agrandi dans les propriétés de page, les tableaux, les galeries et les fils. Les liens vers des images dans les propriétés URL affichent aussi un aperçu. Le focus clavier sur un lien ou un bouton affiche le même aperçu ; **Échap** le ferme. Les miniatures et les actions au clic restent disponibles.
+
 ## Avant de commencer {#before-you-begin}
 
 Un Vault accessible en écriture. Les vues générales font partie des connaissances ; la planification avancée nécessite l’extension Planification.
