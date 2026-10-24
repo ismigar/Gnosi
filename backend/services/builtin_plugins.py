@@ -28,6 +28,7 @@ BUILTIN_PLUGINS: tuple[dict[str, Any], ...] = (
         "routes": [],
     },
     {"id": "share-links", "icon": "Share2", "group": "vault", "requires": [], "routes": []},
+    {"id": "web-publishing", "icon": "Globe", "group": "connections", "settingsTab": "websites", "requires": [], "routes": ["/websites"]},
     {
         "id": "canvas-cards",
         "icon": "LayoutDashboard",

@@ -10285,6 +10285,300 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sites */
+        get: operations["list_sites_api_vault_sites_get"];
+        put?: never;
+        /** Create Site */
+        post: operations["create_site_api_vault_sites_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Site Status */
+        get: operations["site_status_api_vault_sites__site_id__get"];
+        /** Save Site */
+        put: operations["save_site_api_vault_sites__site_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Jobs */
+        get: operations["jobs_api_vault_sites__site_id__jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/jobs/{job_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel */
+        post: operations["cancel_api_vault_sites__site_id__jobs__job_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview */
+        post: operations["preview_api_vault_sites__site_id__preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish */
+        post: operations["publish_api_vault_sites__site_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/rollback/{release_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rollback */
+        post: operations["rollback_api_vault_sites__site_id__rollback__release_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/service": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Private Operation */
+        post: operations["private_operation_api_vault_sites__site_id__service_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/service-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Service Settings */
+        get: operations["service_settings_api_vault_sites__site_id__service_settings_get"];
+        /** Save Service Settings */
+        put: operations["save_service_settings_api_vault_sites__site_id__service_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/targets/{target_id}/connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Connection */
+        get: operations["connection_api_vault_sites__site_id__targets__target_id__connection_get"];
+        /** Save Connection */
+        put: operations["save_connection_api_vault_sites__site_id__targets__target_id__connection_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/targets/{target_id}/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Probe */
+        post: operations["probe_api_vault_sites__site_id__targets__target_id__probe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/targets/{target_id}/serve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Server Status */
+        get: operations["server_status_api_vault_sites__site_id__targets__target_id__serve_get"];
+        put?: never;
+        /** Serve */
+        post: operations["serve_api_vault_sites__site_id__targets__target_id__serve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/targets/{target_id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop Server */
+        post: operations["stop_server_api_vault_sites__site_id__targets__target_id__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/theme/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Theme */
+        get: operations["export_theme_api_vault_sites__site_id__theme_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/theme/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Theme History */
+        get: operations["theme_history_api_vault_sites__site_id__theme_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/theme/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Theme */
+        post: operations["import_theme_api_vault_sites__site_id__theme_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalogue */
+        get: operations["catalogue_api_vault_sites_catalogue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/skills/execute-button-action": {
         parameters: {
             query?: never;
@@ -14740,6 +15034,24 @@ export interface components {
          * @enum {string}
          */
         CatalogStatus: "available" | "suspended" | "pending" | "rejected" | "unavailable";
+        /** CatalogueItem */
+        CatalogueItem: {
+            /** Fields */
+            fields?: {
+                [key: string]: string;
+            }[];
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "table" | "view" | "page";
+            /** Table Id */
+            table_id?: string | null;
+            /** Title */
+            title: string;
+        };
         /** ChangePasswordPayload */
         ChangePasswordPayload: {
             /** Current Password */
@@ -15502,6 +15814,15 @@ export interface components {
              * @default Conflict resolution
              */
             reason: string;
+        };
+        /** ConnectionStatus */
+        ConnectionStatus: {
+            /** Configured */
+            configured: boolean;
+            /** Detail */
+            detail: string;
+            /** Reachable */
+            reachable: boolean;
         };
         /**
          * ContactDeleteResponse
@@ -16634,6 +16955,60 @@ export interface components {
             table_id: string;
             /** Title */
             title: string;
+        };
+        /** FormDeliverySettings */
+        FormDeliverySettings: {
+            /**
+             * Autoresponse
+             * @default false
+             */
+            autoresponse: boolean;
+            /** Autoresponse Text */
+            autoresponse_text?: {
+                [key: string]: string;
+            };
+            /** Recipients */
+            recipients?: string[];
+            /**
+             * Subject
+             * @default Website contact
+             */
+            subject: string;
+        };
+        /** FormField */
+        FormField: {
+            /** Help */
+            help?: {
+                [key: string]: string;
+            };
+            /** Id */
+            id?: string;
+            /** Label */
+            label?: {
+                [key: string]: string;
+            };
+            /**
+             * Max Length
+             * @default 2000
+             */
+            max_length: number;
+            /** Options */
+            options?: string[];
+            /** Placeholder */
+            placeholder?: {
+                [key: string]: string;
+            };
+            /**
+             * Required
+             * @default false
+             */
+            required: boolean;
+            /**
+             * Type
+             * @default text
+             * @enum {string}
+             */
+            type: "text" | "textarea" | "email" | "tel" | "select" | "radio" | "checkbox";
         };
         /** FormFieldCandidate */
         FormFieldCandidate: {
@@ -19689,6 +20064,13 @@ export interface components {
             /** Target */
             target: string;
         };
+        /** LocalServeResponse */
+        LocalServeResponse: {
+            /** Running */
+            running: boolean;
+            /** Url */
+            url: string;
+        };
         /** LoginPayload */
         LoginPayload: {
             /**
@@ -21263,6 +21645,15 @@ export interface components {
             request_id: string;
             /** Session Id */
             session_id: string;
+        };
+        /** NavigationLink */
+        NavigationLink: {
+            /** Href */
+            href: string;
+            /** Label */
+            label: string;
+            /** Language */
+            language?: string | null;
         };
         /** NetworkPost */
         NetworkPost: {
@@ -23104,6 +23495,33 @@ export interface components {
             /** Session Id */
             session_id: string;
         };
+        /** PrivateServiceRequest */
+        PrivateServiceRequest: {
+            /** Action */
+            action: string;
+            /** Request */
+            request?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Target Id
+             * @default local
+             */
+            target_id: string;
+        };
+        /** PrivateServiceResponse */
+        PrivateServiceResponse: {
+            /** Data */
+            data: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Test Mode
+             * @default true
+             * @constant
+             */
+            test_mode: true;
+        };
         /** ProcessedPublicationResponse */
         ProcessedPublicationResponse: {
             /** Id */
@@ -24904,6 +25322,113 @@ export interface components {
             /** Associations */
             associations: components["schemas"]["SemanticAssociationResponse"][];
         };
+        /** ServiceSettings */
+        ServiceSettings: {
+            /** Forms */
+            forms?: {
+                [key: string]: components["schemas"]["FormDeliverySettings"];
+            };
+            /** Retention Days */
+            retention_days?: number | null;
+            /**
+             * Sender Email
+             * @default
+             */
+            sender_email: string;
+            /**
+             * Sender Name
+             * @default
+             */
+            sender_name: string;
+            /**
+             * Smtp Host
+             * @default
+             */
+            smtp_host: string;
+            /** Smtp Password */
+            smtp_password?: string | null;
+            /**
+             * Smtp Port
+             * @default 587
+             */
+            smtp_port: number;
+            /**
+             * Smtp Security
+             * @default starttls
+             * @enum {string}
+             */
+            smtp_security: "starttls" | "tls" | "none";
+            /**
+             * Smtp Username
+             * @default
+             */
+            smtp_username: string;
+            /**
+             * Test Mode
+             * @default true
+             * @constant
+             */
+            test_mode: true;
+        };
+        /** ServiceSettingsResponse */
+        ServiceSettingsResponse: {
+            /**
+             * Applied
+             * @default false
+             */
+            applied: boolean;
+            /** Apply Error */
+            apply_error?: string | null;
+            /** Configured */
+            configured: boolean;
+            /** Forms */
+            forms?: {
+                [key: string]: components["schemas"]["FormDeliverySettings"];
+            };
+            /**
+             * Password Configured
+             * @default false
+             */
+            password_configured: boolean;
+            /** Retention Days */
+            retention_days?: number | null;
+            /**
+             * Sender Email
+             * @default
+             */
+            sender_email: string;
+            /**
+             * Sender Name
+             * @default
+             */
+            sender_name: string;
+            /**
+             * Smtp Host
+             * @default
+             */
+            smtp_host: string;
+            /**
+             * Smtp Port
+             * @default 587
+             */
+            smtp_port: number;
+            /**
+             * Smtp Security
+             * @default starttls
+             */
+            smtp_security: string;
+            /**
+             * Smtp Username
+             * @default
+             */
+            smtp_username: string;
+            /**
+             * Test Mode
+             * @default true
+             * @constant
+             */
+            test_mode: true;
+        };
         /** ShareCreateRequest */
         ShareCreateRequest: {
             /** Expires In Days */
@@ -25069,6 +25594,494 @@ export interface components {
             resolved_table_id?: string | null;
             /** Title */
             title: string;
+        };
+        /** SiteBlock */
+        SiteBlock: {
+            /**
+             * Alt
+             * @default
+             */
+            alt: string;
+            /**
+             * Body
+             * @default
+             */
+            body: string;
+            /**
+             * Columns
+             * @default 3
+             */
+            columns: number;
+            /**
+             * Css
+             * @default
+             */
+            css: string;
+            /** Form Id */
+            form_id?: string | null;
+            /**
+             * Href
+             * @default
+             */
+            href: string;
+            /** Id */
+            id?: string;
+            /**
+             * Image
+             * @default
+             */
+            image: string;
+            /**
+             * Image Position
+             * @default right
+             * @enum {string}
+             */
+            image_position: "left" | "right";
+            /** Images */
+            images?: string[];
+            /**
+             * Limit
+             * @default 3
+             */
+            limit: number;
+            /** Page Ids */
+            page_ids?: string[];
+            /** Source Id */
+            source_id?: string | null;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Type
+             * @default text
+             * @enum {string}
+             */
+            type: "text" | "image" | "split" | "gallery" | "selected" | "collection" | "collaborators" | "form" | "cta";
+        };
+        /** SiteChange */
+        SiteChange: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "create" | "update" | "withdraw" | "configuration";
+            /** Path */
+            path: string;
+            /** Title */
+            title: string;
+        };
+        /** SiteConfig */
+        SiteConfig: {
+            /**
+             * Default Language
+             * @default ca
+             */
+            default_language: string;
+            /** Footer */
+            footer?: components["schemas"]["NavigationLink"][];
+            /** Forms */
+            forms?: components["schemas"]["SiteForm"][];
+            /** Id */
+            id?: string;
+            /** Languages */
+            languages?: string[];
+            /**
+             * Legacy Pilot
+             * @default false
+             */
+            legacy_pilot: boolean;
+            /** Name */
+            name: string;
+            /** Navigation */
+            navigation?: components["schemas"]["NavigationLink"][];
+            /**
+             * Origin
+             * @default http://127.0.0.1:4321
+             */
+            origin: string;
+            /** Pages */
+            pages?: components["schemas"]["SitePage"][];
+            /** Redirects */
+            redirects?: {
+                [key: string]: string;
+            };
+            /**
+             * Revision
+             * @default 1
+             */
+            revision: number;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Social Links */
+            social_links?: components["schemas"]["NavigationLink"][];
+            /** Sources */
+            sources?: components["schemas"]["SiteSource"][];
+            /** Targets */
+            targets?: components["schemas"]["SiteTarget"][];
+            theme?: components["schemas"]["SiteTheme"];
+        };
+        /** SiteCreate */
+        SiteCreate: {
+            /**
+             * Import Pilot
+             * @default false
+             */
+            import_pilot: boolean;
+            /** Name */
+            name: string;
+        };
+        /** SiteFont */
+        SiteFont: {
+            /** Family */
+            family: string;
+            /** Src */
+            src: string;
+            /**
+             * Style
+             * @default normal
+             * @enum {string}
+             */
+            style: "normal" | "italic";
+            /**
+             * Weight
+             * @default 400
+             */
+            weight: string;
+        };
+        /** SiteForm */
+        SiteForm: {
+            /** Confirmation */
+            confirmation?: {
+                [key: string]: string;
+            };
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Fields */
+            fields?: components["schemas"]["FormField"][];
+            /** Id */
+            id?: string;
+            /** Intro */
+            intro?: {
+                [key: string]: string;
+            };
+            /**
+             * Name
+             * @default Contact
+             */
+            name: string;
+            /** Newsletter List */
+            newsletter_list?: string | null;
+            /** Privacy Text */
+            privacy_text?: {
+                [key: string]: string;
+            };
+            /**
+             * Privacy Url
+             * @default
+             */
+            privacy_url: string;
+            /** Redirect Path */
+            redirect_path?: string | null;
+            /**
+             * Require Privacy
+             * @default false
+             */
+            require_privacy: boolean;
+            /**
+             * Revision
+             * @default 1
+             */
+            revision: number;
+            /** Submit Label */
+            submit_label?: {
+                [key: string]: string;
+            };
+            /** Title */
+            title?: {
+                [key: string]: string;
+            };
+        };
+        /** SiteJob */
+        SiteJob: {
+            /** Created At */
+            created_at?: string;
+            /** Error */
+            error?: string | null;
+            /** Id */
+            id: string;
+            /**
+             * Phase
+             * @default prepare
+             */
+            phase: string;
+            /** Release Id */
+            release_id?: string | null;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+            /** Site Id */
+            site_id: string;
+            /**
+             * Status
+             * @default queued
+             * @enum {string}
+             */
+            status: "queued" | "running" | "completed" | "failed" | "cancelled" | "interrupted";
+            /** Target Id */
+            target_id: string;
+            /** Updated At */
+            updated_at?: string;
+        };
+        /** SitePage */
+        SitePage: {
+            /** Blocks */
+            blocks?: components["schemas"]["SiteBlock"][];
+            /**
+             * Css
+             * @default
+             */
+            css: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Id */
+            id?: string;
+            /**
+             * Language
+             * @default ca
+             */
+            language: string;
+            /**
+             * Path
+             * @default /
+             */
+            path: string;
+            /**
+             * Template
+             * @default page
+             * @enum {string}
+             */
+            template: "home" | "page" | "article" | "listing";
+            /** Title */
+            title: string;
+            /** Translation Id */
+            translation_id?: string | null;
+        };
+        /** SitePreview */
+        SitePreview: {
+            /** Changes */
+            changes: components["schemas"]["SiteChange"][];
+            /** Expires At */
+            expires_at: string;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Id */
+            id: string;
+            /** Preview Url */
+            preview_url?: string | null;
+            /** Site Id */
+            site_id: string;
+            /** Target Id */
+            target_id: string;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /** SitePreviewRequest */
+        SitePreviewRequest: {
+            /**
+             * Target Id
+             * @default local
+             */
+            target_id: string;
+        };
+        /** SitePublishRequest */
+        SitePublishRequest: {
+            /** Preview Id */
+            preview_id: string;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+        };
+        /** SiteRelease */
+        SiteRelease: {
+            /** Created At */
+            created_at: string;
+            /**
+             * Current
+             * @default false
+             */
+            current: boolean;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Id */
+            id: string;
+            /** Site Id */
+            site_id: string;
+            /** Target Id */
+            target_id: string;
+            /** Url */
+            url: string;
+        };
+        /** SiteSource */
+        SiteSource: {
+            /** Attachment Field Ids */
+            attachment_field_ids?: string[];
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Field Ids */
+            field_ids?: string[];
+            /** Filters */
+            filters?: components["schemas"]["SourceFilter"][];
+            /** Id */
+            id?: string;
+            /**
+             * Include Body
+             * @default false
+             */
+            include_body: boolean;
+            /**
+             * Kind
+             * @default table
+             * @enum {string}
+             */
+            kind: "table" | "view" | "page";
+            /** Page Ids */
+            page_ids?: string[];
+            /**
+             * Path Prefix
+             * @default /content
+             */
+            path_prefix: string;
+            /**
+             * Presentation
+             * @default cards
+             * @enum {string}
+             */
+            presentation: "list" | "cards" | "table";
+            /**
+             * Selection Mode
+             * @default all
+             * @enum {string}
+             */
+            selection_mode: "all" | "selected";
+            /**
+             * Sort Descending
+             * @default false
+             */
+            sort_descending: boolean;
+            /** Sort Field Id */
+            sort_field_id?: string | null;
+            /** Source Id */
+            source_id: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /** Withdrawn Ids */
+            withdrawn_ids?: string[];
+        };
+        /** SiteStatus */
+        SiteStatus: {
+            /** Jobs */
+            jobs: components["schemas"]["SiteJob"][];
+            /** Releases */
+            releases: components["schemas"]["SiteRelease"][];
+            /**
+             * Service Available
+             * @default false
+             */
+            service_available: boolean;
+            site: components["schemas"]["SiteConfig"];
+        };
+        /** SiteTarget */
+        SiteTarget: {
+            /**
+             * Adapter
+             * @default local
+             * @enum {string}
+             */
+            adapter: "local" | "ssh" | "legacy-pangea";
+            /**
+             * Base Url
+             * @default http://127.0.0.1:4321
+             */
+            base_url: string;
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /**
+             * Environment
+             * @default local
+             * @enum {string}
+             */
+            environment: "local" | "staging" | "production";
+            /** Id */
+            id?: string;
+            /**
+             * Name
+             * @default Local
+             */
+            name: string;
+        };
+        /** SiteTheme */
+        SiteTheme: {
+            /**
+             * Advanced Css
+             * @default
+             */
+            advanced_css: string;
+            /**
+             * Favicon
+             * @default
+             */
+            favicon: string;
+            /** Fonts */
+            fonts?: components["schemas"]["SiteFont"][];
+            /**
+             * Logo
+             * @default
+             */
+            logo: string;
+            /**
+             * Logo Alt
+             * @default
+             */
+            logo_alt: string;
+            /**
+             * Name
+             * @default Temenos
+             */
+            name: string;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Tokens */
+            tokens?: {
+                [key: string]: string;
+            };
         };
         /**
          * SkillActivation
@@ -25373,6 +26386,18 @@ export interface components {
              * @constant
              */
             status: "ok";
+        };
+        /** SourceFilter */
+        SourceFilter: {
+            /** Field Id */
+            field_id: string;
+            /**
+             * Operator
+             * @default equals
+             * @enum {string}
+             */
+            operator: "equals" | "not_equals" | "contains" | "in" | "not_empty";
+            value?: components["schemas"]["JsonValue"];
         };
         /** SpeechPreviewRequest */
         SpeechPreviewRequest: {
@@ -25700,6 +26725,49 @@ export interface components {
             translation_enabled?: components["schemas"]["JsonValue"] | null;
         } & {
             [key: string]: components["schemas"]["JsonValue"];
+        };
+        /** TargetConnection */
+        TargetConnection: {
+            /**
+             * Document Root
+             * @default
+             */
+            document_root: string;
+            /**
+             * Host
+             * @default
+             */
+            host: string;
+            /**
+             * Local Port
+             * @default 4321
+             */
+            local_port: number;
+            /**
+             * Port
+             * @default 22
+             */
+            port: number;
+            /**
+             * Remote Private Root
+             * @default
+             */
+            remote_private_root: string;
+            /**
+             * Remote Root
+             * @default
+             */
+            remote_root: string;
+            /**
+             * Ssh Key Reference
+             * @default
+             */
+            ssh_key_reference: string;
+            /**
+             * Username
+             * @default
+             */
+            username: string;
         };
         /** TaskCaseResult */
         TaskCaseResult: {
@@ -50325,6 +51393,880 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SidebarTreePageInfo"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sites_api_vault_sites_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteConfig"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_site_api_vault_sites_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteConfig"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    site_status_api_vault_sites__site_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_site_api_vault_sites__site_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteConfig"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    jobs_api_vault_sites__site_id__jobs_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteJob"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_api_vault_sites__site_id__jobs__job_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                job_id: string;
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteJob"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_api_vault_sites__site_id__preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SitePreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitePreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_api_vault_sites__site_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SitePublishRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteJob"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rollback_api_vault_sites__site_id__rollback__release_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                release_id: string;
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteRelease"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    private_operation_api_vault_sites__site_id__service_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivateServiceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivateServiceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    service_settings_api_vault_sites__site_id__service_settings_get: {
+        parameters: {
+            query?: {
+                target_id?: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_service_settings_api_vault_sites__site_id__service_settings_put: {
+        parameters: {
+            query?: {
+                target_id?: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    connection_api_vault_sites__site_id__targets__target_id__connection_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+                target_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetConnection"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_connection_api_vault_sites__site_id__targets__target_id__connection_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+                target_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TargetConnection"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetConnection"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    probe_api_vault_sites__site_id__targets__target_id__probe_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+                target_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    server_status_api_vault_sites__site_id__targets__target_id__serve_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+                target_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalServeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    serve_api_vault_sites__site_id__targets__target_id__serve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+                target_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalServeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_server_api_vault_sites__site_id__targets__target_id__stop_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+                target_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalServeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_theme_api_vault_sites__site_id__theme_export_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteTheme"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    theme_history_api_vault_sites__site_id__theme_history_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteTheme"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_theme_api_vault_sites__site_id__theme_import_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteTheme"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteConfig"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    catalogue_api_vault_sites_catalogue_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueItem"][];
                 };
             };
             /** @description Validation Error */

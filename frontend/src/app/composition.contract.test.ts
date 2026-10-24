@@ -37,12 +37,17 @@ describe('application composition extraction contracts', () => {
       '<Route path="/forms/:token" element={<PublicFormPage />}/>',
       '<Route path="/book/:token" element={<BookingPage />}/>',
     ];
-    expect(routes).toHaveLength(34);
+    const websites = [
+      '<Route path="/:vaultHandle/websites/*" element={<VaultRouteScope><PluginRoute pluginId="web-publishing"><WebsitesPage /></PluginRoute></VaultRouteScope>}/>',
+      '<Route path="/websites/*" element={<LegacyVaultRedirect />}/>',
+    ];
+    expect(routes).toHaveLength(36);
     expect(routes.filter(route => additions.includes(route))).toEqual(additions);
+    expect(routes.filter(route => websites.includes(route))).toEqual(websites);
     expect(collect(declaration(file, 'SharedRoutes'), node => ts.isJsxSelfClosingElement(node) && node.tagName.getText(file) === 'Route'
       ? printer.printNode(ts.EmitHint.Unspecified, node, file) : undefined))
       .toEqual(['<Route path="/s/:token" element={<SharedPage />}/>', ...additions]);
-    const legacy = routes.filter(route => !additions.includes(route));
+    const legacy = routes.filter(route => !additions.includes(route) && !websites.includes(route));
     expect(legacy).toHaveLength(32);
     expect(createHash('sha256').update(JSON.stringify(legacy)).digest('hex'))
       .toBe('e224a66814a7d55998fabd012f35fc4fb496d2a35e7a7e66a070ec2482d2224d');
@@ -71,6 +76,7 @@ describe('application composition extraction contracts', () => {
       'features/sharing/SharedPage', 'features/sharing/publishing/publicBootstrap',
       'features/social/ComposerPage', 'features/social/SocialDashboard',
       'features/vault/VaultDashboard',
+      'features/websites/WebsitesPage',
     ].sort());
     const eager = collect(source('./routes.tsx'), node => ts.isImportDeclaration(node)
       && ts.isStringLiteral(node.moduleSpecifier) ? node.moduleSpecifier.text : undefined);

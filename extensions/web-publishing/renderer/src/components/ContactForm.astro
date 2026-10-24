@@ -1,0 +1,33 @@
+---
+import {translate,labels,prefix,href,linkProps} from '../lib/site.mjs';
+const {form,lang}=Astro.props;
+const text=labels(lang);
+const instance=Astro.props.instance || form.id;
+---
+<section data-pagefind-ignore>
+  <h2>{translate(form.title,lang,form.name)}</h2>
+  {translate(form.intro,lang) && <p>{translate(form.intro,lang)}</p>}
+  <form class="contact-form" method="post" action={prefix('/api/contact.php')} data-contact data-failure={text.retry} data-invalid={text.required}>
+    <input type="hidden" name="form_id" value={form.id}/><input type="hidden" name="revision" value={form.revision}/><input type="hidden" name="language" value={lang}/><input type="hidden" name="_request_id" value=""/>
+    <div class="honeypot" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"/></label></div>
+    {form.fields.map(field => {
+      const id=`${instance}-${field.id}`;
+      const label=translate(field.label,lang,field.id);
+      return <div class="contact-field">
+        {field.type==='checkbox' ? <label class="choice" for={id}><input type="checkbox" id={id} name={`values[${field.id}]`} value="1" required={field.required}/>{label}{field.required && ' *'}</label> : <>
+          <label for={id}>{label}{field.required && ' *'}</label>
+          {field.type==='textarea' ? <textarea id={id} name={`values[${field.id}]`} required={field.required} maxlength={field.max_length} placeholder={translate(field.placeholder,lang)} aria-describedby={translate(field.help,lang) ? `${id}-help` : undefined}/>
+          : field.type==='select' ? <select id={id} name={`values[${field.id}]`} required={field.required}><option value=""></option>{field.options.map(option=><option value={option}>{option}</option>)}</select>
+          : field.type==='radio' ? <fieldset id={id}><legend class="field-help">{label}</legend>{field.options.map((option,index)=><label class="choice"><input type="radio" name={`values[${field.id}]`} value={option} required={field.required} id={`${id}-${index}`}/>{option}</label>)}</fieldset>
+          : <input id={id} name={`values[${field.id}]`} type={field.type} required={field.required} maxlength={field.max_length} placeholder={translate(field.placeholder,lang)} aria-describedby={translate(field.help,lang) ? `${id}-help` : undefined}/>}
+        </>}
+        {translate(field.help,lang) && <p id={`${id}-help`} class="field-help">{translate(field.help,lang)}</p>}
+      </div>;
+    })}
+    {(translate(form.privacy_text,lang) || form.privacy_url) && <div><p>{translate(form.privacy_text,lang)}</p>{form.privacy_url && <a href={href(form.privacy_url)} {...linkProps(form.privacy_url)}>{text.privacy}</a>}</div>}
+    {form.require_privacy && <label class="choice"><input type="checkbox" name="privacy" value="1" required/>{text.privacy}</label>}
+    {form.newsletter_list && <label class="choice"><input type="checkbox" name="newsletter_opt_in" value="1"/>{text.newsletter}</label>}
+    <div data-contact-status role="status" aria-live="polite" tabindex="-1"></div>
+    <button type="submit">{translate(form.submit_label,lang,text.send)}</button>
+  </form>
+</section>

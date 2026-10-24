@@ -9,8 +9,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 ## Resumen
 
 - Enrutadores registrados: **42**
-- Operaciones descubiertas: **347**
-- Módulos de rutas no registrados: **11**
+- Operaciones descubiertas: **369**
+- Módulos de rutas no registrados: **12**
 
 ## Registro de enrutadores
 
@@ -378,6 +378,28 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `GET` | `/schema` | `get_schema` | — | [Depends(get_workspace_context)] | Get schema | [`backend/domains/vault/tables/routes.py:538`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L538) |
 | `POST` | `/schema` | `save_schema` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Legacy route to save schemas per folder. | [`backend/domains/vault/tables/routes.py:521`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L521) |
 | `GET` | `/shared-task-evaluations` | `shared_bank` | — | — | Shared bank | [`backend/domains/agent/routes/task_evaluations.py:106`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/task_evaluations.py#L106) |
+| `GET` | `/sites` | `list_sites` | sites | [Depends(require_plugins('web-publishing'))] | List sites | [`backend/domains/sites/api.py:36`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L36) |
+| `POST` | `/sites` | `create_site` | sites | [Depends(require_plugins('web-publishing'))] | Create site | [`backend/domains/sites/api.py:41`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L41) |
+| `GET` | `/sites/catalogue` | `catalogue` | sites | [Depends(require_plugins('web-publishing'))] | Catalogue | [`backend/domains/sites/api.py:61`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L61) |
+| `GET` | `/sites/{site_id}` | `site_status` | sites | [Depends(require_plugins('web-publishing'))] | Site status | [`backend/domains/sites/api.py:66`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L66) |
+| `PUT` | `/sites/{site_id}` | `save_site` | sites | [Depends(require_plugins('web-publishing'))] | Save site | [`backend/domains/sites/api.py:73`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L73) |
+| `GET` | `/sites/{site_id}/jobs` | `jobs` | sites | [Depends(require_plugins('web-publishing'))] | Jobs | [`backend/domains/sites/api.py:103`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L103) |
+| `POST` | `/sites/{site_id}/jobs/{job_id}/cancel` | `cancel` | sites | [Depends(require_plugins('web-publishing'))] | Cancel | [`backend/domains/sites/api.py:110`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L110) |
+| `POST` | `/sites/{site_id}/preview` | `preview` | sites | [Depends(require_plugins('web-publishing'))] | Preview | [`backend/domains/sites/api.py:91`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L91) |
+| `POST` | `/sites/{site_id}/publish` | `publish` | sites | [Depends(require_plugins('web-publishing'))] | Publish | [`backend/domains/sites/api.py:97`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L97) |
+| `POST` | `/sites/{site_id}/rollback/{release_id}` | `rollback` | sites | [Depends(require_plugins('web-publishing'))] | Rollback | [`backend/domains/sites/api.py:117`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L117) |
+| `POST` | `/sites/{site_id}/service` | `private_operation` | sites | [Depends(require_plugins('web-publishing'))] | Private operation | [`backend/domains/sites/api.py:151`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L151) |
+| `GET` | `/sites/{site_id}/service-settings` | `service_settings` | sites | [Depends(require_plugins('web-publishing'))] | Service settings | [`backend/domains/sites/api.py:141`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L141) |
+| `PUT` | `/sites/{site_id}/service-settings` | `save_service_settings` | sites | [Depends(require_plugins('web-publishing'))] | Save service settings | [`backend/domains/sites/api.py:146`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L146) |
+| `GET` | `/sites/{site_id}/targets/{target_id}/connection` | `connection` | sites | [Depends(require_plugins('web-publishing'))] | Connection | [`backend/domains/sites/api.py:158`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L158) |
+| `PUT` | `/sites/{site_id}/targets/{target_id}/connection` | `save_connection` | sites | [Depends(require_plugins('web-publishing'))] | Save connection | [`backend/domains/sites/api.py:163`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L163) |
+| `POST` | `/sites/{site_id}/targets/{target_id}/probe` | `probe` | sites | [Depends(require_plugins('web-publishing'))] | Probe | [`backend/domains/sites/api.py:168`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L168) |
+| `GET` | `/sites/{site_id}/targets/{target_id}/serve` | `server_status` | sites | [Depends(require_plugins('web-publishing'))] | Server status | [`backend/domains/sites/api.py:187`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L187) |
+| `POST` | `/sites/{site_id}/targets/{target_id}/serve` | `serve` | sites | [Depends(require_plugins('web-publishing'))] | Serve | [`backend/domains/sites/api.py:174`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L174) |
+| `POST` | `/sites/{site_id}/targets/{target_id}/stop` | `stop_server` | sites | [Depends(require_plugins('web-publishing'))] | Stop server | [`backend/domains/sites/api.py:193`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L193) |
+| `GET` | `/sites/{site_id}/theme/export` | `export_theme` | sites | [Depends(require_plugins('web-publishing'))] | Export theme | [`backend/domains/sites/api.py:123`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L123) |
+| `GET` | `/sites/{site_id}/theme/history` | `theme_history` | sites | [Depends(require_plugins('web-publishing'))] | Theme history | [`backend/domains/sites/api.py:136`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L136) |
+| `POST` | `/sites/{site_id}/theme/import` | `import_theme` | sites | [Depends(require_plugins('web-publishing'))] | Import theme | [`backend/domains/sites/api.py:128`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py#L128) |
 | `GET` | `/skills/{skill_id}/package` | `export_learning_package` | — | Depends(require_role('viewer')) | Export procedure, explicit examples and text resources, never private memory. | [`backend/domains/configuration/agent/learning_routes.py:141`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_routes.py#L141) |
 | `GET` | `/tables` | `list_tables` | — | [Depends(get_workspace_context)] | List tables | [`backend/domains/vault/tables/routes.py:98`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L98) |
 | `POST` | `/tables` | `create_table` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Create table | [`backend/domains/vault/tables/routes.py:118`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L118) |
@@ -423,6 +445,7 @@ These files contain an `APIRouter` or route-oriented module name but are not mou
 - [`backend/domains/configuration/ai/model_metadata_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/model_metadata_routes.py)
 - [`backend/domains/configuration/ai/model_parameter_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/model_parameter_routes.py)
 - [`backend/domains/configuration/ai/usage_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/usage_routes.py)
+- [`backend/domains/sites/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py)
 - [`backend/domains/vault/knowledge/aliases.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/aliases.py)
 - [`backend/domains/vault/publishing/web.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/web.py)
 - [`backend/domains/vault/tables/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py)

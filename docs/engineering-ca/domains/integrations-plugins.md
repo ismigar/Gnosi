@@ -460,3 +460,7 @@ l’interruptor del mòdul integrat.
 | `llm-wiki` | Prerequisit d’IA, transició de lifecycle i scheduler de manteniment. |
 | `grounded-notebooks` | Prerequisit d’IA, router i superfícies globals. |
 | `automations` | Rutes del scheduler i tasques governades; fórmules i regles locals són del nucli. |
+
+## Gestió de webs
+
+El connector opcional `web-publishing` afegeix un gestor de diversos webs a `/websites` i operacions per vault a `/api/vault/sites`. La configuració editorial se sincronitza; les dades privades i les credencials es guarden al dispositiu o al servidor configurat. Cal seleccionar explícitament els camps, el cos i els adjunts públics. Les versions revisades es generen amb Astro i Pagefind; els formularis, els subscriptors i les cues de butlletins utilitzen un servei PHP/SQLite separat. La producció i el correu real continuen desactivats durant el pilot de Temenos. Consulteu la `extensions/web-publishing/README.md`.

@@ -458,3 +458,7 @@ l’interrupteur du module intégré.
 | `llm-wiki` | Prérequis IA, transition du lifecycle et scheduler de maintenance. |
 | `grounded-notebooks` | Prérequis IA, router et surfaces globales. |
 | `automations` | Routes du scheduler et tâches gouvernées ; formules et règles locales restent centrales. |
+
+## Gestion de sites web
+
+La capacité facultative `web-publishing` ajoute un gestionnaire multisite dans `/websites` et des opérations par coffre dans `/api/vault/sites`. La configuration éditoriale est synchronisée; les données privées et les identifiants restent sur l’appareil ou le serveur configuré. Les champs, contenus et pièces jointes publics exigent une sélection explicite. Astro et Pagefind génèrent les versions approuvées; les formulaires, abonnés et files de newsletters utilisent un service PHP/SQLite distinct. La production et l’envoi réel restent désactivés pendant le pilote Temenos. Voir le `extensions/web-publishing/README.md`.

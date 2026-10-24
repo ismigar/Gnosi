@@ -71,3 +71,5 @@ def register_routes(router: APIRouter) -> None:
     from .web import router as web_router
     management.include_router(web_router)
     router.include_router(management)
+    from backend.domains.sites.api import router as sites_router
+    router.include_router(sites_router)
