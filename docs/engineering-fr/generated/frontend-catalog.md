@@ -50,7 +50,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2691 | 0 |
-| `features` | 1257 | 135966 | 55 |
+| `features` | 1257 | 136008 | 55 |
 | `generated` | 3 | 54737 | 567 |
 | `shared` | 346 | 36938 | 482 |
 
@@ -720,7 +720,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/sharing/publishing/PublishedMarkdown.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/sharing/publishing/PublishedMarkdown.tsx) | 62 | `PublishedMarkdown` | — |
 | [`frontend/src/features/sharing/publishing/PublishedSite.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/sharing/publishing/PublishedSite.tsx) | 75 | `PublishedSite`, `function` | — |
 | [`frontend/src/features/sharing/publishing/PublishingManager.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/sharing/publishing/PublishingManager.tsx) | 179 | `PublishingManager`, `function` | — |
-| [`frontend/src/features/sharing/publishing/WebPublishingManager.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/sharing/publishing/WebPublishingManager.tsx) | 120 | `WebPublishingManager`, `function` | — |
+| [`frontend/src/features/sharing/publishing/WebPublishingManager.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/sharing/publishing/WebPublishingManager.tsx) | 162 | `WebPublishingManager`, `function` | — |
 | [`frontend/src/features/sharing/publishing/publicBootstrap.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/sharing/publishing/publicBootstrap.tsx) | 12 | `bootstrapPublication` | — |
 | [`frontend/src/features/sharing/publishing/publicEntry.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/sharing/publishing/publicEntry.ts) | 12 | `isPublicationPath`, `publicationToken`, `publicationUrl` | — |
 | [`frontend/src/features/sharing/publishing/publicMarkdownLinks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/sharing/publishing/publicMarkdownLinks.ts) | 26 | `headingId`, `publishedLink` | — |

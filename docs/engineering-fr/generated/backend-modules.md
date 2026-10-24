@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 55 |
 | `config` | 13 | 1389 |
 | `data` | 2 | 214 |
-| `domains` | 583 | 116295 |
+| `domains` | 583 | 116303 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -28,7 +28,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1060 modules** and **202443 source lines**.
+Total: **1060 modules** and **202451 source lines**.
 
 ## agent
 
@@ -689,7 +689,7 @@ Total: **1060 modules** and **202443 source lines**.
 | [`backend/domains/vault/publishing/models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/models.py) | 45 | 3 | 0 | 0 | 0 | Management-database storage; published bodies never consult live Vault files. |
 | [`backend/domains/vault/publishing/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/schemas.py) | 72 | 8 | 0 | 0 | 0 | Bounded input and snapshot-only output for multi-note publication. |
 | [`backend/domains/vault/publishing/service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/service.py) | 217 | 2 | 10 | 0 | 0 | Preview-first snapshots and atomic, scope-checked publication changes. |
-| [`backend/domains/vault/publishing/web.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/web.py) | 251 | 16 | 13 | 0 | 1 | Editor-scoped bridge to the administrator-configured staging publisher. |
+| [`backend/domains/vault/publishing/web.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/web.py) | 259 | 16 | 13 | 0 | 1 | Editor-scoped bridge to the administrator-configured staging publisher. |
 | [`backend/domains/vault/registry/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/__init__.py) | 6 | 0 | 0 | 0 | 0 | Vault registry ownership and HTTP-independent operations. |
 | [`backend/domains/vault/registry/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/api.py) | 88 | 1 | 3 | 2 | 1 | HTTP-independent handlers for the vault registry endpoints. |
 | [`backend/domains/vault/registry/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/contracts.py) | 60 | 6 | 0 | 0 | 5 | Public contracts for opening local Vault resources through the host OS. |

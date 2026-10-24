@@ -8916,6 +8916,10 @@
     "reviewMail": "Vista previa del boletín",
     "queue": "Poner envío de prueba en cola",
     "queued": "{{count}} mensajes de prueba en cola.",
-    "failed": "No se ha podido completar la acción en pruebas. Actualiza y revisa una nueva vista previa."
+    "failed": "No se ha podido completar la acción en pruebas. Actualiza y revisa una nueva vista previa.",
+    "loadingWeb": "Cargando las páginas y las versiones de la web…",
+    "loadingNewsletter": "Cargando las suscripciones y los boletines…",
+    "webReadFailed": "No se han podido cargar las páginas de la web. Pulsa Actualizar para volver a intentarlo.",
+    "newsletterReadFailed": "No se han podido cargar las suscripciones y los boletines. Puedes continuar con las páginas de la web o pulsar Actualizar para volver a intentarlo."
   }
 }

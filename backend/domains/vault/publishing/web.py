@@ -143,23 +143,31 @@ def _driver(action: str, context: WorkspaceContext, request: JsonObject) -> Json
         raise HTTPException(503, "Staging publishing is not configured")
     # Only runtime essentials cross the process boundary; application credentials do not.
     environment = {key: os.environ[key] for key in ("PATH", "HOME", "LANG", "TMPDIR", "SSH_AUTH_SOCK") if key in os.environ}
+    read_action = action in {"status", "newsletter_status"}
+    unavailable = {"code": "web_publishing_unavailable"}
     try:
         result = subprocess.run([interpreter, str(driver)], input=json.dumps({
             "action": action, "vault_path": str(context.vault_path.resolve()), "request": request,
-        }), text=True, capture_output=True, timeout=600, env=environment, check=False)
+        }), text=True, capture_output=True, timeout=60 if read_action else 600, env=environment, check=False)
         if len(result.stdout) > 4_000_000:
             raise HTTPException(502, "Staging publishing could not complete")
         data: object = json.loads(result.stdout)
         if not isinstance(data, dict):
             raise ValueError("Invalid driver response")
         if "error" in data:
+            if read_action:
+                raise HTTPException(503, unavailable)
             raise HTTPException(409, "The preview expired or the staging state changed. Review a new preview.")
         if result.returncode:
             raise HTTPException(502, "Staging publishing could not complete")
         return cast(JsonObject, data)
     except subprocess.TimeoutExpired:
+        if read_action:
+            raise HTTPException(504, unavailable) from None
         raise HTTPException(504, "Staging publishing timed out; refresh status before retrying") from None
     except (OSError, ValueError):
+        if read_action:
+            raise HTTPException(503, unavailable) from None
         raise HTTPException(502, "Staging publishing returned an invalid response") from None
 
 
