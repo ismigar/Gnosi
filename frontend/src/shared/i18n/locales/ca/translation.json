@@ -3311,6 +3311,10 @@
         },
         "reasoning_effort": "Nivell de raonament",
         "reasoning_help": "Més esforç pot trigar més i consumir més tokens. Aquesta opció només afecta aquest assistent.",
+        "upstream_provider": "Proveïdor fix d’OpenRouter",
+        "upstream_provider_help": "Identificador del proveïdor per a aquest model, per exemple deepinfra. Deixa-ho buit per a l’encaminament automàtic. La selecció fixa utilitza només aquest proveïdor.",
+        "routing_automatic": "Automàtic",
+        "upstream_provider_invalid": "Utilitza un identificador de proveïdor vàlid, com deepinfra.",
         "reasoning_default": "Per defecte del model",
         "reasoning_default_level": "Per defecte del model ({{level}})",
         "reasoning_levels": {

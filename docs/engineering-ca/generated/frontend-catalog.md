@@ -52,7 +52,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2697 | 0 |
-| `features` | 1269 | 136670 | 55 |
+| `features` | 1271 | 136704 | 55 |
 | `generated` | 3 | 56679 | 584 |
 | `shared` | 347 | 37078 | 499 |
 
@@ -619,7 +619,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/ModelComparisonToolbar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ModelComparisonToolbar.tsx) | 347 | `ModelComparisonToolbar` | — |
 | [`frontend/src/features/settings/aiConsumption.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/aiConsumption.ts) | 19 | `consumptionInterval`, `consumptionMetric` | — |
 | [`frontend/src/features/settings/aiUsageHistory.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/aiUsageHistory.ts) | 208 | `buildModelProfileMap`, `formatUsageCost`, `formatUsageTokens`, `processAiUsageHistory` | — |
-| [`frontend/src/features/settings/global-settings/AIAgentForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AIAgentForm.tsx) | 266 | `AIAgentForm` | — |
+| [`frontend/src/features/settings/global-settings/AIAgentForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AIAgentForm.tsx) | 275 | `AIAgentForm` | — |
 | [`frontend/src/features/settings/global-settings/AccountEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountEditor.tsx) | 56 | `AccountEditor` | — |
 | [`frontend/src/features/settings/global-settings/AccountList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountList.tsx) | 171 | `AccountList` | — |
 | [`frontend/src/features/settings/global-settings/AccountProviderChoices.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountProviderChoices.tsx) | 85 | `AccountProviderChoices` | — |
@@ -628,6 +628,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/global-settings/AgentIconSelect.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentIconSelect.tsx) | 185 | `AgentIconSelect` | — |
 | [`frontend/src/features/settings/global-settings/AgentModelRecommendation.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentModelRecommendation.tsx) | 16 | `AgentModelRecommendation` | — |
 | [`frontend/src/features/settings/global-settings/AgentModelStrategyFields.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentModelStrategyFields.tsx) | 63 | `AgentModelStrategyFields` | — |
+| [`frontend/src/features/settings/global-settings/AgentProviderRouteField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentProviderRouteField.tsx) | 20 | `AgentProviderRouteField` | — |
 | [`frontend/src/features/settings/global-settings/AgentTeamChoices.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentTeamChoices.tsx) | 19 | `AgentTeamChoices` | — |
 | [`frontend/src/features/settings/global-settings/AgentTeamParticipation.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentTeamParticipation.tsx) | 42 | `AgentTeamParticipation` | — |
 | [`frontend/src/features/settings/global-settings/AgentTeamSetup.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentTeamSetup.tsx) | 128 | `AgentTeamSetup` | — |
@@ -660,6 +661,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/global-settings/__fixtures__/settingsController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/__fixtures__/settingsController.ts) | 62 | `agent`, `budget`, `configuration`, `createSettingsApiFixture`, `model` | `/api/ai/catalog`, `/api/ai/model-comparison`, `/api/ai/models`, `/api/ai/usage`, `/api/auth/google/status`, `/api/config/editor`, `/api/credentials/deepl_api_key`, `/api/env`, `/api/graph`, `/api/identity`, `/api/integrations`, `/api/reader/newsletter-account`, `/api/reader/sources`, `/api/social/networks`, `/api/social/streams`, `/api/vault/databases`, `/api/vault/tables` |
 | [`frontend/src/features/settings/global-settings/accountProviders.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/accountProviders.ts) | 24 | `accountProviderForEmail`, `isCompleteAccountEmail` | — |
 | [`frontend/src/features/settings/global-settings/agentModelStrategy.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/agentModelStrategy.ts) | 50 | `MAX_ALTERNATIVES`, `compatibleAlternatives`, `isLocalModelProvider`, `modelRouteKey`, `readModelStrategy`, `reconcileModelStrategy` | — |
+| [`frontend/src/features/settings/global-settings/agentProviderRoute.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/agentProviderRoute.ts) | 4 | `validProviderRoute` | — |
 | [`frontend/src/features/settings/global-settings/aiOperationsBridge.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/aiOperationsBridge.ts) | 56 | `automationResources`, `operationResources` | — |
 | [`frontend/src/features/settings/global-settings/formatting.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/formatting.ts) | 17 | `CURRENCIES`, `DATE_FORMATS`, `DECIMAL_SYMBOLS`, `formatCost` | — |
 | [`frontend/src/features/settings/global-settings/pluginProfileSync.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/pluginProfileSync.ts) | 28 | `syncPluginProfiles` | — |
@@ -670,7 +672,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/global-settings/settingsStorage.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsStorage.ts) | 12 | `configurePluginKey`, `mailDarkBodyKey`, `snippetsKey`, `syncErrorsKey`, `themeKey` | — |
 | [`frontend/src/features/settings/global-settings/settingsStyles.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsStyles.ts) | 5 | `configurableGap` | — |
 | [`frontend/src/features/settings/global-settings/stateTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/stateTypes.ts) | 5 | — | — |
-| [`frontend/src/features/settings/global-settings/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/types.ts) | 148 | — | — |
+| [`frontend/src/features/settings/global-settings/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/types.ts) | 149 | — | — |
 | [`frontend/src/features/settings/global-settings/useGlobalSettingsController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useGlobalSettingsController.ts) | 39 | `useGlobalSettingsController` | — |
 | [`frontend/src/features/settings/global-settings/usePluginAISettingsNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/usePluginAISettingsNavigation.ts) | 36 | `usePluginAISettingsNavigation` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsAccounts.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsAccounts.ts) | 148 | `useSettingsAccounts` | — |

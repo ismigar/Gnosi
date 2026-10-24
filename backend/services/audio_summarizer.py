@@ -468,6 +468,28 @@ if __name__ == "__main__":
     generate_daily_podcast()
 
 
+def _refresh_podcast_upstream(snapshot: AgentExecutionSnapshot) -> AgentExecutionSnapshot:
+    """Apply the current explicit route without changing frozen source/model instructions."""
+    if snapshot.profile.get('provider') != 'openrouter':
+        return snapshot
+    from backend.config.app_config import load_params
+    from backend.domains.agent.provider_routing import resumed_provider_profile
+    from backend.services.agent_behavior import revision
+    from backend.services.agent_execution_trace import append
+    current = next((p for p in load_params(strict_env=False).ai.get('agents', [])
+                    if isinstance(p, dict) and p.get('id') == snapshot.agent_id), {})
+    profile = resumed_provider_profile(snapshot.profile, current)
+    if profile is snapshot.profile:
+        return snapshot
+    updated = snapshot.model_copy(update={'profile': profile,
+        'revision': revision([snapshot.revision, {'openrouter_route': profile.get('openrouter_route')}])})
+    if snapshot.parent_run_id:
+        append(snapshot.scope, snapshot.parent_run_id, 'job.provider_route', {
+            'model': profile.get('model'), 'route': profile.get('openrouter_route'),
+            'previous_revision': snapshot.revision, 'revision': updated.revision})
+    return updated
+
+
 def resume_podcast(snapshot: AgentExecutionSnapshot) -> None:
     """Continue the same authorized source snapshot and private work state."""
     from backend.services.agent_execution import operation_session
@@ -481,6 +503,7 @@ def resume_podcast(snapshot: AgentExecutionSnapshot) -> None:
     if scope.role == "viewer":
         raise PermissionError("podcast_editor_required")
     revalidate_scope(snapshot.scope)
+    snapshot = _refresh_podcast_upstream(snapshot)
     with _generation_lock:
         if any(state["running"] for key, state in _generation_states.items()
                if key[2] == str(Path(scope.vault_path).resolve())):

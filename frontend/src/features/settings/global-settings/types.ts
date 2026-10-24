@@ -25,6 +25,7 @@ export interface SettingsAgent extends Record<string, unknown> {
   provider?: string;
   model?: string;
   reasoning_effort?: string | null;
+  openrouter_route?: { model: string; provider: string } | null;
   icon?: string;
   persona?: string;
   context?: string;
