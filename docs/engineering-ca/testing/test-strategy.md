@@ -1,0 +1,470 @@
+---
+status: implemented
+last_verified: 2026-09-12
+source_paths:
+  - scripts/ci/pre_pr_resources.py
+  - scripts/check_public_pipeline.py
+  - scripts/check_backend_types.py
+  - package.json
+  - .github/workflows/ci.yml
+  - .github/workflows/build-release.yml
+  - Dockerfile.backend
+  - scripts/ci/build_container_image.py
+  - scripts/ci/pre_pr.py
+  - scripts/ci/pre_pr_commands.py
+  - desktop/update-policy.js
+  - backend/tests
+  - frontend/src
+  - frontend/tests/contracts
+  - frontend/feature-public-entries.json
+  - tests/e2e
+  - pyproject.toml
+  - frontend/package.json
+  - frontend/scripts/check-bundle-size.ts
+  - frontend/scripts/lint.mjs
+  - frontend/scripts/lint-files.mjs
+  - frontend/scripts/lint-worker.mjs
+  - frontend/scripts/typecheck.mjs
+  - frontend/scripts/typecheck-worker.mjs
+tests:
+  - backend/tests/test_pre_pr_resources.py
+  - pipeline/tests/test_public_pipeline.py
+  - backend/tests/test_ci_backend_parser.py
+  - backend/tests/test_root_typecheck_contract.py
+  - backend/tests/test_ci_scheduling_contract.py
+  - backend/tests/test_ci_container_build.py
+  - backend/tests/test_ci_docker_python_policy.py
+  - backend/tests/test_pre_pr_validation.py
+  - frontend/tests/bundle-size.test.ts
+  - frontend/tests/contracts/lint-runner.test.ts
+  - frontend/scripts/lint-worker.test.mjs
+  - frontend/tests/contracts/typecheck-runner.test.ts
+  - tests/e2e/tests/accessibility/accessibility.spec.ts
+---
+
+Els treballs pesants de CI segueixen aquest ordre: backend, frontend i Docker. El Mac i la MV Linux comparteixen recursos físics; el frontend utilitza un sol procés de proves. La fallada anterior no omet les comprovacions següents, però es mantenen la cancel·lació i les restriccions dels forks. Les suites aïllades de dibuixos i citacions disposen de cinc minuts per procés, incloses les importacions inicials i totes les assercions. Les proves integrades d’eines generades utilitzen el límit de producció sense modificar-lo; una regressió separada verifica el límit explícit.
+
+Totes les execucions de CI utilitzen màquines locals: Linux ARM64 per a backend, native smoke i Docker; macOS ARM64 per a frontend; macOS X64 per a documentació. Si falta un executor compatible, els treballs queden en cua. Cap PR, pujada ni validació de versions recorre a executors de GitHub. Es mantenen els permisos de només lectura, les dependències i les restriccions al mateix repositori; els forks no poden executar-se a les màquines del propietari.
+
+Els grups de `concurrency` del flux de treball utilitzen un prefix específic de
+CI, el nom del flux i el número de PR. Un commit nou cancel·la els treballs
+anteriors en execució i en cua només d’aquella PR. La cancel·lació només s’activa
+per als esdeveniments `pull_request`; els altres utilitzen el `github.run_id`
+únic, de manera que les pujades i les comprovacions reutilitzables de versions
+no es cancel·len entre si ni entren en conflicte amb el bloqueig de versions
+del flux que les crida. Els noms de les comprovacions obligatòries, els àmbits
+complets de proves, els permisos de només lectura i les restriccions dels forks
+es mantenen. Afegir capacitat no elimina les dependències existents entre treballs.
+
+El treball de frontend desactiva la memòria cau remota de
+dependències a `setup-node`: omet `cache` i estableix explícitament
+`package-manager-cache: false`. Això evita esperar restauracions opcionals
+encallades i omet les pujades de memòria cau remota, tot conservant el magatzem
+local de pnpm. `pnpm install --frozen-lockfile` continua instal·lant i verificant
+les dependències, i totes les comprovacions de frontend i escriptori continuen
+sent obligatòries. Això no elimina l’accés a la xarxa necessari per obtenir les
+dependències que faltin.
+
+El treball de frontend natiu demana explícitament Python 3.11 gestionat per a
+macOS ARM64 amb `UV_PYTHON=cpython-3.11-macos-aarch64-none` i verifica
+`platform.machine()` abans d’instal·lar dependències. Un intèrpret Intel
+instal·lat no ha de seleccionar silenciosament les dependències x86_64 amb
+Rosetta. El flux compartit de CI estableix un límit de lectura HTTP de 120 segons,
+tres reintents HTTP, un màxim de quatre descàrregues simultànies i dos fils
+d’instal·lació per a totes les instal·lacions Python directes: frontend, backend,
+smoke natiu i documentació. Els treballs i passos han d’heretar aquests valors
+sense sobreescriure’ls. La comprovació prèvia de l’intèrpret del frontend té cinc
+minuts. Les instal·lacions completes `uv sync --frozen`, inclòs el smoke natiu,
+tenen quaranta-cinc minuts; la instal·lació congelada de `docs-ci` en té quinze.
+Això admet descàrregues sense memòria cau als executors locals. Aquests límits conserven
+els entorns nous per treball, l’aïllament de la memòria cau i totes les proves;
+no amaguen errors d’instal·lació ni garanteixen la disponibilitat de la xarxa.
+Les assignacions d’executors, l’empaquetament de versions i les proves no canvien.
+
+El CI compartit fixa `uv` a `0.10.0` perquè el límit de reintents existent també
+cobreixi els temps d’espera després de rebre part d’un paquet. Amb `0.9.15`,
+aquesta fallada durant la transferència podia aturar la instal·lació sense
+reintentar-la, malgrat els reintents HTTP configurats. S’utilitza la
+[correcció original dels temps d’espera en transferències](https://github.com/astral-sh/uv/pull/17875),
+no un embolcall de reintents ni un termini més llarg. Les descàrregues completades
+romanen a la memòria cau del mateix treball; una instal·lació fallida continua
+fent fallar el treball. Les dependències congelades de l’app i les versions
+de l’instal·lador de Pages i de l’empaquetament de versions no canvien.
+
+# Estratègia de proves
+
+## Capes de qualitat
+
+```mermaid
+flowchart TB
+    Static["Comprovacions estàtiques\nSintaxi Python, ESLint, i18n"] --> Unit["Proves unitàries\nnormalitzadors, polítiques, algoritmes"]
+    Unit --> Integration["Proves d'integració\nrutes, emmagatzematge, adaptadors"]
+    Integration --> E2E["Playwright\nnavegador real i serveis en execució"]
+    E2E --> Visual["Inspecció visual i captures de regressió"]
+    Integration --> Deploy["Proves bàsiques de Docker i paquets"]
+```
+
+Cap capa és suficient per si sola. Un build del frontend detecta errors d'importació
+i sintaxi, però no una interacció trencada. Una prova unitària de ruta no demostra
+la integració amb el navegador. Una captura no prova persistència ni autorització.
+
+## Validació unificada abans d’una PR
+
+Prepareu primer les dependències congelades de JavaScript, execució i documentació:
+
+```bash
+pnpm install --frozen-lockfile
+uv sync --frozen --group docs-ci
+uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
+```
+
+A macOS, feu servir `--resource-profile mac-idle` per a la validació local acotada. Substitueix el heap predeterminat per 1536 MiB, executa amb prioritat 10, un worker i un fil de càlcul, i supervisa un pressupost RSS de 2 GiB per a l’ordre i els descendents. Cada fase comença només després de 30 segons de pressió de memòria normal. Les comprovacions estàtiques tenen un límit de cinc minuts, excepte el lint complet del frontend, que té un pressupost explícit de deu minuts per a l’anàlisi tipada en fred. Els builds i les suites mantenen els límits de deu i quinze minuts.
+
+`pnpm lint:frontend` descobreix els fitxers amb el recorregut configurat d’ESLint i
+els comprova en lots de com a màxim 16 fitxers, amb processos nous i seqüencials.
+Cada procés conserva el servei de tipus durant com a màxim 192 fitxers. Després
+de cada lot, cedeix el control i recull la memòria temporal abans de continuar.
+La descoberta no analitza el codi ni omple la memòria cau de lint; només les
+comprovacions CLI posteriors poden acreditar l’èxit. Cada lot conserva totes les
+regles, la comprovació tipada amb project service, les exclusions i el llindar de
+zero avisos. Un lot fallit atura l’ordre. `GNOSI_ESLINT_CACHE` continua activant la
+cau basada en contingut. L’entorn canònic de validació conserva aquesta opció
+explícita de l’analitzador i continua aïllant els selectors de l’aplicació, les
+credencials i els indicadors de proves contra serveis reals. Prepareu les memòries
+cau reutilitzades amb `scripts/ci/prepare_analysis_cache.py` perquè els tipus de
+fonts importades, la configuració i els fitxers de dependències invalidin els
+resultats obsolets; per defecte no es fa servir cau.
+Els límits de heap, RSS i durada de mac-idle no canvien.
+Les regressions comparen la descoberta amb ESLint real i cobreixen errors en lots
+posteriors, regles tipades, invalidació de cau i terminació del procés fill.
+
+L’avís sostingut durant 2 segons, la pressió crítica, el timeout, l’excés d’RSS o una fallada de supervisió aturen els processos propis i deixen la validació incompleta. No hi ha reintent automàtic ni augment del límit. Manteniu aturats altres jobs de validació; no tanqueu aplicacions de l’usuari ni carregueu models locals durant aquesta auditoria. Les suites Node de contractes i escriptori fan servir explícitament `--test-concurrency=1`.
+
+```bash
+uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main --resource-profile mac-idle
+```
+
+L’entorn Python congelat es comprova sense instal·lar paquets ni eliminar-ne els addicionals.
+
+L’entrada directa de Python evita la comprovació automàtica externa de dependències
+de pnpm. L’àlies de paquet `check:pre-pr` també està disponible després d’instal·lar-les.
+Feu servir `--quick` per a comprovacions estàtiques i contractes de CI, o `--list`
+per inspeccionar el pla sense executar-lo. Cap dels dos acredita tota la PR.
+El pla complet predeterminat també executa compatibilitat d’API, totes les
+comprovacions de tipus del backend i pipeline, la política de recursos congelats,
+les suites completes de Python, frontend i escriptori, el build de producció
+del frontend i la validació completa de documentació amb actualització.
+
+La base indicada amb `--base-ref` es resol una vegada a un commit immutable;
+l’ordre no descarrega referències ni canvia de branca. Informa de `HEAD` i valida
+l’arbre de treball actual, inclosos els canvis seguits preparats i no preparats.
+Resoleu els conflictes i reviseu/prepareu o ignoreu els fitxers no seguits abans
+de començar, perquè les comprovacions de l’índex no ometin codi nou. Python 3.11
+i Node han de tenir arquitectures coincidents.
+
+Les fases s’executen consecutivament amb el heap revisat de Node de 4 GiB i un
+sol procés de proves de frontend. El primer error atura la validació, conserva
+el codi de sortida i identifica la fase fallida; no es reintenta ni es converteix
+en èxit. Les eines absents i les interrupcions continuen sent errors. Llegiu el
+registre de la primera fase fallida abans de decidir si la causa és el codi,
+les dependències o la infraestructura.
+
+L’entorn fill utilitza `GNOSI_VALIDATION_ROOT` i directoris temporals de dades
+i vault, desactiva les proves contra serveis reals, elimina les variables de
+credencials heretades i dirigeix els destins reals del backend i navegador a un
+port loopback tancat. Manté intacte el directori personal real.
+`UV_NO_SYNC=1`, `UV_FROZEN=1` i `pnpm_config_verify_deps_before_run=error`
+impedeixen instal·lacions implícites a les ordres filles; si cal, feu servir
+la preparació congelada explícita anterior. La validació no arrenca l’app
+personal, contenidors ni l’empaquetament de versions.
+
+El mode complet regenera intencionadament la documentació. Reviseu i prepareu
+aquests canvis i repetiu la validació de documentació abans de la PR amb la
+mateixa base; no ha de produir cap diferència addicional. Les regressions
+comparen el pla complet amb totes les ordres de validació existents del frontend
+i backend de CI per detectar omissions quan aquesta canvia.
+
+L’èxit local no és l’èxit de GitHub: les cinc comprovacions obligatòries han
+de passar al commit final de la PR, incloent-hi l’arrencada nativa real i la
+persistència de Docker als seus executors. La validació local no reprodueix
+descàrregues sense memòria cau, planificació d’executors, altres sistemes
+operatius, instal·ladors ni desplegaments. L’ordre no publica ni fusiona commits.
+
+Si el codi o `HEAD` canvien durant la validació, aquesta falla i cal repetir-la;
+només s’exclouen les diferències previstes dels catàlegs generats.
+
+Abans d’iniciar una fase mac-idle, la preparació espera com a màxim 90 segons
+per observar 30 segons consecutius de pressió normal. Un avís reinicia la
+seqüència normal; la pressió crítica, una supervisió il·legible o l’expiració
+deixen la verificació incompleta sense iniciar l’ordre. Aquesta espera no
+repeteix mai una fase iniciada o fallida. Es mantenen el heap, els fils, la RSS
+de l’arbre de processos, l’aturada per avís o pressió crítica i els terminis
+d’execució de cada fase.
+
+## Comprovació unificada de tipus
+
+Executeu `pnpm typecheck` des de l'arrel del repositori. Comprova, en aquest
+ordre, TypeScript del frontend, mypy estricte de tot el backend (excloent-ne
+les proves), mypy estricte de tots els fitxers Python públics indexats del
+pipeline i, finalment, la sintaxi Python de backend, pipeline, scripts i
+extensions. Qualsevol error atura les etapes següents i conserva el codi de sortida.
+
+Les ordres d’arrel, CI i pre-PR usen `scripts/check_backend_types.py`. Cada
+execució comença amb una memòria cau privada buida. Processos nous seqüencials
+preparen els imports instal·lats de PyTorch/Transformers usats pel mòdul de
+manuscrits descobert i després comproven aquest mòdul; un procés nou final ha
+de comprovar el target complet `backend` sense canvis. Això evita retenir els
+AST de dependències carregats en fred juntament amb tot el backend. El mòdul
+inicial conserva la identitat i el directori base de mypy i la precedència dels
+stubs; és una optimització, mai una cobertura autoritativa. Si falta, també
+s’executa el target complet. Els modes d’import sensibles a les arrels o els
+diagnòstics de configuració usen només el target complet. Totes les etapes conserven `--strict`, l’exclusió de
+proves i els imports normals. Els errors, processos interromputs i edicions de
+fonts o configuració (fins i tot amb mida i dates iguals) fan fallar l’execució.
+Les memòries cau compartides existents no poden establir l’acceptació.
+
+Els processos activen el parser natiu fixat amb un fil de parsing i cap procés
+treballador. La CPU declarada només canvia dins de cada procés de l’eina. Els
+targets Python diferents del de l’intèrpret conserven els diagnòstics de sintaxi
+del parser original. Es mantenen les dependències fixades, el límit de 2 GiB de
+RSS de l’arbre de processos i el termini de cada fase. Les regressions amb la
+CLI real comparen diagnòstics estrictes, d’imports i versions, descobriment,
+stubs, cicles, promoció a arrels, sintaxi invàlida, aïllament de memòria cau,
+edicions i terminació de processos; també comproven la concurrència del parser
+amb una petició heretada de treballadors.
+
+La pipeline pública indexada completa usa el mateix executor de memòria cau
+privada amb `--strict --explicit-package-bases` i tots els camins Python
+indexats validats, incloses proves i directoris ignorats indexats. El seu
+localitzador de documentació és el mòdul inicial seleccionat pel descobriment.
+No s’aplica l’exclusió del backend al target de pipeline; arrel, CI i pre-PR
+conserven el punt d’entrada de pipeline existent.
+
+L’ordre del frontend usa l’API de la versió fixada de TypeScript amb tot el
+programa de `tsconfig.json` carregat en cada procés nou i seqüencial. Primer
+comprova sintaxi, opcions i diagnòstics globals; després comprova tots els fitxers
+resolts, inclosos imports transitius i declaracions, en lots de 256 fitxers
+costosos. Les declaracions cobertes per `skipLibCheck` també es comproven amb
+aquesta opció i no ocupen quota del lot. Els diagnòstics de declaració s’executen
+quan la configuració els activa. No es divideix el projecte, no se suprimeixen
+diagnòstics ni s’accepten resultats de memòria cau. Les empremtes de contingut
+detecten canvis entre processos; un resultat absent o un procés fallit deixa la
+verificació incompleta. Els límits de mac-idle es mantenen. Les regressions
+sintètiques comparen diagnòstics amb `tsc --noEmit`, inclosos globals entre lots,
+referències i interrupcions. L’ordre no accepta arguments addicionals; per a
+altres tasques, useu `tsc` directament. No emet codi ni metadades incrementals.
+
+Els projectes sintètics de TypeScript enllacen només el compilador fixat. Les
+proves de configuració malformada aporten el seu propi paquet de tipus ambientals
+i comparen els diagnòstics amb la CLI real, evitant declaracions alienes de
+l’aplicació. Es mantenen el termini de cinc segons i les comparacions completes.
+
+Les ordres individuals `typecheck:backend-boundaries` i
+`typecheck:pipeline` continuen disponibles. És una comprovació estàtica:
+no substitueix lint, proves unitàries, builds, fluxos de navegador ni validació
+del desplegament. Passar-la no acredita que s'hagin eliminat tots els límits
+amb `Any` explícit. La regressió verifica els àmbits complets i usa executables
+simulats aïllats en POSIX per comprovar l'ordre i la propagació dels errors;
+no acredita l'execució a Windows.
+
+## Proves del backend
+
+Pytest cobreix serveis, dependències de ruta, normalització, emmagatzematge,
+seguretat, concurrència i regressions. Les proves utilitzen directoris temporals
+de vault i dades locals. Els proveïdors externs se simulen, tret que una prova
+estigui marcada explícitament com a real/E2E.
+
+Hi ha suites importants que inclouen:
+
+- Autenticació, PAT, inicialització de workspace, rols i superfícies públiques.
+- Confinament de rutes, escriptures segures, ETags, condicions de cursa, registre i sidecars.
+- Fórmules, rollups, filtres tipats, relacions, planificació i programació de tasques.
+- MIME/CID del correu, fusió de contactes/vCard, confinament del calendari i recordatoris.
+- Encaminament d'IA, habilitats, resiliència MCP, confirmacions i eines generades.
+- Plugins, importacions, citacions, normalització del lector, XSS i SSRF.
+
+## Proves del frontend
+
+Vitest cobreix components, hooks, registres, utilitats de format, lògica de vistes
+tipada i comportament de l'estat. ESLint i el build de producció de Vite són
+obligatoris. `check:i18n` verifica que les claus visibles per l'usuari referenciades
+existeixin a tots els idiomes.
+
+El build ha d'acabar sense errors. Els avisos existents no autoritzen a afegir-ne
+de nous sense revisió.
+
+Els límits de propietat es comproven amb `gnosi/feature-boundaries` a ESLint.
+L'ampliació revisada preveu un manifest d'entrades públiques exactes a
+`frontend/feature-public-entries.json`, amb un motiu per camí.
+Els consumidors externs a una feature usen l'arrel/`index` o una entrada
+explícitament revisada; els fitxers veïns no llistats continuen privats.
+Cal comprovar imports estàtics, reexports, imports diferits literals i imports
+de tipus TypeScript. El manifest no ha de crear un agregador de càrrega
+immediata ni alterar els límits de càrrega diferida.
+
+Les regles `shared` → cap feature/`app` i features → cap `app` són
+incondicionals, també per als tipus i les entrades del manifest. Els mòduls
+interns d'una feature poden usar imports locals. Els contractes globals de codi
+són a `frontend/tests/contracts/`; el guardrail complementa el lint AST.
+Cal verificar la implementació després del trasllat; aquesta documentació no
+acredita que la verificació global hagi passat.
+
+En màquines amb recursos limitats, executeu els builds i les comprovacions de
+tipus intensives en CPU separadament de la suite completa amb DOM real. Si el
+paral·lelisme provoca que caduquin proves, repetiu la suite afectada aïlladament
+i després la suite completa amb workers limitats, per exemple
+`pnpm --filter @gnosi/frontend exec vitest run --maxWorkers=2 --minWorkers=2`.
+Manteniu les assercions i els temps límit; una passada aïllada no acredita que
+tota la suite passi.
+
+## Límits de mida de producció
+
+El build del frontend executa `scripts/check-bundle-size.ts` després de Vite.
+Els límits fixos, en bytes JavaScript sense comprimir, són: fitxer d'entrada
+1.400.000; fragment més gran 1.800.000; editor vendor 1.550.000; tldraw vendor
+1.350.000; ruta de configuració 600.000. Un fragment revisat absent o duplicat
+fa fallar la comprovació. Les proves cobreixen URL de desplegament relatives,
+d'arrel i amb prefix, creixement i fragments absents. La mida del fitxer
+d'entrada no mesura tot el graf inicial de dependències, la transferència
+comprimida ni el temps d'arrencada. L'avís existent de Vite de 1.500 kB
+continua visible; aquests límits eviten creixement, no acrediten rendiment òptim.
+
+## Proves d'extrem a extrem i visuals
+
+Playwright s'executa com a projecte del host contra l'aplicació nativa. La
+preparació anònima cobreix l'arrencada i el comportament públic; l'autenticada,
+la funcionalitat del workspace. Les proves de domini exerciten Vault, tauler,
+correu, calendari, contactes, dibuixos, automatització, xat d'agent i navegació.
+
+Les captures visuals cobreixen pàgines representatives d'escriptori i mòbil.
+Si canvia la interfície, inspeccioneu la pàgina real, cliqueu el control
+modificat, reviseu la consola i feu una captura. Confirmeu que diàlegs,
+superposicions, avisos emergents i menús utilitzen el sistema z-index registrat
+i no bloquegen la interacció.
+
+## Porta d’accessibilitat
+
+El projecte `accessibility` de Playwright és una porta bloquejant de WCAG 2.2
+AA. Executa axe sobre dotze rutes seleccionades del producte en els
+temes clar i fosc, incloent-hi contrast de color, etiquetes, regions i relacions
+ARIA. El marcatge propi de l’aplicació sempre queda dins l’auditoria i no es manté
+una llista permanent d'excepcions de violacions. La dada
+de prova determinista activa els mòduls opcionals de la matriu de rutes, i cada
+ruta també falla si el navegador genera un error de pàgina no gestionat; una
+superfície trencada no pot superar axe.
+
+Abans de l’anàlisi, cada cas exigeix l’URL canònic esperat i una superfície
+visible pròpia de la funcionalitat, sense esquelet de càrrega ni avís de
+complement desactivat. No recarrega la pàgina per reintentar una arrencada
+fallida. La prova de l’enllaç de salt verifica la vora visible de dos píxels
+i el subratllat de teclat; la navegació al graf segueix l’enllaç del vault.
+Les captures de multimèdia i del centre de control conserven evidència del
+contrast en clar i fosc. Un resultat verd cobreix aquests casos i estats, no
+totes les interaccions, tecnologies d’assistència, dades personals ni la
+conformitat completa amb WCAG.
+
+Les proves d’interacció complementen axe amb navegació de salt, focus visible i
+ordenat, teclat complet, focus roving de les pestanyes mòbils, Escape als
+diàlegs cancel·lables, focus trap i retorn del focus, noms accessibles i anuncis
+de canvi de ruta. Els canvis compartits de focus, diàlegs, navegació o tokens de
+color han de superar aquest projecte abans de publicar una release.
+
+L’estil global de focus utilitza l’atribut `data-focus-modality` a l’arrel del
+document. L’activació amb punter elimina els contorns genèrics; amb teclat
+s’apliquen indicadors contextuals: la vora existent als camps, subratllat als
+enllaços i contorn als controls sense vora. Els títols editables del Vault
+conserven només el cursor d’escriptura. Les proves unitàries cobreixen els
+canvis de modalitat i les proves de navegador, el focus amb punter i teclat en
+els temes clar i fosc.
+
+## Comprovacions de desplegament
+
+El constructor d'imatges de CI registra la revisió Git extreta a
+`org.opencontainers.image.revision` i un identificador únic de la invocació a
+`io.gnosi.ci.build-id`. Cal llistar i eliminar correctament les imatges de
+destinació existents, sense forçar les imatges en ús. Després de cada construcció,
+també si acaba amb codi zero, la inspecció ha de retornar les dues etiquetes
+coincidents. Una fallada del client posterior a la càrrega només es pot recuperar
+amb aquesta evidència; una imatge anterior del mateix commit també falla perquè
+té un identificador d'invocació diferent. Les metadades absents o malformades i
+les fallades d'inspecció o eliminació continuen sent errors. La prova real
+d'arrencada i persistència continua sent obligatòria.
+
+La imatge del backend ara utilitza `uv` `0.10.0` amb `UV_HTTP_TIMEOUT=120`,
+`UV_HTTP_RETRIES=3`, `UV_CONCURRENT_DOWNLOADS=4` i `UV_CONCURRENT_INSTALLS=2`
+explícitament a l'ordre d'instal·lació congelada. Les variables del workflow no
+s'hereten implícitament dins de les construccions Docker. Aquests valors només
+afecten la instal·lació, no l'entorn d'execució de l'aplicació. Les proves de
+regressió comparen l'instal·lador i els límits amb la CI compartida i rebutgen
+valors absents, canviats o duplicats. Les dependències de l'aplicació, els
+lockfiles, l'assignació d'executors i l'empaquetament de versions no canvien.
+
+La CI de Docker valida Compose, construeix les dues imatges i executa
+`scripts/smoke_docker.sh`. La prova comprova el backend i el frontend en marxa,
+recrea els contenidors i verifica un marcador sintètic a `/data`. La neteja de
+sortida només afecta el seu projecte Compose amb nom únic, inclosos els volums
+de prova d'aquell projecte.
+
+La neteja final executa `scripts/ci/prepare_docker_runner.py --cleanup`: retira
+només les etiquetes d'imatge `gnosi-frontend:ci` i `gnosi-backend:ci` sense forçar
+imatges en ús, neteja la memòria cau de construcció no utilitzada i regenerable,
+i verifica almenys 12 GiB lliures. Mai no fa una neteja global de contenidors,
+xarxes o volums. Una ordre de neteja de memòria cau finalitzada que informa de
+`context deadline exceeded` es pot repetir fins a tres intents totals,
+separats per cinc segons. Cada intent té un límit de procés de 120 segons;
+els passos de capacitat i neteja final tenen límits de deu minuts. Altres
+errors, un límit de procés esgotat, els reintents esgotats o l'espai insuficient
+continuen fent fallar el check. Mai no s'ometen les construccions ni la prova
+de persistència.
+
+L'eliminació d'imatges té una recuperació limitada pròpia: si s'esgota el límit
+de procés de 60 segons, una consulta correcta ha de confirmar si encara existeix
+l'etiqueta exacta de CI. La seva absència verificada completa l'eliminació.
+Si continua existint, es permet un reintent al cap de cinc segons, comprovant-ne
+de nou la presència abans d'eliminar-la. Una inspecció fallida, una imatge en ús
+o un segon timeout amb l'etiqueta encara present continuen sent errors.
+Es mantenen el límit exterior de deu minuts i la comprovació final de 12 GiB.
+
+El job de frontend aplica el pressupost revisat de 4 GiB de heap de
+Node a tot el job perquè lint, comprovació de tipus, proves i build de producció
+comparteixin el mateix contracte de memòria previsible.
+Les proves de política de versions d’escriptori verifiquen les assignacions locals exactes i tot l’entorn de recursos Node/Python. Les proves de mutació rebutgen executors de GitHub, assignacions locals modificades, pressupostos absents i sobreescriptures per pas. Els canvis de CI requereixen tota la suite d’escriptori i els contractes de planificació Python.
+
+La CI d'Electron configura paquets per a macOS arm64/x64, Linux arm64 i Windows
+x64. Configurar aquesta matriu, passar proves unitàries desktop o comprovar una
+migració sintètica del perfil del navegador no valida els instal·ladors ni el
+backend congelat. Cada arquitectura requereix evidència d'instal·lació,
+arrencada, persistència i actualització des de 2.x. Actualment, macOS utilitza
+actualitzacions manuals mitjançant l'instal·lador. Una execució local a macOS
+no acredita les altres plataformes: no publiqueu 3.0 abans de superar tota
+la matriu de release.
+
+## Mapatge de canvi a prova
+
+| Canvi | Evidència mínima |
+| --- | --- |
+| Només documentació revisada | Comprovació del generador, validador, build estricte i prova bàsica del portal al navegador. |
+| Lògica dels catàlegs generats | Proves unitàries del generador, determinisme en dues execucions, validador i build estricte. |
+| Comportament del backend | Regressió acotada de pytest i suite d'integració afectada. |
+| Comportament del frontend | Vitest quan sigui viable, comprovació i18n, build de producció, acció al navegador i captura. |
+| Accessibilitat o token compartit d’interfície | Vitest de la primitiva, paritat dels quatre idiomes, matriu axe en clar i fosc, proves de teclat i captura del navegador. |
+| Autenticació, seguretat o rutes | Proves negatives i intents entre àmbits, no només el camí correcte. |
+| Desplegament o dependències | Verificació nativa i CI de Docker o paquets segons correspongui. |
+
+## Catàleg de proves
+
+El [catàleg de proves](../generated/tests.md) generat enumera els fitxers propis
+i senyals de navegació. La recollida del runner continua sent l'autoritat per
+comptar les proves executables.
+
+## Resultats de tipus del frontend verificats explícitament
+
+La parella opcional `GNOSI_TYPECHECK_CACHE` i `GNOSI_TYPECHECK_CACHE_SHA256` vincula un manifest privat i propi, l'ajudant fix `verify-typecheck-cache.py` i l'executable Python bloquejat abans d'executar-lo. Verifica una fase completa de tipus realment finalitzada i totes les empremtes actuals de fonts, configuració, dependències, enllaços simbòlics i Node. Només poden diferir fitxers de qualitat no TypeScript revisats explícitament; la funció original completa `typecheck()`, el compilador, el treballador, les arrels i les regles no canvien. Una validació global posterior fallida continua fallida.
+
+Sense la parella s'executa el comprovador original intacte. Els vincles parcials, malformats o obsolets fallen sense alternativa ni reintent. La verificació correcta mostra `VERIFIED_CACHED_WHOLE_FRONTEND_TYPES`, sense inventar lots semàntics actuals. L'entorn pre-PR exposa la parella només a la fase exacta `Frontend types` i elimina totes dues claus de qualsevol altra fase, incloses les proves del frontend. Els límits, la neteja i les altres obligacions de validació es mantenen.
+
+## Validació interactiva explícita a macOS
+
+El perfil separat i opcional `mac-interactive` se selecciona amb `--resource-profile mac-interactive` quan la validació ha de conviure amb `Codex` obert. Requereix 30 segons continus de pressió no crítica dins la mateixa finestra prèvia de 90 segons. El nivell d'avís de l'amfitrió `2` es registra com a convivència, inclosos els canvis de nivell durant el treball propi; no atura aquest perfil. El perfil original `mac-idle` i el comportament de `--resource-profile mac-idle` no canvien: calen 30 segons normals i un avís sostingut durant dos segons atura el treball propi. Els resultats interactius han d'identificar el perfil i no poden presentar-se com a acceptació estricta en repòs.
+
+Tots dos perfils s'aturen davant del nivell crític `4`, sondes de pressió desconegudes o fallides, RSS propi superior a 2 GiB, terminis o processos fills orfes. Mantenen el sostre Node de 1536 MiB, un treballador/fil, nice 10, límits estàtics/compilació/suites de 300/600/900 segons, amb una excepció de 600 segons només per al lint complet del frontend, i sondes de processos de dos segons. El mode interactiu només canvia el tractament dels avisos de pressió de fons observats; no afegeix reintents, alternatives silencioses, augments de recursos ni cap obligació de tancar aplicacions. La neteja pròpia i les altres obligacions de validació continuen sent obligatòries.

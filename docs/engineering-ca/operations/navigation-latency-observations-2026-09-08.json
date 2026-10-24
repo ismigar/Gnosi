@@ -1,0 +1,2353 @@
+{
+  "scope": "Compiled browser observations under concurrent validation load; not controlled before/after acceptance",
+  "mail_status": "Precedes the final mail error/partial-count correction; HTTP200 was insufficient to prove successful provider reads; third run included counts500",
+  "photos_status": {
+    "visible_loaded": 16,
+    "visible_pending": 2,
+    "visible_failed": 1,
+    "complete": false
+  },
+  "method": "Time to first recorded rendered frame after required response completion; excludes periodic reminder reads. Initial-document and sidebar navigation samples are separate. Graph first run lacks completed renderer evidence.",
+  "observations": [
+    {
+      "label": "calendar-1",
+      "navigation": "sidebar",
+      "observed_ready_ms": 18118
+    },
+    {
+      "label": "calendar-2",
+      "navigation": "sidebar",
+      "observed_ready_ms": 3626
+    },
+    {
+      "label": "calendar-3",
+      "navigation": "sidebar",
+      "observed_ready_ms": 2734
+    },
+    {
+      "label": "reader-1",
+      "navigation": "sidebar",
+      "observed_ready_ms": 8458
+    },
+    {
+      "label": "reader-2",
+      "navigation": "sidebar",
+      "observed_ready_ms": 9769
+    },
+    {
+      "label": "reader-3",
+      "navigation": "sidebar",
+      "observed_ready_ms": 9348
+    },
+    {
+      "label": "planning-first",
+      "navigation": "document",
+      "observed_ready_ms": 18359
+    },
+    {
+      "label": "planning-2",
+      "navigation": "sidebar",
+      "observed_ready_ms": 5665
+    },
+    {
+      "label": "planning-3",
+      "navigation": "sidebar",
+      "observed_ready_ms": 677
+    },
+    {
+      "label": "graph-1",
+      "navigation": "sidebar",
+      "observed_ready_ms": null
+    },
+    {
+      "label": "graph-2",
+      "navigation": "sidebar",
+      "observed_ready_ms": 5620
+    },
+    {
+      "label": "graph-3",
+      "navigation": "sidebar",
+      "observed_ready_ms": 17650
+    },
+    {
+      "label": "calendar-repeat-document",
+      "navigation": "document",
+      "observed_ready_ms": 14898
+    },
+    {
+      "label": "mail-1",
+      "navigation": "sidebar",
+      "observed_ready_ms": 28640
+    },
+    {
+      "label": "mail-2",
+      "navigation": "sidebar",
+      "observed_ready_ms": 27642
+    },
+    {
+      "label": "mail-3",
+      "navigation": "sidebar",
+      "observed_ready_ms": 41084
+    },
+    {
+      "label": "knowledge",
+      "navigation": "sidebar",
+      "observed_ready_ms": 27466
+    }
+  ],
+  "final_validation": {
+    "scope": "Final compiled preview after native backend restart; no audit tests or compilers running; substantial host swap and other user applications remain active. Not controlled before/after acceptance.",
+    "method": "First recorded rendered frame after required data responses. Periodic reminders excluded. The incomplete calendar attempt is retained but excluded from completed distributions. Table readiness refers to data/controls, not every thumbnail. Mail availability is partial.",
+    "series": [
+      {
+        "component": "calendar",
+        "navigation": "sidebar",
+        "ready_ms": [
+          3525,
+          685,
+          806
+        ],
+        "min_ms": 685,
+        "median_ms": 806,
+        "max_ms": 3525,
+        "visible_events": 24
+      },
+      {
+        "component": "graph",
+        "navigation": "sidebar",
+        "ready_ms": [
+          2289,
+          6004,
+          2429
+        ],
+        "min_ms": 2289,
+        "median_ms": 2429,
+        "max_ms": 6004,
+        "renderer_canvases": 9
+      },
+      {
+        "component": "reader",
+        "navigation": "sidebar",
+        "ready_ms": [
+          1225,
+          907,
+          1133
+        ],
+        "min_ms": 907,
+        "median_ms": 1133,
+        "max_ms": 1225,
+        "visible_article_buttons": 500
+      }
+    ],
+    "excluded": [
+      {
+        "component": "calendar",
+        "reason": "Left before event data arrived; zero events, no complete-load claim",
+        "ready_ms": null
+      }
+    ],
+    "additional": [
+      {
+        "component": "table-1",
+        "navigation": "document",
+        "data_controls_ready_ms": 5195,
+        "rows": 12
+      },
+      {
+        "component": "table-2",
+        "navigation": "control",
+        "data_controls_ready_ms": 1952,
+        "rows": 19
+      },
+      {
+        "component": "planning",
+        "navigation": "sidebar",
+        "ready_ms": 425,
+        "history_reads_status": 200
+      },
+      {
+        "component": "plugins-catalog",
+        "navigation": "control",
+        "ready_ms": 293
+      },
+      {
+        "component": "planning-plugin",
+        "navigation": "control",
+        "verified_final_frame_ms": 1540,
+        "selects": 7,
+        "options": 834,
+        "disabled_selects": 0
+      },
+      {
+        "component": "notebooks-library",
+        "navigation": "sidebar",
+        "ready_ms": 436,
+        "cards": 2
+      },
+      {
+        "component": "notebook-detail",
+        "navigation": "control",
+        "ready_ms": 2494,
+        "controls": 68
+      },
+      {
+        "component": "dashboard",
+        "navigation": "sidebar",
+        "ready_ms": 1928,
+        "controls": 56
+      },
+      {
+        "component": "reader-article-detail",
+        "navigation": "control",
+        "ready_ms": 223,
+        "body_rendered": true
+      },
+      {
+        "component": "mail-message-detail",
+        "read_request_ms": 780,
+        "body_frame_rendered": true,
+        "navigation_ready_ms": null,
+        "note": "Already-read message. The row click did not reset the temporary timer; no full-detail timing claimed."
+      }
+    ],
+    "mail_partial": [
+      {
+        "available_messages_ms": 3195,
+        "available_messages_and_counts_ms": 3274,
+        "one_account_unavailable_ms": 21882,
+        "visible_messages": 20,
+        "complete": false
+      },
+      {
+        "available_messages_ms": 1479,
+        "available_messages_and_counts_ms": 3196,
+        "one_account_unavailable_ms": 21321,
+        "visible_messages": 20,
+        "complete": false
+      }
+    ],
+    "photos": {
+      "visible_loaded": 19,
+      "visible_pending": 0,
+      "visible_failed": 0,
+      "visible_ready_ms": 5688,
+      "confirmed_recovered_image_reads": 1,
+      "scope": "Visible viewport only; does not validate every file in the library."
+    },
+    "automation_settings": {
+      "controls": 7,
+      "blank": false,
+      "errors": 0
+    },
+    "acceptance_under_500_ms": false,
+    "source_typecheck": "passed",
+    "production_build": "passed",
+    "build_startup_static_bytes": 538828,
+    "build_mail_static_bytes": 727009,
+    "remaining": [
+      "One mail account reaches a connection deadline and remains unavailable.",
+      "Global 500 ms readiness and stable cold startup are not achieved.",
+      "Coverage is representative; every table/view and disabled plugin variant are not exercised."
+    ]
+  },
+  "followup_optimization": {
+    "scope": "Primera càrrega, graf i fotos. Compte de correu exclòs expressament per l’usuari.",
+    "status": "implemented_and_validated_target_not_met",
+    "host": {
+      "swap_used_mb": 19001.5,
+      "other_apps_active": true,
+      "controlled_idle_comparison": false
+    },
+    "graph_http_before": {
+      "catalog": {
+        "status": 200,
+        "ms": 314,
+        "bytes": 701
+      },
+      "graph": [
+        {
+          "status": 200,
+          "ms": 27820,
+          "bytes": 656492
+        },
+        {
+          "status": 200,
+          "ms": 93,
+          "bytes": 656492
+        },
+        {
+          "status": 200,
+          "ms": 11,
+          "bytes": 656492
+        }
+      ],
+      "health": [
+        {
+          "status": 200,
+          "ms": 78,
+          "bytes": 101
+        },
+        {
+          "status": 200,
+          "ms": 17,
+          "bytes": 101
+        },
+        {
+          "status": 200,
+          "ms": 16,
+          "bytes": 101
+        }
+      ]
+    },
+    "graph_http_after": {
+      "catalog": {
+        "status": 200,
+        "ms": 1059,
+        "bytes": 701,
+        "timing": null
+      },
+      "graph": [
+        {
+          "status": 200,
+          "ms": 10475,
+          "bytes": 656492,
+          "timing": "resolve;dur=5.949, registry;dur=55.292, node_cache_load;dur=4699.852, pages;dur=2162.947, node_cache_save;dur=0.110, contacts;dur=250.703, edges;dur=583.097, suggestions;dur=172.831, project;dur=338.189, graph;dur=8433.093, json;dur=1413.836, gzip;dur=530.066, graph_cache;desc=\"miss\", json_cache;desc=\"miss\", gzip_cache;desc=\"miss\", nodes;desc=\"2509\""
+        },
+        {
+          "status": 200,
+          "ms": 186,
+          "bytes": 656492,
+          "timing": "resolve;dur=4.556, graph;dur=10.958, json;dur=0.013, gzip;dur=0.015, graph_cache;desc=\"hit\", json_cache;desc=\"hit\", gzip_cache;desc=\"hit\", nodes;desc=\"2509\""
+        },
+        {
+          "status": 200,
+          "ms": 26,
+          "bytes": 656492,
+          "timing": "resolve;dur=3.255, graph;dur=13.343, json;dur=0.012, gzip;dur=0.004, graph_cache;desc=\"hit\", json_cache;desc=\"hit\", gzip_cache;desc=\"hit\", nodes;desc=\"2509\""
+        }
+      ],
+      "health": [
+        {
+          "status": 200,
+          "ms": 299,
+          "bytes": 101,
+          "timing": null
+        },
+        {
+          "status": 200,
+          "ms": 12,
+          "bytes": 101,
+          "timing": null
+        },
+        {
+          "status": 200,
+          "ms": 9,
+          "bytes": 101,
+          "timing": null
+        }
+      ]
+    },
+    "graph_cache_read_probe": {
+      "bytes": 2966083,
+      "entries": 1884,
+      "read_ms": 2,
+      "parse_ms": 72,
+      "note": "Lectura posterior en calent; no explica per si sola els 4699 ms de la primera fase de càrrega."
+    },
+    "startup_isolated": {
+      "mode": "routes",
+      "ms": 10187,
+      "schema_cached_at_ready": false,
+      "schema_additional_ms": 16635,
+      "paths": 452,
+      "schema_sha256": "5be5c59dd649b7496f5ea19e46a08ae6a98c47775c6b7e9d7422dab3c8af6328",
+      "note": "452 paths de l’app real en runtime temporal. Preparació de rutes i generació posterior del mateix esquema, sense iniciar serveis. El temps retirat és el treball addicional d’esquema, no tota l’arrencada.",
+      "schema_matches_committed_contract": true
+    },
+    "physics_synthetic": [
+      {
+        "nodes": 1000,
+        "before_mean_ms": 28.3765,
+        "after_mean_ms": 5.0063,
+        "speedup": 5.67
+      },
+      {
+        "nodes": 5000,
+        "before_mean_ms": 73.3403,
+        "after_mean_ms": 14.3275,
+        "speedup": 5.12
+      }
+    ],
+    "tests": {
+      "backend_passed": 69,
+      "frontend_passed": 52,
+      "backend_unique_passed": 70,
+      "route_compatibility_and_lifespan_passed": 10,
+      "frontend_full_types": "passed",
+      "backend_targeted_mypy": "passed",
+      "frontend_eslint": "passed",
+      "build_and_size_limits": "passed",
+      "documentation": "31 reviewed and 9 generated pages validated",
+      "diff_check": "passed"
+    },
+    "notes": [
+      "Cap canvi de TTL, omissió de nodes ni reducció de bytes de fotos.",
+      "Preparació D3 només: no és el temps total del graf.",
+      "Primera API 27820→10475 ms en mostres amb càrrega variable; no és una comparació causal controlada."
+    ],
+    "browser": {
+      "viewport": {
+        "width": 596,
+        "height": 784
+      },
+      "host": {
+        "swap_used_mb": 19808.81,
+        "other_typechecks_active_during_first_series": true,
+        "last_graph_sample_other_typechecks_active": false,
+        "other_apps_active": true
+      },
+      "document_calendar_day": [
+        {
+          "ready_ms": 16595,
+          "api_ms": 12855,
+          "events": 2
+        },
+        {
+          "ready_ms": 4627,
+          "api_ms": 2083,
+          "events": 2
+        }
+      ],
+      "graph": [
+        {
+          "ready_ms": 17679,
+          "api_ms": 14270
+        },
+        {
+          "ready_ms": 7962,
+          "api_ms": 7018
+        },
+        {
+          "ready_ms": 11581,
+          "api_ms": 10595
+        }
+      ],
+      "graph_after_other_checks": {
+        "ready_ms": 8149,
+        "api_ms": 7418
+      },
+      "photos": [
+        {
+          "visible_ready_ms": 6677,
+          "full_page_ms": 6677,
+          "catalog_ms": 5238
+        },
+        {
+          "visible_ready_ms": 985,
+          "full_page_ms": 1671,
+          "catalog_ms": 770
+        },
+        {
+          "visible_ready_ms": 588,
+          "full_page_ms": 736,
+          "catalog_ms": 360
+        }
+      ],
+      "photo_counts": {
+        "catalog_cards": 50,
+        "visible_images": 3,
+        "visible_non_image_cards": 1,
+        "image_requests_per_navigation": 5,
+        "failed": 0,
+        "pending": 0,
+        "loaded_after_scroll": 15,
+        "offscreen_image_opened_and_closed_successfully": true
+      },
+      "calendar_month_switch": {
+        "events": 24,
+        "pending": 0
+      },
+      "method": [
+        "Document loads used the actual default day view; a manual month switch verified all 24 events.",
+        "Graph completion requires a frame after the new graph response; a cached canvas shown earlier is not counted as fresh data.",
+        "Photos require the three viewport images loaded after the catalog response; folder-tree readiness is reported separately.",
+        "The smaller viewport prevents comparison against the previous 19-image browser observation.",
+        "Host load remains uncontrolled even in the final sample without a typechecker."
+      ]
+    },
+    "final_runtime": {
+      "https": 200,
+      "tls_verify_result": 0,
+      "http_redirect": 307,
+      "preview_removed": true,
+      "audit_in_native_page": false,
+      "monthly_calendar_events": 24,
+      "pending": 0,
+      "alerts": 0
+    }
+  },
+  "decisive_optimization": {
+    "scope": "Normal native compiled preview at HTTPS5173. Calendar, media and graph changes active; this initial pass precedes the final auth-policy coalescence and health-vault bypass. Mail account excluded.",
+    "method": "First recorded double-animation-frame sample with populated UI after all required reads. Graphs include current configuration/tables/title-index where field filters require them. Photos include 50 cards, three visible loaded images and completed folder tree. Calendar has two daily events; periodic reminders excluded. Original document load separated from sidebar navigation.",
+    "initial_preview_pass": [
+      {
+        "label": "calendar-document",
+        "kind": "document",
+        "required_end_ms": 13911,
+        "ready_ms": 14076
+      },
+      {
+        "label": "graph-1",
+        "kind": "sidebar",
+        "required_end_ms": 7256,
+        "ready_ms": 8272
+      },
+      {
+        "label": "photos-1",
+        "kind": "sidebar",
+        "required_end_ms": 4004,
+        "ready_ms": 4534
+      },
+      {
+        "label": "calendar-1",
+        "kind": "sidebar",
+        "required_end_ms": 1374,
+        "ready_ms": 1404
+      },
+      {
+        "label": "graph-2",
+        "kind": "sidebar",
+        "required_end_ms": 3563,
+        "ready_ms": 3789
+      },
+      {
+        "label": "photos-2",
+        "kind": "sidebar",
+        "required_end_ms": 1556,
+        "ready_ms": 1677
+      },
+      {
+        "label": "calendar-2",
+        "kind": "sidebar",
+        "required_end_ms": 1813,
+        "ready_ms": 1823
+      },
+      {
+        "label": "graph-3",
+        "kind": "sidebar",
+        "required_end_ms": 22289,
+        "ready_ms": 22384
+      },
+      {
+        "label": "photos-3",
+        "kind": "sidebar",
+        "required_end_ms": 1153,
+        "ready_ms": 1228
+      }
+    ],
+    "outliers_retained": "The 22.384s graph sample includes ~21s waits in configuration, tables, global index and graph, and is retained as a completed slow sample.",
+    "graph_revalidation": {
+      "at": "2026-09-08T19:10:09.668667+00:00",
+      "catalog": {
+        "path": "/api/vaults",
+        "status": 200,
+        "ms": 276,
+        "bytes": 701,
+        "timing": null
+      },
+      "reads": [
+        {
+          "path": "/api/graph",
+          "status": 200,
+          "ms": 1756,
+          "bytes": 659038,
+          "timing": "resolve;dur=1.441, input_sidecars;dur=483.581, input_contacts;dur=263.220, input_suggestions;dur=16.433, revalidate;dur=1628.761, graph;dur=1658.695, json;dur=16.390, gzip;dur=8.948, graph_cache;desc=\"hit\", json_cache;desc=\"hit\", gzip_cache;desc=\"hit\", nodes;desc=\"2509\"",
+          "nodes": 2509,
+          "edges": 7250,
+          "partial": false,
+          "digest": "d0877db95c3e8be6e8bff25d115ca5ee5632c648bc3ec046b81aafec0d31821d"
+        }
+      ]
+    },
+    "host_observation": {
+      "ram_bytes": 17179869184,
+      "swap_used_mib": 20701.12,
+      "swapins_2_seconds": 4303,
+      "page_bytes": 16384,
+      "memory_pressure_free_percent": 33,
+      "interpretation": "Concurrent system activity was present; no causal attribution from this single host snapshot."
+    },
+    "validation": {
+      "calendar_reminders_routing": 35,
+      "media": 29,
+      "graph_frontend": 32,
+      "policy_health_routing": 116,
+      "native_wrappers": 124,
+      "native_preview": 18,
+      "vite_config": 21,
+      "full_frontend_types": "passed",
+      "selected_eslint": "passed",
+      "selected_backend_mypy": "passed",
+      "build": "passed",
+      "startup_static_bytes": 538828,
+      "calendar_frontend_continuity": 36,
+      "calendar_focused_types": "passed after final edits; changed files, relevant consumers/tests and imported dependencies",
+      "calendar_final_eslint": "passed",
+      "calendar_changed_tests_repeated": 13,
+      "final_build": "passed",
+      "calendar_static_bytes": 963474,
+      "media_refresh_backend": 70,
+      "media_refresh_frontend": 45,
+      "media_refresh_headers_after_type_fix": 2,
+      "media_refresh_backend_mypy": "passed; five changed modules",
+      "media_refresh_frontend_types": "passed; changed files, consumers, tests and imported dependencies",
+      "media_refresh_eslint": "passed",
+      "media_refresh_build": "passed",
+      "media_refresh_build_seconds": 50.72
+    },
+    "final_runtime_pass": {
+      "phase": "Media background renewal and calendar continuity active in native backend and compiled HTTPS frontend.",
+      "backend_restart_ready_seconds": 70.5,
+      "frontend_restart_trusted_tls_ready_seconds": 35.5,
+      "observations": [
+        {
+          "label": "media-refresh-final-document",
+          "kind": "document",
+          "visible_ms": 29128,
+          "fresh_ms": 29128,
+          "required_end_ms": 26303,
+          "photo_cards": 50,
+          "visible_images_loaded": 3,
+          "errors": 0,
+          "pending": 0,
+          "media_api_ms": 5389,
+          "tree_api_ms": 5569
+        },
+        {
+          "label": "media-refresh-final-calendar-first",
+          "kind": "sidebar",
+          "visible_ms": 19976,
+          "fresh_ms": 19976,
+          "required_end_ms": 19705,
+          "events": 2,
+          "errors": 0,
+          "pending": 0,
+          "local_sources_ms": [
+            5420,
+            7332,
+            7443
+          ],
+          "calendars_ms": 15969,
+          "events_ms": 17976
+        },
+        {
+          "label": "media-refresh-final-reopen",
+          "kind": "sidebar",
+          "visible_ms": 1982,
+          "fresh_ms": 1982,
+          "required_end_ms": 1734,
+          "photo_cards": 50,
+          "visible_images_loaded": 3,
+          "errors": 0,
+          "pending": 0,
+          "media_api_ms": 1622,
+          "tree_api_ms": 1623
+        },
+        {
+          "label": "media-refresh-final-calendar-reopen",
+          "kind": "sidebar",
+          "visible_ms": 484,
+          "fresh_ms": 6160,
+          "required_end_ms": 6114,
+          "visible_while_updating": true,
+          "events": 2,
+          "errors": 0,
+          "pending": 0
+        }
+      ],
+      "media_http_probe": {
+        "at": "2026-09-08T20:46:38.915720+00:00",
+        "status": 200,
+        "ms": 702,
+        "items": 50,
+        "total": 57150,
+        "index_state": "fresh",
+        "revision_present": true,
+        "next_offset": "50",
+        "retry_after": null
+      },
+      "document_startup": {
+        "health": {
+          "start_ms": 1969,
+          "request_start_ms": 5681,
+          "first_byte_ms": 14013,
+          "end_ms": 14034,
+          "queue_ms": 3712,
+          "server_ms": 8332
+        },
+        "vault_catalog": {
+          "start_ms": 1969,
+          "request_start_ms": 5681,
+          "first_byte_ms": 17251,
+          "end_ms": 17287,
+          "queue_ms": 3712,
+          "server_ms": 11570
+        },
+        "media_reads_start_ms": 20734,
+        "interpretation": "This full-document run after activation remains slow. Queue time before requestStart is not backend service time. These observations do not establish the cause of the broad latency spikes."
+      },
+      "limits": [
+        "General 0.5-second target remains unmet.",
+        "Fresh real index used for final browser and HTTP smoke; expiration and background renewal failure cases verified with isolated fixtures, not by expiring user data.",
+        "Cold document and first-calendar outliers are retained separately from cached reopens."
+      ],
+      "host_followup": {
+        "mode": "Read-only follow-up; no backend imports, data mutations or application shutdowns.",
+        "health_direct_ttfb_ms": [
+          361,
+          104,
+          309
+        ],
+        "health_proxy_ttfb_ms": [
+          857,
+          189,
+          584
+        ],
+        "health_proxy_tls_ms": [
+          708,
+          55,
+          487
+        ],
+        "health_statuses": [
+          200,
+          200,
+          200,
+          200,
+          200,
+          200
+        ],
+        "local_connect_max_ms": 11,
+        "dns_max_ms": 4,
+        "swap_used_gib": 19.18,
+        "free_memory_mib_range": [
+          60,
+          64
+        ],
+        "compressor_gib_range": [
+          7.1,
+          7.5
+        ],
+        "swap_in_delta_gib": 5.58,
+        "swap_out_delta_gib": 4.98,
+        "sampling_interval": "Between two vm_stat readings during the bounded follow-up; not a per-second rate.",
+        "conclusion": "High memory pressure and paging are compatible with broad pauses, but do not prove the cause of the earlier outlier. No persistent eight-second health delay reproduced and no specific additional code change justified by these samples."
+      },
+      "cleanup": {
+        "snapshot_restored": true,
+        "audit_script_removed": true,
+        "clean_document_has_no_audit_attribute": true,
+        "https_status_and_verification": "200 0",
+        "http_redirect": "307 https://localhost:5173/@vault/calendar?final-check=1",
+        "development_client_absent": true,
+        "audit_script_absent": true
+      }
+    },
+    "final_backend_fanout": {
+      "at": "2026-09-08T19:33:41.027111+00:00",
+      "catalog": {
+        "path": "/api/vaults",
+        "status": 200,
+        "ms": 369,
+        "bytes": 701,
+        "timing": null
+      },
+      "reads": [
+        {
+          "path": "/api/graph",
+          "status": 200,
+          "ms": 11321,
+          "bytes": 710765,
+          "timing": "resolve;dur=118.674, input_sidecars;dur=622.838, input_contacts;dur=994.691, input_suggestions;dur=9.617, revalidate;dur=3345.197, registry;dur=0.476, node_cache_load;dur=2.328, pages;dur=1439.174, contacts;dur=21.932, edges;dur=2230.090, suggestions;dur=0.828, project;dur=377.554, verify_inputs;dur=1247.334, node_cache_save;dur=8.937, graph;dur=9114.404, json;dur=1730.441, gzip;dur=311.070, graph_cache;desc=\"miss\", json_cache;desc=\"miss\", gzip_cache;desc=\"miss\", nodes;desc=\"3237\"",
+          "nodes": 3237,
+          "edges": 7244,
+          "partial": false,
+          "digest": "7ae34a09b8dfe580e0b88d7b43fd6937d8c1051b22a7d4e246a001cc039708c3"
+        },
+        {
+          "path": "/api/vault/tables",
+          "status": 200,
+          "ms": 2220,
+          "bytes": 5871,
+          "timing": null
+        },
+        {
+          "path": "/api/config/graph",
+          "status": 200,
+          "ms": 2521,
+          "bytes": 639,
+          "timing": null
+        },
+        {
+          "path": "/api/vaults",
+          "status": 200,
+          "ms": 2325,
+          "bytes": 701,
+          "timing": null
+        },
+        {
+          "path": "/api/config/interface",
+          "status": 200,
+          "ms": 2504,
+          "bytes": 84,
+          "timing": null
+        },
+        {
+          "path": "/api/health",
+          "status": 200,
+          "ms": 614,
+          "bytes": 101,
+          "timing": null
+        }
+      ]
+    },
+    "dataset_change": "During the audit the complete graph changed from 2509 nodes / 7250 edges to 3237 nodes / 7244 edges, with a different digest and a measured cache miss. The final fanout includes a legitimate rebuild and is not an unchanged-data benchmark; the specific source of the data change was not inspected.",
+    "health_independence": [
+      {
+        "selector": "none",
+        "status": 200,
+        "ms": 30
+      },
+      {
+        "selector": "cookie",
+        "status": 200,
+        "ms": 5
+      },
+      {
+        "selector": "header",
+        "status": 200,
+        "ms": 7
+      }
+    ],
+    "before_calendar_continuity": [
+      {
+        "label": "calendar-document",
+        "ready_ms": 7068,
+        "required_end_ms": 6836,
+        "complete": true
+      },
+      {
+        "label": "graph-1",
+        "ready_ms": null,
+        "required_end_ms": 842,
+        "complete": false
+      },
+      {
+        "label": "photos-1",
+        "ready_ms": 6444,
+        "required_end_ms": 4518,
+        "complete": true
+      },
+      {
+        "label": "calendar-1",
+        "ready_ms": 11347,
+        "required_end_ms": 11185,
+        "complete": true
+      },
+      {
+        "label": "graph-2",
+        "ready_ms": 7092,
+        "required_end_ms": 5805,
+        "complete": true
+      },
+      {
+        "label": "photos-2",
+        "ready_ms": 3127,
+        "required_end_ms": 2929,
+        "complete": true
+      },
+      {
+        "label": "plugins-1",
+        "ready_ms": 2462,
+        "required_end_ms": 2440,
+        "complete": true
+      },
+      {
+        "label": "planning-settings-1",
+        "ready_ms": 4086,
+        "required_end_ms": 3882,
+        "complete": true
+      }
+    ],
+    "before_calendar_continuity_notes": [
+      "graph-1 was abandoned by the audit before the graph API completed; excluded from completed measurements.",
+      "calendar-1 local pages and integrations also finished at about 11.16s; the local loading flag hid previously available events.",
+      "Planning settings contained 67 controls and 834 native options; the older frame sampler counted only visible options and its zero was not an empty selector."
+    ],
+    "calendar_continuity_runtime_pass": [
+      {
+        "label": "calendar-document",
+        "visible_ms": 8084,
+        "fresh_ms": 8084,
+        "required_end_ms": 8007
+      },
+      {
+        "label": "photos-1-index-expired",
+        "visible_ms": null,
+        "fresh_ms": null,
+        "required_end_ms": 1024
+      },
+      {
+        "label": "calendar-1",
+        "visible_ms": 306,
+        "fresh_ms": 658,
+        "required_end_ms": 631
+      },
+      {
+        "label": "graph-1",
+        "visible_ms": 1618,
+        "fresh_ms": 1618,
+        "required_end_ms": 898
+      },
+      {
+        "label": "calendar-2",
+        "visible_ms": 210,
+        "fresh_ms": 639,
+        "required_end_ms": 591
+      },
+      {
+        "label": "plugins-1",
+        "visible_ms": 179,
+        "fresh_ms": 421,
+        "required_end_ms": 406
+      },
+      {
+        "label": "planning-settings-1",
+        "visible_ms": 843,
+        "fresh_ms": 843,
+        "required_end_ms": 790
+      },
+      {
+        "label": "photos-2",
+        "visible_ms": 525,
+        "fresh_ms": 525,
+        "required_end_ms": 482
+      },
+      {
+        "label": "calendar-3",
+        "visible_ms": 212,
+        "fresh_ms": 1744,
+        "required_end_ms": 1722
+      }
+    ],
+    "calendar_continuity_runtime_notes": [
+      "Calendar reopenings retained two visible events during refresh; document load was measured separately.",
+      "Planning freshness requires all834 native selector options, not only67 rendered controls.",
+      "Photos fresh-index pass includes50 cards and3 visible loaded images; expired-index attempt was incomplete in browser and was not counted as a completed fast load."
+    ],
+    "media_index_expiration": {
+      "old_scan_finished_local": "2026-09-07 21:57:01",
+      "ttl_seconds": 86400,
+      "refresh_finished_local": "2026-09-08 22:04:03",
+      "refresh_duration_seconds": 113.6,
+      "entries": 57150,
+      "invalid_rows": 0,
+      "same_cache_key": true,
+      "finding": "Daily expiration of the historical index forced a synchronous full scan; no key or decoder regression was found. Background snapshot renewal is now implemented, validated and active. General startup latency remains.",
+      "correction": {
+        "behavior": "Serve last valid complete snapshot while a bounded background scan renews the expired index; first scan still waits if no snapshot exists.",
+        "workers": 2,
+        "maximum_running_and_queued": 8,
+        "retry_seconds": 30,
+        "poll_seconds": 5,
+        "maximum_polls": 60,
+        "pagination": "Atomic replacement across index revisions; explicit physical next-offset preserves progress through disappeared files.",
+        "safety": "Partial scans cannot replace complete data; generation guards invalidation; atomic persistence; complete data remains usable if persistence fails.",
+        "verification": "Expired-index behavior tested with isolated data and deferred scans. The real index was not artificially expired or rescanned.",
+        "historical_format_limit": "Structural validation cannot retrospectively prove completeness of a legacy snapshot."
+      }
+    },
+    "document_startup_queue_observation": {
+      "health_start_ms": 1248,
+      "health_request_start_ms": 2844,
+      "health_queue_ms": 1597,
+      "health_server_ms": 338,
+      "vault_catalog_queue_ms": 1597,
+      "calendar_reads_started_ms": 4835,
+      "interpretation": "About1.6s elapsed before requestStart for the initial two reads; this is not backend service time and its cause was not established."
+    }
+  },
+  "remaining_latency_followup": {
+    "scope": "Continue investigating and correcting remaining navigation pauses; mail account excluded.",
+    "backend_profile": {
+      "duration_seconds": 30,
+      "sampling_interval_ms": 10,
+      "health_samples": [
+        {
+          "start_s": 0.0,
+          "ms": 853,
+          "status": 200
+        },
+        {
+          "start_s": 1.358,
+          "ms": 70,
+          "status": 200
+        },
+        {
+          "start_s": 1.933,
+          "ms": 28,
+          "status": 200
+        },
+        {
+          "start_s": 2.464,
+          "ms": 76,
+          "status": 200
+        },
+        {
+          "start_s": 3.043,
+          "ms": 89,
+          "status": 200
+        },
+        {
+          "start_s": 3.636,
+          "ms": 14,
+          "status": 200
+        },
+        {
+          "start_s": 4.16,
+          "ms": 87,
+          "status": 200
+        },
+        {
+          "start_s": 4.748,
+          "ms": 51,
+          "status": 200
+        },
+        {
+          "start_s": 5.304,
+          "ms": 12,
+          "status": 200
+        },
+        {
+          "start_s": 5.822,
+          "ms": 25,
+          "status": 200
+        },
+        {
+          "start_s": 6.347,
+          "ms": 173,
+          "status": 200
+        },
+        {
+          "start_s": 7.025,
+          "ms": 8,
+          "status": 200
+        },
+        {
+          "start_s": 7.538,
+          "ms": 18,
+          "status": 200
+        },
+        {
+          "start_s": 8.059,
+          "ms": 9,
+          "status": 200
+        },
+        {
+          "start_s": 8.568,
+          "ms": 22,
+          "status": 200
+        },
+        {
+          "start_s": 9.096,
+          "ms": 7,
+          "status": 200
+        },
+        {
+          "start_s": 9.608,
+          "ms": 22,
+          "status": 200
+        },
+        {
+          "start_s": 10.131,
+          "ms": 19,
+          "status": 200
+        },
+        {
+          "start_s": 10.651,
+          "ms": 66,
+          "status": 200
+        },
+        {
+          "start_s": 11.221,
+          "ms": 29,
+          "status": 200
+        },
+        {
+          "start_s": 11.755,
+          "ms": 25,
+          "status": 200
+        },
+        {
+          "start_s": 12.283,
+          "ms": 65,
+          "status": 200
+        },
+        {
+          "start_s": 12.852,
+          "ms": 96,
+          "status": 200
+        },
+        {
+          "start_s": 13.454,
+          "ms": 20,
+          "status": 200
+        },
+        {
+          "start_s": 13.976,
+          "ms": 432,
+          "status": 200
+        },
+        {
+          "start_s": 14.912,
+          "ms": 45,
+          "status": 200
+        },
+        {
+          "start_s": 15.458,
+          "ms": 25,
+          "status": 200
+        },
+        {
+          "start_s": 15.986,
+          "ms": 32,
+          "status": 200
+        },
+        {
+          "start_s": 16.523,
+          "ms": 57,
+          "status": 200
+        },
+        {
+          "start_s": 17.082,
+          "ms": 7,
+          "status": 200
+        },
+        {
+          "start_s": 17.591,
+          "ms": 17,
+          "status": 200
+        },
+        {
+          "start_s": 18.114,
+          "ms": 24,
+          "status": 200
+        },
+        {
+          "start_s": 18.647,
+          "ms": 63,
+          "status": 200
+        },
+        {
+          "start_s": 19.217,
+          "ms": 366,
+          "status": 200
+        },
+        {
+          "start_s": 20.088,
+          "ms": 191,
+          "status": 200
+        },
+        {
+          "start_s": 20.784,
+          "ms": 80,
+          "status": 200
+        },
+        {
+          "start_s": 21.369,
+          "ms": 243,
+          "status": 200
+        },
+        {
+          "start_s": 22.114,
+          "ms": 74,
+          "status": 200
+        },
+        {
+          "start_s": 22.694,
+          "ms": 203,
+          "status": 200
+        },
+        {
+          "start_s": 23.402,
+          "ms": 100,
+          "status": 200
+        },
+        {
+          "start_s": 24.008,
+          "ms": 20,
+          "status": 200
+        },
+        {
+          "start_s": 24.534,
+          "ms": 19,
+          "status": 200
+        },
+        {
+          "start_s": 25.058,
+          "ms": 8,
+          "status": 200
+        },
+        {
+          "start_s": 25.569,
+          "ms": 11,
+          "status": 200
+        },
+        {
+          "start_s": 26.085,
+          "ms": 23,
+          "status": 200
+        },
+        {
+          "start_s": 26.614,
+          "ms": 18,
+          "status": 200
+        },
+        {
+          "start_s": 27.137,
+          "ms": 25,
+          "status": 200
+        },
+        {
+          "start_s": 27.667,
+          "ms": 196,
+          "status": 200
+        },
+        {
+          "start_s": 28.365,
+          "ms": 107,
+          "status": 200
+        },
+        {
+          "start_s": 28.977,
+          "ms": 130,
+          "status": 200
+        },
+        {
+          "start_s": 29.61,
+          "ms": 47,
+          "status": 200
+        }
+      ],
+      "health_median_ms": 32,
+      "health_max_ms": 853,
+      "main_thread_samples": 2644,
+      "main_thread_kevent_samples": 1674,
+      "interpretation": "No multi-second health pause reproduced in this capture. Main thread mostly waited for network events; GIL waits were also present. Native stack frame counts are nested, not additive timings. This does not identify the earlier 29-second outlier."
+    },
+    "backend_corrections": {
+      "error_notification": "Run notification I/O in a worker, preserving ContextVars, safe 500 response and notification-failure handling.",
+      "scheduler_start": "Run deferred scheduler start in a worker. Cancellation waits for startup completion before shutdown can stop it.",
+      "validation": {
+        "tests": 14,
+        "mypy_modules": 2,
+        "mypy": "passed"
+      },
+      "activation_ready_seconds": 28.1,
+      "causality_limit": "Code-level blocking risks demonstrated with deferred synthetic operations; neither is proven to have caused the earlier real outlier."
+    },
+    "asset_cache_baseline": {
+      "label": "asset-cache-before",
+      "visible_ms": 10838,
+      "fresh_ms": 10838,
+      "required_end_ms": 10613,
+      "compiled_count": 121,
+      "compiled_cached_count": 0,
+      "compiled_transfer_bytes": 36300,
+      "compiled_decoded_bytes": 1488184,
+      "events": 2,
+      "errors": 0,
+      "asset": "/assets/index-CdYb7XAK.js",
+      "status": "HTTP/2 200 ",
+      "cache_control": "no-cache",
+      "etag": "W/\"21482-1788900231514\"",
+      "content_length": "21482",
+      "content_type": "text/javascript"
+    },
+    "discarded_hypotheses": [
+      "Frontend routing, language, health and shell already overlap; earlier plugin preparation would save only about 86 ms in the recorded 29 s run and was not changed.",
+      "Google discovery already reads a local bundled document. Certificate parsing accounted for 26 sample nodes, not the sum of nested ASN.1 frames; no speculative TLS client sharing introduced.",
+      "Mac CloudStorage page warmup and native-open critical warmup already skip work. Pre-yield synchronous cache loading does not directly explain a request pause after readiness; no freshness weakening introduced."
+    ],
+    "asset_cache_correction": {
+      "behavior": "Immutable caching only for existing regular content-hashed compiler outputs explicitly listed by the build manifest. HTML/API/misses/fallbacks/other methods keep original policy.",
+      "fallback_guard": "Removes this immutable value from both stored and inline writeHead headers, including object and alternating-array forms and optional status message; preserves other headers.",
+      "validation": {
+        "tests": 45,
+        "asset_cache_tests": 6,
+        "native_preview_tests": 18,
+        "vite_config_tests": 21,
+        "focused_types": "passed",
+        "eslint": "passed",
+        "full_build": "passed",
+        "full_build_seconds": 13.15,
+        "startup_static_bytes": 538828,
+        "final_guard_note": "Guard-only adjustment affects preview middleware loaded at startup; after it, all45tests including two real minimal builds, focused types and lint passed. Full application assets and build manifest behavior unchanged."
+      },
+      "activation_trusted_tls_ready_seconds": 6.7,
+      "active_asset_headers": {
+        "asset": "/assets/index-CdYb7XAK.js",
+        "status": "HTTP/2 200 ",
+        "cache_control": "public, max-age=31536000, immutable",
+        "etag": "W/\"21482-1788902206998\"",
+        "content_length": "21482",
+        "content_type": "text/javascript"
+      },
+      "runtime": [
+        {
+          "label": "asset-cache-first-new-headers",
+          "visible_ms": 4852,
+          "fresh_ms": 4852,
+          "required_end_ms": 4807,
+          "compiled_count": 121,
+          "cached_count": 0,
+          "transfer_bytes": 497910,
+          "decoded_bytes": 1489719,
+          "events": 2,
+          "errors": 0,
+          "event_api_ms": 2365
+        },
+        {
+          "label": "asset-cache-warm-reload",
+          "visible_ms": 1178,
+          "fresh_ms": 1178,
+          "required_end_ms": 1078,
+          "compiled_count": 121,
+          "cached_count": 121,
+          "transfer_bytes": 0,
+          "decoded_bytes": 1489719,
+          "events": 2,
+          "errors": 0,
+          "event_api_ms": 199
+        },
+        {
+          "label": "asset-cache-warm-reload-2",
+          "visible_ms": 1218,
+          "fresh_ms": 1218,
+          "required_end_ms": 1098,
+          "compiled_count": 121,
+          "cached_count": 121,
+          "transfer_bytes": 0,
+          "decoded_bytes": 1489719,
+          "events": 2,
+          "errors": 0,
+          "event_api_ms": 224
+        }
+      ],
+      "interpretation": "Both warm document reloads reused all 121 compiled resources with zero reported transfer. Full-page timings also reflect faster cached API reads and host variation; the entire reduction from 10.838 s is not attributed solely to asset caching. First-load and historic 29 s outlier are not claimed solved."
+    },
+    "cleanup": {
+      "snapshot_restored": true,
+      "audit_script_removed": true,
+      "clean_document_has_no_audit_attribute": true,
+      "monthly_events": 24,
+      "calendar_alerts": 0,
+      "calendar_busy": 0,
+      "https_status_and_verification": "200 0",
+      "html_cache_control": "no-cache",
+      "http_redirect": "307 https://localhost:5173/@vault/calendar?final-check=1",
+      "development_client_absent": true,
+      "audit_script_absent": true
+    }
+  },
+  "status": "partial",
+  "last_verified": "2026-09-09",
+  "startup_queue_followup_2026_09_09": {
+    "date": "2026-09-09",
+    "status": "partial",
+    "goal": "Required data visible within 500 ms on every screen, including the first document load; not achieved.",
+    "scope": "Initial compiled-resource dispatch, shell icon grouping and subsequent calendar observations. Different origins, authorization states and provider latency prevent controlled end-to-end before/after acceptance.",
+    "evidence_files": [
+      "/tmp/gnosi-startup-queue-before.json",
+      "/tmp/gnosi-startup-metrics-seed.json",
+      "/tmp/gnosi-shell-icons-baseline.json",
+      "/tmp/gnosi-shell-icons-after.json",
+      "/tmp/gnosi-startup-long-exclusive.json",
+      "/tmp/gnosi-startup-long-health.json"
+    ],
+    "baseline": {
+      "origin": "https://127.0.0.1:5173",
+      "browser_cache": "empty",
+      "visible_ms": 20800,
+      "fresh_ms": 20800,
+      "required_end_ms": 20674,
+      "compiled": {
+        "count": 121,
+        "cachedCount": 0,
+        "transferBytes": 497910
+      },
+      "assets_started_before_initial_api_dispatch": 115,
+      "initial": [
+        {
+          "path": "/api/health",
+          "start": 1709,
+          "requestStart": 6553,
+          "queueMs": 4843,
+          "serverMs": 1266,
+          "end": 7819,
+          "dnsMs": 0,
+          "connectMs": 0,
+          "tlsMs": 0,
+          "statusCode": 200
+        },
+        {
+          "path": "/api/vaults",
+          "start": 1709,
+          "requestStart": 6553,
+          "queueMs": 4843,
+          "serverMs": 2942,
+          "end": 9499,
+          "dnsMs": 0,
+          "connectMs": 0,
+          "tlsMs": 0,
+          "statusCode": 200
+        }
+      ],
+      "calendar_events_server_ms": 9438,
+      "method": "First ready frame after first required response per endpoint; excludes later periodic reminder polls."
+    },
+    "active_corrections": {
+      "dispatch_barrier": "Initial health and vault-routing reads begin first. One browser turn lets their middleware dispatch before route and bootstrap imports start; API responses are not awaited by this barrier.",
+      "shell_icons": "One explicit group of 51 reviewed icons; includeDependenciesRecursively=false. Dynamic icon registry and heavy editors remain lazy.",
+      "immutable_asset_cache": "Preserved.",
+      "validation": {
+        "tests": 67,
+        "typescript": "passed",
+        "eslint": "passed",
+        "full_build": "passed",
+        "full_build_seconds": 55.83
+      },
+      "manifest_before": {
+        "entry_and_bootstrap": {
+          "chunk_count": 84,
+          "bytes": 538828,
+          "icon_chunk_count": 51,
+          "icon_bytes": 20440,
+          "cyclic_scc_count": 0
+        },
+        "entry_bootstrap_and_calendar": {
+          "chunk_count": 112,
+          "bytes": 963474,
+          "icon_chunk_count": 70,
+          "icon_bytes": 28804,
+          "cyclic_scc_count": 0
+        },
+        "all_static_cyclic_scc_count": 0,
+        "lucide_icon_dynamic_entry_count": 1546,
+        "manifest_sha256": "44c67a4b1d6179e0ac297afa78c90947a9927d0d5c9eb75f42719fd5550a9c72"
+      },
+      "manifest_after": {
+        "entry_and_bootstrap": {
+          "chunk_count": 36,
+          "bytes": 529350,
+          "icon_chunk_count": 2,
+          "icon_bytes": 682,
+          "cyclic_scc_count": 0
+        },
+        "entry_bootstrap_and_calendar": {
+          "chunk_count": 64,
+          "bytes": 952874,
+          "icon_chunk_count": 21,
+          "icon_bytes": 9046,
+          "cyclic_scc_count": 0
+        },
+        "all_static_cyclic_scc_count": 0,
+        "lucide_icon_dynamic_entry_count": 1546,
+        "manifest_sha256": "7ca1139cceb891e587327919bd6a7c22c45e131401ddd318790617fffe0e689c"
+      },
+      "remaining_shell_icon_chunks": [
+        {
+          "name": "Activity",
+          "bytes": 329
+        },
+        {
+          "name": "Heart",
+          "bytes": 353
+        }
+      ],
+      "remaining_shell_icon_explanation": "Both were already static imports in DeferredLucideIcon; Rolldown now emits them separately. 84 - 51 + 1 grouped chunk + 2 existing icons = 36. No additional functionality is made eager."
+    },
+    "post_activation_observations": {
+      "cold_order_probe": {
+        "origin": "https://localhost:5187",
+        "functional_result": "unauthenticated; excluded from calendar timing",
+        "asset_count": 68,
+        "cached_assets": 0,
+        "transferred_bytes": 451355,
+        "initial_api_dispatch_ms": 2008,
+        "initial_queue_ms": [
+          13,
+          12
+        ],
+        "initial_statuses": [
+          200,
+          401
+        ],
+        "initial_asset_count_before_dispatch": 9,
+        "route_download_start_ms": 2114
+      },
+      "first_localhost_activation": {
+        "functional_result": "configuration recovery screen; access rejected",
+        "asset_count": 68,
+        "cached_assets": 29,
+        "transferred_bytes": 215894,
+        "initial_queue_ms": [
+          3,
+          3
+        ],
+        "initial_statuses": [
+          200,
+          401
+        ]
+      },
+      "loopback_activation": {
+        "visible_ms": 63577,
+        "fresh_ms": 63577,
+        "required_end_ms": 63057,
+        "asset_count": 73,
+        "cached_assets": 29,
+        "transferred_bytes": 223193,
+        "initial_queue_ms": [
+          57,
+          56
+        ],
+        "initial_statuses": [
+          200,
+          200
+        ],
+        "calendars_duration_ms": 47211,
+        "calendars_server_ms": 47181,
+        "events_duration_ms": 51979,
+        "events_server_ms": 51897,
+        "events_count": 2,
+        "final_alerts": 0
+      },
+      "frontend_activation_seconds": 66.1,
+      "temporary_preview_removed": true
+    },
+    "functional_exclusions": [
+      {
+        "observation": "cold_order_probe",
+        "origin": "https://localhost:5187",
+        "reason": "Unauthenticated vault read returned 401. Dispatch ordering evidence only; excluded from functional calendar timing."
+      },
+      {
+        "observation": "first_localhost_activation",
+        "reason": "Vault read returned 401 and the configuration recovery screen was visible. Not a completed functional calendar load."
+      }
+    ],
+    "calendar_result_with_data_access": {
+      "origin": "https://127.0.0.1:5173",
+      "authentication_method": "not verified; successful access to data only, without inspecting credentials",
+      "navigation": "document",
+      "visible_ms": 63577,
+      "fresh_ms": 63577,
+      "events_count": 2,
+      "final_alerts": 0,
+      "initial_api_queue_ms": [
+        57,
+        56
+      ],
+      "calendars_server_ms": 47181,
+      "events_server_ms": 51897,
+      "conclusion": "Dispatch queue and compiled chunk count improved, but the 63.577 s completed calendar load does not demonstrate an overall loading improvement."
+    },
+    "later_native_profile": {
+      "relationship_to_outlier": "Captured afterwards; not evidence covering the entire earlier 47-52 s provider wait.",
+      "requested_duration_seconds": 15,
+      "nominal_interval_ms": 10,
+      "samples_per_thread": 1346,
+      "thread_count": 20,
+      "method": "Exclusive samples computed as each node count minus its direct children. Every thread sums to 1346; nested parent/child frames are not added. Percentages describe sampled stacks, not exact wall-clock durations.",
+      "main_thread": {
+        "thread": "Thread_10117471",
+        "samples": 1346,
+        "categories": {
+          "event_loop_idle": 745,
+          "GIL_contention": 479,
+          "other_native": 31,
+          "CPython_runtime": 77,
+          "other_synchronization": 14
+        },
+        "percentages": {
+          "event_loop_idle": 55.35,
+          "GIL_contention": 35.59,
+          "other_native": 2.3,
+          "CPython_runtime": 5.72,
+          "other_synchronization": 1.04
+        },
+        "top_exclusive_leaves": [
+          {
+            "symbol": "kevent",
+            "module": "libsystem_kernel.dylib",
+            "samples": 745
+          },
+          {
+            "symbol": "__psynch_cvwait",
+            "module": "libsystem_kernel.dylib",
+            "samples": 454
+          },
+          {
+            "symbol": "__psynch_mutexwait",
+            "module": "libsystem_kernel.dylib",
+            "samples": 28
+          },
+          {
+            "symbol": "_PyEval_EvalFrameDefault",
+            "module": "Python",
+            "samples": 28
+          },
+          {
+            "symbol": "cerror_nocancel",
+            "module": "libsystem_kernel.dylib",
+            "samples": 10
+          },
+          {
+            "symbol": "writev",
+            "module": "libsystem_kernel.dylib",
+            "samples": 10
+          },
+          {
+            "symbol": "_PyFrame_Clear",
+            "module": "Python",
+            "samples": 7
+          },
+          {
+            "symbol": "write",
+            "module": "libsystem_kernel.dylib",
+            "samples": 6
+          }
+        ]
+      },
+      "active_file_reading_worker": {
+        "thread": "Thread_10117937",
+        "samples": 1346,
+        "categories": {
+          "CPython_runtime": 763,
+          "filesystem_IO": 239,
+          "GIL_contention": 248,
+          "other_native": 30,
+          "other_synchronization": 66
+        },
+        "percentages": {
+          "CPython_runtime": 56.69,
+          "filesystem_IO": 17.76,
+          "GIL_contention": 18.42,
+          "other_native": 2.23,
+          "other_synchronization": 4.9
+        },
+        "top_exclusive_leaves": [
+          {
+            "symbol": "_PyEval_EvalFrameDefault",
+            "module": "Python",
+            "samples": 373
+          },
+          {
+            "symbol": "__psynch_cvwait",
+            "module": "libsystem_kernel.dylib",
+            "samples": 300
+          },
+          {
+            "symbol": "read",
+            "module": "libsystem_kernel.dylib",
+            "samples": 163
+          },
+          {
+            "symbol": "__open",
+            "module": "libsystem_kernel.dylib",
+            "samples": 69
+          },
+          {
+            "symbol": "pymalloc_alloc",
+            "module": "Python",
+            "samples": 41
+          },
+          {
+            "symbol": "_PyObject_GetMethod",
+            "module": "Python",
+            "samples": 34
+          },
+          {
+            "symbol": "_PyType_Lookup",
+            "module": "Python",
+            "samples": 30
+          },
+          {
+            "symbol": "_PyCodec_Lookup",
+            "module": "Python",
+            "samples": 24
+          }
+        ]
+      },
+      "other_threads": {
+        "socket_read_wait_entire_window": 2,
+        "synchronization_dominant": 15,
+        "system_worker_idle": 1
+      },
+      "physical_footprint_mb": 406.1,
+      "peak_physical_footprint_mb": 472.1,
+      "health": {
+        "count": 21,
+        "all_http_200": true,
+        "min_ms": 10,
+        "median_ms": 175,
+        "max_ms": 779,
+        "observations": [
+          {
+            "start_s": 0.002,
+            "ms": 717,
+            "status": 200
+          },
+          {
+            "start_s": 1.224,
+            "ms": 330,
+            "status": 200
+          },
+          {
+            "start_s": 2.059,
+            "ms": 79,
+            "status": 200
+          },
+          {
+            "start_s": 2.647,
+            "ms": 22,
+            "status": 200
+          },
+          {
+            "start_s": 3.229,
+            "ms": 10,
+            "status": 200
+          },
+          {
+            "start_s": 3.744,
+            "ms": 31,
+            "status": 200
+          },
+          {
+            "start_s": 4.277,
+            "ms": 231,
+            "status": 200
+          },
+          {
+            "start_s": 5.011,
+            "ms": 226,
+            "status": 200
+          },
+          {
+            "start_s": 5.746,
+            "ms": 175,
+            "status": 200
+          },
+          {
+            "start_s": 6.434,
+            "ms": 307,
+            "status": 200
+          },
+          {
+            "start_s": 7.247,
+            "ms": 18,
+            "status": 200
+          },
+          {
+            "start_s": 7.769,
+            "ms": 779,
+            "status": 200
+          },
+          {
+            "start_s": 9.06,
+            "ms": 274,
+            "status": 200
+          },
+          {
+            "start_s": 9.839,
+            "ms": 33,
+            "status": 200
+          },
+          {
+            "start_s": 10.383,
+            "ms": 13,
+            "status": 200
+          },
+          {
+            "start_s": 10.904,
+            "ms": 115,
+            "status": 200
+          },
+          {
+            "start_s": 11.537,
+            "ms": 210,
+            "status": 200
+          },
+          {
+            "start_s": 12.25,
+            "ms": 582,
+            "status": 200
+          },
+          {
+            "start_s": 13.335,
+            "ms": 51,
+            "status": 200
+          },
+          {
+            "start_s": 13.891,
+            "ms": 395,
+            "status": 200
+          },
+          {
+            "start_s": 14.802,
+            "ms": 112,
+            "status": 200
+          }
+        ]
+      },
+      "causality_limit": "Native stacks do not identify the Python operation or request served by those workers/sockets. Neither GIL contention, OS scheduling nor these SSL waits is established as the cause of the preceding calendar outlier; no speculative TLS or warmup change was made."
+    },
+    "later_session_recovery_change": {
+      "implementation": "coded",
+      "focused_tests": 18,
+      "focused_tests_result": "passed",
+      "typescript": "passed",
+      "eslint": "passed",
+      "vite_build": "passed",
+      "vite_build_seconds": 69,
+      "static_import_cycles": 0,
+      "activation": "active",
+      "activation_seconds": 52.0,
+      "browser_verification": "Invalid-session recovery was not exercised with a real invalid session; current localhost response class is different.",
+      "interpretation": "An additional isolated invalid-cookie case is covered and the change is active. The observed localhost issue is anonymous access requiring authentication, not a demonstrated expired session. No resolution of that issue or measured latency benefit is attributed to invalid-session recovery."
+    },
+    "verified_localhost_access_classification": {
+      "method": "Temporary classifier records only response-category enums; no logout or credential inspection.",
+      "responses": [
+        {
+          "path": "/api/vaults",
+          "status": 401,
+          "category": "authentication_required"
+        },
+        {
+          "path": "/api/vault/plugins",
+          "status": 401,
+          "category": "authentication_required"
+        },
+        {
+          "path": "/api/auth/me",
+          "category": "anonymous"
+        }
+      ],
+      "expired_session_identified": false,
+      "logout_performed": false,
+      "credentials_read": false,
+      "interpretation": "Anonymous access is being refused by protected data routes. This is not the invalid-session case covered by the preceding recovery tests."
+    },
+    "server_auth_hint_change": {
+      "behavior": "Show Login when the server requires authentication for the plugin catalogue, even when the earlier health snapshot reports authentication disabled.",
+      "implementation": "coded in usePlugins and App via authenticationRequired",
+      "focused_tests": 17,
+      "focused_tests_result": "passed",
+      "focused_typescript": "passed",
+      "eslint": "passed for four reviewed files after two String() test fixes",
+      "build": "passed",
+      "build_seconds": 67,
+      "bundle_limits": "passed",
+      "startup_static_bytes": 531032,
+      "calendar_static_bytes": 954556,
+      "startup_static_chunks": 36,
+      "calendar_static_chunks": 64,
+      "static_import_cycles": 0,
+      "lucide_icon_dynamic_entry_count": 1546,
+      "additional_integration_test": {
+        "file": "frontend/src/app/App.loginPluginRecovery.test.tsx",
+        "cases_passed": 1,
+        "behavior": "A successful login in the same vault reloads the plugin catalogue and leaves Login.",
+        "eslint": "passed after correcting descriptor.set.call in the test"
+      },
+      "activation": "passed",
+      "activation_seconds": 74.2,
+      "trusted_tls": true,
+      "browser_verification": {
+        "url": "https://localhost:5173/@vault/calendar",
+        "login_form_visible": true,
+        "configuration_error_visible": false,
+        "visible_calendar_events": 0,
+        "audit_instrumentation_present": false,
+        "real_login_or_logout_performed": false,
+        "credentials_read": false,
+        "interpretation": "The Login-screen correction is confirmed. This is not a completed calendar-data load or a real login exercise."
+      }
+    },
+    "turn_validation": {
+      "unique_tests_passed": 96,
+      "scope": "Verified count before the subsequent calendar Server-Timing test batch; no updated deduplicated total inferred.",
+      "counting_method": "Unique cases across this turn at that checkpoint; the separately reported test batches overlap and must not be added."
+    },
+    "python_stack_capture": {
+      "tool": "py-spy",
+      "version": "0.4.2",
+      "installation": "complete",
+      "privileges_required": true,
+      "noninteractive_sudo_result": "password required",
+      "macos_authorization_dialog": "timed out after 120 seconds without authorization",
+      "authorization_wait_seconds": 120,
+      "requested_duration_seconds": 15,
+      "include_local_variables": false,
+      "result": "not captured; authorization not received",
+      "saved": false,
+      "passwords_read": false,
+      "causal_conclusion": null
+    },
+    "calendar_server_timing_change": {
+      "purpose": "Separate request-worker queue, credential resolution and provider HTTP durations without requiring a privileged process profiler.",
+      "opt_in_header": "X-Gnosi-Calendar-Timing: 1",
+      "response_header": "Server-Timing",
+      "routes": ["/api/calendar/calendars", "/api/calendar/events"],
+      "data_scope": "Durations only; no credentials, calendar content or local-variable values.",
+      "implementation": "implemented; opt-in only, without changing query results",
+      "context_propagation": "Only CalendarTiming is propagated; vault and authentication ContextVars are unchanged.",
+      "timing_interpretation": "Durations are inclusive and may be concurrent; do not sum them to reconstruct the total. cal_total excludes middleware and response validation, so it is not the full HTTP duration.",
+      "tests": {
+        "result": "passed",
+        "cases": 35,
+        "new_cases": 9,
+        "existing_calendar_cases": 26,
+        "repeated_new_cases_passed_after_context_adjustment": 9,
+        "repeat_adds_unique_cases": false
+      },
+      "ruff": "passed for seven files",
+      "mypy": "passed for six source files",
+      "selected_diff_whitespace_check": "passed",
+      "administrative_authorization_required": false,
+      "activation": "passed",
+      "activation_seconds": 178.8,
+      "activation_interpretation": "Backend startup duration, recorded separately from UI loading latency.",
+      "live_measurements": "verified with data access using the temporary instrumented frontend; all requests returned HTTP 200",
+      "live_result": {
+        "origin": "https://127.0.0.1:5173",
+        "authentication_method": "not verified; data access observed without reading credentials",
+        "all_http_statuses": 200,
+        "visible_calendars": 1,
+        "visible_events": 2,
+        "errors": 0,
+        "visible_ms": 10557,
+        "fresh_ms": 10557,
+        "events_request_end_ms": 10445,
+        "health_duration_ms": 976,
+        "vaults_duration_ms": 1178,
+        "initial_api_queue_ms": [4, 4],
+        "compiled_resources": 73,
+        "cached_resources": 25,
+        "transferred_bytes": 322304,
+        "calendars": {
+          "duration_ms": 6037,
+          "server_wait_ms": 5991,
+          "browser_queue_ms": 44,
+          "inclusive_phase_ms": {
+            "cal_total": 5303.319,
+            "worker_queue": 9.221,
+            "integrations": 2.905,
+            "calendars": 2215.899,
+            "credentials": 824.473,
+            "service_construction": 1406.349,
+            "provider_http": 744.555
+          }
+        },
+        "events": {
+          "duration_ms": 7244,
+          "server_wait_ms": 7193,
+          "browser_queue_ms": 45,
+          "inclusive_phase_ms": {
+            "cal_total": 6492.143,
+            "worker_queue": 46.336,
+            "integrations": 142.198,
+            "events": 6327.889,
+            "hidden_calendar_db": 5.467,
+            "credentials": 692.416,
+            "service_construction": 1210.476,
+            "provider_http": 1048.494
+          }
+        },
+        "interpretation": "The previous 47-52 s server-wait outlier was not reproduced. Inclusive/concurrent phases do not partition the total, and substantial local intervals remain unexplained. This diagnostic instrumentation does not demonstrate an attributable overall latency improvement."
+      },
+      "causal_conclusion": null
+    },
+    "calendar_in_process_sampling_change": {
+      "purpose": "Investigate unexplained local calendar and graph intervals without privileged process profiling.",
+      "source": "backend/utils/request_profile.py with calendar and graph route hooks",
+      "opt_in": {
+        "graph": ["X-Gnosi-Graph-Profile: 1"],
+        "calendar_events": ["X-Gnosi-Calendar-Profile: 1", "X-Gnosi-Calendar-Timing: 1"]
+      },
+      "response_identifier_header": "X-Gnosi-Request-Profile-Id when persistence is complete at route return",
+      "data_scope": "Normalized code filenames, function names and line numbers only; no locals, globals, arguments, thread names or user data.",
+      "threads_observed": "main thread and explicitly registered workers",
+      "maximum_concurrent_samplers": 1,
+      "maximum_duration_seconds": 15,
+      "target_frequency_hz": 20,
+      "maximum_aggregate_stacks": 256,
+      "maximum_frames_per_stack": 32,
+      "output_path_template": "/tmp/gnosi-request-profile-<id>.json",
+      "output_mode": "0600",
+      "output_identification": ["process_id", "started_monotonic"],
+      "autosave": "At the 15-second deadline even if the request is still pending",
+      "maximum_stop_wait_ms": 250,
+      "mail_tracing": false,
+      "administrative_authorization_required": false,
+      "implementation": "implemented",
+      "validation": {
+        "result": "passed",
+        "test_cases": 35,
+        "profile_cases": 6,
+        "calendar_timing_cases": 9,
+        "graph_request_cases": 6,
+        "compression_cases": 14,
+        "ruff_files_passed": 6,
+        "mypy_files_passed": 4,
+        "counting_note": "This batch overlaps earlier validations; no updated deduplicated total inferred."
+      },
+      "activation": "passed; temporary frontend audit snapshot staged",
+      "activation_seconds": 199.3,
+      "activation_process_id": 64601,
+      "activation_interpretation": "Backend startup duration, not UI loading latency.",
+      "live_result": "graph and calendar captures completed without administrative authorization",
+      "graph_capture": {
+        "source": "/tmp/gnosi-request-profile-ox2798gk.json",
+        "process_id": 64601,
+        "sample_count": 39,
+        "maximum_duration_seconds": 15,
+        "aggregate_stacks": 33,
+        "dropped_stacks": 0,
+        "nominal_interval_ms": 50,
+        "constant_actual_frequency": false,
+        "main_uvloop_runner_observations": 37,
+        "main_total_observations": 39,
+        "worker_observations": {
+          "managed_metadata_read_or_stat": 6,
+          "sql_fetch": 4,
+          "json_cache_decode": 2
+        },
+        "interpretation": "The uvloop runner frame does not distinguish idle time from native C work. Irregular observation counts are not durations and must not be multiplied by the nominal interval to attribute time."
+      },
+      "calendar_capture": {
+        "source": "/tmp/gnosi-request-profile-876xneks.json",
+        "process_id": 64601,
+        "sample_count": 34,
+        "aggregate_stacks": 19,
+        "dropped_stacks": 0,
+        "main_uvloop_runner_observations": 34,
+        "main_total_observations": 34,
+        "worker_observations": {
+          "parent_task_wait": 31,
+          "calendar_list_cache_lock": 12,
+          "pending_credentials_future": 5,
+          "google_legacy_cache_autodetect_or_retrieve_discovery_doc": 5
+        },
+        "interpretation": "Potentially overlapping observations, not seconds or additive fractions of the total. Main runner frames do not distinguish idle from native C work."
+      },
+      "causal_conclusion": null
+    },
+    "subsequent_live_checks": {
+      "audit_measurement_correction": "Include prefetched requests that begin before the click and finish after it.",
+      "plugins": {
+        "visible_controls": 39,
+        "all_controls_enabled": true,
+        "controls_visible_ms": 185,
+        "data_ready_ms": 710,
+        "catalogue_duration_ms": 489,
+        "installed_plugins_duration_ms": 504,
+        "catalogue_http_status": 200,
+        "installed_plugins_http_status": 200
+      },
+      "graph": {
+        "loading_still_visible_at_ms": 29395,
+        "later_dom_observation": {
+          "canvas_elements": 9,
+          "loading_indicators": 0,
+          "errors": 0
+        },
+        "completion_ms": null,
+        "interpretation": "The later DOM confirms a rendered result without loading or errors; the completion instant was not captured, so no exact load duration is asserted."
+      },
+      "graph_with_profile": {
+        "visible_ms": 19949,
+        "canvas_elements": 9,
+        "errors": 0,
+        "loading_indicators": 0,
+        "request_path": "/api/graph",
+        "request_duration_ms": 16513,
+        "server_wait_ms": 16363,
+        "browser_queue_ms": 109,
+        "inclusive_phase_ms": {
+          "graph": 15288.924,
+          "node_cache_load": 6254.548,
+          "revalidate": 3526.171,
+          "input_sidecars": 2399.317,
+          "input_contacts": 1287.776,
+          "pages": 1406.984,
+          "edges": 1698.292,
+          "verify_inputs": 1939.740,
+          "json": 442.212,
+          "gzip": 486.480
+        },
+        "interpretation": "A separate measured run from the preceding graph DOM check. Inclusive phases do not partition the total; node_cache_load is not established to be entirely JSON parsing time."
+      }
+    },
+    "graph_cache_optimizations": {
+      "json_decode": {
+        "proposal": "Use pydantic_core for JSON cache decoding with a standard-library fallback.",
+        "implementation": "implemented and validated",
+        "synthetic_observation": "Approximately 40% less CPU in a synthetic decoder comparison; wall time variable.",
+        "limit": "Does not establish that the observed 6.25 s node_cache_load interval is JSON parsing time."
+      },
+      "metadata_cache": {
+        "proposal": "Avoid repeated eviction across K2/N3 passes when more than 512 sidecars are present, preserving capacity 512.",
+        "implementation": "implemented and validated",
+        "capacity": 512,
+        "actual_sidecar_count_confirmed": false
+      },
+      "validation": "passed; see subsequent_corrections_validation for 80 unique cases including the successful fixture rechecks",
+      "activation": "passed; final backend activation 185.3 seconds",
+      "live_measurements": "direct opening and warm checks recorded in final_active_no_profile_measurements and final_warm_measurements",
+      "causal_conclusion": null
+    },
+    "calendar_with_profile": {
+      "visible_ms": 16653,
+      "calendars": {
+        "duration_ms": 10523,
+        "browser_queue_ms": 88,
+        "server_wait_ms": 10431,
+        "inclusive_phase_ms": {
+          "cal_total": 7426.349,
+          "worker_queue": 96.196,
+          "integrations": 98.037,
+          "calendars": 7308.173,
+          "credentials": 1763.370,
+          "service_construction": 4415.920,
+          "provider_http": 2604.519
+        }
+      },
+      "events": {
+        "duration_ms": 11637,
+        "browser_queue_ms": 96,
+        "server_wait_ms": 11539,
+        "inclusive_phase_ms": {
+          "cal_total": 8582.591,
+          "worker_queue": 2.795,
+          "integrations": 209.282,
+          "events": 8252.931,
+          "hidden_calendar_db": 124.246,
+          "credentials": 1791.605,
+          "service_construction": 4029.862,
+          "provider_http": 967.321
+        }
+      },
+      "interpretation": "Inclusive phases are not additive. Timing remains variable across reads; the difference from full HTTP duration is not attributed by this capture. This run precedes final activation of the subsequent corrections."
+    },
+    "google_static_discovery_correction": {
+      "implementation": "implemented and validated",
+      "build_options": {"cache_discovery": false, "static_discovery": true},
+      "evidence": "Local discovery.py performs legacy cache autodetection before the bundled discovery document; that path appears in the request profile.",
+      "limit": "The observed path supports removing unnecessary cache lookup, but does not attribute all service construction or request latency to it.",
+      "activation": "passed; final backend activation 185.3 seconds",
+      "live_measurements": "direct opening and warm checks recorded in final_active_no_profile_measurements and final_warm_measurements"
+    },
+    "subsequent_corrections_validation": {
+      "initial_batch_cases": 80,
+      "initial_passed": 75,
+      "initial_failed": 5,
+      "fixture_failures": {"scan_context_manager": 4, "mock_keyword_argument": 1},
+      "fixtures_corrected": true,
+      "recheck": "passed: 35 cases in the two affected files, including all five previously failing fixture cases",
+      "recheck_cases_passed": 35,
+      "final_unique_cases_passed": 80,
+      "counting_note": "The 35 rechecked cases overlap the initial batch; final unique cases are 80, not 110.",
+      "ruff_files_passed": 7,
+      "mypy_files_passed": 3,
+      "diff_check": "passed",
+      "source_status": "three corrections stable",
+      "activation": "passed",
+      "activation_seconds": 185.3,
+      "live_benefit_verified": false,
+      "global_subsecond_loading_claim": false
+    },
+    "final_active_no_profile_measurements": {
+      "activation_seconds": 185.3,
+      "instrumentation": "Server-Timing only; no in-process stack profiling",
+      "load_conditions": "First direct openings after final activation; compiled browser assets were already cached, not an empty browser asset cache.",
+      "graph": {
+        "first_canvas_visible_ms": 22128,
+        "errors_after_display": 0,
+        "loading_indicators_after_display": 0,
+        "request_duration_ms": 13856,
+        "http_status": 200,
+        "browser_queue_ms": 3,
+        "server_wait_ms": 13746,
+        "compiled_resources": 64,
+        "cached_resources": 64,
+        "compiled_transferred_bytes": 0,
+        "health_duration_ms": 1310,
+        "vaults_duration_ms": 2894,
+        "initial_api_queue_ms": [2, 2],
+        "inclusive_phase_ms": {
+          "node_cache_read": 16.732,
+          "node_cache_parse": 220.779,
+          "node_cache_hash": 3.579,
+          "node_cache_load": 338.287,
+          "graph": 11136.317,
+          "revalidate": 4772.679,
+          "input_sidecars": 1158.005,
+          "input_contacts": 1427.903,
+          "input_suggestions": 146.737,
+          "pages": 1011.945,
+          "edges": 1208.925,
+          "project": 1849.321,
+          "verify_inputs": 1459.192,
+          "json": 1235.445,
+          "gzip": 378.968
+        },
+        "cache_load_comparison_limit": "The earlier profiled node_cache_load was 6254.548 ms. Conditions were not matched; the new 338.287 ms does not establish a causal improvement in total loading."
+      },
+      "calendar": {
+        "visible_ms": 16081,
+        "fresh_ms": 16081,
+        "required_requests_end_ms": 15882,
+        "compiled_resources": 73,
+        "cached_resources": 73,
+        "compiled_transferred_bytes": 0,
+        "health_duration_ms": 133,
+        "vaults_duration_ms": 534,
+        "initial_api_queue_ms": [2, 2],
+        "calendars": {
+          "duration_ms": 13387,
+          "browser_queue_ms": 8,
+          "server_wait_ms": 13377,
+          "inclusive_phase_ms": {
+            "cal_total": 10494.416,
+            "worker_queue": 0.899,
+            "integrations": 227.858,
+            "calendars": 9827.25,
+            "credentials": 394.34,
+            "service_construction": 5402.739,
+            "provider_http": 4009.729
+          }
+        },
+        "events": {
+          "duration_ms": 14252,
+          "browser_queue_ms": 24,
+          "server_wait_ms": 14227,
+          "inclusive_phase_ms": {
+            "cal_total": 11513.481,
+            "worker_queue": 87.681,
+            "integrations": 177.671,
+            "events": 11247.108,
+            "hidden_calendar_db": 118.618,
+            "credentials": 443.186,
+            "service_construction": 5660.345,
+            "provider_http": 899.131
+          }
+        }
+      },
+      "interpretation": "Inclusive phases must not be summed. Substantial server waits remain; these measurements do not demonstrate a broad improvement or the 0.5 s goal.",
+      "warm_checks": "completed; see final_warm_measurements",
+      "audit_cleanup": "completed; see final_cleanup_and_transport"
+    },
+    "final_warm_measurements": {
+      "instrumentation": "Server-Timing only; no in-process stack profiling",
+      "graph": {
+        "visible_ms": 7447,
+        "canvas_elements": 9,
+        "errors": 0,
+        "loading_indicators": 0,
+        "request_duration_ms": 6410,
+        "http_status": 200,
+        "browser_queue_ms": 8,
+        "server_wait_ms": 6319,
+        "inclusive_phase_ms": {
+          "graph": 4305.445,
+          "revalidate": 4162.823,
+          "input_sidecars": 1075.912,
+          "input_contacts": 943.582,
+          "input_suggestions": 50.621,
+          "json": 1.938,
+          "gzip": 0.063
+        }
+      },
+      "calendar": {
+        "visible_ms": 398,
+        "fresh_ms": 5392,
+        "required_requests_end_ms": 5372,
+        "visible_events": 2,
+        "errors": 0,
+        "calendars_duration_ms": 4963,
+        "events_duration_ms": 5048,
+        "all_api_http_statuses": 200,
+        "interpretation": "Already loaded data was visible before refreshed data arrived; 398 ms is not the fresh-data latency."
+      }
+    },
+    "final_cleanup_and_transport": {
+      "status": "completed",
+      "restored_calendar": {
+        "origin": "https://127.0.0.1:5173",
+        "audit_query_present": false,
+        "view": "Month",
+        "visible_events": 24,
+        "visible_months": 1,
+        "alerts": 0,
+        "status_indicators": 0,
+        "audit_instrumentation_present": false,
+        "login_visible": false,
+        "authentication_method": "not verified; accessible data observed"
+      },
+      "localhost_login": "correct Login screen confirmed in prior verification",
+      "authentication_actions_performed": false,
+      "native_snapshot_html_restored": true,
+      "temporary_timing_script_removed": true,
+      "profile_files_removed": ["/tmp/gnosi-request-profile-ox2798gk.json", "/tmp/gnosi-request-profile-876xneks.json"],
+      "profile_cleanup_scope": "Exactly the two profiles created for this audit",
+      "workbench_and_runtime_audit_artifacts_cleaned": true,
+      "https_localhost": {
+        "http_status": 200,
+        "tls_verify_result": 0,
+        "html_cache_control": "no-cache",
+        "audit_instrumentation_present": false
+      },
+      "http_redirect": {"http_status": 307, "location": "https://localhost:5173/"},
+      "compiled_asset": {"http_status": 200, "cache_control": "public, max-age=31536000, immutable"}
+    },
+    "remaining_interpretation_limits": {
+      "calendar_service_phase": "cal_service includes facade access, discovery imports before nested credentials and client construction; it is not pure build time. The approximately 5.5 s interval is not attributed entirely to client construction.",
+      "os_swap": {"used_mib": 18739.81, "used_gib_rounded": 18.30, "interpretation": "System context only; no causal proof of the measured latency."},
+      "active_swap_sample": {"duration_seconds": 5.02, "page_kib": 16, "swapins_mib_per_second": 85.73, "swapouts_mib_per_second": 81.97, "compressions_mib_per_second": 277.09, "decompressions_mib_per_second": 318.46, "other_applications_stopped": false, "interpretation": "Read-only vm_stat sample after the final UI confirms active swapping during this interval, not an exclusive causal attribution of endpoint latency."},
+      "immutable_schema_text_reuse": {"implemented": false, "primary_cost_established": false, "authorization_blocker": false},
+      "latency_objective_status": "partial",
+      "general_subsecond_loading_achieved": false
+    },
+    "finalization": {
+      "status": "completed",
+      "latency_objective_status": "partial",
+      "owner": "parent final verification",
+      "latest_verified_change": "JSON decode, metadata-cache admission and Google static-discovery corrections implemented and validated: 80 unique cases passed after fixture rechecks, Ruff seven files, mypy three files and diff check passed",
+      "latest_typescript_result": "focused check passed",
+      "latest_eslint_result": "four reviewed files and new App.loginPluginRecovery.test.tsx passed",
+      "latest_build_result": "passed including bundle limits; startup531032B/calendar954556B,36/64chunks,zero cycles,1546dynamic icon entries",
+      "latest_build_seconds": 67,
+      "activation_result": "frontend active after 74.2 seconds with trusted TLS; calendar timing backend active after 178.8 seconds. Backend activation with in-process sampling passed in 199.3 seconds, process 64601. Final backend activation with the three corrections passed in 185.3 seconds. Startup durations are separate from UI loading; temporary audit instrumentation was removed.",
+      "final_browser_observations": "After final activation, timing-only direct openings with cached compiled resources showed graph at 22128 ms and fresh calendar at 16081 ms. Warm navigation showed graph at 7447 ms and calendar already loaded at 398 ms, fresh at 5392 ms, without errors. The final query-free loopback Month view had 24 events, one month, zero alerts/status indicators, no audit instrumentation and no Login. localhost correctly showed Login in prior verification. No real login/logout or credential reads. Invalid-session recovery was not exercised live.",
+      "browser_verification_pending": null,
+      "python_stack_capture_result": "closed: authorization dialog expired at 120 seconds, saved=false, no passwords read",
+      "calendar_timing_verification_pending": null,
+      "calendar_in_process_sampling_pending": null,
+      "graph_cache_optimization_pending": null,
+      "google_static_discovery_pending": null,
+      "final_audit_cleanup_result": "completed: native HTML restored, timing script and exactly the two created profiles removed, workbench/runtime audit artifacts cleaned, final calendar view restored without audit query",
+      "note": "Verification and cleanup are complete; the latency objective remains partial. The three corrections passed 80 unique cases, Ruff, mypy and diff checks and were activated after 185.3 seconds. Final direct openings without stack profiling but with cached assets showed graph at 22.128 s and fresh calendar at 16.081 s; warm graph was 7.447 s and fresh calendar 5.392 s. The 398 ms calendar visibility represents already loaded data. Cache-load comparisons have unmatched conditions; cal_service is not pure build time; swap is context, not causal proof. No broad improvement or general subsecond loading is claimed. The actual sidecar count remains unconfirmed. In-process captures completed without administrative privileges and were removed; the earlier privileged capture produced no recording."
+    }
+  }
+}

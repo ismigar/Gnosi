@@ -1,0 +1,60 @@
+.md-header,
+.md-tabs {
+  --md-primary-fg-color: #3b82f6;
+  --md-primary-fg-color--light: #60a5fa;
+  --md-primary-fg-color--dark: #2563eb;
+}
+
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #3b82f6;
+  --md-primary-fg-color--light: #60a5fa;
+  --md-primary-fg-color--dark: #2563eb;
+  --md-accent-fg-color: #3b82f6;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #3b82f6;
+  --md-primary-fg-color--light: #60a5fa;
+  --md-primary-fg-color--dark: #2563eb;
+  --md-accent-fg-color: #60a5fa;
+}
+
+.md-typeset table:not([class]) {
+  font-size: 0.72rem;
+}
+
+.md-typeset code {
+  overflow-wrap: anywhere;
+}
+
+.md-typeset h1 {
+  font-weight: 650;
+}
+
+.md-typeset .mermaid {
+  margin-block: 1.5rem;
+  text-align: center;
+}
+
+.gnosi-language-switcher {
+  align-items: center;
+  display: flex;
+  margin-left: 0.6rem;
+}
+
+.gnosi-language-switcher select {
+  appearance: none;
+  background: rgb(255 255 255 / 14%);
+  border: 1px solid rgb(255 255 255 / 55%);
+  border-radius: 0.25rem;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+}
+
+.gnosi-language-switcher option {
+  color: #111827;
+}
