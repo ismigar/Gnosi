@@ -9361,6 +9361,37 @@
     "chooseFont": "Tria una tipografia",
     "fontNotFound": "No s’ha trobat cap tipografia.",
     "fontPickerHelp": "Cerca una font del tema o una família del sistema. Cada nom mostra una mostra de la tipografia.",
-    "fontSampleUnavailable": "No s’ha pogut carregar alguna mostra. Revisa els fitxers de les fonts i desa els canvis."
+    "fontSampleUnavailable": "No s’ha pogut carregar alguna mostra. Revisa els fitxers de les fonts i desa els canvis.",
+    "capturedMail": "Correu capturat",
+    "readCapture": "Llegeix el correu",
+    "closeCapture": "Tanca el correu",
+    "captureHelp": "Correu privat de proves: no s’ha enviat cap correu real. Els enllaços i les imatges del missatge no s’activen en la previsualització; utilitza els controls de sota.",
+    "captureUnavailable": "No s’ha pogut llegir aquest correu capturat. Refresca i torna-ho a provar.",
+    "captureActionApplied": "Acció aplicada al subscriptor fictici. Pots comprovar-ne l’estat a Subscriptors.",
+    "captureLinkUnavailable": "Aquest enllaç ja s’ha utilitzat, ha caducat o no està disponible.",
+    "captureActionFailed": "No s’ha pogut aplicar l’acció. Els camps es conserven; refresca l’estat abans de tornar-ho a provar.",
+    "captureHtml": "Vista HTML del correu",
+    "captureLinks": "Enllaços de subscripció",
+    "captureNoLinks": "Aquest correu no conté enllaços de subscripció verificats.",
+    "captureUnsubscribeAll": "Baixa de totes les llistes",
+    "captureUnsubscribeList": "Baixa de la llista {{list}}",
+    "captureTestLink": "Prova l’enllaç a Gnosi",
+    "captureOpenPublic": "Obre al pilot",
+    "captureConfirmHelp": "Aquesta acció afecta només {{email}}, una adreça fictícia de proves. No s’enviarà correu real.",
+    "captureActions": {
+      "confirm": "Confirmació de subscripció",
+      "preferences": "Preferències"
+    },
+    "captureLinkStates": {
+      "ready": "Disponible",
+      "used": "Ja utilitzat",
+      "expired": "Caducat",
+      "unavailable": "No disponible"
+    },
+    "captureConfirmActions": {
+      "confirm": "Confirma la subscripció",
+      "preferences": "Aplica les preferències",
+      "unsubscribe": "Confirma la baixa"
+    }
   }
 }

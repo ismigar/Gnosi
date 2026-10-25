@@ -18,7 +18,7 @@ from .paths import extension_root
 
 
 SERVICE_ROOT = extension_root() / "server"
-ALLOWED_ACTIONS = frozenset({"status", "messages_list", "messages_update", "messages_delete", "messages_export", "subscribers_list", "subscribers_import", "subscribers_update", "subscribers_export", "campaign_preview", "campaign_queue", "campaigns_list", "campaign_pause", "worker", "reconcile", "queue_list", "retention", "maintenance"})
+ALLOWED_ACTIONS = frozenset({"status", "messages_list", "messages_update", "messages_delete", "messages_export", "subscribers_list", "subscribers_import", "subscribers_update", "subscribers_export", "campaign_preview", "campaign_queue", "campaigns_list", "campaign_pause", "worker", "reconcile", "queue_list", "captured_get", "captured_apply", "retention", "maintenance"})
 
 
 def service_root(store: SiteStore, site_id: str, target_id: str) -> Path:
@@ -112,6 +112,8 @@ def invoke(store: SiteStore, site: SiteConfig, action: str, request: dict[str, J
     target = next((target for target in site.targets if target.id == target_id), None)
     if target is None:
         raise HTTPException(404, "Website destination not found")
+    if action in {"captured_get", "captured_apply"} and target.environment == "production":
+        raise HTTPException(409, "Captured email testing is unavailable for production")
     if target.adapter != "local":
         from .runtime import remote_service
         return remote_service(store, site, target_id, action, request)

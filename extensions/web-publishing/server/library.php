@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/storage.php';
 require_once __DIR__.'/smtp.php';
+require_once __DIR__.'/captured.php';
 
 final class SiteValidation extends InvalidArgumentException {
     public function __construct(public array $fields) { parent::__construct('validation'); }
@@ -9,6 +10,7 @@ final class SiteValidation extends InvalidArgumentException {
 
 /** Runtime state is deliberately independent from static-site release directories. */
 final class SiteService {
+    use SiteCapturedMail;
     private SiteStorage $storage;
     private array $config;
 
@@ -525,6 +527,8 @@ final class SiteService {
             if (!in_array($request['status'] ?? '', ['accepted', 'rejected', 'pending'], true)) throw new InvalidArgumentException('status');
             $changed = $this->q("UPDATE queue SET status=?,due_at=?,updated_at=?,error_code='' WHERE id=? AND status='uncertain'", [$request['status'], time(), time(), $this->key($request['id'] ?? null)])->rowCount(); return ['updated' => $changed === 1];
         }
+        if ($action === 'captured_get') return $this->capturedView($request);
+        if ($action === 'captured_apply') return $this->applyCaptured($request);
         if ($action === 'queue_list') {
             $rows = $this->q('SELECT id,kind,owner_id,to_email,status,attempts,due_at,updated_at,error_code FROM queue ORDER BY updated_at DESC LIMIT 1000')->fetchAll(); return ['items' => $rows];
         }

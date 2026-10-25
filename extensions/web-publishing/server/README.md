@@ -98,6 +98,8 @@ preferences links. Public lifecycle output does not disclose token validity.
 
 ## Authenticated private CLI
 
+`captured_get` takes only a queue `id` and returns a bounded, regular private capture whose identity, kind and synthetic recipient match the captured queue row. It is disabled outside capture-only test mode. `captured_apply` additionally takes a validated `link_index`; preference actions accept `language` and `interests`. URLs/tokens are recovered from that capture and must match the configured public endpoint, subscriber and queue-token binding. The browser cannot submit an arbitrary token or destination. It invokes the same single-use token operation as public POST, without sending email or removing HTTP authentication. These actions are available only through the administrator-authenticated Gnosi service API/CLI, never through public handlers.
+
 Run `php /PRIVATE/server/cli.php` with one JSON object on stdin, at most 1 MiB:
 `{"action":"status","request":{}}`. One JSON object is emitted on stdout;
 errors exit 1 with a safe code. Invoke only through Gnosi's authenticated scoped

@@ -9361,6 +9361,37 @@
     "chooseFont": "Elige una tipografía",
     "fontNotFound": "No se ha encontrado ninguna tipografía.",
     "fontPickerHelp": "Busca una fuente del tema o una familia del sistema. Cada nombre muestra una muestra de la tipografía.",
-    "fontSampleUnavailable": "No se ha podido cargar alguna muestra. Revisa los archivos de fuentes y guarda los cambios."
+    "fontSampleUnavailable": "No se ha podido cargar alguna muestra. Revisa los archivos de fuentes y guarda los cambios.",
+    "capturedMail": "Correo capturado",
+    "readCapture": "Leer correo",
+    "closeCapture": "Cerrar correo",
+    "captureHelp": "Correo privado de pruebas: no se ha enviado ningún correo real. Los enlaces y las imágenes están desactivados en la vista previa; utiliza los controles de abajo.",
+    "captureUnavailable": "No se ha podido leer este correo capturado. Actualiza e inténtalo de nuevo.",
+    "captureActionApplied": "Acción aplicada al suscriptor ficticio. Comprueba el resultado en Suscriptores.",
+    "captureLinkUnavailable": "Este enlace ya se ha utilizado, ha caducado o no está disponible.",
+    "captureActionFailed": "No se ha podido aplicar la acción. Los campos se conservan; actualiza el estado antes de reintentar.",
+    "captureHtml": "Vista HTML del correo",
+    "captureLinks": "Enlaces de suscripción",
+    "captureNoLinks": "Este correo no contiene enlaces de suscripción verificados.",
+    "captureUnsubscribeAll": "Baja de todas las listas",
+    "captureUnsubscribeList": "Baja de la lista {{list}}",
+    "captureTestLink": "Probar enlace en Gnosi",
+    "captureOpenPublic": "Abrir en el piloto",
+    "captureConfirmHelp": "Esta acción afecta solo a {{email}}, una dirección ficticia de pruebas. No se enviará correo real.",
+    "captureActions": {
+      "confirm": "Confirmación de suscripción",
+      "preferences": "Preferencias"
+    },
+    "captureLinkStates": {
+      "ready": "Disponible",
+      "used": "Ya utilizado",
+      "expired": "Caducado",
+      "unavailable": "No disponible"
+    },
+    "captureConfirmActions": {
+      "confirm": "Confirmar suscripción",
+      "preferences": "Aplicar preferencias",
+      "unsubscribe": "Confirmar baja"
+    }
   }
 }
