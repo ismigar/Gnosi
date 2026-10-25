@@ -7,7 +7,7 @@ import pytest
 from openai import ContentFilterFinishReasonError
 
 from backend.services.podcast_composition import schema, spoken_text
-from backend.tests.test_podcast_briefing import pipeline, written  # noqa: F401
+from backend.tests.test_podcast_briefing import audited, pipeline, written  # noqa: F401
 
 
 DATA = {"composition_groups": [{"key": "group:0", "topic": "Housing"},
@@ -56,6 +56,8 @@ def test_explicit_exclusion_of_editorial_theme_still_requires_automatic_semantic
                 "evidence_quote": "Community volunteers provide meals."}] if missing and evidence else []}
         else:
             return pipeline.model(request, **kwargs)
+        if request.operation.endswith('audit'):
+            result = audited(request, result['issues'])
         text = json.dumps(result)
         kwargs["output_validator"](text)
         return SimpleNamespace(result=text)

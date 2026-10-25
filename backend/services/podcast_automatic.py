@@ -18,7 +18,9 @@ def _request(context: _Briefing, phase: str, data: dict[str, Any], schema: dict[
     if phase == "write" and data.get("composition_groups"):
         options["composition_contract"] = resource("operations/podcast/composition-contract.md")
     return context.request("podcast.coverage." + phase, data, schema).model_copy(update={"options": {
-        "automatic_contract": resource("operations/podcast/automatic-contract.md"), **options}})
+        "automatic_contract": resource("operations/podcast/confirmation-contract.md"
+            if phase == "audit" and "candidate_findings" in data
+            else "operations/podcast/automatic-contract.md"), **options}})
 
 
 def _audit(context: _Briefing, data: dict[str, Any]) -> list[dict[str, Any]]:

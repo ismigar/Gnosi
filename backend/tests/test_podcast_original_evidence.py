@@ -54,7 +54,8 @@ def test_originals_restore_lost_legal_outcome_and_causal_condition_automatically
                 if brief['part_id'] == 'publisher:0' and data.get('review_focus') == 'coverage' and payment not in data['narration']:
                     issues.append({'kind': 'omission', 'detail': 'Include the agreed withdrawal and payment constraint.',
                                    'narration_quotes': [], 'source_part_ids': ['publisher:0'], 'evidence_quote': payment})
-            result = {'issues': issues}
+            result = ({'confirmed_finding_ids': [c['finding_id'] for c in data['candidate_findings']
+                      if c['finding'] in issues]} if 'candidate_findings' in data else {'issues': issues})
         else:
             return pipeline.model(request, **kwargs)
         pipeline.calls.append({'task': request.operation, 'data': data})
@@ -65,6 +66,10 @@ def test_originals_restore_lost_legal_outcome_and_causal_condition_automatically
     assert len(writes) == 2 and len(narration.split()) == 1380
     assert court in narration and payment in narration and wrong not in narration
     assert any('candidate_findings' in data for data in reviews)
+    raw_confirmations = [value['result'] for value in pipeline.saved.values()
+                         if isinstance(value, dict) and isinstance(value.get('result'), dict)
+                         and 'confirmed_finding_ids' in value['result']]
+    assert raw_confirmations and all(set(value) == {'confirmed_finding_ids'} for value in raw_confirmations)
     for focus in ('fidelity', 'coverage'):
         assert {b['part_id'] for data in reviews if data.get('review_focus') == focus
                 for b in data['briefs']} == {p['id'] + ':0' for p in sources}

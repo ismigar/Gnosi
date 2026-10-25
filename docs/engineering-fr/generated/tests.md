@@ -11,8 +11,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
-| Vitest | 742 | 3360 |
-| pytest | 730 | 5672 |
+| Vitest | 743 | 3367 |
+| pytest | 733 | 5686 |
 
 ## Fichiers
 
@@ -548,6 +548,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vaultFeedModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vaultFeedModel.test.ts) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/viewConstants.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/viewConstants.test.ts) | 10 | call-pattern estimate |
+| Vitest | [`frontend/src/features/websites/CapturedMailViewer.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/CapturedMailViewer.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/websites/PrivatePanels.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PrivatePanels.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/websites/WebsitesPage.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesPage.test.tsx) | 24 | call-pattern estimate |
 | Vitest | [`frontend/src/features/websites/serviceModels.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/serviceModels.test.ts) | 5 | call-pattern estimate |
@@ -1239,8 +1240,10 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_plugin_state_read_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_plugin_state_read_cache.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_plugin_system.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_plugin_system.py) | 30 | Python AST |
 | pytest | [`backend/tests/test_plugins_state_race.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_plugins_state_race.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_podcast_audit_reference_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_reference_schema.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_podcast_briefing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_briefing.py) | 37 | Python AST |
 | pytest | [`backend/tests/test_podcast_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_composition.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_podcast_confirmation_refs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_confirmation_refs.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_podcast_lean_edit.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_lean_edit.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_podcast_original_evidence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_original_evidence.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_podcast_provider_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_provider_retry.py) | 3 | Python AST |
@@ -1325,6 +1328,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_set_user_password_script.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_set_user_password_script.py) | 15 | Python AST |
 | pytest | [`backend/tests/test_shared_task_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_shared_task_evaluations.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_sites.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites.py) | 40 | Python AST |
+| pytest | [`backend/tests/test_sites_captured.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_captured.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_sites_imported_pilot.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_imported_pilot.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_sites_rendering.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_rendering.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_skill_catalog_startup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_skill_catalog_startup.py) | 1 | Python AST |

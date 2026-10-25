@@ -8,7 +8,26 @@ from openai import LengthFinishReasonError
 from backend.services.podcast_briefing import _object
 
 
+def _confirmation_choices(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Resolve application-owned references without editing model-origin findings."""
+    choices: dict[str, dict[str, Any]] = {}
+    candidates = data['candidate_findings']
+    if not isinstance(candidates, list):
+        raise ValueError('podcast_audit_confirmation_invalid_scope')
+    for candidate in candidates:
+        if (not isinstance(candidate, dict) or set(candidate) != {'finding_id', 'finding'}
+                or not isinstance(candidate['finding_id'], str) or not candidate['finding_id']
+                or candidate['finding_id'] in choices or not isinstance(candidate['finding'], dict)):
+            raise ValueError('podcast_audit_confirmation_invalid_scope')
+        choices[candidate['finding_id']] = candidate['finding']
+    return choices
+
+
 def _schema(data: dict[str, Any]) -> dict[str, Any]:
+    if 'candidate_findings' in data:
+        choices = _confirmation_choices(data)
+        return _object({'confirmed_finding_ids': {'type': 'array', 'uniqueItems': True,
+            'maxItems': len(choices), 'items': {'type': 'string', 'enum': list(choices) or ['']}}})
     ids = [b['part_id'] for b in data.get('briefs', [])]
     kinds = ['omission', 'production', 'duplicate']
     if not data.get('whole_episode'):
@@ -17,13 +36,16 @@ def _schema(data: dict[str, Any]) -> dict[str, Any]:
         kinds = ['distortion']
     elif data.get('review_focus') == 'coverage':
         kinds = ['omission']
+    source_references: dict[str, Any] = {'type': 'array', 'uniqueItems': True,
+        'items': {'type': 'string', 'enum': ids or ['']}}
+    if not data.get('whole_episode') and data.get('review_focus') in {'fidelity', 'coverage'}:
+        source_references['minItems'] = 1
     finding = _object({
         'kind': {'type': 'string', 'enum': kinds},
         'detail': {'type': 'string', 'minLength': 1, 'maxLength': 500},
         'narration_quotes': {'type': 'array', 'maxItems': 2, 'uniqueItems': True,
             'items': {'type': 'string', 'minLength': 8, 'maxLength': 400}},
-        'source_part_ids': {'type': 'array', 'uniqueItems': True,
-            'items': {'type': 'string', 'enum': ids or ['']}},
+        'source_part_ids': source_references,
         'evidence_quote': {'type': 'string', 'maxLength': 400},
     })
     return _object({'issues': {'type': 'array', 'maxItems': 32, 'items': finding}})
@@ -34,9 +56,17 @@ def _validate(result: dict[str, Any], data: dict[str, Any]) -> None:
     if not data.get("whole_episode") and (not data.get("briefs") or
             any(not str(brief.get("source_text", "")).strip() for brief in data["briefs"])):
         raise ValueError("podcast_audit_original_evidence_missing")
+    if 'candidate_findings' in data:
+        choices = _confirmation_choices(data)
+        selected = result.get('confirmed_finding_ids')
+        if (set(result) != {'confirmed_finding_ids'} or not isinstance(selected, list)
+                or any(not isinstance(key, str) or key not in choices for key in selected)
+                or len(selected) != len(set(selected))):
+            raise ValueError('podcast_audit_confirmation_invalid_reference')
+        original_data = {key: value for key, value in data.items() if key != 'candidate_findings'}
+        _validate({'issues': [choices[key] for key in selected]}, original_data)
+        return
     for issue in result['issues']:
-        if 'candidate_findings' in data and issue not in data['candidate_findings']:
-            raise ValueError('podcast_audit_confirmation_changed_finding')
         kind, quotes, ids = issue['kind'], issue['narration_quotes'], issue['source_part_ids']
         if any(quote not in narration for quote in quotes):
             raise ValueError('podcast_audit_invented_narration_quote')
@@ -62,16 +92,17 @@ def _validate(result: dict[str, Any], data: dict[str, Any]) -> None:
 
 
 def _confirm(context: Any, data: dict[str, Any], issues: list[dict[str, Any]],
-             request: Callable[..., Any], schema: dict[str, Any]) -> list[dict[str, Any]]:
+             request: Callable[..., Any]) -> list[dict[str, Any]]:
     batches: list[list[dict[str, Any]]] = [[]]
     limit = min(80_000, context.budget)
-    for issue in issues:
-        candidate = {**data, 'candidate_findings': [*batches[-1], issue]}
-        if batches[-1] and context.cost(request(context, 'audit', candidate, schema)) > limit:
+    for index, issue in enumerate(issues):
+        choice = {'finding_id': f'finding:{index}', 'finding': issue}
+        candidate = {**data, 'candidate_findings': [*batches[-1], choice]}
+        if batches[-1] and context.cost(request(context, 'audit', candidate, _schema(candidate))) > limit:
             batches.append([])
-        batches[-1].append(issue)
+        batches[-1].append(choice)
         single = {**data, 'candidate_findings': batches[-1]}
-        if context.cost(request(context, 'audit', single, schema)) > limit:
+        if context.cost(request(context, 'audit', single, _schema(single))) > limit:
             raise RuntimeError('podcast_review_context_insufficient')
     confirmed = []
     for batch in batches:
@@ -84,8 +115,12 @@ def _confirm(context: Any, data: dict[str, Any], issues: list[dict[str, Any]],
 def _stage(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> dict[str, Any]:
     """Split only exhausted or timed-out work; an indivisible failure never approves."""
     try:
-        return cast(dict[str, Any], context.stage(
+        result = cast(dict[str, Any], context.stage(
             request(context, 'audit', data, _schema(data)), lambda r: _validate(r, data)))
+        if 'candidate_findings' in data:
+            choices = _confirmation_choices(data)
+            return {'issues': [choices[key] for key in result['confirmed_finding_ids']]}
+        return result
     except (LengthFinishReasonError, TimeoutError):
         key = 'candidate_findings' if 'candidate_findings' in data else (
             'subjects' if data.get('whole_episode') else 'briefs')
@@ -108,7 +143,7 @@ def review(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> l
         except (LengthFinishReasonError, TimeoutError):
             exhausted = True
         else:
-            return _confirm(context, data, result['issues'], request, schema) if result['issues'] else []
+            return _confirm(context, data, result['issues'], request) if result['issues'] else []
     key = 'subjects' if data.get('whole_episode') else 'briefs'
     values = data[key]
     if len(values) < 2:

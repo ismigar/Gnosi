@@ -44,6 +44,15 @@ def written(request, text):
     return tokenized(result, groups) if data.get('composition_encoding') == 'word_tokens_v1' else result
 
 
+def audited(request, issues):
+    """Encode a fake model's judgment using the requested selection protocol."""
+    data = json.loads(request.input)['data']
+    if 'candidate_findings' in data:
+        return {'confirmed_finding_ids': [candidate['finding_id'] for candidate in data['candidate_findings']
+                                         if candidate['finding'] in issues]}
+    return {'issues': issues}
+
+
 @pytest.fixture
 def pipeline(monkeypatch):
     saved, calls = {}, []
@@ -75,7 +84,7 @@ def pipeline(monkeypatch):
                 group['part_ids'].extend(card['part_ids'])
             result = planned(data['cards'], list(groups.values()))
         elif payload['task'].endswith('audit'):
-            result = {'issues': []}
+            result = {'confirmed_finding_ids': []} if 'candidate_findings' in data else {'issues': []}
         elif payload['task'].endswith('digest'):
             ids = [identifier for r in data['briefs'] for identifier in r.get('part_ids', [r.get('part_id')])]
             text = ' '.join(r.get('summary', '') if 'part_ids' in r else r['title'] for r in data['briefs'])
@@ -434,6 +443,8 @@ def test_automatic_audit_repairs_source_note_and_request_certainty_without_manua
                       if 'was granted' in data['narration'] else []}
         else:
             return pipeline.model(request, **kwargs)
+        if request.operation.endswith('audit'):
+            result = audited(request, result['issues'])
         text = json.dumps(result);kwargs['output_validator'](text)
         return SimpleNamespace(result=text)
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
@@ -451,9 +462,9 @@ def test_unresolved_semantic_failure_never_publishes_coverage_report(pipeline):
         data = json.loads(request.input)['data']
         if data.get('review_focus') != 'coverage':
             return pipeline.model(request, **kwargs)
-        text = json.dumps({'issues': [{'kind': 'omission', 'detail': 'Distinct minority subject is absent.',
+        text = json.dumps(audited(request, [{'kind': 'omission', 'detail': 'Distinct minority subject is absent.',
             'narration_quotes': [], 'source_part_ids': [data['briefs'][0]['part_id']],
-            'evidence_quote': data['briefs'][0]['quote']}]})
+            'evidence_quote': data['briefs'][0]['quote']}]))
         kwargs['output_validator'](text)
         return SimpleNamespace(result=text)
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
@@ -525,7 +536,8 @@ def test_false_absence_claim_is_contrasted_before_automatic_rewrite(pipeline):
             'kind': 'omission', 'detail': 'The extension request is missing.',
             'narration_quotes': [], 'source_part_ids': [data['briefs'][0]['part_id']],
             'evidence_quote': data['briefs'][0]['quote']}]
-        text = json.dumps({'issues': issues});kwargs['output_validator'](text)
+        result = {'confirmed_finding_ids': []} if 'candidate_findings' in data else {'issues': issues}
+        text = json.dumps(result);kwargs['output_validator'](text)
         pipeline.calls.append({'task': request.operation, 'data': data})
         return SimpleNamespace(result=text)
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
@@ -560,7 +572,7 @@ def test_global_overshoot_is_rewritten_without_clipping_or_local_caps(pipeline):
 
 
 def test_audit_confirmation_batches_findings_without_discarding_evidence():
-    from backend.services.podcast_review import _confirm, _schema
+    from backend.services.podcast_review import _confirm
     data = {'narration': 'A supported headline.', 'briefs': [{'part_id': 'a:0', 'quote': 'Evidence.', 'source_text': 'Evidence.'}]}
     findings = [{'kind': 'omission', 'detail': str(i), 'narration_quotes': [],
                  'source_part_ids': ['a:0'], 'evidence_quote': 'Evidence.'} for i in range(5)]
@@ -572,10 +584,10 @@ def test_audit_confirmation_batches_findings_without_discarding_evidence():
         def stage(self, value, validate):
             assert value['briefs'] == data['briefs'] and self.cost(value) <= self.budget
             calls.append(value)
-            result = {'issues': value['candidate_findings']}
+            result = {'confirmed_finding_ids': [c['finding_id'] for c in value['candidate_findings']]}
             validate(result)
             return result
-    result = _confirm(Context(), data, findings, lambda context, phase, value, schema: value, _schema(data))
+    result = _confirm(Context(), data, findings, lambda context, phase, value, schema: value)
     assert result == findings and [len(c['candidate_findings']) for c in calls] == [2, 2, 1]
 
 
@@ -647,8 +659,9 @@ def test_review_exhaustion_splits_only_failed_work_and_preserves_all_evidence(co
     findings = [{'kind': 'omission', 'detail': str(i), 'narration_quotes': [],
                  'source_part_ids': [b['part_id']], 'evidence_quote': b['quote']} for i, b in enumerate(briefs)]
     data = {'narration': 'The current complete episode.', 'briefs': briefs}
+    choices = [{'finding_id': f'finding:{i}', 'finding': finding} for i, finding in enumerate(findings)]
     if confirmation:
-        data['candidate_findings'] = findings
+        data['candidate_findings'] = choices
     leaves = []
     class Context:
         def stage(self, value, validate):
@@ -660,11 +673,12 @@ def test_review_exhaustion_splits_only_failed_work_and_preserves_all_evidence(co
                 raise (TimeoutError() if exhaustion == 'timeout' else
                        LengthFinishReasonError(completion=SimpleNamespace(usage=None)))
             leaves.extend(value[key])
-            result = {'issues': value['candidate_findings'] if confirmation else []}
+            result = ({'confirmed_finding_ids': [c['finding_id'] for c in value['candidate_findings']]}
+                      if confirmation else {'issues': []})
             validate(result)
             return result
     result = _stage(Context(), data, lambda context, phase, value, schema: value)
-    assert leaves == (findings if confirmation else briefs)
+    assert leaves == (choices if confirmation else briefs)
     assert result['issues'] == (findings if confirmation else [])
 
 
