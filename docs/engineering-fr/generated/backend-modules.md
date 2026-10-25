@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 55 |
 | `config` | 13 | 1389 |
 | `data` | 2 | 214 |
-| `domains` | 604 | 120438 |
+| `domains` | 604 | 120476 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 268 | 52274 |
+| `services` | 268 | 52393 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1085 modules** and **207202 source lines**.
+Total: **1085 modules** and **207359 source lines**.
 
 ## agent
 
@@ -527,14 +527,14 @@ Total: **1085 modules** and **207202 source lines**.
 | [`backend/domains/reader/storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/storage.py) | 200 | 0 | 18 | 0 | 0 | Durable Reader job, snapshot and checkpoint storage. |
 | [`backend/domains/sites/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault-scoped website management and reviewed static publication. |
 | [`backend/domains/sites/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py) | 234 | 0 | 28 | 0 | 0 | Authenticated website editor and private administrator operations. |
-| [`backend/domains/sites/bounded_bridge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_bridge.py) | 100 | 2 | 0 | 0 | 1 | Deadline-bound read sessions using the maintained SSH/Suweb login procedure. |
+| [`backend/domains/sites/bounded_bridge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_bridge.py) | 122 | 2 | 0 | 0 | 1 | Deadline-bound read sessions using the maintained SSH/Suweb login procedure. |
 | [`backend/domains/sites/exporter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/exporter.py) | 578 | 3 | 30 | 0 | 2 | Create immutable public projections from explicitly selected registry identities. |
 | [`backend/domains/sites/fonts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/fonts.py) | 42 | 0 | 1 | 0 | 0 | Read only explicitly configured local website fonts for editor samples. |
 | [`backend/domains/sites/importer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/importer.py) | 332 | 0 | 14 | 0 | 3 | Freeze the existing public pilot as an explicitly selected publication source. |
 | [`backend/domains/sites/local_artifacts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/local_artifacts.py) | 190 | 0 | 17 | 0 | 0 | Canonical local release namespaces, exact inventories and atomic pointers. |
 | [`backend/domains/sites/models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/models.py) | 415 | 34 | 3 | 0 | 0 | Versioned contracts for website configuration and private operation state. |
 | [`backend/domains/sites/newsletter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/newsletter.py) | 205 | 6 | 9 | 0 | 0 | Private newsletter drafts composed from an immutable published projection. |
-| [`backend/domains/sites/pangea.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/pangea.py) | 273 | 2 | 13 | 0 | 0 | Native website releases through the existing administrator-bound Suweb bridge. |
+| [`backend/domains/sites/pangea.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/pangea.py) | 289 | 2 | 13 | 0 | 0 | Native website releases through the existing administrator-bound Suweb bridge. |
 | [`backend/domains/sites/paths.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/paths.py) | 13 | 0 | 1 | 0 | 0 | Locate the website runtime in a checkout or an immutable desktop package. |
 | [`backend/domains/sites/private_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/private_service.py) | 140 | 0 | 6 | 0 | 0 | Bounded private PHP service bridge; no browser-selected commands or paths. |
 | [`backend/domains/sites/publication.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/publication.py) | 373 | 0 | 21 | 0 | 1 | Persistent reviewed publication jobs, immutable builds and atomic activation. |
@@ -1126,12 +1126,12 @@ Total: **1085 modules** and **207202 source lines**.
 | [`backend/services/plugin_signing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_signing.py) | 167 | 0 | 8 | 0 | 6 | Plugin signing and trust (phase 3 of plugin_system.md). |
 | [`backend/services/plugin_system.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_system.py) | 256 | 0 | 14 | 0 | 12 | Compatibility facade for the typed third-party plugin domain. |
 | [`backend/services/podcast_automatic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_automatic.py) | 172 | 0 | 7 | 0 | 0 | Bounded narration-only writing, semantic review and automatic revision. |
-| [`backend/services/podcast_brief_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_brief_repair.py) | 70 | 1 | 2 | 0 | 1 | Repair all rejected source quotes without rewriting validated briefs. |
-| [`backend/services/podcast_briefing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_briefing.py) | 167 | 1 | 7 | 0 | 0 | Durable whole-day podcast coverage, independent of model conversation memory. |
+| [`backend/services/podcast_brief_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_brief_repair.py) | 96 | 1 | 3 | 0 | 2 | Repair all rejected source quotes without rewriting validated briefs. |
+| [`backend/services/podcast_briefing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_briefing.py) | 193 | 1 | 7 | 0 | 0 | Durable whole-day podcast coverage, independent of model conversation memory. |
 | [`backend/services/podcast_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_composition.py) | 112 | 0 | 5 | 0 | 2 | Require explicit prose for every planned group under one episode word budget. |
 | [`backend/services/podcast_outline.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_outline.py) | 121 | 0 | 8 | 0 | 0 | Global thematic deduplication and a checked word budget for a ten-minute episode. |
-| [`backend/services/podcast_provider_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_provider_retry.py) | 73 | 0 | 2 | 1 | 0 | Retry a podcast's transient capacity refusal inside its existing call/deadline limits. |
-| [`backend/services/podcast_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_review.py) | 153 | 0 | 6 | 0 | 2 | Ground model criticisms in exact supplied evidence before automatic rewrites. |
+| [`backend/services/podcast_provider_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_provider_retry.py) | 79 | 0 | 2 | 1 | 0 | Retry transient podcast provider failures within existing call/deadline limits. |
+| [`backend/services/podcast_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_review.py) | 214 | 0 | 13 | 0 | 2 | Ground model criticisms in exact supplied evidence before automatic rewrites. |
 | [`backend/services/podcast_sources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_sources.py) | 22 | 0 | 1 | 0 | 1 | Readable source selection for daily podcasts. |
 | [`backend/services/principal_agent_migration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/principal_agent_migration.py) | 119 | 0 | 3 | 0 | 0 | Idempotent, backed-up migration from feature-owned agents to the principal. |
 | [`backend/services/project_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/project_planning.py) | 492 | 3 | 14 | 0 | 12 | Vault-scoped storage and pure calculations for project planning resources. |
