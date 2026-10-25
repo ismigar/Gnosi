@@ -63,7 +63,7 @@ class BoundedBridge:
         return self.expect(["(?i)password:", "yes/no", self.prompt, pexpect.EOF])
 
     def connect(self) -> None:
-        import pexpect  # type: ignore[import-untyped]
+        import pexpect
         # Retry only a transient disconnect before any password or command was
         # sent. The original deadline also covers these waits and fresh logins.
         for attempt in range(3):
