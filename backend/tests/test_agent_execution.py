@@ -1136,13 +1136,15 @@ def test_group_length_repair_reaches_real_executor_with_current_counts(runtime, 
     ('podcast.coverage.write', 'once', 1, 1, False),
     ('podcast.coverage.briefs', 'quota', 2, 1, False),
     ('podcast.coverage.audit', 'filter', 2, 1, False),
+    ('podcast.coverage.briefs', 'server_once', 2, 2, True),
+    ('podcast.coverage.briefs', 'server_permanent', 2, 1, False),
     ('writing', 'once', 2, 1, False),
 ])
 def test_podcast_capacity_retry_keeps_identical_request_provider_and_call_limit(
     runtime, monkeypatch, operation, failure, max_calls, expected_calls, completed,
 ):
     import httpx
-    from openai import RateLimitError, ContentFilterFinishReasonError
+    from openai import InternalServerError, RateLimitError, ContentFilterFinishReasonError
     from backend.agent import factory, model_router
     from backend.services import podcast_provider_retry, agent_execution_trace
     scope, snapshot = runtime
@@ -1151,6 +1153,11 @@ def test_podcast_capacity_retry_keeps_identical_request_provider_and_call_limit(
         'Temporarily rate-limited upstream.',
         response=httpx.Response(429, headers={'Retry-After': '7'}, request=httpx.Request('POST', 'https://provider.invalid')),
         body={'error': {'code': 'insufficient_quota' if failure == 'quota' else 429}}))
+    if failure.startswith('server_'):
+        status = 503 if failure == 'server_once' else 501
+        error = InternalServerError('Provider server response.', response=httpx.Response(status,
+            headers={'Retry-After': '7'}, request=httpx.Request('POST', 'https://provider.invalid')),
+            body={'error': {'code': status}})
     waits, calls, setups = [], [], []
     async def sleep(seconds):
         waits.append(seconds)
@@ -1188,3 +1195,104 @@ def test_podcast_capacity_retry_keeps_identical_request_provider_and_call_limit(
     assert len(retries) == len(waits) == (1 if expected_calls == 2 else 0)
     if retries:
         assert retries[0]['value']['calls_left'] == 1 and waits == [7]
+
+
+@pytest.mark.parametrize('mode,completed,upstream_calls', [
+    ('configured_sdk_quote_repair', True, 3),
+    ('actual_operation_primary_retry', True, 2),
+    ('actual_operation_repair_exhausted', False, 2),
+    ('actual_operation_raw_server_retry', True, 2),
+    ('actual_operation_no_retry', False, 1),
+    ('actual_operation_usage', False, 1),
+    ('actual_operation_nested_usage', False, 1),
+])
+def test_provider_response_recovery_respects_actual_operation_and_sdk_limits(
+    runtime, monkeypatch, mode, completed, upstream_calls,
+):
+    import httpx2
+    import langchain_openai
+    from langchain_openai import ChatOpenAI
+    from openai import InternalServerError, _base_client
+    from backend.agent import factory, model_router
+    from backend.domains.agent.llm import _openai_family_llm
+    from backend.domains.agent.operation_graph import operation_workflow
+    from backend.services import openrouter_response_validation, podcast_briefing, podcast_provider_retry
+    from backend.services.podcast_brief_repair import brief_quote_repair
+    scope, snapshot = runtime
+    monkeypatch.setattr(model_router, 'budget_status', lambda: {'over_cap': False})
+    monkeypatch.setattr(_base_client.BaseClient, '_calculate_retry_timeout', lambda *args, **kwargs: 0)
+    monkeypatch.setattr('backend.services.model_reasoning.reasoning_client_kwargs', lambda *args: {})
+    waits = []
+    async def sleep(seconds):
+        waits.append(seconds)
+    monkeypatch.setattr(podcast_provider_retry, 'sleep', sleep)
+    parts = [{'part_id': 'a:0', 'source_id': 'a', 'title': 'A source', 'text': 'Original evidence and qualification.'}]
+    original = {'briefs': {'a:0': {'topic': 'A theme', 'summary': 'A summary', 'quote': 'Invented quotation'}}}
+    patch = {'quotes': {'a:0': 'Original evidence'}}
+    sent = []
+    primary_retry = mode == 'actual_operation_primary_retry'
+    first_server = mode in {'actual_operation_raw_server_retry', 'actual_operation_no_retry', 'actual_operation_usage', 'actual_operation_nested_usage'}
+    def respond(request):
+        sent.append(request)
+        if first_server and len(sent) == 1:
+            error = {'code': 503, 'message': 'temporarily unavailable'}
+            payload = {'id': 'gen-unusable', 'choices': None, 'error': error}
+            headers = {'x-should-retry': 'false'} if mode == 'actual_operation_no_retry' else {}
+            usage = {'prompt_tokens': 10, 'completion_tokens': 2}
+            if mode == 'actual_operation_usage':
+                payload['usage'] = usage
+            elif mode == 'actual_operation_nested_usage':
+                error['metadata'] = {'usage': usage}
+            return httpx2.Response(503, json=payload, headers=headers)
+        if not first_server and len(sent) == (1 if primary_retry else 2):
+            return httpx2.Response(200, json={'id': 'gen-unusable', 'choices': None})
+        result = original if len(sent) == 1 else patch
+        if primary_retry or first_server:
+            result = {'briefs': {'a:0': {**original['briefs']['a:0'], 'quote': 'Original evidence'}}}
+        return httpx2.Response(200, json={'id': 'gen-valid', 'model': 'fixture', 'object': 'chat.completion',
+            'created': 1, 'choices': [{'index': 0, 'finish_reason': 'stop', 'message': {
+                'role': 'assistant', 'content': json.dumps(result)}}]})
+    route = {'provider': {'order': ['xiaomi'], 'allow_fallbacks': False}}
+    with httpx2.Client(transport=httpx2.MockTransport(respond)) as client:
+        async_client = httpx2.AsyncClient(transport=httpx2.MockTransport(respond))
+        def construct(**kwargs):
+            kwargs.setdefault('extra_body', route)
+            return ChatOpenAI(http_client=client, http_async_client=async_client, **kwargs)
+        monkeypatch.setattr(langchain_openai, 'ChatOpenAI', construct)
+        if mode.startswith('actual_operation'):
+            # Exercise the real timeout300 constructor, including max_retries0.
+            model = _openai_family_llm('openrouter', 'fixture', 'fixture', 'https://openrouter.invalid/api/v1', 300)
+            assert model.root_client.max_retries == model.root_async_client.max_retries == 0
+        else:
+            model = construct(model='fixture', api_key='fixture', base_url='https://openrouter.invalid/api/v1', max_retries=2)
+        openrouter_response_validation.install(model)
+        async def create(*args, **kwargs):
+            assert kwargs['timeout'] == 300
+            return operation_workflow(model, 'Return only the supplied structured contract.', 32000,
+                provider='openrouter', output_schema=kwargs['output_schema']), {'provider': 'openrouter', 'model': 'fixture'}
+        monkeypatch.setattr(factory, 'create_agent_workflow', create)
+        schema = podcast_briefing._brief_schema(parts)
+        request = AgentOperation(skill_id=snapshot.skill_ids[0], operation='podcast.coverage.briefs',
+            input=json.dumps({'sources': parts}), output_schema=schema, max_model_calls=2, timeout_seconds=300)
+        def validate(text):
+            podcast_briefing._validate_briefs(json.loads(text), parts)
+            return text
+        with execution_scope(scope):
+            work = execution.execute_operation(request, snapshot=snapshot,
+                output_validator=validate, output_repair=brief_quote_repair(parts, schema))
+            if completed:
+                result = asyncio.run(work)
+                assert result.status == 'completed' and result.model_calls == 2
+                restored = json.loads(result.result)
+                assert restored['briefs']['a:0'] == {**original['briefs']['a:0'], 'quote': 'Original evidence'}
+            else:
+                with pytest.raises(InternalServerError):
+                    asyncio.run(work)
+                row = store.list_runs(scope)[0]
+                assert row.status == 'failed' and row.model_calls == min(2, upstream_calls) and not row.result
+    asyncio.run(model.root_async_client.close())
+    assert len(sent) == upstream_calls
+    if upstream_calls > 1:
+        assert sent[0 if primary_retry or first_server else 1].content == sent[-1].content
+    assert waits == ([5.0] if primary_retry or mode == 'actual_operation_raw_server_retry' else [])
+    assert request.max_model_calls == 2 and request.timeout_seconds == 300

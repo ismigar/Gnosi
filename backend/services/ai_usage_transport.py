@@ -243,6 +243,9 @@ def instrument(model: Any, provider: str, model_id: str | None) -> Any:
         model.callbacks = manager
     else:
         model.callbacks = [*(model.callbacks or []), callback]
+    if provider == "openrouter":
+        from backend.services.openrouter_response_validation import install
+        install(model)
     if hasattr(model, "stream_usage"):
         model.stream_usage = True
     for field in ("client", "async_client"):
