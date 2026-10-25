@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
 | Vitest | 742 | 3360 |
-| pytest | 728 | 5655 |
+| pytest | 729 | 5664 |
 
 ## Fitxers
 
@@ -817,7 +817,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_agent_create_page_containment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_create_page_containment.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_agent_exact_actions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_exact_actions.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_agent_exact_inventory_filters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_exact_inventory_filters.py) | 19 | Python AST |
-| pytest | [`backend/tests/test_agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_execution.py) | 54 | Python AST |
+| pytest | [`backend/tests/test_agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_execution.py) | 55 | Python AST |
 | pytest | [`backend/tests/test_agent_factory_facade.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_factory_facade.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_agent_gauntlet.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_gauntlet.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_agent_gauntlet_presentation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_gauntlet_presentation.py) | 4 | Python AST |
@@ -1180,6 +1180,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_open_values_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_open_values_contract.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_openapi_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_openapi_contract.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_openapi_generation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_openapi_generation.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_openrouter_response_validation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_openrouter_response_validation.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_option_catalogs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_option_catalogs.py) | 27 | Python AST |
 | pytest | [`backend/tests/test_optional_runtime_boundaries.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_optional_runtime_boundaries.py) | 15 | Python AST |
 | pytest | [`backend/tests/test_packaged_backend_smoke.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_packaged_backend_smoke.py) | 7 | Python AST |
