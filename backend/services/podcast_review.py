@@ -36,13 +36,16 @@ def _schema(data: dict[str, Any]) -> dict[str, Any]:
         kinds = ['distortion']
     elif data.get('review_focus') == 'coverage':
         kinds = ['omission']
+    source_references: dict[str, Any] = {'type': 'array', 'uniqueItems': True,
+        'items': {'type': 'string', 'enum': ids or ['']}}
+    if not data.get('whole_episode') and data.get('review_focus') in {'fidelity', 'coverage'}:
+        source_references['minItems'] = 1
     finding = _object({
         'kind': {'type': 'string', 'enum': kinds},
         'detail': {'type': 'string', 'minLength': 1, 'maxLength': 500},
         'narration_quotes': {'type': 'array', 'maxItems': 2, 'uniqueItems': True,
             'items': {'type': 'string', 'minLength': 8, 'maxLength': 400}},
-        'source_part_ids': {'type': 'array', 'uniqueItems': True,
-            'items': {'type': 'string', 'enum': ids or ['']}},
+        'source_part_ids': source_references,
         'evidence_quote': {'type': 'string', 'maxLength': 400},
     })
     return _object({'issues': {'type': 'array', 'maxItems': 32, 'items': finding}})
