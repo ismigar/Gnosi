@@ -52,7 +52,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2697 | 0 |
-| `features` | 1275 | 136919 | 55 |
+| `features` | 1276 | 137006 | 56 |
 | `generated` | 3 | 56744 | 585 |
 | `shared` | 347 | 37088 | 500 |
 
@@ -1342,10 +1342,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault-management/VaultTemplateMarketplace.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultTemplateMarketplace.tsx) | 398 | `VaultTemplateMarketplace`, `function` | — |
 | [`frontend/src/features/vault-management/VaultTemplatePrivacyPreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultTemplatePrivacyPreview.tsx) | 44 | `VaultTemplatePrivacyPreview` | — |
 | [`frontend/src/features/websites/AppearanceEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/AppearanceEditor.tsx) | 35 | `AppearanceEditor`, `WebsitePreview` | — |
+| [`frontend/src/features/websites/CapturedMailViewer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/CapturedMailViewer.tsx) | 59 | `CapturedMailViewer` | — |
 | [`frontend/src/features/websites/FormsEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/FormsEditor.tsx) | 36 | `FormsEditor` | — |
 | [`frontend/src/features/websites/NavigationEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/NavigationEditor.tsx) | 17 | `NavigationEditor` | — |
 | [`frontend/src/features/websites/PagesEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PagesEditor.tsx) | 40 | `PagesEditor` | — |
-| [`frontend/src/features/websites/PrivatePanels.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PrivatePanels.tsx) | 139 | `CampaignsPanel`, `MessagesPanel`, `PrivateSettingsEditor`, `SubscribersPanel` | — |
+| [`frontend/src/features/websites/PrivatePanels.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PrivatePanels.tsx) | 141 | `CampaignsPanel`, `MessagesPanel`, `PrivateSettingsEditor`, `SubscribersPanel` | — |
 | [`frontend/src/features/websites/PublishingPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PublishingPanel.tsx) | 81 | `PublishingPanel` | — |
 | [`frontend/src/features/websites/SourcesEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/SourcesEditor.tsx) | 36 | `SourcesEditor` | — |
 | [`frontend/src/features/websites/TypographyPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/TypographyPicker.tsx) | 25 | `TypographyPicker` | — |
@@ -1353,8 +1354,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/websites/WebsitesPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesPage.tsx) | 204 | `WebsitesPage`, `function` | — |
 | [`frontend/src/features/websites/autosaveRequest.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/autosaveRequest.ts) | 29 | `autosaveRequest`, `useAutosaveRegistration` | — |
 | [`frontend/src/features/websites/components.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/components.tsx) | 42 | `Card`, `Empty`, `Field`, `FileImportButton`, `Input`, `ListInput`, `ReorderActions`, `Select`, `Textarea`, `Toggle` | — |
-| [`frontend/src/features/websites/helpers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/helpers.ts) | 23 | `configurationKey`, `escaped`, `filterValueText`, `moveItem`, `newId`, `safePreviewDocument`, `splitList` | — |
-| [`frontend/src/features/websites/serviceModels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/serviceModels.ts) | 38 | `count`, `decodeCampaignPreview`, `decodeCampaigns`, `decodeMessages`, `decodeQueue`, `decodeSubscribers`, `list`, `parseCsv`, `record`, `text` | — |
+| [`frontend/src/features/websites/helpers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/helpers.ts) | 34 | `capturedDisplayHtml`, `configurationKey`, `escaped`, `filterValueText`, `moveItem`, `newId`, `safePreviewDocument`, `splitList` | — |
+| [`frontend/src/features/websites/serviceModels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/serviceModels.ts) | 53 | `count`, `decodeCampaignPreview`, `decodeCampaigns`, `decodeCapturedMail`, `decodeMessages`, `decodeQueue`, `decodeSubscribers`, `list`, `parseCsv`, `record`, `text` | `/api/newsletter.php` |
 | [`frontend/src/features/websites/useWebsiteFontSamples.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/useWebsiteFontSamples.ts) | 49 | `useWebsiteFontSamples` | — |
 | [`frontend/src/features/workspaces/Navigation/WorkspaceSwitcher.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/workspaces/Navigation/WorkspaceSwitcher.tsx) | 130 | `WorkspaceSwitcher` | — |
 | [`frontend/src/features/workspaces/Workspace/WorkspaceInviteForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/workspaces/Workspace/WorkspaceInviteForm.tsx) | 71 | `WorkspaceInviteForm` | — |
