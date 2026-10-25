@@ -1,6 +1,7 @@
 """Ground model criticisms in exact supplied evidence before automatic rewrites."""
 from __future__ import annotations
 
+import json
 from typing import Any, Callable, cast
 
 from openai import LengthFinishReasonError
@@ -112,21 +113,72 @@ def _confirm(context: Any, data: dict[str, Any], issues: list[dict[str, Any]],
     return confirmed
 
 
+def _partition_values(data: dict[str, Any]) -> tuple[str, list[Any]]:
+    key = 'candidate_findings' if 'candidate_findings' in data else ('subjects' if data.get('whole_episode') else 'briefs')
+    return key, data.get(key, [])
+
+
+def _has_saved(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> bool:
+    method = getattr(context, 'has_saved', None)
+    return bool(callable(method) and method(request(context, 'audit', data, _schema(data))))
+
+
+def _saved_descendant(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> bool:
+    if not callable(getattr(context, 'has_saved', None)):
+        return False
+    key, values = _partition_values(data)
+    if len(values) < 2:
+        return False
+    middle = len(values) // 2
+    return any(_has_saved(context, child, request) or _saved_descendant(context, child, request)
+               for part in (values[:middle], values[middle:]) for child in ({**data, key: part},))
+
+
+def _resume_partition(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> bool:
+    if len(_partition_values(data)[1]) < 2:
+        return False
+    method = getattr(context, 'audit_partition', None)
+    return bool((callable(method) and method(request(context, 'audit', data, _schema(data))))
+                or _saved_descendant(context, data, request))
+
+
+def _mark_partition(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> None:
+    method = getattr(context, 'audit_partition', None)
+    if callable(method):
+        method(request(context, 'audit', data, _schema(data)), split=True)
+
+
+def _distinct(issues: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return list({json.dumps(issue, sort_keys=True): issue for issue in issues}.values())
+
+
+def _resolved(result: dict[str, Any], data: dict[str, Any]) -> dict[str, Any]:
+    if 'candidate_findings' in data:
+        choices = _confirmation_choices(data)
+        return {'issues': [choices[key] for key in result['confirmed_finding_ids']]}
+    return result
+
+
 def _stage(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> dict[str, Any]:
     """Split only exhausted or timed-out work; an indivisible failure never approves."""
+    operation = request(context, 'audit', data, _schema(data))
+    if _resume_partition(context, data, request):
+        _mark_partition(context, data, request)
+        prior = _resolved(context.stage(operation, lambda r: _validate(r, data)), data)['issues'] if _has_saved(context, data, request) else []
+        key, values = _partition_values(data)
+        middle = len(values) // 2
+        return {'issues': _distinct(prior + [issue for part in (values[:middle], values[middle:])
+            for issue in _stage(context, {**data, key: part}, request)['issues']])}
     try:
-        result = cast(dict[str, Any], context.stage(
-            request(context, 'audit', data, _schema(data)), lambda r: _validate(r, data)))
-        if 'candidate_findings' in data:
-            choices = _confirmation_choices(data)
-            return {'issues': [choices[key] for key in result['confirmed_finding_ids']]}
-        return result
+        result = cast(dict[str, Any], context.stage(operation, lambda r: _validate(r, data)))
+        return _resolved(result, data)
     except (LengthFinishReasonError, TimeoutError):
         key = 'candidate_findings' if 'candidate_findings' in data else (
             'subjects' if data.get('whole_episode') else 'briefs')
         values = data[key]
         if len(values) < 2:
             raise
+        _mark_partition(context, data, request)
         middle = len(values) // 2
         leaves = [_stage(context, {**data, key: part}, request)
                   for part in (values[:middle], values[middle:])]
@@ -136,6 +188,14 @@ def _stage(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> d
 def review(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> list[dict[str, Any]]:
     schema = _schema(data)
     operation = request(context, 'audit', data, schema)
+    if _resume_partition(context, data, request):
+        _mark_partition(context, data, request)
+        prior = context.stage(operation, lambda r: _validate(r, data)) if _has_saved(context, data, request) else {'issues': []}
+        confirmed = _confirm(context, data, prior['issues'], request) if prior['issues'] else []
+        key, values = _partition_values(data)
+        middle = len(values) // 2
+        return _distinct(confirmed + [issue for part in (values[:middle], values[middle:])
+            for issue in review(context, {**data, key: part}, request)])
     exhausted = context.cost(operation) > min(80_000, context.budget)
     if not exhausted:
         try:
@@ -148,6 +208,7 @@ def review(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> l
     values = data[key]
     if len(values) < 2:
         raise RuntimeError('podcast_review_indivisible_work_exhausted')
+    _mark_partition(context, data, request)
     middle = len(values) // 2
     return [issue for part in (values[:middle], values[middle:])
             for issue in review(context, {**data, key: part}, request)]

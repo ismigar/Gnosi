@@ -52,7 +52,7 @@ def test_migration_preserves_personal_brain_and_disabled_features():
     ('podcast.coverage.plan', None, False, 'off_if_optional'),
     ('podcast.coverage.write', None, True, 'off_if_optional'),
     ('podcast.coverage.digest', None, False, 'off_if_optional'),
-    ('podcast.coverage.audit', None, False, None),
+    ('podcast.coverage.audit', None, False, 'off_if_optional'),
     ('podcast.coverage.plan', 'max', False, None),
     ('podcast.coverage.write', 'high', False, None),
     ('podcast.coverage.digest', 'low', True, None),
@@ -1022,7 +1022,7 @@ def test_podcast_action_has_bounded_default_output_without_changing_other_operat
     asyncio.run(execution._operation_application(request, snapshot, {}, None))
     assert captured['operation_max_output_tokens'] == expected
     assert captured['operation_default_reasoning_effort'] == (
-        'off_if_optional' if operation in {'podcast.coverage.plan', 'podcast.coverage.write', 'podcast.coverage.digest'} else None)
+        'off_if_optional' if operation in {'podcast.coverage.plan', 'podcast.coverage.write', 'podcast.coverage.digest', 'podcast.coverage.audit'} else None)
     assert captured['prepared_agent_data'] is snapshot.profile
     if operation.startswith('podcast.coverage.'):
         assert captured['operation_team_help'] is False
@@ -1228,7 +1228,7 @@ def test_provider_response_recovery_respects_actual_operation_and_sdk_limits(
     monkeypatch.setattr(podcast_provider_retry, 'sleep', sleep)
     parts = [{'part_id': 'a:0', 'source_id': 'a', 'title': 'A source', 'text': 'Original evidence and qualification.'}]
     original = {'briefs': {'a:0': {'topic': 'A theme', 'summary': 'A summary', 'quote': 'Invented quotation'}}}
-    patch = {'quotes': {'a:0': 'Original evidence'}}
+    patch = {'quote_ids': {'a:0': 'a:0:q1'}}
     sent = []
     primary_retry = mode == 'actual_operation_primary_retry'
     first_server = mode in {'actual_operation_raw_server_retry', 'actual_operation_no_retry', 'actual_operation_usage', 'actual_operation_nested_usage'}
@@ -1284,7 +1284,8 @@ def test_provider_response_recovery_respects_actual_operation_and_sdk_limits(
                 result = asyncio.run(work)
                 assert result.status == 'completed' and result.model_calls == 2
                 restored = json.loads(result.result)
-                assert restored['briefs']['a:0'] == {**original['briefs']['a:0'], 'quote': 'Original evidence'}
+                expected_quote = parts[0]['text'] if mode == 'configured_sdk_quote_repair' else 'Original evidence'
+                assert restored['briefs']['a:0'] == {**original['briefs']['a:0'], 'quote': expected_quote}
             else:
                 with pytest.raises(InternalServerError):
                     asyncio.run(work)
