@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
 | Vitest | 742 | 3360 |
-| pytest | 729 | 5664 |
+| pytest | 730 | 5672 |
 
 ## Fitxers
 
@@ -1246,6 +1246,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_podcast_provider_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_provider_retry.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_podcast_quote_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_quote_repair.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_podcast_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_scope.py) | 20 | Python AST |
+| pytest | [`backend/tests/test_podcast_word_tokens.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_word_tokens.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_pr6_agent_remaining_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pr6_agent_remaining_contract.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_pr6_domain_facades.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pr6_domain_facades.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_pre_pr_resources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pre_pr_resources.py) | 20 | Python AST |
