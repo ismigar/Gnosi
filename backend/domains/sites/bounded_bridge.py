@@ -53,14 +53,36 @@ class BoundedBridge:
         self.child.timeout = self.remaining()
         return self.child.expect(pattern)
 
-    def connect(self) -> None:
+    def _open_ssh(self) -> int:
         import pexpect  # type: ignore[import-untyped]
         settings = self.settings
         self.child = cast(Child, pexpect.spawn("ssh", [
             "-o", "StrictHostKeyChecking=yes", "-o", "ConnectTimeout=20", "-o", "ServerAliveInterval=15",
             "-o", "ServerAliveCountMax=3", "-p", settings["SSH_PORT"], settings["SSH_USER"] + "@" + settings["SSH_HOST"],
         ], encoding="utf-8", timeout=self.remaining()))
-        first = self.expect(["(?i)password:", "yes/no", self.prompt, pexpect.EOF])
+        return self.expect(["(?i)password:", "yes/no", self.prompt, pexpect.EOF])
+
+    def connect(self) -> None:
+        import pexpect  # type: ignore[import-untyped]
+        # Retry only a transient disconnect before any password or command was
+        # sent. The original deadline also covers these waits and fresh logins.
+        for attempt in range(3):
+            first = self._open_ssh()
+            output = self.child.before.lower() if self.child is not None else ""
+            transient = any(value in output for value in (
+                "connection reset", "connection closed", "kex_exchange_identification",
+            )) and not any(value in output for value in (
+                "host key", "hostkey", "host identification", "permission denied",
+                "authentication failed", "too many authentication failures",
+            ))
+            if first != 3 or not transient or attempt == 2:
+                break
+            self.close()
+            time.sleep(min(float(attempt + 1), self.remaining()))
+            self.remaining()
+        if self.child is None:
+            raise RuntimeError("The SSH connection is unavailable")
+        settings = self.settings
         if first == 0:
             self.child.sendline(settings["SSH_PASSWORD"])
             self.expect(self.prompt)
