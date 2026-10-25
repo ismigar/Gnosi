@@ -56,7 +56,8 @@ def test_elapsed_cooldown_does_not_create_a_fresh_deadline(monkeypatch):
     assert waits == [5]
 
 
-def test_cancellation_interrupts_capacity_wait_without_waiting_for_cooldown(monkeypatch):
+@pytest.mark.parametrize('connection', [False, True])
+def test_cancellation_interrupts_capacity_wait_without_waiting_for_cooldown(monkeypatch, connection):
     from backend.services.agent_cancellation import create_cancel_token, cancel, release, AgentTurnCancelled
     token = create_cancel_token();waits = []
     async def sleep(seconds):
@@ -65,8 +66,12 @@ def test_cancellation_interrupts_capacity_wait_without_waiting_for_cooldown(monk
         await asyncio.Event().wait()
     monkeypatch.setattr(retry, 'sleep', sleep)
     monkeypatch.setattr('backend.services.agent_execution_trace.append', lambda *args: None)
+    failure = error({'Retry-After': '30'})
+    if connection:
+        from backend.tests.test_llm_wiki_recovery import sdk_connection_error
+        failure = sdk_connection_error()
     async def exercise():
-        await asyncio.wait_for(retry.wait_for_capacity(error({'Retry-After': '30'}),
+        await asyncio.wait_for(retry.wait_for_capacity(failure,
             SimpleNamespace(operation='podcast.coverage.audit'), calls_left=1,
             deadline=retry.monotonic() + 60, scope=None, run_id='fixture', cancel_token=token), timeout=0.2)
     try:
@@ -74,4 +79,59 @@ def test_cancellation_interrupts_capacity_wait_without_waiting_for_cooldown(monk
             asyncio.run(exercise())
     finally:
         release(token)
-    assert waits == [30]
+    assert waits == ([5] if connection else [30])
+
+
+@pytest.mark.parametrize('kind', ['sdk', 'langchain', 'timeout'])
+@pytest.mark.parametrize('operation,calls_left,remaining,allowed', [
+    ('podcast.coverage.audit', 1, 206.3, True),
+    ('podcast.coverage.briefs', 1, 300, True),
+    ('podcast.coverage.write', 0, 300, False),
+    ('podcast.coverage.audit', 1, 5, False),
+    ('podcast.coverage.audit', 1, 5.9, False),
+    ('writing', 1, 300, False),
+])
+def test_connection_recovery_obeys_existing_scope_calls_and_deadline(
+    monkeypatch, kind, operation, calls_left, remaining, allowed,
+):
+    import httpx2
+    from openai import APIConnectionError, APITimeoutError
+    from backend.tests.test_llm_wiki_recovery import sdk_connection_error
+    failure = sdk_connection_error()
+    if kind == 'sdk':
+        failure = failure.__cause__
+    elif kind == 'timeout':
+        failure = APITimeoutError(request=httpx2.Request('POST', 'https://provider.invalid/chat'))
+    clock = [100.0];waits, traces = [], []
+    monkeypatch.setattr(retry, 'monotonic', lambda: clock[0])
+    async def sleep(seconds):
+        waits.append(seconds);clock[0] += seconds
+    monkeypatch.setattr(retry, 'sleep', sleep)
+    monkeypatch.setattr('backend.services.agent_execution_trace.append', lambda *args: traces.append(args[-1]))
+    work = retry.wait_for_capacity(failure, SimpleNamespace(operation=operation), calls_left=calls_left,
+                                   deadline=100 + remaining, scope=None, run_id='fixture')
+    if allowed:
+        asyncio.run(work)
+        assert waits == [5] and clock[0] == 105
+        assert traces == [{'error_type': type(failure).__name__, 'status_code': None, 'wait_seconds': 5.0,
+                           'calls_left': calls_left, 'upstream_http_status': None, 'operation': operation,
+                           'same_request_and_provider': True}]
+    else:
+        with pytest.raises(APIConnectionError) as caught:
+            asyncio.run(work)
+        assert caught.value is failure and waits == [] and traces == []
+
+
+def test_connection_wait_does_not_restart_an_expired_deadline(monkeypatch):
+    from openai import APIConnectionError
+    from backend.tests.test_llm_wiki_recovery import sdk_connection_error
+    failure = sdk_connection_error();clock = [100.0]
+    monkeypatch.setattr(retry, 'monotonic', lambda: clock[0])
+    async def sleep(seconds):
+        clock[0] = 110.0
+    monkeypatch.setattr(retry, 'sleep', sleep)
+    monkeypatch.setattr('backend.services.agent_execution_trace.append', lambda *args: None)
+    with pytest.raises(APIConnectionError) as caught:
+        asyncio.run(retry.wait_for_capacity(failure, SimpleNamespace(operation='podcast.coverage.audit'),
+                    calls_left=1, deadline=110.0, scope=None, run_id='fixture'))
+    assert caught.value is failure

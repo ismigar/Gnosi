@@ -1,4 +1,4 @@
-"""Retry a podcast's transient capacity refusal inside its existing call/deadline limits."""
+"""Retry transient podcast provider failures within existing call/deadline limits."""
 from __future__ import annotations
 
 from asyncio import sleep
@@ -7,7 +7,7 @@ import math
 from time import monotonic
 from typing import Any
 
-from openai import APIStatusError
+from openai import APIConnectionError, APIStatusError
 
 from backend.services.agent_execution_models import AgentOperation, ExecutionScope
 from backend.services.agent_cancellation import await_with_cancellation
@@ -17,7 +17,9 @@ _PERMANENT_CODES = {"insufficient_quota", "quota_exceeded", "billing_hard_limit_
                     "billing_not_active", "credit_balance_too_low"}
 
 
-def _delay(error: APIStatusError) -> float | None:
+def _delay(error: APIStatusError | APIConnectionError) -> float | None:
+    if isinstance(error, APIConnectionError):
+        return 5.0
     if error.status_code not in {429, 500, 502, 503, 504}:
         return None
     response = getattr(error, "response", None)
@@ -57,16 +59,20 @@ def _delay(error: APIStatusError) -> float | None:
     return max(delay, milliseconds)
 
 
-async def wait_for_capacity(error: APIStatusError, request: AgentOperation, *, calls_left: int,
+async def wait_for_capacity(error: APIStatusError | APIConnectionError, request: AgentOperation, *, calls_left: int,
                             deadline: float, scope: ExecutionScope, run_id: str, cancel_token: str = "") -> None:
     from backend.services.agent_execution_trace import append
     delay = _delay(error)
     if (not request.operation.startswith("podcast.coverage.") or calls_left < 1 or delay is None
             or deadline - monotonic() - delay < 1):
         raise error
+    status = getattr(error, "status_code", None)
+    response = getattr(error, "response", None)
+    headers = getattr(response, "headers", {})
     append(scope, run_id, "operation.provider_retry", {
-        "status_code": error.status_code, "wait_seconds": delay, "calls_left": calls_left,
-        "upstream_http_status": 200 if error.response.headers.get("x-gnosi-upstream-http-status") == "200" else error.status_code,
+        "error_type": type(error).__name__,
+        "status_code": status, "wait_seconds": delay, "calls_left": calls_left,
+        "upstream_http_status": 200 if headers.get("x-gnosi-upstream-http-status") == "200" else status,
         "operation": request.operation, "same_request_and_provider": True})
     await await_with_cancellation(sleep(delay), cancel_token)
     if deadline - monotonic() < 1:

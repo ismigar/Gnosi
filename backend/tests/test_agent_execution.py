@@ -1138,6 +1138,10 @@ def test_group_length_repair_reaches_real_executor_with_current_counts(runtime, 
     ('podcast.coverage.audit', 'filter', 2, 1, False),
     ('podcast.coverage.briefs', 'server_once', 2, 2, True),
     ('podcast.coverage.briefs', 'server_permanent', 2, 1, False),
+    ('podcast.coverage.audit', 'connection_once', 2, 2, True),
+    ('podcast.coverage.audit', 'connection_always', 2, 2, False),
+    ('podcast.coverage.audit', 'connection_once', 1, 1, False),
+    ('writing', 'connection_once', 2, 1, False),
     ('writing', 'once', 2, 1, False),
 ])
 def test_podcast_capacity_retry_keeps_identical_request_provider_and_call_limit(
@@ -1158,6 +1162,9 @@ def test_podcast_capacity_retry_keeps_identical_request_provider_and_call_limit(
         error = InternalServerError('Provider server response.', response=httpx.Response(status,
             headers={'Retry-After': '7'}, request=httpx.Request('POST', 'https://provider.invalid')),
             body={'error': {'code': status}})
+    if failure.startswith('connection_'):
+        from backend.tests.test_llm_wiki_recovery import sdk_connection_error
+        error = sdk_connection_error()
     waits, calls, setups = [], [], []
     async def sleep(seconds):
         waits.append(seconds)
@@ -1166,7 +1173,7 @@ def test_podcast_capacity_retry_keeps_identical_request_provider_and_call_limit(
         async def astream(self, inputs, **kwargs):
             execution.before_model_call()
             calls.append(tuple(message.content for message in inputs['messages']))
-            if len(calls) == 1 or failure == 'always':
+            if len(calls) == 1 or failure in {'always', 'connection_always'}:
                 raise error
             yield {'operation': {'messages': [AIMessage(content='{"answer":"complete"}')]}}
         def compile(self):
@@ -1194,7 +1201,8 @@ def test_podcast_capacity_retry_keeps_identical_request_provider_and_call_limit(
     retries = [event for event in events if event['kind'] == 'operation.provider_retry']
     assert len(retries) == len(waits) == (1 if expected_calls == 2 else 0)
     if retries:
-        assert retries[0]['value']['calls_left'] == 1 and waits == [7]
+        assert retries[0]['value']['calls_left'] == 1
+        assert waits == ([5] if failure.startswith('connection_') else [7])
 
 
 @pytest.mark.parametrize('mode,completed,upstream_calls', [
@@ -1202,6 +1210,8 @@ def test_podcast_capacity_retry_keeps_identical_request_provider_and_call_limit(
     ('actual_operation_primary_retry', True, 2),
     ('actual_operation_repair_exhausted', False, 2),
     ('actual_operation_raw_server_retry', True, 2),
+    ('actual_operation_connection_retry', True, 2),
+    ('actual_operation_connection_exhausted', False, 2),
     ('actual_operation_no_retry', False, 1),
     ('actual_operation_usage', False, 1),
     ('actual_operation_nested_usage', False, 1),
@@ -1212,7 +1222,7 @@ def test_provider_response_recovery_respects_actual_operation_and_sdk_limits(
     import httpx2
     import langchain_openai
     from langchain_openai import ChatOpenAI
-    from openai import InternalServerError, _base_client
+    from openai import APIConnectionError, InternalServerError, _base_client
     from backend.agent import factory, model_router
     from backend.domains.agent.llm import _openai_family_llm
     from backend.domains.agent.operation_graph import operation_workflow
@@ -1231,9 +1241,12 @@ def test_provider_response_recovery_respects_actual_operation_and_sdk_limits(
     patch = {'quote_ids': {'a:0': 'a:0:q1'}}
     sent = []
     primary_retry = mode == 'actual_operation_primary_retry'
+    connection_retry = mode.startswith('actual_operation_connection_')
     first_server = mode in {'actual_operation_raw_server_retry', 'actual_operation_no_retry', 'actual_operation_usage', 'actual_operation_nested_usage'}
     def respond(request):
         sent.append(request)
+        if connection_retry and (len(sent) == 1 or mode.endswith('_exhausted')):
+            raise httpx2.ReadError('Connection interrupted.', request=request)
         if first_server and len(sent) == 1:
             error = {'code': 503, 'message': 'temporarily unavailable'}
             payload = {'id': 'gen-unusable', 'choices': None, 'error': error}
@@ -1244,10 +1257,10 @@ def test_provider_response_recovery_respects_actual_operation_and_sdk_limits(
             elif mode == 'actual_operation_nested_usage':
                 error['metadata'] = {'usage': usage}
             return httpx2.Response(503, json=payload, headers=headers)
-        if not first_server and len(sent) == (1 if primary_retry else 2):
+        if not first_server and not connection_retry and len(sent) == (1 if primary_retry else 2):
             return httpx2.Response(200, json={'id': 'gen-unusable', 'choices': None})
         result = original if len(sent) == 1 else patch
-        if primary_retry or first_server:
+        if primary_retry or first_server or connection_retry:
             result = {'briefs': {'a:0': {**original['briefs']['a:0'], 'quote': 'Original evidence'}}}
         return httpx2.Response(200, json={'id': 'gen-valid', 'model': 'fixture', 'object': 'chat.completion',
             'created': 1, 'choices': [{'index': 0, 'finish_reason': 'stop', 'message': {
@@ -1287,13 +1300,13 @@ def test_provider_response_recovery_respects_actual_operation_and_sdk_limits(
                 expected_quote = parts[0]['text'] if mode == 'configured_sdk_quote_repair' else 'Original evidence'
                 assert restored['briefs']['a:0'] == {**original['briefs']['a:0'], 'quote': expected_quote}
             else:
-                with pytest.raises(InternalServerError):
+                with pytest.raises(APIConnectionError if connection_retry else InternalServerError):
                     asyncio.run(work)
                 row = store.list_runs(scope)[0]
                 assert row.status == 'failed' and row.model_calls == min(2, upstream_calls) and not row.result
     asyncio.run(model.root_async_client.close())
     assert len(sent) == upstream_calls
     if upstream_calls > 1:
-        assert sent[0 if primary_retry or first_server else 1].content == sent[-1].content
-    assert waits == ([5.0] if primary_retry or mode == 'actual_operation_raw_server_retry' else [])
+        assert sent[0 if primary_retry or first_server or connection_retry else 1].content == sent[-1].content
+    assert waits == ([5.0] if primary_retry or connection_retry or mode == 'actual_operation_raw_server_retry' else [])
     assert request.max_model_calls == 2 and request.timeout_seconds == 300

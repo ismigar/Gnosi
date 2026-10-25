@@ -8,7 +8,7 @@ import time
 import uuid
 
 import jsonschema
-from openai import InternalServerError, RateLimitError
+from openai import APIConnectionError, InternalServerError, RateLimitError
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -473,7 +473,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                 async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
                     text = await _operation_response(application, inputs, request, previous_text,
                                                      str(messages[-1].content) if attempt and partial_repair is None else "")
-            except (RateLimitError, InternalServerError) as error:
+            except (RateLimitError, InternalServerError, APIConnectionError) as error:
                 from backend.services.podcast_provider_retry import wait_for_capacity
                 await wait_for_capacity(error, request, calls_left=request.max_model_calls - attempt - 1,
                                         deadline=deadline, scope=snapshot.scope, run_id=run_id, cancel_token=cancel_token)
