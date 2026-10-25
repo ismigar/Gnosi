@@ -106,7 +106,7 @@ def configuration(store: SiteStore, site: SiteConfig, target_id: str, *, forms_s
     return path
 
 
-def invoke(store: SiteStore, site: SiteConfig, action: str, request: dict[str, JsonValue], target_id: str = "local", *, internal: bool = False) -> dict[str, JsonValue]:
+def invoke(store: SiteStore, site: SiteConfig, action: str, request: dict[str, JsonValue], target_id: str = "local", *, internal: bool = False, forms_site: SiteConfig | None = None) -> dict[str, JsonValue]:
     if action not in ALLOWED_ACTIONS and not (internal and action == "forms_sync"):
         raise HTTPException(422, "Unsupported website service operation")
     target = next((target for target in site.targets if target.id == target_id), None)
@@ -124,8 +124,9 @@ def invoke(store: SiteStore, site: SiteConfig, action: str, request: dict[str, J
     payload = json.dumps({"action": action, "request": request}, ensure_ascii=False)
     if len(payload.encode()) > 1_000_000:
         raise HTTPException(413, "The website service request is too large")
-    active = store.active_bundle(site.id, target_id)
-    forms_site = SiteConfig.model_validate(active["site"]) if active else site
+    if forms_site is None:
+        active = store.active_bundle(site.id, target_id)
+        forms_site = SiteConfig.model_validate(active["site"]) if active else site
     config = configuration(store, site, target_id, forms_site=forms_site)
     environment = {key: value for key, value in os.environ.items() if key in {"PATH", "HOME", "TMPDIR", "LANG"}}
     environment["GNOSI_SITES_SERVICE_CONFIG"] = str(config)

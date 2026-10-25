@@ -12,7 +12,7 @@ from fastapi.responses import Response
 from backend.services.plugin_access import require_plugins
 from backend.services.workspace_service import WorkspaceContext, require_role
 
-from . import exporter, private_service, publication, runtime
+from . import exporter, newsletter, private_service, publication, runtime
 from .models import (
     CatalogueItem, ConnectionStatus, LocalServeResponse, PrivateServiceRequest, PrivateServiceResponse,
     ServiceSettings, ServiceSettingsResponse, SiteBlock, SiteConfig, SiteCreate, SiteJob, SitePage,
@@ -68,6 +68,35 @@ def site_status(site_id: str, context: Editor) -> SiteStatus:
     store = store_for(context)
     site = store.load(site_id)
     return SiteStatus(site=site, jobs=publication.jobs(store, site_id), releases=publication.releases(store, site_id), service_available=private_service.SERVICE_ROOT.joinpath("cli.php").is_file())
+
+
+@router.get("/{site_id}/newsletter", response_model=newsletter.SiteNewsletterState)
+def newsletter_state(site_id: str, context: Admin, response: Response, target_id: str = "local") -> newsletter.SiteNewsletterState:
+    response.headers["Cache-Control"] = "no-store"
+    store = store_for(context)
+    return newsletter.state(store, store.load(site_id), target_id)
+
+
+@router.put("/{site_id}/newsletter", response_model=newsletter.SiteNewsletterDraft)
+def newsletter_save(site_id: str, request: newsletter.SiteNewsletterDraft, context: Admin, response: Response, target_id: str = "local") -> newsletter.SiteNewsletterDraft:
+    response.headers["Cache-Control"] = "no-store"
+    store = store_for(context)
+    return newsletter.save_draft(store, store.load(site_id), target_id, request)
+
+
+@router.post("/{site_id}/newsletter/preview", response_model=PrivateServiceResponse)
+def newsletter_preview(site_id: str, request: newsletter.SiteNewsletterReview, context: Admin, response: Response, target_id: str = "local") -> PrivateServiceResponse:
+    response.headers["Cache-Control"] = "no-store"
+    store = store_for(context)
+    site = store.load(site_id)
+    return PrivateServiceResponse(data=newsletter.preview(store, site, target_id, request))
+
+
+@router.post("/{site_id}/newsletter/queue", response_model=PrivateServiceResponse)
+def newsletter_queue(site_id: str, request: newsletter.SiteNewsletterQueue, context: Admin, response: Response, target_id: str = "local") -> PrivateServiceResponse:
+    response.headers["Cache-Control"] = "no-store"
+    store = store_for(context)
+    return PrivateServiceResponse(data=newsletter.queue(store, store.load(site_id), target_id, request))
 
 
 @router.put("/{site_id}", response_model=SiteConfig)

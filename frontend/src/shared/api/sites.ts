@@ -26,6 +26,23 @@ export type SourceFilter = components['schemas']['SourceFilter'];
 export type TargetConnection = components['schemas']['TargetConnection'];
 export type ServiceRequest = components['schemas']['PrivateServiceRequest'];
 export type ServiceResponse = components['schemas']['PrivateServiceResponse'];
+export type NewsletterDraft = NewsletterReview['draft'];
+export type NewsletterState = components['schemas']['SiteNewsletterState'];
+export type NewsletterReview = components['schemas']['SiteNewsletterReview'];
+export type NewsletterQueue = components['schemas']['SiteNewsletterQueue'];
+
+export async function getNewsletter(siteId: string, targetId: string, context: RequestContext, signal?: AbortSignal) {
+  return unwrapApiResult(await apiClient.GET('/api/vault/sites/{site_id}/newsletter', { params: { path: { site_id: siteId }, query: { target_id: targetId } }, ...scope(context, signal) }));
+}
+export async function saveNewsletter(siteId: string, targetId: string, draft: NewsletterDraft, context: RequestContext, signal?: AbortSignal) {
+  return unwrapApiResult(await apiClient.PUT('/api/vault/sites/{site_id}/newsletter', { params: { path: { site_id: siteId }, query: { target_id: targetId } }, body: draft, ...scope(context, signal) }));
+}
+export async function reviewNewsletter(siteId: string, targetId: string, review: NewsletterReview, context: RequestContext, signal?: AbortSignal) {
+  return unwrapApiResult(await apiClient.POST('/api/vault/sites/{site_id}/newsletter/preview', { params: { path: { site_id: siteId }, query: { target_id: targetId } }, body: review, ...scope(context, signal) }));
+}
+export async function queueNewsletter(siteId: string, targetId: string, request: NewsletterQueue, context: RequestContext, signal?: AbortSignal) {
+  return unwrapApiResult(await apiClient.POST('/api/vault/sites/{site_id}/newsletter/queue', { params: { path: { site_id: siteId }, query: { target_id: targetId } }, body: request, ...scope(context, signal) }));
+}
 
 function identity<T extends { id?: string }>(value: T): T & { id: string } {
   if (!value.id) throw new Error('Website response has no stable identity');

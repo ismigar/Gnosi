@@ -9336,6 +9336,24 @@
       "confirm": "Confirm subscription",
       "preferences": "Apply preferences",
       "unsubscribe": "Confirm unsubscribe"
-    }
+    },
+    "newsletterLoadFailed": "Could not load the draft and published contents. Refresh to retry.",
+    "newsletterReviewFailed": "Could not review the newsletter. Check the fields and refresh contents if the published version changed.",
+    "newsletterSaveFailed": "Could not save the draft. Your changes are kept; retry.",
+    "newsletterMode": "Composition",
+    "newsletterFromContents": "From published contents",
+    "newsletterManual": "Manual HTML and text",
+    "newsletterTemplate": "Newsletter template",
+    "newsletterDigest": "News digest",
+    "newsletterFeatured": "Featured reading and other news",
+    "newsletterIntroduction": "Introduction",
+    "newsletterSelected": "Selected contents",
+    "newsletterPublishedHelp": "Only contents published at this destination and in the selected language are shown. Add up to 20 unique pages and arrange their order.",
+    "newsletterSelectionUnavailable": "Some contents were withdrawn or use another language. Remove them or choose their published translation.",
+    "newsletterEmptySelection": "Add published contents to start the newsletter.",
+    "newsletterSearch": "Search published contents",
+    "newsletterAddTitle": "Add {{title}}",
+    "newsletterNoPublished": "No contents have been published in this language at this destination yet.",
+    "newsletterReloadDraft": "Load saved draft and discard these changes"
   }
 }

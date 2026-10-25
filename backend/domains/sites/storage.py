@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS releases (id TEXT PRIMARY KEY, site_id TEXT NOT NULL,
 CREATE TABLE IF NOT EXISTS active (site_id TEXT NOT NULL, target_id TEXT NOT NULL, release_id TEXT NOT NULL, PRIMARY KEY(site_id,target_id));
 CREATE TABLE IF NOT EXISTS versions (id TEXT PRIMARY KEY, site_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS locks (site_id TEXT PRIMARY KEY, job_id TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS newsletter_drafts (site_id TEXT NOT NULL, target_id TEXT NOT NULL, revision INTEGER NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(site_id,target_id));
+CREATE TABLE IF NOT EXISTS newsletter_reviews (site_id TEXT NOT NULL, target_id TEXT NOT NULL, preview_id TEXT NOT NULL, fingerprint TEXT NOT NULL, mode TEXT NOT NULL, PRIMARY KEY(site_id,target_id,preview_id));
 """)
         self.db_path.chmod(0o600)
 

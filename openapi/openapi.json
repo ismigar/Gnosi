@@ -36047,6 +36047,193 @@
         "title": "SiteJob",
         "type": "object"
       },
+      "SiteNewsletterContent": {
+        "additionalProperties": false,
+        "properties": {
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "title",
+          "language",
+          "summary"
+        ],
+        "title": "SiteNewsletterContent",
+        "type": "object"
+      },
+      "SiteNewsletterDraft": {
+        "additionalProperties": false,
+        "properties": {
+          "body_html": {
+            "default": "",
+            "maxLength": 200000,
+            "title": "Body Html",
+            "type": "string"
+          },
+          "body_text": {
+            "default": "",
+            "maxLength": 200000,
+            "title": "Body Text",
+            "type": "string"
+          },
+          "interests": {
+            "default": "",
+            "maxLength": 3000,
+            "title": "Interests",
+            "type": "string"
+          },
+          "introduction": {
+            "default": "",
+            "maxLength": 10000,
+            "title": "Introduction",
+            "type": "string"
+          },
+          "language": {
+            "default": "ca",
+            "maxLength": 20,
+            "title": "Language",
+            "type": "string"
+          },
+          "list_id": {
+            "default": "default",
+            "maxLength": 128,
+            "title": "List Id",
+            "type": "string"
+          },
+          "mode": {
+            "default": "contents",
+            "enum": [
+              "contents",
+              "manual"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "paths": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Paths",
+            "type": "array"
+          },
+          "revision": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "scheduled_at": {
+            "default": "",
+            "maxLength": 40,
+            "title": "Scheduled At",
+            "type": "string"
+          },
+          "subject": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Subject",
+            "type": "string"
+          },
+          "template": {
+            "default": "digest",
+            "enum": [
+              "digest",
+              "featured"
+            ],
+            "title": "Template",
+            "type": "string"
+          }
+        },
+        "title": "SiteNewsletterDraft",
+        "type": "object"
+      },
+      "SiteNewsletterQueue": {
+        "additionalProperties": false,
+        "properties": {
+          "preview_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Preview Id",
+            "type": "string"
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled At"
+          }
+        },
+        "required": [
+          "preview_id"
+        ],
+        "title": "SiteNewsletterQueue",
+        "type": "object"
+      },
+      "SiteNewsletterReview": {
+        "additionalProperties": false,
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/SiteNewsletterDraft"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "draft",
+          "fingerprint"
+        ],
+        "title": "SiteNewsletterReview",
+        "type": "object"
+      },
+      "SiteNewsletterState": {
+        "additionalProperties": false,
+        "properties": {
+          "contents": {
+            "items": {
+              "$ref": "#/components/schemas/SiteNewsletterContent"
+            },
+            "title": "Contents",
+            "type": "array"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/SiteNewsletterDraft"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "draft",
+          "fingerprint",
+          "contents"
+        ],
+        "title": "SiteNewsletterState",
+        "type": "object"
+      },
       "SitePage": {
         "additionalProperties": false,
         "properties": {
@@ -116395,6 +116582,566 @@
           }
         },
         "summary": "Cancel",
+        "tags": [
+          "Vault",
+          "sites"
+        ]
+      }
+    },
+    "/api/vault/sites/{site_id}/newsletter": {
+      "get": {
+        "operationId": "newsletter_state_api_vault_sites__site_id__newsletter_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_id",
+            "required": false,
+            "schema": {
+              "default": "local",
+              "title": "Target Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteNewsletterState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Newsletter State",
+        "tags": [
+          "Vault",
+          "sites"
+        ]
+      },
+      "put": {
+        "operationId": "newsletter_save_api_vault_sites__site_id__newsletter_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_id",
+            "required": false,
+            "schema": {
+              "default": "local",
+              "title": "Target Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteNewsletterDraft"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteNewsletterDraft"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Newsletter Save",
+        "tags": [
+          "Vault",
+          "sites"
+        ]
+      }
+    },
+    "/api/vault/sites/{site_id}/newsletter/preview": {
+      "post": {
+        "operationId": "newsletter_preview_api_vault_sites__site_id__newsletter_preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_id",
+            "required": false,
+            "schema": {
+              "default": "local",
+              "title": "Target Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteNewsletterReview"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivateServiceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Newsletter Preview",
+        "tags": [
+          "Vault",
+          "sites"
+        ]
+      }
+    },
+    "/api/vault/sites/{site_id}/newsletter/queue": {
+      "post": {
+        "operationId": "newsletter_queue_api_vault_sites__site_id__newsletter_queue_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_id",
+            "required": false,
+            "schema": {
+              "default": "local",
+              "title": "Target Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteNewsletterQueue"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivateServiceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Newsletter Queue",
         "tags": [
           "Vault",
           "sites"

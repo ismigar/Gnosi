@@ -9392,6 +9392,24 @@
       "confirm": "Confirmar suscripción",
       "preferences": "Aplicar preferencias",
       "unsubscribe": "Confirmar baja"
-    }
+    },
+    "newsletterLoadFailed": "No se han podido cargar el borrador y los contenidos publicados. Actualiza para volver a intentarlo.",
+    "newsletterReviewFailed": "No se ha podido revisar el boletín. Comprueba los campos y actualiza los contenidos si ha cambiado la versión publicada.",
+    "newsletterSaveFailed": "No se ha podido guardar el borrador. Se conservan los cambios; vuelve a intentarlo.",
+    "newsletterMode": "Composición",
+    "newsletterFromContents": "A partir de contenidos publicados",
+    "newsletterManual": "HTML y texto manual",
+    "newsletterTemplate": "Plantilla del boletín",
+    "newsletterDigest": "Resumen de novedades",
+    "newsletterFeatured": "Lectura destacada y otras novedades",
+    "newsletterIntroduction": "Introducción",
+    "newsletterSelected": "Contenidos seleccionados",
+    "newsletterPublishedHelp": "Solo se muestran contenidos publicados en este destino y en el idioma elegido. Añade hasta 20 páginas sin repeticiones y ordénalas.",
+    "newsletterSelectionUnavailable": "Hay contenidos retirados o en otro idioma. Retíralos de la selección o elige su traducción publicada.",
+    "newsletterEmptySelection": "Añade contenidos publicados para empezar el boletín.",
+    "newsletterSearch": "Buscar contenidos publicados",
+    "newsletterAddTitle": "Añadir {{title}}",
+    "newsletterNoPublished": "Todavía no hay contenidos publicados en este idioma y destino.",
+    "newsletterReloadDraft": "Cargar el borrador guardado y descartar estos cambios"
   }
 }

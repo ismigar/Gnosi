@@ -9392,6 +9392,24 @@
       "confirm": "Confirmer l’abonnement",
       "preferences": "Appliquer les préférences",
       "unsubscribe": "Confirmer le désabonnement"
-    }
+    },
+    "newsletterLoadFailed": "Impossible de charger le brouillon et les contenus publiés. Actualisez pour réessayer.",
+    "newsletterReviewFailed": "Impossible de vérifier la lettre. Vérifiez les champs et actualisez les contenus si la version publiée a changé.",
+    "newsletterSaveFailed": "Impossible d’enregistrer le brouillon. Les modifications sont conservées ; réessayez.",
+    "newsletterMode": "Composition",
+    "newsletterFromContents": "À partir des contenus publiés",
+    "newsletterManual": "HTML et texte manuels",
+    "newsletterTemplate": "Modèle de la lettre",
+    "newsletterDigest": "Résumé des nouveautés",
+    "newsletterFeatured": "Lecture à la une et autres nouveautés",
+    "newsletterIntroduction": "Introduction",
+    "newsletterSelected": "Contenus sélectionnés",
+    "newsletterPublishedHelp": "Seuls les contenus publiés pour cette destination et dans la langue choisie sont proposés. Ajoutez jusqu’à 20 pages uniques et classez-les.",
+    "newsletterSelectionUnavailable": "Certains contenus ont été retirés ou sont dans une autre langue. Retirez-les de la sélection ou choisissez leur traduction publiée.",
+    "newsletterEmptySelection": "Ajoutez des contenus publiés pour commencer la lettre.",
+    "newsletterSearch": "Rechercher des contenus publiés",
+    "newsletterAddTitle": "Ajouter {{title}}",
+    "newsletterNoPublished": "Aucun contenu publié dans cette langue et à cette destination pour le moment.",
+    "newsletterReloadDraft": "Charger le brouillon enregistré et abandonner ces modifications"
   }
 }

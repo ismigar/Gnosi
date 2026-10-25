@@ -9392,6 +9392,24 @@
       "confirm": "Confirma la subscripció",
       "preferences": "Aplica les preferències",
       "unsubscribe": "Confirma la baixa"
-    }
+    },
+    "newsletterLoadFailed": "No s’ha pogut carregar l’esborrany i els continguts publicats. Actualitza per tornar-ho a provar.",
+    "newsletterReviewFailed": "No s’ha pogut revisar el butlletí. Comprova els camps i actualitza els continguts si ha canviat la versió publicada.",
+    "newsletterSaveFailed": "No s’ha pogut desar l’esborrany. Es conserven els canvis; torna-ho a provar.",
+    "newsletterMode": "Composició",
+    "newsletterFromContents": "A partir de continguts publicats",
+    "newsletterManual": "HTML i text manual",
+    "newsletterTemplate": "Plantilla del butlletí",
+    "newsletterDigest": "Resum de novetats",
+    "newsletterFeatured": "Lectura destacada i altres novetats",
+    "newsletterIntroduction": "Introducció",
+    "newsletterSelected": "Continguts seleccionats",
+    "newsletterPublishedHelp": "Només es mostren continguts publicats en aquesta destinació i en l’idioma triat. Afegeix-ne fins a 20, sense repeticions, i ordena’ls.",
+    "newsletterSelectionUnavailable": "Hi ha continguts retirats o d’un altre idioma. Retira’ls de la selecció o tria’n la traducció publicada.",
+    "newsletterEmptySelection": "Afegeix continguts publicats per començar el butlletí.",
+    "newsletterSearch": "Cerca continguts publicats",
+    "newsletterAddTitle": "Afegeix {{title}}",
+    "newsletterNoPublished": "Encara no hi ha continguts publicats en aquest idioma i destinació.",
+    "newsletterReloadDraft": "Carrega l’esborrany desat i descarta aquests canvis"
   }
 }

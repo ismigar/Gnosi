@@ -10355,6 +10355,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/sites/{site_id}/newsletter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Newsletter State */
+        get: operations["newsletter_state_api_vault_sites__site_id__newsletter_get"];
+        /** Newsletter Save */
+        put: operations["newsletter_save_api_vault_sites__site_id__newsletter_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/newsletter/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Newsletter Preview */
+        post: operations["newsletter_preview_api_vault_sites__site_id__newsletter_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/newsletter/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Newsletter Queue */
+        post: operations["newsletter_queue_api_vault_sites__site_id__newsletter_queue_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/sites/{site_id}/preview": {
         parameters: {
             query?: never;
@@ -25860,6 +25912,100 @@ export interface components {
             target_id: string;
             /** Updated At */
             updated_at?: string;
+        };
+        /** SiteNewsletterContent */
+        SiteNewsletterContent: {
+            /** Language */
+            language: string;
+            /** Path */
+            path: string;
+            /** Summary */
+            summary: string;
+            /** Title */
+            title: string;
+        };
+        /** SiteNewsletterDraft */
+        SiteNewsletterDraft: {
+            /**
+             * Body Html
+             * @default
+             */
+            body_html: string;
+            /**
+             * Body Text
+             * @default
+             */
+            body_text: string;
+            /**
+             * Interests
+             * @default
+             */
+            interests: string;
+            /**
+             * Introduction
+             * @default
+             */
+            introduction: string;
+            /**
+             * Language
+             * @default ca
+             */
+            language: string;
+            /**
+             * List Id
+             * @default default
+             */
+            list_id: string;
+            /**
+             * Mode
+             * @default contents
+             * @enum {string}
+             */
+            mode: "contents" | "manual";
+            /** Paths */
+            paths?: string[];
+            /**
+             * Revision
+             * @default 0
+             */
+            revision: number;
+            /**
+             * Scheduled At
+             * @default
+             */
+            scheduled_at: string;
+            /**
+             * Subject
+             * @default
+             */
+            subject: string;
+            /**
+             * Template
+             * @default digest
+             * @enum {string}
+             */
+            template: "digest" | "featured";
+        };
+        /** SiteNewsletterQueue */
+        SiteNewsletterQueue: {
+            /** Preview Id */
+            preview_id: string;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+        };
+        /** SiteNewsletterReview */
+        SiteNewsletterReview: {
+            draft: components["schemas"]["SiteNewsletterDraft"];
+            /** Fingerprint */
+            fingerprint: string;
+        };
+        /** SiteNewsletterState */
+        SiteNewsletterState: {
+            /** Contents */
+            contents: components["schemas"]["SiteNewsletterContent"][];
+            draft: components["schemas"]["SiteNewsletterDraft"];
+            /** Fingerprint */
+            fingerprint: string;
         };
         /** SitePage */
         SitePage: {
@@ -51651,6 +51797,178 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteJob"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    newsletter_state_api_vault_sites__site_id__newsletter_get: {
+        parameters: {
+            query?: {
+                target_id?: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteNewsletterState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    newsletter_save_api_vault_sites__site_id__newsletter_put: {
+        parameters: {
+            query?: {
+                target_id?: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteNewsletterDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteNewsletterDraft"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    newsletter_preview_api_vault_sites__site_id__newsletter_preview_post: {
+        parameters: {
+            query?: {
+                target_id?: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteNewsletterReview"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivateServiceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    newsletter_queue_api_vault_sites__site_id__newsletter_queue_post: {
+        parameters: {
+            query?: {
+                target_id?: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteNewsletterQueue"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivateServiceResponse"];
                 };
             };
             /** @description Validation Error */
