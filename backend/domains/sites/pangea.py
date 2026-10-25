@@ -135,19 +135,20 @@ def connection(store: SiteStore, *, bounded: bool = False) -> Iterator[tuple[Dri
     settings = getattr(session, "settings", None)
     if bounded and isinstance(settings, dict):
         from .bounded_bridge import BoundedBridge
-        with BoundedBridge(cast(dict[str, str], settings)) as bridge:
-            # A panel can request several private lists at once. Keep their SSH
-            # sessions serial, with queueing charged to each original deadline.
-            if not _BOUNDED_CONNECTION_LOCK.acquire(timeout=bridge.remaining()):
-                raise HTTPException(503, "The Pangea connection is busy; refresh to retry")
-            try:
+        bridge = BoundedBridge(cast(dict[str, str], settings))
+        # A panel can request several private lists at once. Keep their SSH
+        # sessions serial through closure, charging queueing to the same deadline.
+        if not _BOUNDED_CONNECTION_LOCK.acquire(timeout=bridge.remaining()):
+            raise HTTPException(503, "The Pangea connection is busy; refresh to retry")
+        try:
+            with bridge:
                 try:
                     bridge.remaining()
                 except TimeoutError:
                     raise HTTPException(503, "The Pangea connection wait exceeded its deadline") from None
                 yield transport, bridge
-            finally:
-                _BOUNDED_CONNECTION_LOCK.release()
+        finally:
+            _BOUNDED_CONNECTION_LOCK.release()
         return
     with session as bridge:
         yield transport, bridge
