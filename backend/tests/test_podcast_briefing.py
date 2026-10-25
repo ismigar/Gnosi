@@ -17,15 +17,31 @@ def planned(cards, groups):
         for handle in group['part_ids']}}
 
 
+def tokenized(result, groups):
+    """Encode a fake model's intended prose in the requested word-token protocol."""
+    tokens = []
+    flags = {}
+    for group in groups:
+        key = group['key']
+        if key not in result['paragraphs']:
+            continue  # Preserve a malformed fake response for schema rejection.
+        block = result['paragraphs'][key]
+        flags[key] = {'non_editorial': block['non_editorial']}
+        tokens.extend([f"__gnosi_group__:{key}", *block['text'].split()])
+    return {'paragraphs': flags, 'tokens': tokens}
+
+
 def written(request, text):
     """Fake model transport uses the requested prose shape; assertions audit the result."""
-    groups = json.loads(request.input).get('data', {}).get('composition_groups', [])
+    data = json.loads(request.input).get('data', {})
+    groups = data.get('composition_groups', [])
     if not groups:
         return {'narration': text}
     words = text.split()
-    return {'paragraphs': {g['key']: {
+    result = {'paragraphs': {g['key']: {
         'text': ' '.join(words[len(words) * i // len(groups):len(words) * (i + 1) // len(groups)]),
         'non_editorial': False} for i, g in enumerate(groups)}}
+    return tokenized(result, groups) if data.get('composition_encoding') == 'word_tokens_v1' else result
 
 
 @pytest.fixture

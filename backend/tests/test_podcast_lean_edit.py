@@ -9,7 +9,7 @@ import pytest
 from openai import ContentFilterFinishReasonError
 
 from backend.services import podcast_automatic as automatic
-from backend.tests.test_podcast_briefing import pipeline, written  # noqa: F401
+from backend.tests.test_podcast_briefing import pipeline, tokenized, written  # noqa: F401
 
 
 OPTIONS = {"min_words": 90, "max_words": 109, "target_words": 100}
@@ -53,6 +53,8 @@ class Context:
         result = next(self.responses)
         if isinstance(result, Exception):
             raise result
+        if "tokens" in request.output_schema["properties"] and "tokens" not in result:
+            result = tokenized(result, json.loads(request.input)["composition_groups"])
         jsonschema.validate(result, request.output_schema)
         validate(result)
         return result
@@ -89,11 +91,11 @@ def test_exact_rejected_structure_scope_and_hash_or_clean_fallback(fit):
 
 
 def test_each_outer_stage_uses_latest_structure_and_counts():
-    context = Context([response(160), response(120), response(100)])
+    context = Context([response(40), response(70), response(100)], "full")
     automatic._bounded_write(context, data(), OPTIONS)
     assert len(context.sent) == 3
-    assert [r["length_repair"]["current_words"] for r in context.sent[1:]] == [160, 120]
-    assert context.sent[2]["previous_composition"] == response(120)
+    assert [r["length_repair"]["current_words"] for r in context.sent[1:]] == [40, 70]
+    assert context.sent[2]["previous_composition"] == response(70)
     assert context.sent[1]["length_repair"]["composition_sha256"] != context.sent[2]["length_repair"]["composition_sha256"]
 
 

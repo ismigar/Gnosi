@@ -7,7 +7,7 @@ from math import ceil
 from typing import Any, TYPE_CHECKING
 
 from backend.services.agent_behavior import resource
-from backend.services.podcast_composition import advisory_targets, schema as composition_schema, spoken_text, word_guidance
+from backend.services.podcast_composition import WORD_TOKENS, advisory_targets, schema as composition_schema, spoken_text, word_guidance
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -92,7 +92,8 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
     if ("previous_composition" in previous and "previous_composition" not in data
             and state.get("current_words", 0) > options.get("max_words", 0)
             and data.get("composition_groups") and data.get("subject_groups") and source_part_ids):
-        lean: dict[str, Any] = {key: data[key] for key in ("topic", "subject_groups", "composition_groups") if key in data}
+        lean: dict[str, Any] = {key: data[key] for key in ("topic", "subject_groups", "composition_groups",
+                                                                     "composition_encoding", "composition_word_range") if key in data}
         lean.update(previous_composition=previous["previous_composition"], source_part_ids=source_part_ids,
                     length_repair={**state, "mode": "shorten_composition"})
         candidate = _request(context, "write", lean, composition_schema(lean), **options)
@@ -138,6 +139,9 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
             data = {**{k: v for k, v in data.items() if k not in {"previous_draft", "previous_composition"}},
                     "length_repair": state}
             if previous_composition is not None:
+                if actual > maximum:
+                    data.update(composition_encoding=WORD_TOKENS,
+                                composition_word_range={"min_words": minimum, "max_words": maximum})
                 encoded = json.dumps(previous_composition, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
                 state["composition_sha256"] = hashlib.sha256(encoded.encode()).hexdigest()
                 state.update(word_guidance(previous_composition, data, target))
