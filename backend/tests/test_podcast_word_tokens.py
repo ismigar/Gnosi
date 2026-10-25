@@ -45,8 +45,8 @@ def test_no_per_group_cap_and_non_editorial_exclusion_remains_explicit():
         spoken_text(result, DATA)
 
 
-@pytest.mark.parametrize("count", [1720, 1613, 1584])
-def test_observed_excess_lengths_are_schema_invalid_and_never_silently_clipped(count):
+@pytest.mark.parametrize("count", [1720, 1613, 1584, 1056, 1112, 1199])
+def test_observed_out_of_range_lengths_are_schema_invalid_and_never_silently_clipped(count):
     candidate = copy.deepcopy(PROSE)
     candidate["paragraphs"]["group:0"]["text"] = "news " * (count - 4)
     result = encoded(candidate)
@@ -83,10 +83,11 @@ def test_token_counts_drive_guidance_without_reconstructing_the_stored_model_obj
     assert result == before
 
 
+@pytest.mark.parametrize("rejected_words", [40, 160])
 @pytest.mark.parametrize("fit", ["full", "lean", "overflow"])
-def test_existing_length_repair_uses_bounded_format_with_same_global_limits_and_scope(fit):
+def test_existing_length_repair_uses_bounded_format_with_same_global_limits_and_scope(fit, rejected_words):
     from backend.services.podcast_automatic import _bounded_write
-    context = Context([response(160), response(100)], fit)
+    context = Context([response(rejected_words), response(100)], fit)
     original = data()
     result = _bounded_write(context, original, OPTIONS)
     repair = context.sent[-1]
@@ -96,8 +97,11 @@ def test_existing_length_repair_uses_bounded_format_with_same_global_limits_and_
     assert repair["composition_groups"] == original["composition_groups"]
     assert repair["subject_groups"] == original["subject_groups"]
     assert len(result["narration"].split()) == 100
-    if fit != "overflow":
-        assert repair["previous_composition"] == response(160)
+    if fit == "full" or rejected_words > OPTIONS["max_words"] and fit != "overflow":
+        assert repair["previous_composition"] == response(rejected_words)
+    if rejected_words < OPTIONS["min_words"]:
+        assert repair["briefs"] == original["briefs"]
+        assert repair["length_repair"]["mode"] != "shorten_composition"
 
 
 @pytest.mark.parametrize("container", [None, "words", {}, 7, True])

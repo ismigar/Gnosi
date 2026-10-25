@@ -139,9 +139,8 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
             data = {**{k: v for k, v in data.items() if k not in {"previous_draft", "previous_composition"}},
                     "length_repair": state}
             if previous_composition is not None:
-                if actual > maximum:
-                    data.update(composition_encoding=WORD_TOKENS,
-                                composition_word_range={"min_words": minimum, "max_words": maximum})
+                data.update(composition_encoding=WORD_TOKENS,
+                            composition_word_range={"min_words": minimum, "max_words": maximum})
                 encoded = json.dumps(previous_composition, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
                 state["composition_sha256"] = hashlib.sha256(encoded.encode()).hexdigest()
                 state.update(word_guidance(previous_composition, data, target))

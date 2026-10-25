@@ -90,13 +90,29 @@ def test_exact_rejected_structure_scope_and_hash_or_clean_fallback(fit):
         assert repair["briefs"] == original["briefs"] and repair["feedback"] == original["feedback"]
 
 
-def test_each_outer_stage_uses_latest_structure_and_counts():
-    context = Context([response(40), response(70), response(100)], "full")
+def test_length_stage_uses_the_latest_rejected_reply_when_length_direction_changes():
+    class Replies(Context):
+        def stage(self, request, validate):
+            if not self.sent:
+                self.sent.append(json.loads(request.input))
+                for value in (response(160), response(40)):
+                    jsonschema.validate(value, request.output_schema)
+                    if value == response(160):
+                        with pytest.raises(ValueError, match="podcast_word_budget"):
+                            validate(value)
+                    else:
+                        validate(value)
+            return super().stage(request, validate)
+    context = Replies([response(100)], "full")
     automatic._bounded_write(context, data(), OPTIONS)
-    assert len(context.sent) == 3
-    assert [r["length_repair"]["current_words"] for r in context.sent[1:]] == [40, 70]
-    assert context.sent[2]["previous_composition"] == response(70)
-    assert context.sent[1]["length_repair"]["composition_sha256"] != context.sent[2]["length_repair"]["composition_sha256"]
+    assert len(context.sent) == 2
+    repair = context.sent[1]
+    assert repair["length_repair"]["current_words"] == 40
+    assert repair["previous_composition"] == response(40)
+    encoded = json.dumps(response(40), sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    assert repair["length_repair"]["composition_sha256"] == hashlib.sha256(encoded.encode()).hexdigest()
+    assert repair["composition_encoding"] == "word_tokens_v1"
+    assert repair["briefs"] == data()["briefs"]
 
 
 def test_underlength_repair_keeps_source_evidence_instead_of_lean_expansion():
