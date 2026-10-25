@@ -9361,6 +9361,37 @@
     "chooseFont": "Choisir une police",
     "fontNotFound": "Aucune police correspondante.",
     "fontPickerHelp": "Recherchez une police du thème ou une famille système. Chaque nom présente sa propre typographie.",
-    "fontSampleUnavailable": "Certains aperçus ne se chargent pas. Vérifiez les fichiers de police et enregistrez les modifications."
+    "fontSampleUnavailable": "Certains aperçus ne se chargent pas. Vérifiez les fichiers de police et enregistrez les modifications.",
+    "capturedMail": "Courriel capturé",
+    "readCapture": "Lire le courriel",
+    "closeCapture": "Fermer le courriel",
+    "captureHelp": "Courriel privé de test : aucun courriel réel envoyé. Les liens et images sont désactivés dans l’aperçu ; utilisez les commandes ci-dessous.",
+    "captureUnavailable": "Impossible de lire ce courriel capturé. Actualisez et réessayez.",
+    "captureActionApplied": "Action appliquée à l’abonné fictif. Vérifiez le résultat dans Abonnés.",
+    "captureLinkUnavailable": "Ce lien a déjà été utilisé, a expiré ou est indisponible.",
+    "captureActionFailed": "Impossible d’appliquer l’action. Les champs sont conservés ; actualisez l’état avant de réessayer.",
+    "captureHtml": "Vue HTML du courriel",
+    "captureLinks": "Liens d’abonnement",
+    "captureNoLinks": "Ce courriel ne contient aucun lien d’abonnement vérifié.",
+    "captureUnsubscribeAll": "Se désabonner de toutes les listes",
+    "captureUnsubscribeList": "Se désabonner de {{list}}",
+    "captureTestLink": "Tester le lien dans Gnosi",
+    "captureOpenPublic": "Ouvrir sur le pilote",
+    "captureConfirmHelp": "Cette action concerne uniquement {{email}}, une adresse fictive de test. Aucun courriel réel ne sera envoyé.",
+    "captureActions": {
+      "confirm": "Confirmation d’abonnement",
+      "preferences": "Préférences"
+    },
+    "captureLinkStates": {
+      "ready": "Disponible",
+      "used": "Déjà utilisé",
+      "expired": "Expiré",
+      "unavailable": "Indisponible"
+    },
+    "captureConfirmActions": {
+      "confirm": "Confirmer l’abonnement",
+      "preferences": "Appliquer les préférences",
+      "unsubscribe": "Confirmer le désabonnement"
+    }
   }
 }

@@ -36,12 +36,14 @@ The form editor configures localized fields, validation, confirmation, privacy t
 
 The private service manages double opt-in, list/global restrictions, suppression-preserving imports, immutable campaign previews, queued schedules and uncertain delivery reconciliation. The daemon runs independently of Gnosi with a per-site lock and heartbeat. Full private protocol and worker setup are documented in [server/README.md](server/README.md).
 
+In **Newsletters → Delivery queue**, captured rows offer **Read email**. Administrators can read the subject, sender, recipient, date and plain text, or an isolated HTML preview without navigation, scripts, forms or remote images. Reading never follows lifecycle links. Verified confirmation, preferences and list/global unsubscribe links have explicit **Test link in Gnosi** forms; they use the same token operation as the public POST handler, restricted to the captured synthetic recipient. Used, expired and suppressed links are unavailable. **Open on pilot** is optional and retains the pilot’s normal HTTP authentication. Captures never become public files or synchronized editorial data.
+
 The current pilot remains **capture-only** and accepts only synthetic `.invalid` addresses. The Gnosi API keeps production publication and real delivery disabled pending pilot acceptance. Do not migrate real subscribers or replace the production contact form during this validation.
 
 ## Verification
 
 ```sh
-.venv/bin/python -m pytest backend/tests/test_sites.py backend/tests/test_sites_rendering.py
+.venv/bin/python -m pytest backend/tests/test_sites.py backend/tests/test_sites_rendering.py backend/tests/test_sites_captured.py
 php extensions/web-publishing/server/test.php
 python3 extensions/web-publishing/server/test_http.py
 ```

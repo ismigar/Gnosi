@@ -9305,6 +9305,37 @@
     "chooseFont": "Choose a typeface",
     "fontNotFound": "No matching typeface.",
     "fontPickerHelp": "Search the theme fonts or a system family. Each name previews its typeface.",
-    "fontSampleUnavailable": "Some font samples could not load. Check the font files and save your changes."
+    "fontSampleUnavailable": "Some font samples could not load. Check the font files and save your changes.",
+    "capturedMail": "Captured email",
+    "readCapture": "Read email",
+    "closeCapture": "Close email",
+    "captureHelp": "Private test email: no real email was sent. Links and images are disabled in the preview; use the controls below.",
+    "captureUnavailable": "This captured email could not be read. Refresh and try again.",
+    "captureActionApplied": "Action applied to the synthetic subscriber. Check the result in Subscribers.",
+    "captureLinkUnavailable": "This link has already been used, has expired or is unavailable.",
+    "captureActionFailed": "The action could not be applied. Your fields are preserved; refresh the status before retrying.",
+    "captureHtml": "Email HTML view",
+    "captureLinks": "Subscription links",
+    "captureNoLinks": "This email contains no verified subscription links.",
+    "captureUnsubscribeAll": "Unsubscribe from all lists",
+    "captureUnsubscribeList": "Unsubscribe from {{list}}",
+    "captureTestLink": "Test link in Gnosi",
+    "captureOpenPublic": "Open on pilot",
+    "captureConfirmHelp": "This action affects only {{email}}, a synthetic test address. No real email will be sent.",
+    "captureActions": {
+      "confirm": "Subscription confirmation",
+      "preferences": "Preferences"
+    },
+    "captureLinkStates": {
+      "ready": "Available",
+      "used": "Already used",
+      "expired": "Expired",
+      "unavailable": "Unavailable"
+    },
+    "captureConfirmActions": {
+      "confirm": "Confirm subscription",
+      "preferences": "Apply preferences",
+      "unsubscribe": "Confirm unsubscribe"
+    }
   }
 }

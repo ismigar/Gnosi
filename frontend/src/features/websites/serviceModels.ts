@@ -4,6 +4,8 @@ export interface Subscriber { id: string; email: string; language: string; statu
 export interface Campaign { id: string; subject: string; language: string; status: string; paused: boolean; recipientCount: number; createdAt: string }
 export interface QueueMessage { id: string; kind: string; email: string; status: string; attempts: number; error: string }
 export interface CampaignPreview { id: string; subject: string; html: string; text: string; fromEmail: string; recipientCount: number; expiresAt: string }
+export interface CapturedLink { index: number; action: 'confirm' | 'preferences' | 'unsubscribe'; url: string; language: string; listId: string; state: 'ready' | 'used' | 'expired' | 'unavailable' }
+export interface CapturedMail { id: string; kind: string; email: string; fromEmail: string; replyTo: string; subject: string; createdAt: string; html: string; text: string; language: string; interests: string[]; links: CapturedLink[]; actionApplied?: boolean }
 export function record(value: unknown): Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 export function list(value: unknown): unknown[] { return Array.isArray(value) ? value : []; }
 export function text(value: unknown): string { return typeof value === 'string' ? value : typeof value === 'number' ? String(value) : typeof value === 'boolean' ? String(value) : ''; }
@@ -19,6 +21,19 @@ export function decodeSubscribers(value: unknown): { items: Subscriber[]; total:
 export function decodeCampaigns(value: unknown): Campaign[] { return list(record(value).items).map(item => { const row = record(item); return { id: text(row.id), subject: text(row.subject), language: text(row.language), status: text(row.status), paused: row.paused === true || row.paused === 1, recipientCount: count(row.recipient_count), createdAt: text(row.created_at) }; }).filter(item => Boolean(item.id)); }
 export function decodeQueue(value: unknown): QueueMessage[] { return list(record(value).items).map(item => { const row = record(item); return { id: text(row.id), kind: text(row.kind), email: text(row.to_email), status: text(row.status), attempts: count(row.attempts), error: text(row.error_code) }; }).filter(item => Boolean(item.id)); }
 export function decodeCampaignPreview(value: unknown): CampaignPreview | null { const body = record(value); const id = text(body.preview_id); return id ? { id, subject: text(body.subject), html: text(body.body_html), text: text(body.body_text), fromEmail: text(body.from_email), recipientCount: count(body.recipient_count), expiresAt: text(body.expires_at) } : null; }
+
+export function decodeCapturedMail(value: unknown): CapturedMail | null {
+  const body = record(value); const profile = record(body.subscriber);
+  if (body.test_mode !== true || !/^[a-f0-9]{32}$/u.test(text(body.id)) || typeof body.body_text !== 'string' || typeof body.body_html !== 'string') return null;
+  const links: CapturedLink[] = [];
+  for (const item of list(body.links)) {
+    const row = record(item); const action = row.action; const state = row.state;
+    if ((action !== 'confirm' && action !== 'preferences' && action !== 'unsubscribe') || (state !== 'ready' && state !== 'used' && state !== 'expired' && state !== 'unavailable') || !Number.isInteger(row.index) || typeof row.index !== 'number' || row.index < 0) continue;
+    try { const url = new URL(text(row.url)); if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || !url.pathname.endsWith('/api/newsletter.php')) continue; } catch { continue; }
+    links.push({ index: row.index, action, state, url: text(row.url), language: text(row.language), listId: text(row.list_id) });
+  }
+  return { id: text(body.id), kind: text(body.kind), email: text(body.to_email), fromEmail: text(body.from_email), replyTo: text(body.reply_to), subject: text(body.subject), createdAt: text(body.created_at), html: body.body_html, text: body.body_text, language: text(profile.language), interests: list(profile.interests).map(text), links, actionApplied: typeof body.action_applied === 'boolean' ? body.action_applied : undefined };
+}
 
 /** Parse CSV imports without splitting quoted delimiters or quoted newlines. */
 export function parseCsv(value: string): Record<string, string>[] {

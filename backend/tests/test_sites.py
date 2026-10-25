@@ -1054,9 +1054,16 @@ def test_http_roles_and_separate_private_operations(website, monkeypatch):
         assert client.get("/api/vault/sites/" + website.site.id).status_code == 200
         assert client.get("/api/vault/sites/" + website.site.id + "/service-settings").status_code == 403
         assert client.post("/api/vault/sites/" + website.site.id + "/service", json={"action": "status"}).status_code == 403
+        for action in ("captured_get", "captured_apply"):
+            assert client.post("/api/vault/sites/" + website.site.id + "/service", json={"action": action, "request": {"id": "a" * 32}}).status_code == 403
         payload = website.site.model_dump(mode="json")
         payload["targets"][0]["base_url"] = "https://example.invalid"
         assert client.put("/api/vault/sites/" + website.site.id, json=payload).status_code == 403
+        website.context.role = "owner"
+        monkeypatch.setattr(api.private_service, "invoke", lambda *args: {"test_mode": True, "id": "a" * 32})
+        response = client.post("/api/vault/sites/" + website.site.id + "/service", json={"action": "captured_get"})
+        assert response.status_code == 200
+        assert response.headers["cache-control"] == "no-store"
 
 
 @pytest.mark.skipif(shutil.which("php") is None, reason="PHP is not installed")
@@ -1071,6 +1078,11 @@ def test_real_private_cli_bridge_and_target_isolation(website):
         private_service.invoke(website.store, website.site, "status", {}, "another-destination")
     with pytest.raises(HTTPException):
         private_service.invoke(website.store, website.site, "arbitrary_admin_action", {})
+    website.site.targets[0].environment = "production"
+    for action in ("captured_get", "captured_apply"):
+        with pytest.raises(HTTPException) as production:
+            private_service.invoke(website.store, website.site, action, {})
+        assert production.value.status_code == 409
 
 
 @pytest.mark.skipif(shutil.which("php") is None, reason="PHP is not installed")

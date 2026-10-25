@@ -157,7 +157,8 @@ def save_service_settings(site_id: str, request: ServiceSettings, context: Admin
 
 
 @router.post("/{site_id}/service", response_model=PrivateServiceResponse)
-def private_operation(site_id: str, request: PrivateServiceRequest, context: Admin) -> PrivateServiceResponse:
+def private_operation(site_id: str, request: PrivateServiceRequest, context: Admin, response: Response) -> PrivateServiceResponse:
+    response.headers["Cache-Control"] = "no-store"
     store = store_for(context)
     result = private_service.invoke(store, store.load(site_id), request.action, request.request, request.target_id)
     return PrivateServiceResponse(data=result)
