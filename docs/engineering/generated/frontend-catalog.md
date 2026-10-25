@@ -52,7 +52,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2697 | 0 |
-| `features` | 1273 | 136786 | 55 |
+| `features` | 1275 | 136919 | 55 |
 | `generated` | 3 | 56744 | 585 |
 | `shared` | 347 | 37088 | 500 |
 
@@ -1345,13 +1345,15 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/websites/FormsEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/FormsEditor.tsx) | 36 | `FormsEditor` | — |
 | [`frontend/src/features/websites/NavigationEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/NavigationEditor.tsx) | 17 | `NavigationEditor` | — |
 | [`frontend/src/features/websites/PagesEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PagesEditor.tsx) | 40 | `PagesEditor` | — |
-| [`frontend/src/features/websites/PrivatePanels.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PrivatePanels.tsx) | 121 | `CampaignsPanel`, `MessagesPanel`, `PrivateSettingsEditor`, `SubscribersPanel` | — |
-| [`frontend/src/features/websites/PublishingPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PublishingPanel.tsx) | 70 | `PublishingPanel` | — |
+| [`frontend/src/features/websites/PrivatePanels.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PrivatePanels.tsx) | 139 | `CampaignsPanel`, `MessagesPanel`, `PrivateSettingsEditor`, `SubscribersPanel` | — |
+| [`frontend/src/features/websites/PublishingPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PublishingPanel.tsx) | 81 | `PublishingPanel` | — |
 | [`frontend/src/features/websites/SourcesEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/SourcesEditor.tsx) | 36 | `SourcesEditor` | — |
 | [`frontend/src/features/websites/TypographyPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/TypographyPicker.tsx) | 25 | `TypographyPicker` | — |
-| [`frontend/src/features/websites/WebsitesPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesPage.tsx) | 173 | `WebsitesPage`, `function` | — |
+| [`frontend/src/features/websites/WebsiteAutosave.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteAutosave.tsx) | 40 | `AutosaveStatus`, `WebsiteAutosave` | — |
+| [`frontend/src/features/websites/WebsitesPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesPage.tsx) | 204 | `WebsitesPage`, `function` | — |
+| [`frontend/src/features/websites/autosaveRequest.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/autosaveRequest.ts) | 29 | `autosaveRequest`, `useAutosaveRegistration` | — |
 | [`frontend/src/features/websites/components.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/components.tsx) | 42 | `Card`, `Empty`, `Field`, `FileImportButton`, `Input`, `ListInput`, `ReorderActions`, `Select`, `Textarea`, `Toggle` | — |
-| [`frontend/src/features/websites/helpers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/helpers.ts) | 19 | `escaped`, `filterValueText`, `moveItem`, `newId`, `safePreviewDocument`, `splitList` | — |
+| [`frontend/src/features/websites/helpers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/helpers.ts) | 23 | `configurationKey`, `escaped`, `filterValueText`, `moveItem`, `newId`, `safePreviewDocument`, `splitList` | — |
 | [`frontend/src/features/websites/serviceModels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/serviceModels.ts) | 38 | `count`, `decodeCampaignPreview`, `decodeCampaigns`, `decodeMessages`, `decodeQueue`, `decodeSubscribers`, `list`, `parseCsv`, `record`, `text` | — |
 | [`frontend/src/features/websites/useWebsiteFontSamples.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/useWebsiteFontSamples.ts) | 49 | `useWebsiteFontSamples` | — |
 | [`frontend/src/features/workspaces/Navigation/WorkspaceSwitcher.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/workspaces/Navigation/WorkspaceSwitcher.tsx) | 130 | `WorkspaceSwitcher` | — |
