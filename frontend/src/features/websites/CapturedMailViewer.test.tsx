@@ -1,8 +1,9 @@
 import { act } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mountTestComponent } from '../../../tests/mount-react';
 import type { SiteConfig } from '../../shared/api/sites';
-import { CapturedMailViewer, capturedDisplayHtml } from './CapturedMailViewer';
+import { CapturedMailViewer } from './CapturedMailViewer';
+import { capturedDisplayHtml } from './helpers';
 import { decodeCapturedMail } from './serviceModels';
 import type { PrivateCall } from './PrivatePanels';
 
@@ -11,6 +12,9 @@ const id = 'a'.repeat(32);
 const site: SiteConfig = { id: 'site', name: 'Test', origin: 'https://example.invalid', schema_version: 1, revision: 1, legacy_pilot: false, languages: ['ca', 'es'], default_language: 'ca' };
 const capture = { test_mode: true, id, to_email: 'reader@example.invalid', subject: 'Synthetic confirmation', body_text: 'Readable synthetic body', body_html: '<p>HTML preview</p>', subscriber: { language: 'ca', interests: ['original'] }, links: [{ index: 0, action: 'preferences', url: 'https://example.invalid/pilot/api/newsletter.php?action=preferences&token=' + 'b'.repeat(64) + '&language=ca', language: 'ca', list_id: 'main', state: 'ready' }] };
 const settle = async () => { await act(async () => { await Promise.resolve(); await Promise.resolve(); }); };
+const originalScrollIntoView = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView');
+beforeAll(() => { Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() }); });
+afterAll(() => { if (originalScrollIntoView) Object.defineProperty(Element.prototype, 'scrollIntoView', originalScrollIntoView); else Reflect.deleteProperty(Element.prototype, 'scrollIntoView'); });
 function button(container: HTMLElement, key: string) { const value = [...container.querySelectorAll('button')].find(item => item.textContent === key); if (!value) throw new Error('Missing '+key); return value; }
 
 describe('private synthetic captured mail', () => {
@@ -70,6 +74,22 @@ describe('private synthetic captured mail', () => {
     await act(async () => { finish(capture); await Promise.resolve(); });
     expect(view.container.textContent).toContain('Current private mail');
     expect(view.container.textContent).not.toContain('Synthetic confirmation');
+  });
+
+  it('ignores a pending action result after the reader is replaced', async () => {
+    let finish: (value: unknown) => void = () => undefined;
+    const otherId = 'd'.repeat(32); const onChanged = vi.fn();
+    const call = vi.fn<PrivateCall>().mockImplementation((action, request) => action === 'captured_apply' ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(request?.id === id ? capture : { ...capture, id: otherId, subject: 'Current private mail' }));
+    const props = { site, call, onClose: vi.fn(), onChanged };
+    const view = mountTestComponent(<CapturedMailViewer key={id} id={id} {...props} />); await settle();
+    act(() => { button(view.container, 'websites.captureTestLink').click(); });
+    act(() => { view.container.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); }); await settle();
+    expect(call).toHaveBeenLastCalledWith('captured_apply', { id, link_index: 0, language: 'ca', interests: ['original'] });
+    view.render(<CapturedMailViewer key={otherId} id={otherId} {...props} />); await settle();
+    await act(async () => { finish({ ...capture, action_applied: true }); await Promise.resolve(); });
+    expect(onChanged).not.toHaveBeenCalled();
+    expect(view.container.textContent).toContain('Current private mail');
+    expect(view.container.textContent).not.toContain('websites.captureActionApplied');
   });
 
   it('does not accept live mail or executable links from a malformed response', () => {

@@ -4,20 +4,8 @@ import type { ServiceRequest, SiteConfig } from '../../shared/api/sites';
 import { RefreshButton } from '../../shared/ui/actions/RefreshButton';
 import { Card, Field, Input, Select } from './components';
 import { WebsitePreview } from './AppearanceEditor';
-import { splitList } from './helpers';
+import { capturedDisplayHtml, splitList } from './helpers';
 import { decodeCapturedMail, type CapturedLink, type CapturedMail } from './serviceModels';
-
-/** Mail is display-only. Lifecycle operations use separate, server-bound controls. */
-export function capturedDisplayHtml(html: string): string {
-  const template = document.createElement('template');
-  template.innerHTML = html;
-  const allowed = new Set(['p', 'div', 'span', 'main', 'section', 'header', 'footer', 'table', 'tbody', 'thead', 'tfoot', 'tr', 'td', 'th', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'blockquote', 'br', 'hr', 'a', 'pre', 'code']);
-  for (const element of template.content.querySelectorAll('*')) {
-    if (!allowed.has(element.tagName.toLowerCase())) { element.remove(); continue; }
-    for (const attribute of [...element.attributes]) if (!['style', 'colspan', 'rowspan', 'lang', 'dir'].includes(attribute.name)) element.removeAttribute(attribute.name);
-  }
-  return template.innerHTML;
-}
 
 export function CapturedMailViewer({ id, site, call, onClose, onChanged }: { id: string; site: SiteConfig; call: (action: string, request: ServiceRequest['request']) => Promise<unknown>; onClose: () => void; onChanged: () => void }) {
   const { t } = useTranslation();
@@ -28,20 +16,21 @@ export function CapturedMailViewer({ id, site, call, onClose, onChanged }: { id:
   const generation = useRef(0);
   const reader = useRef<HTMLElement>(null); const form = useRef<HTMLFormElement>(null);
   useEffect(() => { if (mail?.id) reader.current?.focus(); }, [mail?.id]);
-  useEffect(() => { if (selected) { form.current?.scrollIntoView?.({ block: 'nearest' }); form.current?.querySelector<HTMLElement>('select,input,button')?.focus(); } }, [selected]);
+  useEffect(() => { if (selected) { form.current?.scrollIntoView({ block: 'nearest' }); form.current?.querySelector<HTMLElement>('select,input,button')?.focus(); } }, [selected]);
   useEffect(() => {
     let active = true; const current = ++generation.current;
+    const isCurrent = () => active && current === generation.current;
     void Promise.resolve().then(async () => {
-      if (!active) return; setLoading(true); setBusy(false); setError(''); setSelected(null); setMail(null); setNotice('');
+      if (!isCurrent()) return; setLoading(true); setBusy(false); setError(''); setSelected(null); setMail(null); setNotice('');
       try {
         const value = decodeCapturedMail(await call('captured_get', { id }));
-        if (!active || current !== generation.current) return;
+        if (!isCurrent()) return;
         if (!value || value.id !== id) throw new Error('Invalid captured mail');
         setMail(value);
-      } catch { if (active && current === generation.current) setError(t('websites.captureUnavailable')); }
-      finally { if (active && current === generation.current) setLoading(false); }
+      } catch { if (isCurrent()) setError(t('websites.captureUnavailable')); }
+      finally { if (isCurrent()) setLoading(false); }
     });
-    return () => { active = false; generation.current++; };
+    return () => { active = false; generation.current = current + 1; };
   }, [call, id, refresh, t]);
   const choose = (link: CapturedLink) => { setSelected(link); setLanguage(mail?.language || link.language); setInterests(mail?.interests.join(', ') ?? ''); setNotice(''); setError(''); };
   const apply = async () => {
