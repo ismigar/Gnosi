@@ -72,7 +72,7 @@ def test_recovers_only_before_login_then_sends_private_command_once(monkeypatch)
     bridge, _, waits, launches = harness(monkeypatch, children)
     with bridge:
         assert bridge.run("private-operation") == '{"ok":true}'
-    assert waits == [1.0, 2.0] and launches == [45.0, 44.0, 42.0]
+    assert waits == [10.0, 20.0] and launches == [45.0, 35.0, 15.0]
     assert children[0].sent == children[1].sent == []
     assert children[2].sent[:3] == ["synthetic-password", "suweb", "stty -echo"]
     assert len([value for child in children for value in child.sent if "GNOSI_SITE_READ_" in value]) == 1
@@ -124,7 +124,7 @@ def test_disconnect_recovery_stops_after_three_attempts(monkeypatch):
     bridge, _, waits, launches = harness(monkeypatch, children)
     with pytest.raises(HTTPException):
         bridge.run("private-operation")
-    assert len(launches) == 3 and waits == [1.0, 2.0]
+    assert len(launches) == 3 and waits == [10.0, 20.0]
     assert all(child.closed and child.sent == [] for child in children)
 
 

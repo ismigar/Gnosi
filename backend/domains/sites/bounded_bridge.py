@@ -78,7 +78,7 @@ class BoundedBridge:
             if first != 3 or not transient or attempt == 2:
                 break
             self.close()
-            time.sleep(min(float(attempt + 1), self.remaining()))
+            time.sleep(min(10.0 * (attempt + 1), self.remaining()))
             self.remaining()
         if self.child is None:
             raise RuntimeError("The SSH connection is unavailable")

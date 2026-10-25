@@ -12,6 +12,7 @@ import shlex
 import sys
 import tarfile
 import tempfile
+import threading
 import uuid
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -24,6 +25,9 @@ from .models import SiteConfig, SiteTarget
 from .private_service import SERVICE_ROOT, configuration
 from .storage import SiteStore, private_json
 from .ssh_namespace import program as namespace_program, worker_start_program
+
+
+_BOUNDED_CONNECTION_LOCK = threading.Lock()
 
 
 class Bridge(Protocol):
@@ -132,7 +136,18 @@ def connection(store: SiteStore, *, bounded: bool = False) -> Iterator[tuple[Dri
     if bounded and isinstance(settings, dict):
         from .bounded_bridge import BoundedBridge
         with BoundedBridge(cast(dict[str, str], settings)) as bridge:
-            yield transport, bridge
+            # A panel can request several private lists at once. Keep their SSH
+            # sessions serial, with queueing charged to each original deadline.
+            if not _BOUNDED_CONNECTION_LOCK.acquire(timeout=bridge.remaining()):
+                raise HTTPException(503, "The Pangea connection is busy; refresh to retry")
+            try:
+                try:
+                    bridge.remaining()
+                except TimeoutError:
+                    raise HTTPException(503, "The Pangea connection wait exceeded its deadline") from None
+                yield transport, bridge
+            finally:
+                _BOUNDED_CONNECTION_LOCK.release()
         return
     with session as bridge:
         yield transport, bridge
