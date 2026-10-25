@@ -70,6 +70,32 @@ class _Briefing:
     def cost(self, request: AgentOperation) -> int:
         return self.count(operation_input(request)) + 1024
 
+    def _cache_key(self, request: AgentOperation) -> str:
+        return "podcast-coverage-v1:" + revision([self.snapshot.revision, request.model_dump()])
+
+    def has_saved(self, request: AgentOperation) -> bool:
+        """Identify prior work without trusting it in place of stage validation."""
+        from backend.services.agent_execution_store import work_checkpoint
+        self.check_active()
+        parent = self.snapshot.parent_run_id
+        return bool(parent and work_checkpoint(self.snapshot.scope, parent, self._cache_key(request)) is not None)
+
+    def audit_partition(self, request: AgentOperation, *, split: bool = False) -> bool:
+        """Retain only the partition decision, bound to the exact frozen request."""
+        from backend.services.agent_execution_store import work_checkpoint
+        self.check_active()
+        parent = self.snapshot.parent_run_id
+        if not parent:
+            return False
+        key = 'podcast-audit-partition-v1:' + self._cache_key(request).removeprefix('podcast-coverage-v1:')
+        saved = work_checkpoint(self.snapshot.scope, parent, key)
+        if saved is not None and saved != {'split': True}:
+            raise ValueError('podcast_invalid_audit_partition_state')
+        if split and saved is None:
+            self.check_active()
+            work_checkpoint(self.snapshot.scope, parent, key, {'split': True})
+        return split or saved is not None
+
     def stage(self, request: AgentOperation, validate: Callable[[dict[str, Any]], None],
               *, output_repair: RepairBuilder | None = None) -> dict[str, Any]:
         from backend.services.agent_execution import run_sync
@@ -77,7 +103,7 @@ class _Briefing:
         self.check_active()
         if self.cost(request) > self.budget:
             raise RuntimeError("podcast_complete_briefing_context_insufficient")
-        key = "podcast-coverage-v1:" + revision([self.snapshot.revision, request.model_dump()])
+        key = self._cache_key(request)
         parent = self.snapshot.parent_run_id
         schema = request.output_schema
         if schema is None:
