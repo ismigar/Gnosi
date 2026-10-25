@@ -1128,3 +1128,63 @@ def test_group_length_repair_reaches_real_executor_with_current_counts(runtime, 
     assert guidance["group:0"]["current"] == 1000 and guidance["group:1"]["current"] == 505
     assert sum(value["suggested"] for value in guidance.values()) == 1380
     assert len(store.list_runs(scope)) == 1 and store.list_runs(scope)[0].status == "completed"
+
+
+@pytest.mark.parametrize('operation,failure,max_calls,expected_calls,completed', [
+    ('podcast.coverage.briefs', 'once', 2, 2, True),
+    ('podcast.coverage.audit', 'always', 2, 2, False),
+    ('podcast.coverage.write', 'once', 1, 1, False),
+    ('podcast.coverage.briefs', 'quota', 2, 1, False),
+    ('podcast.coverage.audit', 'filter', 2, 1, False),
+    ('writing', 'once', 2, 1, False),
+])
+def test_podcast_capacity_retry_keeps_identical_request_provider_and_call_limit(
+    runtime, monkeypatch, operation, failure, max_calls, expected_calls, completed,
+):
+    import httpx
+    from openai import RateLimitError, ContentFilterFinishReasonError
+    from backend.agent import factory, model_router
+    from backend.services import podcast_provider_retry, agent_execution_trace
+    scope, snapshot = runtime
+    monkeypatch.setattr(model_router, 'budget_status', lambda: {'over_cap': False})
+    error = (ContentFilterFinishReasonError() if failure == 'filter' else RateLimitError(
+        'Temporarily rate-limited upstream.',
+        response=httpx.Response(429, headers={'Retry-After': '7'}, request=httpx.Request('POST', 'https://provider.invalid')),
+        body={'error': {'code': 'insufficient_quota' if failure == 'quota' else 429}}))
+    waits, calls, setups = [], [], []
+    async def sleep(seconds):
+        waits.append(seconds)
+    monkeypatch.setattr(podcast_provider_retry, 'sleep', sleep)
+    class Application:
+        async def astream(self, inputs, **kwargs):
+            execution.before_model_call()
+            calls.append(tuple(message.content for message in inputs['messages']))
+            if len(calls) == 1 or failure == 'always':
+                raise error
+            yield {'operation': {'messages': [AIMessage(content='{"answer":"complete"}')]}}
+        def compile(self):
+            return self
+    async def create(*args, **kwargs):
+        setups.append(kwargs)
+        return Application(), {'model': 'same-model', 'provider': 'same-provider'}
+    monkeypatch.setattr(factory, 'create_agent_workflow', create)
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation, input='All original evidence',
+        output_schema={'type': 'object', 'required': ['answer']}, max_model_calls=max_calls, timeout_seconds=300)
+    with execution_scope(scope):
+        work = execution.execute_operation(request, snapshot=snapshot)
+        if completed:
+            result = asyncio.run(work)
+            assert result.status == 'completed' and json.loads(result.result) == {'answer': 'complete'}
+        else:
+            with pytest.raises(type(error)):
+                asyncio.run(work)
+    row = store.list_runs(scope)[0]
+    assert row.model_calls == expected_calls == len(calls)
+    assert row.status == ('completed' if completed else 'failed')
+    assert len(set(calls)) == 1 and len(setups) == 1
+    assert setups[0]['prepared_agent_data'] is snapshot.profile and setups[0]['timeout'] == 300
+    events = agent_execution_trace.events(scope, row.run_id)['events']
+    retries = [event for event in events if event['kind'] == 'operation.provider_retry']
+    assert len(retries) == len(waits) == (1 if expected_calls == 2 else 0)
+    if retries:
+        assert retries[0]['value']['calls_left'] == 1 and waits == [7]

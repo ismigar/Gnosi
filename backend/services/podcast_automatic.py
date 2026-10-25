@@ -29,10 +29,13 @@ def _audit(context: _Briefing, data: dict[str, Any]) -> list[dict[str, Any]]:
 def _review_theme(context: _Briefing, evidence: list[dict[str, Any]], narration: str,
                   subjects: list[list[str]]) -> list[dict[str, Any]]:
     from backend.services.podcast_review import _schema
+    if any(not context.originals.get(brief["part_id"], "").strip() for brief in evidence):
+        raise ValueError("podcast_original_evidence_missing")
+    originals = [{**brief, "source_text": context.originals[brief["part_id"]]} for brief in evidence]
     issues = []
     for focus in ('fidelity', 'coverage'):
         batches: list[list[dict[str, Any]]] = [[]]
-        for brief in evidence:
+        for brief in originals:
             candidate = [*batches[-1], brief]
             data = {"briefs": candidate, "narration": narration, "review_focus": focus, "subjects": subjects}
             request = _request(context, "audit", data, _schema(data))

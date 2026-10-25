@@ -31,6 +31,9 @@ def _schema(data: dict[str, Any]) -> dict[str, Any]:
 
 def _validate(result: dict[str, Any], data: dict[str, Any]) -> None:
     narration = data.get('narration', '\n\n'.join(s['narration'] for s in data.get('sections', [])))
+    if not data.get("whole_episode") and (not data.get("briefs") or
+            any(not str(brief.get("source_text", "")).strip() for brief in data["briefs"])):
+        raise ValueError("podcast_audit_original_evidence_missing")
     for issue in result['issues']:
         if 'candidate_findings' in data and issue not in data['candidate_findings']:
             raise ValueError('podcast_audit_confirmation_changed_finding')
@@ -53,7 +56,7 @@ def _validate(result: dict[str, Any], data: dict[str, Any]) -> None:
             if not ids:
                 raise ValueError('podcast_audit_missing_evidence_ids')
             available = [str(b.get(key, '')) for b in data['briefs'] if b['part_id'] in ids
-                         for key in ('topic', 'title', 'summary', 'quote')]
+                         for key in ('source_text', 'title')]
         if not evidence or not any(evidence in value for value in available):
             raise ValueError('podcast_audit_invented_evidence_quote')
 

@@ -379,6 +379,7 @@ def test_oversized_theme_uses_recursive_bounded_digests_without_losing_ids():
             return result
     briefs = [{'part_id': f'{i}:0', 'source_id': str(i), 'title': 'Title',
                'topic': 'Shared issue', 'summary': 'Evidence ' * 45, 'quote': 'Exact quote'} for i in range(110)]
+    Context.originals = {brief['part_id']: 'Exact quote. ' + brief['summary'] for brief in briefs}
     sections, outline, budget = narrate_day(Context(), briefs, lambda _: None)
     assert calls.count('podcast.coverage.digest') > 14  # More than one reduction level.
     assert {p for s in sections for p in s['part_ids']} == {b['part_id'] for b in briefs}
@@ -485,7 +486,7 @@ def test_routing_requires_exactly_one_typed_assignment_for_every_source(pipeline
 def test_audit_cannot_invent_quoted_passages_or_change_confirmed_finding(changed):
     from backend.services.podcast_review import _validate
     data = {'narration': 'The party requests an extension.', 'briefs': [
-        {'part_id': 'a:0', 'quote': 'The party requests an extension.'}]}
+        {'part_id': 'a:0', 'quote': 'The party requests an extension.', 'source_text': 'The party requests an extension.'}]}
     finding = {'kind': 'distortion', 'detail': 'Check certainty.',
                'narration_quotes': ['The party requests an extension.'],
                'source_part_ids': ['a:0'], 'evidence_quote': 'The party requests an extension.'}
@@ -544,7 +545,7 @@ def test_global_overshoot_is_rewritten_without_clipping_or_local_caps(pipeline):
 
 def test_audit_confirmation_batches_findings_without_discarding_evidence():
     from backend.services.podcast_review import _confirm, _schema
-    data = {'narration': 'A supported headline.', 'briefs': [{'part_id': 'a:0', 'quote': 'Evidence.'}]}
+    data = {'narration': 'A supported headline.', 'briefs': [{'part_id': 'a:0', 'quote': 'Evidence.', 'source_text': 'Evidence.'}]}
     findings = [{'kind': 'omission', 'detail': str(i), 'narration_quotes': [],
                  'source_part_ids': ['a:0'], 'evidence_quote': 'Evidence.'} for i in range(5)]
     calls = []
@@ -626,7 +627,7 @@ def test_nonshrinking_internal_reduction_cannot_send_oversized_writer_request_or
 def test_review_exhaustion_splits_only_failed_work_and_preserves_all_evidence(confirmation, exhaustion):
     from openai import LengthFinishReasonError
     from backend.services.podcast_review import _stage
-    briefs = [{'part_id': f'{i}:0', 'quote': f'Evidence {i}'} for i in range(5)]
+    briefs = [{'part_id': f'{i}:0', 'quote': f'Evidence {i}', 'source_text': f'Evidence {i}'} for i in range(5)]
     findings = [{'kind': 'omission', 'detail': str(i), 'narration_quotes': [],
                  'source_part_ids': [b['part_id']], 'evidence_quote': b['quote']} for i, b in enumerate(briefs)]
     data = {'narration': 'The current complete episode.', 'briefs': briefs}
@@ -693,6 +694,7 @@ def test_fidelity_and_coverage_each_review_every_source_with_full_ledger():
     data_seen = []
     briefs = [{'part_id': f'{i}:0', 'summary': 'A request, not completion.'} for i in range(35)]
     class Context:
+        originals: dict[str, str]
         budget = 80000
         def request(self, operation, data, schema):
             return SimpleNamespace(model_copy=lambda update: data)
@@ -705,9 +707,12 @@ def test_fidelity_and_coverage_each_review_every_source_with_full_ledger():
             result = {'issues': []}
             validate(result)
             return result
+    Context.originals = {brief['part_id']: f'Original qualification {i}.' for i, brief in enumerate(briefs)}
     assert _review_theme(Context(), briefs, 'The whole narration.', [['Minority domain', 'Shared domain']]) == []
     for focus in ('fidelity', 'coverage'):
-        assert [b for d in data_seen if d['review_focus'] == focus for b in d['briefs']] == briefs
+        delivered = [b for d in data_seen if d['review_focus'] == focus for b in d['briefs']]
+        assert [{k: v for k, v in b.items() if k != 'source_text'} for b in delivered] == briefs
+        assert all(b['source_text'] == Context.originals[b['part_id']] for b in delivered)
 
 
 @pytest.mark.parametrize('exhaustion', ['length', 'timeout'])
@@ -715,7 +720,7 @@ def test_fidelity_and_coverage_each_review_every_source_with_full_ledger():
 def test_review_leaf_approvals_cover_all_original_obligations_after_exhaustion(whole_episode, exhaustion):
     from openai import LengthFinishReasonError
     from backend.services.podcast_review import review
-    briefs = [{'part_id': f'{i}:0', 'quote': f'Evidence {i}'} for i in range(7)]
+    briefs = [{'part_id': f'{i}:0', 'quote': f'Evidence {i}', 'source_text': f'Evidence {i}'} for i in range(7)]
     data = ({'whole_episode': True, 'sections': [{'narration': 'The complete episode.'}],
              'subjects': [[f'Domain {i}'] for i in range(7)]} if whole_episode else
             {'narration': 'The complete episode.', 'briefs': briefs, 'review_focus': 'coverage'})

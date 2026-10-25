@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 import jsonschema
@@ -59,6 +59,7 @@ class _Briefing:
     budget: int
     count: Callable[[str], int]
     check_active: Callable[[], None]
+    originals: dict[str, str] = field(default_factory=dict)
 
     def request(self, task: str, data: dict[str, Any], schema: dict[str, Any]) -> AgentOperation:
         return AgentOperation(skill_id="core.gnosi-daily-briefing", operation=task,
@@ -142,8 +143,9 @@ def build_podcast_script(sources: list[dict[str, Any]], language: str, *, snapsh
     budget = window - max(2048, window // 4) - count(snapshot_instruction_text(snapshot)) - 2048
     if budget < 8000:
         raise RuntimeError("podcast_complete_briefing_context_insufficient")
-    context = _Briefing(snapshot, language, budget, count, check_active)
     parts = _parts(sources, budget, count)
+    context = _Briefing(snapshot, language, budget, count, check_active,
+                        originals={part["part_id"]: part["text"] for part in parts})
     briefs: list[dict[str, Any]] = []
     for batch in context.batches(parts):
         progress(f"Preparing source briefs: {len(briefs)}/{len(parts)}")
