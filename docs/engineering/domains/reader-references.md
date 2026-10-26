@@ -34,11 +34,13 @@ source_paths:
   - backend/services/references_io.py
   - backend/services/import_dedup.py
   - backend/services/audio_summarizer.py
+  - backend/services/podcast_feedback.py
   - frontend/src/features/reader
   - frontend/src/features/literature
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_feedback.py
   - backend/tests/test_reader_source_registry.py
   - backend/tests/test_reader_source_routes.py
   - backend/tests/test_feed_ingester_savepoint.py
@@ -572,4 +574,21 @@ retain their existing guards.
 
 Initial advisory paragraph targets share the global budget exactly. Existing validation retries receive exact current paragraph counts and proportional suggested shares, recomputed from the immediately rejected response. Shares can be redistributed; only the global word range and semantic reviews decide acceptance.
 
-When confirmed findings alone exceed the existing writer context budget, bounded digest operations produce one schema-required correction guide per finding. The writer receives a compact columnar transport with every original finding ID, kind and source scope; complete grounded findings and confirmations remain in their existing checkpoints. This does not approve findings or narration. The unchanged original-source fidelity, coverage and whole-episode reviews still gate publication of the complete rewritten episode. No context, word, call, deadline or semantic-pass limit is increased.
+When confirmed findings alone exceed the existing writer context budget,
+bounded digest operations produce one schema-required correction guide per
+finding. The writer receives a compact columnar transport with every original
+finding ID, kind and source scope; complete grounded findings and confirmations
+remain in their existing checkpoints. This does not approve findings or
+narration. The unchanged original-source fidelity, coverage and whole-episode
+reviews still gate publication of the complete rewritten episode. No context,
+word, call, deadline or semantic-pass limit is increased.
+
+Internal correction guides use a schema-constrained printable ASCII alphabet
+without double quotation marks, backslashes or control characters. The dynamic
+character limit therefore equals the guide's doubly serialized UTF-8 byte
+limit, at most 160 bytes; the backend also checks the actual encoded size.
+Invalid output uses the existing bounded validation repair and cannot reach the
+writer unchecked. Original sources, complete confirmed findings and the final
+Catalan narration retain their Unicode text. The transport restriction neither
+changes source membership nor approves the final episode; its complete semantic
+reviews and word budget remain required before speech or publication.
