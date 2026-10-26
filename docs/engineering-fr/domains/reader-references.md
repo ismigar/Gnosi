@@ -35,12 +35,17 @@ source_paths:
   - backend/services/import_dedup.py
   - backend/services/audio_summarizer.py
   - backend/services/podcast_feedback.py
+  - backend/services/podcast_briefing.py
+  - backend/services/podcast_feedback_repair.py
+  - backend/agent/behavior/operations/podcast/feedback-contract.md
   - frontend/src/features/reader
   - frontend/src/features/literature
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
   - backend/tests/test_podcast_feedback.py
+  - backend/tests/test_podcast_feedback_repair.py
+  - backend/tests/test_podcast_feedback_repair_transport.py
   - backend/tests/test_reader_source_registry.py
   - backend/tests/test_reader_source_routes.py
   - backend/tests/test_feed_ingester_savepoint.py
@@ -617,3 +622,21 @@ indépendamment des caractères ASCII imprimables et exclut les guillemets doubl
 les barres obliques inverses et les sauts de ligne, y compris le saut final accepté
 par certains validateurs regex. Le schéma fermé, les identifiants exacts des
 objections et la limite réelle d'octets restent contrôlés.
+
+La réparation des consignes internes inspecte toutes les valeurs retournées au
+lieu de se limiter au premier diagnostic du schéma. Le dernier appel existant
+du modèle reçoit exactement tous les identifiants invalides, les objections
+originales confirmées, les nombres réels de caractères et d'octets sérialisés,
+et une cible indicative inférieure à la limite stricte existante. Le correctif
+ne peut ajouter de clé ni réécrire une consigne valide. L'application restaure
+la correspondance complète et répète les contrôles initiaux du schéma, de
+l'alphabet et des octets avant de l'enregistrer. Si nécessaire, le brouillon
+interne rejeté trop volumineux est omis ; les objections originales et les
+comptages restent présents, dans la limite de contexte existante de 40 000 tokens.
+Les appels autorisés, le délai partagé et les examens sémantiques finaux ne changent pas.
+
+Une consigne rejetée contenant un Unicode invalide n'a pas de nombre valide
+d'octets UTF-8. Son texte interne est exclu de la réparation et le comptage est
+explicitement indisponible ; l'objection originale confirmée et le nombre de
+caractères restent présents. Le remplacement doit toujours respecter les mêmes
+contraintes d'ASCII imprimable et d'octets.

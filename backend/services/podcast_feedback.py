@@ -22,6 +22,21 @@ def _guidance_request(context: _Briefing, findings: list[dict[str, Any]], byte_b
         update={'options': {'feedback_contract': resource('operations/podcast/feedback-contract.md')}})
 
 
+def _validate_guidance(value: dict[str, Any], byte_budget: int) -> None:
+    if any(not text.strip() for text in value['guidance'].values()):
+        raise ValueError('podcast_feedback_guidance_empty')
+    for key, text in value['guidance'].items():
+        # Portable provider regex anchors may accept a final newline locally.
+        if not text.isascii() or not text.isprintable() or '"' in text or '\\' in text:
+            raise ValueError(f'podcast_feedback_guidance_ascii: {key} requires printable ASCII '
+                             'without double quotes, backslashes or line breaks.')
+        # Both JSON layers are charged by operation_input's conservative counter.
+        wire = len(json.dumps(json.dumps(text, ensure_ascii=False), ensure_ascii=False).encode()) - 6
+        if wire > byte_budget:
+            raise ValueError(f'podcast_feedback_guidance_budget: {key} needs at most '
+                             f'{byte_budget} serialized UTF8 bytes; received {wire}. '
+                             'Shorten the English correction while retaining its essential qualification.')
+
 def _guidance(context: _Briefing, findings: list[dict[str, Any]], byte_budget: int) -> list[list[Any]]:
     identified = [{'finding_id': f'finding:{index}', 'finding': deepcopy(finding)}
                   for index, finding in enumerate(findings)]
@@ -37,19 +52,7 @@ def _guidance(context: _Briefing, findings: list[dict[str, Any]], byte_budget: i
     rows: list[list[Any]] = []
     for batch in batches:
         def checked(value: dict[str, Any]) -> None:
-            if any(not text.strip() for text in value['guidance'].values()):
-                raise ValueError('podcast_feedback_guidance_empty')
-            for key, text in value['guidance'].items():
-                # Portable provider regex anchors may accept a final newline locally.
-                if not text.isascii() or not text.isprintable() or '"' in text or '\\' in text:
-                    raise ValueError(f'podcast_feedback_guidance_ascii: {key} requires printable ASCII '
-                                     'without double quotes, backslashes or line breaks.')
-                # Both JSON layers are charged by operation_input's conservative counter.
-                wire = len(json.dumps(json.dumps(text, ensure_ascii=False), ensure_ascii=False).encode()) - 6
-                if wire > byte_budget:
-                    raise ValueError(f'podcast_feedback_guidance_budget: {key} needs at most '
-                                     f'{byte_budget} serialized UTF8 bytes; received {wire}. '
-                                     'Shorten the English correction while retaining its essential qualification.')
+            _validate_guidance(value, byte_budget)
         result = context.stage(_guidance_request(context, batch, byte_budget), checked)
         rows.extend([row['finding_id'], row['finding']['kind'],
                      deepcopy(row['finding']['source_part_ids']), result['guidance'][row['finding_id']]]

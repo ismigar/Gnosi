@@ -35,12 +35,17 @@ source_paths:
   - backend/services/import_dedup.py
   - backend/services/audio_summarizer.py
   - backend/services/podcast_feedback.py
+  - backend/services/podcast_briefing.py
+  - backend/services/podcast_feedback_repair.py
+  - backend/agent/behavior/operations/podcast/feedback-contract.md
   - frontend/src/features/reader
   - frontend/src/features/literature
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
   - backend/tests/test_podcast_feedback.py
+  - backend/tests/test_podcast_feedback_repair.py
+  - backend/tests/test_podcast_feedback_repair_transport.py
   - backend/tests/test_reader_source_registry.py
   - backend/tests/test_reader_source_routes.py
   - backend/tests/test_feed_ingester_savepoint.py
@@ -569,3 +574,20 @@ independientemente ASCII imprimible y excluye comillas dobles, barras inversas y
 saltos de línea, incluido el salto final que algunos validadores regex aceptan.
 Se mantienen el esquema cerrado, los identificadores exactos de las objeciones
 y el límite real de bytes.
+
+La reparación de guías internas inspecciona todos los valores devueltos en lugar
+de limitarse al primer diagnóstico del esquema. La última llamada existente del
+modelo recibe exactamente todos los identificadores inválidos, los hallazgos
+originales confirmados, los recuentos reales de caracteres y bytes serializados
+y un objetivo orientativo inferior al límite estricto existente. El parche no
+puede añadir claves ni reescribir guías válidas. La aplicación restaura el mapa
+completo y repite las comprobaciones originales de esquema, alfabeto y bytes
+antes de guardarlo. Si es necesario, se omite el borrador interno rechazado por
+su tamaño; se conservan los hallazgos originales y los recuentos, dentro del
+límite de contexto existente de 40.000 tokens. No cambian las llamadas permitidas,
+el plazo compartido ni las revisiones semánticas finales.
+
+Si una guía rechazada contiene Unicode inválido, no tiene un recuento válido de
+bytes UTF-8. Su texto interno se excluye de la reparación y el recuento se marca
+como no disponible; se conservan el hallazgo original confirmado y el número de
+caracteres. La sustitución sigue sujeta a los mismos controles de ASCII imprimible y bytes.

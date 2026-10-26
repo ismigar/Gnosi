@@ -35,12 +35,17 @@ source_paths:
   - backend/services/import_dedup.py
   - backend/services/audio_summarizer.py
   - backend/services/podcast_feedback.py
+  - backend/services/podcast_briefing.py
+  - backend/services/podcast_feedback_repair.py
+  - backend/agent/behavior/operations/podcast/feedback-contract.md
   - frontend/src/features/reader
   - frontend/src/features/literature
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
   - backend/tests/test_podcast_feedback.py
+  - backend/tests/test_podcast_feedback_repair.py
+  - backend/tests/test_podcast_feedback_repair_transport.py
   - backend/tests/test_reader_source_registry.py
   - backend/tests/test_reader_source_routes.py
   - backend/tests/test_feed_ingester_savepoint.py
@@ -622,3 +627,19 @@ asserció anticipada, que Xiaomi rebutja com a petició invàlida. El backend ex
 independentment ASCII imprimible i exclou cometes dobles, barres inverses i salts
 de línia, inclòs el salt final que alguns validadors regex accepten. Es mantenen
 l'esquema tancat, els identificadors exactes de les objeccions i el límit real de bytes.
+
+La reparació de guies internes inspecciona tots els valors retornats, en lloc de
+limitar-se al primer diagnòstic de l'esquema. L'última crida existent del model
+rep exactament tots els identificadors invàlids, les objeccions originals
+confirmades, els recomptes reals de caràcters i bytes serialitzats i un objectiu
+orientatiu inferior al límit estricte existent. El pedaç no pot afegir claus ni
+reescriure guies vàlides. L'aplicació restaura el mapa complet i repeteix les
+comprovacions originals d'esquema, alfabet i bytes abans de desar-lo. Si cal,
+s'omet l'esborrany intern rebutjat per excés de mida; es mantenen les objeccions
+originals i els recomptes, dins del límit de context existent de 40.000 tokens.
+No canvien les crides permeses, el termini compartit ni les revisions semàntiques finals.
+
+Si una guia rebutjada conté Unicode invàlid, no té un recompte de bytes UTF-8
+vàlid. El text intern s'exclou de la reparació i el recompte es marca com a no
+disponible; es conserven l'objecció original confirmada i el nombre de caràcters.
+La substitució continua subjecta als mateixos controls d'ASCII imprimible i bytes.

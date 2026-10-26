@@ -35,12 +35,17 @@ source_paths:
   - backend/services/import_dedup.py
   - backend/services/audio_summarizer.py
   - backend/services/podcast_feedback.py
+  - backend/services/podcast_briefing.py
+  - backend/services/podcast_feedback_repair.py
+  - backend/agent/behavior/operations/podcast/feedback-contract.md
   - frontend/src/features/reader
   - frontend/src/features/literature
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
   - backend/tests/test_podcast_feedback.py
+  - backend/tests/test_podcast_feedback_repair.py
+  - backend/tests/test_podcast_feedback_repair_transport.py
   - backend/tests/test_reader_source_registry.py
   - backend/tests/test_reader_source_routes.py
   - backend/tests/test_feed_ingester_savepoint.py
@@ -600,3 +605,19 @@ Xiaomi rejects as an invalid request. The backend independently requires every
 character to be printable ASCII and excludes quotes, backslashes and line
 breaks, including a trailing newline accepted by some regex validators. The
 closed schema, exact finding membership and actual byte limit remain enforced.
+
+Internal guidance repair inspects every returned guide, rather than only the
+first schema diagnostic. Its remaining existing model call receives exactly
+all invalid finding IDs, their original confirmed findings, actual character
+and serialized-byte counts, and an advisory target below the unchanged hard
+limit. The patch cannot add a key or rewrite a valid guide. The application
+restores the complete map and repeats the original schema, alphabet and byte
+checks before checkpointing. Oversized rejected internal drafts may be omitted
+from the repair request; original findings and measured counts remain, and the
+request must still fit the existing 40,000-token/context bound. The original
+call allowance, shared deadline and final semantic reviews remain unchanged.
+
+A rejected guide containing invalid Unicode has no valid UTF-8 byte count. Its
+internal text is excluded from the repair payload and the count is explicitly
+unavailable; its original confirmed finding and character count remain. The
+replacement still must pass the same printable ASCII and byte constraints.
