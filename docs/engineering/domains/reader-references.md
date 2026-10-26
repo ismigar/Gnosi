@@ -594,3 +594,9 @@ writer unchecked. Original sources, complete confirmed findings and the final
 Catalan narration retain their Unicode text. The transport restriction neither
 changes source membership nor approves the final episode; its complete semantic
 reviews and word budget remain required before speech or publication.
+
+The provider schema uses a portable end anchor rather than lookaround, which
+Xiaomi rejects as an invalid request. The backend independently requires every
+character to be printable ASCII and excludes quotes, backslashes and line
+breaks, including a trailing newline accepted by some regex validators. The
+closed schema, exact finding membership and actual byte limit remain enforced.

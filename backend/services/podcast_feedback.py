@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 def _guidance_request(context: _Briefing, findings: list[dict[str, Any]], byte_budget: int) -> AgentOperation:
     schema = _object({'guidance': _object({row['finding_id']: {
         'type': 'string', 'minLength': 1, 'maxLength': byte_budget,
-        'pattern': r'^[\x20-\x21\x23-\x5B\x5D-\x7E]+(?![\s\S])'} for row in findings})})
+        'pattern': r'^[\x20-\x21\x23-\x5B\x5D-\x7E]+$'} for row in findings})})
     return context.request('podcast.coverage.digest', {'confirmed_findings': findings, 'guidance_byte_budget': byte_budget}, schema).model_copy(
         update={'options': {'feedback_contract': resource('operations/podcast/feedback-contract.md')}})
 
@@ -40,6 +40,10 @@ def _guidance(context: _Briefing, findings: list[dict[str, Any]], byte_budget: i
             if any(not text.strip() for text in value['guidance'].values()):
                 raise ValueError('podcast_feedback_guidance_empty')
             for key, text in value['guidance'].items():
+                # Portable provider regex anchors may accept a final newline locally.
+                if not text.isascii() or not text.isprintable() or '"' in text or '\\' in text:
+                    raise ValueError(f'podcast_feedback_guidance_ascii: {key} requires printable ASCII '
+                                     'without double quotes, backslashes or line breaks.')
                 # Both JSON layers are charged by operation_input's conservative counter.
                 wire = len(json.dumps(json.dumps(text, ensure_ascii=False), ensure_ascii=False).encode()) - 6
                 if wire > byte_budget:

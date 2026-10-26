@@ -610,3 +610,10 @@ la narration finale en catalan conservent leur texte Unicode. Cette restriction
 de transport ne modifie pas les sources incluses et n'approuve pas l'épisode
 final : les examens sémantiques complets et le budget de mots restent requis
 avant la synthèse vocale ou la publication.
+
+Le schéma envoyé au fournisseur utilise une ancre de fin portable plutôt qu'une
+assertion anticipée, que Xiaomi rejette comme requête invalide. Le backend exige
+indépendamment des caractères ASCII imprimables et exclut les guillemets doubles,
+les barres obliques inverses et les sauts de ligne, y compris le saut final accepté
+par certains validateurs regex. Le schéma fermé, les identifiants exacts des
+objections et la limite réelle d'octets restent contrôlés.

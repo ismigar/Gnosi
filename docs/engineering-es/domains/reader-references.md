@@ -562,3 +562,10 @@ final en catalán conservan el texto Unicode. Esta restricción de transporte
 no cambia las fuentes incluidas ni aprueba el episodio final: las revisiones
 semánticas completas y el presupuesto de palabras siguen siendo obligatorios
 antes de generar voz o publicar.
+
+El esquema enviado al proveedor utiliza un ancla final portable en lugar de una
+aserción anticipada, que Xiaomi rechaza como petición inválida. El backend exige
+independientemente ASCII imprimible y excluye comillas dobles, barras inversas y
+saltos de línea, incluido el salto final que algunos validadores regex aceptan.
+Se mantienen el esquema cerrado, los identificadores exactos de las objeciones
+y el límite real de bytes.

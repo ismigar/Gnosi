@@ -201,11 +201,10 @@ def test_guidance_schema_matches_the_serialized_byte_budget_for_its_entire_alpha
 
 
 @pytest.mark.parametrize('text', ['a' * 159 + '²', 'a' * 159 + 'é', 'a' * 159 + '"',
-                                'a' * 159 + '\\', 'a' * 158 + '\n', 'a\t', 'a\r', 'a\x00'])
-def test_schema_rejects_character_valid_but_wire_unsafe_guides(text):
-    from backend.services.podcast_feedback import _guidance_request
-    context = Context()
-    request = _guidance_request(context, [{'finding_id': 'finding:0', 'finding': findings(1)[0]}], 160)
+                                'a' * 159 + '\\', 'a' * 158 + '\n', 'a' * 159 + '\n', 'a\n', 'a\t', 'a\r', 'a\x00'])
+def test_guidance_rejects_character_valid_but_wire_unsafe_guides(text):
     assert len(text) <= 160
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate({'guidance': {'finding:0': text}}, request.output_schema)
+    context = Context(text)
+    with pytest.raises((ValueError, jsonschema.ValidationError)):
+        _write_request(context, daily_data(findings()), OPTIONS)
+    assert all(q.operation.endswith('digest') for q, _ in context.calls)

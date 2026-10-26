@@ -616,3 +616,9 @@ Les fonts originals, les objeccions confirmades completes i la narració final
 en català conserven el text Unicode. Aquesta restricció de transport no canvia
 les fonts incloses ni aprova l'episodi final: les revisions semàntiques completes
 i el pressupost de paraules continuen sent obligatoris abans de locutar o publicar.
+
+L'esquema enviat al proveïdor utilitza una àncora final portable en lloc d'una
+asserció anticipada, que Xiaomi rebutja com a petició invàlida. El backend exigeix
+independentment ASCII imprimible i exclou cometes dobles, barres inverses i salts
+de línia, inclòs el salt final que alguns validadors regex accepten. Es mantenen
+l'esquema tancat, els identificadors exactes de les objeccions i el límit real de bytes.
