@@ -1,6 +1,6 @@
 import { useEffect, type RefObject } from 'react';
-import { subscribeWindowEvent } from '../platform/browser-events';
-import { canKeyboardScroll, isVerticalScrollRegion, nearestVerticalScrollRegion, ownsKeyboardNavigation } from './keyboardScroll';
+import { subscribeKeyboardScrollFallback, subscribeWindowEvent } from '../platform/browser-events';
+import { canKeyboardScroll, isVerticalScrollRegion, nearestVerticalScrollRegion } from './keyboardScroll';
 
 const SCROLL_KEYS = new Set(['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' ']);
 
@@ -14,12 +14,12 @@ export function useAppKeyboardScroll(mainRef: RefObject<HTMLElement | null>, rou
       while (element && !(element instanceof HTMLElement)) element = element.parentElement;
       pointerTarget = element;
     }, true);
-    const unsubscribeKey = subscribeWindowEvent('keydown', event => {
+    const unsubscribeKey = subscribeKeyboardScrollFallback(event => {
       if (!SCROLL_KEYS.has(event.key)) return;
       const active = document.activeElement;
       const looseFocus = active === document.body || active === document.documentElement;
       const origin = looseFocus ? (pointerTarget?.isConnected ? pointerTarget : mainRef.current) : active;
-      if (!(origin instanceof HTMLElement) || !canKeyboardScroll(event, origin, origin) || ownsKeyboardNavigation(origin)) return;
+      if (!(origin instanceof HTMLElement) || !canKeyboardScroll(event, origin, origin) || origin.closest('iframe, object, embed')) return;
       let target = nearestVerticalScrollRegion(origin);
       if (target && !canKeyboardScroll(event, target, origin)) return;
       if (!target && origin === mainRef.current) {
@@ -45,7 +45,7 @@ export function useAppKeyboardScroll(mainRef: RefObject<HTMLElement | null>, rou
         const distance = event.key.startsWith('Arrow') ? 80 : target.clientHeight * 0.8;
         target.scrollBy({ top: backwards ? -distance : distance, behavior });
       }
-    });
+    }, 'application');
     return () => { unsubscribePointer(); unsubscribeKey(); };
   }, [mainRef, routeKey]);
 }

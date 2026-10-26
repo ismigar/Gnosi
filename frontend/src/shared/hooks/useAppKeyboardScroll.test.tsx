@@ -12,10 +12,10 @@ function Pane({ children, legacy }: { children: ReactNode; legacy: boolean }) {
   useKeyboardScroll(ref, { enabled: legacy });
   return <section ref={ref} data-region="page" style={{ overflowY: 'auto' }}>{children}</section>;
 }
-function Screen({ route = 'one', legacy = false }: { route?: string; legacy?: boolean }) {
+function Screen({ route = 'one', legacy = false, children }: { route?: string; legacy?: boolean; children?: ReactNode }) {
   const ref = useRef<HTMLElement>(null);
   useAppKeyboardScroll(ref, route);
-  return <main ref={ref} tabIndex={-1}><Pane legacy={legacy}><h1>Page</h1><button>Action</button><input /><textarea /><div contentEditable tabIndex={0} /><div role="tablist"><button>Tab</button></div><div data-region="nested" style={{ overflowY: 'auto' }}><button>Nested action</button></div></Pane></main>;
+  return <main ref={ref} tabIndex={-1}><Pane legacy={legacy}><h1>Page</h1><button>Action</button><input /><textarea /><div contentEditable tabIndex={0} /><div role="tablist"><button>Tab</button></div><div data-region="nested" style={{ overflowY: 'auto' }}><button>Nested action</button></div>{children}</Pane></main>;
 }
 
 function required<T>(value: T | null | undefined): T {
@@ -38,7 +38,7 @@ function key(target: Element, name: string, options: KeyboardEventInit = {}) {
   return event;
 }
 beforeEach(() => { vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true); });
-afterEach(() => { vi.unstubAllGlobals(); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 test('outside fields, page keys scroll the nested app page after a click without moving focus', () => {
   const view = mountTestComponent(<Screen />);
@@ -145,15 +145,16 @@ test.each([true, false])('existing pane scroll handlers and the global handler a
 
 test('late-mounted active table navigation keeps arrows and Space instead of scrolling', () => {
   const view = mountTestComponent(<Screen legacy />); const page = region(view.container);
-  const table = document.createElement('section'); table.tabIndex = 0; table.dataset.region = 'custom'; table.dataset.keyboardNavigation = 'true'; table.style.overflowY = 'auto'; page.element.append(table);
+  const table = document.createElement('section'); table.tabIndex = 0; table.dataset.region = 'custom'; table.style.overflowY = 'auto'; page.element.append(table);
   const custom = region(view.container, 'custom'); const navigate = vi.fn();
+  let selected = true;
   const stop = subscribeWindowEvent('keydown', event => {
-    if (!event.defaultPrevented && event.target === table && table.dataset.keyboardNavigation === 'true') { event.preventDefault(); navigate(event.key); }
+    if (!event.defaultPrevented && event.target === table && selected) { event.preventDefault(); navigate(event.key); }
   });
   table.focus(); key(table, 'ArrowDown'); key(table, ' ');
   expect(navigate.mock.calls).toEqual([['ArrowDown'], [' ']]);
   expect(custom.scrollBy).not.toHaveBeenCalled(); expect(page.scrollBy).not.toHaveBeenCalled();
-  table.removeAttribute('data-keyboard-navigation'); key(table, 'ArrowDown');
+  selected = false; key(table, 'ArrowDown');
   expect(custom.scrollBy).toHaveBeenCalledOnce(); expect(navigate).toHaveBeenCalledTimes(2);
   stop(); view.unmount();
 });
@@ -161,18 +162,21 @@ test('late-mounted active table navigation keeps arrows and Space instead of scr
 test('deliberate main entry can scroll a table while its remembered cell selection remains intact', () => {
   const view = mountTestComponent(<Screen />); const page = region(view.container), nested = region(view.container, 'nested');
   Object.defineProperty(page.element, 'scrollHeight', { value: 200 }); Object.defineProperty(nested.element, 'scrollHeight', { value: 200 });
-  nested.element.dataset.keyboardNavigation = 'true'; Object.defineProperty(nested.element, 'scrollHeight', { value: 1000 });
-  required(view.container.querySelector('main')).focus(); key(document.activeElement ?? document.body, 'PageDown');
-  expect(nested.scrollBy).toHaveBeenCalledOnce(); expect(nested.element.dataset.keyboardNavigation).toBe('true'); view.unmount();
+  Object.defineProperty(nested.element, 'scrollHeight', { value: 1000 });
+  let selectedRow = 'one';
+  const stop = subscribeWindowEvent('keydown', event => { if (event.target instanceof Node && nested.element.contains(event.target)) { event.preventDefault(); selectedRow = 'two'; } });
+  required(view.container.querySelector('main')).focus(); key(document.activeElement ?? document.body, 'ArrowDown');
+  expect(nested.scrollBy).toHaveBeenCalledOnce(); expect(selectedRow).toBe('one'); stop(); view.unmount();
 });
 
 test('main and body entry do not steal graph arrows by selecting its filter sidebar', () => {
   const view = mountTestComponent(<Screen />); const page = region(view.container), nested = region(view.container, 'nested');
   Object.defineProperty(page.element, 'scrollHeight', { value: 200 }); Object.defineProperty(nested.element, 'scrollHeight', { value: 200 });
   const aside = document.createElement('aside'); aside.dataset.region = 'filters'; aside.style.overflowY = 'auto'; page.element.append(aside);
-  const filters = region(view.container, 'filters'), pan = vi.fn();
+  const connections = document.createElement('div'); connections.dataset.region = 'connections'; connections.style.overflowY = 'auto'; page.element.append(connections);
+  const filters = region(view.container, 'filters'), bottom = region(view.container, 'connections'), pan = vi.fn();
   const stop = subscribeWindowEvent('keydown', event => { const action = getGraphKeyboardAction(event); if (action) { event.preventDefault(); pan(action); } });
   key(document.body, 'ArrowDown'); required(view.container.querySelector('main')).focus(); key(document.activeElement ?? document.body, 'ArrowDown');
-  expect(pan.mock.calls).toEqual([['pan-down'], ['pan-down']]); expect(filters.scrollBy).not.toHaveBeenCalled();
+  expect(pan.mock.calls).toEqual([['pan-down'], ['pan-down']]); expect(filters.scrollBy).not.toHaveBeenCalled(); expect(bottom.scrollBy).not.toHaveBeenCalled();
   stop(); view.unmount();
 });

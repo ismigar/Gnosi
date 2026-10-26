@@ -81,7 +81,6 @@ export function TableLayout({ model }: { model: TableController; }) {
         <div
           ref={tableContainerRef}
           data-vault-table-scroll
-          data-keyboard-navigation={model.activeCell ? 'true' : undefined}
           tabIndex={-1}
           onFocus={claimKeyboard}
           onKeyDown={event => {
