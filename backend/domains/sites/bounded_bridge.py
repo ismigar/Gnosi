@@ -11,6 +11,13 @@ from typing import Protocol, cast
 from fastapi import HTTPException
 
 
+class PangeaTransportInterrupted(HTTPException):
+    """A positively identified disconnect, distinct from a service/login rejection."""
+
+    def __init__(self) -> None:
+        super().__init__(503, "The Pangea connection was interrupted")
+
+
 class Child(Protocol):
     timeout: float
     before: str
@@ -86,6 +93,8 @@ class BoundedBridge:
         if first == 0:
             self.child.sendline(settings["SSH_PASSWORD"])
             self.expect(self.prompt)
+        elif first == 3 and transient:
+            raise PangeaTransportInterrupted()
         elif first != 2:
             raise RuntimeError("The registered SSH connection could not be verified")
         self.child.sendline("suweb")
@@ -99,12 +108,15 @@ class BoundedBridge:
         self.expect(self.prompt)
 
     def run(self, command: str) -> str:
+        import pexpect
+        connected = False
         try:
             self.remaining()
             if self.child is None:
                 self.connect()
             if self.child is None:
                 raise RuntimeError("The SSH connection is unavailable")
+            connected = True
             marker = "GNOSI_SITE_READ_" + uuid.uuid4().hex
             script = "cd " + shlex.quote(self.settings["DRUPAL_PATH"]) + " || exit 1\n" + command
             encoded = base64.b64encode(script.encode()).decode()
@@ -117,6 +129,14 @@ class BoundedBridge:
             if status:
                 raise RuntimeError("The private website read could not complete")
             return output
+        except PangeaTransportInterrupted:
+            self.close()
+            raise
+        except (pexpect.EOF, pexpect.TIMEOUT):
+            self.close()
+            if connected:
+                raise PangeaTransportInterrupted() from None
+            raise HTTPException(503, "The Pangea login could not complete") from None
         except Exception:
             self.close()
             raise HTTPException(503, "The Pangea read could not complete; refresh to retry") from None
