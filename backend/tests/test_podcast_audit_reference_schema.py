@@ -73,3 +73,39 @@ def test_confirmation_can_still_reject_every_candidate():
     result = {'confirmed_finding_ids': []}
     jsonschema.validate(result, _schema(data))
     _validate(result, data)
+
+
+@pytest.mark.parametrize('focus,count', [('coverage', 0), ('fidelity', 1)])
+@pytest.mark.parametrize('actual_count', [0, 1, 2, 3])
+@pytest.mark.parametrize('whole', [False, True])
+def test_focused_quote_cardinality_is_enforced_by_the_provider_contract(focus, count, actual_count, whole):
+    data, issue = source_case(focus)
+    if whole:
+        data.update(whole_episode=True, sections=[{'narration': data['narration']}])
+    quotes = ['First literal passage.', 'Second literal passage.', 'Third literal passage.'][:actual_count]
+    result = {'issues': [{**issue, 'narration_quotes': quotes}]}
+    if actual_count == count:
+        jsonschema.validate(result, _schema(data))
+    else:
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(result, _schema(data))
+
+
+def test_observed_coverage_omission_with_a_literal_narration_quote_is_schema_invalid():
+    data, issue = source_case('coverage')
+    result = {'issues': [{**issue, 'narration_quotes': [data['narration']]}]}
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(result, _schema(data))
+    with pytest.raises(ValueError, match='podcast_audit_quote_count'):
+        _validate(result, data)
+
+
+def test_multi_kind_audit_remains_a_strict_provider_schema():
+    from backend.domains.agent.structured_output import constrain_output
+    from langchain_openai import ChatOpenAI
+
+    data, _ = source_case(None)
+    schema = _schema(data)
+    bound = constrain_output(ChatOpenAI(model='fixture', api_key='fixture'), 'openrouter', schema)
+    assert bound.kwargs['response_format'] == {
+        'type': 'json_schema', 'json_schema': {'name': 'gnosi_operation', 'strict': True, 'schema': schema}}

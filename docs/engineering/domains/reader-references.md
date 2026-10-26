@@ -529,7 +529,11 @@ are not voiced. Failures, refusals and cancellation preserve the previous audio.
 
 Source reviews separately check factual fidelity and thematic coverage, with up to
 16 briefs per batch and the complete subject ledger. Status, attribution and
-numeric scope receive a dedicated check. A provider output-length failure
+numeric scope receive a dedicated check. Focused coverage findings require no
+narration quotes, while focused fidelity findings require exactly one. Their
+provider response schemas enforce those same counts before the existing literal
+evidence and semantic validators run. General listener audits and their context
+capacity are unchanged. A provider output-length failure
 recursively splits only the failed evidence or finding batch; confirmation keeps
 all its original evidence. An indivisible failed leaf blocks publication.
 Every revision also runs the whole-episode review even when source issues remain.
@@ -548,9 +552,9 @@ Internal planning, digest, writing and audit calls use a 300-second allowance an
 16,384 output tokens including provider reasoning unless the profile explicitly
 chooses an output limit. Current contracts accompany resumed older snapshots;
 these internal operations do not use optional team handoff. Planning, writing and
-digest use reasoning off only when provider metadata explicitly declares it
-optional and the profile/effective client has no reasoning/native-thinking choice.
-Semantic audits retain normal reasoning. No model route, provider safeguard,
+digest and semantic audits use reasoning off only when provider metadata explicitly
+declares it optional and the profile/effective client has no reasoning/native-thinking
+choice. No model route, provider safeguard,
 explicit output preference or timeout is overridden. Principal/scope checks and
 atomic audio publication remain shared with the application.
 

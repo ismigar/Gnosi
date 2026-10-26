@@ -41,11 +41,15 @@ def _schema(data: dict[str, Any]) -> dict[str, Any]:
         'items': {'type': 'string', 'enum': ids or ['']}}
     if not data.get('whole_episode') and data.get('review_focus') in {'fidelity', 'coverage'}:
         source_references['minItems'] = 1
+    narration_quotes: dict[str, Any] = {'type': 'array', 'maxItems': 2, 'uniqueItems': True,
+        'items': {'type': 'string', 'minLength': 8, 'maxLength': 400}}
+    if len(kinds) == 1:
+        count = 0 if kinds[0] == 'omission' else 1
+        narration_quotes.update(minItems=count, maxItems=count)
     finding = _object({
         'kind': {'type': 'string', 'enum': kinds},
         'detail': {'type': 'string', 'minLength': 1, 'maxLength': 500},
-        'narration_quotes': {'type': 'array', 'maxItems': 2, 'uniqueItems': True,
-            'items': {'type': 'string', 'minLength': 8, 'maxLength': 400}},
+        'narration_quotes': narration_quotes,
         'source_part_ids': source_references,
         'evidence_quote': {'type': 'string', 'maxLength': 400},
     })
