@@ -1,6 +1,6 @@
 import { useEffect, type RefObject } from 'react';
 import { subscribeWindowEvent } from '../platform/browser-events';
-import { canKeyboardScroll } from './keyboardScroll';
+import { canKeyboardScroll, nearestVerticalScrollRegion } from './keyboardScroll';
 import { usePaneVisibility } from '../ui/PaneVisibility';
 
 
@@ -20,8 +20,11 @@ export function useKeyboardScroll(
     if (!visible || !enabled || modalOpen) return undefined;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      const target = scrollContainerRef?.current;
-      if (!target || !canKeyboardScroll(event, target)) return;
+      const configured = scrollContainerRef?.current;
+      if (!configured || !canKeyboardScroll(event, configured)) return;
+      const active = document.activeElement;
+      const target = active instanceof HTMLElement ? nearestVerticalScrollRegion(active, configured) ?? configured : configured;
+      if (!canKeyboardScroll(event, target)) return;
       const behavior = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
 
       if (event.key === 'ArrowDown') {
