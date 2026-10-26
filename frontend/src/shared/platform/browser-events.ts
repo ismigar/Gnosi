@@ -16,7 +16,7 @@ let keyboardScrollListenerAttached = false;
 function dispatchKeyboardScrollFallbacks(event: KeyboardEvent): void {
     const entries = [...keyboardScrollFallbacks].sort((left, right) => Number(left.scope === 'application') - Number(right.scope === 'application'));
     for (const entry of entries) {
-        if (event.defaultPrevented || event.cancelBubble) break;
+        if (event.defaultPrevented) break;
         if (keyboardScrollFallbacks.has(entry)) entry.handler(event);
     }
 }
