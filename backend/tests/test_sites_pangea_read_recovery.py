@@ -48,7 +48,7 @@ def test_recovers_observed_three_preauth_disconnects_without_manual_refresh(monk
 
 
 @pytest.mark.parametrize("action", sorted(READS))
-@pytest.mark.parametrize("error", [PangeaTransportInterrupted, lambda: pexpect.EOF("lost response"), lambda: pexpect.TIMEOUT("lost response")])
+@pytest.mark.parametrize("error", [PangeaTransportInterrupted, lambda: pexpect.EOF("lost response"), lambda: pexpect.TIMEOUT("lost response"), ConnectionAbortedError])
 def test_only_transient_reads_retry_in_same_slot_and_deadline(monkeypatch, action, error):
     bridge, clock, waits, _ = harness(monkeypatch, [])
     store, site, entered = setup_service(monkeypatch, bridge)
@@ -68,7 +68,7 @@ def test_only_transient_reads_retry_in_same_slot_and_deadline(monkeypatch, actio
 
 
 @pytest.mark.parametrize("action", sorted((ALLOWED_ACTIONS | {"forms_sync", "unknown"}) - READS))
-@pytest.mark.parametrize("error", [PangeaTransportInterrupted, lambda: pexpect.EOF("result unconfirmed")])
+@pytest.mark.parametrize("error", [PangeaTransportInterrupted, lambda: pexpect.EOF("result unconfirmed"), ConnectionAbortedError, TimeoutError])
 def test_never_replays_uncertain_mutation(monkeypatch, action, error):
     bridge, _, waits, _ = harness(monkeypatch, [])
     store, site, _ = setup_service(monkeypatch, bridge)

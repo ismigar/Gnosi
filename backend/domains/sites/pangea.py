@@ -295,7 +295,9 @@ def service(store: SiteStore, site: SiteConfig, target_id: str, action: str, req
         for attempt in range(2):
             try:
                 return _service_request(transport, bridge, public, private, store.private_root.name + ":" + site.id, action, request)
-            except (PangeaTransportInterrupted, pexpect.EOF, pexpect.TIMEOUT):
+            except TimeoutError:
+                raise HTTPException(503, "The Pangea operation exceeded its deadline") from None
+            except (PangeaTransportInterrupted, pexpect.EOF, pexpect.TIMEOUT, ConnectionAbortedError):
                 # Only semantic reads may restart after a lost response. Keep
                 # both attempts inside the same connection slot and deadline.
                 if action not in _READ_ACTIONS or attempt or not isinstance(bridge, BoundedBridge):

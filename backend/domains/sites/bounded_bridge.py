@@ -125,7 +125,7 @@ class BoundedBridge:
         except PangeaTransportInterrupted:
             self.close()
             raise
-        except (pexpect.EOF, pexpect.TIMEOUT):
+        except (pexpect.EOF, pexpect.TIMEOUT, ConnectionAbortedError):
             self.close()
             if connected:
                 raise PangeaTransportInterrupted() from None
