@@ -195,6 +195,8 @@ DATA_FILES = (
     "backend/agent/behavior/operations/podcast/concise-contract.md",
     "backend/agent/behavior/operations/podcast/automatic-contract.md",
     "backend/agent/behavior/operations/podcast/confirmation-contract.md",
+    "backend/agent/behavior/operations/podcast/feedback-contract.md",
+    "backend/agent/behavior/operations/podcast/feedback-writer-contract.md",
     "backend/agent/behavior/operations/podcast/composition-contract.md",
     "backend/agent/behavior/operations/podcast/assignment-contract.md",
     "backend/agent/behavior/operations/podcast/skill.json",

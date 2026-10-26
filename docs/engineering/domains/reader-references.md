@@ -571,3 +571,5 @@ priority and unknown models retain the small fallback. Other document operations
 retain their existing guards.
 
 Initial advisory paragraph targets share the global budget exactly. Existing validation retries receive exact current paragraph counts and proportional suggested shares, recomputed from the immediately rejected response. Shares can be redistributed; only the global word range and semantic reviews decide acceptance.
+
+When confirmed findings alone exceed the existing writer context budget, bounded digest operations produce one schema-required correction guide per finding. The writer receives a compact columnar transport with every original finding ID, kind and source scope; complete grounded findings and confirmations remain in their existing checkpoints. This does not approve findings or narration. The unchanged original-source fidelity, coverage and whole-episode reviews still gate publication of the complete rewritten episode. No context, word, call, deadline or semantic-pass limit is increased.
