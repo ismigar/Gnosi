@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-10-13
+last_verified: 2026-10-26
 source_paths:
+  - backend/domains/sites/newsletter.py
+  - frontend/src/features/websites/SourcesEditor.tsx
   - backend/domains/vault/publishing
   - frontend/src/features/sharing/publishing
   - frontend/src/features/offline
@@ -25,6 +27,8 @@ source_paths:
   - frontend/src/shared/routing
   - frontend/src/features/workspaces
 tests:
+  - backend/tests/test_sites_newsletter.py
+  - frontend/src/features/websites/SourcesEditor.test.tsx
   - backend/tests/test_web_publishing.py
   - frontend/src/features/sharing/publishing/WebPublishingManager.test.tsx
   - frontend/src/shared/api/web-publishing.test.ts
@@ -249,3 +253,23 @@ El diàleg de compartició ofereix **Publica al web** per a un web de proves con
 Les incorporacions, actualitzacions i retirades es trien explícitament. Les altres pàgines publicades es conserven i les traduccions apareixen a la revisió. Publicar consumeix una previsualització d’un sol ús vinculada al compte, espai de treball i vault. Els canvis d’àmbit cancel·len les peticions i eliminen les dades privades de la interfície. Canviar la selecció o trobar una previsualització caducada exigeix una revisió nova. L’historial permet restaurar versions de proves; Drupal continua en producció.
 
 El butlletí mostra les subscripcions pendents, actives i de baixa, els idiomes i l’historial. El contingut del butlletí admet els idiomes del web `ca`, `es` i `en-gb`, independentment de l’idioma de la interfície. La previsualització HTML està aïllada i sense accés a la xarxa. Només s’accepta `test_mode: true`: la cua desa missatges al registre de proves sense enviar correus reals. Les previsualitzacions caduquen als 15 minuts o en reiniciar el servidor. Cancel·lar al navegador no desfà una publicació iniciada; cal actualitzar l’estat abans de repetir una acció incerta.
+
+## Fonts de contingut dels webs i catàleg del butlletí
+
+**Afegeix una font** obre el selector compartit de cerca i selecció única de
+taules, vistes i pàgines. Cada opció mostra el tipus localitzat i el títol;
+els registres importats no són fonts seleccionables. Obrir o cancel·lar el
+selector no crea cap font. L'elecció explícita entra al desament automàtic
+existent amb la publicació desactivada, sense camps públics ni adjunts triats
+i amb la inclusió del cos desactivada. Aquestes fonts de contingut es trien
+independentment dels [controls de tipografia](integrations-plugins.md).
+
+El contingut disponible del butlletí s'ordena per data de creació descendent,
+a partir de les metadades públiques `presentation.created` de la versió activa,
+després d'eliminar duplicats i continguts retirats. S'accepten marques de temps
+numèriques i dates ISO; les dates sense zona horària utilitzen UTC. Les dates
+absents, invàlides o no finites van al final i els empats conserven l'ordre de
+la versió. Això no llegeix dades del vault sense publicar, no afegeix camps
+privats a l'API, no modifica la versió ni reordena les pàgines triades
+explícitament a l'esborrany. Els elements exportats sense data pública
+conserven el seu ordre relatiu al final del catàleg.

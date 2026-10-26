@@ -34,11 +34,13 @@ source_paths:
   - backend/services/references_io.py
   - backend/services/import_dedup.py
   - backend/services/audio_summarizer.py
+  - backend/services/podcast_feedback.py
   - frontend/src/features/reader
   - frontend/src/features/literature
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_feedback.py
   - backend/tests/test_reader_source_registry.py
   - backend/tests/test_reader_source_routes.py
   - backend/tests/test_feed_ingester_savepoint.py
@@ -583,3 +585,28 @@ explicites priment et les modèles inconnus conservent la valeur prudente. Les
 autres opérations documentaires gardent leurs protections.
 
 Les objectifs indicatifs des paragraphes totalisent exactement le budget global. Les nouvelles tentatives de validation reçoivent les comptes actuels par paragraphe et une répartition proportionnelle suggérée, recalculée depuis la réponse immédiatement rejetée. Les mots peuvent être redistribués ; seuls la plage globale et les contrôles sémantiques déterminent l'acceptation.
+
+### Consignes internes de correction bornées
+
+Lorsque les objections confirmées dépassent à elles seules le budget de contexte
+du rédacteur, les opérations de synthèse bornées produisent une consigne de
+correction obligatoire pour chaque objection. Le rédacteur reçoit un transport
+compact en colonnes avec tous les identifiants, types et périmètres de source
+originaux ; les objections étayées complètes et leurs confirmations restent
+dans les points de reprise existants. Cela n'approuve ni les objections ni la
+narration. Les examens de fidélité, de couverture et de l'épisode entier face
+aux sources originales conditionnent toujours la publication du texte réécrit.
+Aucune limite de contexte, de mots, d'appels, de temps ou de passes sémantiques
+n'est augmentée.
+
+Les consignes internes utilisent un alphabet ASCII imprimable imposé par le
+schéma, sans guillemets doubles, barres obliques inverses ni caractères de
+contrôle. La limite dynamique de caractères correspond donc à la limite
+d'octets UTF-8 après double sérialisation, au plus 160 octets ; le backend
+vérifie aussi la taille encodée réelle. Les sorties invalides passent par la
+réparation de validation bornée existante et ne parviennent pas au rédacteur
+sans contrôle. Les sources originales, les objections confirmées complètes et
+la narration finale en catalan conservent leur texte Unicode. Cette restriction
+de transport ne modifie pas les sources incluses et n'approuve pas l'épisode
+final : les examens sémantiques complets et le budget de mots restent requis
+avant la synthèse vocale ou la publication.

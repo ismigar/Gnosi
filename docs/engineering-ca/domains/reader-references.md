@@ -34,11 +34,13 @@ source_paths:
   - backend/services/references_io.py
   - backend/services/import_dedup.py
   - backend/services/audio_summarizer.py
+  - backend/services/podcast_feedback.py
   - frontend/src/features/reader
   - frontend/src/features/literature
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_feedback.py
   - backend/tests/test_reader_source_registry.py
   - backend/tests/test_reader_source_routes.py
   - backend/tests/test_feed_ingester_savepoint.py
@@ -591,3 +593,26 @@ explícits tenen prioritat i els models desconeguts mantenen el valor conservado
 La resta d'operacions documentals conserva les seves proteccions.
 
 Els objectius orientatius dels paràgrafs sumen exactament el pressupost global. Els reintents de validació reben els recomptes actuals de cada paràgraf i una distribució proporcional suggerida, recalculada a partir de la resposta immediatament rebutjada. Es poden redistribuir les paraules; només el límit global i les revisions semàntiques determinen l'acceptació.
+
+### Guies internes de correcció acotades
+
+Quan les objeccions confirmades, totes soles, superen el pressupost de context
+del redactor, les operacions de resum acotades produeixen una guia de correcció
+obligatòria per a cada objecció. El redactor rep un transport compacte en
+columnes amb tots els identificadors, tipus i àmbits de font originals; les
+objeccions fonamentades completes i les confirmacions es conserven als punts
+de control existents. Això no aprova les objeccions ni la narració. Les
+revisions de fidelitat, cobertura i episodi complet contra les fonts originals
+continuen condicionant la publicació del guió reescrit. No augmenta cap límit
+de context, paraules, crides, temps o rondes semàntiques.
+
+Les guies internes utilitzen un alfabet ASCII imprimible restringit per
+l'esquema, sense cometes dobles, barres inverses ni caràcters de control.
+Per tant, el límit dinàmic de caràcters coincideix amb el límit de bytes UTF-8
+amb doble serialització, com a màxim 160 bytes; el backend també comprova
+la mida codificada real. Les sortides invàlides passen per la reparació de
+validació acotada existent i no arriben al redactor sense comprovar.
+Les fonts originals, les objeccions confirmades completes i la narració final
+en català conserven el text Unicode. Aquesta restricció de transport no canvia
+les fonts incloses ni aprova l'episodi final: les revisions semàntiques completes
+i el pressupost de paraules continuen sent obligatoris abans de locutar o publicar.

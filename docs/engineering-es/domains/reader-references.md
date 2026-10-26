@@ -34,11 +34,13 @@ source_paths:
   - backend/services/references_io.py
   - backend/services/import_dedup.py
   - backend/services/audio_summarizer.py
+  - backend/services/podcast_feedback.py
   - frontend/src/features/reader
   - frontend/src/features/literature
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_feedback.py
   - backend/tests/test_reader_source_registry.py
   - backend/tests/test_reader_source_routes.py
   - backend/tests/test_feed_ingester_savepoint.py
@@ -536,3 +538,27 @@ los modelos desconocidos conservan el valor prudente. Las demás operaciones
 documentales mantienen sus protecciones.
 
 Los objetivos orientativos de los párrafos suman exactamente el presupuesto global. Los reintentos de validación reciben los recuentos actuales por párrafo y una distribución proporcional sugerida, recalculada a partir de la respuesta inmediatamente rechazada. Las palabras pueden redistribuirse; solo el límite global y las revisiones semánticas determinan la aceptación.
+
+### Guías internas de corrección acotadas
+
+Si las objeciones confirmadas por sí solas superan el presupuesto de contexto
+del redactor, las operaciones de resumen acotadas producen una guía de corrección
+obligatoria por objeción. El redactor recibe un transporte compacto por columnas
+con todos los identificadores, tipos y ámbitos de fuente originales; las
+objeciones fundamentadas completas y las confirmaciones permanecen en los puntos
+de control existentes. Esto no aprueba las objeciones ni la narración. Las
+revisiones de fidelidad, cobertura y episodio completo frente a las fuentes
+originales siguen condicionando la publicación del guion reescrito. No aumenta
+ningún límite de contexto, palabras, llamadas, tiempo o rondas semánticas.
+
+Las guías internas utilizan un alfabeto ASCII imprimible restringido por el
+esquema, sin comillas dobles, barras inversas ni caracteres de control.
+Por tanto, el límite dinámico de caracteres coincide con el de bytes UTF-8
+con doble serialización, como máximo 160 bytes; el backend también comprueba
+el tamaño codificado real. Las salidas inválidas utilizan la reparación de
+validación acotada existente y no llegan al redactor sin comprobar.
+Las fuentes originales, las objeciones confirmadas completas y la narración
+final en catalán conservan el texto Unicode. Esta restricción de transporte
+no cambia las fuentes incluidas ni aprueba el episodio final: las revisiones
+semánticas completas y el presupuesto de palabras siguen siendo obligatorios
+antes de generar voz o publicar.

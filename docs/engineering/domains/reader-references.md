@@ -574,6 +574,8 @@ retain their existing guards.
 
 Initial advisory paragraph targets share the global budget exactly. Existing validation retries receive exact current paragraph counts and proportional suggested shares, recomputed from the immediately rejected response. Shares can be redistributed; only the global word range and semantic reviews decide acceptance.
 
+### Bounded internal correction guidance
+
 When confirmed findings alone exceed the existing writer context budget,
 bounded digest operations produce one schema-required correction guide per
 finding. The writer receives a compact columnar transport with every original
