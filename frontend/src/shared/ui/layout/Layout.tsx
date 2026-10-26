@@ -113,6 +113,7 @@ export function Layout({
         )}
         <div
           id="sigma-container"
+          data-keyboard-navigation="true"
           ref={graphContainerRef}
           tabIndex={-1}
           aria-label={t('graph.keyboard.graph_focus', 'Graph area')}

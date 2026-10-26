@@ -1,5 +1,9 @@
 import { isActiveModalScope } from './useModalKeyboard';
 
+export function ownsKeyboardNavigation(origin: Element | null): boolean {
+    return Boolean(origin?.closest('[data-keyboard-navigation="true"], iframe, object, embed'));
+}
+
 export function isKeyboardScrollOriginVisible(origin: HTMLElement): boolean {
     for (let element: HTMLElement | null = origin; element; element = element.parentElement) {
         if (element.inert || element.hasAttribute('inert') || element.hidden) return false;

@@ -1,6 +1,6 @@
 import { useEffect, type RefObject } from 'react';
 import { subscribeWindowEvent } from '../platform/browser-events';
-import { canKeyboardScroll, isVerticalScrollRegion, nearestVerticalScrollRegion } from './keyboardScroll';
+import { canKeyboardScroll, isVerticalScrollRegion, nearestVerticalScrollRegion, ownsKeyboardNavigation } from './keyboardScroll';
 
 const SCROLL_KEYS = new Set(['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' ']);
 
@@ -19,7 +19,7 @@ export function useAppKeyboardScroll(mainRef: RefObject<HTMLElement | null>, rou
       const active = document.activeElement;
       const looseFocus = active === document.body || active === document.documentElement;
       const origin = looseFocus ? (pointerTarget?.isConnected ? pointerTarget : mainRef.current) : active;
-      if (!(origin instanceof HTMLElement) || !canKeyboardScroll(event, origin, origin) || origin.closest('iframe, object, embed')) return;
+      if (!(origin instanceof HTMLElement) || !canKeyboardScroll(event, origin, origin) || ownsKeyboardNavigation(origin)) return;
       let target = nearestVerticalScrollRegion(origin);
       if (target && !canKeyboardScroll(event, target, origin)) return;
       if (!target && origin === mainRef.current) {
@@ -27,6 +27,7 @@ export function useAppKeyboardScroll(mainRef: RefObject<HTMLElement | null>, rou
         // when the shell itself contains a separate, full-height scroller.
         let area = 0;
         for (const candidate of origin.querySelectorAll<HTMLElement>('*')) {
+          if (candidate.closest('aside, nav, [role="navigation"]')) continue;
           if (!isVerticalScrollRegion(candidate) || !canKeyboardScroll(event, candidate, candidate)) continue;
           const rect = candidate.getBoundingClientRect();
           if (rect.bottom <= 0 || rect.top >= window.innerHeight || rect.right <= 0 || rect.left >= window.innerWidth) continue;

@@ -4,6 +4,8 @@ import { mountTestComponent } from '../../../tests/mount-react';
 import { useAppKeyboardScroll } from './useAppKeyboardScroll';
 import { pushModalLayer } from './useModalKeyboard';
 import { useKeyboardScroll } from './useKeyboardScroll';
+import { subscribeWindowEvent } from '../platform/browser-events';
+import { getGraphKeyboardAction } from '../graph/model/graphKeyboardNavigation';
 
 function Pane({ children, legacy }: { children: ReactNode; legacy: boolean }) {
   const ref = useRef<HTMLElement>(null);
@@ -139,4 +141,38 @@ test.each([true, false])('existing pane scroll handlers and the global handler a
   view.render(<Screen legacy route="two" />); button.focus();
   key(button, 'PageDown'); expect(nested.scrollBy).toHaveBeenCalledTimes(2); expect(page.scrollBy).not.toHaveBeenCalled();
   view.unmount();
+});
+
+test('late-mounted active table navigation keeps arrows and Space instead of scrolling', () => {
+  const view = mountTestComponent(<Screen legacy />); const page = region(view.container);
+  const table = document.createElement('section'); table.tabIndex = 0; table.dataset.region = 'custom'; table.dataset.keyboardNavigation = 'true'; table.style.overflowY = 'auto'; page.element.append(table);
+  const custom = region(view.container, 'custom'); const navigate = vi.fn();
+  const stop = subscribeWindowEvent('keydown', event => {
+    if (!event.defaultPrevented && event.target === table && table.dataset.keyboardNavigation === 'true') { event.preventDefault(); navigate(event.key); }
+  });
+  table.focus(); key(table, 'ArrowDown'); key(table, ' ');
+  expect(navigate.mock.calls).toEqual([['ArrowDown'], [' ']]);
+  expect(custom.scrollBy).not.toHaveBeenCalled(); expect(page.scrollBy).not.toHaveBeenCalled();
+  table.removeAttribute('data-keyboard-navigation'); key(table, 'ArrowDown');
+  expect(custom.scrollBy).toHaveBeenCalledOnce(); expect(navigate).toHaveBeenCalledTimes(2);
+  stop(); view.unmount();
+});
+
+test('deliberate main entry can scroll a table while its remembered cell selection remains intact', () => {
+  const view = mountTestComponent(<Screen />); const page = region(view.container), nested = region(view.container, 'nested');
+  Object.defineProperty(page.element, 'scrollHeight', { value: 200 }); Object.defineProperty(nested.element, 'scrollHeight', { value: 200 });
+  nested.element.dataset.keyboardNavigation = 'true'; Object.defineProperty(nested.element, 'scrollHeight', { value: 1000 });
+  required(view.container.querySelector('main')).focus(); key(document.activeElement ?? document.body, 'PageDown');
+  expect(nested.scrollBy).toHaveBeenCalledOnce(); expect(nested.element.dataset.keyboardNavigation).toBe('true'); view.unmount();
+});
+
+test('main and body entry do not steal graph arrows by selecting its filter sidebar', () => {
+  const view = mountTestComponent(<Screen />); const page = region(view.container), nested = region(view.container, 'nested');
+  Object.defineProperty(page.element, 'scrollHeight', { value: 200 }); Object.defineProperty(nested.element, 'scrollHeight', { value: 200 });
+  const aside = document.createElement('aside'); aside.dataset.region = 'filters'; aside.style.overflowY = 'auto'; page.element.append(aside);
+  const filters = region(view.container, 'filters'), pan = vi.fn();
+  const stop = subscribeWindowEvent('keydown', event => { const action = getGraphKeyboardAction(event); if (action) { event.preventDefault(); pan(action); } });
+  key(document.body, 'ArrowDown'); required(view.container.querySelector('main')).focus(); key(document.activeElement ?? document.body, 'ArrowDown');
+  expect(pan.mock.calls).toEqual([['pan-down'], ['pan-down']]); expect(filters.scrollBy).not.toHaveBeenCalled();
+  stop(); view.unmount();
 });
