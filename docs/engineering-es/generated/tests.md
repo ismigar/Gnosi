@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
 | Vitest | 744 | 3376 |
-| pytest | 738 | 5721 |
+| pytest | 738 | 5724 |
 
 ## Archivos
 
@@ -1243,7 +1243,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_plugins_state_race.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_plugins_state_race.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_podcast_audit_partition_replay.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_partition_replay.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_podcast_audit_reasoning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_reasoning.py) | 1 | Python AST |
-| pytest | [`backend/tests/test_podcast_audit_reference_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_reference_schema.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_podcast_audit_reference_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_reference_schema.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_podcast_briefing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_briefing.py) | 37 | Python AST |
 | pytest | [`backend/tests/test_podcast_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_composition.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_podcast_confirmation_refs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_confirmation_refs.py) | 7 | Python AST |
