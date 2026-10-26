@@ -6,9 +6,11 @@ import re
 import shlex
 import time
 import uuid
-from typing import Protocol, cast
+from typing import cast
 
 from fastapi import HTTPException
+
+from .bounded_child import Child, DeadlineChild
 
 
 class PangeaTransportInterrupted(HTTPException):
@@ -16,16 +18,6 @@ class PangeaTransportInterrupted(HTTPException):
 
     def __init__(self) -> None:
         super().__init__(503, "The Pangea connection was interrupted")
-
-
-class Child(Protocol):
-    timeout: float
-    before: str
-    match: re.Match[str]
-    def expect(self, pattern: object) -> int: ...
-    def sendline(self, value: str) -> int: ...
-    def isalive(self) -> bool: ...
-    def close(self, force: bool = True) -> None: ...
 
 
 class BoundedBridge:
@@ -63,10 +55,11 @@ class BoundedBridge:
     def _open_ssh(self) -> int:
         import pexpect  # type: ignore[import-untyped]
         settings = self.settings
-        self.child = cast(Child, pexpect.spawn("ssh", [
+        child = cast(Child, pexpect.spawn("ssh", [
             "-o", "StrictHostKeyChecking=yes", "-o", "ConnectTimeout=20", "-o", "ServerAliveInterval=15",
             "-o", "ServerAliveCountMax=3", "-p", settings["SSH_PORT"], settings["SSH_USER"] + "@" + settings["SSH_HOST"],
         ], encoding="utf-8", timeout=self.remaining()))
+        self.child = DeadlineChild(child, self.remaining)
         return self.expect(["(?i)password:", "yes/no", self.prompt, pexpect.EOF])
 
     def connect(self) -> None:
@@ -125,9 +118,9 @@ class BoundedBridge:
             self.expect(re.compile(r"(?m)^" + marker + r"(\d+)\r?$"))
             status = int(self.child.match.group(1))
             output = self.child.before.strip()
-            self.expect(self.prompt)
             if status:
                 raise RuntimeError("The private website read could not complete")
+            self.expect(self.prompt)
             return output
         except PangeaTransportInterrupted:
             self.close()
