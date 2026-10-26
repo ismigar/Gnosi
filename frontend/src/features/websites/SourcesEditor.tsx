@@ -1,7 +1,7 @@
-import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CatalogueItem, SiteConfig, SiteSource, SourceFilter } from '../../shared/api/sites';
+import { MultiSelectPills } from '../../shared/ui/selection/MultiSelectPills';
 import { Card, Empty, Field, Input, ListInput, Select, Toggle } from './components';
 import { newId, splitList, filterValueText } from './helpers';
 
@@ -11,7 +11,7 @@ export function SourcesEditor({ site, catalogue, onChange }: { site: SiteConfig;
   const sources = site.sources ?? [];
   const availableSources = catalogue.filter((item): item is CatalogueItem & { kind: SiteSource['kind'] } => item.kind !== 'record');
   const change = (index: number, patch: Partial<SiteSource>) => { onChange({ ...site, sources: sources.map((source, position) => position === index ? { ...source, ...patch } : source) }); };
-  return <Card title={t('websites.sources')} actions={<button className="websites-button" type="button" disabled={!availableSources.length} onClick={() => { const item = availableSources[0]; if (!item) return; onChange({ ...site, sources: [...sources, { id: newId('source'), source_id: item.id, kind: item.kind, title: item.title, enabled: false, field_ids: [], attachment_field_ids: [], include_body: false, filters: [], sort_descending: false, presentation: 'cards', path_prefix: '/content', page_ids: [], withdrawn_ids: [], selection_mode: 'all' }] }); }}><Plus size={16} />{t('websites.addSource')}</button>}>
+  return <Card title={t('websites.sources')} actions={<div className="w-64 max-w-full"><MultiSelectPills single value="" label={t('websites.addSource')} placeholder={t('websites.addSource')} disabled={!availableSources.length} options={availableSources.map(item => `${item.kind}:${item.id}`)} idToTitle={Object.fromEntries(availableSources.map(item => [`${item.kind}:${item.id}`, `${t(`websites.sourceKinds.${item.kind}`)} · ${item.title}`]))} onChange={value => { const item = availableSources.find(candidate => `${candidate.kind}:${candidate.id}` === value); if (!item) return; onChange({ ...site, sources: [...sources, { id: newId('source'), source_id: item.id, kind: item.kind, title: item.title, enabled: false, field_ids: [], attachment_field_ids: [], include_body: false, filters: [], sort_descending: false, presentation: 'cards', path_prefix: '/content', page_ids: [], withdrawn_ids: [], selection_mode: 'all' }] }); }} /></div>}>
     <p className="websites-muted">{t('websites.privateByDefault')}</p>
     {!sources.length && <Empty>{t('websites.noSources')}</Empty>}
     <div className="websites-list websites-spacer">{sources.map((source, index) => {

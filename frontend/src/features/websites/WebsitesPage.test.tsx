@@ -22,6 +22,14 @@ function button(container: HTMLElement, value: string) { const found = [...conta
 function control(container: HTMLElement, label: string): HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement { const found = [...container.querySelectorAll('label')].find(element => element.querySelector('span')?.textContent === label)?.querySelector('input,textarea,select'); if (!found) throw new Error(`Missing field ${label}`); return found as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement; }
 function changeInput(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, value: string) { const prototype = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, 'value')?.set?.call(element, value); element.dispatchEvent(new Event(element instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true })); }
 function tab(container: HTMLElement, name: string) { const item = container.querySelector<HTMLButtonElement>(`#websites-tab-${name}`); if (!item) throw new Error('Missing tab'); act(() => { item.click(); }); }
+function addSource(container: HTMLElement) {
+  const picker = container.querySelector<HTMLElement>('[role="combobox"][aria-label="websites.addSource"]');
+  if (!picker) throw new Error('Missing source picker');
+  act(() => { picker.click(); });
+  const option = document.querySelector<HTMLElement>('[role="option"]');
+  if (!option) throw new Error('Missing source option');
+  act(() => { option.click(); });
+}
 
 beforeEach(() => {
   vi.resetAllMocks(); vi.useFakeTimers();
@@ -78,7 +86,7 @@ describe('Webs manager', () => {
 
   it('keeps a new source and its fields private until explicitly selected and saves only the chosen field', async () => {
     const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'sources');
-    act(() => { button(view.container, 'websites.addSource').click(); });
+    addSource(view.container);
     const switches = [...view.container.querySelectorAll<HTMLElement>('[role="switch"]')];
     expect(switches.every(item => item.getAttribute('aria-checked') === 'false')).toBe(true);
     act(() => { view.container.querySelector<HTMLElement>('[role="switch"][aria-label="Public summary"]')?.click(); });
@@ -125,7 +133,7 @@ describe('Webs manager', () => {
     }
     if (kind === 'filter') {
       tab(view.container, 'sources');
-      act(() => { button(view.container, 'websites.addSource').click(); });
+      addSource(view.container);
       act(() => { button(view.container, 'websites.addFilter').click(); });
       act(() => { changeInput(control(view.container, 'websites.operator'), 'in'); });
       label = 'websites.value'; text = 'first,second';

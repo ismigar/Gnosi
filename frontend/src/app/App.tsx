@@ -24,6 +24,7 @@ import CommandPalette from './navigation/CommandPalette';
 import { useTheme } from '../shared/hooks/useTheme';
 import { useFileLinkInterceptor } from './integration/useFileLinkInterceptor';
 import { useFocusModality } from '../shared/hooks/useFocusModality';
+import { useAppKeyboardScroll } from '../shared/hooks/useAppKeyboardScroll';
 import { useAuth, type AuthContextValue } from '../shared/auth/auth-context';
 import { LoginPage } from '../features/auth';
 import { GraphLoadingState } from '../shared/ui/loading/GraphLoadingState';
@@ -132,6 +133,7 @@ function ApplicationShell() {
   const [bulkNotebookResources, setBulkNotebookResources] = useState<readonly string[] | null>(null);
   const [vaultRevision, setVaultRevision] = useState(0);
   const mainContentRef = useRef<HTMLElement | null>(null);
+  useAppKeyboardScroll(mainContentRef, location.key);
   const routeAnnouncement = useMemo(() => {
     const app = vaultAppFromPath(location.pathname);
     const appLabel = APP_ANNOUNCEMENT_LABELS[app];
