@@ -17,6 +17,9 @@ if TYPE_CHECKING:
 def _request(context: _Briefing, phase: str, data: dict[str, Any], schema: dict[str, Any], **options: Any) -> Any:
     if phase == "write" and data.get("composition_groups"):
         options["composition_contract"] = resource("operations/podcast/composition-contract.md")
+    feedback = data.get("feedback")
+    if phase == "write" and isinstance(feedback, dict) and feedback.get("encoding") == "finding_guidance_v1":
+        options["feedback_transport_contract"] = resource("operations/podcast/feedback-writer-contract.md")
     return context.request("podcast.coverage." + phase, data, schema).model_copy(update={"options": {
         "automatic_contract": resource("operations/podcast/confirmation-contract.md"
             if phase == "audit" and "candidate_findings" in data
@@ -77,6 +80,7 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
     if context.cost(request) > limit and previous:
         data = {k: v for k, v in data.items() if k not in previous}
         request = _request(context, "write", data, composition_schema(data), **options)
+    from backend.services.podcast_feedback import fit_feedback
     while context.cost(request) > limit:
         before = context.cost(request)
         records = _digest(context, data.get("briefs", data.get("digests", [])))
@@ -84,7 +88,8 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
         data["digests"] = records
         request = _request(context, "write", data, composition_schema(data), **options)
         if context.cost(request) >= before:
-            raise RuntimeError("podcast_theme_context_insufficient")
+            data, request = fit_feedback(context, data, request,
+                lambda value: _request(context, "write", value, composition_schema(value), **options))
     if previous and not any(key in data for key in previous):
         restored: dict[str, Any] = {**data, **previous}
         candidate = _request(context, "write", restored, composition_schema(data), **options)
