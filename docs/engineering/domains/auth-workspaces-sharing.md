@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-10-13
+last_verified: 2026-10-26
 source_paths:
+  - backend/domains/sites/newsletter.py
+  - frontend/src/features/websites/SourcesEditor.tsx
   - backend/domains/vault/publishing
   - frontend/src/features/sharing/publishing
   - frontend/src/features/offline
@@ -25,6 +27,8 @@ source_paths:
   - frontend/src/shared/routing
   - frontend/src/features/workspaces
 tests:
+  - backend/tests/test_sites_newsletter.py
+  - frontend/src/features/websites/SourcesEditor.test.tsx
   - backend/tests/test_web_publishing.py
   - frontend/src/features/sharing/publishing/WebPublishingManager.test.tsx
   - frontend/src/shared/api/web-publishing.test.ts
@@ -54,6 +58,25 @@ tests:
 The separate offline notes companion opens from Settings → General and uses the same server origin. In a production build, its service worker caches only the compiled public shell. Users choose text notes explicitly and protect the local collection with a separate passphrase. Local saves encrypt the collection in IndexedDB; locking clears application-held plaintext. Synchronization checks account, workspace, Vault and page revision, and presents both versions when changes conflict. The server continues to hold ordinary readable notes. Attachments, drawings and databases are outside this offline collection.
 
 Multi-page publishing uses the existing sharing plugin and self-hosted backend. An editor selects notes and reviews the exact public snapshot before publishing. Only that snapshot is served to a visitor; navigation and search run within its selected pages. Attachments, raw HTML, private transclusions and saved queries are visibly omitted. Updates require a new preview; revisions, expiry and revocation are stored in the management database. Anonymous reads use a narrowly matched token route, omit credentials and never bootstrap the private application. Publication does not deploy another service or automatically update when the original notes change.
+
+## Website content sources and newsletter catalogue
+
+**Add source** opens the shared searchable single-choice selector for tables,
+views and pages. Each option shows its localized kind and title; imported
+records are not selectable sources. Opening or cancelling the selector does
+not create a source. An explicit choice enters the existing autosave flow with
+publication disabled, no selected public fields or attachments, and body
+inclusion disabled. This selects content sources independently of the
+[typeface controls](integrations-plugins.md#website-management).
+
+The available newsletter content is sorted by descending creation date from
+the active release's existing public `presentation.created` metadata, after
+deduplication and withdrawal filtering. Numeric timestamps and ISO dates are
+accepted; naive dates use UTC. Missing, invalid or non-finite dates sort last,
+with stable release order for ties. This does not read unpublished vault data,
+add private fields to the API, mutate the release, or reorder the draft's
+explicitly selected pages. Exports without public creation metadata retain
+their relative release order at the end of the catalogue.
 
 ## Staging website publication
 
