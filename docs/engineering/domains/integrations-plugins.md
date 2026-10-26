@@ -1,7 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-09-30
+last_verified: 2026-10-26
 source_paths:
+  - backend/domains/sites/newsletter.py
+  - frontend/src/features/websites/SourcesEditor.tsx
+  - frontend/src/shared/hooks/useAppKeyboardScroll.ts
+  - frontend/src/shared/hooks/useKeyboardScroll.ts
+  - frontend/src/shared/hooks/keyboardScroll.ts
+  - frontend/src/shared/platform/browser-events.ts
+  - frontend/src/app/routeAnnouncement.ts
   - extensions/marketplace/build_vault_templates.py
   - extensions/marketplace/catalog_content.py
   - extensions/marketplace/reviewed_templates.py
@@ -60,6 +67,13 @@ source_paths:
   - frontend/src/features/notion-import
   - frontend/src/features/integrations
 tests:
+  - backend/tests/test_sites_newsletter.py
+  - frontend/src/features/websites/SourcesEditor.test.tsx
+  - frontend/src/shared/hooks/useAppKeyboardScroll.test.tsx
+  - frontend/src/shared/hooks/keyboardAccessibility.test.tsx
+  - frontend/src/shared/platform/browser-events.test.ts
+  - frontend/src/features/mail/components/MailList.scroll-ownership.test.tsx
+  - frontend/src/app/routeAnnouncement.test.ts
   - extensions/marketplace/test_reviewed_templates.py
   - frontend/src/features/vault-management/VaultTemplateMarketplace.test.tsx
   - backend/tests/test_integration_secret_storage.py
@@ -454,6 +468,14 @@ The optional `web-publishing` capability adds a multi-site manager at `/websites
 
 Catalogue validation errors remain visible without hiding existing websites or preventing manual-page editing. Publication still requires a successful review and unchanged source validation.
 
+**Add source** opens the shared searchable single-choice selector for tables,
+views and pages. Each option shows its localized kind and title; imported
+records are not selectable sources. Opening or cancelling the selector does
+not create a source. An explicit choice enters the existing autosave flow with
+publication disabled, no selected public fields or attachments, and body
+inclusion disabled. This selects content sources independently of the typeface
+controls described below.
+
 The Temenos import preserves public attachment URLs, publication years, materials, collaborator destinations and article sharing. Draft translations are excluded before collecting their unique public assets. Home reading selections keep their configured order, with a unique original-language fallback when a translation is unavailable. The imported-record catalogue exposes only public identifiers and available languages; editors can withdraw one language or one collection appearance without changing the original note. Withdrawn pages and their aliases return HTTP 410 and stay withdrawn across later publications; restoring a version removes its tombstone. Sitemap and RSS navigation use the selected deployment URL, while HTML canonical links retain the production origin.
 
 Legacy section and taxonomy RSS URLs, XML aliases, GUIDs, publication dates and full item descriptions are retained; feed navigation remains scoped to the selected deployment.
@@ -465,5 +487,34 @@ Website configuration autosaves through the shared draft writer and save-status 
 Captured test emails are readable from the delivery queue through administrator-only `captured_get` and `captured_apply` service operations. Private regular-file captures must match the selected site queue and synthetic recipient; lifecycle links must match the configured endpoint and queue-token binding. Reading is inert, HTML previews disable navigation and remote assets, and explicit Gnosi test forms invoke the same confirmation/preferences/unsubscribe token operation as public POST. Real delivery and production remain disabled; external pilot links keep their normal HTTP authentication.
 
 Newsletter drafts autosave privately per website and destination in `newsletter_drafts`, with optimistic revision checks. The administrator-only `/sites/{site_id}/newsletter` resource offers only whitelisted title, path, language and excerpt data from the active published release. Its review endpoint composes a digest or featured-reading template with an introduction, up to 20 unique ordered pages, escaped HTML, matching plain text and links under the published deployment URL. Changed publications, withdrawn entries and other-language selections require a fresh review. The existing PHP sanitizer, email theme, audience review and explicit queue action remain authoritative; edits invalidate review. Manual HTML/text remains available. Drafts are outside the vault and public bundles, and website rollback does not restore them.
+
+The available newsletter content is sorted by descending creation date from
+the active release's existing public `presentation.created` metadata, after
+deduplication and withdrawal filtering. Numeric timestamps and ISO dates are
+accepted; naive dates use UTC. Missing, invalid or non-finite dates sort last,
+with stable release order for ties. This does not read unpublished vault data,
+add private fields to the API, mutate the release, or reorder the draft's
+explicitly selected pages. Exports without public creation metadata retain
+their relative release order at the end of the catalogue.
+
+### Keyboard scrolling in the application shell
+
+Webs uses the shared application fallback for vertical Arrow, Page Up/Down,
+Home/End and Space scrolling outside text fields, editors and composite
+controls. Existing control navigation handles keys first, including handlers
+registered when a route mounts later. The focused region's fallback runs
+before the application fallback; a prevented event is not claimed again.
+Nested scrolling targets the nearest visible scrolling region, respecting
+hidden/inert ancestors and the active modal scope. With loose body focus, the
+last clicked region or the main page supplies the target; explicitly focusing
+main content takes precedence. Route changes and unmount remove stale pointer
+state and subscriptions. Reduced-motion preferences are respected, and Space
+retains native activation on buttons and links.
+
+The shell's accessible route announcements reuse the canonical application
+labels. Legacy prefix fallbacks and the exact Dashboard fallback remain;
+unrecognized routes retain the existing Home label. This keeps the immediate
+keyboard hook and controls in the startup graph while removing duplicate
+announcement data. The production bundle budget remains unchanged.
 
 Each Pangea private-service SSH login allows up to three attempts after transient disconnects before sending a password or command. Bounded sessions are serialized through child closure; queueing, login, backoff and commands share one 45-second deadline. If a known transport disconnect persists, semantic reads (status, lists, exports and captured email) can restart once automatically within that same deadline and connection slot. Host-key, login, policy, service and invalid-response errors do not trigger read recovery. Mutations, campaign previews, queueing and captured-link actions are never replayed after an uncertain response. See `backend/domains/sites/bounded_bridge.py`, `backend/domains/sites/pangea.py` and their recovery tests.
