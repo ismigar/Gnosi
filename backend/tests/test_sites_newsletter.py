@@ -54,6 +54,23 @@ def test_catalogue_uses_only_active_public_snapshot_and_never_current_vault(publ
     assert newsletter.state(value.store, value.site, "local").draft.revision == 0
 
 
+def test_available_contents_are_newest_first_without_reordering_selected_contents(published_site):
+    value = published_site
+    first, second, spanish = value.bundle.records
+    first.presentation["created"] = 1704067200
+    second.presentation["created"] = "2026-01-01T01:00:00+02:00"
+    spanish.presentation["created"] = "2026-01-01T00:00:00Z"
+    unknown = first.model_copy(update={"id": "unknown", "path": "/ca/unknown", "presentation": {"created": "invalid"}})
+    nonfinite = first.model_copy(update={"id": "nonfinite", "path": "/ca/nonfinite", "presentation": {"created": "NaN"}})
+    value.bundle.records = [unknown, first, nonfinite, second, spanish, second]
+    value.activate(value.bundle)
+    state = newsletter.state(value.store, value.site, "local")
+    assert [item.path for item in state.contents] == ["/es/primero", "/ca/segon article", "/ca/first", "/ca/unknown", "/ca/nonfinite"]
+    request = newsletter.SiteNewsletterReview(draft=newsletter.SiteNewsletterDraft(subject="News", paths=[first.path, second.path]), fingerprint=value.bundle.fingerprint)
+    body = newsletter.compose(value.store, value.site, "local", request)["body_html"]
+    assert body.index("First &lt;img") < body.index("Second article")
+
+
 @pytest.mark.parametrize("template", ["digest", "featured"])
 def test_composition_escapes_content_preserves_order_and_published_url(published_site, template):
     value = published_site

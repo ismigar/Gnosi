@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import html
+import math
+from datetime import datetime, timezone
 from html.parser import HTMLParser
 from typing import Literal, cast
 from urllib.parse import quote, urlsplit
@@ -95,6 +97,21 @@ def _summary(record: PublicRecord) -> str:
     return text if len(text) <= 360 else text[:357].rstrip() + "…"
 
 
+def _creation_time(record: PublicRecord) -> float:
+    value = record.presentation.get("created")
+    if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+        return float("-inf")
+    try:
+        result = float(value)
+    except (ValueError, OverflowError):
+        try:
+            date = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            result = date.replace(tzinfo=date.tzinfo or timezone.utc).timestamp()
+        except (ValueError, OverflowError, OSError):
+            return float("-inf")
+    return result if math.isfinite(result) else float("-inf")
+
+
 def published(store: SiteStore, site: SiteConfig, target_id: str) -> tuple[str, str, list[SiteNewsletterContent]]:
     target_for(site, target_id)
     # Read the active pointer and its bundle in one transaction; never rebuild
@@ -110,12 +127,13 @@ def published(store: SiteStore, site: SiteConfig, target_id: str) -> tuple[str, 
     if url.scheme not in {"http", "https"} or not url.hostname or url.username or url.password or url.query or url.fragment:
         raise HTTPException(409, "The published website has no usable URL")
     seen: set[str] = set()
-    contents: list[SiteNewsletterContent] = []
+    records: list[PublicRecord] = []
     for record in bundle.records:
         if record.path in seen or record.path in bundle.withdrawn_paths:
             continue
         seen.add(record.path)
-        contents.append(SiteNewsletterContent(path=safe_path(record.path), title=record.title, language=record.language, summary=_summary(record)))
+        records.append(record)
+    contents = [SiteNewsletterContent(path=safe_path(record.path), title=record.title, language=record.language, summary=_summary(record)) for record in sorted(records, key=_creation_time, reverse=True)]
     return bundle.fingerprint, base, contents
 
 
