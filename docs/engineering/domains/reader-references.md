@@ -533,7 +533,12 @@ numeric scope receive a dedicated check. Focused coverage findings require no
 narration quotes, while focused fidelity findings require exactly one. Their
 provider response schemas enforce those same counts before the existing literal
 evidence and semantic validators run. General listener audits and their context
-capacity are unchanged. A provider output-length failure
+capacity are unchanged. If an audit supplies nonliteral narration or source evidence,
+its remaining existing call can select application-owned IDs for exact original
+passages. Only rejected quote fields change; findings, source identities and valid
+quotes are immutable. Full schema/literal validation and independent finding
+confirmation still run before feedback or publication. No call or timeout budget
+is increased. A provider output-length failure
 recursively splits only the failed evidence or finding batch; confirmation keeps
 all its original evidence. An indivisible failed leaf blocks publication.
 Every revision also runs the whole-episode review even when source issues remain.

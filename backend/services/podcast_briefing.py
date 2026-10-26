@@ -117,6 +117,9 @@ class _Briefing:
         if saved is not None:
             checked(json.dumps(saved["result"]))
             return cast(dict[str, Any], saved["result"])
+        if output_repair is None and request.operation == 'podcast.coverage.audit':
+            from backend.services.podcast_audit_repair import audit_quote_repair
+            output_repair = audit_quote_repair(json.loads(request.input)['data'], schema)
         response = run_sync(request, snapshot=self.snapshot, output_validator=checked, output_repair=output_repair)
         checked(response.result)
         result: dict[str, Any] = json.loads(response.result)
