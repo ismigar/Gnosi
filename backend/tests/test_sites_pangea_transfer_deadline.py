@@ -55,12 +55,27 @@ def test_known_command_failure_is_terminal_even_when_following_prompt_is_lost(mo
 
 
 @pytest.mark.parametrize("raw", ["not json", '{"error":"policy"}', "[]", '{"test_mode":false}'])
-def test_complete_invalid_or_application_response_does_not_retry(monkeypatch, raw):
-    child = ExitSession(commands("{}", raw))
+@pytest.mark.parametrize("lost_prompt", [False, True])
+def test_complete_invalid_or_application_response_does_not_retry(monkeypatch, raw, lost_prompt):
+    steps = commands("{}", raw)
+    if lost_prompt:
+        steps[-1] = (pexpect.EOF("lost prompt after complete response"), "Connection closed")
+    child = ExitSession(steps)
     bridge, _, waits, launches = harness(monkeypatch, [child])
     store, site = service_transport(monkeypatch, bridge)
     with pytest.raises((HTTPException, ValueError)):
         pangea.service(store, site, "test", "captured_get", {})
+    assert len(launches) == 1 and not waits and child.closed
+
+
+@pytest.mark.parametrize("action", ["status", "captured_get", "campaign_queue", "captured_apply"])
+def test_complete_success_reply_is_returned_once_after_lost_prompt(monkeypatch, action):
+    steps = commands("{}", '{"test_mode":true,"completed":true}')
+    steps[-1] = (pexpect.EOF("lost prompt after complete response"), "Connection closed")
+    child = ExitSession(steps)
+    bridge, _, waits, launches = harness(monkeypatch, [child])
+    store, site = service_transport(monkeypatch, bridge)
+    assert pangea.service(store, site, "test", action, {}) == {"test_mode": True, "completed": True}
     assert len(launches) == 1 and not waits and child.closed
 
 

@@ -100,7 +100,7 @@ class BoundedBridge:
         self.child.sendline("stty -echo")
         self.expect(self.prompt)
 
-    def run(self, command: str) -> str:
+    def run(self, command: str, *, completed_response: bool = False) -> str:
         import pexpect
         connected = False
         try:
@@ -120,7 +120,14 @@ class BoundedBridge:
             output = self.child.before.strip()
             if status:
                 raise RuntimeError("The private website read could not complete")
-            self.expect(self.prompt)
+            try:
+                self.expect(self.prompt)
+            except (pexpect.EOF, pexpect.TIMEOUT, ConnectionAbortedError, TimeoutError):
+                if not completed_response:
+                    raise
+                # The final service command already completed with exit zero.
+                # Let its caller validate the full payload before any recovery.
+                self.close()
             return output
         except PangeaTransportInterrupted:
             self.close()

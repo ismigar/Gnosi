@@ -262,6 +262,7 @@ def sync_settings(store: SiteStore, site: SiteConfig, target: SiteTarget, forms_
 
 
 def _service_request(transport: Driver, bridge: Bridge, public: str, private: str, owner: str, action: str, request: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    from .bounded_bridge import BoundedBridge
     root = private + "/service"
     name = "request-" + uuid.uuid4().hex + ".json"
     transport.php(bridge, _policy(public, private, owner) + 'gnosi_file(' + json.dumps(root) + ',' + json.dumps(name) + ');')
@@ -276,7 +277,7 @@ def _service_request(transport: Driver, bridge: Bridge, public: str, private: st
     cleanup = "rm -f " + shlex.quote(root + "/" + name)
     code = _policy(public, private, owner) + '$p=$private."/service";$config=gnosi_service_config();$cli=gnosi_service_script("cli.php");gnosi_file($p,' + json.dumps(name) + ');if(!putenv("GNOSI_SITES_SERVICE_CONFIG=".$config)){throw new Exception("Service configuration unavailable");}require $cli;'
     command = "trap " + shlex.quote(cleanup) + " EXIT; php -r " + shlex.quote(code) + " < " + shlex.quote(root + "/" + name)
-    raw = bridge.run(command)
+    raw = bridge.run(command, completed_response=True) if isinstance(bridge, BoundedBridge) else bridge.run(command)
     result: object = json.loads(raw)
     if not isinstance(result, dict) or result.get("error") or result.get("test_mode", True) is not True:
         raise HTTPException(503, "The Pangea test service could not complete the operation")
