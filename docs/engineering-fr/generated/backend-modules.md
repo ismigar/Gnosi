@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 268 | 52397 |
+| `services` | 269 | 52523 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1085 modules** and **207363 source lines**.
+Total: **1086 modules** and **207489 source lines**.
 
 ## agent
 
@@ -1125,9 +1125,10 @@ Total: **1085 modules** and **207363 source lines**.
 | [`backend/services/plugin_sandbox.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_sandbox.py) | 96 | 0 | 4 | 0 | 3 | Compatibility facade for the restricted third-party plugin sandbox. |
 | [`backend/services/plugin_signing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_signing.py) | 167 | 0 | 8 | 0 | 6 | Plugin signing and trust (phase 3 of plugin_system.md). |
 | [`backend/services/plugin_system.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_system.py) | 256 | 0 | 14 | 0 | 12 | Compatibility facade for the typed third-party plugin domain. |
+| [`backend/services/podcast_audit_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_audit_repair.py) | 123 | 0 | 5 | 0 | 0 | Ground rejected audit quotes without changing the model's findings. |
 | [`backend/services/podcast_automatic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_automatic.py) | 172 | 0 | 7 | 0 | 0 | Bounded narration-only writing, semantic review and automatic revision. |
 | [`backend/services/podcast_brief_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_brief_repair.py) | 96 | 1 | 3 | 0 | 2 | Repair all rejected source quotes without rewriting validated briefs. |
-| [`backend/services/podcast_briefing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_briefing.py) | 193 | 1 | 7 | 0 | 0 | Durable whole-day podcast coverage, independent of model conversation memory. |
+| [`backend/services/podcast_briefing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_briefing.py) | 196 | 1 | 7 | 0 | 0 | Durable whole-day podcast coverage, independent of model conversation memory. |
 | [`backend/services/podcast_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_composition.py) | 112 | 0 | 5 | 0 | 2 | Require explicit prose for every planned group under one episode word budget. |
 | [`backend/services/podcast_outline.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_outline.py) | 121 | 0 | 8 | 0 | 0 | Global thematic deduplication and a checked word budget for a ten-minute episode. |
 | [`backend/services/podcast_provider_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_provider_retry.py) | 79 | 0 | 2 | 1 | 0 | Retry transient podcast provider failures within existing call/deadline limits. |

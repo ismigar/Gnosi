@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
 | Vitest | 744 | 3376 |
-| pytest | 738 | 5724 |
+| pytest | 740 | 5733 |
 
 ## Fitxers
 
@@ -1244,6 +1244,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_podcast_audit_partition_replay.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_partition_replay.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_podcast_audit_reasoning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_reasoning.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_podcast_audit_reference_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_reference_schema.py) | 9 | Python AST |
+| pytest | [`backend/tests/test_podcast_audit_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_repair.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_podcast_audit_repair_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_repair_transport.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_podcast_briefing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_briefing.py) | 37 | Python AST |
 | pytest | [`backend/tests/test_podcast_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_composition.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_podcast_confirmation_refs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_confirmation_refs.py) | 7 | Python AST |
