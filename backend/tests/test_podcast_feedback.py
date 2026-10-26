@@ -184,3 +184,28 @@ def test_only_compacted_writer_requests_receive_new_transport_contract():
     data = {'feedback': {'encoding': 'finding_guidance_v1', 'rows': []}}
     assert 'feedback_transport_contract' in _request(context, 'write', data, schema).options
     assert 'feedback_transport_contract' not in _request(context, 'audit', data, schema).options
+
+
+def test_guidance_schema_matches_the_serialized_byte_budget_for_its_entire_alphabet():
+    from backend.services.podcast_feedback import _guidance_request
+    context = Context()
+    for budget in [1, 2, 4, 37, 160]:
+        request = _guidance_request(context, [{'finding_id': 'finding:0', 'finding': findings(1)[0]}], budget)
+        for point in range(32, 127):
+            if point in (34, 92):
+                continue
+            text = chr(point) * budget
+            value = {'guidance': {'finding:0': text}}
+            jsonschema.validate(value, request.output_schema)
+            assert len(json.dumps(json.dumps(text, ensure_ascii=False), ensure_ascii=False).encode()) - 6 == budget
+
+
+@pytest.mark.parametrize('text', ['a' * 159 + '²', 'a' * 159 + 'é', 'a' * 159 + '"',
+                                'a' * 159 + '\\', 'a' * 158 + '\n', 'a\t', 'a\r', 'a\x00'])
+def test_schema_rejects_character_valid_but_wire_unsafe_guides(text):
+    from backend.services.podcast_feedback import _guidance_request
+    context = Context()
+    request = _guidance_request(context, [{'finding_id': 'finding:0', 'finding': findings(1)[0]}], 160)
+    assert len(text) <= 160
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({'guidance': {'finding:0': text}}, request.output_schema)
