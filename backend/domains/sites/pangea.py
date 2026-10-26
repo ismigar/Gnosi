@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 from importlib import import_module
 import json
+import logging
 import os
 import re
 import shlex
@@ -13,6 +14,7 @@ import sys
 import tarfile
 import tempfile
 import threading
+import time
 import uuid
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -28,6 +30,8 @@ from .ssh_namespace import program as namespace_program, worker_start_program
 
 
 _BOUNDED_CONNECTION_LOCK = threading.Lock()
+_READ_ACTIONS = frozenset({"status", "messages_list", "messages_export", "subscribers_list", "subscribers_export", "campaigns_list", "queue_list", "captured_get"})
+log = logging.getLogger(__name__)
 
 
 class Bridge(Protocol):
@@ -258,6 +262,7 @@ def sync_settings(store: SiteStore, site: SiteConfig, target: SiteTarget, forms_
 
 
 def _service_request(transport: Driver, bridge: Bridge, public: str, private: str, owner: str, action: str, request: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    from .bounded_bridge import BoundedBridge
     root = private + "/service"
     name = "request-" + uuid.uuid4().hex + ".json"
     transport.php(bridge, _policy(public, private, owner) + 'gnosi_file(' + json.dumps(root) + ',' + json.dumps(name) + ');')
@@ -272,7 +277,7 @@ def _service_request(transport: Driver, bridge: Bridge, public: str, private: st
     cleanup = "rm -f " + shlex.quote(root + "/" + name)
     code = _policy(public, private, owner) + '$p=$private."/service";$config=gnosi_service_config();$cli=gnosi_service_script("cli.php");gnosi_file($p,' + json.dumps(name) + ');if(!putenv("GNOSI_SITES_SERVICE_CONFIG=".$config)){throw new Exception("Service configuration unavailable");}require $cli;'
     command = "trap " + shlex.quote(cleanup) + " EXIT; php -r " + shlex.quote(code) + " < " + shlex.quote(root + "/" + name)
-    raw = bridge.run(command)
+    raw = bridge.run(command, completed_response=True) if isinstance(bridge, BoundedBridge) else bridge.run(command)
     result: object = json.loads(raw)
     if not isinstance(result, dict) or result.get("error") or result.get("test_mode", True) is not True:
         raise HTTPException(503, "The Pangea test service could not complete the operation")
@@ -280,10 +285,29 @@ def _service_request(transport: Driver, bridge: Bridge, public: str, private: st
 
 
 def service(store: SiteStore, site: SiteConfig, target_id: str, action: str, request: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    import pexpect  # type: ignore[import-untyped]
+    from .bounded_bridge import BoundedBridge, PangeaTransportInterrupted
     target = next(target for target in site.targets if target.id == target_id)
     validate_target(site, target)
     if target.environment != "staging":
         raise HTTPException(409, "Only the isolated Pangea test service is available")
     with connection(store, bounded=True) as (transport, bridge):
         public, private = paths(transport, site)
-        return _service_request(transport, bridge, public, private, store.private_root.name + ":" + site.id, action, request)
+        for attempt in range(2):
+            try:
+                return _service_request(transport, bridge, public, private, store.private_root.name + ":" + site.id, action, request)
+            except TimeoutError:
+                raise HTTPException(503, "The Pangea operation exceeded its deadline") from None
+            except (PangeaTransportInterrupted, pexpect.EOF, pexpect.TIMEOUT, ConnectionAbortedError):
+                # Only semantic reads may restart after a lost response. Keep
+                # both attempts inside the same connection slot and deadline.
+                if action not in _READ_ACTIONS or attempt or not isinstance(bridge, BoundedBridge):
+                    raise HTTPException(503, "The Pangea operation was interrupted; its result may be unconfirmed") from None
+                bridge.close()
+                try:
+                    time.sleep(min(1.0, bridge.remaining()))
+                    bridge.remaining()
+                except TimeoutError:
+                    raise HTTPException(503, "The Pangea read exceeded its deadline") from None
+                log.info("Recovering interrupted Pangea read: %s", action)
+        raise HTTPException(503, "The Pangea read could not complete")

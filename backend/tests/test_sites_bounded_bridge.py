@@ -15,6 +15,7 @@ class Session:
         self.steps = list(steps)
         self.before = ""
         self.timeout = 0.0
+        self.delaybeforesend = None
         self.sent = []
         self.closed = False
         self.match = None
@@ -48,11 +49,21 @@ def harness(monkeypatch, sessions, timeout=45):
     def spawn(command, arguments, **kwargs):
         assert command == "ssh" and "StrictHostKeyChecking=yes" in arguments
         launches.append(kwargs["timeout"])
+        sessions[len(launches) - 1].child_fd = len(launches) - 1
         return sessions[len(launches) - 1]
+
+    def write_pty(fd, payload, remaining):
+        remaining()
+        value = payload.decode("utf-8")
+        child = sessions[fd]
+        if value.endswith("\n"):
+            return child.sendline(value[:-1]) + 1
+        return child.send(value)
 
     monkeypatch.setattr("backend.domains.sites.bounded_bridge.time.monotonic", lambda: clock[0])
     monkeypatch.setattr("backend.domains.sites.bounded_bridge.time.sleep", sleep)
     monkeypatch.setattr(pexpect, "spawn", spawn)
+    monkeypatch.setattr("backend.domains.sites.bounded_child.write_pty", write_pty)
     bridge = BoundedBridge({
         "SSH_HOST": "staging.invalid", "SSH_PORT": "22", "SSH_USER": "operator",
         "SSH_PASSWORD": "synthetic-password", "SSH_SUWEB_PASSWORD": "synthetic-suweb",
