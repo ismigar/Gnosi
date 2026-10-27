@@ -12,11 +12,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | `agent` | 53 | 9528 |
 | `api` | 40 | 13624 |
-| `app` | 8 | 830 |
+| `app` | 8 | 832 |
 | `application root` | 2 | 55 |
 | `config` | 13 | 1389 |
 | `data` | 2 | 214 |
-| `domains` | 582 | 116020 |
+| `domains` | 605 | 120543 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -24,11 +24,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 259 | 51140 |
+| `services` | 259 | 51141 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1054 modules** and **201645 source lines**.
+Total: **1077 modules** and **206171 source lines**.
 
 ## agent
 
@@ -142,7 +142,7 @@ Total: **1054 modules** and **201645 source lines**.
 | [`backend/app/errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/errors.py) | 68 | 0 | 3 | 2 | 3 | Global HTTP error translation and private diagnostic notification. |
 | [`backend/app/factory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/factory.py) | 92 | 0 | 4 | 2 | 3 | Typed construction of the Gnosi FastAPI application. |
 | [`backend/app/health_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/health_contracts.py) | 54 | 3 | 0 | 0 | 3 | Typed response contracts for liveness and Google OAuth diagnostics. |
-| [`backend/app/lifespan.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/lifespan.py) | 354 | 1 | 13 | 5 | 14 | Application startup, maintenance and shutdown lifecycle. |
+| [`backend/app/lifespan.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/lifespan.py) | 356 | 1 | 13 | 5 | 14 | Application startup, maintenance and shutdown lifecycle. |
 | [`backend/app/middleware.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/middleware.py) | 37 | 0 | 1 | 0 | 1 | Ordered middleware composition for Gnosi's FastAPI application. |
 | [`backend/app/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py) | 175 | 0 | 1 | 0 | 1 | Single ordered registry for every public Gnosi router. |
 
@@ -524,6 +524,28 @@ Total: **1054 modules** and **201645 source lines**.
 | [`backend/domains/reader/source_urls.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/source_urls.py) | 19 | 0 | 1 | 0 | 1 | Canonicalize the explicit newsletter input alias without accepting secrets. |
 | [`backend/domains/reader/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/state.py) | 49 | 1 | 0 | 0 | 1 | Shared state and limits for durable Reader analyses. |
 | [`backend/domains/reader/storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/storage.py) | 200 | 0 | 18 | 0 | 0 | Durable Reader job, snapshot and checkpoint storage. |
+| [`backend/domains/sites/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault-scoped website management and reviewed static publication. |
+| [`backend/domains/sites/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py) | 234 | 0 | 28 | 0 | 0 | Authenticated website editor and private administrator operations. |
+| [`backend/domains/sites/bounded_bridge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_bridge.py) | 142 | 2 | 0 | 0 | 2 | Deadline-bound read sessions using the maintained SSH/Suweb login procedure. |
+| [`backend/domains/sites/bounded_child.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_child.py) | 85 | 2 | 0 | 0 | 1 | Apply a single SSH deadline even when the maintained driver uses the child directly. |
+| [`backend/domains/sites/bounded_pty.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_pty.py) | 32 | 0 | 1 | 0 | 0 | Nonblocking PTY writes with one caller-owned absolute deadline. |
+| [`backend/domains/sites/exporter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/exporter.py) | 578 | 3 | 30 | 0 | 2 | Create immutable public projections from explicitly selected registry identities. |
+| [`backend/domains/sites/fonts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/fonts.py) | 42 | 0 | 1 | 0 | 0 | Read only explicitly configured local website fonts for editor samples. |
+| [`backend/domains/sites/importer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/importer.py) | 332 | 0 | 14 | 0 | 3 | Freeze the existing public pilot as an explicitly selected publication source. |
+| [`backend/domains/sites/local_artifacts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/local_artifacts.py) | 190 | 0 | 17 | 0 | 0 | Canonical local release namespaces, exact inventories and atomic pointers. |
+| [`backend/domains/sites/models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/models.py) | 415 | 34 | 3 | 0 | 0 | Versioned contracts for website configuration and private operation state. |
+| [`backend/domains/sites/newsletter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/newsletter.py) | 223 | 6 | 10 | 0 | 0 | Private newsletter drafts composed from an immutable published projection. |
+| [`backend/domains/sites/pangea.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/pangea.py) | 313 | 2 | 13 | 0 | 0 | Native website releases through the existing administrator-bound Suweb bridge. |
+| [`backend/domains/sites/paths.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/paths.py) | 13 | 0 | 1 | 0 | 0 | Locate the website runtime in a checkout or an immutable desktop package. |
+| [`backend/domains/sites/private_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/private_service.py) | 140 | 0 | 6 | 0 | 0 | Bounded private PHP service bridge; no browser-selected commands or paths. |
+| [`backend/domains/sites/publication.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/publication.py) | 373 | 0 | 21 | 0 | 1 | Persistent reviewed publication jobs, immutable builds and atomic activation. |
+| [`backend/domains/sites/recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/recovery.py) | 120 | 0 | 3 | 0 | 3 | Reauthorize and resume approved website jobs after a backend restart. |
+| [`backend/domains/sites/renderer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/renderer.py) | 73 | 0 | 1 | 0 | 1 | Build reviewed website snapshots with the packaged Astro/Pagefind renderer. |
+| [`backend/domains/sites/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/runtime.py) | 402 | 0 | 19 | 0 | 3 | Owned local preview processes and administrator-bound SSH destinations. |
+| [`backend/domains/sites/ssh_namespace.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/ssh_namespace.py) | 193 | 0 | 2 | 0 | 1 | One filesystem policy for every SSH release operation. |
+| [`backend/domains/sites/storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/storage.py) | 162 | 1 | 3 | 0 | 1 | Atomic synchronized editorial files and device-private website operation state. |
+| [`backend/domains/sites/translations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/translations.py) | 115 | 1 | 5 | 0 | 1 | Public language and translation identities from Gnosi's native metadata. |
+| [`backend/domains/sites/validation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/validation.py) | 82 | 0 | 3 | 0 | 0 | Closed website CSS and URL configuration validation. |
 | [`backend/domains/social/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/social/__init__.py) | 1 | 0 | 0 | 0 | 0 | Social publishing domain boundaries. |
 | [`backend/domains/social/configuration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/social/configuration.py) | 81 | 0 | 5 | 0 | 4 | Blocking configuration helpers for the social domain. |
 | [`backend/domains/social/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/social/schemas.py) | 171 | 21 | 0 | 0 | 2 | Pydantic contracts for the public social API. |
@@ -684,11 +706,12 @@ Total: **1054 modules** and **201645 source lines**.
 | [`backend/domains/vault/pages/sync_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/sync_routes.py) | 259 | 7 | 13 | 4 | 5 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/pages/tags.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/tags.py) | 141 | 4 | 7 | 1 | 5 | Aggregate portable and semantic table tags across Vault pages. |
 | [`backend/domains/vault/publishing/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/__init__.py) | 1 | 0 | 0 | 0 | 0 | Selected, immutable note snapshots served by the existing Gnosi server. |
-| [`backend/domains/vault/publishing/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/api.py) | 71 | 0 | 8 | 0 | 0 | Authenticated management and one token-authorized, read-only public route. |
+| [`backend/domains/vault/publishing/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/api.py) | 75 | 0 | 8 | 0 | 0 | Authenticated management and one token-authorized, read-only public route. |
 | [`backend/domains/vault/publishing/markdown.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/markdown.py) | 409 | 2 | 6 | 0 | 4 | Normalize selected Markdown to a closed publication link namespace. |
 | [`backend/domains/vault/publishing/models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/models.py) | 45 | 3 | 0 | 0 | 0 | Management-database storage; published bodies never consult live Vault files. |
 | [`backend/domains/vault/publishing/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/schemas.py) | 72 | 8 | 0 | 0 | 0 | Bounded input and snapshot-only output for multi-note publication. |
 | [`backend/domains/vault/publishing/service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/service.py) | 217 | 2 | 10 | 0 | 0 | Preview-first snapshots and atomic, scope-checked publication changes. |
+| [`backend/domains/vault/publishing/web.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/web.py) | 259 | 16 | 13 | 0 | 1 | Editor-scoped bridge to the administrator-configured staging publisher. |
 | [`backend/domains/vault/registry/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/__init__.py) | 6 | 0 | 0 | 0 | 0 | Vault registry ownership and HTTP-independent operations. |
 | [`backend/domains/vault/registry/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/api.py) | 88 | 1 | 3 | 2 | 1 | HTTP-independent handlers for the vault registry endpoints. |
 | [`backend/domains/vault/registry/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/contracts.py) | 60 | 6 | 0 | 0 | 5 | Public contracts for opening local Vault resources through the host OS. |
@@ -982,7 +1005,7 @@ Total: **1054 modules** and **201645 source lines**.
 | [`backend/services/auth_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_service.py) | 674 | 0 | 26 | 0 | 24 | Authentication service — JWT cookies + bcrypt password hashing. |
 | [`backend/services/automation_history.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/automation_history.py) | 21 | 0 | 1 | 0 | 0 | Scoped, paginated automation history for the activity centre. |
 | [`backend/services/automation_schedule.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/automation_schedule.py) | 56 | 1 | 1 | 0 | 1 | Calendar schedules with explicit timezone and DST semantics. |
-| [`backend/services/builtin_plugins.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/builtin_plugins.py) | 265 | 0 | 7 | 0 | 6 | Registry and state rules for Gnosi's optional built-in capabilities. |
+| [`backend/services/builtin_plugins.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/builtin_plugins.py) | 266 | 0 | 7 | 0 | 6 | Registry and state rules for Gnosi's optional built-in capabilities. |
 | [`backend/services/button_action_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/button_action_contracts.py) | 113 | 1 | 6 | 0 | 0 | Contracts for generated table buttons, using the actual editable fields. |
 | [`backend/services/button_field_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/button_field_execution.py) | 229 | 1 | 9 | 0 | 2 | Resolve and persist a generated value against the current table schema. |
 | [`backend/services/button_page_mutations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/button_page_mutations.py) | 60 | 0 | 1 | 1 | 0 | Apply validated button changes through the canonical page mutation workflow. |
