@@ -11,17 +11,6 @@ WORD_TEXT = "word_text_v1"
 MARKER_PREFIX = "__gnosi_group__:"
 
 
-def _word_pattern(minimum: int, maximum: int) -> str:
-    """Count one shared word stream using portable repeat counts below 1000."""
-    parts = [r"^\S+"]
-    low, high = minimum - 1, maximum - 1
-    while high:
-        lower, upper = min(low, 999), min(high, 999)
-        parts.append(r"(?:\s+\S+)" + f"{{{lower},{upper}}}")
-        low, high = low - lower, high - upper
-    return "".join(parts) + "$"
-
-
 def schema(data: dict[str, Any]) -> dict[str, Any]:
     groups = data.get("composition_groups", [])
     if not groups:
@@ -33,8 +22,7 @@ def schema(data: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("podcast_composition_word_range_invalid")
         flags = _object({g["key"]: _object({"non_editorial": {"type": "boolean"}}) for g in groups})
         if data["composition_encoding"] == WORD_TEXT:
-            return _object({"paragraphs": flags, "token_text": {"type": "string",
-                "pattern": _word_pattern(minimum + len(groups), maximum + len(groups))}})
+            return _object({"paragraphs": flags, "token_text": {"type": "string", "minLength": 1}})
         return _object({"paragraphs": flags, "tokens": {"type": "array",
             "minItems": minimum + len(groups), "maxItems": maximum + len(groups),
             "items": {"type": "string", "pattern": r"^\S+$"}}})

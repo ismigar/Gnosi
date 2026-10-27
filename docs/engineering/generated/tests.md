@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
 | Vitest | 748 | 3394 |
-| pytest | 748 | 5789 |
+| pytest | 748 | 5790 |
 
 ## Files
 
@@ -1261,7 +1261,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_podcast_provider_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_provider_retry.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_podcast_quote_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_quote_repair.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_podcast_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_scope.py) | 20 | Python AST |
-| pytest | [`backend/tests/test_podcast_word_text.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_word_text.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_podcast_word_text.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_word_text.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_podcast_word_tokens.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_word_tokens.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_pr6_agent_remaining_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pr6_agent_remaining_contract.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_pr6_domain_facades.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pr6_domain_facades.py) | 4 | Python AST |

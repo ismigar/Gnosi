@@ -1,7 +1,6 @@
 """Compact length repairs preserve every word and enforce one shared episode range."""
 import copy
 import json
-import re
 
 import jsonschema
 import pytest
@@ -42,30 +41,62 @@ def test_compact_stream_preserves_legacy_spoken_words_qualifications_and_exclusi
     assert set(schema(value)["properties"]) == {"paragraphs", "token_text"}
 
 
-@pytest.mark.parametrize("words", [1056, 1199, 1241, 1242, 1380, 1504, 1505, 1584, 1613, 1720, 1767])
-def test_actual_day_global_boundaries_and_rejected_lengths_are_enforced_by_pattern(words):
+@pytest.mark.parametrize("words", [1056, 1199, 1241, 1242, 1380, 1504, 1505, 1584, 1600, 1613, 1646, 1720, 1767])
+def test_actual_day_global_boundaries_are_enforced_locally_before_review_or_speech(words):
+    from backend.services.podcast_automatic import _bounded_write
     value, result = broad_day(words)
     contract = schema(value)
-    pattern = contract["properties"]["token_text"]["pattern"]
-    expected = 1242 <= words <= 1504
-    assert bool(re.fullmatch(pattern, result["token_text"])) == expected
+    assert contract["properties"]["token_text"] == {"type": "string", "minLength": 1}
+    jsonschema.validate(result, contract)
     assert len(spoken_text(result, value).split()) == words
-    if expected:
-        jsonschema.validate(result, contract)
+    snapshot = copy.deepcopy(result)
+    context = Context([result, result, result], "full")
+    options = {"min_words": 1242, "max_words": 1504, "target_words": 1380}
+    if 1242 <= words <= 1504:
+        accepted = _bounded_write(context, value, options)
+        assert len(accepted["narration"].split()) == words and len(context.sent) == 1
     else:
-        with pytest.raises(jsonschema.ValidationError):
-            jsonschema.validate(result, contract)
-    assert max(int(count) for bounds in re.findall(r"\{(\d+),(\d+)\}", pattern)
-               for count in bounds) <= 999
-    assert len(result["paragraphs"]) == 31
+        with pytest.raises(ValueError, match=f"podcast_word_budget: expected 1242..1504; received {words}"):
+            _bounded_write(context, value, options)
+        assert len(context.sent) == 3
+        for repair in context.sent[1:]:
+            assert repair["previous_composition"] == result
+            assert repair["length_repair"]["current_words"] == words
+            assert repair["composition_word_range"] == {"min_words": 1242, "max_words": 1504}
+    assert result == snapshot and len(result["paragraphs"]) == 31
 
 
 @pytest.mark.parametrize("minimum,maximum", [(1, 1), (5, 12), (90, 109), (999, 1001), (1990, 2030)])
-def test_repeat_chunks_cover_exact_global_interval_without_a_topic_cap(minimum, maximum):
+def test_dynamic_local_interval_preserves_all_topics_without_provider_count_constraints(minimum, maximum):
+    from backend.services.podcast_automatic import _bounded_write
     for words in {max(0, minimum - 1), minimum, maximum, maximum + 1}:
         value, result = broad_day(words, groups=2, minimum=minimum, maximum=maximum)
-        pattern = schema(value)["properties"]["token_text"]["pattern"]
-        assert bool(re.fullmatch(pattern, result["token_text"])) == (minimum <= words <= maximum)
+        jsonschema.validate(result, schema(value))
+        context = Context([result, result, result], "full")
+        options = {"min_words": minimum, "max_words": maximum, "target_words": (minimum + maximum) // 2}
+        if minimum <= words <= maximum:
+            accepted = _bounded_write(context, value, options)
+            assert len(accepted["narration"].split()) == words
+        else:
+            with pytest.raises(ValueError, match="podcast_word_budget"):
+                _bounded_write(context, value, options)
+        assert all(sent["composition_groups"] == value["composition_groups"] for sent in context.sent)
+
+
+def test_out_of_range_reply_is_automatically_corrected_without_clipping_or_mutating_scope():
+    from backend.services.podcast_automatic import _bounded_write
+    value, rejected = broad_day(1600)
+    _, accepted = broad_day(1380)
+    original = copy.deepcopy(value)
+    context = Context([rejected, accepted], "full")
+    result = _bounded_write(context, value, {"min_words": 1242, "max_words": 1504, "target_words": 1380})
+    assert result["narration"] == spoken_text(accepted, value)
+    assert len(context.sent) == 2 and value == original
+    repair = context.sent[1]
+    assert repair["previous_composition"] == rejected
+    assert repair["composition_groups"] == value["composition_groups"]
+    assert repair["length_repair"]["current_words"] == 1600
+    assert repair["length_repair"]["word_delta"] == -220
 
 
 @pytest.mark.parametrize("mutate", [
