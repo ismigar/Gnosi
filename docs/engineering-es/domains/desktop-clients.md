@@ -5,6 +5,8 @@ source_paths:
   - pyproject.toml
   - uv.lock
   - desktop/README.md
+  - desktop/scripts/local_install_retention.py
+  - desktop/tests/test_local_install_retention.py
   - desktop/profile-startup.js
   - desktop/profile-preservation.js
   - desktop/cookie-migration.js
@@ -671,3 +673,5 @@ La candidata `3.2.0` añade equipos de asistentes y roles especializados, compar
 Antes de seleccionar un vault, el servicio empaquetado guarda la configuración y las migraciones de referencias de proveedores en `GNOSI_DATA_DIR/config/params.yaml`. Los recursos firmados de la aplicación permanecen en solo lectura; las solicitudes posteriores siguen guardando en el archivo `.gnosi/params.yaml` del vault activo. Las pruebas del primer inicio y del reinicio deben verificar la firma instalada después de salir de la app, ya que un arranque correcto por sí solo no detecta escrituras dentro del paquete.
 
 La imagen Docker del frontend incluye el verificador compartido de recursos PDF que importa Vite y comprueba que se cargue durante la construcción. Esto evita que una imagen construida correctamente falle al iniciar el servidor porque falta el verificador.
+
+Las instalaciones locales de componentes terminan con `desktop/scripts/local_install_retention.py finalize`. Hay que revisar el plan antes de aplicarlo bajo el bloqueo compartido del instalador. El recibo `install/native-verification.json`, vinculado a la fuente y al manifiesto, solo puede reflejar comprobaciones reales de firma, inventario de componentes y arranque nativo propio. Una instalación completada conserva una copia comprimida verificada de recuperación y retira los temporales reconocidos; se protegen las ejecuciones incompletas o históricas desconocidas, las fuentes, las evidencias y los datos.

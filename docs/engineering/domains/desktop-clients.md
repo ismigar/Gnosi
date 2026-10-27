@@ -5,6 +5,8 @@ source_paths:
   - pyproject.toml
   - uv.lock
   - desktop/README.md
+  - desktop/scripts/local_install_retention.py
+  - desktop/tests/test_local_install_retention.py
   - desktop/profile-startup.js
   - desktop/profile-preservation.js
   - desktop/cookie-migration.js
@@ -599,3 +601,5 @@ The `3.2.0` candidate adds assistant teams and specialist roles, provider-specif
 Before a vault is selected, a frozen backend persists configuration and provider-reference migrations under `GNOSI_DATA_DIR/config/params.yaml`. Signed application resources remain read-only; later requests still save to the active vault’s `.gnosi/params.yaml`. First-launch and restart acceptance must verify the installed signature after the app exits, since startup readiness alone does not detect bundle writes.
 
 The frontend Docker image includes the shared PDF asset verifier imported by Vite and checks that it loads during image construction. This prevents a successfully built image from failing at server startup because the verifier is missing.
+
+Local component installations finish with `desktop/scripts/local_install_retention.py finalize`. Preview its plan before applying it under the shared installer lock. Only actual signature, component-inventory and owned native-startup checks may produce the source- and manifest-bound `install/native-verification.json` receipt. A completed installation keeps one verified compressed rollback archive and retires recognized derived payloads; incomplete or unknown historical runs, source, evidence and user data remain protected.
