@@ -51,16 +51,16 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
-| `app` | 21 | 2697 | 0 |
+| `app` | 22 | 2679 | 0 |
 | `features` | 1277 | 137138 | 56 |
 | `generated` | 3 | 57062 | 588 |
-| `shared` | 347 | 37105 | 503 |
+| `shared` | 348 | 37211 | 503 |
 
 ## app
 
 | Font | Línies | Indicis d’exportació | Rutes literals de l’API |
 | --- | ---: | --- | --- |
-| [`frontend/src/app/App.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/App.tsx) | 315 | `App`, `function` | — |
+| [`frontend/src/app/App.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/App.tsx) | 273 | `App`, `function` | — |
 | [`frontend/src/app/AppProviders.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/AppProviders.tsx) | 22 | `AppProviders` | — |
 | [`frontend/src/app/HomePage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/HomePage.tsx) | 231 | `HomePage` | — |
 | [`frontend/src/app/bootstrap.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/bootstrap.tsx) | 35 | `bootstrap` | — |
@@ -77,6 +77,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/app/navigation/sidebar/appSidebarModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/sidebar/appSidebarModel.ts) | 42 | `APP_SIDEBAR_ITEMS` | — |
 | [`frontend/src/app/outline/PageOutline.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/outline/PageOutline.tsx) | 269 | `PageOutline`, `function` | — |
 | [`frontend/src/app/outline/pageOutlineModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/outline/pageOutlineModel.ts) | 84 | `collectOutlineHeadings`, `hasScrollableAncestor`, `isOutlineRoute`, `outlineHeadingId`, `outlineHeadingText` | — |
+| [`frontend/src/app/routeAnnouncement.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/routeAnnouncement.ts) | 24 | `routeAnnouncementLabel` | — |
 | [`frontend/src/app/routePreload.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/routePreload.ts) | 41 | `applicationRouteLoaders`, `preloadApplicationRoute` | — |
 | [`frontend/src/app/routes.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/routes.tsx) | 161 | `ApplicationRoutes`, `SharedRoutes` | — |
 | [`frontend/src/app/startup.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/startup.ts) | 51 | `prepareStartup`, `startApplication` | — |
@@ -1584,14 +1585,15 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/graph/viewer/useGraphViewerData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/graph/viewer/useGraphViewerData.ts) | 92 | `useGraphViewerData`, `useGraphViewerPhysics` | — |
 | [`frontend/src/shared/graph/viewer/useGraphViewerRenderer.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/graph/viewer/useGraphViewerRenderer.ts) | 93 | `useGraphViewerRenderer` | — |
 | [`frontend/src/shared/help/helpLinks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/help/helpLinks.ts) | 25 | `contextualHelpTopic`, `helpLocale`, `helpUrl` | — |
-| [`frontend/src/shared/hooks/keyboardScroll.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/keyboardScroll.ts) | 16 | `canKeyboardScroll` | — |
+| [`frontend/src/shared/hooks/keyboardScroll.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/keyboardScroll.ts) | 39 | `canKeyboardScroll`, `isKeyboardScrollOriginVisible`, `isVerticalScrollRegion`, `nearestVerticalScrollRegion` | — |
 | [`frontend/src/shared/hooks/useActiveVaultId.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useActiveVaultId.ts) | 12 | `useActiveVaultId` | — |
 | [`frontend/src/shared/hooks/useActiveVaultName.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useActiveVaultName.ts) | 43 | `useActiveVaultName` | — |
+| [`frontend/src/shared/hooks/useAppKeyboardScroll.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useAppKeyboardScroll.ts) | 51 | `useAppKeyboardScroll` | — |
 | [`frontend/src/shared/hooks/useDraftAutosave.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useDraftAutosave.ts) | 50 | `useDraftAutosave` | — |
 | [`frontend/src/shared/hooks/useExclusiveFloatingPanel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useExclusiveFloatingPanel.ts) | 35 | `announceFloatingPanelOpen`, `useExclusiveFloatingPanel` | — |
 | [`frontend/src/shared/hooks/useFloatingActionDock.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useFloatingActionDock.ts) | 42 | `announceFloatingDockChange`, `useFloatingActionDock` | — |
 | [`frontend/src/shared/hooks/useFocusModality.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useFocusModality.ts) | 31 | `useFocusModality` | — |
-| [`frontend/src/shared/hooks/useKeyboardScroll.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useKeyboardScroll.ts) | 50 | `useKeyboardScroll` | — |
+| [`frontend/src/shared/hooks/useKeyboardScroll.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useKeyboardScroll.ts) | 53 | `useKeyboardScroll` | — |
 | [`frontend/src/shared/hooks/useMediaQuery.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useMediaQuery.ts) | 33 | `useMediaQuery` | — |
 | [`frontend/src/shared/hooks/useModalKeyboard.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useModalKeyboard.ts) | 248 | `hasOpenModal`, `isActiveModalScope`, `pushModalLayer`, `useModalKeyboard` | — |
 | [`frontend/src/shared/hooks/useRequestContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useRequestContext.ts) | 19 | `useRequestContext` | — |
@@ -1612,7 +1614,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/page-search/globalSearchUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/page-search/globalSearchUtils.ts) | 320 | `buildTagFieldsByTable`, `findSearchTagsField`, `getSearchNoteTags`, `isGlobalSearchShortcut`, `matchesGlobalSearchNote`, `mergeGlobalSearchNotes`, `parseGlobalSearchQuery`, `searchGlobalNotes`, `splitSearchTags` | — |
 | [`frontend/src/shared/page-search/useVaultContentSearch.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/page-search/useVaultContentSearch.ts) | 99 | `useVaultContentSearch` | — |
 | [`frontend/src/shared/platform/app-events.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/platform/app-events.ts) | 187 | `emitAppEvent`, `emitCancelableAppEvent`, `isAppEvent`, `subscribeAppEvent`, `subscribeAppSignal` | — |
-| [`frontend/src/shared/platform/browser-events.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/platform/browser-events.ts) | 118 | `browserDocumentBody`, `browserHasTouchPoints`, `browserViewportSize`, `currentBrowserOrigin`, `dispatchWindowEvent`, `eventTargetClosest`, `eventTargetIsWithin`, `observeElementResize`, `openBrowserWindow`, `postWindowMessage`, `reloadBrowserPage`, `subscribeDocumentEvent`, `subscribeElementEvent`, `subscribeWindowEvent` | — |
+| [`frontend/src/shared/platform/browser-events.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/platform/browser-events.ts) | 147 | `browserDocumentBody`, `browserHasTouchPoints`, `browserViewportSize`, `currentBrowserOrigin`, `dispatchWindowEvent`, `eventTargetClosest`, `eventTargetIsWithin`, `observeElementResize`, `openBrowserWindow`, `postWindowMessage`, `reloadBrowserPage`, `subscribeDocumentEvent`, `subscribeElementEvent`, `subscribeKeyboardScrollFallback`, `subscribeWindowEvent` | — |
 | [`frontend/src/shared/platform/browser-storage.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/platform/browser-storage.ts) | 154 | `defineStorageKey`, `jsonStorageCodec`, `listStorageKeyNames`, `readStorage`, `readStorageResult`, `removeStorage`, `storageEventIsFrom`, `stringStorageCodec`, `writeStorage` | — |
 | [`frontend/src/shared/platform/clipboard.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/platform/clipboard.ts) | 9 | `writeClipboardText` | — |
 | [`frontend/src/shared/platform/configEvents.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/platform/configEvents.ts) | 43 | `emitConfigChanged`, `emitVaultNameChanged`, `useConfigChanged`, `useVaultNameChanged` | — |

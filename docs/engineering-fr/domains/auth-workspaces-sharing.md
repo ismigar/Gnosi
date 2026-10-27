@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-10-13
+last_verified: 2026-10-26
 source_paths:
+  - backend/domains/sites/newsletter.py
+  - frontend/src/features/websites/SourcesEditor.tsx
   - backend/domains/vault/publishing
   - frontend/src/features/sharing/publishing
   - frontend/src/features/offline
@@ -25,6 +27,8 @@ source_paths:
   - frontend/src/shared/routing
   - frontend/src/features/workspaces
 tests:
+  - backend/tests/test_sites_newsletter.py
+  - frontend/src/features/websites/SourcesEditor.test.tsx
   - backend/tests/test_web_publishing.py
   - frontend/src/features/sharing/publishing/WebPublishingManager.test.tsx
   - frontend/src/shared/api/web-publishing.test.ts
@@ -227,3 +231,24 @@ Le dialogue de partage propose **Publier sur le web** pour un site de test confi
 Les ajouts, actualisations et retraits sont explicites. Les autres pages publiées sont conservées et les traductions apparaissent dans la liste à vérifier. La publication consomme un aperçu à usage unique lié au compte, à l’espace de travail et au coffre. Un changement de contexte annule les requêtes et efface les données privées de l’interface. Modifier la sélection ou rencontrer un aperçu périmé exige une nouvelle vérification. L’historique permet de restaurer une version de test ; Drupal reste en production.
 
 La lettre affiche les abonnements en attente, actifs et résiliés, les langues et l’historique. Le contenu de la lettre accepte les langues du site `ca`, `es` et `en-gb`, indépendamment de la langue de l’interface. L’aperçu HTML est isolé et sans accès au réseau. Seul `test_mode: true` est accepté : la file enregistre les messages de test sans envoyer de courriels réels. Les aperçus expirent après 15 minutes ou au redémarrage du serveur. Annuler dans le navigateur n’annule pas une publication déjà lancée ; il faut actualiser l’état avant de répéter une action incertaine.
+
+## Sources de contenu des sites et catalogue de la lettre
+
+**Ajouter une source** ouvre le sélecteur partagé avec recherche et choix unique
+de tables, vues et pages. Chaque option présente son type localisé et son titre ;
+les enregistrements importés ne sont pas des sources sélectionnables. Ouvrir ou
+annuler le sélecteur ne crée aucune source. Le choix explicite utilise
+l'enregistrement automatique existant avec la publication désactivée, sans
+champs publics ni pièces jointes sélectionnés et sans inclusion du corps.
+Ces sources de contenu se choisissent indépendamment des
+[réglages typographiques](integrations-plugins.md).
+
+Le contenu disponible de la lettre est classé par date de création décroissante
+à partir des métadonnées publiques `presentation.created` de la version active,
+après déduplication et filtrage des retraits. Les horodatages numériques et les
+dates ISO sont acceptés ; les dates sans fuseau utilisent UTC. Les dates
+absentes, invalides ou non finies sont placées à la fin et les égalités conservent
+l'ordre de la version. Aucun contenu non publié du vault n'est lu, aucun champ
+privé n'est ajouté à l'API, la version n'est pas modifiée et les pages choisies
+explicitement dans le brouillon ne sont pas réordonnées. Les éléments exportés
+sans date publique gardent leur ordre relatif à la fin du catalogue.

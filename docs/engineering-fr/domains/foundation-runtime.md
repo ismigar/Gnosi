@@ -1,7 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-10-13
+last_verified: 2026-10-26
 source_paths:
+  - frontend/src/shared/hooks/useAppKeyboardScroll.ts
+  - frontend/src/shared/hooks/useKeyboardScroll.ts
+  - frontend/src/shared/hooks/keyboardScroll.ts
+  - frontend/src/shared/platform/browser-events.ts
+  - frontend/src/app/routeAnnouncement.ts
   - frontend/src/features/sharing/publishing
   - frontend/src/features/offline
   - backend/server.py
@@ -20,6 +25,11 @@ source_paths:
   - frontend/src/generated
   - frontend/feature-public-entries.json
 tests:
+  - frontend/src/shared/hooks/useAppKeyboardScroll.test.tsx
+  - frontend/src/shared/hooks/keyboardAccessibility.test.tsx
+  - frontend/src/shared/platform/browser-events.test.ts
+  - frontend/src/features/mail/components/MailList.scroll-ownership.test.tsx
+  - frontend/src/app/routeAnnouncement.test.ts
   - frontend/src/app/composition.contract.test.ts
   - frontend/src/app/shellPages.test.tsx
   - backend/tests/test_app_lifespan.py
@@ -134,3 +144,26 @@ Vérifiez le propriétaire du processus, `/api/health`, `/api/config` et `/api/v
 ## Entrées publiques et hors connexion indépendantes
 
 Les URL de sites publiés sont traitées avant le démarrage authentifié. Elles ne chargent que le lecteur d’instantané public, sans requêtes d’initialisation du compte, des plugins ou du Vault. L’entrée compilée hors connexion charge sa collection locale chiffrée et un service worker réservé aux fichiers statiques. Éditeurs source, raccourcis et apparence de l’application principale restent dans le démarrage authentifié. Les extraits de thème rejettent les ressources réseau ; le mode d’apparence sûr et la commande de réinitialisation permettent de récupérer une interface mal configurée.
+
+## Défilement au clavier et annonces de route
+
+Le shell fournit un repli partagé pour le défilement vertical avec les flèches,
+Page précédente/suivante, Début/Fin et Espace hors des champs de texte, éditeurs
+et contrôles composites. La navigation propre aux contrôles traite les touches
+en premier, y compris les gestionnaires enregistrés lors du montage ultérieur
+d'une route. Le repli de la région ciblée précède celui de l'application ;
+un événement annulé n'est pas repris. Le défilement imbriqué choisit la région
+défilante visible la plus proche, en respectant les ancêtres masqués ou inertes
+et la portée de la fenêtre modale active. Si le corps a le focus, la dernière
+région cliquée ou la page principale sert de cible ; cibler explicitement le
+contenu principal est prioritaire. Les changements de route et le démontage
+suppriment l'état du pointeur et les abonnements périmés. La préférence de
+mouvement réduit est respectée et Espace conserve l'activation native des
+boutons et des liens.
+
+Les annonces accessibles de route réutilisent les libellés canoniques des
+applications. Les replis historiques par préfixe et le repli exact de Dashboard
+sont conservés ; les routes inconnues gardent le libellé Accueil. Le hook du
+clavier et les contrôles restent ainsi disponibles immédiatement au démarrage,
+sans les données d'annonce dupliquées. Le budget du paquet de production
+reste inchangé.
