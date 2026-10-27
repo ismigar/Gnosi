@@ -42,6 +42,20 @@ def schema(data: dict[str, Any]) -> dict[str, Any]:
     return _object({"paragraphs": _object({g["key"]: block for g in groups})})
 
 
+def _stream_items(result: dict[str, Any]) -> list[Any] | None:
+    """Select the complete transport without changing its words or legacy shape."""
+    if "token_text" in result:
+        if "tokens" in result or not isinstance(result["token_text"], str):
+            raise ValueError("podcast_composition_tokens_invalid")
+        return result["token_text"].split()
+    if "tokens" not in result:
+        return None
+    tokens = result["tokens"]
+    if not isinstance(tokens, list):
+        raise ValueError("podcast_composition_tokens_invalid")
+    return tokens
+
+
 def composition_blocks(result: dict[str, Any], data: dict[str, Any]) -> dict[str, Any]:
     """Decode every spoken word without truncating or allocating per-group caps."""
     paragraphs = result.get("paragraphs")
@@ -53,18 +67,11 @@ def composition_blocks(result: dict[str, Any], data: dict[str, Any]) -> dict[str
     for block in paragraphs.values():
         if not isinstance(block, dict) or type(block.get("non_editorial")) is not bool:
             raise ValueError("podcast_composition_paragraphs_invalid")
-    if "token_text" in result:
-        if "tokens" in result or not isinstance(result["token_text"], str):
-            raise ValueError("podcast_composition_tokens_invalid")
-        tokens = result["token_text"].split()
-    elif "tokens" in result:
-        tokens = result["tokens"]
-    else:
+    tokens = _stream_items(result)
+    if tokens is None:
         if any(not isinstance(block.get("text"), str) for block in paragraphs.values()):
             raise ValueError("podcast_composition_paragraphs_invalid")
         return paragraphs
-    if not isinstance(tokens, list):
-        raise ValueError("podcast_composition_tokens_invalid")
     markers = {MARKER_PREFIX + group["key"]: index for index, group in enumerate(groups)}
     words: list[list[str]] = [[] for _ in groups]
     current = -1
