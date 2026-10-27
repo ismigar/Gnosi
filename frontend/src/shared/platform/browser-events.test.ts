@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { dispatchWindowEvent, subscribeDocumentEvent, subscribeElementEvent, subscribeWindowEvent } from './browser-events';
+import { dispatchWindowEvent, subscribeDocumentEvent, subscribeElementEvent, subscribeWindowEvent, subscribeKeyboardScrollFallback } from './browser-events';
 
 const cleanups: (() => void)[] = [];
 afterEach(() => {
@@ -48,5 +48,54 @@ describe('typed native event subscriptions', () => {
     cleanups.push(subscribeElementEvent(button, 'keydown', (event) => { event.stopPropagation(); }));
     button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(capture).toHaveBeenCalledOnce(); expect(bubble).not.toHaveBeenCalled();
+  });
+
+  it('runs control handlers before scrolling regardless of registration order, with scoped scrolling before application fallback', () => {
+    const order: string[] = [];
+    cleanups.push(subscribeKeyboardScrollFallback(() => { order.push('application'); }, 'application'));
+    cleanups.push(subscribeWindowEvent('keydown', () => { order.push('first control'); }));
+    cleanups.push(subscribeKeyboardScrollFallback(() => { order.push('region'); }));
+    cleanups.push(subscribeWindowEvent('keydown', () => { order.push('late control'); }));
+    dispatchWindowEvent(new KeyboardEvent('keydown', { key: 'PageDown', cancelable: true }));
+    expect(order).toEqual(['first control', 'late control', 'region', 'application']);
+  });
+
+  it.each(['prevent', 'immediate'])('does not scroll keys claimed by a later control using %s', mode => {
+    const scroll = vi.fn();
+    cleanups.push(subscribeKeyboardScrollFallback(scroll));
+    cleanups.push(subscribeWindowEvent('keydown', event => {
+      if (mode === 'prevent') event.preventDefault();
+      else event.stopImmediatePropagation();
+    }));
+    dispatchWindowEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true }));
+    expect(scroll).not.toHaveBeenCalled();
+  });
+
+  it('preserves native same-window stopPropagation semantics without cancelling the default action', () => {
+    const native = vi.fn(), fallback = vi.fn();
+    const stopControl = subscribeWindowEvent('keydown', event => { event.stopPropagation(); });
+    const stopNative = subscribeWindowEvent('keydown', native);
+    dispatchWindowEvent(new KeyboardEvent('keydown', { key: 'PageDown', cancelable: true }));
+    expect(native).toHaveBeenCalledOnce(); stopNative(); stopControl();
+    cleanups.push(subscribeKeyboardScrollFallback(fallback));
+    cleanups.push(subscribeWindowEvent('keydown', event => { event.stopPropagation(); }));
+    dispatchWindowEvent(new KeyboardEvent('keydown', { key: 'PageDown', cancelable: true }));
+    expect(fallback).toHaveBeenCalledOnce();
+  });
+
+  it('preserves scroll priorities across re-subscriptions and removes released fallbacks', () => {
+    const application = vi.fn(), region = vi.fn();
+    cleanups.push(subscribeKeyboardScrollFallback(application, 'application'));
+    const stopRegion = subscribeKeyboardScrollFallback(event => { region(); event.preventDefault(); });
+    cleanups.push(stopRegion);
+    const releaseControl = subscribeWindowEvent('keydown', () => {}); cleanups.push(releaseControl);
+    dispatchWindowEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true }));
+    expect(region).toHaveBeenCalledOnce(); expect(application).not.toHaveBeenCalled();
+    stopRegion(); stopRegion(); releaseControl();
+    dispatchWindowEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true }));
+    expect(region).toHaveBeenCalledOnce(); expect(application).toHaveBeenCalledOnce();
+    for (const stop of cleanups.splice(0)) stop();
+    dispatchWindowEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true }));
+    expect(application).toHaveBeenCalledOnce();
   });
 });

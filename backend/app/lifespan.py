@@ -248,6 +248,8 @@ async def _start_deferred_integrations(
     )
     await asyncio.sleep(delay)
     if scheduler_enabled:
+        from backend.domains.sites.recovery import kickoff_recovery
+        kickoff_recovery()
         scheduler_start = asyncio.create_task(asyncio.to_thread(scheduler_manager.start))
         try:
             await asyncio.shield(scheduler_start)

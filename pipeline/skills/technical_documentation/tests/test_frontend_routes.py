@@ -209,15 +209,15 @@ def test_frontend_routes_inventory_preserves_current_application_routes() -> Non
         "/:vaultHandle/calendar/*", "/:vaultHandle/reader/*", "/:vaultHandle/mail/*",
         "/:vaultHandle/automations/*", "/:vaultHandle/social/compose/*",
         "/:vaultHandle/social/*", "/:vaultHandle/media/*", "/:vaultHandle/contacts/*",
-        "/:vaultHandle/planning/*", "/:vaultHandle/resources/*",
+        "/:vaultHandle/planning/*", "/:vaultHandle/resources/*", "/:vaultHandle/websites/*",
         "/:vaultHandle/notebooks/:notebookId", "/:vaultHandle/notebooks/*",
         "/graph", "/vault/*", "/calendar", "/reader", "/mail", "/scheduler",
         "/composer", "/social-dashboard", "/media", "/contacts", "/planning",
-        "/literature", "/notebooks/*", "*",
+        "/literature", "/notebooks/*", "/websites/*", "*",
     }
 
     assert {route.path for route in routes} == expected_paths
-    assert len(routes) == len(expected_paths) == 34
+    assert len(routes) == len(expected_paths) == 36
     assert all(route.source != "unresolved" for route in routes)
     assert FrontendRoute(
         "/s/:token", "SharedPage", "frontend/src/features/sharing/SharedPage.tsx"
@@ -232,3 +232,7 @@ def test_frontend_routes_inventory_preserves_current_application_routes() -> Non
         "/dashboard", "Dashboard", "frontend/src/features/control-center/Dashboard.tsx"
     ) in routes
     assert FrontendRoute("/vault/*", "LegacyVaultRedirect", "frontend/src/app/routes.tsx") in routes
+    assert FrontendRoute(
+        "/:vaultHandle/websites/*", "VaultRouteScope", "frontend/src/app/routes.tsx"
+    ) in routes
+    assert FrontendRoute("/websites/*", "LegacyVaultRedirect", "frontend/src/app/routes.tsx") in routes

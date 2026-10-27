@@ -66,6 +66,21 @@ asarUnpack:
   - node_modules/@koromix/**/*
 
 extraResources:
+  - from: ../extensions/web-publishing/
+    to: extensions/web-publishing/
+    filter:
+      - "server/*.php"
+      - "!server/test.php"
+      - "public/**/*.php"
+      - "renderer/src/**/*"
+      - "renderer/scripts/*.mjs"
+      - "renderer/astro.config.mjs"
+      - "renderer/package.json"
+      - "renderer/node_modules/**/*"
+      - "!**/*.map"
+      - "!**/.cache/**"
+      - "!**/.astro/**"
+      - "!**/.vite/**"
   - from: ../frontend/dist/
     to: frontend/dist/
     filter:

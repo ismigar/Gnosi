@@ -10,12 +10,41 @@ export type ElementEventHandler<K extends keyof HTMLElementEventMap> = (
     event: HTMLElementEventMap[K],
 ) => void;
 
+const keyboardScrollFallbacks = new Set<{ handler: WindowEventHandler<'keydown'>; scope: 'region' | 'application' }>();
+let keyboardScrollListenerAttached = false;
+
+function dispatchKeyboardScrollFallbacks(event: KeyboardEvent): void {
+    const entries = [...keyboardScrollFallbacks].sort((left, right) => Number(left.scope === 'application') - Number(right.scope === 'application'));
+    for (const entry of entries) {
+        if (event.defaultPrevented) break;
+        if (keyboardScrollFallbacks.has(entry)) entry.handler(event);
+    }
+}
+
+function moveKeyboardScrollListenerToEnd(): void {
+    if (keyboardScrollListenerAttached) window.removeEventListener('keydown', dispatchKeyboardScrollFallbacks);
+    keyboardScrollListenerAttached = keyboardScrollFallbacks.size > 0;
+    if (keyboardScrollListenerAttached) window.addEventListener('keydown', dispatchKeyboardScrollFallbacks);
+}
+
+/** Unclaimed scrolling follows control navigation, including later route mounts. */
+export function subscribeKeyboardScrollFallback(
+    handler: WindowEventHandler<'keydown'>,
+    scope: 'region' | 'application' = 'region',
+): () => void {
+    const entry = { handler, scope };
+    keyboardScrollFallbacks.add(entry);
+    moveKeyboardScrollListenerToEnd();
+    return () => { keyboardScrollFallbacks.delete(entry); moveKeyboardScrollListenerToEnd(); };
+}
+
 export function subscribeWindowEvent<K extends keyof WindowEventMap>(
     type: K,
     handler: WindowEventHandler<K>,
     options?: boolean | AddEventListenerOptions,
 ): () => void {
     window.addEventListener(type, handler, options);
+    if (type === 'keydown') moveKeyboardScrollListenerToEnd();
     return () => {
         window.removeEventListener(type, handler, options);
     };

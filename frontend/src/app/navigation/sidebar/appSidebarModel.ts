@@ -3,6 +3,7 @@ import {
     Calendar,
     CalendarRange,
     FileText,
+    Globe,
     Image as ImageIcon,
     Inbox,
     LibraryBig,
@@ -37,4 +38,5 @@ export const APP_SIDEBAR_ITEMS: readonly SidebarNavItem[] = [
     { to: '/social-dashboard', icon: Share2, labelKey: 'sidebar.nav_social', shortcut: 'Ctrl 7', pluginId: 'social-publishing' },
     { to: '/media', icon: ImageIcon, labelKey: 'sidebar.nav_media', shortcut: 'Ctrl 8', pluginId: 'social-publishing' },
     { to: '/planning', icon: CalendarRange, labelKey: 'sidebar.nav_planning', shortcut: '', pluginId: 'project-planning' },
+    { to: '/websites', icon: Globe, labelKey: 'websites.title', shortcut: '', pluginId: 'web-publishing' },
 ];

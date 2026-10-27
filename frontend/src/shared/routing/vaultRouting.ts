@@ -61,6 +61,7 @@ const LEGACY_BROWSER_APPS: Readonly<Record<string, string>> = {
     '/planning': 'planning',
     '/literature': 'resources',
     '/notebooks': 'notebooks',
+    '/websites': 'websites',
 };
 
 export function activateVault(

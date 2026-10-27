@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-10-13
+last_verified: 2026-10-26
 source_paths:
+  - backend/domains/sites/newsletter.py
+  - frontend/src/features/websites/SourcesEditor.tsx
   - backend/domains/vault/publishing
   - frontend/src/features/sharing/publishing
   - frontend/src/features/offline
@@ -25,6 +27,11 @@ source_paths:
   - frontend/src/shared/routing
   - frontend/src/features/workspaces
 tests:
+  - backend/tests/test_sites_newsletter.py
+  - frontend/src/features/websites/SourcesEditor.test.tsx
+  - backend/tests/test_web_publishing.py
+  - frontend/src/features/sharing/publishing/WebPublishingManager.test.tsx
+  - frontend/src/shared/api/web-publishing.test.ts
   - backend/tests/test_auth_expected_account.py
   - frontend/src/features/auth/LoginPage.test.tsx
   - frontend/src/features/auth/public-entry.test.ts
@@ -210,3 +217,31 @@ La publicación de un formulario exige una vigencia de 1 a 365 días (30 por def
 El paquete del backend incluye `management_0006.py` entre sus recursos revisados para que las instalaciones de escritorio puedan aplicar la misma migración de esquema para formularios públicos y reservas.
 
 Las migraciones de gestión siguen una única secuencia: `mgmt_0006` añade formularios y reservas; `mgmt_0007` incorpora vistas previas, sitios y revisiones de publicación. Ambas se incluyen en los recursos del backend de escritorio. Las bases nuevas y las actualizaciones conservan los dos esquemas y los datos existentes. Una base incompatible con la misma etiqueta de revisión se rechaza por la huella exacta del esquema antes de modificarla; la etiqueta por sí sola no autoriza su adopción.
+
+## Publicación en la web de pruebas
+
+El diálogo para compartir ofrece **Publicar en la web** para una web de pruebas configurada por el administrador. `/api/vault/web-publishing` requiere un editor resuelto por la política central de identidad y el complemento para compartir. Una instalación personal nativa de confianza utiliza el propietario guardado sin crear credenciales; las instalaciones de organización, expuestas o con autenticación obligatoria siguen requiriendo autenticación. Cada petición de publicación incluye la precondición obligatoria `X-Gnosi-Web-Expected-User-ID`: el servidor la compara con la cuenta ya resuelta y rechaza las discrepancias antes de ejecutar el controlador. Esta cabecera no puede elegir una identidad y es independiente de la precondición de cuenta autenticada de otras operaciones. El servidor resuelve el vault autorizado y ejecuta únicamente el controlador Python configurado, con entrada JSON, entorno mínimo y un límite de 60 segundos para consultar el estado y de 600 segundos para las acciones de publicación. Las peticiones no pueden cambiar el vault, el ejecutable ni el destino de producción. `GNOSI_WEB_PUBLISH_DRIVER` define la ruta absoluta `.py`; `GNOSI_WEB_PUBLISH_PYTHON` permite definir el intérprete. Por defecto se utiliza `python3` del PATH, nunca el ejecutable empaquetado de la aplicación.
+
+Las incorporaciones, actualizaciones y retiradas se eligen explícitamente. Las demás páginas publicadas se conservan y las traducciones aparecen en la revisión. Publicar consume una vista previa de un solo uso vinculada a la cuenta, espacio de trabajo y vault. Los cambios de ámbito cancelan las peticiones y eliminan los datos privados de la interfaz. Cambiar la selección o encontrar una vista previa caducada exige otra revisión. El historial permite restaurar versiones de pruebas; Drupal sigue en producción.
+
+El boletín muestra suscripciones pendientes, activas y de baja, idiomas e historial. El contenido del boletín admite los idiomas de la web `ca`, `es` y `en-gb`, independientemente del idioma de la interfaz. La vista previa HTML está aislada y sin acceso a la red. Solo se acepta `test_mode: true`: la cola guarda mensajes en el registro de pruebas sin enviar correos reales. Las vistas previas caducan a los 15 minutos o al reiniciar el servidor. Cancelar en el navegador no deshace una publicación iniciada; hay que actualizar el estado antes de repetir una acción incierta.
+
+## Fuentes de contenido de los sitios y catálogo del boletín
+
+**Añadir una fuente** abre el selector compartido de búsqueda y selección única
+de tablas, vistas y páginas. Cada opción muestra el tipo localizado y el título;
+los registros importados no son fuentes seleccionables. Abrir o cancelar el
+selector no crea ninguna fuente. La elección explícita utiliza el guardado
+automático existente con la publicación desactivada, sin campos públicos ni
+adjuntos seleccionados y sin incluir el cuerpo. Estas fuentes de contenido se
+eligen con independencia de los [controles de tipografía](integrations-plugins.md).
+
+El contenido disponible del boletín se ordena por fecha de creación descendente
+a partir de los metadatos públicos `presentation.created` de la versión activa,
+tras eliminar duplicados y contenidos retirados. Se aceptan marcas de tiempo
+numéricas y fechas ISO; las fechas sin zona horaria utilizan UTC. Las fechas
+ausentes, inválidas o no finitas van al final y los empates conservan el orden
+de la versión. No se leen datos del vault sin publicar, no se añaden campos
+privados a la API, no se modifica la versión ni se reordenan las páginas
+seleccionadas explícitamente en el borrador. Los elementos exportados sin fecha
+pública conservan su orden relativo al final del catálogo.

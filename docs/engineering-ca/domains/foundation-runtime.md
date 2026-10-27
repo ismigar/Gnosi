@@ -1,7 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-10-13
+last_verified: 2026-10-26
 source_paths:
+  - frontend/src/shared/hooks/useAppKeyboardScroll.ts
+  - frontend/src/shared/hooks/useKeyboardScroll.ts
+  - frontend/src/shared/hooks/keyboardScroll.ts
+  - frontend/src/shared/platform/browser-events.ts
+  - frontend/src/app/routeAnnouncement.ts
   - frontend/src/features/sharing/publishing
   - frontend/src/features/offline
   - backend/server.py
@@ -20,6 +25,11 @@ source_paths:
   - frontend/src/generated
   - frontend/feature-public-entries.json
 tests:
+  - frontend/src/shared/hooks/useAppKeyboardScroll.test.tsx
+  - frontend/src/shared/hooks/keyboardAccessibility.test.tsx
+  - frontend/src/shared/platform/browser-events.test.ts
+  - frontend/src/features/mail/components/MailList.scroll-ownership.test.tsx
+  - frontend/src/app/routeAnnouncement.test.ts
   - frontend/src/app/composition.contract.test.ts
   - frontend/src/app/shellPages.test.tsx
   - backend/tests/test_app_lifespan.py
@@ -156,3 +166,25 @@ proveïdor de fitxers, no un servidor aturat. Consulteu la
 ## Entrades públiques i sense connexió independents
 
 Els URL de llocs publicats es gestionen abans de l’arrencada autenticada. Només carreguen el lector de la instantània pública, sense peticions d’inicialització de compte, connectors o Vault. L’entrada compilada sense connexió carrega la seva col·lecció local xifrada i un service worker només per a fitxers estàtics. Editors de codi, dreceres i aparença de l’aplicació principal continuen dins de l’arrencada autenticada. Els fragments de tema rebutgen recursos de xarxa; el mode d’aparença segur i l’ordre de restabliment permeten recuperar una interfície mal configurada.
+
+## Desplaçament amb teclat i anuncis de ruta
+
+El shell proporciona una alternativa compartida per desplaçar-se verticalment
+amb les fletxes, AvPàg/RePàg, Inici/Fi i Espai fora dels camps de text, editors
+i controls compostos. La navegació pròpia dels controls tracta les tecles
+primer, inclosos els gestors registrats quan una ruta es munta més tard.
+L'alternativa de la regió enfocada s'executa abans que la de l'aplicació;
+un esdeveniment cancel·lat no es torna a capturar. El desplaçament imbricat
+tria la regió desplaçable visible més propera i respecta els ancestres ocults
+o inerts i l'àmbit del modal actiu. Amb el focus al cos, s'utilitza la darrera
+regió clicada o la pàgina principal; enfocar explícitament el contingut
+principal té prioritat. Els canvis de ruta i el desmuntatge eliminen l'estat
+del punter i les subscripcions obsolets. Es respecta la preferència de moviment
+reduït i Espai conserva l'activació nativa dels botons i enllaços.
+
+Els anuncis accessibles de ruta reutilitzen les etiquetes canòniques de les
+aplicacions. Es conserven les alternatives de prefix antigues i l'alternativa
+exacta de Dashboard; les rutes desconegudes mantenen l'etiqueta Inici.
+Així, el hook de teclat i els controls continuen disponibles immediatament
+a l'arrencada i s'eliminen dades d'anunci duplicades. El pressupost del paquet
+de producció no augmenta.
