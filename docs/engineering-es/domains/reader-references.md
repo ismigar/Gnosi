@@ -591,3 +591,5 @@ Si una guía rechazada contiene Unicode inválido, no tiene un recuento válido 
 bytes UTF-8. Su texto interno se excluye de la reparación y el recuento se marca
 como no disponible; se conservan el hallazgo original confirmado y el número de
 caracteres. La sustitución sigue sujeta a los mismos controles de ASCII imprimible y bytes.
+
+El patrón enviado al proveedor también codifica el mismo límite dinámico de bytes con un cuantificador acotado. Así el límite queda explícito en los servicios que no aplican de forma fiable el campo separado `maxLength`. Se mantienen el límite del esquema, la validación local de ASCII y bytes y las revisiones semánticas completas.

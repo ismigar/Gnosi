@@ -640,3 +640,5 @@ d'octets UTF-8. Son texte interne est exclu de la réparation et le comptage est
 explicitement indisponible ; l'objection originale confirmée et le nombre de
 caractères restent présents. Le remplacement doit toujours respecter les mêmes
 contraintes d'ASCII imprimable et d'octets.
+
+Le motif envoyé au fournisseur encode aussi la même limite dynamique en octets avec un quantificateur borné. Cela rend la limite explicite pour les services qui n’appliquent pas de manière fiable le champ séparé `maxLength`. La limite du schéma, les validations locales ASCII et octets et les revues sémantiques complètes restent inchangées.

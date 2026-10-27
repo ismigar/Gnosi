@@ -621,3 +621,5 @@ A rejected guide containing invalid Unicode has no valid UTF-8 byte count. Its
 internal text is excluded from the repair payload and the count is explicitly
 unavailable; its original confirmed finding and character count remain. The
 replacement still must pass the same printable ASCII and byte constraints.
+
+The provider regex also encodes the same dynamic byte ceiling with a bounded quantifier. This keeps the limit explicit for endpoints that do not reliably enforce the separate `maxLength` field. The schema limit, local ASCII/byte validation and complete semantic reviews remain unchanged.

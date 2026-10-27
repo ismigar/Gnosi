@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 def _guidance_request(context: _Briefing, findings: list[dict[str, Any]], byte_budget: int) -> AgentOperation:
     schema = _object({'guidance': _object({row['finding_id']: {
         'type': 'string', 'minLength': 1, 'maxLength': byte_budget,
-        'pattern': r'^[\x20-\x21\x23-\x5B\x5D-\x7E]+$'} for row in findings})})
+        'pattern': rf'^[\x20-\x21\x23-\x5B\x5D-\x7E]{{1,{byte_budget}}}$'} for row in findings})})
     return context.request('podcast.coverage.digest', {'confirmed_findings': findings, 'guidance_byte_budget': byte_budget}, schema).model_copy(
         update={'options': {'feedback_contract': resource('operations/podcast/feedback-contract.md')}})
 

@@ -643,3 +643,5 @@ Si una guia rebutjada conté Unicode invàlid, no té un recompte de bytes UTF-8
 vàlid. El text intern s'exclou de la reparació i el recompte es marca com a no
 disponible; es conserven l'objecció original confirmada i el nombre de caràcters.
 La substitució continua subjecta als mateixos controls d'ASCII imprimible i bytes.
+
+El patró enviat al proveïdor també codifica el mateix límit dinàmic de bytes amb un quantificador acotat. Això fa explícit el límit als serveis que no apliquen de manera fiable el camp separat `maxLength`. Es mantenen el límit de l’esquema, la validació local d’ASCII i bytes i les revisions semàntiques completes.

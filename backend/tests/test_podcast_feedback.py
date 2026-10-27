@@ -208,3 +208,16 @@ def test_guidance_rejects_character_valid_but_wire_unsafe_guides(text):
     with pytest.raises((ValueError, jsonschema.ValidationError)):
         _write_request(context, daily_data(findings()), OPTIONS)
     assert all(q.operation.endswith('digest') for q, _ in context.calls)
+
+
+def test_provider_pattern_enforces_length_without_relying_on_max_length():
+    import re
+    from backend.services.podcast_feedback import _guidance_request
+    for budget in (1, 2, 37, 133, 160):
+        request = _guidance_request(Context(), [{'finding_id': 'finding:0', 'finding': findings(1)[0]}], budget)
+        definition = request.output_schema['properties']['guidance']['properties']['finding:0']
+        assert definition['maxLength'] == budget
+        assert re.fullmatch(definition['pattern'], 'A' * budget)
+        assert not re.fullmatch(definition['pattern'], 'A' * (budget + 1))
+        for length in (175, 163, 168, 143, 152, 165, 220, 199):
+            assert bool(re.fullmatch(definition['pattern'], 'A' * length)) == (length <= budget)
