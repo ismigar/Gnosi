@@ -28,6 +28,7 @@ const ReaderDashboard = lazy(applicationRouteLoaders.reader);
 const ContactsPage = lazy(applicationRouteLoaders.contacts);
 const LiteraturePage = lazy(applicationRouteLoaders.resources);
 const ProjectPlanningPage = lazy(applicationRouteLoaders.planning);
+const WebsitesPage = lazy(applicationRouteLoaders.websites);
 const ZoteroReaderPage = lazy(applicationRouteLoaders.document);
 const SharedPage = lazy(() => import('../features/sharing/SharedPage'));
 const PublicFormPage = lazy(() => import('../features/forms/FormPage'));
@@ -131,6 +132,7 @@ export function ApplicationRoutes() {
           <Route path="/:vaultHandle/media/*" element={<VaultRouteScope><PluginRoute pluginId="social-publishing"><MediaCenter /></PluginRoute></VaultRouteScope>} />
           <Route path="/:vaultHandle/contacts/*" element={<VaultRouteScope><PluginRoute pluginId="contacts"><ContactsPage /></PluginRoute></VaultRouteScope>} />
           <Route path="/:vaultHandle/planning/*" element={<VaultRouteScope><PluginRoute pluginId="project-planning"><ProjectPlanningPage /></PluginRoute></VaultRouteScope>} />
+          <Route path="/:vaultHandle/websites/*" element={<VaultRouteScope><PluginRoute pluginId="web-publishing"><WebsitesPage /></PluginRoute></VaultRouteScope>} />
           <Route path="/:vaultHandle/resources/*" element={<VaultRouteScope><PluginRoute pluginId="resources"><LiteraturePage /></PluginRoute></VaultRouteScope>} />
           <Route path="/:vaultHandle/notebooks/:notebookId" element={<VaultRouteScope><PluginRoute pluginId="grounded-notebooks"><NotebooksPage /></PluginRoute></VaultRouteScope>} />
           <Route path="/:vaultHandle/notebooks/*" element={<VaultRouteScope><PluginRoute pluginId="grounded-notebooks"><NotebooksPage /></PluginRoute></VaultRouteScope>} />
@@ -145,6 +147,7 @@ export function ApplicationRoutes() {
           <Route path="/media" element={<LegacyVaultRedirect />} />
           <Route path="/contacts" element={<LegacyVaultRedirect />} />
           <Route path="/planning" element={<LegacyVaultRedirect />} />
+          <Route path="/websites/*" element={<LegacyVaultRedirect />} />
           <Route path="/literature" element={<LegacyVaultRedirect />} />
           <Route path="/notebooks/*" element={<LegacyVaultRedirect />} />
           {/* Catch-all: a non-existent URL (typo, stale link, route wrongly

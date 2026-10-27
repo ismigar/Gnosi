@@ -19,6 +19,7 @@ export interface MultiSelectPillsProps {
     readonly disabled?: boolean;
     readonly minimum?: number;
     readonly renderValue?: (value: PropertyScalar) => ReactNode;
+    readonly renderOption?: (value: PropertyScalar) => ReactNode;
     readonly value?: unknown;
     readonly onChange: (value: PropertySelection) => void;
     readonly options?: readonly unknown[] | null;

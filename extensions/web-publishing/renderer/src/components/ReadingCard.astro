@@ -1,0 +1,18 @@
+---
+import {href,prefix} from '../lib/site.mjs';
+import {temenosLabels,excerpt,publishedDate} from '../lib/temenos.mjs';
+const {record,lang,selectedReading=false}=Astro.props;
+const image=record.presentation?.image;
+const date=publishedDate(record,record.language);
+const text=temenosLabels(lang);
+---
+<article class="card reading-card" data-reading-id={selectedReading?record.id:undefined}>
+  {image?.url && <a href={prefix(record.path)} tabindex="-1" aria-hidden="true"><img src={href(image.url)} alt="" loading="lazy"/></a>}
+  <div class="card-copy">
+    {record.language!==lang && <p class="reading-language">{text.original} {record.language.split('-')[0].toUpperCase()}</p>}
+    {date && <p class="card-date"><time datetime={date.iso}>{date.text}</time></p>}
+    <h3 lang={record.language}><a href={prefix(record.path)}>{record.title}</a></h3>
+    {excerpt(record) && <p lang={record.language}>{excerpt(record)}</p>}
+    <a class="text-link" href={prefix(record.path)}>{text.read}<span aria-hidden="true">↗</span></a>
+  </div>
+</article>

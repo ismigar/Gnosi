@@ -68,4 +68,8 @@ def register_routes(router: APIRouter) -> None:
     management.add_api_route("/publishing/preview", preview_publication, methods=["POST"], response_model=PublicationPreviewResponse)
     management.add_api_route("/publishing/commit", commit_publication, methods=["POST"], response_model=PublicationSummary)
     management.add_api_route("/publishing/{site_id}/revoke", revoke_publication, methods=["POST"], response_model=PublicationSummary)
+    from .web import router as web_router
+    management.include_router(web_router)
     router.include_router(management)
+    from backend.domains.sites.api import router as sites_router
+    router.include_router(sites_router)

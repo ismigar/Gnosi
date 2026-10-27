@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-10-13
+last_verified: 2026-10-26
 source_paths:
+  - backend/domains/sites/newsletter.py
+  - frontend/src/features/websites/SourcesEditor.tsx
   - backend/domains/vault/publishing
   - frontend/src/features/sharing/publishing
   - frontend/src/features/offline
@@ -25,6 +27,11 @@ source_paths:
   - frontend/src/shared/routing
   - frontend/src/features/workspaces
 tests:
+  - backend/tests/test_sites_newsletter.py
+  - frontend/src/features/websites/SourcesEditor.test.tsx
+  - backend/tests/test_web_publishing.py
+  - frontend/src/features/sharing/publishing/WebPublishingManager.test.tsx
+  - frontend/src/shared/api/web-publishing.test.ts
   - backend/tests/test_auth_expected_account.py
   - frontend/src/features/auth/LoginPage.test.tsx
   - frontend/src/features/auth/public-entry.test.ts
@@ -238,3 +245,31 @@ La publicació d’un formulari exigeix una vigència d’1 a 365 dies (30 per d
 El paquet del backend inclou `management_0006.py` entre els recursos revisats perquè les instal·lacions d’escriptori puguin aplicar la mateixa migració d’esquema per als formularis públics i les reserves.
 
 Les migracions de gestió segueixen una única seqüència: `mgmt_0006` afegeix formularis i reserves; `mgmt_0007` hi afegeix previsualitzacions, llocs i revisions de publicació. Totes dues s’inclouen als recursos del backend d’escriptori. Les bases noves i les actualitzacions conserven els dos esquemes i les dades existents. Una base incompatible amb la mateixa etiqueta de revisió es rebutja per l’empremta exacta de l’esquema abans de modificar-la; l’etiqueta sola no n’autoritza l’adopció.
+
+## Publicació al web de proves
+
+El diàleg de compartició ofereix **Publica al web** per a un web de proves configurat per l’administrador. L’API `/api/vault/web-publishing` requereix un editor resolt per la política central d’identitat i el connector de compartició. Una instal·lació personal nativa de confiança utilitza el propietari desat sense crear credencials; les instal·lacions d’organització, exposades o amb autenticació obligatòria continuen requerint autenticació. Cada petició de publicació inclou la precondició obligatòria `X-Gnosi-Web-Expected-User-ID`: el servidor la compara amb el compte ja resolt i rebutja qualsevol discrepància abans d’executar el controlador. Aquesta capçalera no pot triar la identitat i és independent de la precondició de compte autenticat d’altres operacions. El servidor resol el vault autoritzat i executa únicament el controlador Python configurat, amb entrada JSON, entorn mínim i un límit de 60 segons per consultar l’estat i de 600 segons per a les accions de publicació. Cap petició pot canviar el vault, l’executable o el destí de producció. `GNOSI_WEB_PUBLISH_DRIVER` defineix la ruta absoluta `.py`; `GNOSI_WEB_PUBLISH_PYTHON` pot definir l’intèrpret. Per defecte s’utilitza `python3` del PATH, mai l’executable empaquetat de l’aplicació.
+
+Les incorporacions, actualitzacions i retirades es trien explícitament. Les altres pàgines publicades es conserven i les traduccions apareixen a la revisió. Publicar consumeix una previsualització d’un sol ús vinculada al compte, espai de treball i vault. Els canvis d’àmbit cancel·len les peticions i eliminen les dades privades de la interfície. Canviar la selecció o trobar una previsualització caducada exigeix una revisió nova. L’historial permet restaurar versions de proves; Drupal continua en producció.
+
+El butlletí mostra les subscripcions pendents, actives i de baixa, els idiomes i l’historial. El contingut del butlletí admet els idiomes del web `ca`, `es` i `en-gb`, independentment de l’idioma de la interfície. La previsualització HTML està aïllada i sense accés a la xarxa. Només s’accepta `test_mode: true`: la cua desa missatges al registre de proves sense enviar correus reals. Les previsualitzacions caduquen als 15 minuts o en reiniciar el servidor. Cancel·lar al navegador no desfà una publicació iniciada; cal actualitzar l’estat abans de repetir una acció incerta.
+
+## Fonts de contingut dels webs i catàleg del butlletí
+
+**Afegeix una font** obre el selector compartit de cerca i selecció única de
+taules, vistes i pàgines. Cada opció mostra el tipus localitzat i el títol;
+els registres importats no són fonts seleccionables. Obrir o cancel·lar el
+selector no crea cap font. L'elecció explícita entra al desament automàtic
+existent amb la publicació desactivada, sense camps públics ni adjunts triats
+i amb la inclusió del cos desactivada. Aquestes fonts de contingut es trien
+independentment dels [controls de tipografia](integrations-plugins.md).
+
+El contingut disponible del butlletí s'ordena per data de creació descendent,
+a partir de les metadades públiques `presentation.created` de la versió activa,
+després d'eliminar duplicats i continguts retirats. S'accepten marques de temps
+numèriques i dates ISO; les dates sense zona horària utilitzen UTC. Les dates
+absents, invàlides o no finites van al final i els empats conserven l'ordre de
+la versió. Això no llegeix dades del vault sense publicar, no afegeix camps
+privats a l'API, no modifica la versió ni reordena les pàgines triades
+explícitament a l'esborrany. Els elements exportats sense data pública
+conserven el seu ordre relatiu al final del catàleg.

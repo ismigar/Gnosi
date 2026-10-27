@@ -1,7 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-10-13
+last_verified: 2026-10-26
 source_paths:
+  - frontend/src/shared/hooks/useAppKeyboardScroll.ts
+  - frontend/src/shared/hooks/useKeyboardScroll.ts
+  - frontend/src/shared/hooks/keyboardScroll.ts
+  - frontend/src/shared/platform/browser-events.ts
+  - frontend/src/app/routeAnnouncement.ts
   - frontend/src/features/sharing/publishing
   - frontend/src/features/offline
   - backend/server.py
@@ -20,6 +25,11 @@ source_paths:
   - frontend/src/generated
   - frontend/feature-public-entries.json
 tests:
+  - frontend/src/shared/hooks/useAppKeyboardScroll.test.tsx
+  - frontend/src/shared/hooks/keyboardAccessibility.test.tsx
+  - frontend/src/shared/platform/browser-events.test.ts
+  - frontend/src/features/mail/components/MailList.scroll-ownership.test.tsx
+  - frontend/src/app/routeAnnouncement.test.ts
   - frontend/src/app/composition.contract.test.ts
   - frontend/src/app/shellPages.test.tsx
   - backend/tests/test_app_lifespan.py
@@ -136,3 +146,25 @@ Compruebe qué proceso está atendiendo el servicio, `/api/health`, `/api/config
 ## Entradas públicas y sin conexión independientes
 
 Las URL de sitios publicados se gestionan antes del arranque autenticado. Solo cargan el lector de la instantánea pública, sin peticiones de inicio de cuenta, plugins o Vault. La entrada compilada sin conexión carga su colección local cifrada y un service worker solo para archivos estáticos. Editores de código, atajos y apariencia de la aplicación principal permanecen dentro del inicio autenticado. Los fragmentos de tema rechazan recursos de red; el modo de apariencia seguro y la orden de restablecimiento permiten recuperar una interfaz mal configurada.
+
+## Desplazamiento con teclado y anuncios de ruta
+
+El shell ofrece una alternativa compartida de desplazamiento vertical con las
+flechas, RePág/AvPág, Inicio/Fin y Espacio fuera de campos de texto, editores y
+controles compuestos. La navegación propia de los controles recibe las teclas
+primero, incluidos los manejadores registrados al montar una ruta más tarde.
+La alternativa de la región enfocada se ejecuta antes que la de la aplicación;
+un evento cancelado no vuelve a capturarse. El desplazamiento anidado elige
+la región desplazable visible más cercana y respeta los ancestros ocultos o
+inertes y el ámbito del modal activo. Con el foco en el cuerpo se usa la última
+región pulsada o la página principal; enfocar explícitamente el contenido
+principal tiene prioridad. Los cambios de ruta y el desmontaje eliminan el
+estado del puntero y las suscripciones obsoletos. Se respeta la preferencia de
+movimiento reducido y Espacio conserva la activación nativa de botones y enlaces.
+
+Los anuncios accesibles de ruta reutilizan las etiquetas canónicas de las
+aplicaciones. Se conservan las alternativas de prefijo antiguas y la alternativa
+exacta de Dashboard; las rutas desconocidas mantienen la etiqueta Inicio.
+Así, el hook del teclado y los controles siguen disponibles inmediatamente
+al arrancar y se eliminan datos de anuncio duplicados. El presupuesto del
+paquete de producción no aumenta.

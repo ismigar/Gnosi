@@ -1,0 +1,16 @@
+---
+import {prefix} from '../lib/site.mjs';
+import {temenosLabels} from '../lib/temenos.mjs';
+const {lang}=Astro.props;
+const text=temenosLabels(lang);
+---
+<section class="newsletter" data-pagefind-ignore><div class="wrap newsletter-inner">
+  <h2>{text.newsletter}</h2>
+  <form class="staging-subscription" action={prefix('/api/newsletter.php')} method="post">
+    <p>{text.test}</p><input type="hidden" name="action" value="subscribe"/><input type="hidden" name="language" value={lang}/><input type="hidden" name="list_id" value="main"/>
+    <label for={`newsletter-email-${lang}`}>{text.testEmail}</label><input id={`newsletter-email-${lang}`} type="email" name="email" required maxlength="254" placeholder="lectora@example.invalid" pattern="[^@\s]+@[^@\s]+\.invalid" autocomplete="off"/>
+    <div class="honeypot" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"/></label></div>
+    <label class="choice"><input type="checkbox" name="consent" value="1" required/>{text.consent}</label>
+    <button class="button button-light" type="submit">{text.subscribe}</button>
+  </form>
+</div></section>

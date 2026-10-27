@@ -1,0 +1,35 @@
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { SiteConfig, SiteTheme, SiteFont } from '../../shared/api/sites';
+import { Card, Field, Input, Textarea, Select, FileImportButton } from './components';
+import { escaped, safePreviewDocument } from './helpers';
+import type { RequestContext } from '../../shared/api/request-context';
+import { TypographyPicker } from './TypographyPicker';
+import { useWebsiteFontSamples } from './useWebsiteFontSamples';
+
+const EMPTY_FONTS: SiteFont[] = [];
+
+const TOKENS = ['primary', 'accent', 'background', 'surface', 'text', 'muted', 'font-body', 'font-heading', 'content-width', 'reading-width', 'radius', 'spacing'];
+
+export function AppearanceEditor({ site, history, onChange, onExport, onImport, onHistory, busy, context }: { context: RequestContext; site: SiteConfig; history: SiteTheme[]; onChange: (site: SiteConfig) => void; onExport: () => void; onImport: (file: File) => void; onHistory: () => void; busy: boolean }) {
+  const { t } = useTranslation();
+  const theme = site.theme;
+  const fonts = theme?.fonts ?? EMPTY_FONTS;
+  const samples = useWebsiteFontSamples(site.id, fonts, context);
+  if (!theme) return null;
+  const update = (patch: Partial<SiteTheme>) => { onChange({ ...site, theme: { ...theme, ...patch } }); };
+  return <div className="websites-panel"><Card title={t('websites.brand')} actions={<div className="websites-actions"><button type="button" className="websites-button" disabled={busy} onClick={onExport}>{t('websites.exportTheme')}</button><FileImportButton label={t('websites.importTheme')} accept="application/json,.json" disabled={busy} onFile={onImport} /></div>}>
+    <div className="websites-grid"><Field label={t('websites.themeName')}><Input value={theme.name} onChange={event => { update({ name: event.target.value }); }} /></Field><Field label={t('websites.logo')}><Input value={theme.logo} onChange={event => { update({ logo: event.target.value }); }} /></Field><Field label={t('websites.logoAlt')}><Input value={theme.logo_alt} onChange={event => { update({ logo_alt: event.target.value }); }} /></Field><Field label={t('websites.favicon')}><Input value={theme.favicon} onChange={event => { update({ favicon: event.target.value }); }} /></Field>
+      {TOKENS.map(token => { const value = theme.tokens?.[token] ?? ''; return <Field key={token} label={t(`websites.tokens.${token}`)}><div className="websites-color">{/^#[\da-f]{6}$/iu.test(value) && <input type="color" aria-label={t(`websites.tokens.${token}`)} value={value} onChange={event => { update({ tokens: { ...theme.tokens, [token]: event.target.value } }); }} />}{token.startsWith('font-') ? <TypographyPicker label={t(`websites.tokens.${token}`)} value={value} fonts={fonts} aliases={samples.aliases} onChange={font => { update({ tokens: { ...theme.tokens, [token]: font } }); }} /> : <Input aria-label={t(`websites.tokens.${token}`)} value={value} onChange={event => { update({ tokens: { ...theme.tokens, [token]: event.target.value } }); }} />}</div></Field>; })}
+    </div><p className="websites-muted">{t('websites.fontPickerHelp')}</p>{samples.failed && <p role="status" className="websites-muted">{t('websites.fontSampleUnavailable')}</p>}<div className="websites-section-title websites-spacer"><h3>{t('websites.fontLibrary')}</h3><button type="button" className="websites-button" onClick={() => { update({ fonts: [...(theme.fonts ?? []), { family: '', src: '', weight: '400', style: 'normal' }] }); }}>{t('websites.addFont')}</button></div><div className="websites-list">{(theme.fonts ?? []).map((font, index) => <div className="websites-row" key={index}><div className="websites-grid"><Field label={t('websites.fontFamily')}><Input value={font.family} onChange={event => { update({ fonts: (theme.fonts ?? []).map((item, position) => position === index ? { ...item, family: event.target.value } : item) }); }} /></Field><Field label={t('websites.fontFile')}><Input value={font.src} onChange={event => { update({ fonts: (theme.fonts ?? []).map((item, position) => position === index ? { ...item, src: event.target.value } : item) }); }} /></Field><Field label={t('websites.fontWeight')}><Input value={font.weight} onChange={event => { update({ fonts: (theme.fonts ?? []).map((item, position) => position === index ? { ...item, weight: event.target.value } : item) }); }} /></Field><Field label={t('websites.fontStyle')}><Select value={font.style} onChange={event => { update({ fonts: (theme.fonts ?? []).map((item, position) => position === index ? { ...item, style: event.target.value as SiteFont['style'] } : item) }); }}><option value="normal">{t('websites.normal')}</option><option value="italic">{t('websites.italic')}</option></Select></Field></div><button type="button" className="websites-button websites-spacer" onClick={() => { update({ fonts: (theme.fonts ?? []).filter((_, position) => position !== index) }); }}>{t('websites.remove')}</button></div>)}</div>
+  </Card><Card title={t('websites.advancedCss')}><p className="websites-muted">{t('websites.cssHelp')}</p><Field label={t('websites.customCss')}><Textarea className="websites-code" spellCheck={false} rows={12} maxLength={100000} value={theme.advanced_css} onChange={event => { update({ advanced_css: event.target.value }); }} /></Field></Card>
+    <Card title={t('websites.themeHistory')} actions={<button type="button" className="websites-button" disabled={busy} onClick={onHistory}>{t('websites.loadHistory')}</button>}><div className="websites-list">{history.map((version, index) => <div key={index} className="websites-row-title"><span>{version.name} · {t('websites.version', { count: index + 1 })}</span><button type="button" className="websites-button" onClick={() => { onChange({ ...site, theme: version }); }}>{t('websites.useTheme')}</button></div>)}</div></Card>
+  </div>;
+}
+
+export function WebsitePreview({ url, html, title }: { url?: string | null; html?: string; title: string }) {
+  const { t } = useTranslation();
+  const [width, setWidth] = useState('desktop');
+  const safeUrl = url && /^https?:\/\//iu.test(url) ? url : undefined;
+  return <Card title={title} actions={<div className="websites-actions"><Field label={t('websites.previewSize')}><Select value={width} onChange={event => { setWidth(event.target.value); }}>{['desktop', 'tablet', 'mobile'].map(value => <option key={value} value={value}>{t(`websites.sizes.${value}`)}</option>)}</Select></Field>{safeUrl && <a className="websites-button" href={safeUrl} target="_blank" rel="noopener noreferrer">{t('websites.openPreview')}</a>}</div>}><div className="websites-preview" data-width={width}><iframe title={title} sandbox="" referrerPolicy="no-referrer" src={safeUrl} srcDoc={html ? safePreviewDocument(html) : safeUrl ? undefined : safePreviewDocument(`<p>${escaped(t('websites.previewHelp'))}</p>`)} /></div></Card>;
+}

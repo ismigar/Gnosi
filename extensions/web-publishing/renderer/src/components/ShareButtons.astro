@@ -1,0 +1,13 @@
+---
+import {site,linkProps} from '../lib/site.mjs';
+import {temenosLabels} from '../lib/temenos.mjs';
+const {page,lang}=Astro.props;
+const text=temenosLabels(lang);
+const services=[['whatsapp','WhatsApp'],['telegram','Telegram'],['mastodon','Mastodon'],['bluesky','Bluesky'],['facebook','Facebook'],['linkedin','LinkedIn'],['email',text.email]];
+const canonical=new URL(page.path,site.origin).href;
+const query=new URLSearchParams({linkurl:canonical,linkname:page.title});
+---
+<section class="entry-sharing" aria-label={text.share} data-pagefind-ignore>
+  <h2>{text.share}</h2>
+  <div class="share-links">{services.map(([service,name])=>{const url=`https://www.addtoany.com/add_to/${service}?${query}`;return <a class={`a2a_button_${service}`} href={url} {...linkProps(url)}>{name}</a>;})}</div>
+</section>

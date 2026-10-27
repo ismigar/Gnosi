@@ -32,16 +32,19 @@ export function ShareModal(props: ShareModalProps) {
     return <ShareSession {...props} key={props.pageId || ''} />;
 }
 
+const WebPublishingManager = lazy(() => import('../publishing/WebPublishingManager'));
 const PublishingManager = lazy(() => import('../publishing/PublishingManager'));
 
 function ShareSession(props: ShareModalProps) {
     const [publishing, setPublishing] = useState(false);
+    const [webPublishing, setWebPublishing] = useState(false);
+    if (webPublishing) return <Suspense fallback={null}><WebPublishingManager onClose={props.onClose} onBack={() => { setWebPublishing(false); }} /></Suspense>;
     return publishing
         ? <Suspense fallback={null}><PublishingManager onClose={props.onClose} onBack={() => { setPublishing(false); }} /></Suspense>
-        : <ShareModalContent {...props} onOpenPublishing={() => { setPublishing(true); }} />;
+        : <ShareModalContent {...props} onOpenPublishing={() => { setPublishing(true); }} onOpenWebPublishing={() => { setWebPublishing(true); }} />;
 }
 
-function ShareModalContent({ onClose, pageId, pageTitle, onOpenPublishing }: ShareModalProps & { readonly onOpenPublishing: () => void }) {
+function ShareModalContent({ onClose, pageId, pageTitle, onOpenPublishing, onOpenWebPublishing }: ShareModalProps & { readonly onOpenPublishing: () => void; readonly onOpenWebPublishing: () => void }) {
     const { i18n, t } = useTranslation();
     const modalRef = useRef<HTMLDivElement | null>(null);
     const copiedTimerRef = useRef<number | null>(null);
@@ -153,6 +156,7 @@ function ShareModalContent({ onClose, pageId, pageTitle, onOpenPublishing }: Sha
             </div>
 
             <div className="space-y-3 border-b border-[var(--border-primary)] px-5 py-4">
+                <button type="button" className="w-full rounded-lg border border-[var(--border-primary)] px-3 py-2 text-left text-sm text-[var(--gnosi-blue)] hover:bg-[var(--bg-secondary)]" onClick={onOpenWebPublishing}>{t('webPublishing.title')}</button>
                 <button type="button" className="w-full rounded-lg border border-[var(--border-primary)] px-3 py-2 text-left text-sm text-[var(--gnosi-blue)] hover:bg-[var(--bg-secondary)]" onClick={onOpenPublishing}>{t('publishing.manage', 'Publish selected notes')}</button>
                 <div className="flex flex-wrap items-end gap-2">
                     <div className="min-w-[120px] flex-1">

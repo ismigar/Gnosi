@@ -1,7 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-10-13
+last_verified: 2026-10-26
 source_paths:
+  - frontend/src/shared/hooks/useAppKeyboardScroll.ts
+  - frontend/src/shared/hooks/useKeyboardScroll.ts
+  - frontend/src/shared/hooks/keyboardScroll.ts
+  - frontend/src/shared/platform/browser-events.ts
+  - frontend/src/app/routeAnnouncement.ts
   - frontend/src/features/sharing/publishing
   - frontend/src/features/offline
   - backend/server.py
@@ -20,6 +25,11 @@ source_paths:
   - frontend/src/generated
   - frontend/feature-public-entries.json
 tests:
+  - frontend/src/shared/hooks/useAppKeyboardScroll.test.tsx
+  - frontend/src/shared/hooks/keyboardAccessibility.test.tsx
+  - frontend/src/shared/platform/browser-events.test.ts
+  - frontend/src/features/mail/components/MailList.scroll-ownership.test.tsx
+  - frontend/src/app/routeAnnouncement.test.ts
   - frontend/src/app/composition.contract.test.ts
   - frontend/src/app/shellPages.test.tsx
   - backend/tests/test_app_lifespan.py
@@ -123,6 +133,26 @@ Docker paths are mapped without making any cloud vendor part of the data model.
 login, or application shell. Heavy pages are lazy-loaded. The global shell owns
 navigation and globally available interaction surfaces; route pages own domain
 content. `/s/:token` renders outside the authenticated shell by design.
+
+## Keyboard scrolling and route announcements
+
+The shell provides a shared application fallback for vertical Arrow, Page Up/Down,
+Home/End and Space scrolling outside text fields, editors and composite
+controls. Existing control navigation handles keys first, including handlers
+registered when a route mounts later. The focused region's fallback runs
+before the application fallback; a prevented event is not claimed again.
+Nested scrolling targets the nearest visible scrolling region, respecting
+hidden/inert ancestors and the active modal scope. With loose body focus, the
+last clicked region or the main page supplies the target; explicitly focusing
+main content takes precedence. Route changes and unmount remove stale pointer
+state and subscriptions. Reduced-motion preferences are respected, and Space
+retains native activation on buttons and links.
+
+The shell's accessible route announcements reuse the canonical application
+labels. Legacy prefix fallbacks and the exact Dashboard fallback remain;
+unrecognized routes retain the existing Home label. This keeps the immediate
+keyboard hook and controls in the startup graph while removing duplicate
+announcement data. The production bundle budget remains unchanged.
 
 ## Invariants
 

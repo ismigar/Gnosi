@@ -1,4 +1,5 @@
 import { ApplicationRoutes, SharedRoutes } from './routes';
+import { routeAnnouncementLabel } from './routeAnnouncement';
 import { isPublicTokenPath } from '../shared/routing/publicRoutes';
 import {
   Suspense,
@@ -24,6 +25,7 @@ import CommandPalette from './navigation/CommandPalette';
 import { useTheme } from '../shared/hooks/useTheme';
 import { useFileLinkInterceptor } from './integration/useFileLinkInterceptor';
 import { useFocusModality } from '../shared/hooks/useFocusModality';
+import { useAppKeyboardScroll } from '../shared/hooks/useAppKeyboardScroll';
 import { useAuth, type AuthContextValue } from '../shared/auth/auth-context';
 import { LoginPage } from '../features/auth';
 import { GraphLoadingState } from '../shared/ui/loading/GraphLoadingState';
@@ -40,45 +42,6 @@ import {
   vaultAppFromPath,
   vaultPath,
 } from '../shared/routing/vaultRouting';
-
-interface RouteAnnouncementLabel {
-  readonly fallback: string;
-  readonly key: string;
-  readonly match: (path: string) => boolean;
-}
-
-const ROUTE_ANNOUNCEMENT_LABELS: readonly RouteAnnouncementLabel[] = [
-  { match: (path) => path === '/', key: 'fs_picker.home', fallback: 'Home' },
-  { match: (path) => path.startsWith('/vault'), key: 'sidebar.nav_vault', fallback: 'Knowledge' },
-  { match: (path) => path.startsWith('/notebooks'), key: 'sidebar.nav_notebooks', fallback: 'Notebooks' },
-  { match: (path) => path === '/graph', key: 'sidebar.nav_graph', fallback: 'Graph' },
-  { match: (path) => path === '/contacts', key: 'sidebar.nav_contacts', fallback: 'Contacts' },
-  { match: (path) => path === '/mail', key: 'sidebar.nav_mail', fallback: 'Mail' },
-  { match: (path) => path === '/calendar', key: 'sidebar.nav_calendar', fallback: 'Calendar' },
-  { match: (path) => path === '/reader', key: 'sidebar.nav_reader', fallback: 'Reader' },
-  { match: (path) => path === '/social-dashboard', key: 'sidebar.nav_social', fallback: 'Social' },
-  { match: (path) => path === '/media', key: 'sidebar.nav_media', fallback: 'Photos' },
-  { match: (path) => path === '/planning', key: 'sidebar.nav_planning', fallback: 'Planning' },
-  { match: (path) => path === '/literature', key: 'sidebar.nav_literature', fallback: 'Literature Search' },
-  { match: (path) => path === '/dashboard', key: 'sidebar.nav_dashboard', fallback: 'Dashboard' },
-  { match: (path) => path === '/scheduler', key: 'scheduler.title', fallback: 'Scheduler' },
-  { match: (path) => path === '/composer', key: 'social.composer', fallback: 'Composer' },
-];
-
-const APP_ANNOUNCEMENT_LABELS: Readonly<Record<string, readonly [string, string]>> = {
-  knowledge: ['sidebar.nav_vault', 'Knowledge'],
-  notebooks: ['sidebar.nav_notebooks', 'Notebooks'],
-  graph: ['sidebar.nav_graph', 'Graph'],
-  contacts: ['sidebar.nav_contacts', 'Contacts'],
-  mail: ['sidebar.nav_mail', 'Mail'],
-  calendar: ['sidebar.nav_calendar', 'Calendar'],
-  reader: ['sidebar.nav_reader', 'Reader'],
-  social: ['sidebar.nav_social', 'Social'],
-  media: ['sidebar.nav_media', 'Photos'],
-  planning: ['sidebar.nav_planning', 'Planning'],
-  resources: ['sidebar.nav_literature', 'Literature Search'],
-  automations: ['scheduler.title', 'Scheduler'],
-};
 
 interface ModuleContextOverride {
   readonly locationKey: string;
@@ -132,17 +95,12 @@ function ApplicationShell() {
   const [bulkNotebookResources, setBulkNotebookResources] = useState<readonly string[] | null>(null);
   const [vaultRevision, setVaultRevision] = useState(0);
   const mainContentRef = useRef<HTMLElement | null>(null);
+  useAppKeyboardScroll(mainContentRef, location.key);
   const routeAnnouncement = useMemo(() => {
-    const app = vaultAppFromPath(location.pathname);
-    const appLabel = APP_ANNOUNCEMENT_LABELS[app];
-    if (appLabel) {
-      return t('accessibility.route_loaded', '{{page}} loaded', {
-        page: t(appLabel[0], appLabel[1]),
-      });
-    }
-    const route = ROUTE_ANNOUNCEMENT_LABELS.find(({ match }) => match(location.pathname));
-    const page = route ? t(route.key, route.fallback) : t('fs_picker.home', 'Home');
-    return t('accessibility.route_loaded', '{{page}} loaded', { page });
+    const label = routeAnnouncementLabel(location.pathname, vaultAppFromPath(location.pathname));
+    return t('accessibility.route_loaded', '{{page}} loaded', {
+      page: t(label[0], label[1]),
+    });
   }, [location.pathname, t]);
   // Captures clicks on file:// everywhere and redirects them to the system shell
   // via the backend, instead of letting Chrome open blank tabs.

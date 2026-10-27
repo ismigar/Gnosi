@@ -20,7 +20,7 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "build": "pnpm run build:python && electron-builder --config electron-builder.platform.cjs --publish never",
-    "build:python": "bash build-python.sh",
+    "build:python": "node scripts/prepare-web-runtime.cjs && bash build-python.sh",
     "build:mac": "pnpm run build:python && electron-builder --mac --config electron-builder.macos-sparkle.cjs --publish never",
     "build:linux": "pnpm run build:python && electron-builder --linux --publish never",
     "build:win": "pnpm run build:python && electron-builder --win --publish never",
@@ -29,7 +29,8 @@
     "check:mac-signing": "node scripts/macos-signing-preflight.cjs",
     "build:mac:developer-id": "node scripts/macos-signing-preflight.cjs && pnpm run build:python && electron-builder --mac --config electron-builder.macos-release.cjs --publish never",
     "install:sparkle": "node scripts/sparkle-build.cjs --download",
-    "build:sparkle": "node scripts/sparkle-build.cjs"
+    "build:sparkle": "node scripts/sparkle-build.cjs",
+    "build:web-runtime": "node scripts/prepare-web-runtime.cjs"
   },
   "dependencies": {
     "electron-log": "^5.4.4",

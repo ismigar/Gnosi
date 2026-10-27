@@ -1,7 +1,7 @@
 import { loadGenogramsConfig } from '../../genograms';
 import {
     BookOpen, BrainCircuit, Calendar, CalendarDays, CalendarRange, Clock3,
-    Cpu, Database, Hash, Inbox, Languages, LayoutDashboard, MessageSquare,
+    Cpu, Database, Globe, Hash, Inbox, Languages, LayoutDashboard, MessageSquare,
     NotebookTabs, PackageCheck, Puzzle, RefreshCw, Scissors, Settings,
     Share2, Store, Users,
     type LucideIcon,
@@ -31,7 +31,7 @@ import { ThirdPartyPlugins } from './ThirdPartyPlugins';
 
 const ICONS: Readonly<Record<string, LucideIcon>> = {
     BookOpen, BrainCircuit, Calendar, CalendarDays, CalendarRange, Clock3,
-    Cpu, Database, Hash, Inbox, Languages, LayoutDashboard, MessageSquare,
+    Cpu, Database, Globe, Hash, Inbox, Languages, LayoutDashboard, MessageSquare,
     NotebookTabs, Scissors, Share2, Users,
 };
 
@@ -41,6 +41,7 @@ const CONFIG_LOADERS: Readonly<Record<string, () => Promise<{ default: PluginCon
     'llm-wiki': () => import('./LlmWikiConfig').then(module => ({ default: module.LlmWikiConfig })),
     'project-planning': () => import('./ProjectPlanningConfig').then(module => ({ default: module.ProjectPlanningConfig })),
     resources: () => import('../../literature/settings/ResourcesPluginConfig'),
+    'web-publishing': () => import('./WebsitesConfig').then(module => ({ default: module.WebsitesConfig })),
     'web-clipper': () => import('./WebClipperConfig').then(module => ({ default: module.WebClipperConfig })),
 };
 const CONFIGS: Readonly<Record<string, PluginConfigComponent>> = Object.fromEntries(
