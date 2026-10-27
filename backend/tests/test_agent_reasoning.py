@@ -173,3 +173,11 @@ def test_default_luna_uses_stateless_responses_and_other_defaults_stay_unchanged
     other = get_llm("openrouter", "other/model", api_key="test-key")
     assert other.reasoning is None
     assert other.use_responses_api is not True
+
+
+@pytest.mark.parametrize('mandatory,expected', [(False, True), (True, False), (None, False), (0, False), ('false', False)])
+def test_binary_optional_reasoning_does_not_invent_effort_levels(mandatory, expected):
+    parsed = reasoning.parse_openrouter_models({'data': [{'id': 'binary', 'reasoning': {'mandatory': mandatory}}]})['binary']
+    assert parsed.get('supports_reasoning_disable', False) is expected
+    assert parsed['supported_efforts'] == []
+    assert parsed['default_effort'] is None

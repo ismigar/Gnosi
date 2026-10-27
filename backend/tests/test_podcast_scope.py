@@ -25,10 +25,10 @@ def owner(monkeypatch, tmp_path):
 @pytest.mark.parametrize('changes', [{'user_id': 'bob'}, {'workspace_id': 'other'}, {'vault_path': '/private/tmp/other-fixture'}])
 def test_status_does_not_expose_other_user_workspace_or_vault(owner, changes):
     with execution_scope(owner):
-        audio._generation_state().update(running=True, progress='Private article title', error='Private failure', result_filename='private-episode.mp3')
+        audio._generation_state().update(running=True, progress='Private article title', error='Private failure', result_filename='private-episode.mp3', skipped_articles=[{'id': '109', 'title': 'Private omission'}])
         assert podcast_routes.get_podcast_status()['progress'] == 'Private article title'
     with execution_scope(owner.model_copy(update=changes)):
-        assert podcast_routes.get_podcast_status() == {'running': False, 'progress': '', 'error': None, 'result_filename': None}
+        assert podcast_routes.get_podcast_status() == {'running': False, 'progress': '', 'error': None, 'result_filename': None, 'skipped_articles': []}
     with execution_scope(owner):
         copy = audio.get_generation_status()
         copy['progress'] = 'tampered'
@@ -311,3 +311,17 @@ def test_timeout_with_empty_message_is_failed_instead_of_completed(owner, monkey
         assert audio.generate_daily_podcast(snapshot) is None
         assert audio.get_generation_status()['error'] == 'TimeoutError'
     assert store.read(owner, snapshot.parent_run_id).status == 'failed'
+
+
+def test_podcast_omissions_survive_memory_reset_and_reset_for_next_job(owner):
+    with execution_scope(owner):
+        snapshot, _, _ = audio._resolve_podcast_llm()
+        snapshot = execution.create_job_run(snapshot, 'omissions', 'podcast')
+        report = [{'id': '109', 'title': 'Missing content'}]
+        store.work_checkpoint(owner, snapshot.parent_run_id, 'podcast-skipped', {'articles': report})
+        store.update(owner, snapshot.parent_run_id, status='completed', result='episode.mp3')
+        audio._generation_states.clear()
+        assert podcast_routes.get_podcast_status()['skipped_articles'] == report
+        next_snapshot = execution.create_job_run(snapshot, 'next-episode', 'podcast')
+        store.update(owner, next_snapshot.parent_run_id, status='completed', result='next.mp3')
+        assert podcast_routes.get_podcast_status()['skipped_articles'] == []

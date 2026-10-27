@@ -62,7 +62,7 @@ _SIGNATURES = (
                                  "reduce the length of the messages", "too many tokens")),
     ("schema_invalid", ("json_validate_failed", "response_format", "invalid schema",
                         "failed to generate json")),
-    ("content_filter", ("content_filter", "content policy", "was flagged")),
+    ("content_filter", ("content_filter", "content filter", "content policy", "was flagged")),
     ("insufficient_credit", ("insufficient_quota", "requires more credits",
                              "billing", "payment required", "402")),
     ("rate_limit", ("rate_limit", "rate limit", "429", "too many requests")),

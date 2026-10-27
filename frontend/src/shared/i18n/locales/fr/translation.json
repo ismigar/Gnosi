@@ -1444,7 +1444,11 @@
           "high": "Élevé",
           "xhigh": "Très élevé",
           "max": "Maximum"
-        }
+        },
+        "upstream_provider": "Fournisseur OpenRouter fixe",
+        "upstream_provider_help": "Identifiant du fournisseur pour ce modèle, par exemple deepinfra. Laisser vide pour le routage automatique. Un choix fixe utilise uniquement ce fournisseur.",
+        "routing_automatic": "Automatique",
+        "upstream_provider_invalid": "Saisissez un identifiant de fournisseur valide, comme deepinfra."
       },
       "model_strategy": {
         "primary": "Modèle principal",
@@ -9403,5 +9407,9 @@
     "newsletterAddTitle": "Ajouter {{title}}",
     "newsletterNoPublished": "Aucun contenu publié dans cette langue et à cette destination pour le moment.",
     "newsletterReloadDraft": "Charger le brouillon enregistré et abandonner ces modifications"
-  }
+  },
+  "reader_podcast_skipped_articles": "Articles non inclus car ils n’avaient aucun contenu lisible ({{count}}) : {{titles}}",
+  "reader_podcast_skipped_more": "; et {{count}} autres",
+  "reader_podcast_untitled_article": "Article {{id}}",
+  "reader_podcast_no_readable_articles": "Le résumé audio n’a pas pu être généré car aucun des articles sélectionnés ne contenait de contenu lisible."
 }

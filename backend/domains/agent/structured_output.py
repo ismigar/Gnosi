@@ -15,12 +15,20 @@ def constrain_default_reasoning(model: Any, provider: str, effort: str | None) -
     base = getattr(model, "bound", model)
     bound = getattr(model, "kwargs", {})
     extra = {**deepcopy(getattr(base, "extra_body", None) or {}), **deepcopy(bound.get("extra_body", {}))}
-    if any((getattr(base, "reasoning", None), getattr(base, "reasoning_effort", None),
-            bound.get("reasoning"), bound.get("reasoning_effort"), extra.get("reasoning"), extra.get("reasoning_effort"))):
+    names = ("reasoning", "reasoning_effort", "thinking")
+    if (any(getattr(base, name, None) is not None for name in names)
+            or any(name in values and values[name] is not None
+                   for values in (bound, extra, getattr(base, "model_kwargs", {})) for name in names)):
         return model
     from backend.services.model_reasoning import EFFORTS, reasoning_options
     model_id = str(getattr(base, "model_name", "") or getattr(base, "model", ""))
     options = reasoning_options(provider, model_id)
+    if effort == "off_if_optional":
+        if options.get("supports_reasoning_disable") is not True:
+            return model
+        extra["reasoning"] = {"enabled": False}
+        extra["provider"] = {**extra.get("provider", {}), "require_parameters": True}
+        return model.bind(extra_body=extra)
     if effort == "one_step_lower":
         # Reduce only a known default by one declared level. Keep at least
         # low reasoning, and never increase a cheaper or unknown default.

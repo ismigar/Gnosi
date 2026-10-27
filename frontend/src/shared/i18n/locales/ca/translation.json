@@ -3321,7 +3321,11 @@
           "high": "Alt",
           "xhigh": "Molt alt",
           "max": "Màxim"
-        }
+        },
+        "upstream_provider": "Proveïdor fix d’OpenRouter",
+        "upstream_provider_help": "Identificador del proveïdor per a aquest model, per exemple deepinfra. Deixa-ho buit per a l’encaminament automàtic. La selecció fixa utilitza només aquest proveïdor.",
+        "routing_automatic": "Automàtic",
+        "upstream_provider_invalid": "Utilitza un identificador de proveïdor vàlid, com deepinfra."
       },
       "model_strategy": {
         "primary": "Model principal",
@@ -9403,5 +9407,9 @@
     "newsletterAddTitle": "Afegeix {{title}}",
     "newsletterNoPublished": "Encara no hi ha continguts publicats en aquest idioma i destinació.",
     "newsletterReloadDraft": "Carrega l’esborrany desat i descarta aquests canvis"
-  }
+  },
+  "reader_podcast_skipped_articles": "Articles no inclosos perquè no tenien contingut llegible ({{count}}): {{titles}}",
+  "reader_podcast_skipped_more": "; i {{count}} més",
+  "reader_podcast_untitled_article": "Article {{id}}",
+  "reader_podcast_no_readable_articles": "No s’ha pogut generar el resum d’àudio perquè cap dels articles seleccionats tenia contingut llegible."
 }

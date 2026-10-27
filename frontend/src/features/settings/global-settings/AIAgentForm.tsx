@@ -19,6 +19,8 @@ import { useState } from 'react';
 import { AgentBehaviorInspection } from '../AI/AgentBehaviorInspection';
 import { InstructionMarkdownEditor } from '../../../shared/editor/InstructionMarkdownEditor';
 import { useTranslation } from 'react-i18next';
+import { AgentProviderRouteField } from './AgentProviderRouteField';
+import { validProviderRoute } from './agentProviderRoute';
 
 export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', onSave, onChange, aiRegistry, skills, tools, onSelectSkill, onModelsDetached, bots = [], principalId, onAssignOtherBot }: { agent: AgentDraft; otherCommands?: string[]; purpose?: 'principal' | 'profile'; onChange?: (agent: AgentDraft) => void; bots?: readonly SettingsAgent[]; principalId?: string; onAssignOtherBot?: (id: string, provider: string, model: string) => void; onModelsDetached?: (routes: readonly { provider: string; model: string }[]) => void; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[] }) {
   const { t } = useTranslation();
@@ -28,11 +30,11 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
     icon: agent.icon === 'Bot' ? 'lucide:Bot:default' : agent.icon || 'lucide:Bot:default', persona: agent.persona || '', context: agent.context || '',
     context_refs: agent.context_refs || [], skill_ids: agent.skill_ids || [],
   });
-  const incomingRoute = JSON.stringify([agent.provider, agent.model, agent.reasoning_effort]);
+  const incomingRoute = JSON.stringify([agent.provider, agent.model, agent.reasoning_effort, agent.openrouter_route]);
   const [modelIdentity, setModelIdentity] = useState(incomingRoute);
   if (modelIdentity !== incomingRoute) {
     setModelIdentity(incomingRoute);
-    setForm(previous => ({ ...previous, provider: agent.provider || '', model: agent.model || '', reasoning_effort: agent.reasoning_effort }));
+    setForm(previous => ({ ...previous, provider: agent.provider || '', model: agent.model || '', reasoning_effort: agent.reasoning_effort, openrouter_route: agent.openrouter_route }));
   }
   const { name, command, provider, model, icon, persona, context, context_refs: contextRefs, skill_ids: selectedSkillIds } = form;
   const [section, setSection] = useState('instructions');
@@ -64,7 +66,8 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
   const update = (patch: Partial<typeof form>) => {
     const next = { ...form, ...patch };
     setForm(next);
-    if (agent.id && !commandError(next.command) && next.name.trim()) {
+    if (agent.id && !commandError(next.command) && next.name.trim()
+      && (next.provider !== 'openrouter' || validProviderRoute(next.openrouter_route && next.openrouter_route.model === next.model ? next.openrouter_route.provider : null))) {
       onChange?.({ ...next, model_strategy: { schema_version: 1, mode: 'pinned', decision_engine: 'rules', allowed_models: [] } });
     }
   };
@@ -131,7 +134,7 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
           {choosingModel && <AIModelComparisonModal isOpen onClose={() => { setChoosingModel(false); }}
             bots={[...bots.filter(bot => bot.id !== agent.id), { ...form, id: agent.id || 'new-agent', name: form.name || t('settings.ai.assistant.new_profile') }]} skillCatalog={skills} principalId={principalId}
             initialBotId={agent.id || 'new-agent'}
-            onAssignModel={(id, nextProvider, nextModel) => { if (id === (agent.id || 'new-agent')) update({ provider: nextProvider, model: nextModel, reasoning_effort: null }); else onAssignOtherBot?.(id, nextProvider, nextModel); setChoosingModel(false); }}
+            onAssignModel={(id, nextProvider, nextModel) => { if (id === (agent.id || 'new-agent')) update({ provider: nextProvider, model: nextModel, reasoning_effort: null, openrouter_route: null }); else onAssignOtherBot?.(id, nextProvider, nextModel); setChoosingModel(false); }}
             onModelsDetached={routes => { onModelsDetached?.(routes); update(detachBotModels({ ...form, id: agent.id || 'new-agent' }, routes)); }} />}
           {registryEmpty && (
             <div style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', marginTop: 6 }}>
@@ -158,6 +161,10 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
         </FormGroup>
 
 
+
+        <AgentProviderRouteField provider={provider}
+          value={form.openrouter_route && form.openrouter_route.model === model ? form.openrouter_route.provider : null}
+          onChange={upstream => { update({ openrouter_route: upstream ? { model, provider: upstream } : null }); }} />
 
         {(efforts.length > 0 || form.reasoning_effort) && <FormGroup
           label={t('settings.ai.assistant.reasoning_effort')}
@@ -227,7 +234,8 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
       {!agent.id && <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
         <button
           className="btn-gnosi btn-gnosi-primary"
-          disabled={Boolean(currentCommandError) || !name || !provider || !model || savingAgent}
+          disabled={Boolean(currentCommandError) || !name || !provider || !model || savingAgent
+            || (provider === 'openrouter' && form.openrouter_route?.model === model && !validProviderRoute(form.openrouter_route.provider))}
           onClick={() => {
             void (async () => {
               setSavingAgent(true);
@@ -240,6 +248,7 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
                   provider,
                   model,
                   reasoning_effort: form.reasoning_effort ?? null,
+                  openrouter_route: provider === 'openrouter' ? form.openrouter_route ?? null : null,
                   icon,
                   persona,
                   context,

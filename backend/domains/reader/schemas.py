@@ -180,6 +180,13 @@ class ReaderPodcastGenerationResponse(BaseModel):
     progress: str = ""
 
 
+class ReaderPodcastSkippedArticle(BaseModel):
+    """An article omitted because no readable body was available."""
+
+    id: str
+    title: str
+
+
 class ReaderPodcastStatusResponse(BaseModel):
     """Observable podcast-generation state."""
 
@@ -187,6 +194,7 @@ class ReaderPodcastStatusResponse(BaseModel):
     progress: str
     error: str | None = None
     result_filename: str | None = None
+    skipped_articles: list[ReaderPodcastSkippedArticle] = []
 
 
 class ReaderPodcastInfoResponse(BaseModel):

@@ -3302,7 +3302,11 @@
           "high": "High",
           "xhigh": "Very high",
           "max": "Maximum"
-        }
+        },
+        "upstream_provider": "Fixed OpenRouter provider",
+        "upstream_provider_help": "Provider identifier for this model, for example deepinfra. Leave empty for automatic routing. A fixed selection uses only this provider.",
+        "routing_automatic": "Automatic",
+        "upstream_provider_invalid": "Enter a valid provider identifier, such as deepinfra."
       },
       "model_strategy": {
         "primary": "Primary model",
@@ -9347,5 +9351,9 @@
     "newsletterAddTitle": "Add {{title}}",
     "newsletterNoPublished": "No contents have been published in this language at this destination yet.",
     "newsletterReloadDraft": "Load saved draft and discard these changes"
-  }
+  },
+  "reader_podcast_skipped_articles": "Articles not included because they had no readable content ({{count}}): {{titles}}",
+  "reader_podcast_skipped_more": "; and {{count}} more",
+  "reader_podcast_untitled_article": "Article {{id}}",
+  "reader_podcast_no_readable_articles": "The audio summary could not be generated because none of the selected articles had readable content."
 }

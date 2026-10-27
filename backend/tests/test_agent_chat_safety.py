@@ -991,6 +991,7 @@ def test_unknown_model_uses_small_context_fallback(monkeypatch):
         lambda **_kwargs: [],
     )
 
+    monkeypatch.setattr("backend.agent.model_catalog.catalog_model_metadata_index", lambda: {})
     assert _model_context_window("openrouter", "unknown/model") == 8_192
 
 
@@ -1037,3 +1038,22 @@ def test_page_locks_use_a_bounded_stripe_pool(tmp_path, monkeypatch):
 ])
 def test_french_field_assignment_requires_affirmative_current_user_intent(message, expected):
     assert _explicit_brain_write_tool_names(message) == expected
+
+
+def test_agent_profile_model_uses_catalog_context_without_registry_entry(monkeypatch):
+    monkeypatch.setattr("backend.agent.model_router.load_registry", lambda **_: [])
+    monkeypatch.setattr("backend.agent.model_catalog.catalog_model_metadata_index", lambda: {
+        "openrouter:fixture/large": {"context_window": 1_050_000},
+    })
+    assert _model_context_window("openrouter", "fixture/large") == 1_050_000
+    assert _model_context_window("openrouter", "other/model") == 8192
+
+
+def test_explicit_model_context_limit_wins_over_catalog(monkeypatch):
+    monkeypatch.setattr("backend.agent.model_router.load_registry", lambda **_: [
+        {"provider": "openrouter", "model_id": "fixture/large", "context_window": 16000},
+    ])
+    monkeypatch.setattr("backend.agent.model_catalog.catalog_model_metadata_index", lambda: {
+        "openrouter:fixture/large": {"context_window": 1_050_000},
+    })
+    assert _model_context_window("openrouter", "fixture/large") == 16000

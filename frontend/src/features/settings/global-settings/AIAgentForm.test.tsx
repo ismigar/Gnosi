@@ -174,3 +174,50 @@ it('ignores a late metadata response after the user changes model', async () => 
   await act(async () => { resolve({ supported_efforts: ['medium'], default_effort: 'medium', source: 'openrouter' }); await Promise.resolve(); });
   expect(host.querySelectorAll('select')).toHaveLength(0);
 });
+
+function enterUpstream(value: string) {
+  const input = host.querySelector<HTMLInputElement>('input[aria-label="settings.ai.assistant.upstream_provider"]');
+  if (!input) throw new Error('Missing upstream provider field');
+  act(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
+it('saves and clears a fixed upstream tied to the current model while preserving the bot', async () => {
+  await act(async () => { render(luna, reasoningModels); await Promise.resolve(); });
+  enterUpstream('deepinfra');
+  expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ ...luna,
+    openrouter_route: { model: luna.model, provider: 'deepinfra' } }));
+  enterUpstream('');
+  expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ openrouter_route: null }));
+});
+
+it('does not autosave an invalid provider identifier', async () => {
+  await act(async () => { render(luna, reasoningModels); await Promise.resolve(); });
+  enterUpstream('https://invalid.example');
+  expect(onSave).not.toHaveBeenCalled();
+  expect(host.querySelector('[role="alert"]')?.textContent).toBe('settings.ai.assistant.upstream_provider_invalid');
+});
+
+it('keeps a saved upstream model-specific and clears it on a new model selection', async () => {
+  await act(async () => { render({ ...luna, openrouter_route: { model: luna.model, provider: 'deepinfra' } }, reasoningModels); await Promise.resolve(); });
+  expect(host.querySelector<HTMLInputElement>('input[aria-label="settings.ai.assistant.upstream_provider"]')?.value).toBe('deepinfra');
+  select('profile_model', 'beta||large');
+  expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ provider: 'beta', model: 'large', openrouter_route: null }));
+  expect(host.querySelector('input[aria-label="settings.ai.assistant.upstream_provider"]')).toBeNull();
+});
+
+it('shows automatic routing for a stale choice saved for another model', async () => {
+  await act(async () => { render({ ...luna, openrouter_route: { model: 'another', provider: 'deepinfra' } }, reasoningModels); await Promise.resolve(); });
+  expect(host.querySelector<HTMLInputElement>('input[aria-label="settings.ai.assistant.upstream_provider"]')?.value).toBe('');
+  expect(onSave).not.toHaveBeenCalled();
+});
+
+it('persists the selected upstream when creating a bot', async () => {
+  await act(async () => { render({ ...luna, id: undefined }, reasoningModels); await Promise.resolve(); });
+  enterUpstream('deepinfra');
+  expect(onSave).not.toHaveBeenCalled();
+  await click('settings.ai.assistant.create_profile');
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ openrouter_route: { model: luna.model, provider: 'deepinfra' } }));
+});

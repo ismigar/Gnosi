@@ -32562,6 +32562,25 @@
         "title": "ReaderPodcastInfoResponse",
         "type": "object"
       },
+      "ReaderPodcastSkippedArticle": {
+        "description": "An article omitted because no readable body was available.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "ReaderPodcastSkippedArticle",
+        "type": "object"
+      },
       "ReaderPodcastStatusResponse": {
         "description": "Observable podcast-generation state.",
         "properties": {
@@ -32594,6 +32613,14 @@
           "running": {
             "title": "Running",
             "type": "boolean"
+          },
+          "skipped_articles": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReaderPodcastSkippedArticle"
+            },
+            "title": "Skipped Articles",
+            "type": "array"
           }
         },
         "required": [

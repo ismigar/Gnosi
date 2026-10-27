@@ -50,6 +50,7 @@ def parse_openrouter_models(payload: Any) -> dict[str, dict[str, Any]]:
             "supported_efforts": efforts,
             "default_effort": default if default in efforts else None,
             "source": "openrouter",
+            **({"supports_reasoning_disable": True} if reasoning.get("mandatory") is False else {}),
         }
     return result
 

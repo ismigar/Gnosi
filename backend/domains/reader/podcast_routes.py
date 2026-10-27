@@ -46,6 +46,7 @@ def get_podcast_status() -> RouteReturn:
         "progress": generation_status["progress"],
         "error": generation_status["error"],
         "result_filename": generation_status["result_filename"],
+        "skipped_articles": generation_status.get("skipped_articles", []),
     }
 
 
