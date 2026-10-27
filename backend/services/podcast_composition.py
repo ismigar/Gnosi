@@ -7,19 +7,34 @@ from backend.services.podcast_briefing import _object
 
 
 WORD_TOKENS = "word_tokens_v1"
+WORD_TEXT = "word_text_v1"
 MARKER_PREFIX = "__gnosi_group__:"
+
+
+def _word_pattern(minimum: int, maximum: int) -> str:
+    """Count one shared word stream using portable repeat counts below 1000."""
+    parts = [r"^\S+"]
+    low, high = minimum - 1, maximum - 1
+    while high:
+        lower, upper = min(low, 999), min(high, 999)
+        parts.append(r"(?:\s+\S+)" + f"{{{lower},{upper}}}")
+        low, high = low - lower, high - upper
+    return "".join(parts) + "$"
 
 
 def schema(data: dict[str, Any]) -> dict[str, Any]:
     groups = data.get("composition_groups", [])
     if not groups:
         return _object({"narration": {"type": "string", "minLength": 1}})
-    if data.get("composition_encoding") == WORD_TOKENS:
+    if data.get("composition_encoding") in {WORD_TOKENS, WORD_TEXT}:
         bounds = data["composition_word_range"]
         minimum, maximum = bounds["min_words"], bounds["max_words"]
         if not (type(minimum) is int and type(maximum) is int and 0 < minimum <= maximum):
             raise ValueError("podcast_composition_word_range_invalid")
         flags = _object({g["key"]: _object({"non_editorial": {"type": "boolean"}}) for g in groups})
+        if data["composition_encoding"] == WORD_TEXT:
+            return _object({"paragraphs": flags, "token_text": {"type": "string",
+                "pattern": _word_pattern(minimum + len(groups), maximum + len(groups))}})
         return _object({"paragraphs": flags, "tokens": {"type": "array",
             "minItems": minimum + len(groups), "maxItems": maximum + len(groups),
             "items": {"type": "string", "pattern": r"^\S+$"}}})
@@ -38,11 +53,16 @@ def composition_blocks(result: dict[str, Any], data: dict[str, Any]) -> dict[str
     for block in paragraphs.values():
         if not isinstance(block, dict) or type(block.get("non_editorial")) is not bool:
             raise ValueError("podcast_composition_paragraphs_invalid")
-    if "tokens" not in result:
+    if "token_text" in result:
+        if "tokens" in result or not isinstance(result["token_text"], str):
+            raise ValueError("podcast_composition_tokens_invalid")
+        tokens = result["token_text"].split()
+    elif "tokens" in result:
+        tokens = result["tokens"]
+    else:
         if any(not isinstance(block.get("text"), str) for block in paragraphs.values()):
             raise ValueError("podcast_composition_paragraphs_invalid")
         return paragraphs
-    tokens = result["tokens"]
     if not isinstance(tokens, list):
         raise ValueError("podcast_composition_tokens_invalid")
     markers = {MARKER_PREFIX + group["key"]: index for index, group in enumerate(groups)}

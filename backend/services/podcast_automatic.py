@@ -7,7 +7,7 @@ from math import ceil
 from typing import Any, TYPE_CHECKING
 
 from backend.services.agent_behavior import resource
-from backend.services.podcast_composition import WORD_TOKENS, advisory_targets, schema as composition_schema, spoken_text, word_guidance
+from backend.services.podcast_composition import WORD_TEXT, advisory_targets, schema as composition_schema, spoken_text, word_guidance
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -146,7 +146,7 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
             data = {**{k: v for k, v in data.items() if k not in {"previous_draft", "previous_composition"}},
                     "length_repair": state}
             if previous_composition is not None:
-                data.update(composition_encoding=WORD_TOKENS,
+                data.update(composition_encoding=WORD_TEXT,
                             composition_word_range={"min_words": minimum, "max_words": maximum})
                 encoded = json.dumps(previous_composition, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
                 state["composition_sha256"] = hashlib.sha256(encoded.encode()).hexdigest()

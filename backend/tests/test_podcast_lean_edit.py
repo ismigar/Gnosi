@@ -53,8 +53,9 @@ class Context:
         result = next(self.responses)
         if isinstance(result, Exception):
             raise result
-        if "tokens" in request.output_schema["properties"] and "tokens" not in result:
-            result = tokenized(result, json.loads(request.input)["composition_groups"])
+        fields = request.output_schema["properties"]
+        if {"tokens", "token_text"} & fields.keys() and not {"tokens", "token_text"} & result.keys():
+            result = tokenized(result, json.loads(request.input)["composition_groups"], text="token_text" in fields)
         jsonschema.validate(result, request.output_schema)
         validate(result)
         return result
@@ -111,7 +112,7 @@ def test_length_stage_uses_the_latest_rejected_reply_when_length_direction_chang
     assert repair["previous_composition"] == response(40)
     encoded = json.dumps(response(40), sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     assert repair["length_repair"]["composition_sha256"] == hashlib.sha256(encoded.encode()).hexdigest()
-    assert repair["composition_encoding"] == "word_tokens_v1"
+    assert repair["composition_encoding"] == "word_text_v1"
     assert repair["briefs"] == data()["briefs"]
 
 

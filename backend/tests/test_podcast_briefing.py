@@ -17,7 +17,7 @@ def planned(cards, groups):
         for handle in group['part_ids']}}
 
 
-def tokenized(result, groups):
+def tokenized(result, groups, *, text=False):
     """Encode a fake model's intended prose in the requested word-token protocol."""
     tokens = []
     flags = {}
@@ -28,7 +28,7 @@ def tokenized(result, groups):
         block = result['paragraphs'][key]
         flags[key] = {'non_editorial': block['non_editorial']}
         tokens.extend([f"__gnosi_group__:{key}", *block['text'].split()])
-    return {'paragraphs': flags, 'tokens': tokens}
+    return {'paragraphs': flags, **({'token_text': ' '.join(tokens)} if text else {'tokens': tokens})}
 
 
 def written(request, text):
@@ -41,7 +41,8 @@ def written(request, text):
     result = {'paragraphs': {g['key']: {
         'text': ' '.join(words[len(words) * i // len(groups):len(words) * (i + 1) // len(groups)]),
         'non_editorial': False} for i, g in enumerate(groups)}}
-    return tokenized(result, groups) if data.get('composition_encoding') == 'word_tokens_v1' else result
+    encoding = data.get('composition_encoding')
+    return tokenized(result, groups, text=encoding == 'word_text_v1') if encoding in {'word_tokens_v1', 'word_text_v1'} else result
 
 
 def audited(request, issues):

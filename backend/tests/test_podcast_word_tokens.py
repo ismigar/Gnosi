@@ -92,7 +92,7 @@ def test_existing_length_repair_uses_bounded_format_with_same_global_limits_and_
     result = _bounded_write(context, original, OPTIONS)
     repair = context.sent[-1]
     assert len(context.sent) == 2
-    assert repair["composition_encoding"] == "word_tokens_v1"
+    assert repair["composition_encoding"] == "word_text_v1"
     assert repair["composition_word_range"] == {"min_words": 90, "max_words": 109}
     assert repair["composition_groups"] == original["composition_groups"]
     assert repair["subject_groups"] == original["subject_groups"]
