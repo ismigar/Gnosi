@@ -8,7 +8,6 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import TypedDict
 
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
@@ -72,6 +71,14 @@ from pipeline.skills.technical_documentation.scripts.configuration_catalog impor
     collect_environment_references as collect_environment_references,
     format_environment_default as format_environment_default,
 )
+from pipeline.skills.technical_documentation.scripts.domain_coverage import (
+    DomainCoverage as DomainCoverage,
+    domain_string as domain_string,
+    domain_string_list as domain_string_list,
+    load_domains as load_domains,
+    matches_for_globs as matches_for_globs,
+    untraced_frontend_features,
+)
 from pipeline.skills.technical_documentation.scripts.frontend_catalog import (
     FRONTEND_API_RE as FRONTEND_API_RE,
     LAZY_IMPORT_RE as LAZY_IMPORT_RE,
@@ -122,71 +129,15 @@ def find_project_root(start: Path) -> Path:
     return find_app_root(start)
 
 
-class DomainCoverage(TypedDict):
-    """Validated fields from the curated domain coverage configuration."""
-
-    id: str
-    name: str
-    guide: str
-    source_globs: list[str]
-    test_globs: list[str]
-    directives: list[str]
-
-
-def domain_string(value: object, field: str) -> str:
-    """Reject malformed domain labels and paths rather than coerce them."""
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"Domain field {field} must be a nonempty string")
-    return value
-
-
-def domain_string_list(value: object, field: str) -> list[str]:
-    """Retain ordered string lists, including valid empty test/directive lists."""
-    if not isinstance(value, list):
-        raise ValueError(f"Domain field {field} must be a string list")
-    return [domain_string(entry, field) for entry in value]
-
-
-def load_domains(config_path: Path) -> list[DomainCoverage]:
-    """Load and minimally validate the curated domain coverage configuration."""
-    data = json.loads(read_text(config_path))
-    if not isinstance(data, list):
-        raise ValueError("domains.json must contain a list")
-    domains: list[DomainCoverage] = []
-    for item in data:
-        if not isinstance(item, dict):
-            raise ValueError("Every domain entry must be an object")
-        required = {"id", "name", "guide", "source_globs", "test_globs", "directives"}
-        missing = required - item.keys()
-        if missing:
-            raise ValueError(f"Domain {item.get('id', '<unknown>')} misses {sorted(missing)}")
-        domains.append(
-            {
-                "id": domain_string(item["id"], "id"),
-                "name": domain_string(item["name"], "name"),
-                "guide": domain_string(item["guide"], "guide"),
-                "source_globs": domain_string_list(item["source_globs"], "source_globs"),
-                "test_globs": domain_string_list(item["test_globs"], "test_globs"),
-                "directives": domain_string_list(item["directives"], "directives"),
-            }
-        )
-    return domains
-
-
-def matches_for_globs(app_root: Path, patterns: list[str]) -> list[Path]:
-    """Resolve application-relative glob patterns with stable de-duplication."""
-    matches: set[Path] = set()
-    for pattern in patterns:
-        matches.update(
-            path for path in app_root.glob(pattern)
-            if is_owned_inventory_file(path, root=app_root)
-        )
-    return sorted(matches)
-
-
 def build_coverage_catalog(app_root: Path, project_root: Path, domains_path: Path) -> str:
     """Generate the curated capability-to-source documentation matrix."""
     domains = load_domains(domains_path)
+    untraced = untraced_frontend_features(app_root, domains)
+    if untraced:
+        raise ValueError(
+            "Frontend feature modules missing domain source traceability: "
+            + ", ".join(untraced)
+        )
     lines = generated_header(
         "Documentation coverage",
         "Curated traceability matrix connecting product domains to reviewed guides, source, "

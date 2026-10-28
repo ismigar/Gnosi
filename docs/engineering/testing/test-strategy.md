@@ -11,6 +11,8 @@ source_paths:
   - Dockerfile.backend
   - scripts/ci/build_container_image.py
   - scripts/ci/pre_pr.py
+  - scripts/ci/browser_acceptance.py
+  - scripts/ci/acceptance_backend.py
   - scripts/ci/pre_pr_commands.py
   - desktop/update-policy.js
   - backend/tests
@@ -42,7 +44,7 @@ tests:
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
-Heavy CI jobs run in order: backend, frontend, then Docker. The Mac and Linux VM share physical resources; the frontend uses one test worker. A failed predecessor does not skip the later checks, but cancellation and fork restrictions still apply. Isolated drawing and citation suites have a five-minute process budget including cold imports and all assertions. Generated-tool integration tests use the unchanged production timeout; a separate regression verifies explicit timeout enforcement.
+Heavy CI jobs run in order: backend, frontend, native browser acceptance, then Docker. The Mac and Linux VM share physical resources; the frontend uses one test worker. A failed predecessor does not skip the later checks, but cancellation and fork restrictions still apply. Isolated drawing and citation suites have a five-minute process budget including cold imports and all assertions. Generated-tool integration tests use the unchanged production timeout; a separate regression verifies explicit timeout enforcement.
 
 All CI runs use local machines: Linux ARM64 for backend, native smoke and Docker; macOS ARM64 for frontend; macOS X64 for documentation. If a matching runner is unavailable, jobs stay queued. No PR, push or release validation falls back to GitHub-hosted executors. Read-only permissions, job dependencies and same-repository guards remain in force; forks cannot execute on the owner's machines.
 
@@ -312,6 +314,37 @@ transfer size or a startup-time measurement. Vite's existing 1,500 kB advisory
 remains visible; these budgets prevent growth, not prove optimal performance.
 
 ## End-to-end and visual tests
+
+The required `native-smoke` check now runs `scripts/ci/browser_acceptance.py`.
+The same acceptance command is mandatory in the complete local pre-PR plan.
+It builds the production frontend, starts an owned loopback preview and the
+production backend with real authentication and disposable data, then runs
+anonymous, disposable-contract, authenticated, accessibility and critical daily
+work projects with one worker and zero retries. Empty, failed, flaky or skipped
+reports cannot establish acceptance. Existing macOS visual baselines remain a
+separate platform-specific check and are not claimed by the Linux job.
+
+The fixture provisions synthetic owner/viewer accounts, two vaults and a
+populated table. Daily acceptance edits through the real editor, reopens the
+saved page, checks vault isolation and verifies a viewer cannot overwrite it.
+The runner then restarts the actual backend process and requires the saved
+content and metadata to survive. Contract-mocked browser suites continue to
+prove frontend behavior only; the critical and restart projects use real routes
+and real persistence.
+
+`GNOSI_VALIDATION_ROOT` bounds fixture data and disables environment-file and
+credential-store access. Browser traffic outside the explicit loopback origin
+has no external transport. The fixture also rejects external backend sockets
+and filesystem writes outside its owned root. It never starts personal services
+or borrows an occupied port. Production builds retain reader-asset validation
+and bundle budgets. The report binds the source commit/diff and compiled file
+inventory, and fails if either changes during the run. It explicitly records
+that source/browser evidence is not acceptance of an installed desktop package.
+
+Run `uv run --frozen --no-sync python scripts/ci/browser_acceptance.py` to create
+a new ignored evidence directory, or pass `--output` with a new directory.
+The normal Playwright configuration still connects only to explicitly selected
+existing services; service ownership is confined to this acceptance launcher.
 
 Playwright runs as a host-level project against the native application. An
 anonymous setup covers boot and public behavior; authenticated setup covers

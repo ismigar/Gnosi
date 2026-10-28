@@ -59,6 +59,7 @@ async function syntheticApi(
   route: Route,
   audit: DisposableNetworkAudit,
   options: DisposableNetworkOptions,
+  bookmarks: components['schemas']['BookmarkCollection'],
 ) {
   const request = route.request();
   const url = new URL(request.url());
@@ -102,6 +103,25 @@ async function syntheticApi(
     return json(route, { databases: [], tables: [], views: [] });
   }
   if (pathname === '/api/vault/tables') return json(route, []);
+  if (pathname === '/api/vault/bookmarks' && request.method() === 'GET') return json(route, bookmarks);
+  if (pathname === '/api/vault/bookmarks/import' && request.method() === 'POST') {
+    const input = request.postDataJSON() as components['schemas']['BookmarkImport'];
+    for (const entry of input.entries) {
+      if (!bookmarks.entries.some(existing => existing.id === entry.id)) {
+        bookmarks.entries.push({ ...entry, created_at: 1_700_000_000 });
+      }
+    }
+    if (input.sort_mode) bookmarks.sort_mode = input.sort_mode;
+    return json(route, bookmarks);
+  }
+  if (pathname.startsWith('/api/vault/bookmarks/items/') && request.method() === 'PUT') {
+    const entry = request.postDataJSON() as components['schemas']['BookmarkEntry'];
+    if (decodeURIComponent(pathname.split('/').at(-1) || '') !== entry.id) return json(route, {}, 400);
+    const existing = bookmarks.entries.find(value => value.id === entry.id);
+    bookmarks.entries = bookmarks.entries.filter(value => value.id !== entry.id);
+    bookmarks.entries.push({ ...entry, created_at: existing?.created_at ?? 1_700_000_000 });
+    return json(route, bookmarks);
+  }
   if (pathname === '/api/vault/reference-table') {
     return json(route, { configured: false, table_id: null });
   }
@@ -188,6 +208,7 @@ export async function installDisposableNetwork(
   options: DisposableNetworkOptions = {},
 ): Promise<DisposableNetworkAudit> {
   const audit: DisposableNetworkAudit = { externalRequests: [], unknownApiRequests: [] };
+  const bookmarks: components['schemas']['BookmarkCollection'] = { entries: [], sort_mode: 'manual' };
   await context.route('**/*', async (route) => {
     const url = new URL(route.request().url());
     if (!LOOPBACK_HOSTS.has(url.hostname)) {
@@ -196,7 +217,7 @@ export async function installDisposableNetwork(
       return;
     }
     if (url.pathname.startsWith('/api/')) {
-      await syntheticApi(route, audit, options);
+      await syntheticApi(route, audit, options, bookmarks);
       return;
     }
     await route.continue();

@@ -44,7 +44,6 @@ KEYCHAIN_ENV_MAPPING = {
     "MICROSOFT_OAUTH_CLIENT_SECRET": "microsoft_oauth_client_secret",
     "SSH_PASSWORD": "ssh_password",
     "SSH_SUWEB_PASSWORD": "ssh_suweb_password",
-    "DRUPAL_ROOT_PASSWORD": "drupal_root_password",
     "NEWSLETTERS_PASSWORD": "newsletters_password",
     "IMAP_PASS": "imap_password",
     "TEMENOS_MASTODON_BEARER": "mastodon_bearer",

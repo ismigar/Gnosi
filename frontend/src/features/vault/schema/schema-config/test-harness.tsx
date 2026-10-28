@@ -9,9 +9,9 @@ import * as schemaApi from '../../../../shared/api/vault-schema';
 import { fetchVaultTables } from '../../../../shared/api/vaults';
 
 vi.mock('../../../../shared/api/vault-schema', () => ({
-    fetchAvailableAgentSkills: vi.fn(), fetchDrupalContentTypes: vi.fn(), fetchDrupalFields: vi.fn(),
+    fetchAvailableAgentSkills: vi.fn(),
     fetchOptionCatalogs: vi.fn(), fetchTableOptionUsage: vi.fn(), fetchVirtualFields: vi.fn(),
-    generateButtonAction: vi.fn(), matchDrupalRows: vi.fn(), removeTableOption: vi.fn(),
+    generateButtonAction: vi.fn(), removeTableOption: vi.fn(),
     renameTableOption: vi.fn(), saveVaultFolderSchema: vi.fn(), updateOptionCatalog: vi.fn(),
 }));
 vi.mock('../../../../shared/api/vaults', () => ({ fetchVaultTables: vi.fn() }));
@@ -45,9 +45,6 @@ export function setupModal() {
         vi.mocked(schemaApi.fetchOptionCatalogs).mockResolvedValue({ catalogs: { status: [{ name: 'Open', color: 'blue' }, { name: 'Done', color: 'green' }], Tags: ['A', 'B'] } });
         vi.mocked(schemaApi.fetchVirtualFields).mockResolvedValue({ computers: [{ compute: 'graph.degree', label: 'Degree' }] });
         vi.mocked(schemaApi.fetchTableOptionUsage).mockResolvedValue({ counts: { Open: 3, Done: 1 } });
-        vi.mocked(schemaApi.fetchDrupalContentTypes).mockResolvedValue({ content_types: [{ machine: 'article', label: 'Article' }] });
-        vi.mocked(schemaApi.fetchDrupalFields).mockResolvedValue({ bundle: 'article', fields: [{ field_name: 'body', label: 'Body', field_type: 'text' }] });
-        vi.mocked(schemaApi.matchDrupalRows).mockResolvedValue({ counts: { matched: 2, unmatched: 1 } });
         vi.mocked(schemaApi.renameTableOption).mockResolvedValue({ files_changed: 0 });
         vi.mocked(schemaApi.removeTableOption).mockResolvedValue({ files_changed: 0 });
         vi.mocked(schemaApi.updateOptionCatalog).mockResolvedValue({});

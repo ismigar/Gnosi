@@ -1,5 +1,5 @@
 import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
-import { BrainCircuit, Columns2, ExternalLink, Globe, Languages, Link as LinkIcon, Loader2, Send, Sparkles, Trash2, Zap } from 'lucide-react';
+import { BrainCircuit, Columns2, ExternalLink, Languages, Link as LinkIcon, Loader2, Send, Sparkles, Trash2, Zap } from 'lucide-react';
 import { checkActionRequires } from '../../../../shared/records/model/optionCatalogUtils';
 import type { TableNote } from './types';
 import type { TableController } from './useTableController';
@@ -24,7 +24,6 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
     hasTranslateFunctionality,
     isTranslatableTable,
     setPendingAction,
-    isDrupalSyncTable,
     isSocialPublishTable,
     isLlmWikiTable,
     llmWikiJobs,
@@ -124,29 +123,6 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
           >
             <Languages size={14} />
             <span className="row-action-tooltip">{gate.ok ? t('table.translate_row', "Translate") : (gate.reason ?? undefined)}</span>
-          </button>
-        );
-      })()}
-      {isDrupalSyncTable && !isListView && !note.metadata?.translation_lang && (() => {
-        const gate = checkActionRequires(schema, note.metadata || {}, 'sync_drupal', actionRules);
-        const label = note.metadata?.drupal_uuid ? t('table.sync_drupal_update', "Update on Drupal") : t('table.sync_drupal', "Sync with Drupal");
-        return (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!gate.ok) return;
-              setPendingAction({
-                noteId: note.id,
-                fieldConfig: { button_action: 'sync_drupal' },
-                action: 'sync_drupal',
-              });
-            }}
-            disabled={!gate.ok}
-            className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
-            aria-label={gate.ok ? label : (gate.reason ?? undefined)}
-          >
-            <Globe size={14} className={note.metadata?.drupal_uuid && gate.ok ? 'text-[var(--gnosi-primary)]' : ''} />
-            <span className="row-action-tooltip">{gate.ok ? label : (gate.reason ?? undefined)}</span>
           </button>
         );
       })()}

@@ -162,7 +162,10 @@ for (const failureAt of ['initial', 'page'] as const) {
       await page.goto('/@synthetic/mail', { waitUntil: 'domcontentloaded', timeout: 60_000 });
       const closeNotes = page.getByRole('button', { name: 'Close release notes' });
       await closeNotes.waitFor({ state: 'visible', timeout: 2_000 }).then(() => closeNotes.click()).catch(() => {});
+      const accountMenu = page.getByRole('button', { name: 'All accounts', exact: true });
+      await accountMenu.click();
       await expect(page.getByRole('switch', { name: `Show mail from ${unavailable}` })).toBeChecked({ timeout: 30_000 });
+      await accountMenu.click();
       await page.getByRole('button', { name: 'Archive', exact: true }).click();
       const scroll = page.locator('[data-role="mail-list-scroll"]');
       const rows = scroll.locator('[data-mail-index]');

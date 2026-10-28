@@ -19,7 +19,6 @@
   "features/control-center/Dashboard.tsx": "Deferred control-center route entry.",
   "features/forms/FormPage.tsx": "Deferred anonymous table form route entry.",
   "features/graph/GraphPage.tsx": "Deferred graph route entry.",
-  "features/integrations/drupal/SyncDrupalModal.tsx": "Explicit Drupal synchronization dialog launched by vault actions.",
   "features/literature/LiteraturePage.tsx": "Deferred literature route entry.",
   "features/literature/records/CitePicker.tsx": "Citation picker embedded in the document editor.",
   "features/literature/records/MetadataLookupModal.tsx": "Bibliographic lookup dialog embedded in vault pages.",

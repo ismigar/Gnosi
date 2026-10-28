@@ -9,7 +9,7 @@ export function useFeatureToggles(state: SchemaState, _props: ResolvedProps, opt
     const { t } = useTranslation();
     const {
         fields, setFields, enableSubitems, setEnableSubitems, enableTranslation, setEnableTranslation,
-        sharedCatalogs, enableDrupalSync, setEnableDrupalSync, drupalFieldMapping, enableSocialPublish,
+        sharedCatalogs, enableSocialPublish,
         setEnableSocialPublish, setToggleConfirm,
     } = state;
     const closeToggleConfirm = () => { setToggleConfirm((s) => ({ ...s, isOpen: false })); };
@@ -94,57 +94,9 @@ export function useFeatureToggles(state: SchemaState, _props: ResolvedProps, opt
         });
     };
 
-    // --- Drupal synchronization -----------------------------------------
-    // Names of the system-managed columns where the sync stores the NID and
-    // the Drupal node's URL. Read-only in the grid (config.system). They are
-    // VALUES stored in the schema (the sync looks them up by name) — never via i18n.
-    const DRUPAL_NID_COL = 'Drupal NID';
-    const DRUPAL_URL_COL = 'Drupal URL';
-
-    // Adds the two output columns (NID/URL) if they aren't there yet. They
-    // are managed as part of the schema (like the translate button): this way
-    // they're persisted via buildPayload and continuous autosave doesn't erase them.
-    const addDrupalColumns = () => {
-        const mk = (name: string, type: string): Field => ({
-            id: generateFieldId(), name, type,
-            formula: '', compute: '', defaultFormula: '', relationField: '',
-            targetProperty: '', aggregation: 'count_values', limit: '', fallbackValue: '',
-            relation_database_id: '', cardinality: 'one-to-many', file_mode: 'upload',
-            storage_folder: '', name_pattern: '', translatable: false, system: true,
-            button_action: '', button_label: '', options: [], format: {}, visible: true,
-        });
-        setFields((prev) => {
-            const have = new Set(prev.map((f) => (f.name || '').trim().toLowerCase()));
-            const additions = [];
-            if (!have.has(DRUPAL_NID_COL.toLowerCase())) additions.push(mk(DRUPAL_NID_COL, 'text'));
-            if (!have.has(DRUPAL_URL_COL.toLowerCase())) additions.push(mk(DRUPAL_URL_COL, 'url'));
-            return additions.length ? [...prev, ...additions] : prev;
-        });
-    };
-
-    const handleToggleDrupalSync = (next: boolean) => {
-        // When disabling, asks for confirmation (centered modal) if there is a mapping
-        // configured: this way an accidental click (with autosave active) doesn't leave the
-        // table unsynced without warning. The mapping is preserved on the backend.
-        if (!next && enableDrupalSync && Object.keys(drupalFieldMapping).length > 0) {
-            requestDisableConfirm({
-                title: t('schema.drupal_sync_disable_title', "Disable Drupal sync"),
-                message: t('schema.drupal_sync_disable_confirm', "Disable Drupal sync? The field mapping will be kept in case you enable it again."),
-                confirmText: t('schema.disable', "Disable"),
-                onConfirm: () => { setEnableDrupalSync(false); },
-            });
-            return;
-        }
-        setEnableDrupalSync(next);
-        if (next) {
-            addDrupalColumns();
-            seedStatusOptions('drupal');
-        }
-    };
-
     // `system` column that marks the table as publishable to XXSS. Its
-    // presence is the signal that makes the "Publish to XXSS" button appear (like the
-    // Drupal columns). It is persisted with the schema via the `fields` autosave:
+    // presence is the signal that makes the "Publish to XXSS" button appear.
+    // It is persisted with the schema via the `fields` autosave:
     // it's a saved/compared VALUE for logic, not a label — never via i18n
     // (translating it would break detection in tables created in another language).
     const SOCIAL_PUBLISH_COL = 'XXSS';
@@ -187,5 +139,5 @@ export function useFeatureToggles(state: SchemaState, _props: ResolvedProps, opt
         }
     };
 
-    return { closeToggleConfirm, handleToggleTranslation, handleToggleDrupalSync, handleToggleSocialPublish };
+    return { closeToggleConfirm, handleToggleTranslation, handleToggleSocialPublish };
 }

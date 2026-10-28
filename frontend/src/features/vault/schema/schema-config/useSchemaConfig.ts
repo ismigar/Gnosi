@@ -7,7 +7,6 @@ import { useAiAction } from './useAiAction';
 import { useSchemaInitialization } from './useSchemaInitialization';
 import { useOptionTools } from './useOptionTools';
 import { useFeatureToggles } from './useFeatureToggles';
-import { useDrupalCatalogs } from './useDrupalCatalogs';
 import { useSchemaEdits } from './useSchemaEdits';
 import { validateSchema } from './validate-schema';
 import { useSchemaAutosave } from './useSchemaAutosave';
@@ -24,7 +23,6 @@ export function useSchemaConfig(input: SchemaConfigModalProps) {
     useSchemaInitialization(state, props);
     const { optionTools } = useOptionTools(state, props);
     const toggles = useFeatureToggles(state, props, optionTools);
-    const drupal = useDrupalCatalogs(state, props);
     const edits = useSchemaEdits(state, props);
     const validationError = validateSchema(state.fields, state.functionalities, state.enableTranslation, t);
     useSchemaAutosave(state, props, validationError);
@@ -33,7 +31,7 @@ export function useSchemaConfig(input: SchemaConfigModalProps) {
         || state.allTables.find((table) => table.id === props.tableId)?.name
         || props.folder || '';
     return {
-        ...props, ...state, ...ai, ...toggles, ...drupal, ...edits, t, optionTools, validationError,
+        ...props, ...state, ...ai, ...toggles, ...edits, t, optionTools, validationError,
         projectPlanningEnabled, resolvedTableName,
     };
 }

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-10-28
 source_paths:
   - backend/server.py
   - frontend/src/app/App.tsx
@@ -39,7 +39,7 @@ flowchart LR
     API --> MCP["MCP servers and AI providers"]
     API --> Comms["Mail, calendar, contacts providers"]
     API --> Zotero["Zotero translation-server"]
-    API --> Publish["Notion, Drupal, and social services"]
+    API --> Publish["Notion, and social services"]
     Desktop["Electron desktop shell"] --> UI
     Desktop --> API
     Office["Office add-ins and web clipper"] --> API
@@ -114,7 +114,7 @@ See [data and storage](data-and-storage.md) for ownership and rebuild rules.
 
 All external services are optional domain dependencies. OAuth and credentials
 are managed locally. Adapters normalize provider-specific behavior for Google,
-Microsoft, IMAP/SMTP, CalDAV, Notion, Drupal, AI providers, social networks,
+Microsoft, IMAP/SMTP, CalDAV, Notion, AI providers, social networks,
 file providers, and Zotero translation.
 
 ## Navigation to implementation

@@ -51,7 +51,6 @@ export const DEFAULT_STATUS_GROUPS = ['Inicial', 'En curs', 'Final'] as const;
 export const STATUS_DRAFT = 'Esborrany';
 export const STATUS_REVIEWED = 'Revisat';
 export const STATUS_TRANSLATED = 'Traduït';
-export const STATUS_PUBLISHED_DRUPAL = 'Publicat a Drupal';
 export const STATUS_PUBLISHED_SOCIAL = 'Publicat a XXSS';
 export const STATUS_CATALOG_REF = 'status';
 
@@ -198,9 +197,6 @@ export const DEFAULT_ACTION_RULES: Readonly<Record<string, unknown>> = {
     translate_row: {
         requires: [{ role: 'status', not_in: [STATUS_DRAFT], reason: 'No es pot traduir si està en esborrany' }],
     },
-    sync_drupal: {
-        requires: [{ role: 'status', not_in: [STATUS_DRAFT], reason: 'No es pot sincronitzar un esborrany' }],
-    },
     publish_social: {
         requires: [{ role: 'status', not_in: [STATUS_DRAFT], reason: 'No es pot publicar un esborrany' }],
     },
@@ -285,9 +281,6 @@ export function seedOptionsForFeature(feature: unknown): NormalizedOption[] {
     }
     if (feature === 'translation') {
         return [{ name: STATUS_TRANSLATED, color: autoColorFor(STATUS_TRANSLATED), group: 'En curs' }];
-    }
-    if (feature === 'drupal') {
-        return [{ name: STATUS_PUBLISHED_DRUPAL, color: autoColorFor(STATUS_PUBLISHED_DRUPAL), group: 'Final' }];
     }
     if (feature === 'social') {
         return [{ name: STATUS_PUBLISHED_SOCIAL, color: autoColorFor(STATUS_PUBLISHED_SOCIAL), group: 'Final' }];

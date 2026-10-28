@@ -69,19 +69,19 @@ def test_seed_copies_defaults_without_replacing_existing_records() -> None:
     rules: RegistryData = {ar.ACTION_TRANSLATE: existing, 7: opaque}
     table: RegistryData = {
         "translation_enabled": True,
-        "drupal_sync_enabled": True,
+        "properties": [{"name": "XXSS", "config": {"system": True}}],
         "action_rules": rules,
         None: opaque,
     }
     assert ar.ensure_action_rules(table)
     assert table["action_rules"] is rules and table[None] is opaque
     assert rules[ar.ACTION_TRANSLATE] is existing and rules[7] is opaque
-    seeded = rules[ar.ACTION_SYNC_DRUPAL]
-    assert is_record(seeded) and seeded is not ar.DEFAULT_ACTION_RULES[ar.ACTION_SYNC_DRUPAL]
+    seeded = rules[ar.ACTION_PUBLISH_SOCIAL]
+    assert is_record(seeded) and seeded is not ar.DEFAULT_ACTION_RULES[ar.ACTION_PUBLISH_SOCIAL]
     requirements = seeded["requires"]
     assert is_object_list(requirements)
     requirements.append({"synthetic": True})
-    assert requirements != ar.DEFAULT_ACTION_RULES[ar.ACTION_SYNC_DRUPAL]["requires"]
+    assert requirements != ar.DEFAULT_ACTION_RULES[ar.ACTION_PUBLISH_SOCIAL]["requires"]
     assert ar.ensure_action_rules(table) is False
 
 

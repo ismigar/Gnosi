@@ -1,12 +1,15 @@
 import React from 'react';
 import type { SchemaConfigModel } from './useSchemaConfig';
 import { Zap, Plus } from 'lucide-react';
+import { isRetiredTableAction } from '../../properties/tableFunctionalityUtils';
 import { FunctionalityEditor } from './FunctionalityEditor';
 export function FunctionalitiesSection({ model }: { model: SchemaConfigModel }) {
     const {
         t, handleAddFunctionality, functionalities, fields, availableSkills, handleUpdateFunctionality,
         handleRemoveFunctionality, setAiActionModalFieldIndex, setAiActionPrompt,
     } = model;
+    const editable = functionalities.map((functionality, index) => ({ functionality, index }))
+        .filter(({ functionality }) => !isRetiredTableAction(functionality.action));
     return <>
                         <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
                             <div className="flex items-start justify-between gap-3">
@@ -24,11 +27,11 @@ export function FunctionalitiesSection({ model }: { model: SchemaConfigModel }) 
                                     <Plus size={14} /> {t('schema.add_functionality', 'Add functionality')}
                                 </button>
                             </div>
-                            {functionalities.length === 0 ? (
+                            {editable.length === 0 ? (
                                 <p className="rounded-lg border border-dashed border-[var(--border-primary)] px-3 py-4 text-center text-xs text-[var(--text-tertiary)]">
                                     {t('schema.functionalities_empty', 'No custom functionalities configured.')}
                                 </p>
-                            ) : functionalities.map((functionality, index) => (
+                            ) : editable.map(({ functionality, index }) => (
                                 <FunctionalityEditor
                                     key={functionality.id}
                                     functionality={functionality}

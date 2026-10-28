@@ -23,16 +23,14 @@ def button_catalog_scope(monkeypatch, tmp_path):
 
 
 @pytest.mark.parametrize("name,key", [
-    ("sync_drupal_row", "item_id"), ("translate_row", "item_id"),
+    ("translate_row", "item_id"),
     ("generate_button_action", "prompt"), ("execute_button_action", "note_id"),
 ])
 @pytest.mark.parametrize("value", [True, 7, 1.5, [1], {"key": "value"}])
 def test_invalid_json_text_keeps_native_error(name: str, key: str, value: object) -> None:
     payload = {key: value}
     call: Awaitable[object]
-    if name == "sync_drupal_row":
-        call = routes.sync_drupal_row(BackgroundTasks(), payload)
-    elif name == "translate_row":
+    if name == "translate_row":
         call = routes.translate_row(BackgroundTasks(), payload)
     elif name == "generate_button_action":
         call = routes.generate_button_action(payload)
@@ -46,31 +44,10 @@ def test_invalid_json_text_keeps_native_error(name: str, key: str, value: object
 @pytest.mark.parametrize("value", [None, False, 0, "", [], {}])
 def test_empty_text_retains_required_error(value: object) -> None:
     with pytest.raises(HTTPException) as caught:
-        asyncio.run(routes.sync_drupal_row(BackgroundTasks(), {"item_id": value}))
+        asyncio.run(routes.translate_row(BackgroundTasks(), {"item_id": value}))
     assert (caught.value.status_code, caught.value.detail) == (400, "item_id is required")
 
 
-def test_sync_bulk_preserves_stringification_duplicates_and_raw_error_id(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    seen: list[tuple[str, str, bool]] = []
-    async def sync(
-        item_id: str, *, background_tasks: BackgroundTasks, publish: bool,
-        scope: str, push_media: bool,
-    ) -> dict[str, object]:
-        seen.append((item_id, scope, push_media))
-        if item_id == "7":
-            raise HTTPException(409, {"reason": "synthetic"})
-        return {"item_id": item_id}
-    monkeypatch.setattr(vault_routes, "_do_sync_drupal_row", sync)
-    response = asyncio.run(routes.sync_drupal_rows(BackgroundTasks(), {
-        "item_ids": [7, " x ", " x ", None], "scope": ["invalid"],
-    }))
-    assert seen == [("7", "all", True), (" x ", "all", True),
-                    (" x ", "all", True), ("None", "all", True)]
-    assert response == {"status": "ok", "results": [{"item_id": " x "},
-        {"item_id": " x "}, {"item_id": "None"}],
-        "errors": [{"item_id": 7, "detail": {"reason": "synthetic"}}]}
 
 
 def test_invalid_button_config_is_rejected_before_page_read(

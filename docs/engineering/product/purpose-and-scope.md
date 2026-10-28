@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-30
+last_verified: 2026-10-28
 source_paths:
   - README.md
   - backend/services/builtin_plugins.py
@@ -71,7 +71,7 @@ make unrelated vault operations unavailable.
 - Communication: mail, calendars, meetings, contacts.
 - Intelligence: model registry, agents, MCP tools, runtime skills, context sources.
 - Automation: scheduled tasks, formulas, rollups, reminders, publishing.
-- Integration: Google, Microsoft, Notion, Drupal, social networks, office add-ins.
+- Integration: Google, Microsoft, Notion, social networks, office add-ins.
 - Distribution: native web runtime, Docker self-hosting, Electron desktop app,
   and browser/office companion clients.
 

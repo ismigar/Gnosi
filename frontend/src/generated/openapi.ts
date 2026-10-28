@@ -6678,46 +6678,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/vault/drupal/content-types": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Drupal Content Types
-         * @description Drupal content type for the table config dropdown.
-         */
-        get: operations["drupal_content_types_api_vault_drupal_content_types_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/vault/drupal/content-types/{bundle}/fields": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Drupal Content Type Fields
-         * @description Fields of a Drupal content type for the mapping editor.
-         */
-        get: operations["drupal_content_type_fields_api_vault_drupal_content_types__bundle__fields_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/vault/export-references": {
         parameters: {
             query?: never;
@@ -10716,77 +10676,6 @@ export interface paths {
          * @description Generates structured button action configuration using LLM based on user prompt.
          */
         post: operations["generate_button_action_api_vault_skills_generate_button_action_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/vault/skills/match-drupal-rows": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Match Drupal Rows
-         * @description Links rows to **existing** Drupal nodes by title, without creating anything.
-         *
-         *     Searches each row by exact title; if it finds exactly one, writes
-         *     nid/url/uuid to the row (doesn't touch Drupal). Skips translation subitems and rows
-         *     already linked. With ``dry_run`` (default True) only reports what it would do.
-         *
-         *     Body: ``{table_id, bundle?, item_ids?, dry_run?}``.
-         */
-        post: operations["match_drupal_rows_api_vault_skills_match_drupal_rows_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/vault/skills/sync-drupal-row": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Sync Drupal Row
-         * @description Creates or updates a row's Drupal node (and its translations).
-         *
-         *     Body: ``{ "item_id": "<uuid>", "button_action": "sync_drupal" }``.
-         *     Idempotent (anchored by `drupal_uuid`). Writes nid/url to the row's
-         *     columns and the uuid to the hidden metadata.
-         */
-        post: operations["sync_drupal_row_api_vault_skills_sync_drupal_row_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/vault/skills/sync-drupal-rows": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Sync Drupal Rows
-         * @description Bulk variant of sync-drupal-row. Each row is independent; per-row errors
-         *     are reported in `errors` instead of aborting the batch.
-         */
-        post: operations["sync_drupal_rows_api_vault_skills_sync_drupal_rows_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16562,52 +16451,6 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /**
-         * DrupalContentTypeFieldsResponse
-         * @description Fields exposed for one Drupal node bundle.
-         */
-        DrupalContentTypeFieldsResponse: {
-            /** Bundle */
-            bundle: string;
-            /** Fields */
-            fields: components["schemas"]["DrupalFieldResponse"][];
-        };
-        /**
-         * DrupalContentTypeResponse
-         * @description One Drupal node bundle available for table synchronization.
-         */
-        DrupalContentTypeResponse: {
-            /** Label */
-            label: string;
-            /** Machine */
-            machine: string;
-            /** Uuid */
-            uuid: string | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * DrupalContentTypesResponse
-         * @description Envelope consumed by the schema configuration modal.
-         */
-        DrupalContentTypesResponse: {
-            /** Content Types */
-            content_types: components["schemas"]["DrupalContentTypeResponse"][];
-        };
-        /**
-         * DrupalFieldResponse
-         * @description One Drupal field; connector-specific metadata remains round-trippable.
-         */
-        DrupalFieldResponse: {
-            /** Field Name */
-            field_name: string;
-            /** Field Type */
-            field_type: string;
-            /** Label */
-            label: string;
-        } & {
-            [key: string]: unknown;
-        };
         /** DurableJobDispatcherResponse */
         DurableJobDispatcherResponse: {
             /** Idempotency */
@@ -20869,52 +20712,6 @@ export interface components {
             kind: "auto" | "doi" | "pmid" | "arxiv" | "isbn" | "url";
             /** Value */
             value: string;
-        };
-        /** MatchDrupalRowsRequest */
-        MatchDrupalRowsRequest: {
-            /** Bundle */
-            bundle?: components["schemas"]["JsonValue"] | null;
-            /** Dry Run */
-            dry_run?: components["schemas"]["JsonValue"] | null;
-            /** Item Ids */
-            item_ids?: components["schemas"]["JsonValue"] | null;
-            /** Table Id */
-            table_id?: components["schemas"]["JsonValue"] | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * MatchDrupalRowsResponse
-         * @description Result of matching Vault rows with existing Drupal nodes.
-         */
-        MatchDrupalRowsResponse: {
-            /** Ambiguous */
-            ambiguous: {
-                [key: string]: components["schemas"]["JsonValue"];
-            }[];
-            /** Bundle */
-            bundle: string;
-            /** Counts */
-            counts: {
-                [key: string]: number;
-            };
-            /** Dry Run */
-            dry_run: boolean;
-            /** Matched */
-            matched: {
-                [key: string]: components["schemas"]["JsonValue"];
-            }[];
-            /**
-             * Status
-             * @constant
-             */
-            status: "ok";
-            /** Unmatched */
-            unmatched: {
-                [key: string]: components["schemas"]["JsonValue"];
-            }[];
-        } & {
-            [key: string]: unknown;
         };
         /**
          * MaterializedTaskResponse
@@ -26723,93 +26520,6 @@ export interface components {
             /** Unsubscribed */
             unsubscribed: number;
         };
-        /** SyncDrupalRowRequest */
-        SyncDrupalRowRequest: {
-            /** Button Action */
-            button_action?: components["schemas"]["JsonValue"] | null;
-            /** Item Id */
-            item_id?: components["schemas"]["JsonValue"] | null;
-            /** Publish */
-            publish?: components["schemas"]["JsonValue"] | null;
-            /** Push Media */
-            push_media?: components["schemas"]["JsonValue"] | null;
-            /** Scope */
-            scope?: components["schemas"]["JsonValue"] | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /** SyncDrupalRowResponse */
-        SyncDrupalRowResponse: {
-            /** Created */
-            created: boolean;
-            /** Item Id */
-            item_id: string;
-            /** Languages */
-            languages: string[];
-            /** Media Pushed */
-            media_pushed: boolean;
-            nid: components["schemas"]["JsonValue"];
-            /**
-             * Scope
-             * @enum {string}
-             */
-            scope: "all" | "lang_only";
-            /** Skipped Fields */
-            skipped_fields: {
-                [key: string]: components["schemas"]["JsonValue"];
-            }[];
-            /** Source Lang */
-            source_lang: string;
-            /**
-             * Status
-             * @constant
-             */
-            status: "ok";
-            /** Translations */
-            translations: {
-                [key: string]: components["schemas"]["JsonValue"];
-            }[];
-            /** Url */
-            url: string | null;
-            /** Uuid */
-            uuid: string | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /** SyncDrupalRowsRequest */
-        SyncDrupalRowsRequest: {
-            /** Item Ids */
-            item_ids?: components["schemas"]["JsonValue"] | null;
-            /** Publish */
-            publish?: components["schemas"]["JsonValue"] | null;
-            /** Push Media */
-            push_media?: components["schemas"]["JsonValue"] | null;
-            /** Scope */
-            scope?: components["schemas"]["JsonValue"] | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * SyncDrupalRowsResponse
-         * @description Independent results and failures from bulk Drupal synchronization.
-         */
-        SyncDrupalRowsResponse: {
-            /** Errors */
-            errors: {
-                [key: string]: components["schemas"]["JsonValue"];
-            }[];
-            /** Results */
-            results: {
-                [key: string]: components["schemas"]["JsonValue"];
-            }[];
-            /**
-             * Status
-             * @constant
-             */
-            status: "ok";
-        } & {
-            [key: string]: unknown;
-        };
         /** SyncedBlockResponse */
         SyncedBlockResponse: {
             /** Content */
@@ -26926,9 +26636,6 @@ export interface components {
             action_rules?: components["schemas"]["JsonValue"] | null;
             automations?: components["schemas"]["JsonValue"] | null;
             database_id?: components["schemas"]["JsonValue"] | null;
-            drupal_bundle?: components["schemas"]["JsonValue"] | null;
-            drupal_field_mapping?: components["schemas"]["JsonValue"] | null;
-            drupal_sync_enabled?: components["schemas"]["JsonValue"] | null;
             folder?: components["schemas"]["JsonValue"] | null;
             headers?: components["schemas"]["JsonValue"] | null;
             id?: components["schemas"]["JsonValue"] | null;
@@ -43880,80 +43587,6 @@ export interface operations {
             };
         };
     };
-    drupal_content_types_api_vault_drupal_content_types_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-                "x-user-id"?: string | null;
-                "x-vault-id"?: string | null;
-                "x-workspace-id"?: string | null;
-            };
-            path?: never;
-            cookie?: {
-                gnosi_session?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DrupalContentTypesResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    drupal_content_type_fields_api_vault_drupal_content_types__bundle__fields_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-                "x-user-id"?: string | null;
-                "x-vault-id"?: string | null;
-                "x-workspace-id"?: string | null;
-            };
-            path: {
-                bundle: string;
-            };
-            cookie?: {
-                gnosi_session?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DrupalContentTypeFieldsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     export_references_api_vault_export_references_get: {
         parameters: {
             query: {
@@ -52860,126 +52493,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenerateButtonActionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    match_drupal_rows_api_vault_skills_match_drupal_rows_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-                "x-user-id"?: string | null;
-                "x-vault-id"?: string | null;
-                "x-workspace-id"?: string | null;
-            };
-            path?: never;
-            cookie?: {
-                gnosi_session?: string | null;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MatchDrupalRowsRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MatchDrupalRowsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    sync_drupal_row_api_vault_skills_sync_drupal_row_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-                "x-user-id"?: string | null;
-                "x-vault-id"?: string | null;
-                "x-workspace-id"?: string | null;
-            };
-            path?: never;
-            cookie?: {
-                gnosi_session?: string | null;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SyncDrupalRowRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SyncDrupalRowResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    sync_drupal_rows_api_vault_skills_sync_drupal_rows_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-                "x-user-id"?: string | null;
-                "x-vault-id"?: string | null;
-                "x-workspace-id"?: string | null;
-            };
-            path?: never;
-            cookie?: {
-                gnosi_session?: string | null;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SyncDrupalRowsRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SyncDrupalRowsResponse"];
                 };
             };
             /** @description Validation Error */

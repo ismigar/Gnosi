@@ -1,7 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-09-30
+last_verified: 2026-10-28
 source_paths:
+  - backend/domains/sites/transport_settings.py
+  - backend/domains/sites
+  - frontend/src/features/websites
+  - frontend/src/shared/api/sites.ts
+  - extensions/web-publishing
   - extensions/marketplace/build_vault_templates.py
   - extensions/marketplace/catalog_content.py
   - extensions/marketplace/reviewed_templates.py
@@ -58,8 +63,13 @@ source_paths:
   - extensions/office
   - frontend/src/features/plugin-management
   - frontend/src/features/notion-import
-  - frontend/src/features/integrations
 tests:
+  - backend/tests/test_drupal_retirement.py
+  - backend/tests/test_sites.py
+  - backend/tests/test_sites_newsletter.py
+  - backend/tests/test_sites_pangea_read_recovery.py
+  - frontend/src/features/websites/WebsitesPage.test.tsx
+  - frontend/src/features/websites/WebsiteAppearance.test.tsx
   - extensions/marketplace/test_reviewed_templates.py
   - frontend/src/features/vault-management/VaultTemplateMarketplace.test.tsx
   - backend/tests/test_integration_secret_storage.py
@@ -132,7 +142,7 @@ connectivity, choose defaults, and disconnect providers without exposing raw
 tokens.
 
 Google and Microsoft OAuth callbacks create or update provider records. IMAP,
-SMTP, CalDAV, Drupal, Notion, and similar adapters normalize their own settings
+SMTP, CalDAV, Notion, and similar adapters normalize their own settings
 into the common integration registry where possible.
 
 Google OAuth keeps pending PKCE verifiers in a state map with a ten-minute
@@ -340,7 +350,7 @@ discarding tools from healthy servers.
 
 ## Example and companion integrations
 
-The repository includes example plugin packaging, a Drupal MCP proxy, the
+The repository includes example plugin packaging, the
 LibreOffice citation extension, and a Word citation helper. These are separate
 clients with narrow backend contracts; they do not share backend filesystem or
 credential access automatically.
@@ -469,3 +479,5 @@ Captured test emails are readable from the delivery queue through administrator-
 Newsletter drafts autosave privately per website and destination in `newsletter_drafts`, with optimistic revision checks. The administrator-only `/sites/{site_id}/newsletter` resource offers only whitelisted title, path, language and excerpt data from the active published release. Its review endpoint composes a digest or featured-reading template with an introduction, up to 20 unique ordered pages, escaped HTML, matching plain text and links under the published deployment URL. Changed publications, withdrawn entries and other-language selections require a fresh review. The existing PHP sanitizer, email theme, audience review and explicit queue action remain authoritative; edits invalidate review. Manual HTML/text remains available. Drafts are outside the vault and public bundles, and website rollback does not restore them.
 
 Each Pangea private-service SSH login allows up to three attempts after transient disconnects before sending a password or command. Bounded sessions are serialized through child closure; queueing, login, backoff and commands share one 45-second deadline. If a known transport disconnect persists, semantic reads (status, lists, exports and captured email) can restart once automatically within that same deadline and connection slot. Host-key, login, policy, service and invalid-response errors do not trigger read recovery. Mutations, campaign previews, queueing and captured-link actions are never replayed after an uncertain response. See `backend/domains/sites/bounded_bridge.py`, `backend/domains/sites/pangea.py` and their recovery tests.
+
+Bounded Webs SSH/Suweb sessions normalize a copy of the maintained external driver’s connection settings. An explicit `WORKING_DIRECTORY` wins; otherwise the historical `DRUPAL_PATH` value supplies the working directory. The original settings remain unchanged. This transport compatibility does not enable Drupal content synchronization.

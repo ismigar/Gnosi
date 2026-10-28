@@ -60,9 +60,6 @@ def test_schema_support_routes_expose_exact_response_models() -> None:
     from backend.domains.vault.translation import routes as translation_routes
 
     expected = {
-        "drupal_content_types": translation_routes.DrupalContentTypesResponse,
-        "drupal_content_type_fields": (translation_routes.DrupalContentTypeFieldsResponse),
-        "match_drupal_rows": translation_routes.MatchDrupalRowsResponse,
         "generate_button_action": translation_routes.GenerateButtonActionResponse,
         "list_virtual_fields": core_routes.VirtualFieldsResponse,
     }

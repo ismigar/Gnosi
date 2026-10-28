@@ -113,7 +113,7 @@ export function useSchemaKeyboard(state: SchemaState, props: ResolvedProps) {
 
     // Scroll fix (Mac+Chrome): native <select>/<input>/<textarea> absorb
     // the wheel when the cursor is over it and the modal body doesn't scroll. Since
-    // this modal is full of controls (fields + Drupal mapping), we redirect
+    // this modal is full of controls, we redirect
     // the wheel to the scrollable body. Same pattern as GlobalSettingsModal.
     const registerWheelScroll = useEffectEvent(() => {
         if (!isOpen) return;

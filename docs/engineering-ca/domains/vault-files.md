@@ -11,7 +11,6 @@ source_paths:
   - backend/domains/vault/pages/creation_inputs.py
   - backend/services/handwriting_download.py
   - backend/services/active_vault_middleware.py
-  - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
@@ -40,6 +39,9 @@ source_paths:
   - frontend/src/shared/bookmarks
   - frontend/src/shared/api/bookmarks.ts
 tests:
+  - tests/e2e/tests/critical/daily-work.spec.ts
+  - tests/e2e/tests/restart/persistence.spec.ts
+  - backend/tests/test_drupal_retirement.py
   - backend/tests/test_record_title_roundtrip.py
   - frontend/src/features/vault/editor/block-editor/page-editor/usePageMetadata.test.tsx
   - backend/tests/test_e2e_option_catalogs.py
@@ -77,14 +79,6 @@ tests:
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
   - frontend/src/shared/ui/PanePortal.test.tsx
   - frontend/src/shared/records/hooks/keyboardSubscriptions.test.tsx
-  - backend/tests/test_drupal_connector_discovery_contract.py
-  - backend/tests/test_drupal_connector_http_contract.py
-  - backend/tests/test_drupal_connector_native_contract.py
-  - backend/tests/test_drupal_native_mapping_contract.py
-  - backend/tests/test_drupal_open_core_fields.py
-  - backend/tests/test_drupal_open_languages_markdown.py
-  - backend/tests/test_drupal_open_media.py
-  - backend/tests/test_drupal_service_contract.py
   - backend/tests/test_translation_http_open_contract.py
   - backend/tests/test_sync_comment_open_contract.py
   - backend/tests/test_sync_comment_bootstrap.py
@@ -126,7 +120,7 @@ tests:
   - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_assets_files_containment.py
   - backend/tests/test_vault_assets_files_route_contract.py
-  - backend/tests/test_vault_translation_drupal_domain_contract.py
+  - backend/tests/test_vault_translation_domain_contract.py
   - backend/tests/test_relation_sync.py
   - backend/tests/test_translation_helpers.py
   - backend/tests/test_vault_templates.py
@@ -244,34 +238,28 @@ existent sense coerció de camps.
 
 Aquests canvis preserven els límits de captura d’errors dels proveïdors, la
 recuperació ordenada del disc, els idiomes de destí duplicats i l’ordre
-d’escriptura d’estats. Les proves sintètiques utilitzen dobles de proveïdor,
-no comptes reals del núvol. La composició Drupal i l’HTTP de traducció ara
-comproven els responsables reals de les dependències; això no certifica tot
-el backend, un servidor Drupal real ni una migració de proveïdor del núvol.
+d’escriptura d’estats. Les proves sintètiques utilitzen dobles de proveïdor
+sense comptes reals del núvol; no certifiquen tot el backend ni una migració
+de proveïdor del núvol.
 
-## Contractes del transport Drupal i de l’HTTP
-
-El mapatge de camps Drupal, la preparació multimèdia, la descoberta d’idiomes,
-la coincidència de títols i la sincronització de files conserven metadades
-obertes i identificadors opacs del connector. Les respostes construïdes tenen
-tipus explícits; els valors descodificats del transport no pressuposen un
-esquema de l’aplicació. Es preserven l’ordre dels camps, els errors parcials,
-la identitat dels identificadors en memòria cau i els errors natius d’entrada.
-Les factories capturen el connector i les classes d’error, però resolen els
-membres substituïbles en cridar-los. Pillow continua sent opcional i es carrega quan cal.
+## HTTP de traducció i publicació retirada
 
 Les rutes de traducció preserven els esquemes de petició i resposta existents.
-La publicació massiva Drupal converteix cada identificador a text i conserva
-duplicats; la traducció massiva filtra identificadors no textuals i elimina
-duplicats després de retallar espais. Publicar una fila continua enviant
-multimèdia per defecte. Les entrades textuals mantenen els valors alternatius
-per a entrades buides i els errors natius davant JSON malformat. Els cridadors
-Python no JSON amb una operació strip personalitzada que retorna un valor no
-textual reben un error de tipus explícit; aquesta comprovació només HTTP no
-normalitza YAML ni metadades de plugins. El JSON generat vàlid amb una forma
-de resposta incorrecta arriba a la validació HTTP, no al resultat alternatiu
-per error de proveïdor. Transports sintètics i fitxers temporals verifiquen aquests
-contractes sense llegir credencials, publicar contingut ni cridar proveïdors externs.
+La traducció massiva filtra identificadors no textuals i elimina duplicats després
+de retallar espais. Les entrades textuals mantenen els valors alternatius per a
+entrades buides i els errors natius davant JSON malformat. Els cridadors Python
+no JSON amb una operació strip personalitzada que retorna un valor no textual
+reben un error de tipus explícit; aquesta comprovació només HTTP no normalitza
+YAML ni metadades de plugins. El JSON generat vàlid amb una forma de resposta
+incorrecta arriba a la validació HTTP, no al resultat alternatiu per error de
+proveïdor. Transports sintètics i fitxers temporals verifiquen aquests contractes
+sense llegir credencials ni cridar proveïdors.
+
+Gnosi ja no exposa el mapatge de camps Drupal, la sincronització de files, la
+programació automàtica, els controls de sincronització ni el proxy MCP de Drupal.
+Els registres importats històrics i les metadades opaques continuen sent dades de
+l’usuari; la lectura i escriptura de metadades genèriques preserven els camps
+desconeguts. Aquesta retirada no modifica webs allotjats independentment.
 
 ## Responsabilitat
 
@@ -464,11 +452,10 @@ previsualitzacions i escriptures. La identitat de les memòries cau, la
 coincidència d'àlies, les comprovacions de vault actiu i els esquemes generats
 de les rutes no canvien.
 
-Les rutes de traducció i sincronització amb Drupal també concreten el tipus del
-seu encaminador de vinculació tardana al límit del mòdul. Les operacions sobre
-una sola fila, en bloc, de coincidència, de botons generats i de traducció de
-pàgines preserven les comprovacions de rols, la feina en segon pla i el mapatge
-d'errors externs, alhora que continuen sent visibles per al tipatge estricte.
+Les rutes de traducció i de botons generats concreten el tipus del seu
+encaminador de vinculació tardana al límit del mòdul. Les operacions que es
+conserven preserven les comprovacions de rols, la feina en segon pla i el mapatge
+d’errors externs, alhora que continuen sent visibles per al tipatge estricte.
 
 L'emmagatzematge vinculat a les taules té responsables explícits.
 `assets/table_paths.py` és responsable de les rutes de recursos restringides
@@ -498,13 +485,13 @@ elements invocables de Python admesos.
 `backend/api/vault_routes.py` és un mòdul d'arrencada de compatibilitat,
 sense assumir la implementació del domini. Els mòduls tipats
 de `backend/domains/vault` són responsables del comportament restant d'API,
-anotacions, citacions, dibuixos, Drupal, fitxers, coneixement, enllaços,
+anotacions, citacions, dibuixos, fitxers, coneixement, enllaços,
 multimèdia, pàgines, registre, taules i traducció. El mòdul d'arrencada carrega
 i registra aquests responsables en l'ordre històric del codi font, mentre que
 `facade_bridge.py` preserva els imports admesos, les variables globals mutables
 i els punts de substitució per a monkeypatch amb vinculació tardana.
-L'encaminador pare continua exposant el mateix inventari pla d'`APIRoute`
-i un OpenAPI determinista idèntic byte a byte. Per tant, la façana no necessita
+L'encaminador pare manté un inventari pla d'`APIRoute` i un OpenAPI
+determinista per a les operacions que es conserven. Per tant, la façana no necessita
 cap excepció als controls del codi font.
 
 `pages/foundation.py` declara les funcions abans de carregar la façana. El punt
@@ -525,16 +512,7 @@ l'obsolescència als elements fills són serveis tipats separats. El límit
 compartit de funcions auxiliars pures canonitza les identitats d'origen, detecta
 canvis traduïbles i camps d'idioma, reutilitza les etiquetes d'opció existents
 i tradueix només els subcamps textuals de les imatges tot conservant-ne el
-recurs original. La publicació de files a Drupal pertany a
-`backend/domains/vault/drupal`, que separa el mapatge de camps i identitats,
-la preparació de recursos multimèdia locals, la conversió de Markdown i
-wikilinks, les memòries cau d'idiomes, la coincidència per títol i la
-sincronització idempotent de nodes. L'encaminador de compatibilitat conserva
-els decoradors FastAPI originals, les docstrings de les rutes i els punts de
-substitució Python amb vinculació tardana, mentre que el connector de Drupal
-continua sent el límit de transport extern. Aquests trasllats no canvien les
-rutes, els payloads, els codis d'estat, les tasques en segon pla ni l'ordre
-de les rutes.
+recurs original.
 
 Els proveïdors de traducció es carreguen dins dels blocs existents de gestió
 d'errors en fer la petició, amb imports dels propietaris tipats reals i sense

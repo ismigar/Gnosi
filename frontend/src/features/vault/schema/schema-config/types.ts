@@ -68,17 +68,11 @@ export interface Field {
 export interface RelationTable { id: string; name?: string; title?: string }
 export interface VirtualComputer { compute: string; label?: string; description?: string }
 export interface AgentSkill { id?: string; name?: string }
-export interface DrupalContentType { machine: string; label?: string }
-export interface DrupalField { field_name: string; label?: string; field_type?: string }
-export type Mapping = Record<string, string>;
 export type Catalogs = Record<string, NormalizedOption[]>;
 export interface SaveOptions {
     enableSubitems: boolean;
     visibleProperties: string[];
     enableTranslation: boolean;
-    enableDrupalSync: boolean;
-    drupalBundle: string;
-    drupalFieldMapping: Mapping;
     functionalities: Functionality[];
 }
 export interface SchemaConfigModalProps {
@@ -92,9 +86,6 @@ export interface SchemaConfigModalProps {
     initialEnableSubitems?: boolean;
     initialVisibleProperties?: readonly string[] | null;
     initialEnableTranslation?: boolean;
-    initialEnableDrupalSync?: boolean;
-    initialDrupalBundle?: string;
-    initialDrupalFieldMapping?: Mapping | null;
     initialFunctionalities?: unknown;
     tableId?: string | null;
     availableTables?: readonly RelationTable[] | null;
@@ -160,11 +151,6 @@ export interface SortableFieldProps {
     currentTableName: string;
     virtualComputers: VirtualComputer[];
     enableTranslation: boolean;
-    enableDrupalSync: boolean;
-    drupalBundle: string;
-    drupalFields: DrupalField[];
-    drupalFieldMapping: Mapping;
-    setDrupalFieldMapping: Setter<Mapping>;
     optionTools: OptionTools;
     projectPlanningEnabled: boolean;
     setAiActionModalFieldIndex: Setter<number | null>;

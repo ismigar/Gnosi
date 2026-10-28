@@ -25,7 +25,6 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml uv.lock .python-version ./
-COPY extensions/mcp/drupal-proxy/pyproject.toml extensions/mcp/drupal-proxy/pyproject.toml
 
 # Resolve nothing during image creation: synchronize the Linux CPU-only runtime
 # directly from the universal lock. Source code is copied later, so workspace

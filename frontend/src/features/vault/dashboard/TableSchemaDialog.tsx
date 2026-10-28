@@ -25,9 +25,6 @@ export function TableSchemaDialog({ dashboard }: { dashboard: Context }) {
     initialEnableSubitems={enableSubitems}
     initialEnableTranslation={!!activeTable?.translation_enabled}
     initialVisibleProperties={cv.visibleProperties?.length ? cv.visibleProperties.filter((property): property is string => typeof property === 'string') : getSchemaFieldNames(currentSchemaObj)}
-    initialEnableDrupalSync={!!activeTable?.drupal_sync_enabled}
-    initialDrupalBundle={activeTable?.drupal_bundle || ''}
-    initialDrupalFieldMapping={activeTable?.drupal_field_mapping || {}}
     initialFunctionalities={activeTable?.functionalities || []}
     tableId={activeTableId}
     onSchemaUpdated={(newSchema) => { setSchema(newSchema); }}
@@ -43,14 +40,6 @@ export function TableSchemaDialog({ dashboard }: { dashboard: Context }) {
         schema_revision: savedTableRef.current?.schema_revision ?? activeTable?.schema_revision,
         properties: newProperties,
         translation_enabled: viewConfig.enableTranslation,
-        drupal_sync_enabled: viewConfig.enableDrupalSync,
-        // We keep bundle and mapping even though the
-        // sync is disabled: disabling
-        // must not destroy the mapping (it's recovered if
-        // re-enabled). Previously '' / {} used to be sent, and an autosave
-        // with the toggle off would erase the entire mapping.
-        drupal_bundle: viewConfig.drupalBundle || '',
-        drupal_field_mapping: viewConfig.drupalFieldMapping,
         functionalities: viewConfig.functionalities,
       });
       savedTableRef.current = savedTable;

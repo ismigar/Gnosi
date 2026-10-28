@@ -58,9 +58,6 @@ from backend.domains.vault.tables.catalogs.seeds import (
 )
 from backend.domains.vault.tables.catalogs.seeds import STATUS_DRAFT as STATUS_DRAFT
 from backend.domains.vault.tables.catalogs.seeds import (
-    STATUS_PUBLISHED_DRUPAL as STATUS_PUBLISHED_DRUPAL,
-)
-from backend.domains.vault.tables.catalogs.seeds import (
     STATUS_PUBLISHED_SOCIAL as STATUS_PUBLISHED_SOCIAL,
 )
 from backend.domains.vault.tables.catalogs.seeds import STATUS_REVIEWED as STATUS_REVIEWED

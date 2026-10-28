@@ -2,7 +2,7 @@
   "name": "gnosi",
   "version": "3.2.0",
   "private": true,
-  "description": "Gnosi — local-first, open-source knowledge workspace",
+  "description": "Gnosi \u2014 local-first, open-source knowledge workspace",
   "license": "AGPL-3.0-or-later",
   "packageManager": "pnpm@11.19.0",
   "engines": {
@@ -20,7 +20,7 @@
     "build:desktop": "pnpm --filter @gnosi/desktop build",
     "lint": "pnpm lint:frontend && pnpm lint:python",
     "lint:frontend": "pnpm --filter @gnosi/frontend lint",
-    "lint:python": "uv run ruff check backend pipeline scripts extensions/mcp/drupal-proxy",
+    "lint:python": "uv run ruff check backend pipeline scripts",
     "typecheck": "pnpm --filter @gnosi/frontend typecheck && pnpm typecheck:backend-boundaries && pnpm typecheck:pipeline && uv run python -m compileall -q backend pipeline scripts extensions",
     "generate:openapi": "uv run python scripts/generate_openapi.py",
     "check:openapi": "uv run python scripts/generate_openapi.py --check",
@@ -55,7 +55,8 @@
     "desktop": "pnpm --filter @gnosi/desktop start",
     "desktop:dev": "pnpm --filter @gnosi/desktop dev",
     "package:desktop": "pnpm --filter @gnosi/desktop build",
-    "docs:build": "uv run --group docs mkdocs build --strict"
+    "docs:build": "uv run --group docs mkdocs build --strict",
+    "test:e2e:acceptance": "uv run --frozen --no-sync python scripts/ci/browser_acceptance.py"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

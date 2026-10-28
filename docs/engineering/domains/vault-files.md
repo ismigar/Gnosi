@@ -11,7 +11,6 @@ source_paths:
   - backend/domains/vault/pages/creation_inputs.py
   - backend/services/handwriting_download.py
   - backend/services/active_vault_middleware.py
-  - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
@@ -40,6 +39,9 @@ source_paths:
   - frontend/src/shared/bookmarks
   - frontend/src/shared/api/bookmarks.ts
 tests:
+  - tests/e2e/tests/critical/daily-work.spec.ts
+  - tests/e2e/tests/restart/persistence.spec.ts
+  - backend/tests/test_drupal_retirement.py
   - backend/tests/test_record_title_roundtrip.py
   - frontend/src/features/vault/editor/block-editor/page-editor/usePageMetadata.test.tsx
   - backend/tests/test_e2e_option_catalogs.py
@@ -77,14 +79,6 @@ tests:
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
   - frontend/src/shared/ui/PanePortal.test.tsx
   - frontend/src/shared/records/hooks/keyboardSubscriptions.test.tsx
-  - backend/tests/test_drupal_connector_discovery_contract.py
-  - backend/tests/test_drupal_connector_http_contract.py
-  - backend/tests/test_drupal_connector_native_contract.py
-  - backend/tests/test_drupal_native_mapping_contract.py
-  - backend/tests/test_drupal_open_core_fields.py
-  - backend/tests/test_drupal_open_languages_markdown.py
-  - backend/tests/test_drupal_open_media.py
-  - backend/tests/test_drupal_service_contract.py
   - backend/tests/test_translation_http_open_contract.py
   - backend/tests/test_sync_comment_open_contract.py
   - backend/tests/test_sync_comment_bootstrap.py
@@ -126,7 +120,7 @@ tests:
   - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_assets_files_containment.py
   - backend/tests/test_vault_assets_files_route_contract.py
-  - backend/tests/test_vault_translation_drupal_domain_contract.py
+  - backend/tests/test_vault_translation_domain_contract.py
   - backend/tests/test_relation_sync.py
   - backend/tests/test_translation_helpers.py
   - backend/tests/test_vault_templates.py
@@ -279,30 +273,24 @@ Clipper receipts pass through the existing response model without field coercion
 
 These changes preserve provider error boundaries, sorted disk recovery, duplicate
 target-language behavior and status-write ordering. Synthetic tests exercise
-provider doubles, not live cloud accounts. Drupal composition and translation HTTP
-now check actual dependency owners; this does not certify the entire backend,
-a real Drupal server or a cloud-provider migration.
+provider doubles without live cloud accounts; they do not certify the entire
+backend or a cloud-provider migration.
 
-## Drupal transport and HTTP contracts
+## Translation HTTP and retired publishing
 
-Drupal field mapping, media preparation, language discovery, title matching and
-row synchronization retain open metadata and opaque connector identifiers.
-Constructed response envelopes have explicit types; decoded transport values are
-not assumed to have an application schema. Field order, partial errors, cached
-identifier identity and native malformed-input errors are preserved. Dependency
-factories capture the connector and error classes, but resolve replaceable
-members when called. Pillow remains an optional, lazily loaded dependency.
+Translation routes preserve their existing request and response schemas. Bulk
+translation filters non-text identifiers and deduplicates trimmed strings. Text
+inputs retain their false-value fallbacks and native errors for malformed JSON.
+Non-JSON Python callers whose custom strip operation returns a non-string receive
+an explicit type error; this HTTP-only check does not normalize YAML or plugin
+metadata. Valid generated JSON with the wrong response shape reaches HTTP
+validation, not the provider-error fallback. Synthetic transports and temporary
+files verify these contracts without reading credentials or calling a provider.
 
-Translation routes preserve existing request and response schemas. Drupal bulk
-publishing stringifies every identifier and keeps duplicates; bulk translation
-filters non-text identifiers and deduplicates trimmed strings. Single-row
-publishing still defaults to pushing media. Text inputs retain their false-value
-fallbacks and native errors for malformed JSON. Non-JSON Python callers whose
-custom strip operation returns a non-string receive an explicit type error;
-this HTTP-only check does not normalize YAML or plugin metadata. Generated valid
-JSON with the wrong response shape reaches HTTP validation, not the provider-error
-fallback. Synthetic transports and temporary files verify these contracts without
-reading credentials, publishing content or calling an external provider.
+Gnosi no longer exposes Drupal field mapping, row synchronization, automatic
+scheduling, sync controls or the Drupal MCP proxy. Historical imported records
+and opaque metadata remain user data; generic metadata reads and writes preserve
+unknown fields. This retirement does not modify independently hosted websites.
 
 ## Responsibility
 
@@ -469,10 +457,9 @@ Page preview and save composition likewise share one narrowed router for title
 resolution and delegated preview/write registration. Cache identity, alias
 matching, active-vault checks and generated route schemas remain unchanged.
 
-Translation and Drupal synchronization routes narrow their late-bound router at
-the module boundary as well. Single-row, bulk, matching, generated-button and
-page translation operations preserve role checks, background work and external
-error mapping while remaining visible to strict typing.
+Translation and generated-button routes narrow their late-bound router at the
+module boundary. Remaining operations preserve role checks, background work and
+external error mapping while remaining visible to strict typing.
 
 Table-scoped storage has explicit owners. `assets/table_paths.py` owns contained
 asset paths, per-property directories, revisions and collision-safe rename
@@ -495,12 +482,12 @@ inventory consumers and re-exports the supported Python callables.
 
 `backend/api/vault_routes.py` is a compatibility bootstrap rather
 than an implementation owner. Typed modules under `backend/domains/vault`
-own the remaining API, annotation, citation, drawing, Drupal, file, knowledge,
+own the remaining API, annotation, citation, drawing, file, knowledge,
 link, media, page, registry, table, and translation behavior. The bootstrap
 loads and registers those owners in historical source order, while
 `facade_bridge.py` preserves supported imports, mutable globals, and late-bound
-monkeypatch seams. The parent router still exposes the same flat `APIRoute`
-inventory and byte-identical deterministic OpenAPI. The facade therefore needs
+monkeypatch seams. The parent router keeps a flat `APIRoute`
+inventory and deterministic OpenAPI for the retained surface. The facade therefore needs
 no source-guardrail allowance.
 
 `pages/foundation.py` declares its functions before loading the facade. Its
@@ -518,13 +505,6 @@ minimal metadata effects, and stale-child propagation are separate typed
 services. The shared pure helper boundary canonicalizes source identities,
 detects translatable changes and language fields, reuses existing option labels,
 and translates only textual image subfields while retaining their source asset.
-Drupal row publishing is owned by `backend/domains/vault/drupal`,
-which separates field and identity mapping, local media preparation, Markdown
-and wikilink conversion, language caches, title matching, and idempotent node
-synchronization. The compatibility router retains the original FastAPI
-decorators, route docstrings and late-bound Python seams, while the Drupal
-connector remains the external transport boundary. These moves do not change
-paths, payloads, status codes, background tasks or route order.
 
 Translation providers are loaded inside their existing request-time error
 boundaries through imports of their actual typed owners, without module-shaped

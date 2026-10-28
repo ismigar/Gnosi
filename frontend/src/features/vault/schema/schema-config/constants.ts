@@ -31,7 +31,7 @@ export const FUNCTIONALITY_ACTIONS = [
 // Field types that have a fixed catalog of selectable options.
 export const OPTION_FIELD_TYPES = new Set(['select', 'multi_select', 'status']);
 export const RULE_PROTECTED_OPTIONS = new Set([
-    'Esborrany', 'Traduït', 'Publicat a Drupal', 'Publicat a XXSS',
+    'Esborrany', 'Traduït', 'Publicat a XXSS',
 ]);
 export const ASSIGNMENT_NUMERIC_TYPES = ['number', 'currency', 'percent', 'formula', 'rollup'];
 export const ASSIGNMENT_DATE_TYPES = ['date', 'period'];

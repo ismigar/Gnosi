@@ -65,9 +65,6 @@ export interface Table extends Metadata {
     title?: string;
     properties?: TableProperty[];
     translation_enabled?: boolean;
-    drupal_sync_enabled?: boolean;
-    drupal_bundle?: string;
-    drupal_field_mapping?: Record<string, string>;
 }
 export interface Database extends Metadata {
     id: string;

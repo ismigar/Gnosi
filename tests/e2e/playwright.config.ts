@@ -35,6 +35,11 @@ const DEFAULT_BASE_URL = fs.existsSync(CERT_FILE)
  */
 
 const STORAGE_STATE = authStorageStatePath(process.env.GNOSI_TEST_STORAGE_STATE, CONFIG_DIR);
+const acceptanceOrigin = process.env.GNOSI_ACCEPTANCE_STATE
+  ? new URL(process.env.GNOSI_BASE_URL || DEFAULT_BASE_URL).host : null;
+if (acceptanceOrigin && !process.env.GNOSI_ACCEPTANCE_PROXY) {
+  throw new Error('Owned browser acceptance requires its loopback transport proxy');
+}
 
 export default defineConfig({
   testDir: './tests',
@@ -57,6 +62,9 @@ export default defineConfig({
     video: 'retain-on-failure',
     actionTimeout: 5_000,
     navigationTimeout: 30_000,
+    // Chromium bypasses its exact frontend origin. Playwright's API transport
+    // also uses this proxy, which only tunnels to the two owned service ports.
+    ...(acceptanceOrigin ? { proxy: { server: process.env.GNOSI_ACCEPTANCE_PROXY!, bypass: acceptanceOrigin } } : {}),
   },
 
   expect: {
@@ -110,6 +118,22 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         storageState: STORAGE_STATE,
       },
+      dependencies: ['setup'],
+    },
+    {
+      name: 'critical-workflows',
+      testDir: './tests/critical',
+      fullyParallel: false,
+      retries: 0,
+      use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
+      dependencies: ['setup'],
+    },
+    {
+      name: 'persistence-restart',
+      testDir: './tests/restart',
+      fullyParallel: false,
+      retries: 0,
+      use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
       dependencies: ['setup'],
     },
     {

@@ -6,6 +6,28 @@ import type { SchemaConfigModalProps } from './types';
 describe('schema plugins, catalogs and keyboard contracts', () => {
     const modal = setupModal();
 
+    it.each(['Old Drupal sync', ''])('keeps historical fields and action metadata while offering no retired sync controls (label: %s)', async (label) => {
+        const save = vi.fn<NonNullable<SchemaConfigModalProps['onSave']>>();
+        const retired = { id: 'old-sync', enabled: true, label, action: 'sync_drupal', config: { custom: { keep: true } } };
+        await modal.render({ onSave: save, currentSchema: {
+            ...baseSchema, 'Drupal NID': 'text', 'Drupal NID_config': {
+                id: 'fld_00000003', system: true, extension: { keep: ['nested'] },
+            },
+        }, initialFunctionalities: [retired] });
+        expect(document.body.textContent).not.toContain('Old Drupal sync');
+        expect(document.body.textContent).not.toContain('Sync with Drupal');
+        expect(document.body.textContent).not.toContain('Link existing records by title');
+        expect([...document.querySelectorAll('select option')].some(option => option.getAttribute('value') === 'sync_drupal')).toBe(false);
+        await change(input('Title'), 'Heading');
+        await advance();
+        expect(save.mock.calls.at(-1)?.[0]).toMatchObject({
+            Heading: 'title', 'Drupal NID': 'text', 'Drupal NID_config': {
+                id: 'fld_00000003', system: true, extension: { keep: ['nested'] },
+            },
+        });
+        expect(save.mock.calls.at(-1)?.[1].functionalities).toEqual([retired]);
+    });
+
     it('sends field identities and catalog options and applies the generated config only to the selected functionality', async () => {
         const save = vi.fn<NonNullable<SchemaConfigModalProps['onSave']>>();
         vi.mocked(schemaApi.generateButtonAction).mockResolvedValue({ status: 'success', result: {
@@ -23,21 +45,6 @@ describe('schema plugins, catalogs and keyboard contracts', () => {
         ] });
         await advance();
         expect(save.mock.calls.at(-1)?.[1].functionalities).toEqual([{ id: 'fn_saved', enabled: false, label: 'Summarize', action: 'ai_prompt', config: { prompt: 'Summarize Title', target_field: 'Title', plugin: { keep: true } } }]);
-    });
-
-    it('keeps saved Drupal bundle and mappings visible when discovery is unavailable', async () => {
-        const save = vi.fn<NonNullable<SchemaConfigModalProps['onSave']>>();
-        vi.mocked(schemaApi.fetchDrupalContentTypes).mockRejectedValueOnce({ payload: { detail: 'Offline fixture' } });
-        vi.mocked(schemaApi.fetchDrupalFields).mockRejectedValueOnce({ response: { data: { detail: 'Fields offline' } } });
-        await modal.render({ onSave: save, initialEnableDrupalSync: true, initialDrupalBundle: 'historic', initialDrupalFieldMapping: { __body__: 'body_old', fld_00000001: 'title_old' } });
-        const selected = [...document.querySelectorAll('select')].map((select) => select.value);
-        expect(selected).toContain('historic');
-        expect(selected).toContain('body_old');
-        expect(selected).toContain('title_old');
-        await advance();
-        expect(save.mock.calls.at(-1)?.[1]).toMatchObject({ enableDrupalSync: true, drupalBundle: 'historic', drupalFieldMapping: { __body__: 'body_old', fld_00000001: 'title_old' } });
-        await click(button('Link existing records by title'));
-        expect(schemaApi.matchDrupalRows).toHaveBeenCalledExactlyOnceWith('table-1');
     });
 
     it('includes relation targets and cardinality in the AI button contract', async () => {

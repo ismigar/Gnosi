@@ -4,6 +4,7 @@ import { toast } from '../../../../shared/notifications/toast';
 import { apiErrorDetail } from '../../../../shared/api/errors';
 import { executeVaultTableButtonAction } from '../../../../shared/api/vault-table';
 import { announceRelationUnlinked, withoutRelationValue } from '../../properties/relationItemUtils';
+import { isRetiredTableAction } from '../../properties/tableFunctionalityUtils';
 import type { TableFunctionality } from './fieldConfig';
 import { evaluateFormula as evaluateTableFormula } from '../../properties/formulaUtils';
 import { normalizeRelationValues as normalizeTableRelations } from '../../properties/relationItemUtils';
@@ -54,11 +55,12 @@ export function useTableActions({
     event?.stopPropagation();
     if (!functionality.enabled) return;
     const action = functionality.action || 'translate_row';
+    if (isRetiredTableAction(action)) return;
     const config = functionality.config;
     const buttonKey = `${note.id}_${functionality.id}`;
     if (executingButtonKey === buttonKey) return;
 
-    if (action === 'translate_row' || action === 'sync_drupal' || action === 'publish_social' || action === 'process_resource') {
+    if (action === 'translate_row' || action === 'publish_social' || action === 'process_resource') {
       setPendingAction({
         noteId: note.id,
         fieldConfig: { button_action: action, button_config: config },

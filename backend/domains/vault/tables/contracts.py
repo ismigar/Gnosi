@@ -45,9 +45,6 @@ class TableUpsertRequest(_RegistryUpsertRequest):
     locale: JsonValue | None = None
     language: JsonValue | None = None
     translation_enabled: JsonValue | None = None
-    drupal_sync_enabled: JsonValue | None = None
-    drupal_bundle: JsonValue | None = None
-    drupal_field_mapping: JsonValue | None = None
     action_rules: JsonValue | None = None
     automations: JsonValue | None = None
     schema_revision: JsonValue | None = None

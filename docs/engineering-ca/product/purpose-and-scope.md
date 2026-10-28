@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-30
+last_verified: 2026-10-28
 source_paths:
   - README.md
   - backend/services/builtin_plugins.py
@@ -76,7 +76,7 @@ operacions del vault que no en depenen.
 - Comunicació: correu, calendaris, reunions i contactes.
 - Intel·ligència: registre de models, agents, eines MCP, habilitats d'execució i fonts de context.
 - Automatització: tasques programades, fórmules, rollups, recordatoris i publicació.
-- Integració: Google, Microsoft, Notion, Drupal, xarxes socials i complements ofimàtics.
+- Integració: Google, Microsoft, Notion, xarxes socials i complements ofimàtics.
 - Distribució: execució web nativa, autoallotjament Docker, aplicació d'escriptori
   Electron i clients complementaris de navegador i ofimàtica.
 

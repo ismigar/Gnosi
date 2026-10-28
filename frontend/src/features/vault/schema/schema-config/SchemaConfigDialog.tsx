@@ -10,8 +10,8 @@ import { TableSettings } from './TableSettings';
 import { AiActionDialog } from './AiActionDialog';
 export function SchemaConfigDialog({ model }: { model: SchemaConfigModel }) {
     const {
-        t, isOpen, onClose, folder, tableName, validationError, enableTranslation, enableDrupalSync,
-        drupalBundle, drupalFieldMapping, setDrupalFieldMapping, drupalFields, fields, availableSkills,
+        t, isOpen, onClose, folder, tableName, validationError, enableTranslation,
+        fields, availableSkills,
         setAiActionModalFieldIndex, setAiActionPrompt, sensors, handleDragEnd, allTables,
         resolvedTableName, virtualComputers, handleUpdateField, handleRemoveField, optionTools,
         projectPlanningEnabled, handleAddField, confirmRemoveField, setConfirmRemoveField,
@@ -79,11 +79,6 @@ export function SchemaConfigDialog({ model }: { model: SchemaConfigModel }) {
                                         handleUpdateField={handleUpdateField}
                                         handleRemoveField={handleRemoveField}
                                         enableTranslation={enableTranslation}
-                                        enableDrupalSync={enableDrupalSync}
-                                        drupalBundle={drupalBundle}
-                                        drupalFields={drupalFields}
-                                        drupalFieldMapping={drupalFieldMapping}
-                                        setDrupalFieldMapping={setDrupalFieldMapping}
                                         optionTools={optionTools}
                                         projectPlanningEnabled={projectPlanningEnabled}
                                         setAiActionModalFieldIndex={setAiActionModalFieldIndex}

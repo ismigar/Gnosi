@@ -93,3 +93,8 @@ export function normalizeTableFunctionalities(
   });
   return normalized;
 }
+
+/** Keep retired action metadata round-trippable without offering an executable control. */
+export function isRetiredTableAction(action: string): boolean {
+  return action === 'sync_drupal';
+}

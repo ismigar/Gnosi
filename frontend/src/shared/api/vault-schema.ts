@@ -23,15 +23,6 @@ export interface GenerateButtonActionResponse extends JsonRecord {
   status: string;
 }
 
-export interface DrupalContentTypesResponse extends JsonRecord {
-  content_types: JsonRecord[];
-}
-
-export interface DrupalFieldsResponse extends JsonRecord {
-  bundle: string;
-  fields: JsonRecord[];
-}
-
 export interface VirtualFieldsResponse extends JsonRecord {
   computers: JsonRecord[];
 }
@@ -199,52 +190,6 @@ export async function updateOptionCatalog(
     }),
     'option catalog update',
   );
-}
-
-
-export async function matchDrupalRows(tableId: string): Promise<JsonRecord> {
-  return unwrapJsonRecord(
-    await apiClient.POST('/api/vault/skills/match-drupal-rows', {
-      body: { dry_run: false, table_id: tableId },
-    }),
-    'Drupal row matching',
-  );
-}
-
-
-export async function fetchDrupalContentTypes(
-  signal?: AbortSignal,
-): Promise<DrupalContentTypesResponse> {
-  const payload = unwrapJsonRecord(
-    await apiClient.GET('/api/vault/drupal/content-types', { signal }),
-    'Drupal content types',
-  );
-  return {
-    ...payload,
-    content_types: requireJsonRecords(
-      payload.content_types,
-      'Drupal content types',
-    ),
-  };
-}
-
-
-export async function fetchDrupalFields(
-  bundle: string,
-  signal?: AbortSignal,
-): Promise<DrupalFieldsResponse> {
-  const payload = unwrapJsonRecord(
-    await apiClient.GET('/api/vault/drupal/content-types/{bundle}/fields', {
-      params: { path: { bundle } },
-      signal,
-    }),
-    'Drupal fields',
-  );
-  return {
-    ...payload,
-    bundle: requireString(payload.bundle, 'Drupal bundle'),
-    fields: requireJsonRecords(payload.fields, 'Drupal fields'),
-  };
 }
 
 

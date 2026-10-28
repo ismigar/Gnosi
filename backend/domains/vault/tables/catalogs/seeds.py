@@ -25,7 +25,6 @@ DEFAULT_STATUS_GROUPS = ["Inicial", "En curs", "Final"]
 STATUS_DRAFT = "Esborrany"
 STATUS_REVIEWED = "Revisat"
 STATUS_TRANSLATED = "Traduït"
-STATUS_PUBLISHED_DRUPAL = "Publicat a Drupal"
 STATUS_PUBLISHED_SOCIAL = "Publicat a XXSS"
 BASE_STATUS_SEED: list[Seed] = [
     (STATUS_DRAFT, "Inicial"),
@@ -78,8 +77,6 @@ def _wanted_statuses(table: Metadata, prop: Metadata) -> list[Seed]:
     wanted: list[Seed] = [] if configured else list(BASE_STATUS_SEED)
     if table.get("translation_enabled"):
         wanted.append((STATUS_TRANSLATED, "En curs"))
-    if table.get("drupal_sync_enabled"):
-        wanted.append((STATUS_PUBLISHED_DRUPAL, "Final"))
     if table_has_social_column(table):
         wanted.append((STATUS_PUBLISHED_SOCIAL, "Final"))
     return wanted
@@ -145,7 +142,6 @@ __all__ = [
     "DEFAULT_STATUS_GROUPS",
     "STATUS_CATALOG_REF",
     "STATUS_DRAFT",
-    "STATUS_PUBLISHED_DRUPAL",
     "STATUS_PUBLISHED_SOCIAL",
     "STATUS_REVIEWED",
     "STATUS_TRANSLATED",

@@ -18,13 +18,6 @@ from backend.domains.vault.api import pages_queries as page_queries_api
 from backend.domains.vault.api import trash as trash_api
 from backend.domains.vault.daily import service as daily_notes_service
 from backend.domains.vault.drawings import service as drawing_service
-from backend.domains.vault.drupal import core as drupal_core
-from backend.domains.vault.drupal import fields as drupal_fields
-from backend.domains.vault.drupal import languages as drupal_languages
-from backend.domains.vault.drupal import markdown as drupal_markdown
-from backend.domains.vault.drupal import matching as drupal_matching
-from backend.domains.vault.drupal import media as drupal_media
-from backend.domains.vault.drupal import service as drupal_service
 from backend.domains.vault.history.repository import HistoryRepository
 from backend.domains.vault.pages import create_service as page_create_service
 from backend.domains.vault.pages import index_entries as page_index_entries

@@ -67,6 +67,7 @@ def test_full_plan_keeps_complete_suites_build_and_updating_docs_gate() -> None:
         "b" * 40,
     )
     assert ("pnpm", "--filter", "@gnosi/desktop", "typecheck:ipc") in arguments
+    assert ("uv", "run", "python", "scripts/ci/browser_acceptance.py") in arguments
 
 
 def test_quick_plan_is_explicitly_a_subset_and_never_updates_docs() -> None:

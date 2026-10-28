@@ -8,34 +8,35 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Domaine | État | Guide | Fichiers source | Fichiers de test | Directives trouvées |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 927 | 330 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1152 | 326 | 0 |
-| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 538 | 167 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 937 | 335 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1147 | 331 | 0 |
+| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 540 | 169 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 70 | 42 | 0 |
+| `genograms` | **covered** | [`Genograms`](../domains/genograms.md) | 30 | 7 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 145 | 58 | 0 |
-| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 342 | 143 | 0 |
+| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 366 | 148 | 0 |
 | `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 50 | 13 | 0 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 108 | 66 | 0 |
-| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 89 | 43 | 0 |
+| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 107 | 49 | 0 |
 | `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 24 | 8 | 0 |
 | `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 74 | 23 | 0 |
-| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 205 | 55 | 0 |
-| `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 53 | 37 | 0 |
+| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 247 | 73 | 0 |
+| `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 70 | 41 | 0 |
 | `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 18 | 10 | 0 |
 | `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 156 | 56 | 0 |
 
 ## Platform foundation and runtime
 
 - Guide: [`Platform foundation and runtime`](../domains/foundation-runtime.md)
-- Motifs des sources: `backend/server.py`, `backend/config/**/*.py`, `frontend/src/app/**/*`, `frontend/src/shared/**/*`, `frontend/src/generated/**/*`, `frontend/src/features/control-center/**/*`, `frontend/src/features/settings/**/*`, `frontend/feature-public-entries.json`, `scripts/runtime/run_native_*.sh`, `docker-compose.yml`, `Dockerfile.*`
-- Motifs des tests: `backend/tests/test_*config*.py`, `backend/tests/test_*health*.py`, `frontend/src/app/**/*.test.*`, `frontend/src/shared/**/*.test.*`, `frontend/src/features/control-center/**/*.test.*`, `frontend/src/features/settings/**/*.test.*`, `frontend/tests/contracts/**/*.test.*`
+- Motifs des sources: `backend/server.py`, `backend/config/**/*.py`, `frontend/src/app/**/*`, `frontend/src/shared/**/*`, `frontend/src/generated/**/*`, `frontend/src/features/control-center/**/*`, `frontend/src/features/offline/**/*`, `frontend/src/features/settings/**/*`, `frontend/feature-public-entries.json`, `scripts/runtime/run_native_*.sh`, `scripts/ci/acceptance_backend.py`, `scripts/ci/acceptance_proxy.py`, `scripts/ci/browser_acceptance.py`, `docker-compose.yml`, `Dockerfile.*`
+- Motifs des tests: `backend/tests/test_*config*.py`, `backend/tests/test_acceptance_fixture.py`, `backend/tests/test_browser_acceptance_runner.py`, `tests/e2e/tests/critical/daily-work.spec.ts`, `tests/e2e/tests/restart/persistence.spec.ts`, `backend/tests/test_*health*.py`, `frontend/src/app/**/*.test.*`, `frontend/src/shared/**/*.test.*`, `frontend/src/features/control-center/**/*.test.*`, `frontend/src/shared/offline/**/*.test.*`, `frontend/src/shared/api/offline-sync.test.ts`, `tests/e2e/tests/disposable/offline-companion.spec.ts`, `frontend/src/features/settings/**/*.test.*`, `frontend/tests/contracts/**/*.test.*`
 - Directives: none found
 
 ## Vault and files
 
 - Guide: [`Vault and files`](../domains/vault-files.md)
 - Motifs des sources: `backend/api/vault*.py`, `backend/domains/vault/**/*.py`, `backend/services/**/*vault*.py`, `backend/services/files_provider/*.py`, `frontend/src/features/vault/**/*`, `frontend/src/features/vault-management/**/*`, `frontend/src/shared/editor/**/*`, `frontend/src/shared/page-search/**/*`, `frontend/src/shared/resources/**/*`
-- Motifs des tests: `backend/tests/test_vault*.py`, `backend/tests/test_translation_provider_contracts.py`, `backend/tests/test_table_workspace_security_contract.py`, `frontend/src/features/vault/**/*.test.*`, `frontend/src/features/vault-management/**/*.test.*`, `frontend/src/shared/editor/**/*.test.*`, `frontend/src/shared/page-search/**/*.test.*`, `frontend/src/shared/resources/**/*.test.*`, `tests/e2e/tests/e2e/vault*.spec.ts`
+- Motifs des tests: `backend/tests/test_vault*.py`, `backend/tests/test_translation_provider_contracts.py`, `backend/tests/test_table_workspace_security_contract.py`, `frontend/src/features/vault/**/*.test.*`, `frontend/src/features/vault-management/**/*.test.*`, `frontend/src/shared/editor/**/*.test.*`, `frontend/src/shared/page-search/**/*.test.*`, `frontend/src/shared/resources/**/*.test.*`, `tests/e2e/tests/e2e/vault*.spec.ts`, `tests/e2e/tests/critical/daily-work.spec.ts`, `tests/e2e/tests/restart/persistence.spec.ts`
 - Directives: none found
 
 ## Database views and project planning
@@ -52,6 +53,13 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 - Motifs des tests: `backend/tests/test_*graph*.py`, `frontend/src/features/graph/**/*.test.*`, `frontend/src/shared/graph/**/*.test.*`, `frontend/src/features/vault/views/VaultGraph.test.tsx`, `frontend/src/features/vault/editor/PageLinksGraph.test.tsx`
 - Directives: none found
 
+## Genograms
+
+- Guide: [`Genograms`](../domains/genograms.md)
+- Motifs des sources: `backend/domains/genograms/**/*`, `frontend/src/features/genograms/**/*`, `frontend/src/shared/api/genograms.ts`
+- Motifs des tests: `backend/tests/test_genograms*.py`, `frontend/src/features/genograms/**/*.test.*`, `frontend/src/shared/api/genograms.test.ts`, `frontend/src/features/vault/view-config/page-view-modal/useViewAppearance.genogram.test.tsx`
+- Directives: none found
+
 ## Reader, references, and citations
 
 - Guide: [`Reader, references, and citations`](../domains/reader-references.md)
@@ -62,8 +70,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 ## AI agents, models, tools, and skills
 
 - Guide: [`AI agents, models, tools, and skills`](../domains/ai-agent.md)
-- Motifs des sources: `backend/agent/**/*.py`, `backend/api/agent*.py`, `backend/api/ai_routes.py`, `backend/api/tools_routes.py`, `backend/services/ai*.py`, `backend/services/model_reasoning.py`, `backend/services/agent_workspace*.py`, `backend/services/agent_native_bridge.py`, `backend/services/mcp_contracts.py`, `backend/domains/agent/team_help.py`, `backend/domains/configuration/ai/model_metadata_routes.py`, `frontend/src/features/agent/**/*`, `frontend/src/features/agent-workspace/**/*`, `frontend/src/shared/api/agent-workspace*.ts`, `frontend/src/features/agent-context/**/*`, `frontend/src/features/settings/AI/**/*`, `frontend/src/features/settings/AI*.ts*`, `frontend/src/features/settings/*Comparison*.ts*`, `frontend/src/features/settings/model-comparison/**/*`
-- Motifs des tests: `backend/tests/test_agent*.py`, `backend/tests/test_ai*.py`, `backend/tests/test_generated_tool*.py`, `frontend/src/features/agent/**/*.test.*`, `frontend/src/features/agent-workspace/**/*.test.*`, `frontend/src/features/agent-context/**/*.test.*`, `frontend/src/features/settings/AI/**/*.test.*`, `frontend/src/features/settings/AI*.test.*`, `frontend/src/features/settings/*Comparison*.test.*`
+- Motifs des sources: `backend/agent/**/*.py`, `backend/api/agent*.py`, `backend/api/ai_routes.py`, `backend/api/tools_routes.py`, `backend/services/ai*.py`, `backend/services/model_reasoning.py`, `backend/services/agent_workspace*.py`, `backend/services/agent_learning*.py`, `backend/domains/configuration/agent/learning*.py`, `backend/services/agent_native_bridge.py`, `backend/services/mcp_contracts.py`, `backend/domains/agent/team_help.py`, `backend/domains/configuration/ai/model_metadata_routes.py`, `frontend/src/features/agent/**/*`, `frontend/src/features/agent-workspace/**/*`, `frontend/src/shared/api/agent-workspace*.ts`, `frontend/src/features/agent-context/**/*`, `frontend/src/features/agent-learning/**/*`, `frontend/src/shared/api/agent-learning.ts`, `frontend/src/features/settings/AI/**/*`, `frontend/src/features/settings/AI*.ts*`, `frontend/src/features/settings/*Comparison*.ts*`, `frontend/src/features/settings/model-comparison/**/*`
+- Motifs des tests: `backend/tests/test_agent*.py`, `backend/tests/test_ai*.py`, `backend/tests/test_generated_tool*.py`, `frontend/src/features/agent/**/*.test.*`, `frontend/src/features/agent-workspace/**/*.test.*`, `frontend/src/features/agent-learning/**/*.test.*`, `frontend/src/features/agent-context/**/*.test.*`, `frontend/src/features/settings/AI/**/*.test.*`, `frontend/src/features/settings/AI*.test.*`, `frontend/src/features/settings/*Comparison*.test.*`
 - Directives: none found
 
 ## Source-grounded notebooks
@@ -83,8 +91,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 ## Calendar and meetings
 
 - Guide: [`Calendar and meetings`](../domains/calendar-meetings.md)
-- Motifs des sources: `backend/api/calendar_routes.py`, `backend/api/meeting_routes.py`, `backend/models/calendar.py`, `backend/services/**/*calendar*.py`, `backend/services/**/*meeting*.py`, `frontend/src/features/calendar/**/*`, `frontend/src/features/meetings/**/*`
-- Motifs des tests: `backend/tests/test_*calendar*.py`, `backend/tests/test_*meeting*.py`, `frontend/src/features/calendar/**/*.test.*`, `frontend/src/features/meetings/**/*.test.*`, `tests/e2e/tests/e2e/calendar.spec.ts`
+- Motifs des sources: `backend/api/calendar_routes.py`, `backend/api/meeting_routes.py`, `backend/api/booking_routes.py`, `backend/domains/booking/**/*.py`, `backend/models/booking.py`, `backend/models/calendar.py`, `backend/services/**/*calendar*.py`, `backend/services/**/*meeting*.py`, `frontend/src/features/calendar/**/*`, `frontend/src/features/meetings/**/*`, `frontend/src/features/booking/**/*`, `frontend/src/shared/api/booking.ts`
+- Motifs des tests: `backend/tests/test_*calendar*.py`, `backend/tests/test_*meeting*.py`, `backend/tests/test_booking*.py`, `frontend/src/features/booking/**/*.test.*`, `frontend/src/shared/api/booking.test.ts`, `frontend/src/features/calendar/**/*.test.*`, `frontend/src/features/meetings/**/*.test.*`, `tests/e2e/tests/e2e/calendar.spec.ts`
 - Directives: none found
 
 ## Contacts
@@ -104,15 +112,15 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 ## Integrations and plugins
 
 - Guide: [`Integrations and plugins`](../domains/integrations-plugins.md)
-- Motifs des sources: `backend/api/integrations_routes.py`, `backend/domains/plugins/*.py`, `backend/api/notion_routes.py`, `backend/domains/notion/**/*.py`, `backend/services/integration*.py`, `backend/services/notion_*.py`, `backend/services/plugin*.py`, `backend/services/academic_connectors.py`, `frontend/src/features/integrations/**/*`, `frontend/src/features/plugin-management/**/*`, `frontend/src/features/notion-import/**/*`, `frontend/src/shared/plugins/**/*`, `extensions/**/*`, `extensions/examples/**/*`, `extensions/mcp/**/*`
-- Motifs des tests: `backend/tests/test_integration*.py`, `backend/tests/test_notion*.py`, `backend/tests/test_plugin*.py`, `frontend/src/features/integrations/**/*.test.*`, `frontend/src/features/plugin-management/**/*.test.*`, `frontend/src/features/notion-import/**/*.test.*`, `frontend/src/shared/plugins/**/*.test.*`, `extensions/**/tests/**/*`
+- Motifs des sources: `backend/api/integrations_routes.py`, `backend/domains/sites/**/*.py`, `backend/domains/plugins/*.py`, `backend/api/notion_routes.py`, `backend/domains/notion/**/*.py`, `backend/services/integration*.py`, `backend/services/notion_*.py`, `backend/services/plugin*.py`, `backend/services/academic_connectors.py`, `frontend/src/features/websites/**/*`, `frontend/src/shared/api/sites.ts`, `frontend/src/features/plugin-management/**/*`, `frontend/src/features/notion-import/**/*`, `frontend/src/shared/plugins/**/*`, `extensions/**/*`, `extensions/examples/**/*`, `extensions/mcp/**/*`
+- Motifs des tests: `backend/tests/test_integration*.py`, `backend/tests/test_drupal_retirement.py`, `backend/tests/test_sites*.py`, `frontend/src/features/websites/**/*.test.*`, `backend/tests/test_notion*.py`, `backend/tests/test_plugin*.py`, `frontend/src/features/plugin-management/**/*.test.*`, `frontend/src/features/notion-import/**/*.test.*`, `frontend/src/shared/plugins/**/*.test.*`, `extensions/**/tests/**/*`
 - Directives: none found
 
 ## Authentication, workspaces, and sharing
 
 - Guide: [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md)
-- Motifs des sources: `backend/api/auth_routes.py`, `backend/api/identity_routes.py`, `backend/api/workspace_routes.py`, `backend/api/vaults_routes.py`, `backend/api/share_routes.py`, `backend/api/public_routes.py`, `backend/models/management.py`, `backend/services/auth*.py`, `frontend/src/features/auth/**/*`, `frontend/src/features/workspaces/**/*`, `frontend/src/features/sharing/**/*`, `frontend/src/shared/auth/**/*`, `frontend/src/shared/routing/**/*`, `frontend/src/shared/api/auth.ts`
-- Motifs des tests: `backend/tests/test_auth*.py`, `backend/tests/test_workspace*.py`, `backend/tests/test_share*.py`, `backend/tests/test_public*.py`, `frontend/src/features/auth/**/*.test.*`, `frontend/src/features/workspaces/**/*.test.*`, `frontend/src/features/sharing/**/*.test.*`, `frontend/src/shared/auth/**/*.test.*`, `frontend/src/shared/routing/**/*.test.*`, `frontend/src/shared/api/auth.test.ts`
+- Motifs des sources: `backend/api/auth_routes.py`, `backend/api/identity_routes.py`, `backend/api/workspace_routes.py`, `backend/api/vaults_routes.py`, `backend/api/share_routes.py`, `backend/api/form_routes.py`, `backend/domains/forms/**/*.py`, `backend/models/forms.py`, `backend/services/public_workflow_scope.py`, `backend/api/public_routes.py`, `backend/models/management.py`, `backend/services/auth*.py`, `frontend/src/features/auth/**/*`, `frontend/src/features/workspaces/**/*`, `frontend/src/features/sharing/**/*`, `frontend/src/features/forms/**/*`, `frontend/src/shared/api/forms.ts`, `frontend/src/shared/auth/**/*`, `frontend/src/shared/routing/**/*`, `frontend/src/shared/api/auth.ts`
+- Motifs des tests: `backend/tests/test_auth*.py`, `tests/e2e/tests/critical/daily-work.spec.ts`, `backend/tests/test_workspace*.py`, `backend/tests/test_share*.py`, `backend/tests/test_public_forms.py`, `frontend/src/features/forms/**/*.test.*`, `frontend/src/shared/api/forms.test.ts`, `backend/tests/test_public*.py`, `frontend/src/features/auth/**/*.test.*`, `frontend/src/features/workspaces/**/*.test.*`, `frontend/src/features/sharing/**/*.test.*`, `frontend/src/shared/auth/**/*.test.*`, `frontend/src/shared/routing/**/*.test.*`, `frontend/src/shared/api/auth.test.ts`
 - Directives: none found
 
 ## Automation and scheduling

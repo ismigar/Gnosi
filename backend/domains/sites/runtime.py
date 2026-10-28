@@ -38,7 +38,7 @@ def save_connection(store: SiteStore, site_id: str, target_id: str, settings: Ta
         raise HTTPException(422, "Invalid SSH hostname")
     if settings.username and not re.fullmatch(r"[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,99}", settings.username):
         raise HTTPException(422, "Invalid SSH account")
-    # Remote profiles select an owned dedicated namespace, never a Drupal root.
+    # Remote profiles select an owned dedicated namespace outside existing websites.
     if settings.remote_root and (not settings.remote_root.startswith("/") or ".." in settings.remote_root.split("/") or not re.fullmatch(r"/[a-zA-Z0-9_./-]+", settings.remote_root) or "/_gnosi-" not in settings.remote_root):
         raise HTTPException(422, "Use an isolated /_gnosi- destination directory")
     for configured in (settings.document_root, settings.remote_private_root):

@@ -2,13 +2,9 @@ import { resetApiTestStorage } from '../../../tests/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  DRUPAL_SYNC_TIMEOUT_MS,
-  syncDrupalRow,
   translateVaultPage,
   translateVaultRow,
   translateVaultRows,
-  type SyncDrupalRowInput,
-  type SyncDrupalRowResult,
   type TranslatePageInput,
   type TranslatePageResult,
   type TranslateRowInput,
@@ -39,8 +35,8 @@ function requestAt(fetchMock: RecordedFetchMock, index = 0): Request {
 }
 
 
-describe('translation and Drupal API', () => {
-  it('sends all four operations as POST requests with unchanged payloads', async () => {
+describe('translation API', () => {
+  it('sends all three operations as POST requests with unchanged payloads', async () => {
     const rowInput: TranslateRowInput = {
       button_action: 'translate_custom_fields',
       item_id: 'row-1',
@@ -55,12 +51,6 @@ describe('translation and Drupal API', () => {
       button_action: 'translate_page',
       page_id: 'page-1',
       target_languages: ['de'],
-    };
-    const drupalInput: SyncDrupalRowInput = {
-      button_action: 'sync_drupal',
-      item_id: 'row-1',
-      push_media: true,
-      scope: 'lang_only',
     };
     const rowResult: TranslateRowResult = {
       created: [],
@@ -84,32 +74,16 @@ describe('translation and Drupal API', () => {
       status: 'ok',
       updated: [],
     };
-    const drupalResult: SyncDrupalRowResult = {
-      created: false,
-      item_id: 'row-1',
-      languages: ['ca'],
-      media_pushed: true,
-      nid: 42,
-      scope: 'lang_only',
-      skipped_fields: [],
-      source_lang: 'ca',
-      status: 'ok',
-      translations: [{ status: 'ok' }],
-      url: 'https://example.test/node/42',
-      uuid: 'drupal-uuid',
-    };
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(Response.json(rowResult))
       .mockResolvedValueOnce(Response.json(rowsResult))
-      .mockResolvedValueOnce(Response.json(pageResult))
-      .mockResolvedValueOnce(Response.json(drupalResult));
+      .mockResolvedValueOnce(Response.json(pageResult));
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(translateVaultRow(rowInput)).resolves.toEqual(rowResult);
     await expect(translateVaultRows(rowsInput)).resolves.toEqual(rowsResult);
     await expect(translateVaultPage(pageInput)).resolves.toEqual(pageResult);
-    await expect(syncDrupalRow(drupalInput)).resolves.toEqual(drupalResult);
 
     expect(
       fetchMock.mock.calls.map((_, index) => {
@@ -120,7 +94,6 @@ describe('translation and Drupal API', () => {
       ['POST', '/api/vault/skills/translate-row'],
       ['POST', '/api/vault/skills/translate-rows'],
       ['POST', '/api/vault/skills/translate-page'],
-      ['POST', '/api/vault/skills/sync-drupal-row'],
     ]);
 
     await expect(requestAt(fetchMock, 0).clone().json()).resolves.toEqual(
@@ -131,9 +104,6 @@ describe('translation and Drupal API', () => {
     );
     await expect(requestAt(fetchMock, 2).clone().json()).resolves.toEqual(
       pageInput,
-    );
-    await expect(requestAt(fetchMock, 3).clone().json()).resolves.toEqual(
-      drupalInput,
     );
   });
 
@@ -158,35 +128,5 @@ describe('translation and Drupal API', () => {
       payload: { detail: 'Translation provider unavailable' },
       status: 503,
     });
-  });
-
-  it('keeps the Drupal sync timeout at 180 seconds', async () => {
-    vi.useFakeTimers();
-    const fetchMock = vi.fn<typeof fetch>((input) => {
-      const request = input instanceof Request ? input : new Request(input);
-      return new Promise<Response>((_resolve, reject) => {
-        const rejectWithAbortReason = () => {
-          reject(new Error('Request aborted'));
-        };
-        if (request.signal.aborted) rejectWithAbortReason();
-        else request.signal.addEventListener('abort', rejectWithAbortReason, {
-          once: true,
-        });
-      });
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
-    const pending = syncDrupalRow({
-      button_action: 'sync_drupal',
-      item_id: 'row-1',
-      push_media: false,
-      scope: 'all',
-    });
-    const rejection = expect(pending).rejects.toThrow(
-      `timeout of ${String(DRUPAL_SYNC_TIMEOUT_MS)}ms exceeded`,
-    );
-
-    await vi.advanceTimersByTimeAsync(DRUPAL_SYNC_TIMEOUT_MS);
-    await rejection;
   });
 });

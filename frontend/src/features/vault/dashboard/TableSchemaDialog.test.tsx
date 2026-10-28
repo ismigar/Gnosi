@@ -11,7 +11,7 @@ vi.mock('../schema/SchemaConfigModal', () => ({ SchemaConfigModal: (props: Schem
 vi.mock('../../../shared/api/vaults', () => ({ createVaultTable: vi.fn() }));
 
 type Context = ComponentProps<typeof TableSchemaDialog>['dashboard'];
-const viewConfig: SaveOptions = { enableSubitems: false, visibleProperties: ['Title', 'Status'], enableTranslation: false, enableDrupalSync: false, drupalBundle: '', drupalFieldMapping: {}, functionalities: [] };
+const viewConfig: SaveOptions = { enableSubitems: false, visibleProperties: ['Title', 'Status'], enableTranslation: false, functionalities: [] };
 const schema = (options: string[]) => ({ Title: 'title', Title_config: { id: 'title' }, Status: 'status', Status_config: { id: 'status', options } });
 let root: Root;
 let container: HTMLDivElement;
@@ -81,6 +81,21 @@ describe('consecutive table schema saves', () => {
     it('persists view configuration when the visible fields actually change', async () => {
         await saveCallback()(schema(['Done']), { ...viewConfig, visibleProperties: ['Title'] });
         expect(context.handleUpdateView).toHaveBeenCalledWith(expect.objectContaining({ id: 'view', visibleProperties: ['Title'] }));
+    });
+
+    it('preserves historical settings and unrelated table metadata on a regular schema save', async () => {
+        const historic = {
+            drupal_sync_enabled: true, drupal_bundle: 'historic',
+            drupal_field_mapping: { title: 'title_old' }, extension: { keep: ['nested', false, null] },
+        };
+        const table = context.registry.tables[0];
+        if (!table) throw new Error('Missing synthetic table');
+        Object.assign(table, historic);
+        await act(async () => { root.render(<TableSchemaDialog dashboard={context} />); await Promise.resolve(); });
+        expect(captured.props).not.toHaveProperty('initialEnableDrupalSync');
+        expect(captured.props).not.toHaveProperty('initialDrupalBundle');
+        await saveCallback()(schema(['Done']), viewConfig);
+        expect(vi.mocked(createVaultTable).mock.calls.at(-1)?.[0]).toMatchObject(historic);
     });
 });
 

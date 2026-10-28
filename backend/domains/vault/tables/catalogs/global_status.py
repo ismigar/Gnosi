@@ -16,7 +16,6 @@ from backend.domains.vault.tables.catalogs.seeds import (
     BASE_STATUS_SEED,
     DEFAULT_STATUS_GROUPS,
     STATUS_CATALOG_REF,
-    STATUS_PUBLISHED_DRUPAL,
     STATUS_PUBLISHED_SOCIAL,
     STATUS_TRANSLATED,
 )
@@ -72,8 +71,6 @@ def _wanted_statuses(members: list[StatusMember]) -> list[Seed]:
     wanted = list(BASE_STATUS_SEED)
     if any(table.get("translation_enabled") for table, _ in members):
         wanted.append((STATUS_TRANSLATED, "En curs"))
-    if any(table.get("drupal_sync_enabled") for table, _ in members):
-        wanted.append((STATUS_PUBLISHED_DRUPAL, "Final"))
     if any(table_has_social_column(table) for table, _ in members):
         wanted.append((STATUS_PUBLISHED_SOCIAL, "Final"))
     return wanted

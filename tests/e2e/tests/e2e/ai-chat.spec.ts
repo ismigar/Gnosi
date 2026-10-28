@@ -75,9 +75,6 @@ test.describe('AI Chat', () => {
     await dismissReleaseNotes(page);
     const textarea = chatTextarea(page);
     await page.getByRole('button', { name: chatLauncherRegex }).click();
-    if (!(await textarea.isVisible())) {
-      await page.getByRole('button', { name: chatLauncherRegex }).click();
-    }
     await expect(textarea).toBeVisible({ timeout: 5_000 });
     return textarea;
   };
@@ -245,6 +242,7 @@ test.describe('AI Chat', () => {
     });
 
     await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await openChatPanel(page);
     await deletedCheckpoint;
   });
 });

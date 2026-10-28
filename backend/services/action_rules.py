@@ -1,7 +1,6 @@
 """Declarative action rules per table (`table.action_rules` block).
 
-They govern explicit button actions (translate, sync with Drupal,
-publish to XXSS) according to the `vault_option_catalogs_action_rules.md` directive:
+They govern explicit button actions (translate and publish to social media) according to the `vault_option_catalogs_action_rules.md` directive:
 
   * `requires`: conditions to be ABLE to execute the action, with `reason` for the
     disabled button's tooltip and for the backend's 409.
@@ -30,7 +29,6 @@ JsonMap: TypeAlias = RegistryData
 Property: TypeAlias = RegistryData
 
 ACTION_TRANSLATE = "translate_row"
-ACTION_SYNC_DRUPAL = "sync_drupal"
 ACTION_PUBLISH_SOCIAL = "publish_social"
 
 # Default seeds (directive §3.3). They are written to the registry when the table
@@ -51,18 +49,6 @@ DEFAULT_ACTION_RULES: dict[str, JsonMap] = {
         },
         "on_stale": [{"target": "translations", "role": "status", "set": oc.STATUS_DRAFT}],
     },
-    ACTION_SYNC_DRUPAL: {
-        "requires": [
-            {
-                "role": "status",
-                "not_in": [oc.STATUS_DRAFT],
-                "reason": "No es pot sincronitzar un esborrany",
-            }
-        ],
-        "effects": {
-            "source": [{"role": "status", "set": oc.STATUS_PUBLISHED_DRUPAL}],
-        },
-    },
     ACTION_PUBLISH_SOCIAL: {
         "requires": [
             {
@@ -81,8 +67,6 @@ DEFAULT_ACTION_RULES: dict[str, JsonMap] = {
 def _action_enabled(table: JsonMap, action: str) -> bool:
     if action == ACTION_TRANSLATE:
         return bool(table.get("translation_enabled"))
-    if action == ACTION_SYNC_DRUPAL:
-        return bool(table.get("drupal_sync_enabled"))
     if action == ACTION_PUBLISH_SOCIAL:
         return oc.table_has_social_column(table)
     return False
@@ -105,7 +89,7 @@ def ensure_action_rules(table: JsonMap) -> bool:
     default block for each active feature that doesn't yet have one. Never
     overwrites an existing block (it's hand-editable in the registry)."""
     changed = False
-    for action in (ACTION_TRANSLATE, ACTION_SYNC_DRUPAL, ACTION_PUBLISH_SOCIAL):
+    for action in (ACTION_TRANSLATE, ACTION_PUBLISH_SOCIAL):
         if not _action_enabled(table, action):
             continue
         rules = table.setdefault("action_rules", {})

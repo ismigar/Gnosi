@@ -1,7 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-10-13
+last_verified: 2026-10-28
 source_paths:
+  - backend/api/booking_routes.py
+  - backend/domains/booking
+  - backend/models/booking.py
+  - frontend/src/features/booking
+  - frontend/src/shared/api/booking.ts
   - backend/api/calendar_routes.py
   - backend/domains/calendar/geocoding.py
   - backend/api/meeting_routes.py
@@ -12,6 +17,12 @@ source_paths:
   - frontend/src/features/calendar
   - frontend/src/features/meetings
 tests:
+  - backend/tests/test_booking_availability.py
+  - backend/tests/test_booking_local_recurrence.py
+  - backend/tests/test_booking_reservations.py
+  - frontend/src/features/booking/BookingPage.test.tsx
+  - frontend/src/features/booking/bookingModel.test.ts
+  - frontend/src/shared/api/booking.test.ts
   - frontend/src/features/meetings/MeetingControls.test.tsx
   - frontend/src/features/meetings/public-entry.test.ts
   - frontend/src/features/calendar/page/CalendarPage.test.tsx

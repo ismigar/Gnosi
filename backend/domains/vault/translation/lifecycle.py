@@ -3,17 +3,13 @@
 from __future__ import annotations
 
 import importlib as _legacy_importlib
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
-import httpx
 from fastapi import BackgroundTasks
 
-from backend.domains.vault.drupal.fields import DrupalFieldDependencies
-from backend.domains.vault.drupal.media import DrupalUploadDependencies
 from backend.domains.vault.schemas.pages import PageSaveRequest
-from backend.domains.vault.registry.records import RecordReader
 from backend.domains.vault.translation.adapters import DetectLanguage
 from backend.domains.vault.translation.types import Metadata, Result, TranslateText
 
@@ -21,49 +17,6 @@ if TYPE_CHECKING:
     from backend.api import vault_routes as _legacy
 else:
     _legacy = _legacy_importlib.import_module("backend.api.vault_routes")
-
-
-class DrupalConnector(Protocol):
-    """Real connector capabilities consumed by lazy Drupal factories."""
-
-    @property
-    def DrupalSyncError(self) -> type[Exception]: ...
-
-    @property
-    def DrupalNotFound(self) -> type[Exception]: ...
-
-    def _client(self) -> httpx.AsyncClient: ...
-
-    def base_url(self) -> str: ...
-
-    async def list_fields(self, bundle: str, /) -> Sequence[RecordReader]: ...
-
-    async def find_nodes_by_title(self, bundle: str, title: str, /) -> Sequence[RecordReader]: ...
-
-    async def create_node(
-        self, bundle: str, attributes: object, relationships: object = None, /,
-        *, langcode: object = None,
-    ) -> object: ...
-
-    async def update_node(
-        self, uuid: object, bundle: str, attributes: object, relationships: object = None, /,
-    ) -> object: ...
-
-    async def add_translation(self, uuid: object, langcode: object, fields: object, /) -> object: ...
-
-    def markdown_to_full_html(self, md: str, /) -> str: ...
-
-    async def find_existing_file(
-        self, filename: str, filesize: int | None = None, /
-    ) -> object: ...
-
-    async def upload_image(
-        self, bundle: str, field_name: str, filename: str, data: bytes, /
-    ) -> object: ...
-
-    async def resolve_or_create_term(
-        self, vocabulary: str, name: str, /, *, cache: dict[str, object] | None = None
-    ) -> object: ...
 
 
 def _read_deepl_key() -> str:
@@ -336,64 +289,4 @@ async def _do_translate_row(
         deepl_api_key=deepl_api_key,
         background_tasks=background_tasks,
         dependencies=_ROW_TRANSLATION_DEPENDENCIES,
-    )
-
-
-def _drupal_client_module() -> DrupalConnector:
-    """Resolve the compatibility connector lazily for optional Drupal usage."""
-    from backend.services import drupal_sync_service as drupal
-
-    return drupal
-
-
-_DRUPAL_PATH_DEPENDENCIES = _legacy.drupal_media.DrupalPathDependencies(
-    assets_root=lambda: _legacy.get_p("ASSETS"),
-    home_path=lambda: _legacy.Path(
-        _legacy.os.environ.get("HOME_HOST_PATH") or _legacy.os.path.expanduser("~")
-    ),
-)
-_DRUPAL_MARKDOWN_DEPENDENCIES = _legacy.drupal_markdown.DrupalMarkdownDependencies(
-    active_vault_path=lambda: _legacy.get_active_vault_path(),
-    page_state=_legacy.page_state,
-    find_page=lambda page_id: _legacy.find_page_path(page_id),
-    parse_frontmatter=lambda raw, path: _legacy.parse_frontmatter(raw, path),
-    markdown_to_html=lambda markdown: _legacy._drupal_client_module().markdown_to_full_html(
-        markdown
-    ),
-)
-_DRUPAL_LANGUAGE_DEPENDENCIES = _legacy.drupal_languages.DrupalLanguageDependencies(
-    client=lambda: _legacy._drupal_client_module()._client(),
-    detect_record_lang_raw=lambda metadata: _legacy.detect_record_lang_raw(metadata),
-    detect_record_source_lang=lambda metadata: _legacy.detect_record_source_lang(metadata),
-    logger=_legacy.log,
-)
-
-
-def _drupal_upload_dependencies() -> DrupalUploadDependencies:
-    drupal = _legacy._drupal_client_module()
-    return _legacy.drupal_media.DrupalUploadDependencies(
-        resolve_local_path=lambda value: _legacy._drupal_resolve_local_path(value),
-        materialize=lambda path, label: _legacy._materialize_if_online_only(path, label),
-        shrink_pdf=lambda data, filename: _legacy._drupal_shrink_pdf(data, filename),
-        shrink_image=lambda data, filename: _legacy._drupal_shrink_image(data, filename),
-        find_existing_file=lambda filename, size: drupal.find_existing_file(filename, size),
-        upload_image=lambda bundle, field, filename, data: drupal.upload_image(
-            bundle, field, filename, data
-        ),
-    )
-
-
-def _drupal_field_dependencies() -> DrupalFieldDependencies:
-    drupal = _legacy._drupal_client_module()
-    return _legacy.drupal_fields.DrupalFieldDependencies(
-        sync_error=drupal.DrupalSyncError,
-        markdown_to_html=lambda markdown, cache: _legacy._drupal_md_to_html(markdown, cache),
-        read_prop_value=lambda metadata, prop: _legacy._drupal_read_prop_value(metadata, prop),
-        upload_field_image=lambda value, bundle, field, metadata, cache: (
-            _legacy._drupal_upload_field_image(value, bundle, field, metadata, cache)
-        ),
-        resolve_or_create_term=lambda vocabulary, name, cache: drupal.resolve_or_create_term(
-            vocabulary, name, cache=cache
-        ),
-        coerce_scalar=lambda value, field_type: _legacy._drupal_coerce_scalar(value, field_type),
     )
