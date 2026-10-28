@@ -534,7 +534,7 @@ never reconstructs the glyph using a platform font.
 
 Local development installations that replace bundled components must finish with
 `desktop/scripts/local_install_retention.py`; this is separate from the released
-DMG/Sparkle updater. A successful install keeps one compressed rollback archive.
+DMG/Sparkle updater. A successful install keeps one compressed rollback archive. The declared component set may be any nonempty subset of the known components; original signature metadata remains inventory-bound even when the desktop shell is preserved.
 The helper verifies its SHA-256 and the complete original archive inventory before
 retiring recognized redundant installation payloads. It never deletes the installed
 app, application profiles, Vaults, databases, source, logs or verification evidence.

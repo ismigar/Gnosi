@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-12
+last_verified: 2026-10-28
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -666,4 +666,4 @@ Les instal·lacions locals de components acaben amb `desktop/scripts/local_insta
 
 Quan el procés de pantalla es tanca inesperadament, el backend continua actiu. Un diàleg natiu traduït permet reobrir la pantalla i registra només el motiu, el codi de sortida i la data a `renderer-exits.jsonl`. Es comprova que la finestra continuï oberta abans de recuperar-la; els esdeveniments duplicats comparteixen un únic diàleg.
 
-Una actualització registrada de la carcassa d’escriptori pot incloure també `app.asar` i les metadades d’integritat anteriors d’`Info.plist`. La finalització només els accepta si estan declarats i coincideixen amb l’inventari; els rebuts anteriors de components continuen sent compatibles.
+La finalització local admet qualsevol conjunt no buit de components coneguts i declarats. La còpia de signatura també pot incloure l’`Info.plist` original encara que no s’hagi substituït `app.asar`; cada fitxer ha de coincidir exactament amb l’inventari registrat.

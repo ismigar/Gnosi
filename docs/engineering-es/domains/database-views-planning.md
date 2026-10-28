@@ -102,6 +102,8 @@ tests:
 
 Las actualizaciones de la tabla conservan los lotes cargados, el registro y la columna activos, y la identidad y el cursor de los campos que siguen presentes. Abrir un registro conserva la tabla de origen, la selección, las filas desplegadas y ambos ejes de desplazamiento. Volver a una celda existente conserva su columna y posición visible. Si un registro desaparece o queda filtrado, se selecciona una celda disponible sin quitar el foco a otro editor; una vista vacía limpia la celda activa y el ancla.
 
+La identidad de las filas sigue los descriptores actuales aunque las medidas del virtualizador lleguen más tarde. Una actualización muestra el registro seleccionado si se ha movido a un grupo o padre contraído, respetando las contracciones explícitas del usuario. El cierre de varias pestañas solo activa pestañas que siguen presentes después de los cierres anteriores.
+
 ## Modelo de conocimiento estructurado
 
 Una base de datos de Gnosi es una capa de esquema y vistas sobre páginas,

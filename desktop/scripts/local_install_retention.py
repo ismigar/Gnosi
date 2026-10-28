@@ -175,9 +175,12 @@ def derived_paths(install, original):
     staged = load(install / 'staged.json')
     result = load(install / 'installation-result.json')
     require(staged.get('source_commit') == result['source_commit'], 'Stage source mismatch')
-    components = tuple(staged.get('components', {}))
-    require(set(components) in (set(COMPONENTS), set(COMPONENTS) | {'app.asar'}),
+    declared = staged.get('components')
+    require(isinstance(declared, dict) and bool(declared) and
+            set(declared).issubset(set(COMPONENTS) | {'app.asar'}) and
+            all(isinstance(entries, dict) for entries in declared.values()),
             'Unknown stage components')
+    components = tuple(declared)
     candidates = []
     for name in ('stage', 'rollback-components', 'rollback-signature'):
         directory = install / name
@@ -208,8 +211,7 @@ def derived_paths(install, original):
                             (stat.S_ISDIR(token[2]) and scaffold), 'Foreign rollback component')
                 else:
                     first = rel.split('/')[0]
-                    require(first in ('Gnosi', '_CodeSignature') or
-                            (first == 'Info.plist' and 'app.asar' in components),
+                    require(first in ('Gnosi', '_CodeSignature') or rel == 'Info.plist',
                             'Foreign signature rollback entry')
                     key = ('Contents/MacOS/' if first == 'Gnosi' else 'Contents/') + rel
                 expected = original.get(key)
