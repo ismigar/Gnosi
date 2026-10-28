@@ -28,11 +28,13 @@ export function useDocumentTabs(context: Context) {
                 ? { ...current, isArmed: true } : current);
             const originTab = remainingTabs.find(tab => tab.id === origin.tabId);
             if (originTab) {
-                if (!closingTab.kind) pushToHistory(originTab.isTable
-                    ? { type: 'table', id: getTableIdFromTab(originTab), subId: origin.viewId }
-                    : { type: 'editor', id: originTab.id, resourceType: knowledgeDocumentType(originTab) });
+                const originTableId = originTab.isTable ? getTableIdFromTab(originTab) : null;
+                if (!closingTab.kind) {
+                    if (originTableId) pushToHistory({ type: 'table', id: originTableId, subId: origin.viewId });
+                    else if (!originTab.isTable) pushToHistory({ type: 'editor', id: originTab.id, resourceType: knowledgeDocumentType(originTab) });
+                }
                 setActiveTabId(originTab.id);
-                setActiveTableId(originTab.isTable ? getTableIdFromTab(originTab) : null);
+                setActiveTableId(originTableId);
                 setViewMode(originTab.isDrawing ? 'drawing' : 'editor');
                 setSplitTabIds(current => current.filter(id => id !== originTab.id && id !== tabId));
                 return;
