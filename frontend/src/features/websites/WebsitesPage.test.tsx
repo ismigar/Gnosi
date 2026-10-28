@@ -85,6 +85,32 @@ describe('Webs manager', () => {
     view.unmount();
   });
 
+  it('finishes an upload for its original site before creating and selecting another site', async () => {
+    let finish: (asset: { source: string; media_type: string }) => void = () => undefined;
+    vi.mocked(api.uploadSiteThemeAsset).mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    vi.mocked(api.previewSiteImage).mockRejectedValue(new Error('Synthetic thumbnail unavailable'));
+    const nextSite = { ...structuredClone(base), id: 'next-site', name: 'Next site' };
+    vi.mocked(api.createSite).mockResolvedValue(nextSite);
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'appearance');
+    const input = view.container.querySelector<HTMLInputElement>('input[type="file"][accept*=".png"]');
+    if (!input) throw new Error('Missing image upload');
+    Object.defineProperty(input, 'files', { value: [new File(['image'], 'logo.png', { type: 'image/png' })], configurable: true });
+    act(() => { input.dispatchEvent(new Event('change', { bubbles: true })); }); await settle();
+    act(() => { button(view.container, 'websites.createSite').click(); }); await settle();
+    act(() => { changeInput(control(view.container, 'websites.siteName'), 'Next site'); });
+    act(() => { button(view.container, 'websites.create').click(); }); await settle();
+    expect(api.createSite).not.toHaveBeenCalled();
+    expect(control(view.container, 'websites.website').value).toBe(base.id);
+    await act(async () => { finish({ source: '/.gnosi/sites/assets/test-site/logo.png', media_type: 'image/png' }); }); await settle(); await autosave();
+    expect(api.createSite).toHaveBeenCalledOnce();
+    expect(control(view.container, 'websites.website').value).toBe(nextSite.id);
+    const saves = vi.mocked(api.saveSite).mock.calls.map(([site]) => site);
+    expect(saves.some(site => site.id === base.id && site.theme?.logo === '/.gnosi/sites/assets/test-site/logo.png')).toBe(true);
+    expect(saves.some(site => site.id === nextSite.id && site.theme?.logo)).toBe(false);
+    expect(view.container.querySelector('#websites-tab-overview')?.getAttribute('aria-selected')).toBe('true');
+    view.unmount();
+  });
+
   it('withdraws one imported translation using its public identity without selecting a private vault note', async () => {
     const initial = structuredClone(base);
     initial.legacy_pilot = true;

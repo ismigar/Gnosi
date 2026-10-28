@@ -107,3 +107,11 @@ def test_chunked_multipart_is_bounded_before_spooling_the_whole_upload(website, 
         response = client.post("/api/vault/sites/" + website.site.id + "/theme/assets?kind=image", content=chunks(), headers={"Content-Type": "multipart/form-data; boundary=boundary"})
         assert response.status_code == 413
     assert not (website.store.config_root / "assets").exists()
+
+
+@pytest.mark.parametrize("suffix,format_name,media_type", [(".jpg", "JPEG", "image/jpeg"), (".webp", "WEBP", "image/webp"), (".png", "PNG", "image/png")])
+def test_upload_metadata_describes_the_original_image_bytes(website, suffix, format_name, media_type):
+    output = io.BytesIO(); Image.new("RGB", (8, 8), (20, 40, 60)).save(output, format=format_name)
+    source, actual = theme_assets.upload(website.store, website.site, "logo" + suffix, output.getvalue(), "image")
+    assert actual == media_type
+    assert theme_assets.read_asset(website.store, website.site, source) == output.getvalue()

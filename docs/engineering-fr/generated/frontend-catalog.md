@@ -52,7 +52,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2679 | 0 |
-| `features` | 1276 | 137138 | 56 |
+| `features` | 1276 | 137141 | 56 |
 | `generated` | 3 | 57177 | 590 |
 | `shared` | 348 | 37193 | 505 |
 
@@ -1349,7 +1349,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/websites/PrivatePanels.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PrivatePanels.tsx) | 142 | `CampaignsPanel`, `MessagesPanel`, `PrivateSettingsEditor`, `SubscribersPanel` | — |
 | [`frontend/src/features/websites/PublishingPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PublishingPanel.tsx) | 81 | `PublishingPanel` | — |
 | [`frontend/src/features/websites/SourcesEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/SourcesEditor.tsx) | 36 | `SourcesEditor` | — |
-| [`frontend/src/features/websites/ThemeAssetPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/ThemeAssetPicker.tsx) | 53 | `ThemeAssetPicker` | — |
+| [`frontend/src/features/websites/ThemeAssetPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/ThemeAssetPicker.tsx) | 56 | `ThemeAssetPicker` | — |
 | [`frontend/src/features/websites/TypographyPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/TypographyPicker.tsx) | 29 | `TypographyPicker` | — |
 | [`frontend/src/features/websites/WebsiteAutosave.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteAutosave.tsx) | 40 | `AutosaveStatus`, `WebsiteAutosave` | — |
 | [`frontend/src/features/websites/WebsitesPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesPage.tsx) | 228 | `WebsitesPage`, `function` | — |

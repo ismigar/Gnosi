@@ -67,9 +67,11 @@ def upload(store: SiteStore, site: SiteConfig, filename: str, raw: bytes, kind: 
     if not raw or len(raw) > LIMIT:
         raise HTTPException(413, "Choose a nonempty file smaller than 4 MB")
     suffix = Path(filename).suffix.lower()
-    media_type = validate_font(raw, suffix) if kind == "font" else "image/png"
-    if kind != "font":
+    if kind == "font":
+        media_type = validate_font(raw, suffix)
+    else:
         image_preview(raw, suffix)
+        media_type = {"PNG": "image/png", "JPEG": "image/jpeg", "WEBP": "image/webp", "GIF": "image/gif", "ICO": "image/x-icon"}[IMAGE_TYPES[suffix]]
     target = asset_directory(store, site.id) / (hashlib.sha256(raw).hexdigest() + suffix)
     if target.is_symlink():
         raise HTTPException(409, "Invalid website asset file")
