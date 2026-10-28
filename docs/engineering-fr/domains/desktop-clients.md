@@ -1,10 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-09-12
+last_verified: 2026-10-28
 source_paths:
   - pyproject.toml
   - uv.lock
   - desktop/README.md
+  - desktop/scripts/local_install_retention.py
+  - desktop/tests/test_local_install_retention.py
   - desktop/profile-startup.js
   - desktop/profile-preservation.js
   - desktop/cookie-migration.js
@@ -684,3 +686,9 @@ La candidate `3.2.0` ajoute des équipes d’assistants et des rôles spécialis
 Avant la sélection d’un vault, le service empaqueté enregistre la configuration et les migrations de références des fournisseurs dans `GNOSI_DATA_DIR/config/params.yaml`. Les ressources signées de l’application restent en lecture seule ; les requêtes suivantes continuent à enregistrer dans le fichier `.gnosi/params.yaml` du vault actif. Les tests du premier démarrage et du redémarrage doivent vérifier la signature de l’installation après la fermeture de l’app, car un démarrage réussi ne détecte pas à lui seul les écritures dans le paquet.
 
 L’image Docker du frontend inclut le vérificateur partagé des ressources PDF importé par Vite et vérifie son chargement pendant la construction. Cela évite qu’une image construite correctement échoue au démarrage du serveur parce que le vérificateur manque.
+
+Les installations locales de composants se terminent avec `desktop/scripts/local_install_retention.py finalize`. Le plan doit être examiné avant application sous le verrou partagé de l’installateur. Le reçu `install/native-verification.json`, lié à la source et au manifeste, ne peut attester que des vérifications réelles de signature, d’inventaire des composants et de démarrage natif propre. Une installation terminée conserve une archive compressée de récupération vérifiée et retire les éléments dérivés reconnus ; les exécutions incomplètes ou historiques inconnues, les sources, les preuves et les données restent protégées.
+
+Si le processus d’affichage s’arrête de façon inattendue, le backend reste actif. Une boîte de dialogue native traduite permet de rouvrir l’écran et enregistre uniquement le motif, le code de sortie et la date dans `renderer-exits.jsonl`. La récupération vérifie que la fenêtre reste ouverte ; les événements dupliqués partagent une seule boîte de dialogue.
+
+La finalisation locale accepte tout ensemble non vide de composants connus et déclarés. La sauvegarde de signature peut aussi contenir le fichier `Info.plist` original même si `app.asar` n’a pas été remplacé ; chaque fichier doit correspondre exactement à l’inventaire enregistré.

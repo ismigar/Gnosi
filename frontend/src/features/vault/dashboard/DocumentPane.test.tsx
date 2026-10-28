@@ -73,4 +73,43 @@ describe('document pane position', () => {
     mounted.render(tree(true, true));
     expect(document.activeElement).toBe(input);
   });
+  it('captures both current scroll axes before keyboard navigation without waiting for a scroll event', () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1);
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
+    const tree = (visible: boolean) => <DocumentPane paneId="table" visible={visible} active={visible} style={{ width: '100%' }}>
+      <div data-scroll><button>Open record</button></div>
+    </DocumentPane>;
+    const mounted = mountTestComponent(tree(true));
+    const scroll = mounted.container.querySelector<HTMLElement>('[data-scroll]');
+    const button = mounted.container.querySelector('button');
+    if (!scroll || !button) throw new Error('Missing table controls');
+    act(() => {
+      scroll.scrollTop = 725; scroll.scrollLeft = 116;
+      button.dispatchEvent(new KeyboardEvent('keydown', { key: 'o', altKey: true, bubbles: true }));
+    });
+    mounted.render(tree(false));
+    scroll.scrollTop = 0; scroll.scrollLeft = 0;
+    mounted.render(tree(true));
+    expect(scroll.scrollTop).toBe(725); expect(scroll.scrollLeft).toBe(116);
+    mounted.unmount();
+  });
+
+  it('reapplies horizontal scroll after virtual rows restore their measured width', () => {
+    const frames = new Map<number, FrameRequestCallback>(); let id = 0;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => { frames.set(++id, callback); return id; });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(frame => { frames.delete(frame); });
+    const tree = (visible: boolean) => <DocumentPane paneId="virtual" visible={visible} active={visible} style={{ width: '100%' }}><div data-scroll /></DocumentPane>;
+    const mounted = mountTestComponent(tree(true));
+    const scroll = mounted.container.querySelector<HTMLElement>('[data-scroll]');
+    if (!scroll) throw new Error('Missing virtual viewport');
+    act(() => { scroll.scrollLeft = 116; scroll.dispatchEvent(new Event('scroll')); });
+    mounted.render(tree(false)); mounted.render(tree(true));
+    act(() => { const first = [...frames.values()][0]; frames.clear(); first?.(0); });
+    // The first layout pass clamps the offset while only the spacer is present.
+    scroll.scrollLeft = 98.5;
+    act(() => { const second = [...frames.values()][0]; frames.clear(); second?.(0); });
+    expect(scroll.scrollLeft).toBe(116);
+    mounted.unmount();
+  });
+
 });

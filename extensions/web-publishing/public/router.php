@@ -24,6 +24,6 @@ if(str_ends_with($file,'.php')){
  if(!in_array($relative,['api/contact.php','api/newsletter.php'],true)){http_response_code(404);exit;}
  $_SERVER['DOCUMENT_ROOT']=$root;require $file;return;
 }
-$mime=['html'=>'text/html; charset=UTF-8','css'=>'text/css; charset=UTF-8','js'=>'text/javascript; charset=UTF-8','wasm'=>'application/wasm','json'=>'application/json','xml'=>'application/xml; charset=UTF-8','svg'=>'image/svg+xml','png'=>'image/png','jpg'=>'image/jpeg','jpeg'=>'image/jpeg','webp'=>'image/webp','woff2'=>'font/woff2','txt'=>'text/plain; charset=UTF-8','pdf'=>'application/pdf'];
+$mime=['html'=>'text/html; charset=UTF-8','css'=>'text/css; charset=UTF-8','js'=>'text/javascript; charset=UTF-8','wasm'=>'application/wasm','json'=>'application/json','xml'=>'application/xml; charset=UTF-8','svg'=>'image/svg+xml','png'=>'image/png','jpg'=>'image/jpeg','jpeg'=>'image/jpeg','webp'=>'image/webp','woff2'=>'font/woff2','woff'=>'font/woff','ttf'=>'font/ttf','otf'=>'font/otf','ico'=>'image/x-icon','txt'=>'text/plain; charset=UTF-8','pdf'=>'application/pdf'];
 $extension=strtolower(pathinfo($file,PATHINFO_EXTENSION));header('Content-Type: '.($mime[$extension]??'application/octet-stream'));
 readfile($file);

@@ -87,7 +87,7 @@ export function getTableFocusTarget({
   const firstRow = navRows?.[0];
   const firstColumn = gridColumns?.[0];
   if (!firstRow || !firstColumn) return null;
-  return { rowId: firstRow.id, field: firstColumn.key };
+  return { rowId: hasActiveRow ? activeCell.rowId : firstRow.id, field: hasActiveColumn ? activeCell.field : firstColumn.key };
 }
 
 export function getTableRecordFocusPreparation({

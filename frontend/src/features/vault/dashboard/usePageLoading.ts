@@ -15,9 +15,9 @@ import type { DashboardState } from './useDashboardState';
 import type { useDataLoading } from './useDataLoading';
 import type { useNavigationHistory } from './useNavigationHistory';
 import type { useRecordCatalog } from './useRecordCatalog';
-type Context = Pick<DashboardState, 'activeLoadAbortRef' | 'setConsumedRecordReturnFocus' | 'consumedRecordReturnFocusRef' | 'globalIndex' | 'navigate' | 'nestedPath' | 'pageRequestAbortersRef' | 'pageRequestInFlightRef' | 'pages' | 'pagesRef' | 'recordReturnFocusSequenceRef' | 'setActiveTabId' | 'setActiveTableId' | 'setRecordReturnFocus' | 'setTabs' | 'setViewMode' | 't' | 'tabs'> & Pick<ReturnType<typeof useDataLoading>, 'fetchFullPages' | 'fetchPagesByTable'> & Pick<ReturnType<typeof useNavigationHistory>, 'pushToHistory'> & Pick<ReturnType<typeof useRecordCatalog>, 'resolvePageTableId'>;
+type Context = Pick<DashboardState, 'activeTabId' | 'activeLoadAbortRef' | 'setConsumedRecordReturnFocus' | 'consumedRecordReturnFocusRef' | 'globalIndex' | 'navigate' | 'nestedPath' | 'pageRequestAbortersRef' | 'pageRequestInFlightRef' | 'pages' | 'pagesRef' | 'recordReturnFocusSequenceRef' | 'setActiveTabId' | 'setActiveTableId' | 'setRecordReturnFocus' | 'setTabs' | 'setViewMode' | 't' | 'tabs'> & Pick<ReturnType<typeof useDataLoading>, 'fetchFullPages' | 'fetchPagesByTable'> & Pick<ReturnType<typeof useNavigationHistory>, 'pushToHistory'> & Pick<ReturnType<typeof useRecordCatalog>, 'resolvePageTableId'>;
 export function usePageLoading(context: Context) {
-    const { activeLoadAbortRef, consumedRecordReturnFocusRef, setConsumedRecordReturnFocus, fetchFullPages, fetchPagesByTable, globalIndex, navigate, nestedPath, pageRequestAbortersRef, pageRequestInFlightRef, pagesRef, pushToHistory, recordReturnFocusSequenceRef, resolvePageTableId, setActiveTabId, setActiveTableId, setRecordReturnFocus, setTabs, setViewMode, t, tabs } = context;
+    const { activeTabId, activeLoadAbortRef, consumedRecordReturnFocusRef, setConsumedRecordReturnFocus, fetchFullPages, fetchPagesByTable, globalIndex, navigate, nestedPath, pageRequestAbortersRef, pageRequestInFlightRef, pagesRef, pushToHistory, recordReturnFocusSequenceRef, resolvePageTableId, setActiveTabId, setActiveTableId, setRecordReturnFocus, setTabs, setViewMode, t, tabs } = context;
     const fetchPageById = useCallback(async (pageId: string, maxAbortRetries = 1, externalSignal: AbortSignal | null = null): Promise<PageResponse | null> => {
         if (!pageId)
             return null;
@@ -86,7 +86,7 @@ export function usePageLoading(context: Context) {
             }
         }
     }, [pageRequestAbortersRef, pageRequestInFlightRef, t]);
-    const loadPage = useCallback(async function loadPage(pageId: string, fromHistory = false, attempt = 0): Promise<void> {
+    const loadPage = useCallback(async function loadPage(pageId: string, fromHistory = false, attempt = 0, routeSignal?: AbortSignal): Promise<void> {
         if (!pageId)
             return;
         // If the wikilink passed a literal title instead of a UUID
@@ -127,6 +127,7 @@ export function usePageLoading(context: Context) {
                 pageId = resolved;
             }
         }
+        if (routeSignal?.aborted) return;
         const tabId = pageId;
         const existingTab = tabs.find(t => t.id === tabId);
         if (existingTab) {
@@ -157,7 +158,9 @@ export function usePageLoading(context: Context) {
             // We wait for the result of the first call and, when it finishes,
             // setActiveTabId to ensure focus on the new page.
             try {
+                const pendingLoad = activeLoadAbortRef.current;
                 const res = await pageRequestInFlightRef.current.get(pageId);
+                if (pendingLoad?.signal.aborted || routeSignal?.aborted) return;
                 if (res?.data) {
                     const resourceType = knowledgeDocumentType(res.data);
                     setActiveTabId(tabId);
@@ -178,6 +181,9 @@ export function usePageLoading(context: Context) {
         }
         const controller = new AbortController();
         activeLoadAbortRef.current = controller;
+        const abortFromRoute = () => { controller.abort(); };
+        routeSignal?.addEventListener('abort', abortFromRoute, { once: true });
+        if (routeSignal?.aborted) controller.abort();
         try {
             // Opening one page must not wait for the whole vault catalog.
             // Keep enriching links/relations in the background as before.
@@ -217,19 +223,20 @@ export function usePageLoading(context: Context) {
                 if (controller.signal.aborted)
                     return;
                 if (attempt < 2) {
-                    setTimeout(() => { void loadPage(pageId, fromHistory, attempt + 1); }, 400);
+                    setTimeout(() => { void loadPage(pageId, fromHistory, attempt + 1, routeSignal); }, 400);
                     return;
                 }
             }
             notifyError('load-page', err, t('errors.load_page'));
         }
         finally {
+            routeSignal?.removeEventListener('abort', abortFromRoute);
             if (activeLoadAbortRef.current === controller) {
                 activeLoadAbortRef.current = null;
             }
         }
     }, [activeLoadAbortRef, fetchFullPages, fetchPageById, fetchPagesByTable, globalIndex, navigate, nestedPath, pageRequestInFlightRef, pagesRef, pushToHistory, resolvePageTableId, setActiveTabId, setActiveTableId, setTabs, setViewMode, t, tabs]);
-    const openRecordFromView = useCallback((pageId: string, tableId: string | null, viewId: string | null | undefined, openContext: OpenRecordContext | null = null) => {
+    const openRecordFromView = useCallback(async (pageId: string, tableId: string | null, viewId: string | null | undefined, openContext: OpenRecordContext | null = null) => {
         const sourceRecordId = openContext?.returnFocusId;
         if (sourceRecordId && tableId) {
             recordReturnFocusSequenceRef.current += 1;
@@ -242,8 +249,13 @@ export function usePageLoading(context: Context) {
                 isArmed: false,
             });
         }
-        return loadPage(pageId);
-    }, [consumedRecordReturnFocusRef, loadPage, recordReturnFocusSequenceRef, setRecordReturnFocus]);
+        await loadPage(pageId);
+        if (sourceRecordId && tableId) {
+            setTabs(current => current.map(tab => tab.id === pageId
+                ? { ...tab, origin: { tableId, viewId: viewId || null, tabId: activeTabId } }
+                : tab));
+        }
+    }, [activeTabId, consumedRecordReturnFocusRef, loadPage, recordReturnFocusSequenceRef, setRecordReturnFocus, setTabs]);
     const handleRecordFocusRestored = useCallback((requestId?: number) => {
         consumedRecordReturnFocusRef.current = requestId ?? null;
         setConsumedRecordReturnFocus(requestId ?? null);

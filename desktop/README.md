@@ -528,3 +528,59 @@ configured port to test this same parent-to-child contract.
 Icons are rasterized from the font-independent paths in
 `frontend/public/favicon.svg` directly into `desktop/assets/`; the generator
 never reconstructs the glyph using a platform font.
+
+
+## Local component installation retention
+
+Local development installations that replace bundled components must finish with
+`desktop/scripts/local_install_retention.py`; this is separate from the released
+DMG/Sparkle updater. A successful install keeps one compressed rollback archive. The declared component set may be any nonempty subset of the known components; original signature metadata remains inventory-bound even when the desktop shell is preserved.
+The helper verifies its SHA-256 and the complete original archive inventory before
+retiring recognized redundant installation payloads. It never deletes the installed
+app, application profiles, Vaults, databases, source, logs or verification evidence.
+
+The installer must retain `backup-result.json`, `original-inventory.json` and
+`installation-result.json` in its direct `<run>/install/` directory. Complete the
+real native startup/signature/component verification, then write
+`install/native-verification.json` bound to that installed source and manifest:
+
+```json
+{
+  "status": "passed",
+  "source_commit": "<installed source commit>",
+  "app": "<absolute installed application path>",
+  "manifest_sha256": "<SHA-256 of the current reconciled-build.json bytes>",
+  "installation_manifest_sha256": "<manifest_sha256 from installation-result.json>",
+  "signature_verified": true,
+  "components_verified": true,
+  "native_startup_verified": true
+}
+```
+
+These fields record actual checks; do not infer native success from a build or
+HTTP response alone. Preserve the original installation receipt. A changed source,
+manifest, corrupt archive, missing native receipt or busy installation lock stops
+finalization. Failed/incomplete or unknown historical installations are preserved
+and reported rather than assumed disposable.
+
+Run the finalizer from the repository root after the native checks. Supply the
+same explicit Gauntlet root, run and application used by the installer. Preview:
+
+```bash
+python3 desktop/scripts/local_install_retention.py finalize \
+  --root /absolute/repository/.tmp/gauntlet \
+  --run /absolute/repository/.tmp/gauntlet/current-run \
+  --app /Applications/Gnosi.app
+```
+
+Review the reported paths, then repeat with `--apply`. Repeated finalization is
+safe. Deletion is restricted to recognized successful older compressed backups
+and recognized derived `stage`, `rollback-components` and `rollback-signature`
+directories. Retain incomplete recovery material until its installation outcome
+has been resolved. The shared lock is `/private/tmp/gnosi-desktop-install.lock`.
+Candidates are moved atomically into a private installer quarantine before the
+final content checks and deletion. A replacement at an original path is preserved.
+Unexpected or interrupted quarantine contents are retained for investigation;
+never sweep these directories blindly. All installers must honor the shared lock;
+this helper is not a security boundary against arbitrary code running as the same
+user. Do not run an independent recursive cache or backup purge around this procedure.

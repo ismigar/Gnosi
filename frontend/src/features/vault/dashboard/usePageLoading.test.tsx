@@ -18,7 +18,7 @@ it.each([null, 'table-id'])('opens a favorite while catalogs remain pending (tab
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
     const pendingCatalog = new Promise<never>(() => {});
     const context: Parameters<typeof usePageLoading>[0] = {
-        activeLoadAbortRef: { current: null }, consumedRecordReturnFocusRef: { current: null },
+        activeTabId: null, activeLoadAbortRef: { current: null }, consumedRecordReturnFocusRef: { current: null },
         setConsumedRecordReturnFocus: vi.fn(), globalIndex: {}, navigate: vi.fn(), nestedPath: undefined,
         pageRequestAbortersRef: { current: new Map() }, pageRequestInFlightRef: { current: new Map() },
         pages: [], pagesRef: { current: [] }, recordReturnFocusSequenceRef: { current: 0 },

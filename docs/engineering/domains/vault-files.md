@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-10-16
+last_verified: 2026-10-28
 source_paths:
+  - backend/domains/vault/pages/title_metadata.py
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
   - frontend/src/shared/ui/filesystem-picker
@@ -39,6 +40,8 @@ source_paths:
   - frontend/src/shared/bookmarks
   - frontend/src/shared/api/bookmarks.ts
 tests:
+  - backend/tests/test_record_title_roundtrip.py
+  - frontend/src/features/vault/editor/block-editor/page-editor/usePageMetadata.test.tsx
   - backend/tests/test_e2e_option_catalogs.py
   - backend/tests/test_translation_lifecycle_binding_contract.py
   - backend/tests/test_vault_content_search.py
@@ -135,6 +138,8 @@ tests:
 ---
 
 # Vault and files
+
+An explicit record title change updates both the canonical page title and its primary registered title property after field-name normalization. Header edits and property edits share this rule; closing immediately flushes the latest autosave. Ordinary metadata-only edits preserve the title and unrelated fields.
 
 Autosave serializes page writes within the web client. A stale page version returns a conflict (409), not a missing-page error (404), even when the conditional read omits the body. Missing pages still return 404; conflicts never silently overwrite newer content.
 

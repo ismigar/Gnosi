@@ -35,6 +35,15 @@ export function namedPropertyMetadata(metadata: PageMetadata, properties: readon
   return result;
 }
 
+/** Keep the header and the primary registered title property in one snapshot. */
+export function pageTitleMetadata(metadata: PageMetadata, properties: readonly PageProperty[], title: string): PageMetadata {
+  const next = namedPropertyMetadata(metadata, properties);
+  next.title = title;
+  const primaryTitle = properties.find(property => property.type === 'title');
+  if (primaryTitle) next[primaryTitle.name] = title;
+  return next;
+}
+
 export function pagePropertyValue(prop: PageProperty, metadata: PageMetadata, notes: readonly PageNote[], tables: readonly PageTable[]): unknown {
   const stored = storedPropertyValue(metadata, prop);
   const config = pagePropertyConfig(prop);

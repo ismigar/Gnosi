@@ -1121,7 +1121,7 @@ def test_font_preview_only_reads_selected_local_fonts_and_rejects_escapes(websit
     from backend.domains.sites.fonts import preview_font
     from backend.domains.sites.models import SiteFont
     font = website.vault / "sample.woff2"
-    font.write_bytes(b"wOF2" + b"public-font-fixture")
+    font.write_bytes(b"wOF2" + b"\x00" * 4 + (48).to_bytes(4, "big") + b"\x00" * 36)
     secret = website.vault / "not-selected.woff2"
     secret.write_bytes(b"wOF2" + b"NEVER-PREVIEW-UNSELECTED")
     site = website.site.model_copy(deep=True)
@@ -1147,7 +1147,7 @@ def test_font_preview_only_reads_selected_local_fonts_and_rejects_escapes(websit
 def test_font_preview_http_requires_editor_and_never_caches_font_bytes(website, monkeypatch):
     from backend.domains.sites.models import SiteFont
     path = website.vault / "preview.woff2"
-    path.write_bytes(b"wOF2" + b"public-font-fixture")
+    path.write_bytes(b"wOF2" + b"\x00" * 4 + (48).to_bytes(4, "big") + b"\x00" * 36)
     site = website.store.load(website.site.id)
     site.theme.fonts = [SiteFont(family="Preview", src="/preview.woff2")]
     website.store.save(site)

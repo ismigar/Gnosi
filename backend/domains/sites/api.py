@@ -4,20 +4,23 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Annotated
+from urllib.parse import unquote, urlsplit
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from fastapi.responses import Response
 
 from backend.services.plugin_access import require_plugins
 from backend.services.workspace_service import WorkspaceContext, require_role
+
+from backend.domains.sites import theme_upload_route
 
 from . import exporter, newsletter, private_service, publication, runtime
 from .models import (
     CatalogueItem, ConnectionStatus, LocalServeResponse, PrivateServiceRequest, PrivateServiceResponse,
     ServiceSettings, ServiceSettingsResponse, SiteBlock, SiteConfig, SiteCreate, SiteJob, SitePage,
     SitePreview, SitePreviewRequest, SitePublishRequest, SiteRelease, SiteSource, SiteStatus, SiteTarget,
-    SiteTheme, TargetConnection,
+    SiteTheme, SiteThemeAsset, TargetConnection,
 )
 from .storage import SiteStore
 
@@ -168,6 +171,31 @@ def font_preview(site_id: str, source: str, context: Editor) -> Response:
     store = store_for(context)
     raw, media_type = preview_font(store, store.load(site_id), source)
     return Response(raw, media_type=media_type, headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+
+
+async def upload_theme_asset(site_id: str, context: Editor, kind: Literal["image", "font"], file: UploadFile = File(...)) -> SiteThemeAsset:
+    from starlette.concurrency import run_in_threadpool
+    from .theme_assets import LIMIT, upload
+    try:
+        raw = await file.read(LIMIT + 1)
+        def persist() -> tuple[str, str]:
+            store = store_for(context)
+            return upload(store, store.load(site_id), file.filename or "", raw, kind)
+        source, media_type = await run_in_threadpool(persist)
+        return SiteThemeAsset(source=source, media_type=media_type)
+    finally:
+        await file.close()
+
+
+theme_upload_route.register_routes(router, upload_theme_asset)
+
+
+@router.get("/{site_id}/theme/image", response_class=Response, responses={200: {"content": {"image/png": {"schema": {"type": "string", "format": "binary"}}}}})
+def theme_image(site_id: str, source: str, context: Editor) -> Response:
+    from .theme_assets import image_preview, read_asset
+    store = store_for(context)
+    raw = read_asset(store, store.load(site_id), source)
+    return Response(image_preview(raw, Path(unquote(urlsplit(source).path)).suffix.lower()), media_type="image/png", headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
 
 
 @router.get("/{site_id}/theme/history", response_model=list[SiteTheme])

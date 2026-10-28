@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-30
+last_verified: 2026-10-28
 source_paths:
   - extensions/marketplace/build_vault_templates.py
   - extensions/marketplace/catalog_content.py
@@ -407,7 +407,7 @@ La importación de Temenos conserva las URL de adjuntos públicos, años de publ
 
 Se conservan las URL RSS de secciones y etiquetas, los alias XML, los GUID, las fechas y las descripciones completas de los ítems; la navegación de los flujos permanece en el destino seleccionado.
 
-Los controles de tipografía usan el selector compartido con búsqueda y muestran cada opción con su fuente. El endpoint `/api/vault/sites/{site_id}/theme/font`, restringido a editores, sirve solo archivos WOFF/WOFF2 locales guardados y seleccionados explícitamente, sin caché y comprobando el vault o la importación. Las muestras usan nombres de familia aislados y se retiran al cambiar de contexto o cerrar el panel; no modifican los estilos de Gnosi.
+Los controles de tipografía usan el selector compartido con búsqueda y muestran cada opción con su fuente. El endpoint `/api/vault/sites/{site_id}/theme/font`, restringido a editores, sirve solo archivos locales WOFF/WOFF2/TTF/OTF seleccionados o subidos explícitamente al mismo sitio, sin caché y comprobando el vault o la importación. Las muestras usan nombres de familia aislados y se retiran al cambiar de contexto o cerrar el panel; no modifican los estilos de Gnosi. Las muestras cargan como máximo 24 familias y 16 MB, tras una pausa de 200 ms; los cambios ajenos no vuelven a cargarlas.
 
 La configuración de los sitios se guarda automáticamente mediante el escritor de borradores y el indicador de estado compartidos. Las escrituras se serializan, las respuestas anteriores conservan las nuevas ediciones y las revisiones se actualizan tras confirmar el guardado. La revisión y la publicación esperan los cambios pendientes; los errores conservan el borrador y permiten reintentar. La configuración privada y las conexiones también se guardan solas; publicar y enviar campañas siguen siendo acciones explícitas.
 
@@ -416,3 +416,5 @@ Los correos capturados se leen desde la cola mediante `captured_get` y `captured
 Los borradores del boletín se guardan automáticamente por web y destino en la tabla privada `newsletter_drafts`, con control de revisiones. El recurso de administración `/sites/{site_id}/newsletter` ofrece solo título, URL, idioma y extracto de la versión publicada activa. La revisión compone una plantilla de resumen o lectura destacada con introducción y hasta 20 páginas únicas ordenadas, HTML escapado, texto equivalente y enlaces al destino publicado. Una publicación modificada, una entrada retirada u otro idioma exigen revisar la selección. Se mantienen el saneamiento PHP, el tema del correo y la revisión de destinatarios antes de ponerlo explícitamente en cola. Editar invalida la revisión. También hay modo HTML/texto manual. Los borradores quedan fuera del vault, los archivos públicos y la restauración del sitio.
 
 Cada conexión SSH del servicio privado de Pangea permite hasta tres intentos ante desconexiones transitorias anteriores a cualquier contraseña u orden. Las sesiones se serializan hasta cerrar el proceso SSH; la espera, la autenticación, las pausas y las órdenes comparten un único plazo de 45 segundos. Si persiste una interrupción de transporte identificada, las consultas (estado, listas, exportaciones y correos capturados) pueden reiniciarse una vez automáticamente dentro del mismo plazo y turno de conexión. Los errores de clave de host, autenticación, permisos, servicio o respuesta inválida no activan esta recuperación. Las modificaciones, las vistas previas de campañas, los envíos a la cola y las acciones sobre enlaces capturados no se repiten tras una respuesta incierta. Véanse `backend/domains/sites/bounded_bridge.py`, `backend/domains/sites/pangea.py` y las pruebas de recuperación.
+
+Logo, favicon y tipografías se eligen subiendo archivos (máximo 4 MB); las imágenes muestran una miniatura con transparencia. `POST /api/vault/sites/{site_id}/theme/assets` recibe los archivos con acceso restringido a editores. Las referencias se guardan automáticamente. El selector busca tipografías del sistema y WOFF/WOFF2/TTF/OTF propias; las fuentes del sistema pueden variar según el dispositivo. Los archivos están aislados por sitio y solo se publican al seleccionarlos. Webs abre la configuración sin esperar el catálogo, que se carga en Contenidos o Páginas y se reutiliza hasta refrescar.

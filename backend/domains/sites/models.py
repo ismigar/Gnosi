@@ -112,6 +112,11 @@ class SiteFont(Contract):
     style: Literal["normal", "italic"] = "normal"
 
 
+class SiteThemeAsset(Contract):
+    source: str
+    media_type: str
+
+
 class SiteTheme(Contract):
     schema_version: Literal[1] = 1
     name: str = "Temenos"

@@ -54,3 +54,9 @@ textarea.websites-input{resize:vertical;min-height:80px}
 
 .websites-font-sample{font-size:16px;line-height:1.5;overflow-wrap:anywhere}
 .websites-color>[class*=relative]{width:100%;min-width:0}
+
+.websites-asset-picker { display: grid; gap: 0.6rem; min-width: 0; }
+.websites-asset-thumbnail { width: auto; height: auto; max-width: min(100%, 320px); max-height: 120px; object-fit: contain; border: 1px solid var(--border-primary); border-radius: 8px; padding: 8px; background: var(--bg-primary); }
+.websites-asset-name { overflow-wrap: anywhere; }
+
+.websites-appearance .websites-grid { align-items: start; }

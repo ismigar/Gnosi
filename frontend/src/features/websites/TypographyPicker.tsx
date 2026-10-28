@@ -11,6 +11,10 @@ export function TypographyPicker({ label, value, fonts, aliases, onChange }: { l
     ['system-ui, sans-serif', t('websites.fontSystem')], ['serif', t('websites.fontSerif')],
     ['sans-serif', t('websites.fontSans')], ['monospace', t('websites.fontMono')],
   ]);
+  for (const family of ['Arial', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Helvetica', 'Georgia', 'Times New Roman', 'Palatino', 'Baskerville', 'Didot', 'Courier New', 'Menlo', 'Monaco', 'Consolas', 'Lucida Grande', 'Impact']) {
+    const generic = ['Georgia', 'Times New Roman', 'Palatino', 'Baskerville', 'Didot'].includes(family) ? 'serif' : ['Courier New', 'Menlo', 'Monaco', 'Consolas'].includes(family) ? 'monospace' : 'sans-serif';
+    options.set(primaryFamily(value) === family ? value : `${JSON.stringify(family)}, ${generic}`, family);
+  }
   const fallback = value.includes(',') ? value.slice(value.indexOf(',') + 1).trim() : 'sans-serif';
   for (const family of [...new Set(fonts.filter(font => font.src).map(font => font.family).filter(Boolean))].sort()) {
     options.set(primaryFamily(value) === family ? value : `${JSON.stringify(family)}, ${fallback}`, family);

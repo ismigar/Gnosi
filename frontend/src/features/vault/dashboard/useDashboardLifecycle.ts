@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef } from 'react';
+import { useEffect, useEffectEvent, useLayoutEffect, useRef } from 'react';
 import { subscribeDocumentEvent, subscribeWindowEvent } from '../../../shared/platform/browser-events';
 import { writeStorage } from '../../../shared/platform/browser-storage';
 import { getTableIdFromTab } from './tab-model';
@@ -6,6 +6,12 @@ import { EDIT_LOCKS } from './storage';
 import type { DashboardActions } from './useDashboardActions';
 export function useDashboardLifecycle(context: DashboardActions) {
     const { nestedPath, registry, activeTableId, visibleTableRecordsById, pages, loading, isRegistryLoading, activeTabId, viewMode, editLockedByPageId, activeLoadAbortRef, pageRequestAbortersRef, fetchPagesRetryTimerRef } = context;
+    const routeControllerRef = useRef<AbortController | null>(null);
+    useLayoutEffect(() => {
+        const controller = new AbortController();
+        routeControllerRef.current = controller;
+        return () => { controller.abort(); };
+    }, [nestedPath]);
     const initializedRef = useRef(false);
     const synchronizedPathRef = useRef<string | undefined>(undefined);
     const initialize = useEffectEvent(() => {
@@ -55,7 +61,7 @@ export function useDashboardLifecycle(context: DashboardActions) {
         else if ((parts[0] === 'page' || parts[0] === 'dashboard') && parts[1]) {
             const pageId = parts.slice(1).join('/');
             if (activeTabId !== pageId)
-                void loadPage(pageId, true);
+                void loadPage(pageId, true, 0, routeControllerRef.current?.signal);
         }
         else if (parts[0] === 'drawing') {
             const drawingId = parts.slice(1).join('/');
@@ -76,7 +82,7 @@ export function useDashboardLifecycle(context: DashboardActions) {
             else if (!table) {
                 const page = pagesRef.current.find(candidate => candidate.id === id);
                 if (page)
-                    void loadPage(page.id, true);
+                    void loadPage(page.id, true, 0, routeControllerRef.current?.signal);
             }
         }
     });

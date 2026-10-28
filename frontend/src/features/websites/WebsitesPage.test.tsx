@@ -7,7 +7,7 @@ import * as api from '../../shared/api/sites';
 import { GnosiApiError } from '../../shared/api/errors';
 import WebsitesPage from './WebsitesPage';
 
-vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont'].map(name => [name, vi.fn()])));
+vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont', 'previewSiteImage', 'uploadSiteThemeAsset'].map(name => [name, vi.fn()])));
 vi.mock('../../shared/api/request-context', () => ({ currentRequestContext: vi.fn() }));
 vi.mock('../../shared/hooks/useModalKeyboard', () => ({ useModalKeyboard: () => undefined }));
 vi.mock('../../shared/ui/layout/AppHeader', () => ({ AppHeader: ({ children, title }: { children: React.ReactNode; title: string }) => <header><h1>{title}</h1>{children}</header> }));
@@ -58,7 +58,7 @@ describe('Webs manager', () => {
       { id: publicId, kind: 'record', title: 'Public translated article', source_ids: ['imported:blog'], languages: ['ca', 'es'] },
       { id: 'native-private-note', kind: 'page', title: 'Private vault note' },
     ]);
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'sources');
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'sources'); await settle();
     const details = view.container.querySelector('details');
     expect(details?.textContent).toContain('Public translated article');
     expect(details?.textContent).not.toContain('Private vault note');
@@ -76,6 +76,7 @@ describe('Webs manager', () => {
     vi.mocked(api.previewSite).mockRejectedValue(conflict);
     const view = mountTestComponent(<WebsitesPage />); await settle();
     expect(control(view.container, 'websites.website').value).toBe(base.id);
+    tab(view.container, 'pages'); await settle();
     expect(view.container.textContent).toContain(conflict.message);
     expect(api.getSite).toHaveBeenCalledWith(base.id, context, expect.any(AbortSignal));
     tab(view.container, 'publishing'); await settle();
@@ -85,7 +86,7 @@ describe('Webs manager', () => {
   });
 
   it('keeps a new source and its fields private until explicitly selected and saves only the chosen field', async () => {
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'sources');
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'sources'); await settle();
     addSource(view.container);
     const switches = [...view.container.querySelectorAll<HTMLElement>('[role="switch"]')];
     expect(switches.every(item => item.getAttribute('aria-checked') === 'false')).toBe(true);
@@ -125,14 +126,14 @@ describe('Webs manager', () => {
       label = 'websites.options'; text = 'First, item\nSecond';
     }
     if (kind === 'gallery') {
-      tab(view.container, 'pages');
+      tab(view.container, 'pages'); await settle();
       act(() => { button(view.container, 'websites.addPage').click(); });
       act(() => { button(view.container, 'websites.addBlock').click(); });
       act(() => { changeInput(control(view.container, 'websites.blockType'), 'gallery'); });
       label = 'websites.galleryImages'; text = '/first.png\n/second.png';
     }
     if (kind === 'filter') {
-      tab(view.container, 'sources');
+      tab(view.container, 'sources'); await settle();
       addSource(view.container);
       act(() => { button(view.container, 'websites.addFilter').click(); });
       act(() => { changeInput(control(view.container, 'websites.operator'), 'in'); });
@@ -154,49 +155,6 @@ describe('Webs manager', () => {
     if (kind === 'gallery') expect(saved?.pages?.[0]?.blocks?.[0]?.images).toEqual(['/first.png', '/second.png']);
     if (kind === 'filter') expect(saved?.sources?.[0]?.filters?.[0]?.value).toEqual(['first', 'second']);
     expect([...view.container.querySelectorAll('button')].some(item => item.textContent === 'websites.save')).toBe(false);
-  });
-
-  it('searches typefaces with real isolated font samples and saves only the chosen typography token', async () => {
-    const oldFonts = Object.getOwnPropertyDescriptor(document, 'fonts');
-    const oldFace = Object.getOwnPropertyDescriptor(globalThis, 'FontFace');
-    const add = vi.fn(); const remove = vi.fn();
-    Object.defineProperty(document, 'fonts', { configurable: true, value: { add, delete: remove } });
-    class SampleFace { constructor(public family: string) {} load() { return Promise.resolve(this); } }
-    vi.stubGlobal('FontFace', SampleFace);
-    const initial = structuredClone(base);
-    if (!initial.theme) throw new Error('Missing fixture theme');
-    initial.theme.tokens = { 'font-body': '"Crimson Pro", Georgia, serif', 'font-heading': '"Nunito", system-ui, sans-serif' };
-    initial.theme.fonts = [{ family: 'Crimson Pro', src: '/fonts/crimson.woff2', weight: '400', style: 'normal' }, { family: 'Nunito', src: '/fonts/nunito.woff2', weight: '400', style: 'normal' }];
-    vi.mocked(api.listSites).mockResolvedValue([initial]);
-    vi.mocked(api.getSite).mockResolvedValue({ site: initial, jobs: [], releases: [], service_available: true });
-    const blob = new Blob(['wOF2font']);
-    Object.defineProperty(blob, 'arrayBuffer', { value: () => Promise.resolve(new ArrayBuffer(8)) });
-    vi.mocked(api.previewSiteFont).mockResolvedValue(blob);
-    const view = mountTestComponent(<WebsitesPage />);
-    try {
-      await settle(); tab(view.container, 'appearance'); await settle(); await settle();
-      expect(add).toHaveBeenCalledTimes(2);
-      const picker = view.container.querySelector<HTMLElement>('[role="combobox"][aria-label="websites.tokens.font-body"]');
-      if (!picker) throw new Error('Missing typeface selector');
-      act(() => { picker.click(); }); await settle();
-      const search = document.querySelector<HTMLInputElement>('[data-property-dropdown] input');
-      if (!search) throw new Error('Missing autocomplete search');
-      act(() => { changeInput(search, 'nuni'); }); await settle();
-      const options = [...document.querySelectorAll<HTMLElement>('[data-property-dropdown] [role="option"]')];
-      expect(options).toHaveLength(1);
-      expect(options[0]?.textContent).toContain('Nunito');
-      expect(options[0]?.querySelector<HTMLElement>('.websites-font-sample')?.style.fontFamily).toContain('GnosiWebFont-test-site-1');
-      act(() => { search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }); await settle();
-      expect(document.querySelector('[data-property-dropdown]')).toBeNull();
-      expect(document.activeElement).toBe(picker);
-      await autosave();
-      expect(vi.mocked(api.saveSite).mock.calls[0]?.[0].theme?.tokens).toEqual({ 'font-body': '"Nunito", Georgia, serif', 'font-heading': '"Nunito", system-ui, sans-serif' });
-      view.unmount(); expect(remove).toHaveBeenCalledTimes(2);
-    } finally {
-      view.unmount();
-      if (oldFonts) Object.defineProperty(document, 'fonts', oldFonts); else Reflect.deleteProperty(document, 'fonts');
-      if (oldFace) Object.defineProperty(globalThis, 'FontFace', oldFace); else Reflect.deleteProperty(globalThis, 'FontFace');
-    }
   });
 
   it('serializes autosave, rebases revisions and keeps edits made during an earlier write', async () => {

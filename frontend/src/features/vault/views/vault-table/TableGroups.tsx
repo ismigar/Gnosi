@@ -55,7 +55,7 @@ export function createGroupRenderers(model: TableController) {
     const collapsed = !expandedGroups.has(d.groupKey);
     return (
       <tr
-        key={`group-${d.groupKey}-${String(virtualItem.index)}`}
+        key={virtualItem.key}
         data-index={virtualItem.index}
         ref={rowVirtualizer.measureElement}
         className="border-b border-[var(--border-primary)] bg-[var(--bg-primary)]"
@@ -96,7 +96,7 @@ export function createGroupRenderers(model: TableController) {
     };
     return (
       <tr
-        key={`gfoot-${d.groupKey}-${String(virtualItem.index)}`}
+        key={virtualItem.key}
         data-index={virtualItem.index}
         ref={rowVirtualizer.measureElement}
         className="border-b border-[var(--border-primary)] bg-[var(--bg-primary)] text-[11px] text-[var(--text-secondary)]"

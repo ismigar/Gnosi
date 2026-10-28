@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-30
+last_verified: 2026-10-28
 source_paths:
   - extensions/marketplace/build_vault_templates.py
   - extensions/marketplace/catalog_content.py
@@ -471,7 +471,7 @@ La importació de Temenos conserva les URL dels adjunts públics, els anys de pu
 
 Es conserven les URL RSS de seccions i etiquetes, els àlies XML, els GUID, les dates i les descripcions completes dels ítems; la navegació dels fluxos continua dins de la destinació seleccionada.
 
-Els controls de tipografia utilitzen el selector compartit amb cerca i mostren cada opció amb la seva font. L’endpoint `/api/vault/sites/{site_id}/theme/font`, restringit a editors, serveix només fitxers WOFF/WOFF2 locals desats i seleccionats explícitament, sense memòria cau i amb comprovació del vault o de la importació. Les mostres utilitzen noms de família aïllats i es retiren quan canvia el context o es tanca el panell; no modifiquen els estils de Gnosi.
+Els controls de tipografia utilitzen el selector compartit amb cerca i mostren cada opció amb la seva font. L’endpoint `/api/vault/sites/{site_id}/theme/font`, restringit a editors, serveix només fitxers locals WOFF/WOFF2/TTF/OTF seleccionats o pujats explícitament al mateix web, sense memòria cau i amb comprovació del vault o de la importació. Les mostres utilitzen noms de família aïllats i es retiren quan canvia el context o es tanca el panell; no modifiquen els estils de Gnosi. Les mostres carreguen com a màxim 24 famílies i 16 MB, després d’una pausa de 200 ms; els canvis aliens no les tornen a carregar.
 
 La configuració dels webs es desa automàticament amb el desador d’esborranys i l’indicador d’estat compartits. Les escriptures es fan en sèrie, les respostes anteriors conserven les edicions noves i les revisions s’actualitzen després de confirmar el desament. La revisió i la publicació esperen els canvis pendents; els errors conserven l’esborrany i permeten reintentar-lo. La configuració privada i les connexions també es desen soles; publicar i enviar campanyes continuen sent accions explícites.
 
@@ -480,3 +480,5 @@ Els correus capturats es poden llegir des de la cua amb les operacions privades 
 Els esborranys de butlletí es desen automàticament per web i destinació a la taula privada `newsletter_drafts`, amb control de revisions. El recurs d’administració `/sites/{site_id}/newsletter` ofereix només títol, URL, idioma i extracte de la versió publicada activa. La revisió compon una plantilla de resum o lectura destacada amb introducció i fins a 20 pàgines úniques ordenades, HTML escapat, text equivalent i enllaços a la destinació publicada. Una publicació modificada, una entrada retirada o un altre idioma exigeixen revisar la selecció. Es mantenen el sanejament PHP, el tema del correu i la revisió de destinataris abans de posar-lo a la cua explícitament. Editar invalida la revisió. També hi ha mode HTML/text manual. Els esborranys queden fora del vault, dels fitxers públics i de la restauració del web.
 
 Cada connexió SSH del servei privat de Pangea permet fins a tres intents davant de desconnexions transitòries anteriors a qualsevol contrasenya o ordre. Les sessions se serialitzen fins al tancament del procés SSH; l’espera, l’autenticació, les pauses i les ordres comparteixen un únic termini de 45 segons. Si persisteix un tall de transport identificat, les consultes (estat, llistes, exportacions i correus capturats) es poden reiniciar una vegada automàticament dins del mateix termini i torn de connexió. Els errors de clau d’host, autenticació, permisos, servei o resposta invàlida no activen aquesta recuperació. Les modificacions, les previsualitzacions de campanyes, els enviaments a la cua i les accions sobre enllaços capturats no es repeteixen després d’una resposta incerta. Vegeu `backend/domains/sites/bounded_bridge.py`, `backend/domains/sites/pangea.py` i les proves de recuperació.
+
+Logo, favicon i tipografies es trien pujant fitxers (màxim 4 MB); les imatges mostren una miniatura amb transparència. `POST /api/vault/sites/{site_id}/theme/assets` rep els fitxers amb accés restringit a editors. Les referències es desen automàticament. El selector cerca tipografies del sistema i WOFF/WOFF2/TTF/OTF propis; les fonts del sistema poden variar segons el dispositiu. Els uploads estan aïllats per web i només es publiquen en seleccionar-los. Webs obre la configuració sense esperar el catàleg, que es carrega a Continguts o Pàgines i es reutilitza fins a refrescar.
