@@ -260,4 +260,3 @@ def server_status(site_id: str, target_id: str, context: Admin) -> LocalServeRes
 def stop_server(site_id: str, target_id: str, context: Admin) -> LocalServeResponse:
     store = store_for(context)
     return runtime.stop_server(store, store.load(site_id), target_id)
-
