@@ -34,7 +34,7 @@ export function Card({ title, children, actions }: { title: string; children: Re
 export function Empty({ children }: { children: ReactNode }) { return <p className="websites-empty">{children}</p>; }
 export function FileImportButton({ label, accept, disabled = false, onFile }: { label: string; accept: string; disabled?: boolean; onFile: (file: File) => void }) {
   const input = useRef<HTMLInputElement>(null);
-  return <><button type="button" className="websites-button" disabled={disabled} onClick={() => { input.current?.click(); }}>{label}</button><input ref={input} type="file" accept={accept} disabled={disabled} hidden aria-label={label} onChange={event => { const file = event.target.files?.[0]; if (file) onFile(file); event.target.value = ''; }} /></>;
+  return <><button type="button" className="websites-button" aria-label={label} disabled={disabled} onClick={() => { input.current?.click(); }}>{label}</button><input ref={input} type="file" accept={accept} disabled={disabled} hidden aria-label={label} onChange={event => { const file = event.target.files?.[0]; if (file) onFile(file); event.target.value = ''; }} /></>;
 }
 export function ReorderActions({ index, length, move, remove }: { index: number; length: number; move: (direction: -1 | 1) => void; remove: () => void }) {
   const { t } = useTranslation();

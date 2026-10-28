@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-10-16
+last_verified: 2026-10-28
 source_paths:
+  - backend/domains/vault/pages/title_metadata.py
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
   - frontend/src/shared/ui/filesystem-picker
@@ -39,6 +40,8 @@ source_paths:
   - frontend/src/shared/bookmarks
   - frontend/src/shared/api/bookmarks.ts
 tests:
+  - backend/tests/test_record_title_roundtrip.py
+  - frontend/src/features/vault/editor/block-editor/page-editor/usePageMetadata.test.tsx
   - backend/tests/test_e2e_option_catalogs.py
   - backend/tests/test_translation_lifecycle_binding_contract.py
   - backend/tests/test_vault_content_search.py
@@ -135,6 +138,8 @@ tests:
 ---
 
 # Vault y archivos
+
+Un cambio explícito del título de un registro actualiza tanto el título canónico de la página como su propiedad principal de título registrada, después de normalizar los nombres de los campos. La cabecera y las propiedades comparten esta regla; el cierre inmediato envía el último autoguardado. Los cambios solo de metadatos conservan el título y los demás campos.
 
 El autoguardado serializa las escrituras de página dentro del cliente web. Una versión obsoleta devuelve un conflicto (409), no un error de página inexistente (404), aunque la lectura condicional omita el cuerpo. Las páginas inexistentes siguen devolviendo 404; los conflictos no sobrescriben silenciosamente contenido más reciente.
 

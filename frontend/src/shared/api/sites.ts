@@ -128,3 +128,15 @@ export async function previewSiteFont(siteId: string, source: string, context: R
     params: { path: { site_id: siteId }, query: { source } }, parseAs: 'blob', ...scope(context, signal),
   }));
 }
+
+export async function uploadSiteThemeAsset(siteId: string, file: File, kind: 'image' | 'font', context: RequestContext, signal?: AbortSignal) {
+  const body = new FormData(); body.append('file', file);
+  return unwrapApiResult(await apiClient.POST('/api/vault/sites/{site_id}/theme/assets', {
+    params: { path: { site_id: siteId }, query: { kind } }, body: { file: '' }, bodySerializer: () => body, ...scope(context, signal),
+  }));
+}
+export async function previewSiteImage(siteId: string, source: string, context: RequestContext, signal?: AbortSignal): Promise<Blob> {
+  return unwrapApiResult<Blob, unknown>(await apiClient.GET('/api/vault/sites/{site_id}/theme/image', {
+    params: { path: { site_id: siteId }, query: { source } }, parseAs: 'blob', ...scope(context, signal),
+  }));
+}

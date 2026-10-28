@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-10-11
+last_verified: 2026-10-28
 source_paths:
+  - frontend/src/features/vault/dashboard
+  - frontend/src/features/vault/views/vault-table
+  - frontend/src/features/vault/views/tableRecordFocusUtils.ts
   - frontend/src/shared/records/model/subitems.ts
   - frontend/src/features/vault/views/RecordSubitemProvider.tsx
   - frontend/src/shared/record-views/RecordSubitemAction.tsx
@@ -52,6 +55,10 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/dashboard/DashboardContent.test.tsx
+  - frontend/src/features/vault/dashboard/DocumentPane.test.tsx
+  - frontend/src/features/vault/views/vault-table/refreshContinuity.test.tsx
+  - frontend/src/features/vault/views/vault-table/rowKeys.test.ts
   - frontend/src/features/vault/view-config/PageViewModal.pinned-order.test.tsx
   - frontend/src/shared/filtering/exposedFilters.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx
@@ -92,6 +99,10 @@ tests:
 ---
 
 # Vues de bases de données et planification de projets
+
+Les actualisations du tableau conservent les lots chargés, l’enregistrement et la colonne actifs, ainsi que l’identité et le curseur des champs encore présents. Ouvrir un enregistrement conserve son tableau d’origine, la sélection, les lignes dépliées et les deux axes de défilement. Revenir à une cellule existante conserve sa colonne et sa position visible. Les enregistrements supprimés ou filtrés utilisent une cellule disponible sans prendre le focus d’un autre éditeur ; une vue vide efface la cellule active et l’ancre.
+
+L’identité des lignes suit les descripteurs actuels même si les mesures du virtualiseur arrivent plus tard. Une actualisation révèle l’enregistrement sélectionné déplacé dans un groupe ou parent replié, tout en respectant les replis explicites de l’utilisateur. La fermeture de plusieurs onglets active uniquement les onglets encore présents après les fermetures précédentes.
 
 ## Modèle de connaissances structurées
 

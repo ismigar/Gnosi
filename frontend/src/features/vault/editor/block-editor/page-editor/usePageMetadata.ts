@@ -1,4 +1,4 @@
-import { isPagePropertyReadOnly, namedPropertyMetadata } from './propertyModel';
+import { isPagePropertyReadOnly, namedPropertyMetadata, pageTitleMetadata } from './propertyModel';
 import type { ChangeEvent } from 'react';
 import type { PageMetadata, PagePatch, SaveMetadataOptions } from './types';
 import { relationInput } from './valueBoundaries';
@@ -12,9 +12,9 @@ import { useCallback } from 'react';
 import { useEffect } from 'react';
 import { withoutRelationValue } from '../../../properties/relationItemUtils';
 import type { usePageEditorState } from './usePageEditorState';
-type Input = Pick<ReturnType<typeof usePageEditorState>, 'allTables' | 'isEditor' | 'noteFilename' | 'metaSaveInFlightRef' | 'pendingMetaRef' | 'pendingRemoveKeysRef' | 'setSaveStatus' | 't' | 'metadata' | 'onUpdate' | 'metadataRef' | 'metaSaveTimerRef' | 'setMetadata' | 'onUpdatePageMetadata'>;
+type Input = Pick<ReturnType<typeof usePageEditorState>, 'allTables' | 'isEditor' | 'noteFilename' | 'metaSaveInFlightRef' | 'pendingMetaRef' | 'pendingRemoveKeysRef' | 'setSaveStatus' | 't' | 'onUpdate' | 'metadataRef' | 'metaSaveTimerRef' | 'setMetadata' | 'onUpdatePageMetadata'>;
 export function usePageMetadata(state: Input) {
-  const { allTables, isEditor, noteFilename, metaSaveInFlightRef, pendingMetaRef, pendingRemoveKeysRef, setSaveStatus, t, metadata, onUpdate, metadataRef, metaSaveTimerRef, setMetadata, onUpdatePageMetadata } = state;
+  const { allTables, isEditor, noteFilename, metaSaveInFlightRef, pendingMetaRef, pendingRemoveKeysRef, setSaveStatus, t, onUpdate, metadataRef, metaSaveTimerRef, setMetadata, onUpdatePageMetadata } = state;
 
   const _doSaveMetadata = useCallback(async function saveMetadata(currentMetadata: PageMetadata, removeKeys: string[] | null = null): Promise<boolean> {
     if (!noteFilename) return false;
@@ -105,7 +105,11 @@ export function usePageMetadata(state: Input) {
 
   const handleTitleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const nextTitle = e.target.value;
-    const nextMeta = { ...metadata, title: nextTitle };
+    const currentMetadata = metadataRef.current;
+    const tableId = currentMetadata.table_id || currentMetadata.database_table_id || currentMetadata.resolved_table_id;
+    const properties = allTables.find(table => table.id === tableId)?.properties || [];
+    const nextMeta = pageTitleMetadata(currentMetadata, properties, nextTitle);
+    metadataRef.current = nextMeta;
     setMetadata(nextMeta);
     onUpdate?.(noteFilename, undefined, { title: nextTitle, metadata: nextMeta });
     handleSaveMetadata(nextMeta);
@@ -118,7 +122,10 @@ export function usePageMetadata(state: Input) {
     const properties = allTables.find(table => table.id === tableId)?.properties || [];
     const property = properties.find(prop => prop.name === key || prop.id === key);
     if (property && isPagePropertyReadOnly(property)) return;
-    const nextMeta = { ...namedPropertyMetadata(currentMetadata, properties), [property?.name || key]: value };
+    const primaryTitle = properties.find(prop => prop.type === 'title');
+    const nextMeta = property && property === primaryTitle && typeof value === 'string'
+      ? pageTitleMetadata(currentMetadata, properties, value)
+      : { ...namedPropertyMetadata(currentMetadata, properties), [property?.name || key]: value };
     metadataRef.current = nextMeta;
     setMetadata(nextMeta);
     // Icon and cover are discrete actions (a single click): skip the

@@ -40,6 +40,7 @@ interface TableRecord {
 
 interface TableRecordFocusPreparationInput {
   batchSize: number;
+  childrenMap?: Readonly<Record<string, readonly TableRecord[]>> | null;
   enableSubitems?: boolean;
   expandedGroups?: ReadonlySet<string> | null;
   expandedRows?: ReadonlySet<TableKey> | null;
@@ -87,12 +88,13 @@ export function getTableFocusTarget({
   const firstRow = navRows?.[0];
   const firstColumn = gridColumns?.[0];
   if (!firstRow || !firstColumn) return null;
-  return { rowId: firstRow.id, field: firstColumn.key };
+  return { rowId: hasActiveRow ? activeCell.rowId : firstRow.id, field: hasActiveColumn ? activeCell.field : firstColumn.key };
 }
 
 export function getTableRecordFocusPreparation({
   recordId,
   notes,
+  childrenMap,
   sortedNotes,
   enableSubitems,
   expandedRows,
@@ -105,17 +107,36 @@ export function getTableRecordFocusPreparation({
   const target = (notes || []).find((note) => note.id === recordId);
   if (!target) return { status: 'missing' };
 
-  const parentId = enableSubitems
-    ? target.metadata?.parent_id ||
-      target.parent_id ||
-      target.metadata?.source_parent_id ||
-      null
-    : null;
-  if (parentId && !expandedRows?.has(parentId)) {
-    return { status: 'expand-parent', parentId };
+  const records = new Map((notes || []).map(note => [note.id, note]));
+  const renderedParents = childrenMap ? new Map<TableKey, string>() : null;
+  if (renderedParents && childrenMap) {
+    const visibleIds = new Set((sortedNotes || []).map(note => note.id));
+    for (const [parentId, children] of Object.entries(childrenMap)) {
+      for (const child of children) {
+        renderedParents.set(child.id, parentId);
+        visibleIds.add(child.id);
+      }
+    }
+    if (!visibleIds.has(recordId)) return { status: 'missing' };
   }
+  const visited = new Set<TableKey>([recordId]);
+  const parentIds: TableKey[] = [];
+  let rootRecord = target;
+  let rootRecordId = recordId;
+  while (enableSubitems) {
+    const parentId = renderedParents ? renderedParents.get(rootRecord.id)
+      : (rootRecord.metadata?.parent_id || rootRecord.parent_id || rootRecord.metadata?.source_parent_id || null);
+    if (typeof parentId !== 'string' || !parentId || visited.has(parentId)) break;
+    visited.add(parentId);
+    parentIds.unshift(parentId);
+    rootRecordId = parentId;
+    const parent = records.get(parentId);
+    if (!parent) break;
+    rootRecord = parent;
+  }
+  const collapsedParent = parentIds.find(parentId => !expandedRows?.has(parentId));
+  if (collapsedParent !== undefined) return { status: 'expand-parent', parentId: collapsedParent };
 
-  const rootRecordId = parentId || recordId;
   const rootIndex = (sortedNotes || []).findIndex(
     (note) => note.id === rootRecordId,
   );
@@ -128,7 +149,7 @@ export function getTableRecordFocusPreparation({
   }
 
   if (groupByField) {
-    const metadata = target.metadata || {};
+    const metadata = rootRecord.metadata || {};
     const rawValue = Object.prototype.hasOwnProperty.call(
       metadata,
       groupByField,

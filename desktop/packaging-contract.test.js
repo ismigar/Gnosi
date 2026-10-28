@@ -117,6 +117,7 @@ test('the packaged archive check accepts normalized Windows entries', () => {
     '\\installer-cleanup.js',
     '\\vault-startup.js',
     '\\startup-errors.js',
+    '\\renderer-recovery.js',
     '\\profile-startup.js',
     '\\cookie-schema-guard.js',
     '\\cookie-schema.js',

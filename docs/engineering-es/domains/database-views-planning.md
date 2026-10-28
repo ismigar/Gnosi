@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-10-11
+last_verified: 2026-10-28
 source_paths:
+  - frontend/src/features/vault/dashboard
+  - frontend/src/features/vault/views/vault-table
+  - frontend/src/features/vault/views/tableRecordFocusUtils.ts
   - frontend/src/shared/records/model/subitems.ts
   - frontend/src/features/vault/views/RecordSubitemProvider.tsx
   - frontend/src/shared/record-views/RecordSubitemAction.tsx
@@ -52,6 +55,10 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/dashboard/DashboardContent.test.tsx
+  - frontend/src/features/vault/dashboard/DocumentPane.test.tsx
+  - frontend/src/features/vault/views/vault-table/refreshContinuity.test.tsx
+  - frontend/src/features/vault/views/vault-table/rowKeys.test.ts
   - frontend/src/features/vault/view-config/PageViewModal.pinned-order.test.tsx
   - frontend/src/shared/filtering/exposedFilters.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx
@@ -92,6 +99,10 @@ tests:
 ---
 
 # Vistas de bases de datos y planificación de proyectos
+
+Las actualizaciones de la tabla conservan los lotes cargados, el registro y la columna activos, y la identidad y el cursor de los campos que siguen presentes. Abrir un registro conserva la tabla de origen, la selección, las filas desplegadas y ambos ejes de desplazamiento. Volver a una celda existente conserva su columna y posición visible. Si un registro desaparece o queda filtrado, se selecciona una celda disponible sin quitar el foco a otro editor; una vista vacía limpia la celda activa y el ancla.
+
+La identidad de las filas sigue los descriptores actuales aunque las medidas del virtualizador lleguen más tarde. Una actualización muestra el registro seleccionado si se ha movido a un grupo o padre contraído, respetando las contracciones explícitas del usuario. El cierre de varias pestañas solo activa pestañas que siguen presentes después de los cierres anteriores.
 
 ## Modelo de conocimiento estructurado
 

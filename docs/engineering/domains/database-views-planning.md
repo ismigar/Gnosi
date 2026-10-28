@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-10-11
+last_verified: 2026-10-28
 source_paths:
+  - frontend/src/features/vault/dashboard
+  - frontend/src/features/vault/views/vault-table
+  - frontend/src/features/vault/views/tableRecordFocusUtils.ts
   - frontend/src/shared/records/model/subitems.ts
   - frontend/src/features/vault/views/RecordSubitemProvider.tsx
   - frontend/src/shared/record-views/RecordSubitemAction.tsx
@@ -52,6 +55,10 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/dashboard/DashboardContent.test.tsx
+  - frontend/src/features/vault/dashboard/DocumentPane.test.tsx
+  - frontend/src/features/vault/views/vault-table/refreshContinuity.test.tsx
+  - frontend/src/features/vault/views/vault-table/rowKeys.test.ts
   - frontend/src/features/vault/view-config/PageViewModal.pinned-order.test.tsx
   - frontend/src/shared/filtering/exposedFilters.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx
@@ -92,6 +99,10 @@ tests:
 ---
 
 # Database views and project planning
+
+Table refreshes retain loaded batches, the active record and column, and surviving input identity and caret. Opening a record retains its originating inline table, including selection, expanded rows and both scroll axes. Returning to an existing cell preserves its column and viewport. Removed or filtered records use a surviving-cell fallback without stealing another editor’s focus; an empty view clears the active cell and anchor.
+
+Row identity follows the current descriptors even while virtualizer measurements lag. Refreshes reveal an existing selected record moved into a collapsed group or parent, while explicit user collapses remain respected. Batched tab closures promote only tabs still present after preceding closures.
 
 ## Structured knowledge model
 

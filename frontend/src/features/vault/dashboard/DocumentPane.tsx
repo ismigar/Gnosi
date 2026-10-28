@@ -63,8 +63,13 @@ export function DocumentPane({ children, paneId, visible, active, style }: {
     // visible editor and its nested record views.
     restorationFrame.current = requestAnimationFrame(() => {
       restoreScroll();
-      restorationFrame.current = null;
-      restoring.current = false;
+      // Virtual rows can mount after the first resize notification. Their
+      // columns may widen again after a hidden layout temporarily clamped X.
+      restorationFrame.current = requestAnimationFrame(() => {
+        restoreScroll();
+        restorationFrame.current = null;
+        restoring.current = false;
+      });
     });
     return cancelRestoration;
   }, [visible, active, cancelRestoration]);
@@ -81,7 +86,7 @@ export function DocumentPane({ children, paneId, visible, active, style }: {
       onFocusCapture={event => { rememberTarget(event.target, true); }}
       onPointerDownCapture={event => { cancelRestoration(); rememberTarget(event.target, false); }}
       onClickCapture={event => { cancelRestoration(); rememberTarget(event.target, false); }}
-      onKeyDownCapture={cancelRestoration}
+      onKeyDownCapture={event => { cancelRestoration(); rememberTarget(event.target, false); }}
       onScrollCapture={event => {
         if (visible && event.target instanceof HTMLElement) rememberScroll(event.target);
       }}

@@ -29,7 +29,7 @@ vi.mock('../views/GalleryCardPreview', () => ({
   }}>p. 6</a>,
 }));
 vi.mock('./EditorPane', () => ({ EditorPane: TestEditorPane }));
-vi.mock('./TablePane', () => ({ TablePane: ({ tableId }: { tableId: string }) => <div data-table={tableId} /> }));
+vi.mock('./TablePane', () => ({ TablePane: TestInlineTable }));
 vi.mock('../drawings/TldrawEditor', () => ({ default: () => <div>Drawing</div> }));
 
 const notes = ['one', 'two', 'three'].map(id => ({ id, title: id, metadata: { type: 'Summary' } }));
@@ -40,6 +40,12 @@ function TestEditorPane({ dashboard, tabId }: { dashboard: DashboardController; 
   }, [tabId]);
   if (dashboard.tabs.find(tab => tab.id === tabId)?.isPdf) return <button data-pdf onClick={() => { dashboard.handleTabClose(tabId); }}>Back</button>;
   return <VaultGallery notes={notes} schema={{ properties: [{ name: 'type', type: 'select' }] }} activeView={{ id: 'notes', groupBy: 'type', galleryPreview: 'content', cardSize: 'full' }} viewStateScope={tabId} />;
+}
+
+function TestInlineTable({ tableId }: { tableId: string }) {
+  return <div data-table={tableId} data-inline-scroll tabIndex={-1}>
+    <input aria-label="Table draft" defaultValue="preserved text" />
+  </div>;
 }
 
 let harness: Awaited<ReturnType<typeof renderController>> | undefined;
@@ -141,4 +147,36 @@ describe('document tab continuity', () => {
     expect(lifecycle.unmount).toHaveBeenCalledWith(PAGE_ID);
     expect(harness?.container.querySelector(`[data-document-pane="tab:${PAGE_ID}"]`)).toBeNull();
   });
+});
+
+it.each([{ method: 'breadcrumb', strict: false }, { method: 'close', strict: false }, { method: 'close', strict: true }] as const)('keeps inline table state through $method (strict=$strict)', async ({ method, strict }) => {
+  harness = await renderController('', controller => <DashboardContent {...controller} />, strict);
+  await harness.run(state => state.handleTableSelect('table', 'main'));
+  await harness.run(() => Promise.resolve());
+  const pane = required('[data-document-pane="inline:table"]');
+  const scroll = required('[data-inline-scroll]');
+  const input = pane.querySelector<HTMLInputElement>('input');
+  if (!input) throw new Error('Missing table draft');
+  act(() => {
+    input.focus(); input.setSelectionRange(2, 6);
+    scroll.scrollTop = 620; scroll.scrollLeft = 180;
+    scroll.dispatchEvent(new Event('scroll'));
+  });
+  await harness.run(state => state.openRecordFromView(PAGE_ID, 'table', 'main', { returnFocusId: PAGE_ID }));
+  expect(harness.current.tabs.find(tab => tab.id === PAGE_ID)?.origin).toEqual({ tableId: 'table', viewId: 'main', tabId: null });
+  expect(pane.hidden).toBe(true); expect(pane.hasAttribute('inert')).toBe(true);
+  expect(required('[data-inline-scroll]')).toBe(scroll);
+  await harness.run(state => {
+    if (method === 'close') state.handleTabClose(PAGE_ID);
+    else state.returnToTableFromBreadcrumb('table', 'main');
+  });
+  await harness.run(() => new Promise(resolve => { window.setTimeout(resolve, 0); }));
+  expect(harness.current.viewMode).toBe('table');
+  expect(harness.current.nestedPath).toBe('table/table/view/main');
+  expect(harness.current.activeTabId).toBeNull();
+  if (method === 'close') expect(harness.current.tabs.some(tab => tab.id === PAGE_ID)).toBe(false);
+  expect(pane.hidden).toBe(false);
+  expect(pane.querySelector('input')).toBe(input);
+  expect(input.selectionStart).toBe(2); expect(input.selectionEnd).toBe(6);
+  expect(scroll.scrollTop).toBe(620); expect(scroll.scrollLeft).toBe(180);
 });

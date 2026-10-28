@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-10-16
+last_verified: 2026-10-28
 source_paths:
+  - backend/domains/vault/pages/title_metadata.py
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
   - frontend/src/shared/ui/filesystem-picker
@@ -39,6 +40,8 @@ source_paths:
   - frontend/src/shared/bookmarks
   - frontend/src/shared/api/bookmarks.ts
 tests:
+  - backend/tests/test_record_title_roundtrip.py
+  - frontend/src/features/vault/editor/block-editor/page-editor/usePageMetadata.test.tsx
   - backend/tests/test_e2e_option_catalogs.py
   - backend/tests/test_translation_lifecycle_binding_contract.py
   - backend/tests/test_vault_content_search.py
@@ -135,6 +138,8 @@ tests:
 ---
 
 # Vault i fitxers
+
+Un canvi explícit del títol d’un registre actualitza tant el títol canònic de la pàgina com la propietat principal de títol registrada, després de normalitzar els noms dels camps. La capçalera i les propietats comparteixen aquesta regla; el tancament immediat força l’últim autodesament. Els canvis només de metadades conserven el títol i els altres camps.
 
 L’autoguardat serialitza les escriptures de pàgina dins del client web. Una versió obsoleta retorna un conflicte (409), no un error de pàgina inexistent (404), encara que la lectura condicional ometi el cos. Les pàgines inexistents continuen retornant 404; els conflictes no sobreescriuen silenciosament contingut més recent.
 

@@ -67,6 +67,15 @@ describe('page loading and tabs', () => {
     expect(harness.current.viewMode).toBe('table');
     expect(harness.current.splitTabIds).toEqual([]);
   });
+  it.each([['c', 'a'], ['a', 'c']])('keeps a valid promoted tab after batched closes %s then %s', async (first, second) => {
+    await harness.run(state => {
+      state.setTabs(['a', 'b', 'c'].map(id => ({ id, title: id })));
+      state.setActiveTabId('a');
+    });
+    await harness.run(state => { state.handleTabClose(first); state.handleTabClose(second); });
+    expect(harness.current.tabs.map(tab => tab.id)).toEqual(['b']);
+    expect(harness.current.activeTabId).toBe('b');
+  });
   it('preserves the four-pane ceiling', async () => {
     await harness.run(state => {
       state.setActiveTabId(PAGE_ID);

@@ -10563,6 +10563,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/sites/{site_id}/theme/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Theme Asset */
+        post: operations["upload_theme_asset_api_vault_sites__site_id__theme_assets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/sites/{site_id}/theme/export": {
         parameters: {
             query?: never;
@@ -10606,6 +10623,23 @@ export interface paths {
         };
         /** Theme History */
         get: operations["theme_history_api_vault_sites__site_id__theme_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/theme/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Theme Image */
+        get: operations["theme_image_api_vault_sites__site_id__theme_image_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -13995,6 +14029,11 @@ export interface components {
              * @default
              */
             dest_folder: string;
+            /** File */
+            file: string;
+        };
+        /** Body_upload_theme_asset_api_vault_sites__site_id__theme_assets_post */
+        Body_upload_theme_asset_api_vault_sites__site_id__theme_assets_post: {
             /** File */
             file: string;
         };
@@ -26238,6 +26277,13 @@ export interface components {
             tokens?: {
                 [key: string]: string;
             };
+        };
+        /** SiteThemeAsset */
+        SiteThemeAsset: {
+            /** Media Type */
+            media_type: string;
+            /** Source */
+            source: string;
         };
         /**
          * SkillActivation
@@ -52454,6 +52500,50 @@ export interface operations {
             };
         };
     };
+    upload_theme_asset_api_vault_sites__site_id__theme_assets_post: {
+        parameters: {
+            query: {
+                kind: "image" | "font";
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_theme_asset_api_vault_sites__site_id__theme_assets_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteThemeAsset"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     export_theme_api_vault_sites__site_id__theme_export_get: {
         parameters: {
             query?: never;
@@ -52557,6 +52647,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteTheme"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    theme_image_api_vault_sites__site_id__theme_image_get: {
+        parameters: {
+            query: {
+                source: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
                 };
             };
             /** @description Validation Error */

@@ -10,10 +10,10 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Àrea | Recompte |
 | --- | ---: |
-| Backend Python files | 1757 |
-| Backend Python test files | 680 |
-| Frontend JS/TS source files | 2374 |
-| Frontend unit test files | 726 |
+| Backend Python files | 1762 |
+| Backend Python test files | 682 |
+| Frontend JS/TS source files | 2381 |
+| Frontend unit test files | 730 |
 | Registered FastAPI routers | 42 |
 | Pipeline skill contracts | 17 |
 | Development-memory directives | 24 |
@@ -22,10 +22,10 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Àrea | Fitxers | Abast funcional |
 | --- | ---: | --- |
-| `backend/` | 1879 | FastAPI, services, models, agents, scheduling, and storage adapters |
-| `frontend/src/` | 2479 | React application, UI behavior, state, and browser integrations |
+| `backend/` | 1884 | FastAPI, services, models, agents, scheduling, and storage adapters |
+| `frontend/src/` | 2486 | React application, UI behavior, state, and browser integrations |
 | `pipeline/` | 106 | Reusable development and application skills, and deterministic processing tools |
-| `desktop/` | 129 | Desktop lifecycle, backend packaging, IPC, and updates |
+| `desktop/` | 133 | Desktop lifecycle, backend packaging, IPC, and updates |
 | `extensions/` | 99 | Office, browser, plugin, marketplace, and external-system adapters |
 | `tests/e2e/` | 54 | Host-level Playwright acceptance tests |
 | `scripts/` | 44 | Native, self-host, release, and maintenance scripts |

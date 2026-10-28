@@ -12,6 +12,7 @@ from pathlib import Path
 from fastapi import BackgroundTasks, HTTPException
 
 from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.pages.title_metadata import apply_explicit_title
 from backend.domains.vault.pages.patch_helpers import apply_patch_request
 from backend.domains.vault.pages.patch_helpers import PatchReadResult as PatchReadResult
 from backend.domains.vault.schemas.pages import PagePatchRequest
@@ -122,6 +123,7 @@ async def patch_page(
             content = requested_content if requested_content is not None else body
 
             metadata, _table = dependencies.prepare_metadata(metadata, file_path)
+            apply_explicit_title(metadata, _table, request.title)
             metadata["id"] = page_id
             file_path = dependencies.relocate_file(
                 page_id,

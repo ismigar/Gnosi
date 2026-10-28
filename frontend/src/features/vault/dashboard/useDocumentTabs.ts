@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 import { toast } from '../../../shared/notifications/toast';
 import { knowledgeDocumentType } from '../../../shared/routing/vaultRouting';
 import { getTableIdFromTab } from './tab-model';
@@ -6,68 +6,77 @@ import type { DashboardState } from './useDashboardState';
 import type { useNavigationHistory } from './useNavigationHistory';
 import type { usePageLoading } from './usePageLoading';
 import type { useTableNavigation } from './useTableNavigation';
-type Context = Pick<DashboardState, 'activeTabId' | 'setActiveTabId' | 'setActiveTableId' | 'setSplitTabIds' | 'setSplitTableIds' | 'setTabs' | 'setViewMode' | 'splitTabIds' | 'splitTableIds' | 't' | 'tabs'> & Pick<ReturnType<typeof useNavigationHistory>, 'pushToHistory'> & Pick<ReturnType<typeof usePageLoading>, 'ensurePageTabLoaded' | 'loadPage'> & Pick<ReturnType<typeof useTableNavigation>, 'handleTableSelect'>;
+type Context = Pick<DashboardState, 'activeLoadAbortRef' | 'pageRequestAbortersRef' | 'activeTabId' | 'setActiveTabId' | 'setActiveTableId' | 'setRecordReturnFocus' | 'setSplitTabIds' | 'setSplitTableIds' | 'setTabs' | 'setViewMode' | 'splitTabIds' | 'splitTableIds' | 't' | 'tabs'> & Pick<ReturnType<typeof useNavigationHistory>, 'pushToHistory'> & Pick<ReturnType<typeof usePageLoading>, 'ensurePageTabLoaded' | 'loadPage'> & Pick<ReturnType<typeof useTableNavigation>, 'handleTableSelect'>;
 export function useDocumentTabs(context: Context) {
-    const { activeTabId, ensurePageTabLoaded, handleTableSelect, loadPage, pushToHistory, setActiveTabId, setActiveTableId, setSplitTabIds, setSplitTableIds, setTabs, setViewMode, splitTabIds, splitTableIds, t, tabs } = context;
+    const { activeLoadAbortRef, pageRequestAbortersRef, activeTabId, ensurePageTabLoaded, handleTableSelect, loadPage, pushToHistory, setActiveTabId, setActiveTableId, setRecordReturnFocus, setSplitTabIds, setSplitTableIds, setTabs, setViewMode, splitTabIds, splitTableIds, t, tabs } = context;
     const MAX_PANES = 4;
+    const closeState = useRef({ tabs, splitTabIds, splitTableIds, activeTabId });
+    useLayoutEffect(() => {
+        closeState.current = { tabs, splitTabIds, splitTableIds, activeTabId };
+    }, [tabs, splitTabIds, splitTableIds, activeTabId]);
     const handleTabClose = useCallback((tabId: string) => {
-        setTabs(prevTabs => {
-            const closingTab = prevTabs.find(t => t.id === tabId);
-            const remainingTabs = prevTabs.filter(t => t.id !== tabId);
-            setSplitTabIds(prevSplit => {
-                const remainingSplitTabIds = prevSplit.filter(id => id !== tabId);
-                if (activeTabId === tabId) {
-                    // If we close a document (PDF/EPUB) that remembers where it was
-                    // opened from, we return there instead of the generic "last
-                    // tab" fallback — it's the "go back" the user expected.
-                    const origin = closingTab?.origin;
-                    if (origin && (origin.tableId || origin.tabId)) {
-                        if (origin.tabId && remainingTabs.some(tab => tab.id === origin.tabId)) {
-                            const ot = remainingTabs.find(tab => tab.id === origin.tabId);
-                            setActiveTabId(origin.tabId);
-                            setActiveTableId(ot?.isTable ? getTableIdFromTab(ot) : null);
-                            setViewMode(ot?.isDrawing ? 'drawing' : 'editor');
-                            return remainingSplitTabIds.filter(id => id !== origin.tabId);
-                        }
-                        if (origin.tableId) {
-                            // handleTableSelect fixa activeTableId/viewMode i
-                            // sets activeTabId=null by itself. fromHistory=true:
-                            // going back should not add a new entry to
-                            // the history (the URL is already that of the origin table).
-                            void handleTableSelect(origin.tableId, origin.viewId || null, true);
-                            // We go to the inline table view, which does NOT render
-                            // split panels: we clear splitTabIds so as not to
-                            // leaving them orphaned (invisible until you go back to
-                            // an editor).
-                            return [];
-                        }
-                    }
-                    const promotedPaneId = remainingSplitTabIds.find(id => remainingTabs.some(tab => tab.id === id)) || null;
-                    const fallbackTabId = remainingTabs[remainingTabs.length - 1]?.id || null;
-                    const nextActiveTabId = promotedPaneId || fallbackTabId;
-                    if (nextActiveTabId) {
-                        const nextTab = remainingTabs.find(tab => tab.id === nextActiveTabId);
-                        setActiveTabId(nextActiveTabId);
-                        setActiveTableId(nextTab?.isTable ? getTableIdFromTab(nextTab) : null);
-                        setViewMode(nextTab?.isDrawing ? 'drawing' : 'editor');
-                        return remainingSplitTabIds.filter(id => id !== nextActiveTabId);
-                    }
-                    else if (splitTableIds[0]) {
-                        const promotedTableId = splitTableIds[0];
-                        setSplitTableIds(prev => prev.filter(id => id !== promotedTableId));
-                        void handleTableSelect(promotedTableId);
-                        return remainingSplitTabIds;
-                    }
-                    else {
-                        setActiveTabId(null);
-                        return remainingSplitTabIds;
-                    }
+        const current = closeState.current;
+        const closingTab = current.tabs.find(tab => tab.id === tabId);
+        const remainingTabs = current.tabs.filter(tab => tab.id !== tabId);
+        const remainingSplitTabIds = current.splitTabIds.filter(id => id !== tabId);
+        closeState.current = { ...current, tabs: remainingTabs, splitTabIds: remainingSplitTabIds };
+        setTabs(current => current.filter(tab => tab.id !== tabId));
+        setSplitTabIds(current => current.filter(id => id !== tabId));
+        if (current.activeTabId !== tabId) return;
+        // A route-triggered duplicate load must not resurrect a closed record.
+        activeLoadAbortRef.current?.abort();
+        activeLoadAbortRef.current = null;
+        pageRequestAbortersRef.current.get(tabId)?.abort();
+
+        const origin = closingTab?.origin;
+        if (origin && (origin.tableId || origin.tabId)) {
+            setRecordReturnFocus(current => current?.tableId === origin.tableId
+                ? { ...current, isArmed: true } : current);
+            const originTab = remainingTabs.find(tab => tab.id === origin.tabId);
+            if (originTab) {
+                const originTableId = originTab.isTable ? getTableIdFromTab(originTab) : null;
+                if (!closingTab.kind) {
+                    if (originTableId) pushToHistory({ type: 'table', id: originTableId, subId: origin.viewId });
+                    else if (!originTab.isTable) pushToHistory({ type: 'editor', id: originTab.id, resourceType: knowledgeDocumentType(originTab) });
                 }
-                return remainingSplitTabIds;
-            });
-            return remainingTabs;
-        });
-    }, [setTabs, setSplitTabIds, activeTabId, splitTableIds, setActiveTabId, setActiveTableId, setViewMode, handleTableSelect, setSplitTableIds]);
+                closeState.current.activeTabId = originTab.id;
+                closeState.current.splitTabIds = remainingSplitTabIds.filter(id => id !== originTab.id);
+                setActiveTabId(originTab.id);
+                setActiveTableId(originTableId);
+                setViewMode(originTab.isDrawing ? 'drawing' : 'editor');
+                setSplitTabIds(current => current.filter(id => id !== originTab.id && id !== tabId));
+                return;
+            }
+            if (origin.tableId) {
+                if (!closingTab.kind) pushToHistory({ type: 'table', id: origin.tableId, subId: origin.viewId });
+                closeState.current.activeTabId = null;
+                closeState.current.splitTabIds = [];
+                void handleTableSelect(origin.tableId, origin.viewId || null, true);
+                setSplitTabIds([]);
+                return;
+            }
+        }
+        const nextActiveTabId = remainingSplitTabIds.find(id => remainingTabs.some(tab => tab.id === id))
+            || remainingTabs.at(-1)?.id || null;
+        if (nextActiveTabId) {
+            const nextTab = remainingTabs.find(tab => tab.id === nextActiveTabId);
+            closeState.current.activeTabId = nextActiveTabId;
+            closeState.current.splitTabIds = remainingSplitTabIds.filter(id => id !== nextActiveTabId);
+            setActiveTabId(nextActiveTabId);
+            setActiveTableId(nextTab?.isTable ? getTableIdFromTab(nextTab) : null);
+            setViewMode(nextTab?.isDrawing ? 'drawing' : 'editor');
+            setSplitTabIds(current => current.filter(id => id !== nextActiveTabId && id !== tabId));
+        } else if (current.splitTableIds[0]) {
+            const promotedTableId = current.splitTableIds[0];
+            closeState.current.activeTabId = null;
+            closeState.current.splitTableIds = current.splitTableIds.filter(id => id !== promotedTableId);
+            setSplitTableIds(current => current.filter(id => id !== promotedTableId));
+            void handleTableSelect(promotedTableId);
+        } else {
+            closeState.current.activeTabId = null;
+            setActiveTabId(null);
+        }
+    }, [activeLoadAbortRef, pageRequestAbortersRef, pushToHistory, setRecordReturnFocus, setTabs, setSplitTabIds, setActiveTabId, setActiveTableId, setViewMode, handleTableSelect, setSplitTableIds]);
     const handleToggleSplit = useCallback((tabId: string) => {
         if (tabId === activeTabId)
             return;
