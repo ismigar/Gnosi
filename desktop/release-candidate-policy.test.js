@@ -31,7 +31,9 @@ const PYTHON_DOWNLOAD_ENV = {
   UV_CONCURRENT_DOWNLOADS: '4',
   UV_CONCURRENT_INSTALLS: '2',
 };
-const CI_PREDECESSORS = { frontend: 'backend', docker: 'frontend' };
+const CI_PREDECESSORS = { frontend: 'backend', 'native-smoke': 'frontend', docker: 'native-smoke' };
+const BROWSER_ACCEPTANCE_STEP = 'Accept production browser workflows and restart persistence';
+const BROWSER_EVIDENCE_STEP = 'Preserve browser acceptance evidence';
 const HOSTED_CHROMIUM_SETUP = {
   name: 'Install Chromium system dependencies on hosted Linux',
   if: "(runner.environment == 'github-hosted') && steps.scope.outputs.runtime_required != 'false'",
@@ -101,7 +103,9 @@ function assertFatalGates(workflow, reusableCI = false) {
       let expectedIf = reusableCI && name === 'docker'
         && ['Remove Docker smoke containers', 'Release unused Docker resources'].includes(step.name) ? 'always()'
         : reusableCI && name === 'native-smoke' && step.name === HOSTED_CHROMIUM_SETUP.name
-          ? HOSTED_CHROMIUM_SETUP.if : undefined;
+          ? HOSTED_CHROMIUM_SETUP.if
+          : reusableCI && name === 'native-smoke' && step.name === BROWSER_EVIDENCE_STEP
+            ? "always() && steps.scope.outputs.runtime_required != 'false'" : undefined;
       if (reusableCI && name !== 'documentation'
           && !step.uses?.startsWith('actions/checkout@') && step.id !== 'scope') {
         const scope = "steps.scope.outputs.runtime_required != 'false'";
@@ -300,7 +304,7 @@ test('hosted dependency setup cannot be removed, duplicated or used to skip smok
     (steps) => { steps[setupIndex].if = "runner.environment == 'self-hosted'"; },
     (steps) => { steps[setupIndex].run = 'pnpm test:e2e:smoke'; },
     (steps) => { steps[setupIndex].run += ' || true'; },
-    (steps) => { steps.find((step) => step.run === 'pnpm test:e2e:smoke').if = HOSTED_CHROMIUM_SETUP.if; },
+    (steps) => { steps.find((step) => step.name === BROWSER_ACCEPTANCE_STEP).if = HOSTED_CHROMIUM_SETUP.if; },
   ]) {
     const changed = structuredClone(ci);
     mutate(changed.jobs['native-smoke'].steps);
