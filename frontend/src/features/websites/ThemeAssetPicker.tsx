@@ -46,7 +46,7 @@ export function ThemeAssetPicker({ siteId, value, kind, label, context, disabled
   };
   return <div className="websites-asset-picker">
     {kind === 'image' && value && preview.source === value && preview.scope === scopeKey && preview.url && <img className="websites-asset-thumbnail" src={preview.url} alt={label} />}
-    {value && <span className="websites-muted websites-asset-name" title={value}>{value.split('/').pop()}</span>}
+    {value && <span className="websites-muted websites-asset-name">{value.split('/').pop()?.replace(/^[a-f0-9]{64}\./i, '')}</span>}
     <div className="websites-actions"><FileImportButton label={t(value ? 'websites.replaceAsset' : 'websites.uploadAsset', { name: label })} accept={kind === 'font' ? '.woff,.woff2,.ttf,.otf' : '.png,.jpg,.jpeg,.webp,.gif,.ico'} disabled={disabled || busy} onFile={file => { task.current = choose(file); void task.current.finally(() => { task.current = null; }); }} />
       {value && <button type="button" className="websites-button" aria-label={`${t('websites.remove')} ${label}`} disabled={disabled || busy} onClick={() => { latest.current(''); }}>{t('websites.remove')}</button>}
     </div>

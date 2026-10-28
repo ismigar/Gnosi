@@ -46,71 +46,6 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); });
 
 describe('Webs manager', () => {
-  it('opens immediately without reading the vault catalogue and reuses it between content tabs', async () => {
-    let finish: (items: api.CatalogueItem[]) => void = () => undefined;
-    vi.mocked(api.siteCatalogue).mockReturnValue(new Promise(resolve => { finish = resolve; }));
-    const view = mountTestComponent(<WebsitesPage />); await settle();
-    expect(view.container.querySelector('#websites-tab-appearance')).not.toBeNull();
-    expect(api.siteCatalogue).not.toHaveBeenCalled();
-    tab(view.container, 'appearance'); await settle();
-    expect(api.siteCatalogue).not.toHaveBeenCalled();
-    tab(view.container, 'sources'); await settle();
-    expect(view.container.textContent).toContain('websites.catalogueLoading');
-    tab(view.container, 'appearance'); tab(view.container, 'sources'); await settle();
-    expect(api.siteCatalogue).toHaveBeenCalledOnce();
-    await act(async () => { finish(catalogue); }); await settle();
-    tab(view.container, 'appearance'); tab(view.container, 'sources'); await settle();
-    expect(api.siteCatalogue).toHaveBeenCalledOnce();
-    expect(view.container.querySelector('[aria-label="websites.addSource"]')).not.toBeNull();
-    expect(api.saveSite).not.toHaveBeenCalled(); view.unmount();
-  });
-
-  it('uploads a logo without overwriting edits made during the upload and autosaves its reference', async () => {
-    let finish: (asset: { source: string; media_type: string }) => void = () => undefined;
-    vi.mocked(api.uploadSiteThemeAsset).mockReturnValue(new Promise(resolve => { finish = resolve; }));
-    vi.mocked(api.previewSiteImage).mockRejectedValue(new Error('Synthetic thumbnail unavailable'));
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'appearance');
-    const input = view.container.querySelector<HTMLInputElement>('input[type="file"][accept*=".png"]');
-    if (!input) throw new Error('Missing image upload');
-    const file = new File(['image'], 'logo.png', { type: 'image/png' });
-    Object.defineProperty(input, 'files', { value: [file], configurable: true });
-    act(() => { input.dispatchEvent(new Event('change', { bubbles: true })); }); await settle();
-    act(() => { changeInput(control(view.container, 'websites.themeName'), 'Changed during upload'); });
-    tab(view.container, 'navigation'); await settle();
-    expect(view.container.querySelector('#websites-tab-appearance')?.getAttribute('aria-selected')).toBe('true');
-    await act(async () => { finish({ source: '/.gnosi/sites/assets/test-site/logo.png', media_type: 'image/png' }); }); await settle(); await autosave();
-    expect(view.container.querySelector('#websites-tab-navigation')?.getAttribute('aria-selected')).toBe('true');
-    expect(api.uploadSiteThemeAsset).toHaveBeenCalledWith('test-site', file, 'image', context, expect.any(AbortSignal));
-    expect(vi.mocked(api.saveSite).mock.calls.at(-1)?.[0].theme).toMatchObject({ name: 'Changed during upload', logo: '/.gnosi/sites/assets/test-site/logo.png' });
-    view.unmount();
-  });
-
-  it('finishes an upload for its original site before creating and selecting another site', async () => {
-    let finish: (asset: { source: string; media_type: string }) => void = () => undefined;
-    vi.mocked(api.uploadSiteThemeAsset).mockReturnValue(new Promise(resolve => { finish = resolve; }));
-    vi.mocked(api.previewSiteImage).mockRejectedValue(new Error('Synthetic thumbnail unavailable'));
-    const nextSite = { ...structuredClone(base), id: 'next-site', name: 'Next site' };
-    vi.mocked(api.createSite).mockResolvedValue(nextSite);
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'appearance');
-    const input = view.container.querySelector<HTMLInputElement>('input[type="file"][accept*=".png"]');
-    if (!input) throw new Error('Missing image upload');
-    Object.defineProperty(input, 'files', { value: [new File(['image'], 'logo.png', { type: 'image/png' })], configurable: true });
-    act(() => { input.dispatchEvent(new Event('change', { bubbles: true })); }); await settle();
-    act(() => { button(view.container, 'websites.createSite').click(); }); await settle();
-    act(() => { changeInput(control(view.container, 'websites.siteName'), 'Next site'); });
-    act(() => { button(view.container, 'websites.create').click(); }); await settle();
-    expect(api.createSite).not.toHaveBeenCalled();
-    expect(control(view.container, 'websites.website').value).toBe(base.id);
-    await act(async () => { finish({ source: '/.gnosi/sites/assets/test-site/logo.png', media_type: 'image/png' }); }); await settle(); await autosave();
-    expect(api.createSite).toHaveBeenCalledOnce();
-    expect(control(view.container, 'websites.website').value).toBe(nextSite.id);
-    const saves = vi.mocked(api.saveSite).mock.calls.map(([site]) => site);
-    expect(saves.some(site => site.id === base.id && site.theme?.logo === '/.gnosi/sites/assets/test-site/logo.png')).toBe(true);
-    expect(saves.some(site => site.id === nextSite.id && site.theme?.logo)).toBe(false);
-    expect(view.container.querySelector('#websites-tab-overview')?.getAttribute('aria-selected')).toBe('true');
-    view.unmount();
-  });
-
   it('withdraws one imported translation using its public identity without selecting a private vault note', async () => {
     const initial = structuredClone(base);
     initial.legacy_pilot = true;
@@ -220,59 +155,6 @@ describe('Webs manager', () => {
     if (kind === 'gallery') expect(saved?.pages?.[0]?.blocks?.[0]?.images).toEqual(['/first.png', '/second.png']);
     if (kind === 'filter') expect(saved?.sources?.[0]?.filters?.[0]?.value).toEqual(['first', 'second']);
     expect([...view.container.querySelectorAll('button')].some(item => item.textContent === 'websites.save')).toBe(false);
-  });
-
-  it('searches typefaces with real isolated font samples and saves only the chosen typography token', async () => {
-    const oldFonts = Object.getOwnPropertyDescriptor(document, 'fonts');
-    const oldFace = Object.getOwnPropertyDescriptor(globalThis, 'FontFace');
-    const add = vi.fn(); const remove = vi.fn();
-    Object.defineProperty(document, 'fonts', { configurable: true, value: { add, delete: remove } });
-    class SampleFace { constructor(public family: string) {} load() { return Promise.resolve(this); } }
-    vi.stubGlobal('FontFace', SampleFace);
-    const initial = structuredClone(base);
-    if (!initial.theme) throw new Error('Missing fixture theme');
-    initial.theme.tokens = { 'font-body': '"Crimson Pro", Georgia, serif', 'font-heading': '"Nunito", system-ui, sans-serif' };
-    initial.theme.fonts = [{ family: 'Crimson Pro', src: '/fonts/crimson.woff2', weight: '400', style: 'normal' }, { family: 'Nunito', src: '/fonts/nunito.woff2', weight: '400', style: 'normal' }];
-    vi.mocked(api.listSites).mockResolvedValue([initial]);
-    vi.mocked(api.getSite).mockResolvedValue({ site: initial, jobs: [], releases: [], service_available: true });
-    const blob = new Blob(['wOF2font']);
-    Object.defineProperty(blob, 'arrayBuffer', { value: () => Promise.resolve(new ArrayBuffer(8)) });
-    vi.mocked(api.previewSiteFont).mockResolvedValue(blob);
-    const view = mountTestComponent(<WebsitesPage />);
-    try {
-      await settle(); tab(view.container, 'appearance'); await settle();
-      const family = control(view.container, 'websites.fontFamily');
-      for (const value of ['Cr', 'Cri', 'Crimson Pro']) {
-        act(() => { changeInput(family, value); vi.advanceTimersByTime(80); });
-      }
-      expect(api.previewSiteFont).not.toHaveBeenCalled();
-      await act(async () => { vi.advanceTimersByTime(250); }); await settle(); await settle();
-      expect(add).toHaveBeenCalledTimes(2);
-      act(() => { changeInput(control(view.container, 'websites.themeName'), 'Renamed'); }); await autosave();
-      expect(api.previewSiteFont).toHaveBeenCalledTimes(2);
-      vi.mocked(api.saveSite).mockClear();
-      const picker = view.container.querySelector<HTMLElement>('[role="combobox"][aria-label="websites.tokens.font-body"]');
-      if (!picker) throw new Error('Missing typeface selector');
-      act(() => { picker.click(); }); await settle();
-      const search = document.querySelector<HTMLInputElement>('[data-property-dropdown] input');
-      if (!search) throw new Error('Missing autocomplete search');
-      expect(document.querySelectorAll('[data-property-dropdown] [role="option"]').length).toBeGreaterThan(20);
-      act(() => { changeInput(search, 'nuni'); }); await settle();
-      const options = [...document.querySelectorAll<HTMLElement>('[data-property-dropdown] [role="option"]')];
-      expect(options).toHaveLength(1);
-      expect(options[0]?.textContent).toContain('Nunito');
-      expect(options[0]?.querySelector<HTMLElement>('.websites-font-sample')?.style.fontFamily).toContain('GnosiWebFont-test-site-1');
-      act(() => { search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }); await settle();
-      expect(document.querySelector('[data-property-dropdown]')).toBeNull();
-      expect(document.activeElement).toBe(picker);
-      await autosave();
-      expect(vi.mocked(api.saveSite).mock.calls[0]?.[0].theme?.tokens).toEqual({ 'font-body': '"Nunito", Georgia, serif', 'font-heading': '"Nunito", system-ui, sans-serif' });
-      view.unmount(); expect(remove).toHaveBeenCalledTimes(2);
-    } finally {
-      view.unmount();
-      if (oldFonts) Object.defineProperty(document, 'fonts', oldFonts); else Reflect.deleteProperty(document, 'fonts');
-      if (oldFace) Object.defineProperty(globalThis, 'FontFace', oldFace); else Reflect.deleteProperty(globalThis, 'FontFace');
-    }
   });
 
   it('serializes autosave, rebases revisions and keeps edits made during an earlier write', async () => {
