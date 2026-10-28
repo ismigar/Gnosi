@@ -19,7 +19,7 @@ test('the real vault selector clears an open primary page before opening seconda
     elements.map(element => (element as HTMLInputElement).value))).not.toContain(String(document.title));
   const sidebar = page.locator('#vault-navigation');
   const secondary = sidebar.getByText('Secondary vault note', { exact: true }).first();
-  if (!await secondary.isVisible()) await sidebar.getByRole('button', { name: 'Wiki', exact: true }).click();
+  if (!await secondary.isVisible()) await sidebar.getByRole('button', { name: /^wiki$/i }).click();
   await secondary.click();
   await expect(page.locator('.vault-page-title:visible')).toHaveValue('Secondary vault note');
   await expect(page.locator('.bn-editor[contenteditable="true"]:visible')).toContainText('belongs only to the secondary vault');

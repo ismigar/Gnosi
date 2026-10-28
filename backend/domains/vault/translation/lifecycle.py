@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import BackgroundTasks
 
+from backend.domains.vault.registry.records import RecordReader
 from backend.domains.vault.schemas.pages import PageSaveRequest
 from backend.domains.vault.translation.adapters import DetectLanguage
 from backend.domains.vault.translation.types import Metadata, Result, TranslateText
