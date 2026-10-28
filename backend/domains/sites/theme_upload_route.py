@@ -1,6 +1,7 @@
 """Bound multipart bytes before FastAPI spools uploaded files, including chunked requests."""
 from __future__ import annotations
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
+from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 from fastapi.routing import APIRoute
@@ -14,7 +15,7 @@ LIMIT_ERROR = "Website upload exceeds the 4 MB file limit"
 
 
 class ThemeUploadRoute(APIRoute):
-    def get_route_handler(self) -> Callable[[Request], Awaitable[Response]]:
+    def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()
 
         async def bounded(request: Request) -> Response:
