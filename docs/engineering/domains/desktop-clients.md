@@ -599,3 +599,5 @@ The `3.2.0` candidate adds assistant teams and specialist roles, provider-specif
 Before a vault is selected, a frozen backend persists configuration and provider-reference migrations under `GNOSI_DATA_DIR/config/params.yaml`. Signed application resources remain read-only; later requests still save to the active vault’s `.gnosi/params.yaml`. First-launch and restart acceptance must verify the installed signature after the app exits, since startup readiness alone does not detect bundle writes.
 
 The frontend Docker image includes the shared PDF asset verifier imported by Vite and checks that it loads during image construction. This prevents a successfully built image from failing at server startup because the verifier is missing.
+
+Unexpected renderer exits keep the backend running. A native dialog in all four application languages offers an explicit screen reload and records only the exit reason, exit code and timestamp in `renderer-exits.jsonl`. Recovery checks the window and shutdown state before reloading; duplicate exit events share one dialog.

@@ -314,7 +314,7 @@ class AssetExporter:
         raw = bounded_read(local, self.store.vault, 32_000_000)
         digest = hashlib.sha256(raw).hexdigest()
         suffix = local.suffix.lower()
-        if suffix not in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".pdf", ".mp3", ".mp4", ".ogg", ".woff", ".woff2", ".stl", ".obj", ".3mf", ".step", ".stp", ".dxf"}:
+        if suffix not in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".pdf", ".mp3", ".mp4", ".ogg", ".woff", ".woff2", ".ttf", ".otf", ".ico", ".stl", ".obj", ".3mf", ".step", ".stp", ".dxf"}:
             raise HTTPException(422, "Unsupported public attachment type")
         directory = self.store.site_dir(self.site_id) / "asset-snapshots"
         directory.mkdir(parents=True, exist_ok=True, mode=0o700)

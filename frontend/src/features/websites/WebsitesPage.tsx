@@ -37,6 +37,10 @@ function Session({ context }: { context: RequestContext }) {
   const { t } = useTranslation();
   const [sites, setSites] = useState<api.SiteConfig[]>([]);
   const [catalogue, setCatalogue] = useState<api.CatalogueItem[]>([]);
+  const [catalogueRevision, setCatalogueRevision] = useState(-1);
+  const [catalogueFailure, setCatalogueFailure] = useState(-1);
+  const [catalogueRequested, setCatalogueRequested] = useState(false);
+  const [catalogueError, setCatalogueError] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [drafts, setDrafts] = useState<Record<string, api.SiteConfig>>({});
   const [saved, setSaved] = useState<Record<string, api.SiteConfig>>({});
@@ -89,23 +93,34 @@ function Session({ context }: { context: RequestContext }) {
 
   useEffect(() => {
     let active = true;
-    void Promise.allSettled([request(signal => api.listSites(context, signal)), request(signal => api.siteCatalogue(context, signal))]).then(([items, available]) => {
+    void request(signal => api.listSites(context, signal)).then(items => {
       if (!active) return;
-      setCatalogue(available.status === 'fulfilled' ? available.value : []);
-      if (items.status === 'rejected') { setError(apiErrorDetail(items.reason, t('websites.loadFailed'))); return; }
-      setSites(items.value); setSaved(Object.fromEntries(items.value.map(site => [site.id, site])));
-      setDrafts(Object.fromEntries(items.value.map(site => [site.id, site])));
-      setSelectedId(previous => items.value.some(site => site.id === previous) ? previous : items.value[0]?.id ?? '');
-      if (available.status === 'rejected') setError(apiErrorDetail(available.reason, t('websites.loadFailed')));
+      setSites(items); setSaved(Object.fromEntries(items.map(site => [site.id, site])));
+      setDrafts(Object.fromEntries(items.map(site => [site.id, site])));
+      setSelectedId(previous => items.some(site => site.id === previous) ? previous : items[0]?.id ?? '');
     }).catch((failure: unknown) => { if (active) setError(apiErrorDetail(failure, t('websites.loadFailed'))); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [context, refreshRevision, request, t]);
 
+  const needsCatalogue = tab === 'sources' || tab === 'pages';
+  useEffect(() => {
+    if (!catalogueRequested) return;
+    let active = true; const controller = new AbortController();
+    void request(signal => {
+      const abort = () => { controller.abort(); };
+      signal.addEventListener('abort', abort, { once: true });
+      return api.siteCatalogue(context, controller.signal).finally(() => { signal.removeEventListener('abort', abort); });
+    }).then(items => {
+      if (active) { setCatalogue(items); setCatalogueRevision(refreshRevision); }
+    }).catch((failure: unknown) => { if (active) { setCatalogueFailure(refreshRevision); setCatalogueError(apiErrorDetail(failure, t('websites.loadFailed'))); } });
+    return () => { active = false; controller.abort(); };
+  }, [catalogueRequested, refreshRevision, request, context, t]);
+
   const site = drafts[selectedId];
   const targetId = (site?.targets ?? []).some(target => target.id === targetChoice) ? targetChoice : site?.targets?.[0]?.id ?? 'local';
-  const dirty = Boolean(site && JSON.stringify(site) !== JSON.stringify(saved[selectedId]));
+  const dirty = useMemo(() => Boolean(site && configurationKey(site) !== configurationKey(saved[selectedId] ?? site)), [site, saved, selectedId]);
   const siteId = site?.id ?? '';
-  const anyDirty = Object.values(drafts).some(value => { const previous = saved[value.id]; return previous && configurationKey(value) !== configurationKey(previous); });
+  const anyDirty = useMemo(() => Object.values(drafts).some(value => { const previous = saved[value.id]; return previous && configurationKey(value) !== configurationKey(previous); }), [drafts, saved]);
   useEffect(() => {
     if (!siteId) return;
     let active = true;
@@ -169,8 +184,9 @@ function Session({ context }: { context: RequestContext }) {
   }), [request, siteId, context]);
 
   const changeTab = (value: Tab) => {
-    if (![...writers.current.entries()].some(([key, writer]) => key !== 'public' && writer.pending)) { setTab(value); setError(''); return; }
-    void action(async () => { if (await flushWriters()) { setTab(value); setError(''); } });
+    const select = () => { if (value === 'sources' || value === 'pages') setCatalogueRequested(true); setTab(value); setError(''); };
+    if (![...writers.current.entries()].some(([key, writer]) => key !== 'public' && writer.pending)) { select(); return; }
+    void action(async () => { if (await flushWriters()) select(); });
   };
   const changeTarget = (value: string) => { void action(async () => { if (await flushWriters()) { setTargetId(value); setPreview(null); } }); };
   const tabKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -184,11 +200,13 @@ function Session({ context }: { context: RequestContext }) {
     {!loading && !site && <Empty>{t('websites.noSites')}</Empty>}
     {site && <><div className="websites-tabs" role="tablist" aria-label={t('websites.sections')}>{TABS.map((value, index) => <button type="button" key={value} role="tab" id={`websites-tab-${value}`} aria-controls="websites-panel" aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} onKeyDown={event => { tabKey(event, index); }} onClick={() => { changeTab(value); }}>{t(`websites.tabs.${value}`)}</button>)}</div><fieldset id="websites-panel" role="tabpanel" aria-labelledby={`websites-tab-${tab}`} disabled={busy || loading} inert={busy || loading} className="websites-panel" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       {tab === 'overview' && <Overview site={site} status={status} dirty={dirty} onReview={() => { setTab('publishing'); }} />}
-      {tab === 'sources' && <SourcesEditor site={site} catalogue={catalogue} onChange={change} />}
+      {needsCatalogue && catalogueFailure === refreshRevision && <div role="alert" className="websites-error">{catalogueError}</div>}
+      {needsCatalogue && catalogueRevision !== refreshRevision && catalogueFailure !== refreshRevision && <p role="status">{t('websites.catalogueLoading')}</p>}
+      {tab === 'sources' && catalogueRevision === refreshRevision && <SourcesEditor site={site} catalogue={catalogue} onChange={change} />}
       {tab === 'pages' && <PagesEditor site={site} catalogue={catalogue} onChange={change} />}
       {tab === 'navigation' && <NavigationEditor site={site} onChange={change} />}
       {tab === 'forms' && <FormsEditor site={site} onChange={change} />}
-      {tab === 'appearance' && <AppearanceEditor context={context} site={site} busy={busy} history={themes} onChange={change} onExport={() => { downloadBlob(new Blob([JSON.stringify(site.theme, null, 2)], { type: 'application/json' }), `${site.name}-theme.json`); }} onImport={file => { void action(async () => { if (file.size > 200_000) throw new Error(t('websites.importTooLarge')); const raw = record(JSON.parse(await file.text())); const tokens = record(raw.tokens); if (raw.schema_version !== 1 || typeof raw.name !== 'string' || Object.values(tokens).some(value => typeof value !== 'string')) throw new Error(t('websites.invalidTheme')); const theme: api.SiteTheme = { schema_version: 1, name: raw.name, tokens: Object.fromEntries(Object.entries(tokens).map(([key, value]) => [key, String(value)])), logo: typeof raw.logo === 'string' ? raw.logo : '', logo_alt: typeof raw.logo_alt === 'string' ? raw.logo_alt : '', favicon: typeof raw.favicon === 'string' ? raw.favicon : '', fonts: Array.isArray(raw.fonts) ? raw.fonts.map(value => { const font = record(value); if (typeof font.family !== 'string' || typeof font.src !== 'string' || (font.style !== 'normal' && font.style !== 'italic')) throw new Error(t('websites.invalidTheme')); return { family: font.family, src: font.src, weight: typeof font.weight === 'string' ? font.weight : '400', style: font.style }; }) : [], advanced_css: typeof raw.advanced_css === 'string' ? raw.advanced_css : '' }; change({ ...site, theme }); setNotice(t('websites.themeImported')); }); }} onHistory={() => { void action(async () => { setThemes(await request(signal => api.themeHistory(site.id, context, signal))); }); }} />}
+      {tab === 'appearance' && <AppearanceEditor register={registerAutosave} context={context} site={site} busy={busy} history={themes} onChange={change} onExport={() => { downloadBlob(new Blob([JSON.stringify(site.theme, null, 2)], { type: 'application/json' }), `${site.name}-theme.json`); }} onImport={file => { void action(async () => { if (file.size > 200_000) throw new Error(t('websites.importTooLarge')); const raw = record(JSON.parse(await file.text())); const tokens = record(raw.tokens); if (raw.schema_version !== 1 || typeof raw.name !== 'string' || Object.values(tokens).some(value => typeof value !== 'string')) throw new Error(t('websites.invalidTheme')); const theme: api.SiteTheme = { schema_version: 1, name: raw.name, tokens: Object.fromEntries(Object.entries(tokens).map(([key, value]) => [key, String(value)])), logo: typeof raw.logo === 'string' ? raw.logo : '', logo_alt: typeof raw.logo_alt === 'string' ? raw.logo_alt : '', favicon: typeof raw.favicon === 'string' ? raw.favicon : '', fonts: Array.isArray(raw.fonts) ? raw.fonts.map(value => { const font = record(value); if (typeof font.family !== 'string' || typeof font.src !== 'string' || (font.style !== 'normal' && font.style !== 'italic')) throw new Error(t('websites.invalidTheme')); return { family: font.family, src: font.src, weight: typeof font.weight === 'string' ? font.weight : '400', style: font.style }; }) : [], advanced_css: typeof raw.advanced_css === 'string' ? raw.advanced_css : '' }; change({ ...site, theme }); setNotice(t('websites.themeImported')); }); }} onHistory={() => { void action(async () => { setThemes(await request(signal => api.themeHistory(site.id, context, signal))); }); }} />}
       {tab === 'messages' && <MessagesPanel key={`${site.id}:${targetId}`} site={site} call={callPrivate} />}
       {tab === 'subscribers' && <SubscribersPanel key={`${site.id}:${targetId}`} site={site} call={callPrivate} />}
       {tab === 'campaigns' && <CampaignsPanel key={`${site.id}:${targetId}`} site={site} call={callPrivate} composer={newsletterActions} register={registerAutosave} autosaveKey={`newsletter:${site.id}:${targetId}`} />}

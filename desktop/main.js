@@ -34,6 +34,7 @@ const { isGoogleSignInNavigation, openGoogleSignIn, googleSignInErrorMessage, fe
 const { isMicrosoftSignInNavigation, openMicrosoftSignIn, microsoftSignInErrorMessage } = require('./microsoft-sign-in');
 const { registerIpcHandlers } = require('./ipc-handlers');
 const { backendStartupMessage } = require('./startup-errors');
+const { registerRendererRecovery } = require('./renderer-recovery');
 const { proxyBackendRequest } = require('./backend-proxy');
 const { createAgentWorkspace } = require('./agent-workspace');
 const workspaceSelectionSecret = require('node:crypto').randomBytes(32).toString('hex');
@@ -324,6 +325,16 @@ function createWindow() {
     backgroundColor: '#f8fafc'
   });
   mainWindows.add(window);
+  registerRendererRecovery({ window, dialog, locale: app.getLocale(), isQuitting: () => quitting,
+    record: (reason, exitCode) => {
+      log('Renderer stopped:', reason, exitCode);
+      try {
+        const directory = app.getPath('logs');
+        fs.mkdirSync(directory, { recursive: true });
+        fs.appendFileSync(path.join(directory, 'renderer-exits.jsonl'), JSON.stringify({ at: new Date().toISOString(), reason, exitCode }) + '\n', { mode: 0o600 });
+      } catch { log('Renderer diagnostic could not be recorded'); }
+    },
+  });
 
   // A hidden Wayland window may finish loading without receiving a first-paint
   // notification. Do not leave New Window permanently invisible in that case.
