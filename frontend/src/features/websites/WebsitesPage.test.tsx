@@ -7,7 +7,7 @@ import * as api from '../../shared/api/sites';
 import { GnosiApiError } from '../../shared/api/errors';
 import WebsitesPage from './WebsitesPage';
 
-vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont'].map(name => [name, vi.fn()])));
+vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont', 'previewSiteImage', 'uploadSiteThemeAsset'].map(name => [name, vi.fn()])));
 vi.mock('../../shared/api/request-context', () => ({ currentRequestContext: vi.fn() }));
 vi.mock('../../shared/hooks/useModalKeyboard', () => ({ useModalKeyboard: () => undefined }));
 vi.mock('../../shared/ui/layout/AppHeader', () => ({ AppHeader: ({ children, title }: { children: React.ReactNode; title: string }) => <header><h1>{title}</h1>{children}</header> }));
@@ -46,6 +46,71 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); });
 
 describe('Webs manager', () => {
+  it('opens immediately without reading the vault catalogue and reuses it between content tabs', async () => {
+    let finish: (items: api.CatalogueItem[]) => void = () => undefined;
+    vi.mocked(api.siteCatalogue).mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    const view = mountTestComponent(<WebsitesPage />); await settle();
+    expect(view.container.querySelector('#websites-tab-appearance')).not.toBeNull();
+    expect(api.siteCatalogue).not.toHaveBeenCalled();
+    tab(view.container, 'appearance'); await settle();
+    expect(api.siteCatalogue).not.toHaveBeenCalled();
+    tab(view.container, 'sources'); await settle();
+    expect(view.container.textContent).toContain('websites.catalogueLoading');
+    tab(view.container, 'appearance'); tab(view.container, 'sources'); await settle();
+    expect(api.siteCatalogue).toHaveBeenCalledOnce();
+    await act(async () => { finish(catalogue); }); await settle();
+    tab(view.container, 'appearance'); tab(view.container, 'sources'); await settle();
+    expect(api.siteCatalogue).toHaveBeenCalledOnce();
+    expect(view.container.querySelector('[aria-label="websites.addSource"]')).not.toBeNull();
+    expect(api.saveSite).not.toHaveBeenCalled(); view.unmount();
+  });
+
+  it('uploads a logo without overwriting edits made during the upload and autosaves its reference', async () => {
+    let finish: (asset: { source: string; media_type: string }) => void = () => undefined;
+    vi.mocked(api.uploadSiteThemeAsset).mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    vi.mocked(api.previewSiteImage).mockRejectedValue(new Error('Synthetic thumbnail unavailable'));
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'appearance');
+    const input = view.container.querySelector<HTMLInputElement>('input[type="file"][accept*=".png"]');
+    if (!input) throw new Error('Missing image upload');
+    const file = new File(['image'], 'logo.png', { type: 'image/png' });
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    act(() => { input.dispatchEvent(new Event('change', { bubbles: true })); }); await settle();
+    act(() => { changeInput(control(view.container, 'websites.themeName'), 'Changed during upload'); });
+    tab(view.container, 'navigation'); await settle();
+    expect(view.container.querySelector('#websites-tab-appearance')?.getAttribute('aria-selected')).toBe('true');
+    await act(async () => { finish({ source: '/.gnosi/sites/assets/test-site/logo.png', media_type: 'image/png' }); }); await settle(); await autosave();
+    expect(view.container.querySelector('#websites-tab-navigation')?.getAttribute('aria-selected')).toBe('true');
+    expect(api.uploadSiteThemeAsset).toHaveBeenCalledWith('test-site', file, 'image', context, expect.any(AbortSignal));
+    expect(vi.mocked(api.saveSite).mock.calls.at(-1)?.[0].theme).toMatchObject({ name: 'Changed during upload', logo: '/.gnosi/sites/assets/test-site/logo.png' });
+    view.unmount();
+  });
+
+  it('finishes an upload for its original site before creating and selecting another site', async () => {
+    let finish: (asset: { source: string; media_type: string }) => void = () => undefined;
+    vi.mocked(api.uploadSiteThemeAsset).mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    vi.mocked(api.previewSiteImage).mockRejectedValue(new Error('Synthetic thumbnail unavailable'));
+    const nextSite = { ...structuredClone(base), id: 'next-site', name: 'Next site' };
+    vi.mocked(api.createSite).mockResolvedValue(nextSite);
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'appearance');
+    const input = view.container.querySelector<HTMLInputElement>('input[type="file"][accept*=".png"]');
+    if (!input) throw new Error('Missing image upload');
+    Object.defineProperty(input, 'files', { value: [new File(['image'], 'logo.png', { type: 'image/png' })], configurable: true });
+    act(() => { input.dispatchEvent(new Event('change', { bubbles: true })); }); await settle();
+    act(() => { button(view.container, 'websites.createSite').click(); }); await settle();
+    act(() => { changeInput(control(view.container, 'websites.siteName'), 'Next site'); });
+    act(() => { button(view.container, 'websites.create').click(); }); await settle();
+    expect(api.createSite).not.toHaveBeenCalled();
+    expect(control(view.container, 'websites.website').value).toBe(base.id);
+    await act(async () => { finish({ source: '/.gnosi/sites/assets/test-site/logo.png', media_type: 'image/png' }); }); await settle(); await autosave();
+    expect(api.createSite).toHaveBeenCalledOnce();
+    expect(control(view.container, 'websites.website').value).toBe(nextSite.id);
+    const saves = vi.mocked(api.saveSite).mock.calls.map(([site]) => site);
+    expect(saves.some(site => site.id === base.id && site.theme?.logo === '/.gnosi/sites/assets/test-site/logo.png')).toBe(true);
+    expect(saves.some(site => site.id === nextSite.id && site.theme?.logo)).toBe(false);
+    expect(view.container.querySelector('#websites-tab-overview')?.getAttribute('aria-selected')).toBe('true');
+    view.unmount();
+  });
+
   it('withdraws one imported translation using its public identity without selecting a private vault note', async () => {
     const initial = structuredClone(base);
     initial.legacy_pilot = true;
@@ -58,7 +123,7 @@ describe('Webs manager', () => {
       { id: publicId, kind: 'record', title: 'Public translated article', source_ids: ['imported:blog'], languages: ['ca', 'es'] },
       { id: 'native-private-note', kind: 'page', title: 'Private vault note' },
     ]);
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'sources');
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'sources'); await settle();
     const details = view.container.querySelector('details');
     expect(details?.textContent).toContain('Public translated article');
     expect(details?.textContent).not.toContain('Private vault note');
@@ -76,6 +141,7 @@ describe('Webs manager', () => {
     vi.mocked(api.previewSite).mockRejectedValue(conflict);
     const view = mountTestComponent(<WebsitesPage />); await settle();
     expect(control(view.container, 'websites.website').value).toBe(base.id);
+    tab(view.container, 'pages'); await settle();
     expect(view.container.textContent).toContain(conflict.message);
     expect(api.getSite).toHaveBeenCalledWith(base.id, context, expect.any(AbortSignal));
     tab(view.container, 'publishing'); await settle();
@@ -85,7 +151,7 @@ describe('Webs manager', () => {
   });
 
   it('keeps a new source and its fields private until explicitly selected and saves only the chosen field', async () => {
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'sources');
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'sources'); await settle();
     addSource(view.container);
     const switches = [...view.container.querySelectorAll<HTMLElement>('[role="switch"]')];
     expect(switches.every(item => item.getAttribute('aria-checked') === 'false')).toBe(true);
@@ -125,14 +191,14 @@ describe('Webs manager', () => {
       label = 'websites.options'; text = 'First, item\nSecond';
     }
     if (kind === 'gallery') {
-      tab(view.container, 'pages');
+      tab(view.container, 'pages'); await settle();
       act(() => { button(view.container, 'websites.addPage').click(); });
       act(() => { button(view.container, 'websites.addBlock').click(); });
       act(() => { changeInput(control(view.container, 'websites.blockType'), 'gallery'); });
       label = 'websites.galleryImages'; text = '/first.png\n/second.png';
     }
     if (kind === 'filter') {
-      tab(view.container, 'sources');
+      tab(view.container, 'sources'); await settle();
       addSource(view.container);
       act(() => { button(view.container, 'websites.addFilter').click(); });
       act(() => { changeInput(control(view.container, 'websites.operator'), 'in'); });
@@ -174,13 +240,23 @@ describe('Webs manager', () => {
     vi.mocked(api.previewSiteFont).mockResolvedValue(blob);
     const view = mountTestComponent(<WebsitesPage />);
     try {
-      await settle(); tab(view.container, 'appearance'); await settle(); await settle();
+      await settle(); tab(view.container, 'appearance'); await settle();
+      const family = control(view.container, 'websites.fontFamily');
+      for (const value of ['Cr', 'Cri', 'Crimson Pro']) {
+        act(() => { changeInput(family, value); vi.advanceTimersByTime(80); });
+      }
+      expect(api.previewSiteFont).not.toHaveBeenCalled();
+      await act(async () => { vi.advanceTimersByTime(250); }); await settle(); await settle();
       expect(add).toHaveBeenCalledTimes(2);
+      act(() => { changeInput(control(view.container, 'websites.themeName'), 'Renamed'); }); await autosave();
+      expect(api.previewSiteFont).toHaveBeenCalledTimes(2);
+      vi.mocked(api.saveSite).mockClear();
       const picker = view.container.querySelector<HTMLElement>('[role="combobox"][aria-label="websites.tokens.font-body"]');
       if (!picker) throw new Error('Missing typeface selector');
       act(() => { picker.click(); }); await settle();
       const search = document.querySelector<HTMLInputElement>('[data-property-dropdown] input');
       if (!search) throw new Error('Missing autocomplete search');
+      expect(document.querySelectorAll('[data-property-dropdown] [role="option"]').length).toBeGreaterThan(20);
       act(() => { changeInput(search, 'nuni'); }); await settle();
       const options = [...document.querySelectorAll<HTMLElement>('[data-property-dropdown] [role="option"]')];
       expect(options).toHaveLength(1);

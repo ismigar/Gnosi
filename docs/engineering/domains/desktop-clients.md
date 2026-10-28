@@ -603,3 +603,5 @@ Before a vault is selected, a frozen backend persists configuration and provider
 The frontend Docker image includes the shared PDF asset verifier imported by Vite and checks that it loads during image construction. This prevents a successfully built image from failing at server startup because the verifier is missing.
 
 Local component installations finish with `desktop/scripts/local_install_retention.py finalize`. Preview its plan before applying it under the shared installer lock. Only actual signature, component-inventory and owned native-startup checks may produce the source- and manifest-bound `install/native-verification.json` receipt. A completed installation keeps one verified compressed rollback archive and retires recognized derived payloads; incomplete or unknown historical runs, source, evidence and user data remain protected.
+
+Unexpected renderer exits keep the backend running. A native dialog in all four application languages offers an explicit screen reload and records only the exit reason, exit code and timestamp in `renderer-exits.jsonl`. Recovery checks the window and shutdown state before reloading; duplicate exit events share one dialog.
