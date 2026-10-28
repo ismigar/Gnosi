@@ -175,7 +175,9 @@ def derived_paths(install, original):
     staged = load(install / 'staged.json')
     result = load(install / 'installation-result.json')
     require(staged.get('source_commit') == result['source_commit'], 'Stage source mismatch')
-    require(set(staged.get('components', {})) == set(COMPONENTS), 'Unknown stage components')
+    components = tuple(staged.get('components', {}))
+    require(set(components) in (set(COMPONENTS), set(COMPONENTS) | {'app.asar'}),
+            'Unknown stage components')
     candidates = []
     for name in ('stage', 'rollback-components', 'rollback-signature'):
         directory = install / name
@@ -190,23 +192,25 @@ def derived_paths(install, original):
                 continue
             if name == 'stage':
                 matches = [(component, rel[len(component):].lstrip('/') or '.')
-                           for component in COMPONENTS
+                           for component in components
                            if rel == component or rel.startswith(component + '/')]
                 if not matches:
                     require(stat.S_ISDIR(token[2]) and
-                            any(c.startswith(rel + '/') for c in COMPONENTS), 'Foreign stage entry')
+                            any(c.startswith(rel + '/') for c in components), 'Foreign stage entry')
                     continue
                 component, suffix = matches[0]
                 expected = staged['components'][component].get(suffix)
             else:
                 if name == 'rollback-components':
                     key = 'Contents/Resources/' + rel
-                    scaffold = any(c.startswith(rel + '/') for c in COMPONENTS)
-                    require(any(rel == c or rel.startswith(c + '/') for c in COMPONENTS) or
+                    scaffold = any(c.startswith(rel + '/') for c in components)
+                    require(any(rel == c or rel.startswith(c + '/') for c in components) or
                             (stat.S_ISDIR(token[2]) and scaffold), 'Foreign rollback component')
                 else:
                     first = rel.split('/')[0]
-                    require(first in ('Gnosi', '_CodeSignature'), 'Foreign signature rollback entry')
+                    require(first in ('Gnosi', '_CodeSignature') or
+                            (first == 'Info.plist' and 'app.asar' in components),
+                            'Foreign signature rollback entry')
                     key = ('Contents/MacOS/' if first == 'Gnosi' else 'Contents/') + rel
                 expected = original.get(key)
                 if expected is None and stat.S_ISDIR(token[2]) and name == 'rollback-components' and scaffold:

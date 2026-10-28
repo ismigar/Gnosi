@@ -336,3 +336,36 @@ def test_unknown_quarantined_content_preserved_and_reported(installation, monkey
     assert (old / 'install/before-install.tar.gz').exists()
     report = retention.finalize(root, run, app)
     assert report['quarantine_leftovers'] == [str(leftovers[0])]
+
+
+@pytest.mark.parametrize('tamper', [False, True])
+def test_desktop_patch_derived_files_require_exact_recorded_bytes(installation, tamper):
+    _, run, _, _, _ = installation
+    install = run / 'install'
+    original = json.loads((install / 'original-inventory.json').read_text())
+    staged = json.loads((install / 'staged.json').read_text())
+    def entry(data):
+        return {'mode': 0o644, 'type': 'file', 'size': len(data), 'sha256': sha(data)}
+    staged['components']['app.asar'] = {'.': entry(b'new shell')}
+    write(install / 'staged.json', staged)
+    (install / 'stage/app.asar').write_bytes(b'new shell')
+    (install / 'rollback-components/app.asar').write_bytes(b'old shell')
+    (install / 'rollback-signature/Info.plist').write_bytes(b'old integrity')
+    original['Contents/Resources/app.asar'] = entry(b'old shell')
+    original['Contents/Info.plist'] = entry(b'old integrity')
+    if tamper:
+        (install / 'rollback-signature/Info.plist').write_bytes(b'unrecorded')
+        with pytest.raises(retention.RetentionError, match='Derived content mismatch'):
+            retention.derived_paths(install, original)
+    else:
+        paths = retention.derived_paths(install, original)
+        assert {path.name for path, _ in paths} == {
+            'stage', 'rollback-components', 'rollback-signature'}
+
+
+def test_plist_rollback_requires_a_declared_desktop_patch(installation):
+    _, run, _, _, _ = installation
+    install = run / 'install'
+    (install / 'rollback-signature/Info.plist').write_bytes(b'not a desktop patch')
+    with pytest.raises(retention.RetentionError, match='Foreign signature rollback'):
+        retention.derived_paths(install, {})
