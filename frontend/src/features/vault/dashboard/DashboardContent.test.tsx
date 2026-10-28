@@ -166,7 +166,10 @@ it.each([{ method: 'breadcrumb', strict: false }, { method: 'close', strict: fal
   expect(harness.current.tabs.find(tab => tab.id === PAGE_ID)?.origin).toEqual({ tableId: 'table', viewId: 'main', tabId: null });
   expect(pane.hidden).toBe(true); expect(pane.hasAttribute('inert')).toBe(true);
   expect(required('[data-inline-scroll]')).toBe(scroll);
-  await harness.run(state => method === 'close' ? state.handleTabClose(PAGE_ID) : state.returnToTableFromBreadcrumb('table', 'main'));
+  await harness.run(state => {
+    if (method === 'close') state.handleTabClose(PAGE_ID);
+    else state.returnToTableFromBreadcrumb('table', 'main');
+  });
   await harness.run(() => new Promise(resolve => { window.setTimeout(resolve, 0); }));
   expect(harness.current.viewMode).toBe('table');
   expect(harness.current.nestedPath).toBe('table/table/view/main');
