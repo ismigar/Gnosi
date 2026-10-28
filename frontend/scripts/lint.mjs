@@ -28,8 +28,8 @@ function lint() {
     }
 
     // Use small serial CLI batches to release transient results sooner, while
-    // recycling the parser after 384 files. Cold workers never overlap.
-    for (let offset = 0; offset < files.length; offset += 384) {
+    // recycling the parser after 192 files. Cold workers never overlap.
+    for (let offset = 0; offset < files.length; offset += 192) {
       const result = spawnSync(process.execPath, [
         '--expose-gc', fileURLToPath(new URL('./lint-worker.mjs', import.meta.url)), manifest, String(offset),
       ], { cwd, stdio: 'inherit' });

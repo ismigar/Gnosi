@@ -125,7 +125,7 @@ def test_frontend_lint_and_guardrails_fail_closed() -> None:
     (False, 2, "early"), (True, 23, "early"),
     (False, 2, "final"), (True, 23, "final"),
 ])
-@pytest.mark.parametrize("file_count", [1, 17, 384, 385])
+@pytest.mark.parametrize("file_count", [1, 17, 192, 193, 384, 385])
 def test_shared_frontend_lint_preserves_scope_cache_arguments_and_failure(
     tmp_path: Path, cached: bool, status: int, failure_position: str, file_count: int,
 ) -> None:
@@ -211,7 +211,7 @@ def test_shared_frontend_lint_preserves_scope_cache_arguments_and_failure(
     payloads = [json.loads(line) for line in calls.read_text().splitlines()]
     assert len(payloads) == failure_batch + 1
     executed_file_count = min(file_count, len(payloads) * 16)
-    workers = (executed_file_count + 383) // 384
+    workers = (executed_file_count + 191) // 192
     assert len({payload["pid"] for payload in payloads}) == workers
     assert cleanup.read_text() == "cleared\n" * workers
     for index, payload in enumerate(payloads):
@@ -224,12 +224,12 @@ def test_shared_frontend_lint_preserves_scope_cache_arguments_and_failure(
     visited_files = [argument for payload in payloads
                      for argument in payload["args"][payload["args"].index("--") + 1:]]
     assert visited_files == [str(path) for path in files[:executed_file_count]]
-    if status and failure_position == "early" and file_count >= 384:
+    if status and failure_position == "early" and file_count >= 192:
         assert executed_file_count == 32 < file_count
         assert workers == 1  # A failed worker must not launch remaining batches/workers.
-    if status and failure_position == "final" and file_count == 385:
+    if status and failure_position == "final" and file_count in (193, 385):
         assert executed_file_count == file_count
-        assert workers == 2  # The final failure must also clear the second parser worker.
+        assert workers == (2 if file_count == 193 else 3)  # Final failures clear every started parser worker.
         assert payloads[0]["pid"] != payloads[-1]["pid"]
     assert result.stdout.count("synthetic lint output") == len(payloads)
     assert "synthetic lint diagnostic" in result.stderr
