@@ -102,6 +102,8 @@ tests:
 
 Les actualitzacions de la taula conserven els lots carregats, el registre i la columna actius, i la identitat i el cursor dels camps que continuen presents. Obrir un registre conserva la taula d’origen, la selecció, les files desplegades i els dos eixos de desplaçament. Tornar a una cel·la existent conserva la columna i la posició visible. Si un registre desapareix o queda filtrat, se selecciona una cel·la disponible sense prendre el focus d’un altre editor; una vista buida neteja la cel·la activa i l’àncora.
 
+La identitat de les files segueix els descriptors actuals encara que les mesures del virtualitzador arribin més tard. Un refresc fa visible el registre seleccionat si s’ha mogut a un grup o pare plegat, respectant els plegaments explícits de l’usuari. El tancament de diverses pestanyes només activa pestanyes que continuen presents després dels tancaments anteriors.
+
 ## Model de coneixement estructurat
 
 Una base de dades de Gnosi és una capa d'esquema i de vistes sobre pàgines,

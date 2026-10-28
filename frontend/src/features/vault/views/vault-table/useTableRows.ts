@@ -114,5 +114,5 @@ export function useTableRows({
   const virtPaddingBottom = virtualRows.length > 0
     ? virtTotalSize - (virtualRows.at(-1)?.end ?? 0)
     : virtTotalSize;
-  return { formulaRows, tableContainerRef, groupMeta, toggleGroup, rowDescriptors, rowVirtualizer, virtualRows, virtPaddingTop, virtPaddingBottom };
+  return { formulaRows, tableContainerRef, groupMeta, toggleGroup, rowDescriptors, rowKeys, rowVirtualizer, virtualRows, virtPaddingTop, virtPaddingBottom };
 }

@@ -15,6 +15,7 @@ export function TableBody({ model }: { model: TableController; }) {
     virtPaddingTop,
     virtualRows,
     rowDescriptors,
+    rowKeys,
     virtPaddingBottom,
     newRowInputRef,
     newRowTitle,
@@ -34,9 +35,10 @@ export function TableBody({ model }: { model: TableController; }) {
     )}
     {virtualRows.map(vi => {
       const d = rowDescriptors[vi.index];
-      if (!d) return null;
+      const occurrenceKey = rowKeys[vi.index];
+      if (!d || occurrenceKey === undefined) return null;
       if (d.kind === 'row') {
-        return renderRow(d.note, d.isChild, d.depth, String(vi.key), vi);
+        return renderRow(d.note, d.isChild, d.depth, occurrenceKey, vi);
       }
       if (d.kind === 'group-header') {
         return renderGroupHeader(d, vi);
