@@ -139,6 +139,7 @@ async def save_page(
             file_path,
         )
         metadata["id"] = page_id
+        metadata["title"] = request.title
         apply_explicit_title(metadata, table, request.title)
         if request.parent_id is not None:
             metadata["parent_id"] = request.parent_id
