@@ -350,9 +350,11 @@ es reinicia el procés real del backend i es comprova que contingut i metadades
 persisteixin. Les suites amb API simulada acrediten només el frontend. Els
 projectes crític i de reinici utilitzen rutes i persistència reals.
 
+Una fixture nova en mode personal utilitza després el selector real de vaults per sortir d’una pàgina oberta del primer vault i obrir contingut del segon. Tots dos modes exigeixen autenticació i mantenen dades i secrets de signatura separats. Cada projecte de navegador seleccionat ha d’executar una prova superada.
+
 `GNOSI_VALIDATION_ROOT` delimita les dades i desactiva la lectura de fitxers
 d'entorn i del magatzem de credencials. El navegador no té transport extern fora
-de l'origen loopback explícit. La fixture també rebutja sockets externs i
+dels dos ports loopback propis. La fixture també rebutja sockets externs i
 escriptures fora de l'arrel pròpia. No pren serveis personals ni ports ocupats.
 La construcció conserva la validació dels actius del lector i els límits de
 mida. L'informe vincula el commit, el diff i l'inventari compilat, i falla si

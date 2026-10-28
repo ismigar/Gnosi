@@ -36,7 +36,7 @@ def require_free_port(port: int) -> None:
         probe.bind(("127.0.0.1", port))
 
 
-def report_counts(report: Path) -> dict[str, int]:
+def report_counts(report: Path, required_projects: Sequence[str] = ()) -> dict[str, int]:
     document = json.loads(report.read_text(encoding="utf-8"))
     stats = document.get("stats")
     if not isinstance(stats, dict):
@@ -49,6 +49,30 @@ def report_counts(report: Path) -> dict[str, int]:
         result[name] = value
     if result["expected"] == 0 or any(result[key] for key in ("unexpected", "flaky", "skipped")):
         raise ValueError(f"Browser acceptance is incomplete: {result}")
+    completed: set[str] = set()
+
+    def visit(suite: object) -> None:
+        if not isinstance(suite, dict) or not isinstance(suite.get("specs", []), list) or not isinstance(suite.get("suites", []), list):
+            raise ValueError("Browser report has an invalid project suite")
+        for spec in suite.get("specs", []):
+            if not isinstance(spec, dict) or not isinstance(spec.get("tests", []), list):
+                raise ValueError("Browser report has an invalid test specification")
+            for test in spec.get("tests", []):
+                if not isinstance(test, dict):
+                    raise ValueError("Browser report has an invalid test case")
+                if test.get("status") == "expected" and test.get("expectedStatus") == "passed":
+                    project = test.get("projectName")
+                    if not isinstance(project, str) or not project:
+                        raise ValueError("Browser report has no project identity")
+                    completed.add(project)
+        for child in suite.get("suites", []):
+            visit(child)
+
+    for suite in document.get("suites", []):
+        visit(suite)
+    missing = set(required_projects) - completed
+    if missing:
+        raise ValueError(f"Browser projects executed no passing cases: {', '.join(sorted(missing))}")
     return result
 
 
@@ -131,7 +155,7 @@ def accept(output: Path, frontend_port: int, backend_port: int) -> None:
     if frontend_port == backend_port:
         raise ValueError("Frontend and backend require different owned ports")
     output.mkdir(parents=True, exist_ok=False)
-    result: dict[str, object] = {"status": "incomplete", "source_commit": initial[0], "source_diff_sha256": initial[1], "projects": list(PROJECTS), "installed_app_acceptance": False}
+    result: dict[str, object] = {"status": "incomplete", "source_commit": initial[0], "source_diff_sha256": initial[1], "projects": [*PROJECTS, "persistence-restart", "personal-workflows"], "installed_app_acceptance": False}
     (output / "acceptance.json").write_text(json.dumps(result, indent=2) + "\n")
     node = shutil.which("node")
     if node is None:
@@ -180,18 +204,38 @@ def accept(output: Path, frontend_port: int, backend_port: int) -> None:
             preview = subprocess.Popen((node, str(vite), "preview", "--host", "127.0.0.1", "--port", str(frontend_port), "--strictPort"), cwd=ROOT / "frontend", env=environment, stdout=preview_log, stderr=subprocess.STDOUT, start_new_session=True)
             processes.append(preview)
             wait_ready(environment["GNOSI_BASE_URL"] + "/", preview)
-            for phase, projects in (("functional", PROJECTS), ("restart", ("persistence-restart",))):
+            for phase, projects in (("functional", PROJECTS), ("restart", ("persistence-restart",)), ("personal", ("personal-workflows",))):
                 if phase == "restart":
                     stop_owned(backend)
                     backend = subprocess.Popen(backend_command, cwd=ROOT, env=environment, stdout=backend_log, stderr=subprocess.STDOUT, start_new_session=True)
                     processes.append(backend)
                     wait_ready(f"http://127.0.0.1:{backend_port}/api/health", backend)
+                elif phase == "personal":
+                    stop_owned(backend)
+                    personal = temporary / "personal"
+                    personal.mkdir()
+                    personal_environment = isolated_environment(os.environ, personal)
+                    personal_environment.update({key: environment[key] for key in (
+                        "CI", "NODE_OPTIONS", "GNOSI_BASE_URL", "GNOSI_BACKEND_URL",
+                        "GNOSI_ACCEPTANCE_PROXY", "GNOSI_ACCEPTANCE_PYTHON", "PLAYWRIGHT_HTML_OPEN",
+                    ) if key in environment})
+                    environment = personal_environment
+                    personal_log = (output / "personal-backend.log").open("wb"); handles.append(personal_log)
+                    backend = subprocess.Popen((sys.executable, "scripts/ci/acceptance_backend.py", "--root", str(personal),
+                        "--port", str(backend_port), "--frontend-port", str(frontend_port), "--state", str(personal / "fixture-state.json"),
+                        "--mode", "personal"), cwd=ROOT, env=environment, stdout=personal_log, stderr=subprocess.STDOUT, start_new_session=True)
+                    processes.append(backend)
+                    wait_ready(f"http://127.0.0.1:{backend_port}/api/health", backend)
+                    state = json.loads((personal / "fixture-state.json").read_text())
+                    if Path(str(state.get("source_root"))).resolve() != ROOT or state.get("mode") != "personal":
+                        raise ValueError("Personal acceptance fixture has incorrect provenance or mode")
+                    fixture_environment(environment, state, personal)
                 report = output / f"{phase}-report.json"
                 environment["PLAYWRIGHT_JSON_OUTPUT_FILE"] = str(report)
                 command = [node, str(playwright), "test", "--workers=1", "--retries=0", "--reporter=line,json", "--output", str(output / phase)]
                 command.extend(f"--project={project}" for project in projects)
                 run(command, ROOT / "tests/e2e", environment, output / f"{phase}-browser.log")
-                result[phase] = report_counts(report)
+                result[phase] = report_counts(report, projects)
             if source_fingerprint(ROOT) != initial:
                 raise RuntimeError("Source changed during acceptance; candidate evidence is incomplete")
             if file_inventory(ROOT / "frontend/dist") != result["compiled_frontend_sha256"]:

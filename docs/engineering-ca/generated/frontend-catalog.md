@@ -52,7 +52,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2679 | 0 |
-| `features` | 1277 | 136826 | 56 |
+| `features` | 1277 | 136828 | 56 |
 | `generated` | 3 | 56705 | 585 |
 | `shared` | 348 | 37083 | 501 |
 
@@ -808,7 +808,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/dashboard/useDashboardLifecycle.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDashboardLifecycle.ts) | 156 | `useDashboardLifecycle` | — |
 | [`frontend/src/features/vault/dashboard/useDashboardState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDashboardState.ts) | 242 | `useDashboardState` | — |
 | [`frontend/src/features/vault/dashboard/useDataLoading.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDataLoading.ts) | 162 | `useDataLoading` | — |
-| [`frontend/src/features/vault/dashboard/useDocumentTabs.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDocumentTabs.ts) | 156 | `useDocumentTabs` | — |
+| [`frontend/src/features/vault/dashboard/useDocumentTabs.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDocumentTabs.ts) | 158 | `useDocumentTabs` | — |
 | [`frontend/src/features/vault/dashboard/useEditorUpdates.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useEditorUpdates.ts) | 135 | `useEditorUpdates` | — |
 | [`frontend/src/features/vault/dashboard/useExternalCatalogRefresh.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useExternalCatalogRefresh.ts) | 45 | `useExternalCatalogRefresh` | — |
 | [`frontend/src/features/vault/dashboard/useGlobalIndex.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useGlobalIndex.ts) | 28 | `useGlobalIndex` | — |

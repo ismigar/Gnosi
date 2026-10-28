@@ -24,9 +24,9 @@ def test_browser_gate_contains_persistence_and_authenticated_projects() -> None:
     assert "dump_traceback_later" not in native_job
     assert "scripts/ci/browser_acceptance.py" in native_job
     runner = (REPOSITORY_ROOT / "scripts/ci/browser_acceptance.py").read_text()
-    for project in ("disposable-web", "chromium-auth", "accessibility", "critical-workflows", "persistence-restart"):
+    for project in ("disposable-web", "chromium-auth", "accessibility", "critical-workflows", "persistence-restart", "personal-workflows"):
         assert f'"{project}"' in runner
-    assert "report_counts(report)" in runner
+    assert "report_counts(report, projects)" in runner
     assert "source_fingerprint(ROOT) != initial" in runner
 
 

@@ -70,7 +70,7 @@ def _credentials(environ: MutableMapping[str, str], kind: str) -> dict[str, str]
             "name": f"Acceptance {kind.title()}"}
 
 
-def _fixture_state(root: Path, port: int, accounts: dict[str, Any]) -> dict[str, Any]:
+def _fixture_state(root: Path, port: int, accounts: dict[str, Any], mode: str) -> dict[str, Any]:
     rows = [
         {"id": fixture_id("row-one"), "title": "Acceptance first record",
          "content": "A synthetic first record with a searchable amber lighthouse.\n"},
@@ -78,11 +78,12 @@ def _fixture_state(root: Path, port: int, accounts: dict[str, Any]) -> dict[str,
          "content": "A synthetic second record with a searchable violet observatory.\n"},
     ]
     table_id = fixture_id("table")
+    workspace_id = "personal" if mode == "personal" else fixture_id("workspace")
     return {
         "schema_version": SCHEMA_VERSION, "root": str(root), "source_root": str(SOURCE_ROOT),
         "backend_url": f"http://127.0.0.1:{port}", **accounts,
-        "workspace_id": fixture_id("workspace"),
-        "workspace": {"id": fixture_id("workspace"), "name": "Acceptance workspace"},
+        "mode": mode, "workspace_id": workspace_id,
+        "workspace": {"id": workspace_id, "name": "Acceptance workspace"},
         "vaults": {
             "primary": {"id": fixture_id("primary-vault"), "name": "Acceptance primary",
                         "slug": "acceptance-primary", "path": str(root / "vault")},
@@ -111,6 +112,7 @@ class AcceptanceRuntime:
 
 def prepare_runtime(root: Path, port: int, state_path: Path, *,
                     frontend_port: int | None = None,
+                    mode: str = "organization",
                     environ: MutableMapping[str, str] | None = None) -> AcceptanceRuntime:
     """Validate ownership and configure isolation before importing the backend.
 
@@ -120,6 +122,8 @@ def prepare_runtime(root: Path, port: int, state_path: Path, *,
     HOME is intentionally retained verbatim.
     """
     env = os.environ if environ is None else environ
+    if mode not in {"organization", "personal"}:
+        raise ValueError("Acceptance requires an explicit supported application mode")
     if not 1 <= port <= 65535 or (frontend_port is not None and
             (not 1 <= frontend_port <= 65535 or frontend_port == port)):
         raise ValueError("Supply distinct, explicit backend/frontend TCP ports")
@@ -149,7 +153,7 @@ def prepare_runtime(root: Path, port: int, state_path: Path, *,
         receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
         if (receipt.get("schema_version") != SCHEMA_VERSION or receipt.get("root") != str(root)
                 or receipt.get("source_root") != str(SOURCE_ROOT)
-                or receipt.get("state_path") != str(state_path)):
+                or receipt.get("state_path") != str(state_path) or receipt.get("mode") != mode):
             raise ValueError("Acceptance ownership receipt does not match this source/root/state")
         if not isinstance(receipt.get("jwt_secret"), str) or len(receipt["jwt_secret"]) < 32:
             raise ValueError("Acceptance ownership receipt has no signing secret")
@@ -173,10 +177,10 @@ def prepare_runtime(root: Path, port: int, state_path: Path, *,
         accounts = {kind: _credentials(env, kind) for kind in ("owner", "viewer")}
         if accounts["owner"]["email"] == accounts["viewer"]["email"]:
             raise ValueError("Owner and viewer must have distinct synthetic identities")
-        state = _fixture_state(root, port, accounts)
+        state = _fixture_state(root, port, accounts, mode)
         receipt = {"schema_version": SCHEMA_VERSION, "root": str(root),
                    "source_root": str(SOURCE_ROOT), "state_path": str(state_path),
-                   "jwt_secret": secrets.token_urlsafe(48)}
+                   "jwt_secret": secrets.token_urlsafe(48), "mode": mode}
         first_boot = True
     # Reject nested links too: an owned receipt never authorizes storage escapes.
     if any(path.is_symlink() for path in root.rglob("*")):
@@ -190,7 +194,7 @@ def prepare_runtime(root: Path, port: int, state_path: Path, *,
             configuration = Path(vault["path"]) / ".gnosi"
             configuration.mkdir()
             (configuration / "params.yaml").write_text(
-                "settings:\n  language: en\n  gnosi_mode: organization\n"
+                f"settings:\n  language: en\n  gnosi_mode: {mode}\n"
                 "ai:\n  providers: {}\n  models: []\n  agents: []\n", encoding="utf-8",
             )
             _write_json(configuration / "plugins.json", {
@@ -210,7 +214,7 @@ def prepare_runtime(root: Path, port: int, state_path: Path, *,
             env.pop(name, None)
     env.update({name: str(path) for name, path in selectors.items()})
     env.update({
-        "GNOSI_MODE": "organization", "GNOSI_REQUIRE_AUTH": "1",
+        "GNOSI_MODE": mode, "GNOSI_REQUIRE_AUTH": "1",
         "GNOSI_JWT_SECRET": receipt["jwt_secret"], "GNOSI_DISABLE_SCHEDULER": "1",
         "GNOSI_FILES_PROVIDER": "local", "GNOSI_RUN_LIVE_E2E": "0",
         "GNOSI_SHARED_ENV_FILE": str(root / "disabled.env"),
@@ -448,12 +452,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--frontend-port", type=int)
+    parser.add_argument("--mode", choices=("organization", "personal"), default="organization")
     parser.add_argument("--seed-only", action="store_true", help="Run the real lifespan/fixture, then exit")
     args = parser.parse_args(argv)
     try:
         if any(name == "backend" or name.startswith("backend.") for name in sys.modules):
             raise RuntimeError("Acceptance must configure isolation before any backend import")
-        runtime = prepare_runtime(args.root, args.port, args.state, frontend_port=args.frontend_port)
+        runtime = prepare_runtime(args.root, args.port, args.state, frontend_port=args.frontend_port, mode=args.mode)
         install_process_guard(runtime)
         app = create_application(runtime)
         if args.seed_only:

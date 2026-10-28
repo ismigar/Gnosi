@@ -125,9 +125,7 @@ test('editing and closing a table record restores its active cell and horizontal
     expect(response.ok()).toBe(true);
     return requireJsonObject(await response.json()).title;
   }).toBe('Accepted table record');
-  const close = page.getByTitle('Accepted table record', { exact: true })
-    .filter({ has: page.getByRole('button', { name: /close tab|tanca.*pestanya|cerrar pesta|fermer.*onglet/i }) })
-    .getByRole('button', { name: /close tab|tanca.*pestanya|cerrar pesta|fermer.*onglet/i });
+  const close = page.getByRole('button', { name: /close tab|tanca.*pestanya|cerrar pesta|fermer.*onglet/i });
   await close.click();
   await expect(cell).toContainText('Accepted table record');
   await expect(cell).toHaveAttribute('data-active-cell', 'true');

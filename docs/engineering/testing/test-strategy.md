@@ -332,8 +332,10 @@ content and metadata to survive. Contract-mocked browser suites continue to
 prove frontend behavior only; the critical and restart projects use real routes
 and real persistence.
 
+A fresh fixture in personal mode then uses the production vault selector to switch away from an open primary page and open secondary content. The two modes require authentication and retain separate data roots and signing secrets. Every selected browser project must execute a passing case.
+
 `GNOSI_VALIDATION_ROOT` bounds fixture data and disables environment-file and
-credential-store access. Browser traffic outside the explicit loopback origin
+credential-store access. Browser traffic outside the two owned loopback service ports
 has no external transport. The fixture also rejects external backend sockets
 and filesystem writes outside its owned root. It never starts personal services
 or borrows an occupied port. Production builds retain reader-asset validation

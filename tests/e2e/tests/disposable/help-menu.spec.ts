@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { installDisposableNetwork, seedDisposableBrowser } from '../../support/disposable-web.ts';
+import { settleVisualState } from '../../support/visual-state.ts';
 
 for (const width of [1280, 390]) {
   test(`help menu stays usable at ${width}px`, async ({ context, page }, testInfo) => {
@@ -16,6 +17,7 @@ for (const width of [1280, 390]) {
     const release = page.getByRole('button', { name: /close release notes|tanca les notes|cerrar las notas|fermer les notes/i });
     await release.waitFor({ state: 'visible', timeout: 1000 }).then(() => release.click()).catch(() => {});
     if (width < 768) await page.locator('.app-sidebar-mobile-toggle').click();
+    await settleVisualState(page);
     const trigger = page.locator('.app-help > button');
     await expect(trigger).toBeVisible();
     await trigger.focus();

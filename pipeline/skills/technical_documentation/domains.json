@@ -20,7 +20,7 @@
       "docker-compose.yml",
       "Dockerfile.*"
     ],
-    "test_globs": ["backend/tests/test_*config*.py", "backend/tests/test_acceptance_fixture.py", "backend/tests/test_browser_acceptance_runner.py", "tests/e2e/tests/critical/daily-work.spec.ts", "tests/e2e/tests/restart/persistence.spec.ts", "backend/tests/test_*health*.py", "frontend/src/app/**/*.test.*", "frontend/src/shared/**/*.test.*", "frontend/src/features/control-center/**/*.test.*", "frontend/src/shared/offline/**/*.test.*", "frontend/src/shared/api/offline-sync.test.ts", "tests/e2e/tests/disposable/offline-companion.spec.ts", "frontend/src/features/settings/**/*.test.*", "frontend/tests/contracts/**/*.test.*"],
+    "test_globs": ["backend/tests/test_*config*.py", "backend/tests/test_acceptance_fixture.py", "backend/tests/test_browser_acceptance_runner.py", "tests/e2e/tests/critical/daily-work.spec.ts", "tests/e2e/tests/restart/persistence.spec.ts", "tests/e2e/tests/personal/vault-switch.spec.ts", "backend/tests/test_*health*.py", "frontend/src/app/**/*.test.*", "frontend/src/shared/**/*.test.*", "frontend/src/features/control-center/**/*.test.*", "frontend/src/shared/offline/**/*.test.*", "frontend/src/shared/api/offline-sync.test.ts", "tests/e2e/tests/disposable/offline-companion.spec.ts", "frontend/src/features/settings/**/*.test.*", "frontend/tests/contracts/**/*.test.*"],
     "directives": ["environment_integrity.md", "gnosi_ecosystem_architecture.md"]
   },
   {

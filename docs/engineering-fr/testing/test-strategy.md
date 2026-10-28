@@ -353,9 +353,11 @@ persistance du contenu et des métadonnées. Les suites à API simulée prouvent
 uniquement le comportement frontend. Les projets critique et de redémarrage
 utilisent les véritables routes et la persistance réelle.
 
+Une nouvelle fixture en mode personnel utilise ensuite le véritable sélecteur de vaults pour quitter une page ouverte du premier vault et ouvrir le contenu du second. Les deux modes exigent une authentification et conservent des données et des secrets de signature séparés. Chaque projet de navigateur sélectionné doit exécuter un test réussi.
+
 `GNOSI_VALIDATION_ROOT` borne les données et désactive la lecture des fichiers
 d'environnement et du magasin d'identifiants. Le navigateur n'a aucun transport
-externe hors de l'origine loopback explicite. La fixture refuse aussi les sockets
+externe hors des deux ports loopback propres au test. La fixture refuse aussi les sockets
 externes et les écritures hors de sa racine. Elle n'emprunte aucun service personnel
 ni port occupé. La construction conserve la validation des ressources du lecteur
 et les budgets de taille. Le rapport lie le commit, le diff et l'inventaire compilé,

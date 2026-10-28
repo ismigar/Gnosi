@@ -27,7 +27,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `pipeline/` | 108 | Reusable development and application skills, and deterministic processing tools |
 | `desktop/` | 133 | Desktop lifecycle, backend packaging, IPC, and updates |
 | `extensions/` | 91 | Office, browser, plugin, marketplace, and external-system adapters |
-| `tests/e2e/` | 57 | Host-level Playwright acceptance tests |
+| `tests/e2e/` | 59 | Host-level Playwright acceptance tests |
 | `scripts/` | 47 | Native, self-host, release, and maintenance scripts |
 
 ## Exclusion boundary

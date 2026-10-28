@@ -8,7 +8,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Domaine | État | Guide | Fichiers source | Fichiers de test | Directives trouvées |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 937 | 335 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 937 | 336 | 0 |
 | `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1147 | 331 | 0 |
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 540 | 169 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 70 | 42 | 0 |
@@ -29,7 +29,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 - Guide: [`Platform foundation and runtime`](../domains/foundation-runtime.md)
 - Motifs des sources: `backend/server.py`, `backend/config/**/*.py`, `frontend/src/app/**/*`, `frontend/src/shared/**/*`, `frontend/src/generated/**/*`, `frontend/src/features/control-center/**/*`, `frontend/src/features/offline/**/*`, `frontend/src/features/settings/**/*`, `frontend/feature-public-entries.json`, `scripts/runtime/run_native_*.sh`, `scripts/ci/acceptance_backend.py`, `scripts/ci/acceptance_proxy.py`, `scripts/ci/browser_acceptance.py`, `docker-compose.yml`, `Dockerfile.*`
-- Motifs des tests: `backend/tests/test_*config*.py`, `backend/tests/test_acceptance_fixture.py`, `backend/tests/test_browser_acceptance_runner.py`, `tests/e2e/tests/critical/daily-work.spec.ts`, `tests/e2e/tests/restart/persistence.spec.ts`, `backend/tests/test_*health*.py`, `frontend/src/app/**/*.test.*`, `frontend/src/shared/**/*.test.*`, `frontend/src/features/control-center/**/*.test.*`, `frontend/src/shared/offline/**/*.test.*`, `frontend/src/shared/api/offline-sync.test.ts`, `tests/e2e/tests/disposable/offline-companion.spec.ts`, `frontend/src/features/settings/**/*.test.*`, `frontend/tests/contracts/**/*.test.*`
+- Motifs des tests: `backend/tests/test_*config*.py`, `backend/tests/test_acceptance_fixture.py`, `backend/tests/test_browser_acceptance_runner.py`, `tests/e2e/tests/critical/daily-work.spec.ts`, `tests/e2e/tests/restart/persistence.spec.ts`, `tests/e2e/tests/personal/vault-switch.spec.ts`, `backend/tests/test_*health*.py`, `frontend/src/app/**/*.test.*`, `frontend/src/shared/**/*.test.*`, `frontend/src/features/control-center/**/*.test.*`, `frontend/src/shared/offline/**/*.test.*`, `frontend/src/shared/api/offline-sync.test.ts`, `tests/e2e/tests/disposable/offline-companion.spec.ts`, `frontend/src/features/settings/**/*.test.*`, `frontend/tests/contracts/**/*.test.*`
 - Directives: none found
 
 ## Vault and files

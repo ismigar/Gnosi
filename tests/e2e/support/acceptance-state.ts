@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export interface AcceptanceAccount { id: string; email: string; password: string }
-export interface AcceptanceVault { id: string; slug: string }
+export interface AcceptanceVault { id: string; slug: string; name: string }
 export interface AcceptanceState {
   owner: AcceptanceAccount;
   viewer: AcceptanceAccount;

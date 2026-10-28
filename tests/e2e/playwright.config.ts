@@ -137,6 +137,14 @@ export default defineConfig({
       dependencies: ['setup'],
     },
     {
+      name: 'personal-workflows',
+      testDir: './tests/personal',
+      fullyParallel: false,
+      retries: 0,
+      use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
+      dependencies: ['setup'],
+    },
+    {
       name: 'visual',
       testDir: './tests/visual',
       use: {

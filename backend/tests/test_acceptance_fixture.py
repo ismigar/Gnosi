@@ -110,6 +110,14 @@ def test_incomplete_seed_is_never_silently_retried(tmp_path: Path) -> None:
         prepare_runtime(root, 38573, root / "state.json", environ={})
 
 
+def test_restart_refuses_to_change_the_owned_application_mode(tmp_path: Path) -> None:
+    root = tmp_path.resolve()
+    runtime = prepare_runtime(root, 38573, root / 'state.json', mode='personal', environ={})
+    runtime.state_path.write_text(json.dumps(runtime.state))
+    with pytest.raises(ValueError, match='ownership receipt'):
+        prepare_runtime(root, 38573, root / 'state.json', mode='organization', environ={})
+
+
 def test_process_guard_refuses_external_sockets_files_and_processes(tmp_path: Path) -> None:
     result = _child("""
         from pathlib import Path
@@ -168,7 +176,7 @@ _PERSISTENCE_PROBE = """
 
     root = Path(sys.argv[1])
     phase = sys.argv[2]
-    runtime = prepare_runtime(root, 38573, root / "fixture-state.json", frontend_port=38574)
+    runtime = prepare_runtime(root, 38573, root / "fixture-state.json", frontend_port=38574, mode=sys.argv[3])
     install_process_guard(runtime)
     app = create_application(runtime)
     import httpx
@@ -226,6 +234,12 @@ _PERSISTENCE_PROBE = """
                                              json={"content": "Viewer must not write"})
                 assert refused.status_code == 403, refused.text
                 readable = await client.get("/api/vault/pages/" + expected["id"])
+                if state['mode'] == 'personal':
+                    assert readable.status_code == 403, readable.text
+                    await client.post('/api/auth/login', json={
+                        'email': state['owner']['email'], 'password': state['owner']['password'],
+                    })
+                    readable = await client.get('/api/vault/pages/' + expected['id'])
                 assert readable.status_code == 200, readable.text
                 assert readable.json()["content"].strip() == expected["content"].strip()
             assert state["source_root"] == str(Path.cwd().resolve())
@@ -236,16 +250,17 @@ _PERSISTENCE_PROBE = """
 """
 
 
-def test_production_auth_vault_isolation_and_fixture_survive_process_restart(tmp_path: Path) -> None:
+@pytest.mark.parametrize('mode', ['organization', 'personal'])
+def test_production_auth_vault_isolation_and_fixture_survive_process_restart(tmp_path: Path, mode: str) -> None:
     """Two fresh interpreters use actual routes, cookies, DBs, files and lifespans."""
     root = tmp_path.resolve()
-    first = _child(_PERSISTENCE_PROBE, root, "mutate")
+    first = _child(_PERSISTENCE_PROBE, root, "mutate", mode)
     assert first.returncode == 0, first.stdout + first.stderr
     initial_state = json.loads((root / "fixture-state.json").read_text())
     initial_receipt = (root / OWNER_FILE).read_bytes()
     expected_content = (root / "expected-content.json").read_bytes()
 
-    second = _child(_PERSISTENCE_PROBE, root, "verify")
+    second = _child(_PERSISTENCE_PROBE, root, "verify", mode)
 
     assert second.returncode == 0, second.stdout + second.stderr
     assert json.loads((root / "fixture-state.json").read_text()) == initial_state

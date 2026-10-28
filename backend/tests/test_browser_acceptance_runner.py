@@ -37,6 +37,19 @@ def test_success_requires_actual_completed_tests(tmp_path: Path) -> None:
     assert report_counts(report)["expected"] == 7
 
 
+def test_each_mandatory_project_must_execute_its_own_passing_case(tmp_path: Path) -> None:
+    report = tmp_path / 'report.json'
+    document = {'stats': {'expected': 2, 'unexpected': 0, 'flaky': 0, 'skipped': 0}, 'suites': [
+        {'suites': [{'specs': [{'tests': [{'projectName': 'anonymous', 'expectedStatus': 'passed', 'status': 'expected'}]}]}]},
+    ]}
+    report.write_text(json.dumps(document))
+    with pytest.raises(ValueError, match='critical'):
+        report_counts(report, ('anonymous', 'critical'))
+    document['suites'].append({'specs': [{'tests': [{'projectName': 'critical', 'expectedStatus': 'passed', 'status': 'expected'}]}]})
+    report.write_text(json.dumps(document))
+    assert report_counts(report, ('anonymous', 'critical'))['expected'] == 2
+
+
 def test_compiled_build_identity_changes_for_content_and_names(tmp_path: Path) -> None:
     (tmp_path / "index.html").write_text("build one")
     initial = file_inventory(tmp_path)
