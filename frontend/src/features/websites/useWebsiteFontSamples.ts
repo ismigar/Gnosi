@@ -16,7 +16,7 @@ export function useWebsiteFontSamples(siteId: string, fonts: readonly SiteFont[]
   }, [stableFonts]);
   const key = JSON.stringify([siteId, [context.userId, context.userEmail, context.workspaceId, context.vaultId], choices]);
   const [loaded, setLoaded] = useState<{ key: string; aliases: Record<string, string>; failed: boolean }>({ key: '', aliases: {}, failed: false });
-  const supported = typeof FontFace !== 'undefined' && typeof document.fonts?.add === 'function';
+  const supported = typeof FontFace !== 'undefined' && typeof document.fonts.add === 'function';
   useEffect(() => {
     if (!supported || !choices.length) return undefined;
     let active = true;

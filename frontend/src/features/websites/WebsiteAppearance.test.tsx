@@ -48,7 +48,7 @@ describe('Webs appearance and nonblocking navigation', () => {
     expect(view.container.textContent).toContain('websites.catalogueLoading');
     tab(view.container, 'appearance'); tab(view.container, 'sources'); await settle();
     expect(api.siteCatalogue).toHaveBeenCalledOnce();
-    await act(async () => { finish(catalogue); }); await settle();
+    act(() => { finish(catalogue); }); await settle();
     tab(view.container, 'appearance'); tab(view.container, 'sources'); await settle();
     expect(api.siteCatalogue).toHaveBeenCalledOnce();
     expect(view.container.querySelector('[aria-label="websites.addSource"]')).not.toBeNull();
@@ -68,7 +68,7 @@ describe('Webs appearance and nonblocking navigation', () => {
     act(() => { changeInput(control(view.container, 'websites.themeName'), 'Changed during upload'); });
     tab(view.container, 'navigation'); await settle();
     expect(view.container.querySelector('#websites-tab-appearance')?.getAttribute('aria-selected')).toBe('true');
-    await act(async () => { finish({ source: '/.gnosi/sites/assets/test-site/logo.png', media_type: 'image/png' }); }); await settle(); await autosave();
+    act(() => { finish({ source: '/.gnosi/sites/assets/test-site/logo.png', media_type: 'image/png' }); }); await settle(); await autosave();
     expect(view.container.querySelector('#websites-tab-navigation')?.getAttribute('aria-selected')).toBe('true');
     expect(api.uploadSiteThemeAsset).toHaveBeenCalledWith('test-site', file, 'image', context, expect.any(AbortSignal));
     expect(vi.mocked(api.saveSite).mock.calls.at(-1)?.[0].theme).toMatchObject({ name: 'Changed during upload', logo: '/.gnosi/sites/assets/test-site/logo.png' });
@@ -91,7 +91,7 @@ describe('Webs appearance and nonblocking navigation', () => {
     act(() => { button(view.container, 'websites.create').click(); }); await settle();
     expect(api.createSite).not.toHaveBeenCalled();
     expect(control(view.container, 'websites.website').value).toBe(base.id);
-    await act(async () => { finish({ source: '/.gnosi/sites/assets/test-site/logo.png', media_type: 'image/png' }); }); await settle(); await autosave();
+    act(() => { finish({ source: '/.gnosi/sites/assets/test-site/logo.png', media_type: 'image/png' }); }); await settle(); await autosave();
     expect(api.createSite).toHaveBeenCalledOnce();
     expect(control(view.container, 'websites.website').value).toBe(nextSite.id);
     const saves = vi.mocked(api.saveSite).mock.calls.map(([site]) => site);
@@ -125,7 +125,7 @@ describe('Webs appearance and nonblocking navigation', () => {
         act(() => { changeInput(family, value); vi.advanceTimersByTime(80); });
       }
       expect(api.previewSiteFont).not.toHaveBeenCalled();
-      await act(async () => { vi.advanceTimersByTime(250); }); await settle(); await settle();
+      act(() => { vi.advanceTimersByTime(250); }); await settle(); await settle();
       expect(add).toHaveBeenCalledTimes(2);
       act(() => { changeInput(control(view.container, 'websites.themeName'), 'Renamed'); }); await autosave();
       expect(api.previewSiteFont).toHaveBeenCalledTimes(2);
