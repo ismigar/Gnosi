@@ -42,30 +42,35 @@ function mountEditor(mode: 'primary' | 'wiki' | 'without-title' = 'primary') {
   const input = mounted.container.querySelector('textarea');
   if (!input) throw new Error('Missing title input');
   const rename = () => { act(() => {
-    const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-    if (!set) throw new Error('Missing native value setter');
-    set.call(input, 'Renamed'); input.dispatchEvent(new Event('input', { bubbles: true }));
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+    if (!descriptor?.set) throw new Error('Missing native value setter');
+    descriptor.set.call(input, 'Renamed'); input.dispatchEvent(new Event('input', { bubbles: true }));
   }); };
   return { ...mounted, input, rename, update };
 }
+function expectSaved(title: string, metadata: PageMetadata) {
+  expect(patch.mock.lastCall?.[0]).toBe('record');
+  expect(patch.mock.lastCall?.[1]).toMatchObject({ title, metadata });
+}
 it('autosaves a header rename with the registered title and unrelated metadata intact', async () => {
   const editor = mountEditor(); editor.rename();
-  expect(editor.update).toHaveBeenLastCalledWith('record', undefined, expect.objectContaining({ title: 'Renamed', metadata: expect.objectContaining({ title: 'Renamed', Title: 'Renamed', local: false }) }));
+  expect(editor.update).toHaveBeenLastCalledWith('record', undefined, expect.anything());
+  expect(editor.update.mock.lastCall?.[2]).toMatchObject({ title: 'Renamed', metadata: { title: 'Renamed', Title: 'Renamed', local: false } });
   await act(async () => { await vi.advanceTimersByTimeAsync(600); });
-  expect(patch).toHaveBeenCalledWith('record', expect.objectContaining({ title: 'Renamed', metadata: expect.objectContaining({ title: 'Renamed', Title: 'Renamed', local: false }) }));
+  expectSaved('Renamed', { title: 'Renamed', Title: 'Renamed', local: false });
 });
 it('flushes the latest header title when the record closes before the debounce ends', async () => {
   const editor = mountEditor(); editor.rename(); editor.unmount();
   await act(async () => { await Promise.resolve(); });
   expect(patch).toHaveBeenCalledTimes(1);
-  expect(patch).toHaveBeenCalledWith('record', expect.objectContaining({ title: 'Renamed', metadata: expect.objectContaining({ Title: 'Renamed' }) }));
+  expectSaved('Renamed', { Title: 'Renamed' });
 });
 it('keeps the canonical header title in sync when the registered property is edited by immutable ID', async () => {
   const editor = mountEditor();
   act(() => { editor.container.querySelector('button')?.click(); });
   expect(editor.input.value).toBe('Property rename');
   await act(async () => { await vi.advanceTimersByTimeAsync(600); });
-  expect(patch).toHaveBeenCalledWith('record', expect.objectContaining({ title: 'Property rename', metadata: expect.objectContaining({ title: 'Property rename', Title: 'Property rename', local: false }) }));
+  expectSaved('Property rename', { title: 'Property rename', Title: 'Property rename', local: false });
 });
 
 it.each(['wiki', 'without-title'] as const)('preserves the header when ordinary string metadata changes in %s pages', async mode => {
@@ -74,7 +79,7 @@ it.each(['wiki', 'without-title'] as const)('preserves the header when ordinary 
     const editor = mountEditor(mode);
     await act(async () => { editor.container.querySelector<HTMLButtonElement>(`[data-field="${key}"]`)?.click(); await vi.advanceTimersByTimeAsync(600); });
     expect(editor.input.value).toBe('Old');
-    expect(patch).toHaveBeenCalledWith('record', expect.objectContaining({ title: 'Old', metadata: expect.objectContaining({ title: 'Old', Title: 'Old', [key]: 'Changed' }) }));
+    expectSaved('Old', { title: 'Old', Title: 'Old', [key]: 'Changed' });
     editor.unmount();
   }
 });

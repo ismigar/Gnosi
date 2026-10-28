@@ -1,3 +1,4 @@
+import { PaneVisibilityContext } from '../../../../shared/ui/PaneVisibility';
 import { act, useLayoutEffect } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mountTestComponent } from '../../../../../tests/mount-react';
@@ -46,16 +47,17 @@ function mountTable(extra: Partial<VaultTableProps> = {}) {
     const current = useTableController(input); useLayoutEffect(() => { model = current; });
     return <TableLayout model={current} />;
   }
-  const mounted = mountTestComponent(<Probe input={props} />); cleanups.push(mounted.unmount);
+  const tree = (input: VaultTableProps, visible = true) => <PaneVisibilityContext.Provider value={visible}><Probe input={input} /></PaneVisibilityContext.Provider>;
+  const mounted = mountTestComponent(tree(props)); cleanups.push(mounted.unmount);
   return { ...mounted, model: () => { if (!model) throw new Error('Missing table model'); return model; },
-    refresh: (next: Partial<VaultTableProps>) => { mounted.render(<Probe input={{ ...props, ...next }} />); } };
+    refresh: (next: Partial<VaultTableProps>, visible = true) => { mounted.render(tree({ ...props, ...next }, visible)); } };
 }
 function viewport(container: HTMLElement) {
   const found = container.querySelector<HTMLElement>('[data-vault-table-scroll]');
   if (!found) throw new Error('Missing table viewport'); return found;
 }
 it('keeps the loaded window, selected column and scroll when unrelated records are inserted', () => {
-  const original = Array.from({ length: 160 }, (_, index) => row(`row-${index}`));
+  const original = Array.from({ length: 160 }, (_, index) => row(`row-${String(index)}`));
   const table = mountTable({ notes: original });
   act(() => { table.model().setVisibleRowsCount(150); table.model().setActiveCell({ rowId: 'row-120', field: 'Text' }); });
   const scroll = viewport(table.container); scroll.scrollTop = 6200; scroll.scrollLeft = 175;
@@ -78,7 +80,7 @@ it('preserves a surviving input, focus and caret when refreshed records reorder'
   expect(table.model().noteById.get('b')?.title).toBe('Renamed');
 });
 it('loads the new batch containing an active record moved by refreshed values', () => {
-  const original = Array.from({ length: 160 }, (_, index) => row(`row-${index}`));
+  const original = Array.from({ length: 160 }, (_, index) => row(`row-${String(index)}`));
   const table = mountTable({ notes: original });
   act(() => { table.model().setActiveCell({ rowId: 'row-0', field: 'Text' }); });
   table.refresh({ notes: [...original].reverse() });
@@ -123,5 +125,16 @@ it('keeps virtualized space available while the hidden viewport has no measured 
   fixture.emptyVirtualRows = true;
   table.refresh({ notes: [...rows] });
   const spacer = table.container.querySelector<HTMLTableCellElement>('tr[aria-hidden="true"] td');
-  expect(spacer?.style.height).toBe(`${rows.length * 56}px`);
+  expect(spacer?.style.height).toBe(`${String(rows.length * 56)}px`);
+});
+
+it('does not run queued focus restoration after its pane becomes inactive', () => {
+  const table = mountTable();
+  act(() => { table.model().setActiveCell({ rowId: 'b', field: 'Text' }); });
+  table.refresh({ restoreRecordFocus: { recordId: 'b', requestId: 'queued-return' } });
+  viewport(table.container).focus();
+  table.refresh({}, false);
+  const focus = vi.spyOn(viewport(table.container), 'focus');
+  for (const frame of frames.splice(0)) frame(0);
+  expect(focus).not.toHaveBeenCalled();
 });

@@ -28,7 +28,7 @@ export function useDocumentTabs(context: Context) {
                 ? { ...current, isArmed: true } : current);
             const originTab = remainingTabs.find(tab => tab.id === origin.tabId);
             if (originTab) {
-                if (!closingTab?.kind) pushToHistory(originTab.isTable
+                if (!closingTab.kind) pushToHistory(originTab.isTable
                     ? { type: 'table', id: getTableIdFromTab(originTab), subId: origin.viewId }
                     : { type: 'editor', id: originTab.id, resourceType: knowledgeDocumentType(originTab) });
                 setActiveTabId(originTab.id);
@@ -38,7 +38,7 @@ export function useDocumentTabs(context: Context) {
                 return;
             }
             if (origin.tableId) {
-                if (!closingTab?.kind) pushToHistory({ type: 'table', id: origin.tableId, subId: origin.viewId });
+                if (!closingTab.kind) pushToHistory({ type: 'table', id: origin.tableId, subId: origin.viewId });
                 void handleTableSelect(origin.tableId, origin.viewId || null, true);
                 setSplitTabIds([]);
                 return;

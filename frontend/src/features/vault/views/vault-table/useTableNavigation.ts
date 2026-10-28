@@ -73,6 +73,7 @@ export function useTableNavigation({
   activeCellRef,
 }: Inputs) {
   const visible = usePaneVisibility();
+  const visibleRef = useLatestRef(visible);
   const navRows = useMemo(() => {
     const out: NavigationRow[] = [];
     rowDescriptors.forEach((d, i) => {
@@ -153,7 +154,7 @@ export function useTableNavigation({
       requestAnimationFrame(() => {
         const container = tableContainerRef.current;
         const focused = document.activeElement;
-        if (!container || !visible || container.closest('[inert]') || (focused && focused !== document.body && !container.contains(focused))) return;
+        if (!container || !visibleRef.current || container.closest('[inert]') || (focused && focused !== document.body && !container.contains(focused))) return;
         if (focused instanceof Element && focused.closest('input,textarea,select,[contenteditable="true"]')) return;
         container.focus({ preventScroll: true });
       });
@@ -201,7 +202,7 @@ export function useTableNavigation({
     };
     setTimeout(stabilizeRenderedCellFocus, 0);
     return undefined;
-  }, [ROWS_BATCH_SIZE, activeView, claimKeyboard, enableSubitems, expandedGroups, expandedRows, groupByField, groupMeta, navRows, onRecordFocusRestored, restoreRecordFocus, rowVirtualizer, safeNotes, setActiveCell, setAnchorCell, setExpandedGroups, setExpandedRows, setVisibleRowsCount, sortedNotes, tableContainerRef, visibleRowsCount, visible, activeCellRef, gridColumns]);
+  }, [ROWS_BATCH_SIZE, activeView, claimKeyboard, enableSubitems, expandedGroups, expandedRows, groupByField, groupMeta, navRows, onRecordFocusRestored, restoreRecordFocus, rowVirtualizer, safeNotes, setActiveCell, setAnchorCell, setExpandedGroups, setExpandedRows, setVisibleRowsCount, sortedNotes, tableContainerRef, visibleRowsCount, visible, visibleRef, activeCellRef, gridColumns]);
   const focusGroupHeaderByOffset = (fromDescriptorIndex: number, delta: number) => {
     const list = rowDescriptorsRef.current;
     for (let i = fromDescriptorIndex + delta;i >= 0 && i < list.length;i += delta) {
@@ -335,7 +336,7 @@ export function useTableNavigation({
       return;
     }
     const target = tableCell(getTableFocusTarget({ activeCell: cell, navRows, gridColumns }));
-    if (target?.rowId !== cell.rowId || target?.field !== cell.field) {
+    if (!target || target.rowId !== cell.rowId || target.field !== cell.field) {
       setAnchorCell(null);
       setActiveCell(target);
     }
