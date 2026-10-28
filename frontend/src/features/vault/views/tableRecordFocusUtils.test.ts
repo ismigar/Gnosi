@@ -167,4 +167,12 @@ describe('getTableFocusTarget', () => {
       }),
     ).toEqual({ rowId: 'first', field: 'title' });
   });
+  it('preserves each surviving axis when the other disappears', () => {
+    expect(getTableFocusTarget({ activeCell: { rowId: 'selected', field: 'removed' }, navRows, gridColumns }))
+      .toEqual({ rowId: 'selected', field: 'title' });
+    expect(getTableFocusTarget({ activeCell: { rowId: 'removed', field: 'status' }, navRows, gridColumns }))
+      .toEqual({ rowId: 'first', field: 'status' });
+    expect(getTableFocusTarget({ activeCell: { rowId: 'removed', field: 'status' }, navRows: [], gridColumns })).toBeNull();
+  });
+
 });

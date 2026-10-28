@@ -1,3 +1,4 @@
+import { usePaneVisibility } from '../../../shared/ui/PaneVisibility';
 import { TableFormsButton } from '../../forms';
 import { resolveSubitemsEnabled } from '../../../shared/records/model/subitems';
 import { RecordSubitemProvider } from '../views/RecordSubitemProvider';
@@ -22,8 +23,9 @@ interface Props {
 export function TablePane({ dashboard: d, tableId, mode }: Props) {
   const table = d.registry.tables.find(candidate => candidate.id === tableId);
   const inline = mode === 'inline';
+  const visible = usePaneVisibility();
   const split = mode === 'split';
-  const notes = inline ? d.tableNotes : d.getTableVisibleRecords(tableId);
+  const notes = inline && visible ? d.tableNotes : d.getTableVisibleRecords(tableId);
   const templates = inline ? d.tableTemplates : d.pages.filter(page => d.resolvePageTableId(page) === tableId && page.metadata?.is_template);
   const views = d.getTableViews(tableId);
   // The catalog always supplies a virtual main view for an empty table.

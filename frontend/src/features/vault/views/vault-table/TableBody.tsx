@@ -36,7 +36,7 @@ export function TableBody({ model }: { model: TableController; }) {
       const d = rowDescriptors[vi.index];
       if (!d) return null;
       if (d.kind === 'row') {
-        return renderRow(d.note, d.isChild, d.depth, String(vi.index), vi);
+        return renderRow(d.note, d.isChild, d.depth, String(vi.key), vi);
       }
       if (d.kind === 'group-header') {
         return renderGroupHeader(d, vi);

@@ -12,6 +12,7 @@ from typing import Protocol
 from fastapi import BackgroundTasks, HTTPException
 
 from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.pages.title_metadata import apply_explicit_title
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.schemas.pages import PageSaveRequest
 
@@ -138,7 +139,7 @@ async def save_page(
             file_path,
         )
         metadata["id"] = page_id
-        metadata["title"] = request.title
+        apply_explicit_title(metadata, table, request.title)
         if request.parent_id is not None:
             metadata["parent_id"] = request.parent_id
         if request.is_database:

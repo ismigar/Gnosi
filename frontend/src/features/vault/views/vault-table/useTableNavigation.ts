@@ -1,3 +1,4 @@
+import { usePaneVisibility } from '../../../../shared/ui/PaneVisibility';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { getTableFocusTarget } from '../tableRecordFocusUtils';
 import { displayString } from './fieldConfig';
@@ -71,6 +72,7 @@ export function useTableNavigation({
   gridInstanceIdRef,
   activeCellRef,
 }: Inputs) {
+  const visible = usePaneVisibility();
   const navRows = useMemo(() => {
     const out: NavigationRow[] = [];
     rowDescriptors.forEach((d, i) => {
@@ -96,7 +98,8 @@ export function useTableNavigation({
     const recordId = restoreRecordFocus?.recordId;
     const requestId = restoreRecordFocus?.requestId;
     if (
-      !recordId
+      !visible
+      || !recordId
       || requestId == null
       || restoredRecordFocusRequestRef.current === requestId
       || scheduledRecordFocusRequestRef.current === requestId
@@ -115,7 +118,7 @@ export function useTableNavigation({
       batchSize: ROWS_BATCH_SIZE,
     });
     if (preparation.status === 'missing') {
-      if (safeNotes.length > 0) {
+      if (safeNotes.length > 0 || activeView) {
         restoredRecordFocusRequestRef.current = requestId;
         onRecordFocusRestored?.(requestId);
       }
@@ -135,7 +138,27 @@ export function useTableNavigation({
     }
 
     const targetRow = navRows.find(row => row.id === recordId);
-    if (!targetRow) return undefined;
+    if (!targetRow) {
+      restoredRecordFocusRequestRef.current = requestId;
+      onRecordFocusRestored?.(requestId);
+      return undefined;
+    }
+    const previousCell = activeCellRef.current;
+    if (previousCell?.rowId === recordId && gridColumns.some(column => column.key === previousCell.field)) {
+      // Retained panes already own the correct cell/range and scroll offsets.
+      // Avoid replacing the column with title or centering an unchanged row.
+      restoredRecordFocusRequestRef.current = requestId;
+      claimKeyboard();
+      onRecordFocusRestored?.(requestId);
+      requestAnimationFrame(() => {
+        const container = tableContainerRef.current;
+        const focused = document.activeElement;
+        if (!container || !visible || container.closest('[inert]') || (focused && focused !== document.body && !container.contains(focused))) return;
+        if (focused instanceof Element && focused.closest('input,textarea,select,[contenteditable="true"]')) return;
+        container.focus({ preventScroll: true });
+      });
+      return undefined;
+    }
 
     scheduledRecordFocusRequestRef.current = requestId;
     claimKeyboard();
@@ -178,7 +201,7 @@ export function useTableNavigation({
     };
     setTimeout(stabilizeRenderedCellFocus, 0);
     return undefined;
-  }, [ROWS_BATCH_SIZE, claimKeyboard, enableSubitems, expandedGroups, expandedRows, groupByField, groupMeta, navRows, onRecordFocusRestored, restoreRecordFocus, rowVirtualizer, safeNotes, setActiveCell, setAnchorCell, setExpandedGroups, setExpandedRows, setVisibleRowsCount, sortedNotes, tableContainerRef, visibleRowsCount]);
+  }, [ROWS_BATCH_SIZE, activeView, claimKeyboard, enableSubitems, expandedGroups, expandedRows, groupByField, groupMeta, navRows, onRecordFocusRestored, restoreRecordFocus, rowVirtualizer, safeNotes, setActiveCell, setAnchorCell, setExpandedGroups, setExpandedRows, setVisibleRowsCount, sortedNotes, tableContainerRef, visibleRowsCount, visible, activeCellRef, gridColumns]);
   const focusGroupHeaderByOffset = (fromDescriptorIndex: number, delta: number) => {
     const list = rowDescriptorsRef.current;
     for (let i = fromDescriptorIndex + delta;i >= 0 && i < list.length;i += delta) {
@@ -260,6 +283,7 @@ export function useTableNavigation({
   }, [selectionRect, navRowIndexById, colIndexByKey, activeCell, selectedCells]);
   const initializedViewRef = useRef<string | null>(null);
   useEffect(() => {
+    if (!visible) return;
     const viewKey = `${String(activeView?.id)}|${searchTerm}|${sortSignature}`;
     if (initializedViewRef.current === viewKey) return;
     if (navRows.length === 0 || gridColumns.length === 0) return; // waits for the data
@@ -298,6 +322,25 @@ export function useTableNavigation({
         }
       }
     }
-  }, [activeView?.id, searchTerm, sortSignature, navRows, gridColumns, groupByField, rowDescriptors, rowVirtualizer, gridInstanceIdRef, setAnchorCell, activeCellRef, tableContainerRef, setActiveCell]);
+  }, [activeView?.id, searchTerm, sortSignature, navRows, gridColumns, groupByField, rowDescriptors, rowVirtualizer, gridInstanceIdRef, setAnchorCell, activeCellRef, tableContainerRef, setActiveCell, visible]);
+  useEffect(() => {
+    const cell = activeCellRef.current;
+    if (!visible || !activeView || !cell || (restoreRecordFocus && restoredRecordFocusRequestRef.current !== restoreRecordFocus.requestId)) return;
+    if (navRowIndexById.has(cell.rowId) && colIndexByKey.has(cell.field)) return;
+    const preparation = prepareTableRecordFocus({ recordId: cell.rowId, notes: safeNotes, sortedNotes,
+      enableSubitems, expandedRows, groupByField, groupFieldId: groupMeta?.fieldId,
+      expandedGroups, visibleRowsCount, batchSize: ROWS_BATCH_SIZE });
+    if (preparation.status === 'load-batch') {
+      setVisibleRowsCount(count => Math.max(count, preparation.requiredCount));
+      return;
+    }
+    const target = tableCell(getTableFocusTarget({ activeCell: cell, navRows, gridColumns }));
+    if (target?.rowId !== cell.rowId || target?.field !== cell.field) {
+      setAnchorCell(null);
+      setActiveCell(target);
+    }
+  }, [ROWS_BATCH_SIZE, activeCell, activeCellRef, activeView, colIndexByKey, enableSubitems, expandedGroups, expandedRows,
+    gridColumns, groupByField, groupMeta, navRowIndexById, navRows, restoreRecordFocus, safeNotes,
+    setActiveCell, setAnchorCell, setVisibleRowsCount, sortedNotes, visible, visibleRowsCount]);
   return { navRows, navRowIndexById, colIndexByKey, navRowsRef, focusGroupHeaderByOffset, focusFirstRowOfGroup, pendingEnterGroupDescRef, gridColumnsRef, navRowIndexByIdRef, colIndexByKeyRef, noteById, selectionRect, selectionRectRef, getCellSelState };
 }

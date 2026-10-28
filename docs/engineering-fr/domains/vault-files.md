@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-10-16
+last_verified: 2026-10-28
 source_paths:
+  - backend/domains/vault/pages/title_metadata.py
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
   - frontend/src/shared/ui/filesystem-picker
@@ -39,6 +40,8 @@ source_paths:
   - frontend/src/shared/bookmarks
   - frontend/src/shared/api/bookmarks.ts
 tests:
+  - backend/tests/test_record_title_roundtrip.py
+  - frontend/src/features/vault/editor/block-editor/page-editor/usePageMetadata.test.tsx
   - backend/tests/test_e2e_option_catalogs.py
   - backend/tests/test_translation_lifecycle_binding_contract.py
   - backend/tests/test_vault_content_search.py
@@ -135,6 +138,8 @@ tests:
 ---
 
 # Vault et fichiers
+
+Un changement explicite du titre d’un enregistrement met à jour le titre canonique de la page et sa propriété principale de titre enregistrée, après normalisation des noms des champs. L’en-tête et les propriétés partagent cette règle ; une fermeture immédiate envoie la dernière sauvegarde automatique. Les modifications de métadonnées seules conservent le titre et les autres champs.
 
 L’enregistrement automatique sérialise les écritures de page dans le client web. Une version obsolète renvoie un conflit (409), et non une erreur de page introuvable (404), même lorsque la lecture conditionnelle omet le corps. Les pages inexistantes renvoient toujours 404 ; les conflits ne remplacent jamais silencieusement un contenu plus récent.
 

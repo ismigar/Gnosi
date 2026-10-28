@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-10-11
+last_verified: 2026-10-28
 source_paths:
+  - frontend/src/features/vault/dashboard
+  - frontend/src/features/vault/views/vault-table
+  - frontend/src/features/vault/views/tableRecordFocusUtils.ts
   - frontend/src/shared/records/model/subitems.ts
   - frontend/src/features/vault/views/RecordSubitemProvider.tsx
   - frontend/src/shared/record-views/RecordSubitemAction.tsx
@@ -52,6 +55,10 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/dashboard/DashboardContent.test.tsx
+  - frontend/src/features/vault/dashboard/DocumentPane.test.tsx
+  - frontend/src/features/vault/views/vault-table/refreshContinuity.test.tsx
+  - frontend/src/features/vault/views/vault-table/rowKeys.test.ts
   - frontend/src/features/vault/view-config/PageViewModal.pinned-order.test.tsx
   - frontend/src/shared/filtering/exposedFilters.test.ts
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.presentation.test.tsx
@@ -92,6 +99,8 @@ tests:
 ---
 
 # Vistes de bases de dades i planificació de projectes
+
+Les actualitzacions de la taula conserven els lots carregats, el registre i la columna actius, i la identitat i el cursor dels camps que continuen presents. Obrir un registre conserva la taula d’origen, la selecció, les files desplegades i els dos eixos de desplaçament. Tornar a una cel·la existent conserva la columna i la posició visible. Si un registre desapareix o queda filtrat, se selecciona una cel·la disponible sense prendre el focus d’un altre editor; una vista buida neteja la cel·la activa i l’àncora.
 
 ## Model de coneixement estructurat
 
