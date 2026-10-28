@@ -22,6 +22,7 @@ const REQUIRED_RUNTIME_FILES = Object.freeze([
   'vault-folders.js',
   'installer-cleanup.js',
   'startup-errors.js',
+  'renderer-recovery.js',
   'profile-startup.js',
   'cookie-schema-guard.js',
   'cookie-schema.js',
