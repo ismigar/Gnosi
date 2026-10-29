@@ -193,6 +193,7 @@ DATA_FILES = (
     "backend/agent/behavior/operations/podcast/SKILL.md",
     "backend/agent/behavior/operations/podcast/segment-contract.md",
     "backend/agent/behavior/operations/podcast/concise-contract.md",
+    "backend/agent/behavior/operations/podcast/digest-contract.md",
     "backend/agent/behavior/operations/podcast/automatic-contract.md",
     "backend/agent/behavior/operations/podcast/confirmation-contract.md",
     "backend/agent/behavior/operations/podcast/feedback-contract.md",
