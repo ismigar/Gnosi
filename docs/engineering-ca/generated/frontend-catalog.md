@@ -54,7 +54,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `app` | 22 | 2679 | 0 |
 | `features` | 1280 | 137415 | 56 |
 | `generated` | 3 | 57192 | 590 |
-| `shared` | 348 | 37223 | 505 |
+| `shared` | 348 | 37225 | 505 |
 
 ## app
 
@@ -1683,7 +1683,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/routing/vaultRouting.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/routing/vaultRouting.ts) | 197 | `activateVault`, `activateVaultSlug`, `canonicalVaultSwitchPath`, `initializeVaultRouting`, `knowledgeDocumentPath`, `knowledgeDocumentType`, `legacyBrowserPathToCanonical`, `vaultAppFromPath`, `vaultPath` | — |
 | [`frontend/src/shared/schema/fieldOrdering.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/schema/fieldOrdering.ts) | 33 | `sortFieldItems` | — |
 | [`frontend/src/shared/speech/AppAudio.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/speech/AppAudio.tsx) | 15 | `AppAudio` | — |
-| [`frontend/src/shared/speech/SpeechSettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/speech/SpeechSettings.tsx) | 86 | `SpeechSettings` | — |
+| [`frontend/src/shared/speech/SpeechSettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/speech/SpeechSettings.tsx) | 88 | `SpeechSettings` | — |
 | [`frontend/src/shared/speech/speechFocus.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/speech/speechFocus.ts) | 30 | `claimSpeechFocus`, `currentSpeechActivity`, `subscribeSpeechActivity` | — |
 | [`frontend/src/shared/speech/speechText.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/speech/speechText.ts) | 37 | `speechChunks`, `speechText` | — |
 | [`frontend/src/shared/speech/useAudioElementSpeechFocus.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/speech/useAudioElementSpeechFocus.ts) | 31 | `useAudioElementSpeechFocus` | — |

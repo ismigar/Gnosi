@@ -38,7 +38,7 @@ def _plan_request(context: _Briefing, cards: list[dict[str, Any]]) -> Any:
                                 for c in cards})})
     return context.request("podcast.coverage.plan", {"cards": cards}, schema).model_copy(update={
         "options": {"planning_contract": resource("operations/podcast/assignment-contract.md"),
-                    "editorial_policy": policy.model_dump()}})
+                    "editorial_policy": policy.model_dump(exclude={'review_mode'})}})
 
 
 def _planning_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:

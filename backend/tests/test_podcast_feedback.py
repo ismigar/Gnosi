@@ -1,6 +1,7 @@
 """Keep every confirmed correction when a full daily rewrite exceeds context."""
 from copy import deepcopy
 import json
+from types import SimpleNamespace
 
 import jsonschema
 import pytest
@@ -17,6 +18,8 @@ class Context:
     def __init__(self, guide='at_budget'):
         self.calls = []
         self.guide = guide
+        self.snapshot = SimpleNamespace(skill_instructions={'core.gnosi-daily-briefing':
+            '```json\n{"podcast_preferences":{"review_mode":"full"}}\n```'})
 
     def request(self, task, data, schema):
         return AgentOperation(skill_id='core.gnosi-daily-briefing', operation=task,

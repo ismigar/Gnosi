@@ -203,7 +203,9 @@ def test_lean_success_still_audits_every_original_and_restores_evidence_for_sema
     monkeypatch.setattr(automatic, "_review_theme", review)
     whole = []
     monkeypatch.setattr(automatic, "_audit", lambda context, value: whole.append(value) or [])
-    sections, _, _ = automatic.write_day(None, evidence, outline, lambda _: None)
+    day = SimpleNamespace(snapshot=SimpleNamespace(skill_instructions={'core.gnosi-daily-briefing':
+        '```json\n{"podcast_preferences":{"review_mode":"full"}}\n```'}))
+    sections, _, _ = automatic.write_day(day, evidence, outline, lambda _: None)
     assert len(sections[0]["narration"].split()) == 1380
     assert len(audits) == len(whole) == 2 and all(value == evidence for value in audits)
     assert all(value["subjects"] == [group["subjects"] for group in outline] for value in whole)

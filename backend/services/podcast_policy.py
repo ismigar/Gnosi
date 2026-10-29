@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -27,6 +27,7 @@ class PodcastPreferences(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True, frozen=True)
     duration_minutes: int = Field(ge=1, le=60)
     max_topic_groups: int = Field(ge=1, le=TECHNICAL_MAX_TOPICS)
+    review_mode: Literal['brief', 'full']
     short_day: ShortDayPreferences
 
     def word_target(self, article_count: int) -> int:

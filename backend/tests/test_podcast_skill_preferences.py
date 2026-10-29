@@ -27,6 +27,7 @@ def test_builtin_defaults_keep_ten_minutes_with_flexible_grouping():
     policy = preferences(None)
     assert policy.duration_minutes == 10
     assert policy.max_topic_groups == 12
+    assert policy.review_mode == 'brief'
     assert policy.word_target(208) == 1380
     assert policy.word_target(1) == 160
     assert policy.word_target(3) == 195

@@ -11,8 +11,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
-| Vitest | 752 | 3422 |
-| pytest | 755 | 5831 |
+| Vitest | 752 | 3425 |
+| pytest | 756 | 5835 |
 
 ## Files
 
@@ -762,7 +762,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/shared/routing/vaultQuickNavigation.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/routing/vaultQuickNavigation.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/routing/vaultRouting.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/routing/vaultRouting.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/schema/fieldOrdering.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/schema/fieldOrdering.test.ts) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/shared/speech/SpeechSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/speech/SpeechSettings.test.tsx) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/speech/SpeechSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/speech/SpeechSettings.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/speech/speechFocus.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/speech/speechFocus.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/speech/speechText.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/speech/speechText.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/speech/useAudioElementSpeechFocus.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/speech/useAudioElementSpeechFocus.test.tsx) | 2 | call-pattern estimate |
@@ -1255,6 +1255,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_podcast_audit_reference_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_reference_schema.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_podcast_audit_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_repair.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_podcast_audit_repair_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_repair_transport.py) | 1 | Python AST |
+| pytest | [`backend/tests/test_podcast_brief_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_brief_review.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_podcast_briefing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_briefing.py) | 37 | Python AST |
 | pytest | [`backend/tests/test_podcast_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_composition.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_podcast_confirmation_refs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_confirmation_refs.py) | 7 | Python AST |

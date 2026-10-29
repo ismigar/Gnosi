@@ -23,7 +23,7 @@ def _request(context: _Briefing, phase: str, data: dict[str, Any], schema: dict[
     if phase == "write" and data.get("composition_groups"):
         options["composition_contract"] = resource("operations/podcast/composition-contract.md")
     if phase in {"write", "audit"}:
-        options["editorial_policy"] = preferences(context).model_dump()
+        options["editorial_policy"] = preferences(context).model_dump(exclude={'review_mode'} if phase == 'write' else set())
     if phase == "audit" and data.get("whole_episode") and "sections" in data:
         # Ledger review uses complete prose and subjects, never opaque source IDs.
         data = {**data, "sections": [{"narration": section["narration"]} for section in data["sections"]]}
@@ -31,7 +31,8 @@ def _request(context: _Briefing, phase: str, data: dict[str, Any], schema: dict[
     if phase == "write" and isinstance(feedback, dict) and feedback.get("encoding") == "finding_guidance_v1":
         options["feedback_transport_contract"] = resource("operations/podcast/feedback-writer-contract.md")
     return context.request("podcast.coverage." + phase, data, schema).model_copy(update={"options": {
-        "automatic_contract": resource("operations/podcast/confirmation-contract.md"
+        "automatic_contract": resource("operations/podcast/brief-review-contract.md" if data.get('brief_review')
+            else "operations/podcast/confirmation-contract.md"
             if phase == "audit" and "candidate_findings" in data
             else "operations/podcast/automatic-contract.md"), **options}})
 
@@ -177,12 +178,26 @@ def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[di
     feedback: list[dict[str, Any]] = []
     previous_draft = ""
     subjects = [t.get("subjects", [t["topic"]]) for t in outline]
+    if preferences(context).review_mode == 'brief':
+        from backend.services.podcast_brief_review import review
+        progress('Writing complete daily briefing')
+        section = _write_episode(context, briefs, outline, budget, [], '')
+        progress('Brief factual and thematic review')
+        issues = review(context, briefs, section['narration'], subjects)
+        if issues:
+            progress('Applying the brief review and preparing speech')
+            section = _write_episode(context, briefs, outline, budget, issues, section['narration'])
+        context.review_metadata = {'mode': 'brief', 'semantic_reviews': 1,
+            'automatic_correction_applied': bool(issues), 'original_fragment_audit': False}
+        return [section], outline, budget
     for attempt in range(3):
         progress(f"Writing and reviewing complete daily briefing: pass {attempt + 1}/3")
         section = _write_episode(context, briefs, outline, budget, feedback, previous_draft)
         issues = _review_theme(context, briefs, section["narration"], subjects)
         issues.extend(_audit(context, {"whole_episode": True, "sections": [section], "subjects": subjects}))
         if not issues:
+            context.review_metadata = {'mode': 'full', 'semantic_reviews': attempt + 1,
+                                      'original_fragment_audit': True}
             return [section], outline, budget
         feedback = list({json.dumps(i, sort_keys=True): i for i in issues}.values())
         previous_draft = section["narration"]

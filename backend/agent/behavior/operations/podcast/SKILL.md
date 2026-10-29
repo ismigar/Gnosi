@@ -9,6 +9,7 @@ Edit these values to change the duration, maximum number of thematic groups and 
   "podcast_preferences": {
     "duration_minutes": 10,
     "max_topic_groups": 12,
+    "review_mode": "brief",
     "short_day": {
       "full_episode_from_articles": 20,
       "words_per_article": 65,
@@ -31,6 +32,8 @@ Use clear, natural listener-facing prose with smooth transitions and a short ope
 Only the finished narration belongs in speech. Keep source IDs, evidence quotes, internal notes, word counts, missing-source notices, production instructions and pronunciation directions outside the spoken text. Start directly with the listener-facing opening. Read the final narration as a listener would: every sentence must belong in the audio.
 
 ## Source review and revision
+
+`review_mode` controls the review workflow. The default `brief` mode performs one whole-day check of clear factual errors, main themes and spoken production notes using the source briefs, then at most one corrective rewrite before speech. It does not run repeated original-fragment audits. Choose `full` explicitly for the exhaustive original-source fidelity, coverage and confirmation rounds. Both modes retain every readable source in preparation and grouping and enforce the configured spoken length. Brief review is not a claim that every original detail has been independently verified.
 
 Read every supplied source part, including its ending. Internal briefs preserve its substance, essential qualifications and one short exact quotation. They are evidence for the writer, never narration. Group related briefs without losing distinct subjects. Before publication compare the complete script with all originals and the full subject ledger for factual errors, omitted themes, duplicate accounts and spoken production notes. A ten-minute overview may compress nonessential detail within a covered theme.
 

@@ -55,7 +55,9 @@ def audited(request, issues):
 def pipeline(monkeypatch):
     saved, calls = {}, []
     snapshot = SimpleNamespace(profile={}, instructions=[], behavior_resources={}, origin='button',
-                               parent_run_id='day', revision='new-contract', scope='owner')
+                               parent_run_id='day', revision='new-contract', scope='owner',
+                               skill_instructions={'core.gnosi-daily-briefing':
+                                   '```json\n{"podcast_preferences":{"review_mode":"full"}}\n```'})
     monkeypatch.setattr('backend.domains.agent.runtime_tools._model_context_window', lambda *_: 32000)
     monkeypatch.setattr('backend.services.agent_context_budget.count_tokens', lambda text, _: SimpleNamespace(tokens=len(text)))
     def checkpoint(scope, parent, key, value=None):
@@ -381,7 +383,7 @@ def test_oversized_theme_uses_recursive_bounded_digests_without_losing_ids():
                 input=json.dumps(data), output_schema=schema)
         def cost(self, request):
             return len(briefing.operation_input(request)) + 1024
-        def stage(self, request, validate):
+        def stage(self, request, validate, *, output_repair=None):
             assert self.cost(request) <= self.budget
             data = json.loads(request.input)
             calls.append(request.operation)
@@ -704,8 +706,10 @@ def test_every_revision_reviews_facts_coverage_and_ledger_without_stale_feedback
     monkeypatch.setattr(automatic, '_write_episode', write)
     monkeypatch.setattr(automatic, '_review_theme', source_review)
     monkeypatch.setattr(automatic, '_audit', ledger_review)
+    context = SimpleNamespace(snapshot=SimpleNamespace(skill_instructions={'core.gnosi-daily-briefing':
+        '```json\n{"podcast_preferences":{"review_mode":"full"}}\n```'}))
     with pytest.raises(ValueError, match='podcast_semantic_review_failed'):
-        automatic.write_day(None, [{'source_id': 'a'}], [{'topic': 'Domain'}], lambda _: None)
+        automatic.write_day(context, [{'source_id': 'a'}], [{'topic': 'Domain'}], lambda _: None)
     assert len(reviews) == 6
     assert writes[0] == ([], '')
     assert [i['detail'] for i in writes[2][0]] == ['Draft 2', 'Minority domain']

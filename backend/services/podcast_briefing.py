@@ -62,6 +62,7 @@ class _Briefing:
     check_active: Callable[[], None]
     originals: dict[str, str] = field(default_factory=dict)
     editorial_policy: PodcastPreferences = field(init=False)
+    review_metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.editorial_policy = preferences(self)
@@ -197,7 +198,8 @@ def build_podcast_script(sources: list[dict[str, Any]], language: str, *, snapsh
     check_active()
     if snapshot.parent_run_id:
         work_checkpoint(snapshot.scope, snapshot.parent_run_id, "podcast-coverage-report", {
-            "version": 4, "pipeline": "automatic-narration-v2", "narration_segments": len(sections), "outline": outline,
+            "version": 4, "pipeline": "automatic-narration-v2", "review": context.review_metadata,
+            "narration_segments": len(sections), "outline": outline,
             "word_budget": word_budget, "spoken_words": sum(len(s["narration"].split()) for s in sections), "article_ids": sorted({p["source_id"] for p in parts}),
             "parts": len(parts), "briefs": briefs, "sections": sections,
             "editorial_policy": context.editorial_policy.model_dump(),
