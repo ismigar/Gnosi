@@ -5,6 +5,7 @@ from typing import Any, TYPE_CHECKING
 
 from backend.services.podcast_review import _schema
 from backend.services.podcast_audit_repair import audit_quote_repair
+from backend.services.podcast_policy import synthesis_context_limit
 
 if TYPE_CHECKING:
     from backend.services.podcast_briefing import _Briefing
@@ -24,7 +25,7 @@ def review(context: _Briefing, briefs: list[dict[str, Any]], narration: str,
             'subjects': subjects, 'source_summaries': records}, schema)
 
     current = request()
-    while context.cost(current) > min(80_000, context.budget):
+    while context.cost(current) > synthesis_context_limit(context):
         before = context.cost(current)
         records = _digest(context, records)
         if _digest_part_ids(records) != expected:

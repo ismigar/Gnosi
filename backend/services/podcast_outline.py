@@ -5,7 +5,7 @@ from typing import Any, TYPE_CHECKING
 
 from backend.services.agent_behavior import resource
 from backend.services.podcast_briefing import _object
-from backend.services.podcast_policy import preferences
+from backend.services.podcast_policy import preferences, synthesis_context_limit
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -70,7 +70,7 @@ def _route(context: _Briefing, cards: list[dict[str, Any]]) -> list[dict[str, An
 
 def _outline(context: _Briefing, briefs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     cards = [{"topic": b["topic"], "summary": b["summary"], "part_ids": [b["part_id"]]} for b in briefs]
-    if context.cost(_plan_request(context, _planning_cards(cards))) <= min(80_000, context.budget):
+    if context.cost(_plan_request(context, _planning_cards(cards))) <= synthesis_context_limit(context):
         return _route(context, cards)
     limit = min(40_000, context.budget)
     def fits(candidate: list[dict[str, Any]]) -> bool:

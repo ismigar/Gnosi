@@ -2,6 +2,10 @@
 status: implemented
 last_verified: 2026-10-17
 source_paths:
+  - backend/services/podcast_brief_review.py
+  - backend/services/podcast_automatic.py
+  - backend/services/podcast_outline.py
+  - backend/services/podcast_policy.py
   - backend/domains/configuration/source_sections_schema.py
   - frontend/src/features/vault/properties/sourceSectionRelations.ts
   - backend/domains/llm_wiki
@@ -43,6 +47,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_synthesis_context.py
   - backend/tests/test_podcast_preparation.py
   - backend/tests/test_podcast_feedback.py
   - backend/tests/test_podcast_feedback_repair.py
@@ -653,3 +658,5 @@ The planner may return fewer topics than the configured maximum; it no longer pa
 The editable `review_mode` defaults to `brief`: one whole-day review of source briefs and main themes, at most one corrective rewrite, then normal speech publication. `full` explicitly opts into exhaustive original-fragment audits. The persisted review metadata identifies the actual scope.
 
 In default `brief` mode, at most four independent extraction batches run concurrently. Each retains its original request and cache key, authenticated context and validation; results are assembled in source order. Cancellation or a failed batch prevents partial publication. Resuming reuses the same validated checkpoints. Optional provider-default reasoning is disabled for source extraction when the model declares support; explicit profile choices remain authoritative. Explicit `full` mode keeps serial extraction.
+
+Brief synthesis uses the selected model’s resolved context budget after the existing output and instruction reserves. Planning, writing and the single review send all source briefs directly when they fit, instead of forcing intermediate summaries at an unrelated 80,000-unit cap. Conservative token accounting and the final request-budget guard remain enforced. Smaller contexts retain the compression fallback; explicit `full` mode retains its existing 80,000-unit synthesis cap.

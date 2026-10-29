@@ -86,3 +86,9 @@ def preferences(context: Any) -> PodcastPreferences:
     if custom and isinstance(custom.get('short_day'), dict):
         combined['short_day'] = {**defaults['short_day'], **custom['short_day']}
     return PodcastPreferences.model_validate(combined)
+
+
+def synthesis_context_limit(context: Any) -> int:
+    """Use the selected model's reserved budget for whole-day brief synthesis."""
+    budget = int(context.budget)
+    return budget if preferences(context).review_mode == 'brief' else min(80_000, budget)

@@ -2,6 +2,10 @@
 status: implemented
 last_verified: 2026-10-17
 source_paths:
+  - backend/services/podcast_brief_review.py
+  - backend/services/podcast_automatic.py
+  - backend/services/podcast_outline.py
+  - backend/services/podcast_policy.py
   - backend/domains/configuration/source_sections_schema.py
   - frontend/src/features/vault/properties/sourceSectionRelations.ts
   - backend/domains/llm_wiki
@@ -43,6 +47,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_synthesis_context.py
   - backend/tests/test_podcast_preparation.py
   - backend/tests/test_podcast_feedback.py
   - backend/tests/test_podcast_feedback_repair.py
@@ -676,3 +681,5 @@ El planificador pot retornar menys temes que el màxim configurat; ja no omple e
 El `review_mode` editable és `brief` per defecte: una revisió global dels resums de fonts i temes principals, com a màxim una reescriptura correctiva i després publicació normal de la veu. `full` activa explícitament les auditories exhaustives dels fragments originals. Les metadades de revisió desades identifiquen l’abast real.
 
 En el mode `brief` per defecte, es preparen simultàniament com a màxim quatre lots independents. Cada lot conserva la petició i la clau de memòria cau originals, el context autenticat i la validació; els resultats es reordenen segons les fonts. La cancel·lació o una fallada impedeix publicar una cobertura parcial. La represa reutilitza els mateixos punts validats. El raonament opcional per defecte del proveïdor es desactiva per a l’extracció quan el model declara que ho permet; es respecten les opcions explícites del perfil. El mode `full` explícit manté l’extracció seqüencial.
+
+La síntesi breu utilitza el pressupost de context resolt del model seleccionat, després de les reserves existents per a la resposta i les instruccions. La planificació, la redacció i la revisió única reben directament totes les notes de fonts quan hi caben, sense forçar resums intermedis amb un topall independent de 80.000 unitats. Es mantenen el recompte conservador i la comprovació final del límit de cada petició. Els contextos petits conserven la compressió alternativa; el mode `full` explícit manté el topall de síntesi de 80.000 unitats.

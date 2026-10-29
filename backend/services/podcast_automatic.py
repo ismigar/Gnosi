@@ -8,7 +8,7 @@ from typing import Any, TYPE_CHECKING
 
 from backend.services.agent_behavior import resource
 from backend.services.podcast_composition import WORD_TEXT, advisory_targets, schema as composition_schema, spoken_text, word_guidance
-from backend.services.podcast_policy import preferences
+from backend.services.podcast_policy import preferences, synthesis_context_limit
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -87,7 +87,7 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
     previous: dict[str, Any] = {key: data[key] for key in ("previous_draft", "previous_composition") if key in data}
     source_part_ids = [brief["part_id"] for brief in data.get("briefs", [])]
     request = _request(context, "write", data, composition_schema(data), **options)
-    limit = min(80_000, context.budget)
+    limit = synthesis_context_limit(context)
     state = data.get("length_repair", {})
     retain_short_composition = ("previous_composition" in previous
                                 and 0 < state.get("current_words", 0) < options.get("min_words", 0))
