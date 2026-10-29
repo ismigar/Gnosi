@@ -522,7 +522,16 @@ longueur invalide n'est pas sauvegardé comme narration valide, tronqué ou remp
 manuellement. Les preuves trop volumineuses utilisent des résumés internes
 récursifs visant environ 160 mots, en conservant toutes les sources. Ce nombre
 interne est indicatif : le contexte réel de chaque requête est vérifié et chaque
-réduction doit diminuer la taille. La plage de mots du texte parlé reste stricte.
+réduction doit diminuer la taille.
+Les réponses des résumés internes ne contiennent que `topic` et `narration`.
+Le serveur conserve tous les identifiants exacts du lot d'entrée à chaque niveau
+de réduction, après avoir rejeté les identifiants invalides ou répétés.
+Le modèle ne recopie pas cette liste, même lorsqu'un seul enregistrement récursif
+représente des centaines de parties. Les nouveaux schémas et contrats séparent
+les anciens points de reprise contenant des sections. Cette appartenance
+structurelle ne valide pas la couverture thématique : les contrôles de fidélité,
+de couverture et de l'épisode complet face aux originaux restent obligatoires.
+La plage de mots du texte parlé reste stricte.
 Chaque requête est vérifiée par rapport au contexte actuel, y compris les
 corrections de longueur.
 

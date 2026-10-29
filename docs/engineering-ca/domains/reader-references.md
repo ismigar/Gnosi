@@ -533,7 +533,15 @@ guien reescriptures automàtiques acotades. Un text de longitud invàlida no es
 desa com a narració vàlida, no es retalla ni es substitueix manualment. Les
 evidències massa grans passen per resums interns recursius amb un objectiu
 orientatiu d'unes 160 paraules, sense perdre les fonts. Es comprova el context
-real de cada petició i cada reducció ha de disminuir la mida. El límit de
+real de cada petició i cada reducció ha de disminuir la mida.
+Les respostes dels resums interns només contenen `topic` i `narration`. El
+servidor hi associa tots els identificadors exactes del lot d'entrada a cada
+nivell de reducció, després de rebutjar identificadors invàlids o repetits.
+El model no transcriu aquesta llista, tampoc quan un únic registre recursiu
+representa centenars de parts. Els nous esquemes i contractes mantenen separats
+els punts de recuperació antics amb seccions. Aquesta pertinença estructural
+no aprova la cobertura temàtica: les revisions de fidelitat, cobertura i de
+l'episodi complet contra els originals continuen sent obligatòries. El límit de
 paraules del guió locutat continua sent estricte. Cada petició es comprova contra
 el context actual, també durant les correccions de longitud.
 

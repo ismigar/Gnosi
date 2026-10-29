@@ -507,6 +507,13 @@ is not checkpointed as valid narration, clipped or manually substituted.
 Oversized evidence uses recursive context-bounded internal digests aiming for
 about 160 words, retaining all source memberships. Internal word counts are
 guidance: actual request context is checked and each reduction must shrink.
+Digest replies contain only `topic` and `narration`. The server attaches the
+exact complete input membership at every reduction level, after rejecting
+invalid or repeated input IDs. The model never transcribes the membership list,
+including when a single recursive record represents hundreds of source parts.
+Changed request schemas/contracts keep legacy section-shaped checkpoints separate.
+This structural ownership does not approve thematic coverage: the original-source
+fidelity, coverage and whole-episode reviews remain mandatory.
 The final spoken word range remains strict. Every request is checked against
 its current context budget, including length repairs.
 

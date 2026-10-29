@@ -479,7 +479,15 @@ reescrituras automáticas acotadas. El texto de longitud inválida no se guarda
 como narración válida, no se recorta ni se sustituye manualmente. Las evidencias
 demasiado grandes pasan por resúmenes internos recursivos con un objetivo
 orientativo de unas 160 palabras, sin perder sus fuentes. Se comprueba el contexto
-real de cada petición y cada reducción debe disminuir el tamaño. El límite de
+real de cada petición y cada reducción debe disminuir el tamaño.
+Las respuestas de los resúmenes internos solo contienen `topic` y `narration`.
+El servidor asocia todos los identificadores exactos del lote de entrada en cada
+nivel de reducción, tras rechazar identificadores inválidos o repetidos.
+El modelo no transcribe esa lista, tampoco cuando un único registro recursivo
+representa cientos de partes. Los nuevos esquemas y contratos mantienen separados
+los puntos de recuperación antiguos con secciones. Esta pertenencia estructural
+no aprueba la cobertura temática: las revisiones de fidelidad, cobertura y del
+episodio completo contra los originales siguen siendo obligatorias. El límite de
 palabras del guion hablado sigue siendo estricto. Cada petición se comprueba
 contra el contexto actual, también durante las correcciones de longitud.
 

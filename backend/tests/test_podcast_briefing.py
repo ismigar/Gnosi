@@ -87,9 +87,8 @@ def pipeline(monkeypatch):
         elif payload['task'].endswith('audit'):
             result = {'confirmed_finding_ids': []} if 'candidate_findings' in data else {'issues': []}
         elif payload['task'].endswith('digest'):
-            ids = [identifier for r in data['briefs'] for identifier in r.get('part_ids', [r.get('part_id')])]
             text = ' '.join(r.get('summary', '') if 'part_ids' in r else r['title'] for r in data['briefs'])
-            result = {'sections': [{'topic': 'Complete evidence', 'part_ids': ids, 'narration': text}]}
+            result = {'topic': 'Complete evidence', 'narration': text}
         else:
             briefs = data.get('briefs', data.get('digests', []))
             text = ' '.join(b['summary'] if 'part_ids' in b else f"{b['title']}: {b['summary'][-55:]}" for b in briefs)
@@ -395,11 +394,9 @@ def test_oversized_theme_uses_recursive_bounded_digests_without_losing_ids():
             elif request.operation.endswith('audit'):
                 result = {'issues': []}
             else:
-                records = data.get('briefs', data.get('digests'))
-                ids = [p for r in records for p in r.get('part_ids', [r.get('part_id')])]
                 words = 160 if request.operation.endswith('digest') else request.options['min_words']
                 result = ({'narration': 'evidence ' * words} if request.operation.endswith('write') else
-                    {'sections': [{'topic': 'Complete collection', 'part_ids': ids, 'narration': 'evidence ' * words}]})
+                    {'topic': 'Complete collection', 'narration': 'evidence ' * words})
             briefing.jsonschema.validate(result, request.output_schema)
             validate(result)
             return result
@@ -617,8 +614,7 @@ def test_internal_digest_overshoot_retains_exact_sources_without_becoming_spoken
         def stage(self, request, validate):
             assert self.cost(request) <= self.budget
             calls.append(json.loads(request.input))
-            result = {'sections': [{'topic': 'Internal evidence',
-                'part_ids': [b['part_id'] for b in evidence], 'narration': 'Evidence ' * 163}]}
+            result = {'topic': 'Internal evidence', 'narration': 'Evidence ' * 163}
             briefing.jsonschema.validate(result, request.output_schema)
             validate(result)
             return result
@@ -641,8 +637,7 @@ def test_nonshrinking_internal_reduction_cannot_send_oversized_writer_request_or
         def stage(self, request, validate):
             assert request.operation.endswith('digest') and self.cost(request) <= self.budget
             calls.append(request.operation)
-            result = {'sections': [{'topic': 'Internal evidence', 'part_ids': ['a:0'],
-                                    'narration': 'Evidence ' * 163}]}
+            result = {'topic': 'Internal evidence', 'narration': 'Evidence ' * 163}
             validate(result)
             return result
     with pytest.raises(RuntimeError, match='podcast_theme_context_insufficient'):

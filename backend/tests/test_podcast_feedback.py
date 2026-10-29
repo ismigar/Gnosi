@@ -41,10 +41,7 @@ class Context:
                 + (index < 1380 % len(groups))), 'non_editorial': False}
                 for index, group in enumerate(groups)}}
         elif request.operation.endswith('digest'):
-            records = data['briefs']
-            ids = [identifier for row in records for identifier in row.get('part_ids', [row.get('part_id')])]
-            value = {'sections': [{'topic': 'All domains', 'part_ids': ids,
-                                   'narration': 'Complete evidence and its qualifications.'}]}
+            value = {'topic': 'All domains', 'narration': 'Complete evidence and its qualifications.'}
         else:
             raise AssertionError('Unexpected model operation')
         jsonschema.validate(value, request.output_schema)
