@@ -534,6 +534,14 @@ las citas literales no prueban por sí solas la corrección semántica: la prueb
 real debe comparar el guion con todos los temas y matices y medir el MP3 respecto
 al objetivo aproximado de diez minutos.
 
+Un episodio válido según el esquema pero fuera del intervalo global de palabras vuelve
+inmediatamente al coordinador de longitud existente, con tres intentos. No consume la
+llamada de reparación genérica dentro del mismo plazo ya parcialmente gastado. Cada fase
+existente conserva su plazo de 300 segundos y las dos llamadas de formato; el
+coordinador conserva la composición rechazada exacta, los recuentos medidos y todos los
+temas. El JSON malformado mantiene la reparación ordinaria acotada. Tras el último
+intento, el error público del presupuesto de palabras no cambia.
+
 Las operaciones internas de planificación, resumen, redacción y revisión tienen
 300 segundos y 16.384 tokens de salida, incluido el razonamiento, salvo un límite
 explícito del perfil. Los contratos actuales acompañan las instantáneas antiguas;

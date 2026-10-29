@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 271 | 52782 |
+| `services` | 271 | 52786 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1093 modules** and **208119 source lines**.
+Total: **1093 modules** and **208123 source lines**.
 
 ## agent
 
@@ -1131,7 +1131,7 @@ Total: **1093 modules** and **208119 source lines**.
 | [`backend/services/plugin_signing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_signing.py) | 167 | 0 | 8 | 0 | 6 | Plugin signing and trust (phase 3 of plugin_system.md). |
 | [`backend/services/plugin_system.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_system.py) | 256 | 0 | 14 | 0 | 12 | Compatibility facade for the typed third-party plugin domain. |
 | [`backend/services/podcast_audit_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_audit_repair.py) | 123 | 0 | 5 | 0 | 0 | Ground rejected audit quotes without changing the model's findings. |
-| [`backend/services/podcast_automatic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_automatic.py) | 177 | 0 | 7 | 0 | 0 | Bounded narration-only writing, semantic review and automatic revision. |
+| [`backend/services/podcast_automatic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_automatic.py) | 181 | 1 | 7 | 0 | 1 | Bounded narration-only writing, semantic review and automatic revision. |
 | [`backend/services/podcast_brief_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_brief_repair.py) | 96 | 1 | 3 | 0 | 2 | Repair all rejected source quotes without rewriting validated briefs. |
 | [`backend/services/podcast_briefing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_briefing.py) | 199 | 1 | 7 | 0 | 0 | Durable whole-day podcast coverage, independent of model conversation memory. |
 | [`backend/services/podcast_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_composition.py) | 127 | 0 | 6 | 0 | 3 | Require explicit prose for every planned group under one episode word budget. |

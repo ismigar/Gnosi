@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
 | Vitest | 752 | 3422 |
-| pytest | 751 | 5809 |
+| pytest | 752 | 5810 |
 
 ## Fichiers
 
@@ -1262,6 +1262,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_podcast_feedback_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_feedback_repair.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_podcast_feedback_repair_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_feedback_repair_transport.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_podcast_lean_edit.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_lean_edit.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_podcast_length_retry_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_length_retry_budget.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_podcast_original_evidence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_original_evidence.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_podcast_provider_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_provider_retry.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_podcast_quote_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_quote_repair.py) | 7 | Python AST |

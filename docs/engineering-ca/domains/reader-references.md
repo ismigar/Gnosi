@@ -588,6 +588,14 @@ les cites literals no demostren per si soles la correcció semàntica: la prova 
 ha de comparar el guió amb tots els temes i matisos i mesurar l'MP3 respecte de
 l'objectiu aproximat de deu minuts.
 
+Un episodi vàlid segons l’esquema però fora del marge global de paraules retorna
+immediatament al coordinador de longitud existent, amb tres intents. No consumeix la
+crida de reparació genèrica dins del mateix termini ja parcialment gastat. Cada fase
+existent conserva el termini de 300 segons i les dues crides de format; el coordinador
+conserva la composició rebutjada exacta, els recomptes mesurats i tots els temes. El
+JSON malformat manté la reparació ordinària acotada. Després de l’últim intent, l’error
+públic del pressupost de paraules no canvia.
+
 Les operacions internes de planificació, resum, redacció i revisió disposen de
 300 segons i 16.384 tokens de sortida, inclòs el raonament, tret que el perfil
 fixi un límit explícit. Els contractes actuals acompanyen les captures antigues;

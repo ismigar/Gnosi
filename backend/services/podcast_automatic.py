@@ -14,6 +14,10 @@ if TYPE_CHECKING:
     from backend.services.podcast_briefing import _Briefing
 
 
+class _WordBudgetRejected(RuntimeError):
+    """Return length rejection to its bounded owner, outside generic format repair."""
+
+
 def _request(context: _Briefing, phase: str, data: dict[str, Any], schema: dict[str, Any], **options: Any) -> Any:
     if phase == "write" and data.get("composition_groups"):
         options["composition_contract"] = resource("operations/podcast/composition-contract.md")
@@ -128,7 +132,7 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
         if not minimum <= actual <= maximum:
             direction = "Reduce" if actual > maximum else "Expand"
             change = abs(options["target_words"] - actual)
-            raise ValueError(f"podcast_word_budget: expected {minimum}..{maximum}; received {actual}. "
+            raise _WordBudgetRejected(f"podcast_word_budget: expected {minimum}..{maximum}; received {actual}. "
                              f"Target {options['target_words']}. {direction} this draft by about {change} words, "
                              "preserving every distinct subject and qualification; return the complete episode. "
                              + json.dumps(word_guidance(result, data, options["target_words"]), separators=(",", ":")))
@@ -136,9 +140,9 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
         try:
             result = context.stage(_write_request(context, data, options), checked)
             return {"narration": spoken_text(result, data)}
-        except ValueError as error:
-            if not str(error).startswith("podcast_word_budget:") or attempt == 2:
-                raise
+        except _WordBudgetRejected as error:
+            if attempt == 2:
+                raise ValueError(str(error)) from error
             actual, target = len(previous.split()), options["target_words"]
             state = {"mode": "revise_draft", "current_words": actual, "target_words": target,
                      "min_words": minimum, "max_words": maximum, "word_delta": target - actual,

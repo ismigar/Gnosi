@@ -581,6 +581,14 @@ citations exactes ne prouvent pas seules la justesse sémantique : la vérificat
 réelle doit comparer le texte à tous les thèmes et nuances et mesurer le MP3 par
 rapport à l'objectif d'environ dix minutes.
 
+Un épisode conforme au schéma mais hors de la plage globale de mots revient
+immédiatement au coordinateur de longueur existant, avec trois tentatives. Il ne
+consomme pas l’appel de réparation générique dans le même délai déjà partiellement
+écoulé. Chaque phase existante conserve son délai de 300 secondes et ses deux appels de
+format ; le coordinateur garde la composition rejetée exacte, les comptes mesurés et
+tous les sujets. Le JSON mal formé conserve la réparation ordinaire bornée. Après la
+dernière tentative, l’erreur publique de budget de mots reste inchangée.
+
 Les opérations internes de planification, résumé, rédaction et révision disposent
 de 300 secondes et 16 384 tokens de sortie, raisonnement inclus, sauf limite
 explicite du profil. Les contrats actuels accompagnent les anciens instantanés ;

@@ -567,6 +567,14 @@ quotation alone are not semantic proof: live verification must compare the final
 script with all source themes/qualifications and measure the actual MP3 against
 the approximately ten-minute target.
 
+A schema-valid episode outside the global word range returns immediately to the existing
+three-attempt length coordinator. It does not consume the generic format-repair call
+inside the same partially spent deadline. Each existing length stage keeps its
+300-second deadline and two-call format allowance; the coordinator retains the exact
+rejected composition, measured counts and unchanged subject scope. Malformed JSON still
+uses the ordinary bounded format repair. After the final length attempt the public word-
+budget error is unchanged.
+
 Internal planning, digest, writing and audit calls use a 300-second allowance and
 16,384 output tokens including provider reasoning unless the profile explicitly
 chooses an output limit. Current contracts accompany resumed older snapshots;
