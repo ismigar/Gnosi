@@ -500,6 +500,8 @@ de validación recibe también el recuento, el sentido del cambio y el objetivo
 del guion recién rechazado. No se publica ni se recorta una narración inválida
 y se mantienen los límites de llamadas y contexto.
 
+Cuando un borrador estructurado es demasiado corto, la reducción del contexto reserva la composición exacta más reciente y las indicaciones medidas para ampliarla. Sigue resumiendo las evidencias hasta que ambas caben juntas, conservando todos los temas y las objeciones semánticas. La ampliación no utiliza el modo sin evidencias reservado para acortar. Si ninguna reducción adicional permite ajustar el contexto, la generación falla explícitamente en vez de descartar el texto corto y empezar de nuevo. Pueden necesitarse más resúmenes internos ordinarios; no aumentan los intentos de redacción ni los límites de tiempo, contexto o palabras finales.
+
 `podcast_review.py` valida citas exactas del guion y de las evidencias antes de
 guardar objeciones semánticas. Las omisiones identifican evidencias; las
 distorsiones factuales requieren una afirmación citada y evidencias que la

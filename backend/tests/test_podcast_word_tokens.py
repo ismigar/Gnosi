@@ -85,10 +85,18 @@ def test_token_counts_drive_guidance_without_reconstructing_the_stored_model_obj
 
 @pytest.mark.parametrize("rejected_words", [40, 160])
 @pytest.mark.parametrize("fit", ["full", "lean", "overflow"])
-def test_existing_length_repair_uses_bounded_format_with_same_global_limits_and_scope(fit, rejected_words):
+def test_existing_length_repair_uses_bounded_format_with_same_global_limits_and_scope(fit, rejected_words, monkeypatch):
     from backend.services.podcast_automatic import _bounded_write
     context = Context([response(rejected_words), response(100)], fit)
     original = data()
+    if rejected_words < OPTIONS["min_words"] and fit != "full":
+        records = [{"part_ids": [b["part_id"] for b in original["briefs"]], "summary": "Complete digest"}]
+        monkeypatch.setattr("backend.services.podcast_outline._digest", lambda ctx, evidence: records)
+        if fit == "overflow":
+            with pytest.raises(RuntimeError, match="podcast_feedback_context_insufficient"):
+                _bounded_write(context, original, OPTIONS)
+            assert len(context.sent) == 1
+            return
     result = _bounded_write(context, original, OPTIONS)
     repair = context.sent[-1]
     assert len(context.sent) == 2
@@ -100,8 +108,12 @@ def test_existing_length_repair_uses_bounded_format_with_same_global_limits_and_
     if fit == "full" or rejected_words > OPTIONS["max_words"] and fit != "overflow":
         assert repair["previous_composition"] == response(rejected_words)
     if rejected_words < OPTIONS["min_words"]:
-        assert repair["briefs"] == original["briefs"]
-        assert repair["length_repair"]["mode"] != "shorten_composition"
+        if fit == "full":
+            assert repair["briefs"] == original["briefs"]
+        else:
+            assert repair["digests"] == records
+        assert repair["previous_composition"] == response(rejected_words)
+        assert repair["length_repair"]["mode"] == "revise_draft"
 
 
 @pytest.mark.parametrize("container", [None, "words", {}, 7, True])

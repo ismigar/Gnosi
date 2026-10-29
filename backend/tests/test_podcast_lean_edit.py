@@ -17,7 +17,7 @@ OPTIONS = {"min_words": 90, "max_words": 109, "target_words": 100}
 
 def data():
     return {"briefs": [{"part_id": f"source:{i}", "summary": f"Original {i}"} for i in range(254)],
-            "feedback": [{"kind": "omission", "detail": "Earlier semantic finding"}],
+            "feedback": [{"kind": "omission", "detail": "Earlier semantic finding", "source_part_ids": []}],
             "subject_groups": [{"topic": "Shared", "subjects": ["Main", "Minority"]},
                                {"topic": "Access", "subjects": ["Registration"]}],
             "composition_groups": [{"key": "group:0", "topic": "Shared"},
@@ -107,12 +107,61 @@ def test_length_stage_uses_the_latest_rejected_reply_when_length_direction_chang
     assert repair["briefs"] == data()["briefs"]
 
 
-def test_underlength_repair_keeps_source_evidence_instead_of_lean_expansion():
+def test_underlength_repair_reserves_exact_prior_while_compressing_source_evidence(monkeypatch):
     context = Context([response(40), response(100)])
-    automatic._bounded_write(context, data(), OPTIONS)
-    assert context.sent[1]["briefs"] == data()["briefs"]
-    assert context.sent[1]["length_repair"]["mode"] == "fresh_composition"
-    assert "previous_composition" not in context.sent[1]
+    original = data()
+    records = [{"part_ids": [b["part_id"] for b in original["briefs"]], "summary": "Complete digest"}]
+    reductions = []
+    def digest(ctx, evidence):
+        reductions.append(evidence)
+        return records
+    monkeypatch.setattr("backend.services.podcast_outline._digest", digest)
+    automatic._bounded_write(context, original, OPTIONS)
+    repair = context.sent[1]
+    assert reductions == [original["briefs"]]
+    assert repair["digests"] == records and "briefs" not in repair
+    assert repair["previous_composition"] == response(40)
+    assert repair["length_repair"]["mode"] == "revise_draft"
+    assert repair["length_repair"]["current_words"] == 40
+    assert repair["feedback"] == original["feedback"]
+
+
+def test_underlength_repair_keeps_reducing_until_prior_and_evidence_fit_together(monkeypatch):
+    original = data()
+    first = [{"part_ids": [b["part_id"] for b in original["briefs"]], "summary": "Large digest"}]
+    final = [{"part_ids": first[0]["part_ids"], "summary": "Complete compact digest"}]
+    context = Context([response(40), response(100)], "full")
+    def cost(request):
+        value = json.loads(request.input)
+        if "previous_composition" not in value:
+            return 100
+        if "briefs" in value:
+            return 100000
+        return 81000 if value["digests"] == first else 70000
+    context.cost = cost
+    reductions = []
+    def digest(ctx, evidence):
+        reductions.append(evidence)
+        return first if len(reductions) == 1 else final
+    monkeypatch.setattr("backend.services.podcast_outline._digest", digest)
+    automatic._bounded_write(context, original, OPTIONS)
+    assert reductions == [original["briefs"], first]
+    repair = context.sent[1]
+    assert repair["digests"] == final
+    assert repair["previous_composition"] == response(40)
+    assert repair["subject_groups"] == original["subject_groups"]
+    assert repair["composition_groups"] == original["composition_groups"]
+    assert repair["feedback"] == original["feedback"]
+    assert repair["length_repair"]["mode"] == "revise_draft"
+
+
+def test_underlength_irreducible_context_fails_before_fresh_or_evidence_free_expansion(monkeypatch):
+    original = data()
+    context = Context([response(40), response(100)], "overflow")
+    monkeypatch.setattr("backend.services.podcast_outline._digest", lambda ctx, evidence: evidence)
+    with pytest.raises(RuntimeError, match="podcast_feedback_context_insufficient"):
+        automatic._bounded_write(context, original, OPTIONS)
+    assert len(context.sent) == 1
 
 
 def test_complete_digest_and_exact_prior_are_preferred_over_lean(monkeypatch):

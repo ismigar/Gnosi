@@ -554,6 +554,8 @@ validació també rep el recompte, el sentit del canvi i l'objectiu del guió qu
 acaba de rebutjar. No es publica ni es retalla una narració invàlida i es mantenen
 els límits de crides i context.
 
+Quan un esborrany estructurat és massa curt, la reducció de context reserva la composició exacta més recent i les indicacions mesurades per ampliar-la. Continua resumint les evidències fins que hi caben juntes, conservant tots els temes i les objeccions semàntiques. L’ampliació no utilitza el mode sense evidències reservat a escurçar. Si cap reducció addicional permet ajustar el context, la generació falla explícitament en lloc de descartar el text curt i tornar a començar. Poden caldre més resums interns ordinaris; no augmenten els intents de redacció ni els límits de temps, context o paraules finals.
+
 `podcast_review.py` valida cites exactes del guió i de les evidències abans de
 desar objeccions semàntiques. Les omissions identifiquen les evidències; les
 distorsions factuals exigeixen una afirmació citada i evidències que la

@@ -545,6 +545,8 @@ modification et la cible du script qui vient d'être rejeté. Aucune narration
 invalide n'est publiée ou tronquée et les limites d'appels et de contexte restent
 inchangées.
 
+Pour un brouillon structuré trop court, la réduction du contexte réserve la composition exacte la plus récente et les indications mesurées pour l’allonger. Elle continue de résumer les preuves jusqu’à ce que les deux tiennent ensemble, en conservant tous les sujets et les objections sémantiques. L’allongement n’utilise jamais le mode sans preuves réservé au raccourcissement. Si aucune réduction supplémentaire ne permet de respecter le contexte, la génération échoue explicitement au lieu d’abandonner le texte court et de recommencer. Des résumés internes ordinaires supplémentaires peuvent être nécessaires ; les tentatives de rédaction et les limites de temps, de contexte et de mots finaux restent inchangées.
+
 `podcast_review.py` valide les citations exactes du texte et des preuves fournies
 avant de sauvegarder les objections sémantiques. Les omissions identifient les
 preuves ; les déformations factuelles exigent une affirmation citée et une preuve

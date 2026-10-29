@@ -525,6 +525,8 @@ without applying a delta to absent text. Each validation retry also receives the
 fresh count, direction and target for its immediately preceding rejected draft.
 No invalid narration is published or clipped, and call/context limits stay fixed.
 
+For an underlength structured draft, the context reduction reserves the exact latest composition and its measured expansion guidance. It continues reducing source evidence until both fit together, retaining the complete subject scope and semantic feedback. Expansion never uses the shortening-only evidence-free mode. If no further reduction fits, generation fails explicitly instead of discarding the short draft and restarting. Additional ordinary digest operations may be needed; writer attempts, deadlines, context and final word limits do not increase.
+
 `podcast_review.py` validates exact narration and supplied-evidence quotes for
 semantic objections before checkpointing. Omission findings identify evidence;
 factual distortions require a quoted draft claim and positive contradicting

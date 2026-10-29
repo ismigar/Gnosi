@@ -81,7 +81,10 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
     source_part_ids = [brief["part_id"] for brief in data.get("briefs", [])]
     request = _request(context, "write", data, composition_schema(data), **options)
     limit = min(80_000, context.budget)
-    if context.cost(request) > limit and previous:
+    state = data.get("length_repair", {})
+    retain_short_composition = ("previous_composition" in previous
+                                and 0 < state.get("current_words", 0) < options.get("min_words", 0))
+    if context.cost(request) > limit and previous and not retain_short_composition:
         data = {k: v for k, v in data.items() if k not in previous}
         request = _request(context, "write", data, composition_schema(data), **options)
     from backend.services.podcast_feedback import fit_feedback
