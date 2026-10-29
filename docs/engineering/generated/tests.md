@@ -11,8 +11,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
-| Vitest | 752 | 3413 |
-| pytest | 750 | 5801 |
+| Vitest | 752 | 3422 |
+| pytest | 750 | 5803 |
 
 ## Files
 
@@ -527,7 +527,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/features/vault/views/groupValueUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/groupValueUtils.test.ts) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/imagePropertyPreviews.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/imagePropertyPreviews.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/resourceLinkUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/resourceLinkUtils.test.ts) | 0 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/views/tableRecordFocusUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/tableRecordFocusUtils.test.ts) | 9 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/views/tableRecordFocusUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/tableRecordFocusUtils.test.ts) | 13 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/useVaultFeedController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/useVaultFeedController.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-chart/vaultChartModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-chart/vaultChartModel.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-gallery/VaultGalleryPropertyValue.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-gallery/VaultGalleryPropertyValue.test.tsx) | 8 | call-pattern estimate |
@@ -544,7 +544,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/features/vault/views/vault-table/metadata.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/metadata.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/pickers.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/pickers.test.tsx) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/portal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/portal.test.tsx) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/views/vault-table/refreshContinuity.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/refreshContinuity.test.tsx) | 8 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/views/vault-table/refreshContinuity.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/refreshContinuity.test.tsx) | 13 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/rowKeys.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/rowKeys.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/rows.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/rows.test.ts) | 13 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/views/vault-table/spreadsheetFormula.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/spreadsheetFormula.test.ts) | 2 | call-pattern estimate |
@@ -1506,7 +1506,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/translation_open_fixtures.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/translation_open_fixtures.py) | 0 | Python AST |
 | pytest | [`desktop/tests/test_backend_resources.py`](https://github.com/ismigar/Gnosi/blob/main/desktop/tests/test_backend_resources.py) | 35 | Python AST |
 | pytest | [`desktop/tests/test_genogram_resources.py`](https://github.com/ismigar/Gnosi/blob/main/desktop/tests/test_genogram_resources.py) | 1 | Python AST |
-| pytest | [`desktop/tests/test_local_install_retention.py`](https://github.com/ismigar/Gnosi/blob/main/desktop/tests/test_local_install_retention.py) | 15 | Python AST |
+| pytest | [`desktop/tests/test_local_install_retention.py`](https://github.com/ismigar/Gnosi/blob/main/desktop/tests/test_local_install_retention.py) | 17 | Python AST |
 | pytest | [`desktop/tests/test_release_session.py`](https://github.com/ismigar/Gnosi/blob/main/desktop/tests/test_release_session.py) | 17 | Python AST |
 | pytest | [`extensions/examples/test_build_index.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/examples/test_build_index.py) | 3 | Python AST |
 | pytest | [`extensions/marketplace/test_reviewed_templates.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/marketplace/test_reviewed_templates.py) | 6 | Python AST |
