@@ -43,6 +43,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_preparation.py
   - backend/tests/test_podcast_feedback.py
   - backend/tests/test_podcast_feedback_repair.py
   - backend/tests/test_podcast_feedback_repair_transport.py
@@ -673,3 +674,5 @@ La skill assignada `core.gnosi-daily-briefing` conté el criteri editorial i un 
 El planificador pot retornar menys temes que el màxim configurat; ja no omple els dies amplis fins a 32 posicions. Cada targeta conserva exactament una assignació a un tema declarat i es mantenen tots els identificadors i assumptes originals. El motor conserva els límits tècnics, les validacions d’esquema i evidències, la revisió de les fonts originals, el rang de paraules, la persistència, la cancel·lació i les garanties de publicació. Canviar la durada modifica l’objectiu; el valor per defecte dels dies amplis continua sent 1.380 paraules.
 
 El `review_mode` editable és `brief` per defecte: una revisió global dels resums de fonts i temes principals, com a màxim una reescriptura correctiva i després publicació normal de la veu. `full` activa explícitament les auditories exhaustives dels fragments originals. Les metadades de revisió desades identifiquen l’abast real.
+
+En el mode `brief` per defecte, es preparen simultàniament com a màxim quatre lots independents. Cada lot conserva la petició i la clau de memòria cau originals, el context autenticat i la validació; els resultats es reordenen segons les fonts. La cancel·lació o una fallada impedeix publicar una cobertura parcial. La represa reutilitza els mateixos punts validats. El raonament opcional per defecte del proveïdor es desactiva per a l’extracció quan el model declara que ho permet; es respecten les opcions explícites del perfil. El mode `full` explícit manté l’extracció seqüencial.

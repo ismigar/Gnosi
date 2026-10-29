@@ -50,6 +50,9 @@ def test_migration_preserves_personal_brain_and_disabled_features():
     ('knowledge.process-source.phase', 'max', False, None),
     ('knowledge.process-source.phase', 'low', False, None),
     ('podcast.coverage.plan', None, False, 'off_if_optional'),
+    ('podcast.coverage.briefs', None, False, 'off_if_optional'),
+    ('podcast.coverage.briefs', None, True, 'off_if_optional'),
+    ('podcast.coverage.briefs', 'high', False, None),
     ('podcast.coverage.write', None, True, 'off_if_optional'),
     ('podcast.coverage.digest', None, False, 'off_if_optional'),
     ('podcast.coverage.audit', None, False, 'off_if_optional'),
@@ -1022,7 +1025,7 @@ def test_podcast_action_has_bounded_default_output_without_changing_other_operat
     asyncio.run(execution._operation_application(request, snapshot, {}, None))
     assert captured['operation_max_output_tokens'] == expected
     assert captured['operation_default_reasoning_effort'] == (
-        'off_if_optional' if operation in {'podcast.coverage.plan', 'podcast.coverage.write', 'podcast.coverage.digest', 'podcast.coverage.audit'} else None)
+        'off_if_optional' if operation in {'podcast.coverage.briefs', 'podcast.coverage.plan', 'podcast.coverage.write', 'podcast.coverage.digest', 'podcast.coverage.audit'} else None)
     assert captured['prepared_agent_data'] is snapshot.profile
     if operation.startswith('podcast.coverage.'):
         assert captured['operation_team_help'] is False

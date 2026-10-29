@@ -406,7 +406,7 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         # A rejected plan gets the existing repair call at the model's normal
         # effort. Explicit profile choices and specialist effort stay intact.
         operation_default_reasoning_effort=(None if snapshot.profile.get("reasoning_effort") else
-            "off_if_optional" if request.operation in {"podcast.coverage.plan", "podcast.coverage.write", "podcast.coverage.digest", "podcast.coverage.audit"} else
+            "off_if_optional" if request.operation in {"podcast.coverage.briefs", "podcast.coverage.plan", "podcast.coverage.write", "podcast.coverage.digest", "podcast.coverage.audit"} else
             "low" if request.operation in {"knowledge.process-source.phase", "team.view_edit"} else
             "one_step_lower" if request.operation == "team.plan" and request.options.get("economical_planning")
             and not validation_retry else None),

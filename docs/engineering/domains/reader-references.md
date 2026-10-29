@@ -43,6 +43,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_preparation.py
   - backend/tests/test_podcast_feedback.py
   - backend/tests/test_podcast_feedback_repair.py
   - backend/tests/test_podcast_feedback_repair_transport.py
@@ -650,3 +651,5 @@ The assigned `core.gnosi-daily-briefing` skill owns the editorial approach and a
 The planner may return fewer topics than the configured maximum; it no longer pads a broad day to 32 positions. Every card still has exactly one assignment to a declared topic, and all original IDs and child subjects survive routing. The engine retains technical capacity bounds, strict schema/evidence checks, original-source reviews, word-range validation, persistence, cancellation and publication safeguards. Custom duration changes the target; the default broad-day target remains 1,380 words.
 
 The editable `review_mode` defaults to `brief`: one whole-day review of source briefs and main themes, at most one corrective rewrite, then normal speech publication. `full` explicitly opts into exhaustive original-fragment audits. The persisted review metadata identifies the actual scope.
+
+In default `brief` mode, at most four independent extraction batches run concurrently. Each retains its original request and cache key, authenticated context and validation; results are assembled in source order. Cancellation or a failed batch prevents partial publication. Resuming reuses the same validated checkpoints. Optional provider-default reasoning is disabled for source extraction when the model declares support; explicit profile choices remain authoritative. Explicit `full` mode keeps serial extraction.

@@ -43,6 +43,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_preparation.py
   - backend/tests/test_podcast_feedback.py
   - backend/tests/test_podcast_feedback_repair.py
   - backend/tests/test_podcast_feedback_repair_transport.py
@@ -621,3 +622,5 @@ La skill asignada `core.gnosi-daily-briefing` contiene el criterio editorial y u
 El planificador puede devolver menos temas que el máximo configurado; ya no rellena los días amplios hasta 32 posiciones. Cada tarjeta mantiene exactamente una asignación a un tema declarado y se conservan todos los identificadores y asuntos originales. El motor mantiene los límites técnicos, las validaciones de esquema y evidencias, la revisión de las fuentes originales, el rango de palabras, la persistencia, la cancelación y las garantías de publicación. Cambiar la duración modifica el objetivo; el valor predeterminado para días amplios sigue siendo 1.380 palabras.
 
 El `review_mode` editable es `brief` por defecto: una revisión global de los resúmenes de fuentes y temas principales, como máximo una reescritura correctiva y después publicación normal de la voz. `full` activa explícitamente las auditorías exhaustivas de fragmentos originales. Los metadatos guardados identifican el alcance real.
+
+En el modo `brief` por defecto, se preparan simultáneamente como máximo cuatro lotes independientes. Cada lote conserva la petición y la clave de caché originales, el contexto autenticado y la validación; los resultados se ordenan según las fuentes. La cancelación o un fallo impide publicar cobertura parcial. La reanudación reutiliza los mismos puntos validados. El razonamiento opcional predeterminado del proveedor se desactiva para la extracción cuando el modelo declara que lo permite; se respetan las opciones explícitas del perfil. El modo `full` explícito mantiene la extracción secuencial.

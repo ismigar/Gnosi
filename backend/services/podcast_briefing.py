@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextvars import copy_context
 from dataclasses import dataclass, field
+from threading import Event
 from typing import Any, cast
 
 import jsonschema
@@ -169,6 +172,46 @@ def _parts(sources: list[dict[str, Any]], budget: int, count: Callable[[str], in
     return result
 
 
+def _prepare_briefs(context: _Briefing, parts: list[dict[str, Any]],
+                    progress: Callable[[str], None]) -> list[dict[str, Any]]:
+    batches = context.batches(parts)
+    stopped = Event()
+    def extract(batch: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if stopped.is_set():
+            return []
+        try:
+            context.check_active()
+            request = context.request("podcast.coverage.briefs", {"sources": batch}, _brief_schema(batch))
+            result = context.stage(request, lambda value: _validate_briefs(value, batch),
+                                   output_repair=brief_quote_repair(batch, _brief_schema(batch)))
+            return [{"part_id": p["part_id"], "source_id": p["source_id"], "title": p.get("title", ""),
+                     **result["briefs"][p["part_id"]]} for p in batch]
+        except BaseException:
+            stopped.set()
+            raise
+    # Independent source extraction shares no conversation. Preserve each exact
+    # request/cache key and its authorization context; assemble in source order.
+    workers = min(4, len(batches)) if context.editorial_policy.review_mode == 'brief' else 1
+    completed: dict[int, list[dict[str, Any]]] = {}
+    count = 0
+    progress(f"Preparing source briefs: 0/{len(parts)}")
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix='gnosi-podcast-source') as executor:
+        pending = {executor.submit(copy_context().run, extract, batch): index
+                   for index, batch in enumerate(batches)}
+        try:
+            for future in as_completed(pending):
+                result = future.result()
+                context.check_active()
+                completed[pending[future]] = result
+                count += len(result)
+                progress(f"Preparing source briefs: {count}/{len(parts)}")
+        finally:
+            stopped.set()
+            for future in pending:
+                future.cancel()
+    return [brief for index in range(len(batches)) for brief in completed[index]]
+
+
 def build_podcast_script(sources: list[dict[str, Any]], language: str, *, snapshot: AgentExecutionSnapshot,
                          check_active: Callable[[], None], progress: Callable[[str], None]) -> str:
     from backend.domains.agent.runtime_tools import _model_context_window
@@ -184,14 +227,7 @@ def build_podcast_script(sources: list[dict[str, Any]], language: str, *, snapsh
     parts = _parts(sources, budget, count)
     context = _Briefing(snapshot, language, budget, count, check_active,
                         originals={part["part_id"]: part["text"] for part in parts})
-    briefs: list[dict[str, Any]] = []
-    for batch in context.batches(parts):
-        progress(f"Preparing source briefs: {len(briefs)}/{len(parts)}")
-        request = context.request("podcast.coverage.briefs", {"sources": batch}, _brief_schema(batch))
-        result = context.stage(request, lambda value: _validate_briefs(value, batch),
-                               output_repair=brief_quote_repair(batch, _brief_schema(batch)))
-        briefs.extend({"part_id": p["part_id"], "source_id": p["source_id"], "title": p.get("title", ""),
-                       **result["briefs"][p["part_id"]]} for p in batch)
+    briefs = _prepare_briefs(context, parts, progress)
     from backend.services.podcast_outline import narrate_day
     sections, outline, word_budget = narrate_day(context, briefs, progress)
     _validate_sections({"sections": sections}, briefs)
