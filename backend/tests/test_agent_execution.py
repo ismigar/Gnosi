@@ -1094,12 +1094,18 @@ def test_podcast_word_boundary_repair_uses_real_executor_and_latest_draft(runtim
                                 {'min_words': 1242, 'max_words': 1504, 'target_words': 1380})
     assert len(result['narration'].split()) == accepted and len(calls) == 2
     messages = calls[1]['messages']
-    assert messages[-2].content == rejected
-    assert f'received {invalid}' in messages[-1].content and 'Target 1380' in messages[-1].content
-    assert ('Expand' if invalid < 1242 else 'Reduce') in messages[-1].content
+    assert len(messages) == 1
+    repair = json.loads(json.loads(messages[0].content)['input'])['data']
+    assert repair['previous_draft'] == json.loads(rejected)['narration']
+    assert repair['length_repair']['current_words'] == invalid
+    assert repair['length_repair']['target_words'] == 1380
+    assert repair['length_repair']['word_delta'] == 1380 - invalid
     runs = store.list_runs(scope)
-    assert len(runs) == 1 and runs[0].status == 'completed'
-    assert len(json.loads(runs[0].result)['narration'].split()) == accepted
+    assert len(runs) == 2 and sorted(row.status for row in runs) == ['completed', 'failed']
+    completed = next(row for row in runs if row.status == 'completed')
+    assert len(json.loads(completed.result)['narration'].split()) == accepted
+    assert all(row.model_calls <= 2 for row in runs)
+
 
 
 
@@ -1111,7 +1117,9 @@ def test_group_length_repair_reaches_real_executor_with_current_counts(runtime, 
         return json.dumps({"paragraphs": {"group:0": {"text": "word " * first, "non_editorial": False},
                                           "group:1": {"text": "word " * second, "non_editorial": False}}})
     rejected = output(1000, 505)
-    calls = install_workflow(monkeypatch, [rejected, output(900, 480)])
+    from backend.tests.test_podcast_briefing import tokenized
+    accepted = tokenized(json.loads(output(900, 480)), [{"key": "group:0"}, {"key": "group:1"}], text=True)
+    calls = install_workflow(monkeypatch, [rejected, json.dumps(accepted)])
     class Context(_Briefing):
         def request(self, task, data, schema):
             return super().request(task, data, schema).model_copy(update={"skill_id": snapshot.skill_ids[0]})
@@ -1122,12 +1130,17 @@ def test_group_length_repair_reaches_real_executor_with_current_counts(runtime, 
         result = _bounded_write(context, {"briefs": [], "composition_groups": groups},
                                 {"min_words": 1242, "max_words": 1504, "target_words": 1380})
     assert len(result["narration"].split()) == 1380 and len(calls) == 2
-    assert calls[1]["messages"][-2].content == rejected
-    diagnostic = json.loads(calls[1]["messages"][-1].content.split("\n")[-1])["validation_error"]
-    guidance = json.loads(diagnostic[diagnostic.index('{'):])["paragraph_word_guidance"]
+    assert len(calls[1]["messages"]) == 1
+    repair = json.loads(json.loads(calls[1]["messages"][0].content)["input"])["data"]
+    assert repair["previous_composition"] == json.loads(rejected)
+    assert repair["composition_groups"] == groups
+    guidance = repair["length_repair"]["paragraph_word_guidance"]
     assert guidance["group:0"]["current"] == 1000 and guidance["group:1"]["current"] == 505
     assert sum(value["suggested"] for value in guidance.values()) == 1380
-    assert len(store.list_runs(scope)) == 1 and store.list_runs(scope)[0].status == "completed"
+    runs = store.list_runs(scope)
+    assert len(runs) == 2 and sorted(row.status for row in runs) == ["completed", "failed"]
+    assert all(row.model_calls <= 2 for row in runs)
+
 
 
 @pytest.mark.parametrize('operation,failure,max_calls,expected_calls,completed', [
