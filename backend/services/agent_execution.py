@@ -310,10 +310,11 @@ def _validate_output(text: str, schema: dict[str, Any] | None) -> str:
         if error.msg != "Extra data":
             raise
         value, end = json.JSONDecoder(parse_constant=_reject_json_constant).raw_decode(cleaned)
-        # Preserve the complete result when the model repeats one root closer.
-        # Never discard a second value, prose, or an incomplete nested payload.
+        # Keep the complete document when followed by one root closer or a
+        # bare tool-control opener. Never discard another value, prose, a named
+        # tool call, or an incomplete nested payload.
         closer = "}" if isinstance(value, dict) else "]" if isinstance(value, list) else ""
-        if not closer or cleaned[end:].strip() != closer:
+        if not closer or cleaned[end:].strip() not in {closer, "<function", "<function="}:
             raise
     from backend.services.json_contracts import validate_json_value
     validate_json_value(value, schema)

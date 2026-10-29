@@ -8,6 +8,7 @@ from typing import Any, TYPE_CHECKING
 
 from backend.services.agent_behavior import resource
 from backend.services.podcast_composition import WORD_TEXT, advisory_targets, schema as composition_schema, spoken_text, word_guidance
+from backend.services.podcast_policy import preferences
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -21,6 +22,11 @@ class _WordBudgetRejected(RuntimeError):
 def _request(context: _Briefing, phase: str, data: dict[str, Any], schema: dict[str, Any], **options: Any) -> Any:
     if phase == "write" and data.get("composition_groups"):
         options["composition_contract"] = resource("operations/podcast/composition-contract.md")
+    if phase in {"write", "audit"}:
+        options["editorial_policy"] = preferences(context).model_dump()
+    if phase == "audit" and data.get("whole_episode") and "sections" in data:
+        # Ledger review uses complete prose and subjects, never opaque source IDs.
+        data = {**data, "sections": [{"narration": section["narration"]} for section in data["sections"]]}
     feedback = data.get("feedback")
     if phase == "write" and isinstance(feedback, dict) and feedback.get("encoding") == "finding_guidance_v1":
         options["feedback_transport_contract"] = resource("operations/podcast/feedback-writer-contract.md")
@@ -167,8 +173,7 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
 
 def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[dict[str, Any]],
               progress: Callable[[str], None]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
-    from backend.services.podcast_outline import TARGET_WORDS
-    budget = TARGET_WORDS if len({b["source_id"] for b in briefs}) >= 20 else min(TARGET_WORDS, max(160, 65 * len(briefs)))
+    budget = preferences(context).word_target(len({b["source_id"] for b in briefs}))
     feedback: list[dict[str, Any]] = []
     previous_draft = ""
     subjects = [t.get("subjects", [t["topic"]]) for t in outline]

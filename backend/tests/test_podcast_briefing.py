@@ -9,10 +9,7 @@ from backend.services import podcast_briefing as briefing
 
 
 def planned(cards, groups):
-    from backend.services.podcast_outline import MAX_TOPICS
-    limit = min(MAX_TOPICS, len(cards))
     labels = [g['topic'] for g in groups]
-    labels.extend(f'Unused {i}' for i in range(limit - len(labels)))
     return {'topics': labels, 'assignments': {handle: index for index, group in enumerate(groups)
         for handle in group['part_ids']}}
 
@@ -103,7 +100,7 @@ def pipeline(monkeypatch):
     def run(sources, guard=lambda: None):
         return briefing.build_podcast_script(sources, 'Catalan', snapshot=snapshot,
                                              check_active=guard, progress=lambda _: None)
-    return SimpleNamespace(run=run, model=model, calls=calls, saved=saved, monkeypatch=monkeypatch)
+    return SimpleNamespace(run=run, model=model, calls=calls, saved=saved, snapshot=snapshot, monkeypatch=monkeypatch)
 
 
 def diverse_sources():

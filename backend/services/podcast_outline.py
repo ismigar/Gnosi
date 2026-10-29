@@ -5,14 +5,11 @@ from typing import Any, TYPE_CHECKING
 
 from backend.services.agent_behavior import resource
 from backend.services.podcast_briefing import _object
+from backend.services.podcast_policy import preferences
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from backend.services.podcast_briefing import _Briefing
-
-
-TARGET_WORDS = 1380
-MAX_TOPICS = 32
 
 
 def _request(context: _Briefing, task: str, data: dict[str, Any], schema: dict[str, Any], **options: Any) -> Any:
@@ -33,13 +30,15 @@ def _partition(groups: list[dict[str, Any]], cards: list[dict[str, Any]]) -> Non
 
 def _plan_request(context: _Briefing, cards: list[dict[str, Any]]) -> Any:
     # Required object keys make missing/duplicated source-list entries impossible.
-    limit = min(MAX_TOPICS, len(cards))
-    schema = _object({"topics": {"type": "array", "minItems": limit, "maxItems": limit,
+    policy = preferences(context)
+    limit = min(policy.max_topic_groups, len(cards))
+    schema = _object({"topics": {"type": "array", "minItems": 1, "maxItems": limit,
         "items": {"type": "string", "minLength": 1, "maxLength": 180}},
         "assignments": _object({c["part_ids"][0]: {"type": "integer", "enum": list(range(limit))}
                                 for c in cards})})
     return context.request("podcast.coverage.plan", {"cards": cards}, schema).model_copy(update={
-        "options": {"planning_contract": resource("operations/podcast/assignment-contract.md")}})
+        "options": {"planning_contract": resource("operations/podcast/assignment-contract.md"),
+                    "editorial_policy": policy.model_dump()}})
 
 
 def _planning_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -53,6 +52,8 @@ def _route(context: _Briefing, cards: list[dict[str, Any]]) -> list[dict[str, An
     def checked(value: dict[str, Any]) -> None:
         if any(not label.strip() for label in value["topics"]):
             raise ValueError("podcast_empty_outline_topic")
+        if any(index >= len(value["topics"]) for index in value["assignments"].values()):
+            raise ValueError("podcast_outline_assignment_out_of_range")
     result = context.stage(_plan_request(context, visible), checked)
     groups: dict[str, dict[str, Any]] = {}
     for handle, card in zip((c["part_ids"][0] for c in visible), cards, strict=True):

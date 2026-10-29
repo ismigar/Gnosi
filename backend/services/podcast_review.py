@@ -119,7 +119,10 @@ def _confirm(context: Any, data: dict[str, Any], issues: list[dict[str, Any]],
 
 def _partition_values(data: dict[str, Any]) -> tuple[str, list[Any]]:
     key = 'candidate_findings' if 'candidate_findings' in data else ('subjects' if data.get('whole_episode') else 'briefs')
-    return key, data.get(key, [])
+    values = data.get(key, [])
+    if key == 'subjects' and len(values) == 1 and isinstance(values[0], list) and len(values[0]) > 1:
+        values = [[subject] for subject in values[0]]
+    return key, values
 
 
 def _has_saved(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> bool:
@@ -177,9 +180,7 @@ def _stage(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> d
         result = cast(dict[str, Any], context.stage(operation, lambda r: _validate(r, data)))
         return _resolved(result, data)
     except (LengthFinishReasonError, TimeoutError):
-        key = 'candidate_findings' if 'candidate_findings' in data else (
-            'subjects' if data.get('whole_episode') else 'briefs')
-        values = data[key]
+        key, values = _partition_values(data)
         if len(values) < 2:
             raise
         _mark_partition(context, data, request)
@@ -208,8 +209,7 @@ def review(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> l
             exhausted = True
         else:
             return _confirm(context, data, result['issues'], request) if result['issues'] else []
-    key = 'subjects' if data.get('whole_episode') else 'briefs'
-    values = data[key]
+    key, values = _partition_values(data)
     if len(values) < 2:
         raise RuntimeError('podcast_review_indivisible_work_exhausted')
     _mark_partition(context, data, request)

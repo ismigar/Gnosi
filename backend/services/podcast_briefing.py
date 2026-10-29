@@ -13,6 +13,7 @@ from backend.services.agent_behavior import operation_input, resource, revision,
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation
 from backend.services.agent_output_repair import RepairBuilder
 from backend.services.podcast_brief_repair import InvalidBriefQuotes, brief_quote_repair, invalid_quote_ids
+from backend.services.podcast_policy import PodcastPreferences, preferences
 
 
 def _object(properties: dict[str, Any]) -> dict[str, Any]:
@@ -60,6 +61,10 @@ class _Briefing:
     count: Callable[[str], int]
     check_active: Callable[[], None]
     originals: dict[str, str] = field(default_factory=dict)
+    editorial_policy: PodcastPreferences = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.editorial_policy = preferences(self)
 
     def request(self, task: str, data: dict[str, Any], schema: dict[str, Any]) -> AgentOperation:
         return AgentOperation(skill_id="core.gnosi-daily-briefing", operation=task,
@@ -195,5 +200,6 @@ def build_podcast_script(sources: list[dict[str, Any]], language: str, *, snapsh
             "version": 4, "pipeline": "automatic-narration-v2", "narration_segments": len(sections), "outline": outline,
             "word_budget": word_budget, "spoken_words": sum(len(s["narration"].split()) for s in sections), "article_ids": sorted({p["source_id"] for p in parts}),
             "parts": len(parts), "briefs": briefs, "sections": sections,
+            "editorial_policy": context.editorial_policy.model_dump(),
         })
     return "\n\n".join(section["narration"].strip() for section in sections)
