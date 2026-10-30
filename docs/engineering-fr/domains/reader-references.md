@@ -4,6 +4,8 @@ last_verified: 2026-10-17
 source_paths:
   - backend/services/podcast_brief_review.py
   - backend/services/podcast_automatic.py
+  - backend/services/podcast_brief_edits.py
+  - backend/agent/behavior/operations/podcast/revision-contract.md
   - backend/services/podcast_outline.py
   - backend/services/podcast_policy.py
   - backend/domains/configuration/source_sections_schema.py
@@ -47,6 +49,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_brief_edits.py
   - backend/tests/test_podcast_bounded_rewrites.py
   - backend/tests/test_podcast_synthesis_context.py
   - backend/tests/test_podcast_preparation.py
@@ -684,3 +687,5 @@ Dans le mode `brief` par défaut, au plus quatre lots indépendants sont prépar
 La synthèse brève utilise le budget de contexte résolu du modèle sélectionné, après les réserves existantes pour la réponse et les instructions. Le plan, la rédaction et la revue unique reçoivent directement toutes les notes des sources lorsqu’elles tiennent dans ce budget, sans imposer des résumés intermédiaires par un plafond distinct de 80 000 unités. Le comptage conservateur et la vérification finale du budget de chaque requête restent appliqués. Les petits contextes conservent la compression de secours ; le mode `full` explicite conserve son plafond de synthèse de 80 000 unités.
 
 Les réécritures courtes en mode `brief` utilisent le contrat existant `word_tokens_v1` lorsque le maximum de mots et les marqueurs de groupes ne dépassent pas 2 048 éléments. Les corrections sémantiques l’utilisent directement ; un premier rejet de longueur y passe également. Les bornes de la liste imposent la plage globale et chaque élément contient un seul mot délimité par des espaces. Tous les marqueurs ordonnés et les exclusions explicites restent vérifiés ; aucun texte n’est coupé et aucun plafond rigide par groupe n’est imposé. Les limites d’appels, d’étapes et de durée restent inchangées. Le mode complet et les épisodes longs gardent le transport compact ; les réponses compactes enregistrées restent lisibles.
+
+Lorsqu’un brouillon relu en mode `brief` respecte déjà la plage globale de mots et que toutes les preuves tiennent dans le contexte choisi, la correction sémantique utilise `grounded_edits_v1` au lieu de régénérer l’épisode. Le modèle renvoie des remplacements bornés, ancrés de façon unique dans le brouillon immuable exact, avec les indices des problèmes à partir de zéro et son SHA-256. Le serveur rejette les empreintes périmées, les ancrages ambigus ou superposés, les problèmes non référencés et un résultat hors de la plage de mots. Le texte non modifié est conservé à l’identique ; toutes les notes des sources, les groupes thématiques et les problèmes restent disponibles. L’étape conserve deux appels, 300 secondes et la limite de jetons de sortie. Aucune modification partielle n’est publiée et la synthèse vocale normale ne reprend qu’après validation. Les réécritures complètes et les premières corrections de longueur conservent les transports précédents.

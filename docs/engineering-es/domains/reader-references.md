@@ -4,6 +4,8 @@ last_verified: 2026-10-17
 source_paths:
   - backend/services/podcast_brief_review.py
   - backend/services/podcast_automatic.py
+  - backend/services/podcast_brief_edits.py
+  - backend/agent/behavior/operations/podcast/revision-contract.md
   - backend/services/podcast_outline.py
   - backend/services/podcast_policy.py
   - backend/domains/configuration/source_sections_schema.py
@@ -47,6 +49,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_brief_edits.py
   - backend/tests/test_podcast_bounded_rewrites.py
   - backend/tests/test_podcast_synthesis_context.py
   - backend/tests/test_podcast_preparation.py
@@ -634,3 +637,5 @@ En el modo `brief` por defecto, se preparan simultáneamente como máximo cuatro
 La síntesis breve utiliza el presupuesto de contexto resuelto del modelo seleccionado, después de las reservas existentes para respuesta e instrucciones. La planificación, redacción y revisión única reciben directamente todas las notas de fuentes cuando caben, sin forzar resúmenes intermedios mediante un límite independiente de 80.000 unidades. Se mantienen el recuento conservador y la comprobación final del límite de cada petición. Los contextos pequeños conservan la compresión alternativa; el modo `full` explícito mantiene el límite de síntesis de 80.000 unidades.
 
 Las reescrituras breves en modo `brief` usan el contrato existente `word_tokens_v1` cuando el máximo de palabras más los marcadores de grupo no supera 2.048 elementos. Las correcciones semánticas lo usan directamente; el primer rechazo por longitud también cambia a él. Los límites de la lista imponen el rango global y cada elemento contiene una sola palabra delimitada por espacios. Se siguen comprobando todos los marcadores ordenados y las exclusiones explícitas; no se recorta prosa ni se imponen límites rígidos por grupo. Se mantienen los límites de llamadas, etapas y tiempo. El modo completo y los episodios largos conservan el transporte compacto; las respuestas compactas guardadas siguen siendo legibles.
+
+Cuando un borrador revisado en modo `brief` ya cumple el rango global de palabras y todas las evidencias caben en el contexto seleccionado, la corrección semántica utiliza `grounded_edits_v1` en lugar de regenerar el episodio. El modelo devuelve sustituciones acotadas, con anclas únicas en el borrador inmutable exacto, índices de incidencias desde cero y su SHA-256. El servidor rechaza huellas antiguas, anclas ambiguas o solapadas, incidencias no referenciadas y un resultado fuera del rango de palabras. La prosa no afectada se conserva literalmente; siguen disponibles todas las notas de fuentes, los grupos temáticos y las incidencias. La etapa conserva dos llamadas, 300 segundos y el límite de tokens de salida. No se publica ningún cambio parcial y la generación normal de voz continúa solo tras validar. Las reescrituras completas y las primeras reparaciones de longitud conservan los transportes anteriores.

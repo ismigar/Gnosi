@@ -44,9 +44,13 @@ def test_brief_findings_trigger_one_corrective_write_without_more_reviews(pipeli
                 'narration_quotes': ['Inaccurate attribution'], 'source_part_ids': [record['part_id']],
                 'evidence_quote': record['quote']}]}
         elif request.operation.endswith('write'):
-            prefix = 'Correct attribution.' if data['feedback'] else 'Inaccurate attribution.'
-            text = prefix + ' Context.' * request.options['min_words']
-            result = written(request, text)
+            if data.get('revision_encoding') == 'grounded_edits_v1':
+                result = {'draft_sha256': data['draft_sha256'], 'edits': [{
+                    'before': 'Inaccurate attribution.', 'after': 'Correct attribution.',
+                    'finding_indices': [0]}]}
+            else:
+                text = 'Inaccurate attribution.' + ' Context.' * request.options['min_words']
+                result = written(request, text)
         else:
             return pipeline.model(request, **kwargs)
         text = json.dumps(result)
