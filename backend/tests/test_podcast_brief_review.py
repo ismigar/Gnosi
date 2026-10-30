@@ -120,3 +120,33 @@ def test_updated_planning_and_review_policy_cannot_replay_cached_approval(pipeli
     assert audits[0]['_options']['automatic_contract'] != previous['_options']['automatic_contract']
     assert audits[0]['_timeout'] == previous['_timeout'] == 300
     assert audits[0]['_schema'] == previous['_schema']
+
+
+def test_length_only_shortening_still_reviews_the_whole_original_day(pipeline):
+    from types import SimpleNamespace
+    brief_mode(pipeline)
+    writes, audits = [], []
+    def model(request, **kwargs):
+        data = json.loads(request.input)['data']
+        if request.operation.endswith('write'):
+            writes.append(copy.deepcopy(data))
+            count = request.options['max_words'] + 100 if len(writes) == 1 else request.options['min_words']
+            result = written(request, ' '.join(['Context.'] * count))
+        elif request.operation.endswith('audit'):
+            audits.append(copy.deepcopy(data))
+            result = {'issues': []}
+        else:
+            return pipeline.model(request, **kwargs)
+        text = json.dumps(result);kwargs['output_validator'](text)
+        return SimpleNamespace(result=text)
+    pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
+    pipeline.run(diverse_sources())
+    assert len(writes) == 2 and writes[1]['length_repair']['mode'] == 'shorten_composition'
+    assert 'briefs' not in writes[1] and 'digests' not in writes[1]
+    assert len(audits) == 1 and audits[0]['brief_review'] is True
+    assert audits[0]['source_summaries'] == writes[0]['briefs']
+    assert audits[0]['subjects'] == [group['subjects'] for group in writes[0]['subject_groups']]
+    report = pipeline.saved['podcast-coverage-report']
+    assert report['review']['semantic_reviews'] == 1 and report['review']['mode'] == 'brief'
+    assert {brief['part_id'] for brief in audits[0]['source_summaries']} == {
+        brief['part_id'] for brief in report['briefs']}

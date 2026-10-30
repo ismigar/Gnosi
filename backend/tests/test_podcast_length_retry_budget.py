@@ -19,7 +19,6 @@ def test_slow_length_rejection_uses_exact_draft_in_fresh_bounded_stage(runtime, 
     scope, snapshot = runtime
     value, rejected = broad_day(2846, groups=30)
     _, accepted = broad_day(1380, groups=30)
-    accepted = {'paragraphs': accepted['paragraphs'], 'tokens': accepted['token_text'].split()}
     answers = [json.dumps(rejected), json.dumps(accepted)]
     if malformed_first:
         answers.insert(0, 'not json')
@@ -67,3 +66,46 @@ def test_slow_length_rejection_uses_exact_draft_in_fresh_bounded_stage(runtime, 
     assert repair['composition_groups'] == value['composition_groups']
     assert sorted(row.status for row in rows) == ['completed', 'failed']
     assert all(row.model_calls <= 2 for row in rows)
+
+
+def test_normal_brief_length_repair_is_compact_and_preserves_scope_before_semantic_review(runtime, monkeypatch):
+    """An overlong broad-day draft must not resend all evidence as a word array."""
+    from backend.services.podcast_composition import composition_blocks
+    scope, snapshot = runtime
+    original, rejected_stream = broad_day(2443, groups=12)
+    rejected = {'paragraphs': composition_blocks(rejected_stream, original)}
+    _, accepted = broad_day(1380, groups=12)
+    original = {key: value for key, value in original.items()
+                if key not in {'composition_encoding', 'composition_word_range'}}
+    original.update(briefs=[{'part_id': f'source:{i}', 'summary': 'Supported qualified source fact. ' * 20}
+                            for i in range(222)], feedback=[],
+                    subject_groups=[{'topic': f'Subject {i}', 'subjects': [f'Development {i}']}
+                                    for i in range(12)])
+    calls = install_workflow(monkeypatch, [json.dumps(rejected), json.dumps(accepted)])
+    requests = []
+    class Context(_Briefing):
+        def request(self, task, data, contract):
+            return super().request(task, data, contract).model_copy(update={'skill_id': snapshot.skill_ids[0]})
+        def stage(self, request, validate, **kwargs):
+            requests.append(request)
+            return super().stage(request, validate, **kwargs)
+    context = Context(snapshot, 'Catalan', 80000, lambda text: 1, lambda: None)
+    context.editorial_policy = context.editorial_policy.model_copy(update={'review_mode': 'brief'})
+    with execution_scope(scope):
+        result = _bounded_write(context, original, {'min_words': 1242, 'max_words': 1504, 'target_words': 1380})
+        rows = store.list_runs(scope)
+    assert len(result['narration'].split()) == 1380 and len(calls) == len(requests) == 2
+    repair = json.loads(requests[1].input)['data']
+    assert repair['previous_composition'] == rejected
+    assert repair['length_repair']['current_words'] == 2443
+    assert repair['length_repair']['mode'] == 'shorten_composition'
+    assert repair['composition_encoding'] == 'word_text_v1'
+    assert repair['composition_word_range'] == {'min_words': 1242, 'max_words': 1504}
+    assert repair['source_part_ids'] == [brief['part_id'] for brief in original['briefs']]
+    assert repair['subject_groups'] == original['subject_groups']
+    assert repair['composition_groups'] == original['composition_groups']
+    assert not {'briefs', 'digests', 'feedback'} & repair.keys()
+    assert len(requests[1].input) < len(requests[0].input)
+    assert set(requests[1].output_schema['properties']) == {'paragraphs', 'token_text'}
+    assert all(request.timeout_seconds == 300 and request.max_model_calls == 2 for request in requests)
+    assert sorted(row.status for row in rows) == ['completed', 'failed']
