@@ -24,11 +24,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 274 | 53106 |
+| `services` | 274 | 53142 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1096 modules** and **208443 source lines**.
+Total: **1096 modules** and **208479 source lines**.
 
 ## agent
 
@@ -1132,7 +1132,7 @@ Total: **1096 modules** and **208443 source lines**.
 | [`backend/services/plugin_system.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_system.py) | 256 | 0 | 14 | 0 | 12 | Compatibility facade for the typed third-party plugin domain. |
 | [`backend/services/podcast_audit_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_audit_repair.py) | 123 | 0 | 5 | 0 | 0 | Ground rejected audit quotes without changing the model's findings. |
 | [`backend/services/podcast_automatic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_automatic.py) | 216 | 1 | 7 | 0 | 1 | Bounded narration-only writing, semantic review and automatic revision. |
-| [`backend/services/podcast_brief_edits.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_brief_edits.py) | 82 | 0 | 2 | 0 | 2 | Apply grounded review edits without regenerating an already bounded episode. |
+| [`backend/services/podcast_brief_edits.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_brief_edits.py) | 118 | 0 | 4 | 0 | 3 | Apply grounded review edits without regenerating an already bounded episode. |
 | [`backend/services/podcast_brief_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_brief_repair.py) | 96 | 1 | 3 | 0 | 2 | Repair all rejected source quotes without rewriting validated briefs. |
 | [`backend/services/podcast_brief_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_brief_review.py) | 63 | 0 | 1 | 0 | 0 | One bounded whole-day review before an optional corrective rewrite and speech. |
 | [`backend/services/podcast_briefing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_briefing.py) | 243 | 1 | 8 | 0 | 0 | Durable whole-day podcast coverage, independent of model conversation memory. |
