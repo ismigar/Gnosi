@@ -6,6 +6,8 @@ source_paths:
   - backend/services/podcast_automatic.py
   - backend/services/podcast_brief_edits.py
   - backend/agent/behavior/operations/podcast/revision-contract.md
+  - backend/agent/behavior/operations/podcast/brief-review-contract.md
+  - backend/agent/behavior/operations/podcast/assignment-contract.md
   - backend/services/podcast_outline.py
   - backend/services/podcast_policy.py
   - backend/domains/configuration/source_sections_schema.py
@@ -689,6 +691,8 @@ En el mode `brief` per defecte, es preparen simultàniament com a màxim quatre 
 La síntesi breu utilitza el pressupost de context resolt del model seleccionat, després de les reserves existents per a la resposta i les instruccions. La planificació, la redacció i la revisió única reben directament totes les notes de fonts quan hi caben, sense forçar resums intermedis amb un topall independent de 80.000 unitats. Es mantenen el recompte conservador i la comprovació final del límit de cada petició. Els contextos petits conserven la compressió alternativa; el mode `full` explícit manté el topall de síntesi de 80.000 unitats.
 
 Les reescriptures breus en mode `brief` utilitzen el contracte existent `word_tokens_v1` quan el màxim de paraules més els marcadors de grup no supera 2.048 elements. Les correccions semàntiques el fan servir directament; un primer rebuig de longitud també hi canvia. Els límits de la llista imposen el rang global i cada element conté una sola paraula separada per espais. Es continuen comprovant tots els marcadors ordenats i les exclusions explícites; no es retalla prosa ni s’imposen topalls rígids per grup. Es mantenen els límits de crides, etapes i temps. El mode complet i els episodis llargs conserven el transport compacte; les respostes compactes desades continuen sent llegibles.
+
+La planificació agrupa els relats repetits i els angles complementaris d’un mateix fet abans de repartir els grups. Evita dedicar diverses posicions a un sol esdeveniment mentre amaga àmbits minoritaris en grups genèrics. La revisió breu comprova la cobertura concreta de tots els subtemes abans de la fidelitat factual; el títol d’un grup no acredita les seves línies independents. Es poden comprimir detalls rutinaris, però l’absència d’un àmbit substantiu o d’una investigació d’interès públic continua sent una omissió material. Es mantenen una sola revisió i els límits de crides, temps i sortida existents.
 
 Quan un esborrany revisat en mode `brief` ja compleix el rang global de paraules i totes les evidències caben en el context seleccionat, la correcció semàntica utilitza `grounded_edits_v1` en lloc de regenerar l’episodi. El model retorna substitucions limitades, amb ancoratges únics en l’esborrany immutable exacte, índexs d’incidències des de zero i el seu SHA-256. El servidor rebutja empremtes antigues, ancoratges ambigus o superposats, incidències no referenciades i un resultat fora del rang de paraules. La prosa no afectada es conserva literalment; es mantenen disponibles totes les notes de fonts, els grups temàtics i les incidències. L’etapa conserva dues crides, 300 segons i el límit de tokens de sortida. No es publica cap canvi parcial i la generació normal de veu només continua després de validar. Les reescriptures completes i les primeres reparacions de longitud conserven els transports anteriors.
 

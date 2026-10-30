@@ -93,3 +93,30 @@ def test_default_and_explicit_full_mode_remain_distinct(pipeline):
     from backend.services.podcast_policy import preferences
     assert preferences(None).review_mode == 'brief'
     assert preferences(pipeline).review_mode == 'full'
+
+
+def test_updated_planning_and_review_policy_cannot_replay_cached_approval(pipeline):
+    """Exercise policy cache boundaries, not a fake model's semantic judgment."""
+    from backend.services import podcast_outline
+    brief_mode(pipeline)
+    sources = diverse_sources()
+    pipeline.run(sources)
+    before = copy.deepcopy(pipeline.calls)
+    original = automatic.resource
+    def changed(path):
+        text = original(path)
+        return text + '\nUpdated coverage policy.' if path.endswith((
+            '/assignment-contract.md', '/brief-review-contract.md')) else text
+    pipeline.monkeypatch.setattr(automatic, 'resource', changed)
+    pipeline.monkeypatch.setattr(podcast_outline, 'resource', changed)
+    pipeline.run(sources)
+    fresh = pipeline.calls[len(before):]
+    assert not any(call['task'].endswith('briefs') for call in fresh)
+    assert sum(call['task'].endswith('plan') for call in fresh) == 1
+    audits = [call for call in fresh if call['task'].endswith('audit')]
+    assert len(audits) == 1
+    previous = next(call for call in before if call['task'].endswith('audit'))
+    assert audits[0]['data'] == previous['data']
+    assert audits[0]['_options']['automatic_contract'] != previous['_options']['automatic_contract']
+    assert audits[0]['_timeout'] == previous['_timeout'] == 300
+    assert audits[0]['_schema'] == previous['_schema']
