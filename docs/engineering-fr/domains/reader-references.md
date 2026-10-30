@@ -47,6 +47,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_bounded_rewrites.py
   - backend/tests/test_podcast_synthesis_context.py
   - backend/tests/test_podcast_preparation.py
   - backend/tests/test_podcast_feedback.py
@@ -681,3 +682,5 @@ Le `review_mode` modifiable utilise `brief` par défaut : une revue globale des 
 Dans le mode `brief` par défaut, au plus quatre lots indépendants sont préparés simultanément. Chaque lot conserve sa requête et sa clé de cache initiales, le contexte authentifié et la validation ; les résultats sont remis dans l’ordre des sources. Une annulation ou un échec empêche toute publication partielle. La reprise réutilise les mêmes points validés. Le raisonnement facultatif par défaut du fournisseur est désactivé pour l’extraction lorsque le modèle déclare le permettre ; les choix explicites du profil restent prioritaires. Le mode `full` explicite conserve une extraction séquentielle.
 
 La synthèse brève utilise le budget de contexte résolu du modèle sélectionné, après les réserves existantes pour la réponse et les instructions. Le plan, la rédaction et la revue unique reçoivent directement toutes les notes des sources lorsqu’elles tiennent dans ce budget, sans imposer des résumés intermédiaires par un plafond distinct de 80 000 unités. Le comptage conservateur et la vérification finale du budget de chaque requête restent appliqués. Les petits contextes conservent la compression de secours ; le mode `full` explicite conserve son plafond de synthèse de 80 000 unités.
+
+Les réécritures courtes en mode `brief` utilisent le contrat existant `word_tokens_v1` lorsque le maximum de mots et les marqueurs de groupes ne dépassent pas 2 048 éléments. Les corrections sémantiques l’utilisent directement ; un premier rejet de longueur y passe également. Les bornes de la liste imposent la plage globale et chaque élément contient un seul mot délimité par des espaces. Tous les marqueurs ordonnés et les exclusions explicites restent vérifiés ; aucun texte n’est coupé et aucun plafond rigide par groupe n’est imposé. Les limites d’appels, d’étapes et de durée restent inchangées. Le mode complet et les épisodes longs gardent le transport compact ; les réponses compactes enregistrées restent lisibles.

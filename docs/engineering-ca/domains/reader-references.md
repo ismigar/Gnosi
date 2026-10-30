@@ -47,6 +47,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_bounded_rewrites.py
   - backend/tests/test_podcast_synthesis_context.py
   - backend/tests/test_podcast_preparation.py
   - backend/tests/test_podcast_feedback.py
@@ -683,3 +684,5 @@ El `review_mode` editable és `brief` per defecte: una revisió global dels resu
 En el mode `brief` per defecte, es preparen simultàniament com a màxim quatre lots independents. Cada lot conserva la petició i la clau de memòria cau originals, el context autenticat i la validació; els resultats es reordenen segons les fonts. La cancel·lació o una fallada impedeix publicar una cobertura parcial. La represa reutilitza els mateixos punts validats. El raonament opcional per defecte del proveïdor es desactiva per a l’extracció quan el model declara que ho permet; es respecten les opcions explícites del perfil. El mode `full` explícit manté l’extracció seqüencial.
 
 La síntesi breu utilitza el pressupost de context resolt del model seleccionat, després de les reserves existents per a la resposta i les instruccions. La planificació, la redacció i la revisió única reben directament totes les notes de fonts quan hi caben, sense forçar resums intermedis amb un topall independent de 80.000 unitats. Es mantenen el recompte conservador i la comprovació final del límit de cada petició. Els contextos petits conserven la compressió alternativa; el mode `full` explícit manté el topall de síntesi de 80.000 unitats.
+
+Les reescriptures breus en mode `brief` utilitzen el contracte existent `word_tokens_v1` quan el màxim de paraules més els marcadors de grup no supera 2.048 elements. Les correccions semàntiques el fan servir directament; un primer rebuig de longitud també hi canvia. Els límits de la llista imposen el rang global i cada element conté una sola paraula separada per espais. Es continuen comprovant tots els marcadors ordenats i les exclusions explícites; no es retalla prosa ni s’imposen topalls rígids per grup. Es mantenen els límits de crides, etapes i temps. El mode complet i els episodis llargs conserven el transport compacte; les respostes compactes desades continuen sent llegibles.

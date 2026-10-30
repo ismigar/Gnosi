@@ -47,6 +47,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_bounded_rewrites.py
   - backend/tests/test_podcast_synthesis_context.py
   - backend/tests/test_podcast_preparation.py
   - backend/tests/test_podcast_feedback.py
@@ -631,3 +632,5 @@ El `review_mode` editable es `brief` por defecto: una revisión global de los re
 En el modo `brief` por defecto, se preparan simultáneamente como máximo cuatro lotes independientes. Cada lote conserva la petición y la clave de caché originales, el contexto autenticado y la validación; los resultados se ordenan según las fuentes. La cancelación o un fallo impide publicar cobertura parcial. La reanudación reutiliza los mismos puntos validados. El razonamiento opcional predeterminado del proveedor se desactiva para la extracción cuando el modelo declara que lo permite; se respetan las opciones explícitas del perfil. El modo `full` explícito mantiene la extracción secuencial.
 
 La síntesis breve utiliza el presupuesto de contexto resuelto del modelo seleccionado, después de las reservas existentes para respuesta e instrucciones. La planificación, redacción y revisión única reciben directamente todas las notas de fuentes cuando caben, sin forzar resúmenes intermedios mediante un límite independiente de 80.000 unidades. Se mantienen el recuento conservador y la comprobación final del límite de cada petición. Los contextos pequeños conservan la compresión alternativa; el modo `full` explícito mantiene el límite de síntesis de 80.000 unidades.
+
+Las reescrituras breves en modo `brief` usan el contrato existente `word_tokens_v1` cuando el máximo de palabras más los marcadores de grupo no supera 2.048 elementos. Las correcciones semánticas lo usan directamente; el primer rechazo por longitud también cambia a él. Los límites de la lista imponen el rango global y cada elemento contiene una sola palabra delimitada por espacios. Se siguen comprobando todos los marcadores ordenados y las exclusiones explícitas; no se recorta prosa ni se imponen límites rígidos por grupo. Se mantienen los límites de llamadas, etapas y tiempo. El modo completo y los episodios largos conservan el transporte compacto; las respuestas compactas guardadas siguen siendo legibles.

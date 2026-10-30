@@ -47,6 +47,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_bounded_rewrites.py
   - backend/tests/test_podcast_synthesis_context.py
   - backend/tests/test_podcast_preparation.py
   - backend/tests/test_podcast_feedback.py
@@ -660,3 +661,5 @@ The editable `review_mode` defaults to `brief`: one whole-day review of source b
 In default `brief` mode, at most four independent extraction batches run concurrently. Each retains its original request and cache key, authenticated context and validation; results are assembled in source order. Cancellation or a failed batch prevents partial publication. Resuming reuses the same validated checkpoints. Optional provider-default reasoning is disabled for source extraction when the model declares support; explicit profile choices remain authoritative. Explicit `full` mode keeps serial extraction.
 
 Brief synthesis uses the selected model’s resolved context budget after the existing output and instruction reserves. Planning, writing and the single review send all source briefs directly when they fit, instead of forcing intermediate summaries at an unrelated 80,000-unit cap. Conservative token accounting and the final request-budget guard remain enforced. Smaller contexts retain the compression fallback; explicit `full` mode retains its existing 80,000-unit synthesis cap.
+
+Concise `brief` rewrites use the existing `word_tokens_v1` array contract when the maximum word count plus group markers is at most 2,048 items. Semantic corrections use it immediately; an initial length rejection switches to it as well. Array bounds enforce the shared episode word range and each item contains one whitespace-delimited word. Every ordered group marker and explicit exclusion flag is still checked; no prose is clipped or allocated a hard per-group cap. Existing call/stage/deadline limits remain unchanged. Full mode and longer episodes keep the compact transport; compact cached replies remain readable.

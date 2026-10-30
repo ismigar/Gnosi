@@ -7,7 +7,7 @@ from math import ceil
 from typing import Any, TYPE_CHECKING
 
 from backend.services.agent_behavior import resource
-from backend.services.podcast_composition import WORD_TEXT, advisory_targets, schema as composition_schema, spoken_text, word_guidance
+from backend.services.podcast_composition import WORD_TEXT, WORD_TOKENS, advisory_targets, schema as composition_schema, spoken_text, word_guidance
 from backend.services.podcast_policy import preferences, synthesis_context_limit
 
 if TYPE_CHECKING:
@@ -131,6 +131,13 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
 
 def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> dict[str, Any]:
     minimum, maximum = options["min_words"], options["max_words"]
+    # Constrain concise automatic rewrites at the provider schema as well as
+    # locally. Longer episodes retain the compact wire/output allowance.
+    bounded_words = (preferences(context).review_mode == 'brief'
+                     and maximum + len(data.get('composition_groups', [])) <= 2048)
+    if bounded_words and data.get('composition_groups') and data.get('feedback'):
+        data = {**data, 'composition_encoding': WORD_TOKENS,
+                'composition_word_range': {'min_words': minimum, 'max_words': maximum}}
     previous = ""
     previous_composition: dict[str, Any] | None = None
     def checked(result: dict[str, Any]) -> None:
@@ -160,7 +167,7 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
             data = {**{k: v for k, v in data.items() if k not in {"previous_draft", "previous_composition"}},
                     "length_repair": state}
             if previous_composition is not None:
-                data.update(composition_encoding=WORD_TEXT,
+                data.update(composition_encoding=WORD_TOKENS if bounded_words else WORD_TEXT,
                             composition_word_range={"min_words": minimum, "max_words": maximum})
                 encoded = json.dumps(previous_composition, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
                 state["composition_sha256"] = hashlib.sha256(encoded.encode()).hexdigest()

@@ -34,6 +34,8 @@ class Context:
 
     def __init__(self, responses, fit="lean"):
         self.responses, self.fit, self.sent = iter(responses), fit, []
+        from backend.services.podcast_policy import preferences
+        self.editorial_policy = preferences(None).model_copy(update={'review_mode': 'full'})
 
     def request(self, task, value, schema):
         return SimpleNamespace(input=json.dumps(value), output_schema=schema,

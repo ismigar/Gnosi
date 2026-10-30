@@ -19,6 +19,7 @@ def test_slow_length_rejection_uses_exact_draft_in_fresh_bounded_stage(runtime, 
     scope, snapshot = runtime
     value, rejected = broad_day(2846, groups=30)
     _, accepted = broad_day(1380, groups=30)
+    accepted = {'paragraphs': accepted['paragraphs'], 'tokens': accepted['token_text'].split()}
     answers = [json.dumps(rejected), json.dumps(accepted)]
     if malformed_first:
         answers.insert(0, 'not json')
