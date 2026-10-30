@@ -200,6 +200,7 @@ DATA_FILES = (
     "backend/agent/behavior/operations/podcast/feedback-contract.md",
     "backend/agent/behavior/operations/podcast/feedback-writer-contract.md",
     "backend/agent/behavior/operations/podcast/composition-contract.md",
+    "backend/agent/behavior/operations/podcast/revision-contract.md",
     "backend/agent/behavior/operations/podcast/assignment-contract.md",
     "backend/agent/behavior/operations/podcast/skill.json",
     "backend/agent/behavior/operations/reader/SKILL.md",

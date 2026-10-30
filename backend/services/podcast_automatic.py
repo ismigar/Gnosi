@@ -77,7 +77,12 @@ def _write_episode(context: _Briefing, evidence: list[dict[str, Any]], outline: 
         data["previous_draft"] = previous_draft
     options = {"min_words": ceil(words * .9), "max_words": int(words * 1.09), "target_words": words,
                "episode_opening": True, "episode_closing": True}
-    result = _bounded_write(context, data, options)
+    result = None
+    if preferences(context).review_mode == 'brief' and feedback:
+        from backend.services.podcast_brief_edits import revise
+        result = revise(context, data, options, _request)
+    if result is None:
+        result = _bounded_write(context, data, options)
     return {"topic": "Complete daily briefing", "part_ids": [b["part_id"] for b in evidence],
             "narration": result["narration"].strip()}
 
