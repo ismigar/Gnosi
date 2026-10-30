@@ -6,6 +6,8 @@ source_paths:
   - backend/services/podcast_automatic.py
   - backend/services/podcast_brief_edits.py
   - backend/agent/behavior/operations/podcast/revision-contract.md
+  - backend/agent/behavior/operations/podcast/brief-review-contract.md
+  - backend/agent/behavior/operations/podcast/assignment-contract.md
   - backend/services/podcast_outline.py
   - backend/services/podcast_policy.py
   - backend/domains/configuration/source_sections_schema.py
@@ -666,6 +668,8 @@ In default `brief` mode, at most four independent extraction batches run concurr
 Brief synthesis uses the selected model’s resolved context budget after the existing output and instruction reserves. Planning, writing and the single review send all source briefs directly when they fit, instead of forcing intermediate summaries at an unrelated 80,000-unit cap. Conservative token accounting and the final request-budget guard remain enforced. Smaller contexts retain the compression fallback; explicit `full` mode retains its existing 80,000-unit synthesis cap.
 
 Concise `brief` rewrites use the existing `word_tokens_v1` array contract when the maximum word count plus group markers is at most 2,048 items. Semantic corrections use it immediately; an initial length rejection switches to it as well. Array bounds enforce the shared episode word range and each item contains one whitespace-delimited word. Every ordered group marker and explicit exclusion flag is still checked; no prose is clipped or allocated a hard per-group cap. Existing call/stage/deadline limits remain unchanged. Full mode and longer episodes keep the compact transport; compact cached replies remain readable.
+
+Planning merges repeated accounts and complementary angles of one development before allocating groups. It avoids using several positions for one event while hiding smaller domains in generic groups. The brief review checks all child subjects for concrete coverage before factual fidelity; a group headline does not establish coverage of its independent strands. Routine details may be compressed, while absent substantive domains and distinct public-interest investigations remain material omissions. The single review and its existing call, deadline and output limits remain unchanged.
 
 When a reviewed `brief` draft already meets the global word range and its full evidence fits the selected context, semantic correction uses `grounded_edits_v1` instead of regenerating the episode. The model returns bounded replacements anchored uniquely in the exact immutable draft, with zero-based finding indices and its SHA-256. The server rejects stale hashes, ambiguous or overlapping anchors, uncovered findings and out-of-range resulting prose. Unaffected prose is preserved verbatim; every source brief, thematic group and finding remains available. The ordinary stage retains its two-call, 300-second and output-token limits. No partial edit is published, and normal speech generation follows only after validation. Full rewrites and initial length repairs retain the transports described above.
 
