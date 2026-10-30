@@ -115,7 +115,8 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
         if context.cost(candidate) <= limit:
             data, request = restored, candidate
     state = data.get("length_repair", {})
-    if ("previous_composition" in previous and "previous_composition" not in data
+    if ("previous_composition" in previous
+            and ("previous_composition" not in data or preferences(context).review_mode == 'brief')
             and state.get("current_words", 0) > options.get("max_words", 0)
             and data.get("composition_groups") and data.get("subject_groups") and source_part_ids):
         lean: dict[str, Any] = {key: data[key] for key in ("topic", "subject_groups", "composition_groups",
@@ -172,7 +173,7 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
             data = {**{k: v for k, v in data.items() if k not in {"previous_draft", "previous_composition"}},
                     "length_repair": state}
             if previous_composition is not None:
-                data.update(composition_encoding=WORD_TOKENS if bounded_words else WORD_TEXT,
+                data.update(composition_encoding=WORD_TEXT,
                             composition_word_range={"min_words": minimum, "max_words": maximum})
                 encoded = json.dumps(previous_composition, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
                 state["composition_sha256"] = hashlib.sha256(encoded.encode()).hexdigest()

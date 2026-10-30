@@ -1121,7 +1121,7 @@ def test_group_length_repair_reaches_real_executor_with_current_counts(runtime, 
                                           "group:1": {"text": "word " * second, "non_editorial": False}}})
     rejected = output(1000, 505)
     from backend.tests.test_podcast_briefing import tokenized
-    accepted = tokenized(json.loads(output(900, 480)), [{"key": "group:0"}, {"key": "group:1"}])
+    accepted = tokenized(json.loads(output(900, 480)), [{"key": "group:0"}, {"key": "group:1"}], text=True)
     calls = install_workflow(monkeypatch, [rejected, json.dumps(accepted)])
     class Context(_Briefing):
         def request(self, task, data, schema):
