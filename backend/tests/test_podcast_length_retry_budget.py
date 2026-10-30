@@ -68,13 +68,16 @@ def test_slow_length_rejection_uses_exact_draft_in_fresh_bounded_stage(runtime, 
     assert all(row.model_calls <= 2 for row in rows)
 
 
-def test_normal_brief_length_repair_is_compact_and_preserves_scope_before_semantic_review(runtime, monkeypatch):
-    """An overlong broad-day draft must not resend all evidence as a word array."""
+@pytest.mark.parametrize("target,maximum,bounded", [(1380, 1504, True), (1868, 2036, True), (1869, 2037, False)])
+def test_normal_brief_length_repair_preserves_scope_and_uses_eligible_global_bound(runtime, monkeypatch, target, maximum, bounded):
+    """Length-only bounds keep the small request and every original scope identifier."""
     from backend.services.podcast_composition import composition_blocks
     scope, snapshot = runtime
     original, rejected_stream = broad_day(2443, groups=12)
     rejected = {'paragraphs': composition_blocks(rejected_stream, original)}
-    _, accepted = broad_day(1380, groups=12)
+    _, accepted = broad_day(target, groups=12)
+    if bounded:
+        accepted = {"paragraphs": accepted["paragraphs"], "tokens": accepted["token_text"].split()}
     original = {key: value for key, value in original.items()
                 if key not in {'composition_encoding', 'composition_word_range'}}
     original.update(briefs=[{'part_id': f'source:{i}', 'summary': 'Supported qualified source fact. ' * 20}
@@ -92,20 +95,28 @@ def test_normal_brief_length_repair_is_compact_and_preserves_scope_before_semant
     context = Context(snapshot, 'Catalan', 80000, lambda text: 1, lambda: None)
     context.editorial_policy = context.editorial_policy.model_copy(update={'review_mode': 'brief'})
     with execution_scope(scope):
-        result = _bounded_write(context, original, {'min_words': 1242, 'max_words': 1504, 'target_words': 1380})
+        result = _bounded_write(context, original, {'min_words': 1242, 'max_words': maximum, 'target_words': target})
         rows = store.list_runs(scope)
-    assert len(result['narration'].split()) == 1380 and len(calls) == len(requests) == 2
+    assert len(result['narration'].split()) == target and len(calls) == len(requests) == 2
     repair = json.loads(requests[1].input)['data']
     assert repair['previous_composition'] == rejected
     assert repair['length_repair']['current_words'] == 2443
     assert repair['length_repair']['mode'] == 'shorten_composition'
-    assert repair['composition_encoding'] == 'word_text_v1'
-    assert repair['composition_word_range'] == {'min_words': 1242, 'max_words': 1504}
+    assert repair['composition_encoding'] == ('word_tokens_v1' if bounded else 'word_text_v1')
+    assert repair['composition_word_range'] == {'min_words': 1242, 'max_words': maximum}
     assert repair['source_part_ids'] == [brief['part_id'] for brief in original['briefs']]
     assert repair['subject_groups'] == original['subject_groups']
     assert repair['composition_groups'] == original['composition_groups']
     assert not {'briefs', 'digests', 'feedback'} & repair.keys()
     assert len(requests[1].input) < len(requests[0].input)
-    assert set(requests[1].output_schema['properties']) == {'paragraphs', 'token_text'}
+    if bounded:
+        contract = requests[1].output_schema['properties']['tokens']
+        assert contract['minItems'] == 1242 + 12 and contract['maxItems'] == maximum + 12
+        import jsonschema
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate({'paragraphs': accepted['paragraphs'], 'tokens': rejected_stream['token_text'].split()},
+                                requests[1].output_schema)
+    else:
+        assert set(requests[1].output_schema['properties']) == {'paragraphs', 'token_text'}
     assert all(request.timeout_seconds == 300 and request.max_model_calls == 2 for request in requests)
     assert sorted(row.status for row in rows) == ['completed', 'failed']

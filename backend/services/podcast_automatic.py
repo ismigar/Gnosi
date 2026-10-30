@@ -123,6 +123,10 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
                                                                      "composition_encoding", "composition_word_range") if key in data}
         lean.update(previous_composition=previous["previous_composition"], source_part_ids=source_part_ids,
                     length_repair={**state, "mode": "shorten_composition"})
+        if (preferences(context).review_mode == 'brief'
+                and options['max_words'] + len(data['composition_groups']) <= 2048):
+            lean.update(composition_encoding=WORD_TOKENS,
+                        composition_word_range={'min_words': options['min_words'], 'max_words': options['max_words']})
         candidate = _request(context, "write", lean, composition_schema(lean), **options)
         if context.cost(candidate) <= limit:
             return candidate
