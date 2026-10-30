@@ -8,6 +8,7 @@ import time
 import uuid
 
 import jsonschema
+from openai import APIConnectionError, InternalServerError, RateLimitError
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -309,10 +310,11 @@ def _validate_output(text: str, schema: dict[str, Any] | None) -> str:
         if error.msg != "Extra data":
             raise
         value, end = json.JSONDecoder(parse_constant=_reject_json_constant).raw_decode(cleaned)
-        # Preserve the complete result when the model repeats one root closer.
-        # Never discard a second value, prose, or an incomplete nested payload.
+        # Keep the complete document when followed by one root closer or a
+        # bare tool-control opener. Never discard another value, prose, a named
+        # tool call, or an incomplete nested payload.
         closer = "}" if isinstance(value, dict) else "]" if isinstance(value, list) else ""
-        if not closer or cleaned[end:].strip() != closer:
+        if not closer or cleaned[end:].strip() not in {closer, "<function", "<function="}:
             raise
     from backend.services.json_contracts import validate_json_value
     validate_json_value(value, schema)
@@ -390,17 +392,21 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         # The durable reader owns the book loop. Each phase asks its frozen
         # model for one bounded result; a team handoff cannot run that loop
         # from a conversation or switch its source-processing executor.
-        operation_team_help=request.operation not in {"knowledge.process-source.phase", "writing.correct.repair", "team.view_edit"} and not classifying_notes,
+        operation_team_help=request.operation not in {"knowledge.process-source.phase", "writing.correct.repair", "team.view_edit", "podcast.coverage.briefs", "podcast.coverage.narration", "podcast.coverage.segment", "podcast.coverage.plan", "podcast.coverage.digest", "podcast.coverage.concise", "podcast.coverage.write", "podcast.coverage.audit"} and not classifying_notes,
         # Reading returns one bounded action, never the whole book. Avoid a
         # provider-default reservation of 65,536 output tokens for each step.
         operation_max_output_tokens=((8192 if request.options.get("reading_prose") else 16384)
                                      if request.operation == "knowledge.process-source.phase"
                                      else 1536 if request.operation == 'team.view_edit'
-                                     else 4096 if classifying_notes else None),
+                                     else 4096 if classifying_notes
+                                     else (32768 if request.operation == "podcast.coverage.narration" else 16384)
+                                     if request.operation in {"podcast.analyze.action", "podcast.coverage.briefs", "podcast.coverage.narration", "podcast.coverage.segment", "podcast.coverage.plan", "podcast.coverage.digest", "podcast.coverage.concise", "podcast.coverage.write", "podcast.coverage.audit"}
+                                     and not any(snapshot.profile.get(key) for key in ("max_tokens", "max_output_tokens")) else None),
         # Routing needs a validated assignment, not a solution to the task.
         # A rejected plan gets the existing repair call at the model's normal
         # effort. Explicit profile choices and specialist effort stay intact.
         operation_default_reasoning_effort=(None if snapshot.profile.get("reasoning_effort") else
+            "off_if_optional" if request.operation in {"podcast.coverage.briefs", "podcast.coverage.plan", "podcast.coverage.write", "podcast.coverage.digest", "podcast.coverage.audit"} else
             "low" if request.operation in {"knowledge.process-source.phase", "team.view_edit"} else
             "one_step_lower" if request.operation == "team.plan" and request.options.get("economical_planning")
             and not validation_retry else None),
@@ -468,6 +474,11 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                 async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
                     text = await _operation_response(application, inputs, request, previous_text,
                                                      str(messages[-1].content) if attempt and partial_repair is None else "")
+            except (RateLimitError, InternalServerError, APIConnectionError) as error:
+                from backend.services.podcast_provider_retry import wait_for_capacity
+                await wait_for_capacity(error, request, calls_left=request.max_model_calls - attempt - 1,
+                                        deadline=deadline, scope=snapshot.scope, run_id=run_id, cancel_token=cancel_token)
+                continue
             except OptionalTeamHelpDeclined as handoff:
                 if attempt + 1 >= request.max_model_calls:
                     raise

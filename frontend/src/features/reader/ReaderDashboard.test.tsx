@@ -26,6 +26,10 @@ const article: ReaderArticle = {
 };
 
 const mocks = vi.hoisted(() => ({
+    toast: Object.assign(vi.fn(), { error: vi.fn() }),
+    podcastStatus: vi.fn(),
+    generatePodcast: vi.fn(() => Promise.resolve({ status: 'started' })),
+    podcastRefetch: vi.fn(() => Promise.resolve(undefined)),
     articleRefetch: vi.fn(() => Promise.resolve(undefined)),
     emitEvent: vi.fn(),
     fetchArticle: vi.fn(),
@@ -39,16 +43,16 @@ const mocks = vi.hoisted(() => ({
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
         i18n: { language: 'en', resolvedLanguage: 'en' },
-        t: (key: string, fallback?: string | { readonly defaultValue?: string }) => (
-            typeof fallback === 'string' ? fallback : fallback?.defaultValue ?? key
+        t: (key: string, fallback?: string | Record<string, unknown>) => (
+            typeof fallback === 'string' ? fallback : `${key}${fallback ? ` ${JSON.stringify(fallback)}` : ''}`
         ),
     }),
 }));
 vi.mock('../../shared/ui/layout/AppHeader', () => ({
     AppHeader: ({ children, title }: { readonly children?: ReactNode; readonly title: ReactNode }) => <header>{title}{children}</header>,
 }));
-vi.mock('../../shared/plugins/usePlugins', () => ({ usePlugins: () => ({ isEnabled: () => false }) }));
-vi.mock('../../shared/notifications/toast', () => ({ toast: { error: vi.fn() } }));
+vi.mock('../../shared/plugins/usePlugins', () => ({ usePlugins: () => ({ isEnabled: () => true }) }));
+vi.mock('../../shared/notifications/toast', () => ({ toast: mocks.toast }));
 vi.mock('../../shared/notifications/notifyError', () => ({ logError: vi.fn() }));
 vi.mock('../../shared/api/scheduler', () => ({ runScheduledTask: mocks.runTask }));
 vi.mock('../../shared/platform/app-events', () => ({ emitAppEvent: mocks.emitEvent }));
@@ -59,8 +63,8 @@ vi.mock('../../shared/api/reader', async () => {
     return {
         ...actual,
         fetchReaderArticle: mocks.fetchArticle,
-        fetchReaderPodcastStatus: vi.fn(),
-        generateReaderPodcast: vi.fn(),
+        fetchReaderPodcastStatus: mocks.podcastStatus,
+        generateReaderPodcast: mocks.generatePodcast,
         readerPodcastUrl: () => '/api/reader/podcast',
     };
 });
@@ -76,23 +80,27 @@ vi.mock('../../shared/api/useReaderData', () => ({
     }),
     useReaderPodcastInfo: () => ({
         data: null,
-        refetch: vi.fn(() => Promise.resolve(undefined)),
+        refetch: mocks.podcastRefetch,
     }),
     useReaderSources: () => ({ data: [source], refetch: mocks.sourceRefetch }),
 }));
 vi.mock('./page/ReaderChannels', () => ({
     ReaderChannels: ({
         onSelectSource,
+        onGeneratePodcast,
+        podcastUrl,
         selectedSourceId,
     }: {
+        readonly onGeneratePodcast: () => void;
+        readonly podcastUrl: string | null;
         readonly onSelectSource: (sourceId: number | null) => void;
         readonly selectedSourceId: number | null;
-    }) => <button
+    }) => <><button data-testid="generate-podcast" onClick={onGeneratePodcast} type="button">generate</button><span data-testid="podcast-url">{podcastUrl}</span><button
         data-selected-source={selectedSourceId ?? 'all'}
         data-testid="select-source"
         onClick={() => { onSelectSource(7); }}
         type="button"
-    >channels</button>,
+    >channels</button></>,
 }));
 vi.mock('./page/ReaderArticleContent', () => ({
     ReaderArticleContent: ({ article: selected }: { readonly article: ReaderArticle }) => <div data-testid="article-content">{selected.title}</div>,
@@ -138,6 +146,63 @@ describe('ReaderDashboard', () => {
     const renderDashboard = (): void => {
         act(() => { root.render(<ReaderDashboard />); });
     };
+
+
+    const generatePodcast = async (): Promise<void> => {
+        vi.useFakeTimers();
+        renderDashboard();
+        await act(async () => { button('[data-testid="generate-podcast"]').click(); await Promise.resolve(); });
+        await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+    };
+
+    it('plays a completed podcast and warns once about omitted articles with bounded titles', async () => {
+        mocks.podcastStatus.mockResolvedValue({
+            running: false,
+            result_filename: 'summary.mp3',
+            skipped_articles: [
+                { id: '109', title: 'Empty article' },
+                { id: '110', title: 'x'.repeat(200) },
+                { id: '111', title: '' },
+                { id: '112', title: 'Fourth omitted article' },
+            ],
+        });
+        await generatePodcast();
+        expect(container.querySelector('[data-testid="podcast-url"]')?.textContent).toBe('/api/reader/podcast');
+        expect(mocks.podcastRefetch).toHaveBeenCalledOnce();
+        expect(mocks.toast.error).not.toHaveBeenCalled();
+        expect(mocks.toast).toHaveBeenCalledOnce();
+        const warning = String(mocks.toast.mock.calls[0]?.[0]);
+        expect(warning).toContain('reader_podcast_skipped_articles');
+        expect(warning).toContain('"count":4');
+        expect(warning).toContain('Empty article');
+        expect(warning).toContain(`${'x'.repeat(100)}…`);
+        expect(warning).not.toContain('x'.repeat(101));
+        expect(warning).toContain('reader_podcast_untitled_article');
+        expect(warning).toContain('reader_podcast_skipped_more');
+        expect(warning).not.toContain('Fourth omitted article');
+        await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+        expect(mocks.toast).toHaveBeenCalledOnce();
+    });
+
+    it('explains the all-empty failure and identifies the omitted article', async () => {
+        mocks.podcastStatus.mockResolvedValue({
+            running: false,
+            error: 'podcast_no_readable_articles',
+            skipped_articles: [{ id: '109', title: 'Empty article' }],
+        });
+        await generatePodcast();
+        expect(mocks.toast.error).toHaveBeenCalledExactlyOnceWith('Error: reader_podcast_no_readable_articles');
+        expect(mocks.toast).toHaveBeenCalledWith(expect.stringContaining('Empty article'), expect.any(Object));
+        expect(mocks.podcastRefetch).not.toHaveBeenCalled();
+        expect(container.querySelector('[data-testid="podcast-url"]')?.textContent).toBe('');
+    });
+
+    it('retains other generation errors without an omission warning', async () => {
+        mocks.podcastStatus.mockResolvedValue({ running: false, error: 'Provider unavailable' });
+        await generatePodcast();
+        expect(mocks.toast.error).toHaveBeenCalledExactlyOnceWith('Error: Provider unavailable');
+        expect(mocks.toast).not.toHaveBeenCalled();
+    });
 
     it('publishes Reader context and keeps read articles in the all-sources query', () => {
         renderDashboard();

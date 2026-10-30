@@ -2,6 +2,10 @@
 status: implemented
 last_verified: 2026-10-17
 source_paths:
+  - backend/services/podcast_brief_review.py
+  - backend/services/podcast_automatic.py
+  - backend/services/podcast_outline.py
+  - backend/services/podcast_policy.py
   - backend/domains/configuration/source_sections_schema.py
   - frontend/src/features/vault/properties/sourceSectionRelations.ts
   - backend/domains/llm_wiki
@@ -34,11 +38,21 @@ source_paths:
   - backend/services/references_io.py
   - backend/services/import_dedup.py
   - backend/services/audio_summarizer.py
+  - backend/services/podcast_feedback.py
+  - backend/services/podcast_briefing.py
+  - backend/services/podcast_feedback_repair.py
+  - backend/agent/behavior/operations/podcast/feedback-contract.md
   - frontend/src/features/reader
   - frontend/src/features/literature
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_bounded_rewrites.py
+  - backend/tests/test_podcast_synthesis_context.py
+  - backend/tests/test_podcast_preparation.py
+  - backend/tests/test_podcast_feedback.py
+  - backend/tests/test_podcast_feedback_repair.py
+  - backend/tests/test_podcast_feedback_repair_transport.py
   - backend/tests/test_reader_source_registry.py
   - backend/tests/test_reader_source_routes.py
   - backend/tests/test_feed_ingester_savepoint.py
@@ -458,3 +472,194 @@ imports. Alias/canonical duplicates are rejected; passwords, encoded delimiters,
 controls, paths and query parameters are not accepted in the alias. Existing
 article links survive normalization. Existing RSS and mailto inputs keep their
 semantics; this alias does not configure a mailbox account or credentials.
+
+### Whole-day podcast coverage and unreadable articles
+
+The daily podcast freezes all articles published within the preceding 24 hours,
+including articles already read and excluding future-dated entries. Retries keep
+the original selection, period, language and filename under the private parent
+job, including older snapshots without behavior resources.
+
+Generation normalizes the complete article body, then tries its feed summary.
+Articles with neither are omitted before synthesis. The status exposes
+`skipped_articles` with IDs and titles; the Reader shows a localized omission
+notice. If every article is unreadable, `podcast_no_readable_articles` preserves
+the previous MP3. Omission reports are scoped to the job and its frozen inputs.
+
+`podcast_briefing.py` splits complete originals into bounded parts and extraction
+batches of at most eight. Each part is at most 10,000 counted tokens and must
+produce a nonempty brief with an exact original quote, a summary of at most 400
+characters and a quote of at most 160 characters. Missing, extra or incorrectly
+quoted entries fail before checkpointing. Versioned private checkpoints do not
+depend on optional model conversation memory.
+
+`podcast_outline.py` classifies all summary-aware cards together when the request
+fits the 80,000-token/application-context bound, producing up to 32 editorial
+groups. Larger collections use bounded hierarchical routing with at most 48
+cards and a 40,000-token/context bound per planning call. Required assignment
+fields cover every opaque card handle. The server expands source memberships,
+validates exact nonduplicated partitions and retains every child subject.
+
+The writer composes the complete episode from all briefs and subject groups.
+For multiple groups, the response requires one spoken paragraph per opaque group
+key; the server joins them in plan order without voicing keys or metadata. An
+empty paragraph requires an explicit non-editorial declaration, independently
+checked by the unchanged source and whole-episode reviews. Required fields prevent
+silently dropping an entire planned group; they do not prove semantic coverage.
+Paragraphs share one global word budget with no individual word caps. Broad news days target 1,380 spoken
+words; sparse collections have a smaller budget. The complete script must fall
+within 90–109% of its global target before publication. Exact server word counts
+and previous model drafts drive bounded automatic rewrites; invalid-length prose
+is not checkpointed as valid narration, clipped or manually substituted.
+Oversized evidence uses recursive context-bounded internal digests aiming for
+about 160 words, retaining all source memberships. Internal word counts are
+guidance: actual request context is checked and each reduction must shrink.
+Digest replies contain only `topic` and `narration`. The server attaches the
+exact complete input membership at every reduction level, after rejecting
+invalid or repeated input IDs. The model never transcribes the membership list,
+including when a single recursive record represents hundreds of source parts.
+Changed request schemas/contracts keep legacy section-shaped checkpoints separate.
+This structural ownership does not approve thematic coverage: the original-source
+fidelity, coverage and whole-episode reviews remain mandatory.
+The final spoken word range remains strict. Every request is checked against
+its current context budget, including length repairs.
+
+Length corrections use a separate current numeric state, replacing older count
+and delta guidance while retaining semantic findings. The server supplies the
+matching latest rejected draft when it fits after evidence compression. If it
+still cannot fit, the next request uses an absolute fresh-composition target,
+without applying a delta to absent text. Each validation retry also receives the
+fresh count, direction and target for its immediately preceding rejected draft.
+No invalid narration is published or clipped, and call/context limits stay fixed.
+
+For an underlength structured draft, the context reduction reserves the exact latest composition and its measured expansion guidance. It continues reducing source evidence until both fit together, retaining the complete subject scope and semantic feedback. Expansion never uses the shortening-only evidence-free mode. If no further reduction fits, generation fails explicitly instead of discarding the short draft and restarting. Additional ordinary digest operations may be needed; writer attempts, deadlines, context and final word limits do not increase.
+
+`podcast_review.py` validates exact narration and supplied-evidence quotes for
+semantic objections before checkpointing. Omission findings identify evidence;
+factual distortions require a quoted draft claim and positive contradicting
+evidence. Absence from one source batch cannot disprove a story supported in
+another. Production notes and duplicate accounts quote the actual draft.
+A separate model pass contrasts proposed findings and may retain only unchanged,
+demonstrated objections. Confirmation requests batch findings without dropping
+their source evidence. Genuine unresolved omissions remain blocking.
+
+All full briefs are reviewed against the complete narration in bounded evidence
+batches. The whole-episode pass also checks the subject ledger for minority
+omissions and repeated accounts. Up to three complete writing/review rounds
+correct findings automatically. Only listener-facing narration reaches speech
+synthesis; labels, evidence, source-access notices and production instructions
+are not voiced. Failures, refusals and cancellation preserve the previous audio.
+
+Source reviews separately check factual fidelity and thematic coverage, with up to
+16 briefs per batch and the complete subject ledger. Status, attribution and
+numeric scope receive a dedicated check. Focused coverage findings require no
+narration quotes, while focused fidelity findings require exactly one. Their
+provider response schemas enforce those same counts before the existing literal
+evidence and semantic validators run. General listener audits and their context
+capacity are unchanged. If an audit supplies nonliteral narration or source evidence,
+its remaining existing call can select application-owned IDs for exact original
+passages. Only rejected quote fields change; findings, source identities and valid
+quotes are immutable. Full schema/literal validation and independent finding
+confirmation still run before feedback or publication. No call or timeout budget
+is increased. A provider output-length failure
+recursively splits only the failed evidence or finding batch; confirmation keeps
+all its original evidence. An indivisible failed leaf blocks publication.
+Every revision also runs the whole-episode review even when source issues remain.
+Structured current findings retain their kinds and source identities; obsolete
+findings and drafts do not accumulate in writer feedback. Only the latest draft
+is supplied separately as optional context. Existing model, output, time and
+cancellation limits remain unchanged.
+
+`podcast-coverage-report` version 4 retains the outline, all briefs, server-owned
+section assignments and spoken word count. Structural coverage and literal
+quotation alone are not semantic proof: live verification must compare the final
+script with all source themes/qualifications and measure the actual MP3 against
+the approximately ten-minute target.
+
+A schema-valid episode outside the global word range returns immediately to the existing
+three-attempt length coordinator. It does not consume the generic format-repair call
+inside the same partially spent deadline. Each existing length stage keeps its
+300-second deadline and two-call format allowance; the coordinator retains the exact
+rejected composition, measured counts and unchanged subject scope. Malformed JSON still
+uses the ordinary bounded format repair. After the final length attempt the public word-
+budget error is unchanged.
+
+Internal planning, digest, writing and audit calls use a 300-second allowance and
+16,384 output tokens including provider reasoning unless the profile explicitly
+chooses an output limit. Current contracts accompany resumed older snapshots;
+these internal operations do not use optional team handoff. Planning, writing and
+digest and semantic audits use reasoning off only when provider metadata explicitly
+declares it optional and the profile/effective client has no reasoning/native-thinking
+choice. No model route, provider safeguard,
+explicit output preference or timeout is overridden. Principal/scope checks and
+atomic audio publication remain shared with the application.
+
+Execution history retains authorized parents alongside recent child calls, so
+long jobs keep their resume control after more than 50 internal calls. Missing or
+foreign-scope parents are never exposed. Exact provider/model context metadata
+supports models absent from the routing registry; explicit registry limits take
+priority and unknown models retain the small fallback. Other document operations
+retain their existing guards.
+
+Initial advisory paragraph targets share the global budget exactly. Existing validation retries receive exact current paragraph counts and proportional suggested shares, recomputed from the immediately rejected response. Shares can be redistributed; only the global word range and semantic reviews decide acceptance.
+
+### Bounded internal correction guidance
+
+When confirmed findings alone exceed the existing writer context budget,
+bounded digest operations produce one schema-required correction guide per
+finding. The writer receives a compact columnar transport with every original
+finding ID, kind and source scope; complete grounded findings and confirmations
+remain in their existing checkpoints. This does not approve findings or
+narration. The unchanged original-source fidelity, coverage and whole-episode
+reviews still gate publication of the complete rewritten episode. No context,
+word, call, deadline or semantic-pass limit is increased.
+
+Internal correction guides use a schema-constrained printable ASCII alphabet
+without double quotation marks, backslashes or control characters. The dynamic
+character limit therefore equals the guide's doubly serialized UTF-8 byte
+limit, at most 160 bytes; the backend also checks the actual encoded size.
+Invalid output uses the existing bounded validation repair and cannot reach the
+writer unchecked. Original sources, complete confirmed findings and the final
+Catalan narration retain their Unicode text. The transport restriction neither
+changes source membership nor approves the final episode; its complete semantic
+reviews and word budget remain required before speech or publication.
+
+The provider schema uses a portable end anchor rather than lookaround, which
+Xiaomi rejects as an invalid request. The backend independently requires every
+character to be printable ASCII and excludes quotes, backslashes and line
+breaks, including a trailing newline accepted by some regex validators. The
+closed schema, exact finding membership and actual byte limit remain enforced.
+
+Internal guidance repair inspects every returned guide, rather than only the
+first schema diagnostic. Its remaining existing model call receives exactly
+all invalid finding IDs, their original confirmed findings, actual character
+and serialized-byte counts, and an advisory target below the unchanged hard
+limit. The patch cannot add a key or rewrite a valid guide. The application
+restores the complete map and repeats the original schema, alphabet and byte
+checks before checkpointing. Oversized rejected internal drafts may be omitted
+from the repair request; original findings and measured counts remain, and the
+request must still fit the existing 40,000-token/context bound. The original
+call allowance, shared deadline and final semantic reviews remain unchanged.
+
+A rejected guide containing invalid Unicode has no valid UTF-8 byte count. Its
+internal text is excluded from the repair payload and the count is explicitly
+unavailable; its original confirmed finding and character count remain. The
+replacement still must pass the same printable ASCII and byte constraints.
+
+The provider regex also encodes the same dynamic byte ceiling with a bounded quantifier. This keeps the limit explicit for endpoints that do not reliably enforce the separate `maxLength` field. The schema limit, local ASCII/byte validation and complete semantic reviews remain unchanged.
+
+Length repairs transport the same complete ordered word stream as a single `token_text` string instead of one JSON array item per word. The provider schema checks the string and complete flag map without a global word-count regex; the server enforces the unchanged exact spoken-word interval before semantic review or speech. Out-of-range replies receive the existing bounded automatic correction with measured counts and the exact rejected model object. Every ordered structural marker, explicit exclusion and qualification remains checked, with legacy array decoding retained. No prose is clipped or manually substituted, and all original-source fidelity, coverage and whole-episode reviews, context, call and deadline limits remain unchanged. Actual timeouts on the count-constrained transport motivated this separation; only a completed real automatic generation can establish runtime success.
+
+## Editable daily podcast preferences
+
+The assigned `core.gnosi-daily-briefing` skill owns the editorial approach and a `podcast_preferences` JSON block in its editable instructions. Users can personalize it in Settings → AI. Defaults request ten minutes and at most twelve thematic groups. The same block configures the short-day article threshold, words per article and minimum length. `podcast_policy.py` reads only the effective canonical skill, including an assigned personal replacement; article text, other skills and profile context cannot supply these parameters. Partial blocks inherit the packaged defaults. Invalid, duplicated or ambiguous configuration fails before any model request. A job freezes the resolved preferences, passes them to planning/writing/review, and records them in the coverage report.
+
+The planner may return fewer topics than the configured maximum; it no longer pads a broad day to 32 positions. Every card still has exactly one assignment to a declared topic, and all original IDs and child subjects survive routing. The engine retains technical capacity bounds, strict schema/evidence checks, original-source reviews, word-range validation, persistence, cancellation and publication safeguards. Custom duration changes the target; the default broad-day target remains 1,380 words.
+
+The editable `review_mode` defaults to `brief`: one whole-day review of source briefs and main themes, at most one corrective rewrite, then normal speech publication. `full` explicitly opts into exhaustive original-fragment audits. The persisted review metadata identifies the actual scope.
+
+In default `brief` mode, at most four independent extraction batches run concurrently. Each retains its original request and cache key, authenticated context and validation; results are assembled in source order. Cancellation or a failed batch prevents partial publication. Resuming reuses the same validated checkpoints. Optional provider-default reasoning is disabled for source extraction when the model declares support; explicit profile choices remain authoritative. Explicit `full` mode keeps serial extraction.
+
+Brief synthesis uses the selected model’s resolved context budget after the existing output and instruction reserves. Planning, writing and the single review send all source briefs directly when they fit, instead of forcing intermediate summaries at an unrelated 80,000-unit cap. Conservative token accounting and the final request-budget guard remain enforced. Smaller contexts retain the compression fallback; explicit `full` mode retains its existing 80,000-unit synthesis cap.
+
+Concise `brief` rewrites use the existing `word_tokens_v1` array contract when the maximum word count plus group markers is at most 2,048 items. Semantic corrections use it immediately; an initial length rejection switches to it as well. Array bounds enforce the shared episode word range and each item contains one whitespace-delimited word. Every ordered group marker and explicit exclusion flag is still checked; no prose is clipped or allocated a hard per-group cap. Existing call/stage/deadline limits remain unchanged. Full mode and longer episodes keep the compact transport; compact cached replies remain readable.

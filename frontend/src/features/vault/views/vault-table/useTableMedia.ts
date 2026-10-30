@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { parseVaultResourceValue } from '../../../../shared/resources/parseVaultResourceValue';
-import { canonicalStorageFolder, getImageSrc, isImageFieldName, parseImageField, withActiveVault } from '../../../../shared/resources/fileResource';
+import { canonicalStorageFolder, getImageSrc, isImageFieldName, parseImageField, toAssetPreviewUrl, withActiveVault } from '../../../../shared/resources/fileResource';
 import { toast } from '../../../../shared/notifications/toast';
 import { transportFetch } from '../../../../shared/api/transports';
 import { displayString, getTableFieldConfig, isRecord } from './fieldConfig';
@@ -26,10 +26,11 @@ export function useTableMedia({
   resolveNoteTableId,
   setMediaPickerCell,
 }: Inputs) {
-  const toImagePreviewUrl = useCallback((rawValue: unknown) => {
+  const toImagePreviewUrl = useCallback((rawValue: unknown, declaredImage = false) => {
     if (!rawValue || typeof rawValue !== 'string') return '';
     const value = rawValue.trim();
     if (!value) return '';
+    if (declaredImage) return toAssetPreviewUrl(value, true);
 
     const lower = value.toLowerCase();
     const hasImageExtension = /(\.png|\.jpg|\.jpeg|\.gif|\.webp|\.svg|\.avif|\.bmp)(\?|#|$)/i.test(lower);
@@ -64,13 +65,13 @@ export function useTableMedia({
     if (url.startsWith(prefix)) return (url.slice(prefix.length).split('?')[0] ?? '');
     return url;
   }, []);
-  const getImagePreviewUrlFromValue = useCallback((rawValue: unknown) => {
+  const selectImagePreview = useCallback((rawValue: unknown, declaredImage = false) => {
     if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
-      return toImagePreviewUrl(getImageSrc(rawValue));
+      return toImagePreviewUrl(getImageSrc(rawValue), declaredImage);
     }
     if (Array.isArray(rawValue)) {
       for (const item of rawValue) {
-        const candidate = toImagePreviewUrl(getImageSrc(item));
+        const candidate = toImagePreviewUrl(getImageSrc(item), declaredImage);
         if (candidate) return candidate;
       }
       return '';
@@ -79,17 +80,22 @@ export function useTableMedia({
     const asString = displayString(rawValue || '').trim();
     if (!asString) return '';
 
-    const direct = toImagePreviewUrl(asString);
+    const direct = toImagePreviewUrl(asString, declaredImage);
     if (direct) return direct;
 
     const parts = asString.split(',').map((p) => p.trim()).filter(Boolean);
     for (const part of parts) {
-      const candidate = toImagePreviewUrl(part);
+      const candidate = toImagePreviewUrl(part, declaredImage);
       if (candidate) return candidate;
     }
 
     return '';
   }, [toImagePreviewUrl]);
+  const getImagePreviewUrlFromValue = useCallback((rawValue: unknown, declaredImage = false) => {
+    // Keep the existing array/CSV selection before considering extensionless image sources.
+    const recognized = selectImagePreview(rawValue);
+    return recognized || (declaredImage ? selectImagePreview(rawValue, true) : '');
+  }, [selectImagePreview]);
   const handleOpenZoteroValue = useCallback(async (rawValue: unknown) => {
     const payload = parseVaultResourceValue(rawValue);
     if (!payload || (!payload.zotero_uri && !payload.file_path)) {

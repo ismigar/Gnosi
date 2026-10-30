@@ -49,6 +49,16 @@ def test_migration_preserves_personal_brain_and_disabled_features():
     ('knowledge.process-source.phase', None, True, 'low'),
     ('knowledge.process-source.phase', 'max', False, None),
     ('knowledge.process-source.phase', 'low', False, None),
+    ('podcast.coverage.plan', None, False, 'off_if_optional'),
+    ('podcast.coverage.briefs', None, False, 'off_if_optional'),
+    ('podcast.coverage.briefs', None, True, 'off_if_optional'),
+    ('podcast.coverage.briefs', 'high', False, None),
+    ('podcast.coverage.write', None, True, 'off_if_optional'),
+    ('podcast.coverage.digest', None, False, 'off_if_optional'),
+    ('podcast.coverage.audit', None, False, 'off_if_optional'),
+    ('podcast.coverage.plan', 'max', False, None),
+    ('podcast.coverage.write', 'high', False, None),
+    ('podcast.coverage.digest', 'low', True, None),
     ('team.plan', None, False, 'one_step_lower'),
     ('team.replan', None, False, None),
     ('team.plan', None, True, None),
@@ -986,3 +996,333 @@ def test_oversized_complete_synthesis_is_returned_to_the_reader_without_full_sou
         asyncio.run(execution.execute_operation(request, snapshot=snapshot, output_validator=validate))
     assert caught.value.text == draft and len(calls) == 1
     assert store.list_runs(scope)[0].status == 'failed'
+
+
+@pytest.mark.parametrize(('operation', 'profile_limit', 'expected'), [
+    ('podcast.analyze.action', None, 16384),
+    ('podcast.coverage.briefs', None, 16384),
+    ('podcast.coverage.narration', None, 32768),
+    ('podcast.coverage.segment', None, 16384),
+    ('podcast.coverage.plan', None, 16384),
+    ('podcast.coverage.digest', None, 16384),
+    ('podcast.coverage.concise', None, 16384),
+    ('podcast.coverage.write', None, 16384),
+    ('podcast.coverage.audit', None, 16384),
+    ('podcast.analyze.action', 24000, None),
+    ('writing.analyze.action', None, None),
+    ('podcast.segment', None, None),
+])
+def test_podcast_action_has_bounded_default_output_without_changing_other_operations(runtime, monkeypatch, operation, profile_limit, expected):
+    _, snapshot = runtime
+    captured = {}
+    if profile_limit:
+        snapshot.profile['max_output_tokens'] = profile_limit
+    async def workflow(*args, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(compile=lambda: 'compiled'), {}
+    monkeypatch.setattr('backend.agent.factory.create_agent_workflow', workflow)
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation)
+    asyncio.run(execution._operation_application(request, snapshot, {}, None))
+    assert captured['operation_max_output_tokens'] == expected
+    assert captured['operation_default_reasoning_effort'] == (
+        'off_if_optional' if operation in {'podcast.coverage.briefs', 'podcast.coverage.plan', 'podcast.coverage.write', 'podcast.coverage.digest', 'podcast.coverage.audit'} else None)
+    assert captured['prepared_agent_data'] is snapshot.profile
+    if operation.startswith('podcast.coverage.'):
+        assert captured['operation_team_help'] is False
+
+
+@pytest.mark.parametrize('operation', ['podcast.coverage.briefs', 'podcast.coverage.narration', 'podcast.coverage.segment', 'podcast.coverage.plan', 'podcast.coverage.digest', 'podcast.coverage.concise', 'podcast.coverage.write', 'podcast.coverage.audit'])
+@pytest.mark.parametrize('key', ['max_tokens', 'max_output_tokens'])
+def test_podcast_coverage_preserves_explicit_profile_output_limit(runtime, monkeypatch, operation, key):
+    _, snapshot = runtime
+    snapshot.profile[key] = 24000
+    captured = {}
+    async def workflow(*args, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(compile=lambda: 'compiled'), {}
+    monkeypatch.setattr('backend.agent.factory.create_agent_workflow', workflow)
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation)
+    asyncio.run(execution._operation_application(request, snapshot, {}, None))
+    assert captured['operation_max_output_tokens'] is None
+    assert captured['prepared_agent_data'][key] == 24000
+
+
+def test_recent_child_window_retains_old_podcast_resume_control(runtime):
+    from backend.services.agent_execution_models import AgentRun
+    scope, snapshot = runtime
+    def record(identifier, parent='', owner=scope):
+        run = AgentRun(run_id=identifier, parent_run_id=parent, agent_id=snapshot.agent_id,
+            skill_id=snapshot.skill_ids[0], operation='podcast', origin='button', status='failed',
+            created_at=1, updated_at=1)
+        request = {'mode': 'job', 'operation': 'podcast'} if not parent else {'resume_requires_parent': True}
+        store.create(run, owner, request, {**snapshot.model_dump(), 'behavior_resources': {'test': True}})
+    record('old-day')
+    for index in range(60):
+        record(f'part-{index}', 'old-day')
+    runs = store.list_runs(scope)
+    assert len(runs) == 51
+    assert runs[0].run_id == 'part-59'
+    parent = next(run for run in runs if run.run_id == 'old-day')
+    assert parent.resumable and parent.status == 'failed'
+    assert sum(run.run_id == 'old-day' for run in runs) == 1
+
+
+@pytest.mark.parametrize('exists', [False, True])
+def test_recent_children_cannot_expose_missing_or_foreign_parent(runtime, exists):
+    from backend.services.agent_execution_models import AgentRun
+    scope, snapshot = runtime
+    def record(identifier, owner, parent=''):
+        store.create(AgentRun(run_id=identifier, parent_run_id=parent, agent_id=snapshot.agent_id,
+            skill_id=snapshot.skill_ids[0], operation='writing', origin='button', status='failed',
+            created_at=1, updated_at=1), owner, {}, snapshot.model_dump())
+    if exists:
+        record('foreign', scope.model_copy(update={'workspace_id': 'other'}))
+    record('child', scope, 'foreign')
+    assert [run.run_id for run in store.list_runs(scope, limit=1)] == ['child']
+
+
+@pytest.mark.parametrize('invalid,accepted', [(1241,1242),(1505,1504)])
+def test_podcast_word_boundary_repair_uses_real_executor_and_latest_draft(runtime, monkeypatch, invalid, accepted):
+    from backend.services.podcast_automatic import _bounded_write
+    from backend.services.podcast_briefing import _Briefing
+    scope, snapshot = runtime
+    rejected = json.dumps({'narration': 'word ' * invalid})
+    calls = install_workflow(monkeypatch, [rejected, json.dumps({'narration': 'word ' * accepted})])
+    class Context(_Briefing):
+        def request(self, task, data, schema):
+            return super().request(task, data, schema).model_copy(update={'skill_id': snapshot.skill_ids[0]})
+    context = Context(snapshot, 'English', 80000, lambda _: 100, lambda: None)
+    with execution_scope(scope):
+        result = _bounded_write(context, {'briefs': [], 'feedback': []},
+                                {'min_words': 1242, 'max_words': 1504, 'target_words': 1380})
+    assert len(result['narration'].split()) == accepted and len(calls) == 2
+    messages = calls[1]['messages']
+    assert len(messages) == 1
+    repair = json.loads(json.loads(messages[0].content)['input'])['data']
+    assert repair['previous_draft'] == json.loads(rejected)['narration']
+    assert repair['length_repair']['current_words'] == invalid
+    assert repair['length_repair']['target_words'] == 1380
+    assert repair['length_repair']['word_delta'] == 1380 - invalid
+    runs = store.list_runs(scope)
+    assert len(runs) == 2 and sorted(row.status for row in runs) == ['completed', 'failed']
+    completed = next(row for row in runs if row.status == 'completed')
+    assert len(json.loads(completed.result)['narration'].split()) == accepted
+    assert all(row.model_calls <= 2 for row in runs)
+
+
+
+
+def test_group_length_repair_reaches_real_executor_with_current_counts(runtime, monkeypatch):
+    from backend.services.podcast_automatic import _bounded_write
+    from backend.services.podcast_briefing import _Briefing
+    scope, snapshot = runtime
+    def output(first, second):
+        return json.dumps({"paragraphs": {"group:0": {"text": "word " * first, "non_editorial": False},
+                                          "group:1": {"text": "word " * second, "non_editorial": False}}})
+    rejected = output(1000, 505)
+    from backend.tests.test_podcast_briefing import tokenized
+    accepted = tokenized(json.loads(output(900, 480)), [{"key": "group:0"}, {"key": "group:1"}])
+    calls = install_workflow(monkeypatch, [rejected, json.dumps(accepted)])
+    class Context(_Briefing):
+        def request(self, task, data, schema):
+            return super().request(task, data, schema).model_copy(update={"skill_id": snapshot.skill_ids[0]})
+    context = Context(snapshot, "English", 80000, lambda _: 100, lambda: None)
+    groups = [{"key": "group:0", "topic": "Housing", "target_words": 690},
+              {"key": "group:1", "topic": "Community", "target_words": 690}]
+    with execution_scope(scope):
+        result = _bounded_write(context, {"briefs": [], "composition_groups": groups},
+                                {"min_words": 1242, "max_words": 1504, "target_words": 1380})
+    assert len(result["narration"].split()) == 1380 and len(calls) == 2
+    assert len(calls[1]["messages"]) == 1
+    repair = json.loads(json.loads(calls[1]["messages"][0].content)["input"])["data"]
+    assert repair["previous_composition"] == json.loads(rejected)
+    assert repair["composition_groups"] == groups
+    guidance = repair["length_repair"]["paragraph_word_guidance"]
+    assert guidance["group:0"]["current"] == 1000 and guidance["group:1"]["current"] == 505
+    assert sum(value["suggested"] for value in guidance.values()) == 1380
+    runs = store.list_runs(scope)
+    assert len(runs) == 2 and sorted(row.status for row in runs) == ["completed", "failed"]
+    assert all(row.model_calls <= 2 for row in runs)
+
+
+
+@pytest.mark.parametrize('operation,failure,max_calls,expected_calls,completed', [
+    ('podcast.coverage.briefs', 'once', 2, 2, True),
+    ('podcast.coverage.audit', 'always', 2, 2, False),
+    ('podcast.coverage.write', 'once', 1, 1, False),
+    ('podcast.coverage.briefs', 'quota', 2, 1, False),
+    ('podcast.coverage.audit', 'filter', 2, 1, False),
+    ('podcast.coverage.briefs', 'server_once', 2, 2, True),
+    ('podcast.coverage.briefs', 'server_permanent', 2, 1, False),
+    ('podcast.coverage.audit', 'connection_once', 2, 2, True),
+    ('podcast.coverage.audit', 'connection_always', 2, 2, False),
+    ('podcast.coverage.audit', 'connection_once', 1, 1, False),
+    ('writing', 'connection_once', 2, 1, False),
+    ('writing', 'once', 2, 1, False),
+])
+def test_podcast_capacity_retry_keeps_identical_request_provider_and_call_limit(
+    runtime, monkeypatch, operation, failure, max_calls, expected_calls, completed,
+):
+    import httpx
+    from openai import InternalServerError, RateLimitError, ContentFilterFinishReasonError
+    from backend.agent import factory, model_router
+    from backend.services import podcast_provider_retry, agent_execution_trace
+    scope, snapshot = runtime
+    monkeypatch.setattr(model_router, 'budget_status', lambda: {'over_cap': False})
+    error = (ContentFilterFinishReasonError() if failure == 'filter' else RateLimitError(
+        'Temporarily rate-limited upstream.',
+        response=httpx.Response(429, headers={'Retry-After': '7'}, request=httpx.Request('POST', 'https://provider.invalid')),
+        body={'error': {'code': 'insufficient_quota' if failure == 'quota' else 429}}))
+    if failure.startswith('server_'):
+        status = 503 if failure == 'server_once' else 501
+        error = InternalServerError('Provider server response.', response=httpx.Response(status,
+            headers={'Retry-After': '7'}, request=httpx.Request('POST', 'https://provider.invalid')),
+            body={'error': {'code': status}})
+    if failure.startswith('connection_'):
+        from backend.tests.test_llm_wiki_recovery import sdk_connection_error
+        error = sdk_connection_error()
+    waits, calls, setups = [], [], []
+    async def sleep(seconds):
+        waits.append(seconds)
+    monkeypatch.setattr(podcast_provider_retry, 'sleep', sleep)
+    class Application:
+        async def astream(self, inputs, **kwargs):
+            execution.before_model_call()
+            calls.append(tuple(message.content for message in inputs['messages']))
+            if len(calls) == 1 or failure in {'always', 'connection_always'}:
+                raise error
+            yield {'operation': {'messages': [AIMessage(content='{"answer":"complete"}')]}}
+        def compile(self):
+            return self
+    async def create(*args, **kwargs):
+        setups.append(kwargs)
+        return Application(), {'model': 'same-model', 'provider': 'same-provider'}
+    monkeypatch.setattr(factory, 'create_agent_workflow', create)
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation, input='All original evidence',
+        output_schema={'type': 'object', 'required': ['answer']}, max_model_calls=max_calls, timeout_seconds=300)
+    with execution_scope(scope):
+        work = execution.execute_operation(request, snapshot=snapshot)
+        if completed:
+            result = asyncio.run(work)
+            assert result.status == 'completed' and json.loads(result.result) == {'answer': 'complete'}
+        else:
+            with pytest.raises(type(error)):
+                asyncio.run(work)
+    row = store.list_runs(scope)[0]
+    assert row.model_calls == expected_calls == len(calls)
+    assert row.status == ('completed' if completed else 'failed')
+    assert len(set(calls)) == 1 and len(setups) == 1
+    assert setups[0]['prepared_agent_data'] is snapshot.profile and setups[0]['timeout'] == 300
+    events = agent_execution_trace.events(scope, row.run_id)['events']
+    retries = [event for event in events if event['kind'] == 'operation.provider_retry']
+    assert len(retries) == len(waits) == (1 if expected_calls == 2 else 0)
+    if retries:
+        assert retries[0]['value']['calls_left'] == 1
+        assert waits == ([5] if failure.startswith('connection_') else [7])
+
+
+@pytest.mark.parametrize('mode,completed,upstream_calls', [
+    ('configured_sdk_quote_repair', True, 3),
+    ('actual_operation_primary_retry', True, 2),
+    ('actual_operation_repair_exhausted', False, 2),
+    ('actual_operation_raw_server_retry', True, 2),
+    ('actual_operation_connection_retry', True, 2),
+    ('actual_operation_connection_exhausted', False, 2),
+    ('actual_operation_no_retry', False, 1),
+    ('actual_operation_usage', False, 1),
+    ('actual_operation_nested_usage', False, 1),
+])
+def test_provider_response_recovery_respects_actual_operation_and_sdk_limits(
+    runtime, monkeypatch, mode, completed, upstream_calls,
+):
+    import httpx2
+    import langchain_openai
+    from langchain_openai import ChatOpenAI
+    from openai import APIConnectionError, InternalServerError, _base_client
+    from backend.agent import factory, model_router
+    from backend.domains.agent.llm import _openai_family_llm
+    from backend.domains.agent.operation_graph import operation_workflow
+    from backend.services import openrouter_response_validation, podcast_briefing, podcast_provider_retry
+    from backend.services.podcast_brief_repair import brief_quote_repair
+    scope, snapshot = runtime
+    monkeypatch.setattr(model_router, 'budget_status', lambda: {'over_cap': False})
+    monkeypatch.setattr(_base_client.BaseClient, '_calculate_retry_timeout', lambda *args, **kwargs: 0)
+    monkeypatch.setattr('backend.services.model_reasoning.reasoning_client_kwargs', lambda *args: {})
+    waits = []
+    async def sleep(seconds):
+        waits.append(seconds)
+    monkeypatch.setattr(podcast_provider_retry, 'sleep', sleep)
+    parts = [{'part_id': 'a:0', 'source_id': 'a', 'title': 'A source', 'text': 'Original evidence and qualification.'}]
+    original = {'briefs': {'a:0': {'topic': 'A theme', 'summary': 'A summary', 'quote': 'Invented quotation'}}}
+    patch = {'quote_ids': {'a:0': 'a:0:q1'}}
+    sent = []
+    primary_retry = mode == 'actual_operation_primary_retry'
+    connection_retry = mode.startswith('actual_operation_connection_')
+    first_server = mode in {'actual_operation_raw_server_retry', 'actual_operation_no_retry', 'actual_operation_usage', 'actual_operation_nested_usage'}
+    def respond(request):
+        sent.append(request)
+        if connection_retry and (len(sent) == 1 or mode.endswith('_exhausted')):
+            raise httpx2.ReadError('Connection interrupted.', request=request)
+        if first_server and len(sent) == 1:
+            error = {'code': 503, 'message': 'temporarily unavailable'}
+            payload = {'id': 'gen-unusable', 'choices': None, 'error': error}
+            headers = {'x-should-retry': 'false'} if mode == 'actual_operation_no_retry' else {}
+            usage = {'prompt_tokens': 10, 'completion_tokens': 2}
+            if mode == 'actual_operation_usage':
+                payload['usage'] = usage
+            elif mode == 'actual_operation_nested_usage':
+                error['metadata'] = {'usage': usage}
+            return httpx2.Response(503, json=payload, headers=headers)
+        if not first_server and not connection_retry and len(sent) == (1 if primary_retry else 2):
+            return httpx2.Response(200, json={'id': 'gen-unusable', 'choices': None})
+        result = original if len(sent) == 1 else patch
+        if primary_retry or first_server or connection_retry:
+            result = {'briefs': {'a:0': {**original['briefs']['a:0'], 'quote': 'Original evidence'}}}
+        return httpx2.Response(200, json={'id': 'gen-valid', 'model': 'fixture', 'object': 'chat.completion',
+            'created': 1, 'choices': [{'index': 0, 'finish_reason': 'stop', 'message': {
+                'role': 'assistant', 'content': json.dumps(result)}}]})
+    route = {'provider': {'order': ['xiaomi'], 'allow_fallbacks': False}}
+    with httpx2.Client(transport=httpx2.MockTransport(respond)) as client:
+        async_client = httpx2.AsyncClient(transport=httpx2.MockTransport(respond))
+        def construct(**kwargs):
+            kwargs.setdefault('extra_body', route)
+            return ChatOpenAI(http_client=client, http_async_client=async_client, **kwargs)
+        monkeypatch.setattr(langchain_openai, 'ChatOpenAI', construct)
+        if mode.startswith('actual_operation'):
+            # Exercise the real timeout300 constructor, including max_retries0.
+            model = _openai_family_llm('openrouter', 'fixture', 'fixture', 'https://openrouter.invalid/api/v1', 300)
+            assert model.root_client.max_retries == model.root_async_client.max_retries == 0
+        else:
+            model = construct(model='fixture', api_key='fixture', base_url='https://openrouter.invalid/api/v1', max_retries=2)
+        openrouter_response_validation.install(model)
+        async def create(*args, **kwargs):
+            assert kwargs['timeout'] == 300
+            return operation_workflow(model, 'Return only the supplied structured contract.', 32000,
+                provider='openrouter', output_schema=kwargs['output_schema']), {'provider': 'openrouter', 'model': 'fixture'}
+        monkeypatch.setattr(factory, 'create_agent_workflow', create)
+        schema = podcast_briefing._brief_schema(parts)
+        request = AgentOperation(skill_id=snapshot.skill_ids[0], operation='podcast.coverage.briefs',
+            input=json.dumps({'sources': parts}), output_schema=schema, max_model_calls=2, timeout_seconds=300)
+        def validate(text):
+            podcast_briefing._validate_briefs(json.loads(text), parts)
+            return text
+        with execution_scope(scope):
+            work = execution.execute_operation(request, snapshot=snapshot,
+                output_validator=validate, output_repair=brief_quote_repair(parts, schema))
+            if completed:
+                result = asyncio.run(work)
+                assert result.status == 'completed' and result.model_calls == 2
+                restored = json.loads(result.result)
+                expected_quote = parts[0]['text'] if mode == 'configured_sdk_quote_repair' else 'Original evidence'
+                assert restored['briefs']['a:0'] == {**original['briefs']['a:0'], 'quote': expected_quote}
+            else:
+                with pytest.raises(APIConnectionError if connection_retry else InternalServerError):
+                    asyncio.run(work)
+                row = store.list_runs(scope)[0]
+                assert row.status == 'failed' and row.model_calls == min(2, upstream_calls) and not row.result
+    asyncio.run(model.root_async_client.close())
+    assert len(sent) == upstream_calls
+    if upstream_calls > 1:
+        assert sent[0 if primary_retry or first_server or connection_retry else 1].content == sent[-1].content
+    assert waits == ([5.0] if primary_retry or connection_retry or mode == 'actual_operation_raw_server_retry' else [])
+    assert request.max_model_calls == 2 and request.timeout_seconds == 300

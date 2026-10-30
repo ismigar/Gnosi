@@ -9,7 +9,9 @@ import {
   fileTargetKey,
   openFileResource,
   toServedAssetUrl,
+  toAssetPreviewUrl,
 } from '../../../shared/resources/fileResource';
+import { ImageHoverPreview } from '../../../shared/ui/previews/ImageHoverPreview';
 import { InsertContentModal } from '../content/InsertContentModal';
 
 interface FileAttachmentFieldProps {
@@ -138,11 +140,10 @@ export function FileAttachmentField({
     <div className="space-y-1.5">
       {entries.map((entry, index) => {
         const fileName = filenameFromTarget(entry);
-        return (
-          <div
-            className="flex items-center gap-2 text-xs bg-[var(--bg-secondary)] rounded-lg px-2.5 py-1.5 border border-[var(--border-primary)]"
-            key={`${String(index)}-${entry}`}
-          >
+        const previewUrl = toAssetPreviewUrl(entry);
+        const chipClassName = 'flex items-center gap-2 text-xs bg-[var(--bg-secondary)] rounded-lg px-2.5 py-1.5 border border-[var(--border-primary)]';
+        const chipContents = (
+          <>
             <FileText className="text-[var(--gnosi-primary)] shrink-0" size={13} />
             <button
               className="truncate text-left text-[var(--gnosi-primary)] hover:underline flex-1"
@@ -165,8 +166,18 @@ export function FileAttachmentField({
             >
               <X size={13} />
             </button>
-          </div>
+          </>
         );
+        return previewUrl ? (
+          <ImageHoverPreview
+            key={`${String(index)}-${entry}`}
+            src={previewUrl}
+            alt={fileName}
+            className={chipClassName}
+          >
+            {chipContents}
+          </ImageHoverPreview>
+        ) : <div key={`${String(index)}-${entry}`} className={chipClassName}>{chipContents}</div>;
       })}
 
       <button

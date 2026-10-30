@@ -3292,6 +3292,10 @@
         },
         "reasoning_effort": "Reasoning effort",
         "reasoning_help": "More effort can take longer and use more tokens. This setting only affects this assistant.",
+        "upstream_provider": "Fixed OpenRouter provider",
+        "upstream_provider_help": "Provider identifier for this model, for example deepinfra. Leave empty for automatic routing. A fixed selection uses only this provider.",
+        "routing_automatic": "Automatic",
+        "upstream_provider_invalid": "Enter a valid provider identifier, such as deepinfra.",
         "reasoning_default": "Model default",
         "reasoning_default_level": "Model default ({{level}})",
         "reasoning_levels": {
@@ -4330,6 +4334,10 @@
   "reader_show_history": "Show all (history)",
   "reader_podcast_starting": "Starting generation…",
   "reader_podcast_in_progress": "Already running…",
+  "reader_podcast_skipped_articles": "Articles not included because they had no readable content ({{count}}): {{titles}}",
+  "reader_podcast_skipped_more": "; and {{count}} more",
+  "reader_podcast_untitled_article": "Article {{id}}",
+  "reader_podcast_no_readable_articles": "The audio summary could not be generated because none of the selected articles had readable content.",
   "reader_podcast_error": "Error starting podcast generation.",
   "feed": {
     "updated_at": "Updated {{date}}",

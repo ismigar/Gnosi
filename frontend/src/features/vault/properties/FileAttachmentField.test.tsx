@@ -151,6 +151,65 @@ describe('FileAttachmentField', () => {
     }
   });
 
+  it.each([
+    ['https://example.test/cover.jpg', 'https://example.test/cover.jpg'],
+    ['Assets/Covers/cover.jpg', '/api/vault/assets/Covers/cover.jpg'],
+    ['file:///Users/test/Vault/Assets/cover.jpg', '/api/vault/assets/cover.jpg'],
+  ])('previews the editable image chip %s and retains open, remove and upload actions', (source, expected) => {
+    const onChange = vi.fn();
+    const externalOpen = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const rendered = renderField(onChange, [source, 'Assets/keep.txt']);
+    const label = rendered.querySelector<HTMLButtonElement>(`button[title="${source}"]`);
+    if (!label) throw new Error('Missing image label');
+    const chip = label.parentElement;
+    const remove = chip?.querySelector<HTMLButtonElement>('button[title="Delete"]');
+    if (!chip || !remove) throw new Error('Missing image chip controls');
+    expect(document.body.querySelector('img')).toBeNull();
+    act(() => { label.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); });
+    const preview = document.body.querySelector('img');
+    if (!preview) throw new Error('Missing image preview');
+    expect(preview.getAttribute('src')).toBe(expected);
+    expect(preview.getAttribute('alt')).toBe('cover.jpg');
+    expect(preview.parentElement?.style.pointerEvents).toBe('none');
+    expect(onChange).not.toHaveBeenCalled();
+    expect(externalOpen).not.toHaveBeenCalled();
+    act(() => { preview.dispatchEvent(new Event('load')); label.focus(); });
+    expect(document.body.querySelector('img')).toBe(preview);
+    expect(preview.parentElement?.textContent).not.toContain('…');
+    act(() => { label.click(); });
+    expect(externalOpen).toHaveBeenCalledWith(expected, '_blank', 'noopener');
+    expect(onChange).not.toHaveBeenCalled();
+    act(() => { remove.focus(); });
+    expect(document.body.querySelector('img')).toBe(preview);
+    expect(preview.parentElement?.textContent).not.toContain('…');
+    act(() => { remove.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' })); });
+    expect(document.body.querySelector('img')).toBeNull();
+    act(() => { label.focus(); });
+    expect(document.body.querySelector('img')?.getAttribute('src')).toBe(expected);
+    act(() => { label.blur(); });
+    expect(document.body.querySelector('img')).toBeNull();
+    act(() => { remove.click(); });
+    expect(onChange).toHaveBeenCalledWith('Assets/keep.txt');
+    onChange.mockClear();
+    openModal(rendered);
+    clickButton(rendered, 'insert-one');
+    expect(onChange).toHaveBeenCalledWith([source, 'Assets/keep.txt', '/api/vault/assets/new.pdf']);
+  });
+
+  it.each(['Assets/report.pdf', 'https://example.test/page', 'data:text/html,cover.png', 'custom:///vault/Assets/cover.png'])('does not preview non-image or unsafe attachment %s', source => {
+    const onChange = vi.fn();
+    const rendered = renderField(onChange, source);
+    const label = rendered.querySelector<HTMLButtonElement>(`button[title="${source}"]`);
+    if (!label) throw new Error('Missing attachment label');
+    act(() => { label.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); label.focus(); });
+    expect(document.body.querySelector('img')).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+    const remove = rendered.querySelector<HTMLButtonElement>('button[title="Delete"]');
+    if (!remove) throw new Error('Missing delete button');
+    act(() => { remove.click(); });
+    expect(onChange).toHaveBeenCalledWith('');
+  });
+
   it('navigates to the reader when there is no dashboard event listener', () => {
     const rendered = renderField(vi.fn(), '/api/vault/assets/report.pdf');
     clickButton(rendered, 'report.pdf');

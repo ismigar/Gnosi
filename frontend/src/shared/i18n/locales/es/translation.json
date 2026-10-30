@@ -3257,6 +3257,10 @@
         },
         "reasoning_effort": "Nivel de razonamiento",
         "reasoning_help": "Más esfuerzo puede tardar más y consumir más tokens. Esta opción solo afecta a este asistente.",
+        "upstream_provider": "Proveedor fijo de OpenRouter",
+        "upstream_provider_help": "Identificador del proveedor para este modelo, por ejemplo deepinfra. Déjalo vacío para el enrutamiento automático. Una selección fija utiliza solo este proveedor.",
+        "routing_automatic": "Automático",
+        "upstream_provider_invalid": "Introduce un identificador de proveedor válido, como deepinfra.",
         "reasoning_default": "Predeterminado del modelo",
         "reasoning_default_level": "Predeterminado del modelo ({{level}})",
         "reasoning_levels": {
@@ -4306,6 +4310,10 @@
   "reader_show_history": "Mostrar todos (histórico)",
   "reader_podcast_starting": "Iniciando generación…",
   "reader_podcast_in_progress": "Ya en curso…",
+  "reader_podcast_skipped_articles": "Artículos no incluidos porque no tenían contenido legible ({{count}}): {{titles}}",
+  "reader_podcast_skipped_more": "; y {{count}} más",
+  "reader_podcast_untitled_article": "Artículo {{id}}",
+  "reader_podcast_no_readable_articles": "No se ha podido generar el resumen de audio porque ninguno de los artículos seleccionados tenía contenido legible.",
   "reader_podcast_error": "Error iniciando la generación del podcast.",
   "feed": {
     "updated_at": "Actualizado el {{date}}",

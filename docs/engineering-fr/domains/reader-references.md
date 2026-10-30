@@ -2,6 +2,10 @@
 status: implemented
 last_verified: 2026-10-17
 source_paths:
+  - backend/services/podcast_brief_review.py
+  - backend/services/podcast_automatic.py
+  - backend/services/podcast_outline.py
+  - backend/services/podcast_policy.py
   - backend/domains/configuration/source_sections_schema.py
   - frontend/src/features/vault/properties/sourceSectionRelations.ts
   - backend/domains/llm_wiki
@@ -34,11 +38,21 @@ source_paths:
   - backend/services/references_io.py
   - backend/services/import_dedup.py
   - backend/services/audio_summarizer.py
+  - backend/services/podcast_feedback.py
+  - backend/services/podcast_briefing.py
+  - backend/services/podcast_feedback_repair.py
+  - backend/agent/behavior/operations/podcast/feedback-contract.md
   - frontend/src/features/reader
   - frontend/src/features/literature
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_bounded_rewrites.py
+  - backend/tests/test_podcast_synthesis_context.py
+  - backend/tests/test_podcast_preparation.py
+  - backend/tests/test_podcast_feedback.py
+  - backend/tests/test_podcast_feedback_repair.py
+  - backend/tests/test_podcast_feedback_repair_transport.py
   - backend/tests/test_reader_source_registry.py
   - backend/tests/test_reader_source_routes.py
   - backend/tests/test_feed_ingester_savepoint.py
@@ -469,3 +483,204 @@ OPML ou du registre. Les doublons entre ces formes et les alias contenant des mo
 de passe, séparateurs encodés, caractères de contrôle, chemins ou paramètres sont
 refusés. Les liens des articles sont conservés. Les entrées RSS et mailto gardent
 leur comportement ; cet alias ne configure aucun compte ni identifiant de messagerie.
+
+### Couverture de la journée complète et articles sans contenu
+
+Le podcast quotidien fige tous les articles publiés pendant les 24 heures
+précédentes, y compris ceux déjà lus, et exclut les articles datés dans le futur.
+Les nouvelles tentatives conservent la sélection, la période, la langue et le
+nom du fichier de la tâche principale privée, même pour les anciens instantanés
+sans ressources de comportement.
+
+La génération normalise le corps complet, puis essaie le résumé du flux. Les
+articles dépourvus des deux sont omis avant la synthèse. L'état expose
+`skipped_articles` avec identifiants et titres ; le Lecteur affiche un avis
+localisé. Si aucun article n'est lisible, `podcast_no_readable_articles` conserve
+le MP3 précédent. Les avis concernent uniquement la tâche et ses entrées figées.
+
+`podcast_briefing.py` découpe les originaux complets en parties et lots de huit
+parties au maximum. Chaque partie contient au plus 10 000 tokens comptés et doit
+produire une note non vide avec une citation exacte de l'original, un résumé de
+400 caractères au plus et une citation de 160 caractères au plus. Les entrées
+manquantes, supplémentaires ou mal citées échouent avant leur sauvegarde. Les
+points de reprise privés et versionnés ne dépendent pas de la mémoire facultative
+de conversation du modèle.
+
+`podcast_outline.py` classe ensemble toutes les fiches et leurs résumés lorsque
+la requête respecte la limite de 80 000 tokens et le contexte de l'application,
+avec au plus 32 groupes éditoriaux. Les collections plus grandes utilisent une
+hiérarchie bornée de 48 fiches et 40 000 tokens au maximum par requête, dans la
+limite du contexte. Les champs obligatoires couvrent chaque identifiant opaque.
+Le serveur développe les sources, valide des partitions exactes sans doublons
+et conserve tous les sujets de chaque groupe.
+
+Le rédacteur compose l'épisode complet avec toutes les notes et tous les groupes.
+Pour plusieurs groupes, la réponse exige un paragraphe par clé opaque ; le
+serveur les assemble dans l'ordre du plan sans lire les clés ni les métadonnées.
+Un paragraphe vide exige une déclaration explicite d'absence de contenu éditorial,
+vérifiée par les contrôles des sources et de l'ensemble. Les champs obligatoires
+évitent la disparition silencieuse d'un groupe, sans prouver sa couverture
+sémantique. Tous partagent un budget global, sans plafond individuel de mots.
+Les journées riches en actualités visent 1 380 mots ; les petites collections
+ont un objectif inférieur. Le texte complet doit respecter 90 à 109 % de
+l'objectif global avant publication. Les comptes exacts du serveur et les
+brouillons du modèle guident des réécritures automatiques bornées. Un texte de
+longueur invalide n'est pas sauvegardé comme narration valide, tronqué ou remplacé
+manuellement. Les preuves trop volumineuses utilisent des résumés internes
+récursifs visant environ 160 mots, en conservant toutes les sources. Ce nombre
+interne est indicatif : le contexte réel de chaque requête est vérifié et chaque
+réduction doit diminuer la taille.
+Les réponses des résumés internes ne contiennent que `topic` et `narration`.
+Le serveur conserve tous les identifiants exacts du lot d'entrée à chaque niveau
+de réduction, après avoir rejeté les identifiants invalides ou répétés.
+Le modèle ne recopie pas cette liste, même lorsqu'un seul enregistrement récursif
+représente des centaines de parties. Les nouveaux schémas et contrats séparent
+les anciens points de reprise contenant des sections. Cette appartenance
+structurelle ne valide pas la couverture thématique : les contrôles de fidélité,
+de couverture et de l'épisode complet face aux originaux restent obligatoires.
+La plage de mots du texte parlé reste stricte.
+Chaque requête est vérifiée par rapport au contexte actuel, y compris les
+corrections de longueur.
+
+Les corrections de longueur utilisent un état numérique actuel distinct, qui
+remplace les anciens comptes et ajustements tout en conservant les objections
+sémantiques. Le serveur fournit le dernier script rejeté s'il tient après la
+compression des sources. Sinon, la requête suivante demande une composition
+nouvelle avec une cible absolue, sans appliquer d'ajustement à un texte absent.
+Chaque nouvelle tentative de validation reçoit aussi le compte, le sens de la
+modification et la cible du script qui vient d'être rejeté. Aucune narration
+invalide n'est publiée ou tronquée et les limites d'appels et de contexte restent
+inchangées.
+
+Pour un brouillon structuré trop court, la réduction du contexte réserve la composition exacte la plus récente et les indications mesurées pour l’allonger. Elle continue de résumer les preuves jusqu’à ce que les deux tiennent ensemble, en conservant tous les sujets et les objections sémantiques. L’allongement n’utilise jamais le mode sans preuves réservé au raccourcissement. Si aucune réduction supplémentaire ne permet de respecter le contexte, la génération échoue explicitement au lieu d’abandonner le texte court et de recommencer. Des résumés internes ordinaires supplémentaires peuvent être nécessaires ; les tentatives de rédaction et les limites de temps, de contexte et de mots finaux restent inchangées.
+
+`podcast_review.py` valide les citations exactes du texte et des preuves fournies
+avant de sauvegarder les objections sémantiques. Les omissions identifient les
+preuves ; les déformations factuelles exigent une affirmation citée et une preuve
+qui la contredit directement. L'absence dans un lot ne réfute pas une information
+étayée dans un autre. Les notes de production et répétitions citent le texte réel.
+Un autre passage du modèle confronte les objections et ne peut conserver que les
+objets démontrés, sans les modifier. Les confirmations sont réparties en lots
+sans retirer leurs sources. Les omissions réelles non résolues bloquent la
+publication.
+
+Toutes les notes complètes sont comparées à la narration entière en lots bornés.
+La révision de l'épisode vérifie également les sujets minoritaires et répétitions.
+Jusqu'à trois cycles complets de rédaction et révision corrigent les objections
+automatiquement. Seule la prose destinée à l'auditeur atteint la synthèse vocale ;
+les étiquettes, preuves, avis d'accès aux sources et instructions de production
+ne sont pas prononcés. Les échecs, refus et annulations conservent l'audio précédent.
+
+Les vérifications des sources contrôlent séparément la fidélité factuelle et la
+couverture thématique, avec au plus 16 notes par lot et la liste complète des
+sujets. Le statut des faits, les attributions et la portée des chiffres font
+l'objet d'un contrôle spécifique. Si le fournisseur épuise la sortie, seul le
+lot de sources ou d'objections en échec est subdivisé récursivement ; la
+confirmation conserve toutes les preuves originales. Un échec indivisible
+bloque la publication. Chaque tour vérifie aussi l'épisode complet même si des
+objections sur les sources subsistent. Les objections actuelles conservent leur
+type et leurs sources ; les anciennes et les anciens scripts ne s'accumulent
+pas dans les consignes de correction. Seul le dernier script est fourni comme
+contexte facultatif séparé. Les limites de modèle, de sortie, de durée et
+d'annulation sont conservées.
+
+`podcast-coverage-report`, version 4, conserve le plan, toutes les notes, les
+affectations du serveur et le nombre de mots. La couverture structurelle et les
+citations exactes ne prouvent pas seules la justesse sémantique : la vérification
+réelle doit comparer le texte à tous les thèmes et nuances et mesurer le MP3 par
+rapport à l'objectif d'environ dix minutes.
+
+Un épisode conforme au schéma mais hors de la plage globale de mots revient
+immédiatement au coordinateur de longueur existant, avec trois tentatives. Il ne
+consomme pas l’appel de réparation générique dans le même délai déjà partiellement
+écoulé. Chaque phase existante conserve son délai de 300 secondes et ses deux appels de
+format ; le coordinateur garde la composition rejetée exacte, les comptes mesurés et
+tous les sujets. Le JSON mal formé conserve la réparation ordinaire bornée. Après la
+dernière tentative, l’erreur publique de budget de mots reste inchangée.
+
+Les opérations internes de planification, résumé, rédaction et révision disposent
+de 300 secondes et 16 384 tokens de sortie, raisonnement inclus, sauf limite
+explicite du profil. Les contrats actuels accompagnent les anciens instantanés ;
+ces opérations n'utilisent pas de délégation facultative. Planification, rédaction
+et résumé ne désactivent le raisonnement que si les métadonnées du fournisseur le
+déclarent facultatif et si aucun choix explicite du profil ou client ne s'applique.
+Les révisions conservent le raisonnement habituel. Le modèle, les protections,
+préférences de sortie, délais, périmètre autorisé et publication atomique sont
+préservés.
+
+L'historique conserve les tâches principales autorisées avec les appels récents,
+maintenant leur commande de reprise après plus de 50 appels internes. Les parents
+absents ou hors périmètre ne sont jamais exposés. Les métadonnées exactes de
+contexte prennent en charge les modèles absents du registre ; les limites
+explicites priment et les modèles inconnus conservent la valeur prudente. Les
+autres opérations documentaires gardent leurs protections.
+
+Les objectifs indicatifs des paragraphes totalisent exactement le budget global. Les nouvelles tentatives de validation reçoivent les comptes actuels par paragraphe et une répartition proportionnelle suggérée, recalculée depuis la réponse immédiatement rejetée. Les mots peuvent être redistribués ; seuls la plage globale et les contrôles sémantiques déterminent l'acceptation.
+
+### Consignes internes de correction bornées
+
+Lorsque les objections confirmées dépassent à elles seules le budget de contexte
+du rédacteur, les opérations de synthèse bornées produisent une consigne de
+correction obligatoire pour chaque objection. Le rédacteur reçoit un transport
+compact en colonnes avec tous les identifiants, types et périmètres de source
+originaux ; les objections étayées complètes et leurs confirmations restent
+dans les points de reprise existants. Cela n'approuve ni les objections ni la
+narration. Les examens de fidélité, de couverture et de l'épisode entier face
+aux sources originales conditionnent toujours la publication du texte réécrit.
+Aucune limite de contexte, de mots, d'appels, de temps ou de passes sémantiques
+n'est augmentée.
+
+Les consignes internes utilisent un alphabet ASCII imprimable imposé par le
+schéma, sans guillemets doubles, barres obliques inverses ni caractères de
+contrôle. La limite dynamique de caractères correspond donc à la limite
+d'octets UTF-8 après double sérialisation, au plus 160 octets ; le backend
+vérifie aussi la taille encodée réelle. Les sorties invalides passent par la
+réparation de validation bornée existante et ne parviennent pas au rédacteur
+sans contrôle. Les sources originales, les objections confirmées complètes et
+la narration finale en catalan conservent leur texte Unicode. Cette restriction
+de transport ne modifie pas les sources incluses et n'approuve pas l'épisode
+final : les examens sémantiques complets et le budget de mots restent requis
+avant la synthèse vocale ou la publication.
+
+Le schéma envoyé au fournisseur utilise une ancre de fin portable plutôt qu'une
+assertion anticipée, que Xiaomi rejette comme requête invalide. Le backend exige
+indépendamment des caractères ASCII imprimables et exclut les guillemets doubles,
+les barres obliques inverses et les sauts de ligne, y compris le saut final accepté
+par certains validateurs regex. Le schéma fermé, les identifiants exacts des
+objections et la limite réelle d'octets restent contrôlés.
+
+La réparation des consignes internes inspecte toutes les valeurs retournées au
+lieu de se limiter au premier diagnostic du schéma. Le dernier appel existant
+du modèle reçoit exactement tous les identifiants invalides, les objections
+originales confirmées, les nombres réels de caractères et d'octets sérialisés,
+et une cible indicative inférieure à la limite stricte existante. Le correctif
+ne peut ajouter de clé ni réécrire une consigne valide. L'application restaure
+la correspondance complète et répète les contrôles initiaux du schéma, de
+l'alphabet et des octets avant de l'enregistrer. Si nécessaire, le brouillon
+interne rejeté trop volumineux est omis ; les objections originales et les
+comptages restent présents, dans la limite de contexte existante de 40 000 tokens.
+Les appels autorisés, le délai partagé et les examens sémantiques finaux ne changent pas.
+
+Une consigne rejetée contenant un Unicode invalide n'a pas de nombre valide
+d'octets UTF-8. Son texte interne est exclu de la réparation et le comptage est
+explicitement indisponible ; l'objection originale confirmée et le nombre de
+caractères restent présents. Le remplacement doit toujours respecter les mêmes
+contraintes d'ASCII imprimable et d'octets.
+
+Le motif envoyé au fournisseur encode aussi la même limite dynamique en octets avec un quantificateur borné. Cela rend la limite explicite pour les services qui n’appliquent pas de manière fiable le champ séparé `maxLength`. La limite du schéma, les validations locales ASCII et octets et les revues sémantiques complètes restent inchangées.
+
+Les corrections de longueur transportent le même flux complet et ordonné de mots dans une seule chaîne `token_text`, au lieu d’un élément JSON par mot. Le schéma du fournisseur vérifie la chaîne et toutes les exclusions sans motif global de comptage ; le serveur impose le même intervalle exact de mots prononcés avant la revue sémantique ou la voix. Les réponses hors intervalle passent par la correction automatique bornée existante, avec le compte mesuré et l’objet original reçu du modèle. Tous les marqueurs ordonnés, exclusions explicites et nuances sont vérifiés, et la lecture des anciens tableaux est conservée. Aucun texte n’est tronqué ou remplacé manuellement. Les contrôles de fidélité, de couverture et de l’épisode entier ainsi que les limites de contexte, d’appels et de temps restent inchangés. Les expirations réelles du transport avec comptage contraint motivent cette séparation ; seule une génération automatique réelle achevée peut établir le résultat.
+
+## Préférences modifiables du podcast quotidien
+
+La skill attribuée `core.gnosi-daily-briefing` contient les choix éditoriaux et un bloc JSON `podcast_preferences` dans ses instructions modifiables. Elle peut être personnalisée dans Configuration → IA. Par défaut, elle demande dix minutes et au plus douze groupes thématiques. Le bloc définit aussi le seuil d’articles, les mots par article et la longueur minimale des journées peu chargées. `podcast_policy.py` lit uniquement la skill canonique effective, y compris sa personnalisation attribuée ; les articles, les autres skills et le contexte du bot ne peuvent pas fournir ces paramètres. Les blocs partiels héritent des valeurs originales. Une configuration invalide, dupliquée ou ambiguë échoue avant tout appel au modèle. Chaque tâche fige les préférences résolues, les transmet à la planification, la rédaction et la révision, puis les consigne dans le rapport de couverture.
+
+Le planificateur peut renvoyer moins de thèmes que le maximum configuré ; les journées riches ne sont plus complétées jusqu’à 32 positions. Chaque fiche conserve exactement une attribution à un thème déclaré et tous les identifiants et sujets originaux sont préservés. Le moteur conserve les limites techniques, les validations de schéma et de preuves, la révision des sources originales, la plage de mots, la persistance, l’annulation et les garanties de publication. Modifier la durée change la cible ; la valeur par défaut des journées riches reste 1 380 mots.
+
+Le `review_mode` modifiable utilise `brief` par défaut : une revue globale des résumés des sources et des thèmes principaux, au plus une réécriture corrective, puis la publication normale de la voix. `full` active explicitement les audits exhaustifs des fragments originaux. Les métadonnées enregistrées identifient la portée réelle.
+
+Dans le mode `brief` par défaut, au plus quatre lots indépendants sont préparés simultanément. Chaque lot conserve sa requête et sa clé de cache initiales, le contexte authentifié et la validation ; les résultats sont remis dans l’ordre des sources. Une annulation ou un échec empêche toute publication partielle. La reprise réutilise les mêmes points validés. Le raisonnement facultatif par défaut du fournisseur est désactivé pour l’extraction lorsque le modèle déclare le permettre ; les choix explicites du profil restent prioritaires. Le mode `full` explicite conserve une extraction séquentielle.
+
+La synthèse brève utilise le budget de contexte résolu du modèle sélectionné, après les réserves existantes pour la réponse et les instructions. Le plan, la rédaction et la revue unique reçoivent directement toutes les notes des sources lorsqu’elles tiennent dans ce budget, sans imposer des résumés intermédiaires par un plafond distinct de 80 000 unités. Le comptage conservateur et la vérification finale du budget de chaque requête restent appliqués. Les petits contextes conservent la compression de secours ; le mode `full` explicite conserve son plafond de synthèse de 80 000 unités.
+
+Les réécritures courtes en mode `brief` utilisent le contrat existant `word_tokens_v1` lorsque le maximum de mots et les marqueurs de groupes ne dépassent pas 2 048 éléments. Les corrections sémantiques l’utilisent directement ; un premier rejet de longueur y passe également. Les bornes de la liste imposent la plage globale et chaque élément contient un seul mot délimité par des espaces. Tous les marqueurs ordonnés et les exclusions explicites restent vérifiés ; aucun texte n’est coupé et aucun plafond rigide par groupe n’est imposé. Les limites d’appels, d’étapes et de durée restent inchangées. Le mode complet et les épisodes longs gardent le transport compact ; les réponses compactes enregistrées restent lisibles.

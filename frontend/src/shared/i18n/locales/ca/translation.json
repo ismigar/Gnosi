@@ -3311,6 +3311,10 @@
         },
         "reasoning_effort": "Nivell de raonament",
         "reasoning_help": "Més esforç pot trigar més i consumir més tokens. Aquesta opció només afecta aquest assistent.",
+        "upstream_provider": "Proveïdor fix d’OpenRouter",
+        "upstream_provider_help": "Identificador del proveïdor per a aquest model, per exemple deepinfra. Deixa-ho buit per a l’encaminament automàtic. La selecció fixa utilitza només aquest proveïdor.",
+        "routing_automatic": "Automàtic",
+        "upstream_provider_invalid": "Utilitza un identificador de proveïdor vàlid, com deepinfra.",
         "reasoning_default": "Per defecte del model",
         "reasoning_default_level": "Per defecte del model ({{level}})",
         "reasoning_levels": {
@@ -4360,6 +4364,10 @@
   "reader_show_history": "Mostrar tots (històric)",
   "reader_podcast_starting": "Iniciant generació…",
   "reader_podcast_in_progress": "Ja en curs…",
+  "reader_podcast_skipped_articles": "Articles no inclosos perquè no tenien contingut llegible ({{count}}): {{titles}}",
+  "reader_podcast_skipped_more": "; i {{count}} més",
+  "reader_podcast_untitled_article": "Article {{id}}",
+  "reader_podcast_no_readable_articles": "No s’ha pogut generar el resum d’àudio perquè cap dels articles seleccionats tenia contingut llegible.",
   "reader_podcast_error": "Error iniciant la generació del podcast.",
   "feed": {
     "updated_at": "Actualitzat el {{date}}",

@@ -24,6 +24,9 @@ class JsonToolModel:
     def bind_tools(self, tools: Any, **kwargs: Any) -> JsonToolModel:
         return JsonToolModel(self.model, list(tools))
 
+    def bind(self, **kwargs: Any) -> JsonToolModel:
+        return JsonToolModel(self.model.bind(**kwargs), self.schemas)
+
     def invoke(self, input: Any, config: Any = None, **kwargs: Any) -> Any:
         messages = input.to_messages() if hasattr(input, "to_messages") else input
         if not self.schemas:

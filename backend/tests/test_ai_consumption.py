@@ -227,7 +227,7 @@ def test_real_budget_uses_current_month_all_providers_and_ignores_filters(tmp_pa
     from backend.config import app_config
     from backend.agent import model_router
     from backend.services import fx_rates
-    from datetime import timedelta
+    from datetime import time, timedelta
 
     monkeypatch.setenv('GNOSI_DATA_DIR', str(tmp_path))
     values = {'ai': {'budget': {'monthly_cost_cap': 4.5, 'enforce_block': True}}, 'settings': {'currency': 'EUR'}}
@@ -238,8 +238,7 @@ def test_real_budget_uses_current_month_all_providers_and_ignores_filters(tmp_pa
     monkeypatch.setattr(fx_rates, 'rate_info', lambda _: currency)
     monkeypatch.setattr(fx_rates, 'usd_to_currency', lambda amount, _: amount * .9)
     now = datetime.now().astimezone()
-    # Keep the prior-month fixture away from midnight across DST offset changes.
-    prior = now.replace(day=1, hour=12, minute=0, second=0, microsecond=0) - timedelta(days=1)
+    prior = datetime.combine(now.date().replace(day=1) - timedelta(days=1), time(12)).astimezone()
     for provider, stamp, cost in [('p1', now, '1'), ('p2', now, '2'), ('p1', prior, '100')]:
         ledger.write_call(provider=provider, model_id='same', input_tokens=10, output_tokens=2,
                           cost_usd=cost, cost_source='reported', created=stamp.timestamp())

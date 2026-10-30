@@ -2,6 +2,10 @@
 status: implemented
 last_verified: 2026-10-17
 source_paths:
+  - backend/services/podcast_brief_review.py
+  - backend/services/podcast_automatic.py
+  - backend/services/podcast_outline.py
+  - backend/services/podcast_policy.py
   - backend/domains/configuration/source_sections_schema.py
   - frontend/src/features/vault/properties/sourceSectionRelations.ts
   - backend/domains/llm_wiki
@@ -34,11 +38,21 @@ source_paths:
   - backend/services/references_io.py
   - backend/services/import_dedup.py
   - backend/services/audio_summarizer.py
+  - backend/services/podcast_feedback.py
+  - backend/services/podcast_briefing.py
+  - backend/services/podcast_feedback_repair.py
+  - backend/agent/behavior/operations/podcast/feedback-contract.md
   - frontend/src/features/reader
   - frontend/src/features/literature
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_bounded_rewrites.py
+  - backend/tests/test_podcast_synthesis_context.py
+  - backend/tests/test_podcast_preparation.py
+  - backend/tests/test_podcast_feedback.py
+  - backend/tests/test_podcast_feedback_repair.py
+  - backend/tests/test_podcast_feedback_repair_transport.py
   - backend/tests/test_reader_source_registry.py
   - backend/tests/test_reader_source_routes.py
   - backend/tests/test_feed_ingester_savepoint.py
@@ -482,3 +496,193 @@ Es rebutgen duplicats entre els dos formats i àlies amb contrasenyes, delimitad
 codificats, controls, camins o paràmetres. La normalització conserva els vincles
 dels articles. Les entrades RSS i mailto existents mantenen el comportament;
 l’àlies no configura cap compte de correu ni credencials.
+
+### Cobertura del dia complet i articles sense contingut
+
+El pòdcast diari fixa tots els articles publicats durant les 24 hores anteriors,
+inclosos els ja llegits, i exclou els datats en el futur. Els reintents conserven
+la selecció, el període, l'idioma i el nom del fitxer dins del treball principal
+privat, també en captures antigues sense recursos de comportament.
+
+La generació normalitza el cos complet de l'article i després prova el resum del
+canal. Els articles sense cap dels dos s'ometen abans de la síntesi. L'estat exposa
+`skipped_articles` amb identificadors i títols; el Lector mostra un avís localitzat.
+Si cap article és llegible, `podcast_no_readable_articles` conserva l'MP3 anterior.
+Els avisos corresponen exclusivament al treball i les seves entrades fixades.
+
+`podcast_briefing.py` divideix els originals complets en parts i lots de fins a
+vuit parts. Cada part té com a màxim 10.000 tokens comptats i ha de produir una
+nota no buida amb una cita literal de l'original, un resum de fins a 400 caràcters
+i una cita de fins a 160. Les entrades absents, sobrants o amb cites incorrectes
+fallen abans de desar-se. Els punts de recuperació privats i versionats no
+depenen de la memòria opcional de conversa del model.
+
+`podcast_outline.py` classifica conjuntament totes les targetes amb els seus
+resums quan la petició cap dins del límit de 80.000 tokens i del context de
+l'aplicació, amb un màxim de 32 grups editorials. Les col·leccions més grans fan
+servir una jerarquia acotada de fins a 48 targetes i 40.000 tokens per petició,
+respectant el context. Els camps obligatoris d'assignació cobreixen cada
+identificador opac. El servidor expandeix les fonts, valida particions exactes
+sense duplicats i conserva tots els assumptes de cada grup.
+
+El redactor compon l'episodi complet amb totes les notes i grups. Si hi ha
+diversos grups, la resposta exigeix un paràgraf per a cada clau opaca i el
+servidor els uneix en l'ordre del pla, sense locutar claus ni metadades. Un
+paràgraf buit exigeix declarar explícitament que no té contingut editorial;
+les revisions de les fonts i del conjunt ho comproven igualment. Els camps
+obligatoris eviten perdre silenciosament un grup, però no demostren cobertura
+semàntica. Tots els paràgrafs comparteixen un pressupost global sense límits
+individuals de paraules. Els dies amb molta
+actualitat tenen un objectiu de 1.380 paraules; les col·leccions petites en tenen
+menys. El guió complet ha d'estar entre el 90 i el 109% de l'objectiu global abans
+de publicar-se. Els recomptes exactes del servidor i els esborranys del model
+guien reescriptures automàtiques acotades. Un text de longitud invàlida no es
+desa com a narració vàlida, no es retalla ni es substitueix manualment. Les
+evidències massa grans passen per resums interns recursius amb un objectiu
+orientatiu d'unes 160 paraules, sense perdre les fonts. Es comprova el context
+real de cada petició i cada reducció ha de disminuir la mida.
+Les respostes dels resums interns només contenen `topic` i `narration`. El
+servidor hi associa tots els identificadors exactes del lot d'entrada a cada
+nivell de reducció, després de rebutjar identificadors invàlids o repetits.
+El model no transcriu aquesta llista, tampoc quan un únic registre recursiu
+representa centenars de parts. Els nous esquemes i contractes mantenen separats
+els punts de recuperació antics amb seccions. Aquesta pertinença estructural
+no aprova la cobertura temàtica: les revisions de fidelitat, cobertura i de
+l'episodi complet contra els originals continuen sent obligatòries. El límit de
+paraules del guió locutat continua sent estricte. Cada petició es comprova contra
+el context actual, també durant les correccions de longitud.
+
+Les correccions de longitud fan servir un estat numèric actual separat, que
+substitueix els recomptes i ajustos antics i conserva les objeccions semàntiques.
+El servidor aporta el darrer guió rebutjat quan hi cap després de comprimir les
+fonts. Si encara no hi cap, la petició següent demana una composició nova amb un
+objectiu absolut, sense aplicar ajustos a un text absent. Cada reintent de
+validació també rep el recompte, el sentit del canvi i l'objectiu del guió que
+acaba de rebutjar. No es publica ni es retalla una narració invàlida i es mantenen
+els límits de crides i context.
+
+Quan un esborrany estructurat és massa curt, la reducció de context reserva la composició exacta més recent i les indicacions mesurades per ampliar-la. Continua resumint les evidències fins que hi caben juntes, conservant tots els temes i les objeccions semàntiques. L’ampliació no utilitza el mode sense evidències reservat a escurçar. Si cap reducció addicional permet ajustar el context, la generació falla explícitament en lloc de descartar el text curt i tornar a començar. Poden caldre més resums interns ordinaris; no augmenten els intents de redacció ni els límits de temps, context o paraules finals.
+
+`podcast_review.py` valida cites exactes del guió i de les evidències abans de
+desar objeccions semàntiques. Les omissions identifiquen les evidències; les
+distorsions factuals exigeixen una afirmació citada i evidències que la
+contradiguin directament. L'absència en un lot no desmenteix una notícia
+fonamentada en un altre. Les notes de producció i les repeticions citen el guió
+real. Una altra passada del model contrasta les objeccions i només pot conservar
+les demostrades sense modificar-les. Les confirmacions es divideixen en lots
+sense eliminar-ne les fonts. Les omissions reals no resoltes bloquegen la
+publicació.
+
+Totes les notes completes es revisen contra la narració sencera en lots acotats.
+La revisió de l'episodi també comprova els assumptes minoritaris i les repeticions.
+Fins a tres rondes completes de redacció i revisió corregeixen les objeccions
+automàticament. Només la prosa per a l'oient arriba a la síntesi de veu; no es
+locuten etiquetes, evidències, avisos d'accés a fonts ni instruccions de producció.
+Les fallades, els rebutjos i la cancel·lació conserven l'àudio anterior.
+
+Les revisions de fonts comproven per separat la fidelitat factual i la cobertura
+temàtica, amb fins a 16 notes per lot i la llista completa d'assumptes. L'estat dels
+fets, les atribucions i l'abast de les xifres tenen una comprovació específica.
+Si el proveïdor esgota la sortida, només es divideix recursivament el lot de fonts
+o objeccions fallit; la confirmació conserva totes les evidències originals.
+Una fallada indivisible bloqueja la publicació. Cada ronda també revisa l'episodi
+sencer encara que hi hagi objeccions sobre fonts. Les objeccions actuals conserven
+el tipus i les fonts; les antigues i els guions anteriors no s'acumulen en les
+instruccions de correcció. Només el darrer guió es proporciona com a context
+opcional separat. Es mantenen els límits de model, sortida, temps i cancel·lació.
+
+`podcast-coverage-report`, versió 4, conserva l'esquema, totes les notes, les
+assignacions del servidor i el recompte de paraules. La cobertura estructural i
+les cites literals no demostren per si soles la correcció semàntica: la prova real
+ha de comparar el guió amb tots els temes i matisos i mesurar l'MP3 respecte de
+l'objectiu aproximat de deu minuts.
+
+Un episodi vàlid segons l’esquema però fora del marge global de paraules retorna
+immediatament al coordinador de longitud existent, amb tres intents. No consumeix la
+crida de reparació genèrica dins del mateix termini ja parcialment gastat. Cada fase
+existent conserva el termini de 300 segons i les dues crides de format; el coordinador
+conserva la composició rebutjada exacta, els recomptes mesurats i tots els temes. El
+JSON malformat manté la reparació ordinària acotada. Després de l’últim intent, l’error
+públic del pressupost de paraules no canvia.
+
+Les operacions internes de planificació, resum, redacció i revisió disposen de
+300 segons i 16.384 tokens de sortida, inclòs el raonament, tret que el perfil
+fixi un límit explícit. Els contractes actuals acompanyen les captures antigues;
+aquestes operacions no fan servir delegació opcional. La planificació, la
+redacció i el resum només desactiven el raonament si les metadades del proveïdor
+el declaren opcional i no hi ha cap elecció explícita al perfil o client. Les
+revisions mantenen el raonament habitual. Es conserven el model, les salvaguardes,
+les preferències de sortida, els límits de temps, l'àmbit autoritzat i la
+publicació atòmica de l'àudio.
+
+L'historial conserva els treballs principals autoritzats al costat de les crides
+recents, de manera que els treballs llargs mantenen el control de represa després
+de més de 50 crides internes. Mai no s'exposen pares absents o d'un altre àmbit.
+Les metadades exactes de context admeten models absents del registre; els límits
+explícits tenen prioritat i els models desconeguts mantenen el valor conservador.
+La resta d'operacions documentals conserva les seves proteccions.
+
+Els objectius orientatius dels paràgrafs sumen exactament el pressupost global. Els reintents de validació reben els recomptes actuals de cada paràgraf i una distribució proporcional suggerida, recalculada a partir de la resposta immediatament rebutjada. Es poden redistribuir les paraules; només el límit global i les revisions semàntiques determinen l'acceptació.
+
+### Guies internes de correcció acotades
+
+Quan les objeccions confirmades, totes soles, superen el pressupost de context
+del redactor, les operacions de resum acotades produeixen una guia de correcció
+obligatòria per a cada objecció. El redactor rep un transport compacte en
+columnes amb tots els identificadors, tipus i àmbits de font originals; les
+objeccions fonamentades completes i les confirmacions es conserven als punts
+de control existents. Això no aprova les objeccions ni la narració. Les
+revisions de fidelitat, cobertura i episodi complet contra les fonts originals
+continuen condicionant la publicació del guió reescrit. No augmenta cap límit
+de context, paraules, crides, temps o rondes semàntiques.
+
+Les guies internes utilitzen un alfabet ASCII imprimible restringit per
+l'esquema, sense cometes dobles, barres inverses ni caràcters de control.
+Per tant, el límit dinàmic de caràcters coincideix amb el límit de bytes UTF-8
+amb doble serialització, com a màxim 160 bytes; el backend també comprova
+la mida codificada real. Les sortides invàlides passen per la reparació de
+validació acotada existent i no arriben al redactor sense comprovar.
+Les fonts originals, les objeccions confirmades completes i la narració final
+en català conserven el text Unicode. Aquesta restricció de transport no canvia
+les fonts incloses ni aprova l'episodi final: les revisions semàntiques completes
+i el pressupost de paraules continuen sent obligatoris abans de locutar o publicar.
+
+L'esquema enviat al proveïdor utilitza una àncora final portable en lloc d'una
+asserció anticipada, que Xiaomi rebutja com a petició invàlida. El backend exigeix
+independentment ASCII imprimible i exclou cometes dobles, barres inverses i salts
+de línia, inclòs el salt final que alguns validadors regex accepten. Es mantenen
+l'esquema tancat, els identificadors exactes de les objeccions i el límit real de bytes.
+
+La reparació de guies internes inspecciona tots els valors retornats, en lloc de
+limitar-se al primer diagnòstic de l'esquema. L'última crida existent del model
+rep exactament tots els identificadors invàlids, les objeccions originals
+confirmades, els recomptes reals de caràcters i bytes serialitzats i un objectiu
+orientatiu inferior al límit estricte existent. El pedaç no pot afegir claus ni
+reescriure guies vàlides. L'aplicació restaura el mapa complet i repeteix les
+comprovacions originals d'esquema, alfabet i bytes abans de desar-lo. Si cal,
+s'omet l'esborrany intern rebutjat per excés de mida; es mantenen les objeccions
+originals i els recomptes, dins del límit de context existent de 40.000 tokens.
+No canvien les crides permeses, el termini compartit ni les revisions semàntiques finals.
+
+Si una guia rebutjada conté Unicode invàlid, no té un recompte de bytes UTF-8
+vàlid. El text intern s'exclou de la reparació i el recompte es marca com a no
+disponible; es conserven l'objecció original confirmada i el nombre de caràcters.
+La substitució continua subjecta als mateixos controls d'ASCII imprimible i bytes.
+
+El patró enviat al proveïdor també codifica el mateix límit dinàmic de bytes amb un quantificador acotat. Això fa explícit el límit als serveis que no apliquen de manera fiable el camp separat `maxLength`. Es mantenen el límit de l’esquema, la validació local d’ASCII i bytes i les revisions semàntiques completes.
+
+Les correccions de longitud transporten el mateix flux complet i ordenat de paraules en una sola cadena `token_text`, en lloc d’un element JSON per paraula. L’esquema del proveïdor comprova la cadena i totes les exclusions sense un patró global de recompte; el servidor imposa el mateix interval exacte de paraules locutades abans de la revisió semàntica o la veu. Les respostes fora de l’interval passen per la correcció automàtica acotada existent, amb el recompte mesurat i l’objecte original rebut del model. Es comproven tots els marcadors ordenats, les exclusions explícites i els matisos, i es conserva la lectura dels arrays antics. No es retalla ni se substitueix manualment cap text. Es mantenen les revisions de fidelitat, cobertura i conjunt de l’episodi, i els límits de context, crides i temps. Els temps d’espera reals del transport amb recompte restringit motiven aquesta separació; només una generació automàtica real completada pot acreditar el resultat.
+
+## Preferències editables del podcast diari
+
+La skill assignada `core.gnosi-daily-briefing` conté el criteri editorial i un bloc JSON `podcast_preferences` dins les instruccions editables. Es pot personalitzar a Configuració → IA. Per defecte demana deu minuts i un màxim de dotze grups temàtics. El mateix bloc configura el llindar d’articles, les paraules per article i la longitud mínima dels dies amb poc contingut. `podcast_policy.py` només llegeix la skill canònica efectiva, inclosa una personalització assignada; els articles, altres skills i el context del bot no poden establir aquests paràmetres. Els blocs parcials hereten els valors originals. Una configuració invàlida, duplicada o ambigua falla abans de cridar el model. Cada tasca fixa les preferències resoltes, les passa a la planificació, redacció i revisió, i les registra a l’informe de cobertura.
+
+El planificador pot retornar menys temes que el màxim configurat; ja no omple els dies amplis fins a 32 posicions. Cada targeta conserva exactament una assignació a un tema declarat i es mantenen tots els identificadors i assumptes originals. El motor conserva els límits tècnics, les validacions d’esquema i evidències, la revisió de les fonts originals, el rang de paraules, la persistència, la cancel·lació i les garanties de publicació. Canviar la durada modifica l’objectiu; el valor per defecte dels dies amplis continua sent 1.380 paraules.
+
+El `review_mode` editable és `brief` per defecte: una revisió global dels resums de fonts i temes principals, com a màxim una reescriptura correctiva i després publicació normal de la veu. `full` activa explícitament les auditories exhaustives dels fragments originals. Les metadades de revisió desades identifiquen l’abast real.
+
+En el mode `brief` per defecte, es preparen simultàniament com a màxim quatre lots independents. Cada lot conserva la petició i la clau de memòria cau originals, el context autenticat i la validació; els resultats es reordenen segons les fonts. La cancel·lació o una fallada impedeix publicar una cobertura parcial. La represa reutilitza els mateixos punts validats. El raonament opcional per defecte del proveïdor es desactiva per a l’extracció quan el model declara que ho permet; es respecten les opcions explícites del perfil. El mode `full` explícit manté l’extracció seqüencial.
+
+La síntesi breu utilitza el pressupost de context resolt del model seleccionat, després de les reserves existents per a la resposta i les instruccions. La planificació, la redacció i la revisió única reben directament totes les notes de fonts quan hi caben, sense forçar resums intermedis amb un topall independent de 80.000 unitats. Es mantenen el recompte conservador i la comprovació final del límit de cada petició. Els contextos petits conserven la compressió alternativa; el mode `full` explícit manté el topall de síntesi de 80.000 unitats.
+
+Les reescriptures breus en mode `brief` utilitzen el contracte existent `word_tokens_v1` quan el màxim de paraules més els marcadors de grup no supera 2.048 elements. Les correccions semàntiques el fan servir directament; un primer rebuig de longitud també hi canvia. Els límits de la llista imposen el rang global i cada element conté una sola paraula separada per espais. Es continuen comprovant tots els marcadors ordenats i les exclusions explícites; no es retalla prosa ni s’imposen topalls rígids per grup. Es mantenen els límits de crides, etapes i temps. El mode complet i els episodis llargs conserven el transport compacte; les respostes compactes desades continuen sent llegibles.

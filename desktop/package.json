@@ -1,7 +1,7 @@
 {
   "name": "@gnosi/desktop",
   "version": "3.2.0",
-  "description": "Gnosi — local-first, open-source knowledge workspace",
+  "description": "Gnosi \u2014 local-first, open-source knowledge workspace",
   "desktopName": "gnosi.desktop",
   "homepage": "https://github.com/ismigar/Gnosi",
   "main": "main.js",

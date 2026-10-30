@@ -128,6 +128,8 @@ def stop_tree(process: subprocess.Popen[bytes], tracked: set[int]) -> None:
 
 
 def step_timeout(step: Step) -> int:
+    if step.name == "Frontend lint":
+        return 600
     if "build" in step.name.lower():
         return 600
     if "suite" in step.name.lower() or "regressions" in step.name.lower():

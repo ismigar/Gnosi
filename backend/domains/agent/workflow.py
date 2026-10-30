@@ -229,6 +229,8 @@ async def create_agent_workflow(
     )
     if model is None:
         return None, failure_metadata
+    from backend.domains.agent.provider_routing import apply_provider_route
+    model, routing_metadata = apply_provider_route(profile.agent_data, model)
     if team_help:
         from backend.domains.agent.runtime_tools import _model_supports_tools
         from backend.agent.json_tool_model import JsonToolModel
@@ -267,6 +269,7 @@ async def create_agent_workflow(
             runtime=profile.resolved_runtime if operation_read_tools else None), {
             "provider": model.provider_name, "model": model.model_name,
             "active_skill_ids": list(prompts.active_runtime_skill_ids),
+            **routing_metadata,
         }
     tools = build_tool_workflow(
         profile,

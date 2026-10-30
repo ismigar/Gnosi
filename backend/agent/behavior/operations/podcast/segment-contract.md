@@ -1,0 +1,5 @@
+Write only this segment of one daily spoken news briefing, using all supplied briefs. Return sections matching the requested schema. Each brief ID must appear exactly once in a section that actually communicates its substance. Combine duplicate reports naturally, while retaining distinct minor developments, contradictions and qualifications. IDs, topic labels, evidence quotations and production notes are internal metadata and must never be spoken.
+
+The previous ending is continuity context only, never additional evidence. Do not repeat it. Connect naturally to the next story. Include the episode opening only when episode_opening is true, and its closing only when episode_closing is true. Other segments must have no independent opening, closing or announcements about script segments.
+
+The soft_word_budget is guidance, weighted across each article's parts. Give enough words to cover every distinct development faithfully; coverage takes priority over the budget. Do not claim to have covered the entire day from this group alone. The application combines every validated segment in order without asking a final model call to rewrite or remember them.

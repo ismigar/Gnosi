@@ -188,7 +188,7 @@ export function CellValue({ model, value, type, noteId, field, originalMetaKey }
     }
     default:
       if (isImageLikeField) {
-        const imageUrl = getImagePreviewUrlFromValue(value);
+        const imageUrl = getImagePreviewUrlFromValue(value, type === 'image');
         if (imageUrl) {
           return <ImageHoverPreview src={imageUrl} alt={field} />;
         }

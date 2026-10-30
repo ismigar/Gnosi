@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from backend.config.logger_config import get_logger
 from backend.models.reader import Article
+from backend.services.podcast_sources import readable_podcast_articles as _readable_podcast_articles
 
 log = get_logger(__name__)
 
@@ -27,6 +28,7 @@ class GenerationStatus(TypedDict):
     progress: str
     error: str | None
     result_filename: str | None
+    skipped_articles: list[dict[str, str]]
 
 
 _generation_lock = threading.RLock()
@@ -39,7 +41,7 @@ def _generation_state() -> GenerationStatus:
     key = (scope.user_id, scope.workspace_id, str(Path(scope.vault_path).resolve()))
     with _generation_lock:
         return _generation_states.setdefault(key, {
-            "running": False, "progress": "", "error": None, "result_filename": None,
+            "running": False, "progress": "", "error": None, "result_filename": None, "skipped_articles": [],
         })
 
 
@@ -56,6 +58,8 @@ def get_generation_status() -> GenerationStatus:
         state["running"] = job.status in {"queued", "running", "resuming"}
         state["error"] = job.error or None
         state["result_filename"] = job.result or None
+        report = store.work_checkpoint(current_scope(), job.run_id, "podcast-skipped")
+        state["skipped_articles"] = report["articles"] if report else []
     return state
 
 
@@ -264,6 +268,18 @@ def generate_daily_podcast(snapshot: AgentExecutionSnapshot | None = None) -> st
         raise
 
 
+def _prepare_podcast_articles(articles: Sequence[Any], snapshot: AgentExecutionSnapshot) -> list[Any]:
+    from backend.services.agent_execution_store import work_checkpoint
+
+    readable, skipped = _readable_podcast_articles(articles)
+    _generation_state()["skipped_articles"] = skipped
+    if snapshot.parent_run_id:
+        work_checkpoint(snapshot.scope, snapshot.parent_run_id, "podcast-skipped", {"articles": skipped})
+    if not readable:
+        raise ValueError("podcast_no_readable_articles")
+    return readable
+
+
 def _generate_daily_podcast() -> str | None:
     """
     Collect unread articles from the last 24 hours, generate a batched script
@@ -273,6 +289,7 @@ def _generate_daily_podcast() -> str | None:
     _generation_state()["running"] = True
     _generation_state()["error"] = None
     _generation_state()["result_filename"] = None
+    _generation_state()["skipped_articles"] = []
 
     # Get DB session dynamically
     from backend.data.db import get_db
@@ -285,15 +302,16 @@ def _generate_daily_podcast() -> str | None:
         from backend.services.agent_execution_store import work_checkpoint
         podcast_input = work_checkpoint(llm.scope, llm.parent_run_id, "podcast-input") if llm.parent_run_id else None
         articles: list[Any]
-        # 1. Unread articles from the last 24h
-        target_time = datetime.now(timezone.utc) - timedelta(hours=24)
+        # 1. All articles from the last 24h, independent of Reader read status.
+        period_end = datetime.now(timezone.utc)
+        target_time = period_end - timedelta(hours=24)
         if podcast_input is not None:
             from types import SimpleNamespace
             articles = [SimpleNamespace(**{**row, "source": SimpleNamespace(name=row["source"])}) for row in podcast_input["articles"]]
         else:
             articles = (
                 db.query(Article)
-                .filter(Article.is_read == False, Article.published_at > target_time)
+                .filter(Article.published_at > target_time, Article.published_at <= period_end)
                 .all()
             )
 
@@ -303,71 +321,30 @@ def _generate_daily_podcast() -> str | None:
             _generation_state()["progress"] = "No new articles found."
             return None
 
-        log.info(f"Found {len(articles)} unread articles.")
+        log.info(f"Found {len(articles)} articles in the daily period.")
         _generation_state()["progress"] = f"Found {len(articles)} articles."
-
-        # 2. Split into batches.
-        batches = _build_batches(articles)
-        total_batches = len(batches)
-        total_articles = sum(len(b) for b in batches)
-        log.info(f"Processing {total_articles} articles in {total_batches} batches.")
-        _generation_state()["progress"] = (
-            f"Processing {total_articles} articles in {total_batches} batches..."
-        )
 
         # 3. Resolve the model from the latest Settings state.
         language_code, language_name = _resolve_podcast_language()
         if podcast_input is not None:
             language_code, language_name = podcast_input["language_code"], podcast_input["language_name"]
-        elif llm.parent_run_id and llm.behavior_resources:
+        elif llm.parent_run_id:
             podcast_input = {"articles": [{"id": str(article.id), "title": str(article.title or ""),
                 "full_content": str(article.full_content or ""), "content": str(article.content or ""),
                 "source": str(article.source.name if article.source else "")} for article in articles],
                 "language_code": language_code, "language_name": language_name,
+                "period_start": target_time.isoformat(), "period_end": period_end.isoformat(),
                 "audio_filename": f"daily_podcast_{datetime.now().strftime('%Y_%m_%d')}.mp3"}
             work_checkpoint(llm.scope, llm.parent_run_id, "podcast-input", podcast_input)
-        model_label = f"{provider}/{model}"
-        all_summaries: list[str] = []
+        articles = _prepare_podcast_articles(articles, llm)
 
-        if llm.behavior_resources:
-            from backend.services.agent_document_work import synthesize
-            from backend.domains.reader.analysis import _article_text
-            outcome = synthesize("podcast", [
-                {"id": str(article.id), "title": str(article.title or ""), "text": _article_text(article)}
-                for article in articles
-            ], task_input("podcast.script", language=language_name), snapshot=llm,
-                output_schema={"type": "object", "required": ["text"], "properties": {"text": {"type": "string", "minLength": 1}}})
-            all_summaries.append(outcome["result"]["text"])
-        else:
-            for i, batch in enumerate(batches):
-                batch_num = i + 1
-                _generation_state()["progress"] = (
-                    f"Batch {batch_num}/{total_batches}: calling {model_label}..."
-                )
-                log.info(
-                    "Batch %s/%s: %s articles, calling %s.",
-                    batch_num,
-                    total_batches,
-                    len(batch),
-                    model_label,
-                )
-
-                try:
-                    summary = _summarize_batch(
-                        llm,
-                        batch,
-                        batch_num,
-                        total_batches,
-                        provider,
-                        model,
-                        language_name,
-                    )
-                    all_summaries.append(summary)
-                    log.info(f"Batch {batch_num} completed ({len(summary)} chars).")
-                except Exception as e:
-                    log.error(f"Error in batch {batch_num}: {e}")
-                    _generation_state()["progress"] = f"Error in batch {batch_num}: {e}"
-                    raise  # A partial episode must not be reported as complete.
+        _generation_state()["progress"] = f"Processing {len(articles)} readable articles."
+        from backend.services.podcast_briefing import build_podcast_script
+        all_summaries = [build_podcast_script([
+            {"id": str(article.id), "title": str(article.title or ""), "text": article.full_content}
+            for article in articles
+        ], language_name, snapshot=llm, check_active=lambda: _check_podcast_publication(llm),
+            progress=lambda text: _generation_state().update({"progress": text}))]
 
         if not all_summaries:
             log.error("No summaries generated. All calls failed.")
@@ -450,7 +427,7 @@ def start_generation_async(vault_path: str | Path | None = None) -> bool:
             return False  # A generation is already in progress
         # Sets the flag INSIDE the lock so no one else passes the check before
         # the thread starts. The thread itself will overwrite the progress.
-        _generation_state().update({"running": True, "progress": "", "error": None, "result_filename": None})
+        _generation_state().update({"running": True, "progress": "", "error": None, "result_filename": None, "skipped_articles": []})
 
     from backend.services.agent_execution import create_job_run
     from backend.services import agent_execution_store as store
@@ -491,6 +468,28 @@ if __name__ == "__main__":
     generate_daily_podcast()
 
 
+def _refresh_podcast_upstream(snapshot: AgentExecutionSnapshot) -> AgentExecutionSnapshot:
+    """Apply the current explicit route without changing frozen source/model instructions."""
+    if snapshot.profile.get('provider') != 'openrouter':
+        return snapshot
+    from backend.config.app_config import load_params
+    from backend.domains.agent.provider_routing import resumed_provider_profile
+    from backend.services.agent_behavior import revision
+    from backend.services.agent_execution_trace import append
+    current = next((p for p in load_params(strict_env=False).ai.get('agents', [])
+                    if isinstance(p, dict) and p.get('id') == snapshot.agent_id), {})
+    profile = resumed_provider_profile(snapshot.profile, current)
+    if profile is snapshot.profile:
+        return snapshot
+    updated = snapshot.model_copy(update={'profile': profile,
+        'revision': revision([snapshot.revision, {'openrouter_route': profile.get('openrouter_route')}])})
+    if snapshot.parent_run_id:
+        append(snapshot.scope, snapshot.parent_run_id, 'job.provider_route', {
+            'model': profile.get('model'), 'route': profile.get('openrouter_route'),
+            'previous_revision': snapshot.revision, 'revision': updated.revision})
+    return updated
+
+
 def resume_podcast(snapshot: AgentExecutionSnapshot) -> None:
     """Continue the same authorized source snapshot and private work state."""
     from backend.services.agent_execution import operation_session
@@ -504,11 +503,12 @@ def resume_podcast(snapshot: AgentExecutionSnapshot) -> None:
     if scope.role == "viewer":
         raise PermissionError("podcast_editor_required")
     revalidate_scope(snapshot.scope)
+    snapshot = _refresh_podcast_upstream(snapshot)
     with _generation_lock:
         if any(state["running"] for key, state in _generation_states.items()
                if key[2] == str(Path(scope.vault_path).resolve())):
             raise RuntimeError("podcast_generation_already_running")
-        _generation_state().update({"running": True, "progress": "", "error": None, "result_filename": None})
+        _generation_state().update({"running": True, "progress": "", "error": None, "result_filename": None, "skipped_articles": []})
     def worker() -> None:
         try:
             with operation_session(snapshot):

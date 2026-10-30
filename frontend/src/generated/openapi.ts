@@ -24429,6 +24429,16 @@ export interface components {
             formatted_time?: string | null;
         };
         /**
+         * ReaderPodcastSkippedArticle
+         * @description An article omitted because no readable body was available.
+         */
+        ReaderPodcastSkippedArticle: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+        };
+        /**
          * ReaderPodcastStatusResponse
          * @description Observable podcast-generation state.
          */
@@ -24441,6 +24451,11 @@ export interface components {
             result_filename?: string | null;
             /** Running */
             running: boolean;
+            /**
+             * Skipped Articles
+             * @default []
+             */
+            skipped_articles: components["schemas"]["ReaderPodcastSkippedArticle"][];
         };
         /**
          * ReaderScopeResponse
