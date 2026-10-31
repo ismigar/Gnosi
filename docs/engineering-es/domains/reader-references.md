@@ -476,103 +476,16 @@ contexto. Los campos obligatorios cubren cada identificador opaco. El servidor
 expande las fuentes, valida particiones exactas sin duplicados y conserva todos
 los asuntos de cada grupo.
 
-El redactor compone el episodio completo con todas las notas y grupos. Con
-varios grupos, la respuesta exige un párrafo por clave opaca; el servidor los
-une en el orden del plan sin locutar claves ni metadatos. Un párrafo vacío
-exige declarar explícitamente que no tiene contenido editorial, algo que
-comprueban igualmente las revisiones de fuentes y del conjunto. Los campos
-obligatorios evitan perder un grupo silenciosamente, pero no demuestran su
-cobertura semántica. Todos comparten un presupuesto global sin límites de
-palabras individuales. Los días con mucha actualidad
-tienen un objetivo de 1.380 palabras; las colecciones pequeñas tienen uno menor.
-El guion completo debe estar entre el 90 y el 109% del objetivo global antes de
-publicarse. Los recuentos exactos del servidor y los borradores del modelo guían
-reescrituras automáticas acotadas. El texto de longitud inválida no se guarda
-como narración válida, no se recorta ni se sustituye manualmente. Las evidencias
-demasiado grandes pasan por resúmenes internos recursivos con un objetivo
-orientativo de unas 160 palabras, sin perder sus fuentes. Se comprueba el contexto
-real de cada petición y cada reducción debe disminuir el tamaño.
-Las respuestas de los resúmenes internos solo contienen `topic` y `narration`.
-El servidor asocia todos los identificadores exactos del lote de entrada en cada
-nivel de reducción, tras rechazar identificadores inválidos o repetidos.
-El modelo no transcribe esa lista, tampoco cuando un único registro recursivo
-representa cientos de partes. Los nuevos esquemas y contratos mantienen separados
-los puntos de recuperación antiguos con secciones. Esta pertenencia estructural
-no aprueba la cobertura temática: las revisiones de fidelidad, cobertura y del
-episodio completo contra los originales siguen siendo obligatorias. El límite de
-palabras del guion hablado sigue siendo estricto. Cada petición se comprueba
-contra el contexto actual, también durante las correcciones de longitud.
+El redactor automático produce una única narración natural. Las peticiones iniciales grandes pueden utilizar digests temáticos con la pertenencia de las fuentes controlada por la aplicación; las correcciones conservan la evidencia original. Cada hecho sustantivo requiere una decisión explícita de cobertura. Un detalle secundario puede agruparse con un hecho ya cubierto, pero la agrupación no puede hacer desaparecer un tema minoritario independiente.
 
-Las correcciones de longitud usan un estado numérico actual separado, que
-sustituye los recuentos y ajustes antiguos y conserva las objeciones semánticas.
-El servidor aporta el último guion rechazado si cabe después de comprimir las
-fuentes. Si aún no cabe, la siguiente petición solicita una composición nueva
-con un objetivo absoluto, sin aplicar ajustes a un texto ausente. Cada reintento
-de validación recibe también el recuento, el sentido del cambio y el objetivo
-del guion recién rechazado. No se publica ni se recorta una narración inválida
-y se mantienen los límites de llamadas y contexto.
+El recuento de palabras orienta la composición sin imponer una cuota exacta. La tolerancia de duración predeterminada es del 20%: un objetivo de diez minutos admite aproximadamente entre ocho y doce minutos. La duración real del audio debe medirse por separado; una estimación de palabras no demuestra la duración del MP3.
 
-Cuando un borrador estructurado es demasiado corto, la reducción del contexto reserva la composición exacta más reciente y las indicaciones medidas para ampliarla. Sigue resumiendo las evidencias hasta que ambas caben juntas, conservando todos los temas y las objeciones semánticas. La ampliación no utiliza el modo sin evidencias reservado para acortar. Si ninguna reducción adicional permite ajustar el contexto, la generación falla explícitamente en vez de descartar el texto corto y empezar de nuevo. Pueden necesitarse más resúmenes internos ordinarios; no aumentan los intentos de redacción ni los límites de tiempo, contexto o palabras finales.
+Un borrador automático revisado se corrige mediante ediciones locales basadas en las fuentes, también cuando se detectan muchas omisiones. Cada edición debe anclarse al texto original exacto y al hash inmutable del borrador, responder a los hallazgos requeridos y preservar la prosa fuera de su intervalo. Si la corrección no cabe en el contexto existente, la generación falla explícitamente en lugar de sustituir todo el episodio. La narración corregida pasa una revisión semántica final antes de sintetizar la voz. El modo breve permite dos revisiones semánticas y una corrección; la aprobación queda vinculada a la revisión actual de la política. La revisión breve comprueba los resúmenes aportados y no certifica todos los matices de cada artículo original. La revisión completa mediante `podcast_review.py` conserva sus comprobaciones de evidencia. El informe `podcast-coverage-report` registra el modo efectivo y la validación final.
 
-`podcast_review.py` valida citas exactas del guion y de las evidencias antes de
-guardar objeciones semánticas. Las omisiones identifican evidencias; las
-distorsiones factuales requieren una afirmación citada y evidencias que la
-contradigan directamente. La ausencia en un lote no desmiente una noticia
-fundamentada en otro. Las notas de producción y las repeticiones citan el guion
-real. Otra pasada del modelo contrasta las objeciones y solo puede conservar las
-demostradas sin modificarlas. Las confirmaciones se dividen en lotes sin eliminar
-sus fuentes. Las omisiones reales sin resolver bloquean la publicación.
+Reanudar un podcast conserva la selección congelada de artículos y las instrucciones, y actualiza el modelo, la ruta del proveedor y el razonamiento configurados explícitamente. Los resúmenes preparados solo se reutilizan si coincide la huella completa de las fuentes; la preparación antigua debe coincidir con los originales congelados exactos y las citas literales. Los podcasts completados con una política de aprobación obsoleta pueden revalidarse mediante la reanudación normal; las demás operaciones completadas mantienen la protección existente.
 
-Todas las notas completas se revisan frente a la narración entera en lotes
-acotados. La revisión del episodio comprueba también los asuntos minoritarios y
-las repeticiones. Hasta tres rondas completas de redacción y revisión corrigen
-las objeciones automáticamente. Solo la prosa para el oyente llega a la síntesis
-de voz: no se locutan etiquetas, evidencias, avisos de acceso ni instrucciones de
-producción. Los fallos, rechazos y cancelaciones conservan el audio anterior.
+La selección de un modelo debe considerar conjuntamente el proveedor real, el razonamiento, la capacidad útil de salida, el contexto y el plazo. Hay que validar esa combinación con una jornada representativa, incluyendo la revisión final del contenido, la duración medida del MP3 y la reproducción nativa. Cambiar de proveedor no selecciona otro algoritmo editorial. Los adaptadores pueden simplificar el esquema enviado a un endpoint fijado o utilizar transporte JSON, pero el esquema completo original sigue validándose localmente. Una reanudación correcta con preparación guardada no mide el rendimiento de una jornada completa desde cero. Cambiar la configuración del agente no implica ninguna ruta alternativa ni llamada adicional al modelo.
 
-Las revisiones de fuentes comprueban por separado la fidelidad factual y la
-cobertura temática, con hasta 16 notas por lote y la lista completa de asuntos.
-El estado de los hechos, las atribuciones y el alcance de las cifras tienen una
-comprobación específica. Si el proveedor agota la salida, solo se divide de forma
-recursiva el lote fallido de fuentes u objeciones; la confirmación conserva todas
-las evidencias originales. Un fallo indivisible bloquea la publicación. Cada
-ronda revisa también el episodio completo aunque queden objeciones sobre fuentes.
-Las objeciones actuales conservan el tipo y las fuentes; las antiguas y los
-guiones previos no se acumulan en las instrucciones de corrección. Solo el último
-guion se ofrece como contexto opcional separado. Se mantienen los límites de
-modelo, salida, tiempo y cancelación.
-
-`podcast-coverage-report`, versión 4, conserva el esquema, todas las notas, las
-asignaciones del servidor y el recuento de palabras. La cobertura estructural y
-las citas literales no prueban por sí solas la corrección semántica: la prueba
-real debe comparar el guion con todos los temas y matices y medir el MP3 respecto
-al objetivo aproximado de diez minutos.
-
-Un episodio válido según el esquema pero fuera del intervalo global de palabras vuelve
-inmediatamente al coordinador de longitud existente, con tres intentos. No consume la
-llamada de reparación genérica dentro del mismo plazo ya parcialmente gastado. Cada fase
-existente conserva su plazo de 300 segundos y las dos llamadas de formato; el
-coordinador conserva la composición rechazada exacta, los recuentos medidos y todos los
-temas. El JSON malformado mantiene la reparación ordinaria acotada. Tras el último
-intento, el error público del presupuesto de palabras no cambia.
-
-Las operaciones internas de planificación, resumen, redacción y revisión tienen
-300 segundos y 16.384 tokens de salida, incluido el razonamiento, salvo un límite
-explícito del perfil. Los contratos actuales acompañan las instantáneas antiguas;
-estas operaciones no utilizan delegación opcional. La planificación, redacción y
-resumen solo desactivan el razonamiento si los metadatos del proveedor lo declaran
-opcional y no existe una elección explícita en el perfil o cliente. Las revisiones
-mantienen el razonamiento habitual. Se conservan el modelo, las salvaguardas,
-preferencias de salida, límites de tiempo, ámbito autorizado y publicación atómica.
-
-El historial conserva los trabajos principales autorizados junto con las llamadas
-recientes, manteniendo su control de reanudación tras más de 50 llamadas internas.
-Nunca expone padres ausentes o de otro ámbito. Los metadatos exactos de contexto
-admiten modelos ausentes del registro; los límites explícitos tienen prioridad y
-los modelos desconocidos conservan el valor prudente. Las demás operaciones
-documentales mantienen sus protecciones.
-
-Los objetivos orientativos de los párrafos suman exactamente el presupuesto global. Los reintentos de validación reciben los recuentos actuales por párrafo y una distribución proporcional sugerida, recalculada a partir de la respuesta inmediatamente rechazada. Las palabras pueden redistribuirse; solo el límite global y las revisiones semánticas determinan la aceptación.
 
 ### Guías internas de corrección acotadas
 
