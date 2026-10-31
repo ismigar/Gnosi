@@ -174,13 +174,14 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
         try:
             request = _write_request(context, data, options)
             if 'composition_sha256' in request.output_schema.get('properties', {}):
-                from backend.services.podcast_length_edits import apply_edits
+                from backend.services.podcast_length_edits import apply_edits, word_stream_repair
                 base = data['previous_composition']
                 def validate_edits(value: dict[str, Any]) -> None:
                     apply_edits(value, base, data, minimum, maximum)
                 # Existing stage validation repairs proposals against the SAME base;
                 # it neither publishes a partial edit nor resets its two-call deadline.
-                result = context.stage(request, validate_edits)
+                result = context.stage(request, validate_edits,
+                    output_repair=word_stream_repair(data, minimum, maximum))
                 return {'narration': spoken_text(apply_edits(result, base, data, minimum, maximum), data)}
             result = context.stage(request, checked)
             return {"narration": spoken_text(result, data)}
