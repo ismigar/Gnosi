@@ -39,7 +39,7 @@ def written(request, text):
         'text': ' '.join(words[len(words) * i // len(groups):len(words) * (i + 1) // len(groups)]),
         'non_editorial': False} for i, g in enumerate(groups)}}
     encoding = data.get('composition_encoding')
-    return tokenized(result, groups, text=encoding == 'word_text_v1') if encoding in {'word_tokens_v1', 'word_text_v1'} else result
+    return tokenized(result, groups, text=encoding in {'word_text_v1', 'bounded_word_text_v1'}) if encoding in {'word_tokens_v1', 'word_text_v1', 'bounded_word_text_v1'} else result
 
 
 def audited(request, issues):

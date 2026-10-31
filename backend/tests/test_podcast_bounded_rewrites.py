@@ -34,7 +34,7 @@ def counted_workflow(monkeypatch, answers):
 
 def stream(words):
     _, value = broad_day(words, groups=11)
-    return {'paragraphs': value['paragraphs'], 'tokens': value['token_text'].split()}
+    return value
 
 
 def correction():
@@ -73,12 +73,11 @@ def test_observed_semantic_rewrite_lengths_are_schema_repaired_in_same_bounded_s
     assert rows[0].status == 'completed' and rows[0].model_calls == 2
     request = context.requests[0];sent = json.loads(request.input)['data']
     assert request.timeout_seconds == 300 and request.max_model_calls == 2
-    assert sent['composition_encoding'] == 'word_tokens_v1'
+    assert sent['composition_encoding'] == 'bounded_word_text_v1'
     assert sent['briefs'] == data['briefs'] and len(sent['briefs']) == 239
     assert sent['subject_groups'] == data['subject_groups']
     assert sent['previous_draft'] == data['previous_draft'] and data == original
-    assert request.output_schema['properties']['tokens']['minItems'] == 1253
-    assert request.output_schema['properties']['tokens']['maxItems'] == 1515
+    assert request.output_schema['properties']['token_text']['pattern'] == r'^\S+(?:\s+\S+){1252,1514}$'
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(stream(bad_words), request.output_schema)
 

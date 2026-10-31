@@ -7,7 +7,7 @@ from math import ceil
 from typing import Any, TYPE_CHECKING
 
 from backend.services.agent_behavior import resource
-from backend.services.podcast_composition import WORD_TEXT, WORD_TOKENS, advisory_targets, schema as composition_schema, spoken_text, word_guidance
+from backend.services.podcast_composition import BOUNDED_TEXT, WORD_TEXT, advisory_targets, schema as composition_schema, spoken_text, word_guidance
 from backend.services.podcast_policy import preferences, synthesis_context_limit
 
 if TYPE_CHECKING:
@@ -125,7 +125,7 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
                     length_repair={**state, "mode": "shorten_composition"})
         if (preferences(context).review_mode == 'brief'
                 and options['max_words'] + len(data['composition_groups']) <= 2048):
-            lean.update(composition_encoding=WORD_TOKENS,
+            lean.update(composition_encoding=BOUNDED_TEXT,
                         composition_word_range={'min_words': options['min_words'], 'max_words': options['max_words']})
         candidate = _request(context, "write", lean, composition_schema(lean), **options)
         if context.cost(candidate) <= limit:
@@ -142,11 +142,12 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
 def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> dict[str, Any]:
     minimum, maximum = options["min_words"], options["max_words"]
     # Constrain concise automatic rewrites at the provider schema as well as
-    # locally. Longer episodes retain the compact wire/output allowance.
+    # locally, using compact prose rather than a JSON item per word.
+    # Longer episodes retain their existing compact wire/output allowance.
     bounded_words = (preferences(context).review_mode == 'brief'
                      and maximum + len(data.get('composition_groups', [])) <= 2048)
     if bounded_words and data.get('composition_groups') and data.get('feedback'):
-        data = {**data, 'composition_encoding': WORD_TOKENS,
+        data = {**data, 'composition_encoding': BOUNDED_TEXT,
                 'composition_word_range': {'min_words': minimum, 'max_words': maximum}}
     previous = ""
     previous_composition: dict[str, Any] | None = None
