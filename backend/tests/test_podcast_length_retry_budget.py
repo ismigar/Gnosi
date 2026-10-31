@@ -12,7 +12,7 @@ from backend.services.podcast_automatic import _bounded_write
 from backend.services.podcast_briefing import _Briefing
 from backend.tests.test_agent_execution import install_workflow, runtime  # noqa: F401
 from backend.tests.test_podcast_word_text import broad_day
-from backend.tests.test_podcast_briefing import length_edited
+from backend.tests.test_podcast_briefing import length_streamed
 
 
 @pytest.mark.parametrize('malformed_first', [False, True])
@@ -83,7 +83,10 @@ def test_normal_brief_length_repair_preserves_scope_and_uses_eligible_global_bou
                             for i in range(222)], feedback=[],
                     subject_groups=[{'topic': f'Subject {i}', 'subjects': [f'Development {i}']}
                                     for i in range(12)])
-    proposal = length_edited(accepted, {**original, 'previous_composition': rejected}) if bounded else accepted
+    stream_data = {**original, 'anchors': [
+        {'marker': f'__gnosi_edit__:{index}', 'group_key': group['key']}
+        for index, group in enumerate(original['composition_groups'])]}
+    proposal = length_streamed(accepted, stream_data) if bounded else accepted
     calls = install_workflow(monkeypatch, [json.dumps(rejected), json.dumps(proposal)])
     requests = []
     class Context(_Briefing):
@@ -99,7 +102,11 @@ def test_normal_brief_length_repair_preserves_scope_and_uses_eligible_global_bou
         rows = store.list_runs(scope)
     assert len(result['narration'].split()) == target and len(calls) == len(requests) == 2
     repair = json.loads(requests[1].input)['data']
-    assert repair['previous_composition'] == rejected
+    if bounded:
+        assert 'previous_composition' not in repair
+        assert repair['original_groups'] == rejected['paragraphs']
+    else:
+        assert repair['previous_composition'] == rejected
     assert repair['length_repair']['current_words'] == 2443
     assert repair['length_repair']['mode'] == 'shorten_composition'
     assert repair['composition_encoding'] == 'word_text_v1'
@@ -110,10 +117,10 @@ def test_normal_brief_length_repair_preserves_scope_and_uses_eligible_global_bou
     assert not {'briefs', 'digests', 'feedback'} & repair.keys()
     assert len(requests[1].input) < len(requests[0].input)
     if bounded:
-        assert repair['revision_encoding'] == 'composition_length_edits_v1'
-        assert requests[1].output_schema['properties']['composition_sha256']['enum'] == [
-            repair['length_repair']['composition_sha256']]
-        assert 'composition_length_edits_v1' in requests[1].options['composition_contract']
+        assert repair['revision_encoding'] == 'composition_length_stream_v1'
+        assert repair['composition_sha256'] == repair['length_repair']['composition_sha256']
+        assert requests[1].output_schema['properties']['replacement_tokens']['maxItems'] == maximum + 12
+        assert 'composition_length_stream_v1' in requests[1].options['composition_contract']
         assert 'revision_contract' not in requests[1].options
         import jsonschema
         with pytest.raises(jsonschema.ValidationError):

@@ -39,6 +39,14 @@ def length_edited(result, data):
         for key, block in before.items() if block['text'] != after[key]['text']]}
 
 
+def length_streamed(result, data):
+    """Encode intended prose without returning any original anchor strings."""
+    from backend.services.podcast_composition import composition_blocks
+    after = composition_blocks(result, data)
+    return {'replacement_tokens': [token for anchor in data['anchors']
+        for token in (anchor['marker'], *after[anchor['group_key']]['text'].split())]}
+
+
 def written(request, text):
     """Fake model transport uses the requested prose shape; assertions audit the result."""
     data = json.loads(request.input).get('data', {})
@@ -51,6 +59,8 @@ def written(request, text):
         'non_editorial': False} for i, g in enumerate(groups)}}
     if data.get('revision_encoding') == 'composition_length_edits_v1':
         return length_edited(result, data)
+    if data.get('revision_encoding') == 'composition_length_stream_v1':
+        return length_streamed(result, data)
     encoding = data.get('composition_encoding')
     return tokenized(result, groups, text=encoding in {'word_text_v1', 'bounded_word_text_v1'}) if encoding in {'word_tokens_v1', 'word_text_v1', 'bounded_word_text_v1'} else result
 
