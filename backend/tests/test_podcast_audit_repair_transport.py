@@ -1,5 +1,6 @@
 """Exercise automatic audit quote selection through the real bounded SDK executor."""
 import asyncio
+import copy
 import json
 
 import httpx2
@@ -16,18 +17,28 @@ from backend.tests.test_agent_execution import runtime as runtime
 from backend.tests.test_podcast_audit_repair import case as case, built, selection
 
 
+@pytest.mark.parametrize('compound', [False, True], ids=['quote-only', 'compound'])
 @pytest.mark.parametrize('calls,valid_patch', [(2, True), (2, False), (1, True)])
 def test_real_executor_uses_only_remaining_call_and_never_publishes_an_invalid_patch(
-        runtime, monkeypatch, case, calls, valid_patch):
+        runtime, monkeypatch, case, calls, valid_patch, compound):
     from backend.agent import factory, model_router
     from backend.domains.agent.operation_graph import operation_workflow
     scope, snapshot = runtime
     data, original = case
+    if compound:
+        data.pop('review_focus')
+        original['issues'][1]['kind'] = 'omission'
     snapshot.profile.update(provider='openrouter', model='fixture')
     monkeypatch.setattr(model_router, 'budget_status', lambda: {'over_cap': False})
     monkeypatch.setattr('backend.services.model_reasoning.reasoning_options',
         lambda *_: {'supported_efforts': [], 'supports_reasoning_disable': True})
-    patch = selection(built(case)) if valid_patch else {'quote_ids': {}}
+    if compound and valid_patch:
+        patch = copy.deepcopy(original)
+        patch['issues'][0].update(narration_quotes=[data['narration'].split(' Police')[0]],
+                                  evidence_quote=data['briefs'][0]['source_text'])
+        patch['issues'][1]['narration_quotes'] = []
+    else:
+        patch = selection(built(case)) if valid_patch else {'quote_ids': {}}
     sent = []
     route = {'provider': {'order': ['selected'], 'allow_fallbacks': False}}
     def respond(request):
@@ -63,7 +74,9 @@ def test_real_executor_uses_only_remaining_call_and_never_publishes_an_invalid_p
                 assert completed.status == 'completed' and completed.model_calls == 2
                 result = json.loads(completed.result)
                 _validate(result, data)
-                assert result['issues'][1] == original['issues'][1]
+                if not compound:
+                    assert result['issues'][1] == original['issues'][1]
+                assert [i['kind'] for i in result['issues']] == [i['kind'] for i in original['issues']]
                 assert [i['detail'] for i in result['issues']] == [i['detail'] for i in original['issues']]
                 assert [i['source_part_ids'] for i in result['issues']] == [i['source_part_ids'] for i in original['issues']]
             else:
@@ -79,7 +92,10 @@ def test_real_executor_uses_only_remaining_call_and_never_publishes_an_invalid_p
         assert payload['reasoning'] == {'enabled': False}
         assert payload['response_format']['type'] == 'json_schema'
     assert sent[0]['response_format']['json_schema']['schema'] == schema
-    if calls == 2:
+    if calls == 2 and compound:
+        assert sent[1]['response_format']['json_schema']['schema'] == schema
+        assert 'quote_pools' not in json.dumps(sent[1])
+    elif calls == 2:
         assert 'quote_ids' in sent[1]['response_format']['json_schema']['schema']['properties']
         assert 'quote_pools' in json.dumps(sent[1])
     assert request.max_model_calls == calls and request.timeout_seconds == 300 and model.root_client.max_retries == 0

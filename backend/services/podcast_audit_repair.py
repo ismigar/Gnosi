@@ -64,8 +64,15 @@ def audit_quote_repair(data: dict[str, Any], schema: dict[str, Any]) -> RepairBu
         if not isinstance(error, ValueError) or str(error) not in {
                 'podcast_audit_invented_narration_quote', 'podcast_audit_invented_evidence_quote'}:
             return None
-        original = json.loads(rejected)
-        jsonschema.validate(original, full_schema)
+        from backend.services.podcast_review import _validate_structure
+        try:
+            original = json.loads(rejected)
+            jsonschema.validate(original, full_schema)
+            _validate_structure(original, frozen)
+        except (ValueError, jsonschema.ValidationError):
+            # A quote-ID patch freezes kinds, IDs and array sizes. Let the
+            # existing ordinary repair handle faults it cannot possibly fix.
+            return None
         narration = _narration(frozen)
         pools: dict[str, dict[str, dict[str, Any]]] = {}
         fields: dict[str, dict[str, Any]] = {}
