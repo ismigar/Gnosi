@@ -19,9 +19,16 @@ def _originals(data: dict[str, Any], issue: dict[str, Any]) -> list[dict[str, An
     if data.get('whole_episode'):
         return [{'part_id': f'subject:{i}:{j}', 'title': '', 'text': subject}
                 for i, group in enumerate(data['subjects']) for j, subject in enumerate(group)]
-    return [{'part_id': b['part_id'], 'title': str(b.get('title', '')),
-             'text': str(b.get('source_text', ''))}
-            for b in data['briefs'] if b['part_id'] in issue['source_part_ids']]
+    parts = []
+    for brief in data['briefs']:
+        if brief['part_id'] not in issue['source_part_ids']:
+            continue
+        parts.append({'part_id': brief['part_id'], 'title': str(brief.get('title', '')),
+                      'text': str(brief.get('source_text', ''))})
+        if brief.get('source_quote'):
+            parts.append({'part_id': brief['part_id'], 'title': '',
+                          'text': str(brief['source_quote']), 'quote_field': True})
+    return parts
 
 
 def _narration_options(text: str) -> dict[str, dict[str, Any]]:
@@ -95,8 +102,9 @@ def audit_quote_repair(data: dict[str, Any], schema: dict[str, Any]) -> RepairBu
             pool = f'evidence:{index}'
             pools[pool] = {}
             for part in available:
-                originals[part['part_id']] = part
-                options = _quote_options({**part, 'part_id': f"source:{part['part_id']}"})
+                key = part['part_id'] + (':quote' if part.get('quote_field') else '')
+                originals[key] = part
+                options = _quote_options({**part, 'part_id': f"source:{key}"})
                 pools[pool].update(options)
             if not pools[pool]:
                 raise ValueError('podcast_audit_quote_repair_originals_missing')

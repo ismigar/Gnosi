@@ -99,7 +99,7 @@ def test_migration_replaces_managed_principal_without_global_knowledge_instructi
     assert ai["knowledge_legacy_instructions"] == "Knowledge only"
 
 
-def install_workflow(monkeypatch, answers):
+def install_workflow(monkeypatch, answers, *, podcast_word_contract=False):
     from backend.agent import factory
     calls = []
     class Application:
@@ -111,7 +111,13 @@ def install_workflow(monkeypatch, answers):
             return self
     async def create(*args, **kwargs):
         assert kwargs["operation_mode"]
-        assert kwargs["runtime_capabilities"].instructions == ("Use the assigned procedure",)
+        instructions = kwargs["runtime_capabilities"].instructions
+        if podcast_word_contract:
+            assert instructions[0] == 'Use the assigned procedure' and len(instructions) == 2
+            assert instructions[1].startswith('Application-owned podcast word contract:')
+            assert 'shared episode budget' in instructions[1]
+        else:
+            assert instructions == ("Use the assigned procedure",)
         return Application(), {"model": "fake", "provider": "test"}
     monkeypatch.setattr(factory, "create_agent_workflow", create)
     return calls
@@ -657,6 +663,46 @@ def test_resume_claim_is_atomic_and_rejects_changed_role(runtime):
             store.resume_data(scope, "batch")
 
 
+@pytest.mark.parametrize('operation,validated,allowed', [
+    ('podcast', False, True), ('podcast', True, False), ('reader.analysis', False, False)])
+def test_completed_podcast_can_resume_only_to_revalidate_a_legacy_unchecked_script(
+    runtime, operation, validated, allowed,
+):
+    scope, snapshot = runtime
+    snapshot = snapshot.model_copy(update={'behavior_resources': {'test': 'frozen procedure'}})
+    with execution_scope(scope):
+        execution.create_job_run(snapshot, 'legacy', operation)
+        store.update(scope, 'legacy', status='completed', result='old.mp3')
+        from backend.services.podcast_brief_review import policy_revision
+        report = {'version': 4, 'review': {'mode': 'brief', 'final_narration_validated': validated,
+                                         'policy_revision': policy_revision()},
+                  'sections': [{'narration': 'Completed original script.'}]}
+        store.work_checkpoint(scope, 'legacy', 'podcast-coverage-report', report)
+        if allowed:
+            request, saved = store.resume_data(scope, 'legacy')
+            assert request['operation'] == 'podcast' and saved == snapshot.model_dump()
+            assert store.read(scope, 'legacy').status == 'resuming'
+            assert store.work_checkpoint(scope, 'legacy', 'podcast-coverage-report') == report
+            with pytest.raises(ValueError, match='not_resumable'):
+                store.resume_data(scope, 'legacy')
+        else:
+            with pytest.raises(ValueError, match='not_resumable'):
+                store.resume_data(scope, 'legacy')
+            assert store.read(scope, 'legacy').status == 'completed'
+
+
+def test_completed_podcast_approval_under_old_policy_requires_revalidation(runtime):
+    scope, snapshot = runtime
+    snapshot = snapshot.model_copy(update={'behavior_resources': {'test': 'frozen procedure'}})
+    with execution_scope(scope):
+        execution.create_job_run(snapshot, 'old-policy', 'podcast')
+        store.update(scope, 'old-policy', status='completed')
+        store.work_checkpoint(scope, 'old-policy', 'podcast-coverage-report', {
+            'review': {'mode': 'brief', 'final_narration_validated': True, 'policy_revision': 'obsolete'}})
+        store.resume_data(scope, 'old-policy')
+        assert store.read(scope, 'old-policy').status == 'resuming'
+
+
 def test_failed_model_never_calls_legacy_provider(runtime, monkeypatch):
     from backend.agent import factory
     scope, snapshot = runtime
@@ -1087,7 +1133,8 @@ def test_podcast_word_boundary_repair_uses_real_executor_and_latest_draft(runtim
     from backend.services.podcast_briefing import _Briefing
     scope, snapshot = runtime
     rejected = json.dumps({'narration': 'word ' * invalid})
-    calls = install_workflow(monkeypatch, [rejected, json.dumps({'narration': 'word ' * accepted})])
+    calls = install_workflow(monkeypatch, [rejected, json.dumps({'narration': 'word ' * accepted})],
+                             podcast_word_contract=True)
     class Context(_Briefing):
         def request(self, task, data, schema):
             return super().request(task, data, schema).model_copy(update={'skill_id': snapshot.skill_ids[0]})
@@ -1122,11 +1169,12 @@ def test_group_length_repair_reaches_real_executor_with_current_counts(runtime, 
     rejected = output(1000, 505)
     from backend.tests.test_podcast_briefing import tokenized
     accepted = tokenized(json.loads(output(900, 480)), [{"key": "group:0"}, {"key": "group:1"}], text=True)
-    calls = install_workflow(monkeypatch, [rejected, json.dumps(accepted)])
+    calls = install_workflow(monkeypatch, [rejected, json.dumps(accepted)], podcast_word_contract=True)
     class Context(_Briefing):
         def request(self, task, data, schema):
             return super().request(task, data, schema).model_copy(update={"skill_id": snapshot.skill_ids[0]})
     context = Context(snapshot, "English", 80000, lambda _: 100, lambda: None)
+    context.editorial_policy = context.editorial_policy.model_copy(update={'review_mode': 'full'})
     groups = [{"key": "group:0", "topic": "Housing", "target_words": 690},
               {"key": "group:1", "topic": "Community", "target_words": 690}]
     with execution_scope(scope):

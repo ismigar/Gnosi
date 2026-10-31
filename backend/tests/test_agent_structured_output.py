@@ -10,6 +10,61 @@ from backend.domains.agent.structured_output import constrain_output
 from backend.domains.llm_wiki.directed_reading import ACTION_SCHEMA
 
 
+def test_google_json_transport_retains_complete_local_schema_and_fixed_recipient():
+    import copy
+    import jsonschema
+    from backend.services.agent_execution import _validate_output
+    schema = {'type': 'object', 'properties': {'ids': {'type': 'array', 'uniqueItems': True,
+        'items': {'$ref': '#/$defs/id'}}}, 'required': ['ids'], 'additionalProperties': False,
+        '$defs': {'id': {'type': 'string', 'enum': ['a', 'b']}}}
+    original = copy.deepcopy(schema)
+    model = ChatOpenAI(model='google/gemini-fixture', api_key='fixture', extra_body={
+        'provider': {'order': ['google-ai-studio'], 'allow_fallbacks': False}})
+    result = constrain_output(model, 'openrouter', schema)
+    assert result.kwargs['response_format'] == {'type': 'json_object'}
+    assert result.kwargs['extra_body']['provider'] == {
+        'order': ['google-ai-studio'], 'allow_fallbacks': False, 'require_parameters': True}
+    assert schema == original
+    for invalid in ('{}', '{"ids":["a","a"]}', '{"ids":["unknown"]}'):
+        with pytest.raises(jsonschema.ValidationError):
+            _validate_output(invalid, schema)
+    assert json.loads(_validate_output('{"ids":["a","b"]}', schema)) == {'ids': ['a', 'b']}
+
+
+def test_deepinfra_wire_omits_unsupported_uniqueness_but_local_contract_still_rejects_duplicates():
+    import copy
+    import jsonschema
+    from backend.services.agent_execution import _validate_output
+    schema = {'type': 'object', 'properties': {'ids': {'type': 'array', 'uniqueItems': True,
+        'items': {'$ref': '#/$defs/id'}}}, 'required': ['ids'], 'additionalProperties': False,
+        '$defs': {'id': {'type': 'string', 'enum': ['a', 'b']}}}
+    original = copy.deepcopy(schema)
+    model = ChatOpenAI(model='fixture', api_key='fixture', extra_body={
+        'provider': {'order': ['deepinfra'], 'allow_fallbacks': False}})
+    constrained = constrain_output(model, 'openrouter', schema)
+    native = constrained.kwargs['response_format']['json_schema']['schema']
+    assert 'uniqueItems' not in native['properties']['ids'] and schema == original
+    assert native['$defs'] == schema['$defs']
+    assert constrained.kwargs['extra_body']['provider'] == {
+        'order': ['deepinfra'], 'allow_fallbacks': False, 'require_parameters': True}
+    with pytest.raises(jsonschema.ValidationError):
+        _validate_output('{"ids":["a","a"]}', schema)
+    assert json.loads(_validate_output('{"ids":["a","b"]}', schema)) == {'ids': ['a', 'b']}
+    other = ChatOpenAI(model='fixture', api_key='fixture', extra_body={'provider': {'order': ['xiaomi']}})
+    assert constrain_output(other, 'openrouter', schema).kwargs['response_format']['json_schema']['schema'] == schema
+
+
+def test_deepinfra_adapter_preserves_literal_data_and_a_property_named_unique_items():
+    from backend.domains.agent.structured_output import _deepinfra_schema
+    schema = {'type': 'object', 'properties': {'uniqueItems': {'type': 'array', 'uniqueItems': True,
+        'items': {'type': 'object', 'enum': [{'uniqueItems': 'literal value'}]}}},
+        'required': ['uniqueItems'], 'additionalProperties': False}
+    result = _deepinfra_schema(schema)
+    assert 'uniqueItems' in result['properties']
+    assert 'uniqueItems' not in result['properties']['uniqueItems']
+    assert result['properties']['uniqueItems']['items']['enum'] == [{'uniqueItems': 'literal value'}]
+
+
 def test_bounded_reader_uses_supported_low_reasoning_on_the_wire(monkeypatch):
     from backend.domains.agent import operation_graph
     monkeypatch.setattr('backend.services.model_reasoning.reasoning_options',

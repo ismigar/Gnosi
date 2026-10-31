@@ -124,6 +124,29 @@ def test_resumed_snapshot_route_has_its_own_revision_without_changing_source_sco
     assert events[0][2] == 'job.provider_route'
 
 
+@pytest.mark.parametrize('pinned', [True, False])
+def test_podcast_model_change_preserves_frozen_sources_and_requires_an_explicit_route(monkeypatch, tmp_path, pinned):
+    from types import SimpleNamespace
+    from backend.services.agent_execution_models import AgentExecutionSnapshot, ExecutionScope
+    from backend.services.audio_summarizer import _refresh_podcast_upstream
+    scope = ExecutionScope(user_id='fixture', workspace_id='fixture', role='owner', vault_path=str(tmp_path))
+    frozen = {'id': 'bot', 'provider': 'openrouter', 'model': 'old', 'persona': 'Frozen'}
+    snapshot = AgentExecutionSnapshot(scope=scope, agent_id='bot', profile=frozen, skill_ids=['original'],
+        instructions=['Frozen instruction'], catalog_revision='catalog', revision='before', parent_run_id='day')
+    current = {**frozen, 'model': 'new', 'persona': 'Changed', 'reasoning_effort': 'low',
+        **({'openrouter_route': {'model': 'new', 'provider': 'explicit'}} if pinned else {})}
+    monkeypatch.setattr('backend.config.app_config.load_params', lambda **_: SimpleNamespace(ai={'agents': [current]}))
+    monkeypatch.setattr('backend.services.agent_execution_trace.append', lambda *args: None)
+    updated = _refresh_podcast_upstream(snapshot)
+    if pinned:
+        assert updated.profile == {**frozen, 'model': 'new', '_podcast_preparation_model': 'old', 'reasoning_effort': 'low',
+                                   'openrouter_route': current['openrouter_route']}
+        assert updated.model_dump(exclude={'profile', 'revision'}) == snapshot.model_dump(exclude={'profile', 'revision'})
+        assert snapshot.profile == frozen and updated.revision != snapshot.revision
+    else:
+        assert updated is snapshot
+
+
 @pytest.mark.parametrize('bound', [False, True])
 def test_native_tool_binding_preserves_fixed_upstream_and_all_constraints(bound):
     from backend.agent.tools import bind_model_tools

@@ -26,6 +26,7 @@ class ShortDayPreferences(BaseModel):
 class PodcastPreferences(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True, frozen=True)
     duration_minutes: int = Field(ge=1, le=60)
+    duration_tolerance_percent: int = Field(default=20, ge=0, le=50)
     max_topic_groups: int = Field(ge=1, le=TECHNICAL_MAX_TOPICS)
     review_mode: Literal['brief', 'full']
     short_day: ShortDayPreferences
@@ -36,6 +37,11 @@ class PodcastPreferences(BaseModel):
             return target
         return min(target, max(self.short_day.minimum_words,
                                self.short_day.words_per_article * article_count))
+
+    def word_range(self, target: int) -> tuple[int, int]:
+        tolerance = self.duration_tolerance_percent
+        return (max(1, (target * (100 - tolerance) + 99) // 100),
+                target * (100 + tolerance) // 100)
 
 
 def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:

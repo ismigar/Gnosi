@@ -478,11 +478,24 @@ def _refresh_podcast_upstream(snapshot: AgentExecutionSnapshot) -> AgentExecutio
     from backend.services.agent_execution_trace import append
     current = next((p for p in load_params(strict_env=False).ai.get('agents', [])
                     if isinstance(p, dict) and p.get('id') == snapshot.agent_id), {})
-    profile = resumed_provider_profile(snapshot.profile, current)
+    frozen = snapshot.profile
+    if (current.get('id') == snapshot.agent_id and current.get('provider') == 'openrouter'
+            and current.get('model') and current['model'] != frozen.get('model')):
+        from backend.domains.agent.provider_routing import selected_upstream
+        # A resumed podcast retains its sources and instructions, while an
+        # explicitly configured, pinned model may replace the failed route.
+        if selected_upstream(current, 'openrouter', current['model']) is not None:
+            frozen = {**frozen, 'model': current['model'],
+                      '_podcast_preparation_model': frozen.get('_podcast_preparation_model', frozen.get('model'))}
+            if current.get('reasoning_effort') is not None:
+                frozen['reasoning_effort'] = current['reasoning_effort']
+    profile = resumed_provider_profile(frozen, current)
     if profile is snapshot.profile:
         return snapshot
     updated = snapshot.model_copy(update={'profile': profile,
-        'revision': revision([snapshot.revision, {'openrouter_route': profile.get('openrouter_route')}])})
+        'revision': revision([snapshot.revision, {'model': profile.get('model'),
+                                                'reasoning_effort': profile.get('reasoning_effort'),
+                                                'openrouter_route': profile.get('openrouter_route')}])})
     if snapshot.parent_run_id:
         append(snapshot.scope, snapshot.parent_run_id, 'job.provider_route', {
             'model': profile.get('model'), 'route': profile.get('openrouter_route'),

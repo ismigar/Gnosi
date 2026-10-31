@@ -152,9 +152,10 @@ def test_observed_sized_day_uses_compact_edits_and_preserves_the_complete_review
     assert rows[0].status == 'completed' and rows[0].model_calls == 1
     assert sent['previous_draft'] == previous and sent['feedback'] == findings
     assert sent['briefs'] == briefs and len(sent['planned_groups']) == 11
+    assert 'composition_contract' not in request.options
     assert sent['revision_encoding'] == 'grounded_edits_v1'
-    assert sent['revision_budget'] == {'original_words': 1394, 'minimum': 1242,
-        'maximum': 1504, 'target': 1380, 'minimum_word_delta': -152, 'maximum_word_delta': 110}
+    assert sent['revision_budget'] == {'original_words': 1394, 'minimum': 1104,
+        'maximum': 1656, 'target': 1380, 'minimum_word_delta': -290, 'maximum_word_delta': 262}
     assert 'revision_contract' in request.options
     assert set(request.output_schema['properties']) == {'draft_sha256', 'edits'}
 
@@ -206,3 +207,32 @@ def test_never_compliant_edits_fail_closed_without_extra_stage_or_deadline(runti
     assert len(calls) == 2 and len(context.requests) == len(rows) == 1
     assert rows[0].status == 'failed' and rows[0].model_calls == 2
     assert context.requests[0].timeout_seconds == 300
+
+
+def test_broad_missing_coverage_keeps_all_unedited_prose_and_requires_grounded_edits(runtime, monkeypatch):
+    from backend.services import podcast_automatic
+    scope, snapshot = runtime
+    previous, briefs, outline, findings, _ = day()
+    findings = [{'kind': 'omission', 'source_part_ids': [f'source:{i}']} for i in range(75)]
+    edits = [edit(f'word{i} ', f'covered{i} development ', i) for i in range(75)]
+    calls = counted_workflow(monkeypatch, [json.dumps(reply(previous, edits))])
+    context = context_for(snapshot)
+    def unexpected(*args, **kwargs):
+        pytest.fail('A correction must not regenerate the complete episode')
+    monkeypatch.setattr(podcast_automatic, '_bounded_write', unexpected)
+    with execution_scope(scope):
+        section = _write_episode(context, briefs, outline, 1380, findings, previous)
+    assert section['narration'] == apply_edits(reply(previous, edits), previous, findings, 1104, 1656)
+    assert section['narration'].endswith(previous[previous.index('word75 '):])
+    assert len(calls) == 1 and len(context.requests) == 1
+    assert json.loads(context.requests[0].input)['data']['revision_encoding'] == 'grounded_edits_v1'
+
+
+def test_unavailable_grounded_edit_context_fails_before_global_rewrite(runtime, monkeypatch):
+    from backend.services import podcast_brief_edits, podcast_automatic
+    scope, snapshot = runtime
+    previous, briefs, outline, findings, _ = day()
+    monkeypatch.setattr(podcast_brief_edits, 'revise', lambda *args: None)
+    monkeypatch.setattr(podcast_automatic, '_bounded_write', lambda *args: pytest.fail('Global rewrite'))
+    with execution_scope(scope), pytest.raises(RuntimeError, match='grounded_revision_context_insufficient'):
+        _write_episode(context_for(snapshot), briefs, outline, 1380, findings, previous)

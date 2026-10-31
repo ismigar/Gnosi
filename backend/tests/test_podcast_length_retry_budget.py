@@ -23,7 +23,7 @@ def test_slow_length_rejection_uses_exact_draft_in_fresh_bounded_stage(runtime, 
     answers = [json.dumps(rejected), json.dumps(accepted)]
     if malformed_first:
         answers.insert(0, 'not json')
-    calls = install_workflow(monkeypatch, answers)
+    calls = install_workflow(monkeypatch, answers, podcast_word_contract=True)
     clock = [0.0]
     real_time = execution.time.time
     monkeypatch.setattr(execution, 'time', SimpleNamespace(time=real_time, monotonic=lambda: clock[0]))
@@ -87,7 +87,7 @@ def test_normal_brief_length_repair_preserves_scope_and_uses_eligible_global_bou
         {'marker': f'__gnosi_edit__:{index}', 'group_key': group['key']}
         for index, group in enumerate(original['composition_groups'])]}
     proposal = length_streamed(accepted, stream_data) if bounded else accepted
-    calls = install_workflow(monkeypatch, [json.dumps(rejected), json.dumps(proposal)])
+    calls = install_workflow(monkeypatch, [json.dumps(rejected), json.dumps(proposal)], podcast_word_contract=True)
     requests = []
     class Context(_Briefing):
         def request(self, task, data, contract):

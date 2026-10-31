@@ -213,7 +213,19 @@ def resume_data(scope: ExecutionScope, run_id: str) -> tuple[dict[str, Any], dic
         request_metadata = json.loads(str(row["request"]))
         if not run.resumable:
             raise ValueError("agent_run_requires_original_entrypoint")
-        if run.status not in {"failed", "cancelled", "interrupted", "awaiting_confirmation"}:
+        unchecked_podcast = False
+        if (run.status == 'completed' and request_metadata.get('mode') == 'job'
+                and request_metadata.get('operation') == 'podcast'
+                and db.execute("SELECT 1 FROM sqlite_master WHERE name='agent_work_checkpoints'").fetchone()):
+            report = db.execute('SELECT payload FROM agent_work_checkpoints WHERE run_id=? AND checkpoint_key=?',
+                                (run_id, 'podcast-coverage-report')).fetchone()
+            if report:
+                from backend.services.podcast_brief_review import policy_revision
+                review = json.loads(report[0]).get('review', {})
+                unchecked_podcast = review.get('mode') == 'brief' and (
+                    review.get('final_narration_validated') is not True
+                    or review.get('policy_revision') != policy_revision())
+        if run.status not in {"failed", "cancelled", "interrupted", "awaiting_confirmation"} and not unchecked_podcast:
             raise ValueError("agent_run_not_resumable")
         if request_metadata.get("operation") == "podcast" and _podcast_busy(db, scope.vault_path, run_id):
             raise ValueError("podcast_generation_already_running")

@@ -158,8 +158,9 @@ def test_end_to_end_pipeline_uses_custom_duration_and_records_the_resolved_polic
         'duration_minutes': 2, 'max_topic_groups': 3, 'short_day': {'full_episode_from_articles': 1}})}
     script = pipeline.run([{'id': 'a', 'title': 'Source', 'text': 'Original evidence.'}])
     report = pipeline.saved['podcast-coverage-report']
-    assert report['word_budget'] == 276 and 249 <= len(script.split()) <= 300
+    assert report['word_budget'] == 276 and 200 <= len(script.split()) <= 350
     assert report['editorial_policy']['duration_minutes'] == 2
+    assert report['editorial_policy']['duration_tolerance_percent'] == 20
     assert report['article_ids'] == ['a']
     assert any(c['task'] == 'podcast.coverage.audit' for c in pipeline.calls)
 

@@ -16,7 +16,7 @@ from backend.tests.test_podcast_word_text import broad_day
 def counted_workflow(monkeypatch, answers):
     from backend.agent import factory, model_router
     from backend.services import agent_execution
-    calls = install_workflow(monkeypatch, answers)
+    calls = install_workflow(monkeypatch, answers, podcast_word_contract=True)
     original = factory.create_agent_workflow
     async def create(*args, **kwargs):
         app, selection = await original(*args, **kwargs)

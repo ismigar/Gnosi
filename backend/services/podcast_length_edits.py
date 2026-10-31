@@ -24,7 +24,7 @@ def composition_digest(value: dict[str, Any]) -> str:
     return hashlib.sha256(encoded.encode()).hexdigest()
 
 
-def schema(data: dict[str, Any]) -> dict[str, Any]:
+def schema(data: dict[str, Any], *, edit_limit: int | None = None) -> dict[str, Any]:
     groups = data['composition_groups']
     edit = _object({'group_key': {'type': 'string', 'enum': [g['key'] for g in groups]},
                     'before': {'type': 'string', 'minLength': 1},
@@ -32,7 +32,7 @@ def schema(data: dict[str, Any]) -> dict[str, Any]:
     return _object({'composition_sha256': {'type': 'string',
                         'enum': [composition_digest(data['previous_composition'])]},
                     'edits': {'type': 'array', 'minItems': 1,
-                              'maxItems': 2 * len(groups) + 2, 'items': edit}})
+                              'maxItems': 2 * len(groups) + 2 if edit_limit is None else edit_limit, 'items': edit}})
 
 
 def _splits_word(text: str, position: int) -> bool:
@@ -148,7 +148,8 @@ def _replacement_edits(tokens: list[str], anchors: list[dict[str, str]]) -> list
 
 
 def _stream_contract(data: dict[str, Any], anchors: list[dict[str, str]], untouched: int,
-                     minimum: int, maximum: int, *, whole_groups: bool = False) -> OutputRepair:
+                     minimum: int, maximum: int, *, whole_groups: bool = False,
+                     edit_limit: int | None = None) -> OutputRepair:
     frozen, fixed = deepcopy(data), deepcopy(anchors)
     previous = frozen['previous_composition']
     digest, count = composition_digest(previous), len(fixed)
@@ -180,7 +181,7 @@ def _stream_contract(data: dict[str, Any], anchors: list[dict[str, str]], untouc
         jsonschema.validate(patch, patch_schema)
         restored = {'composition_sha256': digest,
                     'edits': _replacement_edits(patch['replacement_tokens'], fixed)}
-        jsonschema.validate(restored, schema(frozen))
+        jsonschema.validate(restored, schema(frozen, edit_limit=edit_limit))
         apply_edits(restored, previous, frozen, minimum, maximum)
         return json.dumps(restored, ensure_ascii=False)
 
@@ -202,11 +203,12 @@ def composition_stream(data: dict[str, Any], minimum: int, maximum: int) -> Outp
     return _stream_contract(frozen, anchors, 0, minimum, maximum, whole_groups=True)
 
 
-def word_stream_repair(data: dict[str, Any], minimum: int, maximum: int) -> RepairBuilder:
+def word_stream_repair(data: dict[str, Any], minimum: int, maximum: int,
+                       *, edit_limit: int | None = None) -> RepairBuilder:
     """Bound the existing repair call's total replacements against unchanged prose."""
     frozen = deepcopy(data)
     previous = frozen['previous_composition']
-    full_schema = schema(frozen)
+    full_schema = schema(frozen, edit_limit=edit_limit)
 
     def build(rejected: str, error: Exception) -> OutputRepair | None:
         if not isinstance(error, ValueError):
@@ -247,6 +249,6 @@ def word_stream_repair(data: dict[str, Any], minimum: int, maximum: int) -> Repa
             and replaced_by_group[key] == len(block['text'].split()) for key, block in blocks.items())
         if high < max(low, required_prose):
             return None
-        return _stream_contract(frozen, anchors, untouched, minimum, maximum)
+        return _stream_contract(frozen, anchors, untouched, minimum, maximum, edit_limit=edit_limit)
 
     return build
