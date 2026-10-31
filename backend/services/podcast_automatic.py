@@ -199,25 +199,30 @@ def _write_length_stream(context: _Briefing, request: Any, data: dict[str, Any],
                                                data, minimum, maximum), data)}
 
 
+def _write_plain_narration(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> dict[str, Any]:
+    minimum, maximum = options["min_words"], options["max_words"]
+    data = {key: value for key, value in data.items() if key != 'composition_groups'}
+    def narration(result: dict[str, Any]) -> str:
+        if not result['narration'].strip():
+            raise ValueError('podcast_empty_narration')
+        return result['narration']
+    def checked_narration(result: dict[str, Any]) -> None:
+        actual = len(narration(result).split())
+        if not _within_word_guidance(actual, options):
+            direction = 'Reduce' if actual > maximum else 'Expand'
+            delta = abs(actual - options['target_words'])
+            raise ValueError(f"podcast_word_budget: expected {minimum}..{maximum}; received {actual}. "
+                f"Target {options['target_words']}. {direction} the complete script by about {delta} words. "
+                "Return one complete coherent narration, merging "
+                "repeated accounts and secondary detail while preserving distinct themes and essential qualifications.")
+    request = _write_request(context, data, options)
+    return {'narration': narration(context.stage(request, checked_narration))}
+
+
 def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> dict[str, Any]:
     minimum, maximum = options["min_words"], options["max_words"]
     if data.get('composition_encoding') == 'bounded_narration_v1':
-        data = {key: value for key, value in data.items() if key != 'composition_groups'}
-        def narration(result: dict[str, Any]) -> str:
-            if not result['narration'].strip():
-                raise ValueError('podcast_empty_narration')
-            return result['narration']
-        def checked_narration(result: dict[str, Any]) -> None:
-            actual = len(narration(result).split())
-            if not _within_word_guidance(actual, options):
-                direction = 'Reduce' if actual > maximum else 'Expand'
-                delta = abs(actual - options['target_words'])
-                raise ValueError(f"podcast_word_budget: expected {minimum}..{maximum}; received {actual}. "
-                    f"Target {options['target_words']}. {direction} the complete script by about {delta} words. "
-                    "Return one complete coherent narration, merging "
-                    "repeated accounts and secondary detail while preserving distinct themes and essential qualifications.")
-        request = _write_request(context, data, options)
-        return {'narration': narration(context.stage(request, checked_narration))}
+        return _write_plain_narration(context, data, options)
     # Preserve the existing single-stage semantic rewrite contract. Length-only
     # edits below use their own immutable composition, not semantic findings.
     bounded_words = (preferences(context).review_mode == 'brief'
