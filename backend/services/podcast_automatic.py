@@ -22,7 +22,7 @@ class _WordBudgetRejected(RuntimeError):
 def _request(context: _Briefing, phase: str, data: dict[str, Any], schema: dict[str, Any], **options: Any) -> Any:
     if phase == "write" and data.get("composition_groups"):
         options["composition_contract"] = (resource("operations/podcast/length-edit-contract.md")
-            if data.get('revision_encoding') == 'composition_length_edits_v1'
+            if data.get('revision_encoding') in {'composition_length_edits_v1', 'composition_length_stream_v1'}
             else resource("operations/podcast/composition-contract.md"))
     if phase in {"write", "audit"}:
         options["editorial_policy"] = preferences(context).model_dump(exclude={'review_mode'} if phase == 'write' else set())
@@ -127,12 +127,7 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
                     length_repair={**state, "mode": "shorten_composition"})
         if (preferences(context).review_mode == 'brief'
                 and options['max_words'] + len(data['composition_groups']) <= 2048):
-            from backend.services.podcast_length_edits import ENCODING, schema as edit_schema
-            from backend.services.podcast_composition import composition_blocks
-            lean['revision_encoding'] = ENCODING
-            if {'tokens', 'token_text'} & previous['previous_composition'].keys():
-                lean['editing_groups'] = composition_blocks(previous['previous_composition'], lean)
-            candidate = _request(context, "write", lean, edit_schema(lean), **options)
+            candidate = _length_stream_request(context, lean, options)
         else:
             candidate = _request(context, "write", lean, composition_schema(lean), **options)
         if context.cost(candidate) <= limit:
@@ -144,6 +139,39 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
         data["length_repair"]["mode"] = "fresh_composition"
         request = _request(context, "write", data, composition_schema(data), **options)
     return request
+
+
+def _length_stream_request(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> Any:
+    from backend.services.podcast_length_edits import ENCODING, STREAM_ENCODING, composition_stream, schema
+    stream = composition_stream(data, options['min_words'], options['max_words'])
+    if stream is not None:
+        # The exact model object stays server-owned. Decoded original groups
+        # appear once on the wire, with keys/markers rather than duplicate quotes.
+        wire = {key: value for key, value in data.items() if key != 'previous_composition'}
+        wire.update({key: value for key, value in json.loads(stream.input).items() if key != 'task'},
+                    revision_encoding=STREAM_ENCODING)
+        return _request(context, 'write', wire, stream.output_schema, **options)
+    legacy = {**data, 'revision_encoding': ENCODING}
+    if {'tokens', 'token_text'} & data['previous_composition'].keys():
+        from backend.services.podcast_composition import composition_blocks
+        legacy['editing_groups'] = composition_blocks(data['previous_composition'], data)
+    return _request(context, 'write', legacy, schema(legacy), **options)
+
+
+def _write_length_stream(context: _Briefing, request: Any, data: dict[str, Any],
+                         minimum: int, maximum: int) -> dict[str, Any]:
+    from backend.services.podcast_length_edits import apply_edits, composition_stream
+    stream = composition_stream(data, minimum, maximum)
+    if stream is None:
+        raise ValueError('podcast_length_stream_originals_invalid')
+
+    def checked(value: dict[str, Any]) -> None:
+        stream.restore(json.dumps(value))
+
+    result = context.stage(request, checked)
+    restored = json.loads(stream.restore(json.dumps(result)))
+    return {'narration': spoken_text(apply_edits(restored, data['previous_composition'],
+                                               data, minimum, maximum), data)}
 
 
 def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> dict[str, Any]:
@@ -173,6 +201,8 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
     for attempt in range(3):
         try:
             request = _write_request(context, data, options)
+            if 'replacement_tokens' in request.output_schema.get('properties', {}):
+                return _write_length_stream(context, request, data, minimum, maximum)
             if 'composition_sha256' in request.output_schema.get('properties', {}):
                 from backend.services.podcast_length_edits import apply_edits, word_stream_repair
                 base = data['previous_composition']

@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
 | Vitest | 752 | 3425 |
-| pytest | 764 | 5884 |
+| pytest | 766 | 5891 |
 
 ## Fitxers
 
@@ -1268,6 +1268,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_podcast_feedback_repair_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_feedback_repair_transport.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_podcast_lean_edit.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_lean_edit.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_podcast_length_edits.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_length_edits.py) | 12 | Python AST |
+| pytest | [`backend/tests/test_podcast_length_first_stream.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_length_first_stream.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_podcast_length_first_stream_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_length_first_stream_transport.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_podcast_length_retry_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_length_retry_budget.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_podcast_length_word_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_length_word_repair.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_podcast_length_word_repair_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_length_word_repair_transport.py) | 1 | Python AST |

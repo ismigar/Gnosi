@@ -7,7 +7,7 @@ import pytest
 
 from backend.services.podcast_composition import composition_blocks, spoken_text
 from backend.services.podcast_length_edits import apply_edits, composition_digest, schema
-from backend.tests.test_podcast_briefing import length_edited
+from backend.tests.test_podcast_briefing import length_edited, length_streamed
 from backend.tests.test_podcast_word_text import broad_day
 from backend.tests.test_agent_execution import runtime  # noqa: F401
 
@@ -160,8 +160,10 @@ def test_real_executor_repairs_against_same_base_within_original_two_call_stage(
                 subject_groups=[{'topic': f'Subject {i}', 'subjects': [f'Material strand {i}']}
                                 for i in range(12)], feedback=[])
     _, desired = broad_day(1380, groups=12)
-    good = length_edited(desired, {**data, 'previous_composition': base})
-    bad = copy.deepcopy(good);bad['edits'][0]['before'] = 'Invented original anchor'
+    wire = {**data, 'anchors': [{'marker': f'__gnosi_edit__:{index}', 'group_key': group['key']}
+                               for index, group in enumerate(data['composition_groups'])]}
+    good = length_streamed(desired, wire)
+    bad = copy.deepcopy(good);bad['replacement_tokens'][0] = '__gnosi_edit__:foreign'
     calls = counted_workflow(monkeypatch, [json.dumps(base), json.dumps(bad), json.dumps(good if accepted else bad)])
     context = context_for(snapshot)
     context.editorial_policy = context.editorial_policy.model_copy(update={'review_mode': 'brief'})
@@ -177,15 +179,17 @@ def test_real_executor_repairs_against_same_base_within_original_two_call_stage(
     assert sorted(row.model_calls for row in rows) == [1, 2]
     assert all(r.max_model_calls == 2 and r.timeout_seconds == 300 for r in context.requests)
     repair = json.loads(context.requests[1].input)['data']
-    assert repair['previous_composition'] == base
+    assert repair['original_groups'] == base['paragraphs']
+    assert repair['composition_sha256'] == composition_digest(base)
+    assert 'previous_composition' not in repair
     assert repair['source_part_ids'] == [f'source:{i}' for i in range(222)]
     assert repair['subject_groups'] == data['subject_groups']
     assert 'briefs' not in repair and 'feedback' not in repair
-    assert 'Invented original anchor' in str(calls[2]['messages'])
+    assert '__gnosi_edit__:foreign' in str(calls[2]['messages'])
     assert composition_digest(base) in str(calls[2]['messages'])
 
 
-def test_automatic_writer_uses_bounded_stream_inside_existing_second_length_call(runtime, monkeypatch):
+def test_automatic_writer_bounds_first_length_call_without_verbose_proposal(runtime, monkeypatch):
     from backend.services import agent_execution_store as store
     from backend.services.agent_execution_scope import execution_scope
     from backend.services.podcast_automatic import _bounded_write
@@ -198,23 +202,22 @@ def test_automatic_writer_uses_bounded_stream_inside_existing_second_length_call
     data.update(briefs=[{'part_id': f'source:{i}', 'summary': 'Supported qualified claim.'} for i in range(222)],
                 subject_groups=[{'topic': f'Subject {i}', 'subjects': [f'Material strand {i}']}
                                 for i in range(12)], feedback=[])
-    _, too_long = broad_day(1700, groups=12)
-    rejected = length_edited(too_long, {**data, 'previous_composition': base})
     _, desired = broad_day(1380, groups=12)
-    good = length_edited(desired, {**data, 'previous_composition': base})
-    tokens = []
-    for index, edit in enumerate(good['edits']):
-        tokens.extend([f'__gnosi_edit__:{index}', *edit['after'].split()])
-    calls = counted_workflow(monkeypatch, [json.dumps(base), json.dumps(rejected),
-                                          json.dumps({'replacement_tokens': tokens})])
+    wire = {**data, 'anchors': [{'marker': f'__gnosi_edit__:{index}', 'group_key': group['key']}
+                               for index, group in enumerate(data['composition_groups'])]}
+    good = length_streamed(desired, wire)
+    verbose = length_edited(desired, {**data, 'previous_composition': base})
+    assert len(json.dumps(good)) < len(json.dumps(verbose))
+    calls = counted_workflow(monkeypatch, [json.dumps(base), json.dumps(good)])
     context = context_for(snapshot)
     context.editorial_policy = context.editorial_policy.model_copy(update={'review_mode': 'brief'})
     with execution_scope(scope):
         result = _bounded_write(context, data, {'min_words': 1242, 'max_words': 1504, 'target_words': 1380})
         rows = store.list_runs(scope)
     assert len(result['narration'].split()) == 1380
-    assert len(calls) == 3 and len(context.requests) == len(rows) == 2
-    assert sorted(row.model_calls for row in rows) == [1, 2]
+    assert len(calls) == 2 and len(context.requests) == len(rows) == 2
+    assert sorted(row.model_calls for row in rows) == [1, 1]
     assert all(r.max_model_calls == 2 and r.timeout_seconds == 300 for r in context.requests)
-    assert 'replacement_tokens' in str(calls[2]['messages'])
-    assert 'untouched_words' in str(calls[2]['messages'])
+    assert set(context.requests[1].output_schema['properties']) == {'replacement_tokens'}
+    assert 'replacement_tokens' in str(calls[1]['messages'])
+    assert 'untouched_words' in str(calls[1]['messages'])
