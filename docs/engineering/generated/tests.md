@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 32 | 101 |
 | Vitest | 752 | 3425 |
-| pytest | 762 | 5872 |
+| pytest | 762 | 5874 |
 
 ## Files
 
@@ -1252,8 +1252,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_plugins_state_race.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_plugins_state_race.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_podcast_audit_partition_replay.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_partition_replay.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_podcast_audit_reasoning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_reasoning.py) | 1 | Python AST |
-| pytest | [`backend/tests/test_podcast_audit_reference_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_reference_schema.py) | 9 | Python AST |
-| pytest | [`backend/tests/test_podcast_audit_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_repair.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_podcast_audit_reference_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_reference_schema.py) | 10 | Python AST |
+| pytest | [`backend/tests/test_podcast_audit_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_repair.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_podcast_audit_repair_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_audit_repair_transport.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_podcast_bounded_rewrites.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_bounded_rewrites.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_podcast_bounded_text.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_bounded_text.py) | 3 | Python AST |
