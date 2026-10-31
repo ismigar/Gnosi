@@ -76,8 +76,6 @@ def test_normal_brief_length_repair_preserves_scope_and_uses_eligible_global_bou
     original, rejected_stream = broad_day(2443, groups=12)
     rejected = {'paragraphs': composition_blocks(rejected_stream, original)}
     _, accepted = broad_day(target, groups=12)
-    if bounded:
-        accepted = {"paragraphs": accepted["paragraphs"], "tokens": accepted["token_text"].split()}
     original = {key: value for key, value in original.items()
                 if key not in {'composition_encoding', 'composition_word_range'}}
     original.update(briefs=[{'part_id': f'source:{i}', 'summary': 'Supported qualified source fact. ' * 20}
@@ -102,7 +100,7 @@ def test_normal_brief_length_repair_preserves_scope_and_uses_eligible_global_bou
     assert repair['previous_composition'] == rejected
     assert repair['length_repair']['current_words'] == 2443
     assert repair['length_repair']['mode'] == 'shorten_composition'
-    assert repair['composition_encoding'] == ('word_tokens_v1' if bounded else 'word_text_v1')
+    assert repair['composition_encoding'] == ('bounded_word_text_v1' if bounded else 'word_text_v1')
     assert repair['composition_word_range'] == {'min_words': 1242, 'max_words': maximum}
     assert repair['source_part_ids'] == [brief['part_id'] for brief in original['briefs']]
     assert repair['subject_groups'] == original['subject_groups']
@@ -110,11 +108,11 @@ def test_normal_brief_length_repair_preserves_scope_and_uses_eligible_global_bou
     assert not {'briefs', 'digests', 'feedback'} & repair.keys()
     assert len(requests[1].input) < len(requests[0].input)
     if bounded:
-        contract = requests[1].output_schema['properties']['tokens']
-        assert contract['minItems'] == 1242 + 12 and contract['maxItems'] == maximum + 12
+        contract = requests[1].output_schema['properties']['token_text']
+        assert contract['pattern'] == rf'^\S+(?:\s+\S+){{{1242 + 11},{maximum + 11}}}$'
         import jsonschema
         with pytest.raises(jsonschema.ValidationError):
-            jsonschema.validate({'paragraphs': accepted['paragraphs'], 'tokens': rejected_stream['token_text'].split()},
+            jsonschema.validate(rejected_stream,
                                 requests[1].output_schema)
     else:
         assert set(requests[1].output_schema['properties']) == {'paragraphs', 'token_text'}

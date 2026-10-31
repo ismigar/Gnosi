@@ -8,6 +8,7 @@ from backend.services.podcast_briefing import _object
 
 WORD_TOKENS = "word_tokens_v1"
 WORD_TEXT = "word_text_v1"
+BOUNDED_TEXT = "bounded_word_text_v1"
 MARKER_PREFIX = "__gnosi_group__:"
 
 
@@ -15,14 +16,19 @@ def schema(data: dict[str, Any]) -> dict[str, Any]:
     groups = data.get("composition_groups", [])
     if not groups:
         return _object({"narration": {"type": "string", "minLength": 1}})
-    if data.get("composition_encoding") in {WORD_TOKENS, WORD_TEXT}:
+    if data.get("composition_encoding") in {WORD_TOKENS, WORD_TEXT, BOUNDED_TEXT}:
         bounds = data["composition_word_range"]
         minimum, maximum = bounds["min_words"], bounds["max_words"]
         if not (type(minimum) is int and type(maximum) is int and 0 < minimum <= maximum):
             raise ValueError("podcast_composition_word_range_invalid")
         flags = _object({g["key"]: _object({"non_editorial": {"type": "boolean"}}) for g in groups})
-        if data["composition_encoding"] == WORD_TEXT:
-            return _object({"paragraphs": flags, "token_text": {"type": "string", "minLength": 1}})
+        if data["composition_encoding"] in {WORD_TEXT, BOUNDED_TEXT}:
+            text: dict[str, Any] = {"type": "string", "minLength": 1}
+            if data["composition_encoding"] == BOUNDED_TEXT:
+                # All ordered markers are independently verified by the decoder.
+                # A single compact stream shares the same global spoken range.
+                text["pattern"] = rf"^\S+(?:\s+\S+){{{minimum + len(groups) - 1},{maximum + len(groups) - 1}}}$"
+            return _object({"paragraphs": flags, "token_text": text})
         return _object({"paragraphs": flags, "tokens": {"type": "array",
             "minItems": minimum + len(groups), "maxItems": maximum + len(groups),
             "items": {"type": "string", "pattern": r"^\S+$"}}})
