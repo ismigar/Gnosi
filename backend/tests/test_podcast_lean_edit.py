@@ -9,7 +9,7 @@ import pytest
 from openai import ContentFilterFinishReasonError
 
 from backend.services import podcast_automatic as automatic
-from backend.tests.test_podcast_briefing import pipeline, tokenized, written  # noqa: F401
+from backend.tests.test_podcast_briefing import length_edited, pipeline, tokenized, written  # noqa: F401
 
 
 OPTIONS = {"min_words": 90, "max_words": 109, "target_words": 100}
@@ -56,6 +56,8 @@ class Context:
         if isinstance(result, Exception):
             raise result
         fields = request.output_schema["properties"]
+        if 'composition_sha256' in fields and 'edits' not in result:
+            result = length_edited(result, json.loads(request.input))
         if {"tokens", "token_text"} & fields.keys() and not {"tokens", "token_text"} & result.keys():
             result = tokenized(result, json.loads(request.input)["composition_groups"], text="token_text" in fields)
         jsonschema.validate(result, request.output_schema)

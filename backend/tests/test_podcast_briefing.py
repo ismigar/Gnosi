@@ -28,6 +28,17 @@ def tokenized(result, groups, *, text=False):
     return {'paragraphs': flags, **({'token_text': ' '.join(tokens)} if text else {'tokens': tokens})}
 
 
+def length_edited(result, data):
+    """Encode a fake model's intended groups as literal edits of the supplied base."""
+    from backend.services.podcast_composition import composition_blocks
+    from backend.services.podcast_length_edits import composition_digest
+    base = data['previous_composition']
+    before, after = composition_blocks(base, data), composition_blocks(result, data)
+    return {'composition_sha256': composition_digest(base), 'edits': [
+        {'group_key': key, 'before': block['text'], 'after': after[key]['text']}
+        for key, block in before.items() if block['text'] != after[key]['text']]}
+
+
 def written(request, text):
     """Fake model transport uses the requested prose shape; assertions audit the result."""
     data = json.loads(request.input).get('data', {})
@@ -38,6 +49,8 @@ def written(request, text):
     result = {'paragraphs': {g['key']: {
         'text': ' '.join(words[len(words) * i // len(groups):len(words) * (i + 1) // len(groups)]),
         'non_editorial': False} for i, g in enumerate(groups)}}
+    if data.get('revision_encoding') == 'composition_length_edits_v1':
+        return length_edited(result, data)
     encoding = data.get('composition_encoding')
     return tokenized(result, groups, text=encoding in {'word_text_v1', 'bounded_word_text_v1'}) if encoding in {'word_tokens_v1', 'word_text_v1', 'bounded_word_text_v1'} else result
 
