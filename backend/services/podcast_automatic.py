@@ -21,7 +21,9 @@ class _WordBudgetRejected(RuntimeError):
 
 def _request(context: _Briefing, phase: str, data: dict[str, Any], schema: dict[str, Any], **options: Any) -> Any:
     if phase == "write" and data.get("composition_groups"):
-        options["composition_contract"] = resource("operations/podcast/composition-contract.md")
+        options["composition_contract"] = (resource("operations/podcast/length-edit-contract.md")
+            if data.get('revision_encoding') == 'composition_length_edits_v1'
+            else resource("operations/podcast/composition-contract.md"))
     if phase in {"write", "audit"}:
         options["editorial_policy"] = preferences(context).model_dump(exclude={'review_mode'} if phase == 'write' else set())
     if phase == "audit" and data.get("whole_episode") and "sections" in data:
@@ -125,9 +127,14 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
                     length_repair={**state, "mode": "shorten_composition"})
         if (preferences(context).review_mode == 'brief'
                 and options['max_words'] + len(data['composition_groups']) <= 2048):
-            lean.update(composition_encoding=BOUNDED_TEXT,
-                        composition_word_range={'min_words': options['min_words'], 'max_words': options['max_words']})
-        candidate = _request(context, "write", lean, composition_schema(lean), **options)
+            from backend.services.podcast_length_edits import ENCODING, schema as edit_schema
+            from backend.services.podcast_composition import composition_blocks
+            lean['revision_encoding'] = ENCODING
+            if {'tokens', 'token_text'} & previous['previous_composition'].keys():
+                lean['editing_groups'] = composition_blocks(previous['previous_composition'], lean)
+            candidate = _request(context, "write", lean, edit_schema(lean), **options)
+        else:
+            candidate = _request(context, "write", lean, composition_schema(lean), **options)
         if context.cost(candidate) <= limit:
             return candidate
     if "length_repair" in data and not any(key in data for key in previous):
@@ -141,9 +148,8 @@ def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, 
 
 def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> dict[str, Any]:
     minimum, maximum = options["min_words"], options["max_words"]
-    # Constrain concise automatic rewrites at the provider schema as well as
-    # locally, using compact prose rather than a JSON item per word.
-    # Longer episodes retain their existing compact wire/output allowance.
+    # Preserve the existing single-stage semantic rewrite contract. Length-only
+    # edits below use their own immutable composition, not semantic findings.
     bounded_words = (preferences(context).review_mode == 'brief'
                      and maximum + len(data.get('composition_groups', [])) <= 2048)
     if bounded_words and data.get('composition_groups') and data.get('feedback'):
@@ -166,7 +172,17 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
                              + json.dumps(word_guidance(result, data, options["target_words"]), separators=(",", ":")))
     for attempt in range(3):
         try:
-            result = context.stage(_write_request(context, data, options), checked)
+            request = _write_request(context, data, options)
+            if 'composition_sha256' in request.output_schema.get('properties', {}):
+                from backend.services.podcast_length_edits import apply_edits
+                base = data['previous_composition']
+                def validate_edits(value: dict[str, Any]) -> None:
+                    apply_edits(value, base, data, minimum, maximum)
+                # Existing stage validation repairs proposals against the SAME base;
+                # it neither publishes a partial edit nor resets its two-call deadline.
+                result = context.stage(request, validate_edits)
+                return {'narration': spoken_text(apply_edits(result, base, data, minimum, maximum), data)}
+            result = context.stage(request, checked)
             return {"narration": spoken_text(result, data)}
         except _WordBudgetRejected as error:
             if attempt == 2:
