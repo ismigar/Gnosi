@@ -4,9 +4,9 @@ from __future__ import annotations
 import hashlib
 import json
 from math import ceil
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, cast
 
-from backend.services.agent_behavior import resource
+from backend.services.agent_behavior import resource as resource
 from backend.services.podcast_composition import BOUNDED_TEXT, WORD_TEXT, advisory_targets, schema as composition_schema, spoken_text, word_guidance
 from backend.services.podcast_policy import preferences, synthesis_context_limit
 
@@ -24,7 +24,7 @@ def _within_word_guidance(actual: int, options: dict[str, Any]) -> bool:
     if options.get('word_range_is_advisory'):
         # Speech rate varies; do not reject a useful draft for a few words.
         actual, low, high = (100 * ((value + 50) // 100) for value in (actual, low, high))
-    return low <= actual <= high
+    return cast(bool, low <= actual <= high)
 
 
 def _request(context: _Briefing, phase: str, data: dict[str, Any], schema: dict[str, Any], **options: Any) -> Any:
@@ -205,7 +205,7 @@ def _write_plain_narration(context: _Briefing, data: dict[str, Any], options: di
     def narration(result: dict[str, Any]) -> str:
         if not result['narration'].strip():
             raise ValueError('podcast_empty_narration')
-        return result['narration']
+        return cast(str, result['narration'])
     def checked_narration(result: dict[str, Any]) -> None:
         actual = len(narration(result).split())
         if not _within_word_guidance(actual, options):

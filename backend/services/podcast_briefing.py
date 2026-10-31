@@ -25,7 +25,7 @@ def _object(properties: dict[str, Any]) -> dict[str, Any]:
 
 
 def _write_snapshot(snapshot: AgentExecutionSnapshot, request: AgentOperation) -> AgentExecutionSnapshot:
-    values = [request.options.get(key) for key in ('min_words', 'target_words', 'max_words')]
+    values = cast(list[int], [request.options.get(key) for key in ('min_words', 'target_words', 'max_words')])
     if (request.operation != 'podcast.coverage.write' or any(type(n) is not int for n in values)
             or not 0 < values[0] <= values[1] <= values[2]):
         return snapshot

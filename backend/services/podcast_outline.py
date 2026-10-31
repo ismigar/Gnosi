@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, TYPE_CHECKING
 
-from backend.services.agent_behavior import resource
+from backend.services.agent_behavior import resource as resource
 from backend.services.podcast_briefing import _object
 from backend.services.podcast_policy import preferences, synthesis_context_limit
 
