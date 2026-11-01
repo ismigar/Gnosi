@@ -1,6 +1,6 @@
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
-import { unwrapApiResult } from './errors';
+import { assertApiSuccess, unwrapApiResult } from './errors';
 import type { RequestContext } from './request-context';
 
 type Identified<T> = Omit<T, 'id'> & { id: string };
@@ -30,6 +30,10 @@ export type NewsletterDraft = NewsletterReview['draft'];
 export type NewsletterState = components['schemas']['SiteNewsletterState'];
 export type NewsletterReview = components['schemas']['SiteNewsletterReview'];
 export type NewsletterQueue = components['schemas']['SiteNewsletterQueue'];
+
+export async function removeSite(siteId: string, revision: number, context: RequestContext, signal?: AbortSignal) {
+  assertApiSuccess(await apiClient.DELETE('/api/vault/sites/{site_id}', { params: { path: { site_id: siteId }, query: { revision } }, ...scope(context, signal) }));
+}
 
 export async function getNewsletter(siteId: string, targetId: string, context: RequestContext, signal?: AbortSignal) {
   return unwrapApiResult(await apiClient.GET('/api/vault/sites/{site_id}/newsletter', { params: { path: { site_id: siteId }, query: { target_id: targetId } }, ...scope(context, signal) }));

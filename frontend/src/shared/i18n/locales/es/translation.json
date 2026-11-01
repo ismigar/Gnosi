@@ -9114,9 +9114,9 @@
     "rollback": "Restaurar versión",
     "restored": "Versión del web restaurada.",
     "noReleases": "Aún no hay versiones publicadas.",
-    "targets": "Destinos de alojamiento",
-    "addTarget": "Añadir destino",
-    "newTarget": "Nuevo destino",
+    "targets": "Alojamientos",
+    "addTarget": "Añade un alojamiento",
+    "newTarget": "Nuevo alojamiento",
     "configureConnection": "Configurar conexión",
     "name": "Nombre",
     "baseUrl": "URL del destino",
@@ -9148,8 +9148,9 @@
       "messages": "Mensajes",
       "subscribers": "Suscriptores",
       "campaigns": "Boletines",
-      "publishing": "Publicación y alojamiento",
-      "settings": "Configuración privada"
+      "publishing": "Publicación",
+      "settings": "Configuración privada",
+      "hosting": "Alojamientos"
     },
     "tokens": {
       "primary": "Azul petróleo / principal",
@@ -9308,7 +9309,8 @@
     "openLocal": "Abrir web local",
     "managedBridgeHelp": "Este destino utiliza el puente Pangea / Suweb del piloto importado. El puente gestiona la conexión y los directorios remotos. Puedes comprobar su conexión aquí.",
     "jobErrors": {
-      "worker_start_pending": "La versión del sitio web ya está activa, pero aún no se ha podido iniciar el proceso del servicio privado. Prueba la conexión del destino y vuelve a revisar y publicar para reintentar su inicio."
+      "worker_start_pending": "La versión del sitio web ya está activa, pero aún no se ha podido iniciar el proceso del servicio privado. Prueba la conexión del destino y vuelve a revisar y publicar para reintentar su inicio.",
+      "publication_failed_review_status": "No se ha podido completar la publicación. Revisa el estado del destino y vuelve a revisar los cambios antes de publicar."
     },
     "withdrawTranslation": "Retira la versión {{language}}",
     "fontSystem": "Tipografía del sistema",
@@ -9378,6 +9380,15 @@
     "newFont": "Nueva tipografía",
     "catalogueLoading": "Cargando las fuentes de contenido…",
     "publishingReview": "Revisa el destino y los cambios antes de publicar.",
-    "importPilotHelp": "Conserva el contenido existente, las traducciones, las URL y la configuración de marca."
+    "importPilotHelp": "Conserva el contenido existente, las traducciones, las URL y la configuración de marca.",
+    "removeSite": "Elimina el sitio web",
+    "removeSiteHelp": "¿Quieres eliminar «{{name}}» de Gnosi? Se conservarán los contenidos del vault y los archivos ya publicados. El sitio publicado seguirá disponible en el servidor.",
+    "siteRemoved": "Se ha eliminado el sitio web de Gnosi.",
+    "manageHosting": "Gestiona los alojamientos",
+    "removeHosting": "Elimina el alojamiento",
+    "removeHostingHelp": "¿Quieres eliminar la conexión «{{name}}» de este sitio? Se conservarán los archivos y los datos del servidor. Si es local, el servidor se detendrá.",
+    "hostingRemoved": "Se ha eliminado la conexión de alojamiento.",
+    "hostingHelp": "Añade un alojamiento local o una conexión SSH a un servidor propio. Eliminar una conexión conserva los archivos publicados y los datos del servidor.",
+    "noTargets": "Este sitio todavía no tiene alojamiento. Añade uno para poder publicar."
   }
 }

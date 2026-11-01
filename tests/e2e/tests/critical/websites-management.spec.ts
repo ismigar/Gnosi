@@ -1,0 +1,51 @@
+import { expect, test } from '@playwright/test';
+import { settleVisualState } from '../../support/visual-state.ts';
+import { acceptanceState } from '../../support/acceptance-state.ts';
+
+for (const theme of ['light', 'dark']) {
+test(`website and hosting management persist creation and confirmed removal in ${theme}`, async ({ page }, testInfo) => {
+  const state = acceptanceState();
+  await page.addInitScript(selected => { localStorage.setItem('i18nextLng', 'en'); localStorage.setItem('db-theme', selected); }, theme);
+  await page.goto(`/@${state.primary_vault.slug}/websites`);
+  await page.getByRole('button', { name: 'Create website', exact: true }).click();
+  const creation = page.getByRole('dialog', { name: 'Create website', exact: true });
+  await creation.getByRole('textbox').fill('Disposable management website');
+  const created = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/api/vault/sites'));
+  await creation.getByRole('button', { name: 'Create', exact: true }).click();
+  expect((await created).status()).toBe(201);
+  await expect(creation).toBeHidden();
+  await page.getByRole('button', { name: 'Manage hosting', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'Hosting', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('button', { name: 'Delete hosting', exact: true }).click();
+  const removeHosting = page.getByRole('dialog', { name: 'Delete hosting', exact: true });
+  await removeHosting.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Delete hosting', exact: true })).toHaveCount(1);
+  await page.getByRole('button', { name: 'Delete hosting', exact: true }).click();
+  const removedHosting = page.waitForResponse(response => response.request().method() === 'PUT' && /\/api\/vault\/sites\/[^/?]+$/.test(response.url()));
+  await removeHosting.getByRole('button', { name: 'Delete', exact: true }).click();
+  expect((await removedHosting).ok()).toBe(true);
+  await expect(page.locator('.websites-empty').filter({ hasText: 'This website has no hosting yet. Add hosting to publish.' }).first()).toBeVisible();
+  await page.reload();
+  await page.getByRole('button', { name: 'Manage hosting', exact: true }).click();
+  await expect(page.locator('.websites-empty').filter({ hasText: 'This website has no hosting yet. Add hosting to publish.' }).first()).toBeVisible();
+  await settleVisualState(page);
+  await page.screenshot({ path: testInfo.outputPath(`hosting-empty-${theme}.png`), fullPage: true });
+  await page.getByRole('button', { name: 'Add hosting', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Delete hosting', exact: true })).toBeEnabled();
+  await settleVisualState(page);
+  await page.screenshot({ path: testInfo.outputPath(`hosting-management-${theme}.png`), fullPage: true });
+  await page.getByRole('button', { name: 'Delete website', exact: true }).click();
+  const removal = page.getByRole('dialog', { name: 'Delete website', exact: true });
+  await expect(removal).toContainText('published files will be kept');
+  await removal.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete website', exact: true }).click();
+  await settleVisualState(page);
+  await page.screenshot({ path: testInfo.outputPath(`website-removal-confirmation-${theme}.png`), fullPage: true });
+  const deleted = page.waitForResponse(response => response.request().method() === 'DELETE' && response.url().includes('/api/vault/sites/'));
+  await removal.getByRole('button', { name: 'Delete', exact: true }).click();
+  expect((await deleted).status()).toBe(204);
+  await expect(page.getByRole('button', { name: 'Delete website', exact: true })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Delete website', exact: true })).toHaveCount(0);
+});
+}

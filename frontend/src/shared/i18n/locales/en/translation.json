@@ -9059,9 +9059,9 @@
     "rollback": "Restore version",
     "restored": "Website version restored.",
     "noReleases": "No published versions yet.",
-    "targets": "Hosting destinations",
-    "addTarget": "Add destination",
-    "newTarget": "New destination",
+    "targets": "Hosting",
+    "addTarget": "Add hosting",
+    "newTarget": "New hosting",
     "configureConnection": "Configure connection",
     "name": "Name",
     "baseUrl": "Destination URL",
@@ -9093,8 +9093,9 @@
       "messages": "Inbox",
       "subscribers": "Subscribers",
       "campaigns": "Newsletters",
-      "publishing": "Publication & hosting",
-      "settings": "Private settings"
+      "publishing": "Publication",
+      "settings": "Private settings",
+      "hosting": "Hosting"
     },
     "tokens": {
       "primary": "Petrol blue / primary",
@@ -9253,7 +9254,8 @@
     "openLocal": "Open local website",
     "managedBridgeHelp": "This destination uses the Pangea / Suweb bridge from the imported pilot. The bridge manages its connection and remote directories. You can test its connection here.",
     "jobErrors": {
-      "worker_start_pending": "The website release is already active, but the private service worker has not started yet. Test the destination connection, then review and publish again to retry starting it."
+      "worker_start_pending": "The website release is already active, but the private service worker has not started yet. Test the destination connection, then review and publish again to retry starting it.",
+      "publication_failed_review_status": "Publication could not be completed. Check the destination status and review the changes again before publishing."
     },
     "withdrawTranslation": "Withdraw {{language}} version",
     "fontSystem": "System typeface",
@@ -9323,6 +9325,15 @@
     "newFont": "New typeface",
     "catalogueLoading": "Loading content sources…",
     "publishingReview": "Review the destination and changes before publishing.",
-    "importPilotHelp": "Preserves existing content, translations, URLs and brand settings."
+    "importPilotHelp": "Preserves existing content, translations, URLs and brand settings.",
+    "removeSite": "Delete website",
+    "removeSiteHelp": "Delete “{{name}}” from Gnosi? Vault content and already published files will be kept. The published website will remain available on the server.",
+    "siteRemoved": "The website has been deleted from Gnosi.",
+    "manageHosting": "Manage hosting",
+    "removeHosting": "Delete hosting",
+    "removeHostingHelp": "Delete the “{{name}}” connection from this website? Server files and data will be kept. A local server will be stopped.",
+    "hostingRemoved": "The hosting connection has been deleted.",
+    "hostingHelp": "Add local hosting or an SSH connection to your own server. Deleting a connection keeps published files and server data.",
+    "noTargets": "This website has no hosting yet. Add hosting to publish."
   }
 }

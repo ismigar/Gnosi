@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-28
+last_verified: 2026-11-01
 source_paths:
   - backend/domains/sites/transport_settings.py
   - backend/domains/sites
@@ -64,6 +64,10 @@ source_paths:
   - frontend/src/features/plugin-management
   - frontend/src/features/notion-import
 tests:
+  - backend/tests/test_site_management.py
+  - frontend/src/shared/api/sites.test.ts
+  - frontend/src/features/websites/WebsitesManagement.test.tsx
+  - tests/e2e/tests/critical/websites-management.spec.ts
   - backend/tests/test_drupal_retirement.py
   - backend/tests/test_sites.py
   - backend/tests/test_sites_newsletter.py
@@ -430,3 +434,5 @@ Cada conexión SSH del servicio privado de Pangea permite hasta tres intentos an
 Logo, favicon y tipografías se eligen subiendo archivos (máximo 4 MB); las imágenes muestran una miniatura con transparencia. `POST /api/vault/sites/{site_id}/theme/assets` recibe los archivos con acceso restringido a editores. Las referencias se guardan automáticamente. El selector busca tipografías del sistema y WOFF/WOFF2/TTF/OTF propias; las fuentes del sistema pueden variar según el dispositivo. Los archivos están aislados por sitio y solo se publican al seleccionarlos. Webs abre la configuración sin esperar el catálogo, que se carga en Contenidos o Páginas y se reutiliza hasta refrescar.
 
 Las sesiones SSH/Suweb acotadas de Webs normalizan una copia de los ajustes de conexión del controlador externo mantenido. Un `WORKING_DIRECTORY` explícito tiene prioridad; de lo contrario, el valor histórico de `DRUPAL_PATH` aporta el directorio de trabajo. Los ajustes originales no se modifican. Esta compatibilidad del transporte no habilita la sincronización de contenido Drupal.
+
+La barra ofrece **Gestiona los alojamientos** y **Elimina el sitio web**, con confirmación. La pestaña Alojamientos permite añadir y eliminar conexiones locales o SSH, incluida la última. `DELETE /api/vault/sites/{site_id}?revision=N` exige un administrador y la revisión actual. La eliminación conserva el contenido del vault, los archivos publicados en el servidor y el historial privado; detiene servidores locales y vistas previas, e indica al proceso local que se detenga. Las publicaciones pendientes o un bloqueo de publicación impiden eliminar hasta que se resuelvan. Las nuevas vistas previas y tareas vuelven a comprobar la configuración dentro de la transacción antes de registrarse.

@@ -10275,7 +10275,8 @@ export interface paths {
         /** Save Site */
         put: operations["save_site_api_vault_sites__site_id__put"];
         post?: never;
-        delete?: never;
+        /** Remove Site */
+        delete: operations["remove_site_api_vault_sites__site_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -51400,6 +51401,44 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SiteConfig"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_site_api_vault_sites__site_id__delete: {
+        parameters: {
+            query: {
+                revision: number;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

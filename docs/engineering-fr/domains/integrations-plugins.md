@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-28
+last_verified: 2026-11-01
 source_paths:
   - backend/domains/sites/transport_settings.py
   - backend/domains/sites
@@ -64,6 +64,10 @@ source_paths:
   - frontend/src/features/plugin-management
   - frontend/src/features/notion-import
 tests:
+  - backend/tests/test_site_management.py
+  - frontend/src/shared/api/sites.test.ts
+  - frontend/src/features/websites/WebsitesManagement.test.tsx
+  - tests/e2e/tests/critical/websites-management.spec.ts
   - backend/tests/test_drupal_retirement.py
   - backend/tests/test_sites.py
   - backend/tests/test_sites_newsletter.py
@@ -492,3 +496,5 @@ Chaque connexion SSH du service privé de Pangea permet jusqu’à trois tentati
 Le logo, le favicon et les polices sont importés depuis des fichiers (4 Mo maximum) ; les images affichent une miniature transparente. `POST /api/vault/sites/{site_id}/theme/assets` reçoit les fichiers avec un accès réservé aux éditeurs. Les références sont enregistrées automatiquement. Le sélecteur recherche les polices système et les fichiers WOFF/WOFF2/TTF/OTF ; les polices système peuvent varier selon l’appareil. Les fichiers sont isolés par site et publiés uniquement après sélection. Webs ouvre la configuration sans attendre le catalogue, chargé dans Contenus ou Pages et réutilisé jusqu’à l’actualisation.
 
 Les sessions SSH/Suweb bornées de Webs normalisent une copie des paramètres de connexion du pilote externe maintenu. Un `WORKING_DIRECTORY` explicite est prioritaire ; sinon, la valeur historique de `DRUPAL_PATH` fournit le répertoire de travail. Les paramètres d’origine restent inchangés. Cette compatibilité du transport n’active pas la synchronisation de contenu Drupal.
+
+La barre propose **Gérer les hébergements** et **Supprimer le site**, avec confirmation. L’onglet Hébergements permet d’ajouter et de supprimer des connexions locales ou SSH, y compris la dernière. `DELETE /api/vault/sites/{site_id}?revision=N` exige un administrateur et la révision actuelle. La suppression conserve le contenu du vault, les fichiers publiés sur le serveur et l’historique privé ; elle arrête les serveurs locaux et les aperçus, et demande l’arrêt du processus local. Une publication en attente ou un verrou de publication empêche la suppression jusqu’à sa résolution. Les nouveaux aperçus et tâches revérifient la configuration dans la transaction avant leur enregistrement.

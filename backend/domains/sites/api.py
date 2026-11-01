@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, File, Query, UploadFile
 from fastapi.responses import Response
 
 from backend.services.plugin_access import require_plugins
@@ -71,6 +71,12 @@ def site_status(site_id: str, context: Editor) -> SiteStatus:
     store = store_for(context)
     site = store.load(site_id)
     return SiteStatus(site=site, jobs=publication.jobs(store, site_id), releases=publication.releases(store, site_id), service_available=private_service.SERVICE_ROOT.joinpath("cli.php").is_file())
+
+
+@router.delete("/{site_id}", status_code=204)
+def remove_site(site_id: str, context: Admin, revision: Annotated[int, Query(ge=1)]) -> Response:
+    store_for(context).remove(site_id, revision)
+    return Response(status_code=204)
 
 
 @router.get("/{site_id}/newsletter", response_model=newsletter.SiteNewsletterState)
