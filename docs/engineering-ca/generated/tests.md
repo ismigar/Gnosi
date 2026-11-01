@@ -11,7 +11,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 35 | 108 |
-| Vitest | 751 | 3422 |
+| Vitest | 751 | 3423 |
 | pytest | 767 | 5858 |
 
 ## Fitxers
@@ -134,7 +134,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/calendar/components/RecurrenceEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/RecurrenceEditor.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/calendar/components/calendar-sidebar-right/CalendarSidebarRight.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/CalendarSidebarRight.test.tsx) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/features/calendar/components/calendar-sidebar-right/ConferenceJoinButton.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/ConferenceJoinButton.test.tsx) | 2 | call-pattern estimate |
-| Vitest | [`frontend/src/features/calendar/components/calendar-sidebar-right/caldavAutosave.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/caldavAutosave.test.tsx) | 6 | call-pattern estimate |
+| Vitest | [`frontend/src/features/calendar/components/calendar-sidebar-right/caldavAutosave.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/caldavAutosave.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/calendar/components/calendar-sidebar-right/eventFormModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/eventFormModel.test.ts) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/calendar/components/calendar-sidebar-right/eventFormTimezone.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/eventFormTimezone.test.ts) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/calendar/components/calendarSidebarModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendarSidebarModel.test.ts) | 3 | call-pattern estimate |

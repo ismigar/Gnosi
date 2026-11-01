@@ -52,7 +52,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2679 | 0 |
-| `features` | 1277 | 136887 | 56 |
+| `features` | 1277 | 136886 | 56 |
 | `generated` | 3 | 56705 | 585 |
 | `shared` | 348 | 37085 | 501 |
 
@@ -228,7 +228,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/calendar/components/calendar-sidebar-right/eventFormOptions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/eventFormOptions.ts) | 51 | `eventFormOptions` | — |
 | [`frontend/src/features/calendar/components/calendar-sidebar-right/eventSaveActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/eventSaveActions.ts) | 296 | `eventSaveActions` | — |
 | [`frontend/src/features/calendar/components/calendar-sidebar-right/useEventAutosave.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/useEventAutosave.ts) | 49 | `useEventAutosave` | — |
-| [`frontend/src/features/calendar/components/calendar-sidebar-right/useEventFields.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/useEventFields.ts) | 208 | `useEventFields` | — |
+| [`frontend/src/features/calendar/components/calendar-sidebar-right/useEventFields.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/useEventFields.ts) | 207 | `useEventFields` | — |
 | [`frontend/src/features/calendar/components/calendar-sidebar-right/useEventForm.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/useEventForm.ts) | 29 | `useEventForm` | — |
 | [`frontend/src/features/calendar/components/calendar-sidebar-right/useEventSuggestions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/useEventSuggestions.ts) | 103 | `useEventSuggestions` | — |
 | [`frontend/src/features/calendar/components/calendarSidebarModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendarSidebarModel.ts) | 118 | `CALENDAR_COLORS`, `buildCalendarGrid`, `calendarSourceName`, `groupCalendarSources` | — |
