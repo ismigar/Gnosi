@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { SortableFieldProps } from './types';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Languages, Globe, Trash2 } from 'lucide-react';
+import { GripVertical, Languages, Trash2 } from 'lucide-react';
 import { OPTION_FIELD_TYPES, TRANSLATABLE_FIELD_TYPES } from './constants';
 import { OptionsEditor } from './OptionsEditor';
 import { readStringArray, readRecord } from './readers';
@@ -13,8 +13,7 @@ import { FilesFieldConfig } from './FilesFieldConfig';
 import { DerivedFieldConfig } from './DerivedFieldConfig';
 export function SortableField(props: SortableFieldProps) {
     const {
-        field, idx, handleUpdateField, handleRemoveField, enableTranslation, enableDrupalSync,
-        drupalBundle, drupalFields, drupalFieldMapping, setDrupalFieldMapping, optionTools,
+        field, idx, handleUpdateField, handleRemoveField, enableTranslation, optionTools,
     } = props;
     const { t } = useTranslation();
     const required = !!field.requiredBy?.length;
@@ -118,35 +117,6 @@ export function SortableField(props: SortableFieldProps) {
                             {t('schema.field_translatable', "Translatable")}
                         </span>
                     </label>
-                )}
-
-                {enableDrupalSync && drupalBundle && field.name.trim() && field.type !== 'button' && !field.system && (
-                    <div
-                        className="flex items-center gap-1.5 px-2 py-1 rounded-md"
-                        title={t('schema.field_drupal_map_hint', "Map this field to a field of the Drupal content type.")}
-                    >
-                        <Globe size={13} className={drupalFieldMapping[field.id] ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'} />
-                        <select
-                            value={drupalFieldMapping[field.id] || ''}
-                            onChange={(e) => { setDrupalFieldMapping((prev) => {
-                                const next = { ...prev };
-                                if (e.target.value) next[field.id] = e.target.value;
-                                else Reflect.deleteProperty(next, field.id);
-                                return next;
-                            }); }}
-                            className="text-xs px-2 py-1 rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)] max-w-[150px]"
-                        >
-                            <option value="">{t('schema.drupal_no_map', "— Do not sync —")}</option>
-                            {drupalFields.map((df) => (
-                                <option key={df.field_name} value={df.field_name}>{df.label} · {df.field_type}</option>
-                            ))}
-                            {/* Fallback: if Drupal doesn't respond (e.g. 436), still show
-                                the saved value so the mapping doesn't look lost. */}
-                            {drupalFieldMapping[field.id] && !drupalFields.some((df) => df.field_name === drupalFieldMapping[field.id]) && (
-                                <option value={drupalFieldMapping[field.id]}>{drupalFieldMapping[field.id]}</option>
-                            )}
-                        </select>
-                    </div>
                 )}
 
                 {field.type !== 'title' && (

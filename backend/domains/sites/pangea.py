@@ -57,7 +57,8 @@ def driver(store: SiteStore) -> Driver:
     sys.path.insert(0, str(path.parent))
     try:
         spec.loader.exec_module(module)
-        # The maintained driver imports its SSH bridge lazily when connecting.
+        # Preload the maintained driver's SSH/Suweb helper while its directory
+        # is importable. Its historical module name is independent of content sync.
         import_module("snapshot_drupal")
     finally:
         sys.path.remove(str(path.parent))
@@ -139,7 +140,8 @@ def connection(store: SiteStore, *, bounded: bool = False) -> Iterator[tuple[Dri
     settings = getattr(session, "settings", None)
     if bounded and isinstance(settings, dict):
         from .bounded_bridge import BoundedBridge
-        bounded_bridge = BoundedBridge(cast(dict[str, str], settings))
+        from .transport_settings import website_transport_settings
+        bounded_bridge = BoundedBridge(website_transport_settings(cast(dict[str, str], settings)))
         # A panel can request several private lists at once. Keep their SSH
         # sessions serial through closure, charging queueing to the same deadline.
         if not _BOUNDED_CONNECTION_LOCK.acquire(timeout=bounded_bridge.remaining()):

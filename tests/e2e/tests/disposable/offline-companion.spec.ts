@@ -9,7 +9,9 @@ async function unlock(page: Page) {
     await page.getByRole('button', { name: 'Unlock', exact: true }).click();
 }
 
-test('encrypted opt-in notes survive an offline startup and synchronize with conflict review', async ({ page, context }, testInfo) => {
+test('encrypted opt-in notes survive an offline startup and synchronize with conflict review', async ({ page, context, baseURL }, testInfo) => {
+    if (!baseURL) throw new Error('Offline acceptance requires an explicit disposable origin');
+    const fixtureOrigin = new URL(baseURL).origin;
     const errors: string[] = [];
     context.on('weberror', error => { errors.push(error.error().message); });
     let content = '# Original synthetic secret';
@@ -17,19 +19,19 @@ test('encrypted opt-in notes survive an offline startup and synchronize with con
     const writes: { content: string; expected_etag: string; force: boolean }[] = [];
     const unknown: string[] = [];
     let apiReads = 0;
-    await context.addInitScript(({ account, vault }) => {
-        if (location.origin !== 'http://127.0.0.1:5198' || localStorage.getItem('offline-fixture-initialized')) return;
+    await context.addInitScript(({ account, vault, origin }) => {
+        if (location.origin !== origin || localStorage.getItem('offline-fixture-initialized')) return;
         localStorage.setItem('offline-fixture-initialized', '1');
         localStorage.setItem('gnosi_user_id', account.id);
         localStorage.setItem('gnosi_user_email', account.email);
         localStorage.setItem('gnosi_workspace_id', account.workspaces[0].id);
         localStorage.setItem('gnosi_active_vault', vault.id);
         localStorage.setItem('db-theme', 'light');
-    }, { account, vault });
+    }, { account, vault, origin: fixtureOrigin });
     await context.route('**/*', async route => {
         const request = route.request();
         const url = new URL(request.url());
-        if (url.origin !== 'http://127.0.0.1:5198') { unknown.push(request.url()); await route.abort(); return; }
+        if (url.origin !== fixtureOrigin) { unknown.push(request.url()); await route.abort(); return; }
         if (!url.pathname.startsWith('/api/')) { await route.continue(); return; }
         apiReads += 1;
         expect(request.headers()['x-gnosi-expected-user-id']).toBe(account.id);
@@ -140,7 +142,7 @@ test('encrypted opt-in notes survive an offline startup and synchronize with con
         for (const name of names) for (const request of await (await caches.open(name)).keys()) urls.push(request.url);
         return urls;
     });
-    expect(cached).toContain('http://127.0.0.1:5198/offline.html');
+    expect(cached).toContain(`${fixtureOrigin}/offline.html`);
     expect(cached.some(url => url.includes('/api/'))).toBe(false);
     expect(cached.some(url => url.endsWith('/'))).toBe(false);
     const other = await context.newPage();

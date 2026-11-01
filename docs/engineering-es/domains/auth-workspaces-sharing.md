@@ -1,7 +1,13 @@
 ---
 status: implemented
-last_verified: 2026-10-26
+last_verified: 2026-10-28
 source_paths:
+  - backend/api/form_routes.py
+  - backend/domains/forms
+  - backend/models/forms.py
+  - backend/services/public_workflow_scope.py
+  - frontend/src/features/forms
+  - frontend/src/shared/api/forms.ts
   - backend/domains/sites/newsletter.py
   - frontend/src/features/websites/SourcesEditor.tsx
   - backend/domains/vault/publishing
@@ -27,6 +33,11 @@ source_paths:
   - frontend/src/shared/routing
   - frontend/src/features/workspaces
 tests:
+  - tests/e2e/tests/critical/daily-work.spec.ts
+  - backend/tests/test_public_forms.py
+  - frontend/src/features/forms/FormPage.test.tsx
+  - frontend/src/features/forms/FormsManager.test.tsx
+  - frontend/src/shared/api/forms.test.ts
   - backend/tests/test_sites_newsletter.py
   - frontend/src/features/websites/SourcesEditor.test.tsx
   - backend/tests/test_web_publishing.py
@@ -222,7 +233,7 @@ Las migraciones de gestión siguen una única secuencia: `mgmt_0006` añade form
 
 El diálogo para compartir ofrece **Publicar en la web** para una web de pruebas configurada por el administrador. `/api/vault/web-publishing` requiere un editor resuelto por la política central de identidad y el complemento para compartir. Una instalación personal nativa de confianza utiliza el propietario guardado sin crear credenciales; las instalaciones de organización, expuestas o con autenticación obligatoria siguen requiriendo autenticación. Cada petición de publicación incluye la precondición obligatoria `X-Gnosi-Web-Expected-User-ID`: el servidor la compara con la cuenta ya resuelta y rechaza las discrepancias antes de ejecutar el controlador. Esta cabecera no puede elegir una identidad y es independiente de la precondición de cuenta autenticada de otras operaciones. El servidor resuelve el vault autorizado y ejecuta únicamente el controlador Python configurado, con entrada JSON, entorno mínimo y un límite de 60 segundos para consultar el estado y de 600 segundos para las acciones de publicación. Las peticiones no pueden cambiar el vault, el ejecutable ni el destino de producción. `GNOSI_WEB_PUBLISH_DRIVER` define la ruta absoluta `.py`; `GNOSI_WEB_PUBLISH_PYTHON` permite definir el intérprete. Por defecto se utiliza `python3` del PATH, nunca el ejecutable empaquetado de la aplicación.
 
-Las incorporaciones, actualizaciones y retiradas se eligen explícitamente. Las demás páginas publicadas se conservan y las traducciones aparecen en la revisión. Publicar consume una vista previa de un solo uso vinculada a la cuenta, espacio de trabajo y vault. Los cambios de ámbito cancelan las peticiones y eliminan los datos privados de la interfaz. Cambiar la selección o encontrar una vista previa caducada exige otra revisión. El historial permite restaurar versiones de pruebas; Drupal sigue en producción.
+Las incorporaciones, actualizaciones y retiradas se eligen explícitamente. Las demás páginas publicadas se conservan y las traducciones aparecen en la revisión. Publicar consume una vista previa de un solo uso vinculada a la cuenta, espacio de trabajo y vault. Los cambios de ámbito cancelan las peticiones y eliminan los datos privados de la interfaz. Cambiar la selección o encontrar una vista previa caducada exige otra revisión. El historial permite restaurar versiones de pruebas. La retirada de la integración Drupal de Gnosi no modifica ningún sitio de producción alojado de forma independiente.
 
 El boletín muestra suscripciones pendientes, activas y de baja, idiomas e historial. El contenido del boletín admite los idiomas de la web `ca`, `es` y `en-gb`, independientemente del idioma de la interfaz. La vista previa HTML está aislada y sin acceso a la red. Solo se acepta `test_mode: true`: la cola guarda mensajes en el registro de pruebas sin enviar correos reales. Las vistas previas caducan a los 15 minutos o al reiniciar el servidor. Cancelar en el navegador no deshace una publicación iniciada; hay que actualizar el estado antes de repetir una acción incierta.
 

@@ -10,7 +10,7 @@ export function useSchemaAutosave(state: SchemaState, props: ResolvedProps, vali
     const { isOpen, onSave, onSchemaUpdated, folder } = props;
     const {
         saveErrorRef, initializedRef, isInitializedForSave, pendingSaveRef, activeSaveRef, savedCatalogRefsRef, fields, functionalities, enableSubitems,
-        enableTranslation, enableDrupalSync, drupalBundle, drupalFieldMapping,
+        enableTranslation,
     } = state;
     const scheduleSave = useEffectEvent(() => {
         if (!isOpen) return;
@@ -35,7 +35,7 @@ export function useSchemaAutosave(state: SchemaState, props: ResolvedProps, vali
                 try {
                     const { newSchemaObj, visibleProperties } = buildPayload(fields, enableTranslation);
                     if (onSave) {
-                        await onSave(newSchemaObj, { enableSubitems, visibleProperties, enableTranslation, enableDrupalSync, drupalBundle, drupalFieldMapping, functionalities });
+                        await onSave(newSchemaObj, { enableSubitems, visibleProperties, enableTranslation, functionalities });
                     } else {
                         await saveVaultFolderSchema(folder, newSchemaObj);
                     }
@@ -56,7 +56,7 @@ export function useSchemaAutosave(state: SchemaState, props: ResolvedProps, vali
         return () => { clearTimeout(handle); };
 
     });
-    useEffect(() => scheduleSave(), [isOpen, isInitializedForSave, fields, functionalities, enableSubitems, enableTranslation, enableDrupalSync, drupalBundle, drupalFieldMapping]);
+    useEffect(() => scheduleSave(), [isOpen, isInitializedForSave, fields, functionalities, enableSubitems, enableTranslation]);
 
     // Flush the pending save on unmounting the modal (e.g. closing with Esc or the X
     // right after editing, before the debounce's 600ms). Fire-and-forget:

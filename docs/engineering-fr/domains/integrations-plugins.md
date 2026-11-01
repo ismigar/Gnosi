@@ -2,6 +2,11 @@
 status: implemented
 last_verified: 2026-10-28
 source_paths:
+  - backend/domains/sites/transport_settings.py
+  - backend/domains/sites
+  - frontend/src/features/websites
+  - frontend/src/shared/api/sites.ts
+  - extensions/web-publishing
   - extensions/marketplace/build_vault_templates.py
   - extensions/marketplace/catalog_content.py
   - extensions/marketplace/reviewed_templates.py
@@ -58,8 +63,13 @@ source_paths:
   - extensions/office
   - frontend/src/features/plugin-management
   - frontend/src/features/notion-import
-  - frontend/src/features/integrations
 tests:
+  - backend/tests/test_drupal_retirement.py
+  - backend/tests/test_sites.py
+  - backend/tests/test_sites_newsletter.py
+  - backend/tests/test_sites_pangea_read_recovery.py
+  - frontend/src/features/websites/WebsitesPage.test.tsx
+  - frontend/src/features/websites/WebsiteAppearance.test.tsx
   - extensions/marketplace/test_reviewed_templates.py
   - frontend/src/features/vault-management/VaultTemplateMarketplace.test.tsx
   - backend/tests/test_integration_secret_storage.py
@@ -126,7 +136,7 @@ comme un seul groupe, même lorsque la traduction occupe plusieurs lignes.
 
 Le gestionnaire d'intégrations stocke la configuration non secrète des comptes et les références aux secrets dans les données locales. Chaque machine reconnecte ses comptes indépendamment. Les API de paramètres affichent l'état des connexions avec secrets masqués, valident la configuration, testent la connectivité, choisissent les valeurs par défaut et déconnectent les fournisseurs sans exposer les jetons bruts.
 
-Les callbacks Google et Microsoft OAuth créent ou mettent à jour des enregistrements de fournisseurs. IMAP, SMTP, CalDAV, Drupal, Notion et adaptateurs similaires normalisent leurs propres paramètres dans le registre d'intégration commun si possible.
+Les callbacks Google et Microsoft OAuth créent ou mettent à jour des enregistrements de fournisseurs. IMAP, SMTP, CalDAV, Notion et adaptateurs similaires normalisent leurs propres paramètres dans le registre d'intégration commun si possible.
 
 Google OAuth conserve les vérificateurs PKCE en attente dans une table d'états
 valables dix minutes. L'état du callback est consommé une seule fois, avant
@@ -357,7 +367,7 @@ outils des serveurs opérationnels.
 
 ## Exemples et intégrations complémentaires
 
-Le dépôt comprend des exemples de paquets de plugins, un proxy MCP Drupal,
+Le dépôt comprend des exemples de paquets de plugins,
 l'extension de citations LibreOffice et un assistant de citations Word. Ces
 clients distincts ont des contrats limités avec le backend ; ils ne partagent
 pas automatiquement son système de fichiers ni son accès aux identifiants secrets.
@@ -480,3 +490,5 @@ Les brouillons sont enregistrés automatiquement par site et destination dans la
 Chaque connexion SSH du service privé de Pangea permet jusqu’à trois tentatives après une déconnexion transitoire précédant tout mot de passe ou commande. Les sessions sont sérialisées jusqu’à la fermeture du processus SSH ; l’attente, l’authentification, les pauses et les commandes partagent un délai unique de 45 secondes. Si une interruption de transport identifiée persiste, les lectures (état, listes, exports et courriels capturés) peuvent redémarrer une fois automatiquement dans ce même délai et créneau de connexion. Les erreurs de clé d’hôte, d’authentification, de permissions, de service ou de réponse invalide ne déclenchent pas cette récupération. Les modifications, aperçus de campagnes, mises en file et actions sur les liens capturés ne sont jamais rejoués après une réponse incertaine. Voir `backend/domains/sites/bounded_bridge.py`, `backend/domains/sites/pangea.py` et les tests de récupération.
 
 Le logo, le favicon et les polices sont importés depuis des fichiers (4 Mo maximum) ; les images affichent une miniature transparente. `POST /api/vault/sites/{site_id}/theme/assets` reçoit les fichiers avec un accès réservé aux éditeurs. Les références sont enregistrées automatiquement. Le sélecteur recherche les polices système et les fichiers WOFF/WOFF2/TTF/OTF ; les polices système peuvent varier selon l’appareil. Les fichiers sont isolés par site et publiés uniquement après sélection. Webs ouvre la configuration sans attendre le catalogue, chargé dans Contenus ou Pages et réutilisé jusqu’à l’actualisation.
+
+Les sessions SSH/Suweb bornées de Webs normalisent une copie des paramètres de connexion du pilote externe maintenu. Un `WORKING_DIRECTORY` explicite est prioritaire ; sinon, la valeur historique de `DRUPAL_PATH` fournit le répertoire de travail. Les paramètres d’origine restent inchangés. Cette compatibilité du transport n’active pas la synchronisation de contenu Drupal.

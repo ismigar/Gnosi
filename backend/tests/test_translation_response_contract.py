@@ -1,4 +1,4 @@
-"""Response contracts for translation and single-row Drupal routes."""
+"""Response contracts for translation routes."""
 
 from __future__ import annotations
 
@@ -41,14 +41,6 @@ def _translation_result(item_id: str) -> dict[str, Any]:
 
 def test_routes_expose_exact_models_without_changing_methods_or_status() -> None:
     expected = {
-        "sync_drupal_row": (
-            "/skills/sync-drupal-row",
-            translation_routes.SyncDrupalRowResponse,
-        ),
-        "sync_drupal_rows": (
-            "/skills/sync-drupal-rows",
-            translation_routes.SyncDrupalRowsResponse,
-        ),
         "translate_row": (
             "/skills/translate-row",
             translation_routes.TranslateRowResponse,
@@ -74,64 +66,6 @@ def test_routes_expose_exact_models_without_changing_methods_or_status() -> None
         assert route.status_code is None
         assert route.response_model is response_model
         assert response_model.model_config["extra"] == "allow"
-
-
-def test_sync_drupal_row_preserves_dynamic_json_and_input_errors(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    result = {
-        "item_id": "row-1",
-        "uuid": "uuid-1",
-        "nid": 17,
-        "url": "/node/17",
-        "created": True,
-        "media_pushed": False,
-        "source_lang": "ca",
-        "scope": "lang_only",
-        "languages": ["ca", "en"],
-        "translations": [{"lang": "en", "status": "ok", "extension": {"nid": 18}}],
-        "skipped_fields": [{"field": "hero", "reason": ["missing", "asset"]}],
-        "extension": {"request_id": "drupal-1"},
-    }
-    calls: list[tuple[str, bool, str, bool]] = []
-
-    async def sync_row(
-        item_id: str,
-        *,
-        background_tasks: BackgroundTasks,
-        publish: bool,
-        scope: str,
-        push_media: bool,
-    ) -> dict[str, Any]:
-        assert isinstance(background_tasks, BackgroundTasks)
-        calls.append((item_id, publish, scope, push_media))
-        return result
-
-    monkeypatch.setattr(translation_routes._legacy, "_do_sync_drupal_row", sync_row)
-    response = asyncio.run(
-        translation_routes.sync_drupal_row(
-            BackgroundTasks(),
-            {
-                "item_id": "row-1",
-                "button_action": "sync_drupal",
-                "publish": False,
-                "scope": "lang_only",
-                "push_media": False,
-            },
-        )
-    )
-    expected = {"status": "ok", **result}
-
-    assert response == expected
-    assert (
-        translation_routes.SyncDrupalRowResponse.model_validate(response).model_dump() == expected
-    )
-    assert calls == [("row-1", False, "lang_only", False)]
-
-    with pytest.raises(HTTPException) as exc_info:
-        asyncio.run(translation_routes.sync_drupal_row(BackgroundTasks(), {}))
-    assert exc_info.value.status_code == 400
-    assert exc_info.value.detail == "item_id is required"
 
 
 def test_translate_row_and_bulk_preserve_dynamic_results_and_per_row_errors(

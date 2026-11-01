@@ -11,7 +11,6 @@ source_paths:
   - backend/domains/vault/pages/creation_inputs.py
   - backend/services/handwriting_download.py
   - backend/services/active_vault_middleware.py
-  - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
@@ -40,6 +39,9 @@ source_paths:
   - frontend/src/shared/bookmarks
   - frontend/src/shared/api/bookmarks.ts
 tests:
+  - tests/e2e/tests/critical/daily-work.spec.ts
+  - tests/e2e/tests/restart/persistence.spec.ts
+  - backend/tests/test_drupal_retirement.py
   - backend/tests/test_record_title_roundtrip.py
   - frontend/src/features/vault/editor/block-editor/page-editor/usePageMetadata.test.tsx
   - backend/tests/test_e2e_option_catalogs.py
@@ -77,14 +79,6 @@ tests:
   - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
   - frontend/src/shared/ui/PanePortal.test.tsx
   - frontend/src/shared/records/hooks/keyboardSubscriptions.test.tsx
-  - backend/tests/test_drupal_connector_discovery_contract.py
-  - backend/tests/test_drupal_connector_http_contract.py
-  - backend/tests/test_drupal_connector_native_contract.py
-  - backend/tests/test_drupal_native_mapping_contract.py
-  - backend/tests/test_drupal_open_core_fields.py
-  - backend/tests/test_drupal_open_languages_markdown.py
-  - backend/tests/test_drupal_open_media.py
-  - backend/tests/test_drupal_service_contract.py
   - backend/tests/test_translation_http_open_contract.py
   - backend/tests/test_sync_comment_open_contract.py
   - backend/tests/test_sync_comment_bootstrap.py
@@ -126,7 +120,7 @@ tests:
   - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_assets_files_containment.py
   - backend/tests/test_vault_assets_files_route_contract.py
-  - backend/tests/test_vault_translation_drupal_domain_contract.py
+  - backend/tests/test_vault_translation_domain_contract.py
   - backend/tests/test_relation_sync.py
   - backend/tests/test_translation_helpers.py
   - backend/tests/test_vault_templates.py
@@ -253,34 +247,28 @@ existant sans coercition des champs.
 Ces changements préservent les limites de capture des erreurs des fournisseurs,
 la récupération ordonnée du disque, les langues cibles dupliquées et l’ordre
 d’écriture des statuts. Les tests synthétiques utilisent des doubles de
-fournisseurs, pas de comptes cloud réels. La composition Drupal et le HTTP de
-traduction vérifient désormais les propriétaires réels des dépendances ; cela
-ne certifie ni tout le backend, ni un serveur Drupal réel, ni une migration cloud.
+fournisseurs sans comptes cloud réels ; ils ne certifient ni tout le backend
+ni une migration cloud.
 
-## Contrats du transport Drupal et du HTTP
-
-Le mappage des champs Drupal, la préparation multimédia, la découverte des langues,
-la correspondance des titres et la synchronisation des lignes conservent les
-métadonnées ouvertes et les identifiants opaques du connecteur. Les réponses
-construites ont des types explicites ; les valeurs décodées du transport ne
-présupposent aucun schéma applicatif. L’ordre des champs, les erreurs partielles,
-l’identité des identifiants en cache et les erreurs natives d’entrée sont conservés.
-Les fabriques capturent le connecteur et les classes d’erreur, mais résolvent les
-membres remplaçables lors de l’appel. Pillow reste optionnel et chargé à la demande.
+## HTTP de traduction et publication retirée
 
 Les routes de traduction conservent les schémas de requête et de réponse existants.
-La publication Drupal en lot convertit chaque identifiant en texte et conserve
-les doublons ; la traduction en lot filtre les identifiants non textuels et
-déduplique les chaînes après retrait des espaces. Publier une ligne envoie toujours
-les médias par défaut. Les entrées textuelles conservent leurs valeurs de repli
+La traduction en lot filtre les identifiants non textuels et déduplique les chaînes
+après retrait des espaces. Les entrées textuelles conservent leurs valeurs de repli
 pour les entrées vides et leurs erreurs natives face au JSON malformé. Les appelants
 Python non JSON dont l’opération strip personnalisée renvoie une valeur non
-textuelle reçoivent une erreur de type explicite ; ce contrôle réservé au HTTP
-ne normalise ni YAML ni les métadonnées des plugins. Un JSON généré valide dont
-la forme de réponse est incorrecte atteint la validation HTTP, pas le repli sur
-erreur fournisseur. Des transports synthétiques et des fichiers temporaires
-vérifient ces contrats sans lire d’identifiants secrets, publier de contenu
-ou appeler un fournisseur externe.
+textuelle reçoivent une erreur de type explicite ; ce contrôle réservé au HTTP ne
+normalise ni YAML ni les métadonnées des plugins. Un JSON généré valide dont la
+forme de réponse est incorrecte atteint la validation HTTP, pas le repli sur erreur
+fournisseur. Des transports synthétiques et des fichiers temporaires vérifient ces
+contrats sans lire d’identifiants secrets ni appeler de fournisseur.
+
+Gnosi n’expose plus le mappage des champs Drupal, la synchronisation des lignes,
+la planification automatique, les commandes de synchronisation ni le proxy MCP
+Drupal. Les enregistrements importés historiques et les métadonnées opaques
+restent des données de l’utilisateur ; la lecture et l’écriture des métadonnées
+génériques préservent les champs inconnus. Ce retrait ne modifie aucun site
+hébergé indépendamment.
 
 ## Responsabilité
 
@@ -480,12 +468,10 @@ l'enregistrement délégué des aperçus et des écritures. L'identité des cach
 la correspondance des alias, les vérifications du Vault actif et les schémas
 de routes générés restent inchangés.
 
-Les routes de traduction et de synchronisation Drupal précisent elles aussi le
-type de leur routeur à liaison tardive à la frontière du module. Les opérations
-sur une seule ligne, en lot, de mise en correspondance, de boutons générés et
-de traduction de pages préservent les contrôles de rôles, les traitements en
-arrière-plan et la correspondance des erreurs externes tout en restant couvertes
-par le typage strict.
+Les routes de traduction et de boutons générés précisent le type de leur
+routeur à liaison tardive à la frontière du module. Les opérations conservées
+préservent les contrôles de rôles, les traitements en arrière-plan et la
+correspondance des erreurs externes tout en restant couvertes par le typage strict.
 
 Le stockage propre aux tables a des responsables explicites.
 `assets/table_paths.py` gère les chemins confinés des ressources, les répertoires
@@ -514,13 +500,13 @@ objets Python appelables pris en charge.
 `backend/api/vault_routes.py` est désormais un module d'initialisation de
 compatibilité, sans porter l'implémentation du domaine. Les modules
 typés de `backend/domains/vault` gèrent les comportements restants des API,
-annotations, citations, dessins, Drupal, fichiers, connaissances, liens,
+annotations, citations, dessins, fichiers, connaissances, liens,
 médias, pages, registres, tables et traductions. Le module d'initialisation
 charge et enregistre ces responsables dans l'ordre historique du code source,
 tandis que `facade_bridge.py` préserve les imports pris en charge, les variables
 globales mutables et les points de substitution par monkeypatch à liaison
-tardive. Le routeur parent expose toujours le même inventaire à plat
-d'`APIRoute` et un document OpenAPI déterministe identique octet par octet.
+tardive. Le routeur parent conserve un inventaire à plat d'`APIRoute` et un
+document OpenAPI déterministe pour les opérations conservées.
 La façade n'a donc besoin d'aucune dérogation aux garde-fous du code source.
 
 `pages/foundation.py` déclare ses fonctions avant de charger la façade. Son point
@@ -543,15 +529,6 @@ La frontière partagée des fonctions auxiliaires pures canonicalise les identit
 sources, détecte les changements traduisibles et les champs de langue,
 réutilise les libellés d'options existants et ne traduit que les sous-champs
 textuels des images tout en conservant leur ressource source.
-La publication de lignes vers Drupal relève de `backend/domains/vault/drupal`,
-qui sépare la correspondance des champs et des identités, la préparation des
-médias locaux, la conversion de Markdown et des wikilinks, les caches de
-langues, la correspondance des titres et la synchronisation idempotente des
-nœuds. Le routeur de compatibilité conserve les décorateurs FastAPI d'origine,
-les docstrings des routes et les points de substitution Python à liaison
-tardive, tandis que le connecteur Drupal reste la frontière de transport
-externe. Ces déplacements ne modifient ni les chemins, ni les payloads, ni les
-codes d'état, ni les tâches d'arrière-plan, ni l'ordre des routes.
 
 Les fournisseurs de traduction sont chargés dans les blocs existants de gestion
 d'erreurs au moment de la requête, par import de leurs propriétaires typés réels,

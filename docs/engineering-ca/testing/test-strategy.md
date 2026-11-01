@@ -11,6 +11,8 @@ source_paths:
   - Dockerfile.backend
   - scripts/ci/build_container_image.py
   - scripts/ci/pre_pr.py
+  - scripts/ci/browser_acceptance.py
+  - scripts/ci/acceptance_backend.py
   - scripts/ci/pre_pr_commands.py
   - desktop/update-policy.js
   - backend/tests
@@ -42,7 +44,7 @@ tests:
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
-Els treballs pesants de CI segueixen aquest ordre: backend, frontend i Docker. El Mac i la MV Linux comparteixen recursos físics; el frontend utilitza un sol procés de proves. La fallada anterior no omet les comprovacions següents, però es mantenen la cancel·lació i les restriccions dels forks. Les suites aïllades de dibuixos i citacions disposen de cinc minuts per procés, incloses les importacions inicials i totes les assercions. Les proves integrades d’eines generades utilitzen el límit de producció sense modificar-lo; una regressió separada verifica el límit explícit.
+Els treballs pesants de CI segueixen aquest ordre: backend, frontend, acceptació nativa de navegador i Docker. El Mac i la MV Linux comparteixen recursos físics; el frontend utilitza un sol procés de proves. La fallada anterior no omet les comprovacions següents, però es mantenen la cancel·lació i les restriccions dels forks. Les suites aïllades de dibuixos i citacions disposen de cinc minuts per procés, incloses les importacions inicials i totes les assercions. Les proves integrades d’eines generades utilitzen el límit de producció sense modificar-lo; una regressió separada verifica el límit explícit.
 
 Totes les execucions de CI utilitzen màquines locals: Linux ARM64 per a backend, native smoke i Docker; macOS ARM64 per a frontend; macOS X64 per a documentació. Si falta un executor compatible, els treballs queden en cua. Cap PR, pujada ni validació de versions recorre a executors de GitHub. Es mantenen els permisos de només lectura, les dependències i les restriccions al mateix repositori; els forks no poden executar-se a les màquines del propietari.
 
@@ -330,6 +332,40 @@ comprimida ni el temps d'arrencada. L'avís existent de Vite de 1.500 kB
 continua visible; aquests límits eviten creixement, no acrediten rendiment òptim.
 
 ## Proves d'extrem a extrem i visuals
+
+La comprovació obligatòria `native-smoke` executa ara `scripts/ci/browser_acceptance.py`.
+La mateixa acceptació forma part de la validació local completa abans d'una PR.
+Construeix el frontend de producció i inicia una previsualització loopback pròpia
+i el backend de producció amb autenticació real i dades temporals. Executa els
+projectes anònim, de contractes sintètics, autenticat, d'accessibilitat i de feina
+quotidiana amb un sol procés i sense reintents. Els informes buits, fallits,
+inestables o amb proves omeses no acrediten acceptació. Les captures visuals de
+macOS continuen com una comprovació específica de plataforma i no s'atribueixen
+al job Linux.
+
+La fixture crea usuaris owner/viewer sintètics, dos vaults i una taula amb dades.
+L'acceptació diària edita amb l'editor real, reobre la pàgina desada, comprova
+l'aïllament dels vaults i exigeix que un viewer no pugui sobreescriure-la. Després
+es reinicia el procés real del backend i es comprova que contingut i metadades
+persisteixin. Les suites amb API simulada acrediten només el frontend. Els
+projectes crític i de reinici utilitzen rutes i persistència reals.
+
+Una fixture nova en mode personal utilitza després el selector real de vaults per sortir d’una pàgina oberta del primer vault i obrir contingut del segon. Tots dos modes exigeixen autenticació i mantenen dades i secrets de signatura separats. Cada projecte de navegador seleccionat ha d’executar una prova superada.
+
+`GNOSI_VALIDATION_ROOT` delimita les dades i desactiva la lectura de fitxers
+d'entorn i del magatzem de credencials. El navegador no té transport extern fora
+dels dos ports loopback propis. La fixture també rebutja sockets externs i
+escriptures fora de l'arrel pròpia. No pren serveis personals ni ports ocupats.
+La construcció conserva la validació dels actius del lector i els límits de
+mida. L'informe vincula el commit, el diff i l'inventari compilat, i falla si
+canvien durant la prova. L'evidència de codi i navegador no acredita per si sola
+el paquet d'escriptori instal·lat.
+
+Executeu `uv run --frozen --no-sync python scripts/ci/browser_acceptance.py` per
+crear un directori nou d'evidència ignorada, o indiqueu-ne un de nou amb `--output`.
+La configuració Playwright ordinària continua connectant-se a serveis existents
+seleccionats explícitament. La creació i propietat dels serveis queda limitada
+a aquest llançador d'acceptació.
 
 Playwright s'executa com a projecte del host contra l'aplicació nativa. La
 preparació anònima cobreix l'arrencada i el comportament públic; l'autenticada,

@@ -21,6 +21,8 @@ reading local secrets.
 - Reviewed portal: `docs/engineering/`.
 - Generated reference: `docs/engineering/generated/`.
 - Domain coverage configuration: `domains.json`.
+- Shared domain loading, source matching and feature ownership guard:
+  `scripts/domain_coverage.py`.
 - Generator: `scripts/generate.py`.
 - Catalog owners: `catalog_common.py`, `api_catalog.py`, `backend_catalog.py`,
   `model_catalog.py`, `frontend_catalog.py`, `configuration_catalog.py`, and
@@ -130,6 +132,14 @@ after staging: every indexed Python file, including tests, must remain within
 4. Confirm that the coverage page reports `covered` and that every pattern is
    accurate.
 5. Run validation and the strict MkDocs build.
+
+Generation and validation reject any owned frontend feature module with no
+production JavaScript or TypeScript file matched by domain source patterns.
+Tests, assets and excluded local artifacts cannot stand in for that source.
+Assign a new feature to an accurate existing guide or add a reviewed domain;
+include its tests, including shared or disposable-browser tests where relevant.
+The `covered` status means guide/source presence and traceability. Test counts
+are navigation signals; neither establishes runtime or daily-work acceptance.
 
 The change-impact gate is intentionally limited to high-impact boundaries:
 backend APIs and services, integrations, desktop and native runtime code,

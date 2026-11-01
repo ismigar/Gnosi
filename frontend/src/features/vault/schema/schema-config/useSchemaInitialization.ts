@@ -9,13 +9,12 @@ import { fetchOptionCatalogs, fetchVirtualFields } from '../../../../shared/api/
 export function useSchemaInitialization(state: SchemaState, props: ResolvedProps) {
     const {
         setFields, setFunctionalities, setIsInitializedForSave, setAllTables, setVirtualComputers,
-        setEnableSubitems, setEnableTranslation, setSharedCatalogs, setEnableDrupalSync,
-        setDrupalBundle, setDrupalFieldMapping, setEnableSocialPublish, initializedRef, savedCatalogRefsRef,
+        setEnableSubitems, setEnableTranslation, setSharedCatalogs,
+        setEnableSocialPublish, initializedRef, savedCatalogRefsRef,
     } = state;
     const {
         isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties,
-        initialEnableTranslation, initialEnableDrupalSync, initialDrupalBundle,
-        initialDrupalFieldMapping, initialFunctionalities, availableTables,
+        initialEnableTranslation, initialFunctionalities, availableTables,
     } = props;
     const initialize = useEffectEvent(() => {
         if (!isOpen) {
@@ -33,9 +32,6 @@ export function useSchemaInitialization(state: SchemaState, props: ResolvedProps
             setFunctionalities(normalizeTableFunctionalities(initialFunctionalities, currentSchema).map((item) => ({ ...item, config: readActionConfig(item.config) })));
             setEnableSubitems(initialEnableSubitems);
             setEnableTranslation(initialEnableTranslation);
-            setEnableDrupalSync(initialEnableDrupalSync);
-            setDrupalBundle(initialDrupalBundle || '');
-            setDrupalFieldMapping(initialDrupalFieldMapping || {});
             setEnableSocialPublish(fieldsArray.some((f) => f.system && /xxss|social/i.test(f.name || '')));
             // The autosave effect runs after this initialization effect on the
             // opening commit. Keep it blocked until React applies this complete
@@ -83,5 +79,5 @@ export function useSchemaInitialization(state: SchemaState, props: ResolvedProps
             void fetchVirtualComputers();
         }
     });
-    useEffect(() => { initialize(); }, [isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties, initialEnableTranslation, initialEnableDrupalSync, initialDrupalBundle, initialDrupalFieldMapping, initialFunctionalities, availableTables]);
+    useEffect(() => { initialize(); }, [isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties, initialEnableTranslation, initialFunctionalities, availableTables]);
 }

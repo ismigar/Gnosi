@@ -153,19 +153,17 @@ def test_ensure_status_seed_features_add_their_states():
             {"id": "f2", "name": "XXSS", "type": "text", "system": True},
         ],
         translation_enabled=True,
-        drupal_sync_enabled=True,
     )
     assert oc.ensure_status_seed(t) is True
     prop = t["properties"][0]
     names = oc.option_names(prop["config"]["options"])
     assert names == [
         oc.STATUS_DRAFT, oc.STATUS_REVIEWED, oc.STATUS_TRANSLATED,
-        oc.STATUS_PUBLISHED_DRUPAL, oc.STATUS_PUBLISHED_SOCIAL,
+        oc.STATUS_PUBLISHED_SOCIAL,
     ]
     by_name = {o["name"]: o for o in prop["config"]["options"]}
     assert by_name[oc.STATUS_DRAFT]["group"] == "Inicial"
     assert by_name[oc.STATUS_TRANSLATED]["group"] == "En curs"
-    assert by_name[oc.STATUS_PUBLISHED_DRUPAL]["group"] == "Final"
     # `status` fields receive the default groups.
     assert prop["config"]["option_groups"] == oc.DEFAULT_STATUS_GROUPS
 

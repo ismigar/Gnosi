@@ -40,13 +40,12 @@ def test_get_action_rules_registry_block_wins():
 def test_get_action_rules_none_when_feature_disabled():
     t = _table(translation_enabled=False)
     assert ar.get_action_rules(t, ar.ACTION_TRANSLATE) is None
-    assert ar.get_action_rules(t, ar.ACTION_SYNC_DRUPAL) is None
 
 
 def test_ensure_action_rules_seeds_only_active_features():
-    t = _table(drupal_sync_enabled=True)
+    t = _table()
     assert ar.ensure_action_rules(t) is True
-    assert set(t["action_rules"].keys()) == {ar.ACTION_TRANSLATE, ar.ACTION_SYNC_DRUPAL}
+    assert set(t["action_rules"].keys()) == {ar.ACTION_TRANSLATE}
     # Idempotent and never overwrites a manually edited block.
     t["action_rules"][ar.ACTION_TRANSLATE]["requires"] = []
     assert ar.ensure_action_rules(t) is False
@@ -111,8 +110,7 @@ def test_status_effect_source_and_created():
 def test_status_effect_none_when_no_rules_or_target():
     t = _table(translation_enabled=False)
     assert ar.status_effect(t, ar.ACTION_TRANSLATE, "source") == (None, None, False)
-    t2 = _table(drupal_sync_enabled=True)
-    assert ar.status_effect(t2, ar.ACTION_SYNC_DRUPAL, "created") == (None, None, False)
+    assert ar.status_effect(_table(), ar.ACTION_TRANSLATE, "unknown") == (None, None, False)
 
 
 def test_effect_write_key_prefers_existing_metadata_key():

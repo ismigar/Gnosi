@@ -42,11 +42,7 @@ CREDENTIAL_INFO: dict[str, dict[str, str]] = {
     "ssh_password": {"name": "SSH", "description": "Password for SSH connections"},
     "ssh_suweb_password": {
         "name": "SSH SUWEB",
-        "description": "SUWEB password for Drupal",
-    },
-    "drupal_root_password": {
-        "name": "Drupal",
-        "description": "Root password for Drupal",
+        "description": "SUWEB password for website publishing",
     },
     "newsletters_password": {
         "name": "Newsletters",

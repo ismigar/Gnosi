@@ -11,6 +11,8 @@ source_paths:
   - Dockerfile.backend
   - scripts/ci/build_container_image.py
   - scripts/ci/pre_pr.py
+  - scripts/ci/browser_acceptance.py
+  - scripts/ci/acceptance_backend.py
   - scripts/ci/pre_pr_commands.py
   - desktop/update-policy.js
   - backend/tests
@@ -42,7 +44,7 @@ tests:
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
-Los trabajos pesados de CI siguen este orden: backend, frontend y Docker. El Mac y la MV Linux comparten recursos físicos; el frontend utiliza un solo proceso de pruebas. Un fallo anterior no omite las comprobaciones siguientes, pero se mantienen la cancelación y las restricciones de los forks. Las suites aisladas de dibujos y citas disponen de cinco minutos por proceso, incluidas las importaciones iniciales y todas las aserciones. Las pruebas integradas de herramientas generadas utilizan el límite de producción sin modificarlo; una regresión separada verifica el límite explícito.
+Los trabajos pesados de CI siguen este orden: backend, frontend, aceptación nativa de navegador y Docker. El Mac y la MV Linux comparten recursos físicos; el frontend utiliza un solo proceso de pruebas. Un fallo anterior no omite las comprobaciones siguientes, pero se mantienen la cancelación y las restricciones de los forks. Las suites aisladas de dibujos y citas disponen de cinco minutos por proceso, incluidas las importaciones iniciales y todas las aserciones. Las pruebas integradas de herramientas generadas utilizan el límite de producción sin modificarlo; una regresión separada verifica el límite explícito.
 
 Todas las ejecuciones de CI utilizan máquinas locales: Linux ARM64 para backend, native smoke y Docker; macOS ARM64 para frontend; macOS X64 para documentación. Si falta un ejecutor compatible, los trabajos quedan en cola. Ninguna PR, subida ni validación de versiones recurre a ejecutores de GitHub. Se mantienen los permisos de solo lectura, las dependencias y las restricciones al mismo repositorio; los forks no pueden ejecutarse en las máquinas del propietario.
 
@@ -325,6 +327,40 @@ de 1.500 kB sigue visible; estos límites evitan crecimiento, no acreditan un
 rendimiento óptimo.
 
 ## Pruebas visuales y de extremo a extremo
+
+La comprobación obligatoria `native-smoke` ejecuta ahora `scripts/ci/browser_acceptance.py`.
+La misma aceptación forma parte de la validación local completa antes de una PR.
+Construye el frontend de producción e inicia una previsualización loopback propia
+y el backend de producción con autenticación real y datos temporales. Ejecuta
+los proyectos anónimo, de contratos sintéticos, autenticado, de accesibilidad
+y de trabajo diario con un solo proceso y sin reintentos. Los informes vacíos,
+fallidos, inestables o con pruebas omitidas no acreditan aceptación. Las capturas
+visuales de macOS siguen siendo una comprobación específica de plataforma y no
+se atribuyen al job Linux.
+
+La fixture crea usuarios owner/viewer sintéticos, dos vaults y una tabla con datos.
+La aceptación diaria edita con el editor real, reabre la página guardada, comprueba
+el aislamiento de vaults y exige que un viewer no pueda sobrescribirla. Después
+reinicia el proceso real del backend y comprueba que contenido y metadatos
+persistan. Las suites con API simulada acreditan solo el frontend. Los proyectos
+crítico y de reinicio utilizan rutas y persistencia reales.
+
+Una fixture nueva en modo personal utiliza después el selector real de vaults para salir de una página abierta del primer vault y abrir contenido del segundo. Ambos modos exigen autenticación y mantienen datos y secretos de firma separados. Cada proyecto de navegador seleccionado debe ejecutar una prueba superada.
+
+`GNOSI_VALIDATION_ROOT` delimita los datos y desactiva la lectura de archivos de
+entorno y del almacén de credenciales. El navegador no tiene transporte externo
+fuera de los dos puertos loopback propios. La fixture también rechaza sockets externos
+y escrituras fuera de su raíz. No toma servicios personales ni puertos ocupados.
+La construcción conserva la validación de activos del lector y los límites de
+tamaño. El informe vincula el commit, el diff y el inventario compilado, y falla
+si cambian durante la prueba. La evidencia de código y navegador no acredita
+por sí sola el paquete de escritorio instalado.
+
+Ejecute `uv run --frozen --no-sync python scripts/ci/browser_acceptance.py` para
+crear un directorio nuevo de evidencia ignorada, o indique uno nuevo con `--output`.
+La configuración Playwright habitual sigue conectándose a servicios existentes
+seleccionados explícitamente. La creación y propiedad de servicios se limita
+a este lanzador de aceptación.
 
 Playwright se ejecuta como un proyecto del host contra la aplicación nativa. La configuración anónima cubre el arranque y el comportamiento público; la autenticada cubre la funcionalidad del workspace. Las pruebas de dominio ejercitan Vault, paneles, correo, calendario, contactos, dibujos, automatización, chat del agente y navegación.
 

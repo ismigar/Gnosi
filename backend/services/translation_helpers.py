@@ -188,7 +188,7 @@ def detect_record_source_lang(metadata: object) -> str:
 def detect_record_lang_raw(metadata: object) -> str:
     """RAW value (lowercase) of the row's "Idioma" field, WITHOUT truncating to 2
     letters. E.g. "EN-GB" → "en-gb". '' if it doesn't have one. For targets that accept
-    regional codes (like Drupal, which can have "en-gb")."""
+    regional codes (for example "en-gb")."""
     if not metadata or not is_record(metadata):
         return ""
     for key, val in metadata.items():

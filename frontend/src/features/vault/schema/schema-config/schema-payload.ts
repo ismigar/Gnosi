@@ -34,8 +34,7 @@ export function buildPayload(fields: Field[], enableTranslation: boolean) {
         if (f.description?.trim()) {
             config.description = f.description.trim();
         }
-        // System-managed column (Drupal NID/URL): read-only in the
-        // grid. The sync writes its value; the user doesn't edit it.
+        // Preserve the read-only marker on existing system-managed columns.
         if (f.system === true) {
             config.system = true;
         }

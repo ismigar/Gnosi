@@ -172,7 +172,7 @@ def test_pangea_read_deadline_is_shared_across_login_and_commands(monkeypatch):
 
     child = SlowChild()
     bridge.child = child
-    bridge.settings = {'DRUPAL_PATH': '/owned'}
+    bridge.settings = {'WORKING_DIRECTORY': '/owned'}
     with pytest.raises(HTTPException) as error:
         bridge.run('true')
     assert error.value.status_code == 503

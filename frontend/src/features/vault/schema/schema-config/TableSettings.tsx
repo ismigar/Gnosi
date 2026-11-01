@@ -2,7 +2,6 @@ import React from 'react';
 import type { SchemaConfigModel } from './useSchemaConfig';
 import { Layers, Languages, Send } from 'lucide-react';
 import { FunctionalitiesSection } from './FunctionalitiesSection';
-import { DrupalSettings } from './DrupalSettings';
 export function TableSettings({ model }: { model: SchemaConfigModel }) {
     const {
         t, enableSubitems, setEnableSubitems, enableTranslation, handleToggleTranslation,
@@ -88,7 +87,6 @@ export function TableSettings({ model }: { model: SchemaConfigModel }) {
                             </p>
                         </div>
 
-                        <DrupalSettings model={model} />
                         <FunctionalitiesSection model={model} />
                     </div>
 

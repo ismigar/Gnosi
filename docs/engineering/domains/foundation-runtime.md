@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-10-26
+last_verified: 2026-10-28
 source_paths:
+  - scripts/ci/acceptance_backend.py
+  - scripts/ci/browser_acceptance.py
+  - frontend/src/shared/offline
+  - frontend/src/shared/api/offline-sync.ts
   - frontend/src/shared/hooks/useAppKeyboardScroll.ts
   - frontend/src/shared/hooks/useKeyboardScroll.ts
   - frontend/src/shared/hooks/keyboardScroll.ts
@@ -25,6 +29,14 @@ source_paths:
   - frontend/src/generated
   - frontend/feature-public-entries.json
 tests:
+  - tests/e2e/tests/critical/daily-work.spec.ts
+  - tests/e2e/tests/restart/persistence.spec.ts
+  - backend/tests/test_acceptance_fixture.py
+  - backend/tests/test_browser_acceptance_runner.py
+  - frontend/src/shared/offline/controller.test.ts
+  - frontend/src/shared/offline/worker.test.ts
+  - frontend/src/shared/api/offline-sync.test.ts
+  - tests/e2e/tests/disposable/offline-companion.spec.ts
   - frontend/src/shared/hooks/useAppKeyboardScroll.test.tsx
   - frontend/src/shared/hooks/keyboardAccessibility.test.tsx
   - frontend/src/shared/platform/browser-events.test.ts

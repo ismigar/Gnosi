@@ -16,7 +16,8 @@
     "test:debug": "playwright test --debug",
     "test:ui": "playwright test --ui",
     "report": "playwright show-report",
-    "install:browsers": "playwright install chromium"
+    "install:browsers": "playwright install chromium",
+    "test:acceptance": "uv run --frozen --no-sync python ../../scripts/ci/browser_acceptance.py"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

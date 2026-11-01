@@ -3,6 +3,7 @@ import type React from 'react';
 import { toast } from '../../../../shared/notifications/toast';
 import { apiErrorDetail } from '../../../../shared/api/errors';
 import { executeVaultTableButtonAction } from '../../../../shared/api/vault-table';
+import { isRetiredTableAction } from '../../properties/tableFunctionalityUtils';
 import { getTableFieldConfig } from './fieldConfig';
 import { evaluateFormula as evaluateTableFormula } from '../../properties/formulaUtils';
 import type { TableController } from './useTableController';
@@ -27,11 +28,13 @@ export function CellButton({ model, noteId, field }: { model: TableController, v
   const isExecuting = executingButtonKey === btnKey;
   const Icon = isExecuting ? Loader2 : (action === 'translate_row' ? Languages : (action === 'ai_prompt' ? Sparkles : Zap));
 
+  if (isRetiredTableAction(action)) return null;
+
   const handleButtonClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isExecuting) return;
 
-    if (action === 'translate_row' || action === 'sync_drupal' || action === 'publish_social' || action === 'process_resource') {
+    if (action === 'translate_row' || action === 'publish_social' || action === 'process_resource') {
       setPendingAction({ noteId, field, fieldConfig: cfg, action });
       return;
     }

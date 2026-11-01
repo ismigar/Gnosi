@@ -1,6 +1,5 @@
 import { ProcessResourceModal } from '../../../literature/records/ProcessResourceModal';
 import { PublishSocialModal } from '../../../social/publishing/PublishSocialModal';
-import { SyncDrupalModal } from '../../../integrations/drupal/SyncDrupalModal';
 import { TranslateLanguagesModal } from '../../editor/TranslateLanguagesModal';
 import type { TableController } from './useTableController';
 
@@ -27,16 +26,6 @@ export function TableActionDialogs({ model }: { model: TableController; }) {
       onTranslated={(data) => { setPendingAction(null); onTranslated?.(data); }}
     />
   )}
-
-    {pendingAction && pendingAction.action === 'sync_drupal' && (
-      <SyncDrupalModal
-        isOpen={true}
-        onClose={() => { setPendingAction(null); }}
-        noteId={pendingAction.noteId}
-        recordMetadata={noteById.get(pendingAction.noteId)?.metadata || {}}
-        onSynced={() => { setPendingAction(null); onTranslated?.({}); }}
-      />
-    )}
 
     {pendingAction && pendingAction.action === 'publish_social' && (
       <PublishSocialModal

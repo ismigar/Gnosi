@@ -80,7 +80,10 @@ async function openStableRoute(page: Page, route: string) {
     const prefix = route === '/' || route === '/dashboard' ? '' : url.pathname.match(/^\/@[^/]+/)?.[0];
     return prefix !== undefined && url.pathname === `${prefix}${surface.suffix}`;
   });
-  await expect(appShell.locator(surface.selector)).toBeVisible({ timeout: 30_000 });
+  const readySurface = route === '/dashboard'
+    ? appShell.getByRole('navigation', { name: /^(control center|centre de control|centro de control|centre de contrôle)$/i })
+    : appShell.locator(surface.selector);
+  await expect(readySurface).toBeVisible({ timeout: 30_000 });
   await expect(appShell.locator('#disabled-plugin-title')).toHaveCount(0);
   await expect(page.locator('.gnosi-route-skeleton')).toHaveCount(0, { timeout: 60_000 });
   await expect(page.locator('.notebook-library__loading')).toHaveCount(0);
@@ -198,7 +201,7 @@ test.describe('keyboard, focus, names, and live-region contracts', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await openStableRoute(page, '/');
 
-    const toggle = page.getByRole('button', { name: /toggle navigation|commuta|alternar|afficher.*navigation/i });
+    const toggle = page.locator('button[aria-controls="gnosi-global-navigation"]');
     const navigation = page.locator('#gnosi-global-navigation');
     await expect(navigation).toHaveAttribute('inert', '');
     await toggle.click();

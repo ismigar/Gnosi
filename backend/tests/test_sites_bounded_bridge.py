@@ -67,7 +67,7 @@ def harness(monkeypatch, sessions, timeout=45):
     bridge = BoundedBridge({
         "SSH_HOST": "staging.invalid", "SSH_PORT": "22", "SSH_USER": "operator",
         "SSH_PASSWORD": "synthetic-password", "SSH_SUWEB_PASSWORD": "synthetic-suweb",
-        "DRUPAL_PATH": "/owned",
+        "WORKING_DIRECTORY": "/owned",
     }, timeout=timeout)
     return bridge, clock, waits, launches
 

@@ -3,13 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   fetchAvailableAgentSkills,
-  fetchDrupalContentTypes,
-  fetchDrupalFields,
   fetchOptionCatalogs,
   fetchTableOptionUsage,
   fetchVirtualFields,
   generateButtonAction,
-  matchDrupalRows,
   removeTableOption,
   renameTableOption,
   saveVaultFolderSchema,
@@ -144,51 +141,16 @@ describe('Vault schema API', () => {
   });
 
 
-  it('preserves Drupal requests and schema autosave query/body', async () => {
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        Response.json({ counts: { matched: 1 }, status: 'ok' }),
-      )
-      .mockResolvedValueOnce(
-        Response.json({
-          content_types: [{ label: 'Article', machine: 'article', uuid: 'u1' }],
-        }),
-      )
-      .mockResolvedValueOnce(
-        Response.json({
-          bundle: 'article/news',
-          fields: [{ field_name: 'title', field_type: 'string', label: 'Title' }],
-        }),
-      )
-      .mockResolvedValueOnce(Response.json({ status: 'success' }));
+  it('preserves schema autosave query/body', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({ status: 'success' }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await matchDrupalRows('table-1');
-    await fetchDrupalContentTypes();
-    await fetchDrupalFields('article/news');
     await saveVaultFolderSchema('BD/News', {
       Status: 'status',
       Status_config: { options: ['Draft'] },
     });
 
-    const match = requestAt(fetchMock.mock.calls, 0);
-    await expect(match.json()).resolves.toEqual({
-      dry_run: false,
-      table_id: 'table-1',
-    });
-
-    const types = requestAt(fetchMock.mock.calls, 1);
-    expect(new URL(types.url).pathname).toBe(
-      '/api/vault/drupal/content-types',
-    );
-
-    const fields = requestAt(fetchMock.mock.calls, 2);
-    expect(new URL(fields.url).pathname).toBe(
-      '/api/vault/drupal/content-types/article%2Fnews/fields',
-    );
-
-    const save = requestAt(fetchMock.mock.calls, 3);
+    const save = requestAt(fetchMock.mock.calls, 0);
     const saveUrl = new URL(save.url);
     expect(save.method).toBe('POST');
     expect(saveUrl.pathname).toBe('/api/vault/schema');

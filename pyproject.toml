@@ -124,9 +124,6 @@ name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
-[tool.uv.workspace]
-members = ["extensions/mcp/drupal-proxy"]
-
 [tool.ruff]
 target-version = "py311"
 line-length = 100

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-10-28
 source_paths:
   - backend/server.py
   - frontend/src/app/App.tsx
@@ -39,7 +39,7 @@ flowchart LR
     API --> MCP["Servidors MCP i proveïdors d'IA"]
     API --> Comms["Proveïdors de correu, calendari i contactes"]
     API --> Zotero["Zotero translation-server"]
-    API --> Publish["Notion, Drupal i serveis socials"]
+    API --> Publish["Notion i serveis socials"]
     Desktop["Shell d'escriptori Electron"] --> UI
     Desktop --> API
     Office["Complements ofimàtics i capturador web"] --> API
@@ -116,7 +116,7 @@ responsabilitats i les regles de reconstrucció.
 
 Tots els serveis externs són dependències opcionals dels dominis. OAuth i les
 credencials es gestionen localment. Els adaptadors normalitzen el comportament
-específic de Google, Microsoft, IMAP/SMTP, CalDAV, Notion, Drupal, els proveïdors
+específic de Google, Microsoft, IMAP/SMTP, CalDAV, Notion, els proveïdors
 d'IA, les xarxes socials, els proveïdors de fitxers i la traducció de Zotero.
 
 ## Navegació a la implementació

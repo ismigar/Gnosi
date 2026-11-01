@@ -12,9 +12,11 @@ const PREVIEW = 'v'.repeat(43);
 const SITE_ID = 'c'.repeat(32);
 // Exercise the producer/renderer boundary; prepared Markdown alone can hide
 // normalization damage that affects both the preview and the public reader.
-const BUNDLE = JSON.parse(execFileSync(fileURLToPath(new URL(
+const fixturePython = process.env.GNOSI_ACCEPTANCE_PYTHON || fileURLToPath(new URL(
   process.platform === 'win32' ? '../../../../.venv/Scripts/python.exe' : '../../../../.venv/bin/python', import.meta.url,
-)), [fileURLToPath(new URL('../../support/publication-snapshot.py', import.meta.url))], { encoding: 'utf8' })) as Bundle;
+));
+const BUNDLE = JSON.parse(execFileSync(fixturePython,
+  [fileURLToPath(new URL('../../support/publication-snapshot.py', import.meta.url))], { encoding: 'utf8' })) as Bundle;
 
 async function expectFidelity(surface: import('@playwright/test').Locator) {
   await expect(surface.locator('table')).toHaveCount(2);

@@ -188,11 +188,10 @@ export function useEventFields({mode, eventData, initialDate, calendars, default
         setAttendeeSuggestions([]);
         setLocationSuggestions([]);
         setLocationHighlight(-1);
-
-
+        // Field population is complete; delayed focus must not suppress early edits.
+        isInitializingRef.current = false;
         setTimeout(() => {
             titleRef.current?.focus();
-            isInitializingRef.current = false;
         }, 150);
     });
     useEffect(() => {

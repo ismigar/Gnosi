@@ -2,6 +2,11 @@
 status: implemented
 last_verified: 2026-10-28
 source_paths:
+  - backend/domains/sites/transport_settings.py
+  - backend/domains/sites
+  - frontend/src/features/websites
+  - frontend/src/shared/api/sites.ts
+  - extensions/web-publishing
   - extensions/marketplace/build_vault_templates.py
   - extensions/marketplace/catalog_content.py
   - extensions/marketplace/reviewed_templates.py
@@ -58,8 +63,13 @@ source_paths:
   - extensions/office
   - frontend/src/features/plugin-management
   - frontend/src/features/notion-import
-  - frontend/src/features/integrations
 tests:
+  - backend/tests/test_drupal_retirement.py
+  - backend/tests/test_sites.py
+  - backend/tests/test_sites_newsletter.py
+  - backend/tests/test_sites_pangea_read_recovery.py
+  - frontend/src/features/websites/WebsitesPage.test.tsx
+  - frontend/src/features/websites/WebsiteAppearance.test.tsx
   - extensions/marketplace/test_reviewed_templates.py
   - frontend/src/features/vault-management/VaultTemplateMarketplace.test.tsx
   - backend/tests/test_integration_secret_storage.py
@@ -133,7 +143,7 @@ validen la configuració, proven la connectivitat, trien valors predeterminats
 i desconnecten proveïdors sense exposar tokens en brut.
 
 Els callbacks OAuth de Google i Microsoft creen o actualitzen registres de
-proveïdor. Els adaptadors IMAP, SMTP, CalDAV, Drupal, Notion i similars
+proveïdor. Els adaptadors IMAP, SMTP, CalDAV, Notion i similars
 normalitzen la seva configuració al registre comú d'integracions quan és possible.
 
 OAuth de Google manté els verificadors PKCE pendents en un mapa d'estat amb
@@ -360,8 +370,7 @@ es registra sense descartar les eines dels servidors que funcionen.
 
 ## Exemples i integracions complementàries
 
-El repositori inclou exemples d'empaquetatge de connectors, un proxy MCP de
-Drupal, l'extensió de citacions de LibreOffice i un auxiliar de citacions de
+El repositori inclou exemples d'empaquetatge de connectors, l'extensió de citacions de LibreOffice i un auxiliar de citacions de
 Word. Són clients separats amb contractes acotats de backend; no comparteixen
 automàticament l'accés als seus fitxers ni a les credencials.
 
@@ -482,3 +491,5 @@ Els esborranys de butlletí es desen automàticament per web i destinació a la 
 Cada connexió SSH del servei privat de Pangea permet fins a tres intents davant de desconnexions transitòries anteriors a qualsevol contrasenya o ordre. Les sessions se serialitzen fins al tancament del procés SSH; l’espera, l’autenticació, les pauses i les ordres comparteixen un únic termini de 45 segons. Si persisteix un tall de transport identificat, les consultes (estat, llistes, exportacions i correus capturats) es poden reiniciar una vegada automàticament dins del mateix termini i torn de connexió. Els errors de clau d’host, autenticació, permisos, servei o resposta invàlida no activen aquesta recuperació. Les modificacions, les previsualitzacions de campanyes, els enviaments a la cua i les accions sobre enllaços capturats no es repeteixen després d’una resposta incerta. Vegeu `backend/domains/sites/bounded_bridge.py`, `backend/domains/sites/pangea.py` i les proves de recuperació.
 
 Logo, favicon i tipografies es trien pujant fitxers (màxim 4 MB); les imatges mostren una miniatura amb transparència. `POST /api/vault/sites/{site_id}/theme/assets` rep els fitxers amb accés restringit a editors. Les referències es desen automàticament. El selector cerca tipografies del sistema i WOFF/WOFF2/TTF/OTF propis; les fonts del sistema poden variar segons el dispositiu. Els uploads estan aïllats per web i només es publiquen en seleccionar-los. Webs obre la configuració sense esperar el catàleg, que es carrega a Continguts o Pàgines i es reutilitza fins a refrescar.
+
+Les sessions SSH/Suweb acotades de Webs normalitzen una còpia dels paràmetres de connexió del controlador extern mantingut. Un `WORKING_DIRECTORY` explícit té prioritat; altrament, el valor històric de `DRUPAL_PATH` aporta el directori de treball. Els paràmetres originals no es modifiquen. Aquesta compatibilitat del transport no habilita la sincronització de contingut Drupal.

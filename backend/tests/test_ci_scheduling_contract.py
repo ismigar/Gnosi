@@ -51,7 +51,10 @@ def test_linux_uses_only_local_runners_for_every_pr(
 ) -> None:
     backend = _mapping(_mapping(workflow["jobs"])[job_name])
     assert backend["runs-on"] == ["self-hosted", "Linux", "ARM64"]
-    assert "needs" not in backend
+    if job_name == "backend":
+        assert "needs" not in backend
+    else:
+        assert backend["needs"] == "frontend"
 
 
 def test_frontend_uses_only_local_runners_for_every_pr(
@@ -82,9 +85,12 @@ def test_native_smoke_installs_hosted_browser_dependencies_and_uses_http(
     dependencies = commands["pnpm --filter @gnosi/e2e exec playwright install-deps chromium"]
     assert dependencies["if"] == "(runner.environment == 'github-hosted') && steps.scope.outputs.runtime_required != 'false'"
     assert "pnpm test:e2e:install" in commands
-    startup = next(_mapping(step) for step in steps if _mapping(step).get("name") == "Start native services")
-    assert _mapping(startup["env"])["VITE_DEV_HTTPS"] == "false"
-    assert _mapping(commands["pnpm test:e2e:smoke"]["env"])["GNOSI_BASE_URL"] == "http://127.0.0.1:5173"
+    acceptance = next(_mapping(step) for step in steps if _mapping(step).get("name") ==
+                      "Accept production browser workflows and restart persistence")
+    assert "scripts/ci/browser_acceptance.py" in str(acceptance["run"])
+    assert acceptance["timeout-minutes"] == 15
+    assert _mapping(acceptance["env"])["GNOSI_DISABLE_SCHEDULER"] == "1"
+    assert not acceptance.get("continue-on-error")
 
 
 def test_all_gates_and_bounded_native_order_are_preserved(
@@ -98,9 +104,9 @@ def test_all_gates_and_bounded_native_order_are_preserved(
         assert "self-hosted" in labels
         assert "github.event.pull_request.head.repo.full_name == github.repository" in str(_mapping(job)["if"])
     assert _mapping(jobs["frontend"])["needs"] == "backend"
-    assert _mapping(jobs["docker"])["needs"] == "frontend"
-    assert "needs" not in _mapping(jobs["native-smoke"])
-    for name in ("frontend", "docker"):
+    assert _mapping(jobs["docker"])["needs"] == "native-smoke"
+    assert _mapping(jobs["native-smoke"])["needs"] == "frontend"
+    for name in ("frontend", "native-smoke", "docker"):
         assert "!cancelled()" in str(_mapping(jobs[name])["if"])
 
 

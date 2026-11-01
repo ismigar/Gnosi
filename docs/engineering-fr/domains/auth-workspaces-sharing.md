@@ -1,7 +1,13 @@
 ---
 status: implemented
-last_verified: 2026-10-26
+last_verified: 2026-10-28
 source_paths:
+  - backend/api/form_routes.py
+  - backend/domains/forms
+  - backend/models/forms.py
+  - backend/services/public_workflow_scope.py
+  - frontend/src/features/forms
+  - frontend/src/shared/api/forms.ts
   - backend/domains/sites/newsletter.py
   - frontend/src/features/websites/SourcesEditor.tsx
   - backend/domains/vault/publishing
@@ -27,6 +33,11 @@ source_paths:
   - frontend/src/shared/routing
   - frontend/src/features/workspaces
 tests:
+  - tests/e2e/tests/critical/daily-work.spec.ts
+  - backend/tests/test_public_forms.py
+  - frontend/src/features/forms/FormPage.test.tsx
+  - frontend/src/features/forms/FormsManager.test.tsx
+  - frontend/src/shared/api/forms.test.ts
   - backend/tests/test_sites_newsletter.py
   - frontend/src/features/websites/SourcesEditor.test.tsx
   - backend/tests/test_web_publishing.py
@@ -228,7 +239,7 @@ Les migrations de gestion suivent une séquence unique : `mgmt_0006` ajoute les 
 
 Le dialogue de partage propose **Publier sur le web** pour un site de test configuré par l’administrateur. `/api/vault/web-publishing` exige un éditeur résolu par la politique centrale d’identité et le module de partage. Une installation personnelle native de confiance utilise le propriétaire enregistré sans créer d’identifiants ; les installations d’organisation, exposées ou exigeant explicitement l’authentification continuent de l’exiger. Chaque requête de publication inclut aussi la précondition obligatoire `X-Gnosi-Web-Expected-User-ID` : le serveur la compare au compte déjà résolu et refuse les différences avant d’exécuter le pilote. Cet en-tête ne peut choisir une identité et reste distinct de la précondition de compte authentifié des autres opérations. Le serveur résout le coffre autorisé et exécute uniquement le pilote Python configuré, avec une entrée JSON, un environnement minimal et une limite de 60 secondes pour consulter l’état et de 600 secondes pour les actions de publication. Les requêtes ne peuvent modifier le coffre, l’exécutable ou la destination de production. `GNOSI_WEB_PUBLISH_DRIVER` définit le chemin absolu `.py` ; `GNOSI_WEB_PUBLISH_PYTHON` permet de définir l’interpréteur. Par défaut, il s’agit de `python3` du PATH, jamais de l’exécutable empaqueté de l’application.
 
-Les ajouts, actualisations et retraits sont explicites. Les autres pages publiées sont conservées et les traductions apparaissent dans la liste à vérifier. La publication consomme un aperçu à usage unique lié au compte, à l’espace de travail et au coffre. Un changement de contexte annule les requêtes et efface les données privées de l’interface. Modifier la sélection ou rencontrer un aperçu périmé exige une nouvelle vérification. L’historique permet de restaurer une version de test ; Drupal reste en production.
+Les ajouts, actualisations et retraits sont explicites. Les autres pages publiées sont conservées et les traductions apparaissent dans la liste à vérifier. La publication consomme un aperçu à usage unique lié au compte, à l’espace de travail et au coffre. Un changement de contexte annule les requêtes et efface les données privées de l’interface. Modifier la sélection ou rencontrer un aperçu périmé exige une nouvelle vérification. L’historique permet de restaurer une version de test. Le retrait de l’intégration Drupal de Gnosi ne modifie aucun site de production hébergé indépendamment.
 
 La lettre affiche les abonnements en attente, actifs et résiliés, les langues et l’historique. Le contenu de la lettre accepte les langues du site `ca`, `es` et `en-gb`, indépendamment de la langue de l’interface. L’aperçu HTML est isolé et sans accès au réseau. Seul `test_mode: true` est accepté : la file enregistre les messages de test sans envoyer de courriels réels. Les aperçus expirent après 15 minutes ou au redémarrage du serveur. Annuler dans le navigateur n’annule pas une publication déjà lancée ; il faut actualiser l’état avant de répéter une action incertaine.
 

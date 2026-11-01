@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-30
+last_verified: 2026-10-28
 source_paths:
   - README.md
   - backend/services/builtin_plugins.py
@@ -60,7 +60,7 @@ Les échecs des fournisseurs et intégrations facultatifs doivent rester isolés
 - Communication : courrier, calendriers, réunions, contacts.
 - Intelligence : registre de modèles, agents, outils MCP, compétences d'exécution, sources de contexte.
 - Automatisation : tâches programmées, formules, rollups, rappels, publication.
-- Intégration : Google, Microsoft, Notion, Drupal, réseaux sociaux, compléments bureautiques.
+- Intégration : Google, Microsoft, Notion, réseaux sociaux, compléments bureautiques.
 - Distribution : exécution web native, auto-hébergement Docker, application de bureau Electron
   et clients complémentaires pour navigateurs et suites bureautiques.
 

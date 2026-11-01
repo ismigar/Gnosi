@@ -2,6 +2,11 @@
 status: implemented
 last_verified: 2026-10-28
 source_paths:
+  - backend/domains/sites/transport_settings.py
+  - backend/domains/sites
+  - frontend/src/features/websites
+  - frontend/src/shared/api/sites.ts
+  - extensions/web-publishing
   - extensions/marketplace/build_vault_templates.py
   - extensions/marketplace/catalog_content.py
   - extensions/marketplace/reviewed_templates.py
@@ -58,8 +63,13 @@ source_paths:
   - extensions/office
   - frontend/src/features/plugin-management
   - frontend/src/features/notion-import
-  - frontend/src/features/integrations
 tests:
+  - backend/tests/test_drupal_retirement.py
+  - backend/tests/test_sites.py
+  - backend/tests/test_sites_newsletter.py
+  - backend/tests/test_sites_pangea_read_recovery.py
+  - frontend/src/features/websites/WebsitesPage.test.tsx
+  - frontend/src/features/websites/WebsiteAppearance.test.tsx
   - extensions/marketplace/test_reviewed_templates.py
   - frontend/src/features/vault-management/VaultTemplateMarketplace.test.tsx
   - backend/tests/test_integration_secret_storage.py
@@ -126,7 +136,7 @@ grupo, también en traducciones de varias líneas.
 
 El gestor de integraciones almacena la configuración no secreta de las cuentas y las referencias a secretos en los datos locales. Cada máquina reconecta las cuentas de forma independiente. Las API de configuración muestran el estado de conexión enmascarado, validan los ajustes, prueban la conectividad, seleccionan valores predeterminados y desconectan proveedores sin exponer tokens en bruto.
 
-Los callbacks de Google y Microsoft OAuth crean o actualizan registros de proveedores. IMAP, SMTP, CalDAV, Drupal, Notion y adaptadores similares normalizan sus propios ajustes en el registro de integración común cuando es posible.
+Los callbacks de Google y Microsoft OAuth crean o actualizan registros de proveedores. IMAP, SMTP, CalDAV, Notion y adaptadores similares normalizan sus propios ajustes en el registro de integración común cuando es posible.
 
 Google OAuth conserva los verificadores PKCE pendientes en un mapa de estados
 con una vigencia de diez minutos. El estado del callback se consume una sola vez,
@@ -302,7 +312,7 @@ Los servidores MCP configurados son procesos independientes o endpoints remotos.
 
 ## Ejemplos e integraciones complementarias
 
-El repositorio incluye ejemplos de empaquetado de plugins, un proxy MCP para Drupal, la extensión de citas de LibreOffice y un asistente de citas de Word. Son clientes independientes con contratos limitados con el backend; no comparten automáticamente su sistema de archivos ni el acceso a credenciales.
+El repositorio incluye ejemplos de empaquetado de plugins, la extensión de citas de LibreOffice y un asistente de citas de Word. Son clientes independientes con contratos limitados con el backend; no comparten automáticamente su sistema de archivos ni el acceso a credenciales.
 
 ## Invariantes
 
@@ -418,3 +428,5 @@ Los borradores del boletín se guardan automáticamente por web y destino en la 
 Cada conexión SSH del servicio privado de Pangea permite hasta tres intentos ante desconexiones transitorias anteriores a cualquier contraseña u orden. Las sesiones se serializan hasta cerrar el proceso SSH; la espera, la autenticación, las pausas y las órdenes comparten un único plazo de 45 segundos. Si persiste una interrupción de transporte identificada, las consultas (estado, listas, exportaciones y correos capturados) pueden reiniciarse una vez automáticamente dentro del mismo plazo y turno de conexión. Los errores de clave de host, autenticación, permisos, servicio o respuesta inválida no activan esta recuperación. Las modificaciones, las vistas previas de campañas, los envíos a la cola y las acciones sobre enlaces capturados no se repiten tras una respuesta incierta. Véanse `backend/domains/sites/bounded_bridge.py`, `backend/domains/sites/pangea.py` y las pruebas de recuperación.
 
 Logo, favicon y tipografías se eligen subiendo archivos (máximo 4 MB); las imágenes muestran una miniatura con transparencia. `POST /api/vault/sites/{site_id}/theme/assets` recibe los archivos con acceso restringido a editores. Las referencias se guardan automáticamente. El selector busca tipografías del sistema y WOFF/WOFF2/TTF/OTF propias; las fuentes del sistema pueden variar según el dispositivo. Los archivos están aislados por sitio y solo se publican al seleccionarlos. Webs abre la configuración sin esperar el catálogo, que se carga en Contenidos o Páginas y se reutiliza hasta refrescar.
+
+Las sesiones SSH/Suweb acotadas de Webs normalizan una copia de los ajustes de conexión del controlador externo mantenido. Un `WORKING_DIRECTORY` explícito tiene prioridad; de lo contrario, el valor histórico de `DRUPAL_PATH` aporta el directorio de trabajo. Los ajustes originales no se modifican. Esta compatibilidad del transporte no habilita la sincronización de contenido Drupal.

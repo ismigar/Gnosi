@@ -111,7 +111,7 @@ class BoundedBridge:
                 raise RuntimeError("The SSH connection is unavailable")
             connected = True
             marker = "GNOSI_SITE_READ_" + uuid.uuid4().hex
-            script = "cd " + shlex.quote(self.settings["DRUPAL_PATH"]) + " || exit 1\n" + command
+            script = "cd " + shlex.quote(self.settings["WORKING_DIRECTORY"]) + " || exit 1\n" + command
             encoded = base64.b64encode(script.encode()).decode()
             envelope = "printf %s " + shlex.quote(encoded) + ' | base64 -d | bash; __gnosi_read=$?; printf "\\n' + marker + '%s\\n" "$__gnosi_read"'
             self.child.sendline(envelope)

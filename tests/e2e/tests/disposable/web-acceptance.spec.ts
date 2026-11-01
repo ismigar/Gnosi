@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { settleVisualState } from '../../support/visual-state.ts';
 
 import {
   installDisposableNetwork,
@@ -52,6 +53,7 @@ test.describe('disposable synthetic web acceptance', () => {
       await expect(page.locator('.vault-shell__main')).toBeVisible({ timeout: 30_000 });
       await expect(page.locator('.gnosi-route-skeleton')).toHaveCount(0, { timeout: 30_000 });
       await closeReleaseNotes(page);
+      await settleVisualState(page);
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
         .analyze();
@@ -64,6 +66,7 @@ test.describe('disposable synthetic web acceptance', () => {
       await expect(page).toHaveURL(/\/@synthetic\/knowledge\/page\/synthetic-page$/);
       await expect(page.getByText('Disposable knowledge content', { exact: true }).first())
         .toBeVisible({ timeout: 10_000 });
+      await settleVisualState(page);
       const editorResults = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
         .analyze();

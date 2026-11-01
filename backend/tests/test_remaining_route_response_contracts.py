@@ -22,7 +22,6 @@ JSON_RESPONSE_MODELS: dict[str, object] = {
     "format_citations": formatting.FormattedCitationsResponse,
     "format_bibliography": formatting.FormattedBibliographyResponse,
     "bulk_update_metadata": BulkPageMutationResponse,
-    "sync_drupal_rows": translation_routes.SyncDrupalRowsResponse,
     "execute_button_action": translation_routes.ExecuteButtonActionResponse,
     "delete_option_catalog": table_contracts.OptionCatalogDeleteResponse,
     "get_schema": table_contracts.RegistryRecord,
@@ -111,14 +110,6 @@ def test_new_models_preserve_exact_short_and_extension_payloads() -> None:
         )
         == short_bibliography
     )
-
-    sync = {
-        "status": "ok",
-        "results": [{"item_id": "row-1", "extension": {"nid": 17}}],
-        "errors": [{"item_id": 7, "detail": {"reason": "synthetic"}}],
-        "provider_extension": {"request_id": "test-only"},
-    }
-    assert translation_routes.SyncDrupalRowsResponse.model_validate(sync).model_dump() == sync
 
     executed = {
         "status": "ok",

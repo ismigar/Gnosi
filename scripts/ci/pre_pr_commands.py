@@ -43,7 +43,6 @@ def build_steps(root: Path, base_sha: str, *, quick: bool) -> list[Step]:
             "backend",
             "pipeline",
             "scripts",
-            "extensions/mcp/drupal-proxy",
         ),
         _python(
             "Backend guardrails", "python", "scripts/check-source-guardrails.py", "--require-pruned"
@@ -125,6 +124,7 @@ def build_steps(root: Path, base_sha: str, *, quick: bool) -> list[Step]:
             Step("Complete frontend suite", ("pnpm", "test:frontend")),
             Step("Production frontend build", ("pnpm", "build:frontend")),
             Step("Complete desktop suite", ("pnpm", "test:desktop")),
+            _python("Complete browser acceptance suite", "python", "scripts/ci/browser_acceptance.py"),
             _python(
                 "Complete documentation update gate",
                 "python",

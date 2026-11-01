@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pipeline.skills.technical_documentation.scripts.validate import (
     parse_metadata,
+    validate_metadata,
     validate_internal_links,
     validate_sensitive_content,
 )
@@ -40,6 +41,18 @@ def test_internal_link_validator_reports_missing_target(tmp_path: Path) -> None:
     target = docs_root / "missing.md"
     target.write_text("# Target\n", encoding="utf-8")
     assert validate_internal_links(page, docs_root) == []
+
+
+def test_retired_source_directory_cannot_mask_a_missing_traceability_target(tmp_path: Path) -> None:
+    """Leftover empty directories must behave like a fresh source checkout."""
+    source = tmp_path / 'frontend/src/features/retired/nested'
+    source.mkdir(parents=True)
+    page = tmp_path / 'guide.md'
+    page.write_text('---\nstatus: implemented\nlast_verified: 2026-10-28\n'
+                    'source_paths:\n  - frontend/src/features/retired\ntests: []\n---\n# Guide\n')
+    assert any('missing source_paths target' in error for error in validate_metadata(page, tmp_path))
+    (source / 'Screen.tsx').write_text('export const value = 1;\n')
+    assert validate_metadata(page, tmp_path) == []
 
 
 def test_sensitive_content_validator_rejects_local_home_paths(tmp_path: Path) -> None:

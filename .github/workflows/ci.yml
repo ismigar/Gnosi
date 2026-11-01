@@ -159,6 +159,14 @@ jobs:
       - name: Build bundled PDF reader
         if: steps.scope.outputs.runtime_required != 'false'
         run: bash scripts/runtime/build-zotero-reader.sh
+      - name: Preserve reader assets for the same candidate
+        if: steps.scope.outputs.runtime_required != 'false'
+        uses: actions/upload-artifact@v7
+        with:
+          name: gnosi-reader-${{ github.sha }}
+          path: frontend/public/zotero-reader
+          if-no-files-found: error
+          retention-days: 1
       - run: pnpm build:frontend
         if: steps.scope.outputs.runtime_required != 'false'
       - run: pnpm test:desktop
@@ -230,7 +238,7 @@ jobs:
       - name: Reject retired host operations and local runtime state
         if: steps.scope.outputs.runtime_required != 'false'
         run: uv run python scripts/check_public_runtime.py
-      - run: uv run ruff check backend pipeline scripts extensions/mcp/drupal-proxy
+      - run: uv run ruff check backend pipeline scripts
         if: steps.scope.outputs.runtime_required != 'false'
       - run: uv run python scripts/check-source-guardrails.py --require-pruned
         if: steps.scope.outputs.runtime_required != 'false'
@@ -254,9 +262,10 @@ jobs:
         if: steps.scope.outputs.runtime_required != 'false'
 
   native-smoke:
+    needs: frontend
     if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+      !cancelled() && (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
     # Native smoke checks also stay on the owner-managed Linux machine.
     runs-on: [self-hosted, Linux, ARM64]
     env:
@@ -306,30 +315,30 @@ jobs:
         run: pnpm --filter @gnosi/e2e exec playwright install-deps chromium
       - run: pnpm test:e2e:install
         if: steps.scope.outputs.runtime_required != 'false'
-      - name: Start native services
+      - name: Restore reader assets from the same candidate
         if: steps.scope.outputs.runtime_required != 'false'
-        timeout-minutes: 7
+        uses: actions/download-artifact@v8
+        with:
+          name: gnosi-reader-${{ github.sha }}
+          path: frontend/public/zotero-reader
+      - name: Accept production browser workflows and restart persistence
+        if: steps.scope.outputs.runtime_required != 'false'
+        timeout-minutes: 15
         env:
-          DIGITAL_BRAIN_VAULT_PATH: ${{ github.workspace }}/vault
-          GNOSI_DATA_DIR: ${{ runner.temp }}/gnosi-data
+          NODE_OPTIONS: --max-old-space-size=1536
           GNOSI_DISABLE_SCHEDULER: '1'
-          PYTHONUNBUFFERED: '1'
-          VITE_DEV_HTTPS: 'false'
-        run: |
-          uv run --frozen --no-sync python -m uvicorn backend.server:app --host 127.0.0.1 --port 5002 > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
-          pnpm dev:frontend --host 127.0.0.1 > "${RUNNER_TEMP}/gnosi-frontend.log" 2>&1 &
-          if ! python scripts/ci/wait_native_services.py; then
-            tail -n 200 "${RUNNER_TEMP}/gnosi-backend.log" || true
-            tail -n 200 "${RUNNER_TEMP}/gnosi-frontend.log" || true
-            exit 1
-          fi
-      - run: pnpm test:e2e:smoke
-        if: steps.scope.outputs.runtime_required != 'false'
-        env:
-          GNOSI_BASE_URL: http://127.0.0.1:5173
+        run: uv run --frozen --no-sync python scripts/ci/browser_acceptance.py --output "${RUNNER_TEMP}/gnosi-browser-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+      - name: Preserve browser acceptance evidence
+        if: always() && steps.scope.outputs.runtime_required != 'false'
+        uses: actions/upload-artifact@v7
+        with:
+          name: gnosi-browser-${{ github.sha }}
+          path: ${{ runner.temp }}/gnosi-browser-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 7
 
   docker:
-    needs: frontend
+    needs: native-smoke
     # The integration owner explicitly excluded Docker for this feature PR.
     # Keep Docker required for main, releases and every other feature branch.
     if: >-

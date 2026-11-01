@@ -162,7 +162,12 @@ for (const failureAt of ['initial', 'page'] as const) {
       await page.goto('/@synthetic/mail', { waitUntil: 'domcontentloaded', timeout: 60_000 });
       const closeNotes = page.getByRole('button', { name: 'Close release notes' });
       await closeNotes.waitFor({ state: 'visible', timeout: 2_000 }).then(() => closeNotes.click()).catch(() => {});
+      const accountMenu = page.locator('button[aria-expanded]').filter({ hasText: /All accounts$/ });
+      await accountMenu.click();
+      await expect(accountMenu).toHaveAttribute('aria-expanded', 'true');
       await expect(page.getByRole('switch', { name: `Show mail from ${unavailable}` })).toBeChecked({ timeout: 30_000 });
+      await accountMenu.click();
+      await expect(accountMenu).toHaveAttribute('aria-expanded', 'false');
       await page.getByRole('button', { name: 'Archive', exact: true }).click();
       const scroll = page.locator('[data-role="mail-list-scroll"]');
       const rows = scroll.locator('[data-mail-index]');
@@ -190,6 +195,8 @@ for (const failureAt of ['initial', 'page'] as const) {
       await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
       await expect(scroll.getByText(`${healthy} archived 121`, { exact: true })).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath(`healthy-archive-${failureAt}-failure.png`) });
+      // Keep the targeted retry separate from the next-page sentinel below.
+      await scroll.evaluate(element => { element.scrollTop = 0; });
       recovered = true;
       await banner.getByRole('button', { name: 'Try again', exact: true }).click();
       await expect(rows).toHaveCount(failureAt === 'initial' ? 122 : 221);

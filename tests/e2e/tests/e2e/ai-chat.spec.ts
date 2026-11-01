@@ -34,6 +34,8 @@ test.describe('AI Chat', () => {
               provider: 'test',
               model: 'test-model',
               enabled: true,
+            }, {
+              id: 'alternate', name: 'Alternate Test Agent', provider: 'test', model: 'test-model', enabled: true,
             }],
           },
         },
@@ -75,9 +77,6 @@ test.describe('AI Chat', () => {
     await dismissReleaseNotes(page);
     const textarea = chatTextarea(page);
     await page.getByRole('button', { name: chatLauncherRegex }).click();
-    if (!(await textarea.isVisible())) {
-      await page.getByRole('button', { name: chatLauncherRegex }).click();
-    }
     await expect(textarea).toBeVisible({ timeout: 5_000 });
     return textarea;
   };
@@ -198,11 +197,15 @@ test.describe('AI Chat', () => {
     await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
     await openFloatingDock(page);
     const textarea = await openChatPanel(page);
+    const agentProfile = page.locator('.gnosi-floating-panel--chat').getByLabel(
+      /^(assistant profile|perfil de l.assistent|perfil del asistente|profil de l.assistant)$/i,
+    );
+    await expect(agentProfile).toHaveCount(1);
     await textarea.fill('Pending request');
     await textarea.press('Enter');
 
     await expect(page.getByRole('button', { name: /cancel|cancel·la|cancelar|annuler/i })).toBeVisible();
-    await expect(page.locator('.gnosi-floating-panel--chat select')).toBeDisabled();
+    await expect(agentProfile).toBeDisabled();
   });
 
   test('session retention deletes the evicted backend checkpoint', async ({ page }) => {
@@ -245,6 +248,7 @@ test.describe('AI Chat', () => {
     });
 
     await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await openChatPanel(page);
     await deletedCheckpoint;
   });
 });

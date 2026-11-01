@@ -71,7 +71,7 @@ CI_COMMANDS = {
         "uv run python scripts/check_public_pipeline.py",
         "uv run python scripts/check_public_pipeline.py --structure",
         "uv run python scripts/check_public_runtime.py",
-        "uv run ruff check backend pipeline scripts extensions/mcp/drupal-proxy",
+        "uv run ruff check backend pipeline scripts",
         "uv run python scripts/check-source-guardrails.py --require-pruned",
         "uv run python scripts/check_agent_execution_boundary.py",
         "uv run python scripts/check_backend_types.py",
@@ -92,14 +92,7 @@ CI_COMMANDS = {
         "uv sync --frozen",
         "pnpm --filter @gnosi/e2e exec playwright install-deps chromium",
         "pnpm test:e2e:install",
-        *r'''uv run --frozen --no-sync python -m uvicorn backend.server:app --host 127.0.0.1 --port 5002 > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
-pnpm dev:frontend --host 127.0.0.1 > "${RUNNER_TEMP}/gnosi-frontend.log" 2>&1 &
-if ! python scripts/ci/wait_native_services.py; then
-  tail -n 200 "${RUNNER_TEMP}/gnosi-backend.log" || true
-  tail -n 200 "${RUNNER_TEMP}/gnosi-frontend.log" || true
-  exit 1
-fi'''.splitlines(),
-        "pnpm test:e2e:smoke",
+        'uv run --frozen --no-sync python scripts/ci/browser_acceptance.py --output "${RUNNER_TEMP}/gnosi-browser-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"',
     ],
     "docker": [
         "python3 scripts/ci/classify_changes.py",
@@ -291,7 +284,7 @@ def test_ci_preserves_all_five_jobs_commands_and_fatal_gates(
     for name, expected_commands in CI_COMMANDS.items():
         job = workflow_job(ci_workflow, name)
         assert "uses" not in job
-        predecessor = {"frontend": "backend", "docker": "frontend"}.get(name)
+        predecessor = {"frontend": "backend", "native-smoke": "frontend", "docker": "native-smoke"}.get(name)
         if predecessor:
             assert job.get("needs") == predecessor
         else:
@@ -313,6 +306,8 @@ def test_ci_preserves_all_five_jobs_commands_and_fatal_gates(
                     expected_if = f"(always()) && {guard}"
                 if step.get("name") == "Install Chromium system dependencies on hosted Linux":
                     expected_if = f"(runner.environment == 'github-hosted') && {guard}"
+                if step.get("name") == "Preserve browser acceptance evidence":
+                    expected_if = f"always() && {guard}"
             assert step.get("if") == expected_if
         if name != "documentation":
             assert steps[1].get("id") == "scope"

@@ -21,28 +21,6 @@ class VaultSkillRequest(BaseModel):
         return {name: value for name, value in self if name in supplied}
 
 
-class SyncDrupalRowRequest(VaultSkillRequest):
-    item_id: RawJson = None
-    button_action: RawJson = None
-    publish: RawJson = None
-    scope: RawJson = None
-    push_media: RawJson = None
-
-
-class SyncDrupalRowsRequest(VaultSkillRequest):
-    item_ids: RawJson = None
-    scope: RawJson = None
-    publish: RawJson = None
-    push_media: RawJson = None
-
-
-class MatchDrupalRowsRequest(VaultSkillRequest):
-    table_id: RawJson = None
-    bundle: RawJson = None
-    item_ids: RawJson = None
-    dry_run: RawJson = None
-
-
 class TranslateRowRequest(VaultSkillRequest):
     item_id: RawJson = None
     target_languages: RawJson = None
@@ -82,9 +60,6 @@ def request_payload(request: VaultSkillRequest | Mapping[str, object]) -> dict[s
 __all__ = [
     "ExecuteButtonActionRequest",
     "GenerateButtonActionRequest",
-    "MatchDrupalRowsRequest",
-    "SyncDrupalRowRequest",
-    "SyncDrupalRowsRequest",
     "TranslatePageRequest",
     "TranslateRowRequest",
     "TranslateRowsRequest",

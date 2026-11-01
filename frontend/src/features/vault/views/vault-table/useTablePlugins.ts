@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { getSchemaFieldNames } from '../../../../shared/records/model/schemaUtils';
-import { normalizeTableFunctionalities } from '../../properties/tableFunctionalityUtils';
+import { isRetiredTableAction, normalizeTableFunctionalities } from '../../properties/tableFunctionalityUtils';
 import { assignmentConfig, displayString, getTableFieldConfig } from './fieldConfig';
 import type { TableInputs } from './tableInputs';
 import type { useTableIdentity } from './useTableIdentity';
@@ -15,13 +15,6 @@ export function useTablePlugins({ schema, functionalities, notes, llmWikiConfig,
     ),
     [schema]
   );
-  const isDrupalSyncTable = useMemo(
-    () => getSchemaFieldNames(schema).some((name) => {
-      const cfg = getTableFieldConfig(schema, name);
-      return cfg.system === true && /drupal/i.test(name);
-    }),
-    [schema]
-  );
   const isSocialPublishTable = useMemo(
     () => getSchemaFieldNames(schema).some((name) => {
       const cfg = getTableFieldConfig(schema, name);
@@ -30,7 +23,7 @@ export function useTablePlugins({ schema, functionalities, notes, llmWikiConfig,
     [schema]
   );
   const tableFunctionalities = useMemo(
-    () => normalizeTableFunctionalities(functionalities, schema).map(item => ({ ...item, config: assignmentConfig(item.config) })).filter((functionality) => functionality.enabled),
+    () => normalizeTableFunctionalities(functionalities, schema).map(item => ({ ...item, config: assignmentConfig(item.config) })).filter((functionality) => functionality.enabled && !isRetiredTableAction(functionality.action)),
     [functionalities, schema]
   );
   const hasTranslateFunctionality = tableFunctionalities.some((functionality) => functionality.action === 'translate_row');
@@ -47,5 +40,5 @@ export function useTablePlugins({ schema, functionalities, notes, llmWikiConfig,
     () => isPluginEnabled('llm-wiki') && Boolean(llmWikiSourceConfig),
     [isPluginEnabled, llmWikiSourceConfig],
   );
-  return { isTranslatableTable, isDrupalSyncTable, isSocialPublishTable, tableFunctionalities, hasTranslateFunctionality, llmWikiTableId, isLlmWikiTable };
+  return { isTranslatableTable, isSocialPublishTable, tableFunctionalities, hasTranslateFunctionality, llmWikiTableId, isLlmWikiTable };
 }

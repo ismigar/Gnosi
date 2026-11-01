@@ -1,3 +1,39 @@
 {
-  "exceptions": []
+  "exceptions": [
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/drupal/content-types",
+      "reason": "Drupal integration retired at maintainer request on 2026-10-28. Webs is the supported publishing workflow; existing page metadata remains readable.",
+      "disposition": "removed"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/drupal/content-types/{param}/fields",
+      "reason": "Drupal integration retired at maintainer request on 2026-10-28. Webs is the supported publishing workflow; existing page metadata remains readable.",
+      "disposition": "removed"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/skills/match-drupal-rows",
+      "reason": "Drupal integration retired at maintainer request on 2026-10-28. Webs is the supported publishing workflow; existing page metadata remains readable.",
+      "disposition": "removed"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/skills/sync-drupal-row",
+      "reason": "Drupal integration retired at maintainer request on 2026-10-28. Webs is the supported publishing workflow; existing page metadata remains readable.",
+      "disposition": "removed"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/skills/sync-drupal-rows",
+      "reason": "Drupal integration retired at maintainer request on 2026-10-28. Webs is the supported publishing workflow; existing page metadata remains readable.",
+      "disposition": "removed"
+    }
+  ]
 }

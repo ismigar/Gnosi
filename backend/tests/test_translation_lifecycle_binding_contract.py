@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Iterable
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Never, TypeVar
 
@@ -12,7 +11,6 @@ import pytest
 from fastapi import BackgroundTasks
 
 from backend.api import vault_routes
-from backend.domains.vault.drupal import composition, fields
 from backend.domains.vault.registry.records import RecordReader
 from backend.domains.vault.schemas.pages import PageInfo, PagePatchRequest, PageSaveRequest
 from backend.domains.vault.translation import lifecycle, page_service, row_service
@@ -38,7 +36,6 @@ def _unexpected(*_args: object, **_kwargs: object) -> Never:
 @pytest.fixture(autouse=True)
 def synthetic_boundaries(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in (
-        "_drupal_client_module",
         "create_page",
         "patch_page",
         "_get_existing_translations",
@@ -55,214 +52,6 @@ def synthetic_boundaries(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def trace() -> list[object]:
     return []
-
-
-class CapturedSyncError(Exception):
-    pass
-
-
-class ReplacementSyncError(Exception):
-    pass
-
-
-@dataclass
-class SyntheticConnector:
-    trace: list[object]
-    error_type: type[Exception] = CapturedSyncError
-
-    @property
-    def DrupalSyncError(self) -> type[Exception]:
-        self.trace.append("read-error-class")
-        return self.error_type
-
-    async def find_existing_file(self, filename: str, size: int | None = None) -> str | None:
-        return _unexpected(filename, size)
-
-    async def upload_image(self, bundle: str, field: str, filename: str, data: bytes) -> str:
-        return _unexpected(bundle, field, filename, data)
-
-    async def resolve_or_create_term(
-        self, vocabulary: str, name: str, *, cache: dict[str, str] | None = None
-    ) -> str:
-        return _unexpected(vocabulary, name, cache)
-
-
-@pytest.fixture
-def connector(monkeypatch: pytest.MonkeyPatch, trace: list[object]) -> SyntheticConnector:
-    synthetic = SyntheticConnector(trace)
-
-    def resolve() -> SyntheticConnector:
-        trace.append("resolve-connector")
-        return synthetic
-
-    monkeypatch.setattr(vault_routes, "_drupal_client_module", resolve)
-    return synthetic
-
-
-def test_upload_factory_captures_connector_but_resolves_its_members_late(
-    monkeypatch: pytest.MonkeyPatch, connector: SyntheticConnector, trace: list[object]
-) -> None:
-    dependencies = lifecycle._drupal_upload_dependencies()
-    assert trace == ["resolve-connector"]
-    replacement = SyntheticConnector(trace)
-
-    def resolve_replacement() -> SyntheticConnector:
-        trace.append("resolve-replacement")
-        return replacement
-
-    async def find(filename: str, size: int) -> str:
-        trace.append(("find", filename, size))
-        return "existing-file"
-
-    async def upload(bundle: str, field: str, filename: str, data: bytes) -> str:
-        trace.append(("upload", bundle, field, filename, data))
-        return "uploaded-file"
-
-    monkeypatch.setattr(vault_routes, "_drupal_client_module", resolve_replacement)
-    monkeypatch.setattr(connector, "find_existing_file", find)
-    monkeypatch.setattr(connector, "upload_image", upload)
-    assert _run(dependencies.find_existing_file("image.png", 3)) == "existing-file"
-    assert _run(dependencies.upload_image("article", "image", "image.png", b"png")) == (
-        "uploaded-file"
-    )
-    assert trace == [
-        "resolve-connector",
-        ("find", "image.png", 3),
-        ("upload", "article", "image", "image.png", b"png"),
-    ]
-    fresh = lifecycle._drupal_upload_dependencies()
-    with pytest.raises(AssertionError, match="unpatched collaborator"):
-        _run(fresh.find_existing_file("image.png", 3))
-    assert trace[-1] == "resolve-replacement"
-
-
-def test_field_factory_captures_error_class_but_resolves_term_member_late(
-    monkeypatch: pytest.MonkeyPatch, connector: SyntheticConnector, trace: list[object]
-) -> None:
-    dependencies = lifecycle._drupal_field_dependencies()
-    assert trace == ["resolve-connector", "read-error-class"]
-    monkeypatch.setattr(vault_routes, "_drupal_client_module", _unexpected)
-    monkeypatch.setattr(connector, "error_type", ReplacementSyncError)
-    cache: dict[str, str] = {}
-    metadata: dict[str, object] = {"tags": ["Alpha", "Beta"]}
-    prop: dict[str, object] = {"id": "tags"}
-
-    def read(received: dict[str, object], received_prop: dict[str, object] | None) -> object:
-        assert received is metadata and received_prop is prop
-        trace.append("read-prop")
-        return received["tags"]
-
-    async def resolve(vocabulary: str, name: str, *, cache: dict[str, str]) -> str:
-        trace.append(("term", vocabulary, name, dict(cache)))
-        if name == "Beta":
-            raise CapturedSyncError("synthetic missing term")
-        cache[name] = "term-alpha"
-        return "term-alpha"
-
-    monkeypatch.setattr(vault_routes, "_drupal_read_prop_value", read)
-    monkeypatch.setattr(connector, "resolve_or_create_term", resolve)
-
-    async def build() -> tuple[object, object, object]:
-        return await fields.build_fields(
-            mapping={"tags": "field_tags"},
-            properties_by_ref={"tags": prop},
-            field_metadata={"field_tags": {"type": "entity_reference", "vocab": "topics"}},
-            metadata=metadata,
-            body="",
-            bundle="article",
-            term_cache=cache,
-            image_cache={},
-            dependencies=dependencies,
-        )
-
-    assert asyncio.run(build()) == (
-        {},
-        {"field_tags": {"data": [{"type": "taxonomy_term--topics", "id": "term-alpha"}]}},
-        [{"field": "field_tags", "value": "Beta", "reason": "synthetic missing term"}],
-    )
-    assert cache == {"Alpha": "term-alpha"}
-    assert trace == [
-        "resolve-connector",
-        "read-error-class",
-        "read-prop",
-        ("term", "topics", "Alpha", {}),
-        ("term", "topics", "Beta", {"Alpha": "term-alpha"}),
-    ]
-
-    async def replacement_error(vocabulary: str, name: str, *, cache: dict[str, str]) -> str:
-        raise ReplacementSyncError("replacement class must escape")
-
-    monkeypatch.setattr(connector, "resolve_or_create_term", replacement_error)
-    with pytest.raises(ReplacementSyncError, match="replacement class must escape"):
-        asyncio.run(build())
-
-
-def test_field_factory_resolves_facade_callbacks_after_construction(
-    monkeypatch: pytest.MonkeyPatch, connector: SyntheticConnector, trace: list[object]
-) -> None:
-    dependencies = lifecycle._drupal_field_dependencies()
-    metadata: dict[str, object] = {"image": object()}
-    image_cache: dict[str, str] = {}
-    link_cache: dict[str, str | None] = {}
-    relationship: dict[str, object] = {"data": {"id": "synthetic-image"}}
-    scalar = object()
-
-    def markdown(text: str, cache: dict[str, str | None]) -> str:
-        assert cache is link_cache
-        trace.append(("markdown", text))
-        return "<p>synthetic</p>"
-
-    def read(received: dict[str, object], prop: dict[str, object] | None) -> object:
-        assert received is metadata and prop is None
-        trace.append("read-none")
-        return scalar
-
-    async def upload(
-        value: object, bundle: str, field: str, received: dict[str, object], cache: dict[str, str]
-    ) -> dict[str, object]:
-        assert value is metadata["image"] and received is metadata and cache is image_cache
-        trace.append(("field-image", bundle, field))
-        cache["image"] = "synthetic-image"
-        return relationship
-
-    def coerce(value: object, field_type: str | None) -> object:
-        assert value is scalar
-        trace.append(("coerce", field_type))
-        return value
-
-    monkeypatch.setattr(vault_routes, "_drupal_md_to_html", markdown)
-    monkeypatch.setattr(vault_routes, "_drupal_read_prop_value", read)
-    monkeypatch.setattr(vault_routes, "_drupal_upload_field_image", upload)
-    monkeypatch.setattr(vault_routes, "_drupal_coerce_scalar", coerce)
-    assert dependencies.markdown_to_html("synthetic", link_cache) == "<p>synthetic</p>"
-    assert dependencies.read_prop_value(metadata, None) is scalar
-    assert (
-        _run(
-            dependencies.upload_field_image(
-                metadata["image"], "article", "field_image", metadata, image_cache
-            )
-        )
-        is relationship
-    )
-    assert dependencies.coerce_scalar(scalar, None) is scalar
-    assert image_cache == {"image": "synthetic-image"}
-    assert trace == [
-        "resolve-connector",
-        "read-error-class",
-        ("markdown", "synthetic"),
-        "read-none",
-        ("field-image", "article", "field_image"),
-        ("coerce", None),
-    ]
-
-
-def test_read_prop_wrapper_accepts_none_and_keeps_native_value() -> None:
-    value = object()
-    metadata: Metadata = {"title": value, "stable-id": "fallback"}
-    assert composition._drupal_read_prop_value(metadata, None) is None
-    assert (
-        composition._drupal_read_prop_value(metadata, {"type": "title", "id": "stable-id"}) is value
-    )
 
 
 @pytest.fixture(params=["string-keys", "object-keys"])

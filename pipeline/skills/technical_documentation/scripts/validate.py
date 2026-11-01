@@ -4,13 +4,21 @@
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import unquote
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+
+from pipeline.skills.technical_documentation.scripts.domain_coverage import (
+    load_domains,
+    matches_for_globs,
+    untraced_frontend_features,
+)
 
 
 log = logging.getLogger(__name__)
@@ -114,7 +122,7 @@ def validate_metadata(path: Path, app_root: Path) -> list[str]:
             except ValueError:
                 errors.append(f"{path}: {category} target escapes the application root: {entry}")
                 continue
-            if not candidate.exists():
+            if not candidate.exists() or (candidate.is_dir() and not any(item.is_file() for item in candidate.rglob('*'))):
                 errors.append(f"{path}: missing {category} target: {entry}")
     return errors
 
@@ -164,19 +172,14 @@ def validate_navigation(mkdocs_path: Path, docs_root: Path) -> list[str]:
 
 
 def validate_domains(domains_path: Path, app_root: Path) -> list[str]:
-    """Validate curated domain guides and source patterns."""
+    """Validate curated guides, source patterns and frontend feature ownership."""
     errors: list[str] = []
     try:
-        domains = json.loads(read_text(domains_path))
-    except (OSError, json.JSONDecodeError) as exc:
+        domains = load_domains(domains_path)
+    except (OSError, ValueError) as exc:
         return [f"{domains_path}: cannot load domain configuration: {exc}"]
-    if not isinstance(domains, list):
-        return [f"{domains_path}: top-level value must be a list"]
     identifiers: set[str] = set()
     for item in domains:
-        if not isinstance(item, dict):
-            errors.append(f"{domains_path}: domain entry is not an object")
-            continue
         domain_id = str(item.get("id", ""))
         if not domain_id:
             errors.append(f"{domains_path}: domain entry has no id")
@@ -190,8 +193,13 @@ def validate_domains(domains_path: Path, app_root: Path) -> list[str]:
         if not isinstance(source_patterns, list) or not source_patterns:
             errors.append(f"{domains_path}: {domain_id} has no source patterns")
             continue
-        if not any(any(path.is_file() for path in app_root.glob(str(pattern))) for pattern in source_patterns):
+        if not matches_for_globs(app_root, source_patterns):
             errors.append(f"{domains_path}: {domain_id} source patterns match no files")
+    for name in untraced_frontend_features(app_root, domains):
+        errors.append(
+            f"{domains_path}: frontend/src/features/{name} has no production source "
+            "matched by domain source patterns"
+        )
     return errors
 
 
