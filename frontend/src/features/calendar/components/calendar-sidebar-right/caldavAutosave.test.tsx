@@ -40,6 +40,20 @@ async function title(value: string) {
     await act(async () => { await vi.advanceTimersByTimeAsync(600); });
 }
 
+it('autosaves a title entered before the delayed initial focus', async () => {
+    vi.mocked(createCalendarEvent).mockResolvedValue({ id: 'early-title', etag: '"one"' });
+    await act(async () => {
+        root.render(<EventForm mode="create" eventData={null} initialDate="2026-10-14" calendars={CALENDARS} defaultCalendarId="caldav" />);
+        await Promise.resolve();
+    });
+    expect(createCalendarEvent).not.toHaveBeenCalled();
+    await title('Entered immediately');
+    expect(createCalendarEvent).toHaveBeenCalledOnce();
+    expect(createCalendarEvent).toHaveBeenCalledWith(expect.objectContaining<Record<string, unknown>>({
+        event: expect.objectContaining<Record<string, unknown>>({ summary: 'Entered immediately', provider: 'caldav' }),
+    }));
+});
+
 it.each([
     ['caldav', '/home/work-b/'],
     ['google', '/home/work-a/'],
