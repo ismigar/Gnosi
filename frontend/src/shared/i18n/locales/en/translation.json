@@ -9055,6 +9055,7 @@
     "publicationQueued": "Publication queued. Follow progress below.",
     "releases": "Published versions",
     "rollbackHelp": "Restoring a website preserves received messages, unsubscriptions and mail history.",
+    "removedHosting": "Hosting removed",
     "currentRelease": "Current version",
     "rollback": "Restore version",
     "restored": "Website version restored.",

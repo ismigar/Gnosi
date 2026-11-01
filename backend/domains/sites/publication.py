@@ -359,7 +359,12 @@ def rollback(store: SiteStore, site: SiteConfig, release_id: str) -> SiteRelease
         db.execute("INSERT INTO locks VALUES (?,?)", (site.id, "rollback"))
     try:
         release = SiteRelease.model_validate_json(row["payload"])
-        target = next(t for t in site.targets if t.id == release.target_id)
+        # Removal may have completed after the caller loaded this configuration.
+        # The publication lock now prevents another removal during activation.
+        site = store.load(site.id)
+        target = next((t for t in site.targets if t.id == release.target_id), None)
+        if target is None:
+            raise HTTPException(409, "The hosting destination for this version was removed")
         if target.environment == "production":
             raise HTTPException(409, "Production restoration requires pilot validation")
         with store.database() as db:

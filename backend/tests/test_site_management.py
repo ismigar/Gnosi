@@ -5,8 +5,8 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from backend.domains.sites import api, runtime
-from backend.domains.sites.models import SiteConfig, SiteJob, SiteTarget
+from backend.domains.sites import api, publication, runtime
+from backend.domains.sites.models import SiteConfig, SiteJob, SiteRelease, SiteTarget
 from backend.domains.sites.storage import SiteStore
 from backend.services.workspace_service import WorkspaceContext, get_workspace_context
 
@@ -20,6 +20,31 @@ def managed(tmp_path, monkeypatch):
     store = SiteStore(context)
     site = store.save(SiteConfig(name="Synthetic site"), create=True)
     return store, site
+
+
+@pytest.mark.parametrize("cached_site", [False, True])
+def test_restoration_after_hosting_removal_is_controlled_and_has_no_effects(managed, monkeypatch, cached_site):
+    from backend.domains.sites import local_artifacts
+
+    store, site = managed
+    release = SiteRelease(id="historical", site_id=site.id, target_id="local",
+                          created_at="2026-11-01T10:00:00Z", fingerprint="retained", url="http://127.0.0.1:4321")
+    with store.database() as db:
+        db.execute("INSERT INTO releases VALUES (?,?,?,?,?)", (release.id, site.id, "local", release.model_dump_json(), "{}"))
+    removed = store.save(site.model_copy(update={"targets": []}))
+    monkeypatch.setattr(local_artifacts, "activate", lambda *a, **kw: pytest.fail("No local activation after hosting removal"))
+    monkeypatch.setattr(runtime, "restore_remote_release", lambda *a, **kw: pytest.fail("No remote restoration after hosting removal"))
+    with store.database() as db:
+        original_active = list(db.execute("SELECT * FROM active"))
+        original_releases = [tuple(row) for row in db.execute("SELECT * FROM releases")]
+    with pytest.raises(HTTPException) as error:
+        publication.rollback(store, site if cached_site else removed, release.id)
+    assert error.value.status_code == 409
+    assert store.load(site.id).targets == []
+    with store.database() as db:
+        assert list(db.execute("SELECT * FROM active")) == original_active
+        assert [tuple(row) for row in db.execute("SELECT * FROM releases")] == original_releases
+        assert not db.execute("SELECT * FROM locks").fetchall()
 
 
 def test_remove_registration_preserves_vault_other_sites_and_private_history(managed, monkeypatch):

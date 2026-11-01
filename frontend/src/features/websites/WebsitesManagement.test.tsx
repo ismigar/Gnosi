@@ -35,6 +35,26 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); });
 
 describe('Website and hosting management', () => {
+  it.each([false, true])('keeps release history and permits restoration only to existing hosting (removed: %s)', async removed => {
+    const site = { ...structuredClone(base), targets: removed ? [] : structuredClone(base.targets) };
+    const release = { id: 'historical', site_id: site.id, target_id: 'local', created_at: '2026-11-01', fingerprint: 'retained', current: false, url: 'http://127.0.0.1:4321' };
+    vi.mocked(api.listSites).mockResolvedValue([site]);
+    vi.mocked(api.getSite).mockResolvedValue({ site, jobs: [], service_available: true, releases: [release] });
+    vi.mocked(api.rollbackSite).mockResolvedValue({ ...release, current: true });
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'publishing');
+    expect(view.container.textContent).toContain('2026-11-01');
+    expect(view.container.textContent?.includes('websites.removedHosting')).toBe(removed);
+    const restore = [...view.container.querySelectorAll('button')].find(item => item.textContent === 'websites.rollback');
+    if (removed) {
+      expect(restore).toBeUndefined();
+      expect(api.rollbackSite).not.toHaveBeenCalled();
+    } else {
+      expect(restore).toBeDefined();
+      act(() => { restore?.click(); }); await settle();
+      expect(api.rollbackSite).toHaveBeenCalledWith(site.id, 'historical', context, expect.any(AbortSignal));
+    }
+  });
+
   it('requires confirmation and permits cancelling website removal', async () => {
     const view = mountTestComponent(<WebsitesPage />); await settle();
     act(() => { button(view.container, 'websites.removeSite').click(); }); await settle();

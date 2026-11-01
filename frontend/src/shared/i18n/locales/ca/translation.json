@@ -9110,6 +9110,7 @@
     "publicationQueued": "Publicació posada a la cua. Pots seguir el progrés a sota.",
     "releases": "Versions publicades",
     "rollbackHelp": "Restaurar el web conserva els missatges rebuts, les baixes i l’historial de correu.",
+    "removedHosting": "Allotjament eliminat",
     "currentRelease": "Versió actual",
     "rollback": "Restaura la versió",
     "restored": "Versió del web restaurada.",

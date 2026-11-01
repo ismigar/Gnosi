@@ -9110,6 +9110,7 @@
     "publicationQueued": "Publication mise en file. Suivez sa progression ci-dessous.",
     "releases": "Versions publiées",
     "rollbackHelp": "La restauration du site conserve les messages reçus, les désabonnements et l’historique des courriels.",
+    "removedHosting": "Hébergement supprimé",
     "currentRelease": "Version actuelle",
     "rollback": "Restaurer la version",
     "restored": "Version du site restaurée.",
