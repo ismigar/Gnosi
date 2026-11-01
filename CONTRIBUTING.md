@@ -154,7 +154,13 @@ a fresh, read-only subagent to inspect the actual change. Correct demonstrated
 defects and repeat while quality improves. Two consecutive correction rounds
 without progress stop the loop with a recorded blocker. Missing tools or checks
 produce incomplete verification, never a passing verdict. Independent review
-complements the existing tests and final pre-PR gate below.
+complements the existing tests and final pre-PR gate below. Default to one
+builder and one integrated critique; intermediate reviews require an independently
+risky boundary. Reuse unchanged check evidence with its input identity and scope,
+and rerun affected checks after corrections. Do not repeat full validation per
+piece or review round. Instruction-only workflow maintenance uses the skill
+validator, link checks and behavioral exercises; it does not establish product
+or PR acceptance. The full pre-PR gate remains required before opening a PR.
 
 Keep the criteria, candidate identities, findings and check results in an ignored
 local run record. Report useful defects, false positives and additional time in
