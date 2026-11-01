@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-28
+last_verified: 2026-11-01
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -31,6 +31,7 @@ source_paths:
   - backend/config/env_config.py
   - backend/server.py
   - backend/config/startup_errors.py
+  - backend/platform/files/coordinated.py
   - desktop/application-menu.js
   - desktop/help-links.json
   - frontend/src/shared/help/helpLinks.ts
@@ -69,6 +70,7 @@ tests:
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
   - backend/tests/test_cloud_config_startup.py
+  - backend/tests/test_coordinated_files.py
   - desktop/backend-process.test.js
   - desktop/vault-startup.test.js
   - desktop/vault-recovery.test.js
@@ -153,7 +155,10 @@ the same vault and profile, including a new folder choice not yet persisted.
 Only successful readiness allows persistence and opens the renderer; cancelling
 or quitting cannot relaunch a child or show a late window. Other startup errors
 retain the existing installation recovery path. Each launch retains the bounded
-startup deadline and process cleanup.
+startup deadline and process cleanup. During startup, termination also kills and
+reaps owned hydration helpers, including a helper racing process creation; it
+never stops the cloud provider. Uvicorn regains its normal signal handler after
+startup.
 
 New Window, Settings, Dock activation and delayed window display cannot bypass
 backend readiness or shutdown. Closing the last macOS window does not quit the

@@ -11,10 +11,29 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+import threading
 from pathlib import Path
 
 # Darwin sys/stat.h. Python versions bundled by PyInstaller may not export it.
 SF_DATALESS = 0x40000000
+_active_materializations: set[asyncio.subprocess.Process] = set()
+_shutdown_requested = threading.Event()
+
+
+def cancel_materializations_for_shutdown() -> None:
+    """Stop only our helper children, including a spawn racing desktop exit.
+
+    The desktop startup signal boundary calls this before Python joins metadata
+    worker threads. A provider blocked in NSFileCoordinator cannot outlive the
+    parent that enforces its deadline. The provider application stays untouched.
+    """
+    _shutdown_requested.set()
+    for process in tuple(_active_materializations):
+        if process.returncode is None:
+            try:
+                process.kill()
+            except ProcessLookupError:
+                pass
 
 
 def is_placeholder(stat_result: os.stat_result) -> bool:
@@ -50,7 +69,7 @@ def helper_path() -> Path:
 
 async def materialize_coordinated(path: Path, timeout: float) -> bool:
     """Ask the provider for exactly one authorized file; never pin a tree."""
-    if sys.platform != "darwin" or not path.is_absolute():
+    if sys.platform != "darwin" or not path.is_absolute() or _shutdown_requested.is_set():
         return False
     process = None
     try:
@@ -60,14 +79,19 @@ async def materialize_coordinated(path: Path, timeout: float) -> bool:
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
         )
+        _active_materializations.add(process)
+        if _shutdown_requested.is_set():
+            return False
         await asyncio.wait_for(process.wait(), timeout=max(0.1, min(timeout, 30.0)))
         return process.returncode == 0
     except (OSError, ValueError, asyncio.TimeoutError):
         return False
     finally:
-        if process is not None and process.returncode is None:
-            try:
-                process.kill()
-            except ProcessLookupError:
-                pass
+        if process is not None:
+            if process.returncode is None:
+                try:
+                    process.kill()
+                except ProcessLookupError:
+                    pass
             await process.wait()
+            _active_materializations.discard(process)

@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import time
 
 import pytest
 
@@ -25,7 +26,7 @@ metadata_io._download = lambda path: False
 runpy.run_module('backend.server', run_name='__main__')
 """
     environment = {key: value for key, value in os.environ.items()
-                   if not key.startswith(('GNOSI_', 'DIGITAL_BRAIN_', 'VAULT_', 'OPENAI_', 'ANTHROPIC_'))}
+                   if key in {'PATH', 'TMPDIR', 'LANG', 'LC_ALL', 'SYSTEMROOT'}}
     identity = "a" * 64
     environment.update(HOME=str(tmp_path), GNOSI_DATA_DIR=str(tmp_path / "data"),
                        DIGITAL_BRAIN_VAULT_PATH=str(vault), GNOSI_DESKTOP_INSTANCE=identity,
@@ -81,3 +82,89 @@ def test_non_desktop_cloud_error_keeps_its_exception(monkeypatch, capsys, identi
     with pytest.raises(MetadataUnavailable), desktop_startup_errors():
         raise MetadataUnavailable("Synthetic private diagnostic")
     assert not capsys.readouterr().err
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="File Provider helpers run on macOS")
+@pytest.mark.parametrize("spawn_race", [False, True])
+def test_quit_during_import_time_hydration_reaps_the_helper(tmp_path, spawn_race):
+    import psutil
+
+    params = tmp_path / "vault/.gnosi/params.yaml"
+    params.parent.mkdir(parents=True)
+    params.write_text("settings: {language: ca, retained: original}\n")
+    (tmp_path / "data").mkdir()
+    (tmp_path / "host").mkdir()
+    original = params.read_bytes()
+    pid_file = tmp_path / "helper.pid"
+    helper = tmp_path / "provider.py"
+    helper.write_text(
+        f"#!{sys.executable}\nimport os,time\nfrom pathlib import Path\n"
+        f"Path({str(pid_file)!r}).write_text(str(os.getpid()))\ntime.sleep(30)\n"
+    )
+    helper.chmod(0o700)
+    script = """
+import asyncio, runpy
+from backend.utils import metadata_io
+from backend.platform.files import coordinated
+metadata_io.is_cloud_placeholder = lambda path, stat: path.name == 'params.yaml' and '.gnosi' in path.parts
+"""
+    if spawn_race:
+        script += """
+spawn = coordinated.asyncio.create_subprocess_exec
+async def delayed_spawn(*args, **kwargs):
+    process = await spawn(*args, **kwargs)
+    await asyncio.sleep(0.4)
+    return process
+coordinated.asyncio.create_subprocess_exec = delayed_spawn
+"""
+    script += "runpy.run_module('backend.server', run_name='__main__')\n"
+    environment = {key: value for key, value in os.environ.items()
+                   if key in {'PATH', 'TMPDIR', 'LANG', 'LC_ALL'}}
+    environment.update(HOME=str(tmp_path), GNOSI_VALIDATION_ROOT=str(tmp_path),
+                       GNOSI_DATA_DIR=str(tmp_path / "data"), GNOSI_FILES_PROVIDER="local",
+                       DIGITAL_BRAIN_VAULT_PATH=str(params.parents[1]),
+                       VAULT_HOST_PATH=str(params.parents[1]), HOME_HOST_PATH=str(tmp_path / "host"),
+                       GNOSI_FILE_ACCESS_HELPER=str(helper), GNOSI_DESKTOP_INSTANCE="d" * 64)
+    child = subprocess.Popen([sys.executable, "-c", script], env=environment,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    owned_helper = None
+    try:
+        deadline = time.monotonic() + 15
+        while not pid_file.exists() and child.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.02)
+        if not pid_file.exists():
+            output, errors = child.communicate(timeout=2)
+            pytest.fail("Synthetic provider did not start: " + errors.decode()[-2000:])
+        owned_helper = psutil.Process(int(pid_file.read_text()))
+        assert owned_helper.ppid() == child.pid and str(helper) in owned_helper.cmdline()
+        child.terminate()
+        output, errors = child.communicate(timeout=4)
+        assert child.returncode == 0, errors.decode()[-2000:]
+        assert not owned_helper.is_running() or owned_helper.status() == psutil.STATUS_ZOMBIE
+        assert b"Traceback" not in output + errors
+        assert params.read_bytes() == original
+    finally:
+        if child.poll() is None:
+            child.kill()
+            child.communicate(timeout=3)
+        if owned_helper and owned_helper.is_running() and str(helper) in owned_helper.cmdline():
+            owned_helper.kill()
+
+
+@pytest.mark.parametrize("fails", [False, True])
+def test_startup_restores_the_previous_termination_handler(monkeypatch, fails):
+    import signal
+    from backend.config.startup_errors import desktop_startup_errors
+
+    monkeypatch.setenv("GNOSI_DESKTOP_INSTANCE", "e" * 64)
+    previous = signal.getsignal(signal.SIGTERM)
+    try:
+        if fails:
+            with pytest.raises(SystemExit, match="74"), desktop_startup_errors():
+                raise MetadataUnavailable("Private fixture")
+        else:
+            with desktop_startup_errors():
+                assert signal.getsignal(signal.SIGTERM) != previous
+        assert signal.getsignal(signal.SIGTERM) == previous
+    finally:
+        signal.signal(signal.SIGTERM, previous)

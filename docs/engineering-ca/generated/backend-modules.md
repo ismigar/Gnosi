@@ -14,13 +14,13 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `api` | 40 | 13588 |
 | `app` | 8 | 832 |
 | `application root` | 2 | 57 |
-| `config` | 14 | 1405 |
+| `config` | 14 | 1428 |
 | `data` | 2 | 214 |
 | `domains` | 599 | 117683 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
-| `platform` | 13 | 1377 |
+| `platform` | 13 | 1401 |
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
@@ -28,7 +28,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1090 modules** and **205979 source lines**.
+Total: **1090 modules** and **206026 source lines**.
 
 ## agent
 
@@ -167,7 +167,7 @@ Total: **1090 modules** and **205979 source lines**.
 | [`backend/config/mcp_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/mcp_config.py) | 15 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/config/paths_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/paths_config.py) | 239 | 0 | 4 | 0 | 1 | No module docstring |
 | [`backend/config/schema_keys.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/schema_keys.py) | 139 | 0 | 2 | 0 | 2 | Candidate keys and aliases for data extraction from JSON and local Markdown. |
-| [`backend/config/startup_errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/startup_errors.py) | 26 | 0 | 1 | 0 | 1 | Sanitized pre-readiness failures for the owned desktop process. |
+| [`backend/config/startup_errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/startup_errors.py) | 49 | 0 | 1 | 0 | 1 | Sanitized pre-readiness failures for the owned desktop process. |
 | [`backend/config/startup_vault.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/startup_vault.py) | 89 | 0 | 4 | 2 | 2 | Materialize startup-critical Vault files before app imports. |
 | [`backend/config/validation_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/validation_runtime.py) | 35 | 0 | 1 | 0 | 1 | Explicit, fail-closed isolation for disposable runtime acceptance probes. |
 | [`backend/config/yaml_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/yaml_cache.py) | 95 | 1 | 1 | 0 | 1 | Reuse decoded configuration while checking the file on every read. |
@@ -863,7 +863,7 @@ Total: **1090 modules** and **205979 source lines**.
 | [`backend/platform/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/__init__.py) | 1 | 0 | 0 | 0 | 0 | Provider-neutral adapters shared by Gnosi domains. |
 | [`backend/platform/files/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/__init__.py) | 140 | 0 | 3 | 0 | 2 | Abstraction layer for cloud-on-demand storage providers. |
 | [`backend/platform/files/base.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/base.py) | 142 | 1 | 0 | 0 | 1 | Base interface for cloud-on-demand storage providers. |
-| [`backend/platform/files/coordinated.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/coordinated.py) | 73 | 0 | 4 | 1 | 3 | Bounded, read-only access to macOS File Provider files. |
+| [`backend/platform/files/coordinated.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/coordinated.py) | 97 | 0 | 5 | 1 | 4 | Bounded, read-only access to macOS File Provider files. |
 | [`backend/platform/files/dropbox.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/dropbox.py) | 12 | 1 | 0 | 0 | 1 | Dropbox adapter for macOS File Provider based folders. |
 | [`backend/platform/files/gdrive.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/gdrive.py) | 54 | 1 | 0 | 0 | 1 | GoogleDriveProvider: vault over Google Drive (Drive for Desktop, macOS). |
 | [`backend/platform/files/icloud.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/icloud.py) | 49 | 1 | 0 | 0 | 1 | iCloudDriveProvider: vault over iCloud Drive with the macOS File Provider. |

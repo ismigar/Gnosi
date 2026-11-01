@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-28
+last_verified: 2026-11-01
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -31,6 +31,7 @@ source_paths:
   - backend/config/env_config.py
   - backend/server.py
   - backend/config/startup_errors.py
+  - backend/platform/files/coordinated.py
   - desktop/application-menu.js
   - desktop/help-links.json
   - frontend/src/shared/help/helpLinks.ts
@@ -69,6 +70,7 @@ tests:
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
   - backend/tests/test_cloud_config_startup.py
+  - backend/tests/test_coordinated_files.py
   - desktop/backend-process.test.js
   - desktop/vault-startup.test.js
   - desktop/vault-recovery.test.js
@@ -167,7 +169,10 @@ conserve le coffre et le profil, y compris un dossier choisi qui n’a pas encor
 d’ouvrir l’interface ; annuler ou quitter ne peut pas relancer un processus ni
 afficher une fenêtre tardive. Les autres erreurs conservent la récupération
 d’installation existante. Chaque tentative conserve le délai maximal de
-démarrage et la récupération du processus.
+démarrage et la récupération du processus. Pendant le démarrage, quitter arrête
+et récupère aussi les helpers d’hydratation gérés par Gnosi, même si leur création
+est simultanée ; le fournisseur cloud reste actif. Après le démarrage, Uvicorn
+retrouve son gestionnaire habituel des signaux.
 
 Nouvelle fenêtre, Paramètres, l’activation depuis le Dock et l’affichage différé
 des fenêtres ne peuvent contourner l’attente du backend ni l’arrêt de
