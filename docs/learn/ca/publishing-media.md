@@ -32,3 +32,19 @@ Les credencials caducades i els límits del proveïdor poden bloquejar la public
 
 - [Activa complements, connecta serveis i automatitza](integrations-automations.md)
 - [Preguntes freqüents i recuperació](troubleshooting.md)
+
+## Publicar un web
+
+Activa **Webs**, obre’l des de la barra lateral i crea o selecciona un web. Tria les taules i les pàgines d’origen i configura la navegació i l’aparença. Puja un logotip, una icona de pestanya o una tipografia amb els controls d’aparença. Només els recursos seleccionats s’inclouen al web publicat; pujar un fitxer no el publica. Les tipografies del sistema depenen del dispositiu del visitant.
+
+La configuració es desa automàticament. Comprova l’estat del desament abans de revisar i publicar a la destinació seleccionada. La publicació és una acció explícita. Si el desament falla, conserva l’esborrany i torna-ho a provar abans de publicar. Les credencials dels serveis privats i els esborranys de butlletins estan separats del web públic; enviar una campanya requereix una revisió i una acció explícita pròpies.
+
+### Revisió, historial de versions i butlletins de prova
+
+A Continguts, tria una font abans d’afegir-la; selecciona explícitament els camps públics, el cos i els adjunts. Fes servir Pàgines per al contingut manual i Navegació per als menús.
+
+La configuració es desa automàticament. Comprova l’estat de desament i resol els errors abans de sortir. Revisa una instantània, els canvis i la previsualització d’escriptori i mòbil abans de publicar la versió revisada. Els canvis de fonts o configuració requereixen una nova revisió. Comprova el resultat de la tasca i l’historial de versions; la reversió restaura una versió del web, mentre que els missatges, els subscriptors i les campanyes es mantenen separats.
+
+A Butlletins, tria la destinació i l’idioma i afegeix continguts ja publicats a un esborrany de resum o lectura destacada. La llista mostra primer els continguts més nous. Ordena fins a vint pàgines úniques, afegeix una introducció i revisa l’HTML, el text pla i els destinataris abans de posar explícitament una prova a la cua. Els esborranys es desen automàticament per web i destinació; els canvis de publicació o d’esborrany requereixen una nova revisió. Pots llegir els correus de prova capturats des de la cua d’enviament; llegir-los no activa els enllaços de confirmació o baixa. Fes servir els controls explícits de prova d’enllaços quan calgui.
+
+El pilot actual només permet publicar a l’espai de proves protegit i capturar correus per a destinataris sintètics. La publicació a producció i l’enviament real estan desactivats. Cada destinació també necessita les dependències de generació del web i del servei privat; comprova’n la connexió abans de publicar. Si el resultat d’una acció és incert, actualitza’n l’estat abans de reintentar-la.

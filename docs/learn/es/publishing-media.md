@@ -32,3 +32,19 @@ Credenciales caducadas y límites del proveedor pueden bloquear la publicación.
 
 - [Activa complementos, conecta servicios y automatiza](integrations-automations.md)
 - [Preguntas frecuentes y recuperación](troubleshooting.md)
+
+## Publicar un sitio web
+
+Activa **Webs**, ábrelo desde la barra lateral y crea o selecciona un sitio web. Elige las tablas y páginas de origen y configura la navegación y la apariencia. Sube un logotipo, un icono de pestaña o una tipografía con los controles de apariencia. Solo los recursos seleccionados se incluyen en el sitio publicado; subir un archivo no lo publica. Las tipografías del sistema dependen del dispositivo del visitante.
+
+La configuración se guarda automáticamente. Comprueba el estado del guardado antes de revisar y publicar en el destino seleccionado. La publicación es una acción explícita. Si falla el guardado, conserva el borrador y vuelve a intentarlo antes de publicar. Las credenciales de servicios privados y los borradores de boletines están separados del sitio público; enviar una campaña requiere su propia revisión y acción explícita.
+
+### Revisión, historial de versiones y boletines de prueba
+
+En Contenidos, elige una fuente antes de añadirla; selecciona explícitamente los campos públicos, el cuerpo y los adjuntos. Utiliza Páginas para el contenido manual y Navegación para los menús.
+
+La configuración se guarda automáticamente. Comprueba el estado de guardado y resuelve los errores antes de salir. Revisa una instantánea, sus cambios y la vista previa de escritorio y móvil antes de publicar la versión revisada. Los cambios de fuentes o configuración requieren otra revisión. Comprueba el resultado de la tarea y el historial de versiones; la reversión restaura una versión del sitio, mientras que mensajes, suscriptores y campañas se mantienen separados.
+
+En Boletines, elige el destino y el idioma y añade contenidos ya publicados a un borrador de resumen o lectura destacada. La lista muestra primero los contenidos más recientes. Ordena hasta veinte páginas únicas, añade una introducción y revisa HTML, texto plano y destinatarios antes de poner explícitamente una prueba en la cola. Los borradores se guardan automáticamente por sitio y destino; los cambios de publicación o del borrador requieren otra revisión. Puedes leer los correos de prueba capturados desde la cola de envío; leerlos no activa los enlaces de confirmación o baja. Utiliza los controles explícitos de prueba de enlaces cuando sea necesario.
+
+El piloto actual solo permite publicar en el espacio de pruebas protegido y capturar correos para destinatarios sintéticos. La publicación en producción y el envío real están desactivados. Cada destino también necesita las dependencias de generación del sitio y del servicio privado; comprueba su conexión antes de publicar. Si el resultado de una acción es incierto, actualiza el estado antes de reintentarla.

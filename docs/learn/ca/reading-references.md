@@ -38,3 +38,19 @@ L’identificador aporta metadades, però no garanteix accés al text complet. S
 
 - [Pregunta sobre les fonts seleccionades](notebooks.md)
 - [Crea pàgines, enllaços i adjunts](pages-files.md)
+
+## Escoltar el pòdcast diari
+
+Amb el Lector de canals activat, configura el pòdcast diari als ajustos del connector i el model de l’assistent assignat a **Configuració → IA**. L’episodi diari selecciona articles publicats durant les 24 hores anteriors. S’informa de les fonts que no es poden llegir; si no se’n pot llegir cap, no es publica cap episodi.
+
+Personalitza l’habilitat **Resum diari** assignada per ajustar-ne l’enfocament editorial i les preferències del pòdcast. Per defecte es demanen deu minuts i un màxim de dotze grups temàtics. La revisió per defecte comprova els resums de les fonts i la cobertura temàtica, inclosos els temes independents menys representats; la revisió completa opcional examina més a fons els fragments originals. La durada és un objectiu i la generació pot fallar si no compleix els requisits de longitud o de contrast amb les fonts. Comprova l’episodi acabat i les fonts indicades abans de donar-lo per bo.
+
+La configuració de veu es comparteix entre el xat, els pòdcasts del Lector i l’àudio generat dins del Vault actiu. Els canvis es desen automàticament; comprova’n l’estat abans d’escoltar una prova. La veu local ha d’estar disponible al servidor i la veu neuronal requereix el proveïdor configurat.
+
+### Generació i recuperació
+
+Activa el Lector de canals i la IA, configura l’assistent assignat a l’habilitat del resum diari i comprova la configuració de veu. Al Lector, fes servir el botó per generar el pòdcast; si ja hi ha un episodi, fes servir el botó per regenerar-lo. Obre el panell de veu sota el reproductor per escoltar-ne una prova, o fes servir el botó **Obre la configuració** per editar la configuració compartida. La prova no està disponible durant la generació.
+
+L’episodi utilitza els articles publicats durant les 24 hores anteriors, inclosos els ja llegits. Els articles sense text llegible ni resum del canal s’ometen i s’indiquen en un avís. La generació pot durar uns quants minuts; segueix-ne el progrés i fes servir Activitat per inspeccionar la tasca o cancel·lar-la. Escolta l’episodi acabat al reproductor. Un error o una cancel·lació conserva l’àudio anterior; si no es pot llegir cap article, no es genera cap substitució.
+
+Els dies amb pocs articles poden produir episodis més curts. Els canvis de configuració s’apliquen a tasques noves; una tasca represa conserva la selecció i les preferències originals.

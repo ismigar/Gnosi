@@ -38,3 +38,19 @@ Un identifiant apporte des métadonnées, sans garantir l’accès au texte int�
 
 - [Interroger les sources sélectionnées](notebooks.md)
 - [Créer des pages, des liens et des pièces jointes](pages-files.md)
+
+## Écouter le podcast quotidien
+
+Avec le Lecteur de flux activé, configurez le podcast quotidien dans ses réglages et le modèle de l’assistant affecté dans **Paramètres → IA**. L’épisode quotidien sélectionne les articles publiés au cours des 24 heures précédentes. Les sources illisibles sont signalées ; si aucune ne peut être lue, aucun épisode n’est publié.
+
+Personnalisez la compétence **Résumé quotidien** affectée pour adapter son approche éditoriale et les préférences du podcast. Les valeurs par défaut demandent dix minutes et douze groupes thématiques au maximum. La révision par défaut vérifie les résumés des sources et la couverture thématique, y compris les sujets indépendants moins représentés ; la révision complète facultative examine les fragments originaux plus en détail. La durée est un objectif et la génération peut échouer si elle ne respecte pas la longueur ou la fidélité aux sources requises. Vérifiez l’épisode terminé et les sources indiquées avant de vous y fier.
+
+Les réglages de voix sont partagés entre le chat, les podcasts du Lecteur et l’audio généré dans le Vault actif. Les changements s’enregistrent automatiquement ; vérifiez leur état avant d’écouter un essai. La voix locale doit être disponible sur le serveur et la voix neuronale nécessite le fournisseur configuré.
+
+### Génération et récupération
+
+Activez le Lecteur de flux et l’IA, configurez l’assistant affecté à la compétence du résumé quotidien et vérifiez les réglages vocaux. Dans le Lecteur, utilisez le bouton de génération du podcast ; si un épisode existe déjà, utilisez son bouton de régénération. Ouvrez le panneau vocal sous le lecteur audio pour écouter un essai, ou utilisez son bouton **Ouvrir les paramètres** pour modifier la configuration partagée. L’essai est indisponible pendant la génération.
+
+L’épisode utilise les articles publiés au cours des 24 dernières heures, y compris ceux déjà lus. Les articles sans texte lisible ni résumé de flux sont omis et signalés. La génération peut prendre plusieurs minutes ; suivez sa progression et utilisez Activité pour inspecter ou annuler la tâche. Écoutez l’épisode terminé dans le lecteur audio. Une erreur ou une annulation conserve l’audio précédent ; si aucun article n’est lisible, aucun remplacement n’est produit.
+
+Les journées pauvres en articles peuvent produire des épisodes plus courts. Les changements de configuration s’appliquent aux nouvelles tâches ; une tâche reprise conserve sa sélection et ses préférences initiales.

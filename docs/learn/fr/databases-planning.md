@@ -53,3 +53,7 @@ Activez **Partage externe**, ouvrez une table et choisissez **Formulaires public
 Partagez le lien depuis un serveur Gnosi accessible aux destinataires. Ils peuvent répondre sans compte et ne peuvent pas consulter les enregistrements existants. Chaque réponse acceptée crée une page dans la table fixée par le processus habituel. Réessayer un envoi interrompu conserve son identité et ne duplique pas l'enregistrement. Révoquez le lien pour arrêter les nouvelles réponses. Retirer le droit d'écriture du propriétaire ou changer le schéma d'un champ exposé arrête également le formulaire.
 
 Les liens expirent toujours : choisissez 7, 30, 90 ou 365 jours lors de la publication. Publiez un nouveau formulaire pour obtenir un autre lien après expiration.
+
+## Revenir à un enregistrement sans perdre sa position
+
+Ouvrir et fermer un enregistrement conserve la position de défilement du tableau, la sélection et les groupes dépliés. Les actualisations en arrière-plan préservent, dans la mesure du possible, l’édition de cellule active et le focus du clavier. Renommer un enregistrement maintient un titre cohérent entre sa page et le tableau. Si vous quittez un tableau pendant le chargement d’un enregistrement, sa réponse tardive ne le rouvre pas par-dessus votre nouvelle sélection.

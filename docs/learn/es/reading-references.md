@@ -38,3 +38,19 @@ El identificador aporta metadatos, pero no garantiza acceso al texto completo. S
 
 - [Pregunta sobre las fuentes seleccionadas](notebooks.md)
 - [Crea páginas, enlaces y adjuntos](pages-files.md)
+
+## Escuchar el pódcast diario
+
+Con el Lector de canales activado, configura el pódcast diario en sus ajustes y el modelo del asistente asignado en **Configuración → IA**. El episodio diario selecciona artículos publicados durante las 24 horas anteriores. Se informa de las fuentes que no se pueden leer; si no se puede leer ninguna, no se publica ningún episodio.
+
+Personaliza la habilidad **Resumen diario** asignada para ajustar su enfoque editorial y las preferencias del pódcast. Los valores predeterminados solicitan diez minutos y un máximo de doce grupos temáticos. La revisión predeterminada comprueba los resúmenes de las fuentes y la cobertura temática, incluidos los temas independientes menos representados; la revisión completa opcional examina los fragmentos originales con mayor profundidad. La duración es un objetivo y la generación puede fallar si no cumple los requisitos de longitud o de fidelidad a las fuentes. Comprueba el episodio terminado y las fuentes indicadas antes de darlo por válido.
+
+Los ajustes de voz se comparten entre el chat, los pódcasts del Lector y el audio generado dentro del Vault activo. Los cambios se guardan automáticamente; comprueba su estado antes de escuchar una prueba. La voz local debe estar disponible en el servidor y la voz neuronal requiere el proveedor configurado.
+
+### Generación y recuperación
+
+Activa el Lector de canales y la IA, configura el asistente asignado a la habilidad del resumen diario y comprueba los ajustes de voz. En el Lector, utiliza el botón para generar el pódcast; si ya existe un episodio, utiliza su botón para regenerarlo. Abre el panel de voz bajo el reproductor para escuchar una prueba, o utiliza su botón **Abrir configuración** para editar la configuración compartida. La prueba no está disponible durante la generación.
+
+El episodio utiliza los artículos publicados en las 24 horas anteriores, incluidos los ya leídos. Los artículos sin texto legible ni resumen del canal se omiten y se notifican. La generación puede tardar varios minutos; sigue su progreso y utiliza Actividad para inspeccionar la tarea o cancelarla. Escucha el episodio terminado en el reproductor. Un error o una cancelación conserva el audio anterior; si no hay ningún artículo legible, no se produce un reemplazo.
+
+Los días con pocos artículos pueden producir episodios más cortos. Los cambios de configuración se aplican a tareas nuevas; una tarea reanudada conserva la selección y las preferencias originales.

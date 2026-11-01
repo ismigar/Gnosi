@@ -53,3 +53,7 @@ Activa **Compartición externa**, abre una tabla y elige **Formularios públicos
 Comparte el enlace desde un servidor de Gnosi accesible a los destinatarios. Pueden responder sin cuenta y no pueden consultar registros existentes. Cada respuesta aceptada crea una página en la tabla fijada mediante el proceso habitual. Reintentar un envío interrumpido conserva la identidad de la petición y no duplica el registro. Revoca el enlace para detener nuevas respuestas. Retirar el permiso de escritura del propietario o cambiar el esquema de un campo expuesto también detiene el formulario.
 
 Los enlaces siempre caducan: elige 7, 30, 90 o 365 días al publicar. Publica un formulario nuevo cuando necesites otro enlace tras el vencimiento.
+
+## Volver a un registro sin perder la posición
+
+Abrir y cerrar un registro conserva la posición de desplazamiento de la tabla, la selección y los grupos desplegados. Las actualizaciones en segundo plano mantienen, siempre que es posible, la edición de celdas activa y el foco del teclado. Cambiar el nombre de un registro mantiene el título coherente entre la página y la tabla. Si sales de una tabla mientras se carga un registro, su respuesta tardía no lo vuelve a abrir sobre tu nueva selección.

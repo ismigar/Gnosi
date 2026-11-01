@@ -32,3 +32,19 @@ Expired credentials or provider limits can block a publication. A thumbnail cann
 
 - [Enable plugins, connect services and automate](integrations-automations.md)
 - [Frequently asked questions and recovery](troubleshooting.md)
+
+## Publish a website
+
+Enable **Websites**, open it from the sidebar and create or select a website. Choose the source tables and pages, then configure navigation and appearance. Upload a logo, favicon or font through the appearance controls. Only selected assets enter the published website; an upload alone does not publish it. System fonts depend on the visitor’s device.
+
+Configuration saves automatically. Wait for the save status before reviewing and publishing to the selected destination. Publication is an explicit action. If saving fails, keep the draft and retry before publishing. Private service credentials and newsletter drafts are separate from the public website; sending a campaign requires its own review and explicit action.
+
+### Review, release history and test newsletters
+
+In Contents, choose a source before adding it; explicitly select the public fields, body and attachments. Use Pages for manual content and Navigation for menus.
+
+Configuration saves automatically. Check the save status and resolve failures before leaving. Review a snapshot, its changes and its desktop/mobile preview before publishing the reviewed version. Source or configuration changes require a fresh review. Check the job outcome and release history; rollback restores a website version, while messages, subscribers and campaign state remain separate.
+
+In Newsletters, choose the destination and language, then add already published content to a digest or featured-reading draft. The list shows the newest content first. Reorder up to twenty unique pages, add an introduction and review HTML, plain text and recipients before explicitly queuing a test. Drafts save automatically per site and destination; changed publications or edits require another review. Captured test messages can be read from the delivery queue; reading does not activate confirmation or unsubscribe links. Use the explicit test-link controls when needed.
+
+The current pilot permits protected test publication and captured email for synthetic recipients only. Production publication and real email delivery are disabled. A destination also needs its required renderer and private-service dependencies; use its connection check before publication. If an action’s outcome is uncertain, refresh status before retrying.
