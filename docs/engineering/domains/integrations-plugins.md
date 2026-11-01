@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-28
+last_verified: 2026-11-01
 source_paths:
   - backend/domains/sites/transport_settings.py
   - backend/domains/sites
@@ -64,6 +64,10 @@ source_paths:
   - frontend/src/features/plugin-management
   - frontend/src/features/notion-import
 tests:
+  - backend/tests/test_site_management.py
+  - frontend/src/shared/api/sites.test.ts
+  - frontend/src/features/websites/WebsitesManagement.test.tsx
+  - tests/e2e/tests/critical/websites-management.spec.ts
   - backend/tests/test_drupal_retirement.py
   - backend/tests/test_sites.py
   - backend/tests/test_sites_newsletter.py
@@ -481,3 +485,7 @@ Newsletter drafts autosave privately per website and destination in `newsletter_
 Each Pangea private-service SSH login allows up to three attempts after transient disconnects before sending a password or command. Bounded sessions are serialized through child closure; queueing, login, backoff and commands share one 45-second deadline. If a known transport disconnect persists, semantic reads (status, lists, exports and captured email) can restart once automatically within that same deadline and connection slot. Host-key, login, policy, service and invalid-response errors do not trigger read recovery. Mutations, campaign previews, queueing and captured-link actions are never replayed after an uncertain response. See `backend/domains/sites/bounded_bridge.py`, `backend/domains/sites/pangea.py` and their recovery tests.
 
 Bounded Webs SSH/Suweb sessions normalize a copy of the maintained external driver’s connection settings. An explicit `WORKING_DIRECTORY` wins; otherwise the historical `DRUPAL_PATH` value supplies the working directory. The original settings remain unchanged. This transport compatibility does not enable Drupal content synchronization.
+
+The toolbar exposes **Manage hosting** and confirmed **Delete website** actions. The Hosting tab adds and removes local or SSH destination registrations, including the last destination. `DELETE /api/vault/sites/{site_id}?revision=N` requires an administrator and the current configuration revision. Removal preserves vault content, remote published files and private history; local servers and reviewed previews stop, and the local worker receives its stop marker. Pending publications or a publication lock block removal until resolved. New previews and publication jobs recheck configuration under the operation transaction before registration, preventing stale work from reviving a removed destination.
+
+Historical versions remain visible after removing their hosting. Their restoration action is replaced with a removed-hosting label; the backend rechecks the current configuration under its publication lock and returns a controlled conflict without activating an orphaned version.

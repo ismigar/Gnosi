@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-28
+last_verified: 2026-11-01
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -30,6 +30,8 @@ source_paths:
   - .github/workflows/ci.yml
   - backend/config/env_config.py
   - backend/server.py
+  - backend/config/startup_errors.py
+  - backend/platform/files/coordinated.py
   - desktop/application-menu.js
   - desktop/help-links.json
   - frontend/src/shared/help/helpLinks.ts
@@ -67,6 +69,8 @@ tests:
   - desktop/release-source-identity.test.js
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
+  - backend/tests/test_cloud_config_startup.py
+  - backend/tests/test_coordinated_files.py
   - desktop/backend-process.test.js
   - desktop/vault-startup.test.js
   - desktop/vault-recovery.test.js
@@ -149,6 +153,21 @@ estado. Los tiempos de espera agotados, las redirecciones, las respuestas mal
 formadas, la salida prematura del proceso y las respuestas HTTP 200 ajenas hacen
 fallar el inicio y provocan la terminación y recogida del proceso hijo propio.
 Si falta el ejecutable empaquetado, nunca se recurre al Python del sistema.
+
+La configuración del vault no disponible en la nube bloquea el inicio sin heredar
+valores predeterminados ni guardar sobre metadatos no leídos. El backend comunica
+solo un código fijo de inicio y el token del proceso, con estado de salida 74.
+Después de retirar ese proceso hijo, Electron ofrece un diálogo nativo traducido
+con reintento y salida que recomienda comprobar el proveedor de la nube o descargar
+la configuración para usarla sin conexión. El reintento conserva el vault y el
+perfil, también cuando se acaba de elegir una carpeta que aún no se ha guardado.
+Solo un inicio preparado permite guardar la selección y abrir la interfaz;
+cancelar o salir no puede relanzar un proceso ni mostrar una ventana tardía.
+Los demás errores mantienen la recuperación de instalación existente. Cada
+intento conserva el límite de tiempo de inicio y la retirada del proceso. Durante
+el inicio, salir también termina y recoge los helpers de hidratación propios,
+aunque coincida con su creación; no detiene el proveedor de la nube. Tras el
+inicio, Uvicorn recupera su gestor de señales habitual.
 
 Nueva ventana, Ajustes, la activación desde el Dock y la visualización diferida
 de ventanas no pueden eludir la espera a que el backend esté listo ni el cierre.

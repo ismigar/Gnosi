@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-28
+last_verified: 2026-11-01
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -30,6 +30,8 @@ source_paths:
   - .github/workflows/ci.yml
   - backend/config/env_config.py
   - backend/server.py
+  - backend/config/startup_errors.py
+  - backend/platform/files/coordinated.py
   - desktop/application-menu.js
   - desktop/help-links.json
   - frontend/src/shared/help/helpLinks.ts
@@ -67,6 +69,8 @@ tests:
   - desktop/release-source-identity.test.js
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
+  - backend/tests/test_cloud_config_startup.py
+  - backend/tests/test_coordinated_files.py
   - desktop/backend-process.test.js
   - desktop/vault-startup.test.js
   - desktop/vault-recovery.test.js
@@ -147,6 +151,21 @@ d’espera exhaurits, les redireccions, les respostes malformades, la finalitzac
 prematura i les respostes HTTP 200 alienes fan fallar l’arrencada i provoquen
 l’aturada i la neteja del procés fill propi. Si falta l’executable empaquetat,
 mai no es recorre al Python del sistema.
+
+La configuració del vault no disponible al núvol bloqueja l’arrencada sense heretar
+valors per defecte ni desar sobre metadades no llegides. El backend comunica només
+un codi fix d’arrencada i el token del procés, amb estat de sortida 74. Després de
+retirar aquest procés fill, Electron ofereix un diàleg natiu traduït amb reintent
+i sortida que recomana comprovar el proveïdor del núvol o descarregar la configuració
+per utilitzar-la sense connexió. El reintent conserva el vault i el perfil, també
+quan s’acaba de triar una carpeta que encara no s’ha desat. Només una arrencada
+preparada permet desar la selecció i obrir la interfície; cancel·lar o sortir no
+pot rellançar un procés ni mostrar una finestra tardana. La resta d’errors mantenen
+la recuperació d’instal·lació existent. Cada intent conserva el límit de temps
+d’arrencada i la retirada del procés. Durant l’arrencada, sortir també mata i
+retira els helpers d’hidratació propis, encara que coincideixi amb la seva creació;
+no atura el proveïdor del núvol. Després de l’arrencada, Uvicorn recupera el seu
+gestor de senyals habitual.
 
 Nova finestra, Configuració, l’activació des del Dock i la visualització diferida
 de finestres no poden eludir la comprovació que el backend estigui preparat ni

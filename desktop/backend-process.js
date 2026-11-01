@@ -7,6 +7,8 @@ const { performance } = require('node:perf_hooks');
 
 const INSTANCE_HEADER = 'x-gnosi-desktop-instance';
 const MAX_HEALTH_BYTES = 4096;
+/** @type {WeakMap<import('node:child_process').ChildProcess, Promise<void>>} */
+const stopping = new WeakMap();
 
 /** @typedef {import('node:child_process').ChildProcessWithoutNullStreams} BackendChild */
 /**
@@ -157,8 +159,11 @@ async function waitForBackend(child, healthUrl, identity, timings, onVaultConfig
  * @returns {Promise<void>}
  */
 function stopBackend(child, graceMs = 5000) {
+  const pending = stopping.get(child);
+  if (pending) return pending;
   if (hasExited(child) || child.pid === undefined) return Promise.resolve();
-  return new Promise((resolve, reject) => {
+  /** @type {Promise<void>} */
+  const completion = new Promise((resolve, reject) => {
     /** @type {NodeJS.Timeout | undefined} */
     let escalate;
     /** @type {NodeJS.Timeout | undefined} */
@@ -186,6 +191,8 @@ function stopBackend(child, graceMs = 5000) {
       finish(error instanceof Error ? error : new Error(String(error)));
     }
   });
+  stopping.set(child, completion);
+  return completion;
 }
 
 /** @param {LaunchOptions} options @returns {Promise<BackendHandle>} */
@@ -213,15 +220,46 @@ async function launchBackend(options) {
   /** @type {boolean | undefined} */
   let vaultConfigured;
   child.on('error', error => { processFailure = error; });
+  let closed = false;
+  const completion = new Promise(resolve => child.once('close', () => { closed = true; resolve(undefined); }));
+  const record = `GNOSI_STARTUP_ERROR ${identity} cloud_metadata_unavailable`;
+  let line = '';
+  let overflow = false;
+  let cloudUnavailable = false;
   // Drain both pipes, even when callers do not retain diagnostic output.
   child.stdout.on('data', value => options.onOutput?.(String(value)));
-  child.stderr.on('data', value => options.onOutput?.(String(value)));
+  child.stderr.on('data', value => {
+    const output = String(value);
+    for (const character of output) {
+      if (character === '\n') {
+        if (!overflow && line === record) cloudUnavailable = true;
+        line = ''; overflow = false;
+      } else if (!overflow) {
+        if (line.length >= 256) { line = ''; overflow = true; }
+        else line += character;
+      }
+    }
+    options.onOutput?.(output);
+  });
   try {
     options.onSpawn?.(child);
     await waitForBackend(child, options.healthUrl, identity, timings,
       configured => { vaultConfigured = configured; });
   } catch (error) {
     await stopBackend(child);
+    // Exit may precede the final pipe data. Drain for a bounded interval before
+    // interpreting a record; arbitrary diagnostics never become UI text.
+    if (!closed) {
+      /** @type {NodeJS.Timeout | undefined} */
+      let timer;
+      await Promise.race([completion, new Promise(resolve => { timer = setTimeout(resolve, 500); })]);
+      clearTimeout(timer);
+    }
+    if (closed && child.exitCode === 74 && cloudUnavailable) {
+      throw Object.assign(new Error('Vault configuration is temporarily unavailable'), {
+        code: 'GNOSI_CLOUD_METADATA_UNAVAILABLE',
+      });
+    }
     throw error;
   }
   return {

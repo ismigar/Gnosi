@@ -9110,13 +9110,14 @@
     "publicationQueued": "Publicació posada a la cua. Pots seguir el progrés a sota.",
     "releases": "Versions publicades",
     "rollbackHelp": "Restaurar el web conserva els missatges rebuts, les baixes i l’historial de correu.",
+    "removedHosting": "Allotjament eliminat",
     "currentRelease": "Versió actual",
     "rollback": "Restaura la versió",
     "restored": "Versió del web restaurada.",
     "noReleases": "Encara no hi ha versions publicades.",
-    "targets": "Destinacions d’allotjament",
-    "addTarget": "Afegeix una destinació",
-    "newTarget": "Destinació nova",
+    "targets": "Allotjaments",
+    "addTarget": "Afegeix un allotjament",
+    "newTarget": "Nou allotjament",
     "configureConnection": "Configura la connexió",
     "name": "Nom",
     "baseUrl": "URL de la destinació",
@@ -9148,8 +9149,9 @@
       "messages": "Missatges",
       "subscribers": "Subscriptors",
       "campaigns": "Butlletins",
-      "publishing": "Publicació i allotjament",
-      "settings": "Configuració privada"
+      "publishing": "Publicació",
+      "settings": "Configuració privada",
+      "hosting": "Allotjaments"
     },
     "tokens": {
       "primary": "Blau petroli / principal",
@@ -9308,7 +9310,8 @@
     "openLocal": "Obre el web local",
     "managedBridgeHelp": "Aquesta destinació utilitza el pont Pangea / Suweb del pilot importat. El pont gestiona la connexió i els directoris remots. Pots comprovar-ne la connexió aquí.",
     "jobErrors": {
-      "worker_start_pending": "La versió del web ja està activa, però encara no s’ha pogut iniciar el procés del servei privat. Prova la connexió de la destinació i torna a revisar i publicar per reintentar-ne l’inici."
+      "worker_start_pending": "La versió del web ja està activa, però encara no s’ha pogut iniciar el procés del servei privat. Prova la connexió de la destinació i torna a revisar i publicar per reintentar-ne l’inici.",
+      "publication_failed_review_status": "No s’ha pogut completar la publicació. Revisa l’estat de la destinació i torna a revisar els canvis abans de publicar."
     },
     "withdrawTranslation": "Retira la versió {{language}}",
     "fontSystem": "Tipografia del sistema",
@@ -9378,6 +9381,15 @@
     "newFont": "Nova tipografia",
     "catalogueLoading": "Carregant les fonts de contingut…",
     "publishingReview": "Revisa la destinació i els canvis abans de publicar.",
-    "importPilotHelp": "Conserva el contingut existent, les traduccions, els URL i la configuració de marca."
+    "importPilotHelp": "Conserva el contingut existent, les traduccions, els URL i la configuració de marca.",
+    "removeSite": "Elimina el web",
+    "removeSiteHelp": "Vols eliminar «{{name}}» de Gnosi? Es conservaran els continguts del vault i els fitxers ja publicats. El web publicat continuarà disponible al servidor.",
+    "siteRemoved": "S’ha eliminat el web de Gnosi.",
+    "manageHosting": "Gestiona els allotjaments",
+    "removeHosting": "Elimina l’allotjament",
+    "removeHostingHelp": "Vols eliminar la connexió «{{name}}» d’aquest web? Es conservaran els fitxers i les dades del servidor. Si és local, el servidor s’aturarà.",
+    "hostingRemoved": "S’ha eliminat la connexió d’allotjament.",
+    "hostingHelp": "Afegeix un allotjament local o una connexió SSH a un servidor propi. Eliminar una connexió conserva els fitxers publicats i les dades del servidor.",
+    "noTargets": "Aquest web encara no té cap allotjament. Afegeix-ne un per poder publicar."
   }
 }

@@ -9110,13 +9110,14 @@
     "publicationQueued": "Publication mise en file. Suivez sa progression ci-dessous.",
     "releases": "Versions publiées",
     "rollbackHelp": "La restauration du site conserve les messages reçus, les désabonnements et l’historique des courriels.",
+    "removedHosting": "Hébergement supprimé",
     "currentRelease": "Version actuelle",
     "rollback": "Restaurer la version",
     "restored": "Version du site restaurée.",
     "noReleases": "Aucune version publiée pour le moment.",
-    "targets": "Destinations d’hébergement",
-    "addTarget": "Ajouter une destination",
-    "newTarget": "Nouvelle destination",
+    "targets": "Hébergements",
+    "addTarget": "Ajouter un hébergement",
+    "newTarget": "Nouvel hébergement",
     "configureConnection": "Configurer la connexion",
     "name": "Nom",
     "baseUrl": "URL de destination",
@@ -9148,8 +9149,9 @@
       "messages": "Messages",
       "subscribers": "Abonnés",
       "campaigns": "Lettres d’information",
-      "publishing": "Publication et hébergement",
-      "settings": "Paramètres privés"
+      "publishing": "Publication",
+      "settings": "Paramètres privés",
+      "hosting": "Hébergements"
     },
     "tokens": {
       "primary": "Bleu pétrole / principal",
@@ -9308,7 +9310,8 @@
     "openLocal": "Ouvrir le site local",
     "managedBridgeHelp": "Cette destination utilise le pont Pangea / Suweb du pilote importé. Le pont gère la connexion et les répertoires distants. Vous pouvez tester sa connexion ici.",
     "jobErrors": {
-      "worker_start_pending": "La version du site web est déjà active, mais le processus du service privé n’a pas encore démarré. Testez la connexion de la destination, puis vérifiez et publiez à nouveau pour réessayer de le démarrer."
+      "worker_start_pending": "La version du site web est déjà active, mais le processus du service privé n’a pas encore démarré. Testez la connexion de la destination, puis vérifiez et publiez à nouveau pour réessayer de le démarrer.",
+      "publication_failed_review_status": "La publication n’a pas pu être terminée. Vérifiez l’état de la destination et examinez à nouveau les modifications avant de publier."
     },
     "withdrawTranslation": "Retirer la version {{language}}",
     "fontSystem": "Police du système",
@@ -9378,6 +9381,15 @@
     "newFont": "Nouvelle police",
     "catalogueLoading": "Chargement des sources de contenu…",
     "publishingReview": "Vérifiez la destination et les modifications avant de publier.",
-    "importPilotHelp": "Préserve le contenu existant, les traductions, les URL et les paramètres de marque."
+    "importPilotHelp": "Préserve le contenu existant, les traductions, les URL et les paramètres de marque.",
+    "removeSite": "Supprimer le site",
+    "removeSiteHelp": "Supprimer « {{name}} » de Gnosi ? Le contenu du vault et les fichiers déjà publiés seront conservés. Le site publié restera disponible sur le serveur.",
+    "siteRemoved": "Le site a été supprimé de Gnosi.",
+    "manageHosting": "Gérer les hébergements",
+    "removeHosting": "Supprimer l’hébergement",
+    "removeHostingHelp": "Supprimer la connexion « {{name}} » de ce site ? Les fichiers et les données du serveur seront conservés. Un serveur local sera arrêté.",
+    "hostingRemoved": "La connexion d’hébergement a été supprimée.",
+    "hostingHelp": "Ajoutez un hébergement local ou une connexion SSH à votre propre serveur. Supprimer une connexion conserve les fichiers publiés et les données du serveur.",
+    "noTargets": "Ce site n’a pas encore d’hébergement. Ajoutez-en un pour publier."
   }
 }

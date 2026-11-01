@@ -141,17 +141,35 @@ def server_status(store: SiteStore, site: SiteConfig, target_id: str) -> LocalSe
 def stop_server(store: SiteStore, site: SiteConfig, target_id: str) -> LocalServeResponse:
     status = server_status(store, site, target_id)
     path = store.site_dir(site.id) / "servers" / target_id / "server.json"
+    _stop_owned_server(path, store.site_dir(site.id) / "active" / target_id)
+    return LocalServeResponse(url=status.url, running=False)
+
+
+def retire_target(store: SiteStore, site_id: str, target_id: str) -> None:
+    """Stop owned local artifacts even if the destination was reconfigured as SSH."""
+    _stop_owned_server(store.site_dir(site_id) / "servers" / target_id / "server.json", store.site_dir(site_id) / "active" / target_id)
+    captures = store.site_dir(site_id) / "services" / target_id / "captures"
+    if captures.is_dir():
+        private_json(captures / ".daemon-stop", {})
+
+
+def stop_preview(store: SiteStore, site_id: str, preview_id: str) -> None:
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{1,100}", preview_id):
+        raise HTTPException(409, "Invalid website preview identity")
+    root = store.site_dir(site_id) / "previews" / preview_id
+    _stop_owned_server(root / "server.json", root / "public")
+
+
+def _stop_owned_server(path: Path, output: Path) -> None:
     if not path.is_file():
-        return status
+        return
     state: object = json.loads(path.read_text())
-    output = store.site_dir(site.id) / "active" / target_id
     process = _owned_process(state, output)
     if process is not None:
         try:
             process.terminate()
             process.wait(timeout=5)
         except psutil.TimeoutExpired:
-            # Revalidate after waiting; a reused PID cannot inherit termination authority.
             still_owned = _owned_process(state, output)
             if still_owned is not None:
                 still_owned.kill()
@@ -161,7 +179,6 @@ def stop_server(store: SiteStore, site: SiteConfig, target_id: str) -> LocalServ
         except psutil.Error:
             raise HTTPException(503, "The owned local website process could not be stopped") from None
     path.unlink(missing_ok=True)
-    return LocalServeResponse(url=status.url, running=False)
 
 
 def _server_environment(config: Path, output: Path, releases_root: Path | None) -> dict[str, str]:
@@ -173,6 +190,22 @@ def _server_environment(config: Path, output: Path, releases_root: Path | None) 
     if releases_root is not None:
         env["GNOSI_SITES_RELEASE_ROOT"] = str(releases_root)
     return env
+
+
+def _validate_started_target(store: SiteStore, site_id: str, target_id: str, pid_file: Path, output: Path, preview_id: str | None) -> None:
+    if preview_id:
+        return
+    try:
+        with store.database():
+            current = store.load(site_id)
+            if not any(target.id == target_id and target.adapter == "local" and target.environment == "local" for target in current.targets):
+                raise HTTPException(409, "The website destination changed during startup")
+    except BaseException:
+        _stop_owned_server(pid_file, output)
+        captures = store.site_dir(site_id) / "services" / target_id / "captures"
+        if captures.is_dir():
+            private_json(captures / ".daemon-stop", {})
+        raise
 
 
 def start_server(store: SiteStore, site: SiteConfig, target_id: str, output: Path, *, preview_id: str | None = None) -> str:
@@ -234,6 +267,7 @@ def start_server(store: SiteStore, site: SiteConfig, target_id: str, output: Pat
             raise HTTPException(503, "The local website server could not start")
         try:
             with socket.create_connection(("127.0.0.1", port), timeout=0.1):
+                _validate_started_target(store, site.id, target_id, pid_file, output, preview_id)
                 return base_url
         except OSError:
             time.sleep(0.05)

@@ -66,11 +66,17 @@ def preview(store: SiteStore, site: SiteConfig, target_id: str) -> SitePreview:
     url = runtime.start_server(store, local_site, target_id, output, preview_id=preview_id)
     rendered = cast(dict[str, JsonValue], bundle.model_dump(mode="json"))
     rendered["deployment_url"] = url
-    runtime.render_bundle(rendered, output)
-    response.preview_url = url + "/" + site.default_language
-    payload = {"preview": response.model_dump(mode="json"), "bundle": bundle.model_dump(mode="json"), "parent_fingerprint": previous.get("fingerprint") if previous else None}
-    with store.database() as db:
-        db.execute("INSERT INTO previews(id,site_id,user_id,target_id,fingerprint,expires,payload) VALUES(?,?,?,?,?,?,?)", (preview_id, site.id, store.context.user_id, target_id, bundle.fingerprint, expires.timestamp(), json.dumps(payload)))
+    try:
+        runtime.render_bundle(rendered, output)
+        response.preview_url = url + "/" + site.default_language
+        payload = {"preview": response.model_dump(mode="json"), "bundle": bundle.model_dump(mode="json"), "parent_fingerprint": previous.get("fingerprint") if previous else None}
+        with store.database() as db:
+            if store.load(site.id).revision != site.revision:
+                raise HTTPException(409, "The website changed; review a new publication preview")
+            db.execute("INSERT INTO previews(id,site_id,user_id,target_id,fingerprint,expires,payload) VALUES(?,?,?,?,?,?,?)", (preview_id, site.id, store.context.user_id, target_id, bundle.fingerprint, expires.timestamp(), json.dumps(payload)))
+    except BaseException:
+        runtime.stop_preview(store, site.id, preview_id)
+        raise
     return response
 
 
@@ -116,6 +122,8 @@ def enqueue(store: SiteStore, site: SiteConfig, request: SitePublishRequest) -> 
     private_json(store.private_root / "scope.json", {"schema_version": 1, "workspace_id": store.context.workspace_id, "vault_path": str(store.vault)})
     private_json(request_path, {"bundle": bundle.model_dump(mode="json"), "parent_fingerprint": pending.get("parent_fingerprint"), "user_id": store.context.user_id, "preview_id": request.preview_id})
     with store.database() as db:
+        if store.load(site.id).revision != site.revision:
+            raise HTTPException(409, "The website changed; review a new publication preview")
         changed = db.execute("UPDATE previews SET consumed=1 WHERE id=? AND consumed=0", (request.preview_id,)).rowcount
         if changed != 1:
             raise HTTPException(409, "This publication preview was already used")
@@ -351,7 +359,12 @@ def rollback(store: SiteStore, site: SiteConfig, release_id: str) -> SiteRelease
         db.execute("INSERT INTO locks VALUES (?,?)", (site.id, "rollback"))
     try:
         release = SiteRelease.model_validate_json(row["payload"])
-        target = next(t for t in site.targets if t.id == release.target_id)
+        # Removal may have completed after the caller loaded this configuration.
+        # The publication lock now prevents another removal during activation.
+        site = store.load(site.id)
+        target = next((t for t in site.targets if t.id == release.target_id), None)
+        if target is None:
+            raise HTTPException(409, "The hosting destination for this version was removed")
         if target.environment == "production":
             raise HTTPException(409, "Production restoration requires pilot validation")
         with store.database() as db:

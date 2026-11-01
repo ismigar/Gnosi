@@ -24,32 +24,34 @@ while str(BACKEND_DIR) in sys.path:
 sys.path.append(str(BACKEND_DIR))
 
 from backend.config.startup_vault import materialize_startup_vault_files
+from backend.config.startup_errors import desktop_startup_errors
 
 
 # Cloud providers can evict small critical Vault files between native restarts.
 # Recover those read-only inputs before modules cache configuration and state.
-materialize_startup_vault_files()
+with desktop_startup_errors():
+    materialize_startup_vault_files()
 
-from backend.app.factory import create_app
-from backend.app.lifespan import lifespan as lifespan
-from backend.config.app_config import load_params
-from backend.config.env_config import is_frozen_runtime
-from backend.config.desktop_server import desktop_server_address
+    from backend.app.factory import create_app
+    from backend.app.lifespan import lifespan as lifespan
+    from backend.config.app_config import load_params
+    from backend.config.env_config import is_frozen_runtime
+    from backend.config.desktop_server import desktop_server_address
 
-
-app = create_app(lifespan)
+    app = create_app(lifespan)
 
 
 if __name__ == "__main__":
-    cfg = load_params(strict_env=False)
-    server_cfg = getattr(cfg, "server", {}) or cfg.get("server", {}) or {}
-    desktop_address = desktop_server_address(os.environ)
-    HOST, PORT = desktop_address or (
-        server_cfg.get("host", "0.0.0.0"), int(server_cfg.get("backend_port", 5002))
-    )
-    uvicorn.run(
-        "backend.server:app",
-        host=HOST,
-        port=PORT,
-        reload=not is_frozen_runtime() and desktop_address is None,
-    )
+    with desktop_startup_errors():
+        cfg = load_params(strict_env=False)
+        server_cfg = getattr(cfg, "server", {}) or cfg.get("server", {}) or {}
+        desktop_address = desktop_server_address(os.environ)
+        HOST, PORT = desktop_address or (
+            server_cfg.get("host", "0.0.0.0"), int(server_cfg.get("backend_port", 5002))
+        )
+        uvicorn.run(
+            "backend.server:app",
+            host=HOST,
+            port=PORT,
+            reload=not is_frozen_runtime() and desktop_address is None,
+        )

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-28
+last_verified: 2026-11-01
 source_paths:
   - backend/domains/sites/transport_settings.py
   - backend/domains/sites
@@ -64,6 +64,10 @@ source_paths:
   - frontend/src/features/plugin-management
   - frontend/src/features/notion-import
 tests:
+  - backend/tests/test_site_management.py
+  - frontend/src/shared/api/sites.test.ts
+  - frontend/src/features/websites/WebsitesManagement.test.tsx
+  - tests/e2e/tests/critical/websites-management.spec.ts
   - backend/tests/test_drupal_retirement.py
   - backend/tests/test_sites.py
   - backend/tests/test_sites_newsletter.py
@@ -493,3 +497,7 @@ Cada connexió SSH del servei privat de Pangea permet fins a tres intents davant
 Logo, favicon i tipografies es trien pujant fitxers (màxim 4 MB); les imatges mostren una miniatura amb transparència. `POST /api/vault/sites/{site_id}/theme/assets` rep els fitxers amb accés restringit a editors. Les referències es desen automàticament. El selector cerca tipografies del sistema i WOFF/WOFF2/TTF/OTF propis; les fonts del sistema poden variar segons el dispositiu. Els uploads estan aïllats per web i només es publiquen en seleccionar-los. Webs obre la configuració sense esperar el catàleg, que es carrega a Continguts o Pàgines i es reutilitza fins a refrescar.
 
 Les sessions SSH/Suweb acotades de Webs normalitzen una còpia dels paràmetres de connexió del controlador extern mantingut. Un `WORKING_DIRECTORY` explícit té prioritat; altrament, el valor històric de `DRUPAL_PATH` aporta el directori de treball. Els paràmetres originals no es modifiquen. Aquesta compatibilitat del transport no habilita la sincronització de contingut Drupal.
+
+La barra ofereix **Gestiona els allotjaments** i **Elimina el web**, amb confirmació. La pestanya Allotjaments permet afegir i eliminar connexions locals o SSH, inclosa l’última. `DELETE /api/vault/sites/{site_id}?revision=N` exigeix un administrador i la revisió actual. L’eliminació conserva els continguts del vault, els fitxers publicats al servidor i l’historial privat; atura els servidors locals i les previsualitzacions, i indica al procés local que s’aturi. Les publicacions pendents o un bloqueig de publicació impedeixen eliminar fins que es resolguin. Les previsualitzacions i tasques noves comproven de nou la configuració dins la transacció abans de registrar-se.
+
+Les versions anteriors continuen visibles després d’eliminar-ne l’allotjament. L’acció de restauració se substitueix per una etiqueta d’allotjament eliminat; el backend comprova de nou la configuració actual amb el bloqueig de publicació i retorna un conflicte controlat sense activar una versió òrfena.
