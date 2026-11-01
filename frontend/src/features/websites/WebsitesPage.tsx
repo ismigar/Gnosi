@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import { useTranslation } from 'react-i18next';
 import { Globe, Plus } from 'lucide-react';
 import { AppHeader } from '../../shared/ui/layout/AppHeader';
+import { ConfirmModal } from '../../shared/ui/dialogs/ConfirmModal';
 import { RefreshButton } from '../../shared/ui/actions/RefreshButton';
 import { useRequestContext } from '../../shared/hooks/useRequestContext';
 import { useModalKeyboard } from '../../shared/hooks/useModalKeyboard';
@@ -15,7 +16,8 @@ import { PagesEditor } from './PagesEditor';
 import { FormsEditor } from './FormsEditor';
 import { NavigationEditor } from './NavigationEditor';
 import { AppearanceEditor } from './AppearanceEditor';
-import { PublishingPanel, type ConnectionActions } from './PublishingPanel';
+import { PublishingPanel } from './PublishingPanel';
+import { HostingPanel, type ConnectionActions } from './HostingPanel';
 import { MessagesPanel, SubscribersPanel, CampaignsPanel, PrivateSettingsEditor, type PrivateCall } from './PrivatePanels';
 import { record } from './serviceModels';
 import { WebsiteAutosave } from './WebsiteAutosave';
@@ -23,7 +25,7 @@ import { configurationKey } from './helpers';
 import { autosaveRequest, type AutosaveEntry, type RegisterAutosave } from './autosaveRequest';
 import './Websites.css';
 
-const TABS = ['overview', 'sources', 'pages', 'navigation', 'appearance', 'forms', 'messages', 'subscribers', 'campaigns', 'publishing', 'settings'] as const;
+const TABS = ['overview', 'sources', 'pages', 'navigation', 'appearance', 'forms', 'messages', 'subscribers', 'campaigns', 'publishing', 'hosting', 'settings'] as const;
 type Tab = typeof TABS[number];
 const contextKey = (context: RequestContext) => JSON.stringify([context.userId, context.userEmail, context.workspaceId, context.vaultId]);
 
@@ -52,6 +54,7 @@ function Session({ context }: { context: RequestContext }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [creating, setCreating] = useState(false);
+  const [removing, setRemoving] = useState<api.SiteConfig | null>(null);
   const [preview, setPreview] = useState<api.SitePreview | null>(null);
   const [themes, setThemes] = useState<api.SiteTheme[]>([]);
   const [refreshRevision, setRefreshRevision] = useState(0);
@@ -117,7 +120,7 @@ function Session({ context }: { context: RequestContext }) {
   }, [catalogueRequested, refreshRevision, request, context, t]);
 
   const site = drafts[selectedId];
-  const targetId = (site?.targets ?? []).some(target => target.id === targetChoice) ? targetChoice : site?.targets?.[0]?.id ?? 'local';
+  const targetId = (site?.targets ?? []).some(target => target.id === targetChoice) ? targetChoice : site?.targets?.[0]?.id ?? '';
   const dirty = useMemo(() => Boolean(site && configurationKey(site) !== configurationKey(saved[selectedId] ?? site)), [site, saved, selectedId]);
   const siteId = site?.id ?? '';
   const anyDirty = useMemo(() => Object.values(drafts).some(value => { const previous = saved[value.id]; return previous && configurationKey(value) !== configurationKey(previous); }), [drafts, saved]);
@@ -189,13 +192,30 @@ function Session({ context }: { context: RequestContext }) {
     void action(async () => { if (await flushWriters()) select(); });
   };
   const changeTarget = (value: string) => { void action(async () => { if (await flushWriters()) { setTargetId(value); setPreview(null); } }); };
+  const removeTarget = async (id: string) => { let removed = false; await action(async () => {
+    if (!site || !await flushWriters(true)) return;
+    const current = await request(signal => api.getSite(site.id, context, signal));
+    const value = await request(signal => api.saveSite({ ...current.site, targets: (current.site.targets ?? []).filter(target => target.id !== id) }, context, signal));
+    accept(value); setTargetId(value.targets?.[0]?.id ?? ''); setNotice(t('websites.hostingRemoved')); removed = true;
+  }); return removed; };
+  const removeWebsite = async () => { await action(async () => {
+    if (!removing || !await flushWriters(true)) return;
+    await request(signal => api.removeSite(removing.id, removing.revision, context, signal));
+    const remaining = sites.filter(item => item.id !== removing.id);
+    setSites(remaining);
+    setDrafts(previous => Object.fromEntries(Object.entries(previous).filter(([id]) => id !== removing.id)));
+    setSaved(previous => Object.fromEntries(Object.entries(previous).filter(([id]) => id !== removing.id)));
+    setSelectedId(remaining[0]?.id ?? ''); setTargetId(''); setStatus(null); setPreview(null); setThemes([]); setTab('overview'); setRemoving(null); setNotice(t('websites.siteRemoved'));
+  }); };
   const tabKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const next = event.key === 'ArrowRight' ? (index + 1) % TABS.length : event.key === 'ArrowLeft' ? (index + TABS.length - 1) % TABS.length : event.key === 'Home' ? 0 : event.key === 'End' ? TABS.length - 1 : -1;
     if (next < 0) return; event.preventDefault(); const item = TABS[next]; if (item) { changeTab(item); document.getElementById(`websites-tab-${item}`)?.focus(); }
   };
 
   return <main className="websites-page"><AppHeader icon={Globe} title={t('websites.title')} subtitle={t('websites.subtitle')}><button type="button" className="websites-button" disabled={loading || busy} onClick={() => { setCreating(true); }}><Plus size={16} />{t('websites.createSite')}</button><RefreshButton loading={loading} disabled={busy || loading || anyDirty || hasPendingSaves} onClick={() => { setLoading(true); setError(''); setRefreshRevision(value => value + 1); }} /></AppHeader><div className="websites-shell">
-    <div className="websites-toolbar"><div className="websites-actions"><Field label={t('websites.website')}><Select disabled={busy || loading} value={selectedId} onChange={event => { const value = event.target.value; void action(async () => { if (!await flushWriters()) return; setSelectedId(value); setStatus(null); setPreview(null); setThemes([]); setTab('overview'); setNotice(''); setError(''); }); }}>{sites.map(value => <option key={value.id} value={value.id}>{drafts[value.id]?.name ?? value.name}</option>)}{!sites.length && <option value="">{t('websites.chooseSite')}</option>}</Select></Field>{site && <Field label={t('websites.target')}><Select disabled={busy || loading} value={targetId} onChange={event => { changeTarget(event.target.value); }}>{(site.targets ?? []).map(target => <option key={target.id} value={target.id}>{target.name} · {t(`websites.environments.${target.environment}`)}</option>)}</Select></Field>}</div>{site && <WebsiteAutosave drafts={drafts} saved={saved} context={context} onSaved={acceptAutosave} register={registerAutosave} />}</div>
+    <div className="websites-toolbar"><div className="websites-actions"><Field label={t('websites.website')}><Select disabled={busy || loading} value={selectedId} onChange={event => { const value = event.target.value; void action(async () => { if (!await flushWriters()) return; setSelectedId(value); setStatus(null); setPreview(null); setThemes([]); setTab('overview'); setNotice(''); setError(''); }); }}>{sites.map(value => <option key={value.id} value={value.id}>{drafts[value.id]?.name ?? value.name}</option>)}{!sites.length && <option value="">{t('websites.chooseSite')}</option>}</Select></Field>{site && <Field label={t('websites.target')}><Select disabled={busy || loading} value={targetId} onChange={event => { changeTarget(event.target.value); }}>{!site.targets?.length && <option value="">{t('websites.noTargets')}</option>}{(site.targets ?? []).map(target => <option key={target.id} value={target.id}>{target.name} · {t(`websites.environments.${target.environment}`)}</option>)}</Select></Field>}
+    {site && <><button type="button" className="websites-button" disabled={busy || loading} onClick={() => { changeTab('hosting'); }}>{t('websites.manageHosting')}</button><button type="button" className="websites-button" disabled={busy || loading || anyDirty || hasPendingSaves} onClick={() => { setRemoving(site); }}>{t('websites.removeSite')}</button></>}
+    </div>{site && <WebsiteAutosave drafts={drafts} saved={saved} context={context} onSaved={acceptAutosave} register={registerAutosave} />}</div>
     {loading && <p role="status">{t('websites.loading')}</p>}{busy && <p role="status">{t('websites.working')}</p>}{error && <div role="alert" className="websites-error">{error}</div>}{notice && <div role="status" className="websites-notice">{notice}</div>}
     {!loading && !site && <Empty>{t('websites.noSites')}</Empty>}
     {site && <><div className="websites-tabs" role="tablist" aria-label={t('websites.sections')}>{TABS.map((value, index) => <button type="button" key={value} role="tab" id={`websites-tab-${value}`} aria-controls="websites-panel" aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} onKeyDown={event => { tabKey(event, index); }} onClick={() => { changeTab(value); }}>{t(`websites.tabs.${value}`)}</button>)}</div><fieldset id="websites-panel" role="tabpanel" aria-labelledby={`websites-tab-${tab}`} disabled={busy || loading} inert={busy || loading} className="websites-panel" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
@@ -207,13 +227,15 @@ function Session({ context }: { context: RequestContext }) {
       {tab === 'navigation' && <NavigationEditor site={site} onChange={change} />}
       {tab === 'forms' && <FormsEditor site={site} onChange={change} />}
       {tab === 'appearance' && <AppearanceEditor key={site.id} register={registerAutosave} context={context} site={site} busy={busy} history={themes} onChange={change} onExport={() => { downloadBlob(new Blob([JSON.stringify(site.theme, null, 2)], { type: 'application/json' }), `${site.name}-theme.json`); }} onImport={file => { void action(async () => { if (file.size > 200_000) throw new Error(t('websites.importTooLarge')); const raw = record(JSON.parse(await file.text())); const tokens = record(raw.tokens); if (raw.schema_version !== 1 || typeof raw.name !== 'string' || Object.values(tokens).some(value => typeof value !== 'string')) throw new Error(t('websites.invalidTheme')); const theme: api.SiteTheme = { schema_version: 1, name: raw.name, tokens: Object.fromEntries(Object.entries(tokens).map(([key, value]) => [key, String(value)])), logo: typeof raw.logo === 'string' ? raw.logo : '', logo_alt: typeof raw.logo_alt === 'string' ? raw.logo_alt : '', favicon: typeof raw.favicon === 'string' ? raw.favicon : '', fonts: Array.isArray(raw.fonts) ? raw.fonts.map(value => { const font = record(value); if (typeof font.family !== 'string' || typeof font.src !== 'string' || (font.style !== 'normal' && font.style !== 'italic')) throw new Error(t('websites.invalidTheme')); return { family: font.family, src: font.src, weight: typeof font.weight === 'string' ? font.weight : '400', style: font.style }; }) : [], advanced_css: typeof raw.advanced_css === 'string' ? raw.advanced_css : '' }; change({ ...site, theme }); setNotice(t('websites.themeImported')); }); }} onHistory={() => { void action(async () => { setThemes(await request(signal => api.themeHistory(site.id, context, signal))); }); }} />}
-      {tab === 'messages' && <MessagesPanel key={`${site.id}:${targetId}`} site={site} call={callPrivate} />}
-      {tab === 'subscribers' && <SubscribersPanel key={`${site.id}:${targetId}`} site={site} call={callPrivate} />}
-      {tab === 'campaigns' && <CampaignsPanel key={`${site.id}:${targetId}`} site={site} call={callPrivate} composer={newsletterActions} register={registerAutosave} autosaveKey={`newsletter:${site.id}:${targetId}`} />}
-      {tab === 'settings' && <PrivateSettingsEditor key={`${site.id}:${targetId}`} site={site} load={loadSettings} save={saveSettings} register={registerAutosave} autosaveKey={`private:${site.id}:${targetId}`} />}
-      {tab === 'publishing' && <PublishingPanel site={site} targetId={targetId} onTarget={changeTarget} status={status} preview={preview} dirty={dirty || hasPendingSaves} busy={busy} onChange={change} connection={connection} registerAutosave={registerAutosave} onRefresh={() => { void action(refreshStatus); }} onPreview={() => { void action(async () => { if (!await flushWriters(true)) return; setPreview(await request(signal => api.previewSite(site.id, targetId, context, signal), 180_000)); }); }} onPublish={date => { void action(async () => { if (!preview || !await flushWriters(true)) return; const job = await request(signal => api.publishSite(site.id, preview.id, date, context, signal)); setPreview(null); setStatus(previous => previous ? { ...previous, jobs: [job, ...previous.jobs] } : { site, jobs: [job], releases: [], service_available: false }); setNotice(t('websites.publicationQueued')); }); }} onCancel={job => { void action(async () => { await request(signal => api.cancelJob(site.id, job.id, context, signal)); await refreshStatus(); }); }} onRollback={release => { void action(async () => { await request(signal => api.rollbackSite(site.id, release, context, signal)); await refreshStatus(); setNotice(t('websites.restored')); }); }} />}
+      {!targetId && ['messages', 'subscribers', 'campaigns', 'settings'].includes(tab) && <Empty>{t('websites.noTargets')}</Empty>}
+      {tab === 'messages' && targetId && <MessagesPanel key={`${site.id}:${targetId}`} site={site} call={callPrivate} />}
+      {tab === 'subscribers' && targetId && <SubscribersPanel key={`${site.id}:${targetId}`} site={site} call={callPrivate} />}
+      {tab === 'campaigns' && targetId && <CampaignsPanel key={`${site.id}:${targetId}`} site={site} call={callPrivate} composer={newsletterActions} register={registerAutosave} autosaveKey={`newsletter:${site.id}:${targetId}`} />}
+      {tab === 'settings' && targetId && <PrivateSettingsEditor key={`${site.id}:${targetId}`} site={site} load={loadSettings} save={saveSettings} register={registerAutosave} autosaveKey={`private:${site.id}:${targetId}`} />}
+      {tab === 'hosting' && <HostingPanel key={site.id} site={site} targetId={targetId} onTarget={changeTarget} dirty={dirty || hasPendingSaves} busy={busy} onChange={change} onRemove={removeTarget} connection={connection} registerAutosave={registerAutosave} />}
+      {tab === 'publishing' && <PublishingPanel key={site.id} onRemoveTarget={removeTarget} site={site} targetId={targetId} onTarget={changeTarget} status={status} preview={preview} dirty={dirty || hasPendingSaves} busy={busy} onChange={change} connection={connection} registerAutosave={registerAutosave} onRefresh={() => { void action(refreshStatus); }} onPreview={() => { void action(async () => { if (!await flushWriters(true)) return; setPreview(await request(signal => api.previewSite(site.id, targetId, context, signal), 180_000)); }); }} onPublish={date => { void action(async () => { if (!preview || !await flushWriters(true)) return; const job = await request(signal => api.publishSite(site.id, preview.id, date, context, signal)); setPreview(null); setStatus(previous => previous ? { ...previous, jobs: [job, ...previous.jobs] } : { site, jobs: [job], releases: [], service_available: false }); setNotice(t('websites.publicationQueued')); }); }} onCancel={job => { void action(async () => { await request(signal => api.cancelJob(site.id, job.id, context, signal)); await refreshStatus(); }); }} onRollback={release => { void action(async () => { await request(signal => api.rollbackSite(site.id, release, context, signal)); await refreshStatus(); setNotice(t('websites.restored')); }); }} />}
     </fieldset></>}
-  </div>{creating && <CreateSiteDialog busy={busy} onClose={() => { if (!busy) setCreating(false); }} onCreate={(name, importPilot) => { void action(async () => { if (!await flushWriters()) return; const value = await request(signal => api.createSite(name, importPilot, context, signal)); accept(value); setSelectedId(value.id); setStatus(null); setThemes([]); setTab('overview'); setCreating(false); setNotice(t('websites.siteCreated')); }); }} />}</main>;
+  </div><ConfirmModal isOpen={Boolean(removing)} title={t('websites.removeSite')} message={t('websites.removeSiteHelp', { name: removing?.name })} confirmText={t('websites.delete')} cancelText={t('websites.cancel')} autofocusConfirm={false} confirmOnEnter={false} onClose={() => { if (!busy) setRemoving(null); }} onConfirm={removeWebsite} />{creating && <CreateSiteDialog busy={busy} onClose={() => { if (!busy) setCreating(false); }} onCreate={(name, importPilot) => { void action(async () => { if (!await flushWriters()) return; const value = await request(signal => api.createSite(name, importPilot, context, signal)); accept(value); setSelectedId(value.id); setStatus(null); setThemes([]); setTab('overview'); setCreating(false); setNotice(t('websites.siteCreated')); }); }} />}</main>;
 }
 
 function Overview({ site, status, dirty, onReview }: { site: api.SiteConfig; status: api.SiteStatus | null; dirty: boolean; onReview: () => void }) {

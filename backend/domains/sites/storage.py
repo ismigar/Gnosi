@@ -18,7 +18,7 @@ from backend.config.data_dir import resolve_data_dir
 from backend.services.workspace_service import WorkspaceContext
 from backend.utils.safe_io import safe_write_json
 
-from .models import SiteConfig, SiteTheme, identifier, timestamp
+from .models import SiteConfig, SiteJob, SiteTheme, identifier, timestamp
 
 
 def canonical(value: object) -> str:
@@ -137,11 +137,42 @@ CREATE TABLE IF NOT EXISTS newsletter_reviews (site_id TEXT NOT NULL, target_id 
                     raise HTTPException(409, "The website changed; reload before saving")
                 if site.legacy_pilot != current.legacy_pilot:
                     raise HTTPException(422, "Pilot ownership cannot be changed")
+                removed = {target.id for target in current.targets} - {target.id for target in site.targets}
+                if removed:
+                    self._prepare_removal(db, current, removed)
                 revision = current.revision + 1
             result = site.model_copy(update={"revision": revision}, deep=True)
             db.execute("INSERT INTO versions VALUES (?,?,?,?)", (identifier(), site.id, timestamp(), result.model_dump_json()))
             safe_write_json(path, result.model_dump(mode="json"), ensure_ascii=False, indent=2)
             return result
+
+    def _prepare_removal(self, db: sqlite3.Connection, site: SiteConfig, target_ids: set[str]) -> None:
+        """Keep publication and process ownership valid while removing registrations."""
+        if db.execute("SELECT 1 FROM locks WHERE site_id=?", (site.id,)).fetchone():
+            raise HTTPException(409, "Wait for the website publication to finish before removing it")
+        rows = db.execute("SELECT payload FROM jobs WHERE site_id=?", (site.id,)).fetchall()
+        for row in rows:
+            job = SiteJob.model_validate_json(row["payload"])
+            if job.target_id in target_ids and job.status in {"queued", "running"}:
+                raise HTTPException(409, "Cancel pending publications before removing the website or hosting")
+        from .runtime import retire_target, stop_preview
+        for target in site.targets:
+            if target.id in target_ids:
+                retire_target(self, site.id, target.id)
+                previews = db.execute("SELECT id FROM previews WHERE site_id=? AND target_id=?", (site.id, target.id)).fetchall()
+                for preview in previews:
+                    stop_preview(self, site.id, preview["id"])
+                db.execute("DELETE FROM previews WHERE site_id=? AND target_id=?", (site.id, target.id))
+
+    def remove(self, site_id: str, revision: int) -> None:
+        """Remove the editorial registration, retaining content and publication history."""
+        with self.database() as db:
+            site = self.load(site_id)
+            if site.revision != revision:
+                raise HTTPException(409, "The website changed; reload before removing it")
+            self._prepare_removal(db, site, {target.id for target in site.targets})
+            db.execute("DELETE FROM previews WHERE site_id=?", (site_id,))
+            self.config_path(site_id).unlink()
 
     def themes(self, site_id: str) -> builtins.list[SiteTheme]:
         self.load(site_id)
