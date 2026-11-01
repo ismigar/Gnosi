@@ -9,6 +9,9 @@ from openai import LengthFinishReasonError
 from backend.services.podcast_briefing import _object
 
 
+_QUOTE_COUNTS = {'omission': 0, 'distortion': 1, 'production': 1, 'duplicate': 2}
+
+
 def _confirmation_choices(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Resolve application-owned references without editing model-origin findings."""
     choices: dict[str, dict[str, Any]] = {}
@@ -41,19 +44,53 @@ def _schema(data: dict[str, Any]) -> dict[str, Any]:
         'items': {'type': 'string', 'enum': ids or ['']}}
     if not data.get('whole_episode') and data.get('review_focus') in {'fidelity', 'coverage'}:
         source_references['minItems'] = 1
-    narration_quotes: dict[str, Any] = {'type': 'array', 'maxItems': 2, 'uniqueItems': True,
-        'items': {'type': 'string', 'minLength': 8, 'maxLength': 400}}
+    def finding(kind: str, references: dict[str, Any]) -> dict[str, Any]:
+        count = _QUOTE_COUNTS[kind]
+        evidence: dict[str, Any] = {'type': 'string', 'maxLength': 400}
+        if data.get('brief_review'):
+            evidence.update({'enum': ['']} if kind in {'production', 'duplicate'} else {'minLength': 1})
+        return _object({
+            'kind': {'type': 'string', 'enum': [kind]},
+            'detail': {'type': 'string', 'minLength': 1, 'maxLength': 500},
+            'narration_quotes': {'type': 'array', 'minItems': count, 'maxItems': count,
+                'uniqueItems': True, 'items': {'type': 'string', 'minLength': 8, 'maxLength': 400}},
+            'source_part_ids': references,
+            'evidence_quote': evidence,
+        })
+
+    if data.get('brief_review'):
+        # Source-free ledger findings belong only to whole_episode review.
+        branches = [finding(kind, {'type': 'array', 'uniqueItems': True,
+            **({'maxItems': 0} if kind in {'production', 'duplicate'} else {'minItems': 1}),
+            'items': {'$ref': '#/$defs/source_id'}}) for kind in kinds]
+        result = _object({'issues': {'type': 'array', 'maxItems': 32, 'items': {'anyOf': branches}}})
+        result['$defs'] = {'source_id': {'type': 'string', 'enum': ids or ['']}}
+        return result
+
     if len(kinds) == 1:
-        count = 0 if kinds[0] == 'omission' else 1
-        narration_quotes.update(minItems=count, maxItems=count)
-    finding = _object({
-        'kind': {'type': 'string', 'enum': kinds},
-        'detail': {'type': 'string', 'minLength': 1, 'maxLength': 500},
-        'narration_quotes': narration_quotes,
-        'source_part_ids': source_references,
-        'evidence_quote': {'type': 'string', 'maxLength': 400},
-    })
-    return _object({'issues': {'type': 'array', 'maxItems': 32, 'items': finding}})
+        return _object({'issues': {'type': 'array', 'maxItems': 32,
+                                  'items': finding(kinds[0], source_references)}})
+    # Share the complete source enum once, keeping the same context allowance.
+    result = _object({'issues': {'type': 'array', 'maxItems': 32, 'items': {'anyOf': [
+        finding(kind, {'$ref': '#/$defs/source_references'}) for kind in kinds]}}})
+    result['$defs'] = {'source_references': source_references}
+    return result
+
+
+def _validate_structure(result: dict[str, Any], data: dict[str, Any]) -> None:
+    """Check every fixed finding field before considering literal-only recovery."""
+    for issue in result['issues']:
+        kind, ids = issue['kind'], issue['source_part_ids']
+        if len(issue['narration_quotes']) != _QUOTE_COUNTS[kind]:
+            raise ValueError('podcast_audit_quote_count')
+        if kind in {'production', 'duplicate'}:
+            if ids or issue['evidence_quote']:
+                raise ValueError('podcast_audit_unexpected_source_claim')
+        elif data.get('whole_episode'):
+            if ids:
+                raise ValueError('podcast_audit_subject_ledger_has_no_source_ids')
+        elif not ids:
+            raise ValueError('podcast_audit_missing_evidence_ids')
 
 
 def _validate(result: dict[str, Any], data: dict[str, Any]) -> None:
@@ -71,27 +108,19 @@ def _validate(result: dict[str, Any], data: dict[str, Any]) -> None:
         original_data = {key: value for key, value in data.items() if key != 'candidate_findings'}
         _validate({'issues': [choices[key] for key in selected]}, original_data)
         return
+    _validate_structure(result, data)
     for issue in result['issues']:
         kind, quotes, ids = issue['kind'], issue['narration_quotes'], issue['source_part_ids']
         if any(quote not in narration for quote in quotes):
             raise ValueError('podcast_audit_invented_narration_quote')
-        expected = {'omission': 0, 'distortion': 1, 'production': 1, 'duplicate': 2}[kind]
-        if len(quotes) != expected:
-            raise ValueError('podcast_audit_quote_count')
         evidence = issue['evidence_quote']
         if kind in {'production', 'duplicate'}:
-            if ids or evidence:
-                raise ValueError('podcast_audit_unexpected_source_claim')
             continue
         if data.get('whole_episode'):
             available = [subject for group in data['subjects'] for subject in group]
-            if ids:
-                raise ValueError('podcast_audit_subject_ledger_has_no_source_ids')
         else:
-            if not ids:
-                raise ValueError('podcast_audit_missing_evidence_ids')
             available = [str(b.get(key, '')) for b in data['briefs'] if b['part_id'] in ids
-                         for key in ('source_text', 'title')]
+                         for key in ('source_text', 'source_quote', 'title')]
         if not evidence or not any(evidence in value for value in available):
             raise ValueError('podcast_audit_invented_evidence_quote')
 
@@ -119,7 +148,10 @@ def _confirm(context: Any, data: dict[str, Any], issues: list[dict[str, Any]],
 
 def _partition_values(data: dict[str, Any]) -> tuple[str, list[Any]]:
     key = 'candidate_findings' if 'candidate_findings' in data else ('subjects' if data.get('whole_episode') else 'briefs')
-    return key, data.get(key, [])
+    values = data.get(key, [])
+    if key == 'subjects' and len(values) == 1 and isinstance(values[0], list) and len(values[0]) > 1:
+        values = [[subject] for subject in values[0]]
+    return key, values
 
 
 def _has_saved(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> bool:
@@ -177,9 +209,7 @@ def _stage(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> d
         result = cast(dict[str, Any], context.stage(operation, lambda r: _validate(r, data)))
         return _resolved(result, data)
     except (LengthFinishReasonError, TimeoutError):
-        key = 'candidate_findings' if 'candidate_findings' in data else (
-            'subjects' if data.get('whole_episode') else 'briefs')
-        values = data[key]
+        key, values = _partition_values(data)
         if len(values) < 2:
             raise
         _mark_partition(context, data, request)
@@ -208,8 +238,7 @@ def review(context: Any, data: dict[str, Any], request: Callable[..., Any]) -> l
             exhausted = True
         else:
             return _confirm(context, data, result['issues'], request) if result['issues'] else []
-    key = 'subjects' if data.get('whole_episode') else 'briefs'
-    values = data[key]
+    key, values = _partition_values(data)
     if len(values) < 2:
         raise RuntimeError('podcast_review_indivisible_work_exhausted')
     _mark_partition(context, data, request)

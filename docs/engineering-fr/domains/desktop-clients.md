@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-12
+last_verified: 2026-10-28
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -691,4 +691,4 @@ Les installations locales de composants se terminent avec `desktop/scripts/local
 
 Si le processus d’affichage s’arrête de façon inattendue, le backend reste actif. Une boîte de dialogue native traduite permet de rouvrir l’écran et enregistre uniquement le motif, le code de sortie et la date dans `renderer-exits.jsonl`. La récupération vérifie que la fenêtre reste ouverte ; les événements dupliqués partagent une seule boîte de dialogue.
 
-Une mise à jour déclarée de l’enveloppe de bureau peut aussi inclure `app.asar` et les anciennes métadonnées d’intégrité d’`Info.plist`. La finalisation ne les accepte que s’ils sont déclarés et conformes à l’inventaire ; les reçus antérieurs restent compatibles.
+La finalisation locale accepte tout ensemble non vide de composants connus et déclarés. La sauvegarde de signature peut aussi contenir le fichier `Info.plist` original même si `app.asar` n’a pas été remplacé ; chaque fichier doit correspondre exactement à l’inventaire enregistré.

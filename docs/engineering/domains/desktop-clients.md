@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-12
+last_verified: 2026-10-28
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -606,4 +606,4 @@ Local component installations finish with `desktop/scripts/local_install_retenti
 
 Unexpected renderer exits keep the backend running. A native dialog in all four application languages offers an explicit screen reload and records only the exit reason, exit code and timestamp in `renderer-exits.jsonl`. Recovery checks the window and shutdown state before reloading; duplicate exit events share one dialog.
 
-A recorded desktop-shell update may additionally include `app.asar` and its previous `Info.plist` integrity metadata. Finalization accepts these only as declared, inventory-matched derived files; ordinary component-only receipts remain compatible.
+Local finalization accepts any nonempty set of known, declared components. Signature rollback may also include the original `Info.plist` even when `app.asar` was not replaced; every file must match its recorded inventory exactly.

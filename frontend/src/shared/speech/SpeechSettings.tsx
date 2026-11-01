@@ -1,48 +1,50 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { fetchSpeechSettings, saveSpeechSettings, type SpeechSettings as Settings } from '../api/speech-output';
+import { fetchSpeechSettings, saveSpeechSettings, type SpeechSettings as Settings, type SpeechConfiguration } from '../api/speech-output';
 import { useActiveVaultId } from '../hooks/useActiveVaultId';
+import { getActiveVaultId } from '../api/vault-context';
+import { useDraftAutosave } from '../hooks/useDraftAutosave';
+import { DraftSaveStatus } from '../editor/DraftSaveStatus';
 import { useSpeechOutput } from './useSpeechOutput';
 import './speech.css';
 import { emitAppEvent } from '../platform/app-events';
 
 /** One saved configuration serves chat, Reader podcasts and generated audio. */
 export function SpeechSettings({ editable = false, previewDisabled = false }: { editable?: boolean; previewDisabled?: boolean }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const vault = useActiveVaultId();
-  const queryClient = useQueryClient();
   const queryKey = ['speech-settings', vault];
   const configuration = useQuery({ queryKey, queryFn: ({ signal }) => fetchSpeechSettings(signal), staleTime: 10000 });
-  const revision = configuration.data?.revision;
-  const settingsKey = JSON.stringify(configuration.data?.settings);
-  const [draftSource, setDraftSource] = useState({ vault, revision, settingsKey });
-  const [draft, setDraft] = useState<Settings | undefined>(configuration.data?.settings);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState(false);
-  const [saved, setSaved] = useState(false);
+  if (configuration.isPending) return <p role="status">{t('speech.loading')}</p>;
+  if (configuration.isError) return <p role="alert">{t('speech.settings_failed')}</p>;
+  return <SpeechSettingsForm key={`${vault}:${JSON.stringify(configuration.data.settings)}`}
+    vault={vault} data={configuration.data} editable={editable} previewDisabled={previewDisabled} />;
+}
+
+function SpeechSettingsForm({ vault, data, editable, previewDisabled }: {
+  readonly vault: string; readonly data: SpeechConfiguration;
+  readonly editable: boolean; readonly previewDisabled: boolean;
+}) {
+  const { t, i18n } = useTranslation();
+  const queryClient = useQueryClient();
+  const [draft, setDraft] = useState<Settings>(data.settings);
   const output = useSpeechOutput(undefined, i18n.language);
   const { stop: stopOutput } = output;
-  if (draftSource.vault !== vault || draftSource.revision !== revision || draftSource.settingsKey !== settingsKey) {
-    setDraftSource({ vault, revision, settingsKey });
-    setDraft(configuration.data?.settings);
-  }
+  const autosave = useDraftAutosave(draft, editable, async (value) => {
+    // A close flushes this Vault's edits; a Vault switch must never write them
+    // through the newly selected Vault's request context.
+    if (getActiveVaultId() !== vault) throw new Error('speech_vault_changed');
+    stopOutput();
+    const next = await saveSpeechSettings(value);
+    queryClient.setQueryData(['speech-settings', vault], next);
+  });
+  const saving = autosave.status === 'saving';
   useEffect(() => { if (previewDisabled) stopOutput(); }, [previewDisabled, stopOutput]);
-  if (configuration.isPending) return <p role="status">{t('speech.loading')}</p>;
-  if (configuration.isError || !draft) return <p role="alert">{t('speech.settings_failed')}</p>;
-  const data = configuration.data;
   const language = draft.language === 'auto' ? i18n.language.toLowerCase().split(/[-_]/)[0] : draft.language;
   const localVoices = data.local_voices.filter(voice => voice.language.toLowerCase().split(/[-_]/)[0] === language);
-  const update = (patch: Partial<Settings>) => { output.stop(); setSaved(false); setDraft({ ...draft, ...patch }); };
-  const save = async () => {
-    output.stop(); setSaving(true); setSaveError(false); setSaved(false);
-    try {
-      const next = await saveSpeechSettings(draft);
-      queryClient.setQueryData(queryKey, next); setSaved(true);
-    } catch { setSaveError(true); }
-    finally { setSaving(false); }
-  };
-  const dirty = JSON.stringify(draft) !== JSON.stringify(data.settings);
+  const update = (patch: Partial<Settings>) => { output.stop(); setDraft({ ...draft, ...patch }); };
+  const dirty = autosave.dirty;
   const available = data.settings.provider === 'openai' ? data.openai_configured : data.local_available;
   return <section className="gnosi-speech-settings" aria-label={t('speech.title')}>
     <p>{t('speech.shared')}</p>
@@ -74,13 +76,13 @@ export function SpeechSettings({ editable = false, previewDisabled = false }: { 
     {(editable ? draft.provider : data.settings.provider) === 'local' && !data.local_available && <p role="alert">{t('speech.local_missing')}</p>}
     <div className="gnosi-speech-settings__actions">
       {!editable && <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { output.stop(); emitAppEvent('open-settings', { tab: 'voice' }); }}>{t('speech.open_settings')}</button>}
-      {editable && <button type="button" className="btn-gnosi btn-gnosi-primary" disabled={!dirty || saving} onClick={() => { void save(); }}>{t('speech.save')}</button>}
+      {editable && <DraftSaveStatus status={autosave.status === 'idle' ? 'saved' : autosave.status} />}
+      {editable && autosave.status === 'error' && <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { void autosave.flush(); }}>{t('common.retry')}</button>}
       <button type="button" className="btn-gnosi btn-gnosi-secondary" disabled={previewDisabled || saving || dirty || !available || output.state !== 'idle'} onClick={() => { void output.preview(); }}>{t('speech.preview')}</button>
       <button type="button" className="btn-gnosi btn-gnosi-secondary" disabled={output.state === 'idle'} onClick={output.stop}>{t('speech.stop')}</button>
     </div>
     {output.state !== 'idle' && <p role="status">{t(output.state === 'preparing' ? 'speech.preparing' : 'speech.speaking')}</p>}
-    {(saveError || output.error) && <p role="alert">{t(saveError ? 'speech.settings_failed' : 'speech.failed')}</p>}
-    {saved && <p role="status">{t('speech.saved')}</p>}
+    {(autosave.status === 'error' || output.error) && <p role="alert">{t(autosave.status === 'error' ? 'speech.settings_failed' : 'speech.failed')}</p>}
     <p>{t('speech.existing_audio')}</p>
   </section>;
 }

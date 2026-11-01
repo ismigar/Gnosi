@@ -18,7 +18,7 @@ export function createNewSubitemRenderer(model: TableController) {
   } = model;
   const renderNewSubitemRow = (parentNote: TableNote, depth: number = 1, virtualItem: VirtualItem | null = null) => (
     <tr
-      key={virtualItem?.key ?? `new-sub-${parentNote.id}`}
+      key={virtualItem ? model.rowKeys[virtualItem.index] : `new-sub-${parentNote.id}`}
       data-index={virtualItem?.index}
       ref={virtualItem ? rowVirtualizer.measureElement : undefined}
       className="border-b border-[var(--border-primary)] bg-indigo-500/5"

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-12
+last_verified: 2026-10-28
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -678,4 +678,4 @@ Las instalaciones locales de componentes terminan con `desktop/scripts/local_ins
 
 Si el proceso de pantalla termina inesperadamente, el backend sigue activo. Un diálogo nativo traducido permite reabrir la pantalla y registra solo el motivo, el código de salida y la fecha en `renderer-exits.jsonl`. Se comprueba que la ventana siga abierta antes de recuperarla; los eventos duplicados comparten un único diálogo.
 
-Una actualización registrada de la interfaz de escritorio puede incluir también `app.asar` y los metadatos de integridad anteriores de `Info.plist`. La finalización solo los acepta si están declarados y coinciden con el inventario; los recibos anteriores de componentes siguen siendo compatibles.
+La finalización local admite cualquier conjunto no vacío de componentes conocidos y declarados. La copia de firma también puede incluir el `Info.plist` original aunque no se haya sustituido `app.asar`; cada archivo debe coincidir exactamente con el inventario registrado.

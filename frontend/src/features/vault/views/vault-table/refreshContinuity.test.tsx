@@ -1,5 +1,5 @@
 import { PaneVisibilityContext } from '../../../../shared/ui/PaneVisibility';
-import { act, useLayoutEffect } from 'react';
+import { act, useLayoutEffect, type Key } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mountTestComponent } from '../../../../../tests/mount-react';
 import { useTableController, type TableController } from './useTableController';
@@ -9,7 +9,7 @@ import type { TableNote, VaultTableProps } from './types';
 import type { TableVirtualizerOptions } from './tableVirtualizerStore';
 const fixture = vi.hoisted(() => ({
   t: (key: string, fallback?: unknown): string => typeof fallback === 'string' ? fallback : key,
-  emptyVirtualRows: false,
+  emptyVirtualRows: false, virtualKeys: null as Key[] | null,
   isEnabled: () => false, getSettings: () => ({}),
   virtualizer: { scrollToIndex: vi.fn(), measureElement: vi.fn() },
   preview: { close: vi.fn(), getTitleProps: () => ({}), active: null, preview: null, openForKeyboard: vi.fn() },
@@ -17,7 +17,7 @@ const fixture = vi.hoisted(() => ({
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: fixture.t, i18n: { language: 'en' } }) }));
 vi.mock('./useTableVirtualizer', () => ({ useTableVirtualizer: (options: TableVirtualizerOptions) => ({
   rowVirtualizer: fixture.virtualizer, virtTotalSize: options.count * 56,
-  virtualRows: Array.from({ length: fixture.emptyVirtualRows ? 0 : options.count }, (_, index) => ({ index, key: options.getItemKey?.(index) ?? index, start: index * 56, end: (index + 1) * 56, size: 56, lane: 0 })),
+  virtualRows: Array.from({ length: fixture.emptyVirtualRows ? 0 : options.count }, (_, index) => ({ index, key: fixture.virtualKeys?.[index] ?? options.getItemKey?.(index) ?? index, start: index * 56, end: (index + 1) * 56, size: 56, lane: 0 })),
 }) }));
 vi.mock('../../../../shared/plugins/usePlugins', () => ({ usePlugins: () => ({ isEnabled: fixture.isEnabled, getPluginSettings: fixture.getSettings }) }));
 vi.mock('../../../../shared/auth/auth-context', () => ({ useAuth: () => ({ user: { name: 'Fixture' } }) }));
@@ -34,7 +34,7 @@ const frames: FrameRequestCallback[] = [];
 const row = (id: string): TableNote => ({ id, title: id, metadata: { Text: `value-${id}`, table_id: 'table' } });
 const rows = [row('a'), row('b'), row('c')] as const;
 beforeEach(() => {
-  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true); vi.clearAllMocks(); frames.length = 0; fixture.emptyVirtualRows = false;
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true); vi.clearAllMocks(); frames.length = 0; fixture.emptyVirtualRows = false; fixture.virtualKeys = null;
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => { frames.push(callback); return frames.length; });
   vi.stubGlobal('IntersectionObserver', class { observe() {} disconnect() {} unobserve() {} });
   keyboardOwnership.owner = null;
@@ -137,4 +137,62 @@ it('does not run queued focus restoration after its pane becomes inactive', () =
   const focus = vi.spyOn(viewport(table.container), 'focus');
   for (const frame of frames.splice(0)) frame(0);
   expect(focus).not.toHaveBeenCalled();
+});
+
+it('keeps editor identity and caret while virtualizer keys lag behind reordered descriptors', () => {
+  const table = mountTable();
+  act(() => { table.model().setActiveCell({ rowId: 'b', field: 'Text' }); table.model().setEditingCell({ rowId: 'b', field: 'Text', originalMetaKey: 'Text' }); });
+  const selector = '[data-grid-row="b"][data-grid-field="Text"] input, [data-grid-row="b"][data-grid-field="Text"] textarea';
+  const input = table.container.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector);
+  if (!input) throw new Error('Missing cell editor');
+  input.focus(); input.setSelectionRange(1, 4);
+  fixture.virtualKeys = table.model().virtualRows.map(item => item.key);
+  table.refresh({ notes: [rows[2], rows[0], rows[1]] });
+  expect(table.container.querySelector(selector)).toBe(input);
+  expect(document.activeElement).toBe(input);
+  expect([input.selectionStart, input.selectionEnd]).toEqual([1, 4]);
+});
+it('preserves selection when refreshed values move its record into a collapsed group', () => {
+  const grouped = rows.map((note, i) => ({ ...note, metadata: { ...note.metadata, Text: i === 2 ? 'right' : 'left' } }));
+  const table = mountTable({ notes: grouped, activeView: { id: 'view', table_id: 'table', groupBy: 'Text', visibleProperties: ['title', 'Text'] } });
+  act(() => { table.model().setExpandedGroups(new Set(['left'])); });
+  act(() => { table.model().setActiveCell({ rowId: 'b', field: 'Text' }); table.model().setAnchorCell({ rowId: 'a', field: 'Text' }); });
+  table.refresh({ notes: grouped.map(note => note.id === 'b' ? { ...note, metadata: { ...note.metadata, Text: 'right' } } : note), activeView: { id: 'view', table_id: 'table', groupBy: 'Text', visibleProperties: ['title', 'Text'] } });
+  expect(table.model().expandedGroups.has('right')).toBe(true);
+  expect(table.model().activeCell).toEqual({ rowId: 'b', field: 'Text' });
+  expect(table.model().anchorCell).toEqual({ rowId: 'a', field: 'Text' });
+});
+it('respects an intentional collapse without reopening the selected record group', () => {
+  const grouped = rows.map(note => ({ ...note, metadata: { ...note.metadata, Text: 'left' } }));
+  const table = mountTable({ notes: grouped, activeView: { id: 'view', table_id: 'table', groupBy: 'Text' } });
+  act(() => { table.model().setExpandedGroups(new Set(['left'])); });
+  act(() => { table.model().setActiveCell({ rowId: 'b', field: 'Text' }); });
+  act(() => { table.model().setExpandedGroups(new Set()); });
+  expect(table.model().expandedGroups.has('left')).toBe(false);
+});
+
+it('preserves selection when a refreshed record becomes a child of another collapsed group', () => {
+  const grouped = rows.map((note, i) => ({ ...note, metadata: { ...note.metadata, Text: i === 2 ? 'right' : 'left' } }));
+  const activeView = { id: 'view', table_id: 'table', groupBy: 'Text', enableSubitems: true };
+  const table = mountTable({ notes: grouped, activeView });
+  act(() => { table.model().setExpandedGroups(new Set(['left'])); });
+  act(() => { table.model().setActiveCell({ rowId: 'b', field: 'Text' }); table.model().setAnchorCell({ rowId: 'a', field: 'Text' }); });
+  table.refresh({ notes: grouped.map(note => note.id === 'b' ? { ...note, metadata: { ...note.metadata, parent_id: 'c' } } : note), activeView });
+  expect(table.model().expandedRows.has('c')).toBe(true);
+  expect(table.model().expandedGroups.has('right')).toBe(true);
+  expect(table.model().activeCell).toEqual({ rowId: 'b', field: 'Text' });
+  expect(table.model().anchorCell).toEqual({ rowId: 'a', field: 'Text' });
+});
+
+it('preserves selected rendered root whose parent is excluded by a view filter', () => {
+  const initial = rows.map(note => ({...note, metadata:{...note.metadata, Text:'left', Keep:note.id === 'c' ? 'no':'yes', ...(note.id === 'b' ? {parent_id:'c'}:{})}}));
+  const view = {id:'view',table_id:'table',groupBy:'Text',enableSubitems:true,filters:[{field:'Keep',operator:'equals',value:'yes'}]};
+  const table = mountTable({notes:initial,schema:{Text:'text',Keep:'text'},activeView:view});
+  act(() => {table.model().setExpandedGroups(new Set(['left']));table.model().setExpandedRows(new Set(['c']));});
+  act(() => {table.model().setActiveCell({rowId:'b',field:'Text'});table.model().setAnchorCell({rowId:'a',field:'Text'});});
+  expect(table.model().sortedNotes.map(note=>note.id)).toEqual(['a','b']);
+  table.refresh({notes:initial.map(note => note.id === 'b' ? {...note,metadata:{...note.metadata,Text:'right'}}:note),schema:{Text:'text',Keep:'text'},activeView:view});
+  expect(table.model().expandedGroups.has('right')).toBe(true);
+  expect(table.model().activeCell).toEqual({rowId:'b',field:'Text'});
+  expect(table.model().anchorCell).toEqual({rowId:'a',field:'Text'});
 });

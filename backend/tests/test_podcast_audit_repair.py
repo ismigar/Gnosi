@@ -168,3 +168,21 @@ def test_stage_repairs_only_inside_existing_call_and_cache_contract_then_confirm
     assert calls == ['audit', 'quote_selection', 'confirmation']
     assert operation.model_dump() == before and context._cache_key(operation) == key
     assert review(context, data, _request) == [] and len(calls) == 3
+
+
+@pytest.mark.parametrize('latent', ['omission_quote', 'missing_source_ids', 'listener_source_claim'])
+def test_compound_error_cannot_select_a_patch_that_freezes_an_invalid_finding(case, latent):
+    data, original = case
+    data.pop('review_focus')
+    late = original['issues'][1]
+    if latent == 'omission_quote':
+        late['kind'] = 'omission'
+    elif latent == 'missing_source_ids':
+        late['source_part_ids'] = []
+    else:
+        late['kind'] = 'production'
+    before = copy.deepcopy(original)
+    repair = audit_quote_repair(data, _schema(data))(
+        json.dumps(original), ValueError('podcast_audit_invented_narration_quote'))
+    assert repair is None
+    assert original == before

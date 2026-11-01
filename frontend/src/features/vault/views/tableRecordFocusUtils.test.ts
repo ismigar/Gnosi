@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TableNote } from './vault-table/types';
+import { buildTableRowTree } from './vault-table/rowTree';
 
 import {
   getTableFocusTarget,
@@ -60,6 +61,37 @@ describe('getTableRecordFocusPreparation', () => {
     ).toEqual({ status: 'expand-parent', parentId: 'parent' });
   });
 
+  it('reveals the full ancestor chain and uses the rendered root group', () => {
+    const root = { id: 'root', metadata: { status: 'right' } };
+    const parent = { id: 'parent', metadata: { parent_id: 'root', status: 'left' } };
+    const child = { id: 'child', metadata: { parent_id: 'parent', status: 'left' } };
+    const input = { ...baseInput, recordId: child.id, notes: [root, parent, child], sortedNotes: [root], enableSubitems: true, groupByField: 'status', expandedGroups: new Set(['left']) };
+    expect(getTableRecordFocusPreparation(input)).toEqual({ status: 'expand-parent', parentId: 'root' });
+    expect(getTableRecordFocusPreparation({ ...input, expandedRows: new Set(['root']) })).toEqual({ status: 'expand-parent', parentId: 'parent' });
+    expect(getTableRecordFocusPreparation({ ...input, expandedRows: new Set(['root', 'parent']) })).toEqual({ status: 'expand-group', groupKey: 'right' });
+    expect(getTableRecordFocusPreparation({ ...input, expandedRows: new Set(['root', 'parent']), expandedGroups: new Set(['right']) })).toEqual({ status: 'ready' });
+  });
+  it.each([3, true, 3n])('treats a non-string parent %s as a root, consistently with row rendering', parentId => {
+    const note = { id: 'child', metadata: { parent_id: parentId, status: 'right' } };
+    expect(buildTableRowTree([note], [note], true).sortedNotes).toEqual([note]);
+    const input = { ...baseInput, recordId: note.id, notes: [note], sortedNotes: [note], enableSubitems: true, groupByField: 'status', expandedRows: new Set([String(parentId)]) };
+    expect(getTableRecordFocusPreparation(input)).toEqual({ status: 'expand-group', groupKey: 'right' });
+    expect(getTableRecordFocusPreparation({ ...input, expandedGroups: new Set(['right']) })).toEqual({ status: 'ready' });
+  });
+  it('uses rendered ancestry when a parent is excluded by a view filter', () => {
+    const parent = { id: 'parent', metadata: { status: 'left' } };
+    const child = { id: 'child', metadata: { parent_id: 'parent', status: 'right' } };
+    expect(getTableRecordFocusPreparation({ ...baseInput, recordId: child.id, notes: [parent, child], sortedNotes: [child], childrenMap: {}, enableSubitems: true, expandedRows: new Set(['parent']), expandedGroups: new Set(['left']), groupByField: 'status' })).toEqual({ status: 'expand-group', groupKey: 'right' });
+  });
+  it('does not expand ancestors for a record excluded from the rendered hierarchy', () => {
+    const parent = { id: 'parent' }, child = { id: 'child', metadata: { parent_id: 'parent' } };
+    expect(getTableRecordFocusPreparation({ ...baseInput, recordId: child.id, notes: [parent, child], sortedNotes: [parent], childrenMap: {}, enableSubitems: true })).toEqual({ status: 'missing' });
+  });
+  it('bounds cyclic ancestor links without mutating records', () => {
+    const a = { id: 'a', metadata: { parent_id: 'b' } }, b = { id: 'b', metadata: { parent_id: 'a' } };
+    expect(getTableRecordFocusPreparation({ ...baseInput, recordId: 'a', notes: [a, b], sortedNotes: [a], enableSubitems: true, expandedRows: new Set(['b']) })).toEqual({ status: 'ready' });
+    expect(a.metadata.parent_id).toBe('b'); expect(b.metadata.parent_id).toBe('a');
+  });
   it('expands the record group before restoring focus', () => {
     const record = {
       id: 'record',

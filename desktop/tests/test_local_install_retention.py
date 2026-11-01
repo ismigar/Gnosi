@@ -363,9 +363,71 @@ def test_desktop_patch_derived_files_require_exact_recorded_bytes(installation, 
             'stage', 'rollback-components', 'rollback-signature'}
 
 
-def test_plist_rollback_requires_a_declared_desktop_patch(installation):
+@pytest.mark.parametrize('names', [('frontend',), ('frontend', 'python'), ('app.asar',)])
+def test_partial_component_installation_retains_verified_rollback(installation, names):
+    root, run, app, _, _ = installation
+    install = run / 'install'
+    staged = json.loads((install / 'staged.json').read_text())
+    staged['components'] = {}
+    for name in names:
+        data = ('new ' + name).encode()
+        target = install / 'stage' / name
+        entry = {'mode': 0o644, 'type': 'file', 'size': len(data), 'sha256': sha(data)}
+        if name == 'app.asar':
+            target.write_bytes(data)
+            staged['components'][name] = {'.': entry}
+        else:
+            target.mkdir()
+            (target / 'asset').write_bytes(data)
+            staged['components'][name] = {
+                '.': {'mode': 0o755, 'type': 'directory'}, 'asset': entry}
+    write(install / 'staged.json', staged)
+    before, app_before = snapshot(root), snapshot(app)
+    preview = retention.finalize(root, run, app)
+    assert preview['applied'] is False and snapshot(root) == before
+    report = retention.finalize(root, run, app, apply=True)
+    assert report['applied'] is True and snapshot(app) == app_before
+    assert not (install / 'stage').exists()
+    assert (install / 'before-install.tar.gz').exists()
+    assert len(list(root.rglob('*.tar.gz'))) == 1
+
+
+@pytest.mark.parametrize('declared', [None, [], {}, {'unknown': {}}, {'frontend': None}])
+def test_invalid_partial_component_map_preserves_everything(installation, declared):
+    root, run, app, _, _ = installation
+    install = run / 'install'
+    staged = json.loads((install / 'staged.json').read_text())
+    staged['components'] = declared
+    write(install / 'staged.json', staged)
+    before = snapshot(root)
+    with pytest.raises(retention.RetentionError, match='Unknown stage components'):
+        retention.finalize(root, run, app, apply=True)
+    assert snapshot(root) == before
+
+
+@pytest.mark.parametrize('tamper', ['none', 'missing', 'bytes', 'mode', 'descendant', 'foreign'])
+def test_plist_rollback_requires_exact_original_inventory(installation, tamper):
     _, run, _, _, _ = installation
     install = run / 'install'
-    (install / 'rollback-signature/Info.plist').write_bytes(b'not a desktop patch')
-    with pytest.raises(retention.RetentionError, match='Foreign signature rollback'):
-        retention.derived_paths(install, {})
+    path = install / 'rollback-signature/Info.plist'
+    data = b'original signing metadata'
+    path.write_bytes(data)
+    original = {'Contents/Info.plist': {
+        'mode': 0o644, 'type': 'file', 'size': len(data), 'sha256': sha(data)}}
+    if tamper == 'none':
+        assert len(retention.derived_paths(install, original)) == 3
+        return
+    if tamper == 'missing':
+        original = {}
+    elif tamper == 'bytes':
+        path.write_bytes(b'unrecorded')
+    elif tamper == 'mode':
+        path.chmod(0o600)
+    elif tamper == 'descendant':
+        path.unlink()
+        path.mkdir()
+        (path / 'user-data').write_bytes(data)
+    else:
+        (install / 'rollback-signature/user-data').write_bytes(data)
+    with pytest.raises(retention.RetentionError):
+        retention.derived_paths(install, original)

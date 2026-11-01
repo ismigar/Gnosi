@@ -109,3 +109,28 @@ def test_multi_kind_audit_remains_a_strict_provider_schema():
     bound = constrain_output(ChatOpenAI(model='fixture', api_key='fixture'), 'openrouter', schema)
     assert bound.kwargs['response_format'] == {
         'type': 'json_schema', 'json_schema': {'name': 'gnosi_operation', 'strict': True, 'schema': schema}}
+
+
+@pytest.mark.parametrize('whole,kind', [(False, k) for k in ('omission', 'distortion', 'production', 'duplicate')]
+                         + [(True, k) for k in ('omission', 'production', 'duplicate')])
+@pytest.mark.parametrize('actual_count', [0, 1, 2, 3])
+def test_mixed_kind_quote_cardinalities_match_the_existing_local_contract(whole, kind, actual_count):
+    data, issue = source_case(None)
+    quotes = ['First literal passage.', 'Second literal passage.', 'Third literal passage.']
+    data['narration'] = ' '.join(quotes)
+    if whole:
+        data['whole_episode'] = True
+    issue.update(kind=kind, narration_quotes=quotes[:actual_count])
+    if whole or kind in {'production', 'duplicate'}:
+        issue['source_part_ids'] = []
+    issue['evidence_quote'] = ('' if kind in {'production', 'duplicate'} else
+                               data['subjects'][0][0] if whole else data['briefs'][0]['source_text'])
+    result = {'issues': [issue]}
+    if actual_count == {'omission': 0, 'distortion': 1, 'production': 1, 'duplicate': 2}[kind]:
+        jsonschema.validate(result, _schema(data))
+        _validate(result, data)
+    else:
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(result, _schema(data))
+        with pytest.raises(ValueError, match='podcast_audit_quote_count'):
+            _validate(result, data)

@@ -9,7 +9,7 @@ import pytest
 from openai import ContentFilterFinishReasonError
 
 from backend.services import podcast_automatic as automatic
-from backend.tests.test_podcast_briefing import pipeline, tokenized, written  # noqa: F401
+from backend.tests.test_podcast_briefing import length_edited, pipeline, tokenized, written  # noqa: F401
 
 
 OPTIONS = {"min_words": 90, "max_words": 109, "target_words": 100}
@@ -17,7 +17,7 @@ OPTIONS = {"min_words": 90, "max_words": 109, "target_words": 100}
 
 def data():
     return {"briefs": [{"part_id": f"source:{i}", "summary": f"Original {i}"} for i in range(254)],
-            "feedback": [{"kind": "omission", "detail": "Earlier semantic finding"}],
+            "feedback": [{"kind": "omission", "detail": "Earlier semantic finding", "source_part_ids": []}],
             "subject_groups": [{"topic": "Shared", "subjects": ["Main", "Minority"]},
                                {"topic": "Access", "subjects": ["Registration"]}],
             "composition_groups": [{"key": "group:0", "topic": "Shared"},
@@ -34,6 +34,8 @@ class Context:
 
     def __init__(self, responses, fit="lean"):
         self.responses, self.fit, self.sent = iter(responses), fit, []
+        from backend.services.podcast_policy import preferences
+        self.editorial_policy = preferences(None).model_copy(update={'review_mode': 'full'})
 
     def request(self, task, value, schema):
         return SimpleNamespace(input=json.dumps(value), output_schema=schema,
@@ -54,8 +56,13 @@ class Context:
         if isinstance(result, Exception):
             raise result
         fields = request.output_schema["properties"]
+        if 'composition_sha256' in fields and 'edits' not in result:
+            result = length_edited(result, json.loads(request.input))
         if {"tokens", "token_text"} & fields.keys() and not {"tokens", "token_text"} & result.keys():
             result = tokenized(result, json.loads(request.input)["composition_groups"], text="token_text" in fields)
+        if 'passages' in fields and 'passages' not in result:
+            result = tokenized(result, json.loads(request.input)['composition_groups'],
+                               passages=fields['passages']['minItems'], indexed='breaks' in fields)
         jsonschema.validate(result, request.output_schema)
         validate(result)
         return result
@@ -92,36 +99,76 @@ def test_exact_rejected_structure_scope_and_hash_or_clean_fallback(fit):
 
 
 def test_length_stage_uses_the_latest_rejected_reply_when_length_direction_changes():
-    class Replies(Context):
-        def stage(self, request, validate):
-            if not self.sent:
-                self.sent.append(json.loads(request.input))
-                for value in (response(160), response(40)):
-                    jsonschema.validate(value, request.output_schema)
-                    if value == response(160):
-                        with pytest.raises(ValueError, match="podcast_word_budget"):
-                            validate(value)
-                    else:
-                        validate(value)
-            return super().stage(request, validate)
-    context = Replies([response(100)], "full")
+    context = Context([response(160), response(40), response(100)], "full")
     automatic._bounded_write(context, data(), OPTIONS)
-    assert len(context.sent) == 2
-    repair = context.sent[1]
+    assert len(context.sent) == 3
+    assert context.sent[1]["length_repair"]["current_words"] == 160
+    assert context.sent[1]["previous_composition"] == response(160)
+    repair = context.sent[2]
+    latest = tokenized(response(40), data()["composition_groups"], text=True)
     assert repair["length_repair"]["current_words"] == 40
-    assert repair["previous_composition"] == response(40)
-    encoded = json.dumps(response(40), sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    assert repair["previous_composition"] == latest
+    encoded = json.dumps(latest, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     assert repair["length_repair"]["composition_sha256"] == hashlib.sha256(encoded.encode()).hexdigest()
     assert repair["composition_encoding"] == "word_text_v1"
     assert repair["briefs"] == data()["briefs"]
 
 
-def test_underlength_repair_keeps_source_evidence_instead_of_lean_expansion():
+def test_underlength_repair_reserves_exact_prior_while_compressing_source_evidence(monkeypatch):
     context = Context([response(40), response(100)])
-    automatic._bounded_write(context, data(), OPTIONS)
-    assert context.sent[1]["briefs"] == data()["briefs"]
-    assert context.sent[1]["length_repair"]["mode"] == "fresh_composition"
-    assert "previous_composition" not in context.sent[1]
+    original = data()
+    records = [{"part_ids": [b["part_id"] for b in original["briefs"]], "summary": "Complete digest"}]
+    reductions = []
+    def digest(ctx, evidence):
+        reductions.append(evidence)
+        return records
+    monkeypatch.setattr("backend.services.podcast_outline._digest", digest)
+    automatic._bounded_write(context, original, OPTIONS)
+    repair = context.sent[1]
+    assert reductions == [original["briefs"]]
+    assert repair["digests"] == records and "briefs" not in repair
+    assert repair["previous_composition"] == response(40)
+    assert repair["length_repair"]["mode"] == "revise_draft"
+    assert repair["length_repair"]["current_words"] == 40
+    assert repair["feedback"] == original["feedback"]
+
+
+def test_underlength_repair_keeps_reducing_until_prior_and_evidence_fit_together(monkeypatch):
+    original = data()
+    first = [{"part_ids": [b["part_id"] for b in original["briefs"]], "summary": "Large digest"}]
+    final = [{"part_ids": first[0]["part_ids"], "summary": "Complete compact digest"}]
+    context = Context([response(40), response(100)], "full")
+    def cost(request):
+        value = json.loads(request.input)
+        if "previous_composition" not in value:
+            return 100
+        if "briefs" in value:
+            return 100000
+        return 81000 if value["digests"] == first else 70000
+    context.cost = cost
+    reductions = []
+    def digest(ctx, evidence):
+        reductions.append(evidence)
+        return first if len(reductions) == 1 else final
+    monkeypatch.setattr("backend.services.podcast_outline._digest", digest)
+    automatic._bounded_write(context, original, OPTIONS)
+    assert reductions == [original["briefs"], first]
+    repair = context.sent[1]
+    assert repair["digests"] == final
+    assert repair["previous_composition"] == response(40)
+    assert repair["subject_groups"] == original["subject_groups"]
+    assert repair["composition_groups"] == original["composition_groups"]
+    assert repair["feedback"] == original["feedback"]
+    assert repair["length_repair"]["mode"] == "revise_draft"
+
+
+def test_underlength_irreducible_context_fails_before_fresh_or_evidence_free_expansion(monkeypatch):
+    original = data()
+    context = Context([response(40), response(100)], "overflow")
+    monkeypatch.setattr("backend.services.podcast_outline._digest", lambda ctx, evidence: evidence)
+    with pytest.raises(RuntimeError, match="podcast_feedback_context_insufficient"):
+        automatic._bounded_write(context, original, OPTIONS)
+    assert len(context.sent) == 1
 
 
 def test_complete_digest_and_exact_prior_are_preferred_over_lean(monkeypatch):
@@ -152,7 +199,7 @@ def test_lean_success_still_audits_every_original_and_restores_evidence_for_sema
     original_write = automatic._write_episode
     def write(context, briefs, groups, budget, feedback, previous_draft):
         # write_day's broad-day target is 1380; force a lean length correction per semantic pass.
-        ctx = Context([response(1600), response(1380)])
+        ctx = Context([response(1900), response(1380)])
         result = original_write(ctx, briefs, groups, budget, feedback, previous_draft)
         writes.append(ctx.sent)
         return result
@@ -163,7 +210,9 @@ def test_lean_success_still_audits_every_original_and_restores_evidence_for_sema
     monkeypatch.setattr(automatic, "_review_theme", review)
     whole = []
     monkeypatch.setattr(automatic, "_audit", lambda context, value: whole.append(value) or [])
-    sections, _, _ = automatic.write_day(None, evidence, outline, lambda _: None)
+    day = SimpleNamespace(snapshot=SimpleNamespace(skill_instructions={'core.gnosi-daily-briefing':
+        '```json\n{"podcast_preferences":{"review_mode":"full"}}\n```'}))
+    sections, _, _ = automatic.write_day(day, evidence, outline, lambda _: None)
     assert len(sections[0]["narration"].split()) == 1380
     assert len(audits) == len(whole) == 2 and all(value == evidence for value in audits)
     assert all(value["subjects"] == [group["subjects"] for group in outline] for value in whole)
@@ -190,7 +239,7 @@ def test_provider_refusal_during_lean_edit_never_audits_or_publishes(pipeline):
             if len(calls) == 2:
                 assert value["length_repair"]["mode"] == "shorten_composition"
                 raise ContentFilterFinishReasonError()
-            text = json.dumps(written(request, "word " * (request.options["max_words"] + 10)))
+            text = json.dumps(written(request, "word " * (request.options["max_words"] + 100)))
             kwargs["output_validator"](text)
             return SimpleNamespace(result=text)
         return pipeline.model(request, **kwargs)

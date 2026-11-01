@@ -138,6 +138,18 @@ def _validate(response: Any) -> None:
         "sdk_retry_index": _token(response.request.headers.get("x-stainless-retry-count")),
         "normalized_sdk_status": sdk_status if retry else None, "retry_after_seconds": delay if math.isfinite(delay) else None,
     }
+    if isinstance(error, dict):
+        metadata = error.get('metadata')
+        raw = metadata.get('raw') if isinstance(metadata, dict) else None
+        try:
+            raw = json.loads(raw) if isinstance(raw, str) else raw
+        except ValueError:
+            raw = {'message': raw}
+        if isinstance(raw, dict):
+            raw = raw.get('error', raw)
+        detail = raw.get('message', raw.get('detail', '')) if isinstance(raw, dict) else ''
+        diagnostic['provider_error_message'] = str(error.get('message') or '')[:500]
+        diagnostic['provider_error_detail'] = str(detail or '')[:1500]
     try:
         observe(original)
         record("provider.response_invalid", diagnostic)

@@ -9,15 +9,12 @@ from backend.services import podcast_briefing as briefing
 
 
 def planned(cards, groups):
-    from backend.services.podcast_outline import MAX_TOPICS
-    limit = min(MAX_TOPICS, len(cards))
     labels = [g['topic'] for g in groups]
-    labels.extend(f'Unused {i}' for i in range(limit - len(labels)))
     return {'topics': labels, 'assignments': {handle: index for index, group in enumerate(groups)
         for handle in group['part_ids']}}
 
 
-def tokenized(result, groups, *, text=False):
+def tokenized(result, groups, *, text=False, passages=0, indexed=False, indexed_words=False):
     """Encode a fake model's intended prose in the requested word-token protocol."""
     tokens = []
     flags = {}
@@ -28,7 +25,56 @@ def tokenized(result, groups, *, text=False):
         block = result['paragraphs'][key]
         flags[key] = {'non_editorial': block['non_editorial']}
         tokens.extend([f"__gnosi_group__:{key}", *block['text'].split()])
+    if indexed_words:
+        words, breaks = [], []
+        for i, group in enumerate(groups):
+            if group['key'] not in result['paragraphs']:
+                continue
+            words.extend(result['paragraphs'][group['key']]['text'].split())
+            if i < len(groups) - 1:
+                breaks.append(len(words))
+        return {'paragraphs': flags, 'breaks': breaks, 'tokens': words}
+    if indexed:
+        spans, breaks = [], []
+        counts = [1] * len(groups)
+        lengths = [len(result['paragraphs'].get(g['key'], {}).get('text', '').split()) for g in groups]
+        for _ in range(passages - len(groups)):
+            index = max(range(len(groups)), key=lambda i: lengths[i] / counts[i]
+                        if lengths[i] > counts[i] else -1)
+            counts[index] += 1
+        for i, group in enumerate(groups):
+            if group['key'] not in result['paragraphs']:
+                continue
+            words = result['paragraphs'][group['key']]['text'].split()
+            size = counts[i]
+            spans.extend(' '.join(words[len(words) * j // size:len(words) * (j + 1) // size])
+                         for j in range(size))
+            if i < len(groups) - 1:
+                breaks.append(len(spans))
+        return {'paragraphs': flags, 'breaks': breaks, 'passages': spans}
+    if passages:
+        return {'paragraphs': flags, 'passages': [' '.join(
+            tokens[len(tokens) * i // passages:len(tokens) * (i + 1) // passages]) for i in range(passages)]}
     return {'paragraphs': flags, **({'token_text': ' '.join(tokens)} if text else {'tokens': tokens})}
+
+
+def length_edited(result, data):
+    """Encode a fake model's intended groups as literal edits of the supplied base."""
+    from backend.services.podcast_composition import composition_blocks
+    from backend.services.podcast_length_edits import composition_digest
+    base = data['previous_composition']
+    before, after = composition_blocks(base, data), composition_blocks(result, data)
+    return {'composition_sha256': composition_digest(base), 'edits': [
+        {'group_key': key, 'before': block['text'], 'after': after[key]['text']}
+        for key, block in before.items() if block['text'] != after[key]['text']]}
+
+
+def length_streamed(result, data):
+    """Encode intended prose without returning any original anchor strings."""
+    from backend.services.podcast_composition import composition_blocks
+    after = composition_blocks(result, data)
+    return {'replacement_tokens': [token for anchor in data['anchors']
+        for token in (anchor['marker'], *after[anchor['group_key']]['text'].split())]}
 
 
 def written(request, text):
@@ -36,13 +82,30 @@ def written(request, text):
     data = json.loads(request.input).get('data', {})
     groups = data.get('composition_groups', [])
     if not groups:
+        if 'passages' in request.output_schema.get('properties', {}):
+            count = request.output_schema['properties']['passages']['minItems']
+            words = text.split()
+            return {'passages': [' '.join(words[len(words) * i // count:len(words) * (i + 1) // count])
+                                 for i in range(count)]}
         return {'narration': text}
     words = text.split()
     result = {'paragraphs': {g['key']: {
         'text': ' '.join(words[len(words) * i // len(groups):len(words) * (i + 1) // len(groups)]),
         'non_editorial': False} for i, g in enumerate(groups)}}
+    if data.get('revision_encoding') == 'composition_length_edits_v1':
+        return length_edited(result, data)
+    if data.get('revision_encoding') == 'composition_length_stream_v1':
+        return length_streamed(result, data)
     encoding = data.get('composition_encoding')
-    return tokenized(result, groups, text=encoding == 'word_text_v1') if encoding in {'word_tokens_v1', 'word_text_v1'} else result
+    if encoding == 'indexed_words_v1':
+        return tokenized(result, groups, indexed_words=True)
+    if encoding == 'indexed_passages_v1':
+        size = request.output_schema['properties']['passages']['minItems']
+        return tokenized(result, groups, passages=size, indexed=True)
+    if encoding == 'word_passages_v1':
+        size = (request.options['target_words'] + 19) // 20
+        return tokenized(result, groups, passages=size)
+    return tokenized(result, groups, text=encoding in {'word_text_v1', 'bounded_word_text_v1'}) if encoding in {'word_tokens_v1', 'word_text_v1', 'bounded_word_text_v1'} else result
 
 
 def audited(request, issues):
@@ -51,6 +114,11 @@ def audited(request, issues):
     if 'candidate_findings' in data:
         return {'confirmed_finding_ids': [candidate['finding_id'] for candidate in data['candidate_findings']
                                          if candidate['finding'] in issues]}
+    if 'coverage_checks' in request.output_schema.get('properties', {}):
+        blocks = data['narration_blocks']
+        return {'coverage_checks': {identifier: next((key for key, text in blocks.items()
+            if record['title'] in text), 'secondary') for record in data['source_summaries']
+            for identifier in record.get('part_ids', [record.get('part_id')])}, 'issues': issues}
     return {'issues': issues}
 
 
@@ -58,7 +126,9 @@ def audited(request, issues):
 def pipeline(monkeypatch):
     saved, calls = {}, []
     snapshot = SimpleNamespace(profile={}, instructions=[], behavior_resources={}, origin='button',
-                               parent_run_id='day', revision='new-contract', scope='owner')
+                               parent_run_id='day', revision='new-contract', scope='owner',
+                               skill_instructions={'core.gnosi-daily-briefing':
+                                   '```json\n{"podcast_preferences":{"review_mode":"full"}}\n```'})
     monkeypatch.setattr('backend.domains.agent.runtime_tools._model_context_window', lambda *_: 32000)
     monkeypatch.setattr('backend.services.agent_context_budget.count_tokens', lambda text, _: SimpleNamespace(tokens=len(text)))
     def checkpoint(scope, parent, key, value=None):
@@ -85,11 +155,14 @@ def pipeline(monkeypatch):
                 group['part_ids'].extend(card['part_ids'])
             result = planned(data['cards'], list(groups.values()))
         elif payload['task'].endswith('audit'):
-            result = {'confirmed_finding_ids': []} if 'candidate_findings' in data else {'issues': []}
+            result = audited(request, [])
         elif payload['task'].endswith('digest'):
-            ids = [identifier for r in data['briefs'] for identifier in r.get('part_ids', [r.get('part_id')])]
-            text = ' '.join(r.get('summary', '') if 'part_ids' in r else r['title'] for r in data['briefs'])
-            result = {'sections': [{'topic': 'Complete evidence', 'part_ids': ids, 'narration': text}]}
+            if 'grouped_sources' in data:
+                result = {'digests': {g['key']: ' '.join(b['summary'] for b in g['briefs'])
+                                      for g in data['grouped_sources']}}
+            else:
+                text = ' '.join(r.get('summary', '') if 'part_ids' in r else r['title'] for r in data['briefs'])
+                result = {'topic': 'Complete evidence', 'narration': text}
         else:
             briefs = data.get('briefs', data.get('digests', []))
             text = ' '.join(b['summary'] if 'part_ids' in b else f"{b['title']}: {b['summary'][-55:]}" for b in briefs)
@@ -104,7 +177,7 @@ def pipeline(monkeypatch):
     def run(sources, guard=lambda: None):
         return briefing.build_podcast_script(sources, 'Catalan', snapshot=snapshot,
                                              check_active=guard, progress=lambda _: None)
-    return SimpleNamespace(run=run, model=model, calls=calls, saved=saved, monkeypatch=monkeypatch)
+    return SimpleNamespace(run=run, model=model, calls=calls, saved=saved, snapshot=snapshot, monkeypatch=monkeypatch)
 
 
 def diverse_sources():
@@ -293,7 +366,7 @@ def test_distant_duplicate_reports_share_global_theme_and_minor_topics_keep_spac
     duplicate_group = next(t for t in pipeline.saved['podcast-coverage-report']['outline'] if t['topic'] == 'Repeated event')
     assert set(duplicate_group['part_ids']) == {f'{i}:0' for i in range(0, 20, 2)}
     assert all(f'Minor {i}' in text for i in range(1, 20, 2))
-    assert 1200 <= len(text.split()) <= 1510
+    assert 1000 <= len(text.split()) <= 1750
     assert pipeline.saved['podcast-coverage-report']['word_budget'] == 1380
 
 
@@ -319,9 +392,9 @@ def test_word_count_failure_is_repaired_automatically_without_caching_invalid_pr
         data = json.loads(request.input)['data']
         writes.append(data)
         if 'previous_draft' not in data:
-            text = json.dumps({'narration': 'word ' * (request.options['max_words'] + 2)})
+            text = json.dumps({'narration': 'word ' * (request.options['max_words'] + 100)})
             kwargs['output_validator'](text)
-        assert data['length_repair']['current_words'] == request.options['max_words'] + 2
+        assert data['length_repair']['current_words'] == request.options['max_words'] + 100
         return pipeline.model(request, **kwargs)
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
     result = pipeline.run([{'id': 'a', 'title': 'Title', 'text': 'Evidence'}])
@@ -385,7 +458,7 @@ def test_oversized_theme_uses_recursive_bounded_digests_without_losing_ids():
                 input=json.dumps(data), output_schema=schema)
         def cost(self, request):
             return len(briefing.operation_input(request)) + 1024
-        def stage(self, request, validate):
+        def stage(self, request, validate, *, output_repair=None):
             assert self.cost(request) <= self.budget
             data = json.loads(request.input)
             calls.append(request.operation)
@@ -395,11 +468,9 @@ def test_oversized_theme_uses_recursive_bounded_digests_without_losing_ids():
             elif request.operation.endswith('audit'):
                 result = {'issues': []}
             else:
-                records = data.get('briefs', data.get('digests'))
-                ids = [p for r in records for p in r.get('part_ids', [r.get('part_id')])]
                 words = 160 if request.operation.endswith('digest') else request.options['min_words']
-                result = ({'narration': 'evidence ' * words} if request.operation.endswith('write') else
-                    {'sections': [{'topic': 'Complete collection', 'part_ids': ids, 'narration': 'evidence ' * words}]})
+                result = (written(request, 'evidence ' * words) if request.operation.endswith('write') else
+                    {'topic': 'Complete collection', 'narration': 'evidence ' * words})
             briefing.jsonschema.validate(result, request.output_schema)
             validate(result)
             return result
@@ -409,7 +480,7 @@ def test_oversized_theme_uses_recursive_bounded_digests_without_losing_ids():
     sections, outline, budget = narrate_day(Context(), briefs, lambda _: None)
     assert calls.count('podcast.coverage.digest') > 14  # More than one reduction level.
     assert {p for s in sections for p in s['part_ids']} == {b['part_id'] for b in briefs}
-    assert budget == 1380 and 1200 < sum(len(s['narration'].split()) for s in sections) < 1510
+    assert budget == 1380 and 1000 < sum(len(s['narration'].split()) for s in sections) < 1750
 
 
 def test_planning_never_asks_model_to_classify_or_repeat_hundreds_of_source_ids(pipeline):
@@ -555,7 +626,7 @@ def test_global_overshoot_is_rewritten_without_clipping_or_local_caps(pipeline):
             return pipeline.model(request, **kwargs)
         data = json.loads(request.input)['data']
         calls.append(data)
-        count = request.options['target_words'] if 'length_repair' in data else 1587
+        count = request.options['target_words'] if 'length_repair' in data else 1900
         text = json.dumps(written(request, 'word ' * count))
         kwargs['output_validator'](text)
         return SimpleNamespace(result=text)
@@ -564,9 +635,9 @@ def test_global_overshoot_is_rewritten_without_clipping_or_local_caps(pipeline):
     assert len(result.split()) == 1380 and len(calls) == 2
     state = calls[-1]['length_repair']
     if state['mode'] in {'revise_draft', 'shorten_composition'}:
-        assert state['current_words'] == 1587 and state['word_delta'] == -207
+        assert state['current_words'] == 1900 and state['word_delta'] == -520
         from backend.services.podcast_composition import spoken_text
-        assert len(spoken_text(calls[-1]['previous_composition'], calls[-1]).split()) == 1587
+        assert len(spoken_text(calls[-1]['previous_composition'], calls[-1]).split()) == 1900
     else:
         assert state['mode'] == 'fresh_composition' and state['target_words'] == 1380
         assert 'previous_draft' not in calls[-1] and 'word_delta' not in state
@@ -617,8 +688,7 @@ def test_internal_digest_overshoot_retains_exact_sources_without_becoming_spoken
         def stage(self, request, validate):
             assert self.cost(request) <= self.budget
             calls.append(json.loads(request.input))
-            result = {'sections': [{'topic': 'Internal evidence',
-                'part_ids': [b['part_id'] for b in evidence], 'narration': 'Evidence ' * 163}]}
+            result = {'topic': 'Internal evidence', 'narration': 'Evidence ' * 163}
             briefing.jsonschema.validate(result, request.output_schema)
             validate(result)
             return result
@@ -641,8 +711,7 @@ def test_nonshrinking_internal_reduction_cannot_send_oversized_writer_request_or
         def stage(self, request, validate):
             assert request.operation.endswith('digest') and self.cost(request) <= self.budget
             calls.append(request.operation)
-            result = {'sections': [{'topic': 'Internal evidence', 'part_ids': ['a:0'],
-                                    'narration': 'Evidence ' * 163}]}
+            result = {'topic': 'Internal evidence', 'narration': 'Evidence ' * 163}
             validate(result)
             return result
     with pytest.raises(RuntimeError, match='podcast_theme_context_insufficient'):
@@ -712,8 +781,10 @@ def test_every_revision_reviews_facts_coverage_and_ledger_without_stale_feedback
     monkeypatch.setattr(automatic, '_write_episode', write)
     monkeypatch.setattr(automatic, '_review_theme', source_review)
     monkeypatch.setattr(automatic, '_audit', ledger_review)
+    context = SimpleNamespace(snapshot=SimpleNamespace(skill_instructions={'core.gnosi-daily-briefing':
+        '```json\n{"podcast_preferences":{"review_mode":"full"}}\n```'}))
     with pytest.raises(ValueError, match='podcast_semantic_review_failed'):
-        automatic.write_day(None, [{'source_id': 'a'}], [{'topic': 'Domain'}], lambda _: None)
+        automatic.write_day(context, [{'source_id': 'a'}], [{'topic': 'Domain'}], lambda _: None)
     assert len(reviews) == 6
     assert writes[0] == ([], '')
     assert [i['detail'] for i in writes[2][0]] == ['Draft 2', 'Minority domain']

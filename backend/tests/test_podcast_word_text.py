@@ -131,10 +131,18 @@ def test_invalid_or_ambiguous_compact_stream_is_rejected_before_speech(bad):
 
 @pytest.mark.parametrize("fit", ["full", "lean", "overflow"])
 @pytest.mark.parametrize("rejected_words", [40, 160])
-def test_existing_automatic_retry_uses_compact_wire_with_unchanged_scope_and_limits(fit, rejected_words):
+def test_existing_automatic_retry_uses_compact_wire_with_unchanged_scope_and_limits(fit, rejected_words, monkeypatch):
     from backend.services.podcast_automatic import _bounded_write
     context = Context([response(rejected_words), response(100)], fit)
     original = data()
+    if rejected_words < OPTIONS["min_words"] and fit != "full":
+        records = [{"part_ids": [b["part_id"] for b in original["briefs"]], "summary": "Complete digest"}]
+        monkeypatch.setattr("backend.services.podcast_outline._digest", lambda ctx, evidence: records)
+        if fit == "overflow":
+            with pytest.raises(RuntimeError, match="podcast_feedback_context_insufficient"):
+                _bounded_write(context, original, OPTIONS)
+            assert len(context.sent) == 1
+            return
     snapshot = copy.deepcopy(original)
     result = _bounded_write(context, original, OPTIONS)
     assert original == snapshot and len(context.sent) == 2

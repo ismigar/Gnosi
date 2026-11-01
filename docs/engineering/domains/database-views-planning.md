@@ -102,6 +102,8 @@ tests:
 
 Table refreshes retain loaded batches, the active record and column, and surviving input identity and caret. Opening a record retains its originating inline table, including selection, expanded rows and both scroll axes. Returning to an existing cell preserves its column and viewport. Removed or filtered records use a surviving-cell fallback without stealing another editor’s focus; an empty view clears the active cell and anchor.
 
+Row identity follows the current descriptors even while virtualizer measurements lag. Refreshes reveal an existing selected record moved into a collapsed group or parent, while explicit user collapses remain respected. Batched tab closures promote only tabs still present after preceding closures.
+
 ## Structured knowledge model
 
 A Gnosi database is a schema and view layer over pages, normally rooted in a

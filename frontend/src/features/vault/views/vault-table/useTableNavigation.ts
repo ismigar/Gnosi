@@ -19,7 +19,7 @@ type Inputs = Pick<ReturnType<typeof useTableRows>, 'rowDescriptors' | 'groupMet
   & Pick<ReturnType<typeof useTableColumns>, 'gridColumns'>
   & Pick<TableInputs, 'restoreRecordFocus' | 'onRecordFocusRestored' | 'activeView'>
   & Pick<ReturnType<typeof useTableOptimistic>, 'safeNotes'>
-  & Pick<ReturnType<typeof useTableData>, 'sortedNotes' | 'enableSubitems' | 'sortSignature'>
+  & Pick<ReturnType<typeof useTableData>, 'sortedNotes' | 'childrenMap' | 'enableSubitems' | 'sortSignature'>
   & Pick<ReturnType<typeof useTableState>,
     'expandedRows'
     | 'groupByField'
@@ -46,6 +46,7 @@ export function useTableNavigation({
   restoreRecordFocus,
   safeNotes,
   sortedNotes,
+  childrenMap,
   enableSubitems,
   expandedRows,
   groupByField,
@@ -110,6 +111,7 @@ export function useTableNavigation({
       recordId,
       notes: safeNotes,
       sortedNotes,
+      childrenMap,
       enableSubitems,
       expandedRows,
       groupByField,
@@ -202,7 +204,7 @@ export function useTableNavigation({
     };
     setTimeout(stabilizeRenderedCellFocus, 0);
     return undefined;
-  }, [ROWS_BATCH_SIZE, activeView, claimKeyboard, enableSubitems, expandedGroups, expandedRows, groupByField, groupMeta, navRows, onRecordFocusRestored, restoreRecordFocus, rowVirtualizer, safeNotes, setActiveCell, setAnchorCell, setExpandedGroups, setExpandedRows, setVisibleRowsCount, sortedNotes, tableContainerRef, visibleRowsCount, visible, visibleRef, activeCellRef, gridColumns]);
+  }, [ROWS_BATCH_SIZE, activeView, childrenMap, claimKeyboard, enableSubitems, expandedGroups, expandedRows, groupByField, groupMeta, navRows, onRecordFocusRestored, restoreRecordFocus, rowVirtualizer, safeNotes, setActiveCell, setAnchorCell, setExpandedGroups, setExpandedRows, setVisibleRowsCount, sortedNotes, tableContainerRef, visibleRowsCount, visible, visibleRef, activeCellRef, gridColumns]);
   const focusGroupHeaderByOffset = (fromDescriptorIndex: number, delta: number) => {
     const list = rowDescriptorsRef.current;
     for (let i = fromDescriptorIndex + delta;i >= 0 && i < list.length;i += delta) {
@@ -324,24 +326,43 @@ export function useTableNavigation({
       }
     }
   }, [activeView?.id, searchTerm, sortSignature, navRows, gridColumns, groupByField, rowDescriptors, rowVirtualizer, gridInstanceIdRef, setAnchorCell, activeCellRef, tableContainerRef, setActiveCell, visible]);
+  const refreshState = useRef({ safeNotes, navRowIndexById, expandedGroups, expandedRows, viewId: activeView?.id });
+  const refreshedRecord = useRef<string | null>(null);
   useEffect(() => {
+    const previous = refreshState.current;
+    refreshState.current = { safeNotes, navRowIndexById, expandedGroups, expandedRows, viewId: activeView?.id };
     const cell = activeCellRef.current;
-    if (!visible || !activeView || !cell || (restoreRecordFocus && restoredRecordFocusRequestRef.current !== restoreRecordFocus.requestId)) return;
-    if (navRowIndexById.has(cell.rowId) && colIndexByKey.has(cell.field)) return;
-    const preparation = prepareTableRecordFocus({ recordId: cell.rowId, notes: safeNotes, sortedNotes,
+    if (!visible || !activeView || !cell) { refreshedRecord.current = null; return; }
+    if (previous.safeNotes !== safeNotes && previous.viewId === activeView.id
+      && previous.navRowIndexById.has(cell.rowId) && previous.expandedGroups === expandedGroups
+      && previous.expandedRows === expandedRows) refreshedRecord.current = cell.rowId;
+    if (restoreRecordFocus && restoredRecordFocusRequestRef.current !== restoreRecordFocus.requestId) return;
+    if (navRowIndexById.has(cell.rowId) && colIndexByKey.has(cell.field)) { refreshedRecord.current = null; return; }
+    const preparation = prepareTableRecordFocus({ recordId: cell.rowId, notes: safeNotes, sortedNotes, childrenMap,
       enableSubitems, expandedRows, groupByField, groupFieldId: groupMeta?.fieldId,
       expandedGroups, visibleRowsCount, batchSize: ROWS_BATCH_SIZE });
     if (preparation.status === 'load-batch') {
       setVisibleRowsCount(count => Math.max(count, preparation.requiredCount));
       return;
     }
+    if (refreshedRecord.current === cell.rowId) {
+      if (preparation.status === 'expand-group') {
+        setExpandedGroups(groups => new Set(groups).add(preparation.groupKey));
+        return;
+      }
+      if (preparation.status === 'expand-parent') {
+        setExpandedRows(parents => new Set(parents).add(displayString(preparation.parentId)));
+        return;
+      }
+    }
+    refreshedRecord.current = null;
     const target = tableCell(getTableFocusTarget({ activeCell: cell, navRows, gridColumns }));
     if (!target || target.rowId !== cell.rowId || target.field !== cell.field) {
       setAnchorCell(null);
       setActiveCell(target);
     }
-  }, [ROWS_BATCH_SIZE, activeCell, activeCellRef, activeView, colIndexByKey, enableSubitems, expandedGroups, expandedRows,
+  }, [ROWS_BATCH_SIZE, activeCell, activeCellRef, activeView, childrenMap, colIndexByKey, enableSubitems, expandedGroups, expandedRows,
     gridColumns, groupByField, groupMeta, navRowIndexById, navRows, restoreRecordFocus, safeNotes,
-    setActiveCell, setAnchorCell, setVisibleRowsCount, sortedNotes, visible, visibleRowsCount]);
+    setActiveCell, setAnchorCell, setExpandedGroups, setExpandedRows, setVisibleRowsCount, sortedNotes, visible, visibleRowsCount]);
   return { navRows, navRowIndexById, colIndexByKey, navRowsRef, focusGroupHeaderByOffset, focusFirstRowOfGroup, pendingEnterGroupDescRef, gridColumnsRef, navRowIndexByIdRef, colIndexByKeyRef, noteById, selectionRect, selectionRectRef, getCellSelState };
 }

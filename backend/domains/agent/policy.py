@@ -9,6 +9,7 @@ from typing import Annotated, Any, Sequence, TypedDict
 
 from langchain_core.messages import BaseMessage, ToolMessage
 from langgraph.managed import RemainingSteps
+from openai import LengthFinishReasonError
 
 from backend.agent.action_confirmations import (
     current_confirmation_scope,
@@ -82,7 +83,10 @@ def _invoke_agent_model(model: Any, prompt: Any, state: Any) -> Any:
         try:
             response = invoke_cancellable(model, prompt, str(token or ""))
         except BaseException as error:
-            record("model.error", {"type": type(error).__name__, "message": str(error)})
+            details: dict[str, Any] = {"type": type(error).__name__, "message": str(error)}
+            if isinstance(error, LengthFinishReasonError):
+                details["partial_response"] = {"accepted": False, "completion": error.completion}
+            record("model.error", details)
             raise
         record("model.response", response)
         after_model_call(response)

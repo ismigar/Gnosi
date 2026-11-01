@@ -310,10 +310,11 @@ def _validate_output(text: str, schema: dict[str, Any] | None) -> str:
         if error.msg != "Extra data":
             raise
         value, end = json.JSONDecoder(parse_constant=_reject_json_constant).raw_decode(cleaned)
-        # Preserve the complete result when the model repeats one root closer.
-        # Never discard a second value, prose, or an incomplete nested payload.
+        # Keep the complete document when followed by one root closer or a
+        # bare tool-control opener. Never discard another value, prose, a named
+        # tool call, or an incomplete nested payload.
         closer = "}" if isinstance(value, dict) else "]" if isinstance(value, list) else ""
-        if not closer or cleaned[end:].strip() != closer:
+        if not closer or cleaned[end:].strip() not in {closer, "<function", "<function="}:
             raise
     from backend.services.json_contracts import validate_json_value
     validate_json_value(value, schema)
@@ -405,7 +406,7 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         # A rejected plan gets the existing repair call at the model's normal
         # effort. Explicit profile choices and specialist effort stay intact.
         operation_default_reasoning_effort=(None if snapshot.profile.get("reasoning_effort") else
-            "off_if_optional" if request.operation in {"podcast.coverage.plan", "podcast.coverage.write", "podcast.coverage.digest", "podcast.coverage.audit"} else
+            "off_if_optional" if request.operation in {"podcast.coverage.briefs", "podcast.coverage.plan", "podcast.coverage.write", "podcast.coverage.digest", "podcast.coverage.audit"} else
             "low" if request.operation in {"knowledge.process-source.phase", "team.view_edit"} else
             "one_step_lower" if request.operation == "team.plan" and request.options.get("economical_planning")
             and not validation_retry else None),

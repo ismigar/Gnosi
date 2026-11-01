@@ -2,6 +2,14 @@
 status: implemented
 last_verified: 2026-10-17
 source_paths:
+  - backend/services/podcast_brief_review.py
+  - backend/services/podcast_automatic.py
+  - backend/services/podcast_brief_edits.py
+  - backend/agent/behavior/operations/podcast/revision-contract.md
+  - backend/agent/behavior/operations/podcast/brief-review-contract.md
+  - backend/agent/behavior/operations/podcast/assignment-contract.md
+  - backend/services/podcast_outline.py
+  - backend/services/podcast_policy.py
   - backend/domains/configuration/source_sections_schema.py
   - frontend/src/features/vault/properties/sourceSectionRelations.ts
   - backend/domains/llm_wiki
@@ -43,6 +51,10 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_podcast_brief_edits.py
+  - backend/tests/test_podcast_bounded_rewrites.py
+  - backend/tests/test_podcast_synthesis_context.py
+  - backend/tests/test_podcast_preparation.py
   - backend/tests/test_podcast_feedback.py
   - backend/tests/test_podcast_feedback_repair.py
   - backend/tests/test_podcast_feedback_repair_transport.py
@@ -464,85 +476,16 @@ contexto. Los campos obligatorios cubren cada identificador opaco. El servidor
 expande las fuentes, valida particiones exactas sin duplicados y conserva todos
 los asuntos de cada grupo.
 
-El redactor compone el episodio completo con todas las notas y grupos. Con
-varios grupos, la respuesta exige un párrafo por clave opaca; el servidor los
-une en el orden del plan sin locutar claves ni metadatos. Un párrafo vacío
-exige declarar explícitamente que no tiene contenido editorial, algo que
-comprueban igualmente las revisiones de fuentes y del conjunto. Los campos
-obligatorios evitan perder un grupo silenciosamente, pero no demuestran su
-cobertura semántica. Todos comparten un presupuesto global sin límites de
-palabras individuales. Los días con mucha actualidad
-tienen un objetivo de 1.380 palabras; las colecciones pequeñas tienen uno menor.
-El guion completo debe estar entre el 90 y el 109% del objetivo global antes de
-publicarse. Los recuentos exactos del servidor y los borradores del modelo guían
-reescrituras automáticas acotadas. El texto de longitud inválida no se guarda
-como narración válida, no se recorta ni se sustituye manualmente. Las evidencias
-demasiado grandes pasan por resúmenes internos recursivos con un objetivo
-orientativo de unas 160 palabras, sin perder sus fuentes. Se comprueba el contexto
-real de cada petición y cada reducción debe disminuir el tamaño. El límite de
-palabras del guion hablado sigue siendo estricto. Cada petición se comprueba
-contra el contexto actual, también durante las correcciones de longitud.
+El redactor automático produce una única narración natural. Las peticiones iniciales grandes pueden utilizar digests temáticos con la pertenencia de las fuentes controlada por la aplicación; las correcciones conservan la evidencia original. Cada hecho sustantivo requiere una decisión explícita de cobertura. Un detalle secundario puede agruparse con un hecho ya cubierto, pero la agrupación no puede hacer desaparecer un tema minoritario independiente.
 
-Las correcciones de longitud usan un estado numérico actual separado, que
-sustituye los recuentos y ajustes antiguos y conserva las objeciones semánticas.
-El servidor aporta el último guion rechazado si cabe después de comprimir las
-fuentes. Si aún no cabe, la siguiente petición solicita una composición nueva
-con un objetivo absoluto, sin aplicar ajustes a un texto ausente. Cada reintento
-de validación recibe también el recuento, el sentido del cambio y el objetivo
-del guion recién rechazado. No se publica ni se recorta una narración inválida
-y se mantienen los límites de llamadas y contexto.
+El recuento de palabras orienta la composición sin imponer una cuota exacta. La tolerancia de duración predeterminada es del 20%: un objetivo de diez minutos admite aproximadamente entre ocho y doce minutos. La duración real del audio debe medirse por separado; una estimación de palabras no demuestra la duración del MP3.
 
-`podcast_review.py` valida citas exactas del guion y de las evidencias antes de
-guardar objeciones semánticas. Las omisiones identifican evidencias; las
-distorsiones factuales requieren una afirmación citada y evidencias que la
-contradigan directamente. La ausencia en un lote no desmiente una noticia
-fundamentada en otro. Las notas de producción y las repeticiones citan el guion
-real. Otra pasada del modelo contrasta las objeciones y solo puede conservar las
-demostradas sin modificarlas. Las confirmaciones se dividen en lotes sin eliminar
-sus fuentes. Las omisiones reales sin resolver bloquean la publicación.
+Un borrador automático revisado se corrige mediante ediciones locales basadas en las fuentes, también cuando se detectan muchas omisiones. Cada edición debe anclarse al texto original exacto y al hash inmutable del borrador, responder a los hallazgos requeridos y preservar la prosa fuera de su intervalo. Si la corrección no cabe en el contexto existente, la generación falla explícitamente en lugar de sustituir todo el episodio. La narración corregida pasa una revisión semántica final antes de sintetizar la voz. El modo breve permite dos revisiones semánticas y una corrección; la aprobación queda vinculada a la revisión actual de la política. La revisión breve comprueba los resúmenes aportados y no certifica todos los matices de cada artículo original. La revisión completa mediante `podcast_review.py` conserva sus comprobaciones de evidencia. El informe `podcast-coverage-report` registra el modo efectivo y la validación final.
 
-Todas las notas completas se revisan frente a la narración entera en lotes
-acotados. La revisión del episodio comprueba también los asuntos minoritarios y
-las repeticiones. Hasta tres rondas completas de redacción y revisión corrigen
-las objeciones automáticamente. Solo la prosa para el oyente llega a la síntesis
-de voz: no se locutan etiquetas, evidencias, avisos de acceso ni instrucciones de
-producción. Los fallos, rechazos y cancelaciones conservan el audio anterior.
+Reanudar un podcast conserva la selección congelada de artículos y las instrucciones, y actualiza el modelo, la ruta del proveedor y el razonamiento configurados explícitamente. Los resúmenes preparados solo se reutilizan si coincide la huella completa de las fuentes; la preparación antigua debe coincidir con los originales congelados exactos y las citas literales. Los podcasts completados con una política de aprobación obsoleta pueden revalidarse mediante la reanudación normal; las demás operaciones completadas mantienen la protección existente.
 
-Las revisiones de fuentes comprueban por separado la fidelidad factual y la
-cobertura temática, con hasta 16 notas por lote y la lista completa de asuntos.
-El estado de los hechos, las atribuciones y el alcance de las cifras tienen una
-comprobación específica. Si el proveedor agota la salida, solo se divide de forma
-recursiva el lote fallido de fuentes u objeciones; la confirmación conserva todas
-las evidencias originales. Un fallo indivisible bloquea la publicación. Cada
-ronda revisa también el episodio completo aunque queden objeciones sobre fuentes.
-Las objeciones actuales conservan el tipo y las fuentes; las antiguas y los
-guiones previos no se acumulan en las instrucciones de corrección. Solo el último
-guion se ofrece como contexto opcional separado. Se mantienen los límites de
-modelo, salida, tiempo y cancelación.
+La selección de un modelo debe considerar conjuntamente el proveedor real, el razonamiento, la capacidad útil de salida, el contexto y el plazo. Hay que validar esa combinación con una jornada representativa, incluyendo la revisión final del contenido, la duración medida del MP3 y la reproducción nativa. Cambiar de proveedor no selecciona otro algoritmo editorial. Los adaptadores pueden simplificar el esquema enviado a un endpoint fijado o utilizar transporte JSON, pero el esquema completo original sigue validándose localmente. Una reanudación correcta con preparación guardada no mide el rendimiento de una jornada completa desde cero. Cambiar la configuración del agente no implica ninguna ruta alternativa ni llamada adicional al modelo.
 
-`podcast-coverage-report`, versión 4, conserva el esquema, todas las notas, las
-asignaciones del servidor y el recuento de palabras. La cobertura estructural y
-las citas literales no prueban por sí solas la corrección semántica: la prueba
-real debe comparar el guion con todos los temas y matices y medir el MP3 respecto
-al objetivo aproximado de diez minutos.
-
-Las operaciones internas de planificación, resumen, redacción y revisión tienen
-300 segundos y 16.384 tokens de salida, incluido el razonamiento, salvo un límite
-explícito del perfil. Los contratos actuales acompañan las instantáneas antiguas;
-estas operaciones no utilizan delegación opcional. La planificación, redacción y
-resumen solo desactivan el razonamiento si los metadatos del proveedor lo declaran
-opcional y no existe una elección explícita en el perfil o cliente. Las revisiones
-mantienen el razonamiento habitual. Se conservan el modelo, las salvaguardas,
-preferencias de salida, límites de tiempo, ámbito autorizado y publicación atómica.
-
-El historial conserva los trabajos principales autorizados junto con las llamadas
-recientes, manteniendo su control de reanudación tras más de 50 llamadas internas.
-Nunca expone padres ausentes o de otro ámbito. Los metadatos exactos de contexto
-admiten modelos ausentes del registro; los límites explícitos tienen prioridad y
-los modelos desconocidos conservan el valor prudente. Las demás operaciones
-documentales mantienen sus protecciones.
-
-Los objetivos orientativos de los párrafos suman exactamente el presupuesto global. Los reintentos de validación reciben los recuentos actuales por párrafo y una distribución proporcional sugerida, recalculada a partir de la respuesta inmediatamente rechazada. Las palabras pueden redistribuirse; solo el límite global y las revisiones semánticas determinan la aceptación.
 
 ### Guías internas de corrección acotadas
 
@@ -595,3 +538,24 @@ caracteres. La sustitución sigue sujeta a los mismos controles de ASCII imprimi
 El patrón enviado al proveedor también codifica el mismo límite dinámico de bytes con un cuantificador acotado. Así el límite queda explícito en los servicios que no aplican de forma fiable el campo separado `maxLength`. Se mantienen el límite del esquema, la validación local de ASCII y bytes y las revisiones semánticas completas.
 
 Las correcciones de longitud transportan el mismo flujo completo y ordenado de palabras en una sola cadena `token_text`, en lugar de un elemento JSON por palabra. El esquema del proveedor comprueba la cadena y todas las exclusiones sin un patrón global de recuento; el servidor impone el mismo intervalo exacto de palabras locutadas antes de la revisión semántica o la voz. Las respuestas fuera del intervalo pasan por la corrección automática acotada existente, con el recuento medido y el objeto original recibido del modelo. Se comprueban todos los marcadores ordenados, las exclusiones explícitas y los matices, y se conserva la lectura de los arrays antiguos. No se recorta ni se sustituye manualmente ningún texto. Se mantienen las revisiones de fidelidad, cobertura y conjunto del episodio, y los límites de contexto, llamadas y tiempo. Los tiempos de espera reales del transporte con recuento restringido motivan esta separación; solo una generación automática real completada puede acreditar el resultado.
+
+## Preferencias editables del podcast diario
+
+La skill asignada `core.gnosi-daily-briefing` contiene el criterio editorial y un bloque JSON `podcast_preferences` en las instrucciones editables. Puede personalizarse en Configuración → IA. Por defecto solicita diez minutos y un máximo de doce grupos temáticos. El bloque también configura el umbral de artículos, palabras por artículo y longitud mínima de los días con poco contenido. `podcast_policy.py` solo lee la skill canónica efectiva, incluida una personalización asignada; los artículos, otras skills y el contexto del bot no pueden establecer estos parámetros. Los bloques parciales heredan los valores originales. Una configuración inválida, duplicada o ambigua falla antes de llamar al modelo. Cada tarea fija las preferencias resueltas, las pasa a planificación, redacción y revisión, y las registra en el informe de cobertura.
+
+El planificador puede devolver menos temas que el máximo configurado; ya no rellena los días amplios hasta 32 posiciones. Cada tarjeta mantiene exactamente una asignación a un tema declarado y se conservan todos los identificadores y asuntos originales. El motor mantiene los límites técnicos, las validaciones de esquema y evidencias, la revisión de las fuentes originales, el rango de palabras, la persistencia, la cancelación y las garantías de publicación. Cambiar la duración modifica el objetivo; el valor predeterminado para días amplios sigue siendo 1.380 palabras.
+
+El `review_mode` editable es `brief` por defecto: una revisión global de los resúmenes de fuentes y temas principales, como máximo una reescritura correctiva y después publicación normal de la voz. `full` activa explícitamente las auditorías exhaustivas de fragmentos originales. Los metadatos guardados identifican el alcance real.
+
+En el modo `brief` por defecto, se preparan simultáneamente como máximo cuatro lotes independientes. Cada lote conserva la petición y la clave de caché originales, el contexto autenticado y la validación; los resultados se ordenan según las fuentes. La cancelación o un fallo impide publicar cobertura parcial. La reanudación reutiliza los mismos puntos validados. El razonamiento opcional predeterminado del proveedor se desactiva para la extracción cuando el modelo declara que lo permite; se respetan las opciones explícitas del perfil. El modo `full` explícito mantiene la extracción secuencial.
+
+La síntesis breve utiliza el presupuesto de contexto resuelto del modelo seleccionado, después de las reservas existentes para respuesta e instrucciones. La planificación, redacción y revisión única reciben directamente todas las notas de fuentes cuando caben, sin forzar resúmenes intermedios mediante un límite independiente de 80.000 unidades. Se mantienen el recuento conservador y la comprobación final del límite de cada petición. Los contextos pequeños conservan la compresión alternativa; el modo `full` explícito mantiene el límite de síntesis de 80.000 unidades.
+
+Las reescrituras semánticas breves en modo `brief` mantienen el contrato de lista `word_tokens_v1` cuando el máximo de palabras más los marcadores de grupo no supera 2.048 elementos. Las reducciones solo de longitud en modo `brief` usan la misma lista limitada cuando son elegibles; las demás reparaciones iniciales conservan el transporte compacto `word_text_v1`; el servidor sigue imponiendo el mismo rango global exacto de palabras, los marcadores ordenados y las exclusiones antes de la revisión o la voz. Una composición `brief` demasiado larga usa la petición existente de reducción solo de longitud aunque toda la evidencia quepa: conserva la composición rechazada exacta, las indicaciones medidas actuales, todos los grupos temáticos y todos los identificadores de fragmentos, sin reenviar los resúmenes originales ni comentarios semánticos antiguos. Este paso solo puede acortar prosa sustentada; después, la única revisión del día sigue recibiendo todos los resúmenes originales. La ampliación de textos demasiado cortos conserva la evidencia. No se recorta prosa ni se imponen límites rígidos por grupo, y no cambian los límites de llamadas, etapas, contexto y tiempo. El modo completo y los episodios largos mantienen su comportamiento; los transportes admitidos guardados siguen siendo legibles.
+
+La planificación agrupa los relatos repetidos y los ángulos complementarios de un mismo hecho antes de repartir los grupos. Evita dedicar varias posiciones a un solo acontecimiento mientras oculta ámbitos minoritarios en grupos genéricos. La revisión breve comprueba la cobertura concreta de todos los subtemas antes de la fidelidad factual; el título de un grupo no acredita sus líneas independientes. Se pueden comprimir detalles rutinarios, pero la ausencia de un ámbito sustantivo o de una investigación de interés público sigue siendo una omisión material. Se mantienen una sola revisión y los límites existentes de llamadas, tiempo y salida.
+
+Cuando un borrador revisado en modo `brief` ya cumple el rango global de palabras y todas las evidencias caben en el contexto seleccionado, la corrección semántica utiliza `grounded_edits_v1` en lugar de regenerar el episodio. El modelo devuelve sustituciones acotadas, con anclas únicas en el borrador inmutable exacto, índices de incidencias desde cero y su SHA-256. El servidor rechaza huellas antiguas, anclas ambiguas o solapadas, incidencias no referenciadas y un resultado fuera del rango de palabras. La prosa no afectada se conserva literalmente; siguen disponibles todas las notas de fuentes, los grupos temáticos y las incidencias. La etapa conserva dos llamadas, 300 segundos y el límite de tokens de salida. No se publica ningún cambio parcial y la generación normal de voz continúa solo tras validar. Las reescrituras completas y las primeras reparaciones de longitud conservan los transportes anteriores.
+
+
+Las correcciones factuales pueden solaparse parcialmente con un pasaje citado en su posición original; compartir palabras en otro lugar no vincula una corrección. La petición incluye el recuento original y el margen neto global de palabras. La validación devuelve juntos los errores de anclaje, incidencias y longitud dentro del mismo presupuesto de reparación; los recuentos parciales se identifican y no se publican. Las afirmaciones de la revisión se contrastan con todas las evidencias para distinguir los hechos descritos de las normas que infringían.

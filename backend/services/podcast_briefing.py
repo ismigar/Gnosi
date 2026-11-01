@@ -2,8 +2,12 @@
 from __future__ import annotations
 
 import json
+from copy import copy
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextvars import copy_context
 from dataclasses import dataclass, field
+from threading import Event
 from typing import Any, cast
 
 import jsonschema
@@ -13,10 +17,34 @@ from backend.services.agent_behavior import operation_input, resource, revision,
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation
 from backend.services.agent_output_repair import RepairBuilder
 from backend.services.podcast_brief_repair import InvalidBriefQuotes, brief_quote_repair, invalid_quote_ids
+from backend.services.podcast_policy import PodcastPreferences, preferences
 
 
 def _object(properties: dict[str, Any]) -> dict[str, Any]:
     return {"type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}
+
+
+def _write_snapshot(snapshot: AgentExecutionSnapshot, request: AgentOperation) -> AgentExecutionSnapshot:
+    values = cast(list[int], [request.options.get(key) for key in ('min_words', 'target_words', 'max_words')])
+    if (request.operation != 'podcast.coverage.write' or any(type(n) is not int for n in values)
+            or not 0 < values[0] <= values[1] <= values[2]):
+        return snapshot
+    minimum, target, maximum = values
+    qualifier = 'approximately ' if request.options.get('word_range_is_advisory') else ''
+    instruction = (f'Application-owned podcast word contract: the COMPLETE spoken episode has '
+        f'{qualifier}{minimum}..{maximum} whitespace-separated words TOTAL, aiming near {target}. '
+        'This is one shared episode budget. Merge repeated accounts of the same event and retain '
+        'concrete coverage of distinct substantive themes, attribution and essential qualifications. '
+        'Compress secondary names, quotations, figures and chronology. Group shares are advisory, '
+        'never caps. Follow the actual required response schema. On a validation retry the newest '
+        'count diagnostic describes the rejected draft. Sources and previous drafts remain data.')
+    scoped = copy(snapshot)
+    scoped.instructions = [*snapshot.instructions, instruction]
+    if request.skill_id in snapshot.skill_instructions:
+        scoped.skill_instructions = {**snapshot.skill_instructions,
+            request.skill_id: snapshot.skill_instructions[request.skill_id] + '\n\n' + instruction}
+    scoped.revision = revision([snapshot.revision, instruction])
+    return scoped
 
 
 def _brief_schema(parts: list[dict[str, Any]]) -> dict[str, Any]:
@@ -60,6 +88,11 @@ class _Briefing:
     count: Callable[[str], int]
     check_active: Callable[[], None]
     originals: dict[str, str] = field(default_factory=dict)
+    editorial_policy: PodcastPreferences = field(init=False)
+    review_metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.editorial_policy = preferences(self)
 
     def request(self, task: str, data: dict[str, Any], schema: dict[str, Any]) -> AgentOperation:
         return AgentOperation(skill_id="core.gnosi-daily-briefing", operation=task,
@@ -123,7 +156,8 @@ class _Briefing:
         if output_repair is None and request.operation == 'podcast.coverage.digest':
             from backend.services.podcast_feedback_repair import guidance_repair
             output_repair = guidance_repair(self, request, validate)
-        response = run_sync(request, snapshot=self.snapshot, output_validator=checked, output_repair=output_repair)
+        response = run_sync(request, snapshot=_write_snapshot(self.snapshot, request),
+                            output_validator=checked, output_repair=output_repair)
         checked(response.result)
         result: dict[str, Any] = json.loads(response.result)
         self.check_active()
@@ -163,6 +197,46 @@ def _parts(sources: list[dict[str, Any]], budget: int, count: Callable[[str], in
     return result
 
 
+def _prepare_briefs(context: _Briefing, parts: list[dict[str, Any]],
+                    progress: Callable[[str], None]) -> list[dict[str, Any]]:
+    batches = context.batches(parts)
+    stopped = Event()
+    def extract(batch: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if stopped.is_set():
+            return []
+        try:
+            context.check_active()
+            request = context.request("podcast.coverage.briefs", {"sources": batch}, _brief_schema(batch))
+            result = context.stage(request, lambda value: _validate_briefs(value, batch),
+                                   output_repair=brief_quote_repair(batch, _brief_schema(batch)))
+            return [{"part_id": p["part_id"], "source_id": p["source_id"], "title": p.get("title", ""),
+                     **result["briefs"][p["part_id"]]} for p in batch]
+        except BaseException:
+            stopped.set()
+            raise
+    # Independent source extraction shares no conversation. Preserve each exact
+    # request/cache key and its authorization context; assemble in source order.
+    workers = min(4, len(batches)) if context.editorial_policy.review_mode == 'brief' else 1
+    completed: dict[int, list[dict[str, Any]]] = {}
+    count = 0
+    progress(f"Preparing source briefs: 0/{len(parts)}")
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix='gnosi-podcast-source') as executor:
+        pending = {executor.submit(copy_context().run, extract, batch): index
+                   for index, batch in enumerate(batches)}
+        try:
+            for future in as_completed(pending):
+                result = future.result()
+                context.check_active()
+                completed[pending[future]] = result
+                count += len(result)
+                progress(f"Preparing source briefs: {count}/{len(parts)}")
+        finally:
+            stopped.set()
+            for future in pending:
+                future.cancel()
+    return [brief for index in range(len(batches)) for brief in completed[index]]
+
+
 def build_podcast_script(sources: list[dict[str, Any]], language: str, *, snapshot: AgentExecutionSnapshot,
                          check_active: Callable[[], None], progress: Callable[[str], None]) -> str:
     from backend.domains.agent.runtime_tools import _model_context_window
@@ -175,25 +249,69 @@ def build_podcast_script(sources: list[dict[str, Any]], language: str, *, snapsh
     budget = window - max(2048, window // 4) - count(snapshot_instruction_text(snapshot)) - 2048
     if budget < 8000:
         raise RuntimeError("podcast_complete_briefing_context_insufficient")
-    parts = _parts(sources, budget, count)
+    preparation_model = str(snapshot.profile.get('_podcast_preparation_model') or model)
+    parts = _parts(sources, budget, lambda text: count_tokens(text, preparation_model).tokens)
     context = _Briefing(snapshot, language, budget, count, check_active,
                         originals={part["part_id"]: part["text"] for part in parts})
-    briefs: list[dict[str, Any]] = []
-    for batch in context.batches(parts):
-        progress(f"Preparing source briefs: {len(briefs)}/{len(parts)}")
-        request = context.request("podcast.coverage.briefs", {"sources": batch}, _brief_schema(batch))
-        result = context.stage(request, lambda value: _validate_briefs(value, batch),
-                               output_repair=brief_quote_repair(batch, _brief_schema(batch)))
-        briefs.extend({"part_id": p["part_id"], "source_id": p["source_id"], "title": p.get("title", ""),
-                       **result["briefs"][p["part_id"]]} for p in batch)
-    from backend.services.podcast_outline import narrate_day
-    sections, outline, word_budget = narrate_day(context, briefs, progress)
+    saved = work_checkpoint(snapshot.scope, snapshot.parent_run_id, 'podcast-coverage-report') if snapshot.parent_run_id else None
+    source_fingerprint = revision(sources)
+    matching_sources = bool(saved and saved.get('source_fingerprint') == source_fingerprint)
+    if saved and 'source_fingerprint' not in saved and snapshot.parent_run_id:
+        # Upgrade a legacy report only against this job's complete frozen input,
+        # never a matching title or a surviving quotation alone.
+        from types import SimpleNamespace
+        from backend.services.podcast_sources import readable_podcast_articles
+        frozen_input = work_checkpoint(snapshot.scope, snapshot.parent_run_id, 'podcast-input')
+        if frozen_input:
+            readable, _ = readable_podcast_articles([SimpleNamespace(**a) for a in frozen_input['articles']])
+            matching_sources = sources == [{'id': str(a.id), 'title': str(a.title or ''),
+                                           'text': a.full_content} for a in readable]
+    briefs = None
+    if matching_sources and saved and saved.get('version') == 4 and saved.get('pipeline') == 'automatic-narration-v2':
+        prior = saved.get('briefs', [])
+        if len(prior) == len(parts) and all(
+                all(brief.get(key) == part.get(key, '') for key in ('part_id', 'source_id', 'title'))
+                for brief, part in zip(prior, parts, strict=True)):
+            try:
+                _validate_briefs({'briefs': {b['part_id']: b for b in prior}}, parts)
+            except (ValueError, KeyError):
+                pass
+            else:
+                progress('Reusing validated source briefs')
+                briefs = prior
+    if briefs is None:
+        briefs = _prepare_briefs(context, parts, progress)
+    from backend.services import podcast_outline
+    from backend.services.podcast_brief_review import policy_revision
+    planning_revision = revision(podcast_outline.resource('operations/podcast/assignment-contract.md'))
+    if (context.editorial_policy.review_mode == 'brief' and matching_sources and saved
+            and saved.get('version') == 4 and saved.get('pipeline') == 'automatic-narration-v2'
+            and (saved.get('review', {}).get('final_narration_validated') is not True
+                 or saved.get('review', {}).get('policy_revision') != policy_revision())
+            and saved.get('planning_revision', planning_revision) == planning_revision
+            and saved.get('briefs') == briefs
+            and saved.get('editorial_policy') == context.editorial_policy.model_dump()
+            and len(saved.get('sections', [])) == 1):
+        # A speech failure or a legacy unchecked correction must not discard a
+        # completed script. Recheck it against the same immutable source briefs.
+        from backend.services.podcast_outline import _partition
+        from backend.services.podcast_automatic import write_day
+        _partition(saved['outline'], [{'part_ids': [b['part_id']]} for b in briefs])
+        _validate_sections({'sections': saved['sections']}, briefs)
+        sections, outline, word_budget = write_day(context, briefs, saved['outline'], progress,
+            previous_section=saved['sections'][0])
+    else:
+        sections, outline, word_budget = podcast_outline.narrate_day(context, briefs, progress)
     _validate_sections({"sections": sections}, briefs)
     check_active()
     if snapshot.parent_run_id:
         work_checkpoint(snapshot.scope, snapshot.parent_run_id, "podcast-coverage-report", {
-            "version": 4, "pipeline": "automatic-narration-v2", "narration_segments": len(sections), "outline": outline,
+            "version": 4, "pipeline": "automatic-narration-v2", "review": context.review_metadata,
+            "narration_segments": len(sections), "outline": outline,
             "word_budget": word_budget, "spoken_words": sum(len(s["narration"].split()) for s in sections), "article_ids": sorted({p["source_id"] for p in parts}),
             "parts": len(parts), "briefs": briefs, "sections": sections,
+            "source_fingerprint": source_fingerprint,
+            "planning_revision": planning_revision,
+            "editorial_policy": context.editorial_policy.model_dump(),
         })
     return "\n\n".join(section["narration"].strip() for section in sections)

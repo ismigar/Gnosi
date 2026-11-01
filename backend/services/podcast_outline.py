@@ -3,16 +3,13 @@ from __future__ import annotations
 
 from typing import Any, TYPE_CHECKING
 
-from backend.services.agent_behavior import resource
-from backend.services.podcast_briefing import _object, _section_schema, _validate_sections
+from backend.services.agent_behavior import resource as resource
+from backend.services.podcast_briefing import _object
+from backend.services.podcast_policy import preferences, synthesis_context_limit
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from backend.services.podcast_briefing import _Briefing
-
-
-TARGET_WORDS = 1380
-MAX_TOPICS = 32
 
 
 def _request(context: _Briefing, task: str, data: dict[str, Any], schema: dict[str, Any], **options: Any) -> Any:
@@ -33,13 +30,15 @@ def _partition(groups: list[dict[str, Any]], cards: list[dict[str, Any]]) -> Non
 
 def _plan_request(context: _Briefing, cards: list[dict[str, Any]]) -> Any:
     # Required object keys make missing/duplicated source-list entries impossible.
-    limit = min(MAX_TOPICS, len(cards))
-    schema = _object({"topics": {"type": "array", "minItems": limit, "maxItems": limit,
+    policy = preferences(context)
+    limit = min(policy.max_topic_groups, len(cards))
+    schema = _object({"topics": {"type": "array", "minItems": 1, "maxItems": limit,
         "items": {"type": "string", "minLength": 1, "maxLength": 180}},
         "assignments": _object({c["part_ids"][0]: {"type": "integer", "enum": list(range(limit))}
                                 for c in cards})})
     return context.request("podcast.coverage.plan", {"cards": cards}, schema).model_copy(update={
-        "options": {"planning_contract": resource("operations/podcast/assignment-contract.md")}})
+        "options": {"planning_contract": resource("operations/podcast/assignment-contract.md"),
+                    "editorial_policy": policy.model_dump(exclude={'review_mode'})}})
 
 
 def _planning_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -53,6 +52,8 @@ def _route(context: _Briefing, cards: list[dict[str, Any]]) -> list[dict[str, An
     def checked(value: dict[str, Any]) -> None:
         if any(not label.strip() for label in value["topics"]):
             raise ValueError("podcast_empty_outline_topic")
+        if any(index >= len(value["topics"]) for index in value["assignments"].values()):
+            raise ValueError("podcast_outline_assignment_out_of_range")
     result = context.stage(_plan_request(context, visible), checked)
     groups: dict[str, dict[str, Any]] = {}
     for handle, card in zip((c["part_ids"][0] for c in visible), cards, strict=True):
@@ -69,7 +70,7 @@ def _route(context: _Briefing, cards: list[dict[str, Any]]) -> list[dict[str, An
 
 def _outline(context: _Briefing, briefs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     cards = [{"topic": b["topic"], "summary": b["summary"], "part_ids": [b["part_id"]]} for b in briefs]
-    if context.cost(_plan_request(context, _planning_cards(cards))) <= min(80_000, context.budget):
+    if context.cost(_plan_request(context, _planning_cards(cards))) <= synthesis_context_limit(context):
         return _route(context, cards)
     limit = min(40_000, context.budget)
     def fits(candidate: list[dict[str, Any]]) -> bool:
@@ -89,27 +90,44 @@ def _outline(context: _Briefing, briefs: list[dict[str, Any]]) -> list[dict[str,
     return _route(context, cards)
 
 
+def _digest_part_ids(records: list[dict[str, Any]]) -> list[str]:
+    identifiers: list[str] = []
+    for record in records:
+        members = record.get("part_ids", [record.get("part_id")])
+        if not isinstance(members, list) or not members:
+            raise ValueError("podcast_day_coverage_incomplete_or_duplicate")
+        identifiers.extend(members)
+    if (not identifiers or any(not isinstance(value, str) or not value for value in identifiers)
+            or len(identifiers) != len(set(identifiers))):
+        raise ValueError("podcast_day_coverage_incomplete_or_duplicate")
+    return identifiers
+
+
 def _digest(context: _Briefing, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    _digest_part_ids(records)
     digests: list[dict[str, Any]] = []
     batches: list[list[dict[str, Any]]] = [[]]
     def request_for(batch: list[dict[str, Any]]) -> Any:
-        ids = [{"part_id": identifier} for b in batch for identifier in b.get("part_ids", [b.get("part_id")])]
-        schema = _section_schema(ids)
-        schema["properties"]["sections"]["maxItems"] = 1
-        return _request(context, "digest", {"briefs": batch}, schema, max_words=160)
+        schema = _object({key: {"type": "string", "minLength": 1} for key in ("topic", "narration")})
+        return _request(context, "digest", {"briefs": batch}, schema, max_words=160,
+                        digest_contract=resource("operations/podcast/digest-contract.md"))
+    def checked(value: dict[str, Any]) -> None:
+        if not value["topic"].strip() or not value["narration"].strip():
+            raise ValueError("podcast_empty_narration")
     for record in records:
         candidate = [*batches[-1], record]
         if batches[-1] and (len(candidate) > 8 or context.cost(request_for(candidate)) > min(40_000, context.budget)):
             batches.append([])
         batches[-1].append(record)
     for batch in batches:
-        expected = [{"part_id": identifier} for b in batch for identifier in b.get("part_ids", [b.get("part_id")])]
         request = request_for(batch)
         if context.cost(request) > min(40_000, context.budget):
             raise RuntimeError("podcast_theme_context_insufficient")
-        result = context.stage(request, lambda value: _validate_sections(value, expected))
-        digests.extend({"topic": s["topic"], "part_ids": s["part_ids"], "summary": s["narration"]}
-                       for s in result["sections"])
+        result = context.stage(request, checked)
+        # Membership belongs to the exact input batch, not to model transcription.
+        # Attaching it does not approve prose: original-source audits still follow.
+        digests.append({"topic": result["topic"], "part_ids": _digest_part_ids(batch),
+                        "summary": result["narration"]})
     return digests
 
 

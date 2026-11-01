@@ -53,11 +53,19 @@ def test_multiple_providers_same_model_and_agent(runtime):
     assert dashboard.dashboard(query(model='p1:same'),SCOPE)['summary']['calls'] == 1
 
 
-def test_ledger_budget_and_csv_match(runtime):
+@pytest.mark.parametrize('month,monthly_total', [(10, 4), (11, 0)])
+def test_ledger_budget_and_csv_match(runtime, monkeypatch, month, monthly_total):
+    class BudgetClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            instant = datetime(2026, month, 2, 12, tzinfo=timezone.utc)
+            return instant.astimezone(tz) if tz is not None else instant.replace(tzinfo=None)
+
+    monkeypatch.setattr(dashboard, 'datetime', BudgetClock)
     add();add(provider='p2',cost='3');data=dashboard.dashboard(query(),SCOPE)
     assert data['budget']['spent_usd'] == data['summary']['cost_usd'] == 4
     filtered=dashboard.dashboard(query(provider='p1'),SCOPE)
-    assert filtered['budget_summary']['cost_usd'] == data['budget_summary']['cost_usd'] == 4
+    assert filtered['budget_summary']['cost_usd'] == data['budget_summary']['cost_usd'] == monthly_total
     rows=list(csv.DictReader(io.StringIO(dashboard.export_csv(query(),SCOPE).lstrip('\ufeff'))))
     assert sum(Decimal(r['cost_usd']) for r in rows) == 4
     assert sum(g['cost_ccy'] for g in data['groups']) == data['summary']['cost_ccy']
