@@ -43,7 +43,7 @@ describe('Website and hosting management', () => {
     vi.mocked(api.rollbackSite).mockResolvedValue({ ...release, current: true });
     const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'publishing');
     expect(view.container.textContent).toContain('2026-11-01');
-    expect(view.container.textContent?.includes('websites.removedHosting')).toBe(removed);
+    expect(view.container.textContent.includes('websites.removedHosting')).toBe(removed);
     const restore = [...view.container.querySelectorAll('button')].find(item => item.textContent === 'websites.rollback');
     if (removed) {
       expect(restore).toBeUndefined();
