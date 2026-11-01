@@ -90,7 +90,9 @@ test('real child readiness, live status and shutdown use its unique marker', asy
   }).listen(${port},'127.0.0.1');`;
   const handle = await launchBackend(childOptions(t, script, port));
   assert.equal(await handle.isRunning(), true);
-  await handle.stop();
+  const firstStop = handle.stop();
+  assert.equal(handle.stop(), firstStop);
+  await firstStop;
   assert.notEqual(handle.process.signalCode, null);
   assert.equal(await handle.isRunning(), false);
 });
@@ -130,6 +132,44 @@ for (const missing of [false, true]) {
     assert.ok(child.pid === undefined || child.exitCode !== null || child.signalCode !== null);
   });
 }
+
+test('cloud retry reaps the actual failed child before launching the same vault successfully', async t => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { launchConfiguredBackend } = require('./vault-startup');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gnosi-cloud-retry-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const available = path.join(root, 'available');
+  const children = [];
+  const port = await reservedPort();
+  const script = `if (!require('fs').existsSync(process.env.AVAILABLE)) {
+    process.stderr.write('GNOSI_STARTUP_ERROR '+process.env.GNOSI_DESKTOP_INSTANCE+' cloud_metadata_unavailable\\n');
+    process.exit(74);
+  }
+  require('http').createServer((req,res) => {
+    res.setHeader('x-gnosi-desktop-instance',process.env.GNOSI_DESKTOP_INSTANCE);
+    res.end(JSON.stringify({status:'ok',mode:'FastAPI',vault_configured:true}));
+  }).listen(${port},'127.0.0.1');`;
+  const result = await launchConfiguredBackend({
+    environment: { GNOSI_DATA_DIR: path.join(root, 'data'), DIGITAL_BRAIN_VAULT_PATH: root, AVAILABLE: available },
+    locale: 'en', chooseDirectory: async () => assert.fail('Keep selected vault'),
+    launch: environment => launchBackend(childOptions(t, script, port, {
+      environment, onSpawn: child => { children.push(child); },
+    })),
+    showRecoveryDialog: async () => {
+      assert.equal(children.length, 1);
+      assert.equal(children[0].exitCode, 74);
+      fs.writeFileSync(available, 'ready');
+      return { response: 0 };
+    },
+  });
+  t.after(async () => { for (const child of children) await stopBackend(child, 100); });
+  assert.equal(children.length, 2);
+  assert.equal(await result.isRunning(), true);
+  await result.stop();
+  assert.equal(fs.existsSync(path.join(root, 'data', 'desktop-vault.json')), false);
+});
 
 test('private desktop port coexists with an occupied native listener', async t => {
   const occupied = await serverFixture(t, (_request, response) => response.end(body));
@@ -173,3 +213,21 @@ test('a foreign process cannot supply the Vault setup state', async t => {
   assert.equal(await probeBackend(url, identity, 500, undefined, () => { called = true; }), false);
   assert.equal(called, false);
 });
+
+for (const variant of ['valid', 'split', 'wrong-identity', 'wrong-exit', 'stdout', 'oversized']) {
+  test(`cloud startup error requires an owned bounded stderr record and exit 74: ${variant}`, async t => {
+    const script = `const marker = 'GNOSI_STARTUP_ERROR ' + ${variant === 'wrong-identity' ? "'f'.repeat(64)" : 'process.env.GNOSI_DESKTOP_INSTANCE'} + ' cloud_metadata_unavailable\\n';
+      const output = process.${variant === 'stdout' ? 'stdout' : 'stderr'};
+      ${variant === 'oversized' ? "output.write('x'.repeat(10000));" : ''}
+      ${variant === 'split' ? "output.write(marker.slice(0, 20)); setTimeout(() => output.write(marker.slice(20)), 5);" : 'output.write(marker);'}
+      setTimeout(() => process.exit(${variant === 'wrong-exit' ? 1 : 74}), 20);`;
+    let child;
+    await assert.rejects(launchBackend(childOptions(t, script, await reservedPort(), {
+      onSpawn: process => { child = process; },
+    })), error => {
+      assert.equal(error.code === 'GNOSI_CLOUD_METADATA_UNAVAILABLE', ['valid', 'split'].includes(variant));
+      return true;
+    });
+    assert.equal(child.exitCode, variant === 'wrong-exit' ? 1 : 74);
+  });
+}

@@ -30,6 +30,7 @@ source_paths:
   - .github/workflows/ci.yml
   - backend/config/env_config.py
   - backend/server.py
+  - backend/config/startup_errors.py
   - desktop/application-menu.js
   - desktop/help-links.json
   - frontend/src/shared/help/helpLinks.ts
@@ -67,6 +68,7 @@ tests:
   - desktop/release-source-identity.test.js
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
+  - backend/tests/test_cloud_config_startup.py
   - desktop/backend-process.test.js
   - desktop/vault-startup.test.js
   - desktop/vault-recovery.test.js
@@ -141,6 +143,17 @@ process; it does not authenticate a user or change the public health JSON.
 Timeouts, redirects, malformed responses, early exit and unrelated HTTP 200
 responses fail startup and clean up the owned child. A missing packaged
 executable never falls back to system Python.
+
+Unavailable cloud vault configuration blocks startup without inheriting defaults
+or saving over unread metadata. The backend reports only a fixed startup code
+and its process token, with exit status 74. After reaping that owned child,
+Electron offers a localized native Retry/Quit dialog advising the user to check
+their cloud provider or download the configuration for offline use. Retry keeps
+the same vault and profile, including a new folder choice not yet persisted.
+Only successful readiness allows persistence and opens the renderer; cancelling
+or quitting cannot relaunch a child or show a late window. Other startup errors
+retain the existing installation recovery path. Each launch retains the bounded
+startup deadline and process cleanup.
 
 New Window, Settings, Dock activation and delayed window display cannot bypass
 backend readiness or shutdown. Closing the last macOS window does not quit the

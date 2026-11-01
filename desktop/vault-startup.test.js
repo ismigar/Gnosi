@@ -68,6 +68,48 @@ test('existing configuration and explicit environment remain authoritative', asy
   }
 });
 
+for (const saved of [false, true]) {
+  test(`cloud retry retains the ${saved ? 'saved' : 'newly chosen'} vault and configuration`, async t => {
+    const { vault, environment } = fixture(t);
+    const config = path.join(vault, '.gnosi', 'params.yaml');
+    fs.mkdirSync(path.dirname(config));
+    const original = 'settings: {language: ca, custom: keep}\n';
+    fs.writeFileSync(config, original);
+    const selection = path.join(environment.GNOSI_DATA_DIR, 'desktop-vault.json');
+    if (saved) {
+      fs.mkdirSync(environment.GNOSI_DATA_DIR);
+      fs.writeFileSync(selection, JSON.stringify({ path: vault, selectionId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' }) + '\n');
+    }
+    const savedBytes = saved ? fs.readFileSync(selection, 'utf8') : null;
+    let selectedLaunches = 0;
+    let choices = 0;
+    let dialogs = 0;
+    const calls = [];
+    const result = await launchConfiguredBackend({ environment, locale: 'fr',
+      launch: async env => {
+        if (!env.DIGITAL_BRAIN_VAULT_PATH) return handle(false, calls, 'unconfigured');
+        assert.equal(env.DIGITAL_BRAIN_VAULT_PATH, vault);
+        if (++selectedLaunches === 1) throw Object.assign(new Error('Unavailable'), { code: 'GNOSI_CLOUD_METADATA_UNAVAILABLE' });
+        return handle(true, calls, 'ready');
+      },
+      chooseDirectory: async () => { choices++; return { canceled: false, filePaths: [vault] }; },
+      showRecoveryDialog: async () => {
+        dialogs++;
+        assert.equal(saved ? fs.readFileSync(selection, 'utf8') : fs.existsSync(selection), savedBytes ?? false);
+        assert.equal(fs.readFileSync(config, 'utf8'), original);
+        return { response: 0 };
+      },
+    });
+    assert.ok(result);
+    assert.equal(selectedLaunches, 2);
+    assert.equal(dialogs, 1);
+    assert.equal(choices, saved ? 0 : 1);
+    assert.equal(fs.readFileSync(config, 'utf8'), original);
+    assert.equal(fs.readFileSync(path.join(vault, 'note.md'), 'utf8'), 'Existing knowledge');
+    assert.equal(JSON.parse(fs.readFileSync(selection, 'utf8')).path, vault);
+  });
+}
+
 test('cancel leaves no selection and no live unconfigured child', async t => {
   const { environment } = fixture(t);
   const calls = [];

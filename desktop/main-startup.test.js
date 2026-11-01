@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const test = require('node:test');
 const { loadMainRuntime, senderEvent } = require('./test-helpers/main-runtime.cjs');
-const { backendStartupMessage } = require('./startup-errors');
+const { backendStartupMessage, cloudStartupDialog } = require('./startup-errors');
 
 function assertMenusCannotStart(runtime) {
   const windowsBefore = runtime.windows.length;
@@ -138,10 +138,34 @@ test('quit waits for owned child cleanup and cannot create a window after shutdo
   acknowledge();
   await startup;
   assert.equal(runtime.windows.length, 0);
+  assert.equal(runtime.calls.includes('quit'), false);
   assertMenusCannotStart(runtime);
   finishStop();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(runtime.calls.includes('quit'), true);
+});
+
+test('quitting during a successful retry reaps the late handle and never opens a window', async () => {
+  let release;
+  let attempts = 0;
+  let stopped = 0;
+  const pending = new Promise(resolve => { release = resolve; });
+  const runtime = loadMainRuntime({ initialize: false, bundleExists: true,
+    launchBackend: async () => {
+      if (++attempts === 1) throw { code: 'GNOSI_CLOUD_METADATA_UNAVAILABLE' };
+      await pending;
+      return { vaultConfigured: true, stop: async () => { stopped++; } };
+    },
+    showMessageBox: async () => ({ response: 0 }),
+  });
+  const startup = runtime.readyCallbacks[0]();
+  await new Promise(resolve => setImmediate(resolve));
+  runtime.lifecycle.get('before-quit')({ preventDefault() {} });
+  release();
+  await startup;
+  assert.equal(stopped, 1);
+  assert.equal(runtime.windows.length, 0);
+  assert.equal(attempts, 2);
 });
 
 test('ready menu actions work but delayed settings sends stop after backend exit', async () => {
@@ -227,6 +251,12 @@ for (const [locale, title, recovery] of [
     assert.ok(generic.title.includes(title));
     assert.doesNotMatch(generic.message, /5002/);
     assert.doesNotMatch(generic.message, /Synthetic private diagnostic/);
+    const cloud = cloudStartupDialog(locale);
+    assert.equal(cloud.title, generic.title);
+    assert.equal(cloud.buttons.length, 2);
+    assert.equal(cloud.cancelId, 1);
+    assert.match(cloud.detail, /OneDrive.*iCloud/);
+    assert.doesNotMatch(cloud.detail, /reinstall|instal·lar|instalar|installez/i);
   });
 }
 
@@ -316,3 +346,42 @@ test('canceling initial folder selection quits without opening a window or start
   runtime.lifecycle.get('activate')();
   assert.equal(runtime.windows.length, 0);
 });
+
+for (const outcome of ['retry', 'cancel', 'close', 'quit', 'new-error', 'unavailable-again']) {
+  test(`cloud configuration startup handles ${outcome} without premature windows or extra processes`, async () => {
+    let launches = 0;
+    let dialogs = 0;
+    let firstEnvironment;
+    const runtime = loadMainRuntime({ initialize: false, bundleExists: true,
+      launchBackend: async options => {
+        launches++;
+        if (launches === 1) firstEnvironment = options.environment;
+        else assert.deepEqual(options.environment, firstEnvironment);
+        if (launches === 1 || outcome === 'unavailable-again') {
+          throw Object.assign(new Error('Synthetic private configuration'), { code: 'GNOSI_CLOUD_METADATA_UNAVAILABLE' });
+        }
+        if (outcome === 'new-error') throw new Error('Synthetic new installation failure');
+        return { vaultConfigured: true, isRunning: async () => true, stop: async () => {} };
+      },
+      showOpenDialog: async () => assert.fail('Retry must keep the vault'),
+      showMessageBox: async options => {
+        dialogs++;
+        assert.equal(runtime.windows.length, 0);
+        assertMenusCannotStart(runtime);
+        assert.equal(options.cancelId, 1);
+        assert.equal(options.defaultId, 0);
+        assert.match(options.message, /configuration/i);
+        assert.match(options.detail, /OneDrive/);
+        assert.doesNotMatch(JSON.stringify(options), /Synthetic|reinstall/i);
+        if (outcome === 'quit') runtime.lifecycle.get('before-quit')({ preventDefault() {} });
+        return { response: ['cancel', 'close'].includes(outcome) || dialogs === 2 ? 1 : 0 };
+      },
+    });
+    await runtime.readyCallbacks[0]();
+    assert.equal(dialogs, outcome === 'unavailable-again' ? 2 : 1);
+    assert.equal(launches, ['retry', 'new-error', 'unavailable-again'].includes(outcome) ? 2 : 1);
+    assert.equal(runtime.windows.length, outcome === 'retry' ? 1 : 0);
+    assert.equal(runtime.calls.some(call => call.errorBox), outcome === 'new-error');
+    assert.equal(runtime.calls.includes('quit'), !['retry', 'quit'].includes(outcome));
+  });
+}

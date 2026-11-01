@@ -16,6 +16,7 @@ function loadMainRuntime({
   fetchResponse,
   userDataPath = '/fixture/user-data',
   showOpenDialog = async () => ({ canceled: true, filePaths: [] }),
+  showMessageBox = async () => ({ response: 1 }),
 } = {}) {
   const desktopRoot = path.dirname(__dirname);
   const calls = [];
@@ -70,7 +71,7 @@ function loadMainRuntime({
       getVersion: () => { calls.push('version'); return '3.0.0-rc.1'; },
     },
     BrowserWindow,
-    dialog: { showOpenDialog, showErrorBox: (title, message) => calls.push({ errorBox: { title, message } }) },
+    dialog: { showOpenDialog, showMessageBox, showErrorBox: (title, message) => calls.push({ errorBox: { title, message } }) },
     ipcMain: {
       handle: (channel, handler) => {
         assert.ok(!handlers.has(channel), `Duplicate handler: ${channel}`);

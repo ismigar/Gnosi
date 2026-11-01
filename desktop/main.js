@@ -224,6 +224,7 @@ async function startBackend() {
     environment,
     launch,
     chooseDirectory: options => dialog.showOpenDialog(options),
+    showRecoveryDialog: options => dialog.showMessageBox(options),
     backendCwd: path.join(__dirname, '..'),
     locale: app.getLocale(),
     isQuitting: () => quitting,
@@ -231,7 +232,7 @@ async function startBackend() {
   if (!backendHandle) {
     backendProcess = null;
     startupAllowed = false;
-    app.quit();
+    if (!quitting) app.quit();
     return;
   }
   backendReady = true;

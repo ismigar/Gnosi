@@ -5,6 +5,7 @@ const os = require('node:os');
 const { randomUUID } = require('node:crypto');
 const { resolveDataPath } = require('./profile-startup');
 const { resolveVaultFolder } = require('./vault-folders');
+const { isCloudStartupError, cloudStartupDialog } = require('./startup-errors');
 
 /** @type {Record<string, {title: string, message: string, buttonLabel: string}>} */
 const MESSAGES = {
@@ -25,9 +26,29 @@ function vaultDialogOptions(locale) {
 
 /**
  * Only the explicit desktop folder selection is persisted; Vault contents stay untouched.
- * @param {{environment: NodeJS.ProcessEnv, launch: (environment: NodeJS.ProcessEnv) => Promise<Awaited<ReturnType<import('./backend-process').launchBackend>>>, chooseDirectory: (options: Electron.OpenDialogOptions) => Promise<Electron.OpenDialogReturnValue>, locale: string, backendCwd?: string, isQuitting?: () => boolean}} options
+ * @param {{environment: NodeJS.ProcessEnv, launch: (environment: NodeJS.ProcessEnv) => Promise<Awaited<ReturnType<import('./backend-process').launchBackend>>>, chooseDirectory: (options: Electron.OpenDialogOptions) => Promise<Electron.OpenDialogReturnValue>, showRecoveryDialog?: (options: Electron.MessageBoxOptions) => Promise<Electron.MessageBoxReturnValue>, locale: string, backendCwd?: string, isQuitting?: () => boolean}} options
  */
-async function launchConfiguredBackend({ environment, launch, chooseDirectory, locale, backendCwd = process.cwd(), isQuitting = () => false }) {
+async function launchConfiguredBackend({ environment, launch, chooseDirectory, showRecoveryDialog, locale, backendCwd = process.cwd(), isQuitting = () => false }) {
+  /** Retry only after launch has reaped its failed owned process. Keep the exact
+   * selected environment, including a not-yet-persisted first folder choice.
+   * @param {NodeJS.ProcessEnv} selected
+   */
+  async function launchSelected(selected) {
+    while (!isQuitting()) {
+      try {
+        const handle = await launch(selected);
+        if (!isQuitting()) return handle;
+        await handle.stop();
+        return null;
+      } catch (error) {
+        if (isQuitting()) return null;
+        if (!isCloudStartupError(error) || !showRecoveryDialog) throw error;
+        const answer = await showRecoveryDialog(cloudStartupDialog(locale));
+        if (isQuitting() || answer.response !== 0) return null;
+      }
+    }
+    return null;
+  }
   if (!environment.GNOSI_DATA_DIR) throw new Error('Desktop data directory is missing');
   const dataDirectory = resolveDataPath(environment.GNOSI_DATA_DIR, backendCwd, os.homedir());
   const selectionFile = path.join(dataDirectory, 'desktop-vault.json');
@@ -57,7 +78,8 @@ async function launchConfiguredBackend({ environment, launch, chooseDirectory, l
       // A missing selection or unavailable volume needs the normal setup flow.
     }
   }
-  let handle = await launch(selectedEnvironment);
+  let handle = await launchSelected(selectedEnvironment);
+  if (!handle) return null;
   if (handle.vaultConfigured !== false) {
     if (resolvedSelection && handle.vaultConfigured === true) {
       try { persistSelection(selectionFile, resolvedSelection, vaultSelectionId); }
@@ -79,7 +101,8 @@ async function launchConfiguredBackend({ environment, launch, chooseDirectory, l
   resolvedSelection = resolveVaultFolder(vaultPath);
   selectedEnvironment = { ...environment, DIGITAL_BRAIN_VAULT_PATH: resolvedSelection.vault,
     GNOSI_VAULTS_ROOT: resolvedSelection.root, GNOSI_DESKTOP_VAULT_DISCOVERY: '1' };
-  handle = await launch(selectedEnvironment);
+  handle = await launchSelected(selectedEnvironment);
+  if (!handle) return null;
   if (isQuitting()) {
     await handle.stop();
     return null;

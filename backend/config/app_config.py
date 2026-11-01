@@ -11,6 +11,7 @@ from .paths_config import get_paths
 from .schema_keys import get_schema_keys
 from .validation_runtime import validation_runtime_enabled
 from .yaml_cache import ConfigYamlCache
+from backend.utils.metadata_io import MetadataUnavailable
 
 log = logging.getLogger(__name__)
 
@@ -129,18 +130,13 @@ def _active_params_path() -> Path | None:
 
 
 def _exists_tolerant(path: Path | None) -> bool:
-    """Treat unavailable cloud placeholders as absent configuration files."""
+    """Only absent files permit inheritance; unread files must block loading."""
     if path is None:
         return False
     try:
         return path.exists()
     except OSError as error:
-        log.warning(
-            "params.yaml is unreadable (OneDrive placeholder?): %s → %s",
-            path,
-            error,
-        )
-        return False
+        raise MetadataUnavailable("Configuration is not locally readable") from error
 
 
 def _user_params_path(
@@ -176,46 +172,41 @@ def _merge_user_params(
     params_path: Path,
     user_params_path: Path | None,
 ) -> tuple[ConfigDict, Path]:
-    """Merge an available user file while tolerating cloud hydration races."""
+    """Merge a read user document; never inherit over unread configuration."""
     if user_params_path is None:
         return params, params_path
-    try:
-        from backend.domains.configuration.ai.model_bindings import (
-            detach_models, model_configuration_lock, route,
-        )
+    from backend.domains.configuration.ai.model_bindings import (
+        detach_models, model_configuration_lock, route,
+    )
 
-        # Older installations could save deactivated routes while retaining
-        # their bot bindings. Repair the stored document before any consumer
-        # (including Settings and the runtime) can reuse those bindings. This
-        # does not replace the confirmation required for a new deactivation.
-        with model_configuration_lock:
+    # Older installations could save deactivated routes while retaining
+    # their bot bindings. Repair the stored document before any consumer
+    # (including Settings and the runtime) can reuse those bindings. This
+    # does not replace the confirmation required for a new deactivation.
+    with model_configuration_lock:
+        try:
             user_params = _CONFIG_YAML_CACHE.read(user_params_path, _CONFIG_YAML_LOADER)
-            ai = user_params.get("ai")
-            if isinstance(ai, dict) and isinstance(ai.get("agents"), list):
-                disabled = {
-                    route(row) for row in (ai.get("models") or [])
-                    if isinstance(row, dict) and row.get("enabled") is False
-                }
-                agents, affected, _ = detach_models(ai["agents"], disabled)
-                if affected:
-                    from backend.utils.safe_io import safe_write_text
+        except OSError as error:
+            raise MetadataUnavailable("Configuration is not locally readable") from error
+        ai = user_params.get("ai")
+        if isinstance(ai, dict) and isinstance(ai.get("agents"), list):
+            disabled = {
+                route(row) for row in (ai.get("models") or [])
+                if isinstance(row, dict) and row.get("enabled") is False
+            }
+            agents, affected, _ = detach_models(ai["agents"], disabled)
+            if affected:
+                from backend.utils.safe_io import safe_write_text
 
-                    ai["agents"] = agents
-                    safe_write_text(user_params_path, yaml.safe_dump(
-                        user_params, sort_keys=False, allow_unicode=True,
-                    ))
-                    from backend.domains.configuration.config_response_cache import configuration_response_cache
+                ai["agents"] = agents
+                safe_write_text(user_params_path, yaml.safe_dump(
+                    user_params, sort_keys=False, allow_unicode=True,
+                ))
+                from backend.domains.configuration.config_response_cache import configuration_response_cache
 
-                    configuration_response_cache.invalidate()
-                    log.info("Removed deactivated model bindings from %d bots", len(affected))
-        return deep_merge(params, user_params), user_params_path
-    except OSError as error:
-        log.warning(
-            "params.yaml became unreadable while opening (OneDrive placeholder?): %s → %s",
-            user_params_path,
-            error,
-        )
-        return params, params_path
+                configuration_response_cache.invalidate()
+                log.info("Removed deactivated model bindings from %d bots", len(affected))
+    return deep_merge(params, user_params), user_params_path
 
 
 def _persist_provider_migration(params: ConfigDict, params_path: Path) -> None:
