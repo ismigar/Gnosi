@@ -195,6 +195,8 @@ for (const failureAt of ['initial', 'page'] as const) {
       await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
       await expect(scroll.getByText(`${healthy} archived 121`, { exact: true })).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath(`healthy-archive-${failureAt}-failure.png`) });
+      // Keep the targeted retry separate from the next-page sentinel below.
+      await scroll.evaluate(element => { element.scrollTop = 0; });
       recovered = true;
       await banner.getByRole('button', { name: 'Try again', exact: true }).click();
       await expect(rows).toHaveCount(failureAt === 'initial' ? 122 : 221);
