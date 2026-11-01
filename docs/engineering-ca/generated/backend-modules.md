@@ -13,8 +13,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `agent` | 53 | 9531 |
 | `api` | 40 | 13588 |
 | `app` | 8 | 832 |
-| `application root` | 2 | 55 |
-| `config` | 13 | 1388 |
+| `application root` | 2 | 57 |
+| `config` | 14 | 1405 |
 | `data` | 2 | 214 |
 | `domains` | 599 | 117604 |
 | `mcp` | 3 | 429 |
@@ -28,7 +28,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1089 modules** and **205881 source lines**.
+Total: **1090 modules** and **205900 source lines**.
 
 ## agent
 
@@ -151,14 +151,14 @@ Total: **1089 modules** and **205881 source lines**.
 | Mòdul | Línies | Classes | Funcions | Asíncrones | Declaracions documentades | Indici de propòsit |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/server.py) | 55 | 0 | 0 | 0 | 0 | Stable Uvicorn and Electron entrypoint for the Gnosi backend. |
+| [`backend/server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/server.py) | 57 | 0 | 0 | 0 | 0 | Stable Uvicorn and Electron entrypoint for the Gnosi backend. |
 
 ## config
 
 | Mòdul | Línies | Classes | Funcions | Asíncrones | Declaracions documentades | Indici de propòsit |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/config/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/config/app_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/app_config.py) | 277 | 1 | 9 | 0 | 9 | No module docstring |
+| [`backend/config/app_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/app_config.py) | 268 | 1 | 9 | 0 | 9 | No module docstring |
 | [`backend/config/data_dir.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/data_dir.py) | 104 | 0 | 4 | 0 | 4 | Canonical per-device data directory resolution for Gnosi 3.x. |
 | [`backend/config/desktop_server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/desktop_server.py) | 18 | 0 | 1 | 0 | 1 | Keep Electron's private listener separate from configured native services. |
 | [`backend/config/directory_preparation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/directory_preparation.py) | 65 | 1 | 0 | 0 | 1 | Briefly reuse successful directory preparation, never content or access checks. |
@@ -167,6 +167,7 @@ Total: **1089 modules** and **205881 source lines**.
 | [`backend/config/mcp_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/mcp_config.py) | 15 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/config/paths_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/paths_config.py) | 239 | 0 | 4 | 0 | 1 | No module docstring |
 | [`backend/config/schema_keys.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/schema_keys.py) | 139 | 0 | 2 | 0 | 2 | Candidate keys and aliases for data extraction from JSON and local Markdown. |
+| [`backend/config/startup_errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/startup_errors.py) | 26 | 0 | 1 | 0 | 1 | Sanitized pre-readiness failures for the owned desktop process. |
 | [`backend/config/startup_vault.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/startup_vault.py) | 89 | 0 | 4 | 2 | 2 | Materialize startup-critical Vault files before app imports. |
 | [`backend/config/validation_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/validation_runtime.py) | 35 | 0 | 1 | 0 | 1 | Explicit, fail-closed isolation for disposable runtime acceptance probes. |
 | [`backend/config/yaml_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/yaml_cache.py) | 95 | 1 | 1 | 0 | 1 | Reuse decoded configuration while checking the file on every read. |

@@ -30,6 +30,7 @@ source_paths:
   - .github/workflows/ci.yml
   - backend/config/env_config.py
   - backend/server.py
+  - backend/config/startup_errors.py
   - desktop/application-menu.js
   - desktop/help-links.json
   - frontend/src/shared/help/helpLinks.ts
@@ -67,6 +68,7 @@ tests:
   - desktop/release-source-identity.test.js
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
+  - backend/tests/test_cloud_config_startup.py
   - desktop/backend-process.test.js
   - desktop/vault-startup.test.js
   - desktop/vault-recovery.test.js
@@ -152,6 +154,20 @@ réponses mal formées, arrêts prématurés et réponses HTTP 200 d’un autre 
 font échouer le démarrage et entraînent l’arrêt et la récupération du processus
 enfant géré par le superviseur. Si l’exécutable empaqueté manque, le Python du
 système n’est jamais utilisé comme solution de repli.
+
+Une configuration du coffre indisponible dans le cloud bloque le démarrage sans
+hériter de valeurs par défaut ni enregistrer sur des métadonnées non lues. Le
+backend communique uniquement un code fixe de démarrage et le jeton du processus,
+avec le statut de sortie 74. Après avoir arrêté et récupéré ce processus enfant,
+Electron propose une boîte de dialogue native traduite permettant de réessayer
+ou de quitter. Elle recommande de vérifier le fournisseur cloud ou de télécharger
+la configuration pour une utilisation hors connexion. La nouvelle tentative
+conserve le coffre et le profil, y compris un dossier choisi qui n’a pas encore
+été enregistré. Seul un démarrage prêt permet d’enregistrer la sélection et
+d’ouvrir l’interface ; annuler ou quitter ne peut pas relancer un processus ni
+afficher une fenêtre tardive. Les autres erreurs conservent la récupération
+d’installation existante. Chaque tentative conserve le délai maximal de
+démarrage et la récupération du processus.
 
 Nouvelle fenêtre, Paramètres, l’activation depuis le Dock et l’affichage différé
 des fenêtres ne peuvent contourner l’attente du backend ni l’arrêt de
