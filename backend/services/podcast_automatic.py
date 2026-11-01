@@ -4,9 +4,9 @@ from __future__ import annotations
 import hashlib
 import json
 from math import ceil
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, cast
 
-from backend.services.agent_behavior import resource
+from backend.services.agent_behavior import resource as resource
 from backend.services.podcast_composition import BOUNDED_TEXT, WORD_TEXT, advisory_targets, schema as composition_schema, spoken_text, word_guidance
 from backend.services.podcast_policy import preferences, synthesis_context_limit
 
@@ -19,13 +19,26 @@ class _WordBudgetRejected(RuntimeError):
     """Return length rejection to its bounded owner, outside generic format repair."""
 
 
+def _within_word_guidance(actual: int, options: dict[str, Any]) -> bool:
+    low, high = options['min_words'], options['max_words']
+    if options.get('word_range_is_advisory'):
+        # Speech rate varies; do not reject a useful draft for a few words.
+        actual, low, high = (100 * ((value + 50) // 100) for value in (actual, low, high))
+    return cast(bool, low <= actual <= high)
+
+
 def _request(context: _Briefing, phase: str, data: dict[str, Any], schema: dict[str, Any], **options: Any) -> Any:
+    if (phase == 'write' and data.get('composition_encoding') == 'bounded_narration_v1'
+            and 'narration' in schema.get('properties', {})):
+        options['composition_contract'] = resource('operations/podcast/narration-contract.md')
     if phase == "write" and data.get("composition_groups"):
         options["composition_contract"] = (resource("operations/podcast/length-edit-contract.md")
             if data.get('revision_encoding') in {'composition_length_edits_v1', 'composition_length_stream_v1'}
             else resource("operations/podcast/composition-contract.md"))
     if phase in {"write", "audit"}:
         options["editorial_policy"] = preferences(context).model_dump(exclude={'review_mode'} if phase == 'write' else set())
+    if phase == 'audit' and data.get('brief_review'):
+        options['material_coverage_contract'] = resource('operations/podcast/material-coverage-contract.md')
     if phase == "audit" and data.get("whole_episode") and "sections" in data:
         # Ledger review uses complete prose and subjects, never opaque source IDs.
         data = {**data, "sections": [{"narration": section["narration"]} for section in data["sections"]]}
@@ -68,8 +81,12 @@ def _review_theme(context: _Briefing, evidence: list[dict[str, Any]], narration:
 
 def _write_episode(context: _Briefing, evidence: list[dict[str, Any]], outline: list[dict[str, Any]],
                    words: int, feedback: list[dict[str, Any]], previous_draft: str = "") -> dict[str, Any]:
+    policy = preferences(context)
     data: dict[str, Any] = {"topic": "Complete daily briefing", "briefs": evidence, "feedback": feedback,
-        "subject_groups": [{"topic": t["topic"], "subjects": t.get("subjects", [t["topic"]])} for t in outline]}
+        "subject_groups": [{"topic": t["topic"], "subjects": t.get("subjects", [t["topic"]]),
+                            **({'part_ids': t['part_ids']} if policy.review_mode == 'brief' and 'part_ids' in t else {})} for t in outline]}
+    if policy.review_mode == 'brief':
+        data['composition_encoding'] = 'bounded_narration_v1'
     if len(outline) > 1:
         targets = advisory_targets(words, {f"group:{i}": len(set(group["subjects"]))
                                           for i, group in enumerate(data["subject_groups"])}, minimum=12)
@@ -77,12 +94,16 @@ def _write_episode(context: _Briefing, evidence: list[dict[str, Any]], outline: 
             for key, group in zip(targets, data["subject_groups"], strict=True)]
     if previous_draft:
         data["previous_draft"] = previous_draft
-    options = {"min_words": ceil(words * .9), "max_words": int(words * 1.09), "target_words": words,
+    minimum, maximum = preferences(context).word_range(words)
+    options = {"min_words": minimum, "max_words": maximum, "target_words": words,
+               "word_range_is_advisory": True,
                "episode_opening": True, "episode_closing": True}
     result = None
     if preferences(context).review_mode == 'brief' and feedback:
         from backend.services.podcast_brief_edits import revise
         result = revise(context, data, options, _request)
+        if result is None:
+            raise RuntimeError('podcast_grounded_revision_context_insufficient')
     if result is None:
         result = _bounded_write(context, data, options)
     return {"topic": "Complete daily briefing", "part_ids": [b["part_id"] for b in evidence],
@@ -91,6 +112,10 @@ def _write_episode(context: _Briefing, evidence: list[dict[str, Any]], outline: 
 
 def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> Any:
     from backend.services.podcast_outline import _digest
+    if (data.get('composition_encoding') == 'bounded_narration_v1'
+            and not data.get('previous_draft')):
+        from backend.services.podcast_editorial_digest import grouped_evidence
+        data = grouped_evidence(context, data)
     previous: dict[str, Any] = {key: data[key] for key in ("previous_draft", "previous_composition") if key in data}
     source_part_ids = [brief["part_id"] for brief in data.get("briefs", [])]
     request = _request(context, "write", data, composition_schema(data), **options)
@@ -174,8 +199,30 @@ def _write_length_stream(context: _Briefing, request: Any, data: dict[str, Any],
                                                data, minimum, maximum), data)}
 
 
+def _write_plain_narration(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> dict[str, Any]:
+    minimum, maximum = options["min_words"], options["max_words"]
+    data = {key: value for key, value in data.items() if key != 'composition_groups'}
+    def narration(result: dict[str, Any]) -> str:
+        if not result['narration'].strip():
+            raise ValueError('podcast_empty_narration')
+        return cast(str, result['narration'])
+    def checked_narration(result: dict[str, Any]) -> None:
+        actual = len(narration(result).split())
+        if not _within_word_guidance(actual, options):
+            direction = 'Reduce' if actual > maximum else 'Expand'
+            delta = abs(actual - options['target_words'])
+            raise ValueError(f"podcast_word_budget: expected {minimum}..{maximum}; received {actual}. "
+                f"Target {options['target_words']}. {direction} the complete script by about {delta} words. "
+                "Return one complete coherent narration, merging "
+                "repeated accounts and secondary detail while preserving distinct themes and essential qualifications.")
+    request = _write_request(context, data, options)
+    return {'narration': narration(context.stage(request, checked_narration))}
+
+
 def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> dict[str, Any]:
     minimum, maximum = options["min_words"], options["max_words"]
+    if data.get('composition_encoding') == 'bounded_narration_v1':
+        return _write_plain_narration(context, data, options)
     # Preserve the existing single-stage semantic rewrite contract. Length-only
     # edits below use their own immutable composition, not semantic findings.
     bounded_words = (preferences(context).review_mode == 'brief'
@@ -191,7 +238,7 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
         # Copy the exact validated model object; never reconstruct paragraphs from speech.
         previous_composition = json.loads(json.dumps(result)) if data.get("composition_groups") else None
         actual = len(previous.split())
-        if not minimum <= actual <= maximum:
+        if not _within_word_guidance(actual, options):
             direction = "Reduce" if actual > maximum else "Expand"
             change = abs(options["target_words"] - actual)
             raise _WordBudgetRejected(f"podcast_word_budget: expected {minimum}..{maximum}; received {actual}. "
@@ -238,23 +285,31 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
 
 
 def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[dict[str, Any]],
-              progress: Callable[[str], None]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
+              progress: Callable[[str], None], *,
+              previous_section: dict[str, Any] | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
     budget = preferences(context).word_target(len({b["source_id"] for b in briefs}))
     feedback: list[dict[str, Any]] = []
     previous_draft = ""
     subjects = [t.get("subjects", [t["topic"]]) for t in outline]
     if preferences(context).review_mode == 'brief':
-        from backend.services.podcast_brief_review import review
-        progress('Writing complete daily briefing')
-        section = _write_episode(context, briefs, outline, budget, [], '')
-        progress('Brief factual and thematic review')
-        issues = review(context, briefs, section['narration'], subjects)
-        if issues:
-            progress('Applying the brief review and preparing speech')
-            section = _write_episode(context, briefs, outline, budget, issues, section['narration'])
-        context.review_metadata = {'mode': 'brief', 'semantic_reviews': 1,
-            'automatic_correction_applied': bool(issues), 'original_fragment_audit': False}
-        return [section], outline, budget
+        from backend.services.podcast_brief_review import review, policy_revision
+        if previous_section is None:
+            progress('Writing complete daily briefing')
+            section = _write_episode(context, briefs, outline, budget, [], '')
+        else:
+            section = previous_section
+        for attempt in range(2):
+            progress('Checking final narration before speech' if attempt else 'Brief factual and thematic review')
+            issues = review(context, briefs, section['narration'], subjects)
+            if not issues:
+                context.review_metadata = {'mode': 'brief', 'semantic_reviews': attempt + 1,
+                    'automatic_correction_applied': bool(attempt), 'original_fragment_audit': False,
+                    'final_narration_validated': True, 'policy_revision': policy_revision()}
+                return [section], outline, budget
+            if attempt == 0:
+                progress('Applying the brief review')
+                section = _write_episode(context, briefs, outline, budget, issues, section['narration'])
+        raise ValueError('podcast_final_narration_review_failed')
     for attempt in range(3):
         progress(f"Writing and reviewing complete daily briefing: pass {attempt + 1}/3")
         section = _write_episode(context, briefs, outline, budget, feedback, previous_draft)

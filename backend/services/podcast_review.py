@@ -46,14 +46,26 @@ def _schema(data: dict[str, Any]) -> dict[str, Any]:
         source_references['minItems'] = 1
     def finding(kind: str, references: dict[str, Any]) -> dict[str, Any]:
         count = _QUOTE_COUNTS[kind]
+        evidence: dict[str, Any] = {'type': 'string', 'maxLength': 400}
+        if data.get('brief_review'):
+            evidence.update({'enum': ['']} if kind in {'production', 'duplicate'} else {'minLength': 1})
         return _object({
             'kind': {'type': 'string', 'enum': [kind]},
             'detail': {'type': 'string', 'minLength': 1, 'maxLength': 500},
             'narration_quotes': {'type': 'array', 'minItems': count, 'maxItems': count,
                 'uniqueItems': True, 'items': {'type': 'string', 'minLength': 8, 'maxLength': 400}},
             'source_part_ids': references,
-            'evidence_quote': {'type': 'string', 'maxLength': 400},
+            'evidence_quote': evidence,
         })
+
+    if data.get('brief_review'):
+        # Source-free ledger findings belong only to whole_episode review.
+        branches = [finding(kind, {'type': 'array', 'uniqueItems': True,
+            **({'maxItems': 0} if kind in {'production', 'duplicate'} else {'minItems': 1}),
+            'items': {'$ref': '#/$defs/source_id'}}) for kind in kinds]
+        result = _object({'issues': {'type': 'array', 'maxItems': 32, 'items': {'anyOf': branches}}})
+        result['$defs'] = {'source_id': {'type': 'string', 'enum': ids or ['']}}
+        return result
 
     if len(kinds) == 1:
         return _object({'issues': {'type': 'array', 'maxItems': 32,
@@ -108,7 +120,7 @@ def _validate(result: dict[str, Any], data: dict[str, Any]) -> None:
             available = [subject for group in data['subjects'] for subject in group]
         else:
             available = [str(b.get(key, '')) for b in data['briefs'] if b['part_id'] in ids
-                         for key in ('source_text', 'title')]
+                         for key in ('source_text', 'source_quote', 'title')]
         if not evidence or not any(evidence in value for value in available):
             raise ValueError('podcast_audit_invented_evidence_quote')
 

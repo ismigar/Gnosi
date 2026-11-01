@@ -63,6 +63,33 @@ def _has_dynamic_object(schema: Any) -> bool:
     return any(_has_dynamic_object(value) for value in schema.values())
 
 
+def _deepinfra_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Keep unsupported uniqueness checks in the original local contract."""
+    result = deepcopy(schema)
+    def visit(node: Any) -> None:
+        if not isinstance(node, dict):
+            return
+        node.pop('uniqueItems', None)
+        for key in ('properties', 'patternProperties', '$defs', 'definitions', 'dependentSchemas'):
+            children = node.get(key)
+            if isinstance(children, dict):
+                for child in children.values():
+                    visit(child)
+        for key in ('items', 'additionalProperties', 'contains', 'not', 'if', 'then', 'else',
+                    'propertyNames', 'unevaluatedProperties', 'unevaluatedItems'):
+            child = node.get(key)
+            if isinstance(child, list):
+                for entry in child:
+                    visit(entry)
+            else:
+                visit(child)
+        for key in ('anyOf', 'oneOf', 'allOf', 'prefixItems'):
+            for child in node.get(key, []):
+                visit(child)
+    visit(result)
+    return result
+
+
 def constrain_output(model: Any, provider: str, schema: dict[str, Any] | None) -> Any:
     """Keep routing preferences and refuse silent parameter-dropping upstream."""
     if provider != "openrouter" or schema is None:
@@ -81,11 +108,19 @@ def constrain_output(model: Any, provider: str, schema: dict[str, Any] | None) -
     preferences = {**extra.get("provider", {}), **bound_extra.get("provider", {})}
     extra.update(bound_extra)
     extra["provider"] = {**preferences, "require_parameters": True}
+    native_schema = (_deepinfra_schema(schema) if any(
+        str(upstream).lower().split('/')[0] == 'deepinfra'
+        for upstream in preferences.get('order', [])) else deepcopy(schema))
     # Dynamic dictionaries are valid JSON Schema but cannot be represented by
     # strict provider schemas. Keep the complete contract in the operation
     # envelope and validate/repair locally; constrain the transport to JSON.
-    response_format = {"type": "json_object"} if _has_dynamic_object(schema) else {
+    google_route = any(str(upstream).lower().startswith(('google-ai-studio', 'google-vertex'))
+                       for upstream in preferences.get('order', []))
+    # The Google gateway rejects complex strict schemas with INVALID_ARGUMENT.
+    # Keep the complete schema in the operation envelope and validate it locally,
+    # as for dynamic objects; JSON mode only constrains the wire representation.
+    response_format = {"type": "json_object"} if google_route or _has_dynamic_object(schema) else {
         "type": "json_schema",
-        "json_schema": {"name": "gnosi_operation", "strict": True, "schema": deepcopy(schema)},
+        "json_schema": {"name": "gnosi_operation", "strict": True, "schema": native_schema},
     }
     return model.bind(response_format=response_format, extra_body=extra)

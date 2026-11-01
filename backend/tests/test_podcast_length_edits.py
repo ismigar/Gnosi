@@ -159,12 +159,15 @@ def test_real_executor_repairs_against_same_base_within_original_two_call_stage(
     data.update(briefs=[{'part_id': f'source:{i}', 'summary': 'Supported qualified claim.'} for i in range(222)],
                 subject_groups=[{'topic': f'Subject {i}', 'subjects': [f'Material strand {i}']}
                                 for i in range(12)], feedback=[])
+    # An existing length stage can still resume an older unbounded composition.
+    data.update(previous_composition=base, length_repair={'current_words': 1891,
+        'composition_sha256': composition_digest(base)})
     _, desired = broad_day(1380, groups=12)
     wire = {**data, 'anchors': [{'marker': f'__gnosi_edit__:{index}', 'group_key': group['key']}
                                for index, group in enumerate(data['composition_groups'])]}
     good = length_streamed(desired, wire)
     bad = copy.deepcopy(good);bad['replacement_tokens'][0] = '__gnosi_edit__:foreign'
-    calls = counted_workflow(monkeypatch, [json.dumps(base), json.dumps(bad), json.dumps(good if accepted else bad)])
+    calls = counted_workflow(monkeypatch, [json.dumps(bad), json.dumps(good if accepted else bad)])
     context = context_for(snapshot)
     context.editorial_policy = context.editorial_policy.model_copy(update={'review_mode': 'brief'})
     with execution_scope(scope):
@@ -175,18 +178,18 @@ def test_real_executor_repairs_against_same_base_within_original_two_call_stage(
             with pytest.raises(ValueError):
                 _bounded_write(context, data, {'min_words': 1242, 'max_words': 1504, 'target_words': 1380})
         rows = store.list_runs(scope)
-    assert len(calls) == 3 and len(context.requests) == len(rows) == 2
-    assert sorted(row.model_calls for row in rows) == [1, 2]
+    assert len(calls) == 2 and len(context.requests) == len(rows) == 1
+    assert rows[0].model_calls == 2
     assert all(r.max_model_calls == 2 and r.timeout_seconds == 300 for r in context.requests)
-    repair = json.loads(context.requests[1].input)['data']
+    repair = json.loads(context.requests[0].input)['data']
     assert repair['original_groups'] == base['paragraphs']
     assert repair['composition_sha256'] == composition_digest(base)
     assert 'previous_composition' not in repair
     assert repair['source_part_ids'] == [f'source:{i}' for i in range(222)]
     assert repair['subject_groups'] == data['subject_groups']
     assert 'briefs' not in repair and 'feedback' not in repair
-    assert '__gnosi_edit__:foreign' in str(calls[2]['messages'])
-    assert composition_digest(base) in str(calls[2]['messages'])
+    assert '__gnosi_edit__:foreign' in str(calls[1]['messages'])
+    assert composition_digest(base) in str(calls[1]['messages'])
 
 
 def test_automatic_writer_bounds_first_length_call_without_verbose_proposal(runtime, monkeypatch):
@@ -202,22 +205,23 @@ def test_automatic_writer_bounds_first_length_call_without_verbose_proposal(runt
     data.update(briefs=[{'part_id': f'source:{i}', 'summary': 'Supported qualified claim.'} for i in range(222)],
                 subject_groups=[{'topic': f'Subject {i}', 'subjects': [f'Material strand {i}']}
                                 for i in range(12)], feedback=[])
+    data.update(previous_composition=base, length_repair={'current_words': 1891,
+        'composition_sha256': composition_digest(base)})
     _, desired = broad_day(1380, groups=12)
     wire = {**data, 'anchors': [{'marker': f'__gnosi_edit__:{index}', 'group_key': group['key']}
                                for index, group in enumerate(data['composition_groups'])]}
     good = length_streamed(desired, wire)
     verbose = length_edited(desired, {**data, 'previous_composition': base})
     assert len(json.dumps(good)) < len(json.dumps(verbose))
-    calls = counted_workflow(monkeypatch, [json.dumps(base), json.dumps(good)])
+    calls = counted_workflow(monkeypatch, [json.dumps(good)])
     context = context_for(snapshot)
     context.editorial_policy = context.editorial_policy.model_copy(update={'review_mode': 'brief'})
     with execution_scope(scope):
         result = _bounded_write(context, data, {'min_words': 1242, 'max_words': 1504, 'target_words': 1380})
         rows = store.list_runs(scope)
     assert len(result['narration'].split()) == 1380
-    assert len(calls) == 2 and len(context.requests) == len(rows) == 2
-    assert sorted(row.model_calls for row in rows) == [1, 1]
+    assert len(calls) == len(context.requests) == len(rows) == rows[0].model_calls == 1
     assert all(r.max_model_calls == 2 and r.timeout_seconds == 300 for r in context.requests)
-    assert set(context.requests[1].output_schema['properties']) == {'replacement_tokens'}
-    assert 'replacement_tokens' in str(calls[1]['messages'])
-    assert 'untouched_words' in str(calls[1]['messages'])
+    assert set(context.requests[0].output_schema['properties']) == {'replacement_tokens'}
+    assert 'replacement_tokens' in str(calls[0]['messages'])
+    assert 'untouched_words' in str(calls[0]['messages'])

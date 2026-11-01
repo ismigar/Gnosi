@@ -519,108 +519,16 @@ limite du contexte. Les champs obligatoires couvrent chaque identifiant opaque.
 Le serveur développe les sources, valide des partitions exactes sans doublons
 et conserve tous les sujets de chaque groupe.
 
-Le rédacteur compose l'épisode complet avec toutes les notes et tous les groupes.
-Pour plusieurs groupes, la réponse exige un paragraphe par clé opaque ; le
-serveur les assemble dans l'ordre du plan sans lire les clés ni les métadonnées.
-Un paragraphe vide exige une déclaration explicite d'absence de contenu éditorial,
-vérifiée par les contrôles des sources et de l'ensemble. Les champs obligatoires
-évitent la disparition silencieuse d'un groupe, sans prouver sa couverture
-sémantique. Tous partagent un budget global, sans plafond individuel de mots.
-Les journées riches en actualités visent 1 380 mots ; les petites collections
-ont un objectif inférieur. Le texte complet doit respecter 90 à 109 % de
-l'objectif global avant publication. Les comptes exacts du serveur et les
-brouillons du modèle guident des réécritures automatiques bornées. Un texte de
-longueur invalide n'est pas sauvegardé comme narration valide, tronqué ou remplacé
-manuellement. Les preuves trop volumineuses utilisent des résumés internes
-récursifs visant environ 160 mots, en conservant toutes les sources. Ce nombre
-interne est indicatif : le contexte réel de chaque requête est vérifié et chaque
-réduction doit diminuer la taille.
-Les réponses des résumés internes ne contiennent que `topic` et `narration`.
-Le serveur conserve tous les identifiants exacts du lot d'entrée à chaque niveau
-de réduction, après avoir rejeté les identifiants invalides ou répétés.
-Le modèle ne recopie pas cette liste, même lorsqu'un seul enregistrement récursif
-représente des centaines de parties. Les nouveaux schémas et contrats séparent
-les anciens points de reprise contenant des sections. Cette appartenance
-structurelle ne valide pas la couverture thématique : les contrôles de fidélité,
-de couverture et de l'épisode complet face aux originaux restent obligatoires.
-La plage de mots du texte parlé reste stricte.
-Chaque requête est vérifiée par rapport au contexte actuel, y compris les
-corrections de longueur.
+Le rédacteur automatique produit une narration naturelle unique. Les requêtes initiales volumineuses peuvent utiliser des synthèses thématiques dont l’application contrôle les sources ; les corrections conservent les preuves originales. Chaque fait substantiel exige une décision explicite de couverture. Un détail secondaire peut rejoindre un fait déjà couvert, mais le regroupement ne doit pas faire disparaître un sujet minoritaire indépendant.
 
-Les corrections de longueur utilisent un état numérique actuel distinct, qui
-remplace les anciens comptes et ajustements tout en conservant les objections
-sémantiques. Le serveur fournit le dernier script rejeté s'il tient après la
-compression des sources. Sinon, la requête suivante demande une composition
-nouvelle avec une cible absolue, sans appliquer d'ajustement à un texte absent.
-Chaque nouvelle tentative de validation reçoit aussi le compte, le sens de la
-modification et la cible du script qui vient d'être rejeté. Aucune narration
-invalide n'est publiée ou tronquée et les limites d'appels et de contexte restent
-inchangées.
+Le nombre de mots guide la rédaction sans imposer un quota exact. La tolérance de durée par défaut est de 20 % : une cible de dix minutes autorise environ huit à douze minutes. La durée réelle de l’audio doit être mesurée séparément ; une estimation de mots ne démontre pas la durée du MP3.
 
-Pour un brouillon structuré trop court, la réduction du contexte réserve la composition exacte la plus récente et les indications mesurées pour l’allonger. Elle continue de résumer les preuves jusqu’à ce que les deux tiennent ensemble, en conservant tous les sujets et les objections sémantiques. L’allongement n’utilise jamais le mode sans preuves réservé au raccourcissement. Si aucune réduction supplémentaire ne permet de respecter le contexte, la génération échoue explicitement au lieu d’abandonner le texte court et de recommencer. Des résumés internes ordinaires supplémentaires peuvent être nécessaires ; les tentatives de rédaction et les limites de temps, de contexte et de mots finaux restent inchangées.
+Un brouillon automatique relu est corrigé par des modifications locales fondées sur les sources, même lorsque de nombreuses omissions sont détectées. Chaque modification doit correspondre au texte original exact et à l’empreinte immuable du brouillon, traiter les constats requis et préserver la prose hors de son intervalle. Si la correction ne tient pas dans le contexte existant, la génération échoue explicitement au lieu de remplacer tout l’épisode. La narration corrigée passe une dernière revue sémantique avant la synthèse vocale. Le mode bref permet deux revues sémantiques et une correction ; l’approbation est liée à la version actuelle de la politique. La revue brève vérifie les résumés fournis et ne certifie pas toutes les nuances de chaque article original. La revue complète via `podcast_review.py` conserve ses contrôles de preuves. Le rapport `podcast-coverage-report` enregistre le mode effectif et la validation finale.
 
-`podcast_review.py` valide les citations exactes du texte et des preuves fournies
-avant de sauvegarder les objections sémantiques. Les omissions identifient les
-preuves ; les déformations factuelles exigent une affirmation citée et une preuve
-qui la contredit directement. L'absence dans un lot ne réfute pas une information
-étayée dans un autre. Les notes de production et répétitions citent le texte réel.
-Un autre passage du modèle confronte les objections et ne peut conserver que les
-objets démontrés, sans les modifier. Les confirmations sont réparties en lots
-sans retirer leurs sources. Les omissions réelles non résolues bloquent la
-publication.
+La reprise conserve la sélection figée des articles et les instructions, tout en actualisant le modèle, la route du fournisseur et le raisonnement explicitement configurés. Les résumés préparés ne sont réutilisables que si l’empreinte complète des sources correspond ; les anciennes préparations doivent correspondre exactement aux originaux figés et aux citations littérales. Les podcasts terminés avec une politique d’approbation obsolète peuvent être revalidés par la reprise normale ; les autres opérations terminées conservent leur protection.
 
-Toutes les notes complètes sont comparées à la narration entière en lots bornés.
-La révision de l'épisode vérifie également les sujets minoritaires et répétitions.
-Jusqu'à trois cycles complets de rédaction et révision corrigent les objections
-automatiquement. Seule la prose destinée à l'auditeur atteint la synthèse vocale ;
-les étiquettes, preuves, avis d'accès aux sources et instructions de production
-ne sont pas prononcés. Les échecs, refus et annulations conservent l'audio précédent.
+Le choix du modèle doit considérer ensemble le fournisseur réel, le raisonnement, la capacité utile de sortie, le contexte et le délai. Il faut valider cette combinaison sur une journée représentative, avec revue finale du contenu, durée mesurée du MP3 et lecture native. Changer de fournisseur ne sélectionne pas un autre algorithme éditorial. Les adaptateurs peuvent simplifier le schéma transmis à un endpoint fixé ou utiliser un transport JSON, mais le schéma complet original reste validé localement. Une reprise réussie avec préparation en cache ne mesure pas une journée complète depuis zéro. Modifier la configuration de l’agent n’implique aucune route de secours ni aucun appel supplémentaire au modèle.
 
-Les vérifications des sources contrôlent séparément la fidélité factuelle et la
-couverture thématique, avec au plus 16 notes par lot et la liste complète des
-sujets. Le statut des faits, les attributions et la portée des chiffres font
-l'objet d'un contrôle spécifique. Si le fournisseur épuise la sortie, seul le
-lot de sources ou d'objections en échec est subdivisé récursivement ; la
-confirmation conserve toutes les preuves originales. Un échec indivisible
-bloque la publication. Chaque tour vérifie aussi l'épisode complet même si des
-objections sur les sources subsistent. Les objections actuelles conservent leur
-type et leurs sources ; les anciennes et les anciens scripts ne s'accumulent
-pas dans les consignes de correction. Seul le dernier script est fourni comme
-contexte facultatif séparé. Les limites de modèle, de sortie, de durée et
-d'annulation sont conservées.
-
-`podcast-coverage-report`, version 4, conserve le plan, toutes les notes, les
-affectations du serveur et le nombre de mots. La couverture structurelle et les
-citations exactes ne prouvent pas seules la justesse sémantique : la vérification
-réelle doit comparer le texte à tous les thèmes et nuances et mesurer le MP3 par
-rapport à l'objectif d'environ dix minutes.
-
-Un épisode conforme au schéma mais hors de la plage globale de mots revient
-immédiatement au coordinateur de longueur existant, avec trois tentatives. Il ne
-consomme pas l’appel de réparation générique dans le même délai déjà partiellement
-écoulé. Chaque phase existante conserve son délai de 300 secondes et ses deux appels de
-format ; le coordinateur garde la composition rejetée exacte, les comptes mesurés et
-tous les sujets. Le JSON mal formé conserve la réparation ordinaire bornée. Après la
-dernière tentative, l’erreur publique de budget de mots reste inchangée.
-
-Les opérations internes de planification, résumé, rédaction et révision disposent
-de 300 secondes et 16 384 tokens de sortie, raisonnement inclus, sauf limite
-explicite du profil. Les contrats actuels accompagnent les anciens instantanés ;
-ces opérations n'utilisent pas de délégation facultative. Planification, rédaction
-et résumé ne désactivent le raisonnement que si les métadonnées du fournisseur le
-déclarent facultatif et si aucun choix explicite du profil ou client ne s'applique.
-Les révisions conservent le raisonnement habituel. Le modèle, les protections,
-préférences de sortie, délais, périmètre autorisé et publication atomique sont
-préservés.
-
-L'historique conserve les tâches principales autorisées avec les appels récents,
-maintenant leur commande de reprise après plus de 50 appels internes. Les parents
-absents ou hors périmètre ne sont jamais exposés. Les métadonnées exactes de
-contexte prennent en charge les modèles absents du registre ; les limites
-explicites priment et les modèles inconnus conservent la valeur prudente. Les
-autres opérations documentaires gardent leurs protections.
-
-Les objectifs indicatifs des paragraphes totalisent exactement le budget global. Les nouvelles tentatives de validation reçoivent les comptes actuels par paragraphe et une répartition proportionnelle suggérée, recalculée depuis la réponse immédiatement rejetée. Les mots peuvent être redistribués ; seuls la plage globale et les contrôles sémantiques déterminent l'acceptation.
 
 ### Consignes internes de correction bornées
 

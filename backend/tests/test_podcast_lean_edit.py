@@ -60,6 +60,9 @@ class Context:
             result = length_edited(result, json.loads(request.input))
         if {"tokens", "token_text"} & fields.keys() and not {"tokens", "token_text"} & result.keys():
             result = tokenized(result, json.loads(request.input)["composition_groups"], text="token_text" in fields)
+        if 'passages' in fields and 'passages' not in result:
+            result = tokenized(result, json.loads(request.input)['composition_groups'],
+                               passages=fields['passages']['minItems'], indexed='breaks' in fields)
         jsonschema.validate(result, request.output_schema)
         validate(result)
         return result
@@ -196,7 +199,7 @@ def test_lean_success_still_audits_every_original_and_restores_evidence_for_sema
     original_write = automatic._write_episode
     def write(context, briefs, groups, budget, feedback, previous_draft):
         # write_day's broad-day target is 1380; force a lean length correction per semantic pass.
-        ctx = Context([response(1600), response(1380)])
+        ctx = Context([response(1900), response(1380)])
         result = original_write(ctx, briefs, groups, budget, feedback, previous_draft)
         writes.append(ctx.sent)
         return result
@@ -236,7 +239,7 @@ def test_provider_refusal_during_lean_edit_never_audits_or_publishes(pipeline):
             if len(calls) == 2:
                 assert value["length_repair"]["mode"] == "shorten_composition"
                 raise ContentFilterFinishReasonError()
-            text = json.dumps(written(request, "word " * (request.options["max_words"] + 10)))
+            text = json.dumps(written(request, "word " * (request.options["max_words"] + 100)))
             kwargs["output_validator"](text)
             return SimpleNamespace(result=text)
         return pipeline.model(request, **kwargs)

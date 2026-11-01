@@ -186,3 +186,15 @@ def test_ordinary_chat_refusal_keeps_native_behavior(events):
         validation.install(model)
         result = model.invoke("fixture")
     assert result.content == "I cannot help with that request." and len(sent) == 1 and events == []
+
+
+def test_schema_rejection_keeps_bounded_provider_detail_without_repeating_the_body(events):
+    payload = {'error': {'code': 400, 'message': 'Provider returned error', 'metadata': {
+        'raw': json.dumps({'error': {'message': 'Schema keyword unsupported'}, 'private_input': 'not logged'})}}}
+    with pytest.raises(validation.ProviderResponseError) as caught:
+        invoke('httpx2', False, [payload])
+    assert len(caught.value.test_requests) == 1
+    detail = events[0][1]
+    assert detail['provider_error_message'] == 'Provider returned error'
+    assert detail['provider_error_detail'] == 'Schema keyword unsupported'
+    assert 'not logged' not in json.dumps(detail)

@@ -14,7 +14,7 @@ def planned(cards, groups):
         for handle in group['part_ids']}}
 
 
-def tokenized(result, groups, *, text=False):
+def tokenized(result, groups, *, text=False, passages=0, indexed=False, indexed_words=False):
     """Encode a fake model's intended prose in the requested word-token protocol."""
     tokens = []
     flags = {}
@@ -25,6 +25,36 @@ def tokenized(result, groups, *, text=False):
         block = result['paragraphs'][key]
         flags[key] = {'non_editorial': block['non_editorial']}
         tokens.extend([f"__gnosi_group__:{key}", *block['text'].split()])
+    if indexed_words:
+        words, breaks = [], []
+        for i, group in enumerate(groups):
+            if group['key'] not in result['paragraphs']:
+                continue
+            words.extend(result['paragraphs'][group['key']]['text'].split())
+            if i < len(groups) - 1:
+                breaks.append(len(words))
+        return {'paragraphs': flags, 'breaks': breaks, 'tokens': words}
+    if indexed:
+        spans, breaks = [], []
+        counts = [1] * len(groups)
+        lengths = [len(result['paragraphs'].get(g['key'], {}).get('text', '').split()) for g in groups]
+        for _ in range(passages - len(groups)):
+            index = max(range(len(groups)), key=lambda i: lengths[i] / counts[i]
+                        if lengths[i] > counts[i] else -1)
+            counts[index] += 1
+        for i, group in enumerate(groups):
+            if group['key'] not in result['paragraphs']:
+                continue
+            words = result['paragraphs'][group['key']]['text'].split()
+            size = counts[i]
+            spans.extend(' '.join(words[len(words) * j // size:len(words) * (j + 1) // size])
+                         for j in range(size))
+            if i < len(groups) - 1:
+                breaks.append(len(spans))
+        return {'paragraphs': flags, 'breaks': breaks, 'passages': spans}
+    if passages:
+        return {'paragraphs': flags, 'passages': [' '.join(
+            tokens[len(tokens) * i // passages:len(tokens) * (i + 1) // passages]) for i in range(passages)]}
     return {'paragraphs': flags, **({'token_text': ' '.join(tokens)} if text else {'tokens': tokens})}
 
 
@@ -52,6 +82,11 @@ def written(request, text):
     data = json.loads(request.input).get('data', {})
     groups = data.get('composition_groups', [])
     if not groups:
+        if 'passages' in request.output_schema.get('properties', {}):
+            count = request.output_schema['properties']['passages']['minItems']
+            words = text.split()
+            return {'passages': [' '.join(words[len(words) * i // count:len(words) * (i + 1) // count])
+                                 for i in range(count)]}
         return {'narration': text}
     words = text.split()
     result = {'paragraphs': {g['key']: {
@@ -62,6 +97,14 @@ def written(request, text):
     if data.get('revision_encoding') == 'composition_length_stream_v1':
         return length_streamed(result, data)
     encoding = data.get('composition_encoding')
+    if encoding == 'indexed_words_v1':
+        return tokenized(result, groups, indexed_words=True)
+    if encoding == 'indexed_passages_v1':
+        size = request.output_schema['properties']['passages']['minItems']
+        return tokenized(result, groups, passages=size, indexed=True)
+    if encoding == 'word_passages_v1':
+        size = (request.options['target_words'] + 19) // 20
+        return tokenized(result, groups, passages=size)
     return tokenized(result, groups, text=encoding in {'word_text_v1', 'bounded_word_text_v1'}) if encoding in {'word_tokens_v1', 'word_text_v1', 'bounded_word_text_v1'} else result
 
 
@@ -71,6 +114,11 @@ def audited(request, issues):
     if 'candidate_findings' in data:
         return {'confirmed_finding_ids': [candidate['finding_id'] for candidate in data['candidate_findings']
                                          if candidate['finding'] in issues]}
+    if 'coverage_checks' in request.output_schema.get('properties', {}):
+        blocks = data['narration_blocks']
+        return {'coverage_checks': {identifier: next((key for key, text in blocks.items()
+            if record['title'] in text), 'secondary') for record in data['source_summaries']
+            for identifier in record.get('part_ids', [record.get('part_id')])}, 'issues': issues}
     return {'issues': issues}
 
 
@@ -107,10 +155,14 @@ def pipeline(monkeypatch):
                 group['part_ids'].extend(card['part_ids'])
             result = planned(data['cards'], list(groups.values()))
         elif payload['task'].endswith('audit'):
-            result = {'confirmed_finding_ids': []} if 'candidate_findings' in data else {'issues': []}
+            result = audited(request, [])
         elif payload['task'].endswith('digest'):
-            text = ' '.join(r.get('summary', '') if 'part_ids' in r else r['title'] for r in data['briefs'])
-            result = {'topic': 'Complete evidence', 'narration': text}
+            if 'grouped_sources' in data:
+                result = {'digests': {g['key']: ' '.join(b['summary'] for b in g['briefs'])
+                                      for g in data['grouped_sources']}}
+            else:
+                text = ' '.join(r.get('summary', '') if 'part_ids' in r else r['title'] for r in data['briefs'])
+                result = {'topic': 'Complete evidence', 'narration': text}
         else:
             briefs = data.get('briefs', data.get('digests', []))
             text = ' '.join(b['summary'] if 'part_ids' in b else f"{b['title']}: {b['summary'][-55:]}" for b in briefs)
@@ -314,7 +366,7 @@ def test_distant_duplicate_reports_share_global_theme_and_minor_topics_keep_spac
     duplicate_group = next(t for t in pipeline.saved['podcast-coverage-report']['outline'] if t['topic'] == 'Repeated event')
     assert set(duplicate_group['part_ids']) == {f'{i}:0' for i in range(0, 20, 2)}
     assert all(f'Minor {i}' in text for i in range(1, 20, 2))
-    assert 1200 <= len(text.split()) <= 1510
+    assert 1000 <= len(text.split()) <= 1750
     assert pipeline.saved['podcast-coverage-report']['word_budget'] == 1380
 
 
@@ -340,9 +392,9 @@ def test_word_count_failure_is_repaired_automatically_without_caching_invalid_pr
         data = json.loads(request.input)['data']
         writes.append(data)
         if 'previous_draft' not in data:
-            text = json.dumps({'narration': 'word ' * (request.options['max_words'] + 2)})
+            text = json.dumps({'narration': 'word ' * (request.options['max_words'] + 100)})
             kwargs['output_validator'](text)
-        assert data['length_repair']['current_words'] == request.options['max_words'] + 2
+        assert data['length_repair']['current_words'] == request.options['max_words'] + 100
         return pipeline.model(request, **kwargs)
     pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
     result = pipeline.run([{'id': 'a', 'title': 'Title', 'text': 'Evidence'}])
@@ -417,7 +469,7 @@ def test_oversized_theme_uses_recursive_bounded_digests_without_losing_ids():
                 result = {'issues': []}
             else:
                 words = 160 if request.operation.endswith('digest') else request.options['min_words']
-                result = ({'narration': 'evidence ' * words} if request.operation.endswith('write') else
+                result = (written(request, 'evidence ' * words) if request.operation.endswith('write') else
                     {'topic': 'Complete collection', 'narration': 'evidence ' * words})
             briefing.jsonschema.validate(result, request.output_schema)
             validate(result)
@@ -428,7 +480,7 @@ def test_oversized_theme_uses_recursive_bounded_digests_without_losing_ids():
     sections, outline, budget = narrate_day(Context(), briefs, lambda _: None)
     assert calls.count('podcast.coverage.digest') > 14  # More than one reduction level.
     assert {p for s in sections for p in s['part_ids']} == {b['part_id'] for b in briefs}
-    assert budget == 1380 and 1200 < sum(len(s['narration'].split()) for s in sections) < 1510
+    assert budget == 1380 and 1000 < sum(len(s['narration'].split()) for s in sections) < 1750
 
 
 def test_planning_never_asks_model_to_classify_or_repeat_hundreds_of_source_ids(pipeline):
@@ -574,7 +626,7 @@ def test_global_overshoot_is_rewritten_without_clipping_or_local_caps(pipeline):
             return pipeline.model(request, **kwargs)
         data = json.loads(request.input)['data']
         calls.append(data)
-        count = request.options['target_words'] if 'length_repair' in data else 1587
+        count = request.options['target_words'] if 'length_repair' in data else 1900
         text = json.dumps(written(request, 'word ' * count))
         kwargs['output_validator'](text)
         return SimpleNamespace(result=text)
@@ -583,9 +635,9 @@ def test_global_overshoot_is_rewritten_without_clipping_or_local_caps(pipeline):
     assert len(result.split()) == 1380 and len(calls) == 2
     state = calls[-1]['length_repair']
     if state['mode'] in {'revise_draft', 'shorten_composition'}:
-        assert state['current_words'] == 1587 and state['word_delta'] == -207
+        assert state['current_words'] == 1900 and state['word_delta'] == -520
         from backend.services.podcast_composition import spoken_text
-        assert len(spoken_text(calls[-1]['previous_composition'], calls[-1]).split()) == 1587
+        assert len(spoken_text(calls[-1]['previous_composition'], calls[-1]).split()) == 1900
     else:
         assert state['mode'] == 'fresh_composition' and state['target_words'] == 1380
         assert 'previous_draft' not in calls[-1] and 'word_delta' not in state

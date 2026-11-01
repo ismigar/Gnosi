@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
+import textwrap
 from typing import Any, Callable, TYPE_CHECKING
 
 from backend.services.agent_behavior import resource
@@ -31,6 +33,18 @@ def _replace(previous: str, intervals: list[tuple[int, int, str]]) -> str:
         cursor = end
     chunks.append(previous[cursor:])
     return ''.join(chunks)
+
+
+def _anchor_schema(previous: str) -> dict[str, Any]:
+    result: dict[str, Any] = {'type': 'string', 'minLength': 1, 'maxLength': 512}
+    sentences = re.split(r'(?<=[.!?])\s+|\n+', previous)
+    if len(sentences) < 2:
+        return result
+    choices = [span for sentence in sentences for span in textwrap.wrap(sentence, width=512,
+        break_long_words=False, break_on_hyphens=False) if len(span) <= 512 and previous.count(span) == 1]
+    if choices:
+        result['enum'] = list(dict.fromkeys(choices))
+    return result
 
 
 def apply_edits(result: dict[str, Any], previous: str, findings: list[dict[str, Any]],
@@ -89,10 +103,10 @@ def revise(context: _Briefing, data: dict[str, Any], options: dict[str, Any],
     feedback = data.get('feedback', [])
     minimum, maximum = options['min_words'], options['max_words']
     if (not isinstance(previous, str) or not isinstance(feedback, list) or not feedback
-            or not minimum <= len(previous.split()) <= maximum):
+            or not previous.strip()):
         return None
     digest = hashlib.sha256(previous.encode()).hexdigest()
-    edit = _object({'before': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+    edit = _object({'before': _anchor_schema(previous),
                     'after': {'type': 'string', 'maxLength': 1024},
                     'finding_indices': {'type': 'array', 'uniqueItems': True,
                         'maxItems': len(feedback),
@@ -109,10 +123,13 @@ def revise(context: _Briefing, data: dict[str, Any], options: dict[str, Any],
                        'minimum_word_delta': minimum - len(previous.split()),
                        'maximum_word_delta': maximum - len(previous.split())})
     request = request_builder(context, 'write', payload, schema, **options,
-        revision_contract=resource('operations/podcast/revision-contract.md'))
+        revision_contract=resource('operations/podcast/revision-contract.md'),
+        revision_repair_contract=resource('operations/podcast/revision-repair-contract.md'))
     if context.cost(request) > synthesis_context_limit(context):
         return None
     def checked(result: dict[str, Any]) -> None:
         apply_edits(result, previous, feedback, minimum, maximum)
-    result = context.stage(request, checked)
+    from backend.services.podcast_revision_repair import revision_word_repair
+    result = context.stage(request, checked,
+        output_repair=revision_word_repair(data, schema, minimum, maximum))
     return {'narration': apply_edits(result, previous, feedback, minimum, maximum)}

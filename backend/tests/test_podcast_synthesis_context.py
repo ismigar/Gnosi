@@ -49,12 +49,12 @@ def test_complete_day_uses_available_context_but_full_mode_retains_legacy_cap(pi
     assert calls['write'] == 1
     if mode == 'brief':
         assert calls['plan'] == calls['audit'] == 1
-        assert calls['digest'] == 0
-        # All three complete requests exceed the former arbitrary cap, while
-        # remaining within the configured window after its existing reserve.
-        assert all(80_000 < costs[phase][0] < 785_452 for phase in ('plan', 'write', 'audit'))
+        assert calls['digest'] == 1  # One editorial merge, independent of context overflow.
+        assert all(80_000 < costs[phase][0] < 785_452 for phase in ('plan', 'audit'))
+        assert costs['write'][0] < 785_452
         assert len(supplied['plan'][0]['cards']) == 225
-        assert len(supplied['write'][0]['briefs']) == 225
+        assert 'briefs' not in supplied['write'][0]
+        assert {key for digest in supplied['write'][0]['digests'] for key in digest['part_ids']} == {f'{i}:0' for i in range(225)}
         assert len(supplied['audit'][0]['source_summaries']) == 225
     else:
         assert calls['plan'] > 1 and calls['digest'] > 0 and calls['audit'] > 1

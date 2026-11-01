@@ -505,108 +505,16 @@ cards and a 40,000-token/context bound per planning call. Required assignment
 fields cover every opaque card handle. The server expands source memberships,
 validates exact nonduplicated partitions and retains every child subject.
 
-The writer composes the complete episode from all briefs and subject groups.
-For multiple groups, the response requires one spoken paragraph per opaque group
-key; the server joins them in plan order without voicing keys or metadata. An
-empty paragraph requires an explicit non-editorial declaration, independently
-checked by the unchanged source and whole-episode reviews. Required fields prevent
-silently dropping an entire planned group; they do not prove semantic coverage.
-Paragraphs share one global word budget with no individual word caps. Broad news days target 1,380 spoken
-words; sparse collections have a smaller budget. The complete script must fall
-within 90–109% of its global target before publication. Exact server word counts
-and previous model drafts drive bounded automatic rewrites; invalid-length prose
-is not checkpointed as valid narration, clipped or manually substituted.
-Oversized evidence uses recursive context-bounded internal digests aiming for
-about 160 words, retaining all source memberships. Internal word counts are
-guidance: actual request context is checked and each reduction must shrink.
-Digest replies contain only `topic` and `narration`. The server attaches the
-exact complete input membership at every reduction level, after rejecting
-invalid or repeated input IDs. The model never transcribes the membership list,
-including when a single recursive record represents hundreds of source parts.
-Changed request schemas/contracts keep legacy section-shaped checkpoints separate.
-This structural ownership does not approve thematic coverage: the original-source
-fidelity, coverage and whole-episode reviews remain mandatory.
-The final spoken word range remains strict. Every request is checked against
-its current context budget, including length repairs.
+The automatic writer produces one natural narration. Large initial requests may use thematic digests with application-owned source membership; corrective requests retain the original evidence. Every substantive source development requires an explicit coverage decision. A secondary detail can be grouped with an already covered development, but an independent minority subject cannot disappear through grouping.
 
-Length corrections use a separate current numeric state, replacing older count
-and delta guidance while retaining semantic findings. The server supplies the
-matching latest rejected draft when it fits after evidence compression. If it
-still cannot fit, the next request uses an absolute fresh-composition target,
-without applying a delta to absent text. Each validation retry also receives the
-fresh count, direction and target for its immediately preceding rejected draft.
-No invalid narration is published or clipped, and call/context limits stay fixed.
+Word counts guide composition rather than impose an exact quota. The default duration tolerance is 20%: a ten-minute target allows approximately eight to twelve minutes. Actual audio duration must be measured separately; a script word estimate does not establish MP3 duration.
 
-For an underlength structured draft, the context reduction reserves the exact latest composition and its measured expansion guidance. It continues reducing source evidence until both fit together, retaining the complete subject scope and semantic feedback. Expansion never uses the shortening-only evidence-free mode. If no further reduction fits, generation fails explicitly instead of discarding the short draft and restarting. Additional ordinary digest operations may be needed; writer attempts, deadlines, context and final word limits do not increase.
+A reviewed automatic draft is corrected with source-bound local edits, including when many omissions are found. Every edit must anchor to exact original text and the immutable draft hash, account for the required findings, and preserve prose outside its edit range. If the grounded correction cannot fit the existing context, generation fails explicitly instead of replacing the entire episode. The corrected narration receives a final semantic review before speech. Brief mode permits two semantic reviews and one correction; approval is bound to the current review-policy revision. Brief review checks supplied summaries and does not certify every qualification in every original article. Full source review through `podcast_review.py` retains its separate evidence checks. The `podcast-coverage-report` records the effective review mode and final validation.
 
-`podcast_review.py` validates exact narration and supplied-evidence quotes for
-semantic objections before checkpointing. Omission findings identify evidence;
-factual distortions require a quoted draft claim and positive contradicting
-evidence. Absence from one source batch cannot disprove a story supported in
-another. Production notes and duplicate accounts quote the actual draft.
-A separate model pass contrasts proposed findings and may retain only unchanged,
-demonstrated objections. Confirmation requests batch findings without dropping
-their source evidence. Genuine unresolved omissions remain blocking.
+Resuming a podcast preserves the frozen article selection and instructions while refreshing the explicitly configured model, upstream route and reasoning choice. Prepared briefs are reusable only when their complete source fingerprint matches; older preparation must match the exact frozen originals and literal quotes. Completed podcasts with an obsolete approval policy can be revalidated through the normal resume path; other completed operations keep their existing protection.
 
-All full briefs are reviewed against the complete narration in bounded evidence
-batches. The whole-episode pass also checks the subject ledger for minority
-omissions and repeated accounts. Up to three complete writing/review rounds
-correct findings automatically. Only listener-facing narration reaches speech
-synthesis; labels, evidence, source-access notices and production instructions
-are not voiced. Failures, refusals and cancellation preserve the previous audio.
+Model selection must consider the actual upstream, reasoning setting, useful output capacity, context and deadline together. Validate the chosen combination on a representative day, including final content review, measured MP3 duration and native playback. Changing providers does not select a different editorial algorithm. Compatibility adapters may simplify the wire schema for a pinned endpoint or use JSON-object transport, but the original complete schema remains validated locally. A successful resumed test with cached preparation is not a benchmark for a cold full-day run. No route fallback or extra model call is implied by changing the agent configuration.
 
-Source reviews separately check factual fidelity and thematic coverage, with up to
-16 briefs per batch and the complete subject ledger. Status, attribution and
-numeric scope receive a dedicated check. Focused coverage findings require no
-narration quotes, while focused fidelity findings require exactly one. Their
-provider response schemas enforce those same counts before the existing literal
-evidence and semantic validators run. General listener audits and their context
-capacity are unchanged. If an audit supplies nonliteral narration or source evidence,
-its remaining existing call can select application-owned IDs for exact original
-passages. Only rejected quote fields change; findings, source identities and valid
-quotes are immutable. Full schema/literal validation and independent finding
-confirmation still run before feedback or publication. No call or timeout budget
-is increased. A provider output-length failure
-recursively splits only the failed evidence or finding batch; confirmation keeps
-all its original evidence. An indivisible failed leaf blocks publication.
-Every revision also runs the whole-episode review even when source issues remain.
-Structured current findings retain their kinds and source identities; obsolete
-findings and drafts do not accumulate in writer feedback. Only the latest draft
-is supplied separately as optional context. Existing model, output, time and
-cancellation limits remain unchanged.
-
-`podcast-coverage-report` version 4 retains the outline, all briefs, server-owned
-section assignments and spoken word count. Structural coverage and literal
-quotation alone are not semantic proof: live verification must compare the final
-script with all source themes/qualifications and measure the actual MP3 against
-the approximately ten-minute target.
-
-A schema-valid episode outside the global word range returns immediately to the existing
-three-attempt length coordinator. It does not consume the generic format-repair call
-inside the same partially spent deadline. Each existing length stage keeps its
-300-second deadline and two-call format allowance; the coordinator retains the exact
-rejected composition, measured counts and unchanged subject scope. Malformed JSON still
-uses the ordinary bounded format repair. After the final length attempt the public word-
-budget error is unchanged.
-
-Internal planning, digest, writing and audit calls use a 300-second allowance and
-16,384 output tokens including provider reasoning unless the profile explicitly
-chooses an output limit. Current contracts accompany resumed older snapshots;
-these internal operations do not use optional team handoff. Planning, writing and
-digest and semantic audits use reasoning off only when provider metadata explicitly
-declares it optional and the profile/effective client has no reasoning/native-thinking
-choice. No model route, provider safeguard,
-explicit output preference or timeout is overridden. Principal/scope checks and
-atomic audio publication remain shared with the application.
-
-Execution history retains authorized parents alongside recent child calls, so
-long jobs keep their resume control after more than 50 internal calls. Missing or
-foreign-scope parents are never exposed. Exact provider/model context metadata
-supports models absent from the routing registry; explicit registry limits take
-priority and unknown models retain the small fallback. Other document operations
-retain their existing guards.
-
-Initial advisory paragraph targets share the global budget exactly. Existing validation retries receive exact current paragraph counts and proportional suggested shares, recomputed from the immediately rejected response. Shares can be redistributed; only the global word range and semantic reviews decide acceptance.
 
 ### Bounded internal correction guidance
 
