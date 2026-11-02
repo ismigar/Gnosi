@@ -198,8 +198,19 @@ class Harness:
         return calls[0]
 
 
+@pytest.fixture(scope="session")
+def fake_executable(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    # Share only immutable code; commands, environment and logs remain test-local.
+    # One inode avoids repeated macOS assessment of identical fresh executables.
+    executable = tmp_path_factory.mktemp("native-command-double") / "command.py"
+    source = Path(__file__).read_text(encoding="utf-8")
+    executable.write_text(f"#!{sys.executable}\n{source}", encoding="utf-8")
+    executable.chmod(0o555)
+    return executable
+
+
 @pytest.fixture
-def harness(tmp_path: Path) -> Harness:
+def harness(tmp_path: Path, fake_executable: Path) -> Harness:
     repo = tmp_path / "checkout with spaces"
     scripts = repo / "scripts/runtime"
     scripts.mkdir(parents=True)
@@ -221,15 +232,13 @@ def harness(tmp_path: Path) -> Harness:
     assert dirname is not None
     (bin_dir / "dirname").symlink_to(dirname)
     # Reuse this typed module for every executable; no untyped fake program strings.
-    source = Path(__file__).read_text(encoding="utf-8")
     for name in (
         "uv", "corepack", "git", "python", "python3", "pnpm", "npm", "npx", "node",
         "docker", "curl", "uvicorn", "launchctl", "kill", "lsof", "open", "touch",
     ):
         executable = bin_dir / name
-        executable.write_text(f"#!{sys.executable}\n{source}", encoding="utf-8")
-        executable.chmod(0o755)
-    (repo / "uvicorn.py").write_text(source, encoding="utf-8")
+        executable.hardlink_to(fake_executable)
+    (repo / "uvicorn.py").hardlink_to(fake_executable)
     return Harness(tmp_path, repo, bin_dir, tmp_path / "calls.jsonl")
 
 

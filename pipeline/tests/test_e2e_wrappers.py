@@ -269,8 +269,18 @@ class Harness:
         return calls
 
 
+@pytest.fixture(scope="session")
+def fake_executable(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    # Reuse one immutable inode: macOS assesses each newly written executable.
+    # Per-test hard links retain command names and can be removed independently.
+    executable = tmp_path_factory.mktemp("e2e-command-double") / "command.py"
+    executable.write_text(f"#!{sys.executable}\n{FAKE_EXECUTABLE}", encoding="utf-8")
+    executable.chmod(0o555)
+    return executable
+
+
 @pytest.fixture
-def harness(tmp_path: Path) -> Harness:
+def harness(tmp_path: Path, fake_executable: Path) -> Harness:
     repo = tmp_path / "checkout with spaces"
     scripts = repo / "pipeline/skills/playwright_e2e/scripts"
     scripts.mkdir(parents=True)
@@ -317,8 +327,7 @@ def harness(tmp_path: Path) -> Harness:
         (bin_dir / utility).symlink_to(executable)
     for command in ("curl", "pnpm", "docker", "node", "corepack", "npm", "npx", "git", "uvicorn"):
         executable_path = bin_dir / command
-        executable_path.write_text(f"#!{sys.executable}\n{FAKE_EXECUTABLE}", encoding="utf-8")
-        executable_path.chmod(0o755)
+        executable_path.hardlink_to(fake_executable)
     temporary = tmp_path / "temporary with spaces"
     temporary.mkdir()
     return Harness(tmp_path, repo, bin_dir, temporary, tmp_path / "calls.jsonl")
