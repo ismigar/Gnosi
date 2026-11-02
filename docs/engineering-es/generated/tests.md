@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 36 | 110 |
 | Vitest | 753 | 3431 |
-| pytest | 769 | 5873 |
+| pytest | 770 | 5874 |
 
 ## Archivos
 
@@ -1205,6 +1205,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_page_creation_requests.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_creation_requests.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_page_creation_responsiveness.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_creation_responsiveness.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_page_creation_steps.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_creation_steps.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_page_detail_revision_snapshot.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_detail_revision_snapshot.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_page_detail_title.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_detail_title.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_page_foundation_open_callbacks.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_foundation_open_callbacks.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_page_index_scope_refresh.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_index_scope_refresh.py) | 4 | Python AST |

@@ -112,6 +112,7 @@ tests:
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
+  - backend/tests/test_page_detail_revision_snapshot.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_graph_frontmatter_fallback.py
   - backend/tests/test_files_provider.py
@@ -968,3 +969,7 @@ Ajoutez `--resource-id <id>` à `preview` pour classer un seul document ; les ac
 Les titres repliables acceptent Alt/Option+Entrée lorsque le curseur est dans le titre. Le bouton natif est accessible avec Tab et activé avec Entrée ou Espace, avec un focus visible, une étiquette traduite et l’état développé. L’activation conserve le curseur ou le focus du bouton et l’état de déploiement enregistré. Entrée sans modificateur conserve son comportement d’édition ; les paragraphes enfants, les contrôles intégrés et la composition de texte ne replient pas une section parente.
 
 La traduction interne des lignes et pages crée les enregistrements dérivés via le service canonique de création des pages, sans appeler un handler HTTP avec des dépendances FastAPI non résolues. Les remplacements de création à deux arguments restent pris en charge. Le test d’intégration des catalogues active explicitement la traduction dans le Vault temporaire pour atteindre la règle de blocage des brouillons.
+
+## Révisions de la lecture des détails Markdown
+
+Les détails d’une page Markdown obtiennent leur ETag depuis le même descripteur ouvert que celui utilisé pour lire le contenu, avant la résolution asynchrone du titre. Une sauvegarde atomique ou un renommage entre la lecture et la réponse ne peut renvoyer une révision absente ni associer la révision d’un nouveau fichier à un ancien contenu. Le format `<mtime_ns>-<size>` et le contrat non nul de la réponse détaillée sont conservés ; les révisions obsolètes empêchent toujours les écrasements.
