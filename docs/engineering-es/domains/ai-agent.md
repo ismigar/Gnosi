@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-15
+last_verified: 2026-10-30
 source_paths:
   - backend/services/workspace_speech.py
   - backend/domains/agent/routes/workspace_speech.py
@@ -1807,3 +1807,7 @@ Las operaciones de cobertura del pódcast también pueden reintentar un fallo de
 Las respuestas estructuradas admiten un objeto o array JSON completo seguido únicamente de un cierre de raíz repetido o de los fragmentos finales vacíos `<function` y `<function=`. Se conserva todo el documento y se mantienen las validaciones del esquema y de la operación. Siguen rechazándose un segundo valor JSON, prosa, una llamada a una herramienta con nombre, documentos incompletos y números no finitos. El texto no estructurado no cambia. Esto resuelve el defecto de formato observado del proveedor sin perder conclusiones ni gastar otra llamada al modelo; las demás respuestas inválidas mantienen la reparación acotada existente.
 
 La configuración de voz guarda automáticamente los cambios, agrupa las modificaciones rápidas y completa el guardado al cerrar el panel. Los cambios pendientes o fallidos impiden la prueba de voz; los errores permiten reintentar. Cambiar de Vault no guarda el borrador pendiente del Vault anterior en el nuevo Vault.
+
+## Configuración de voz compartida y guardado automático
+
+El chat, los pódcasts del Lector y el audio generado comparten la configuración de voz guardada dentro del Vault activo. El formulario editable guarda automáticamente los cambios de proveedor, voz e idioma mediante el gestor compartido de borradores y muestra su estado. La edición detiene la prueba en curso; escuchar una prueba requiere una configuración guardada y disponible. Cambiar de Vault impide que el formulario que se cierra guarde con el contexto del nuevo Vault. La disponibilidad de la voz local y las credenciales del proveedor neuronal siguen siendo requisitos independientes.

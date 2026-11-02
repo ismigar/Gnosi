@@ -449,6 +449,8 @@ el alias no configura una cuenta de correo ni credenciales.
 
 ### Cobertura del día completo y artículos sin contenido
 
+El modo de revisión predeterminado es `brief`: revisa la narración con las notas de las fuentes y los temas, permite como máximo una reescritura correctiva y, si se reescribe, vuelve a revisar la narración final antes de generar la voz. La narración debe superar la revisión. Las auditorías exhaustivas de fragmentos originales y las tres rondas completas de escritura y revisión como máximo descritas a continuación corresponden al modo explícito `full`. La selección de fuentes y las garantías de recuento de palabras y publicación son comunes a ambos modos; el apartado de preferencias editables de más abajo describe el flujo predeterminado.
+
 El pódcast diario fija todos los artículos publicados durante las 24 horas
 anteriores, incluidos los ya leídos, y excluye los fechados en el futuro. Los
 reintentos conservan la selección, el período, el idioma y el nombre del archivo
@@ -545,7 +547,7 @@ La skill asignada `core.gnosi-daily-briefing` contiene el criterio editorial y u
 
 El planificador puede devolver menos temas que el máximo configurado; ya no rellena los días amplios hasta 32 posiciones. Cada tarjeta mantiene exactamente una asignación a un tema declarado y se conservan todos los identificadores y asuntos originales. El motor mantiene los límites técnicos, las validaciones de esquema y evidencias, la revisión de las fuentes originales, el rango de palabras, la persistencia, la cancelación y las garantías de publicación. Cambiar la duración modifica el objetivo; el valor predeterminado para días amplios sigue siendo 1.380 palabras.
 
-El `review_mode` editable es `brief` por defecto: una revisión global de los resúmenes de fuentes y temas principales, como máximo una reescritura correctiva y después publicación normal de la voz. `full` activa explícitamente las auditorías exhaustivas de fragmentos originales. Los metadatos guardados identifican el alcance real.
+El `review_mode` editable es `brief` por defecto: una revisión global de los resúmenes de fuentes y temas principales, como máximo una reescritura correctiva y, después de reescribir, una nueva revisión de la narración final antes de publicar la voz. `full` activa explícitamente las auditorías exhaustivas de fragmentos originales. Los metadatos guardados identifican el alcance real.
 
 En el modo `brief` por defecto, se preparan simultáneamente como máximo cuatro lotes independientes. Cada lote conserva la petición y la clave de caché originales, el contexto autenticado y la validación; los resultados se ordenan según las fuentes. La cancelación o un fallo impide publicar cobertura parcial. La reanudación reutiliza los mismos puntos validados. El razonamiento opcional predeterminado del proveedor se desactiva para la extracción cuando el modelo declara que lo permite; se respetan las opciones explícitas del perfil. El modo `full` explícito mantiene la extracción secuencial.
 

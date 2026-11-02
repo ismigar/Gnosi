@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-15
+last_verified: 2026-10-30
 source_paths:
   - backend/services/workspace_speech.py
   - backend/domains/agent/routes/workspace_speech.py
@@ -1702,3 +1702,7 @@ Podcast coverage operations can also retry an SDK connection failure, including 
 Structured responses accept a complete JSON object or array followed only by one repeated root closer or the bare trailing fragments `<function` and `<function=`. The complete document is preserved and still passes its response schema and operation-specific validation. A second JSON value, prose, a named tool call, an incomplete document or non-finite numbers remain rejected. Unstructured text is unchanged. This handles the observed provider formatting defect without dropping findings or spending another model call; other invalid replies still use the existing bounded repair.
 
 Voice settings autosave edited values, coalesce quick changes and flush when the panel closes. Pending or failed writes disable preview; errors offer retry. Changing Vaults does not save the previous Vault’s pending draft into the newly selected Vault.
+
+## Shared voice settings and autosave
+
+Chat, Reader podcasts and generated audio share the saved speech configuration within the active Vault. The editable voice form autosaves provider, voice and language changes through the shared draft writer and displays its save status. Editing stops the current preview; a preview requires a saved, available configuration. A Vault switch prevents a closing form from saving through the new Vault’s context. Local speech availability and configured neural-provider credentials remain independent prerequisites.

@@ -53,3 +53,7 @@ Enable **External sharing**, then open a table and choose **Public forms**. Publ
 Share the generated link from a Gnosi server your visitors can reach. They can submit a response without a Gnosi account and cannot read existing records. Each accepted submission creates one page in the pinned table through the normal page pipeline. Retrying an interrupted submission uses the same request identity and does not create another record. Revoke the link to stop new submissions. Removing the owner's write access or changing an exposed field's schema also stops the form.
 
 Links always expire: choose 7, 30, 90 or 365 days when publishing. Publish a new form when you need a new link after expiry.
+
+## Return to a record without losing your place
+
+Opening and closing a record preserves the table’s scroll position, selection and expanded groups. Background refreshes keep active cell edits and keyboard focus where possible. Renaming a record keeps its title consistent between the page and table. If you leave a table while a record is loading, its delayed response does not reopen the record over your new selection.

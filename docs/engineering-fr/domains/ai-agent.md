@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-15
+last_verified: 2026-10-30
 source_paths:
   - backend/services/workspace_speech.py
   - backend/domains/agent/routes/workspace_speech.py
@@ -1832,3 +1832,7 @@ Les opérations de couverture du podcast peuvent aussi réessayer un échec de c
 Les réponses structurées acceptent un objet ou tableau JSON complet suivi uniquement d’une fermeture racine répétée ou des fragments finaux vides `<function` et `<function=`. Le document entier est conservé et reste soumis aux validations du schéma et de l’opération. Un second document JSON, de la prose, un appel d’outil nommé, un document incomplet et les nombres non finis restent rejetés. Le texte non structuré ne change pas. Cela traite le défaut de format observé du fournisseur sans perdre de conclusions ni consommer un autre appel au modèle ; les autres réponses invalides conservent la réparation bornée existante.
 
 Les réglages vocaux enregistrent automatiquement les modifications, regroupent les changements rapides et terminent l’enregistrement à la fermeture du panneau. Les écritures en attente ou en échec désactivent l’aperçu ; une action permet de réessayer. Changer de Vault n’enregistre pas le brouillon du Vault précédent dans le nouveau Vault.
+
+## Réglages de voix partagés et enregistrement automatique
+
+Le chat, les podcasts du Lecteur et l’audio généré partagent la configuration vocale enregistrée dans le Vault actif. Le formulaire modifiable enregistre automatiquement les changements de fournisseur, de voix et de langue avec le gestionnaire partagé de brouillons et affiche leur état. Toute modification arrête l’essai en cours ; un essai nécessite une configuration enregistrée et disponible. Un changement de Vault empêche le formulaire qui se ferme d’enregistrer avec le contexte du nouveau Vault. La disponibilité de la voix locale et les identifiants du fournisseur neuronal restent des prérequis indépendants.

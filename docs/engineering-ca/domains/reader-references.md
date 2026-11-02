@@ -504,6 +504,8 @@ l’àlies no configura cap compte de correu ni credencials.
 
 ### Cobertura del dia complet i articles sense contingut
 
+El mode de revisió predeterminat és `brief`: revisa la narració amb les notes de les fonts i els temes, permet com a màxim una reescriptura correctiva i, si es reescriu, torna a revisar la narració final abans de generar la veu. La narració ha de superar la revisió. Les auditories exhaustives dels fragments originals i les tres rondes completes d’escriptura i revisió com a màxim descrites a continuació corresponen al mode explícit `full`. La selecció de fonts i les garanties de recompte de paraules i publicació són comunes als dos modes; l’apartat de preferències editables de més avall descriu el flux predeterminat.
+
 El pòdcast diari fixa tots els articles publicats durant les 24 hores anteriors,
 inclosos els ja llegits, i exclou els datats en el futur. Els reintents conserven
 la selecció, el període, l'idioma i el nom del fitxer dins del treball principal
@@ -596,7 +598,7 @@ La skill assignada `core.gnosi-daily-briefing` conté el criteri editorial i un 
 
 El planificador pot retornar menys temes que el màxim configurat; ja no omple els dies amplis fins a 32 posicions. Cada targeta conserva exactament una assignació a un tema declarat i es mantenen tots els identificadors i assumptes originals. El motor conserva els límits tècnics, les validacions d’esquema i evidències, la revisió de les fonts originals, el rang de paraules, la persistència, la cancel·lació i les garanties de publicació. Canviar la durada modifica l’objectiu; el valor per defecte dels dies amplis continua sent 1.380 paraules.
 
-El `review_mode` editable és `brief` per defecte: una revisió global dels resums de fonts i temes principals, com a màxim una reescriptura correctiva i després publicació normal de la veu. `full` activa explícitament les auditories exhaustives dels fragments originals. Les metadades de revisió desades identifiquen l’abast real.
+El `review_mode` editable és `brief` per defecte: una revisió global dels resums de fonts i temes principals, com a màxim una reescriptura correctiva i, després de reescriure, una nova revisió de la narració final abans de publicar la veu. `full` activa explícitament les auditories exhaustives dels fragments originals. Les metadades de revisió desades identifiquen l’abast real.
 
 En el mode `brief` per defecte, es preparen simultàniament com a màxim quatre lots independents. Cada lot conserva la petició i la clau de memòria cau originals, el context autenticat i la validació; els resultats es reordenen segons les fonts. La cancel·lació o una fallada impedeix publicar una cobertura parcial. La represa reutilitza els mateixos punts validats. El raonament opcional per defecte del proveïdor es desactiva per a l’extracció quan el model declara que ho permet; es respecten les opcions explícites del perfil. El mode `full` explícit manté l’extracció seqüencial.
 

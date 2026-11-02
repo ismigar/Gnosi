@@ -112,6 +112,7 @@ tests:
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
+  - backend/tests/test_page_detail_revision_snapshot.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_graph_frontmatter_fallback.py
   - backend/tests/test_files_provider.py
@@ -949,3 +950,7 @@ Añada `--resource-id <id>` a `preview` para clasificar solo un recurso; las acc
 Los encabezados plegables admiten Alt/Opción+Intro con el cursor dentro del título. El botón nativo se puede enfocar con Tab y activar con Intro o Espacio, con foco visible, etiqueta traducida y estado de despliegue. La activación conserva el cursor o el foco del botón y el estado de despliegue guardado. Intro sin modificadores conserva su comportamiento de edición; los párrafos hijos, los controles incrustados y la composición de texto no pliegan una sección padre.
 
 La traducción interna de filas y páginas crea registros derivados mediante el servicio canónico de creación de páginas, sin llamar a un handler HTTP con dependencias FastAPI sin resolver. Se conservan las sustituciones de creación con dos argumentos. El test de integración de catálogos activa explícitamente la traducción en el Vault temporal para que la prueba del bloqueo de borradores alcance la regla de acción.
+
+## Revisiones de la lectura de detalles Markdown
+
+Los detalles de una página Markdown obtienen el ETag del mismo descriptor abierto que se utiliza para leer el contenido, antes de resolver el título de forma asíncrona. Un guardado atómico o un cambio de nombre entre la lectura y la respuesta no puede devolver una revisión ausente ni asociar la revisión de un archivo nuevo a contenido antiguo. Se mantienen el formato `<mtime_ns>-<size>` y el contrato no nulo de la respuesta de detalles; las revisiones obsoletas siguen impidiendo sobrescrituras.

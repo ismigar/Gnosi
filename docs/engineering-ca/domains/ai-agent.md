@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-15
+last_verified: 2026-10-30
 source_paths:
   - backend/services/workspace_speech.py
   - backend/domains/agent/routes/workspace_speech.py
@@ -1740,3 +1740,7 @@ Les operacions de cobertura del pòdcast també poden reintentar una fallada de 
 Les respostes estructurades admeten un objecte o array JSON complet seguit només d’un tancament d’arrel repetit o dels fragments finals buits `<function` i `<function=`. Es conserva tot el document i es mantenen les validacions de l’esquema i de l’operació. Es continuen rebutjant un segon valor JSON, prosa, una crida a una eina amb nom, documents incomplets i nombres no finits. El text no estructurat no canvia. Això resol el defecte de format observat al proveïdor sense perdre conclusions ni gastar una altra crida al model; les altres respostes invàlides conserven la reparació acotada existent.
 
 La configuració de veu desa automàticament els canvis, agrupa les modificacions ràpides i completa el desament quan es tanca el panell. Els canvis pendents o fallits impedeixen la prova de veu; els errors permeten reintentar. Un canvi de Vault no desa l’esborrany pendent del Vault anterior al nou Vault.
+
+## Configuració de veu compartida i desament automàtic
+
+El xat, els pòdcasts del Lector i l’àudio generat comparteixen la configuració de veu desada dins del Vault actiu. El formulari editable desa automàticament els canvis de proveïdor, veu i idioma mitjançant el gestor compartit d’esborranys i en mostra l’estat. L’edició atura la prova en curs; escoltar una prova requereix una configuració desada i disponible. Canviar de Vault impedeix que el formulari que es tanca desi amb el context del nou Vault. La disponibilitat de la veu local i les credencials del proveïdor neuronal continuen sent requisits independents.

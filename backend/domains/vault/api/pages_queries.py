@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
@@ -372,15 +373,22 @@ async def get_page(page_id: str) -> dict[str, object]:
         )
     await dependencies.materialize_page(file_path, page_id)
 
-    def _read_and_parse() -> tuple[RegistryData, str]:
+    def _read_and_parse() -> tuple[RegistryData, str, str | None]:
         if dependencies.is_dashboard(file_path):
-            return dependencies.read_dashboard(file_path)
+            metadata, body = dependencies.read_dashboard(file_path)
+            return metadata, body, dependencies.file_etag(file_path)
         delays = [0.05, 0.1, 0.2, 0.4, 0.8, 1.0, 1.0, 1.0]
         last_error: OSError | None = None
         for attempt in range(len(delays) + 1):
             try:
-                raw_content = file_path.read_text(encoding="utf-8")
-                return dependencies.parse_frontmatter(raw_content, file_path)
+                with file_path.open(encoding="utf-8") as source:
+                    raw_content = source.read()
+                    stat = os.fstat(source.fileno())
+                # Bind the revision to the opened file, even if a concurrent
+                # atomic save replaces or renames its path before responding.
+                etag = f"{stat.st_mtime_ns}-{stat.st_size}"
+                metadata, body = dependencies.parse_frontmatter(raw_content, file_path)
+                return metadata, body, etag
             except OSError as exc:
                 last_error = exc
                 if exc.errno == 35 and attempt < len(delays):
@@ -389,10 +397,10 @@ async def get_page(page_id: str) -> dict[str, object]:
                 raise
         if last_error:
             raise last_error
-        return {}, ""
+        return {}, "", None
 
     try:
-        metadata, body = await asyncio.to_thread(_read_and_parse)
+        metadata, body, etag = await asyncio.to_thread(_read_and_parse)
         title = (
             await asyncio.to_thread(dependencies.resolve_title, metadata, file_path)
             if dependencies.resolve_title is not None else metadata.get("title", "")
@@ -409,7 +417,7 @@ async def get_page(page_id: str) -> dict[str, object]:
             "content": body.strip(),
             "folder": folder,
             "resolved_table_id": table_id,
-            "etag": dependencies.file_etag(file_path),
+            "etag": etag,
         }
     except Exception as exc:
         log.error("Error reading page %s: %s", page_id, exc)

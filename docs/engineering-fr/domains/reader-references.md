@@ -491,6 +491,8 @@ leur comportement ; cet alias ne configure aucun compte ni identifiant de messag
 
 ### Couverture de la journée complète et articles sans contenu
 
+Le mode de révision par défaut est `brief` : il vérifie la narration par rapport aux notes des sources et aux thèmes, autorise au plus une réécriture corrective et, en cas de réécriture, vérifie à nouveau la narration finale avant de générer la voix. La narration doit réussir la révision. Les audits exhaustifs des fragments originaux et les trois cycles complets de rédaction et révision au maximum décrits ci-dessous concernent le mode explicite `full`. La sélection des sources et les garanties de nombre de mots et de publication sont communes aux deux modes ; la section des préférences modifiables ci-dessous décrit le parcours par défaut.
+
 Le podcast quotidien fige tous les articles publiés pendant les 24 heures
 précédentes, y compris ceux déjà lus, et exclut les articles datés dans le futur.
 Les nouvelles tentatives conservent la sélection, la période, la langue et le
@@ -590,7 +592,7 @@ La skill attribuée `core.gnosi-daily-briefing` contient les choix éditoriaux e
 
 Le planificateur peut renvoyer moins de thèmes que le maximum configuré ; les journées riches ne sont plus complétées jusqu’à 32 positions. Chaque fiche conserve exactement une attribution à un thème déclaré et tous les identifiants et sujets originaux sont préservés. Le moteur conserve les limites techniques, les validations de schéma et de preuves, la révision des sources originales, la plage de mots, la persistance, l’annulation et les garanties de publication. Modifier la durée change la cible ; la valeur par défaut des journées riches reste 1 380 mots.
 
-Le `review_mode` modifiable utilise `brief` par défaut : une revue globale des résumés des sources et des thèmes principaux, au plus une réécriture corrective, puis la publication normale de la voix. `full` active explicitement les audits exhaustifs des fragments originaux. Les métadonnées enregistrées identifient la portée réelle.
+Le `review_mode` modifiable utilise `brief` par défaut : une revue globale des résumés des sources et des thèmes principaux, au plus une réécriture corrective et, après réécriture, une nouvelle révision de la narration finale avant la publication normale de la voix. `full` active explicitement les audits exhaustifs des fragments originaux. Les métadonnées enregistrées identifient la portée réelle.
 
 Dans le mode `brief` par défaut, au plus quatre lots indépendants sont préparés simultanément. Chaque lot conserve sa requête et sa clé de cache initiales, le contexte authentifié et la validation ; les résultats sont remis dans l’ordre des sources. Une annulation ou un échec empêche toute publication partielle. La reprise réutilise les mêmes points validés. Le raisonnement facultatif par défaut du fournisseur est désactivé pour l’extraction lorsque le modèle déclare le permettre ; les choix explicites du profil restent prioritaires. Le mode `full` explicite conserve une extraction séquentielle.
 

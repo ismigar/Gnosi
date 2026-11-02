@@ -38,3 +38,19 @@ An identifier supplies metadata, not guaranteed access to the full text. If impo
 
 - [Ask questions about selected sources](notebooks.md)
 - [Create pages, links and attachments](pages-files.md)
+
+## Listen to the daily podcast
+
+With Feeds Reader enabled, configure the daily podcast in its plugin settings and the assigned assistant’s model in **Settings → AI**. The daily episode selects articles published in the preceding 24 hours. Unreadable sources are reported; if none can be read, no episode is published.
+
+Personalize the assigned **Daily briefing** skill to adjust its editorial approach and podcast preferences. Defaults request ten minutes and at most twelve thematic groups. The default review checks the source briefs and thematic coverage, including smaller independent topics; the optional full review audits original fragments more extensively. Duration is a target, and generation can fail if it cannot meet the required length or evidence checks. Check the finished episode and its reported sources before relying on it.
+
+Voice settings are shared by chat, Reader podcasts and generated audio within the active Vault. Changes save automatically; check the save status before previewing. A local voice must be available on the host, and neural speech requires its configured provider.
+
+### Generation and recovery
+
+Enable Feeds Reader and AI, configure the assistant assigned to the daily briefing skill, and check the voice settings. In Reader, use the podcast generation button; when an episode already exists, use its regenerate button. Open the voice panel below the player to preview speech, or use its **Open settings** button to edit the shared voice configuration. Preview is unavailable during generation.
+
+The episode uses articles published in the preceding 24 hours, including articles already read. Articles with neither readable text nor a feed summary are omitted and reported. Generation can take several minutes; follow its progress and use Activity to inspect the task or cancel it. Listen to the completed episode in the player. An error or cancellation preserves the previous audio; if no article is readable, no replacement is produced.
+
+Sparse days can produce shorter episodes. Settings changes apply to new jobs; a resumed job retains its original selection and preferences.

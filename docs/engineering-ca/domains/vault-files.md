@@ -112,6 +112,7 @@ tests:
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
+  - backend/tests/test_page_detail_revision_snapshot.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_graph_frontmatter_fallback.py
   - backend/tests/test_files_provider.py
@@ -942,3 +943,7 @@ Afegiu `--resource-id <id>` a `preview` per classificar només un recurs; les ac
 Els encapçalaments plegables admeten Alt/Opció+Retorn amb el cursor dins del títol. El botó natiu es pot enfocar amb Tab i activar amb Retorn o Espai, amb focus visible, etiqueta traduïda i estat de desplegament. L’activació conserva el cursor o el focus del botó i l’estat de desplegament desat. Retorn sense modificadors conserva el comportament d’edició; els paràgrafs fills, els controls incrustats i la composició de text no pleguen una secció pare.
 
 La traducció interna de files i pàgines crea registres derivats mitjançant el servei canònic de creació de pàgines, sense cridar un handler HTTP amb dependències FastAPI sense resoldre. Es conserven les sobreescriptures de creació amb dos arguments. El test d’integració dels catàlegs activa explícitament la traducció al Vault temporal perquè la prova del bloqueig d’esborranys arribi a la regla d’acció.
+
+## Revisions de la lectura de detalls Markdown
+
+Els detalls d’una pàgina Markdown obtenen l’ETag del mateix descriptor obert que s’utilitza per llegir el contingut, abans de resoldre el títol de manera asíncrona. Un desament atòmic o un canvi de nom entre la lectura i la resposta no pot retornar una revisió absent ni associar la revisió d’un fitxer nou a contingut antic. Es mantenen el format `<mtime_ns>-<size>` i el contracte no nul de la resposta de detalls; les revisions obsoletes continuen impedint sobreescriptures.

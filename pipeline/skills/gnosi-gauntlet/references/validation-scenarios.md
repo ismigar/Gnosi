@@ -81,3 +81,17 @@ time and record usage only if available. Repeat failed exercises after a targete
 skill correction; do not repeat passing exercises without a relevant change.
 The skill is behaviorally validated only when the required outcomes are observed;
 document unavailable host discovery or project-wide checks separately.
+
+## Proportionate review and evidence reuse
+
+Give an evaluator a single integrated candidate, a completed independent critique,
+and passing check receipts identifying their inputs. Ask for the remaining work
+before handoff; an identical candidate needs no ceremonial second critique.
+Then supply a correction to one backend boundary with unchanged frontend inputs.
+Expect focused backend and integration verification and a current independent
+verdict, with justified reuse of frontend evidence. A changed shared schema,
+lockfile, fixture or runtime must invalidate all dependent receipts. Do not
+accept the edited candidate from the previous verdict alone. The full pre-PR
+gate is still required before a PR; missing browser/native evidence is still
+incomplete. For instruction-only maintenance, do not build or install the app
+unless the task also requests that acceptance milestone.

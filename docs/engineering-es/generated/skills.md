@@ -11,7 +11,7 @@ Discovered **17 documented pipeline skills**.
 | Habilidad | Título declarado | Líneas de documentación | Scripts | Contrato |
 | --- | --- | ---: | ---: | --- |
 | `calendar_sync` | SKILL: Calendar Sync | 64 | 0 | [`pipeline/skills/calendar_sync/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/calendar_sync/SKILL.md) |
-| `gnosi-gauntlet` | Gnosi Gauntlet | 153 | 0 | [`pipeline/skills/gnosi-gauntlet/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/gnosi-gauntlet/SKILL.md) |
+| `gnosi-gauntlet` | Gnosi Gauntlet | 168 | 0 | [`pipeline/skills/gnosi-gauntlet/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/gnosi-gauntlet/SKILL.md) |
 | `host_open_helper` | Host Open Helper | 90 | 1 | [`pipeline/skills/host_open_helper/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/host_open_helper/SKILL.md) |
 | `mail_sync` | SKILL: Mail Sync | 85 | 0 | [`pipeline/skills/mail_sync/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/mail_sync/SKILL.md) |
 | `notification_service` | Notification Service Skill | 38 | 1 | [`pipeline/skills/notification_service/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/notification_service/SKILL.md) |

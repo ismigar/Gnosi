@@ -53,3 +53,7 @@ Activa **Compartició externa**, obre una taula i tria **Formularis públics**. 
 Comparteix l'enllaç des d'un servidor de Gnosi accessible als destinataris. Poden respondre sense compte i no poden consultar registres existents. Cada resposta acceptada crea una pàgina a la taula fixada mitjançant el procés normal de creació. Reintentar un enviament interromput conserva la identitat de la petició i no duplica el registre. Revoca l'enllaç per aturar respostes noves. Retirar el permís d'escriptura del propietari o canviar l'esquema d'un camp exposat també atura el formulari.
 
 Els enllaços sempre caduquen: tria 7, 30, 90 o 365 dies en publicar. Publica un formulari nou quan necessitis un altre enllaç després del venciment.
+
+## Tornar a un registre sense perdre el punt
+
+Obrir i tancar un registre conserva la posició de desplaçament de la taula, la selecció i els grups desplegats. Les actualitzacions en segon pla mantenen, sempre que és possible, l’edició de cel·les activa i el focus del teclat. Canviar el nom d’un registre manté el títol coherent entre la pàgina i la taula. Si surts d’una taula mentre es carrega un registre, la resposta tardana no el torna a obrir damunt de la nova selecció.

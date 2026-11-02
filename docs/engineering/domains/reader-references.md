@@ -480,6 +480,8 @@ semantics; this alias does not configure a mailbox account or credentials.
 
 ### Whole-day podcast coverage and unreadable articles
 
+The default review mode is `brief`: it reviews the narration against source briefs and themes, allows at most one corrective rewrite and, if rewritten, reviews the final narration again before generating speech. The narration must pass review. The exhaustive original-fragment audits and up to three complete writing/review rounds below apply to explicit `full` mode. Shared source selection, word-budget and publication safeguards apply to both modes; the editable preferences section below describes the default path.
+
 The daily podcast freezes all articles published within the preceding 24 hours,
 including articles already read and excluding future-dated entries. Retries keep
 the original selection, period, language and filename under the private parent
@@ -569,7 +571,7 @@ The assigned `core.gnosi-daily-briefing` skill owns the editorial approach and a
 
 The planner may return fewer topics than the configured maximum; it no longer pads a broad day to 32 positions. Every card still has exactly one assignment to a declared topic, and all original IDs and child subjects survive routing. The engine retains technical capacity bounds, strict schema/evidence checks, original-source reviews, word-range validation, persistence, cancellation and publication safeguards. Custom duration changes the target; the default broad-day target remains 1,380 words.
 
-The editable `review_mode` defaults to `brief`: one whole-day review of source briefs and main themes, at most one corrective rewrite, then normal speech publication. `full` explicitly opts into exhaustive original-fragment audits. The persisted review metadata identifies the actual scope.
+The editable `review_mode` defaults to `brief`: one whole-day review of source briefs and main themes, at most one corrective rewrite and, after a rewrite, another review of the final narration before normal speech publication. `full` explicitly opts into exhaustive original-fragment audits. The persisted review metadata identifies the actual scope.
 
 In default `brief` mode, at most four independent extraction batches run concurrently. Each retains its original request and cache key, authenticated context and validation; results are assembled in source order. Cancellation or a failed batch prevents partial publication. Resuming reuses the same validated checkpoints. Optional provider-default reasoning is disabled for source extraction when the model declares support; explicit profile choices remain authoritative. Explicit `full` mode keeps serial extraction.
 

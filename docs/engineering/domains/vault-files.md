@@ -112,6 +112,7 @@ tests:
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
+  - backend/tests/test_page_detail_revision_snapshot.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_graph_frontmatter_fallback.py
   - backend/tests/test_files_provider.py
@@ -868,3 +869,7 @@ Add `--resource-id <id>` to `preview` to classify only one resource; subsequent 
 Toggle headings support Alt/Option+Enter while the caret is in the heading. The native disclosure button is reachable with Tab and activates with Enter or Space, with a visible focus outline, localized label and expanded state. Activation retains the caret or button focus and the existing saved expansion state. Plain Enter keeps its editing behavior; child paragraphs, embedded controls and composing input do not toggle an ancestor section.
 
 Internal row and page translation creates derived records through the canonical page creation service, rather than invoking an HTTP handler with unresolved FastAPI dependencies. Late-bound two-argument creation overrides remain supported. The option-catalog integration fixture explicitly enables translation in its disposable Vault, so the draft rejection test reaches the action rule instead of the plugin-disabled guard.
+
+## Markdown detail revision snapshots
+
+Markdown page details derive their ETag from the same open file descriptor used to read the content, before asynchronous title resolution. An atomic save or rename between reading and response assembly cannot return a missing revision or attach a newer file’s revision to older content. The existing `<mtime_ns>-<size>` format and non-null detail response contract remain unchanged; stale revisions still reject overwrites.
