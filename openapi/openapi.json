@@ -12333,6 +12333,16 @@
             "title": "Max Length",
             "type": "integer"
           },
+          "option_labels": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Option Labels",
+            "type": "object"
+          },
           "options": {
             "items": {
               "type": "string"
@@ -35709,6 +35719,13 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "failure_message": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Failure Message",
+            "type": "object"
+          },
           "fields": {
             "items": {
               "$ref": "#/components/schemas/FormField"
@@ -35732,6 +35749,13 @@
             "title": "Name",
             "type": "string"
           },
+          "newsletter_label": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Newsletter Label",
+            "type": "object"
+          },
           "newsletter_list": {
             "anyOf": [
               {
@@ -35742,6 +35766,20 @@
               }
             ],
             "title": "Newsletter List"
+          },
+          "privacy_label": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Privacy Label",
+            "type": "object"
+          },
+          "privacy_link_label": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Privacy Link Label",
+            "type": "object"
           },
           "privacy_text": {
             "additionalProperties": {
@@ -35770,6 +35808,13 @@
             "default": false,
             "title": "Require Privacy",
             "type": "boolean"
+          },
+          "required_message": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Required Message",
+            "type": "object"
           },
           "revision": {
             "default": 1,
@@ -38069,6 +38114,16 @@
       "TargetConnection": {
         "additionalProperties": false,
         "properties": {
+          "authentication": {
+            "default": "agent",
+            "enum": [
+              "agent",
+              "key",
+              "password"
+            ],
+            "title": "Authentication",
+            "type": "string"
+          },
           "document_root": {
             "default": "",
             "maxLength": 500,
@@ -38081,12 +38136,23 @@
             "title": "Host",
             "type": "string"
           },
+          "identity_file": {
+            "default": "",
+            "maxLength": 1000,
+            "title": "Identity File",
+            "type": "string"
+          },
           "local_port": {
             "default": 4321,
             "maximum": 65535.0,
             "minimum": 1024.0,
             "title": "Local Port",
             "type": "integer"
+          },
+          "password_configured": {
+            "default": false,
+            "title": "Password Configured",
+            "type": "boolean"
           },
           "port": {
             "default": 22,
@@ -38113,6 +38179,15 @@
             "title": "Ssh Key Reference",
             "type": "string"
           },
+          "transfer_protocol": {
+            "default": "ssh",
+            "enum": [
+              "ssh",
+              "sftp"
+            ],
+            "title": "Transfer Protocol",
+            "type": "string"
+          },
           "username": {
             "default": "",
             "maxLength": 100,
@@ -38121,6 +38196,32 @@
           }
         },
         "title": "TargetConnection",
+        "type": "object"
+      },
+      "TargetConnectionSecret": {
+        "additionalProperties": false,
+        "properties": {
+          "clear": {
+            "default": false,
+            "title": "Clear",
+            "type": "boolean"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "format": "password",
+                "maxLength": 4096,
+                "type": "string",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          }
+        },
+        "title": "TargetConnectionSecret",
         "type": "object"
       },
       "TaskCaseResult": {
@@ -41884,6 +41985,141 @@
           "configured"
         ],
         "title": "WebStatus",
+        "type": "object"
+      },
+      "WebsiteImportCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "preview_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Preview Id",
+            "type": "string"
+          },
+          "selected_page_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Selected Page Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "preview_id",
+          "name",
+          "selected_page_ids"
+        ],
+        "title": "WebsiteImportCreate",
+        "type": "object"
+      },
+      "WebsiteImportPage": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "path",
+          "language"
+        ],
+        "title": "WebsiteImportPage",
+        "type": "object"
+      },
+      "WebsiteImportPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "assets_count": {
+            "title": "Assets Count",
+            "type": "integer"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/WebsiteImportPage"
+            },
+            "title": "Pages",
+            "type": "array"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "name",
+          "pages",
+          "warnings",
+          "expires_at",
+          "assets_count"
+        ],
+        "title": "WebsiteImportPreview",
+        "type": "object"
+      },
+      "WebsiteImportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "max_pages": {
+            "default": 20,
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Max Pages",
+            "type": "integer"
+          },
+          "url": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "WebsiteImportRequest",
         "type": "object"
       },
       "WorklogCreateResponse": {
@@ -115417,6 +115653,254 @@
         ]
       }
     },
+    "/api/vault/sites/import/create": {
+      "post": {
+        "operationId": "create_from_url_api_vault_sites_import_create_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebsiteImportCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create From Url",
+        "tags": [
+          "Vault",
+          "sites"
+        ]
+      }
+    },
+    "/api/vault/sites/import/preview": {
+      "post": {
+        "operationId": "preview_url_api_vault_sites_import_preview_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebsiteImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebsiteImportPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Url",
+        "tags": [
+          "Vault",
+          "sites"
+        ]
+      }
+    },
     "/api/vault/sites/{site_id}": {
       "delete": {
         "operationId": "remove_site_api_vault_sites__site_id__delete",
@@ -117685,6 +118169,148 @@
           }
         },
         "summary": "Save Connection",
+        "tags": [
+          "Vault",
+          "sites"
+        ]
+      }
+    },
+    "/api/vault/sites/{site_id}/targets/{target_id}/credentials": {
+      "put": {
+        "operationId": "save_connection_secret_api_vault_sites__site_id__targets__target_id__credentials_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "title": "Target Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TargetConnectionSecret"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetConnection"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Connection Secret",
         "tags": [
           "Vault",
           "sites"

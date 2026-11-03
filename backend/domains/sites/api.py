@@ -20,12 +20,14 @@ from .models import (
     CatalogueItem, ConnectionStatus, LocalServeResponse, PrivateServiceRequest, PrivateServiceResponse,
     ServiceSettings, ServiceSettingsResponse, SiteBlock, SiteConfig, SiteCreate, SiteJob, SitePage,
     SitePreview, SitePreviewRequest, SitePublishRequest, SiteRelease, SiteSource, SiteStatus, SiteTarget,
-    SiteTheme, SiteThemeAsset, TargetConnection,
+    SiteTheme, SiteThemeAsset, TargetConnection, TargetConnectionSecret,
 )
 from .storage import SiteStore
 
 
 router = APIRouter(prefix="/sites", tags=["sites"], dependencies=[Depends(require_plugins("web-publishing"))])
+from .web_import_routes import router as import_router
+router.include_router(import_router)
 Editor = Annotated[WorkspaceContext, Depends(require_role("editor"))]
 Admin = Annotated[WorkspaceContext, Depends(require_role("admin"))]
 
@@ -235,6 +237,15 @@ def connection(site_id: str, target_id: str, context: Admin) -> TargetConnection
 @router.put("/{site_id}/targets/{target_id}/connection", response_model=TargetConnection)
 def save_connection(site_id: str, target_id: str, request: TargetConnection, context: Admin) -> TargetConnection:
     return runtime.save_connection(store_for(context), site_id, target_id, request)
+
+
+@router.put("/{site_id}/targets/{target_id}/credentials", response_model=TargetConnection)
+def save_connection_secret(site_id: str, target_id: str, request: TargetConnectionSecret, context: Admin, response: Response) -> TargetConnection:
+    from .connection_credentials import save_secret
+    response.headers["Cache-Control"] = "no-store"
+    store = store_for(context)
+    save_secret(store, site_id, target_id, request)
+    return runtime.connection(store, site_id, target_id)
 
 
 @router.post("/{site_id}/targets/{target_id}/probe", response_model=ConnectionStatus)

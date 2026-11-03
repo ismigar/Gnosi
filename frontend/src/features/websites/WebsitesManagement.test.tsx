@@ -30,7 +30,7 @@ beforeEach(() => {
   vi.mocked(api.localTargetStatus).mockResolvedValue({ running: false, url: 'http://127.0.0.1:4321' });
   vi.mocked(api.serveTarget).mockResolvedValue({ running: true, url: 'http://127.0.0.1:4321' });
   vi.mocked(api.stopLocalTarget).mockResolvedValue({ running: false, url: 'http://127.0.0.1:4321' });
-  vi.mocked(api.getTargetConnection).mockResolvedValue({ local_port: 4321, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', document_root: '', remote_private_root: '' });
+  vi.mocked(api.getTargetConnection).mockResolvedValue({ local_port: 4321, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' });
 });
 afterEach(() => { vi.useRealTimers(); });
 

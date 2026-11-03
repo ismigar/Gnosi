@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import Literal
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, PrivateAttr, SecretStr, field_validator, model_validator
 
 
 def identifier() -> str:
@@ -145,6 +145,7 @@ class FormField(Contract):
     required: bool = False
     max_length: int = Field(default=2000, ge=1, le=20000)
     options: list[str] = Field(default_factory=list)
+    option_labels: dict[str, dict[str, str]] = Field(default_factory=dict)
 
 
 class SiteForm(Contract):
@@ -163,6 +164,11 @@ class SiteForm(Contract):
     submit_label: dict[str, str] = Field(default_factory=lambda: {"ca": "Envia", "es": "Enviar", "en-gb": "Send"})
     confirmation: dict[str, str] = Field(default_factory=lambda: {"ca": "Hem rebut el teu missatge.", "es": "Hemos recibido tu mensaje.", "en-gb": "Your message has been received."})
     privacy_text: dict[str, str] = Field(default_factory=dict)
+    privacy_label: dict[str, str] = Field(default_factory=dict)
+    privacy_link_label: dict[str, str] = Field(default_factory=dict)
+    newsletter_label: dict[str, str] = Field(default_factory=dict)
+    required_message: dict[str, str] = Field(default_factory=dict)
+    failure_message: dict[str, str] = Field(default_factory=dict)
     privacy_url: str = ""
     require_privacy: bool = False
     redirect_path: str | None = None
@@ -400,6 +406,7 @@ class PrivateServiceResponse(Contract):
 
 
 class TargetConnection(Contract):
+    _password: str | None = PrivateAttr(default=None)
     host: str = Field(default="", max_length=250)
     username: str = Field(default="", max_length=100)
     port: int = Field(default=22, ge=1, le=65535)
@@ -407,7 +414,16 @@ class TargetConnection(Contract):
     document_root: str = Field(default="", max_length=500)
     remote_private_root: str = Field(default="", max_length=500)
     ssh_key_reference: str = Field(default="", max_length=100)
+    authentication: Literal["agent", "key", "password"] = "agent"
+    identity_file: str = Field(default="", max_length=1000)
+    transfer_protocol: Literal["ssh", "sftp"] = "ssh"
+    password_configured: bool = False
     local_port: int = Field(default=4321, ge=1024, le=65535)
+
+
+class TargetConnectionSecret(Contract):
+    password: SecretStr | None = Field(default=None, max_length=4096)
+    clear: bool = False
 
 
 class ConnectionStatus(Contract):

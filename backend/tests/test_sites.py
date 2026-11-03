@@ -1086,14 +1086,15 @@ def test_real_private_cli_bridge_and_target_isolation(website):
 
 
 @pytest.mark.skipif(shutil.which("php") is None, reason="PHP is not installed")
-def test_generated_ssh_upload_program_verifies_and_activates_without_network(website, tmp_path, monkeypatch):
+@pytest.mark.parametrize("transfer_protocol,tamper", [("ssh", False), ("sftp", False), ("sftp", True)])
+def test_generated_ssh_upload_program_verifies_and_activates_without_network(website, tmp_path, monkeypatch, transfer_protocol, tamper):
     from backend.domains.sites.models import SiteTarget
     remote = tmp_path / "account" / "public_html" / "_gnosi-test"
     target = SiteTarget(id="remote", adapter="ssh", environment="staging", base_url="https://example.invalid/_gnosi-test/current", enabled=True)
     site = website.site.model_copy(deep=True)
     site.targets.append(target)
     site = website.store.save(site)
-    runtime.save_connection(website.store, site.id, "remote", TargetConnection(host="test.invalid", username="test", remote_root=str(remote), document_root=str(remote.parent)))
+    runtime.save_connection(website.store, site.id, "remote", TargetConnection(host="test.invalid", username="test", remote_root=str(remote), document_root=str(remote.parent), transfer_protocol=transfer_protocol))
     def local_ssh(settings, command, payload=None, timeout=45):
         if '$daemon=gnosi_service_script("daemon.php")' in command:
             return b'{"started":true}'
@@ -1101,9 +1102,20 @@ def test_generated_ssh_upload_program_verifies_and_activates_without_network(web
         assert result.returncode == 0, result.stderr.decode()
         return result.stdout
     monkeypatch.setattr(runtime, "_ssh", local_ssh)
+    from backend.domains.sites import site_file_transfer
+    def local_sftp(settings, source, destination, password=None):
+        data = source.read_bytes()
+        Path(destination).write_bytes(data + b"CORRUPTED" if tamper else data)
+    monkeypatch.setattr(site_file_transfer, "upload_sftp", local_sftp)
     output = tmp_path / "build"
     output.mkdir()
     (output / "index.html").write_text("<p>Public page</p>")
+    if tamper:
+        with pytest.raises(AssertionError, match="SFTP transfer failed verification"):
+            runtime.upload_release(website.store, site, target, "release-one", output, None)
+        assert not (remote / "current").exists()
+        assert not (remote / "releases/release-one/index.html").exists()
+        return
     assert runtime.upload_release(website.store, site, target, "release-one", output, None) == target.base_url
     assert (remote / "current").resolve() == remote / "releases" / "release-one"
     settings = runtime.connection(website.store, site.id, target.id)
