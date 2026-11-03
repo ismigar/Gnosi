@@ -59,6 +59,24 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => { root.unmount(); await Promise.resolve(); }); document.body.replaceChildren(); storageSet('gnosi_active_vault_slug', ''); });
 
 describe('unified bookmarks section', () => {
+  it('keeps saved bookmarks and retry available after initial synchronization fails without claiming to load', async () => {
+    fixture.entries = [note]; fixture.isReady = false; fixture.error = true;
+    await render();
+    expect(container.querySelector('[role="alert"]')).not.toBeNull();
+    expect(container.querySelector('p[role="status"]')).toBeNull();
+    expect(button('My alias')).toBeDefined();
+    expect(button('Add bookmark').disabled).toBe(true);
+    await click('Refresh');
+    expect(fixture.refresh).toHaveBeenCalledTimes(1);
+    fixture.error = false;
+    await render();
+    expect(container.querySelector('p[role="status"]')).not.toBeNull();
+    fixture.isReady = true;
+    await render();
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.querySelector('p[role="status"]')).toBeNull();
+    expect(button('Add bookmark').disabled).toBe(false);
+  });
   it.each(['page', 'dashboard'])('captures a plain %s view as canonical page membership', async resource => {
     fixture.route = `/knowledge/${resource}/page-a`;
     await render(); await click('Save current view');
