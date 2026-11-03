@@ -51,3 +51,13 @@ python3 extensions/web-publishing/server/test_http.py
 ```
 
 Use the repository’s focused frontend checks, API generator and full pre-PR gate as well. All test data is disposable; no verification command sends real email or changes Drupal.
+
+## Header actions, page buttons and public listings
+
+In **Webs → Navigation → Header actions**, add an action with its label, destination, language and appearance (link, filled button or outline). For example, a Catalan **Col·labora** button can point to `/ca/collabora`. Add separate language-specific actions for translated destinations, or select all languages for one shared destination. Reordering and removal use the existing editor controls. Main navigation and footer links can use the same appearance options. Internal links remain inside the selected publication prefix; external links keep the existing safe new-tab policy.
+
+Split blocks in **Pages** expose their own action list, including the imported homepage hero. An explicit empty list removes its buttons; older imported configurations without this field retain their historical fallback until edited. New imported sites receive editable actions from their existing public pages.
+
+Each source exposes **Items per page** (1–100) and an optional public area filter. Listings paginate only already selected public records, and the filter contains only their public tags. The page/tag query can be bookmarked and browser Back restores it. Public records remain available without JavaScript. Imported article and design collections retain images and excerpts; research/story lists retain publication years. Responsive navigation provides a keyboard-accessible mobile toggle and preserves desktop navigation.
+
+These options participate in the existing configuration autosave, review fingerprint and publication workflow. Saving configuration does not publish it. Existing withdrawals and private-content exclusions remain authoritative. New imported contact forms require their configurable privacy acceptance; existing form settings are preserved.

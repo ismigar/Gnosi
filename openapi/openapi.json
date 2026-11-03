@@ -25764,6 +25764,16 @@
       "NavigationLink": {
         "additionalProperties": false,
         "properties": {
+          "appearance": {
+            "default": "link",
+            "enum": [
+              "link",
+              "button",
+              "outline"
+            ],
+            "title": "Appearance",
+            "type": "string"
+          },
           "href": {
             "title": "Href",
             "type": "string"
@@ -35348,6 +35358,20 @@
       "SiteBlock": {
         "additionalProperties": false,
         "properties": {
+          "actions": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NavigationLink"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actions"
+          },
           "alt": {
             "default": "",
             "title": "Alt",
@@ -35512,6 +35536,13 @@
               "$ref": "#/components/schemas/SiteForm"
             },
             "title": "Forms",
+            "type": "array"
+          },
+          "header_actions": {
+            "items": {
+              "$ref": "#/components/schemas/NavigationLink"
+            },
+            "title": "Header Actions",
             "type": "array"
           },
           "id": {
@@ -36305,6 +36336,13 @@
             "title": "Page Ids",
             "type": "array"
           },
+          "page_size": {
+            "default": 16,
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Page Size",
+            "type": "integer"
+          },
           "path_prefix": {
             "default": "/content",
             "title": "Path Prefix",
@@ -36328,6 +36366,11 @@
             ],
             "title": "Selection Mode",
             "type": "string"
+          },
+          "show_tag_filter": {
+            "default": false,
+            "title": "Show Tag Filter",
+            "type": "boolean"
           },
           "sort_descending": {
             "default": false,

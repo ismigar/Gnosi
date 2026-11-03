@@ -37,3 +37,34 @@ test('translated search navigation retains the query without changing its destin
   initLanguageLinks('new query');assert.equal(link.href,'https://example.invalid/proof/es/search/node?keys=new+query');
   initLanguageLinks('');assert.equal(link.href,'https://example.invalid/proof/es/search/node');
 });
+
+test('mobile menu closes with Escape and resets when returning from desktop',async t=>{
+  const {initMenu}=await import('../src/lib/interactions.js');
+  const events={};let focused=false;const attrs={};const media={matches:false,addEventListener:(_,handler)=>events.resize=handler};
+  const toggle={setAttribute:(name,value)=>attrs[name]=value,addEventListener:(_,handler)=>events.click=handler,focus:()=>focused=true};
+  const navigation={hidden:false,addEventListener:(_,handler)=>events.keydown=handler};
+  environment(t,{document:{querySelector:selector=>selector==='[data-menu-toggle]'?toggle:navigation},matchMedia:()=>media});
+  initMenu();assert.equal(navigation.hidden,true);assert.equal(attrs['aria-expanded'],'false');
+  events.click();assert.equal(navigation.hidden,false);assert.equal(attrs['aria-expanded'],'true');
+  events.keydown({key:'Escape'});assert.equal(navigation.hidden,true);assert.equal(focused,true);
+  media.matches=true;events.resize();assert.equal(navigation.hidden,false);assert.equal(attrs['aria-expanded'],'true');
+  media.matches=false;events.resize();assert.equal(navigation.hidden,true);assert.equal(attrs['aria-expanded'],'false');
+});
+
+test('listing navigation restores filter and page on browser back without losing the prefix',async t=>{
+  const {initListings}=await import('../src/lib/interactions.js');
+  const events={};const links=[];
+  const items=Array.from({length:5},(_,index)=>({dataset:{tags:JSON.stringify(index===1?['10']:['9'])},hidden:false}));
+  const select={value:'',addEventListener:(type,handler)=>events[type]=handler};
+  const filter={querySelector:()=>select,addEventListener:(type,handler)=>events[type]=handler};
+  const status={textContent:'',focus(){}};
+  const pagination={replaceChildren:()=>links.length=0,append:link=>links.push(link)};
+  const listing={dataset:{pageSize:'2',pageLabel:'Pàgina',emptyLabel:'Empty'},querySelectorAll:()=>items,querySelector:selector=>({'[data-listing-filter]':filter,'[data-listing-status]':status,'[data-listing-pagination]':pagination})[selector]};
+  const location={href:'https://example.invalid/proof/current/ca/blog?tag=9&page=2',search:'?tag=9&page=2'};
+  const navigate=href=>{const url=new URL(href,location.href);location.href=url.href;location.search=url.search;};
+  environment(t,{location,history:{pushState:(_,__,href)=>navigate(href)},addEventListener:(type,handler)=>events[type]=handler,document:{querySelectorAll:()=>[listing],createElement:()=>({attributes:{},setAttribute(name,value){this.attributes[name]=value;},addEventListener(type,handler){this[type]=handler;}})}});
+  initListings();assert.deepEqual(items.map(item=>item.hidden),[true,true,true,false,false]);assert.equal(select.value,'9');assert.equal(status.textContent,'Pàgina 2 / 2');
+  links[0].click({button:0,preventDefault(){}});assert.equal(location.href,'https://example.invalid/proof/current/ca/blog?tag=9');
+  select.value='10';events.change();assert.equal(status.textContent,'Pàgina 1 / 1');assert.equal(items[1].hidden,false);
+  navigate('/proof/current/ca/blog?tag=9&page=2');events.popstate();assert.equal(select.value,'9');assert.deepEqual(items.map(item=>item.hidden),[true,true,true,false,false]);
+});

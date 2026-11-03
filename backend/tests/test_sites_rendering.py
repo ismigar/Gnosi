@@ -71,7 +71,10 @@ def test_actual_astro_output_scopes_assets_and_forms_without_private_snapshot(tm
     record_html = (output / "ca/content/record/index.html").read_text()
     collection_html = (output / "ca/content/index.html").read_text()
     assert '<dt>Public summary</dt>' in record_html
-    assert '<th>Public summary</th>' in collection_html
+    from bs4 import BeautifulSoup
+    collection = BeautifulSoup(collection_html, "html.parser")
+    summary = next(cell for cell in collection.select('th') if cell.get_text() == 'Public summary')
+    assert summary.get('scope') == 'col'
     assert opaque not in record_html and opaque not in collection_html
     assert 'action="/_gnosi-proof/current/api/contact.php"' in html
     assert 'href="/_gnosi-proof/current/_astro/' in html
@@ -79,13 +82,12 @@ def test_actual_astro_output_scopes_assets_and_forms_without_private_snapshot(tm
     assert "https://example.invalid/_gnosi-proof/current/ca" in (output / "sitemap.xml").read_text()
     assert 'rel="canonical" href="https://example.invalid/ca"' in html
     assert (output / "pagefind/pagefind.js").is_file()
-    from bs4 import BeautifulSoup
     search = BeautifulSoup((output / "ca/search/node/index.html").read_text(), "html.parser")
-    spanish = search.select_one('.masthead a[lang="es"]')
+    spanish = search.select_one('.site-header .languages a[lang="es"]')
     assert spanish['href'] == '/_gnosi-proof/current/es/search/node'
     assert spanish.has_attr('data-search-language')
     map_page = BeautifulSoup((output / "ca/mapa-web/index.html").read_text(), "html.parser")
-    assert map_page.select_one('.masthead a[lang="es"]')['href'] == '/_gnosi-proof/current/es/mapa-web'
+    assert map_page.select_one('.site-header .languages a[lang="es"]')['href'] == '/_gnosi-proof/current/es/mapa-web'
     assert not (output / "bundle.json").exists()
     assert "NEVER-PUBLISH" not in "".join(path.read_text() for path in output.rglob("*.html"))
 
@@ -217,10 +219,10 @@ def test_imported_contact_and_taxonomy_keep_equivalent_translations(tmp_path, mo
     render_bundle(SiteBundle(site=site).model_dump(mode='json'), output)
     for route in ('form/contact', 'tag/test'):
         html = BeautifulSoup((output / 'ca' / route / 'index.html').read_text(), 'html.parser')
-        assert html.select_one('.masthead a[lang="es"]')['href'] == '/es/' + route
+        assert html.select_one('.site-header .languages a[lang="es"]')['href'] == '/es/' + route
     research = BeautifulSoup((output / 'es/investigacio/index.html').read_text(), 'html.parser')
     assert research.h1.get_text() == 'Investigación'
-    assert research.select_one('.masthead a[lang="ca"]')['href'] == '/ca/investigacio'
+    assert research.select_one('.site-header .languages a[lang="ca"]')['href'] == '/ca/investigacio'
     assert 'Investigación' in [link.label for link in site.navigation if link.language == 'es']
     assert site.redirects['/es/form/contact/confirmation'] == '/es/form/contact'
     confirmation = BeautifulSoup((output / 'es/form/contact/confirmation/index.html').read_text(), 'html.parser')

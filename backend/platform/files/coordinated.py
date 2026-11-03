@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import stat
 import sys
 import threading
 from pathlib import Path
@@ -40,8 +41,10 @@ def is_placeholder(stat_result: os.stat_result) -> bool:
     """Cloud-provider detection; zero-byte local files are not placeholders."""
     if getattr(stat_result, "st_flags", 0) & SF_DATALESS:
         return True
+    # APFS directories normally have a size but no allocated data blocks.
     return (
-        getattr(stat_result, "st_size", 1) > 0
+        stat.S_ISREG(getattr(stat_result, "st_mode", stat.S_IFREG))
+        and getattr(stat_result, "st_size", 1) > 0
         and getattr(stat_result, "st_blocks", 1) == 0
     )
 

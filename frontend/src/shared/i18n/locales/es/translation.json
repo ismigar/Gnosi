@@ -8890,6 +8890,16 @@
     "newsletterReadFailed": "No se han podido cargar las suscripciones y los boletines. Puedes continuar con las páginas de la web o pulsar Actualizar para volver a intentarlo."
   },
   "websites": {
+    "headerActions": "Acciones de la cabecera",
+    "blockActions": "Acciones del bloque",
+    "pageSize": "Elementos por página",
+    "showTagFilter": "Mostrar el filtro público por etiquetas",
+    "linkAppearance": "Apariencia",
+    "linkAppearances": {
+      "link": "Enlace",
+      "button": "Botón",
+      "outline": "Botón con contorno"
+    },
     "title": "Webs",
     "openManager": "Abrir gestor de webs",
     "subtitle": "Publica conocimiento seleccionado y gestiona tus webs.",

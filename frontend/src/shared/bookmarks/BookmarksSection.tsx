@@ -90,7 +90,7 @@ function ScopedBookmarks({ onPageSelect, pages, activePageId, expanded: controll
           ['manual', 'sidebar.sort_manual', 'Manual (drag)'], ['alpha-asc', 'sidebar.sort_alpha_asc', 'A → Z'], ['alpha-desc', 'sidebar.sort_alpha_desc', 'Z → A'], ['recent', 'sidebar.sort_recent', 'Most recent'], ['oldest', 'sidebar.sort_oldest', 'Oldest'],
         ] as const).map(([mode, key, label]) => <option key={mode} value={mode}>{t(key, label)}</option>)}
       </select></label>
-      {!isReady ? <p role="status" className="mt-2 text-[var(--text-secondary)]">{t('bookmarks.loading', 'Loading bookmarks…')}</p> : entries.length === 0 ? <p className="mt-2 text-[var(--text-secondary)]">{t('bookmarks.empty', 'Save a note with its star, or add a bookmark here.')}</p> : null}
+      {!isReady && !error ? <p role="status" className="mt-2 text-[var(--text-secondary)]">{t('bookmarks.loading', 'Loading bookmarks…')}</p> : isReady && entries.length === 0 ? <p className="mt-2 text-[var(--text-secondary)]">{t('bookmarks.empty', 'Save a note with its star, or add a bookmark here.')}</p> : null}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={drag}>
         {grouped.map(({ group, entries: members }) => <div key={group} className="mt-2">
           {group ? <h4 className="mb-1 font-medium text-[var(--text-secondary)]">{group}</h4> : null}

@@ -46,6 +46,42 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); });
 
 describe('Webs manager', () => {
+  it('autosaves configurable header and hero actions together with source pagination', async () => {
+    const initial = structuredClone(base);
+    initial.sources = [{ id: 'blog', source_id: 'articles', kind: 'table', title: 'Blog', enabled: false, include_body: false, sort_descending: false, presentation: 'cards', path_prefix: '/blog', selection_mode: 'all' }];
+    initial.pages = [{ id: 'home', title: 'Home', language: 'ca', path: '/ca/', enabled: true, template: 'home', description: '', css: '', blocks: [{ id: 'hero', type: 'split', title: 'Welcome', body: 'Introduction', image: '/hero.webp', alt: 'Landscape', image_position: 'right', href: '', columns: 3, limit: 3, css: '' }] }];
+    vi.mocked(api.listSites).mockResolvedValue([initial]);
+    vi.mocked(api.getSite).mockResolvedValue({ site: initial, jobs: [], releases: [], service_available: true });
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'navigation');
+    const header = [...view.container.querySelectorAll<HTMLElement>('.websites-card')].find(element => element.querySelector('h2')?.textContent === 'websites.headerActions');
+    if (!header) throw new Error('Missing header actions');
+    act(() => { button(header, 'websites.addLink').click(); });
+    act(() => { changeInput(control(header, 'websites.label'), 'Col·labora'); });
+    act(() => { changeInput(control(header, 'websites.destination'), '/ca/collabora'); });
+    act(() => { changeInput(control(header, 'websites.language'), 'ca'); });
+    await autosave();
+    expect(vi.mocked(api.saveSite).mock.calls[0]?.[0].header_actions).toEqual([{ label: 'Col·labora', href: '/ca/collabora', language: 'ca', appearance: 'button' }]);
+
+    tab(view.container, 'pages');
+    act(() => { button(view.container, 'websites.addLink').click(); });
+    act(() => { changeInput(control(view.container, 'websites.label'), 'Explore'); });
+    act(() => { changeInput(control(view.container, 'websites.destination'), '/ca/blog'); });
+    act(() => { changeInput(control(view.container, 'websites.linkAppearance'), 'outline'); });
+    await autosave();
+    expect(vi.mocked(api.saveSite).mock.lastCall?.[0].pages?.[0]?.blocks?.[0]?.actions).toEqual([{ label: 'Explore', href: '/ca/blog', language: null, appearance: 'outline' }]);
+
+    tab(view.container, 'sources');
+    act(() => { changeInput(control(view.container, 'websites.pageSize'), '24'); });
+    act(() => { view.container.querySelector<HTMLElement>('[role="switch"][aria-label="websites.showTagFilter"]')?.click(); });
+    await autosave();
+    const saved = vi.mocked(api.saveSite).mock.lastCall?.[0];
+    expect(saved?.sources?.[0]).toMatchObject({ page_size: 24, show_tag_filter: true, enabled: false });
+    expect(saved?.header_actions?.[0]?.label).toBe('Col·labora');
+    expect(saved?.pages?.[0]?.blocks?.[0]?.actions?.[0]?.label).toBe('Explore');
+    tab(view.container, 'navigation');
+    expect(control(view.container, 'websites.label').value).toBe('Col·labora');
+  });
+
   it('withdraws one imported translation using its public identity without selecting a private vault note', async () => {
     const initial = structuredClone(base);
     initial.legacy_pilot = true;

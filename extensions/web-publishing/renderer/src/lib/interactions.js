@@ -1,3 +1,4 @@
+import {listingState,listingUrl} from './listing.js';
 export function initForms() {
   for (const form of document.querySelectorAll('form[data-contact]')) {
     const key=form.elements.namedItem('_request_id');
@@ -66,5 +67,49 @@ export function initLanguageLinks(terms=new URLSearchParams(location.search).get
   if(!document.querySelector('[data-search-base]'))return;
   for(const link of document.querySelectorAll('a[data-search-language]')){
     const destination=new URL(link.href);if(terms)destination.searchParams.set('keys',terms);else destination.searchParams.delete('keys');link.href=destination.href;
+  }
+}
+
+export function initMenu(){
+  const toggle=document.querySelector('[data-menu-toggle]');
+  const navigation=document.querySelector('[data-site-navigation]');
+  if(!toggle || !navigation)return;
+  const desktop=matchMedia('(min-width: 761px)');
+  let expanded=false;
+  const render=()=>{toggle.setAttribute('aria-expanded',String(desktop.matches || expanded));navigation.hidden=!desktop.matches && !expanded;};
+  toggle.addEventListener('click',()=>{expanded=!expanded;render();});
+  navigation.addEventListener('keydown',event=>{if(event.key==='Escape' && !desktop.matches){expanded=false;render();toggle.focus();}});
+  desktop.addEventListener('change',()=>{expanded=false;render();});
+  render();
+}
+
+export function initListings(){
+  for(const listing of document.querySelectorAll('[data-public-listing]')){
+    const items=[...listing.querySelectorAll('[data-listing-item]')].map(element=>({element,tags:JSON.parse(element.dataset.tags || '[]')}));
+    const filter=listing.querySelector('[data-listing-filter]');
+    const select=filter?.querySelector('select');
+    const pagination=listing.querySelector('[data-listing-pagination]');
+    const status=listing.querySelector('[data-listing-status]');
+    const render=()=>{
+      const state=listingState(items,location.search,listing.dataset.pageSize,Boolean(select));
+      if(select)select.value=state.tag;
+      const visible=new Set(state.visible);for(const item of items)item.element.hidden=!visible.has(item);
+      status.textContent=state.total ? `${listing.dataset.pageLabel} ${state.page} / ${state.count}` : listing.dataset.emptyLabel;
+      pagination.replaceChildren();
+      if(state.count>1){
+        // Bound the number of controls on large public collections.
+        const numbers=new Set([1,state.count,state.page-1,state.page,state.page+1].filter(number=>number>=1 && number<=state.count));
+        for(const number of [...numbers].sort((a,b)=>a-b)){
+          const link=document.createElement('a');link.href=listingUrl(location,number,state.tag);link.textContent=String(number);link.setAttribute('aria-label',`${listing.dataset.pageLabel} ${number}`);
+          if(number===state.page)link.setAttribute('aria-current','page');
+          link.addEventListener('click',event=>{if(event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)return;event.preventDefault();history.pushState(null,'',link.href);render();status.focus();});
+          pagination.append(link);
+        }
+      }
+    };
+    status.tabIndex=-1;
+    filter?.addEventListener('submit',event=>{event.preventDefault();history.pushState(null,'',listingUrl(location,1,select.value));render();});
+    select?.addEventListener('change',()=>{history.pushState(null,'',listingUrl(location,1,select.value));render();});
+    addEventListener('popstate',render);render();
   }
 }

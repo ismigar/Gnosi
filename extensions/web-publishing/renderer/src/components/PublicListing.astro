@@ -1,0 +1,19 @@
+---
+import ReadingCard from './ReadingCard.astro';
+import ResourceList from './ResourceList.astro';
+import {prefix} from '../lib/site.mjs';
+import {listingLabels} from '../lib/listing.js';
+const {items,source,lang,resource=false,title='',fields=[],fieldLabel=key=>key,format=value=>String(value??'')}=Astro.props;
+const text=listingLabels(lang);
+const tags=new Map();
+for(const record of items) for(const tag of record.presentation?.tags || []) if(tag.tid!=null && tag.label)tags.set(String(tag.tid),tag.label);
+const tagIds=record=>JSON.stringify((record.presentation?.tags || []).filter(tag=>tag.tid!=null).map(tag=>String(tag.tid)));
+---
+<div data-public-listing data-page-size={source?.page_size || 16} data-page-label={text.page} data-empty-label={text.empty}>
+  {source?.show_tag_filter && tags.size>0 && <form class="listing-filter" data-listing-filter method="get"><label>{text.filter}<select name="tag"><option value="">{text.all}</option>{[...tags].sort((a,b)=>a[1].localeCompare(b[1],lang)).map(([id,label])=><option value={id}>{label}</option>)}</select></label><button type="submit">{text.apply}</button></form>}
+  {source?.presentation==='table' ? <div class="table-scroll"><table><thead><tr><th scope="col">{title}</th>{fields.map(key=><th scope="col">{fieldLabel(key)}</th>)}</tr></thead><tbody>{items.map(record=><tr data-listing-item data-tags={tagIds(record)}><td><a href={prefix(record.path)}>{record.title}</a></td>{fields.map(key=><td>{format(record.fields[key])}</td>)}</tr>)}</tbody></table></div> : <div class:list={['public-listing-items',{'block-grid':!resource && source?.presentation!=='list'}]}>
+    {items.map(record=><div data-listing-item data-tags={tagIds(record)}>{resource ? <ResourceList items={[record]}/> : <ReadingCard record={record} lang={lang}/>}</div>)}
+  </div>}
+  <p data-listing-status role="status" aria-live="polite"></p>
+  <nav class="pagination" data-listing-pagination aria-label={text.pagination}></nav>
+</div>

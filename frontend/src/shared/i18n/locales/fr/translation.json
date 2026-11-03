@@ -8890,6 +8890,16 @@
     "newsletterReadFailed": "Impossible de charger les abonnements et les lettres d’information. Vous pouvez continuer avec les pages du site ou utiliser Actualiser pour réessayer."
   },
   "websites": {
+    "headerActions": "Actions de l’en-tête",
+    "blockActions": "Actions du bloc",
+    "pageSize": "Éléments par page",
+    "showTagFilter": "Afficher le filtre public par étiquettes",
+    "linkAppearance": "Apparence",
+    "linkAppearances": {
+      "link": "Lien",
+      "button": "Bouton",
+      "outline": "Bouton avec contour"
+    },
     "title": "Sites web",
     "openManager": "Ouvrir le gestionnaire de sites",
     "subtitle": "Publiez des connaissances sélectionnées et gérez vos sites.",
