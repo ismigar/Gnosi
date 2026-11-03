@@ -65,6 +65,7 @@ describe('VaultSidebar navigation', () => {
         expect(container.querySelectorAll('section[aria-label="Bookmarks"]')).toHaveLength(1);
         expect(container.textContent).not.toContain('Favorites');
         await click(button('Bookmarks'));
+        await click(button('More actions'));
         const sort = container.querySelector<HTMLSelectElement>('select');
         if (!sort) throw new Error('Missing bookmark sort');
         await act(async () => { sort.value = 'alpha-asc'; sort.dispatchEvent(new Event('change', { bubbles: true })); await Promise.resolve(); });
