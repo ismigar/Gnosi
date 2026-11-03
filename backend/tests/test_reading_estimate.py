@@ -127,3 +127,83 @@ def test_changed_knowledge_preflight_reuses_drafts_but_prices_all_reviews(monkey
     rejected, _ = estimate._saved_state({'phase': 'partial', 'job_id': 'old'}, canonical_hash(parts), True, False,
                                        'Book', 'French', parts)
     assert not rejected
+
+
+def test_price_tokenizer_identifies_exact_reference_and_missing_assets(monkeypatch):
+    from backend.services import agent_context_budget
+
+    def available(model):
+        if model == 'gpt-4o':
+            return SimpleNamespace(name='o200k_base', encode=lambda text, **_: text.split())
+        raise KeyError(model)
+
+    monkeypatch.setattr(agent_context_budget, '_available_encoding', available)
+    text = 'Una prova en català'
+    for model, prefix in [('openai/gpt-4o', 'model'), ('openai/gpt-6.1-sol', 'reference')]:
+        count, method = agent_context_budget.reading_price_counter('openrouter', model)
+        assert method == f'{prefix}:tiktoken:o200k_base'
+        assert count(text) == 4
+    for provider, model in [('openrouter', 'other/unknown'), ('ollama', 'gpt-4o')]:
+        count, method = agent_context_budget.reading_price_counter(provider, model)
+        assert method == 'utf8-conservative-upper-bound'
+        assert count(text) == len(text.encode('utf-8'))
+
+
+def test_context_and_quote_tokenizers_use_verified_bytes_without_downloader(monkeypatch, tmp_path):
+    import hashlib
+    from tiktoken import load, registry
+    from backend.services import agent_context_budget as budget
+
+    # A tiny deterministic vocabulary is enough to exercise the constructor
+    # and the loss of the on-disk cache immediately after the first read.
+    raw = b'YQ== 0\n'
+    url = 'https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken'
+    path = tmp_path / hashlib.sha1(url.encode()).hexdigest()
+    path.write_bytes(raw)
+    real_read = type(path).read_bytes
+    real_sha256 = hashlib.sha256
+
+    def read_then_disappear(file):
+        result = real_read(file)
+        if file == path:
+            file.unlink()
+        return result
+
+    def hash_fixture(data):
+        if data == raw:
+            return SimpleNamespace(hexdigest=lambda: budget._ENCODING_HASHES['o200k_base'])
+        return real_sha256(data)
+
+    download = Mock(side_effect=AssertionError('Estimate must not download a tokenizer'))
+    monkeypatch.setenv('TIKTOKEN_CACHE_DIR', str(tmp_path))
+    monkeypatch.setattr(type(path), 'read_bytes', read_then_disappear)
+    monkeypatch.setattr(budget, 'hashlib', SimpleNamespace(sha1=hashlib.sha1, sha256=hash_fixture))
+    monkeypatch.setattr(load, 'read_file', download)
+    monkeypatch.setattr(registry, 'ENCODINGS', {})
+    monkeypatch.setattr(budget, '_LOCAL_ENCODINGS', {})
+    context = budget.count_tokens('aaaa', 'gpt-4o')
+    assert context.tokens == 4 and not context.estimated
+    count, method = budget.reading_price_counter('openrouter', 'openai/gpt-6.1-sol')
+    assert method == 'reference:tiktoken:o200k_base'
+    assert count('aaaa') == 4
+    assert not path.exists()
+    download.assert_not_called()
+
+
+def test_pricing_tokens_change_cost_without_replanning_semantic_batches():
+    from backend.services.reading_semantic_estimate import phase_estimate
+
+    origin = finalize_origin({'kind': 'text', 'label': 'Book', 'input_order': 0,
+                              'segments': [{'text': 'Una afirmació matisada. ' * 20,
+                                            'locator': {'section': str(i)}} for i in range(20)]})
+    runtime = SimpleNamespace(input_budget=100000, count_tokens=lambda text: len(text.encode()),
+                              instructions='Keep every qualification.')
+    chunks = reading_chunks([origin], budget=reading_chunk_budget(runtime.input_budget), count=runtime.count_tokens)
+    old = phase_estimate(runtime, chunks, chunks, [], {}, 4)
+    new = phase_estimate(runtime, chunks, chunks, [], {}, 4,
+                         price_count=lambda text: len(text.split()))
+    assert new['phase_calls'] == old['phase_calls']
+    assert new['input_token_bound'] < old['input_token_bound']
+    assert new['output_tokens_assumed'] < old['output_tokens_assumed']
+    assert new['output_token_bound'] == old['output_token_bound']
+    assert new['evidence_input_token_bound'] == old['evidence_input_token_bound']
