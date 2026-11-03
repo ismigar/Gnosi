@@ -16,8 +16,10 @@
   .temenos-site .temenos-hero-copy h1{color:#fff;font-family:var(--font-body,Georgia,serif);font-size:clamp(1.8rem,3.1vw,2.8rem);margin:0 0 1rem}
   .temenos-site .temenos-hero-copy p{font-size:clamp(1.15rem,1.6vw,1.45rem);line-height:1.5;margin-top:0}
   .temenos-site .hero-actions .button{background:var(--background,#f5efe7);color:var(--primary,#264653);text-decoration:none;border:1px solid var(--primary,#264653)}
+  .temenos-site .hero-actions .button:hover{text-decoration:underline}
   .temenos-site .hero-actions .text-link{color:#151515}
   .temenos-site .reading-card{padding:0;background:transparent;overflow:hidden}
+  .temenos-site .reading-card .card-copy > .text-link{border:1px solid var(--primary,#264653);border-radius:10%;padding:0 10px}
   .temenos-site .reading-card img{width:100%;aspect-ratio:1.6;object-fit:cover;border-radius:var(--radius,.75rem)}
   .temenos-site .reading-card h3{font-size:1.6rem;line-height:1.25}.temenos-site .reading-card h3 a{color:var(--accent,#c75b35);text-decoration:none}
   .temenos-site .card-copy{padding-block:1rem}.temenos-site .card-copy>p{margin:.5rem 0 1rem}.temenos-site .text-link{display:inline-flex;gap:1rem;font-weight:700;text-decoration:none;min-height:44px;align-items:center;font-family:var(--font-heading,system-ui,sans-serif)}
