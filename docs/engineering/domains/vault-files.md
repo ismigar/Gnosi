@@ -160,8 +160,10 @@ front matter. Literal matching folds case and accents. Tag literals retain
 hierarchical boundaries inside groups. CommonMark token boundaries distinguish
 sections, blocks and tasks from literal code examples. Query size, nesting,
 regex execution and total evaluation have explicit limits; invalid or expensive
-queries return 422. This is a deterministic textual search, separate from the
-semantic and notebook retrieval systems.
+queries return 422. The two-second evaluation budget is shared across documents;
+loading the document inventory or waiting for cold/cloud-backed files does not
+consume it. Regex calls retain their individual timeout. This is a deterministic
+textual search, separate from the semantic and notebook retrieval systems.
 
 The global search dialog and `query`/`search` Markdown fences share the same API
 and pagination. The visual editor offers a query block. Request identity includes
