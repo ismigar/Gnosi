@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-11-01
+last_verified: 2026-11-03
 source_paths:
   - backend/domains/sites/transport_settings.py
   - backend/domains/sites
@@ -64,6 +64,14 @@ source_paths:
   - frontend/src/features/plugin-management
   - frontend/src/features/notion-import
 tests:
+  - backend/tests/test_sites_url_import.py
+  - backend/tests/test_sites_public_http.py
+  - backend/tests/test_sites_ssh_transport.py
+  - backend/tests/test_sites_generic_configuration.py
+  - backend/tests/test_sites_generic_rendering.py
+  - backend/tests/test_sites_contact_retry.py
+  - frontend/src/features/websites/CreateSiteDialog.test.tsx
+  - frontend/src/features/websites/ConnectionAuthentication.test.tsx
   - backend/tests/test_site_management.py
   - frontend/src/shared/api/sites.test.ts
   - frontend/src/features/websites/WebsitesManagement.test.tsx
@@ -413,7 +421,13 @@ de recursos utiliza el interruptor del módulo integrado.
 
 ## Gestión de sitios web
 
-El complemento opcional `web-publishing` incorpora un gestor de varios sitios en `/websites` y operaciones por vault en `/api/vault/sites`. La configuración editorial se sincroniza; los datos privados y las credenciales permanecen en el dispositivo o servidor configurado. Los campos, cuerpos y adjuntos públicos requieren selección explícita. Las versiones revisadas se generan con Astro y Pagefind; formularios, suscriptores y colas de boletines usan un servicio PHP/SQLite separado. Producción y correo real siguen desactivados durante el piloto de Temenos. Consulte la `extensions/web-publishing/README.md`.
+El complemento opcional `web-publishing` incorpora un gestor de varios sitios en `/websites` y operaciones por vault en `/api/vault/sites`. La configuración editorial se sincroniza; los datos privados y las credenciales permanecen en el dispositivo o servidor configurado. Los campos, cuerpos y adjuntos públicos requieren selección explícita. Las versiones revisadas se generan con Astro y Pagefind; formularios, suscriptores y colas de boletines usan un servicio PHP/SQLite separado. La activación en producción y el envío real de correo siguen desactivados. Consulte la `extensions/web-publishing/README.md`.
+
+Al crear un sitio se puede empezar en blanco o importar desde una URL pública. La operación `POST /api/vault/sites/import/preview`, reservada a administradores, recorre un número limitado de páginas HTML del mismo origen y guarda las imágenes ráster validadas en una copia privada del dispositivo que caduca. Cada petición y redirección valida las direcciones públicas y fija la dirección de conexión conservando la identidad del servidor y del certificado. Se excluyen las credenciales, las redes privadas, los scripts y los formularios originales. La revisión muestra las rutas, los idiomas, el número de imágenes y los avisos de contenido parcial o incompatible. Con `POST /api/vault/sites/import/create` se seleccionan páginas de esa misma copia, vinculada al propietario y al vault, y se crea un sitio editable con un destino local. Se conservan las rutas originales y las páginas iniciales por idioma; los enlaces fuera de la selección apuntan al sitio original. La importación HTML pública no migra bases de datos del CMS ni funciones de JavaScript o del servidor. El adaptador del piloto sigue disponible para sitios existentes.
+
+La conexión admite cualquier proveedor con acceso a comandos SSH. Se puede usar un agente SSH, una clave concreta o una contraseña guardada solo en el gestor de credenciales del sistema. La contraseña queda vinculada al vault, al sitio, al destino, al servidor, al puerto y a la cuenta remota; se guarda explícitamente y solo se indica si está configurada. Las transferencias admiten SSH o SFTP con la verificación del servidor del sistema. Por SFTP los archivos se escriben primero en el espacio privado del destino y se comprueba su integridad mediante SSH y PHP antes de activar la versión. La prueba de conexión distingue el acceso SFTP de los requisitos de publicación SSH, PHP y SQLite.
+
+Los formularios permiten editar el orden, el tipo, las opciones y la obligatoriedad de los campos, así como las etiquetas, las ayudas, los ejemplos, la introducción, el botón, la confirmación y la privacidad por idioma. También se pueden personalizar los textos de consentimiento, el enlace de privacidad y los mensajes de error, con textos predeterminados cuando se dejan en blanco. Las opciones conservan los valores admitidos y permiten traducir sus etiquetas. El formulario de reintento PHP conserva los textos, las ayudas y los valores introducidos sin JavaScript. Los formularios originales del sitio importado se omiten hasta configurar otros nuevos.
 
 Los errores de validación del catálogo se muestran sin ocultar los sitios existentes ni impedir editar páginas manuales. La publicación sigue exigiendo una revisión correcta y la validación de las fuentes.
 
