@@ -17,8 +17,16 @@ test('table settings retire Drupal controls and Webs creation keeps translated h
   await page.goto(`/@${state.primary_vault.slug}/websites`);
   await page.getByRole('button', { name: 'Create website', exact: true }).click();
   const creation = page.getByRole('dialog', { name: 'Create website', exact: true });
-  await expect(creation).toContainText('Preserves existing content, translations, URLs and brand settings.');
-  await expect(creation).not.toContainText(/drupal|websites\.importPilotHelp/i);
+  const mode = creation.getByRole('combobox');
+  await expect(mode).toHaveValue('blank');
+  await expect(creation).toContainText('Create a blank website');
+  await mode.selectOption({ label: 'Import a website by URL' });
+  await expect(creation).toContainText('Enter a public website. Review and choose its pages before importing.');
+  await creation.getByRole('textbox', { name: 'Website name', exact: true }).fill('Acceptance URL import');
+  await creation.getByRole('textbox', { name: 'Source website URL', exact: true }).fill('https://example.org');
+  await expect(creation.getByRole('button', { name: 'Analyze website', exact: true })).toBeEnabled();
+  await expect(creation.getByRole('button', { name: 'Import selected pages', exact: true })).toBeDisabled();
+  await expect(creation).not.toContainText(/temenos|drupal|websites\.(?:import\w+|createMode|sourceUrl)/i);
   await page.screenshot({ path: testInfo.outputPath('webs-creation-translated-help.png'), fullPage: true });
   await creation.getByRole('button', { name: 'Cancel', exact: true }).click();
 });
