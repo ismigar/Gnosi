@@ -20,7 +20,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
-| `platform` | 13 | 1401 |
+| `platform` | 13 | 1404 |
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
@@ -28,7 +28,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1090 modules** and **206065 source lines**.
+Total: **1090 modules** and **206068 source lines**.
 
 ## agent
 
@@ -863,7 +863,7 @@ Total: **1090 modules** and **206065 source lines**.
 | [`backend/platform/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/__init__.py) | 1 | 0 | 0 | 0 | 0 | Provider-neutral adapters shared by Gnosi domains. |
 | [`backend/platform/files/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/__init__.py) | 140 | 0 | 3 | 0 | 2 | Abstraction layer for cloud-on-demand storage providers. |
 | [`backend/platform/files/base.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/base.py) | 142 | 1 | 0 | 0 | 1 | Base interface for cloud-on-demand storage providers. |
-| [`backend/platform/files/coordinated.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/coordinated.py) | 97 | 0 | 5 | 1 | 4 | Bounded, read-only access to macOS File Provider files. |
+| [`backend/platform/files/coordinated.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/coordinated.py) | 100 | 0 | 5 | 1 | 4 | Bounded, read-only access to macOS File Provider files. |
 | [`backend/platform/files/dropbox.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/dropbox.py) | 12 | 1 | 0 | 0 | 1 | Dropbox adapter for macOS File Provider based folders. |
 | [`backend/platform/files/gdrive.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/gdrive.py) | 54 | 1 | 0 | 0 | 1 | GoogleDriveProvider: vault over Google Drive (Drive for Desktop, macOS). |
 | [`backend/platform/files/icloud.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/icloud.py) | 49 | 1 | 0 | 0 | 1 | iCloudDriveProvider: vault over iCloud Drive with the macOS File Provider. |
