@@ -93,6 +93,41 @@ def test_regular_expression_work_is_bounded():
         search_documents([document("a" * 100000 + "!")], '/(a+)+$/')
 
 
+def test_document_loading_does_not_spend_the_query_evaluation_budget(monkeypatch):
+    from backend.domains.vault.search import service
+
+    now = 0.0
+    monkeypatch.setattr(service.time, "monotonic", lambda: now)
+
+    def slow_documents():
+        nonlocal now
+        for index in range(3):
+            # A cold/cloud-backed Vault can take longer to load than to search.
+            now += 3.0
+            yield document("matching body", id=str(index))
+
+    result = search_documents(slow_documents(), "matching", budget_seconds=2.0)
+    assert result.total == 3
+
+
+def test_query_evaluation_budget_is_shared_across_documents(monkeypatch):
+    from backend.domains.vault.search import service
+
+    now = 0.0
+    monkeypatch.setattr(service.time, "monotonic", lambda: now)
+    original_evaluate = service.evaluate
+
+    def expensive_evaluate(*args, **kwargs):
+        nonlocal now
+        result = original_evaluate(*args, **kwargs)
+        now += 0.75
+        return result
+
+    monkeypatch.setattr(service, "evaluate", expensive_evaluate)
+    with pytest.raises(SearchQueryError, match="time budget"):
+        search_documents([document("matching")] * 3, "matching", budget_seconds=2.0)
+
+
 def test_pagination_is_stable_and_counts_all_hits():
     pages = [document("matching", id=str(index), title=f"Page {index:02}") for index in range(15)]
     first = search_documents(pages, "matching", limit=5)
