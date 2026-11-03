@@ -23,11 +23,14 @@ def test_generic_original_routes_and_contact_texts_render_without_temenos_defaul
                     privacy_link_label={'fr': 'Notre politique', 'en': 'Our policy'})
     for field_type in ('select', 'radio'):
         form.fields.append(FormField(id=field_type, type=field_type, options=['red', 'blue'],
-                                     option_labels={'red': {'fr': 'Rouge', 'en': 'Red'}, 'blue': {'fr': 'Bleu', 'en': 'Blue'}}))
-    site = SiteConfig(name='Independent', origin='https://source.example.org', languages=['fr', 'en'], default_language='fr', forms=[form], pages=[
+                                     option_labels={'red': {'fr': 'Rouge', 'en': 'Red', 'es': ''}, 'blue': {'fr': 'Bleu', 'en': 'Blue'}}))
+    for name in ('privacy_link_label', 'privacy_label', 'newsletter_label', 'required_message', 'failure_message', 'submit_label'):
+        getattr(form, name)['es'] = ''
+    site = SiteConfig(name='Independent', origin='https://source.example.org', languages=['fr', 'en', 'es'], default_language='fr', forms=[form], pages=[
         SitePage(title='Accueil', path='/', language='fr', enabled=True, blocks=[SiteBlock(body='[Local](https://source.example.org/about)\n\n[Original](https://source.example.org/not-imported)')]),
         SitePage(title='About', path='/about', language='en', enabled=True, blocks=[SiteBlock(type='form', form_id='support')]),
         SitePage(title='Contact', path='/contact', language='fr', enabled=True, blocks=[SiteBlock(type='form', form_id='support')]),
+        SitePage(title='Contacto', path='/contacto', language='es', enabled=True, blocks=[SiteBlock(type='form', form_id='support')]),
     ])
     site.targets[0].enabled = True
     bundle = build_bundle(store, site, 'local').model_dump(mode='json')
@@ -57,3 +60,12 @@ def test_generic_original_routes_and_contact_texts_render_without_temenos_defaul
         assert [radio['value'] for radio in radios] == ['red', 'blue']
         assert [radio.parent.get_text() for radio in radios] == captions
         assert translated.select_one('a[href$="/privacy"]').get_text() == privacy
+    fallback = BeautifulSoup((output / 'contacto/index.html').read_text(), 'html.parser')
+    assert [option.get_text() for option in fallback.select('select option[value]:not([value=""])')] == ['red', 'blue']
+    assert [radio.parent.get_text() for radio in fallback.select('input[type=radio]')] == ['red', 'blue']
+    assert fallback.select_one('input[name=privacy]').parent.get_text() == 'Acepto el texto de privacidad'
+    assert fallback.select_one('input[name=newsletter_opt_in]').parent.get_text() == 'Suscribirme al boletín'
+    assert fallback.select_one('a[href$="/privacy"]').get_text() == 'Acepto el texto de privacidad'
+    assert fallback.select_one('form[data-contact]')['data-invalid'] == 'Revisa los campos indicados.'
+    assert fallback.select_one('form[data-contact]')['data-failure'].startswith('No se ha podido enviar.')
+    assert fallback.select_one('form[data-contact] button[type=submit]').get_text() == 'Enviar'

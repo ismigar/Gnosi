@@ -2,12 +2,13 @@
 import {translate,labels,prefix,href,linkProps} from '../lib/site.mjs';
 const {form,lang}=Astro.props;
 const text=labels(lang);
+const override=(values,fallback)=>values?.[lang] || fallback;
 const instance=Astro.props.instance || form.id;
 ---
 <section data-pagefind-ignore>
   <h2>{translate(form.title,lang,form.name)}</h2>
   {translate(form.intro,lang) && <p>{translate(form.intro,lang)}</p>}
-  <form class="contact-form" method="post" action={prefix('/api/contact.php')} data-contact data-failure={translate(form.failure_message,lang,text.retry)} data-invalid={translate(form.required_message,lang,text.required)}>
+  <form class="contact-form" method="post" action={prefix('/api/contact.php')} data-contact data-failure={override(form.failure_message,text.retry)} data-invalid={override(form.required_message,text.required)}>
     <input type="hidden" name="form_id" value={form.id}/><input type="hidden" name="revision" value={form.revision}/><input type="hidden" name="language" value={lang}/><input type="hidden" name="_request_id" value=""/>
     <div class="honeypot" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"/></label></div>
     {form.fields.map(field => {
@@ -17,17 +18,17 @@ const instance=Astro.props.instance || form.id;
         {field.type==='checkbox' ? <label class="choice" for={id}><input type="checkbox" id={id} name={`values[${field.id}]`} value="1" required={field.required}/>{label}{field.required && ' *'}</label> : <>
           <label for={id}>{label}{field.required && ' *'}</label>
           {field.type==='textarea' ? <textarea id={id} name={`values[${field.id}]`} required={field.required} maxlength={field.max_length} placeholder={translate(field.placeholder,lang)} aria-describedby={translate(field.help,lang) ? `${id}-help` : undefined}/>
-          : field.type==='select' ? <select id={id} name={`values[${field.id}]`} required={field.required}><option value=""></option>{field.options.map(option=><option value={option}>{translate(field.option_labels?.[option],lang,option)}</option>)}</select>
-          : field.type==='radio' ? <fieldset id={id}><legend class="field-help">{label}</legend>{field.options.map((option,index)=><label class="choice"><input type="radio" name={`values[${field.id}]`} value={option} required={field.required} id={`${id}-${index}`}/>{translate(field.option_labels?.[option],lang,option)}</label>)}</fieldset>
+          : field.type==='select' ? <select id={id} name={`values[${field.id}]`} required={field.required}><option value=""></option>{field.options.map(option=><option value={option}>{override(field.option_labels?.[option],option)}</option>)}</select>
+          : field.type==='radio' ? <fieldset id={id}><legend class="field-help">{label}</legend>{field.options.map((option,index)=><label class="choice"><input type="radio" name={`values[${field.id}]`} value={option} required={field.required} id={`${id}-${index}`}/>{override(field.option_labels?.[option],option)}</label>)}</fieldset>
           : <input id={id} name={`values[${field.id}]`} type={field.type} required={field.required} maxlength={field.max_length} placeholder={translate(field.placeholder,lang)} aria-describedby={translate(field.help,lang) ? `${id}-help` : undefined}/>}
         </>}
         {translate(field.help,lang) && <p id={`${id}-help`} class="field-help">{translate(field.help,lang)}</p>}
       </div>;
     })}
-    {(translate(form.privacy_text,lang) || form.privacy_url) && <div><p>{translate(form.privacy_text,lang)}</p>{form.privacy_url && <a href={href(form.privacy_url)} {...linkProps(form.privacy_url)}>{translate(form.privacy_link_label,lang,text.privacy)}</a>}</div>}
-    {form.require_privacy && <label class="choice"><input type="checkbox" name="privacy" value="1" required/>{translate(form.privacy_label,lang,text.privacy)}</label>}
-    {form.newsletter_list && <label class="choice"><input type="checkbox" name="newsletter_opt_in" value="1"/>{translate(form.newsletter_label,lang,text.newsletter)}</label>}
+    {(translate(form.privacy_text,lang) || form.privacy_url) && <div><p>{translate(form.privacy_text,lang)}</p>{form.privacy_url && <a href={href(form.privacy_url)} {...linkProps(form.privacy_url)}>{override(form.privacy_link_label,text.privacy)}</a>}</div>}
+    {form.require_privacy && <label class="choice"><input type="checkbox" name="privacy" value="1" required/>{override(form.privacy_label,text.privacy)}</label>}
+    {form.newsletter_list && <label class="choice"><input type="checkbox" name="newsletter_opt_in" value="1"/>{override(form.newsletter_label,text.newsletter)}</label>}
     <div data-contact-status role="status" aria-live="polite" tabindex="-1"></div>
-    <button type="submit">{translate(form.submit_label,lang,text.send)}</button>
+    <button type="submit">{override(form.submit_label,text.send)}</button>
   </form>
 </section>

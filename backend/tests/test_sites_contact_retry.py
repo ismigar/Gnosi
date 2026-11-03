@@ -81,3 +81,15 @@ def test_retry_privacy_link_refuses_script_or_protocol_relative_urls():
     code = 'require $argv[1]; foreach (["javascript:alert(1)", "//evil.invalid", "/privacy", "https://example.org/privacy"] as $url) echo json_encode(site_public_contact_link($url,"https://site.invalid/base"))."\\n";'
     result = subprocess.run(['php', '-r', code, str(common)], capture_output=True, text=True, timeout=10, check=True)
     assert [json.loads(line) for line in result.stdout.splitlines()] == ['', '', '/base/privacy', 'https://example.org/privacy']
+
+
+@pytest.mark.skipif(shutil.which('php') is None, reason='PHP is required')
+def test_blank_or_missing_override_uses_language_default_without_another_language_caption():
+    common = extension_root() / 'public/api/common.php'
+    code = '''require $argv[1];
+    foreach (['', null, 'Custom'] as $value) {
+        $captions=['fr'=>'French']; if ($value !== null) $captions['es']=$value;
+        echo json_encode(site_public_override($captions,'es','Spanish default'))."\\n";
+    }'''
+    result = subprocess.run(['php', '-r', code, str(common)], capture_output=True, text=True, timeout=10, check=True)
+    assert [json.loads(line) for line in result.stdout.splitlines()] == ['Spanish default', 'Spanish default', 'Custom']

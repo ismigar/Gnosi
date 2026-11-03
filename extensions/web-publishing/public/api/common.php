@@ -26,11 +26,14 @@ function site_public_localized(mixed $value, string $language, string $fallback 
     foreach ($value as $text) if (is_string($text) && $text !== '') return $text;
     return $fallback;
 }
+function site_public_override(mixed $value, string $language, string $fallback): string {
+    return is_array($value) && is_string($value[$language] ?? null) && $value[$language] !== '' ? $value[$language] : $fallback;
+}
 function site_public_contact_message(?SiteService $service, array $request, string $language, string $key, string $fallback): string {
     if (!$service || !is_string($request['form_id'] ?? null)) return $fallback;
     try { $form = $service->publicForm($request['form_id']); }
     catch (Throwable $error) { return $fallback; }
-    return site_public_localized($form[$key] ?? [], $language, $fallback);
+    return site_public_override($form[$key] ?? [], $language, $fallback);
 }
 function site_public_contact_link(string $url, string $base): string {
     if (preg_match('/[\x00-\x20\\\\]/', $url)) return '';
@@ -44,6 +47,7 @@ function site_public_contact_retry(SiteService $service, string $language, array
     $form = is_string($formId) ? $service->publicForm($formId) : null;
     if (!$form) site_public_page($language, '<p>'.site_public_escape($message).'</p>');
     $localized = fn(mixed $value, string $fallback = ''): string => site_public_localized($value, $language, $fallback);
+    $override = fn(mixed $value, string $fallback): string => site_public_override($value, $language, $fallback);
     $text = match ($language) {
         'ca' => ['send' => 'Envia', 'privacy' => 'Accepto el text de privacitat', 'newsletter' => 'Subscriu-me al butlletí'],
         'es' => ['send' => 'Enviar', 'privacy' => 'Acepto el texto de privacidad', 'newsletter' => 'Suscribirme al boletín'],
@@ -63,11 +67,11 @@ function site_public_contact_retry(SiteService $service, string $language, array
         if ($field['type'] === 'textarea') $html .= '<textarea'.$attrs.$hints.' maxlength="'.(int)($field['max_length'] ?? 5000).'">'.site_public_escape((string)$value).'</textarea>';
         elseif ($field['type'] === 'select') {
             $html .= '<select'.$attrs.'><option value=""></option>';
-            foreach ($field['options'] as $option) $html .= '<option'.($value === $option ? ' selected' : '').' value="'.site_public_escape($option).'">'.site_public_escape($localized($field['option_labels'][$option] ?? [], $option)).'</option>';
+            foreach ($field['options'] as $option) $html .= '<option'.($value === $option ? ' selected' : '').' value="'.site_public_escape($option).'">'.site_public_escape($override($field['option_labels'][$option] ?? [], $option)).'</option>';
             $html .= '</select>';
         } elseif ($field['type'] === 'radio') {
             $html .= '<fieldset><legend>'.$label.'</legend>';
-            foreach ($field['options'] as $index => $option) $html .= '<label><input type="radio" id="field-'.site_public_escape($id).'-'.$index.'" name="values['.site_public_escape($id).']" value="'.site_public_escape($option).'"'.(($field['required'] ?? false) ? ' required' : '').($value === $option ? ' checked' : '').'>'.site_public_escape($localized($field['option_labels'][$option] ?? [], $option)).'</label>';
+            foreach ($field['options'] as $index => $option) $html .= '<label><input type="radio" id="field-'.site_public_escape($id).'-'.$index.'" name="values['.site_public_escape($id).']" value="'.site_public_escape($option).'"'.(($field['required'] ?? false) ? ' required' : '').($value === $option ? ' checked' : '').'>'.site_public_escape($override($field['option_labels'][$option] ?? [], $option)).'</label>';
             $html .= '</fieldset>';
         } elseif ($field['type'] === 'checkbox') $html .= '<input type="checkbox"'.$attrs.' value="1"'.(in_array($value, [true, '1', 'on'], true) ? ' checked' : '').'>';
         else $html .= '<input type="'.site_public_escape($field['type']).'"'.$attrs.$hints.' value="'.site_public_escape((string)$value).'" maxlength="'.(int)($field['max_length'] ?? 5000).'">';
@@ -76,10 +80,10 @@ function site_public_contact_retry(SiteService $service, string $language, array
     }
     $html .= '<p>'.site_public_escape($localized($form['privacy_text'] ?? [])).'</p>';
     $privacyUrl = site_public_contact_link((string)($form['privacy_url'] ?? ''), $base);
-    if ($privacyUrl !== '') $html .= '<a href="'.site_public_escape($privacyUrl).'">'.site_public_escape($localized($form['privacy_link_label'] ?? [], $text['privacy'])).'</a>';
-    if ($form['require_privacy'] ?? false) $html .= '<p><label><input type="checkbox" name="privacy" value="1" required'.(!empty($request['privacy']) ? ' checked' : '').'> '.site_public_escape($localized($form['privacy_label'] ?? [], $text['privacy'])).'</label></p>';
-    if (!empty($form['newsletter_list'])) $html .= '<p><label><input type="checkbox" name="newsletter_opt_in" value="1"'.(!empty($request['newsletter_opt_in']) ? ' checked' : '').'> '.site_public_escape($localized($form['newsletter_label'] ?? [], $text['newsletter'])).'</label></p>';
-    $html .= '<button type="submit">'.site_public_escape($localized($form['submit_label'] ?? [], $text['send'])).'</button></form>';
+    if ($privacyUrl !== '') $html .= '<a href="'.site_public_escape($privacyUrl).'">'.site_public_escape($override($form['privacy_link_label'] ?? [], $text['privacy'])).'</a>';
+    if ($form['require_privacy'] ?? false) $html .= '<p><label><input type="checkbox" name="privacy" value="1" required'.(!empty($request['privacy']) ? ' checked' : '').'> '.site_public_escape($override($form['privacy_label'] ?? [], $text['privacy'])).'</label></p>';
+    if (!empty($form['newsletter_list'])) $html .= '<p><label><input type="checkbox" name="newsletter_opt_in" value="1"'.(!empty($request['newsletter_opt_in']) ? ' checked' : '').'> '.site_public_escape($override($form['newsletter_label'] ?? [], $text['newsletter'])).'</label></p>';
+    $html .= '<button type="submit">'.site_public_escape($override($form['submit_label'] ?? [], $text['send'])).'</button></form>';
     site_public_page($language, $html);
 }
 function site_public_bootstrap(): array {
