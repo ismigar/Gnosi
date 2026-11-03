@@ -25,6 +25,8 @@ const pages = [{ id: 'page-a', title: 'Original title', metadata: { icon: '📖'
 let root: Root;
 let container: HTMLDivElement;
 const onPageSelect = vi.fn();
+const scrollIntoView = vi.fn();
+const originalScrollIntoView = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
 const render = async (visiblePages: readonly BookmarkPage[] = pages) => { await act(async () => { root.render(<BookmarksSection pages={visiblePages} activePageId="page-a" onPageSelect={onPageSelect} />); await Promise.resolve(); }); };
 const button = (label: string) => {
   const result = [...container.querySelectorAll('button')].find((item) => item.getAttribute('aria-label') === label || item.textContent === label);
@@ -32,6 +34,9 @@ const button = (label: string) => {
   return result;
 };
 const click = async (label: string) => { await act(async () => { button(label).click(); await Promise.resolve(); }); };
+const openActions = async () => {
+  if (button('More actions').getAttribute('aria-expanded') === 'false') await click('More actions');
+};
 const field = (label: string) => {
   const element = [...container.querySelectorAll('label')].find((item) => item.firstChild?.textContent === label)?.querySelector('input,select');
   if (!element) throw new Error(`Missing field ${label}`);
@@ -47,6 +52,8 @@ const change = async (label: string, value: string) => {
   });
 };
 beforeEach(() => {
+  scrollIntoView.mockClear();
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
   Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', true);
   container = document.createElement('div'); document.body.append(container); root = createRoot(container);
   fixture.route = null; fixture.entries = []; fixture.sortMode = 'manual'; fixture.isReady = true; fixture.isPending = false; fixture.error = false;
@@ -58,6 +65,11 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => { root.unmount(); await Promise.resolve(); }); document.body.replaceChildren(); storageSet('gnosi_active_vault_slug', ''); });
 
+afterEach(() => {
+  if (originalScrollIntoView) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', originalScrollIntoView);
+  else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+});
+
 describe('unified bookmarks section', () => {
   it('keeps saved bookmarks and retry available after initial synchronization fails without claiming to load', async () => {
     fixture.entries = [note]; fixture.isReady = false; fixture.error = true;
@@ -65,6 +77,7 @@ describe('unified bookmarks section', () => {
     expect(container.querySelector('[role="alert"]')).not.toBeNull();
     expect(container.querySelector('p[role="status"]')).toBeNull();
     expect(button('My alias')).toBeDefined();
+    await openActions();
     expect(button('Add bookmark').disabled).toBe(true);
     await click('Refresh');
     expect(fixture.refresh).toHaveBeenCalledTimes(1);
@@ -75,17 +88,18 @@ describe('unified bookmarks section', () => {
     await render();
     expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(container.querySelector('p[role="status"]')).toBeNull();
+    await openActions();
     expect(button('Add bookmark').disabled).toBe(false);
   });
   it.each(['page', 'dashboard'])('captures a plain %s view as canonical page membership', async resource => {
     fixture.route = `/knowledge/${resource}/page-a`;
-    await render(); await click('Save current view');
+    await render(); await openActions(); await click('Save current view');
     expect(field('Type').value).toBe('page');
     await change('Name', 'Preserved alias'); await change('Group', 'Reading'); await click('Save');
     expect(fixture.save).toHaveBeenCalledWith(expect.objectContaining({ kind: 'page', target: 'page-a', label: 'Preserved alias', group: 'Reading' }));
   });
   it('normalizes manually entered plain page routes while retaining the alias and group', async () => {
-    await render(); await click('Add bookmark'); await change('Type', 'route');
+    await render(); await openActions(); await click('Add bookmark'); await change('Type', 'route');
     await change('View address', '/knowledge/page/page-a'); await change('Name', 'My alias'); await change('Group', 'Work'); await click('Save');
     expect(fixture.save).toHaveBeenCalledWith(expect.objectContaining({ kind: 'page', target: 'page-a', label: 'My alias', group: 'Work' }));
   });
@@ -94,7 +108,7 @@ describe('unified bookmarks section', () => {
     expect(container.querySelectorAll('section[aria-label="Bookmarks"]')).toHaveLength(1);
     expect(container.textContent).toContain('Save a note with its star');
     await click('Bookmarks'); expect(container.querySelector('select')).toBeNull();
-    await click('Add bookmark');
+    await openActions(); await click('Add bookmark');
     expect(button('Bookmarks').getAttribute('aria-expanded')).toBe('true');
     expect(field('Name').value).toBe('Original title');
     await change('Name', 'My alias'); await change('Group', 'Work'); await click('Save');
@@ -104,6 +118,21 @@ describe('unified bookmarks section', () => {
     await click('My alias'); expect(onPageSelect).toHaveBeenCalledWith('page-a');
     expect(button('My alias').getAttribute('aria-current')).toBe('page');
     expect(container.textContent).toContain('📖');
+  });
+  it('reveals the add form before the list and the edit form directly after its bookmark', async () => {
+    fixture.entries = [note, { ...note, id: 'two', label: 'Second' }];
+    await render();
+    expect(container.textContent).not.toContain('Add bookmark');
+    await openActions(); await click('Add bookmark');
+    expect(document.activeElement).toBe(field('Name'));
+    expect(container.querySelector('form')?.compareDocumentPosition(button('My alias'))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest' });
+    await click('Cancel');
+    scrollIntoView.mockClear();
+    await click('Edit My alias');
+    const row = button('My alias').closest('[data-bookmark-id]');
+    expect(row?.nextElementSibling?.querySelector('form')).toBe(container.querySelector('form'));
+    expect(scrollIntoView).toHaveBeenCalledOnce();
   });
   it('renders a dashboard as a bookmarked page and preserves its page id and custom icon', async () => {
     fixture.entries = [{ ...note, id: 'dashboard', target: 'dashboard-a', label: 'Overview' }];
@@ -118,7 +147,7 @@ describe('unified bookmarks section', () => {
   it('captures the current app view into a reviewable route draft and resolves it in the selected vault', async () => {
     storageSet('gnosi_active_vault_slug', 'synthetic');
     fixture.route = '/knowledge/table/table-one/view/view-one?filter=open#row-one';
-    await render(); await click('Save current view');
+    await render(); await openActions(); await click('Save current view');
     expect(fixture.save).not.toHaveBeenCalled();
     expect(field('Name').value).toBe('Original title');
     expect(field('Type').value).toBe('route');
@@ -140,6 +169,7 @@ describe('unified bookmarks section', () => {
     fixture.save.mockImplementationOnce(() => new Promise((_resolve, rejectPromise) => { reject = rejectPromise; }));
     await click('Save');
     expect(container.querySelector('fieldset')?.disabled).toBe(true);
+    await openActions();
     expect(button('Add bookmark').disabled).toBe(true);
     await act(async () => { reject(new Error('offline')); await Promise.resolve(); });
     expect(field('Name').value).toBe('New alias');
@@ -151,6 +181,7 @@ describe('unified bookmarks section', () => {
   });
   it('prevents writes before synchronization and exposes refresh after a failed load', async () => {
     fixture.isReady = false; fixture.error = true; await render();
+    await openActions();
     expect(button('Add bookmark').disabled).toBe(true); expect(field('Sort bookmarks').disabled).toBe(true);
     expect(container.querySelector('[role="alert"]')?.textContent).toContain('synchronized');
     await click('Refresh'); expect(fixture.refresh).toHaveBeenCalledOnce(); expect(fixture.save).not.toHaveBeenCalled();
@@ -173,7 +204,7 @@ describe('unified bookmarks section', () => {
   });
   it('synchronizes sort choices and preserves failed reorder drafts', async () => {
     fixture.entries = [note, { ...note, id: 'two', label: 'Alpha' }]; await render();
-    await change('Sort bookmarks', 'alpha-asc'); expect(fixture.setSortMode).toHaveBeenCalledWith('alpha-asc');
+    await openActions(); await change('Sort bookmarks', 'alpha-asc'); expect(fixture.setSortMode).toHaveBeenCalledWith('alpha-asc');
     expect([...container.querySelectorAll('[data-bookmark-id]')].map((element) => element.getAttribute('data-bookmark-id'))).toEqual(['two', 'note']);
     await click('Edit My alias'); expect(button('Move up').disabled).toBe(true);
     await change('Sort bookmarks', 'manual'); fixture.reorder.mockRejectedValueOnce(new Error('offline'));
