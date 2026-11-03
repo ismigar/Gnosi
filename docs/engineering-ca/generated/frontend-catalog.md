@@ -54,7 +54,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `app` | 22 | 2679 | 0 |
 | `features` | 1281 | 137058 | 56 |
 | `generated` | 3 | 57043 | 588 |
-| `shared` | 348 | 37113 | 504 |
+| `shared` | 348 | 37140 | 504 |
 
 ## app
 
@@ -1503,7 +1503,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/auth/auth-context.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/auth/auth-context.ts) | 37 | `AuthContext`, `useAuth` | — |
 | [`frontend/src/shared/bookmarks/BookmarkForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/BookmarkForm.tsx) | 65 | `BookmarkForm` | — |
 | [`frontend/src/shared/bookmarks/BookmarkRows.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/BookmarkRows.tsx) | 34 | `BookmarkRow` | — |
-| [`frontend/src/shared/bookmarks/BookmarksSection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/BookmarksSection.tsx) | 119 | `BookmarksSection` | — |
+| [`frontend/src/shared/bookmarks/BookmarksSection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/BookmarksSection.tsx) | 146 | `BookmarksSection` | — |
 | [`frontend/src/shared/bookmarks/bookmark-migration.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/bookmark-migration.ts) | 61 | `cacheBookmarkCollection`, `cachedBookmarkCollection`, `loadSyncedBookmarks` | — |
 | [`frontend/src/shared/bookmarks/bookmark-order.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/bookmark-order.ts) | 22 | `dragBookmark`, `groupedBookmarks` | — |
 | [`frontend/src/shared/bookmarks/bookmark-routes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/bookmark-routes.ts) | 56 | `bookmarkGraphHref`, `bookmarkRouteHref`, `currentBookmarkRoute`, `isBookmarkPageId`, `isBookmarkRoute`, `pageIdFromBookmarkRoute` | — |
