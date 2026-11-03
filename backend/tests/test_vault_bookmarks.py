@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import json
 import shutil
+import stat
 from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import quote
 
@@ -245,6 +247,28 @@ def test_cloud_placeholder_is_not_replaced(client, monkeypatch):
     assert client.put("/api/vault/bookmarks/items/two", json=entry("two")).status_code == 503
     assert path.read_bytes() == original
     assert len(list(path.parent.glob("*.json"))) == 1
+
+
+def test_local_cloud_directories_do_not_block_bookmark_synchronization(client, monkeypatch):
+    from backend.platform.files import coordinated
+    from backend.utils import metadata_io
+
+    monkeypatch.setattr(coordinated.sys, "platform", "darwin")
+    detect = coordinated.is_cloud_placeholder
+
+    def cloud_directory_stat(path, info):
+        # APFS directories in File Provider mounts have a size but no blocks.
+        if stat.S_ISDIR(info.st_mode):
+            info = SimpleNamespace(st_mode=info.st_mode, st_flags=0, st_size=896, st_blocks=0)
+        return detect(Path("/Users/synthetic/Library/CloudStorage/Provider") / path.name, info)
+
+    monkeypatch.setattr(metadata_io, "is_cloud_placeholder", cloud_directory_stat)
+    downloads = []
+    monkeypatch.setattr(metadata_io, "_download", lambda path: downloads.append(path) or False)
+    response = client.put("/api/vault/bookmarks/items/one", json=entry())
+    assert response.status_code == 200, response.text
+    assert client.get("/api/vault/bookmarks").json()["entries"][0]["target"] == "one"
+    assert downloads == []
 
 
 def _process_add(vault, number):
