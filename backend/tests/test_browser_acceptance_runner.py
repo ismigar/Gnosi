@@ -107,3 +107,49 @@ def test_proxy_rejects_absolute_external_http_requests() -> None:
         with closing(http.client.HTTPConnection(proxy.hostname, proxy.port, timeout=5)) as client:
             client.request('GET', 'http://example.org/private')
             assert client.getresponse().status == 403
+
+
+def test_browser_batches_keep_serial_projects_whole_and_bound_accessibility() -> None:
+    from scripts.ci.acceptance_batches import case_batches
+    cases = {(project, str(index)): f'{project}-{index}'
+             for project, length in [('disposable-web', 10), ('accessibility', 14)]
+             for index in range(length)}
+    batches = case_batches(cases, ('disposable-web', 'accessibility'))
+    assert [len(batch) for batch in batches] == [10, 6, 6, 2]
+    assert [case for batch in batches for case in batch] == list(cases)
+
+
+@pytest.mark.parametrize('observed,seen', [
+    ({('accessibility', 'other')}, set()),
+    (set(), set()),
+    ({('accessibility', 'required')}, {('accessibility', 'required')}),
+])
+def test_browser_batch_rejects_missing_extra_or_repeated_cases(observed, seen) -> None:
+    from scripts.ci.acceptance_batches import require_coverage
+    with pytest.raises(ValueError, match='omitted, added or repeated'):
+        require_coverage({('accessibility', 'required')}, observed, seen)
+
+
+def test_collected_case_identity_retains_project_file_and_nested_title(tmp_path: Path) -> None:
+    from scripts.ci.acceptance_batches import report_cases
+    report = tmp_path / 'collection.json'
+    report.write_text(json.dumps({'suites': [{'title': 'accessibility/a.spec.ts', 'file': 'accessibility/a.spec.ts', 'suites': [
+        {'title': 'WCAG', 'file': 'accessibility/a.spec.ts', 'specs': [
+            {'id': 'stable-id', 'title': '/graph in dark mode', 'file': 'accessibility/a.spec.ts',
+             'tests': [{'projectName': 'accessibility'}]},
+        ]},
+    ]}]}))
+    assert report_cases(report, ('accessibility',)) == {
+        ('accessibility', 'stable-id'): '[accessibility] › accessibility/a.spec.ts › WCAG › /graph in dark mode',
+    }
+
+
+def test_browser_batches_keep_fail_closed_report_validation(tmp_path: Path) -> None:
+    from scripts.ci.acceptance_batches import run_projects
+    from unittest.mock import Mock
+    runner = Mock()
+    runner.side_effect = RuntimeError('browser failed')
+    with pytest.raises(RuntimeError, match='browser failed'):
+        run_projects('node', Path('playwright'), ('accessibility',), 'functional', tmp_path,
+                     tmp_path, {}, runner, report_counts)
+    assert runner.call_count == 1

@@ -22,6 +22,7 @@ from typing import Mapping, Sequence
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from scripts.ci.acceptance_batches import run_projects
 from scripts.ci.acceptance_proxy import owned_proxy
 from scripts.ci.pre_pr import check_checkout, isolated_environment, source_fingerprint
 
@@ -204,14 +205,20 @@ def accept(output: Path, frontend_port: int, backend_port: int) -> None:
             preview = subprocess.Popen((node, str(vite), "preview", "--host", "127.0.0.1", "--port", str(frontend_port), "--strictPort"), cwd=ROOT / "frontend", env=environment, stdout=preview_log, stderr=subprocess.STDOUT, start_new_session=True)
             processes.append(preview)
             wait_ready(environment["GNOSI_BASE_URL"] + "/", preview)
+            def restart_backend() -> None:
+                nonlocal backend
+                stop_owned(backend)
+                processes.remove(backend)
+                backend = subprocess.Popen(backend_command, cwd=ROOT, env=environment, stdout=backend_log, stderr=subprocess.STDOUT, start_new_session=True)
+                processes.append(backend)
+                wait_ready(f"http://127.0.0.1:{backend_port}/api/health", backend)
+
             for phase, projects in (("functional", PROJECTS), ("restart", ("persistence-restart",)), ("personal", ("personal-workflows",))):
                 if phase == "restart":
-                    stop_owned(backend)
-                    backend = subprocess.Popen(backend_command, cwd=ROOT, env=environment, stdout=backend_log, stderr=subprocess.STDOUT, start_new_session=True)
-                    processes.append(backend)
-                    wait_ready(f"http://127.0.0.1:{backend_port}/api/health", backend)
+                    restart_backend()
                 elif phase == "personal":
                     stop_owned(backend)
+                    processes.remove(backend)
                     personal = temporary / "personal"
                     personal.mkdir()
                     personal_environment = isolated_environment(os.environ, personal)
@@ -230,12 +237,9 @@ def accept(output: Path, frontend_port: int, backend_port: int) -> None:
                     if Path(str(state.get("source_root"))).resolve() != ROOT or state.get("mode") != "personal":
                         raise ValueError("Personal acceptance fixture has incorrect provenance or mode")
                     fixture_environment(environment, state, personal)
-                report = output / f"{phase}-report.json"
-                environment["PLAYWRIGHT_JSON_OUTPUT_FILE"] = str(report)
-                command = [node, str(playwright), "test", "--workers=1", "--retries=0", "--reporter=line,json", "--output", str(output / phase)]
-                command.extend(f"--project={project}" for project in projects)
-                run(command, ROOT / "tests/e2e", environment, output / f"{phase}-browser.log")
-                result[phase] = report_counts(report, projects)
+                result[phase] = run_projects(node, playwright, projects, phase, output,
+                                             ROOT / "tests/e2e", environment, run, report_counts,
+                                             restart_backend if phase == "functional" else None)
             if source_fingerprint(ROOT) != initial:
                 raise RuntimeError("Source changed during acceptance; candidate evidence is incomplete")
             if file_inventory(ROOT / "frontend/dist") != result["compiled_frontend_sha256"]:

@@ -1,0 +1,5 @@
+---
+import {href,linkProps} from '../lib/site.mjs';
+const {links=[],lang,className='actions'}=Astro.props;
+---
+<div class={className}>{links.filter(link=>!link.language || link.language===lang).map(link=><a class:list={['action-link',{'button':link.appearance==='button' || link.appearance==='outline','button-outline':link.appearance==='outline','text-link':!link.appearance || link.appearance==='link'}]} href={href(link.href)} {...linkProps(link.href)}>{link.label}</a>)}</div>

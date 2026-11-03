@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 
 from fastapi import HTTPException
 
-from .models import SiteConfig
+from .models import NavigationLink, SiteConfig
 
 
 def validate_css(css: str) -> None:
@@ -46,6 +46,13 @@ def safe_link(value: str, *, image: bool = False) -> None:
         raise HTTPException(422, "Invalid website link")
 
 
+def _validate_links(links: list[NavigationLink] | None, languages: list[str], message: str) -> None:
+    for link in links or []:
+        safe_link(link.href)
+        if link.language and link.language not in languages:
+            raise HTTPException(422, message)
+
+
 def validate_site(site: SiteConfig) -> None:
     safe_link(site.origin, image=True)
     for source in site.sources:
@@ -69,6 +76,7 @@ def validate_site(site: SiteConfig) -> None:
         for block in page.blocks:
             validate_css(block.css)
             safe_link(block.href)
+            _validate_links(block.actions, site.languages, "Action language is not enabled")
             safe_link(block.image, image=True)
             for image in block.images:
                 safe_link(image, image=True)
@@ -78,5 +86,5 @@ def validate_site(site: SiteConfig) -> None:
                 raise HTTPException(422, "Unknown collection block")
     for form in site.forms:
         safe_link(form.privacy_url)
-    for link in site.navigation + site.footer + site.social_links:
-        safe_link(link.href)
+    _validate_links(site.header_actions + site.navigation + site.footer + site.social_links,
+                    site.languages, "Link language is not enabled")

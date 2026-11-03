@@ -4,12 +4,12 @@ import { assertApiSuccess, unwrapApiResult } from './errors';
 import type { RequestContext } from './request-context';
 
 type Identified<T> = Omit<T, 'id'> & { id: string };
-export type SiteSource = Identified<components['schemas']['SiteSource']>;
-export type SiteBlock = Identified<components['schemas']['SiteBlock']>;
+export type SiteSource = Omit<Identified<components['schemas']['SiteSource']>, 'page_size' | 'show_tag_filter'> & { page_size?: number; show_tag_filter?: boolean };
+export type SiteBlock = Omit<Identified<components['schemas']['SiteBlock']>, 'actions'> & { actions?: NavigationLink[] | null };
 export type SitePage = Omit<Identified<components['schemas']['SitePage']>, 'blocks'> & { blocks?: SiteBlock[] };
 export type FormField = Identified<components['schemas']['FormField']>;
 export type SiteForm = Omit<Identified<components['schemas']['SiteForm']>, 'fields'> & { fields?: FormField[] };
-export type SiteConfig = Omit<Identified<components['schemas']['SiteConfig']>, 'sources' | 'pages' | 'forms' | 'targets'> & { sources?: SiteSource[]; pages?: SitePage[]; forms?: SiteForm[]; targets?: SiteTarget[] };
+export type SiteConfig = Omit<Identified<components['schemas']['SiteConfig']>, 'sources' | 'pages' | 'forms' | 'targets' | 'header_actions' | 'navigation' | 'footer' | 'social_links'> & { sources?: SiteSource[]; pages?: SitePage[]; forms?: SiteForm[]; targets?: SiteTarget[]; header_actions?: NavigationLink[]; navigation?: NavigationLink[]; footer?: NavigationLink[]; social_links?: NavigationLink[] };
 export type SiteTheme = components['schemas']['SiteTheme'];
 export type SiteFont = components['schemas']['SiteFont'];
 export type SiteTarget = Identified<components['schemas']['SiteTarget']>;
@@ -21,7 +21,7 @@ export type CatalogueItem = components['schemas']['CatalogueItem'];
 export type ServiceSettings = components['schemas']['ServiceSettings'];
 export type ServiceSettingsResponse = components['schemas']['ServiceSettingsResponse'];
 export type FormDeliverySettings = components['schemas']['FormDeliverySettings'];
-export type NavigationLink = components['schemas']['NavigationLink'];
+export type NavigationLink = Omit<components['schemas']['NavigationLink'], 'appearance'> & { appearance?: 'link' | 'button' | 'outline' };
 export type SourceFilter = components['schemas']['SourceFilter'];
 export type TargetConnection = components['schemas']['TargetConnection'];
 export type ServiceRequest = components['schemas']['PrivateServiceRequest'];
@@ -72,8 +72,22 @@ export async function getSite(siteId: string, context: RequestContext, signal?: 
   const result = unwrapApiResult(await apiClient.GET('/api/vault/sites/{site_id}', { params: { path: { site_id: siteId } }, ...scope(context, signal) }));
   return { ...result, site: configuration(result.site) };
 }
+function requestLinks(links: NavigationLink[] | undefined): components['schemas']['NavigationLink'][] | undefined {
+  return links?.map(link => ({ ...link, appearance: link.appearance ?? 'link' }));
+}
+
+function requestConfiguration(site: SiteConfig): components['schemas']['SiteConfig'] {
+  return {
+    ...site,
+    header_actions: requestLinks(site.header_actions), navigation: requestLinks(site.navigation),
+    footer: requestLinks(site.footer), social_links: requestLinks(site.social_links),
+    sources: site.sources?.map(source => ({ ...source, page_size: source.page_size ?? 16, show_tag_filter: source.show_tag_filter ?? false })),
+    pages: site.pages?.map(page => ({ ...page, blocks: page.blocks?.map(block => ({ ...block, actions: block.actions === null ? null : requestLinks(block.actions) })) })),
+  };
+}
+
 export async function saveSite(site: SiteConfig, context: RequestContext, signal?: AbortSignal) {
-  return configuration(unwrapApiResult(await apiClient.PUT('/api/vault/sites/{site_id}', { params: { path: { site_id: site.id } }, body: site, ...scope(context, signal) })));
+  return configuration(unwrapApiResult(await apiClient.PUT('/api/vault/sites/{site_id}', { params: { path: { site_id: site.id } }, body: requestConfiguration(site), ...scope(context, signal) })));
 }
 export async function previewSite(siteId: string, targetId: string, context: RequestContext, signal?: AbortSignal) {
   return unwrapApiResult(await apiClient.POST('/api/vault/sites/{site_id}/preview', { params: { path: { site_id: siteId } }, body: { target_id: targetId }, ...scope(context, signal) }));

@@ -45,6 +45,8 @@ class SiteSource(Contract):
     sort_field_id: str | None = None
     sort_descending: bool = False
     presentation: Literal["list", "cards", "table"] = "cards"
+    page_size: int = Field(default=16, ge=1, le=100)
+    show_tag_filter: bool = False
     path_prefix: str = "/content"
     page_ids: list[str] = Field(default_factory=list)
     selection_mode: Literal["all", "selected"] = "all"
@@ -63,6 +65,13 @@ def safe_path(value: str) -> str:
     return value
 
 
+class NavigationLink(Contract):
+    label: str
+    href: str
+    language: str | None = None
+    appearance: Literal["link", "button", "outline"] = "link"
+
+
 class SiteBlock(Contract):
     id: str = Field(default_factory=identifier)
     type: Literal["text", "image", "split", "gallery", "selected", "collection", "collaborators", "form", "cta"] = "text"
@@ -78,6 +87,7 @@ class SiteBlock(Contract):
     columns: int = Field(default=3, ge=1, le=4)
     limit: int = Field(default=3, ge=1, le=100)
     href: str = ""
+    actions: list[NavigationLink] | None = None
     css: str = Field(default="", max_length=10000)
 
 
@@ -97,12 +107,6 @@ class SitePage(Contract):
     @classmethod
     def valid_path(cls, value: str) -> str:
         return safe_path(value)
-
-
-class NavigationLink(Contract):
-    label: str
-    href: str
-    language: str | None = None
 
 
 class SiteFont(Contract):
@@ -204,6 +208,7 @@ class SiteConfig(Contract):
     pages: list[SitePage] = Field(default_factory=list)
     forms: list[SiteForm] = Field(default_factory=lambda: [SiteForm(id="contact")])
     theme: SiteTheme = Field(default_factory=SiteTheme)
+    header_actions: list[NavigationLink] = Field(default_factory=list)
     navigation: list[NavigationLink] = Field(default_factory=list)
     footer: list[NavigationLink] = Field(default_factory=list)
     social_links: list[NavigationLink] = Field(default_factory=list)

@@ -8835,6 +8835,16 @@
     "newsletterReadFailed": "Could not load subscriptions and newsletters. You can continue with website pages or use Refresh to try again."
   },
   "websites": {
+    "headerActions": "Header actions",
+    "blockActions": "Block actions",
+    "pageSize": "Items per page",
+    "showTagFilter": "Show the public tag filter",
+    "linkAppearance": "Appearance",
+    "linkAppearances": {
+      "link": "Link",
+      "button": "Button",
+      "outline": "Outline button"
+    },
     "title": "Websites",
     "openManager": "Open website manager",
     "subtitle": "Publish selected knowledge and manage your websites.",
