@@ -123,7 +123,7 @@ class SiteThemeAsset(Contract):
 
 class SiteTheme(Contract):
     schema_version: Literal[1] = 1
-    name: str = "Temenos"
+    name: str = "Default"
     tokens: dict[str, str] = Field(default_factory=lambda: {
         "primary": "#264653", "accent": "#c75b35", "background": "#f5efe7", "surface": "#ffffff",
         "text": "#2c3e50", "muted": "#555555", "font-body": "Georgia, serif", "font-heading": "system-ui, sans-serif",

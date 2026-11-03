@@ -81,6 +81,11 @@ def test_contact_texts_round_trip_without_mandating_a_brand_or_language():
     assert SiteForm.model_validate({'name': 'Legacy'}).privacy_label == {}
 
 
+def test_generic_theme_is_neutral_and_explicit_existing_theme_name_is_preserved():
+    assert SiteConfig(name='Another website').theme.name == 'Default'
+    assert SiteConfig.model_validate({'name': 'Existing', 'theme': {'name': 'Temenos'}}).theme.name == 'Temenos'
+
+
 def test_sftp_connection_success_is_distinct_from_missing_publication_runtime(configured, monkeypatch):
     from backend.domains.sites import ssh_transport
     settings = configured.settings.model_copy(update={'transfer_protocol': 'sftp'})

@@ -26174,7 +26174,7 @@ export interface components {
             logo_alt: string;
             /**
              * Name
-             * @default Temenos
+             * @default Default
              */
             name: string;
             /**

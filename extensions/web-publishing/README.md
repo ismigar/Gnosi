@@ -73,3 +73,4 @@ Each source exposes **Items per page** (1–100) and an optional public area fil
 These options participate in the existing configuration autosave, review fingerprint and publication workflow. Saving configuration does not publish it. Existing withdrawals and private-content exclusions remain authoritative. New imported contact forms require their configurable privacy acceptance; existing form settings are preserved.
 
 Select and radio fields keep stable submitted option values with optional captions for each language. The privacy policy link caption is editable separately from the consent checkbox text. Existing forms retain their original option and privacy captions when these settings are blank.
+The public retry form also preserves translated captions, hints, selected values and consent choices without JavaScript. New websites use neutral theme metadata; explicitly imported pilot themes retain their name.

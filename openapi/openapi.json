@@ -36580,7 +36580,7 @@
             "type": "string"
           },
           "name": {
-            "default": "Temenos",
+            "default": "Default",
             "title": "Name",
             "type": "string"
           },

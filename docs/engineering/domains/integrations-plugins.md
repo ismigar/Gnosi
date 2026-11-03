@@ -69,6 +69,7 @@ tests:
   - backend/tests/test_sites_ssh_transport.py
   - backend/tests/test_sites_generic_configuration.py
   - backend/tests/test_sites_generic_rendering.py
+  - backend/tests/test_sites_contact_retry.py
   - frontend/src/features/websites/CreateSiteDialog.test.tsx
   - frontend/src/features/websites/ConnectionAuthentication.test.tsx
   - backend/tests/test_site_management.py
@@ -477,7 +478,7 @@ Creation offers a blank website or a generic public URL import. Administrator-on
 
 SSH destination configuration supports any provider with SSH command access, agent or explicit-key authentication, and passwords stored only in the system credential manager. Credentials are scoped to the exact vault, site, destination, hostname, port and remote account; changing the account does not reuse its password. Password writes are explicit and responses expose only whether a password is configured. Transfers can use SSH or SFTP. SFTP files first enter a private owned staging file, then the existing SSH/PHP namespace policy verifies their digest before promotion and atomic release activation. Both transports enforce system known-host verification. Connection checks distinguish a reachable SFTP server from missing SSH/PHP/SQLite publication capabilities; an SFTP-only account is not reported as ready to publish the private service.
 
-Contact fields, their order/types/options/required status, localized labels/help/placeholders, introduction, submit button, confirmation and privacy description remain editable per website. Privacy/newsletter consent captions and validation/submission-error messages now also have localized overrides with language defaults. Imported website forms are omitted until explicitly configured; no original form action is invoked by import.
+Contact fields, their order/types/options/required status, localized labels/help/placeholders, introduction, submit button, confirmation and privacy description remain editable per website. Privacy/newsletter consent captions, policy-link captions and validation/submission-error messages have localized overrides with language defaults. Choice fields preserve stable allowed values while captions vary by language. The public PHP retry form retains these captions, field hints and entered values without requiring JavaScript. Imported website forms are omitted until explicitly configured; no original form action is invoked by import.
 
 Opening Webs loads website configuration independently of the vault catalogue. Content sources are loaded on demand when opening Contents or Pages and reused across tab changes until refresh. Catalogue validation errors remain visible without hiding existing websites or preventing manual-page editing. Publication still requires a successful review and unchanged source validation.
 
