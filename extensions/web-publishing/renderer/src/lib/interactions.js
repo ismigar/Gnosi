@@ -70,6 +70,21 @@ export function initLanguageLinks(terms=new URLSearchParams(location.search).get
   }
 }
 
+export function initCompactHeader() {
+  const header = document.querySelector('.temenos-site .site-header');
+  const tools = header?.querySelector('.header-tools');
+  if (!tools) return;
+
+  const measure = () => {
+    const toolsBottom = tools.getBoundingClientRect().bottom - header.getBoundingClientRect().top;
+    header.style.setProperty('--header-sticky-top', `${-Math.ceil(toolsBottom)}px`);
+  };
+  measure();
+  const observer = new ResizeObserver(measure);
+  observer.observe(header);
+  observer.observe(tools);
+}
+
 export function initMenu(){
   const toggle=document.querySelector('[data-menu-toggle]');
   const navigation=document.querySelector('[data-site-navigation]');
