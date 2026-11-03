@@ -20359,6 +20359,17 @@
             "title": "Source Token Bound",
             "type": "integer"
           },
+          "token_count_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Count Method"
+          },
           "warnings": {
             "items": {
               "type": "string"
