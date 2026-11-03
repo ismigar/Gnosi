@@ -139,7 +139,7 @@ test('contact consent and error captions remain independent for each configured 
 });
 
 test.each(['select', 'radio'] as const)('%s captions translate independently while submitted option values stay stable', type => {
-  const initial = { ...base, forms: [{ id: 'support', name: 'Support', revision: 1, enabled: false, privacy_url: '', require_privacy: false, fields: [{ id: 'topic', type, options: ['blue'] }] }] };
+  const initial = { ...base, forms: [{ id: 'support', name: 'Support', revision: 1, enabled: false, privacy_url: '', require_privacy: false, fields: [{ id: 'topic', type, required: false, max_length: 2000, options: ['blue'] }] }] };
   const view = mountEditor(initial, (site, onChange) => <FormsEditor site={site} onChange={onChange} />);
   edit(view.container, 'websites.optionCaption', 'Blau');
   edit(view.container, 'websites.editingLanguage', 'en');
