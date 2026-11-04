@@ -81,7 +81,7 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64]
     env:
       NODE_OPTIONS: --max-old-space-size=4096
-      GNOSI_VITEST_MAX_WORKERS: '2'
+      GNOSI_VITEST_MAX_WORKERS: '1'
       GNOSI_CI_SEALED_CACHE: '0'
       # Do not select an installed Intel interpreter through Rosetta on this runner.
       UV_PYTHON: cpython-3.11-macos-aarch64-none
