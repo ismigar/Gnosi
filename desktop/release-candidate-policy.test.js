@@ -21,7 +21,7 @@ const DOCUMENTATION_IF = "(github.event_name == 'pull_request' && "
 const FRONTEND_NODE_OPTIONS = '--max-old-space-size=4096';
 const FRONTEND_RESOURCE_ENV = {
   NODE_OPTIONS: FRONTEND_NODE_OPTIONS,
-  GNOSI_VITEST_MAX_WORKERS: '2',
+  GNOSI_VITEST_MAX_WORKERS: '1',
   GNOSI_CI_SEALED_CACHE: '0',
   UV_PYTHON: 'cpython-3.11-macos-aarch64-none',
 };
@@ -354,7 +354,7 @@ test('shared CI rejects reordered heavy jobs and extra test workers', () => {
       assert.throws(() => assertFatalGates(changed, true), assert.AssertionError);
     }
   }
-  for (const workers of [undefined, '1', '8']) {
+  for (const workers of [undefined, '2', '8']) {
     const changed = structuredClone(ci);
     changed.jobs.frontend.env.GNOSI_VITEST_MAX_WORKERS = workers;
     assert.throws(() => assertFrontendMemoryBudget(changed), assert.AssertionError);
