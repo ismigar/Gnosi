@@ -278,13 +278,13 @@ def test_ci_documentation_gate_uses_frozen_docs_and_check_only(
 def test_ci_preserves_all_five_jobs_commands_and_fatal_gates(
     ci_workflow: WorkflowMapping,
 ) -> None:
-    """The reusable entry point must retain the existing CI checks, in order."""
+    """The reusable entry point must retain the existing CI checks and their guards."""
     jobs = workflow_mapping(ci_workflow["jobs"])
     assert set(jobs) == set(CI_COMMANDS)
     for name, expected_commands in CI_COMMANDS.items():
         job = workflow_job(ci_workflow, name)
         assert "uses" not in job
-        predecessor = {"frontend": "backend", "native-smoke": "frontend", "docker": "native-smoke"}.get(name)
+        predecessor = {"native-smoke": ["backend", "frontend"], "docker": "native-smoke"}.get(name)
         if predecessor:
             assert job.get("needs") == predecessor
         else:
@@ -293,7 +293,7 @@ def test_ci_preserves_all_five_jobs_commands_and_fatal_gates(
         assert job.get("if") == (
             DOCUMENTATION_IF if name == "documentation" else
             DOCKER_IF if name == "docker" else
-            f"!cancelled() && ({TRUSTED_PR_IF})" if predecessor else TRUSTED_PR_IF
+            f"!cancelled() && ({TRUSTED_PR_IF})" if predecessor or name == "frontend" else TRUSTED_PR_IF
         )
         steps = workflow_steps(job)
         assert all("continue-on-error" not in step for step in steps)
