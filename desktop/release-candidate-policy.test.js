@@ -31,7 +31,7 @@ const PYTHON_DOWNLOAD_ENV = {
   UV_CONCURRENT_DOWNLOADS: '4',
   UV_CONCURRENT_INSTALLS: '2',
 };
-const CI_PREDECESSORS = { frontend: 'backend', 'native-smoke': 'frontend', docker: 'native-smoke' };
+const CI_PREDECESSORS = { 'native-smoke': ['backend', 'frontend'], docker: 'native-smoke' };
 const BROWSER_ACCEPTANCE_STEP = 'Accept production browser workflows and restart persistence';
 const BROWSER_EVIDENCE_STEP = 'Preserve browser acceptance evidence';
 const HOSTED_CHROMIUM_SETUP = {
@@ -86,13 +86,13 @@ function assertFatalGates(workflow, reusableCI = false) {
   for (const [name, job] of Object.entries(workflow.jobs)) {
     const predecessor = reusableCI ? CI_PREDECESSORS[name] : undefined;
     if (reusableCI) {
-      assert.equal(job.needs, predecessor, `${name} must retain the reviewed shared-host order`);
+      assert.deepEqual(job.needs, predecessor, `${name} must retain the reviewed shared-host order`);
     }
     assert.equal(job['continue-on-error'], undefined, `${name} failure must remain fatal by default`);
     assert.equal(job.if, reusableCI
       ? (name === 'documentation' ? DOCUMENTATION_IF
         : name === 'docker' ? DOCKER_IF
-          : predecessor ? `!cancelled() && (${TRUSTED_PR_IF})` : TRUSTED_PR_IF) : undefined,
+          : (predecessor || name === 'frontend') ? `!cancelled() && (${TRUSTED_PR_IF})` : TRUSTED_PR_IF) : undefined,
     `${name} must retain its exact trust and cancellation guard`);
     if (reusableCI && name === 'native-smoke') {
       assert.deepEqual(job.steps.filter((step) => step.name === HOSTED_CHROMIUM_SETUP.name),

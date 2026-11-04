@@ -72,8 +72,7 @@ jobs:
           uv run --frozen --only-group docs-ci python pipeline/skills/technical_documentation/scripts/pre_pr.py --check-only --base-ref "$PR_BASE_SHA"
 
   frontend:
-    # Keep the local fallback ordered with jobs sharing the same physical host.
-    needs: backend
+    # Experiment: run the frontend alongside the Linux backend.
     if: >-
       !cancelled() && (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository)
@@ -262,7 +261,7 @@ jobs:
         if: steps.scope.outputs.runtime_required != 'false'
 
   native-smoke:
-    needs: frontend
+    needs: [backend, frontend]
     if: >-
       !cancelled() && (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository)
