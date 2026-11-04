@@ -1,10 +1,12 @@
 import {
     useCallback,
     useEffect,
+    useImperativeHandle,
     useRef,
     useState,
     type InputHTMLAttributes,
     type KeyboardEvent,
+    type Ref,
 } from 'react';
 import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -29,7 +31,13 @@ interface AutoriaDisplayProps {
 }
 
 
+export interface AutoriaEditorHandle {
+    readonly commit: () => void;
+}
+
+
 interface AutoriaEditorProps {
+    readonly ref?: Ref<AutoriaEditorHandle>;
     readonly onSave: (authors: readonly Author[]) => void;
     readonly suggestions?: readonly AuthorLike[];
     readonly value?: unknown;
@@ -82,6 +90,7 @@ export function AutoriaEditor({
     value = [],
     suggestions = [],
     onSave,
+    ref,
 }: AutoriaEditorProps) {
     const { t } = useTranslation();
     const [authors, setAuthors] = useState<Author[]>(() => normalizeAuthors(value));
@@ -104,6 +113,8 @@ export function AutoriaEditor({
         lastSaved.current = serialized;
         onSave(cleaned);
     }, [onSave]);
+
+    useImperativeHandle(ref, () => ({ commit: () => { commit(authorsRef.current); } }), [commit]);
 
     useEffect(() => subscribeDocumentEvent('mousedown', (event) => {
         const container = containerRef.current;

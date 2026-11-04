@@ -1,12 +1,12 @@
 import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
 import { Plus, Trash2, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { subscribeDocumentEvent } from '../../../../shared/platform/browser-events';
+import { useCellEditorFocus } from './useCellEditorFocus';
 import { RelationItem } from '../../properties/RelationItem';
 import { optionChipStyle } from '../../../../shared/records/model/optionCatalogUtils';
 import { CellDropdownPortal } from './CellDropdownPortal';
-import { isOutsidePicker, type InlinePillsPickerProps } from './pickerTypes';
+import type { InlinePillsPickerProps } from './pickerTypes';
 
 export const InlinePillsPicker = ({
   value = [],
@@ -26,16 +26,7 @@ export const InlinePillsPicker = ({
   const [search, setSearch] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      // The dropdown lives in a portal (outside containerRef): it doesn't
-      // count it as "outside".
-      if (isOutsidePicker(containerRef.current, e.target)) {
-        onSave(localValues);
-      }
-    };
-    return subscribeDocumentEvent('mousedown', handleClickOutside);
-  }, [localValues, onSave]);
+  const focusProps = useCellEditorFocus(containerRef, () => { onSave(localValues); });
 
   const toggle = (val: string) => {
     setLocalValues(prev =>
@@ -64,7 +55,7 @@ export const InlinePillsPicker = ({
   };
 
   return (
-    <div ref={containerRef} className="w-full">
+    <div ref={containerRef} className="w-full" {...focusProps}>
       <div className="flex flex-wrap gap-1 mb-1 min-h-[20px]">
         {localValues.map(val => relationItems ? (
           <RelationItem

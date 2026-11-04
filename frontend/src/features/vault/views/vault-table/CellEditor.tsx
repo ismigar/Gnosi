@@ -1,5 +1,6 @@
-import { useRef } from 'react';
-import { AutoriaEditor } from '../../properties/AutoriaField';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useCellEditorFocus } from './useCellEditorFocus';
+import { AutoriaEditor, type AutoriaEditorHandle } from '../../properties/AutoriaField';
 import { displayString, getTableFieldConfig } from './fieldConfig';
 import { InlinePillsPicker } from './InlinePillsPicker';
 import { InlineSelectPicker } from './InlineSelectPicker';
@@ -7,6 +8,21 @@ import { VaultDateProperty as TableDateProperty } from '../../properties/VaultDa
 import { normalizeRelationValues as normalizeTableRelations } from '../../properties/relationItemUtils';
 import { tableText } from './cellValues';
 import type { TableController } from './useTableController';
+
+function CompositeCellEditor({ children, onExit }: { children: ReactNode; onExit: () => void }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const focusProps = useCellEditorFocus(containerRef, onExit);
+
+  useLayoutEffect(() => {
+    containerRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  return <div ref={containerRef} tabIndex={-1} className="w-full outline-none" {...focusProps}
+    onClick={(event) => { event.stopPropagation(); }}
+    onDoubleClick={(event) => { event.stopPropagation(); }}>
+    {children}
+  </div>;
+}
 
 export function CellEditor({ model, value, type, noteId, field, originalMetaKey }: { model: TableController, value: unknown; type: string; noteId: string; field: string; originalMetaKey: string; }) {
   const {
@@ -34,6 +50,7 @@ export function CellEditor({ model, value, type, noteId, field, originalMetaKey 
   } = model;
   const note = model.noteById.get(noteId);
   const finished = useRef(false);
+  const authorEditorRef = useRef<AutoriaEditorHandle>(null);
 
   if (type === 'status' || type === 'select') {
     const options = getAvailableOptions(field, type);
@@ -86,33 +103,42 @@ export function CellEditor({ model, value, type, noteId, field, originalMetaKey 
     );
   }
 
+  const closeComposite = () => {
+    setEditingCell(current => current?.rowId === noteId && current.field === field ? null : current);
+  };
+
   if (type === 'autoria') {
     const current = Array.isArray(value) ? value : [];
     return (
-      <AutoriaEditor
-        value={current}
-        suggestions={getAutoriaSuggestions(field)}
-        onSave={(authors) => { void handleCellSave(noteId, field, authors, originalMetaKey); }}
-      />
+      <CompositeCellEditor onExit={() => { authorEditorRef.current?.commit(); closeComposite(); }}>
+        <AutoriaEditor
+          ref={authorEditorRef}
+          value={current}
+          suggestions={getAutoriaSuggestions(field)}
+          onSave={(authors) => { void handleCellSave(noteId, field, authors, originalMetaKey, false, {}, true); }}
+        />
+      </CompositeCellEditor>
     );
   }
 
   if (type === 'date' || type === 'datetime' || type === 'period') {
     return (
-      <TableDateProperty
-        value={value || ''}
-        rruleValue={tableText(note?.metadata?.[`${originalMetaKey}_rrule`] || '')}
-        type={type}
-        fieldConfig={getTableFieldConfig(schema, field)}
-        fieldName={field}
-        noteId={noteId}
-        notes={(allNotes.length > 0) ? allNotes : safeNotes}
-        idToTitle={idToTitle}
-        planningSettings={projectPlanningSettings}
-        planningEnabled={projectPlanningEnabled}
-        onChange={(newVal) => { void handleCellSave(noteId, field, newVal, originalMetaKey, false, {}, true); }}
-        onRruleChange={(newRrule) => { void handleCellSave(noteId, field, value || '', originalMetaKey, false, { [`${originalMetaKey}_rrule`]: newRrule }, true); }}
-      />
+      <CompositeCellEditor onExit={closeComposite}>
+        <TableDateProperty
+          value={value || ''}
+          rruleValue={tableText(note?.metadata?.[`${originalMetaKey}_rrule`] || '')}
+          type={type}
+          fieldConfig={getTableFieldConfig(schema, field)}
+          fieldName={field}
+          noteId={noteId}
+          notes={(allNotes.length > 0) ? allNotes : safeNotes}
+          idToTitle={idToTitle}
+          planningSettings={projectPlanningSettings}
+          planningEnabled={projectPlanningEnabled}
+          onChange={(newVal) => { void handleCellSave(noteId, field, newVal, originalMetaKey, false, {}, true); }}
+          onRruleChange={(newRrule) => { void handleCellSave(noteId, field, value || '', originalMetaKey, false, { [`${originalMetaKey}_rrule`]: newRrule }, true); }}
+        />
+      </CompositeCellEditor>
     );
   }
 
