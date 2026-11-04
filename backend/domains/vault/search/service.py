@@ -242,10 +242,16 @@ def search_documents(
     expression = parse_query(query)
     if expression is None:
         return VaultSearchResponse(results=[], total=0, offset=offset, limit=limit)
-    deadline = time.monotonic() + budget_seconds
+    remaining_budget = budget_seconds
     hits: list[tuple[int, VaultSearchHit]] = []
     for document in documents:
-        matched = evaluate(expression, document, deadline)
+        # Loading the next document may hydrate cloud files or refresh the Vault
+        # inventory. Charge only query evaluation to the shared safety budget.
+        started = time.monotonic()
+        matched = evaluate(expression, document, started + remaining_budget)
+        remaining_budget -= time.monotonic() - started
+        if remaining_budget <= 0:
+            raise SearchQueryError("Search exceeded its time budget; narrow the query")
         if matched is None:
             continue
         position = matched.offset or 0
