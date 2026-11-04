@@ -77,7 +77,7 @@
   }
   .temenos-site button.menu-toggle {
     background: transparent;
-    border: 0;
+    border: 1px solid currentColor;
     color: var(--primary, #264653);
     justify-content: center;
     min-width: 44px;
