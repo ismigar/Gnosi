@@ -85,6 +85,7 @@ describe('table single-value picker', () => {
     const { container, unmount } = mountTestComponent(<InlineSelectPicker value="original" options={['a']} onSave={save} />);
     key(inputIn(container), 'Escape');
     mouseDown(document.body);
+    act(() => { inputIn(container).blur(); });
     expect(save.mock.calls).toEqual([['original'], ['original']]);
     unmount();
     mouseDown(document.body);
@@ -126,6 +127,7 @@ describe('table multi-value picker', () => {
     expect(create).toHaveBeenCalledWith('Nou');
     expect(input.value).toBe('');
     mouseDown(document.body);
+    act(() => { input.blur(); });
     expect(save).toHaveBeenCalledWith(['Nou']);
   });
 
@@ -170,4 +172,15 @@ describe('picker event boundaries', () => {
     expect(isOutsidePicker(container, new EventTarget())).toBe(true);
     expect(isOutsidePicker(container, null)).toBe(true);
   });
+});
+
+it('saves the multi-select draft when focus moves away by keyboard', async () => {
+  const save = vi.fn();
+  const { container } = mountTestComponent(<><InlinePillsPicker value={['a']} options={['a', 'b']} onSave={save} /><button>Next field</button></>);
+  await settlePortal();
+  mouseDown(portalOption('b'));
+  const next = container.querySelector('button');
+  if (!next) throw new Error('Missing next field');
+  act(() => { next.focus(); });
+  expect(save.mock.calls).toEqual([[['a', 'b']]]);
 });
