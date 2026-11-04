@@ -124,8 +124,9 @@ test('editing and closing a table record restores its active cell and horizontal
   const row = cell.locator('..');
   await row.locator('td:first-child button').first().click();
   const title = page.locator('.vault-page-title:visible');
-  await expect(title).toBeVisible();
+  await expect(title).toHaveValue('Acceptance first record');
   await title.fill('Accepted table record');
+  await expect(title).toHaveValue('Accepted table record');
   const body = page.locator('.bn-editor[contenteditable="true"]:visible');
   await body.fill('Table record saved through the production editor.');
   await expect.poll(async () => {
