@@ -55,7 +55,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           version: '0.10.0'
           enable-cache: false
@@ -115,7 +115,7 @@ jobs:
         if: steps.scope.outputs.runtime_required != 'false'
         with:
           python-version: '3.11'
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.3
         if: steps.scope.outputs.runtime_required != 'false'
         with:
           version: '0.10.0'
@@ -215,7 +215,7 @@ jobs:
         if: steps.scope.outputs.runtime_required != 'false'
         with:
           python-version: '3.11'
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.3
         if: steps.scope.outputs.runtime_required != 'false'
         with:
           version: '0.10.0'
@@ -297,7 +297,7 @@ jobs:
         if: steps.scope.outputs.runtime_required != 'false'
         with:
           python-version: '3.11'
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.3
         if: steps.scope.outputs.runtime_required != 'false'
         with:
           version: '0.10.0'
@@ -363,7 +363,7 @@ jobs:
           CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           CI_RELEASE_CANDIDATE: ${{ inputs.release_candidate }}
         run: python3 scripts/ci/classify_changes.py
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.3
         if: steps.scope.outputs.runtime_required != 'false'
         with:
           version: '0.10.0'
