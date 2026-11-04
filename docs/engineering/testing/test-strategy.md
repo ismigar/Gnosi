@@ -324,6 +324,18 @@ work projects with one worker and zero retries. Empty, failed, flaky or skipped
 reports cannot establish acceptance. Existing macOS visual baselines remain a
 separate platform-specific check and are not claimed by the Linux job.
 
+The runner collects the exact test matrix before execution, starts a separate
+Playwright process per project, and bounds accessibility browsers to six cases
+per process. Other projects remain whole to preserve serial-suite contracts.
+Each batch uses the collected fully qualified test list; its actual stable case
+IDs must match exactly, without omissions, additions or repetitions. Aggregate
+reports retain every raw batch report and require every mandatory project.
+The owned backend also restarts between functional projects against the same
+source-bound fixture, preserving its database, vaults and signing secret while
+releasing imports and caches. Existing restart/personal checks remain mandatory.
+This releases browser/worker memory between batches without changing coverage,
+retries, timeouts, the one-worker policy or the process-tree memory limit.
+
 The fixture provisions synthetic owner/viewer accounts, two vaults and a
 populated table. Daily acceptance edits through the real editor, reopens the
 saved page, checks vault isolation and verifies a viewer cannot overwrite it.

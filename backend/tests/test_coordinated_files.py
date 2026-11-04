@@ -1,6 +1,7 @@
 """Cloud access contracts: bounded, cancellable and never a GUI side effect."""
 
 import asyncio
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -20,6 +21,26 @@ def test_flags_override_allocated_blocks_and_empty_local_files_are_not_cloud():
     assert not coordinated.is_cloud_placeholder(
         Path('/tmp/sparse'), SimpleNamespace(st_flags=0, st_blocks=0, st_size=1000)
     )
+
+
+@pytest.mark.parametrize('mode', [stat.S_IFDIR, stat.S_IFLNK, stat.S_IFIFO])
+def test_unallocated_non_files_are_not_cloud_placeholders(mode, monkeypatch):
+    monkeypatch.setattr(sys, 'platform', 'darwin')
+    info = SimpleNamespace(st_mode=mode, st_flags=0, st_blocks=0, st_size=896)
+    assert not coordinated.is_placeholder(info)
+    assert not coordinated.is_cloud_placeholder(
+        Path('/Users/synthetic/Library/CloudStorage/Provider/Vault/.gnosi'), info
+    )
+
+
+def test_unallocated_files_and_explicit_dataless_directories_still_require_hydration(monkeypatch):
+    monkeypatch.setattr(sys, 'platform', 'darwin')
+    path = Path('/Users/synthetic/Library/CloudStorage/Provider/Vault/.gnosi/settings.json')
+    info = SimpleNamespace(st_mode=stat.S_IFREG, st_flags=0, st_blocks=0, st_size=1000)
+    assert coordinated.is_cloud_placeholder(path, info)
+    info.st_mode = stat.S_IFDIR
+    info.st_flags = 0x40000000
+    assert coordinated.is_cloud_placeholder(path.parent, info)
 
 
 def test_native_default_keeps_bulk_downloads_disabled(monkeypatch):

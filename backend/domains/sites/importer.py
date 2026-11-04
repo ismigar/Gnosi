@@ -7,7 +7,7 @@ import re
 import shutil
 from html import escape, unescape
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 from urllib.parse import unquote, urlsplit
 
 from fastapi import HTTPException
@@ -39,6 +39,12 @@ def _groups(node: dict[str, JsonValue], type_map: dict[str, JsonValue]) -> list[
         found = {str(type_map.get(str(obj(value).get("value", "") if isinstance(value, dict) else value).lower(), "")) for value in values}
         return sorted(found & {"research", "stories"})
     return ["pages"]
+
+
+def _imported_actions(nodes: list[dict[str, JsonValue]], language: str, nids: tuple[int, ...], appearance: Literal["link", "button", "outline"], *, localized: bool = False) -> list[NavigationLink]:
+    """Keep public action identity and ordering in one import projection."""
+    return [NavigationLink(label=str(node["title"]), href=str(node["url"]), appearance=appearance, language=language if localized else None)
+            for nid in nids for node in nodes if node.get("nid") == nid and node.get("lang") == language]
 
 
 def seed_import(store: SiteStore, site: SiteConfig, pilot_root: Path) -> None:
@@ -93,10 +99,17 @@ def seed_import(store: SiteStore, site: SiteConfig, pilot_root: Path) -> None:
     reading_ids = list(dict.fromkeys(str(node["uuid"]) for nid in nids for node in nodes if node.get("nid") == nid)) if isinstance(nids, list) else []
     contact = site.forms[0]
     contact.enabled = True
+    contact.require_privacy = True
+    contact.privacy_url = "/politica-de-privacitat"
+    contact.privacy_text = {"ca": "Accepto la política de privacitat.", "es": "Acepto la política de privacidad.", "en-gb": "I accept the privacy policy.", "fr": "J’accepte la politique de confidentialité."}
+    for site_source in site.sources:
+        site_source.show_tag_filter = site_source.source_id == "imported:blog"
     for lang in site.languages:
         text = obj(home.get(lang, {}))
+        site.header_actions.extend(_imported_actions(nodes, lang, (16,), "button", localized=True))
+        hero_actions = _imported_actions(nodes, lang, (5, 2656), "outline")
         site.pages.append(SitePage(id="home-" + lang, translation_id="imported:home", title=str(text.get("tagline", site.name)), path="/" + lang, language=lang, template="home", enabled=True, blocks=[
-            SiteBlock(type="split", title="", body=str(text.get("intro", "")), image=str(selection.get("photograph", "")), alt=site.name),
+            SiteBlock(type="split", title="", body=str(text.get("intro", "")), image=str(selection.get("photograph", "")), alt=site.name, actions=hero_actions),
             SiteBlock(type="selected", title={"ca": "Lectures per començar", "es": "Lecturas para empezar"}.get(lang, "Selected reading"), page_ids=reading_ids, limit=3),
             *[SiteBlock(type="collection", title=_COLLECTION_TITLES.get(lang, {}).get(group, definitions[group][0]), source_id="imported-" + group, limit=5 if group != "design" else 3) for group in ("research", "stories", "design")],
             SiteBlock(type="collaborators", title=_COLLECTION_TITLES.get(lang, {}).get("collaborators", "Collaborators"), source_id="imported-collaborators"),

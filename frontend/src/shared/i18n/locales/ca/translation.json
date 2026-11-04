@@ -8890,6 +8890,16 @@
     "newsletterReadFailed": "No s’han pogut carregar les subscripcions i els butlletins. Pots continuar amb les pàgines del web o prémer Actualitza per tornar-ho a provar."
   },
   "websites": {
+    "headerActions": "Accions de la capçalera",
+    "blockActions": "Accions del bloc",
+    "pageSize": "Elements per pàgina",
+    "showTagFilter": "Mostra el filtre públic per etiquetes",
+    "linkAppearance": "Aspecte",
+    "linkAppearances": {
+      "link": "Enllaç",
+      "button": "Botó",
+      "outline": "Botó amb contorn"
+    },
     "title": "Webs",
     "openManager": "Obre el gestor de webs",
     "subtitle": "Publica coneixement seleccionat i gestiona els teus webs.",

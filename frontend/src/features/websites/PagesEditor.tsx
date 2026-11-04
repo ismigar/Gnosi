@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { SiteConfig, SitePage, SiteBlock, CatalogueItem } from '../../shared/api/sites';
 import { Card, Empty, Field, Input, ListInput, Textarea, Select, Toggle, ReorderActions } from './components';
 import { moveItem, newId } from './helpers';
+import { LinksEditor } from './LinksEditor';
 
 export function PagesEditor({ site, catalogue, onChange }: { site: SiteConfig; catalogue: CatalogueItem[]; onChange: (site: SiteConfig) => void }) {
   const { t } = useTranslation();
@@ -35,6 +36,7 @@ function BlocksEditor({ site, catalogue, blocks, onChange }: { site: SiteConfig;
         {['selected', 'collection', 'collaborators', 'gallery'].includes(block.type) && <><Field label={t('websites.columns')}><Input type="number" min={1} max={4} value={block.columns} onChange={event => { change(index, { columns: event.target.valueAsNumber || 1 }); }} /></Field><Field label={t('websites.itemLimit')}><Input type="number" min={1} max={100} value={block.limit} onChange={event => { change(index, { limit: event.target.valueAsNumber || 1 }); }} /></Field></>}
         {block.type === 'cta' && <Field label={t('websites.link')}><Input value={block.href} onChange={event => { change(index, { href: event.target.value }); }} /></Field>}
       </div>
+      {block.type === 'split' && <LinksEditor title={t('websites.blockActions')} links={block.actions ?? []} defaultAppearance="button" onChange={actions => { change(index, { actions }); }} />}
     </section>)}
   </div>;
 }

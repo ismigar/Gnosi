@@ -54,7 +54,9 @@ test('global body search and complete rich transclusions in a disposable Vault',
   await expect(page.locator('pre code').filter({ hasText: 'const complete = true' })).toBeVisible();
   await expect(page.getByText('A needle found only in the full note body.')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('rich-transclusion-and-query.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Afegeix un marcador', exact: true }).click();
+  const bookmarks = page.getByRole('region', { name: 'Marcadors', exact: true });
+  await bookmarks.getByRole('button', { name: 'Més accions', exact: true }).click();
+  await bookmarks.getByRole('button', { name: 'Afegeix un marcador', exact: true }).click();
   const bookmarkForm = page.locator('section form').filter({ has: page.getByLabel('Grup', { exact: true }) });
   await bookmarkForm.getByLabel('Nom', { exact: true }).fill('Synthetic saved query');
   await bookmarkForm.getByRole('combobox', { name: 'Tipus', exact: true }).selectOption('search');

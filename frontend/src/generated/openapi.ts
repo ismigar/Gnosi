@@ -21558,6 +21558,12 @@ export interface components {
         };
         /** NavigationLink */
         NavigationLink: {
+            /**
+             * Appearance
+             * @default link
+             * @enum {string}
+             */
+            appearance: "link" | "button" | "outline";
             /** Href */
             href: string;
             /** Label */
@@ -25507,6 +25513,8 @@ export interface components {
         };
         /** SiteBlock */
         SiteBlock: {
+            /** Actions */
+            actions?: components["schemas"]["NavigationLink"][] | null;
             /**
              * Alt
              * @default
@@ -25593,6 +25601,8 @@ export interface components {
             footer?: components["schemas"]["NavigationLink"][];
             /** Forms */
             forms?: components["schemas"]["SiteForm"][];
+            /** Header Actions */
+            header_actions?: components["schemas"]["NavigationLink"][];
             /** Id */
             id?: string;
             /** Languages */
@@ -25969,6 +25979,11 @@ export interface components {
             /** Page Ids */
             page_ids?: string[];
             /**
+             * Page Size
+             * @default 16
+             */
+            page_size: number;
+            /**
              * Path Prefix
              * @default /content
              */
@@ -25985,6 +26000,11 @@ export interface components {
              * @enum {string}
              */
             selection_mode: "all" | "selected";
+            /**
+             * Show Tag Filter
+             * @default false
+             */
+            show_tag_filter: boolean;
             /**
              * Sort Descending
              * @default false
