@@ -54,7 +54,7 @@ def test_linux_uses_only_local_runners_for_every_pr(
     if job_name == "backend":
         assert "needs" not in backend
     else:
-        assert backend["needs"] == "frontend"
+        assert backend["needs"] == ["backend", "frontend"]
 
 
 def test_frontend_uses_only_local_runners_for_every_pr(
@@ -62,7 +62,7 @@ def test_frontend_uses_only_local_runners_for_every_pr(
 ) -> None:
     frontend = _mapping(_mapping(workflow["jobs"])["frontend"])
     assert frontend["runs-on"] == ["self-hosted", "macOS", "ARM64"]
-    assert frontend["needs"] == "backend"
+    assert "needs" not in frontend
 
 
 def test_docker_keeps_its_dedicated_runner(
@@ -103,9 +103,9 @@ def test_all_gates_and_bounded_native_order_are_preserved(
         assert isinstance(labels, list)
         assert "self-hosted" in labels
         assert "github.event.pull_request.head.repo.full_name == github.repository" in str(_mapping(job)["if"])
-    assert _mapping(jobs["frontend"])["needs"] == "backend"
+    assert "needs" not in _mapping(jobs["frontend"])
     assert _mapping(jobs["docker"])["needs"] == "native-smoke"
-    assert _mapping(jobs["native-smoke"])["needs"] == "frontend"
+    assert _mapping(jobs["native-smoke"])["needs"] == ["backend", "frontend"]
     for name in ("frontend", "native-smoke", "docker"):
         assert "!cancelled()" in str(_mapping(jobs[name])["if"])
 
