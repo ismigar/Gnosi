@@ -2,10 +2,10 @@ import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitl
 import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { subscribeDocumentEvent } from '../../../../shared/platform/browser-events';
+import { useCellEditorFocus } from './useCellEditorFocus';
 import { optionChipStyle } from '../../../../shared/records/model/optionCatalogUtils';
 import { CellDropdownPortal } from './CellDropdownPortal';
-import { isOutsidePicker, type InlineSelectPickerProps } from './pickerTypes';
+import type { InlineSelectPickerProps } from './pickerTypes';
 
 // Inline single-value picker for select/status cells in the table.
 // Replaces the native <select> to allow searching, creating, and deleting options
@@ -26,14 +26,7 @@ export const InlineSelectPicker = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (isOutsidePicker(containerRef.current, e.target)) {
-        onSave(value); // closes without changing (handleCellSave does an early return if it's the same)
-      }
-    };
-    return subscribeDocumentEvent('mousedown', handleClickOutside);
-  }, [value, onSave]);
+  const focusProps = useCellEditorFocus(containerRef, () => { onSave(value); });
 
   const filtered = options.filter(opt =>
     (idToTitle[opt] ?? opt).toLowerCase().includes(search.toLowerCase())
@@ -68,7 +61,7 @@ export const InlineSelectPicker = ({
   };
 
   return (
-    <div ref={containerRef} className="w-full">
+    <div ref={containerRef} className="w-full" {...focusProps}>
       <input
         autoFocus
         className="w-full px-2 py-0.5 text-xs border border-[var(--border-primary)] rounded bg-[var(--bg-primary)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"

@@ -1,3 +1,4 @@
+import { patchVaultTablePage } from '../../../../shared/api/vault-table';
 import { PaneVisibilityContext } from '../../../../shared/ui/PaneVisibility';
 import { act, useLayoutEffect, type Key } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -195,4 +196,63 @@ it('preserves selected rendered root whose parent is excluded by a view filter',
   expect(table.model().expandedGroups.has('right')).toBe(true);
   expect(table.model().activeCell).toEqual({rowId:'b',field:'Text'});
   expect(table.model().anchorCell).toEqual({rowId:'a',field:'Text'});
+});
+
+it('compacts a period cell when focus leaves the editor, even without changing the date', () => {
+  const table = mountTable({
+    notes: [{ ...rows[0], metadata: { ...rows[0].metadata, Period: '2026-08-02/2026-08-09' } }],
+    schema: { Period: 'period' },
+    activeView: { id: 'view', table_id: 'table', sorts: [], visibleProperties: ['title', 'Period'] },
+  });
+  const cell = table.container.querySelector('[data-grid-row="a"][data-grid-field="Period"]');
+  if (!cell) throw new Error('Missing period cell');
+  act(() => { table.model().setEditingCell({ rowId: 'a', field: 'Period', originalMetaKey: 'Period' }); });
+  const [start, end] = cell.querySelectorAll<HTMLInputElement>('input[type="text"]');
+  if (!start || !end) throw new Error('Missing period boundaries');
+  act(() => { start.focus(); });
+  const editorSurface = start.parentElement;
+  if (!editorSurface) throw new Error('Missing date editor surface');
+  act(() => { editorSurface.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })); });
+  expect(document.activeElement).toBe(start);
+  act(() => { end.focus(); });
+  expect(cell.contains(end)).toBe(true);
+  expect(document.activeElement).toBe(end);
+  act(() => { end.blur(); });
+  expect(cell.querySelector('input')).toBeNull();
+  expect(cell.textContent).toContain('2026');
+  expect(table.model().editingCell).toBeNull();
+});
+
+it('compacts an unchanged author cell when focus leaves its controls', () => {
+  const table = mountTable({
+    schema: { Authors: 'autoria' },
+    activeView: { id: 'view', table_id: 'table', sorts: [], visibleProperties: ['title', 'Authors'] },
+  });
+  const cell = table.container.querySelector('[data-grid-row="a"][data-grid-field="Authors"]');
+  if (!cell) throw new Error('Missing author cell');
+  act(() => { table.model().setEditingCell({ rowId: 'a', field: 'Authors', originalMetaKey: 'Authors' }); });
+  const author = cell.querySelector('button');
+  if (!author) throw new Error('Missing add author button');
+  act(() => { author.focus(); });
+  act(() => { author.blur(); });
+  expect(cell.contains(author)).toBe(false);
+  expect(table.model().editingCell).toBeNull();
+});
+
+it('saves author deletion when leaving an editor whose wrapper has focus', async () => {
+  const table = mountTable({
+    notes: [{ ...rows[0], metadata: { ...rows[0].metadata, Authors: [{ nom: 'Ada' }] } }],
+    schema: { Authors: 'autoria' },
+    activeView: { id: 'view', table_id: 'table', sorts: [], visibleProperties: ['title', 'Authors'] },
+  });
+  const cell = table.container.querySelector('[data-grid-row="a"][data-grid-field="Authors"]');
+  if (!cell) throw new Error('Missing author cell');
+  act(() => { table.model().setEditingCell({ rowId: 'a', field: 'Authors', originalMetaKey: 'Authors' }); });
+  const remove = cell.querySelector('[title="Delete"]');
+  if (!remove) throw new Error('Missing remove author control');
+  act(() => { remove.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })); });
+  expect(patchVaultTablePage).not.toHaveBeenCalled();
+  await act(async () => { viewport(table.container).focus(); await Promise.resolve(); });
+  expect(patchVaultTablePage).toHaveBeenCalledExactlyOnceWith('a', { metadata: { Authors: [] } });
+  expect(table.model().editingCell).toBeNull();
 });
