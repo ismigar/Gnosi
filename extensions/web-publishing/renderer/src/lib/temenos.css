@@ -18,7 +18,7 @@
   .temenos-site .hero-actions .button:hover{text-decoration:underline}
   .temenos-site .hero-actions .text-link{color:#151515}
   .temenos-site .reading-card{padding:0;background:transparent;overflow:hidden}
-  .temenos-site .reading-card .card-copy > .text-link{border:1px solid var(--primary,#264653);border-radius:10%;padding:0 10px}
+  .temenos-site .reading-card .card-copy > .text-link,.temenos-site .table-record-link{border:1px solid var(--primary,#264653);border-radius:10%;padding:0 10px}
   .temenos-site .reading-card img{width:100%;aspect-ratio:1.6;object-fit:cover;border-radius:var(--radius,.75rem)}
   .temenos-site .reading-card h3{font-size:1.6rem;line-height:1.25}.temenos-site .reading-card h3 a{color:var(--accent,#c75b35);text-decoration:none}
   .temenos-site .card-copy{padding-block:1rem}.temenos-site .card-copy>p{margin:.5rem 0 1rem}.temenos-site .text-link{display:inline-flex;gap:1rem;font-weight:700;text-decoration:none;min-height:44px;align-items:center;font-family:var(--font-heading,system-ui,sans-serif)}

@@ -1,8 +1,8 @@
 export const listingLabels=lang=>({
-  ca:{filter:'Filtra per tema',all:'Tots els temes',apply:'Filtra',page:'Pàgina',pagination:'Paginació',empty:'No hi ha resultats.'},
-  es:{filter:'Filtrar por tema',all:'Todos los temas',apply:'Filtrar',page:'Página',pagination:'Paginación',empty:'No hay resultados.'},
-  fr:{filter:'Filtrer par thème',all:'Tous les thèmes',apply:'Filtrer',page:'Page',pagination:'Pagination',empty:'Aucun résultat.'},
-  'en-gb':{filter:'Filter by topic',all:'All topics',apply:'Filter',page:'Page',pagination:'Pagination',empty:'No results.'},
+  ca:{filter:'Filtra per tema',all:'Tots els temes',apply:'Filtra',page:'Pàgina',pagination:'Paginació',empty:'No hi ha resultats.',show:'Mostrar',actions:'Accions'},
+  es:{filter:'Filtrar por tema',all:'Todos los temas',apply:'Filtrar',page:'Página',pagination:'Paginación',empty:'No hay resultados.',show:'Mostrar',actions:'Acciones'},
+  fr:{filter:'Filtrer par thème',all:'Tous les thèmes',apply:'Filtrer',page:'Page',pagination:'Pagination',empty:'Aucun résultat.',show:'Afficher',actions:'Actions'},
+  'en-gb':{filter:'Filter by topic',all:'All topics',apply:'Filter',page:'Page',pagination:'Pagination',empty:'No results.',show:'View',actions:'Actions'},
 }[lang] || listingLabels('en-gb'));
 
 export function listingState(items,search,pageSize,allowTags=true){

@@ -84,4 +84,12 @@ def test_renderer_configures_actions_and_rich_public_listing(imported_pilot, tmp
     assert all(json.loads(row['data-tags']) == ['11'] for row in rows)
     assert [row.select_one('td:nth-of-type(2)').get_text() for row in rows] == ['Public material 1', 'Public material 2', 'Public material 3']
     assert all(row.select_one('td a')['href'].startswith('/_gnosi-proof/current/ca/dissenys/') for row in rows)
+    assert controlled_table.select_one('table th:nth-of-type(3)').get_text() == 'Accions'
+    for row in rows:
+        title_link = row.select_one('td:first-child a')
+        show_link = row.select_one('td:nth-of-type(3) a.table-record-link')
+        assert show_link['href'] == title_link['href']
+        assert show_link.get_text() == 'Mostrar↗'
+        assert show_link['aria-label'] == f'Mostrar: {title_link.get_text()}'
+        assert show_link.select_one('span')['aria-hidden'] == 'true'
     assert 'private_internal' not in controlled_table.get_text()
