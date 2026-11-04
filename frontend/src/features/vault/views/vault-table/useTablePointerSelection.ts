@@ -33,8 +33,10 @@ export function useTablePointerSelection(model: TableController) {
       start.current = null;
       suppressClick.current = false;
       model.claimKeyboard();
+      // The editor owns focus, including interactions with portaled options.
+      if (model.editingCell) return;
       if (event.target instanceof Element && !isInteractive(event.target)) event.currentTarget.focus({ preventScroll: true });
-      if (event.button !== 0 || event.pointerType === 'touch' || model.editingCell) return;
+      if (event.button !== 0 || event.pointerType === 'touch') return;
       const cell = cellAt(event.target);
       if (!cell) return;
       event.preventDefault(); // Prevent text selection while dragging across cells.
