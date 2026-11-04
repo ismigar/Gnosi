@@ -75,6 +75,15 @@
     margin: 0;
     font-size: .9rem;
   }
+  .temenos-site button.menu-toggle {
+    background: transparent;
+    border: 0;
+    color: var(--primary, #264653);
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+  }
   .temenos-site .site-header {
     position: sticky;
     top: var(--header-sticky-top, auto);
