@@ -587,3 +587,5 @@ When a reviewed `brief` draft already meets the global word range and its full e
 
 
 Factual edits may partially overlap a quoted passage at its original position; shared words elsewhere do not bind an edit. Revision requests include the original word count and net global word allowance. Validation returns anchor, finding and whole-episode length errors together within the existing repair allowance; partial-anchor counts are explicitly labelled and never published. Review claims are checked against all supplied evidence so reported actions remain distinct from the rules they violated.
+
+If rejected grounded edits repeat original clause anchors or leave findings unbound, the existing remaining call may use `grounded_anchor_words_v1`. The application supplies disjoint exact original clauses, requires an action and complete finding assignments, and bounds one shared array of ID-prefixed spoken words. Kept clauses are preserved verbatim; original hashes, literal edits, finding coverage, complete word count and final semantic review remain mandatory. This is an edit repair inside the same stage, not an additional rewrite or call.

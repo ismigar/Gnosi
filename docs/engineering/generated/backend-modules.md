@@ -24,11 +24,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 278 | 54197 |
+| `services` | 279 | 54323 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1098 modules** and **207519 source lines**.
+Total: **1099 modules** and **207645 source lines**.
 
 ## agent
 
@@ -1127,6 +1127,7 @@ Total: **1098 modules** and **207519 source lines**.
 | [`backend/services/plugin_sandbox.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_sandbox.py) | 96 | 0 | 4 | 0 | 3 | Compatibility facade for the restricted third-party plugin sandbox. |
 | [`backend/services/plugin_signing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_signing.py) | 167 | 0 | 8 | 0 | 6 | Plugin signing and trust (phase 3 of plugin_system.md). |
 | [`backend/services/plugin_system.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_system.py) | 256 | 0 | 14 | 0 | 12 | Compatibility facade for the typed third-party plugin domain. |
+| [`backend/services/podcast_anchor_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_anchor_repair.py) | 121 | 0 | 1 | 0 | 1 | Repair overlapping reviewed edits with server-owned disjoint clause anchors. |
 | [`backend/services/podcast_audit_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_audit_repair.py) | 138 | 0 | 5 | 0 | 0 | Ground rejected audit quotes without changing the model's findings. |
 | [`backend/services/podcast_automatic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_automatic.py) | 418 | 2 | 13 | 0 | 2 | Bounded narration-only writing, semantic review and automatic revision. |
 | [`backend/services/podcast_brief_edits.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_brief_edits.py) | 135 | 0 | 5 | 0 | 3 | Apply grounded review edits without regenerating an already bounded episode. |
@@ -1144,7 +1145,7 @@ Total: **1098 modules** and **207519 source lines**.
 | [`backend/services/podcast_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_policy.py) | 100 | 2 | 4 | 0 | 2 | Validated editorial preferences from the assigned, user-personalizable skill. |
 | [`backend/services/podcast_provider_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_provider_retry.py) | 79 | 0 | 2 | 1 | 0 | Retry transient podcast provider failures within existing call/deadline limits. |
 | [`backend/services/podcast_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_review.py) | 247 | 0 | 14 | 0 | 3 | Ground model criticisms in exact supplied evidence before automatic rewrites. |
-| [`backend/services/podcast_revision_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_revision_repair.py) | 103 | 0 | 2 | 0 | 0 | Repair reviewed edits inside their original call and complete word budget. |
+| [`backend/services/podcast_revision_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_revision_repair.py) | 108 | 0 | 2 | 0 | 0 | Repair reviewed edits inside their original call and complete word budget. |
 | [`backend/services/podcast_sources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_sources.py) | 22 | 0 | 1 | 0 | 1 | Readable source selection for daily podcasts. |
 | [`backend/services/principal_agent_migration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/principal_agent_migration.py) | 119 | 0 | 3 | 0 | 0 | Idempotent, backed-up migration from feature-owned agents to the principal. |
 | [`backend/services/project_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/project_planning.py) | 492 | 3 | 14 | 0 | 12 | Vault-scoped storage and pure calculations for project planning resources. |
