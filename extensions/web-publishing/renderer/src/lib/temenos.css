@@ -117,3 +117,12 @@
   .temenos-site .header-search summary::-webkit-details-marker { display: none; }
   @media(max-width:760px){.temenos-site .header-layout{grid-template-columns:minmax(0,1fr) auto}.temenos-site .header-tools{grid-column:1/-1;grid-row:1;max-width:none;justify-content:flex-end}.temenos-site .header-layout>.brand,.temenos-site .header-layout>.menu-toggle{grid-row:2}.temenos-site .header-layout>.navigation{grid-column:1/-1;grid-row:3;align-items:stretch;font-size:1rem}.temenos-site .header-search{margin-left:0}.temenos-site .temenos-hero{padding-block:2rem;min-height:0}.temenos-site .temenos-hero-copy{max-width:490px;padding:1.5rem}.temenos-site .temenos-hero-copy p{font-size:1.25rem;line-height:1.7}.temenos-site .temenos-hero-copy h1{font-size:1.8rem}}
 }
+
+@layer components {
+  .temenos-site .share-links a{position:relative;justify-content:center;width:44px;height:44px;padding:0;color:var(--primary,#264653);text-decoration:none}
+  .temenos-site .share-icon{display:flex;width:24px;height:24px;align-items:center;justify-content:center}
+  .temenos-site .share-icon svg{display:block;width:100%;height:100%;fill:currentColor}
+  .temenos-site .a2a_button_email .share-icon svg{fill:none}
+  .temenos-site .share-tooltip{position:absolute;left:0;bottom:calc(100% + .5rem);z-index:2;padding:.3rem .6rem;border-radius:.3rem;background:var(--primary,#264653);color:var(--background,#f5efe7);font-size:.85rem;line-height:1.4;white-space:nowrap;pointer-events:none;visibility:hidden;opacity:0}
+  .temenos-site .share-links a:is(:hover,:focus-visible) .share-tooltip{visibility:visible;opacity:1}
+}

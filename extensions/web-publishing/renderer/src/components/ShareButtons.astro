@@ -1,6 +1,13 @@
 ---
+import whatsapp from '../icons/social/whatsapp.svg?raw';
+import telegram from '../icons/social/telegram.svg?raw';
+import mastodon from '../icons/social/mastodon.svg?raw';
+import bluesky from '../icons/social/bluesky.svg?raw';
+import facebook from '../icons/social/facebook-f.svg?raw';
+import linkedin from '../icons/social/linkedin-in.svg?raw';
 import {site,linkProps} from '../lib/site.mjs';
 import {temenosLabels} from '../lib/temenos.mjs';
+const icons={whatsapp,telegram,mastodon,bluesky,facebook,linkedin,email:'<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>'};
 const {page,lang}=Astro.props;
 const text=temenosLabels(lang);
 const services=[['whatsapp','WhatsApp'],['telegram','Telegram'],['mastodon','Mastodon'],['bluesky','Bluesky'],['facebook','Facebook'],['linkedin','LinkedIn'],['email',text.email]];
@@ -9,5 +16,5 @@ const query=new URLSearchParams({linkurl:canonical,linkname:page.title});
 ---
 <section class="entry-sharing" aria-label={text.share} data-pagefind-ignore>
   <h2>{text.share}</h2>
-  <div class="share-links">{services.map(([service,name])=>{const url=`https://www.addtoany.com/add_to/${service}?${query}`;return <a class={`a2a_button_${service}`} href={url} {...linkProps(url)}>{name}</a>;})}</div>
+  <div class="share-links">{services.map(([service,name])=>{const url=`https://www.addtoany.com/add_to/${service}?${query}`;return <a class={`a2a_button_${service}`} href={url} aria-label={name} {...linkProps(url)}><span class="share-icon" aria-hidden="true" set:html={icons[service]}/><span class="share-tooltip" role="tooltip">{name}</span></a>;})}</div>
 </section>
