@@ -11,12 +11,8 @@ from backend.tests.test_agent_execution import runtime  # noqa: F401
 from backend.tests.test_podcast_bounded_rewrites import context_for, counted_workflow
 
 
-def passage_response(passages):
-    from backend.services.podcast_length_edits import REPAIR_MARKER_PREFIX
-    tokens = []
-    for index, passage in enumerate(passages):
-        tokens.extend([REPAIR_MARKER_PREFIX + str(index), *passage.split()])
-    return json.dumps({'replacement_tokens': tokens})
+def word_response(passages):
+    return json.dumps({'words': [word for passage in passages for word in passage.split()]})
 
 
 def narration(words):
@@ -44,7 +40,8 @@ def test_duration_tolerance_produces_broad_word_guidance():
 @pytest.mark.parametrize('first_words', [765, 1815, 2620])
 def test_length_retry_uses_the_same_plain_schema_sources_and_two_call_stage(runtime, monkeypatch, first_words):
     scope, snapshot = runtime
-    calls = counted_workflow(monkeypatch, [narration(first_words), narration(1380)])
+    calls = counted_workflow(monkeypatch, [narration(first_words),
+        word_response([' '.join(['Supported.'] * 1380)]) if first_words > 1504 else narration(1380)])
     context = context_for(snapshot)
     data = {'composition_encoding': 'bounded_narration_v1',
             'briefs': [{'part_id': f'source:{i}', 'summary': f'Distinct source {i}.'} for i in range(222)],
@@ -62,8 +59,12 @@ def test_length_retry_uses_the_same_plain_schema_sources_and_two_call_stage(runt
     repair = json.loads(json.loads(calls[1]['messages'][0].content)['input'])['data']
     assert repair['briefs'] == data['briefs']
     assert repair['subject_groups'] == data['subject_groups']
-    assert repair['previous_draft'] == json.loads(narration(first_words))['narration']
-    assert repair['length_repair']['word_delta'] == 1380 - first_words
+    if first_words > 1504:
+        assert repair['length_repair']['mode'] == 'compress_episode_words'
+        assert repair['length_repair']['original_episode'] == json.loads(narration(first_words))['narration']
+    else:
+        assert repair['previous_draft'] == json.loads(narration(first_words))['narration']
+        assert repair['length_repair']['word_delta'] == 1380 - first_words
 
 
 @pytest.mark.parametrize('enough_compression', [True, False])
@@ -81,7 +82,7 @@ def test_large_day_repairs_complete_passages_within_the_original_two_calls(runti
     }
     draft = '\n\n'.join(originals)
     calls = counted_workflow(monkeypatch, [
-        json.dumps({'narration': draft}), passage_response(shorter.values()),
+        json.dumps({'narration': draft}), word_response(shorter.values()),
     ])
     context = context_for(snapshot)
     data = {'composition_encoding': 'bounded_narration_v1',
@@ -90,10 +91,8 @@ def test_large_day_repairs_complete_passages_within_the_original_two_calls(runti
     with execution_scope(scope):
         if enough_compression:
             result = _bounded_write(context, data, options)
-            paragraphs = result['narration'].split('\n\n')
             assert 1104 <= len(result['narration'].split()) <= 1656
-            assert len(paragraphs) == len(counts)
-            assert paragraphs == list(shorter.values())
+            assert result['narration'] == ' '.join(shorter.values())
         else:
             with pytest.raises(jsonschema.ValidationError):
                 _bounded_write(context, data, options)
@@ -102,10 +101,10 @@ def test_large_day_repairs_complete_passages_within_the_original_two_calls(runti
     repair = json.loads(json.loads(calls[1]['messages'][0].content)['input'])['data']
     assert repair['briefs'] == data['briefs']
     length_repair = repair['length_repair']
-    assert length_repair['mode'] == 'compress_passage_stream'
-    assert length_repair['replacement_word_range'] == {'minimum': 1104, 'maximum': 1656}
-    assert [p['text'] for p in length_repair['original_groups'].values()] == originals
-    assert 'No per-anchor word caps' in length_repair['instructions']
+    assert length_repair['mode'] == 'compress_episode_words'
+    assert length_repair['word_range'] == {'minimum': 1104, 'maximum': 1656}
+    assert length_repair['original_episode'] == draft
+    assert 'Share the global word range' in length_repair['instructions']
 
 
 def test_passage_repair_preserves_crlf_and_the_existing_advisory_range(runtime, monkeypatch):
@@ -114,21 +113,21 @@ def test_passage_repair_preserves_crlf_and_the_existing_advisory_range(runtime, 
     shortened = ' '.join(['Condensed'] * 850)
     calls = counted_workflow(monkeypatch, [
         json.dumps({'narration': original + '\r\n\r\n' + original}),
-        passage_response([shortened, shortened]),
+        word_response([shortened, shortened]),
     ])
     context = context_for(snapshot)
     with execution_scope(scope):
         result = _bounded_write(context, {'composition_encoding': 'bounded_narration_v1'},
             {'min_words': 1104, 'max_words': 1656, 'target_words': 1380, 'word_range_is_advisory': True})
-    assert result['narration'] == shortened + '\n\n' + shortened
+    assert result['narration'] == shortened + ' ' + shortened
     assert len(calls) == 2 and len(context.requests) == 1
 
 
 def test_invalid_second_plain_script_fails_without_opening_another_stage(runtime, monkeypatch):
     scope, snapshot = runtime
-    calls = counted_workflow(monkeypatch, [narration(2112), narration(1811)])
+    calls = counted_workflow(monkeypatch, [narration(2112), word_response([' '.join(['Supported.'] * 1811)])])
     context = context_for(snapshot)
-    with execution_scope(scope), pytest.raises(ValueError, match='podcast_word_budget'):
+    with execution_scope(scope), pytest.raises(jsonschema.ValidationError):
         _bounded_write(context, {'composition_encoding': 'bounded_narration_v1'},
                        {'min_words': 1242, 'max_words': 1504, 'target_words': 1380})
     assert len(calls) == 2 and len(context.requests) == 1
@@ -140,7 +139,8 @@ def test_near_context_limit_recomposes_with_evidence_and_absolute_target(runtime
     context = context_for(snapshot)
     original_cost = context.cost
     monkeypatch.setattr(context, 'cost', lambda request:
-        context.budget + 1 if 'previous_draft' in json.loads(request.input)['data'] else original_cost(request))
+        context.budget + 1 if ('previous_draft' in json.loads(request.input)['data']
+            or 'original_episode' in json.loads(request.input)['data'].get('length_repair', {})) else original_cost(request))
     data = {'composition_encoding': 'bounded_narration_v1',
             'briefs': [{'part_id': 'source:0', 'summary': 'Qualified original claim.'}]}
     with execution_scope(scope):
@@ -166,7 +166,7 @@ def test_complete_script_count_remains_independent_of_native_passage_count(runti
                                     {'min_words': 1242, 'max_words': 1504, 'target_words': 1380})
             assert len(result['narration'].split()) == words
         else:
-            with pytest.raises(ValueError, match='podcast_word_budget'):
+            with pytest.raises((ValueError, jsonschema.ValidationError)):
                 _bounded_write(context, {'composition_encoding': 'bounded_narration_v1'},
                                {'min_words': 1242, 'max_words': 1504, 'target_words': 1380})
     assert len(context.requests) == 1 and len(calls) == (1 if valid else 2)
@@ -185,46 +185,50 @@ def test_observed_39_passage_day_uses_one_shared_bounded_word_stream(runtime, mo
     replacements = [' '.join([f'theme-{i}', *(['compressed'] * (shares[i] - 1))])
                     for i in range(len(counts))]
     calls = counted_workflow(monkeypatch, [
-        json.dumps({'narration': '\n\n'.join(original)}), passage_response(replacements)])
+        json.dumps({'narration': '\n\n'.join(original)}), word_response(replacements)])
     context = context_for(snapshot)
     options = {'min_words': 1104, 'max_words': 1656, 'target_words': 1380, 'word_range_is_advisory': True}
     with execution_scope(scope):
         if response_words == 1380:
             result = _bounded_write(context, {'composition_encoding': 'bounded_narration_v1'}, options)
-            assert result['narration'].split('\n\n') == replacements
+            assert result['narration'] == ' '.join(replacements)
             assert len(result['narration'].split()) == 1380
         else:
             with pytest.raises(jsonschema.ValidationError):
                 _bounded_write(context, {'composition_encoding': 'bounded_narration_v1'}, options)
     assert len(calls) == 2 and len(context.requests) == 1
     sent = json.loads(json.loads(calls[1]['messages'][0].content)['input'])
-    bounds = sent['data']['length_repair']['replacement_word_range']
+    bounds = sent['data']['length_repair']['word_range']
     assert bounds == {'minimum': 1050, 'maximum': 1749}
 
 
-@pytest.mark.parametrize('invalid', ['whitespace', 'missing', 'reordered', 'duplicate', 'empty'])
-def test_passage_stream_locally_rejects_invalid_tokens_or_lost_passages(invalid):
-    from backend.services.podcast_passage_length import passage_stream
-    repair = passage_stream({'a': 'One original.', 'b': 'Another original.'}, range(2, 21))
-    tokens = json.loads(passage_response(['One shorter.', 'Another shorter.']))['replacement_tokens']
-    if invalid == 'whitespace':
-        tokens[1] = 'two words'
-    elif invalid == 'missing':
-        tokens.pop(0)
-    elif invalid == 'reordered':
-        tokens[0], tokens[3] = tokens[3], tokens[0]
-    elif invalid == 'duplicate':
-        tokens[3] = tokens[0]
+@pytest.mark.parametrize('invalid', ['whitespace', 'joined', 'marker', 'overlong', 'empty', 'too_many'])
+def test_episode_words_reject_packed_prose_markers_and_invalid_words(invalid):
+    from backend.services.podcast_passage_length import episode_stream
+    repair = episode_stream('One original. Another original.', range(2, 21))
+    words = ['One', 'shorter.', 'Another', 'shorter.']
+    replacements = {'whitespace': 'two words', 'joined': 'first»second',
+                    'marker': '__gnosi_edit__:1', 'overlong': 'a' * 129}
+    if invalid in replacements:
+        words[1] = replacements[invalid]
+    elif invalid == 'empty':
+        words = []
     else:
-        tokens = tokens[:4]
-    assert repair.output_schema['properties']['replacement_tokens']['items'] == {'type': 'string', 'pattern': r'^\S+$'}
-    with pytest.raises((ValueError, jsonschema.ValidationError)):
-        repair.restore(json.dumps({'replacement_tokens': tokens}))
+        words = ['word'] * 21
+    with pytest.raises(jsonschema.ValidationError):
+        repair.restore(json.dumps({'words': words}))
+
+
+@pytest.mark.parametrize('word', ['l’Índia,', 'aujourd’hui', 'COVID-19.', '75,2%', '12:30', '“Avui”', 'développement', 'niñez', 'e\u0301vidence'])
+def test_episode_word_transport_supports_spoken_words_in_the_supported_languages(word):
+    from backend.services.podcast_passage_length import episode_stream
+    repair = episode_stream('Original.', range(1, 21))
+    assert json.loads(repair.restore(json.dumps({'words': [word]}))) == {'narration': word}
 
 
 def test_long_episode_keeps_complete_passage_selection_fallback():
-    from backend.services.podcast_passage_length import fit_passages, passage_stream
-    assert passage_stream({'a': 'Original.', 'b': 'Other.'}, range(2000, 2601)) is None
+    from backend.services.podcast_passage_length import episode_stream, fit_passages
+    assert episode_stream('Original. Other.', range(2000, 2601)) is None
     originals = {'a': ' '.join(['Original'] * 1700), 'b': ' '.join(['Other'] * 1700)}
     alternatives = {'a': ' '.join(['Shorter'] * 1000), 'b': ' '.join(['Condensed'] * 1000)}
     result = fit_passages(originals, alternatives, preferred=range(2000, 2601),
