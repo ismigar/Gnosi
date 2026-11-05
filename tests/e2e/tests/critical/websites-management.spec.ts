@@ -60,10 +60,10 @@ test('website file references upload through a modal, preview and persist', asyn
   await create.getByRole('button', { name: 'Create', exact: true }).click();
   await expect(create).toBeHidden();
   await page.getByRole('tab', { name: 'Navigation & languages', exact: true }).click();
-  const languages = page.getByRole('combobox', { name: 'Languages', exact: true }); await languages.click();
+  const languages = page.locator('div[role="combobox"][aria-label="Languages"]'); await languages.click();
   await page.getByRole('option', { name: /Deutsch/u }).waitFor();
   await page.screenshot({ path: testInfo.outputPath('website-language-multiselect.png'), fullPage: true });
-  await page.getByRole('option', { name: /Deutsch/u }).click(); await page.keyboard.press('Escape');
+  await page.getByRole('option', { name: /Deutsch/u }).click(); await languages.click();
   await expect(languages).toContainText('Deutsch');
   await page.getByRole('tab', { name: 'Forms', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Forms', exact: true })).toBeVisible();
