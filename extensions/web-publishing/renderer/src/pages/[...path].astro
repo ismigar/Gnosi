@@ -33,6 +33,7 @@ const blocks=page.blocks.filter(block=>!hero || block.id!==hero.id);
 const legacyText=temenosLabels(lang);
 const date=publishedDate(page,lang);
 const legacyArticle=site.legacy_pilot && page.template==='article';
+const blogArticle=legacyArticle && (page.source_ids||[]).some(id=>site.sources.some(source=>source.id===id && source.source_id==='imported:blog'));
 const articleContent=legacyArticle ? splitArticleImage(page.body_html) : null;
 const tagLinks=site.legacy_pilot ? (page.presentation?.tags || []).flatMap(tag=>{const target=pages.find(item=>item.id===`tag-${tag.tid}-${lang}`);return target ? [{label:tag.label,path:target.path}] : [];}) : [];
 const sharing=site.legacy_pilot && page.template==='article' && (page.source_ids||[]).some(id=>site.sources.some(source=>source.id===id && ['imported:blog','imported:research','imported:stories','imported:design'].includes(source.source_id)));
@@ -63,9 +64,9 @@ const socialIcon=label=>({mastodon:'mastodon',linkedin:'linkedin-in',facebook:'f
   <main id="main-content" class:list={['wrap',{'temenos-home':legacyHome}]} data-pagefind-body={page.template==='article' || !['map','search'].includes(page.template) ? true : undefined}>
     {hero ? <section class="temenos-hero"><img class="temenos-hero-photo" src={href(hero.image)} alt="" fetchpriority="high"/><div class="wrap"><div class="temenos-hero-copy"><h1 data-pagefind-meta="title">{page.title}</h1><div class="record-body" set:html={html(hero.body_html)}/><Actions links={hero.actions ?? [homeLink(2656) && {label:legacyText.about,href:homeLink(2656),appearance:'button'},homeLink(5) && {label:legacyText.me,href:homeLink(5),appearance:'link'}].filter(Boolean)} lang={lang} className="hero-actions"/></div></div></section> : <h1 class="page-title" data-pagefind-meta="title">{page.title}</h1>}
     {date && page.template==='article' && !legacyArticle && <p class="article-date"><time datetime={date.iso}>{date.text}</time>{page.presentation?.year && <> · {page.presentation.year}</>}</p>}
-    {(page.body_html || (legacyArticle && date)) && <div class="reading record-body">
+    {(page.body_html || (sharing && date)) && <div class="reading record-body" data-blog-article={blogArticle || undefined}>
       {articleContent?.image && <Fragment set:html={html(articleContent.image)}/>}
-      {legacyArticle && date && <p class="article-date">{legacyText.writtenBy} Ismael García Fernández - <time datetime={date.iso}>{date.short}</time></p>}
+      {sharing && date && <p class="article-date">{legacyText.writtenBy} Ismael García Fernández - <time datetime={date.iso}>{date.short}</time></p>}
       <Fragment set:html={html(articleContent ? articleContent.body : page.body_html)}/>
     </div>}
     {page.fields && Object.keys(page.fields).length>0 && <dl class="record-fields">{Object.entries(page.fields).map(([key,value])=><><dt>{fieldLabel(key,page)}</dt><dd>{values(value).map((item,index)=><>{index>0 && ', '}{isLink(item)?<a href={href(item)} {...linkProps(item)}>{format(item)}</a>:format(item)}</>)}</dd></>)}</dl>}

@@ -12,6 +12,7 @@ import * as api from '../../shared/api/sites';
 import { Card, Empty, Field, Select } from './components';
 import { CreateSiteDialog } from './CreateSiteDialog';
 import { SourcesEditor } from './SourcesEditor';
+import { WebsiteAssetProvider } from './WebsiteFileField';
 import { PagesEditor } from './PagesEditor';
 import { FormsEditor } from './FormsEditor';
 import { NavigationEditor } from './NavigationEditor';
@@ -43,6 +44,7 @@ function Session({ context }: { context: RequestContext }) {
   const [catalogueFailure, setCatalogueFailure] = useState(-1);
   const [catalogueRequested, setCatalogueRequested] = useState(false);
   const [catalogueError, setCatalogueError] = useState('');
+  const [cataloguePartial, setCataloguePartial] = useState(false);
   const [selectedId, setSelectedId] = useState('');
   const [drafts, setDrafts] = useState<Record<string, api.SiteConfig>>({});
   const [saved, setSaved] = useState<Record<string, api.SiteConfig>>({});
@@ -112,7 +114,7 @@ function Session({ context }: { context: RequestContext }) {
     void request(signal => {
       const abort = () => { controller.abort(); };
       signal.addEventListener('abort', abort, { once: true });
-      return api.siteCatalogue(context, controller.signal).finally(() => { signal.removeEventListener('abort', abort); });
+      return api.siteCatalogue(context, controller.signal, ready => { if (active) setCataloguePartial(!ready); }).finally(() => { signal.removeEventListener('abort', abort); });
     }).then(items => {
       if (active) { setCatalogue(items); setCatalogueRevision(refreshRevision); }
     }).catch((failure: unknown) => { if (active) { setCatalogueFailure(refreshRevision); setCatalogueError(apiErrorDetail(failure, t('websites.loadFailed'))); } });
@@ -214,7 +216,7 @@ function Session({ context }: { context: RequestContext }) {
     if (next < 0) return; event.preventDefault(); const item = TABS[next]; if (item) { changeTab(item); document.getElementById(`websites-tab-${item}`)?.focus(); }
   };
 
-  return <main className="websites-page"><AppHeader icon={Globe} title={t('websites.title')} subtitle={t('websites.subtitle')}><button type="button" className="websites-button" disabled={loading || busy} onClick={() => { setCreating(true); }}><Plus size={16} />{t('websites.createSite')}</button><RefreshButton loading={loading} disabled={busy || loading || anyDirty || hasPendingSaves} onClick={() => { setLoading(true); setError(''); setRefreshRevision(value => value + 1); }} /></AppHeader><div className="websites-shell">
+  return <WebsiteAssetProvider revision={site?.revision} siteId={siteId} context={context} register={registerAutosave}><main className="websites-page"><AppHeader icon={Globe} title={t('websites.title')} subtitle={t('websites.subtitle')}><button type="button" className="websites-button" disabled={loading || busy} onClick={() => { setCreating(true); }}><Plus size={16} />{t('websites.createSite')}</button><RefreshButton loading={loading} disabled={busy || loading || anyDirty || hasPendingSaves} onClick={() => { setLoading(true); setError(''); setRefreshRevision(value => value + 1); }} /></AppHeader><div className="websites-shell">
     <div className="websites-toolbar"><div className="websites-actions"><Field label={t('websites.website')}><Select disabled={busy || loading} value={selectedId} onChange={event => { const value = event.target.value; void action(async () => { if (!await flushWriters()) return; setSelectedId(value); setStatus(null); setPreview(null); setThemes([]); setTab('overview'); setNotice(''); setError(''); }); }}>{sites.map(value => <option key={value.id} value={value.id}>{drafts[value.id]?.name ?? value.name}</option>)}{!sites.length && <option value="">{t('websites.chooseSite')}</option>}</Select></Field>{site && <Field label={t('websites.target')}><Select disabled={busy || loading} value={targetId} onChange={event => { changeTarget(event.target.value); }}>{!site.targets?.length && <option value="">{t('websites.noTargets')}</option>}{(site.targets ?? []).map(target => <option key={target.id} value={target.id}>{target.name} · {t(`websites.environments.${target.environment}`)}</option>)}</Select></Field>}
     {site && <><button type="button" className="websites-button" disabled={busy || loading} onClick={() => { changeTab('hosting'); }}>{t('websites.manageHosting')}</button><button type="button" className="websites-button" disabled={busy || loading || anyDirty || hasPendingSaves} onClick={() => { setRemoving(site); }}>{t('websites.removeSite')}</button></>}
     </div>{site && <WebsiteAutosave drafts={drafts} saved={saved} context={context} onSaved={acceptAutosave} register={registerAutosave} />}</div>
@@ -224,6 +226,7 @@ function Session({ context }: { context: RequestContext }) {
       {tab === 'overview' && <Overview site={site} status={status} dirty={dirty} onReview={() => { setTab('publishing'); }} />}
       {needsCatalogue && catalogueFailure === refreshRevision && <div role="alert" className="websites-error">{catalogueError}</div>}
       {needsCatalogue && catalogueRevision !== refreshRevision && catalogueFailure !== refreshRevision && <p role="status">{t('websites.catalogueLoading')}</p>}
+      {needsCatalogue && catalogueRevision === refreshRevision && cataloguePartial && <p role="status" className="websites-muted">{t('websites.cataloguePagesPending')}</p>}
       {tab === 'sources' && catalogueRevision === refreshRevision && <SourcesEditor site={site} catalogue={catalogue} onChange={change} />}
       {tab === 'pages' && <PagesEditor site={site} catalogue={catalogue} onChange={change} />}
       {tab === 'navigation' && <NavigationEditor site={site} onChange={change} />}
@@ -237,7 +240,7 @@ function Session({ context }: { context: RequestContext }) {
       {tab === 'hosting' && <HostingPanel key={site.id} site={site} targetId={targetId} onTarget={changeTarget} dirty={dirty || hasPendingSaves} busy={busy} onChange={change} onRemove={removeTarget} connection={connection} registerAutosave={registerAutosave} />}
       {tab === 'publishing' && <PublishingPanel key={site.id} onRemoveTarget={removeTarget} site={site} targetId={targetId} onTarget={changeTarget} status={status} preview={preview} dirty={dirty || hasPendingSaves} busy={busy} onChange={change} connection={connection} registerAutosave={registerAutosave} onRefresh={() => { void action(refreshStatus); }} onPreview={() => { void action(async () => { if (!await flushWriters(true)) return; setPreview(await request(signal => api.previewSite(site.id, targetId, context, signal), 180_000)); }); }} onPublish={date => { void action(async () => { if (!preview || !await flushWriters(true)) return; const job = await request(signal => api.publishSite(site.id, preview.id, date, context, signal)); setPreview(null); setStatus(previous => previous ? { ...previous, jobs: [job, ...previous.jobs] } : { site, jobs: [job], releases: [], service_available: false }); setNotice(t('websites.publicationQueued')); }); }} onCancel={job => { void action(async () => { await request(signal => api.cancelJob(site.id, job.id, context, signal)); await refreshStatus(); }); }} onRollback={release => { void action(async () => { await request(signal => api.rollbackSite(site.id, release, context, signal)); await refreshStatus(); setNotice(t('websites.restored')); }); }} />}
     </fieldset></>}
-  </div><ConfirmModal isOpen={Boolean(removing)} title={t('websites.removeSite')} message={t('websites.removeSiteHelp', { name: removing?.name })} confirmText={t('websites.delete')} cancelText={t('websites.cancel')} autofocusConfirm={false} confirmOnEnter={false} onClose={() => { if (!busy) setRemoving(null); }} onConfirm={removeWebsite} />{creating && <CreateSiteDialog busy={busy} onClose={() => { if (!busy) setCreating(false); }} onReview={(url, maxPages) => request(signal => api.previewWebsiteImport(url, maxPages, context, signal), 90_000)} onImport={(previewId, name, pages) => { void action(async () => { if (!await flushWriters()) return; selectCreated(await request(signal => api.createWebsiteImport(previewId, name, pages, context, signal))); }); }} onCreate={(name, importPilot) => { void action(async () => { if (!await flushWriters()) return; selectCreated(await request(signal => api.createSite(name, importPilot, context, signal))); }); }} />}</main>;
+  </div><ConfirmModal isOpen={Boolean(removing)} title={t('websites.removeSite')} message={t('websites.removeSiteHelp', { name: removing?.name })} confirmText={t('websites.delete')} cancelText={t('websites.cancel')} autofocusConfirm={false} confirmOnEnter={false} onClose={() => { if (!busy) setRemoving(null); }} onConfirm={removeWebsite} />{creating && <CreateSiteDialog busy={busy} onClose={() => { if (!busy) setCreating(false); }} onReview={(url, maxPages) => request(signal => api.previewWebsiteImport(url, maxPages, context, signal), 90_000)} onImport={(previewId, name, pages) => { void action(async () => { if (!await flushWriters()) return; selectCreated(await request(signal => api.createWebsiteImport(previewId, name, pages, context, signal))); }); }} onCreate={(name, importPilot) => { void action(async () => { if (!await flushWriters()) return; selectCreated(await request(signal => api.createSite(name, importPilot, context, signal))); }); }} />}</main></WebsiteAssetProvider>;
 }
 
 function Overview({ site, status, dirty, onReview }: { site: api.SiteConfig; status: api.SiteStatus | null; dirty: boolean; onReview: () => void }) {

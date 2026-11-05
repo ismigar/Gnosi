@@ -177,3 +177,27 @@ def test_article_byline_follows_image_and_tags_follow_body(imported_pilot, tmp_p
         assert tags.select_one('nav a.button.button-outline')['href'] == '/_gnosi-proof/current/' + language + '/taxonomy/term/9'
         assert tags.find_previous_sibling('div', class_='record-body') == body
         assert tags.find_next_sibling().get('class') == ['entry-sharing']
+
+
+@pytest.mark.skipif(not (extension_root() / 'renderer/node_modules/node/bin/node').is_file(), reason='Pinned renderer required')
+def test_static_pages_have_no_byline_and_newsletter_collects_names(imported_pilot, tmp_path):
+    store, site, _, _ = imported_pilot
+    bundle = build_bundle(store, site, 'local').model_dump(mode='json')
+    static = deepcopy(bundle['records'][0])
+    static.update(id='static-test', path='/ca/about-test', source_ids=[], body_html='<p>Static content preserved.</p>')
+    static['presentation'].update(kind='page', tags=[], created=1793876400)
+    bundle['records'].append(static)
+    output = tmp_path / 'public'
+    render_bundle(bundle, output)
+    page = BeautifulSoup((output / 'ca/about-test/index.html').read_text(), 'html.parser')
+    assert not page.select('.article-date')
+    assert 'Static content preserved.' in page.get_text()
+    for language in ('ca', 'es', 'en-gb'):
+        home = BeautifulSoup((output / language / 'index.html').read_text(), 'html.parser')
+        form = home.select_one('.staging-subscription')
+        for name, autocomplete in [('first_name', 'given-name'), ('last_name', 'family-name')]:
+            field = form.select_one(f'input[name="{name}"][required]')
+            assert field['autocomplete'] == autocomplete
+            assert field['maxlength'] == '100'
+        assert not home.select('.newsletter-test-note')
+        assert not form.select('[aria-describedby]')

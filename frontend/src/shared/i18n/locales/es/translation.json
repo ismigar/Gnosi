@@ -8924,7 +8924,7 @@
     "sections": "Apartados del web",
     "sources": "Fuentes de contenido",
     "pages": "Páginas",
-    "forms": "Formularios de contacto",
+    "forms": "Formularios",
     "messages": "Mensajes recibidos",
     "subscribers": "Suscriptores",
     "campaigns": "Boletines",
@@ -9437,6 +9437,13 @@
     },
     "sftpReadyWithoutRuntime": "Conexión SFTP verificada. Este servidor todavía no ofrece acceso a órdenes SSH con PHP y SQLite, necesario para publicar con Gnosi.",
     "optionCaption": "Texto de «{{option}}»",
-    "optionCaptionFallback": "Si se deja vacío, se muestra la opción original."
+    "optionCaptionFallback": "Si se deja vacío, se muestra la opción original.",
+    "cataloguePagesPending": "Las fuentes disponibles ya se muestran. El índice de páginas aún no está disponible; actualiza la lista más adelante.",
+    "chooseFile": "Elige un archivo",
+    "openAsset": "Abrir {{name}}",
+    "fileUploadHelp": "Sube una imagen, PDF, texto, CSV, ZIP o documento Office de hasta 4 MB.",
+    "addImage": "Añadir una imagen",
+    "languageSelectHelp": "Selecciona uno o varios idiomas. También puedes añadir un código, como pt-br.",
+    "invalidLanguageCode": "Introduce un código de idioma válido, como ca, es o pt-br."
   }
 }

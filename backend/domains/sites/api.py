@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, File, Query, UploadFile
@@ -17,7 +17,7 @@ from backend.domains.sites import theme_upload_route
 
 from . import exporter, newsletter, private_service, publication, runtime
 from .models import (
-    CatalogueItem, ConnectionStatus, LocalServeResponse, PrivateServiceRequest, PrivateServiceResponse,
+    CatalogueItem, CatalogueSnapshot, ConnectionStatus, LocalServeResponse, PrivateServiceRequest, PrivateServiceResponse,
     ServiceSettings, ServiceSettingsResponse, SiteBlock, SiteConfig, SiteCreate, SiteJob, SitePage,
     SitePreview, SitePreviewRequest, SitePublishRequest, SiteRelease, SiteSource, SiteStatus, SiteTarget,
     SiteTheme, SiteThemeAsset, TargetConnection, TargetConnectionSecret,
@@ -66,6 +66,11 @@ def create_site(request: SiteCreate, context: Admin) -> SiteConfig:
 @router.get("/catalogue", response_model=list[CatalogueItem])
 def catalogue(context: Editor) -> list[CatalogueItem]:
     return exporter.catalogue(store_for(context))
+
+
+@router.get("/catalogue/snapshot", response_model=CatalogueSnapshot)
+def catalogue_snapshot(context: Editor) -> CatalogueSnapshot:
+    return exporter.catalogue_snapshot(store_for(context))
 
 
 @router.get("/{site_id}", response_model=SiteStatus)
@@ -181,7 +186,7 @@ def font_preview(site_id: str, source: str, context: Editor) -> Response:
     return Response(raw, media_type=media_type, headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
 
 
-async def upload_theme_asset(site_id: str, context: Editor, kind: Literal["image", "font"], file: UploadFile = File(...)) -> SiteThemeAsset:
+async def upload_theme_asset(site_id: str, context: Editor, kind: Literal["image", "font", "file"], file: UploadFile = File(...)) -> SiteThemeAsset:
     from starlette.concurrency import run_in_threadpool
     from .theme_assets import LIMIT, upload
     try:
@@ -204,6 +209,15 @@ def theme_image(site_id: str, source: str, context: Editor) -> Response:
     store = store_for(context)
     raw = read_asset(store, store.load(site_id), source)
     return Response(image_preview(raw, Path(unquote(urlsplit(source).path)).suffix.lower()), media_type="image/png", headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+
+
+@router.get("/{site_id}/theme/file", response_class=Response, responses={200: {"content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}}})
+def theme_file(site_id: str, source: str, context: Editor) -> Response:
+    from .theme_assets import read_asset
+    store = store_for(context)
+    raw = read_asset(store, store.load(site_id), source)
+    filename = quote(Path(unquote(urlsplit(source).path)).name, safe="")
+    return Response(raw, media_type="application/octet-stream", headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Content-Disposition": "attachment; filename*=UTF-8''" + filename})
 
 
 @router.get("/{site_id}/theme/history", response_model=list[SiteTheme])

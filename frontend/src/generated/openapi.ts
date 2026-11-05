@@ -10575,6 +10575,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/sites/{site_id}/theme/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Theme File */
+        get: operations["theme_file_api_vault_sites__site_id__theme_file_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/sites/{site_id}/theme/font": {
         parameters: {
             query?: never;
@@ -10652,6 +10669,23 @@ export interface paths {
         };
         /** Catalogue */
         get: operations["catalogue_api_vault_sites_catalogue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/catalogue/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalogue Snapshot */
+        get: operations["catalogue_snapshot_api_vault_sites_catalogue_snapshot_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -15104,6 +15138,13 @@ export interface components {
             table_id?: string | null;
             /** Title */
             title: string;
+        };
+        /** CatalogueSnapshot */
+        CatalogueSnapshot: {
+            /** Items */
+            items: components["schemas"]["CatalogueItem"][];
+            /** Pages Ready */
+            pages_ready: boolean;
         };
         /** ChangePasswordPayload */
         ChangePasswordPayload: {
@@ -52411,7 +52452,7 @@ export interface operations {
     upload_theme_asset_api_vault_sites__site_id__theme_assets_post: {
         parameters: {
             query: {
-                kind: "image" | "font";
+                kind: "image" | "font" | "file";
             };
             header?: {
                 authorization?: string | null;
@@ -52477,6 +52518,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteTheme"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    theme_file_api_vault_sites__site_id__theme_file_get: {
+        parameters: {
+            query: {
+                source: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
                 };
             };
             /** @description Validation Error */
@@ -52673,6 +52754,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogueItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    catalogue_snapshot_api_vault_sites_catalogue_snapshot_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueSnapshot"];
                 };
             };
             /** @description Validation Error */

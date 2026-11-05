@@ -60,3 +60,7 @@ textarea.websites-input{resize:vertical;min-height:80px}
 .websites-asset-name { overflow-wrap: anywhere; }
 
 .websites-appearance .websites-grid { align-items: start; }
+
+.websites-asset-link{overflow-wrap:anywhere;max-width:100%}
+
+.websites-form>summary{cursor:pointer;list-style:none;margin:0}.websites-form>summary::-webkit-details-marker{display:none}.websites-form:not([open])>summary svg{transform:rotate(-90deg)}.websites-form-body{display:grid;gap:16px;padding-top:16px}.websites-form-body>.websites-actions{justify-content:flex-end}

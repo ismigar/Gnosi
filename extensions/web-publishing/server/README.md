@@ -88,7 +88,8 @@ escaped form retaining entered values. A configured successful redirect must
 be a canonical same-site path, prefixed for subdirectory installations.
 
 Newsletter POST (`api/newsletter.php`) takes `action:"subscribe"`, `email`,
-`language`, `list_id` (default `main`), `interests:[]`, `consent:"1"`, `website:""`.
+`language`, optional `first_name` and `last_name` (both together, up to 100 Unicode characters each), `list_id` (default `main`), `interests:[]`, `consent:"1"`, `website:""`.
+Names are staged in private additive side tables and applied only on confirmation; anonymous requests never rename a confirmed profile. Older clients may omit both names, preserving existing profile names. Private subscriber listing/export includes the confirmed names.
 An independent contact opt-in requests the same double-opt-in flow. Confirmation
 links never modify state on GET; POST submits `action:"confirm"|"unsubscribe"|
 "preferences"` and `token`. Preferences additionally accept language/interests.

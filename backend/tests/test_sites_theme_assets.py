@@ -68,9 +68,17 @@ def test_upload_http_permissions_and_preview_do_not_save_config(website, monkeyp
         assert preview.headers["cache-control"] == "no-store"
         assert preview.headers["content-type"] == "image/png"
         assert website.store.load(website.site.id).revision == website.site.revision
+        document = client.post(prefix + "assets", params={"kind": "file"}, files={"file": ("guide.pdf", b"%PDF-1.7\nsynthetic", "application/pdf")})
+        assert document.status_code == 201
+        download = client.get(prefix + "file", params={"source": document.json()["source"]})
+        assert download.content == b"%PDF-1.7\nsynthetic"
+        assert download.headers["content-disposition"].startswith("attachment;")
+        assert download.headers["x-content-type-options"] == "nosniff"
+        assert client.get(prefix + "file", params={"source": "/../../private.txt"}).status_code == 404
         website.context.role = "viewer"
         assert client.post(prefix + "assets", params={"kind": "image"}, files={"file": ("logo.png", png(), "image/png")}).status_code == 403
         assert client.get(prefix + "image", params={"source": source}).status_code == 403
+        assert client.get(prefix + "file", params={"source": document.json()["source"]}).status_code == 403
 
 
 def test_uploaded_font_can_be_sampled_before_autosave_and_survives_export(website):
@@ -115,3 +123,35 @@ def test_upload_metadata_describes_the_original_image_bytes(website, suffix, for
     source, actual = theme_assets.upload(website.store, website.site, "logo" + suffix, output.getvalue(), "image")
     assert actual == media_type
     assert theme_assets.read_asset(website.store, website.site, source) == output.getvalue()
+
+
+def test_document_upload_is_private_bounded_and_published_when_selected(website):
+    from backend.domains.sites.exporter import build_bundle
+    from backend.domains.sites.models import NavigationLink
+    source, media = theme_assets.upload(website.store, website.site, 'guide.pdf', b'%PDF-1.7\nsynthetic', 'file')
+    assert media == 'application/pdf'
+    assert theme_assets.read_asset(website.store, website.site, source).startswith(b'%PDF-')
+    site = website.site.model_copy(deep=True)
+    site.header_actions = [NavigationLink(label='Guide', href=source)]
+    bundle = build_bundle(website.store, site, 'local')
+    target = bundle.site.header_actions[0].href
+    assert target.startswith('/assets/') and target.endswith('.pdf')
+    assert any(asset.path == target for asset in bundle.assets)
+
+
+@pytest.mark.parametrize('name,raw', [('bad.php', b'<?php echo 1;'), ('bad.html', b'<script/>'), ('bad.pdf', b'not a pdf'), ('bad.csv', b'\x00binary'), ('bad.docx', b'not a zip')])
+def test_document_upload_rejects_executable_or_mismatched_files(website, name, raw):
+    with pytest.raises(HTTPException):
+        theme_assets.upload(website.store, website.site, name, raw, 'file')
+
+
+def test_hidden_block_file_values_do_not_publish_attachments(website):
+    from backend.domains.sites.models import SiteBlock, SitePage
+    source, _ = theme_assets.upload(website.store, website.site, 'guide.pdf', b'%PDF-1.7\nsynthetic', 'file')
+    site = website.site.model_copy(deep=True)
+    site.pages = [SitePage(id='file-test', path='/ca/files', title='Files', language='ca', enabled=True, blocks=[SiteBlock(id='stale', type='text', href=source)])]
+    assert not exporter.build_bundle(website.store, site, 'local').assets
+    site.pages[0].blocks[0].type = 'cta'
+    assert any(asset.path.endswith('.pdf') for asset in exporter.build_bundle(website.store, site, 'local').assets)
+    site.pages[0].enabled = False
+    assert not exporter.build_bundle(website.store, site, 'local').assets

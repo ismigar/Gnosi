@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import unicodedata
 from functools import cmp_to_key
@@ -17,7 +18,7 @@ from markdown_it import MarkdownIt
 from markdown_it.token import Token
 from pydantic import JsonValue
 
-from .models import BundleAsset, CatalogueItem, PublicRecord, SiteBundle, SiteConfig, SiteSource, safe_path
+from .models import BundleAsset, CatalogueItem, CatalogueSnapshot, PublicRecord, SiteBlock, SiteBundle, SiteConfig, SiteSource, safe_path
 from .storage import SiteStore, fingerprint, private_json
 from .translations import PublicTranslations, public_id
 from .validation import validate_site
@@ -122,19 +123,48 @@ def fields(table: dict[str, JsonValue]) -> list[dict[str, str]]:
     return [{"id": str(p.get("id") or p.get("key") or ""), "name": str(p.get("name") or p.get("label") or p.get("id") or ""), "type": str(p.get("type") or "text")} for p in raw if isinstance(p, dict) and (p.get("id") or p.get("key"))]
 
 
-def catalogue(store: SiteStore) -> list[CatalogueItem]:
+def catalogue_metadata(store: SiteStore) -> list[CatalogueItem]:
     data, _ = registry(store) if (store.vault / "BD/vault_db_registry.json").exists() else ({}, "")
     tables = {str(t.get("id")): t for t in records(data, "tables")}
     output = [CatalogueItem(id=tid, kind="table", title=str(t.get("name") or tid), fields=fields(t)) for tid, t in tables.items()]
     for view in records(data, "views"):
         table_id = str(view.get("table_id") or "")
         output.append(CatalogueItem(id=str(view.get("id")), kind="view", title=str(view.get("name") or view.get("id")), table_id=table_id, fields=fields(tables.get(table_id, {}))))
-    for note in notes(store):
-        output.append(CatalogueItem(id=str(note.metadata["id"]), kind="page", title=str(note.metadata.get("title") or note.metadata.get("Títol") or note.path.stem)))
     if any(site.legacy_pilot for site in store.list()):
         from .importer import imported_catalogue
-        output.extend(imported_catalogue(store))
+        try:
+            output.extend(imported_catalogue(store))
+        except (OSError, ValueError, KeyError, TypeError):
+            raise HTTPException(409, "The imported website catalogue is unavailable") from None
     return output
+
+
+def catalogue(store: SiteStore) -> list[CatalogueItem]:
+    output = catalogue_metadata(store)
+    for note in notes(store):
+        output.append(CatalogueItem(id=str(note.metadata["id"]), kind="page", title=str(note.metadata.get("title") or note.metadata.get("Títol") or note.path.stem)))
+    return output
+
+
+def catalogue_snapshot(store: SiteStore) -> CatalogueSnapshot:
+    """Return indexed editorial choices without opening Markdown or starting discovery."""
+    from backend.domains.vault.pages.index_service import get_available_page_entries
+    output = catalogue_metadata(store)
+    entries = get_available_page_entries(store.vault)
+    identities: set[str] = set()
+    for entry in entries or []:
+        path_value, metadata = entry.get("path"), entry.get("metadata")
+        if not isinstance(path_value, str) or not isinstance(metadata, dict) or not metadata.get("id"):
+            continue
+        path = Path(os.path.normpath(path_value))
+        if not path.is_relative_to(store.vault) or any(part.startswith(".") for part in path.relative_to(store.vault).parts):
+            continue
+        identity = str(metadata["id"])
+        if identity in identities:
+            raise HTTPException(409, "Duplicate note identities must be resolved before publication")
+        identities.add(identity)
+        output.append(CatalogueItem(id=identity, kind="page", title=str(entry.get("title") or metadata.get("title") or metadata.get("Títol") or path.stem)))
+    return CatalogueSnapshot(items=output, pages_ready=entries is not None)
 
 
 def value_for(note: Note, field_id: str, table: dict[str, JsonValue]) -> JsonValue:
@@ -509,6 +539,28 @@ def _projection(store: SiteStore, site: SiteConfig, target_id: str) -> Projectio
     return Projection(store, site, data, all_notes, previous_records, hashes, [str(path) for path in previous_withdrawn] if isinstance(previous_withdrawn, list) else [])
 
 
+def _editor_file_link(value: str, asset: AssetExporter) -> str:
+    from .theme_assets import DOCUMENT_TYPES, FONT_TYPES, IMAGE_TYPES
+    parsed = urlsplit(value)
+    if parsed.scheme or parsed.netloc or Path(unquote(parsed.path)).suffix.lower() not in {*DOCUMENT_TYPES, *FONT_TYPES, *IMAGE_TYPES}:
+        return value
+    target = asset(parsed.path)
+    return target + ("?" + parsed.query if parsed.query else "") + ("#" + parsed.fragment if parsed.fragment else "")
+
+
+def _export_block_assets(block: SiteBlock, asset: AssetExporter, language: str) -> None:
+    if block.type in {"image", "split"} and block.image and not urlsplit(block.image).scheme:
+        block.image = asset(block.image)
+    if block.type == "gallery":
+        block.images = [asset(value) if not urlsplit(value).scheme else value for value in block.images if value]
+    if block.type == "cta":
+        block.href = _editor_file_link(block.href, asset)
+    if block.type == "split":
+        for link in block.actions or []:
+            if not link.language or link.language == language:
+                link.href = _editor_file_link(link.href, asset)
+
+
 def _exported_site(site: SiteConfig, asset: AssetExporter) -> SiteConfig:
     exported = site.model_copy(deep=True)
     if exported.theme.logo and not urlsplit(exported.theme.logo).scheme:
@@ -519,12 +571,17 @@ def _exported_site(site: SiteConfig, asset: AssetExporter) -> SiteConfig:
         if not urlsplit(font.src).scheme:
             font.src = asset(font.src)
     for page in exported.pages:
-        if not page.enabled:
-            continue
-        for block in page.blocks:
-            if block.image and not urlsplit(block.image).scheme:
-                block.image = asset(block.image)
-            block.images = [asset(value) if not urlsplit(value).scheme else value for value in block.images]
+        if page.enabled:
+            for block in page.blocks:
+                _export_block_assets(block, asset, page.language)
+    for link in [*exported.navigation, *exported.header_actions, *exported.footer]:
+        if not link.language or link.language in exported.languages:
+            link.href = _editor_file_link(link.href, asset)
+    for link in exported.social_links:
+        link.href = _editor_file_link(link.href, asset)
+    for form in exported.forms:
+        if form.enabled:
+            form.privacy_url = _editor_file_link(form.privacy_url, asset)
     exported.sources = [source.model_copy(update={"filters": [], "page_ids": [], "withdrawn_ids": [], "withdrawn_versions": {}, "sort_field_id": None, "selection_mode": "all"}) for source in exported.sources if source.enabled]
     exported.pages = [page for page in exported.pages if page.enabled]
     exported.forms = [form for form in exported.forms if form.enabled]

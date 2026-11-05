@@ -260,6 +260,11 @@ class CatalogueItem(Contract):
     languages: list[str] = Field(default_factory=list)
 
 
+class CatalogueSnapshot(Contract):
+    items: list[CatalogueItem]
+    pages_ready: bool
+
+
 class PublicRecord(Contract):
     id: str
     language: str

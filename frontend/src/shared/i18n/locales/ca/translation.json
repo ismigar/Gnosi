@@ -8924,7 +8924,7 @@
     "sections": "Apartats del web",
     "sources": "Fonts de contingut",
     "pages": "Pàgines",
-    "forms": "Formularis de contacte",
+    "forms": "Formularis",
     "messages": "Missatges rebuts",
     "subscribers": "Subscriptors",
     "campaigns": "Butlletins",
@@ -9437,6 +9437,13 @@
     },
     "sftpReadyWithoutRuntime": "Connexió SFTP verificada. Aquest servidor encara no ofereix l’accés a ordres SSH amb PHP i SQLite necessari per publicar amb Gnosi.",
     "optionCaption": "Text de «{{option}}»",
-    "optionCaptionFallback": "Si es deixa buit, es mostra l’opció original."
+    "optionCaptionFallback": "Si es deixa buit, es mostra l’opció original.",
+    "cataloguePagesPending": "Les fonts disponibles ja es mostren. L’índex de pàgines encara no està disponible; actualitza la llista més endavant.",
+    "chooseFile": "Tria un fitxer",
+    "openAsset": "Obre {{name}}",
+    "fileUploadHelp": "Puja una imatge, PDF, text, CSV, ZIP o document Office de fins a 4 MB.",
+    "addImage": "Afegeix una imatge",
+    "languageSelectHelp": "Selecciona un o més idiomes. També pots afegir un codi, com ara pt-br.",
+    "invalidLanguageCode": "Introdueix un codi d’idioma vàlid, com ara ca, es o pt-br."
   }
 }

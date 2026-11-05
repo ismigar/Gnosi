@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import struct
+import zipfile
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -54,6 +55,33 @@ def image_preview(raw: bytes, suffix: str) -> bytes:
         raise HTTPException(422, "The image could not be read") from None
 
 
+DOCUMENT_TYPES = {".pdf": "application/pdf", ".txt": "text/plain", ".csv": "text/csv", ".zip": "application/zip", ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation"}
+
+
+def validate_document(raw: bytes, suffix: str) -> str:
+    if suffix not in DOCUMENT_TYPES:
+        raise HTTPException(422, "Choose a PDF, text, CSV, ZIP, DOCX, XLSX or PPTX file")
+    if suffix == ".pdf" and not raw.startswith(b"%PDF-"):
+        raise HTTPException(422, "The PDF file is invalid")
+    if suffix in {".txt", ".csv"}:
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeError:
+            raise HTTPException(422, "Choose a UTF-8 text file") from None
+        if "\x00" in text:
+            raise HTTPException(422, "Choose a text file without binary data")
+    if suffix in {".zip", ".docx", ".xlsx", ".pptx"}:
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                names = archive.namelist()
+                expected = {".docx": "word/document.xml", ".xlsx": "xl/workbook.xml", ".pptx": "ppt/presentation.xml"}.get(suffix)
+                if len(names) > 5000 or (expected and expected not in names):
+                    raise HTTPException(422, "The document archive is invalid")
+        except (zipfile.BadZipFile, ValueError):
+            raise HTTPException(422, "The document archive is invalid") from None
+    return DOCUMENT_TYPES[suffix]
+
+
 def asset_directory(store: SiteStore, site_id: str) -> Path:
     store.site_dir(site_id)
     root = store.config_root / "assets" / site_id
@@ -69,6 +97,8 @@ def upload(store: SiteStore, site: SiteConfig, filename: str, raw: bytes, kind: 
     suffix = Path(filename).suffix.lower()
     if kind == "font":
         media_type = validate_font(raw, suffix)
+    elif kind == "file" and suffix not in IMAGE_TYPES:
+        media_type = validate_document(raw, suffix)
     else:
         image_preview(raw, suffix)
         media_type = {"PNG": "image/png", "JPEG": "image/jpeg", "WEBP": "image/webp", "GIF": "image/gif", "ICO": "image/x-icon"}[IMAGE_TYPES[suffix]]
@@ -90,6 +120,12 @@ def read_asset(store: SiteStore, site: SiteConfig, source: str) -> bytes:
     path = unquote(parsed.path)
     uploaded = "/" + asset_directory(store, site.id).relative_to(store.vault).as_posix() + "/"
     configured = {site.theme.logo, site.theme.favicon} | {font.src for font in site.theme.fonts}
+    for page in site.pages:
+        for block in page.blocks:
+            configured.update([block.image, block.href, *block.images])
+            configured.update(link.href for link in block.actions or [])
+    configured.update(form.privacy_url for form in site.forms)
+    configured.update(link.href for link in [*site.navigation, *site.header_actions, *site.footer, *site.social_links])
     if source not in configured and not (path.startswith(uploaded) and len(path[len(uploaded):].split("/")) == 1):
         raise HTTPException(404, "This asset is not selected for the website")
     imported = store.site_dir(site.id) / "imported"

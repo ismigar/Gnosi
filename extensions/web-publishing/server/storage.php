@@ -63,6 +63,9 @@ CREATE TABLE IF NOT EXISTS queue (id TEXT PRIMARY KEY,kind TEXT NOT NULL,owner_i
         $this->db->exec('CREATE TABLE IF NOT EXISTS queue_tokens (queue_id TEXT NOT NULL REFERENCES queue(id) ON DELETE CASCADE,token_hash TEXT NOT NULL REFERENCES tokens(hash) ON DELETE CASCADE,PRIMARY KEY(queue_id,token_hash));');
         $this->db->exec('CREATE TABLE IF NOT EXISTS preview_contexts (preview_id TEXT PRIMARY KEY REFERENCES previews(id) ON DELETE CASCADE,rendered_html TEXT NOT NULL,from_email TEXT NOT NULL,test_mode INTEGER NOT NULL,public_base_url TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS queue_contexts (queue_id TEXT PRIMARY KEY REFERENCES queue(id) ON DELETE CASCADE,from_email TEXT NOT NULL,test_mode INTEGER NOT NULL);');
+        // Additive side tables leave existing subscribers and pending tokens intact.
+        $this->db->exec('CREATE TABLE IF NOT EXISTS subscriber_names (subscriber_id INTEGER PRIMARY KEY REFERENCES subscribers(id) ON DELETE CASCADE,first_name TEXT NOT NULL,last_name TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS subscription_names (token_hash TEXT PRIMARY KEY REFERENCES subscription_requests(token_hash) ON DELETE CASCADE,first_name TEXT NOT NULL,last_name TEXT NOT NULL);');
         $identity = $this->query("SELECT value FROM metadata WHERE key='site_id'")->fetchColumn();
         if ($identity !== false && $identity !== $config['site_id']) throw new RuntimeException('Service site mismatch');
         $this->query("INSERT OR IGNORE INTO metadata VALUES ('site_id',?)", [$config['site_id']]);

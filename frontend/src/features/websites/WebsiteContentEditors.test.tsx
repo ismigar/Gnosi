@@ -150,3 +150,18 @@ test.each(['select', 'radio'] as const)('%s captions translate independently whi
   expect(control(view.container, 'websites.optionCaption').value).toBe('Blau');
   view.unmount();
 });
+
+
+test('each form folds independently and keeps edited values when reopened', () => {
+  const initial = { ...base, forms: [{ id: 'one', name: 'One', revision: 1, enabled: false, privacy_url: '', require_privacy: false }, { id: 'two', name: 'Two', revision: 1, enabled: false, privacy_url: '', require_privacy: false }] };
+  const view = mountEditor(initial, (site, onChange) => <FormsEditor site={site} onChange={onChange} />);
+  edit(view.container, 'websites.titleLabel', 'Retained title');
+  const details = required(view.container.querySelector<HTMLDetailsElement>('details.websites-form'));
+  act(() => { details.open = false; details.dispatchEvent(new Event('toggle')); });
+  expect(details.open).toBe(false);
+  expect(details.querySelector('input')).toBeNull();
+  act(() => { details.open = true; details.dispatchEvent(new Event('toggle')); });
+  expect(control(details, 'websites.titleLabel').value).toBe('Retained title');
+  expect(view.container.querySelectorAll('details.websites-form[open]')).toHaveLength(1);
+  expect(view.savedResponse().forms?.[0]?.title).toEqual({ ca: 'Retained title' }); view.unmount();
+});

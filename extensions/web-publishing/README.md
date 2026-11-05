@@ -74,3 +74,19 @@ These options participate in the existing configuration autosave, review fingerp
 
 Select and radio fields keep stable submitted option values with optional captions for each language. The privacy policy link caption is editable separately from the consent checkbox text. Existing forms retain their original option and privacy captions when these settings are blank.
 The public retry form also preserves translated captions, hints, selected values and consent choices without JavaScript. New websites use neutral theme metadata; explicitly imported pilot themes retain their name.
+
+## Editorial file fields
+
+Logo, favicon, fonts, block images, gallery entries and file-link fields use the
+same upload modal. Raster images show scoped thumbnails; other supported files
+show authenticated download links. Uploads are capped at 4 MB, remain private
+until an enabled public reference is published, and do not save a configuration
+revision by themselves. Public file links are snapshotted into the reviewed
+bundle, including CTA links, split actions and form privacy attachments. SSH
+identity files instead use the existing local filesystem picker and stay in
+private connection configuration.
+
+The Contents editor uses `/api/vault/sites/catalogue/snapshot`: existing registry
+and imported choices plus cached page-index metadata, without scanning Markdown.
+`pages_ready:false` is an explicit incomplete-index state; it never triggers a
+cold full-vault scan. Publication still validates authoritative source files.

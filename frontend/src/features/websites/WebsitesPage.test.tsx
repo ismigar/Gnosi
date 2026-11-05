@@ -7,7 +7,7 @@ import * as api from '../../shared/api/sites';
 import { GnosiApiError } from '../../shared/api/errors';
 import WebsitesPage from './WebsitesPage';
 
-vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'removeSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont', 'previewSiteImage', 'uploadSiteThemeAsset'].map(name => [name, vi.fn()])));
+vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'removeSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont', 'previewSiteImage', 'previewSiteAsset', 'uploadSiteThemeAsset'].map(name => [name, vi.fn()])));
 vi.mock('../../shared/api/request-context', () => ({ currentRequestContext: vi.fn() }));
 vi.mock('../../shared/hooks/useModalKeyboard', () => ({ useModalKeyboard: () => undefined }));
 vi.mock('../../shared/ui/layout/AppHeader', () => ({ AppHeader: ({ children, title }: { children: React.ReactNode; title: string }) => <header><h1>{title}</h1>{children}</header> }));
@@ -148,14 +148,24 @@ describe('Webs manager', () => {
     expect(field?.required).toBe(true);
   });
 
-  it.each(['languages', 'options', 'gallery', 'filter'])('keeps typed delimiters in %s and automatically saves the complete list after typing', async kind => {
+  it('selects multiple website languages from the dropdown and autosaves them', async () => {
+    const initial = structuredClone(base); initial.languages = ['ca'];
+    vi.mocked(api.listSites).mockResolvedValue([initial]); vi.mocked(api.getSite).mockResolvedValue({ site: initial, jobs: [], releases: [], service_available: true });
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'navigation');
+    const combo = view.container.querySelector<HTMLElement>('[role="combobox"][aria-label="websites.languages"]');
+    if (!combo) throw new Error('Missing language multi-select'); act(() => { combo.click(); }); await settle();
+    const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(item => item.textContent.includes('español'));
+    if (!option) throw new Error('Missing Spanish language option'); act(() => { option.click(); }); await settle(); await autosave();
+    expect(vi.mocked(api.saveSite).mock.calls.at(-1)?.[0].languages).toEqual(['ca', 'es']); view.unmount();
+  });
+
+  it.each(['options', 'gallery', 'filter'])('keeps typed delimiters in %s and automatically saves the complete list after typing', async kind => {
     const initial = structuredClone(base);
     initial.languages = ['ca'];
     vi.mocked(api.listSites).mockResolvedValue([initial]);
     vi.mocked(api.getSite).mockResolvedValue({ site: initial, jobs: [], releases: [], service_available: true });
     const view = mountTestComponent(<WebsitesPage />); await settle();
     let label = 'websites.languages'; let text = ',es';
-    if (kind === 'languages') tab(view.container, 'navigation');
     if (kind === 'options') {
       tab(view.container, 'forms');
       act(() => { changeInput(control(view.container, 'websites.fieldType'), 'select'); });
@@ -186,7 +196,6 @@ describe('Webs manager', () => {
     await autosave();
     expect(api.saveSite).toHaveBeenCalledOnce();
     const saved = vi.mocked(api.saveSite).mock.calls[0]?.[0];
-    if (kind === 'languages') expect(saved?.languages).toEqual(['ca', 'es']);
     if (kind === 'options') expect(saved?.forms?.[0]?.fields?.[0]?.options).toEqual(['First, item', 'Second']);
     if (kind === 'gallery') expect(saved?.pages?.[0]?.blocks?.[0]?.images).toEqual(['/first.png', '/second.png']);
     if (kind === 'filter') expect(saved?.sources?.[0]?.filters?.[0]?.value).toEqual(['first', 'second']);
