@@ -95,7 +95,7 @@ def _native_schema(schema: dict[str, Any], *, openai_literals: bool = False) -> 
 
 def constrain_output(model: Any, provider: str, schema: dict[str, Any] | None) -> Any:
     """Keep routing preferences and refuse silent parameter-dropping upstream."""
-    if provider != "openrouter" or schema is None:
+    if provider not in {"openrouter", "openai"} or schema is None:
         return model
     from backend.agent.json_tool_model import JsonToolModel
     if isinstance(model, JsonToolModel):
@@ -105,6 +105,12 @@ def constrain_output(model: Any, provider: str, schema: dict[str, Any] | None) -
         return JsonToolModel(constrain_output(model.model, provider, transport_schema), model.schemas)
     if not callable(getattr(model, "bind", None)):
         raise ValueError("This model transport cannot enforce structured output")
+    if provider == "openai":
+        response_format = {"type": "json_object"} if _has_dynamic_object(schema) else {
+            "type": "json_schema",
+            "json_schema": {"name": "gnosi_operation", "strict": True, "schema": deepcopy(schema)},
+        }
+        return model.bind(response_format=response_format)
     base = getattr(model, "bound", model)
     extra = deepcopy(getattr(base, "extra_body", None) or {})
     bound_extra = deepcopy(getattr(model, "kwargs", {}).get("extra_body", {}))

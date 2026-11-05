@@ -38,11 +38,11 @@ def operation_workflow(model: Any, instructions: str, context_window: int, *, te
         "timeout_seconds": descriptor.metadata.get("timeout_seconds", 120), "_descriptor": descriptor,
     } for descriptor, tool in pairs}
     help_tool = HELP_TOOL
-    if provider == "openrouter" and output_schema is not None:
+    if provider in {"openrouter", "openai"} and output_schema is not None:
         help_tool = {**HELP_TOOL, "function": {**HELP_TOOL["function"], "strict": True}}
     # The Responses transport auto-parses structured operation output and
     # requires every accompanying function tool to declare a strict schema.
-    binding = {"strict": True} if provider == "openrouter" and output_schema is not None else {}
+    binding = {"strict": True} if provider in {"openrouter", "openai"} and output_schema is not None else {}
     read_model = bind_model_tools(model, tools, **binding) if tools else model
     selected_model = bind_model_tools(model, [*tools, help_tool], **binding) if team_help else read_model
     def execute(state: AgentState) -> dict[str, Any]:

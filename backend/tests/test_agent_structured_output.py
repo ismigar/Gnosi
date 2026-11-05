@@ -10,6 +10,58 @@ from backend.domains.agent.structured_output import constrain_output
 from backend.domains.llm_wiki.directed_reading import ACTION_SCHEMA
 
 
+@pytest.mark.parametrize('responses', [False, True])
+def test_direct_openai_receives_complete_contract_without_router_parameters(responses):
+    import copy
+    import jsonschema
+    from backend.services.agent_execution import _validate_output
+    schema = {'type': 'object', 'properties': {'reason': {'$ref': '#/$defs/reason'}},
+              'required': ['reason'], 'additionalProperties': False,
+              '$defs': {'reason': {'type': 'string', 'minLength': 1}}}
+    before = copy.deepcopy(schema)
+    model = ChatOpenAI(model='gpt-6-luna', api_key='fixture', use_responses_api=responses,
+                       store=False, max_retries=0)
+    constrained = constrain_output(model, 'openai', schema)
+    payload = model._get_request_payload([HumanMessage(content='Return JSON')], **constrained.kwargs)
+    wire = payload['text']['format'] if responses else payload['response_format']['json_schema']
+    assert wire['strict'] is True and wire['schema'] == before
+    assert 'provider' not in payload and 'provider' not in payload.get('extra_body', {})
+    assert payload['store'] is False and schema == before
+    with pytest.raises(jsonschema.ValidationError):
+        _validate_output('{"reason":""}', schema)
+    assert json.loads(_validate_output('{"reason":"Supported by the passage."}', schema))['reason']
+
+
+def test_direct_openai_dynamic_contract_keeps_complete_local_validation():
+    model = ChatOpenAI(model='gpt-6-luna', api_key='fixture')
+    constrained = constrain_output(model, 'openai', {'type': 'object'})
+    assert constrained.kwargs['response_format'] == {'type': 'json_object'}
+    assert 'extra_body' not in constrained.kwargs
+
+
+def test_direct_openai_optional_help_keeps_strict_sdk_parsing_and_original_contract(monkeypatch):
+    from backend.domains.agent import operation_graph
+    from backend.domains.agent.team_help import TeamHelp
+    monkeypatch.setattr(operation_graph, '_invoke_agent_model', lambda model, messages, state: model.invoke(messages))
+    sent = []
+    def respond(request):
+        sent.append(json.loads(request.content))
+        return httpx.Response(200, json={'id': 'fixture', 'model': 'fixture', 'object': 'chat.completion',
+            'choices': [{'index': 0, 'finish_reason': 'stop', 'message': {
+                'role': 'assistant', 'content': '{"action":"index","arguments":{}}'}}]})
+    with httpx.Client(transport=httpx.MockTransport(respond)) as transport:
+        model = ChatOpenAI(model='fixture', api_key='fixture', base_url='https://fixture.invalid/v1',
+                           http_client=transport, use_responses_api=False, max_retries=0)
+        graph = operation_graph.operation_workflow(model, 'Return JSON', 32000,
+            team_help=TeamHelp({}, True), provider='openai', output_schema=ACTION_SCHEMA).compile()
+        graph.invoke({'messages': [HumanMessage(content='Return JSON')], 'team_help_allowed': True})
+    assert len(sent) == 1
+    assert sent[0]['response_format']['json_schema']['schema'] == ACTION_SCHEMA
+    assert sent[0]['tools'][0]['function']['name'] == 'request_team_help'
+    assert sent[0]['tools'][0]['function']['strict'] is True
+    assert 'provider' not in sent[0]
+
+
 def test_google_json_transport_retains_complete_local_schema_and_fixed_recipient():
     import copy
     import jsonschema
