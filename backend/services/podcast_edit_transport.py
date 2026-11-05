@@ -49,7 +49,7 @@ class EditTransport:
         for key, anchor in keyed.items():
             phrase = deepcopy(self.schema['$defs']['change']['anyOf'][0])
             if any(payload['feedback'][index]['kind'] == 'omission' for index in anchor['finding_indices']):
-                phrase['minLength'] = 1
+                phrase.update(minLength=1, pattern=r'\S')
             properties[key] = _object({'compact': deepcopy(phrase), 'full': deepcopy(phrase)})
         wire = _object({'alternatives': _object(properties)})
         payload.update(revision_encoding='grounded_edit_alternatives_v1',

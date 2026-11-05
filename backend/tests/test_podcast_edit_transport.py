@@ -138,7 +138,7 @@ def test_remaining_alternatives_select_only_complete_phrases_and_keep_untouched_
     assert text.endswith(data['previous_draft'][data['previous_draft'].index('Event85 '):])
 
 
-@pytest.mark.parametrize('fault', ['missing', 'unknown', 'oversized', 'both-unchanged', 'infeasible', 'empty-omission'])
+@pytest.mark.parametrize('fault', ['missing', 'unknown', 'oversized', 'both-unchanged', 'infeasible', 'empty-omission', 'whitespace-omission'])
 def test_remaining_alternatives_fail_closed_without_a_complete_valid_selection(fault):
     data, transport, repair, choices = alternatives_case()
     if fault == 'missing':
@@ -149,8 +149,8 @@ def test_remaining_alternatives_fail_closed_without_a_complete_valid_selection(f
         choices['a0']['full'] = 'x' * 1025
     elif fault == 'both-unchanged':
         choices['a1'] = dict.fromkeys(('full', 'compact'), transport.data['anchor_clauses']['a1'])
-    elif fault == 'empty-omission':
-        choices['a1']['compact'] = ''
+    elif fault in {'empty-omission', 'whitespace-omission'}:
+        choices['a1'] = dict.fromkeys(('compact', 'full'), '' if fault == 'empty-omission' else ' \t\n')
     else:
         for choice in choices.values():
             choice['compact'] = choice['full']
