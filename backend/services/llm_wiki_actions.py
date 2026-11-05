@@ -70,7 +70,7 @@ def _source_page_path(vr: VaultActionsPort, item_id: str) -> Path | None:
             target = legacy._canonicalize_id(item_id)
             if is_record(cached):
                 for saved_path, entry in cached.items():
-                    if not is_record(entry) or legacy._canonicalize_id(entry.get("id")) != target:
+                    if not isinstance(saved_path, str) or not is_record(entry) or legacy._canonicalize_id(entry.get("id")) != target:
                         continue
                     candidate = Path(saved_path)
                     if not candidate.resolve().is_relative_to(vault):
