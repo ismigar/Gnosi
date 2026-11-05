@@ -79,7 +79,7 @@ def episode_stream(original: str, accepted: range) -> OutputRepair | None:
     from backend.services.podcast_composition import spoken_text
     from backend.services.podcast_length_edits import apply_edits, composition_stream
 
-    if accepted.stop > 2048:
+    if accepted.stop > 4096:
         return None
     previous = {'paragraphs': {'episode': {'text': original, 'non_editorial': False}}}
     data = {'composition_groups': [{'key': 'episode'}], 'previous_composition': previous}

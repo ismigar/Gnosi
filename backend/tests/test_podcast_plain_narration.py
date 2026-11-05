@@ -228,9 +228,41 @@ def test_episode_word_transport_supports_spoken_words_in_the_supported_languages
 
 def test_long_episode_keeps_complete_passage_selection_fallback():
     from backend.services.podcast_passage_length import episode_stream, fit_passages
-    assert episode_stream('Original. Other.', range(2000, 2601)) is None
+    assert episode_stream('Original. Other.', range(4000, 4601)) is None
     originals = {'a': ' '.join(['Original'] * 1700), 'b': ' '.join(['Other'] * 1700)}
     alternatives = {'a': ' '.join(['Shorter'] * 1000), 'b': ' '.join(['Condensed'] * 1000)}
     result = fit_passages(originals, alternatives, preferred=range(2000, 2601),
                           accepted=range(2000, 2601), target=2300)
     assert result == alternatives['a'] + '\n\n' + alternatives['b']
+
+
+@pytest.mark.parametrize('response_words', [2760, 3349, 3350])
+def test_twenty_minute_native_repair_owns_one_complete_episode_word_range(runtime, monkeypatch, response_words):
+    from backend.services.podcast_composition import advisory_targets
+    counts = [156] * 31 + [105]
+    assert sum(counts) == 4941
+    scope, snapshot = runtime
+    original = [' '.join([f'theme-{i}', *(['original'] * (count - 1))])
+                for i, count in enumerate(counts)]
+    shares = advisory_targets(response_words, dict(enumerate(counts)), minimum=1)
+    replacements = [' '.join([f'theme-{i}', *(['compressed'] * (shares[i] - 1))])
+                    for i in range(len(counts))]
+    calls = counted_workflow(monkeypatch, [json.dumps({'narration': '\n\n'.join(original)}),
+                                           word_response(replacements)])
+    context = context_for(snapshot)
+    options = {'min_words': 2208, 'max_words': 3312, 'target_words': 2760, 'word_range_is_advisory': True}
+    with execution_scope(scope):
+        if response_words <= 3349:
+            result = _bounded_write(context, {'composition_encoding': 'bounded_narration_v1'}, options)
+            assert result['narration'] == ' '.join(replacements)
+            assert len(result['narration'].split()) == response_words
+        else:
+            with pytest.raises(jsonschema.ValidationError):
+                _bounded_write(context, {'composition_encoding': 'bounded_narration_v1'}, options)
+    assert len(calls) == 2 and len(context.requests) == 1
+    assert context.requests[0].max_model_calls == 2 and context.requests[0].timeout_seconds == 300
+    sent = json.loads(json.loads(calls[1]['messages'][0].content)['input'])
+    repair = sent['data']['length_repair']
+    assert repair['mode'] == 'compress_episode_words'
+    assert repair['word_range'] == {'minimum': 2150, 'maximum': 3349}
+    assert repair['original_episode'] == '\n\n'.join(original)

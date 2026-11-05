@@ -54,16 +54,32 @@ def test_insufficient_grouping_context_retains_the_original_complete_evidence():
     assert grouped_evidence(context, data) is data and not context.calls
 
 
-def test_large_brief_day_reviews_original_notes_after_internal_grouping(pipeline):
+def test_large_brief_day_writes_and_reviews_every_original_note_when_context_fits(pipeline):
     from backend.tests.test_podcast_brief_review import brief_mode
     brief_mode(pipeline)
     pipeline.monkeypatch.setattr('backend.domains.agent.runtime_tools._model_context_window', lambda *_: 1_050_000)
     sources = [{'id': str(i), 'title': f'Subject {i}', 'text': f'Original evidence for subject {i}.'} for i in range(60)]
     pipeline.run(sources)
     digests = [c for c in pipeline.calls if c['task'].endswith('digest') and 'grouped_sources' in c['data']]
-    assert len(digests) == 1
+    assert digests == []
     write = next(c for c in pipeline.calls if c['task'].endswith('write'))
-    assert 'digests' in write['data'] and 'briefs' not in write['data']
+    assert 'digests' not in write['data']
+    assert len(write['data']['briefs']) == 60
+    assert {b['source_id'] for b in write['data']['briefs']} == {s['id'] for s in sources}
     audit = next(c for c in pipeline.calls if c['task'].endswith('audit'))
     assert len(audit['data']['source_summaries']) == 60
     assert {b['source_id'] for b in audit['data']['source_summaries']} == {s['id'] for s in sources}
+
+
+def test_writer_retains_grouping_fallback_when_the_complete_request_exceeds_context():
+    from backend.services.podcast_automatic import _write_request
+    data = {**evidence(), 'composition_encoding': 'bounded_narration_v1'}
+    context = Context()
+    context.cost = lambda request: (context.budget + 1
+        if request.operation.endswith('write') and 'briefs' in json.loads(request.input) else 100)
+    request = _write_request(context, data, {'min_words': 2208, 'max_words': 3312, 'target_words': 2760})
+    assert len(context.calls) == 1
+    supplied = json.loads(request.input)
+    assert 'briefs' not in supplied
+    assert [key for d in supplied['digests'] for key in d['part_ids']] == [b['part_id'] for b in data['briefs']]
+    assert context.cost(request) <= context.budget

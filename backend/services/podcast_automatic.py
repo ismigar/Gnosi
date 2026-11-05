@@ -123,14 +123,15 @@ def _write_episode(context: _Briefing, evidence: list[dict[str, Any]], outline: 
 
 def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> Any:
     from backend.services.podcast_outline import _digest
+    limit = synthesis_context_limit(context)
+    request = _request(context, "write", data, composition_schema(data), **options)
     if (data.get('composition_encoding') == 'bounded_narration_v1'
-            and not data.get('previous_draft')):
+            and not data.get('previous_draft') and context.cost(request) > limit):
         from backend.services.podcast_editorial_digest import grouped_evidence
         data = grouped_evidence(context, data)
+        request = _request(context, "write", data, composition_schema(data), **options)
     previous: dict[str, Any] = {key: data[key] for key in ("previous_draft", "previous_composition") if key in data}
     source_part_ids = [brief["part_id"] for brief in data.get("briefs", [])]
-    request = _request(context, "write", data, composition_schema(data), **options)
-    limit = synthesis_context_limit(context)
     state = data.get("length_repair", {})
     retain_short_composition = ("previous_composition" in previous
                                 and 0 < state.get("current_words", 0) < options.get("min_words", 0))

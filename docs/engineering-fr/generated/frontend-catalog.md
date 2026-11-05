@@ -52,7 +52,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2679 | 0 |
-| `features` | 1282 | 137138 | 56 |
+| `features` | 1282 | 137148 | 57 |
 | `generated` | 3 | 57045 | 588 |
 | `shared` | 348 | 37140 | 504 |
 
@@ -562,7 +562,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/reader/page/useReaderArticleBody.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/useReaderArticleBody.ts) | 37 | `useReaderArticleBody` | — |
 | [`frontend/src/features/reader/zotero/ZoteroReaderTab.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/ZoteroReaderTab.ts) | 6 | — | — |
 | [`frontend/src/features/reader/zotero/ZoteroReaderView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/ZoteroReaderView.tsx) | 157 | `ZoteroReaderPage`, `ZoteroReaderTab` | — |
-| [`frontend/src/features/reader/zotero/useZoteroReaderController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/useZoteroReaderController.ts) | 297 | `openReaderDocumentExternally`, `useZoteroReaderController` | `/api/vault/local-file/register`, `/api/vault/open-local-path` |
+| [`frontend/src/features/reader/zotero/useZoteroReaderController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/useZoteroReaderController.ts) | 307 | `openReaderDocumentExternally`, `useZoteroReaderController` | `/api/vault/library/`, `/api/vault/local-file/register`, `/api/vault/open-local-path` |
 | [`frontend/src/features/reader/zotero/zoteroReaderModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/zoteroReaderModel.ts) | 144 | `detectKindFromSrc`, `isUnknownArray`, `isUnknownRecord`, `pdfAnnotationToZotero`, `toFilesystemPath`, `zoteroToPdfAnnotation` | — |
 | [`frontend/src/features/reader/zotero/zoteroReaderPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/zoteroReaderPersistence.ts) | 170 | `fetchPersistedAnnotations`, `persistDeleteAnnotations`, `persistSaveAnnotations` | `/api/vault/pdf-annotations` |
 | [`frontend/src/features/settings/AI/AIActivityPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIActivityPanel.tsx) | 92 | `AIActivityPanel` | — |
