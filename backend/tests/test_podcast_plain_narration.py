@@ -32,7 +32,7 @@ def test_duration_tolerance_produces_broad_word_guidance():
     assert policy.model_copy(update={'duration_tolerance_percent': 25}).word_range(1380) == (1035, 1725)
 
 
-@pytest.mark.parametrize('first_words', [765, 1815])
+@pytest.mark.parametrize('first_words', [765, 1815, 2620])
 def test_length_retry_uses_the_same_plain_schema_sources_and_two_call_stage(runtime, monkeypatch, first_words):
     scope, snapshot = runtime
     calls = counted_workflow(monkeypatch, [narration(first_words), narration(1380)])
@@ -49,8 +49,12 @@ def test_length_retry_uses_the_same_plain_schema_sources_and_two_call_stage(runt
     assert request.timeout_seconds == 300 and request.max_model_calls == 2
     assert set(request.output_schema['properties']) == {'narration'}
     assert {key: value for key, value in json.loads(request.input)['data'].items() if key != 'language'} == data
-    diagnostic = str(calls[1]['messages'])
-    assert 'podcast_word_budget' in diagnostic and str(abs(first_words - 1380)) in diagnostic
+    assert len(calls[1]['messages']) == 1
+    repair = json.loads(json.loads(calls[1]['messages'][0].content)['input'])['data']
+    assert repair['briefs'] == data['briefs']
+    assert repair['subject_groups'] == data['subject_groups']
+    assert repair['previous_draft'] == json.loads(narration(first_words))['narration']
+    assert repair['length_repair']['word_delta'] == 1380 - first_words
 
 
 def test_invalid_second_plain_script_fails_without_opening_another_stage(runtime, monkeypatch):
@@ -61,6 +65,26 @@ def test_invalid_second_plain_script_fails_without_opening_another_stage(runtime
         _bounded_write(context, {'composition_encoding': 'bounded_narration_v1'},
                        {'min_words': 1242, 'max_words': 1504, 'target_words': 1380})
     assert len(calls) == 2 and len(context.requests) == 1
+
+
+def test_near_context_limit_recomposes_with_evidence_and_absolute_target(runtime, monkeypatch):
+    scope, snapshot = runtime
+    calls = counted_workflow(monkeypatch, [narration(2620), narration(1380)])
+    context = context_for(snapshot)
+    original_cost = context.cost
+    monkeypatch.setattr(context, 'cost', lambda request:
+        context.budget + 1 if 'previous_draft' in json.loads(request.input)['data'] else original_cost(request))
+    data = {'composition_encoding': 'bounded_narration_v1',
+            'briefs': [{'part_id': 'source:0', 'summary': 'Qualified original claim.'}]}
+    with execution_scope(scope):
+        result = _bounded_write(context, data, {'min_words': 1104, 'max_words': 1656, 'target_words': 1380})
+    assert len(result['narration'].split()) == 1380 and len(calls) == 2
+    repair = json.loads(json.loads(calls[1]['messages'][0].content)['input'])['data']
+    assert 'previous_draft' not in repair
+    assert repair['briefs'] == data['briefs']
+    assert repair['length_repair'] == {
+        'mode': 'fresh_composition', 'target_words': 1380, 'min_words': 1104, 'max_words': 1656,
+    }
 
 
 @pytest.mark.parametrize('words,valid', [(1241, False), (1242, True), (1380, True),

@@ -11,8 +11,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 36 | 110 |
-| Vitest | 754 | 3441 |
-| pytest | 772 | 5889 |
+| Vitest | 754 | 3442 |
+| pytest | 772 | 5893 |
 
 ## Fichiers
 
@@ -662,7 +662,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/shared/api/web-publishing.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/web-publishing.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/workspace-members.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/workspace-members.test.ts) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/workspaces.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/workspaces.test.ts) | 1 | call-pattern estimate |
-| Vitest | [`frontend/src/shared/bookmarks/BookmarksSection.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/BookmarksSection.test.tsx) | 10 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/bookmarks/BookmarksSection.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/BookmarksSection.test.tsx) | 11 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/bookmarks/bookmark-routes.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/bookmark-routes.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/bookmarks/bookmarks.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/bookmarks.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/bookmarks/useBookmarks.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/useBookmarks.test.tsx) | 5 | call-pattern estimate |
@@ -1279,12 +1279,12 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_podcast_length_word_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_length_word_repair.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_podcast_length_word_repair_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_length_word_repair_transport.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_podcast_original_evidence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_original_evidence.py) | 3 | Python AST |
-| pytest | [`backend/tests/test_podcast_plain_narration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_plain_narration.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_podcast_plain_narration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_plain_narration.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_podcast_preparation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_preparation.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_podcast_provider_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_provider_retry.py) | 5 | Python AST |
-| pytest | [`backend/tests/test_podcast_quote_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_quote_repair.py) | 7 | Python AST |
+| pytest | [`backend/tests/test_podcast_quote_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_quote_repair.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_podcast_revision_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_revision_repair.py) | 4 | Python AST |
-| pytest | [`backend/tests/test_podcast_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_scope.py) | 20 | Python AST |
+| pytest | [`backend/tests/test_podcast_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_scope.py) | 22 | Python AST |
 | pytest | [`backend/tests/test_podcast_skill_preferences.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_skill_preferences.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_podcast_subject_partition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_subject_partition.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_podcast_synthesis_context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_synthesis_context.py) | 2 | Python AST |

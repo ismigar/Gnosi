@@ -57,6 +57,26 @@ def test_reports_and_repairs_every_invalid_quote_without_rewriting_briefs(case):
     assert json.loads(built.restore(json.dumps(replacements))) == restored
 
 
+@pytest.mark.parametrize('envelope', ['{}', '```json\n{}\n```', '{}}}'])
+def test_repairs_a_literal_overlong_quote_and_nonliteral_quote_in_same_batch(case, envelope):
+    from backend.services.agent_execution import _validate_output
+
+    parts, result = case
+    parts[0]['text'] = 'A qualified original statement. ' * 6
+    result['briefs']['0:0']['quote'] = parts[0]['text']
+    schema = briefing._brief_schema(parts)
+    rejected = envelope.format(json.dumps(result))
+    with pytest.raises(jsonschema.ValidationError) as caught:
+        _validate_output(rejected, schema)
+    built = brief_quote_repair(parts, schema)(rejected, caught.value)
+    assert built is not None
+    restored = json.loads(built.restore(json.dumps(selection(built))))
+    jsonschema.validate(restored, schema)
+    briefing._validate_briefs(restored, parts)
+    assert restored['briefs']['1:0'] == result['briefs']['1:0']
+    assert restored['briefs']['0:0']['summary'] == result['briefs']['0:0']['summary']
+
+
 @pytest.mark.parametrize('patch', [
     {'quote_ids': {'0:0': '0:0:q0'}},
     {'quote_ids': {'0:0': '0:0:q0', '2:0': '2:0:q0', '1:0': '1:0:q0'}},

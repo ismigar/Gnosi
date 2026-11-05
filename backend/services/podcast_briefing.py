@@ -16,7 +16,9 @@ from backend.domains.llm_wiki.chunking import split_segment
 from backend.services.agent_behavior import operation_input, resource, revision, snapshot_instruction_text, task_input
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation
 from backend.services.agent_output_repair import RepairBuilder
-from backend.services.podcast_brief_repair import InvalidBriefQuotes, brief_quote_repair, invalid_quote_ids
+from backend.services.podcast_brief_repair import (
+    MAX_BRIEF_QUOTE_LENGTH, InvalidBriefQuotes, brief_quote_repair, invalid_quote_ids,
+)
 from backend.services.podcast_policy import PodcastPreferences, preferences
 
 
@@ -50,7 +52,7 @@ def _write_snapshot(snapshot: AgentExecutionSnapshot, request: AgentOperation) -
 def _brief_schema(parts: list[dict[str, Any]]) -> dict[str, Any]:
     entry = _object({"topic": {"type": "string", "minLength": 1, "maxLength": 100},
                      "summary": {"type": "string", "minLength": 1, "maxLength": 400},
-                     "quote": {"type": "string", "minLength": 1, "maxLength": 160}})
+                     "quote": {"type": "string", "minLength": 1, "maxLength": MAX_BRIEF_QUOTE_LENGTH}})
     return _object({"briefs": _object({part["part_id"]: entry for part in parts})})
 
 

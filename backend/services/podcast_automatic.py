@@ -7,6 +7,7 @@ from math import ceil
 from typing import Any, TYPE_CHECKING, cast
 
 from backend.services.agent_behavior import resource as resource
+from backend.services.agent_output_repair import OutputRepair
 from backend.services.podcast_composition import BOUNDED_TEXT, WORD_TEXT, advisory_targets, schema as composition_schema, spoken_text, word_guidance
 from backend.services.podcast_policy import preferences, synthesis_context_limit
 
@@ -17,6 +18,10 @@ if TYPE_CHECKING:
 
 class _WordBudgetRejected(RuntimeError):
     """Return length rejection to its bounded owner, outside generic format repair."""
+
+
+class _PlainNarrationLength(ValueError):
+    """Route a valid script with the wrong length to focused revision."""
 
 
 def _within_word_guidance(actual: int, options: dict[str, Any]) -> bool:
@@ -211,12 +216,49 @@ def _write_plain_narration(context: _Briefing, data: dict[str, Any], options: di
         if not _within_word_guidance(actual, options):
             direction = 'Reduce' if actual > maximum else 'Expand'
             delta = abs(actual - options['target_words'])
-            raise ValueError(f"podcast_word_budget: expected {minimum}..{maximum}; received {actual}. "
+            raise _PlainNarrationLength(f"podcast_word_budget: expected {minimum}..{maximum}; received {actual}. "
                 f"Target {options['target_words']}. {direction} the complete script by about {delta} words. "
                 "Return one complete coherent narration, merging "
                 "repeated accounts and secondary detail while preserving distinct themes and essential qualifications.")
     request = _write_request(context, data, options)
-    return {'narration': narration(context.stage(request, checked_narration))}
+    def repair_length(rejected: str, error: Exception) -> OutputRepair | None:
+        if not isinstance(error, _PlainNarrationLength) or request.output_schema is None:
+            return None
+        payload = json.loads(request.input)
+        draft = narration(json.loads(rejected))
+        actual = len(draft.split())
+        target = options['target_words']
+        repair_data = {
+            **payload['data'],
+            'previous_draft': draft,
+            'length_repair': {
+                'mode': 'revise_draft',
+                'current_words': actual,
+                'target_words': target,
+                'min_words': minimum,
+                'max_words': maximum,
+                'word_delta': target - actual,
+                'instruction': str(error),
+            },
+        }
+        limit = min(context.budget, synthesis_context_limit(context))
+
+        def encode() -> str:
+            return json.dumps({**payload, 'data': repair_data}, ensure_ascii=False)
+
+        repair_input = encode()
+        if context.cost(request.model_copy(update={'input': repair_input})) > limit:
+            repair_data.pop('previous_draft')
+            repair_data['length_repair'] = {
+                'mode': 'fresh_composition', 'target_words': target,
+                'min_words': minimum, 'max_words': maximum,
+            }
+            repair_input = encode()
+            if context.cost(request.model_copy(update={'input': repair_input})) > limit:
+                raise RuntimeError('podcast_length_repair_context_insufficient') from error
+        return OutputRepair(repair_input, request.output_schema, lambda corrected: corrected)
+
+    return {'narration': narration(context.stage(request, checked_narration, output_repair=repair_length))}
 
 
 def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> dict[str, Any]:

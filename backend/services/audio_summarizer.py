@@ -247,7 +247,51 @@ def get_podcast_output_dir(vault_path: str | Path | None = None) -> Path:
     return Path(vault_path) / "data" / "podcasts"
 
 
-def generate_daily_podcast(snapshot: AgentExecutionSnapshot | None = None) -> str | None:
+_SCHEDULE_MESSAGES = {
+    "ca": {
+        "cancelled": "S’ha cancel·lat la generació del podcast.",
+        "failed": "No s’ha pogut generar el podcast. Consulta l’execució a Activitat.",
+        "empty": "No hi ha articles nous. No s’ha generat cap podcast.",
+        "saved": "S’ha desat el podcast {filename}.",
+    },
+    "es": {
+        "cancelled": "Se ha cancelado la generación del pódcast.",
+        "failed": "No se ha podido generar el pódcast. Consulta la ejecución en Actividad.",
+        "empty": "No hay artículos nuevos. No se ha generado ningún pódcast.",
+        "saved": "Se ha guardado el pódcast {filename}.",
+    },
+    "en": {
+        "cancelled": "Podcast generation was cancelled.",
+        "failed": "Podcast generation failed. See the podcast run in Activity.",
+        "empty": "No new articles. No podcast was generated.",
+        "saved": "Saved podcast {filename}.",
+    },
+    "fr": {
+        "cancelled": "La génération du podcast a été annulée.",
+        "failed": "Impossible de générer le podcast. Consultez son exécution dans Activité.",
+        "empty": "Aucun nouvel article. Aucun podcast n’a été généré.",
+        "saved": "Le podcast {filename} a été enregistré.",
+    },
+}
+
+
+def _schedule_messages() -> dict[str, str]:
+    try:
+        language, _ = _resolve_podcast_language()
+    except Exception:
+        from backend.config.app_config import DEFAULT_INTERFACE_LANGUAGE
+
+        language = DEFAULT_INTERFACE_LANGUAGE
+    return _SCHEDULE_MESSAGES[language]
+
+
+class _ScheduledPodcastFailure(RuntimeError):
+    """Carry a safe outcome identifier from generation to its scheduler."""
+
+
+def generate_daily_podcast(
+    snapshot: AgentExecutionSnapshot | None = None, *, raise_on_failure: bool = False,
+) -> str | None:
     import uuid
     from backend.services.agent_execution import create_job_run, operation_session
     from backend.services import agent_execution_store as store
@@ -259,13 +303,39 @@ def generate_daily_podcast(snapshot: AgentExecutionSnapshot | None = None) -> st
         with operation_session(snapshot):
             store.update(snapshot.scope, run_id, status="running")
             result = _generate_daily_podcast()
+            error_message = _generation_state()["error"]
+            cancelled = store.cancelled(snapshot.scope, run_id)
             store.update(snapshot.scope, run_id,
-                status="cancelled" if store.cancelled(snapshot.scope, run_id) else "failed" if _generation_state()["error"] else "completed",
-                result=result or "", error=_generation_state()["error"] or "")
-            return result
+                status="cancelled" if cancelled else "failed" if error_message else "completed",
+                result=result or "", error=error_message or "")
     except BaseException as error:
         store.update(snapshot.scope, run_id, status="cancelled" if store.cancelled(snapshot.scope, run_id) else "failed", error=type(error).__name__)
         raise
+    if raise_on_failure and cancelled:
+        raise _ScheduledPodcastFailure("cancelled")
+    if raise_on_failure and error_message:
+        raise _ScheduledPodcastFailure("failed")
+    return result
+
+
+def generate_scheduled_podcast() -> dict[str, Any]:
+    """Report the publication outcome to the scheduler."""
+    from backend.services.agent_execution_scope import personal_scheduler_scope
+
+    messages = None
+    try:
+        with personal_scheduler_scope():
+            messages = _schedule_messages()
+            filename = generate_daily_podcast(raise_on_failure=True)
+    except _ScheduledPodcastFailure as error:
+        raise RuntimeError((messages or _schedule_messages())[str(error)]) from None
+    except Exception as error:
+        log.error("Scheduled podcast execution failed (%s)", type(error).__name__)
+        raise RuntimeError((messages or _schedule_messages())["failed"]) from None
+    assert messages is not None
+    if filename is None:
+        return {"generated": False, "message": messages["empty"]}
+    return {"filename": filename, "generated": True, "message": messages["saved"].format(filename=filename)}
 
 
 def _prepare_podcast_articles(articles: Sequence[Any], snapshot: AgentExecutionSnapshot) -> list[Any]:
@@ -291,13 +361,12 @@ def _generate_daily_podcast() -> str | None:
     _generation_state()["result_filename"] = None
     _generation_state()["skipped_articles"] = []
 
-    # Get DB session dynamically
-    from backend.data.db import get_db
-
-    db_gen = get_db()
-    db: Session = next(db_gen)
-
+    db_gen = None
     try:
+        from backend.data.db import get_db
+
+        db_gen = get_db()
+        db: Session = next(db_gen)
         llm, provider, model = _resolve_podcast_llm()
         from backend.services.agent_execution_store import work_checkpoint
         podcast_input = work_checkpoint(llm.scope, llm.parent_run_id, "podcast-input") if llm.parent_run_id else None
@@ -398,12 +467,11 @@ def _generate_daily_podcast() -> str | None:
         _generation_state()["error"] = str(e) or type(e).__name__
         return None
     finally:
-        # Close the session obtained from the generator
         try:
-            next(db_gen)  # This will trigger the generator's 'finally'
-        except StopIteration:
-            pass
-        _generation_state()["running"] = False
+            if db_gen is not None:
+                db_gen.close()
+        finally:
+            _generation_state()["running"] = False
 
 
 def start_generation_async(vault_path: str | Path | None = None) -> bool:
