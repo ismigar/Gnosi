@@ -172,7 +172,13 @@ def test_help_retains_every_original_action_command_and_setting() -> None:
     }
     assert checkout == old["steps"][0]
     restored = [{k: v for k, v in step.items() if k != "if"} for step in new["steps"][2:]]
-    assert restored == old["steps"][1:]
+    expected = [
+        {**step, "uses": "astral-sh/setup-uv@v10.3.3"}
+        if step.get("uses") == "astral-sh/setup-uv@v10.2.0"
+        else step
+        for step in old["steps"][1:]
+    ]
+    assert restored == expected
     assert all(
         step["if"] == "steps.previous.outputs.runtime_required != 'false'"
         for step in new["steps"][2:]

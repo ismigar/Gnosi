@@ -30,7 +30,7 @@ jobs:
         if: steps.previous.outputs.runtime_required != 'false'
         with:
           python-version: '3.11'
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.3
         if: steps.previous.outputs.runtime_required != 'false'
         with:
           version: '0.9.15'
