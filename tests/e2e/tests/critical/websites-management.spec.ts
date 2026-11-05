@@ -60,10 +60,11 @@ test('website file references upload through a modal, preview and persist', asyn
   await create.getByRole('button', { name: 'Create', exact: true }).click();
   await expect(create).toBeHidden();
   await page.getByRole('tab', { name: 'Navigation & languages', exact: true }).click();
-  const languages = page.locator('div[role="combobox"][aria-label="Languages"]'); await languages.click();
+  const languages = page.locator('div[role="combobox"][aria-label="Languages"]'); await languages.press('Enter');
   await page.getByRole('option', { name: /Deutsch/u }).waitFor();
+  await settleVisualState(page);
   await page.screenshot({ path: testInfo.outputPath('website-language-multiselect.png'), fullPage: true });
-  await page.getByRole('option', { name: /Deutsch/u }).click(); await languages.click();
+  await page.getByRole('option', { name: /Deutsch/u }).click(); await page.getByRole('heading', { name: 'Website settings', exact: true }).click();
   await expect(languages).toContainText('Deutsch');
   await page.getByRole('tab', { name: 'Forms', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Forms', exact: true })).toBeVisible();
@@ -75,6 +76,7 @@ test('website file references upload through a modal, preview and persist', asyn
   await page.getByRole('button', { name: 'Upload Logo', exact: true }).click();
   const logoDialog = page.getByRole('dialog', { name: 'Upload Logo', exact: true });
   await expect(logoDialog).toBeVisible();
+  await settleVisualState(page);
   await page.screenshot({ path: testInfo.outputPath('website-file-modal-open.png'), fullPage: true });
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
   await logoDialog.locator('input[type=file]').setInputFiles({ name: 'logo.png', mimeType: 'image/png', buffer: png });
