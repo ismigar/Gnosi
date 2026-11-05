@@ -57,6 +57,63 @@ def test_length_retry_uses_the_same_plain_schema_sources_and_two_call_stage(runt
     assert repair['length_repair']['word_delta'] == 1380 - first_words
 
 
+@pytest.mark.parametrize('enough_compression', [True, False])
+def test_large_day_repairs_complete_passages_within_the_original_two_calls(runtime, monkeypatch, enough_compression):
+    scope, snapshot = runtime
+    # Paragraph counts observed in the installed 2,594-word automatic draft.
+    counts = [44, 97, 158, 143, 100, 184, 195, 225, 209, 145, 223, 174, 226, 170, 264, 37]
+    originals = [' '.join([f'theme-{i}', *(['original'] * (count - 1))])
+                 for i, count in enumerate(counts)]
+    shorter = {
+        f'passage:{i}': ' '.join([f'theme-{i}', *(['compressed'] * (count // 3 if enough_compression else count - 2))])
+        for i, count in enumerate(counts)
+    }
+    draft = '\n\n'.join(originals)
+    calls = counted_workflow(monkeypatch, [
+        json.dumps({'narration': draft}), json.dumps({'passages': shorter}),
+    ])
+    context = context_for(snapshot)
+    data = {'composition_encoding': 'bounded_narration_v1',
+            'briefs': [{'part_id': 'source:0', 'summary': 'Essential qualification.'}]}
+    options = {'min_words': 1104, 'max_words': 1656, 'target_words': 1380}
+    with execution_scope(scope):
+        if enough_compression:
+            result = _bounded_write(context, data, options)
+            paragraphs = result['narration'].split('\n\n')
+            assert 1104 <= len(result['narration'].split()) <= 1656
+            assert len(paragraphs) == len(counts)
+            assert any('original' in part for part in paragraphs)
+            assert any('compressed' in part for part in paragraphs)
+            assert all(part in {originals[i], shorter[f'passage:{i}']} for i, part in enumerate(paragraphs))
+        else:
+            with pytest.raises(ValueError, match='compressed passages cannot reach'):
+                _bounded_write(context, data, options)
+    assert len(calls) == 2 and len(context.requests) == 1
+    assert context.requests[0].timeout_seconds == 300
+    repair = json.loads(json.loads(calls[1]['messages'][0].content)['input'])['data']
+    assert repair['briefs'] == data['briefs']
+    length_repair = repair['length_repair']
+    assert length_repair['mode'] == 'compress_passages'
+    assert sum(p['target_words'] for p in length_repair['passages'].values()) == 1104
+    assert [p['original'] for p in length_repair['passages'].values()] == originals
+
+
+def test_passage_repair_preserves_crlf_and_the_existing_advisory_range(runtime, monkeypatch):
+    scope, snapshot = runtime
+    original = ' '.join(['Supported'] * 950)
+    shortened = ' '.join(['Condensed'] * 850)
+    calls = counted_workflow(monkeypatch, [
+        json.dumps({'narration': original + '\r\n\r\n' + original}),
+        json.dumps({'passages': {'passage:0': shortened, 'passage:1': shortened}}),
+    ])
+    context = context_for(snapshot)
+    with execution_scope(scope):
+        result = _bounded_write(context, {'composition_encoding': 'bounded_narration_v1'},
+            {'min_words': 1104, 'max_words': 1656, 'target_words': 1380, 'word_range_is_advisory': True})
+    assert result['narration'] == shortened + '\n\n' + shortened
+    assert len(calls) == 2 and len(context.requests) == 1
+
+
 def test_invalid_second_plain_script_fails_without_opening_another_stage(runtime, monkeypatch):
     scope, snapshot = runtime
     calls = counted_workflow(monkeypatch, [narration(2112), narration(1811)])
