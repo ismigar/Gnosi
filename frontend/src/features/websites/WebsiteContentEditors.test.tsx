@@ -168,8 +168,8 @@ test('each form folds independently and keeps edited values when reopened', () =
 
 
 test('gallery path editing keeps the same input and keyboard focus', () => {
-  const initial: SiteConfig = { ...base, pages: [{ id: 'gallery-page', title: 'Gallery', language: 'ca', path: '/ca/gallery', enabled: false, template: 'page', blocks: [{ id: 'gallery', type: 'gallery', images: ['a'] }] }] };
-  const view = mountEditor(initial, (site, onChange) => <PagesEditor site={site} onChange={onChange} />);
+  const initial: SiteConfig = { ...base, pages: [{ id: 'gallery-page', title: 'Gallery', language: 'ca', path: '/ca/gallery', enabled: false, template: 'page', description: '', css: '', blocks: [{ id: 'gallery', type: 'gallery', images: ['a'], title: '', body: '', image: '', alt: '', image_position: 'right', href: '', columns: 3, limit: 3, css: '' }] }] };
+  const view = mountEditor(initial, (site, onChange) => <PagesEditor site={site} catalogue={[]} onChange={onChange} />);
   const input = required(view.container.querySelector<HTMLInputElement>('input[aria-label="websites.image 1"]'));
   input.focus();
   act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, 'ab'); input.dispatchEvent(new Event('input', { bubbles: true })); });
