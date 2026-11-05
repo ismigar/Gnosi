@@ -6,7 +6,6 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 import json
-import re
 
 import jsonschema
 
@@ -31,20 +30,69 @@ class EditTransport:
             repair = builder(json.dumps(original), error)
             if repair is None:
                 return None
-            wire = deepcopy(repair.output_schema)
-            if 'replacement_tokens' in wire.get('properties', {}):
-                from backend.services.podcast_passage_length import episode_stream
-                lexical = episode_stream(self.data['previous_draft'], range(1, 2))
-                if lexical is not None:
-                    word = lexical.output_schema['properties']['words']['items']
-                    markers = [anchor['marker'] for anchor in json.loads(repair.input)['anchors']]
-                    wire['properties']['replacement_tokens']['items'] = {
-                        'type': 'string', 'maxLength': max(128, *map(len, markers)),
-                        'pattern': '^(?:' + word['pattern'][1:-1] + '|' + '|'.join(map(re.escape, markers)) + ')$'}
+            if 'replacement_tokens' in repair.output_schema.get('properties', {}):
+                return self.alternatives(repair)
             def restore(text: str) -> str:
                 return json.dumps(self.encode(json.loads(repair.restore(text))), ensure_ascii=False)
-            return OutputRepair(repair.input, wire, restore)
+            return OutputRepair(repair.input, repair.output_schema, restore)
         return build
+
+
+    def alternatives(self, repair: OutputRepair) -> OutputRepair:
+        """Let the server restore markers and select complete bounded phrases."""
+        from backend.services.podcast_passage_length import select_passages
+        payload = json.loads(repair.input)
+        fixed = payload['anchors']
+        by_text = {text: key for key, text in self.data['anchor_clauses'].items()}
+        keyed = {by_text[anchor['before']]: anchor for anchor in fixed}
+        properties = {}
+        for key, anchor in keyed.items():
+            phrase = deepcopy(self.schema['$defs']['change']['anyOf'][0])
+            if any(payload['feedback'][index]['kind'] == 'omission' for index in anchor['finding_indices']):
+                phrase['minLength'] = 1
+            properties[key] = _object({'compact': deepcopy(phrase), 'full': deepcopy(phrase)})
+        wire = _object({'alternatives': _object(properties)})
+        payload.update(revision_encoding='grounded_edit_alternatives_v1',
+            anchors=[{'id': key, 'before': anchor['before'], 'finding_indices': anchor['finding_indices']}
+                     for key, anchor in keyed.items()],
+            instructions='This remaining-call alternatives schema supersedes the earlier marker/token and '
+                'changes/hash response forms. Return BOTH a compact and a fuller COMPLETE replacement '
+                'for EVERY supplied fixed clause ID. Each version must independently resolve ALL its '
+                'assigned findings using the supplied evidence and preserve substantive facts, attribution '
+                'and qualifications. Clauses without findings are only for budget concision. Both versions '
+                'for a required finding must actually differ from the original clause. The COMPACT '
+                'versions together should fit the shared replacement_word_range, with some headroom. '
+                'There are no per-clause word caps; keep the existing character bound. Do not return '
+                'markers, words arrays, before strings, hashes or finding indices. The server selects '
+                'one COMPLETE offered phrase per clause without truncation, restores every original '
+                'anchor and finding binding and validates the unchanged COMPLETE episode word range. '
+                'Unedited prose stays byte-for-byte unchanged. The same final semantic review follows.')
+
+        def restore(text: str) -> str:
+            value = json.loads(text)
+            jsonschema.validate(value, wire)
+            full, compact = {}, {}
+            for key, anchor in keyed.items():
+                choices = value['alternatives'][key]
+                valid = [choices[name] for name in ('full', 'compact')
+                         if not anchor['finding_indices'] or choices[name] != anchor['before']]
+                if not valid:
+                    raise ValueError('podcast_revision_unchanged_alternatives')
+                full[key], compact[key] = max(valid, key=lambda text: len(text.split())), min(
+                    valid, key=lambda text: len(text.split()))
+            bounds = payload['replacement_word_range']
+            accepted = range(bounds['minimum'], bounds['maximum'] + 1)
+            target = (self.data['revision_budget'].get('target') or (
+                self.data['revision_budget']['minimum'] + self.data['revision_budget']['maximum']) // 2
+            ) - payload['untouched_words']
+            selected = select_passages(full, compact, preferred=accepted, accepted=accepted,
+                                       target=max(accepted.start, min(target, accepted.stop - 1)), allow_empty=True)
+            tokens = [token for key, anchor in keyed.items()
+                      for token in [anchor['marker'], *selected[key].split()]]
+            original = json.loads(repair.restore(json.dumps({'replacement_tokens': tokens})))
+            return json.dumps(self.encode(original), ensure_ascii=False)
+
+        return OutputRepair(json.dumps(payload, ensure_ascii=False), wire, restore)
 
 
 def anchor_ids(data: dict[str, Any], schema: dict[str, Any]) -> EditTransport | None:

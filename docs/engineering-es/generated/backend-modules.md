@@ -24,11 +24,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 279 | 54355 |
+| `services` | 279 | 54407 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1099 modules** and **207677 source lines**.
+Total: **1099 modules** and **207729 source lines**.
 
 ## agent
 
@@ -1135,13 +1135,13 @@ Total: **1099 modules** and **207677 source lines**.
 | [`backend/services/podcast_briefing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_briefing.py) | 319 | 1 | 9 | 0 | 0 | Durable whole-day podcast coverage, independent of model conversation memory. |
 | [`backend/services/podcast_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_composition.py) | 133 | 0 | 6 | 0 | 3 | Require explicit prose for every planned group under one episode word budget. |
 | [`backend/services/podcast_coverage_checks.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_coverage_checks.py) | 58 | 0 | 2 | 0 | 0 | Require an explicit editorial coverage decision for each supplied day summary. |
-| [`backend/services/podcast_edit_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_edit_transport.py) | 112 | 1 | 1 | 0 | 0 | Address immutable reviewed clauses by IDs without copying literal anchors. |
+| [`backend/services/podcast_edit_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_edit_transport.py) | 160 | 1 | 1 | 0 | 0 | Address immutable reviewed clauses by IDs without copying literal anchors. |
 | [`backend/services/podcast_editorial_digest.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_editorial_digest.py) | 38 | 0 | 1 | 0 | 0 | Condense a broad day by its checked themes before writing listener prose. |
 | [`backend/services/podcast_feedback.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_feedback.py) | 85 | 0 | 4 | 0 | 0 | Bounded writing guidance for every retained, independently confirmed finding. |
 | [`backend/services/podcast_feedback_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_feedback_repair.py) | 134 | 0 | 6 | 0 | 0 | Repair all invalid internal guides without rewriting validated corrections. |
 | [`backend/services/podcast_length_edits.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_length_edits.py) | 254 | 0 | 10 | 0 | 3 | Shorten immutable grouped compositions through atomic model-proposed edits. |
 | [`backend/services/podcast_outline.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_outline.py) | 139 | 0 | 9 | 0 | 0 | Global thematic deduplication and a checked word budget for a ten-minute episode. |
-| [`backend/services/podcast_passage_length.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_passage_length.py) | 110 | 0 | 3 | 0 | 3 | Bound episode length with spoken words and complete-passage alternatives. |
+| [`backend/services/podcast_passage_length.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_passage_length.py) | 114 | 0 | 4 | 0 | 3 | Bound episode length with spoken words and complete-passage alternatives. |
 | [`backend/services/podcast_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_policy.py) | 100 | 2 | 4 | 0 | 2 | Validated editorial preferences from the assigned, user-personalizable skill. |
 | [`backend/services/podcast_provider_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_provider_retry.py) | 79 | 0 | 2 | 1 | 0 | Retry transient podcast provider failures within existing call/deadline limits. |
 | [`backend/services/podcast_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_review.py) | 247 | 0 | 14 | 0 | 3 | Ground model criticisms in exact supplied evidence before automatic rewrites. |

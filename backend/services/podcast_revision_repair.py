@@ -41,7 +41,7 @@ def _fixed_original_stream(data: dict[str, Any], edits: list[dict[str, Any]],
         before = edit['before']
         start = previous.find(before)
         end = start + len(before)
-        if (not before.strip() or before != before.strip() or start < 0 or previous.count(before) != 1
+        if (not before.strip() or before != before.strip() or start < 0 or previous.find(before, start + 1) >= 0
                 or start and not previous[start - 1].isspace()
                 or end < len(previous) and not previous[end].isspace()):
             return None

@@ -22,10 +22,10 @@ def split_passages(draft: str) -> dict[str, str]:
     }
 
 
-def fit_passages(
+def select_passages(
     originals: dict[str, str], alternatives: dict[str, str], *,
-    preferred: range, accepted: range, target: int,
-) -> str:
+    preferred: range, accepted: range, target: int, allow_empty: bool = False,
+) -> dict[str, str]:
     """Pick complete alternatives near the target without dropping any passage."""
     if alternatives.keys() != originals.keys():
         raise ValueError('podcast_length_repair_passage_scope_mismatch')
@@ -36,7 +36,7 @@ def fit_passages(
     selections = {0: 0}
     for index, (key, original) in enumerate(originals.items()):
         alternative_words = len(alternatives[key].split())
-        if not alternative_words:
+        if not alternative_words and not allow_empty:
             raise ValueError('podcast_empty_compressed_passage')
         saving = len(original.split()) - alternative_words
         if saving <= 0:
@@ -51,7 +51,7 @@ def fit_passages(
                 selections[new_savings] = proposed
     minimum_savings = original_words - (accepted.stop - 1)
     best = min(
-        (saved for saved in selections if saved >= minimum_savings),
+        (saved for saved in selections if minimum_savings <= saved <= maximum_savings),
         key=lambda saved: (
             original_words - saved not in preferred,
             abs(original_words - saved - target), selections[saved].bit_count(), saved,
@@ -63,10 +63,14 @@ def fit_passages(
             f'podcast_word_budget: compressed passages cannot reach {accepted.start}..{accepted.stop - 1} words'
         )
     mask = selections[best]
-    return '\n\n'.join(
-        (alternatives[key] if mask & (1 << index) else original).strip()
-        for index, (key, original) in enumerate(originals.items())
-    )
+    return {key: (alternatives[key] if mask & (1 << index) else original).strip()
+            for index, (key, original) in enumerate(originals.items())}
+
+
+def fit_passages(originals: dict[str, str], alternatives: dict[str, str], *,
+                 preferred: range, accepted: range, target: int) -> str:
+    return '\n\n'.join(select_passages(originals, alternatives, preferred=preferred,
+                                       accepted=accepted, target=target).values())
 
 
 def episode_stream(original: str, accepted: range) -> OutputRepair | None:

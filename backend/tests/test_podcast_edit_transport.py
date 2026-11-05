@@ -12,6 +12,7 @@ from backend.services.podcast_automatic import _request
 from backend.services.podcast_brief_edits import _anchor_schema, apply_edits, revise
 from backend.services.podcast_briefing import _object
 from backend.services.podcast_edit_transport import anchor_ids
+from backend.services.podcast_revision_repair import revision_word_repair
 from backend.tests.test_agent_execution import runtime  # noqa: F401
 from backend.tests.test_podcast_bounded_rewrites import context_for, counted_workflow
 
@@ -93,9 +94,9 @@ def test_remaining_word_repair_restores_ids_inside_same_two_call_stage(runtime, 
         bad['changes'][f'a{i}'] += ' Extra.' * 4
     if unchanged_claim:
         bad['changes']['a6'] = _anchor_schema(data['previous_draft'])['enum'][6]
-    words = [token for i in range(85) for token in
-             [f'__gnosi_edit__:{i}', *good['changes'][f'a{i}'].split()]]
-    calls = counted_workflow(monkeypatch, [json.dumps(bad), json.dumps({'replacement_tokens': words})])
+    alternatives = {f'a{i}': {'compact': good['changes'][f'a{i}'], 'full': bad['changes'][f'a{i}']}
+                    for i in range(85)}
+    calls = counted_workflow(monkeypatch, [json.dumps(bad), json.dumps({'alternatives': alternatives})])
     context = context_for(snapshot)
     with execution_scope(scope):
         result = revise(context, data, {'min_words': 1104, 'max_words': 1656, 'target_words': 1380}, _request)
@@ -104,3 +105,55 @@ def test_remaining_word_repair_restores_ids_inside_same_two_call_stage(runtime, 
     assert len(context.requests) == len(rows) == 1 and len(calls) == rows[0].model_calls == 2
     assert context.requests[0].timeout_seconds == 300 and context.requests[0].max_model_calls == 2
     assert json.loads(context.requests[0].input)['data']['revision_encoding'] == 'grounded_anchor_ids_v1'
+
+
+def alternatives_case():
+    data, schema, good = observed_case()
+    data['revision_budget'] = {'minimum': 1104, 'maximum': 1656, 'target': 1400}
+    transport = anchor_ids(data, schema)
+    bad = copy.deepcopy(good)
+    for i in range(85):
+        bad['changes'][f'a{i}'] += ' Extra.' * 4
+    with pytest.raises(ValueError) as invalid:
+        apply_edits(transport.decode(bad), data['previous_draft'], data['feedback'], 1104, 1656)
+    repair = transport.repair(revision_word_repair(data, schema, 1104, 1656))(json.dumps(bad), invalid.value)
+    assert repair is not None
+    alternatives = {f'a{i}': {'compact': good['changes'][f'a{i}'], 'full': bad['changes'][f'a{i}']}
+                    for i in range(85)}
+    return data, transport, repair, alternatives
+
+
+def test_remaining_alternatives_select_only_complete_phrases_and_keep_untouched_source():
+    data, transport, repair, choices = alternatives_case()
+    payload = json.loads(repair.input)
+    assert payload['revision_encoding'] == 'grounded_edit_alternatives_v1'
+    assert len(payload['feedback']) == len(payload['anchors']) == 85
+    assert all('marker' not in anchor for anchor in payload['anchors'])
+    restored = transport.decode(json.loads(repair.restore(json.dumps({'alternatives': choices}))))
+    text = apply_edits(restored, data['previous_draft'], data['feedback'], 1104, 1656)
+    assert len(text.split()) == 1400
+    assert {tuple(edit['finding_indices']) for edit in restored['edits']} == {(i,) for i in range(85)}
+    assert all(edit['after'] in choices[f'a{i}'].values() for i, edit in enumerate(restored['edits']))
+    assert 0 < sum(edit['after'] == choices[f'a{i}']['full'] for i, edit in enumerate(restored['edits'])) < 85
+    assert text.endswith(data['previous_draft'][data['previous_draft'].index('Event85 '):])
+
+
+@pytest.mark.parametrize('fault', ['missing', 'unknown', 'oversized', 'both-unchanged', 'infeasible', 'empty-omission'])
+def test_remaining_alternatives_fail_closed_without_a_complete_valid_selection(fault):
+    data, transport, repair, choices = alternatives_case()
+    if fault == 'missing':
+        del choices['a84']
+    elif fault == 'unknown':
+        choices['foreign'] = choices['a0']
+    elif fault == 'oversized':
+        choices['a0']['full'] = 'x' * 1025
+    elif fault == 'both-unchanged':
+        choices['a1'] = dict.fromkeys(('full', 'compact'), transport.data['anchor_clauses']['a1'])
+    elif fault == 'empty-omission':
+        choices['a1']['compact'] = ''
+    else:
+        for choice in choices.values():
+            choice['compact'] = choice['full']
+    with pytest.raises((ValueError, jsonschema.ValidationError)):
+        wire = json.loads(repair.restore(json.dumps({'alternatives': choices})))
+        apply_edits(transport.decode(wire), data['previous_draft'], data['feedback'], 1104, 1656)
