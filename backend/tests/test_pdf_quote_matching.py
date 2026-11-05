@@ -102,6 +102,18 @@ def test_independent_soft_hyphens_retain_native_geometry_indices():
     assert reconcile_unknown_characters(native, 'ras\u00adgos y creen\ufffdcias') is native
 
 
+def test_shared_unresolved_glyph_does_not_block_recovery_elsewhere_on_aligned_page():
+    from backend.domains.llm_wiki.pdf_quote_matching import PageTextIndex, reconcile_unknown_characters
+    text = 'x\ufffdras\ufffegos'
+    native = PageTextIndex(text, tuple(range(len(text))))
+    recovered = reconcile_unknown_characters(native, 'x\ufffd ras\u00adgos')
+    assert recovered.text == 'x\ufffdrasgos'
+    assert recovered.indices == (0, 1, 2, 3, 4, 6, 7, 8)
+    assert recovered.find('rasgos') == (2, 7)
+    assert reconcile_unknown_characters(native, 'xe ras\u00adgos') is native
+    assert reconcile_unknown_characters(native, 'x\ufffd ras\ufffdgos') is native
+
+
 def test_unknown_native_glyph_uses_independent_page_text_not_requested_quote(tmp_path, monkeypatch):
     from backend.services import llm_wiki_pdf_annotations as annotations
     from backend.domains.llm_wiki.pdf_quote_matching import PageTextIndex

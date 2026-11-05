@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as browserEvents from '../../../shared/platform/browser-events';
+import { toServedAssetUrl } from '../../../shared/resources/fileResourcePaths';
 import { ZoteroReaderTab } from './ZoteroReaderTab';
 
 interface ReactTestGlobal {
@@ -40,6 +41,13 @@ vi.mock('../../../shared/citations/zoteroLocale', () => ({
 
 vi.mock('../../../shared/api/transports', () => ({
   transportFetch: mocks.transportFetch,
+}));
+
+vi.mock('../../../shared/api/vault-context', () => ({
+  ACTIVE_VAULT_ID_KEY: 'gnosi_active_vault',
+  getActiveVaultId: () => 'vault-1',
+  getActiveVaultSlug: () => 'principal',
+  setActiveVaultCookie: vi.fn(),
 }));
 
 vi.mock('../../../shared/notifications/notifyError', () => ({ logError: vi.fn() }));
@@ -125,6 +133,11 @@ describe('ZoteroReaderTab', () => {
     '/api/vault/library/Research/An%C3%A0lisi%20de%20la%20religio%CC%81.pdf',
     'file:///Users/test/Library/Research/An%C3%A0lisi%20%2520%20%231.pdf',
     '/Users/test/Library/Research/Anàlisi %20 #1.pdf',
+    '/api/v1/vaults/another/knowledge/library/Book.pdf',
+    '/api/v1/vaults/principal/knowledge/library/Book.pdf?revision=2',
+    '/api/v1/vaults/principal/knowledge/library/Book.pdf?vault=vault-1&vault=another',
+    '/api/v1/vaults/principal/knowledge/library/Book.pdf?vault=&vault=another',
+    '/api/v1/vaults/principal/knowledge/library/Book.pdf?vault=another',
   ])('opens the original document source with the system app (%s)', async (src) => {
     const rendered = await renderReader({ src });
     const button = rendered.querySelector('button[title="Open with the system app"]');
@@ -143,6 +156,25 @@ describe('ZoteroReaderTab', () => {
       body: JSON.stringify({ path: src }),
       method: 'POST',
     });
+  });
+
+  it.each([
+    '/api/vault/library/Research/Anàlisi de la religio\u0301.pdf',
+    '/api/vault/library/Research/An%C3%A0lisi%20%2520%20%231.pdf',
+  ])('opens the attachment after active-vault routing (%s)', async (source) => {
+    const src = toServedAssetUrl(source);
+    expect(src).toContain('/api/v1/vaults/principal/knowledge/library/');
+    const rendered = await renderReader({ src });
+    const button = rendered.querySelector('button[title="Open with the system app"]');
+    if (!(button instanceof HTMLButtonElement)) throw new Error('Expected external open button');
+    await act(async () => {
+      button.click();
+      await Promise.resolve();
+    });
+    const call = mocks.transportFetch.mock.calls.find(
+      ([input]) => input === '/api/vault/open-local-path',
+    );
+    expect(call?.[1]).toMatchObject({ body: JSON.stringify({ path: source }), method: 'POST' });
   });
 
   it('shows the preserved fallback when no document source exists', async () => {
