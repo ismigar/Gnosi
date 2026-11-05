@@ -7,7 +7,7 @@ import ReadingCard from '../components/ReadingCard.astro';
 import ResourceList from '../components/ResourceList.astro';
 import ShareButtons from '../components/ShareButtons.astro';
 import Newsletter from '../components/Newsletter.astro';
-import {temenosLabels,publishedDate} from '../lib/temenos.mjs';
+import {temenosLabels,publishedDate,splitArticleImage} from '../lib/temenos.mjs';
 import {landingPath} from '../lib/routing.mjs';
 import '../lib/styles.css';
 import '../lib/temenos.css';
@@ -32,6 +32,9 @@ const hero=legacyHome && page.blocks.find(block=>block.type==='split');
 const blocks=page.blocks.filter(block=>!hero || block.id!==hero.id);
 const legacyText=temenosLabels(lang);
 const date=publishedDate(page,lang);
+const legacyArticle=site.legacy_pilot && page.template==='article';
+const articleContent=legacyArticle ? splitArticleImage(page.body_html) : null;
+const tagLinks=site.legacy_pilot ? (page.presentation?.tags || []).flatMap(tag=>{const target=pages.find(item=>item.id===`tag-${tag.tid}-${lang}`);return target ? [{label:tag.label,path:target.path}] : [];}) : [];
 const sharing=site.legacy_pilot && page.template==='article' && (page.source_ids||[]).some(id=>site.sources.some(source=>source.id===id && ['imported:blog','imported:research','imported:stories','imported:design'].includes(source.source_id)));
 const homeLink=nid=>records.find(record=>record.language===lang && Number(record.presentation?.nid)===nid)?.path;
 const navigationClass=link=>['action-link',...(['button','outline'].includes(link.appearance)?['button']:[]),...(link.appearance==='outline'?['button-outline']:[])].join(' ');
@@ -59,9 +62,12 @@ const socialIcon=label=>({mastodon:'mastodon',linkedin:'linkedin-in',facebook:'f
         </summary><form class="search-box" method="get" action={prefix(`/${lang}/search/node`)} role="search"><input name="keys" type="search" aria-label={text.search} placeholder={text.searchHint}/><button type="submit">{text.search}</button></form></details></nav></div></header>
   <main id="main-content" class:list={['wrap',{'temenos-home':legacyHome}]} data-pagefind-body={page.template==='article' || !['map','search'].includes(page.template) ? true : undefined}>
     {hero ? <section class="temenos-hero"><img class="temenos-hero-photo" src={href(hero.image)} alt="" fetchpriority="high"/><div class="wrap"><div class="temenos-hero-copy"><h1 data-pagefind-meta="title">{page.title}</h1><div class="record-body" set:html={html(hero.body_html)}/><Actions links={hero.actions ?? [homeLink(2656) && {label:legacyText.about,href:homeLink(2656),appearance:'button'},homeLink(5) && {label:legacyText.me,href:homeLink(5),appearance:'link'}].filter(Boolean)} lang={lang} className="hero-actions"/></div></div></section> : <h1 class="page-title" data-pagefind-meta="title">{page.title}</h1>}
-    {date && page.template==='article' && <p class="article-date"><time datetime={date.iso}>{date.text}</time>{page.presentation?.year && <> · {page.presentation.year}</>}</p>}
-    {site.legacy_pilot && page.presentation?.tags?.length>0 && <nav class="tag-list">{page.presentation.tags.map(tag=>{const target=pages.find(item=>item.id===`tag-${tag.tid}-${lang}`);return target && <a href={prefix(target.path)}>{tag.label}</a>;})}</nav>}
-    {page.body_html && <div class="reading record-body" set:html={html(page.body_html)}/>}
+    {date && page.template==='article' && !legacyArticle && <p class="article-date"><time datetime={date.iso}>{date.text}</time>{page.presentation?.year && <> · {page.presentation.year}</>}</p>}
+    {(page.body_html || (legacyArticle && date)) && <div class="reading record-body">
+      {articleContent?.image && <Fragment set:html={html(articleContent.image)}/>}
+      {legacyArticle && date && <p class="article-date">{legacyText.writtenBy} Ismael García Fernández - <time datetime={date.iso}>{date.short}</time></p>}
+      <Fragment set:html={html(articleContent ? articleContent.body : page.body_html)}/>
+    </div>}
     {page.fields && Object.keys(page.fields).length>0 && <dl class="record-fields">{Object.entries(page.fields).map(([key,value])=><><dt>{fieldLabel(key,page)}</dt><dd>{values(value).map((item,index)=><>{index>0 && ', '}{isLink(item)?<a href={href(item)} {...linkProps(item)}>{format(item)}</a>:format(item)}</>)}</dd></>)}</dl>}
     {page.template==='map' && <ul>{visiblePages.map(item=><li><a href={prefix(item.path)}>{item.title}</a></li>)}</ul>}
     {page.template==='search' && <div id="search" data-search-base={prefix('/pagefind/')} data-search-placeholder={text.searchHint}></div>}
@@ -79,6 +85,10 @@ const socialIcon=label=>({mastodon:'mastodon',linkedin:'linkedin-in',facebook:'f
       {block.type==='form' && site.forms.filter(form=>form.enabled && form.id===block.form_id).map(form=><ContactForm form={form} lang={lang} instance={block.id}/>)}
     </section>)}
     {feedPath && <p class="listing-rss"><a href={prefix(feedPath)}>RSS</a></p>}
+    {tagLinks.length>0 && <section class="entry-tags" aria-labelledby="entry-tags-title">
+      <h2 id="entry-tags-title"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 3h7l11 11-7 7L3 10Z"/><circle cx="7" cy="7" r="1"/><path d="m14 3 9 9"/></svg>{legacyText.tags}</h2>
+      <nav class="tag-list" aria-label={legacyText.tags}>{tagLinks.map(tag=><a class="button button-outline" href={prefix(tag.path)}>{tag.label}</a>)}</nav>
+    </section>}
     {sharing && <ShareButtons page={page} lang={lang}/>}
     {!site.legacy_pilot && alternatives.length>1 && <nav class="languages translations" data-pagefind-ignore>{alternatives.map(other=><a href={prefix(other.path)} data-search-language={page.template==='search'?true:undefined} lang={other.language} aria-current={other.language===lang?'page':undefined}>{other.language.split('-')[0].toUpperCase()}</a>)}</nav>}
   </main>

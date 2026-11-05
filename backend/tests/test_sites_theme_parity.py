@@ -149,3 +149,31 @@ def test_newsletter_privacy_links_follow_localized_footer_pages(imported_pilot, 
         assert link['href'] == '/_gnosi-proof/current' + path
         assert label.select_one('input[name="consent"][required]')
         assert (output / path.lstrip('/') / 'index.html').is_file()
+
+
+@pytest.mark.skipif(not (extension_root() / 'renderer/node_modules/node/bin/node').is_file(), reason='Pinned renderer required')
+def test_article_byline_follows_image_and_tags_follow_body(imported_pilot, tmp_path):
+    store, site, _, _ = imported_pilot
+    bundle = build_bundle(store, site, 'local').model_dump(mode='json')
+    bundle['deployment_url'] = 'https://example.invalid/_gnosi-proof/current'
+    for record in bundle['records']:
+        if record['presentation'].get('tags'):
+            record['body_html'] = '<figure><img src="/sites/default/files/photo.png" alt="Public image"><figcaption>Image caption</figcaption></figure><p>Article body preserved.</p>'
+            record['presentation']['created'] = 1793876400  # 5 November 2026.
+    output = tmp_path / 'public'
+    render_bundle(bundle, output)
+    for language, heading, byline in [('ca', 'Etiquetes', 'Escrit per'), ('es', 'Etiquetas', 'Escrito por'), ('en-gb', 'Tags', 'Written by')]:
+        page = BeautifulSoup((output / language / 'articles/translated/index.html').read_text(), 'html.parser')
+        body = page.select_one('main > .record-body')
+        assert [tag.name for tag in body.find_all(recursive=False)] == ['figure', 'p', 'p']
+        assert body.figure.figcaption.get_text() == 'Image caption'
+        assert body.select_one('.article-date').get_text().startswith(byline + ' Ismael García Fernández - 5 ')
+        assert body.select_one('.article-date time').get_text().endswith('2026')
+        assert body.select_one('p:last-child').get_text() == 'Article body preserved.'
+        assert len(page.select('.article-date')) == 1
+        tags = page.select_one('section.entry-tags')
+        assert tags.h2.get_text() == heading
+        assert tags.select_one('h2 svg[aria-hidden="true"]')
+        assert tags.select_one('nav a.button.button-outline')['href'] == '/_gnosi-proof/current/' + language + '/taxonomy/term/9'
+        assert tags.find_previous_sibling('div', class_='record-body') == body
+        assert tags.find_next_sibling().get('class') == ['entry-sharing']
