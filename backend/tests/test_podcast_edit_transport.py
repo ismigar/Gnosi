@@ -84,12 +84,15 @@ def test_invalid_complete_mapping_never_reaches_publishable_prose(fault):
         apply_edits(restored, data['previous_draft'], data['feedback'], 1104, 1656)
 
 
-def test_remaining_word_repair_restores_ids_inside_same_two_call_stage(runtime, monkeypatch):
+@pytest.mark.parametrize('unchanged_claim', [False, True])
+def test_remaining_word_repair_restores_ids_inside_same_two_call_stage(runtime, monkeypatch, unchanged_claim):
     scope, snapshot = runtime
     data, _, good = observed_case()
     bad = copy.deepcopy(good)
     for i in range(85):
         bad['changes'][f'a{i}'] += ' Extra.' * 4
+    if unchanged_claim:
+        bad['changes']['a6'] = _anchor_schema(data['previous_draft'])['enum'][6]
     words = [token for i in range(85) for token in
              [f'__gnosi_edit__:{i}', *good['changes'][f'a{i}'].split()]]
     calls = counted_workflow(monkeypatch, [json.dumps(bad), json.dumps({'replacement_tokens': words})])

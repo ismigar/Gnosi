@@ -24,11 +24,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 279 | 54314 |
+| `services` | 279 | 54355 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1099 modules** and **207636 source lines**.
+Total: **1099 modules** and **207677 source lines**.
 
 ## agent
 
@@ -1145,7 +1145,7 @@ Total: **1099 modules** and **207636 source lines**.
 | [`backend/services/podcast_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_policy.py) | 100 | 2 | 4 | 0 | 2 | Validated editorial preferences from the assigned, user-personalizable skill. |
 | [`backend/services/podcast_provider_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_provider_retry.py) | 79 | 0 | 2 | 1 | 0 | Retry transient podcast provider failures within existing call/deadline limits. |
 | [`backend/services/podcast_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_review.py) | 247 | 0 | 14 | 0 | 3 | Ground model criticisms in exact supplied evidence before automatic rewrites. |
-| [`backend/services/podcast_revision_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_revision_repair.py) | 103 | 0 | 2 | 0 | 0 | Repair reviewed edits inside their original call and complete word budget. |
+| [`backend/services/podcast_revision_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_revision_repair.py) | 144 | 0 | 3 | 0 | 1 | Repair reviewed edits inside their original call and complete word budget. |
 | [`backend/services/podcast_sources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_sources.py) | 22 | 0 | 1 | 0 | 1 | Readable source selection for daily podcasts. |
 | [`backend/services/principal_agent_migration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/principal_agent_migration.py) | 119 | 0 | 3 | 0 | 0 | Idempotent, backed-up migration from feature-owned agents to the principal. |
 | [`backend/services/project_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/project_planning.py) | 492 | 3 | 14 | 0 | 12 | Vault-scoped storage and pure calculations for project planning resources. |

@@ -10,7 +10,9 @@ import jsonschema
 
 from backend.services.agent_output_repair import OutputRepair, RepairBuilder
 from backend.services.podcast_brief_edits import apply_edits
-from backend.services.podcast_length_edits import composition_digest, word_stream_repair
+from backend.services.podcast_length_edits import (
+    REPAIR_MARKER_PREFIX, _stream_contract, composition_digest, word_stream_repair,
+)
 
 
 def _literal_anchors(proposal: dict[str, Any], previous: str) -> dict[str, Any] | None:
@@ -28,6 +30,34 @@ def _literal_anchors(proposal: dict[str, Any], previous: str) -> dict[str, Any] 
     return fixed
 
 
+def _fixed_original_stream(data: dict[str, Any], edits: list[dict[str, Any]],
+                           minimum: int, maximum: int) -> OutputRepair | None:
+    """An unchanged proposed after value does not invalidate its original anchor."""
+    previous = data['previous_composition']['paragraphs']['episode']['text']
+    anchors: list[dict[str, str]] = []
+    intervals: list[tuple[int, int]] = []
+    replaced = 0
+    for index, edit in enumerate(edits):
+        before = edit['before']
+        start = previous.find(before)
+        end = start + len(before)
+        if (not before.strip() or before != before.strip() or start < 0 or previous.count(before) != 1
+                or start and not previous[start - 1].isspace()
+                or end < len(previous) and not previous[end].isspace()):
+            return None
+        intervals.append((start, end))
+        replaced += len(before.split())
+        anchors.append({'marker': REPAIR_MARKER_PREFIX + str(index),
+                        'group_key': 'episode', 'before': before})
+    intervals.sort()
+    if any(left[1] > right[0] for left, right in zip(intervals, intervals[1:])):
+        return None
+    untouched = len(previous.split()) - replaced
+    if maximum - untouched < max(0, minimum - untouched):
+        return None
+    return _stream_contract(data, anchors, untouched, minimum, maximum, edit_limit=len(edits))
+
+
 def revision_word_repair(data: dict[str, Any], schema: dict[str, Any],
                          minimum: int, maximum: int) -> RepairBuilder:
     frozen, contract = deepcopy(data), deepcopy(schema)
@@ -36,6 +66,7 @@ def revision_word_repair(data: dict[str, Any], schema: dict[str, Any],
     def build(rejected: str, error: Exception) -> OutputRepair | None:
         if not isinstance(error, ValueError):
             return None
+        unchanged_replacement = False
         try:
             proposal = json.loads(rejected)
             jsonschema.validate(proposal, contract)
@@ -50,7 +81,16 @@ def revision_word_repair(data: dict[str, Any], schema: dict[str, Any],
                 return None
             if (detail['errors'] != [{'error': 'podcast_revision_word_budget'}]
                     or detail['word_budget']['scope'] != 'complete'):
-                return None
+                unresolved = detail['word_budget']['unresolved_edit_indices']
+                covered = {index for edit in fixed['edits'] for index in edit['finding_indices']}
+                if (not unresolved or covered != set(range(len(findings)))
+                        or any(fixed['edits'][index]['before'] != fixed['edits'][index]['after']
+                               for index in unresolved)
+                        or any(item['error'] not in {'podcast_revision_word_budget',
+                            'podcast_revision_requires_unique_original_anchor',
+                            'podcast_revision_must_address_all_findings'} for item in detail['errors'])):
+                    return None
+                unchanged_replacement = True
         except (ValueError, KeyError, TypeError, jsonschema.ValidationError):
             return None
         base = {'paragraphs': {'episode': {'text': previous, 'non_editorial': False}}}
@@ -59,8 +99,9 @@ def revision_word_repair(data: dict[str, Any], schema: dict[str, Any],
             {'group_key': 'episode', 'before': e['before'], 'after': e['after']} for e in fixed['edits']]}
         # Reuse the word codec for exactly this already validated edit set;
         # the semantic contract, not a synthetic single group, owns its size.
-        repair = word_stream_repair(length_data, minimum, maximum,
-            edit_limit=len(fixed['edits']))(json.dumps(length_proposal), error)
+        repair = (_fixed_original_stream(length_data, fixed['edits'], minimum, maximum)
+                  if unchanged_replacement else word_stream_repair(length_data, minimum, maximum,
+                    edit_limit=len(fixed['edits']))(json.dumps(length_proposal), error))
         if repair is None:
             return None
         by_before = {e['before']: e for e in fixed['edits']}
