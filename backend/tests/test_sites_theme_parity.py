@@ -116,3 +116,36 @@ def test_resource_lists_link_to_each_entry_in_home_and_listing(imported_pilot, t
             assert action.select_one('[aria-hidden="true"]').get_text() == '↗'
             checked += 1
     assert checked >= 4  # Research and stories on both home and collection pages.
+
+
+@pytest.mark.skipif(not (extension_root() / 'renderer/node_modules/node/bin/node').is_file(), reason='Pinned renderer required')
+def test_newsletter_privacy_links_follow_localized_footer_pages(imported_pilot, tmp_path):
+    store, site, _, _ = imported_pilot
+    bundle = build_bundle(store, site, 'local').model_dump(mode='json')
+    bundle['deployment_url'] = 'https://example.invalid/_gnosi-proof/current'
+    policies = {
+        'ca': ('Política de privacitat', '/ca/privacitat-configurada'),
+        'es': ('Política de privacidad', '/es/privacidad-configurada'),
+        'en-gb': ('Privacy Policy', '/en-gb/custom-privacy'),
+        'fr': ('Politique de confidentialité', '/fr/confidentialite-configuree'),
+    }
+    bundle['site']['languages'] = list(policies)
+    home = next(page for page in bundle['site']['pages'] if page['template'] == 'home')
+    french_home = deepcopy(home)
+    french_home.update(id='home-fr', language='fr', path='/fr')
+    bundle['site']['pages'].append(french_home)
+    bundle['site']['footer'] = []
+    for language, (title, path) in policies.items():
+        bundle['site']['footer'].append(dict(label=title, href=path, language=language))
+        policy = deepcopy(home)
+        policy.update(id='privacy-' + language, language=language, path=path, title=title, template='article', blocks=[])
+        bundle['site']['pages'].append(policy)
+    output = tmp_path / 'public'
+    render_bundle(bundle, output)
+    for language, (_, path) in policies.items():
+        page = BeautifulSoup((output / language / 'index.html').read_text(), 'html.parser')
+        label = page.select_one('.staging-subscription label.choice')
+        link = label.select_one('a')
+        assert link['href'] == '/_gnosi-proof/current' + path
+        assert label.select_one('input[name="consent"][required]')
+        assert (output / path.lstrip('/') / 'index.html').is_file()

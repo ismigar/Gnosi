@@ -1,8 +1,9 @@
 ---
-import {prefix} from '../lib/site.mjs';
+import {prefix,href,site} from '../lib/site.mjs';
 import {temenosLabels} from '../lib/temenos.mjs';
 const {lang}=Astro.props;
 const text=temenosLabels(lang);
+const privacy=site.footer.find(link=>link.language===lang && link.label.toLocaleLowerCase(lang)===text.privacy.toLocaleLowerCase(lang));
 ---
 <section class="newsletter" data-pagefind-ignore><div class="wrap newsletter-inner">
   <h2>{text.newsletter}</h2>
@@ -10,7 +11,7 @@ const text=temenosLabels(lang);
     <input type="hidden" name="action" value="subscribe"/><input type="hidden" name="language" value={lang}/><input type="hidden" name="list_id" value="main"/>
     <label for={`newsletter-email-${lang}`}>{text.email}</label><input id={`newsletter-email-${lang}`} type="email" name="email" required maxlength="254" placeholder="lectora@example.invalid" pattern="[^@\s]+@[^@\s]+\.invalid" autocomplete="off" aria-describedby={`newsletter-note-${lang}`}/>
     <div class="honeypot" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"/></label></div>
-    <label class="choice"><input type="checkbox" name="consent" value="1" required/>{text.consent}</label>
+    <label class="choice"><input type="checkbox" name="consent" value="1" required/><span>{privacy ? <>{text.consentStart} <a href={href(privacy.href)}>{text.privacy}</a></> : text.consent}</span></label>
     <button class="button button-light" type="submit">{text.subscribe}</button>
     <p class="newsletter-test-note" id={`newsletter-note-${lang}`}>{text.test}</p>
   </form>
