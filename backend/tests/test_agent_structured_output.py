@@ -31,7 +31,10 @@ def test_google_json_transport_retains_complete_local_schema_and_fixed_recipient
     assert json.loads(_validate_output('{"ids":["a","b"]}', schema)) == {'ids': ['a', 'b']}
 
 
-def test_deepinfra_wire_omits_unsupported_uniqueness_but_local_contract_still_rejects_duplicates():
+@pytest.mark.parametrize('model_id,upstream', [
+    ('fixture', 'deepinfra'), ('fixture', 'openai'), ('openai/gpt-fixture', 'chosen'),
+])
+def test_native_wire_omits_unsupported_uniqueness_but_local_contract_still_rejects_duplicates(model_id, upstream):
     import copy
     import jsonschema
     from backend.services.agent_execution import _validate_output
@@ -39,14 +42,14 @@ def test_deepinfra_wire_omits_unsupported_uniqueness_but_local_contract_still_re
         'items': {'$ref': '#/$defs/id'}}}, 'required': ['ids'], 'additionalProperties': False,
         '$defs': {'id': {'type': 'string', 'enum': ['a', 'b']}}}
     original = copy.deepcopy(schema)
-    model = ChatOpenAI(model='fixture', api_key='fixture', extra_body={
-        'provider': {'order': ['deepinfra'], 'allow_fallbacks': False}})
+    model = ChatOpenAI(model=model_id, api_key='fixture', extra_body={
+        'provider': {'order': [upstream], 'allow_fallbacks': False}})
     constrained = constrain_output(model, 'openrouter', schema)
     native = constrained.kwargs['response_format']['json_schema']['schema']
     assert 'uniqueItems' not in native['properties']['ids'] and schema == original
     assert native['$defs'] == schema['$defs']
     assert constrained.kwargs['extra_body']['provider'] == {
-        'order': ['deepinfra'], 'allow_fallbacks': False, 'require_parameters': True}
+        'order': [upstream], 'allow_fallbacks': False, 'require_parameters': True}
     with pytest.raises(jsonschema.ValidationError):
         _validate_output('{"ids":["a","a"]}', schema)
     assert json.loads(_validate_output('{"ids":["a","b"]}', schema)) == {'ids': ['a', 'b']}
@@ -54,12 +57,12 @@ def test_deepinfra_wire_omits_unsupported_uniqueness_but_local_contract_still_re
     assert constrain_output(other, 'openrouter', schema).kwargs['response_format']['json_schema']['schema'] == schema
 
 
-def test_deepinfra_adapter_preserves_literal_data_and_a_property_named_unique_items():
-    from backend.domains.agent.structured_output import _deepinfra_schema
+def test_native_adapter_preserves_literal_data_and_a_property_named_unique_items():
+    from backend.domains.agent.structured_output import _native_schema
     schema = {'type': 'object', 'properties': {'uniqueItems': {'type': 'array', 'uniqueItems': True,
         'items': {'type': 'object', 'enum': [{'uniqueItems': 'literal value'}]}}},
         'required': ['uniqueItems'], 'additionalProperties': False}
-    result = _deepinfra_schema(schema)
+    result = _native_schema(schema)
     assert 'uniqueItems' in result['properties']
     assert 'uniqueItems' not in result['properties']['uniqueItems']
     assert result['properties']['uniqueItems']['items']['enum'] == [{'uniqueItems': 'literal value'}]

@@ -19653,6 +19653,8 @@ export interface components {
             saved_chunks: number;
             /** Source Token Bound */
             source_token_bound: number;
+            /** Token Count Method */
+            token_count_method?: string | null;
             /** Warnings */
             warnings: string[];
         };

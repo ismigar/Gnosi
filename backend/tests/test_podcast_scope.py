@@ -295,7 +295,8 @@ def test_publication_and_cancellation_are_serialized(owner, monkeypatch, tmp_pat
     assert store.cancelled(owner, snapshot.parent_run_id)
 
 
-def test_timeout_with_empty_message_is_failed_instead_of_completed(owner, monkeypatch):
+@pytest.mark.parametrize('scheduled', [False, True])
+def test_timeout_with_empty_message_is_failed_instead_of_completed(owner, monkeypatch, scheduled):
     from contextlib import contextmanager
     snapshot, _, _ = audio._resolve_podcast_llm()
     snapshot = execution.create_job_run(snapshot, 'empty-timeout', 'podcast')
@@ -308,9 +309,36 @@ def test_timeout_with_empty_message_is_failed_instead_of_completed(owner, monkey
     monkeypatch.setattr('backend.data.db.get_db', database)
     monkeypatch.setattr(audio, '_resolve_podcast_llm', Mock(side_effect=TimeoutError()))
     with execution_scope(owner):
-        assert audio.generate_daily_podcast(snapshot) is None
+        if scheduled:
+            with pytest.raises(RuntimeError, match='^failed$'):
+                audio.generate_daily_podcast(snapshot, raise_on_failure=True)
+        else:
+            assert audio.generate_daily_podcast(snapshot) is None
         assert audio.get_generation_status()['error'] == 'TimeoutError'
     assert store.read(owner, snapshot.parent_run_id).status == 'failed'
+
+
+def test_scheduled_setup_failure_reports_safe_message_even_if_locale_is_unavailable(monkeypatch):
+    from backend.services import agent_execution_scope
+
+    monkeypatch.setattr(agent_execution_scope, 'personal_scheduler_scope',
+                        Mock(side_effect=RuntimeError('private setup details')))
+    monkeypatch.setattr(audio, '_resolve_podcast_language',
+                        Mock(side_effect=RuntimeError('private configuration details')))
+    with pytest.raises(RuntimeError, match='^Podcast generation failed. See the podcast run in Activity.$'):
+        audio.generate_scheduled_podcast()
+
+
+def test_database_startup_failure_releases_podcast_running_state(owner, monkeypatch):
+    def unavailable_database():
+        yield from ()
+        raise RuntimeError('Database unavailable')
+
+    monkeypatch.setattr('backend.data.db.get_db', unavailable_database)
+    with execution_scope(owner):
+        assert audio._generate_daily_podcast() is None
+        assert audio._generation_state()['error'] == 'Database unavailable'
+        assert audio._generation_state()['running'] is False
 
 
 def test_podcast_omissions_survive_memory_reset_and_reset_for_next_job(owner):

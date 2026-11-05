@@ -11,6 +11,7 @@ from backend.domains.llm_wiki.contextual_reading import fingerprint
 from backend.domains.llm_wiki.reading_action_contracts import action_schemas
 from backend.services import llm_wiki, llm_wiki_config, llm_wiki_extractors, llm_wiki_storage
 from backend.services.llm_wiki_reading_runtime import prepare_reading_runtime
+from backend.services.agent_context_budget import reading_price_counter
 from backend.services import reading_budget
 from backend.services.ai_usage_dashboard import currency_context
 from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, reduce_batch
@@ -34,6 +35,7 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     previous = llm_wiki_storage.get_job_status(resource_id, str(source_table.get("id") or ""))
     parts = identity_parts(runtime.identity, chunks, dimensions, index) if semantic else {}
     saved, previous_plans = _saved_state(previous, identity, semantic, force, source_title, language, parts)
+    count, token_method = reading_price_counter(runtime.provider, runtime.model)
     batch_size = batch_limit(batch_size, saved)
     remaining = [chunk for chunk in chunks if str(chunk["id"]) not in saved.get("plans", {})]
     # Same context bound as automatic delivery; conservative fixed full memory
@@ -49,19 +51,19 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     if saved.get("plans") and not saved.get("memory"):
         restore_calls = math.ceil(len(encoded(saved["plans"]).encode()) / max(1, runtime.input_budget//3)) + 1
     calls = len(groups) + 1 + restore_calls
-    source_bytes = sum(len(str(segment.get("text", "")).encode()) for origin in origins for segment in records(origin.get("segments")))
-    repeated = calls * (2*len(runtime.instructions.encode()) + 3*len(encoded(schema).encode()) + min(8000, runtime.input_budget//8) + 8192)
-    passages = sum(len(encoded(group).encode()) for group in groups)
-    restore_input = len(encoded(saved.get("plans", {})).encode()) if restore_calls else 0
+    source_tokens = sum(count(str(segment.get("text", ""))) for origin in origins for segment in records(origin.get("segments")))
+    repeated = calls * (2*count(runtime.instructions) + 3*count(encoded(schema)) + min(8000, runtime.input_budget//8) + 8192)
+    passages = sum(count(encoded(group)) for group in groups)
+    restore_input = count(encoded(saved.get("plans", {}))) if restore_calls else 0
     input_bound = 2*passages + repeated + 2*restore_input
     # Explicit planning assumptions; extra searches or larger notes remain
     # possible and are subject to the durable spending limit.
-    output_assumed = sum(len(encoded(chunk).encode()) for chunk in remaining)//2 + 512*calls
+    output_assumed = sum(count(encoded(chunk)) for chunk in remaining)//2 + 512*calls
     output_bound = 16384*calls
     semantic_cost = {}
     if semantic:
         from backend.services.reading_semantic_estimate import phase_estimate
-        semantic_cost = phase_estimate(runtime, chunks, remaining, dimensions, saved, batch_size)
+        semantic_cost = phase_estimate(runtime, chunks, remaining, dimensions, saved, batch_size, price_count=count)
         calls = semantic_cost["planned_calls"]
         restore_calls = 0
         input_bound = semantic_cost["input_token_bound"]
@@ -88,7 +90,7 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     budget = None
     if not force and previous.get("budget_id"):
         budget = reading_budget.status(str(previous["budget_id"]))
-    return {"_reading_identity": identity, "estimate_id": fingerprint([identity, source_title, language, rates, batch_size, len(saved.get("plans", {})), previous_plans]),
+    return {"_reading_identity": identity, "estimate_id": fingerprint([identity, source_title, language, rates, batch_size, len(saved.get("plans", {})), previous_plans, token_method, input_bound, output_assumed, high]),
             "provider": runtime.provider, "model": runtime.model, "currency": "USD", "priced": priced,
             "display_currency": currency_context(),
             "cost_in_per_million_usd": rates["cost_in"] if priced and rates else None,
@@ -96,7 +98,7 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
             "incompatible_saved_chunks": max(0, previous_plans-len(saved.get("plans", {}))),
             "chunks_total": len(chunks), "saved_chunks": len(saved.get("plans", {})), "remaining_chunks": len(remaining),
             "batch_size": batch_size, "planned_calls": calls, "memory_restore_calls": restore_calls,
-            "source_token_bound": source_bytes, "input_token_bound": input_bound,
+            "source_token_bound": source_tokens, "token_count_method": token_method, "input_token_bound": input_bound,
             "output_tokens_assumed": output_assumed, "output_token_bound": output_bound,
             "cost_usd": low, "cost_with_repairs_usd": high, "budget": budget, "warnings": warnings, **semantic_cost}
 

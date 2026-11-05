@@ -21,7 +21,7 @@ const DOCUMENTATION_IF = "(github.event_name == 'pull_request' && "
 const FRONTEND_NODE_OPTIONS = '--max-old-space-size=4096';
 const FRONTEND_RESOURCE_ENV = {
   NODE_OPTIONS: FRONTEND_NODE_OPTIONS,
-  GNOSI_VITEST_MAX_WORKERS: '2',
+  GNOSI_VITEST_MAX_WORKERS: '1',
   GNOSI_CI_SEALED_CACHE: '0',
   UV_PYTHON: 'cpython-3.11-macos-aarch64-none',
 };
@@ -31,7 +31,7 @@ const PYTHON_DOWNLOAD_ENV = {
   UV_CONCURRENT_DOWNLOADS: '4',
   UV_CONCURRENT_INSTALLS: '2',
 };
-const CI_PREDECESSORS = { frontend: 'backend', 'native-smoke': 'frontend', docker: 'native-smoke' };
+const CI_PREDECESSORS = { 'native-smoke': ['backend', 'frontend'], docker: 'native-smoke' };
 const BROWSER_ACCEPTANCE_STEP = 'Accept production browser workflows and restart persistence';
 const BROWSER_EVIDENCE_STEP = 'Preserve browser acceptance evidence';
 const HOSTED_CHROMIUM_SETUP = {
@@ -86,13 +86,13 @@ function assertFatalGates(workflow, reusableCI = false) {
   for (const [name, job] of Object.entries(workflow.jobs)) {
     const predecessor = reusableCI ? CI_PREDECESSORS[name] : undefined;
     if (reusableCI) {
-      assert.equal(job.needs, predecessor, `${name} must retain the reviewed shared-host order`);
+      assert.deepEqual(job.needs, predecessor, `${name} must retain the reviewed shared-host order`);
     }
     assert.equal(job['continue-on-error'], undefined, `${name} failure must remain fatal by default`);
     assert.equal(job.if, reusableCI
       ? (name === 'documentation' ? DOCUMENTATION_IF
         : name === 'docker' ? DOCKER_IF
-          : predecessor ? `!cancelled() && (${TRUSTED_PR_IF})` : TRUSTED_PR_IF) : undefined,
+          : (predecessor || name === 'frontend') ? `!cancelled() && (${TRUSTED_PR_IF})` : TRUSTED_PR_IF) : undefined,
     `${name} must retain its exact trust and cancellation guard`);
     if (reusableCI && name === 'native-smoke') {
       assert.deepEqual(job.steps.filter((step) => step.name === HOSTED_CHROMIUM_SETUP.name),
@@ -354,7 +354,7 @@ test('shared CI rejects reordered heavy jobs and extra test workers', () => {
       assert.throws(() => assertFatalGates(changed, true), assert.AssertionError);
     }
   }
-  for (const workers of [undefined, '1', '8']) {
+  for (const workers of [undefined, '2', '8']) {
     const changed = structuredClone(ci);
     changed.jobs.frontend.env.GNOSI_VITEST_MAX_WORKERS = workers;
     assert.throws(() => assertFrontendMemoryBudget(changed), assert.AssertionError);

@@ -5,6 +5,7 @@ from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION
 from backend.domains.llm_wiki.semantic_review_evidence import MAX_EVIDENCE_ROUNDS
 
 import math
+from collections.abc import Callable
 from typing import Any
 
 from backend.domains.llm_wiki.chunking import encoded
@@ -14,7 +15,8 @@ from backend.domains.llm_wiki.semantic_map_reduction import map_limit, reduction
 
 
 def phase_estimate(runtime: Any, chunks: list[dict[str, object]], remaining: list[dict[str, object]],
-                   dimensions: list[dict[str, object]], saved: dict[str, Any], batch_size: int) -> dict[str, Any]:
+                   dimensions: list[dict[str, object]], saved: dict[str, Any], batch_size: int,
+                   *, price_count: Callable[[str], int] | None = None) -> dict[str, Any]:
     budget = runtime.input_budget
     overview_count = len(overview_groups(chunks, runtime.count_tokens, budget))
     overview = max(0, overview_count - len(saved.get("overview_complete", {})))
@@ -37,14 +39,20 @@ def phase_estimate(runtime: Any, chunks: list[dict[str, object]], remaining: lis
     if saved.get("global_map") and runtime.count_tokens(saved["global_map"]) <= map_size:
         synthesis = 0
     extract = len(groups([chunk_view(c) for c in remaining], runtime.count_tokens, budget // 5, batch_size))
-    source = sum(len(encoded(chunk_view(c)).encode()) for c in chunks)
-    pending = sum(len(encoded(chunk_view(c)).encode()) for c in remaining)
+    measure = price_count or runtime.count_tokens
+    source_views = [encoded(chunk_view(c)) for c in chunks]
+    source = sum(measure(view) for view in source_views)
+    pending = sum(measure(encoded(chunk_view(c))) for c in remaining)
     expected_notes = source // 2
+    # Keep the existing conservative call plan independent of pricing units.
+    planning_source = sum(len(view.encode()) for view in source_views)
+    planning_notes = planning_source // 2
     known_notes = [note for plan in saved.get("plans", {}).values() for note in plan.get("notes", [])]
     if known_notes:
-        expected_notes = max(expected_notes, len(encoded(known_notes).encode()))
-    note_maps = math.ceil(expected_notes / max(1, budget // 3)) + 1 if not saved.get("notes_map") else 0
-    planned_reviews = math.ceil((2 * source + expected_notes) / max(1, budget // 3))
+        expected_notes = max(expected_notes, measure(encoded(known_notes)))
+        planning_notes = max(planning_notes, len(encoded(known_notes).encode()))
+    note_maps = math.ceil(planning_notes / max(1, budget // 3)) + 1 if not saved.get("notes_map") else 0
+    planned_reviews = math.ceil((2 * planning_source + planning_notes) / max(1, budget // 3))
     if known_notes and saved.get("review_size_limit"):
         planned_reviews = max(planned_reviews, math.ceil(len(known_notes) / max(1, saved["review_size_limit"])))
     valid_reviews = len(saved.get("reviewed_groups", {})) if saved.get("review_quality_version") == REVIEW_QUALITY_VERSION else 0
@@ -53,7 +61,7 @@ def phase_estimate(runtime: Any, chunks: list[dict[str, object]], remaining: lis
     schema = interpretation_schema(1, dimensions)
     # Full source maps stay in checkpoints. Only the two contracted navigation
     # maps recur in interpretation/review; originals remain separately priced.
-    repeated = calls * (2 * len(runtime.instructions.encode()) + 3 * len(encoded(schema).encode()) + 2 * map_size + 2048)
+    repeated = calls * (2 * measure(runtime.instructions) + 3 * measure(encoded(schema)) + 2 * map_size + 2048)
     inputs = 2 * pending + (source if overview else 0) + 2 * source * bool(review) + expected_notes * bool(note_maps) + repeated + 4000 * review
     return {"planned_calls": calls, "memory_restore_calls": 0, "input_token_bound": inputs,
             "evidence_round_calls": MAX_EVIDENCE_ROUNDS * review,
