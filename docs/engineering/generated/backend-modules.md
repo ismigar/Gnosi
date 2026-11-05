@@ -24,11 +24,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 277 | 53885 |
+| `services` | 277 | 53900 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1090 modules** and **206136 source lines**.
+Total: **1090 modules** and **206151 source lines**.
 
 ## agent
 
@@ -921,7 +921,7 @@ Total: **1090 modules** and **206136 source lines**.
 | [`backend/services/agent_capability_health.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_capability_health.py) | 258 | 0 | 13 | 0 | 7 | Persistent, bounded health checks for governed runtime capabilities. |
 | [`backend/services/agent_catalog_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_catalog_models.py) | 30 | 2 | 0 | 0 | 2 | Immutable catalog registration and resolved runtime capability values. |
 | [`backend/services/agent_commands.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_commands.py) | 50 | 0 | 3 | 0 | 0 | Explicit per-turn agent selection; command text is never an authority grant. |
-| [`backend/services/agent_context_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_context_budget.py) | 124 | 2 | 5 | 0 | 3 | Offline token accounting with an explicit conservative fallback. |
+| [`backend/services/agent_context_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_context_budget.py) | 139 | 2 | 5 | 0 | 3 | Offline token accounting with an explicit conservative fallback. |
 | [`backend/services/agent_correction_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_correction_contracts.py) | 116 | 1 | 4 | 0 | 1 | Conservative local reference checks for fully quoted proofreading requests. |
 | [`backend/services/agent_correction_output.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_correction_output.py) | 74 | 1 | 1 | 0 | 0 | Check explicit references locally; repair once with the same frozen executor. |
 | [`backend/services/agent_diagnostics.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_diagnostics.py) | 46 | 0 | 1 | 0 | 0 | Explicit model diagnostics using the common transport and usage ledger. |
