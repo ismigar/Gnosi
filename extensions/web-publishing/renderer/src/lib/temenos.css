@@ -123,6 +123,7 @@
   .temenos-site .share-icon{display:flex;width:24px;height:24px;align-items:center;justify-content:center}
   .temenos-site .share-icon svg{display:block;width:100%;height:100%;fill:currentColor}
   .temenos-site .a2a_button_email .share-icon svg{fill:none}
-  .temenos-site .share-tooltip{position:absolute;left:0;bottom:calc(100% + .5rem);z-index:2;padding:.3rem .6rem;border-radius:.3rem;background:var(--primary,#264653);color:var(--background,#f5efe7);font-size:.85rem;line-height:1.4;white-space:nowrap;pointer-events:none;visibility:hidden;opacity:0}
+  .temenos-site .share-tooltip{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + .5rem);z-index:2;padding:.3rem .6rem;border-radius:.3rem;background:var(--primary,#264653);color:var(--background,#f5efe7);font-size:.85rem;line-height:1.4;white-space:nowrap;pointer-events:none;visibility:hidden;opacity:0}
+  .temenos-site :is(.a2a_button_whatsapp,.a2a_button_email) .share-tooltip{left:0;transform:none}
   .temenos-site .share-links a:is(:hover,:focus-visible) .share-tooltip{visibility:visible;opacity:1}
 }
