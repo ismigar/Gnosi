@@ -89,8 +89,8 @@ test('website file references upload through a modal, preview and persist', asyn
   const catalogueMs = Date.now() - catalogueStart; expect(catalogueMs).toBeLessThan(15_000);
   await testInfo.attach('catalogue-latency', { body: JSON.stringify({ milliseconds: catalogueMs }), contentType: 'application/json' });
   await page.getByRole('button', { name: 'Add page', exact: true }).click();
-  await page.getByRole('button', { name: 'Add block', exact: true }).click();
-  await page.getByLabel('Block type', { exact: true }).selectOption('cta');
+  await page.getByRole('button', { name: 'Add block', exact: true }).last().click();
+  await page.getByLabel('Block type', { exact: true }).last().selectOption('cta');
   await page.getByRole('button', { name: 'Upload Link', exact: true }).click();
   const fileDialog = page.getByRole('dialog', { name: 'Upload Link', exact: true });
   await fileDialog.locator('input[type=file]').setInputFiles({ name: 'guide.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\nDisposable public fixture') });
