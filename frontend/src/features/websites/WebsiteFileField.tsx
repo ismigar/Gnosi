@@ -12,5 +12,5 @@ export function WebsiteAssetProvider({ siteId, context, revision, register, chil
 }
 export function WebsiteFileField({ value, label, kind = 'file', onChange }: { value: string; label: string; kind?: 'image' | 'font' | 'file'; onChange: (value: string) => void }) {
   const scope = useContext(AssetContext); const id = useId();
-  return scope ? <ThemeAssetPicker {...scope} assetKey={id} value={value} label={label} kind={kind} disabled={false} onChange={onChange} /> : <Input value={value} onChange={event => { onChange(event.target.value); }} />;
+  return scope ? <ThemeAssetPicker {...scope} assetKey={id} value={value} label={label} kind={kind} disabled={false} onChange={onChange} /> : <Input aria-label={label} value={value} onChange={event => { onChange(event.target.value); }} />;
 }
