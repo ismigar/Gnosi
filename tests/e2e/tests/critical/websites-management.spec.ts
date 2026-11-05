@@ -72,6 +72,8 @@ test('website file references upload through a modal, preview and persist', asyn
   await form.getByLabel('Title', { exact: true }).fill('Retained form title');
   await form.locator('summary').click(); await expect(form).not.toHaveAttribute('open', '');
   await form.locator('summary').click(); await expect(form.getByLabel('Title', { exact: true })).toHaveValue('Retained form title');
+  await settleVisualState(page);
+  await page.screenshot({ path: testInfo.outputPath('website-foldable-forms.png'), fullPage: true });
   await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
   await page.getByRole('button', { name: 'Upload Logo', exact: true }).click();
   const logoDialog = page.getByRole('dialog', { name: 'Upload Logo', exact: true });
@@ -90,7 +92,7 @@ test('website file references upload through a modal, preview and persist', asyn
   await testInfo.attach('catalogue-latency', { body: JSON.stringify({ milliseconds: catalogueMs }), contentType: 'application/json' });
   await page.getByRole('button', { name: 'Add page', exact: true }).click();
   await page.getByRole('button', { name: 'Add block', exact: true }).last().click();
-  await page.getByLabel('Block type', { exact: true }).last().selectOption('cta');
+  await page.getByRole('combobox', { name: 'Block type', exact: true }).last().selectOption('cta');
   await page.getByRole('button', { name: 'Upload Link', exact: true }).click();
   const fileDialog = page.getByRole('dialog', { name: 'Upload Link', exact: true });
   await fileDialog.locator('input[type=file]').setInputFiles({ name: 'guide.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\nDisposable public fixture') });
@@ -99,6 +101,7 @@ test('website file references upload through a modal, preview and persist', asyn
   const saved = page.waitForEvent('download'); await download.click();
   expect((await saved).suggestedFilename()).toMatch(/\.pdf$/u);
   await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await settleVisualState(page);
   await page.screenshot({ path: testInfo.outputPath('website-file-modal-preview.png'), fullPage: true });
   await page.reload(); await page.getByRole('tab', { name: 'Pages', exact: true }).click();
   await expect(page.locator('.websites-asset-link')).toBeVisible();
