@@ -24,6 +24,44 @@ def selection_case():
     return reader, primary, request, answer, selection
 
 
+def test_single_document_context_is_shared_without_changing_originals_or_quotes():
+    from backend.domains.llm_wiki.semantic_repairs import quote_choices
+    from backend.domains.llm_wiki.semantic_quote_contracts import source_key
+
+    _, _, request, answer, _ = selection_case()
+    for source in request['primary_passages']:
+        source['document'] = 'A complete document label with attribution.pdf'
+    before = deepcopy(request)
+    selection = quote_selection(request)
+    payload = json.loads(selection.input)
+    expected, _, _ = quote_choices(request['primary_passages'])
+    assert payload['source_document'] == request['primary_passages'][0]['document']
+    assert all('document' not in source for source in payload['source_quotes'])
+    assert [{**source, 'document': payload['source_document']} for source in payload['source_quotes']] == expected
+    assert request == before
+    restored = json.loads(selection.restore(encoded(answer)))
+    assert restored['passages'][0]['notes'][0]['quote_source_keys'][0] == source_key(request['primary_passages'][0])
+
+
+def test_review_reuses_identical_primary_contracts_without_loosening_quote_choices():
+    _, primary, _, answer, interpretation = selection_case()
+    note = json.loads(interpretation.restore(encoded(answer)))['passages'][0]['notes'][0]
+    request = {'reading_engine': 'semantic', 'phase': 'verify', 'output_schema': review_schema(2, []),
+               'notes': [{'note': deepcopy(note), 'primary': source_view(primary[0]), 'support': []}
+                         for _ in range(2)], 'retrieved_originals': [source_view(primary[1])]}
+    selection = quote_selection(request)
+    changes = selection.schema['properties']['changes']['properties']
+    assert changes['note_1']['anyOf'][2] == changes['note_2']['anyOf'][2]
+    assert '$ref' in changes['note_1']['anyOf'][2]
+    payload = json.loads(selection.input)
+    replacement = deepcopy(answer['passages']['passage_1']['notes'][0])
+    result = {'assessment': 'Verified.', 'changes': {'note_1': replacement, 'note_2': None}, 'warnings': []}
+    assert json.loads(selection.restore(encoded(result)))['changes'][0]['replacement']['quotes'] == note['quotes']
+    replacement['primary_quote_ids'] = [payload['source_quotes'][1]['quotes'][0]['quote_id']]
+    with pytest.raises(ValueError):
+        selection.restore(encoded(result))
+
+
 def test_first_response_keeps_complete_originals_and_returns_only_literal_citations():
     reader, primary, request, answer, selection = selection_case()
     before = deepcopy(request)
