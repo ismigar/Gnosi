@@ -80,10 +80,10 @@ async function registerLocalFile(rawSrc: string): Promise<string> {
 }
 
 export async function openReaderDocumentExternally(rawSrc: string): Promise<void> {
-  const filePath = toFilesystemPath(rawSrc);
-  if (!filePath) return;
+  if (!rawSrc) return;
+  // The backend resolves served routes, local paths and escaped file URLs.
   const response = await transportFetch('/api/vault/open-local-path', {
-    body: JSON.stringify({ path: `file://${filePath}` }),
+    body: JSON.stringify({ path: rawSrc }),
     headers: { 'Content-Type': 'application/json' },
     method: 'POST',
   });

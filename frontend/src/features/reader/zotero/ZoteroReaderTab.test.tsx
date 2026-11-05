@@ -120,6 +120,31 @@ afterEach(() => {
 });
 
 describe('ZoteroReaderTab', () => {
+  it.each([
+    '/api/vault/library/Research/Anàlisi de la religio\u0301.pdf',
+    '/api/vault/library/Research/An%C3%A0lisi%20de%20la%20religio%CC%81.pdf',
+    'file:///Users/test/Library/Research/An%C3%A0lisi%20%2520%20%231.pdf',
+    '/Users/test/Library/Research/Anàlisi %20 #1.pdf',
+  ])('opens the original document source with the system app (%s)', async (src) => {
+    const rendered = await renderReader({ src });
+    const button = rendered.querySelector('button[title="Open with the system app"]');
+    if (!(button instanceof HTMLButtonElement)) throw new Error('Expected external open button');
+
+    await act(async () => {
+      button.click();
+      await Promise.resolve();
+    });
+
+    const calls = mocks.transportFetch.mock.calls.filter(
+      ([input]) => input === '/api/vault/open-local-path',
+    );
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.[1]).toMatchObject({
+      body: JSON.stringify({ path: src }),
+      method: 'POST',
+    });
+  });
+
   it('shows the preserved fallback when no document source exists', async () => {
     const rendered = await renderReader({ src: '' });
 
