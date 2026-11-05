@@ -83,7 +83,7 @@ def episode_stream(original: str, accepted: range) -> OutputRepair | None:
     if stream is None:
         return None
     # Include Latin diacritics explicitly in the portable word pattern.
-    letters = r"(?:[^\W_]|[\u00c0-\u02af\u0300-\u036f])"
+    letters = r"(?:[^\W_]|[\u00c0-\u02af\u0300-\u036f]|[lL]·[lL])"
     word_pattern = rf"""^[('"“‘«¿¡\[]*{letters}+(?:[’'‐‑–-]{letters}+|[.,:/][0-9]+)*[.,;:!?…%€$)'"”’»\]]*$"""
     wire_schema = _object({'words': {'type': 'array', 'minItems': accepted.start,
         'maxItems': accepted.stop - 1, 'items': {'type': 'string', 'minLength': 1,

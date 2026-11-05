@@ -202,12 +202,12 @@ def test_observed_39_passage_day_uses_one_shared_bounded_word_stream(runtime, mo
     assert bounds == {'minimum': 1050, 'maximum': 1749}
 
 
-@pytest.mark.parametrize('invalid', ['whitespace', 'joined', 'marker', 'overlong', 'empty', 'too_many'])
+@pytest.mark.parametrize('invalid', ['whitespace', 'joined', 'joined_middle_dot', 'marker', 'overlong', 'empty', 'too_many'])
 def test_episode_words_reject_packed_prose_markers_and_invalid_words(invalid):
     from backend.services.podcast_passage_length import episode_stream
     repair = episode_stream('One original. Another original.', range(2, 21))
     words = ['One', 'shorter.', 'Another', 'shorter.']
-    replacements = {'whitespace': 'two words', 'joined': 'first»second',
+    replacements = {'whitespace': 'two words', 'joined': 'first»second', 'joined_middle_dot': 'first·second',
                     'marker': '__gnosi_edit__:1', 'overlong': 'a' * 129}
     if invalid in replacements:
         words[1] = replacements[invalid]
@@ -219,7 +219,7 @@ def test_episode_words_reject_packed_prose_markers_and_invalid_words(invalid):
         repair.restore(json.dumps({'words': words}))
 
 
-@pytest.mark.parametrize('word', ['l’Índia,', 'aujourd’hui', 'COVID-19.', '75,2%', '12:30', '“Avui”', 'développement', 'niñez', 'e\u0301vidence'])
+@pytest.mark.parametrize('word', ['l’Índia,', 'aujourd’hui', 'COVID-19.', '75,2%', '12:30', '“Avui”', 'développement', 'niñez', 'e\u0301vidence', 'intel·ligència', 'col·laboració', 'paral·lel', 'COL·LABORACIÓ'])
 def test_episode_word_transport_supports_spoken_words_in_the_supported_languages(word):
     from backend.services.podcast_passage_length import episode_stream
     repair = episode_stream('Original.', range(1, 21))
