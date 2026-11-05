@@ -104,6 +104,7 @@ test('website file references upload through a modal, preview and persist', asyn
   await settleVisualState(page);
   await page.screenshot({ path: testInfo.outputPath('website-file-modal-preview.png'), fullPage: true });
   await page.reload(); await page.getByRole('tab', { name: 'Pages', exact: true }).click();
+  await page.getByLabel('Link', { exact: true }).scrollIntoViewIfNeeded();
   await expect(page.locator('.websites-asset-link')).toBeVisible();
   await expect(page.getByLabel('Link', { exact: true })).toHaveValue(/\.pdf$/u);
   await page.getByRole('button', { name: 'Delete website', exact: true }).click();
