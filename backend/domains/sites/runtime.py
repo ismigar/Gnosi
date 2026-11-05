@@ -28,8 +28,10 @@ from .storage import SiteStore, private_json
 
 def connection(store: SiteStore, site_id: str, target_id: str) -> TargetConnection:
     from .private_service import service_root
+    from .connection_credentials import decorated
     path = service_root(store, site_id, target_id) / "connection.json"
-    return TargetConnection.model_validate_json(path.read_text()) if path.exists() else TargetConnection()
+    value = TargetConnection.model_validate_json(path.read_text()) if path.exists() else TargetConnection()
+    return decorated(store, site_id, target_id, value)
 
 
 def save_connection(store: SiteStore, site_id: str, target_id: str, settings: TargetConnection) -> TargetConnection:
@@ -50,8 +52,8 @@ def save_connection(store: SiteStore, site_id: str, target_id: str, settings: Ta
         raise HTTPException(422, "The service directory must be outside the public document root")
     if settings.ssh_key_reference and not re.fullmatch(r"[a-zA-Z0-9_-]+", settings.ssh_key_reference):
         raise HTTPException(422, "Invalid SSH key reference")
-    private_json(service_root(store, site_id, target_id) / "connection.json", settings.model_dump(mode="json"))
-    return settings
+    private_json(service_root(store, site_id, target_id) / "connection.json", settings.model_dump(mode="json", exclude={"password_configured"}))
+    return connection(store, site_id, target_id)
 
 
 def _ssh_argv(settings: TargetConnection) -> list[str]:
@@ -60,19 +62,15 @@ def _ssh_argv(settings: TargetConnection) -> list[str]:
     ssh = shutil.which("ssh")
     if not ssh:
         raise HTTPException(503, "SSH is unavailable")
-    if settings.ssh_key_reference:
-        raise HTTPException(409, "Use an SSH-agent identity for this destination")
-    return [ssh, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "ConnectTimeout=10", "-p", str(settings.port), settings.username + "@" + settings.host]
+    from .ssh_transport import ssh_argv
+    return ssh_argv(settings)
 
 
 def _ssh(settings: TargetConnection, command: str, payload: bytes | None = None, timeout: int = 45) -> bytes:
-    try:
-        result = subprocess.run(_ssh_argv(settings) + [command], input=payload, capture_output=True, timeout=timeout, check=False)
-        if result.returncode:
-            raise ValueError("SSH command failed")
-        return result.stdout
-    except (OSError, ValueError, subprocess.TimeoutExpired):
-        raise HTTPException(503, "The SSH operation could not complete; refresh status before retrying") from None
+    from .ssh_transport import run_ssh
+    # Keep destination completeness checks shared with the existing entry point.
+    _ssh_argv(settings)
+    return run_ssh(settings, command, payload, timeout, settings._password)
 
 
 def probe(store: SiteStore, site: SiteConfig, target_id: str) -> ConnectionStatus:
@@ -86,13 +84,21 @@ def probe(store: SiteStore, site: SiteConfig, target_id: str) -> ConnectionStatu
     if target.adapter == "local":
         return ConnectionStatus(configured=True, reachable=bool(shutil.which("php")), detail="php" if shutil.which("php") else "php_unavailable")
     settings = connection(store, site.id, target_id)
+    sftp_ready = False
     try:
+        if settings.transfer_protocol == "sftp":
+            from .ssh_transport import probe_sftp
+            sftp_ready = probe_sftp(settings, password=settings._password)
+            if not sftp_ready:
+                return ConnectionStatus(configured=True, reachable=False, detail="sftp_unavailable")
         output = _ssh(settings, "php -r " + shlex.quote('echo json_encode(["php"=>PHP_VERSION_ID,"sqlite"=>extension_loaded("pdo_sqlite")]);'))
         details: object = json.loads(output)
         ready = isinstance(details, dict) and isinstance(details.get("php"), int) and details["php"] >= 80000 and details.get("sqlite") is True
-        return ConnectionStatus(configured=True, reachable=ready, detail="ready" if ready else "php_sqlite_unavailable")
+        detail = "ready" if ready else "sftp_ready_runtime_unavailable" if sftp_ready else "php_sqlite_unavailable"
+        return ConnectionStatus(configured=True, reachable=ready or sftp_ready, detail=detail)
     except (HTTPException, ValueError):
-        return ConnectionStatus(configured=bool(settings.host), reachable=False, detail="connection_failed")
+        return ConnectionStatus(configured=bool(settings.host), reachable=sftp_ready,
+                                detail="sftp_ready_shell_unavailable" if sftp_ready else "connection_failed")
 
 
 def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
@@ -291,6 +297,11 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
     _ssh(settings, "php -r " + shlex.quote(setup))
     def write_file(relative: str, data: bytes, *, private: bool = False) -> None:
         base = "$p" if private else "gnosi_release($id)"
+        if settings.transfer_protocol == "sftp":
+            from .site_file_transfer import write_sftp
+            write_sftp(settings, namespace, identity, base, relative, data, private_root,
+                       private, lambda code: _ssh(settings, "php -r " + shlex.quote(code)))
+            return
         code = namespace + identity + 'gnosi_namespace();gnosi_write(' + base + ',' + json.dumps(relative) + ',file_get_contents("php://stdin"),' + ("0600" if private else "0644") + ');'
         _ssh(settings, "php -r " + shlex.quote(code), data)
     manifest: dict[str, str] = {}

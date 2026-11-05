@@ -41,7 +41,7 @@ beforeEach(() => {
   vi.mocked(api.localTargetStatus).mockResolvedValue({ running: false, url: 'http://127.0.0.1:4321' });
   vi.mocked(api.serveTarget).mockResolvedValue({ running: true, url: 'http://127.0.0.1:4321' });
   vi.mocked(api.stopLocalTarget).mockResolvedValue({ running: false, url: 'http://127.0.0.1:4321' });
-  vi.mocked(api.getTargetConnection).mockResolvedValue({ local_port: 4321, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', document_root: '', remote_private_root: '' });
+  vi.mocked(api.getTargetConnection).mockResolvedValue({ local_port: 4321, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' });
 });
 afterEach(() => { vi.useRealTimers(); });
 
@@ -253,7 +253,7 @@ describe('Webs manager', () => {
     act(() => { changeInput(control(view.container, 'websites.localPort'), '4340'); });
     expect(button(view.container, 'websites.startLocal').disabled).toBe(true);
     await autosave(); expect(api.saveTargetConnection).toHaveBeenCalledWith(base.id, 'local', expect.objectContaining({ local_port: 4340 }), context, expect.any(AbortSignal));
-    act(() => { finish({ local_port: 4340, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', document_root: '', remote_private_root: '' }); }); await settle();
+    act(() => { finish({ local_port: 4340, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' }); }); await settle();
     expect(button(view.container, 'websites.startLocal').disabled).toBe(false);
     expect([...view.container.querySelectorAll('button')].some(item => item.textContent === 'websites.saveConnection')).toBe(false);
   });
@@ -262,7 +262,7 @@ describe('Webs manager', () => {
     const privateValue: api.ServiceSettingsResponse = { configured: true, test_mode: true, smtp_host: '', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
     vi.mocked(api.getServiceSettings).mockResolvedValue(privateValue);
     vi.mocked(api.saveServiceSettings).mockResolvedValue(privateValue);
-    vi.mocked(api.saveTargetConnection).mockResolvedValue({ local_port: 4340, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', document_root: '', remote_private_root: '' });
+    vi.mocked(api.saveTargetConnection).mockResolvedValue({ local_port: 4340, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' });
     const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, section); await settle();
     act(() => { changeInput(control(view.container, section === 'settings' ? 'websites.smtpHost' : 'websites.localPort'), section === 'settings' ? 'smtp.example.invalid' : '4340'); });
     view.unmount(); await settle(); await settle();
@@ -272,7 +272,7 @@ describe('Webs manager', () => {
 
   it.each(['settings', 'publishing'])('prevents edits while refreshing %s settings instead of overwriting a fresh edit', async section => {
     const privateValue: api.ServiceSettingsResponse = { configured: true, test_mode: true, smtp_host: 'stored-host', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
-    const connection: api.TargetConnection = { local_port: 4321, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', document_root: '', remote_private_root: '' };
+    const connection: api.TargetConnection = { local_port: 4321, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' };
     let finishPrivate: (value: api.ServiceSettingsResponse) => void = () => undefined;
     let finishConnection: (value: api.TargetConnection) => void = () => undefined;
     vi.mocked(api.getServiceSettings).mockResolvedValueOnce(privateValue).mockReturnValueOnce(new Promise(resolve => { finishPrivate = resolve; }));
@@ -320,7 +320,7 @@ describe('Webs manager', () => {
   });
 
   it('flushes connection edits together with pending public target configuration on close', async () => {
-    vi.mocked(api.saveTargetConnection).mockResolvedValue({ local_port: 4349, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', document_root: '', remote_private_root: '' });
+    vi.mocked(api.saveTargetConnection).mockResolvedValue({ local_port: 4349, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' });
     const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'publishing'); await settle();
     act(() => { changeInput(control(view.container, 'websites.localPort'), '4349'); });
     act(() => { changeInput(control(view.container, 'websites.name'), 'Renamed local target'); });
@@ -341,7 +341,7 @@ describe('Webs manager', () => {
     expect(button(view.container, 'websites.publishReviewed').disabled).toBe(true);
     await autosave();
     expect(button(view.container, 'websites.reviewChanges').disabled).toBe(true);
-    act(() => { finish({ local_port: 4349, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', document_root: '', remote_private_root: '' }); }); await settle();
+    act(() => { finish({ local_port: 4349, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' }); }); await settle();
     expect(button(view.container, 'websites.reviewChanges').disabled).toBe(false);
     expect(button(view.container, 'websites.publishReviewed').disabled).toBe(true);
     expect(api.publishSite).not.toHaveBeenCalled();

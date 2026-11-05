@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import sanitizeHtml from 'sanitize-html';
 import postcss from 'postcss';
+import {importedLocalLink} from './routing.mjs';
 
 export const bundle = JSON.parse(fs.readFileSync('bundle.json', 'utf8'));
 export const site = bundle.site;
@@ -24,7 +25,7 @@ export function href(value) {
   try {
     const parsed = new URL(text);
     if (!['http:', 'https:', 'mailto:', 'tel:'].includes(parsed.protocol)) return '#';
-    if (parsed.origin === new URL(site.origin).origin) return prefix(parsed.pathname) + parsed.search + parsed.hash;
+    if (parsed.origin === new URL(site.origin).origin && (site.legacy_pilot || importedLocalLink(pages,parsed))) return prefix(parsed.pathname) + parsed.search + parsed.hash;
     return parsed.href;
   } catch { return '#'; }
 }

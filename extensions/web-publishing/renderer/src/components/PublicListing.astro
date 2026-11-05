@@ -11,7 +11,28 @@ const tagIds=record=>JSON.stringify((record.presentation?.tags || []).filter(tag
 ---
 <div data-public-listing data-page-size={source?.page_size || 16} data-page-label={text.page} data-empty-label={text.empty}>
   {source?.show_tag_filter && tags.size>0 && <form class="listing-filter" data-listing-filter method="get"><label>{text.filter}<select name="tag"><option value="">{text.all}</option>{[...tags].sort((a,b)=>a[1].localeCompare(b[1],lang)).map(([id,label])=><option value={id}>{label}</option>)}</select></label><button type="submit">{text.apply}</button></form>}
-  {source?.presentation==='table' ? <div class="table-scroll"><table><thead><tr><th scope="col">{title}</th>{fields.map(key=><th scope="col">{fieldLabel(key)}</th>)}</tr></thead><tbody>{items.map(record=><tr data-listing-item data-tags={tagIds(record)}><td><a href={prefix(record.path)}>{record.title}</a></td>{fields.map(key=><td>{format(record.fields[key])}</td>)}</tr>)}</tbody></table></div> : <div class:list={['public-listing-items',{'block-grid':!resource && source?.presentation!=='list'}]}>
+  {source?.presentation==='table' ? (
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">{title}</th>
+            {fields.map(key => <th scope="col">{fieldLabel(key)}</th>)}
+            <th scope="col">{text.actions}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map(record => (
+            <tr data-listing-item data-tags={tagIds(record)}>
+              <td><a href={prefix(record.path)}>{record.title}</a></td>
+              {fields.map(key => <td>{format(record.fields[key])}</td>)}
+              <td><a class="text-link table-record-link" href={prefix(record.path)} aria-label={`${text.show}: ${record.title}`}>{text.show}<span aria-hidden="true">↗</span></a></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  ) : <div class:list={['public-listing-items',{'block-grid':!resource && source?.presentation!=='list'}]}>
     {items.map(record=><div data-listing-item data-tags={tagIds(record)}>{resource ? <ResourceList items={[record]}/> : <ReadingCard record={record} lang={lang}/>}</div>)}
   </div>}
   <p data-listing-status role="status" aria-live="polite"></p>

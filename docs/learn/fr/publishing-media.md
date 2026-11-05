@@ -48,3 +48,11 @@ La configuration est enregistrée automatiquement. Vérifiez l’état de sauveg
 Dans Newsletters, choisissez la destination et la langue, puis ajoutez des contenus déjà publiés à un brouillon de synthèse ou de lecture mise en avant. La liste affiche d’abord les contenus les plus récents. Ordonnez jusqu’à vingt pages uniques, ajoutez une introduction et vérifiez le HTML, le texte brut et les destinataires avant de mettre explicitement un test en file d’attente. Les brouillons sont enregistrés automatiquement par site et destination ; toute modification de publication ou du brouillon nécessite une nouvelle révision. Les emails de test capturés sont consultables depuis la file d’envoi ; leur lecture n’active pas les liens de confirmation ou de désabonnement. Utilisez les commandes explicites de test de liens si nécessaire.
 
 Le pilote actuel permet uniquement la publication dans l’espace de test protégé et la capture d’emails pour des destinataires synthétiques. La publication en production et l’envoi réel sont désactivés. Chaque destination nécessite aussi les dépendances de génération du site et du service privé ; vérifiez sa connexion avant de publier. Si le résultat d’une action est incertain, actualisez son état avant de réessayer.
+
+### Importer un site et configurer sa connexion
+
+Dans **Créer un site**, choisissez un site vide ou une importation par URL. Indiquez son adresse publique, analysez-la et vérifiez les pages, langues et avertissements avant d’importer la sélection. Les pages deviennent modifiables sans publication. Les services et formulaires d’origine du serveur ne sont pas migrés automatiquement.
+
+Dans **Hébergement**, configurez le serveur, port, utilisateur, dossiers et authentification par agent SSH, clé de l’appareil ou mot de passe. Transférez les fichiers par SSH ou SFTP ; le mot de passe reste dans le gestionnaire d’identifiants de l’appareil. Testez la connexion : publier avec le service privé exige aussi des commandes SSH, PHP et SQLite. Une connexion SFTP seule peut être vérifiée sans remplir ces conditions de publication.
+
+Dans **Formulaires de contact**, ajoutez, réordonnez ou supprimez les champs et modifiez les textes par langue, notamment le consentement, les erreurs et la confirmation. Laissez les textes facultatifs vides pour conserver les valeurs par défaut. Vérifiez le résultat avant publication.

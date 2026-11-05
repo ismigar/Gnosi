@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-11-01
+last_verified: 2026-11-03
 source_paths:
   - backend/domains/sites/transport_settings.py
   - backend/domains/sites
@@ -64,6 +64,14 @@ source_paths:
   - frontend/src/features/plugin-management
   - frontend/src/features/notion-import
 tests:
+  - backend/tests/test_sites_url_import.py
+  - backend/tests/test_sites_public_http.py
+  - backend/tests/test_sites_ssh_transport.py
+  - backend/tests/test_sites_generic_configuration.py
+  - backend/tests/test_sites_generic_rendering.py
+  - backend/tests/test_sites_contact_retry.py
+  - frontend/src/features/websites/CreateSiteDialog.test.tsx
+  - frontend/src/features/websites/ConnectionAuthentication.test.tsx
   - backend/tests/test_site_management.py
   - frontend/src/shared/api/sites.test.ts
   - frontend/src/features/websites/WebsitesManagement.test.tsx
@@ -476,7 +484,13 @@ l’interruptor del mòdul integrat.
 
 ## Gestió de webs
 
-El connector opcional `web-publishing` afegeix un gestor de diversos webs a `/websites` i operacions per vault a `/api/vault/sites`. La configuració editorial se sincronitza; les dades privades i les credencials es guarden al dispositiu o al servidor configurat. Cal seleccionar explícitament els camps, el cos i els adjunts públics. Les versions revisades es generen amb Astro i Pagefind; els formularis, els subscriptors i les cues de butlletins utilitzen un servei PHP/SQLite separat. La producció i el correu real continuen desactivats durant el pilot de Temenos. Consulteu la `extensions/web-publishing/README.md`.
+El connector opcional `web-publishing` afegeix un gestor de diversos webs a `/websites` i operacions per vault a `/api/vault/sites`. La configuració editorial se sincronitza; les dades privades i les credencials es guarden al dispositiu o al servidor configurat. Cal seleccionar explícitament els camps, el cos i els adjunts públics. Les versions revisades es generen amb Astro i Pagefind; els formularis, els subscriptors i les cues de butlletins utilitzen un servei PHP/SQLite separat. L’activació en producció i l’enviament real de correu continuen desactivats. Consulteu la `extensions/web-publishing/README.md`.
+
+En crear un web es pot començar en blanc o importar des d’una URL pública. L’operació `POST /api/vault/sites/import/preview`, reservada a administradors, recorre un nombre limitat de pàgines HTML del mateix origen i desa les imatges ràster validades en una còpia privada del dispositiu que caduca. Cada petició i redirecció valida les adreces públiques i fixa l’adreça de connexió mantenint la identitat del servidor i del certificat. Se n’exclouen les credencials, les xarxes privades, els scripts i els formularis originals. La revisió mostra les rutes, els idiomes, el nombre d’imatges i els avisos sobre contingut parcial o incompatible. Amb `POST /api/vault/sites/import/create` se seleccionen explícitament pàgines d’aquesta mateixa còpia, vinculada al propietari i al vault, i es crea un web editable amb una destinació local. Es conserven les rutes originals i les pàgines d’entrada per idioma; els enllaços fora de la selecció continuen apuntant al web d’origen. La importació HTML pública no migra bases de dades del CMS ni funcions del servidor o de JavaScript. L’adaptador del pilot es manté per als webs existents.
+
+La connexió admet qualsevol proveïdor amb accés a ordres SSH. Es pot fer servir un agent SSH, una clau concreta o una contrasenya desada només al gestor de credencials del sistema. Cada contrasenya està vinculada al vault, al web, a la destinació, al servidor, al port i al compte remot; es desa explícitament i només se n’indica si està configurada. Les transferències es poden fer per SSH o SFTP, amb la verificació del servidor que fa el sistema. En SFTP els fitxers s’escriuen primer a l’espai privat de la destinació i es comprova la seva integritat per SSH i PHP abans d’activar la versió. La prova de connexió diferencia l’accés SFTP dels requisits de publicació SSH, PHP i SQLite.
+
+Els formularis permeten editar l’ordre, el tipus, les opcions i l’obligatorietat dels camps, així com les etiquetes, les ajudes, els exemples, la introducció, el botó, la confirmació i la privacitat per idioma. També es poden personalitzar els textos de consentiment, l’enllaç de privacitat i els missatges d’error, amb textos predeterminats si es deixen buits. Les opcions mantenen els valors admesos i en poden traduir les etiquetes. El formulari de reintent PHP conserva els textos, les ajudes i els valors introduïts sense JavaScript. Els formularis originals del web importat s’ometen fins que se’n configuren de nous.
 
 Els errors de validació del catàleg es mostren sense amagar els webs existents ni impedir editar pàgines manuals. La publicació continua exigint una revisió correcta i la validació de les fonts.
 

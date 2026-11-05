@@ -24,6 +24,7 @@ export type FormDeliverySettings = components['schemas']['FormDeliverySettings']
 export type NavigationLink = Omit<components['schemas']['NavigationLink'], 'appearance'> & { appearance?: 'link' | 'button' | 'outline' };
 export type SourceFilter = components['schemas']['SourceFilter'];
 export type TargetConnection = components['schemas']['TargetConnection'];
+export type WebsiteImportPreview = components['schemas']['WebsiteImportPreview'];
 export type ServiceRequest = components['schemas']['PrivateServiceRequest'];
 export type ServiceResponse = components['schemas']['PrivateServiceResponse'];
 export type NewsletterDraft = NewsletterReview['draft'];
@@ -64,6 +65,12 @@ export async function listSites(context: RequestContext, signal?: AbortSignal) {
 }
 export async function createSite(name: string, importPilot: boolean, context: RequestContext, signal?: AbortSignal) {
   return configuration(unwrapApiResult(await apiClient.POST('/api/vault/sites', { body: { name, import_pilot: importPilot }, ...scope(context, signal) })));
+}
+export async function previewWebsiteImport(url: string, maxPages: number, context: RequestContext, signal?: AbortSignal) {
+  return unwrapApiResult(await apiClient.POST('/api/vault/sites/import/preview', { body: { url, max_pages: maxPages }, ...scope(context, signal) }));
+}
+export async function createWebsiteImport(previewId: string, name: string, pageIds: string[], context: RequestContext, signal?: AbortSignal) {
+  return configuration(unwrapApiResult(await apiClient.POST('/api/vault/sites/import/create', { body: { preview_id: previewId, name, selected_page_ids: pageIds }, ...scope(context, signal) })));
 }
 export async function siteCatalogue(context: RequestContext, signal?: AbortSignal) {
   return unwrapApiResult(await apiClient.GET('/api/vault/sites/catalogue', scope(context, signal)));
@@ -127,6 +134,9 @@ export async function getTargetConnection(siteId: string, targetId: string, cont
 }
 export async function saveTargetConnection(siteId: string, targetId: string, connection: TargetConnection, context: RequestContext, signal?: AbortSignal) {
   return unwrapApiResult(await apiClient.PUT('/api/vault/sites/{site_id}/targets/{target_id}/connection', { params: { path: { site_id: siteId, target_id: targetId } }, body: connection, ...scope(context, signal) }));
+}
+export async function saveTargetPassword(siteId: string, targetId: string, password: string | null, context: RequestContext, signal?: AbortSignal) {
+  return unwrapApiResult(await apiClient.PUT('/api/vault/sites/{site_id}/targets/{target_id}/credentials', { params: { path: { site_id: siteId, target_id: targetId } }, body: { password, clear: password === null }, ...scope(context, signal) }));
 }
 export async function probeTarget(siteId: string, targetId: string, context: RequestContext, signal?: AbortSignal) {
   return unwrapApiResult(await apiClient.POST('/api/vault/sites/{site_id}/targets/{target_id}/probe', { params: { path: { site_id: siteId, target_id: targetId } }, ...scope(context, signal) }));

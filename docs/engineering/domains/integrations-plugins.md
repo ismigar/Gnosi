@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-11-01
+last_verified: 2026-11-03
 source_paths:
   - backend/domains/sites/transport_settings.py
   - backend/domains/sites
@@ -64,6 +64,14 @@ source_paths:
   - frontend/src/features/plugin-management
   - frontend/src/features/notion-import
 tests:
+  - backend/tests/test_sites_url_import.py
+  - backend/tests/test_sites_public_http.py
+  - backend/tests/test_sites_ssh_transport.py
+  - backend/tests/test_sites_generic_configuration.py
+  - backend/tests/test_sites_generic_rendering.py
+  - backend/tests/test_sites_contact_retry.py
+  - frontend/src/features/websites/CreateSiteDialog.test.tsx
+  - frontend/src/features/websites/ConnectionAuthentication.test.tsx
   - backend/tests/test_site_management.py
   - frontend/src/shared/api/sites.test.ts
   - frontend/src/features/websites/WebsitesManagement.test.tsx
@@ -464,7 +472,13 @@ although the resources application route currently uses the builtin switch.
 
 ## Website management
 
-The optional `web-publishing` capability adds a multi-site manager at `/websites` and vault-scoped `/api/vault/sites` operations. Editorial configuration is synchronized; private service state and credentials stay local or on the configured server. Sources require explicit public fields, body and attachments. Reviewed snapshots use Astro and Pagefind; contact forms, subscribers and newsletter queues use a separate PHP/SQLite service. Production and real delivery remain disabled during the Temenos pilot. See `extensions/web-publishing/README.md` for the deployment and testing contract.
+The optional `web-publishing` capability adds a multi-site manager at `/websites` and vault-scoped `/api/vault/sites` operations. Editorial configuration is synchronized; private service state and credentials stay local or on the configured server. Sources require explicit public fields, body and attachments. Reviewed snapshots use Astro and Pagefind; contact forms, subscribers and newsletter queues use a separate PHP/SQLite service. Production activation and real mail delivery currently remain disabled. See `extensions/web-publishing/README.md` for the deployment and testing contract.
+
+Creation offers a blank website or a generic public URL import. Administrator-only `POST /api/vault/sites/import/preview` discovers bounded same-origin HTML pages and downloads validated raster images into an expiring, device-private snapshot. Every request and redirect validates public addresses and pins the connection while preserving Host/TLS identity; credentials, private-network targets, scripts and original form handlers are excluded. The review exposes paths, languages, image count and partial/unsupported-content warnings. `POST /api/vault/sites/import/create` accepts an explicit selection from that exact owner/vault-scoped snapshot and creates editable pages with a local destination; it does not publish. Original paths and language-specific landing pages survive, and links outside the imported selection continue to point to the original website. Public HTML import does not migrate CMS databases or JavaScript/server application behavior. The legacy pilot adapter remains compatible with existing sites but is not a generic creation option.
+
+SSH destination configuration supports any provider with SSH command access, agent or explicit-key authentication, and passwords stored only in the system credential manager. Credentials are scoped to the exact vault, site, destination, hostname, port and remote account; changing the account does not reuse its password. Password writes are explicit and responses expose only whether a password is configured. Transfers can use SSH or SFTP. SFTP files first enter a private owned staging file, then the existing SSH/PHP namespace policy verifies their digest before promotion and atomic release activation. Both transports enforce system known-host verification. Connection checks distinguish a reachable SFTP server from missing SSH/PHP/SQLite publication capabilities; an SFTP-only account is not reported as ready to publish the private service.
+
+Contact fields, their order/types/options/required status, localized labels/help/placeholders, introduction, submit button, confirmation and privacy description remain editable per website. Privacy/newsletter consent captions, policy-link captions and validation/submission-error messages have localized overrides with language defaults. Choice fields preserve stable allowed values while captions vary by language. The public PHP retry form retains these captions, field hints and entered values without requiring JavaScript. Imported website forms are omitted until explicitly configured; no original form action is invoked by import.
 
 Opening Webs loads website configuration independently of the vault catalogue. Content sources are loaded on demand when opening Contents or Pages and reused across tab changes until refresh. Catalogue validation errors remain visible without hiding existing websites or preventing manual-page editing. Publication still requires a successful review and unchanged source validation.
 

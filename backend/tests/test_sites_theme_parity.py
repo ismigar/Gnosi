@@ -16,7 +16,11 @@ def test_renderer_configures_actions_and_rich_public_listing(imported_pilot, tmp
     store, site, _, _ = imported_pilot
     bundle = build_bundle(store, site, 'local').model_dump(mode='json')
     bundle['deployment_url'] = 'https://example.invalid/_gnosi-proof/current'
-    bundle['site']['navigation'] = [{'label': 'Nav action', 'href': '/ca/navigation', 'appearance': 'button'}]
+    bundle['site']['navigation'] = [
+        {'label': 'Nav action', 'href': '/ca/navigation', 'appearance': 'button'},
+        {'label': 'Inici', 'href': '/ca/'},
+        {'label': 'Blog', 'href': '/ca/blog'},
+    ]
     bundle['site']['footer'] = [{'label': 'Footer action', 'href': '/ca/footer', 'appearance': 'outline'}]
     bundle['site']['header_actions'] = [
         {'label': 'Col·labora', 'href': '/ca/collabora', 'appearance': 'outline', 'language': 'ca'},
@@ -52,6 +56,8 @@ def test_renderer_configures_actions_and_rich_public_listing(imported_pilot, tmp
     assert action['href'] == '/_gnosi-proof/current/ca/collabora'
     assert 'button-outline' in action['class']
     assert 'button' in home.select_one('#site-navigation a')['class']
+    assert home.select_one('#site-navigation a[aria-current="page"]').get_text() == 'Inici'
+    assert home.select_one('#site-navigation summary[aria-label="Cerca"] svg[aria-hidden="true"]')
     assert 'button-outline' in home.select_one('.site-footer .navigation a')['class']
     toggle = home.select_one('[data-menu-toggle]')
     assert toggle['aria-expanded'] == 'false'
@@ -60,6 +66,7 @@ def test_renderer_configures_actions_and_rich_public_listing(imported_pilot, tmp
     spanish = BeautifulSoup((output / 'es/index.html').read_text(), 'html.parser')
     assert not spanish.select('.hero-actions a')
     listing = BeautifulSoup((output / 'ca/blog/index.html').read_text(), 'html.parser')
+    assert listing.select_one('#site-navigation a[aria-current="page"]').get_text() == 'Blog'
     assert listing.select_one('[data-public-listing]')['data-page-size'] == '2'
     assert listing.select_one('select[name="tag"] option[value="9"]').get_text() == 'Public theme'
     assert not listing.select_one('option[value="10"]')
@@ -77,4 +84,12 @@ def test_renderer_configures_actions_and_rich_public_listing(imported_pilot, tmp
     assert all(json.loads(row['data-tags']) == ['11'] for row in rows)
     assert [row.select_one('td:nth-of-type(2)').get_text() for row in rows] == ['Public material 1', 'Public material 2', 'Public material 3']
     assert all(row.select_one('td a')['href'].startswith('/_gnosi-proof/current/ca/dissenys/') for row in rows)
+    assert controlled_table.select_one('table th:nth-of-type(3)').get_text() == 'Accions'
+    for row in rows:
+        title_link = row.select_one('td:first-child a')
+        show_link = row.select_one('td:nth-of-type(3) a.table-record-link')
+        assert show_link['href'] == title_link['href']
+        assert show_link.get_text() == 'Mostrar↗'
+        assert show_link['aria-label'] == f'Mostrar: {title_link.get_text()}'
+        assert show_link.select_one('span')['aria-hidden'] == 'true'
     assert 'private_internal' not in controlled_table.get_text()

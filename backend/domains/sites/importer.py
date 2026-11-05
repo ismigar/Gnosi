@@ -78,6 +78,7 @@ def seed_import(store: SiteStore, site: SiteConfig, pilot_root: Path) -> None:
             assets.append({"path": "/" + str(relative), "sha256": hashlib.sha256(target.read_bytes()).hexdigest(), "private_source": str(target)})
     private_json(root / "baseline.json", {"data": data, "type_map": type_map, "assets": assets, "source_sha256": hashlib.sha256(raw).hexdigest()})
     site.name = "Temenos Ismael"
+    site.theme.name = "Temenos"
     site.languages = [str(value) for value in cast(list[JsonValue], data.get("languages", ["ca", "es", "en-gb"]))]
     site.origin = str(data.get("origin", "https://temenosismael.org"))
     site.theme.tokens.update({"font-body": '"Crimson Pro", Georgia, serif', "font-heading": '"Nunito", system-ui, sans-serif'})

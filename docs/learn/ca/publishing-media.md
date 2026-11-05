@@ -48,3 +48,11 @@ La configuració es desa automàticament. Comprova l’estat de desament i resol
 A Butlletins, tria la destinació i l’idioma i afegeix continguts ja publicats a un esborrany de resum o lectura destacada. La llista mostra primer els continguts més nous. Ordena fins a vint pàgines úniques, afegeix una introducció i revisa l’HTML, el text pla i els destinataris abans de posar explícitament una prova a la cua. Els esborranys es desen automàticament per web i destinació; els canvis de publicació o d’esborrany requereixen una nova revisió. Pots llegir els correus de prova capturats des de la cua d’enviament; llegir-los no activa els enllaços de confirmació o baixa. Fes servir els controls explícits de prova d’enllaços quan calgui.
 
 El pilot actual només permet publicar a l’espai de proves protegit i capturar correus per a destinataris sintètics. La publicació a producció i l’enviament real estan desactivats. Cada destinació també necessita les dependències de generació del web i del servei privat; comprova’n la connexió abans de publicar. Si el resultat d’una acció és incert, actualitza’n l’estat abans de reintentar-la.
+
+### Importar un web i configurar-ne la connexió
+
+A **Crear web**, tria un web buit o la importació per URL. Indica l’adreça pública, analitza-la i revisa les pàgines, els idiomes i els avisos abans d’importar la selecció. Es creen pàgines editables sense publicar-les. Els formularis i serveis originals del servidor no es migren automàticament.
+
+A **Allotjament**, configura el servidor, port, usuari, carpetes i autenticació amb agent SSH, clau del dispositiu o contrasenya. Pots transferir els fitxers per SSH o SFTP; la contrasenya es desa només al gestor de credencials del dispositiu. Comprova la connexió: publicar amb el servei privat també requereix ordres SSH, PHP i SQLite. Una connexió només SFTP pot quedar verificada sense disposar d’aquests requisits de publicació.
+
+A **Formularis de contacte**, afegeix, ordena o elimina camps i edita els textos per idioma, inclosos consentiments, errors i confirmació. Deixa els textos opcionals buits per conservar els valors predeterminats. Revisa el resultat abans de publicar.
