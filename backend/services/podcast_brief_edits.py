@@ -122,14 +122,19 @@ def revise(context: _Briefing, data: dict[str, Any], options: dict[str, Any],
                        'target': options.get('target_words'),
                        'minimum_word_delta': minimum - len(previous.split()),
                        'maximum_word_delta': maximum - len(previous.split())})
-    request = request_builder(context, 'write', payload, schema, **options,
+    from backend.services.podcast_edit_transport import anchor_ids
+    transport = anchor_ids(payload, schema)
+    request = request_builder(context, 'write', transport.data if transport else payload,
+        transport.schema if transport else schema, **options,
         revision_contract=resource('operations/podcast/revision-contract.md'),
         revision_repair_contract=resource('operations/podcast/revision-repair-contract.md'))
     if context.cost(request) > synthesis_context_limit(context):
         return None
+    def decoded(result: dict[str, Any]) -> dict[str, Any]:
+        return transport.decode(result) if transport else result
     def checked(result: dict[str, Any]) -> None:
-        apply_edits(result, previous, feedback, minimum, maximum)
+        apply_edits(decoded(result), previous, feedback, minimum, maximum)
     from backend.services.podcast_revision_repair import revision_word_repair
-    result = context.stage(request, checked,
-        output_repair=revision_word_repair(data, schema, minimum, maximum))
-    return {'narration': apply_edits(result, previous, feedback, minimum, maximum)}
+    repair = revision_word_repair(data, schema, minimum, maximum)
+    result = context.stage(request, checked, output_repair=transport.repair(repair) if transport else repair)
+    return {'narration': apply_edits(decoded(result), previous, feedback, minimum, maximum)}

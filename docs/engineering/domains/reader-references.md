@@ -587,3 +587,5 @@ When a reviewed `brief` draft already meets the global word range and its full e
 
 
 Factual edits may partially overlap a quoted passage at its original position; shared words elsewhere do not bind an edit. Revision requests include the original word count and net global word allowance. Validation returns anchor, finding and whole-episode length errors together within the existing repair allowance; partial-anchor counts are explicitly labelled and never published. Review claims are checked against all supplied evidence so reported actions remain distinct from the rules they violated.
+
+When complete literal clause choices are available, `grounded_anchor_ids_v1` uses one nullable replacement per server-owned anchor ID and schema-required assignments for every finding. Null keeps the original clause verbatim; an empty string deliberately deletes it. The model never recopies original anchor strings. The server restores the original edit schema, hash, nonoverlap, finding coverage and whole-episode budget. A remaining word repair retains those exact IDs and the same deadline/call allowance; its wire accepts only ordinary spoken words or the fixed markers.

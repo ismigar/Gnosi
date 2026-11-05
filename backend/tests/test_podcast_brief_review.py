@@ -11,6 +11,17 @@ from backend.services.podcast_review import _schema
 from backend.tests.test_podcast_briefing import diverse_sources, pipeline, written  # noqa: F401
 
 
+def patch_response(request, before, after):
+    data = json.loads(request.input)['data']
+    if data.get('revision_encoding') == 'grounded_anchor_ids_v1':
+        key = next(key for key, text in data['anchor_clauses'].items() if text == before)
+        return {'draft_sha256': data['draft_sha256'],
+            'finding_anchors': {'0': [key]},
+            'changes': {anchor: after if anchor == key else None for anchor in data['anchor_clauses']}}
+    return {'draft_sha256': data['draft_sha256'], 'edits': [
+        {'before': before, 'after': after, 'finding_indices': [0]}]}
+
+
 def brief_mode(pipeline):
     pipeline.snapshot.skill_instructions = {SKILL_ID:
         '```json\n{"podcast_preferences":{"review_mode":"brief"}}\n```'}
@@ -81,10 +92,8 @@ def test_brief_findings_trigger_one_correction_and_review_of_the_corrected_text(
                 'narration_quotes': ['Inaccurate attribution'], 'source_part_ids': [record['part_id']],
                 'evidence_quote': record['quote']}]}
         elif request.operation.endswith('write'):
-            if data.get('revision_encoding') == 'grounded_edits_v1':
-                result = {'draft_sha256': data['draft_sha256'], 'edits': [{
-                    'before': 'Inaccurate attribution.', 'after': 'Correct attribution.',
-                    'finding_indices': [0]}]}
+            if data.get('revision_encoding') in {'grounded_edits_v1', 'grounded_anchor_ids_v1'}:
+                result = patch_response(request, 'Inaccurate attribution.', 'Correct attribution.')
             else:
                 text = 'Inaccurate attribution.' + ' Context.' * request.options['min_words']
                 result = written(request, text)
@@ -121,9 +130,8 @@ def test_new_error_introduced_by_a_correction_cannot_reach_speech(pipeline):
                 'narration_quotes': [quote], 'source_part_ids': [record['part_id']],
                 'evidence_quote': record['quote']}]}
         elif request.operation.endswith('write'):
-            if data.get('revision_encoding') == 'grounded_edits_v1':
-                result = {'draft_sha256': data['draft_sha256'], 'edits': [{
-                    'before': 'Initial error.', 'after': 'New error.', 'finding_indices': [0]}]}
+            if data.get('revision_encoding') in {'grounded_edits_v1', 'grounded_anchor_ids_v1'}:
+                result = patch_response(request, 'Initial error.', 'New error.')
             else:
                 result = written(request, 'Initial error.' + ' Context.' * request.options['min_words'])
         else:
