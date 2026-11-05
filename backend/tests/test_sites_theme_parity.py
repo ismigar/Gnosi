@@ -93,3 +93,26 @@ def test_renderer_configures_actions_and_rich_public_listing(imported_pilot, tmp
         assert show_link['aria-label'] == f'Mostrar: {title_link.get_text()}'
         assert show_link.select_one('span')['aria-hidden'] == 'true'
     assert 'private_internal' not in controlled_table.get_text()
+
+
+@pytest.mark.skipif(not (extension_root() / 'renderer/node_modules/node/bin/node').is_file(), reason='Pinned renderer required')
+def test_resource_lists_link_to_each_entry_in_home_and_listing(imported_pilot, tmp_path):
+    store, site, _, _ = imported_pilot
+    bundle = build_bundle(store, site, 'local').model_dump(mode='json')
+    bundle['deployment_url'] = 'https://example.invalid/_gnosi-proof/current'
+    output = tmp_path / 'public'
+    render_bundle(bundle, output)
+    checked = 0
+    for path in output.rglob('*.html'):
+        page = BeautifulSoup(path.read_text(), 'html.parser')
+        lang = page.html.get('lang', 'en-gb')
+        for row in page.select('.resource-list li'):
+            title = row.select_one('.resource-title')
+            action = row.select_one('a.table-record-link')
+            caption = {'ca': 'Mostrar', 'es': 'Mostrar', 'fr': 'Afficher'}.get(lang, 'View')
+            assert action['href'] == title['href']
+            assert action.get_text() == caption + '↗'
+            assert action['aria-label'] == caption + ': ' + title.get_text()
+            assert action.select_one('[aria-hidden="true"]').get_text() == '↗'
+            checked += 1
+    assert checked >= 4  # Research and stories on both home and collection pages.

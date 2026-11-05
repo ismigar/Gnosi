@@ -33,7 +33,7 @@ const tagIds=record=>JSON.stringify((record.presentation?.tags || []).filter(tag
       </table>
     </div>
   ) : <div class:list={['public-listing-items',{'block-grid':!resource && source?.presentation!=='list'}]}>
-    {items.map(record=><div data-listing-item data-tags={tagIds(record)}>{resource ? <ResourceList items={[record]}/> : <ReadingCard record={record} lang={lang}/>}</div>)}
+    {items.map(record=><div data-listing-item data-tags={tagIds(record)}>{resource ? <ResourceList items={[record]} lang={lang}/> : <ReadingCard record={record} lang={lang}/>}</div>)}
   </div>}
   <p data-listing-status role="status" aria-live="polite"></p>
   <nav class="pagination" data-listing-pagination aria-label={text.pagination}></nav>
