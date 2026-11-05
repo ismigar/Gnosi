@@ -168,7 +168,7 @@ def test_article_byline_follows_image_and_tags_follow_body(imported_pilot, tmp_p
         assert [tag.name for tag in body.find_all(recursive=False)] == ['figure', 'p', 'p']
         assert body.figure.figcaption.get_text() == 'Image caption'
         assert body.select_one('.article-date').get_text().startswith(byline + ' Ismael García Fernández - 5 ')
-        assert body.select_one('.article-date time').get_text().endswith('2026')
+        assert body.select_one('.article-date time').get_text() == {'ca': '5 nov 2026', 'es': '5 nov 2026', 'en-gb': '5 Nov 2026'}[language]
         assert body.select_one('p:last-child').get_text() == 'Article body preserved.'
         assert len(page.select('.article-date')) == 1
         tags = page.select_one('section.entry-tags')

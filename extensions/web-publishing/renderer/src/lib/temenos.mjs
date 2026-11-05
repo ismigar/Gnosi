@@ -16,7 +16,7 @@ export function publishedDate(record,language){
   if(Number.isNaN(date.valueOf()))return null;
   const parts=new Intl.DateTimeFormat(language,{day:'numeric',month:'short',year:'numeric',timeZone:'Europe/Madrid'}).formatToParts(date);
   const part=type=>parts.find(value=>value.type===type)?.value || '';
-  const short=`${part('day')} ${part('month').replace(/\.$/,'')} ${part('year')}`;
+  const short=`${part('day')} ${part('month').replace(/^de\s+/,'').replace(/\.$/,'')} ${part('year')}`;
   return {iso:date.toISOString(),short,text:date.toLocaleDateString(language,{year:'numeric',month:'long',day:'numeric',timeZone:'Europe/Madrid'})};
 }
 
