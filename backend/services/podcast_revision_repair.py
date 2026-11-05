@@ -48,11 +48,6 @@ def revision_word_repair(data: dict[str, Any], schema: dict[str, Any],
                 detail = json.loads(str(invalid))
             else:
                 return None
-            if any(item['error'] in {'podcast_revision_overlapping_edits',
-                    'podcast_revision_must_address_all_findings',
-                    'podcast_revision_anchor_must_include_affected_quote'} for item in detail['errors']):
-                from backend.services.podcast_anchor_repair import anchored_revision_repair
-                return anchored_revision_repair(frozen, contract, minimum, maximum)
             if (detail['errors'] != [{'error': 'podcast_revision_word_budget'}]
                     or detail['word_budget']['scope'] != 'complete'):
                 return None
