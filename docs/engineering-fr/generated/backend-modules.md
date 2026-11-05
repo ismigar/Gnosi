@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 278 | 54144 |
+| `services` | 278 | 54182 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1091 modules** and **206396 source lines**.
+Total: **1091 modules** and **206434 source lines**.
 
 ## agent
 
@@ -1121,7 +1121,7 @@ Total: **1091 modules** and **206396 source lines**.
 | [`backend/services/plugin_signing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_signing.py) | 167 | 0 | 8 | 0 | 6 | Plugin signing and trust (phase 3 of plugin_system.md). |
 | [`backend/services/plugin_system.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_system.py) | 256 | 0 | 14 | 0 | 12 | Compatibility facade for the typed third-party plugin domain. |
 | [`backend/services/podcast_audit_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_audit_repair.py) | 138 | 0 | 5 | 0 | 0 | Ground rejected audit quotes without changing the model's findings. |
-| [`backend/services/podcast_automatic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_automatic.py) | 411 | 2 | 13 | 0 | 2 | Bounded narration-only writing, semantic review and automatic revision. |
+| [`backend/services/podcast_automatic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_automatic.py) | 418 | 2 | 13 | 0 | 2 | Bounded narration-only writing, semantic review and automatic revision. |
 | [`backend/services/podcast_brief_edits.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_brief_edits.py) | 135 | 0 | 5 | 0 | 3 | Apply grounded review edits without regenerating an already bounded episode. |
 | [`backend/services/podcast_brief_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_brief_repair.py) | 119 | 1 | 3 | 0 | 2 | Repair all rejected source quotes without rewriting validated briefs. |
 | [`backend/services/podcast_brief_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_brief_review.py) | 90 | 0 | 3 | 0 | 1 | One bounded whole-day review before an optional corrective rewrite and speech. |
@@ -1133,7 +1133,7 @@ Total: **1091 modules** and **206396 source lines**.
 | [`backend/services/podcast_feedback_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_feedback_repair.py) | 134 | 0 | 6 | 0 | 0 | Repair all invalid internal guides without rewriting validated corrections. |
 | [`backend/services/podcast_length_edits.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_length_edits.py) | 254 | 0 | 10 | 0 | 3 | Shorten immutable grouped compositions through atomic model-proposed edits. |
 | [`backend/services/podcast_outline.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_outline.py) | 139 | 0 | 9 | 0 | 0 | Global thematic deduplication and a checked word budget for a ten-minute episode. |
-| [`backend/services/podcast_passage_length.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_passage_length.py) | 64 | 0 | 2 | 0 | 2 | Fit a podcast draft by selecting complete, independently compressed passages. |
+| [`backend/services/podcast_passage_length.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_passage_length.py) | 95 | 0 | 3 | 0 | 3 | Fit a podcast draft by selecting complete, independently compressed passages. |
 | [`backend/services/podcast_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_policy.py) | 100 | 2 | 4 | 0 | 2 | Validated editorial preferences from the assigned, user-personalizable skill. |
 | [`backend/services/podcast_provider_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_provider_retry.py) | 79 | 0 | 2 | 1 | 0 | Retry transient podcast provider failures within existing call/deadline limits. |
 | [`backend/services/podcast_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_review.py) | 247 | 0 | 14 | 0 | 3 | Ground model criticisms in exact supplied evidence before automatic rewrites. |

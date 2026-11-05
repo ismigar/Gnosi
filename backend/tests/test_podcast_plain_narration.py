@@ -2,12 +2,21 @@
 import json
 
 import pytest
+import jsonschema
 
 from backend.services import agent_execution_store as store
 from backend.services.agent_execution_scope import execution_scope
 from backend.services.podcast_automatic import _bounded_write
 from backend.tests.test_agent_execution import runtime  # noqa: F401
 from backend.tests.test_podcast_bounded_rewrites import context_for, counted_workflow
+
+
+def passage_response(passages):
+    from backend.services.podcast_length_edits import REPAIR_MARKER_PREFIX
+    tokens = []
+    for index, passage in enumerate(passages):
+        tokens.extend([REPAIR_MARKER_PREFIX + str(index), *passage.split()])
+    return json.dumps({'replacement_tokens': tokens})
 
 
 def narration(words):
@@ -64,13 +73,15 @@ def test_large_day_repairs_complete_passages_within_the_original_two_calls(runti
     counts = [44, 97, 158, 143, 100, 184, 195, 225, 209, 145, 223, 174, 226, 170, 264, 37]
     originals = [' '.join([f'theme-{i}', *(['original'] * (count - 1))])
                  for i, count in enumerate(counts)]
+    from backend.services.podcast_composition import advisory_targets
+    shares = advisory_targets(1380, dict(enumerate(counts)), minimum=1)
     shorter = {
-        f'passage:{i}': ' '.join([f'theme-{i}', *(['compressed'] * (count // 3 if enough_compression else count - 2))])
+        f'passage:{i}': ' '.join([f'theme-{i}', *(['compressed'] * (shares[i] - 1 if enough_compression else count - 2))])
         for i, count in enumerate(counts)
     }
     draft = '\n\n'.join(originals)
     calls = counted_workflow(monkeypatch, [
-        json.dumps({'narration': draft}), json.dumps({'passages': shorter}),
+        json.dumps({'narration': draft}), passage_response(shorter.values()),
     ])
     context = context_for(snapshot)
     data = {'composition_encoding': 'bounded_narration_v1',
@@ -82,20 +93,19 @@ def test_large_day_repairs_complete_passages_within_the_original_two_calls(runti
             paragraphs = result['narration'].split('\n\n')
             assert 1104 <= len(result['narration'].split()) <= 1656
             assert len(paragraphs) == len(counts)
-            assert any('original' in part for part in paragraphs)
-            assert any('compressed' in part for part in paragraphs)
-            assert all(part in {originals[i], shorter[f'passage:{i}']} for i, part in enumerate(paragraphs))
+            assert paragraphs == list(shorter.values())
         else:
-            with pytest.raises(ValueError, match='compressed passages cannot reach'):
+            with pytest.raises(jsonschema.ValidationError):
                 _bounded_write(context, data, options)
     assert len(calls) == 2 and len(context.requests) == 1
     assert context.requests[0].timeout_seconds == 300
     repair = json.loads(json.loads(calls[1]['messages'][0].content)['input'])['data']
     assert repair['briefs'] == data['briefs']
     length_repair = repair['length_repair']
-    assert length_repair['mode'] == 'compress_passages'
-    assert sum(p['target_words'] for p in length_repair['passages'].values()) == 1104
-    assert [p['original'] for p in length_repair['passages'].values()] == originals
+    assert length_repair['mode'] == 'compress_passage_stream'
+    assert length_repair['replacement_word_range'] == {'minimum': 1104, 'maximum': 1656}
+    assert [p['text'] for p in length_repair['original_groups'].values()] == originals
+    assert 'No per-anchor word caps' in length_repair['instructions']
 
 
 def test_passage_repair_preserves_crlf_and_the_existing_advisory_range(runtime, monkeypatch):
@@ -104,7 +114,7 @@ def test_passage_repair_preserves_crlf_and_the_existing_advisory_range(runtime, 
     shortened = ' '.join(['Condensed'] * 850)
     calls = counted_workflow(monkeypatch, [
         json.dumps({'narration': original + '\r\n\r\n' + original}),
-        json.dumps({'passages': {'passage:0': shortened, 'passage:1': shortened}}),
+        passage_response([shortened, shortened]),
     ])
     context = context_for(snapshot)
     with execution_scope(scope):
@@ -160,3 +170,63 @@ def test_complete_script_count_remains_independent_of_native_passage_count(runti
                 _bounded_write(context, {'composition_encoding': 'bounded_narration_v1'},
                                {'min_words': 1242, 'max_words': 1504, 'target_words': 1380})
     assert len(context.requests) == 1 and len(calls) == (1 if valid else 2)
+
+
+@pytest.mark.parametrize('response_words', [1380, 2836])
+def test_observed_39_passage_day_uses_one_shared_bounded_word_stream(runtime, monkeypatch, response_words):
+    from backend.services.podcast_composition import advisory_targets
+    counts = [52, 76, 109, 90, 93, 133, 97, 96, 100, 69, 61, 75, 83, 79, 89, 136, 88,
+              79, 96, 87, 90, 83, 104, 83, 92, 98, 92, 88, 87, 107, 58, 126, 89, 129, 95,
+              80, 104, 128, 45]
+    scope, snapshot = runtime
+    original = [' '.join([f'theme-{i}', *(['original'] * (count - 1))])
+                for i, count in enumerate(counts)]
+    shares = advisory_targets(response_words, dict(enumerate(counts)), minimum=1)
+    replacements = [' '.join([f'theme-{i}', *(['compressed'] * (shares[i] - 1))])
+                    for i in range(len(counts))]
+    calls = counted_workflow(monkeypatch, [
+        json.dumps({'narration': '\n\n'.join(original)}), passage_response(replacements)])
+    context = context_for(snapshot)
+    options = {'min_words': 1104, 'max_words': 1656, 'target_words': 1380, 'word_range_is_advisory': True}
+    with execution_scope(scope):
+        if response_words == 1380:
+            result = _bounded_write(context, {'composition_encoding': 'bounded_narration_v1'}, options)
+            assert result['narration'].split('\n\n') == replacements
+            assert len(result['narration'].split()) == 1380
+        else:
+            with pytest.raises(jsonschema.ValidationError):
+                _bounded_write(context, {'composition_encoding': 'bounded_narration_v1'}, options)
+    assert len(calls) == 2 and len(context.requests) == 1
+    sent = json.loads(json.loads(calls[1]['messages'][0].content)['input'])
+    bounds = sent['data']['length_repair']['replacement_word_range']
+    assert bounds == {'minimum': 1050, 'maximum': 1749}
+
+
+@pytest.mark.parametrize('invalid', ['whitespace', 'missing', 'reordered', 'duplicate', 'empty'])
+def test_passage_stream_locally_rejects_invalid_tokens_or_lost_passages(invalid):
+    from backend.services.podcast_passage_length import passage_stream
+    repair = passage_stream({'a': 'One original.', 'b': 'Another original.'}, range(2, 21))
+    tokens = json.loads(passage_response(['One shorter.', 'Another shorter.']))['replacement_tokens']
+    if invalid == 'whitespace':
+        tokens[1] = 'two words'
+    elif invalid == 'missing':
+        tokens.pop(0)
+    elif invalid == 'reordered':
+        tokens[0], tokens[3] = tokens[3], tokens[0]
+    elif invalid == 'duplicate':
+        tokens[3] = tokens[0]
+    else:
+        tokens = tokens[:4]
+    assert repair.output_schema['properties']['replacement_tokens']['items'] == {'type': 'string'}
+    with pytest.raises((ValueError, jsonschema.ValidationError)):
+        repair.restore(json.dumps({'replacement_tokens': tokens}))
+
+
+def test_long_episode_keeps_complete_passage_selection_fallback():
+    from backend.services.podcast_passage_length import fit_passages, passage_stream
+    assert passage_stream({'a': 'Original.', 'b': 'Other.'}, range(2000, 2601)) is None
+    originals = {'a': ' '.join(['Original'] * 1700), 'b': ' '.join(['Other'] * 1700)}
+    alternatives = {'a': ' '.join(['Shorter'] * 1000), 'b': ' '.join(['Condensed'] * 1000)}
+    result = fit_passages(originals, alternatives, preferred=range(2000, 2601),
+                          accepted=range(2000, 2601), target=2300)
+    assert result == alternatives['a'] + '\n\n' + alternatives['b']

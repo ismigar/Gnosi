@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import re
+import json
+from copy import deepcopy
+
+from backend.services.agent_output_repair import OutputRepair
 
 _MAX_PASSAGES = 64
 
@@ -62,3 +66,30 @@ def fit_passages(
         (alternatives[key] if mask & (1 << index) else original).strip()
         for index, (key, original) in enumerate(originals.items())
     )
+
+
+def passage_stream(passages: dict[str, str], accepted: range) -> OutputRepair | None:
+    """Reuse the anchored word stream for a short episode's complete passages."""
+    from backend.services.podcast_composition import spoken_text
+    from backend.services.podcast_length_edits import apply_edits, composition_stream
+
+    if accepted.stop - 1 + len(passages) > 2048:
+        return None
+    previous = {'paragraphs': {
+        key: {'text': text, 'non_editorial': False} for key, text in passages.items()}}
+    data = {'composition_groups': [{'key': key} for key in passages],
+            'previous_composition': previous}
+    stream = composition_stream(data, accepted.start, accepted.stop - 1)
+    if stream is None:
+        return None
+    wire_schema = deepcopy(stream.output_schema)
+    # The shared decoder retains whitespace checks. Complex provider regexes
+    # have exceeded the deadline on this route; bound the wire array itself.
+    wire_schema['properties']['replacement_tokens']['items'] = {'type': 'string'}
+
+    def restore(text: str) -> str:
+        edits = json.loads(stream.restore(text))
+        result = apply_edits(edits, previous, data, accepted.start, accepted.stop - 1)
+        return json.dumps({'narration': spoken_text(result, data)}, ensure_ascii=False)
+
+    return OutputRepair(stream.input, wire_schema, restore)
