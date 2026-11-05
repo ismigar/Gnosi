@@ -306,7 +306,7 @@ def test_openrouter_generation_metadata_replaces_estimate(runtime, monkeypatch):
         pass
     def respond(request, **kwargs):
         requests.append(request)
-        return Response(json.dumps({'data':{'id':'gen-test','total_cost':0}}))
+        return Response(json.dumps({'data':{'id':'gen-test','total_cost':0,'is_byok':False}}))
     monkeypatch.setattr(billed.urllib.request,'urlopen',respond)
     assert billed.reconcile('c','gen-test','secret')
     assert requests[0].get_method()=='GET'
