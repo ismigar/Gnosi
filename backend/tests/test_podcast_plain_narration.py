@@ -217,7 +217,7 @@ def test_passage_stream_locally_rejects_invalid_tokens_or_lost_passages(invalid)
         tokens[3] = tokens[0]
     else:
         tokens = tokens[:4]
-    assert repair.output_schema['properties']['replacement_tokens']['items'] == {'type': 'string'}
+    assert repair.output_schema['properties']['replacement_tokens']['items'] == {'type': 'string', 'pattern': r'^\S+$'}
     with pytest.raises((ValueError, jsonschema.ValidationError)):
         repair.restore(json.dumps({'replacement_tokens': tokens}))
 

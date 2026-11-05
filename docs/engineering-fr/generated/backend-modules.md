@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 278 | 54182 |
+| `services` | 278 | 54177 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1091 modules** and **206434 source lines**.
+Total: **1091 modules** and **206429 source lines**.
 
 ## agent
 
@@ -1133,7 +1133,7 @@ Total: **1091 modules** and **206434 source lines**.
 | [`backend/services/podcast_feedback_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_feedback_repair.py) | 134 | 0 | 6 | 0 | 0 | Repair all invalid internal guides without rewriting validated corrections. |
 | [`backend/services/podcast_length_edits.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_length_edits.py) | 254 | 0 | 10 | 0 | 3 | Shorten immutable grouped compositions through atomic model-proposed edits. |
 | [`backend/services/podcast_outline.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_outline.py) | 139 | 0 | 9 | 0 | 0 | Global thematic deduplication and a checked word budget for a ten-minute episode. |
-| [`backend/services/podcast_passage_length.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_passage_length.py) | 95 | 0 | 3 | 0 | 3 | Fit a podcast draft by selecting complete, independently compressed passages. |
+| [`backend/services/podcast_passage_length.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_passage_length.py) | 90 | 0 | 3 | 0 | 3 | Fit a podcast draft by selecting complete, independently compressed passages. |
 | [`backend/services/podcast_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_policy.py) | 100 | 2 | 4 | 0 | 2 | Validated editorial preferences from the assigned, user-personalizable skill. |
 | [`backend/services/podcast_provider_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_provider_retry.py) | 79 | 0 | 2 | 1 | 0 | Retry transient podcast provider failures within existing call/deadline limits. |
 | [`backend/services/podcast_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_review.py) | 247 | 0 | 14 | 0 | 3 | Ground model criticisms in exact supplied evidence before automatic rewrites. |

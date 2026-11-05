@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 import json
-from copy import deepcopy
 
 from backend.services.agent_output_repair import OutputRepair
 
@@ -82,14 +81,10 @@ def passage_stream(passages: dict[str, str], accepted: range) -> OutputRepair | 
     stream = composition_stream(data, accepted.start, accepted.stop - 1)
     if stream is None:
         return None
-    wire_schema = deepcopy(stream.output_schema)
-    # The shared decoder retains whitespace checks. Complex provider regexes
-    # have exceeded the deadline on this route; bound the wire array itself.
-    wire_schema['properties']['replacement_tokens']['items'] = {'type': 'string'}
 
     def restore(text: str) -> str:
         edits = json.loads(stream.restore(text))
         result = apply_edits(edits, previous, data, accepted.start, accepted.stop - 1)
         return json.dumps({'narration': spoken_text(result, data)}, ensure_ascii=False)
 
-    return OutputRepair(stream.input, wire_schema, restore)
+    return OutputRepair(stream.input, stream.output_schema, restore)
