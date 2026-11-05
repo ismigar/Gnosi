@@ -389,3 +389,41 @@ def test_optional_binary_default_keeps_fallback_tool_protocol(monkeypatch):
     assert payload['extra_body']['reasoning'] == {'enabled': False}
     assert payload['response_format'] == {'type': 'json_object'}
     assert payload['extra_body']['provider'] == {'order': ['chosen'], 'require_parameters': True}
+
+
+@pytest.mark.parametrize('model_id,upstream,adapted', [
+    ('openai/gpt-fixture', 'chosen', True), ('fixture', 'openai', True), ('fixture', 'deepinfra', False),
+])
+def test_quoted_anchor_enums_are_portable_on_openai_and_remain_strict_locally(model_id, upstream, adapted):
+    import copy
+    import jsonschema
+    from backend.services.agent_execution import _validate_output
+    from backend.services.podcast_brief_edits import _anchor_schema
+    schema = {'type': 'object', 'properties': {
+        'before': _anchor_schema('La font diu "provisional". Cal esperar.'),
+        'path': {'type': 'string', 'enum': [r'C:\Docs', 'safe']}},
+        'required': ['before', 'path'], 'additionalProperties': False}
+    original = copy.deepcopy(schema)
+    model = ChatOpenAI(model=model_id, api_key='fixture', extra_body={
+        'provider': {'order': [upstream], 'allow_fallbacks': False}})
+    constrained = constrain_output(model, 'openrouter', schema)
+    native = constrained.kwargs['response_format']['json_schema']['schema']
+    for name in ('before', 'path'):
+        assert ('enum' not in native['properties'][name]) == adapted
+    assert native['properties']['before']['maxLength'] == 512
+    assert schema == original
+    assert constrained.kwargs['extra_body']['provider'] == {
+        'order': [upstream], 'allow_fallbacks': False, 'require_parameters': True}
+    valid = {'before': 'La font diu "provisional".', 'path': r'C:\Docs'}
+    assert json.loads(_validate_output(json.dumps(valid), schema)) == valid
+    with pytest.raises(jsonschema.ValidationError):
+        _validate_output(json.dumps({**valid, 'before': 'An invented anchor.'}), schema)
+    with pytest.raises(jsonschema.ValidationError):
+        _validate_output(json.dumps({**valid, 'path': 'unknown'}), schema)
+
+
+def test_openai_safe_enums_and_literal_enum_data_are_preserved():
+    from backend.domains.agent.structured_output import _native_schema
+    schema = {'type': 'object', 'properties': {'choice': {'type': 'string', 'enum': ['a', 'b']},
+        'literal': {'enum': [{'enum': ['quoted "data"']}]}}}
+    assert _native_schema(schema, openai_literals=True) == schema
