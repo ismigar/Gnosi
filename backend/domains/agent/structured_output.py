@@ -63,7 +63,7 @@ def _has_dynamic_object(schema: Any) -> bool:
     return any(_has_dynamic_object(value) for value in schema.values())
 
 
-def _deepinfra_schema(schema: dict[str, Any]) -> dict[str, Any]:
+def _native_schema(schema: dict[str, Any]) -> dict[str, Any]:
     """Keep unsupported uniqueness checks in the original local contract."""
     result = deepcopy(schema)
     def visit(node: Any) -> None:
@@ -108,9 +108,11 @@ def constrain_output(model: Any, provider: str, schema: dict[str, Any] | None) -
     preferences = {**extra.get("provider", {}), **bound_extra.get("provider", {})}
     extra.update(bound_extra)
     extra["provider"] = {**preferences, "require_parameters": True}
-    native_schema = (_deepinfra_schema(schema) if any(
-        str(upstream).lower().split('/')[0] == 'deepinfra'
-        for upstream in preferences.get('order', [])) else deepcopy(schema))
+    model_id = str(getattr(base, "model_name", "") or getattr(base, "model", ""))
+    adapt_uniqueness = model_id.lower().startswith('openai/') or any(
+        str(upstream).lower().split('/')[0] in {'deepinfra', 'openai'}
+        for upstream in preferences.get('order', []))
+    native_schema = _native_schema(schema) if adapt_uniqueness else deepcopy(schema)
     # Dynamic dictionaries are valid JSON Schema but cannot be represented by
     # strict provider schemas. Keep the complete contract in the operation
     # envelope and validate/repair locally; constrain the transport to JSON.

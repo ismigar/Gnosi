@@ -1,4 +1,7 @@
 """Grounded audit requests reject missing references before model repair is needed."""
+import json
+
+import httpx
 import jsonschema
 import pytest
 
@@ -134,3 +137,43 @@ def test_mixed_kind_quote_cardinalities_match_the_existing_local_contract(whole,
             jsonschema.validate(result, _schema(data))
         with pytest.raises(ValueError, match='podcast_audit_quote_count'):
             _validate(result, data)
+
+
+@pytest.mark.parametrize('focus', [None, 'coverage', 'fidelity'])
+def test_openai_audit_transport_omits_unsupported_uniqueness_and_preserves_local_checks(focus):
+    from langchain_core.messages import HumanMessage
+    from langchain_openai import ChatOpenAI
+    from backend.domains.agent.structured_output import constrain_output
+    from backend.services.agent_execution import _validate_output
+
+    data, issue = source_case(focus)
+    schema = _schema(data)
+    original = json.dumps(schema, sort_keys=True)
+    sent = []
+
+    def respond(request):
+        sent.append(json.loads(request.content))
+        return httpx.Response(200, json={
+            'id': 'fixture', 'model': 'fixture', 'object': 'chat.completion',
+            'choices': [{'index': 0, 'finish_reason': 'stop', 'message': {
+                'role': 'assistant', 'content': '{"issues":[]}'}}],
+        })
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as transport:
+        model = ChatOpenAI(model='openai/gpt-fixture', api_key='fixture',
+            base_url='https://openrouter.invalid/api/v1', http_client=transport,
+            extra_body={'provider': {'allow_fallbacks': False}})
+        response = constrain_output(model, 'openrouter', schema).invoke(
+            [HumanMessage(content='Return the grounded audit as JSON.')])
+    assert len(sent) == 1
+    wire = sent[0]['response_format']['json_schema']
+    assert wire['strict'] is True
+    assert 'uniqueItems' not in json.dumps(wire['schema'])
+    assert sent[0]['provider'] == {'allow_fallbacks': False, 'require_parameters': True}
+    assert json.dumps(schema, sort_keys=True) == original
+    assert json.loads(_validate_output(response.content, schema)) == {'issues': []}
+    assert json.loads(_validate_output(json.dumps({'issues': [issue]}), schema)) == {'issues': [issue]}
+    for invalid_ids in (['unknown:0'], ['case:0', 'case:0']):
+        invalid = {'issues': [{**issue, 'source_part_ids': invalid_ids}]}
+        with pytest.raises(jsonschema.ValidationError):
+            _validate_output(json.dumps(invalid), schema)
