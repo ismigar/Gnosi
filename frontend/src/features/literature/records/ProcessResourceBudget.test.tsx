@@ -132,7 +132,8 @@ describe('Book budget currency', () => {
     it('separates the whole-book estimate from the authorized limit in the configured currency', async () => {
         const defaults = await vi.mocked(estimateResourceProcessing)({});
         vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults,
-            provider: 'openrouter', model: 'moonshotai/kimi-k2.6',
+            provider: 'openrouter', model: 'openai/gpt-6.1-sol',
+            token_count_method: 'reference:tiktoken:o200k_base',
             display_currency: { code: 'EUR', symbol: '€', usd_rate: .89087, source: 'test', fetched_at: '2026-10-04' },
             cost_in_per_million_usd: .95, cost_out_per_million_usd: 4,
             cost_usd: 5.764, cost_with_repairs_usd: 24.512 });
@@ -144,6 +145,8 @@ describe('Book budget currency', () => {
         expect(container.textContent).toContain('€21.837');
         expect(container.textContent).toContain('calculation exceeds your available budget');
         expect(container.textContent).toContain('Saved tariff for openrouter');
+        expect(container.textContent).toContain('llm_wiki.estimate_tokenizer_reference');
+        expect(container.textContent).not.toContain('llm_wiki.estimate_tokenizer_model');
         expect(container.textContent).toContain('€0.8463 input and €3.5635 output');
         expect(startResourceProcessing).not.toHaveBeenCalled();
         act(() => { buttonWithText('Process').click(); });

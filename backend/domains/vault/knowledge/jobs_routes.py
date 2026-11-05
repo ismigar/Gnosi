@@ -83,6 +83,7 @@ class LlmWikiEstimateResponse(BaseModel):
     planned_calls: int
     memory_restore_calls: int
     source_token_bound: int
+    token_count_method: str | None = None
     input_token_bound: int
     output_tokens_assumed: int
     output_token_bound: int

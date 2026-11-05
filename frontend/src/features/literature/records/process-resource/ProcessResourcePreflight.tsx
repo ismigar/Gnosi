@@ -57,7 +57,12 @@ export function ProcessResourcePreflight({ estimate, estimateError, budgetLimit,
                     <summary className="cursor-pointer">{translate('estimate_calculation', 'How this is calculated')}</summary>
                     {estimate.cost_in_per_million_usd != null && estimate.cost_out_per_million_usd != null && <p>{translate('estimate_tariff', 'Saved tariff for {{provider}}, per million tokens: {{input}} input and {{output}} output. Other providers’ offers do not apply to this run.', { provider: estimate.provider, input: money(estimate.cost_in_per_million_usd), output: money(estimate.cost_out_per_million_usd) })}</p>}
                     {estimate.cost_with_repairs_usd !== null && <p>{translate('estimate_repairs', 'Conservative scenario with up to two repairs per call and 10% margin: {{cost}}. This is not an authorized charge.', { cost: money(estimate.cost_with_repairs_usd) })}</p>}
-                    <p>{translate('estimate_tokens', 'Input safety bound: {{input}}; output assumption: {{output}} tokens. Input uses UTF-8 byte counts, which overestimate tokens, and includes repeated instructions and memory.', { input: number(estimate.input_token_bound), output: number(estimate.output_tokens_assumed) })}</p>
+                    <p>{translate('estimate_tokens', 'Estimated input: {{input}}; assumed output: {{output}} tokens. Repeated context is included.', { input: number(estimate.input_token_bound), output: number(estimate.output_tokens_assumed) })}</p>
+                    <p>{estimate.token_count_method?.startsWith('model:tiktoken:')
+                        ? t('llm_wiki.estimate_tokenizer_model')
+                        : estimate.token_count_method?.startsWith('reference:tiktoken:')
+                            ? t('llm_wiki.estimate_tokenizer_reference')
+                            : t('llm_wiki.estimate_tokenizer_bytes')}</p>
                     <p>{translate('estimate_explanation', 'These planning assumptions are not metered usage. The actual charge is recorded from the provider. Resuming uses the same spending limit.')}</p>
                     {currency !== 'USD' && <p>{translate('budget_conversion', 'Billing and the saved limit use USD (limit: {{limit}} USD). Display conversion: 1 USD = {{rate}} {{currency}}; {{source}}.', { limit: number(budgetLimit), rate: number(rate), currency, source: estimate.display_currency?.source ?? '' })}</p>}
                 </details>
