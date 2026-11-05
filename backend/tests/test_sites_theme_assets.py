@@ -155,3 +155,23 @@ def test_hidden_block_file_values_do_not_publish_attachments(website):
     assert any(asset.path.endswith('.pdf') for asset in exporter.build_bundle(website.store, site, 'local').assets)
     site.pages[0].enabled = False
     assert not exporter.build_bundle(website.store, site, 'local').assets
+
+
+@pytest.mark.parametrize("suffix", ["txt", "csv", "zip", "docx", "xlsx", "pptx"])
+def test_every_upload_document_type_survives_public_export(website, suffix):
+    import zipfile
+    from backend.domains.sites.models import NavigationLink
+    content = b"name,value\nexample,1"
+    if suffix in {"zip", "docx", "xlsx", "pptx"}:
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            member = {"docx": "word/document.xml", "xlsx": "xl/workbook.xml", "pptx": "ppt/presentation.xml"}.get(suffix, "readme.txt")
+            archive.writestr(member, "synthetic")
+        content = buffer.getvalue()
+    source, _ = theme_assets.upload(website.store, website.site, "guide." + suffix, content, "file")
+    site = website.site.model_copy(deep=True)
+    site.header_actions = [NavigationLink(label="Guide", href=source)]
+    bundle = exporter.build_bundle(website.store, site, "local")
+    target = bundle.site.header_actions[0].href
+    assert target.endswith("." + suffix)
+    assert any(asset.path == target for asset in bundle.assets)

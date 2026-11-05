@@ -113,7 +113,8 @@ def write_call(*, provider: str, model_id: str, input_tokens: int | None,
                created: float | None = None, period: str | None = None,
                cached_tokens: int | None = None, reasoning_tokens: int | None = None,
                duration_ms: float = 0, status: str = "completed",
-               metadata: dict[str, str] | None = None, generation_id: str = "") -> bool:
+               metadata: dict[str, str] | None = None, generation_id: str = "",
+               settle_budget: bool = True) -> bool:
     attribution = {**context_metadata(), **(metadata or {})}
     stamp = created if created is not None else time.time()
     cost = decimal_cost(cost_usd)
@@ -134,7 +135,7 @@ def write_call(*, provider: str, model_id: str, input_tokens: int | None,
                        (identifier, generation_id,
                         str(cost) if cost is not None and cost_source == "estimated" else None,
                         str(cost) if cost is not None and cost_source == "reported" else None))
-        if cursor.rowcount and cost_source in {"reported", "local"}:
+        if cursor.rowcount and settle_budget and cost_source in {"reported", "local"}:
             from backend.services.reading_budget import settle
             settle(db, identifier, cost)
         return bool(cursor.rowcount)
@@ -157,7 +158,7 @@ def monthly() -> dict[str, dict[str, dict[str, Any]]]:
     return totals
 
 
-def reconcile_cost(call_id: str, generation_id: str, reported_cost: Any) -> bool:
+def reconcile_cost(call_id: str, generation_id: str, reported_cost: Any, *, settle_budget: bool = True) -> bool:
     """Replace an estimate with provider billing without adding another call."""
     cost = decimal_cost(reported_cost)
     if cost is None:
@@ -172,7 +173,24 @@ def reconcile_cost(call_id: str, generation_id: str, reported_cost: Any) -> bool
         if changed:
             db.execute("UPDATE usage_generations SET reported_cost_usd=?,reconciled_at=? WHERE call_id=?",
                        (str(cost), time.time(), call_id))
-        if changed:
+        if changed and settle_budget:
             from backend.services.reading_budget import settle
             settle(db, call_id, cost)
         return bool(changed)
+
+
+def reconcile_budget_cost(call_id: str, generation_id: str, reported_cost: Any) -> bool:
+    """Bind combined BYOK consumption to its reservation, retaining wallet cost."""
+    cost = decimal_cost(reported_cost)
+    if cost is None:
+        return False
+    with connect() as db:
+        row = db.execute("""SELECT g.generation_id FROM usage_generations g
+            JOIN usage_calls c ON c.id=g.call_id WHERE g.call_id=? AND c.provider='openrouter'""",
+            (call_id,)).fetchone()
+        if row is None or row['generation_id'] != generation_id:
+            return False
+        from backend.services.reading_budget import settle
+        settle(db, call_id, cost)
+        db.execute('UPDATE usage_generations SET reconciled_at=? WHERE call_id=?', (time.time(), call_id))
+    return True

@@ -165,3 +165,15 @@ test('each form folds independently and keeps edited values when reopened', () =
   expect(view.container.querySelectorAll('details.websites-form[open]')).toHaveLength(1);
   expect(view.savedResponse().forms?.[0]?.title).toEqual({ ca: 'Retained title' }); view.unmount();
 });
+
+
+test('gallery path editing keeps the same input and keyboard focus', () => {
+  const initial: SiteConfig = { ...base, pages: [{ id: 'gallery-page', title: 'Gallery', language: 'ca', path: '/ca/gallery', enabled: false, template: 'page', blocks: [{ id: 'gallery', type: 'gallery', images: ['a'] }] }] };
+  const view = mountEditor(initial, (site, onChange) => <PagesEditor site={site} onChange={onChange} />);
+  const input = required(view.container.querySelector<HTMLInputElement>('input[aria-label="websites.image 1"]'));
+  input.focus();
+  act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, 'ab'); input.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(view.container.querySelector('input[aria-label="websites.image 1"]')).toBe(input);
+  expect(document.activeElement).toBe(input);
+  expect(input.value).toBe('ab'); view.unmount();
+});

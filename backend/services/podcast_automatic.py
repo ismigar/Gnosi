@@ -210,17 +210,24 @@ def _write_length_stream(context: _Briefing, request: Any, data: dict[str, Any],
                                                data, minimum, maximum), data)}
 
 
-def _repair_narration_passages(
+def _repair_narration_length(
     context: _Briefing, request: AgentOperation, payload: dict[str, Any], draft: str,
     options: dict[str, Any], limit: int,
 ) -> OutputRepair | None:
     from backend.services.podcast_briefing import _object
-    from backend.services.podcast_passage_length import fit_passages, split_passages
+    from backend.services.podcast_passage_length import episode_stream, fit_passages, split_passages
 
     passages = split_passages(draft)
+    minimum, maximum, target = options['min_words'], options['max_words'], options['target_words']
+    data = {key: value for key, value in payload['data'].items() if key != 'previous_draft'}
+    stream = episode_stream(draft, _accepted_word_range(options))
+    if stream is not None:
+        data['length_repair'] = {'mode': 'compress_episode_words', 'target_words': target, **json.loads(stream.input)}
+        repair_input = json.dumps({**payload, 'data': data}, ensure_ascii=False)
+        if context.cost(request.model_copy(update={'input': repair_input, 'output_schema': stream.output_schema})) <= limit:
+            return OutputRepair(repair_input, stream.output_schema, stream.restore)
     if len(passages) < 2:
         return None
-    minimum, maximum, target = options['min_words'], options['max_words'], options['target_words']
     # Leave room to retain original prose when the model can compress a
     # passage well, and reserve headroom for alternatives that exceed guidance.
     targets = advisory_targets(minimum, {key: len(text.split()) for key, text in passages.items()}, minimum=1)
@@ -272,7 +279,7 @@ def _write_plain_narration(context: _Briefing, data: dict[str, Any], options: di
         target = options['target_words']
         limit = min(context.budget, synthesis_context_limit(context))
         if actual > maximum:
-            repair = _repair_narration_passages(context, request, payload, draft, options, limit)
+            repair = _repair_narration_length(context, request, payload, draft, options, limit)
             if repair is not None:
                 return repair
         repair_data = {

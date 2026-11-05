@@ -110,10 +110,18 @@ def selection_contract(schema: dict[str, Any], phase: str, primary_ids: list[lis
             pages = result["properties"]["evidence_requests"]["items"]["properties"]["pages"]
             pages.pop("uniqueItems", None)
         note, definitions = shared_note_schema(result["properties"]["changes"]["items"]["properties"]["replacement"])
-        result["properties"]["changes"] = obj({f"note_{i + 1}": {"anyOf": [
-            {"type": "null"}, obj({"omit_reason": {"type": "string", "minLength": 1}}),
-            primary_note_schema(note, identifiers, quote_count)]}
-            for i, identifiers in enumerate(primary_ids)})
+        contracts: dict[tuple[int, ...], str] = {}
+        changes = {}
+        for i, identifiers in enumerate(primary_ids):
+            key = tuple(identifiers)
+            if key not in contracts:
+                name = f"reading_primary_note_{len(contracts) + 1}"
+                contracts[key] = name
+                definitions[name] = primary_note_schema(note, identifiers, quote_count)
+            changes[f"note_{i + 1}"] = {"anyOf": [
+                {"type": "null"}, obj({"omit_reason": {"type": "string", "minLength": 1}}),
+                {"$ref": f"#/$defs/{contracts[key]}"}]}
+        result["properties"]["changes"] = obj(changes)
     result["$defs"] = definitions
     return result
 
@@ -152,6 +160,14 @@ def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
     primary_ids = [[q["quote_id"] for q in catalog[source - 1]["quotes"]] for source in primary_sources]
     schema = selection_contract(payload["output_schema"], str(phase), primary_ids, len(quotes))
     payload["output_schema"] = schema
+    documents = {source.get("document", "") for source in catalog}
+    if len(documents) == 1 and next(iter(documents)):
+        payload["source_document"] = next(iter(documents))
+        for source in catalog:
+            source.pop("document", None)
+        payload["instruction"] = str(payload.get("instruction", "")) + (
+            " Every source_quotes entry belongs to source_document; its complete document label is shared."
+        )
     payload["source_quotes"] = catalog
     payload["instruction"] = str(payload.get("instruction", "")) + (
         " Return passages by their named passage_N keys, not array positions. In review, return each"

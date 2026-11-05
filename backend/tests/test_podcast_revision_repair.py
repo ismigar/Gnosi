@@ -84,3 +84,13 @@ def test_more_than_four_semantic_edits_keep_their_own_contract_limit():
     result = json.loads(repair.restore(json.dumps({'replacement_tokens': tokens})))
     assert len(result['edits']) == 6
     assert len(apply_edits(result, data['previous_draft'], data['feedback'], 1242, 1504).split()) == 1393
+
+
+def test_overlapping_repeated_literal_never_spends_the_specialized_repair_call():
+    data, schema, proposal = case()
+    data['previous_draft'] = 'a a a Beta old. Tail stays.'
+    proposal['draft_sha256'] = hashlib.sha256(data['previous_draft'].encode()).hexdigest()
+    schema['properties']['draft_sha256']['enum'] = [proposal['draft_sha256']]
+    proposal['edits'] = [{'before': 'a a', 'after': 'a a', 'finding_indices': [0]},
+                         {'before': 'Beta old.', 'after': 'expanded ' * 20, 'finding_indices': []}]
+    assert revision_word_repair(data, schema, 7, 10)(json.dumps(proposal), ValueError('rejected')) is None

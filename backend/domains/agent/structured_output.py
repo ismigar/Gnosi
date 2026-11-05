@@ -63,13 +63,16 @@ def _has_dynamic_object(schema: Any) -> bool:
     return any(_has_dynamic_object(value) for value in schema.values())
 
 
-def _native_schema(schema: dict[str, Any]) -> dict[str, Any]:
-    """Keep unsupported uniqueness checks in the original local contract."""
+def _native_schema(schema: dict[str, Any], *, openai_literals: bool = False) -> dict[str, Any]:
+    """Adapt native restrictions while retaining the complete local contract."""
     result = deepcopy(schema)
     def visit(node: Any) -> None:
         if not isinstance(node, dict):
             return
         node.pop('uniqueItems', None)
+        if openai_literals and any(isinstance(value, str) and ('"' in value or '\\' in value)
+                                   for value in node.get('enum', [])):
+            node.pop('enum')
         for key in ('properties', 'patternProperties', '$defs', 'definitions', 'dependentSchemas'):
             children = node.get(key)
             if isinstance(children, dict):
@@ -92,7 +95,7 @@ def _native_schema(schema: dict[str, Any]) -> dict[str, Any]:
 
 def constrain_output(model: Any, provider: str, schema: dict[str, Any] | None) -> Any:
     """Keep routing preferences and refuse silent parameter-dropping upstream."""
-    if provider != "openrouter" or schema is None:
+    if provider not in {"openrouter", "openai"} or schema is None:
         return model
     from backend.agent.json_tool_model import JsonToolModel
     if isinstance(model, JsonToolModel):
@@ -102,6 +105,12 @@ def constrain_output(model: Any, provider: str, schema: dict[str, Any] | None) -
         return JsonToolModel(constrain_output(model.model, provider, transport_schema), model.schemas)
     if not callable(getattr(model, "bind", None)):
         raise ValueError("This model transport cannot enforce structured output")
+    if provider == "openai":
+        response_format = {"type": "json_object"} if _has_dynamic_object(schema) else {
+            "type": "json_schema",
+            "json_schema": {"name": "gnosi_operation", "strict": True, "schema": deepcopy(schema)},
+        }
+        return model.bind(response_format=response_format)
     base = getattr(model, "bound", model)
     extra = deepcopy(getattr(base, "extra_body", None) or {})
     bound_extra = deepcopy(getattr(model, "kwargs", {}).get("extra_body", {}))
@@ -109,10 +118,10 @@ def constrain_output(model: Any, provider: str, schema: dict[str, Any] | None) -
     extra.update(bound_extra)
     extra["provider"] = {**preferences, "require_parameters": True}
     model_id = str(getattr(base, "model_name", "") or getattr(base, "model", ""))
-    adapt_uniqueness = model_id.lower().startswith('openai/') or any(
-        str(upstream).lower().split('/')[0] in {'deepinfra', 'openai'}
-        for upstream in preferences.get('order', []))
-    native_schema = _native_schema(schema) if adapt_uniqueness else deepcopy(schema)
+    upstreams = {str(upstream).lower().split('/')[0] for upstream in preferences.get('order', [])}
+    openai_route = model_id.lower().startswith('openai/') or 'openai' in upstreams
+    native_schema = (_native_schema(schema, openai_literals=openai_route)
+                     if openai_route or 'deepinfra' in upstreams else deepcopy(schema))
     # Dynamic dictionaries are valid JSON Schema but cannot be represented by
     # strict provider schemas. Keep the complete contract in the operation
     # envelope and validate/repair locally; constrain the transport to JSON.

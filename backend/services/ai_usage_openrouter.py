@@ -10,6 +10,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from decimal import Decimal
+from typing import Any
 
 from backend.services import ai_usage_ledger as ledger
 
@@ -24,6 +26,21 @@ _workers_lock = threading.Lock()
 _workers_started = False
 
 
+def budget_cost(data: dict[str, Any]) -> Decimal | None:
+    """Include provider credits consumed through BYOK, not just the router fee."""
+    router = ledger.decimal_cost(data.get('total_cost', data.get('cost')))
+    if router is None:
+        return None
+    if data.get('is_byok') is False:
+        return router
+    if data.get('is_byok') is not True:
+        return None
+    details = data.get('cost_details')
+    details = details if isinstance(details, dict) else {}
+    upstream = ledger.decimal_cost(data.get('upstream_inference_cost', details.get('upstream_inference_cost')))
+    return router + upstream if upstream is not None else None
+
+
 def reconcile(call_id: str, generation_id: str, api_key: str) -> bool:
     if not generation_id.startswith("gen-") or not api_key:
         return False
@@ -36,7 +53,11 @@ def reconcile(call_id: str, generation_id: str, api_key: str) -> bool:
             data = json.load(response).get("data", {})
         if data.get("id") != generation_id:
             return False
-        return ledger.reconcile_cost(call_id, generation_id, data.get("total_cost"))
+        ledger.reconcile_cost(call_id, generation_id, data.get("total_cost"), settle_budget=False)
+        consumed = budget_cost(data)
+        if consumed is None:
+            return False
+        return ledger.reconcile_budget_cost(call_id, generation_id, consumed)
     except Exception as error:
         # Never fabricate zero or log credentials/provider response bodies.
         status = error.code if isinstance(error, urllib.error.HTTPError) else type(error).__name__

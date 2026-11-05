@@ -10,8 +10,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Àrea | Recompte |
 | --- | ---: |
-| Backend Python files | 1828 |
-| Backend Python test files | 730 |
+| Backend Python files | 1830 |
+| Backend Python test files | 731 |
 | Frontend JS/TS source files | 2394 |
 | Frontend unit test files | 737 |
 | Registered FastAPI routers | 42 |
@@ -22,7 +22,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Àrea | Fitxers | Abast funcional |
 | --- | ---: | --- |
-| `backend/` | 1967 | FastAPI, services, models, agents, scheduling, and storage adapters |
+| `backend/` | 1969 | FastAPI, services, models, agents, scheduling, and storage adapters |
 | `frontend/src/` | 2499 | React application, UI behavior, state, and browser integrations |
 | `pipeline/` | 108 | Reusable development and application skills, and deterministic processing tools |
 | `desktop/` | 133 | Desktop lifecycle, backend packaging, IPC, and updates |
