@@ -49,9 +49,9 @@ def _encoding_from_verified_bytes(name: str, raw: bytes) -> Any:
     from tiktoken import Encoding
     from tiktoken_ext import openai_public  # type: ignore[import-untyped]
 
-    factory = getattr(openai_public, name, None)
+    encoding_factory = getattr(openai_public, name, None)
     expected = _ENCODING_HASHES[name]
-    if factory is None or expected not in factory.__code__.co_consts:
+    if encoding_factory is None or expected not in encoding_factory.__code__.co_consts:
         raise ValueError("Unsupported tokenizer factory")
     ranks = {
         base64.b64decode(token, validate=True): int(rank)
@@ -67,7 +67,7 @@ def _encoding_from_verified_bytes(name: str, raw: bytes) -> Any:
     # caller. Never patch tiktoken globals or re-open the cache through its
     # downloader (the file could disappear between verification and use).
     offline_factory = FunctionType(
-        factory.__code__, {**factory.__globals__, "load_tiktoken_bpe": load_verified},
+        encoding_factory.__code__, {**encoding_factory.__globals__, "load_tiktoken_bpe": load_verified},
     )
     return Encoding(**offline_factory())
 
