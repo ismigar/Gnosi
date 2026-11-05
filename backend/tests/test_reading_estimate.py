@@ -132,7 +132,8 @@ def test_changed_knowledge_preflight_reuses_drafts_but_prices_all_reviews(monkey
 def test_price_tokenizer_identifies_exact_reference_and_missing_assets(monkeypatch):
     from backend.services import agent_context_budget
 
-    def available(model):
+    def available(model, *, use_profile_cache=False):
+        assert use_profile_cache
         if model == 'gpt-4o':
             return SimpleNamespace(name='o200k_base', encode=lambda text, **_: text.split())
         raise KeyError(model)
@@ -187,6 +188,47 @@ def test_context_and_quote_tokenizers_use_verified_bytes_without_downloader(monk
     assert method == 'reference:tiktoken:o200k_base'
     assert count('aaaa') == 4
     assert not path.exists()
+    download.assert_not_called()
+
+
+def test_profile_vocabulary_survives_cold_quotes_without_changing_context_counts(monkeypatch, tmp_path):
+    import hashlib
+    from tiktoken import load, registry
+    from backend.services import agent_context_budget as budget
+
+    raw = b'YQ== 0\nYWE= 1\n'
+    url = 'https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken'
+    profile = tmp_path / 'profile'
+    cache = profile / 'cache' / 'tokenizers'
+    cache.mkdir(parents=True)
+    (cache / hashlib.sha1(url.encode()).hexdigest()).write_bytes(raw)
+    real_sha256 = hashlib.sha256
+
+    def hash_fixture(data):
+        if data == raw:
+            return SimpleNamespace(hexdigest=lambda: budget._ENCODING_HASHES['o200k_base'])
+        return real_sha256(data)
+
+    download = Mock(side_effect=AssertionError('Estimate must not download a tokenizer'))
+    monkeypatch.setenv('GNOSI_DATA_DIR', str(profile))
+    monkeypatch.delenv('TIKTOKEN_CACHE_DIR', raising=False)
+    monkeypatch.delenv('DATA_GYM_CACHE_DIR', raising=False)
+    monkeypatch.setattr(budget.tempfile, 'gettempdir', lambda: str(tmp_path / 'empty-temp'))
+    monkeypatch.setattr(budget, 'hashlib', SimpleNamespace(sha1=hashlib.sha1, sha256=hash_fixture))
+    monkeypatch.setattr(load, 'read_file', download)
+    monkeypatch.setattr(registry, 'ENCODINGS', {})
+    monkeypatch.setattr(budget, '_LOCAL_ENCODINGS', {})
+
+    for _ in range(2):
+        budget._LOCAL_ENCODINGS.clear()
+        count, method = budget.reading_price_counter('openrouter', 'openai/gpt-6.1-sol')
+        assert method == 'reference:tiktoken:o200k_base'
+        assert count('aaaa') == 2
+        context = budget.count_tokens('aaaa', 'gpt-4o')
+        assert context.tokens == 4 and context.estimated
+
+    monkeypatch.setenv('TIKTOKEN_CACHE_DIR', '')
+    assert budget.reading_price_counter('openrouter', 'openai/gpt-6.1-sol')[1] == 'utf8-conservative-upper-bound'
     download.assert_not_called()
 
 

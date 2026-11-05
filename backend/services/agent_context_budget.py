@@ -11,6 +11,8 @@ import os
 import tempfile
 from pathlib import Path
 
+from backend.config.data_dir import resolve_data_dir
+
 _ENCODING_HASHES = {
     "cl100k_base": "223921b76ee99bde995b7ff738513eef100fb51d18c93597a113bcffe865b2a7",
     "o200k_base": "446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d",
@@ -70,29 +72,42 @@ def _encoding_from_verified_bytes(name: str, raw: bytes) -> Any:
     return Encoding(**offline_factory())
 
 
-_LOCAL_ENCODINGS: dict[str, Any] = {}
+_LOCAL_ENCODINGS: dict[tuple[str, Path], Any] = {}
 
 
-def _available_encoding(model: str) -> Any:
+def _available_encoding(model: str, *, use_profile_cache: bool = False) -> Any:
     from tiktoken.model import encoding_name_for_model
     from tiktoken.registry import ENCODINGS
 
     name = encoding_name_for_model(model)
     if name in ENCODINGS:
         return ENCODINGS[name]
-    if name in _LOCAL_ENCODINGS:
-        return _LOCAL_ENCODINGS[name]
     expected = _ENCODING_HASHES.get(name)
-    cache = os.environ.get("TIKTOKEN_CACHE_DIR", os.environ.get("DATA_GYM_CACHE_DIR", str(Path(tempfile.gettempdir()) / "data-gym-cache")))
-    if not expected or not cache:
+    override = os.environ.get("TIKTOKEN_CACHE_DIR", os.environ.get("DATA_GYM_CACHE_DIR"))
+    if not expected or override == "":
         return None
+    if override is not None:
+        directories = [Path(override)]
+    else:
+        directories = [Path(tempfile.gettempdir()) / "data-gym-cache"]
+        if use_profile_cache:
+            directories.insert(0, resolve_data_dir() / "cache" / "tokenizers")
+
     url = f"https://openaipublic.blob.core.windows.net/encodings/{name}.tiktoken"
-    raw = (Path(cache) / hashlib.sha1(url.encode()).hexdigest()).read_bytes()
-    if hashlib.sha256(raw).hexdigest() != expected:
-        return None
-    encoding = _encoding_from_verified_bytes(name, raw)
-    _LOCAL_ENCODINGS[name] = encoding
-    return encoding
+    cache_name = hashlib.sha1(url.encode()).hexdigest()
+    for directory in directories:
+        key = (name, directory)
+        if key in _LOCAL_ENCODINGS:
+            return _LOCAL_ENCODINGS[key]
+        try:
+            raw = (directory / cache_name).read_bytes()
+        except OSError:
+            continue
+        if hashlib.sha256(raw).hexdigest() == expected:
+            encoding = _encoding_from_verified_bytes(name, raw)
+            _LOCAL_ENCODINGS[key] = encoding
+            return encoding
+    return None
 
 
 def reading_price_counter(provider: str, model: str) -> tuple[Callable[[str], int], str]:
@@ -103,7 +118,7 @@ def reading_price_counter(provider: str, model: str) -> tuple[Callable[[str], in
         # Use a reference tokenizer for pricing only, never for safety checks.
         for candidate, kind in ((model.removeprefix("openai/"), "model"), ("gpt-4o", "reference")):
             try:
-                encoding = _available_encoding(candidate)
+                encoding = _available_encoding(candidate, use_profile_cache=True)
             except (ImportError, KeyError, ValueError, OSError):
                 continue
             if encoding is not None:
