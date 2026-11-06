@@ -43,7 +43,7 @@ export function ReorderActions({ index, length, move, remove, removeDisabled = f
 
 /** Keep children mounted when folded so drafts and uploads survive. */
 export function Disclosure({ title, children, actions, className = 'websites-row', level = 3 }: { title: string; children: ReactNode; actions?: ReactNode; className?: string; level?: 2 | 3 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const Heading = level === 2 ? 'h2' : 'h3';
   return <details className={`websites-disclosure ${className}`} open={open} onToggle={event => { setOpen(event.currentTarget.open); }}>
     <summary><Heading>{title}</Heading></summary>

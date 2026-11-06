@@ -208,6 +208,9 @@ test.each(['select', 'radio'] as const)('%s captions translate independently whi
 test('each form folds independently and keeps edited values when reopened', () => {
   const initial = { ...base, forms: [{ id: 'one', name: 'One', revision: 1, enabled: false, privacy_url: '', require_privacy: false }, { id: 'two', name: 'Two', revision: 1, enabled: false, privacy_url: '', require_privacy: false }] };
   const view = mountEditor(initial, (site, onChange) => <FormsEditor site={site} onChange={onChange} />);
+  expect(view.container.querySelectorAll('details[open]')).toHaveLength(0);
+  const firstForm = required(view.container.querySelector<HTMLDetailsElement>('details.websites-form'));
+  act(() => { firstForm.open = true; firstForm.dispatchEvent(new Event('toggle')); });
   edit(view.container, 'websites.titleLabel', 'Retained title');
   const details = required(view.container.querySelector<HTMLDetailsElement>('details.websites-form'));
   act(() => { details.open = false; details.dispatchEvent(new Event('toggle')); });
@@ -295,4 +298,16 @@ test('rows and columns survive folding, parent save responses, reorder and undo'
   click(view.container, 'websites.visual.undo');
   expect(view.site.pages?.[0]?.blocks?.[0]?.children?.[0]?.body).toBe('**Formatted** text');
   view.unmount();
+});
+
+
+test('page and content cards start folded, retain edits, and stay folded after save responses', () => {
+  const site: SiteConfig = { ...base, sources: [{ id: 'source', source_id: 'table', kind: 'table', enabled: false, title: 'Source', include_body: false, sort_descending: false, presentation: 'cards', path_prefix: '/content', selection_mode: 'all' }], pages: [{ id: 'page', title: 'Page', path: '/ca/page', language: 'ca', enabled: false, template: 'page', description: '', css: '', blocks: [{ id: 'text', type: 'text', title: 'Text', body: 'Retained', image: '', alt: '', image_position: 'right', columns: 3, limit: 3, href: '', css: '' }] }] };
+  for (const Editor of [SourcesEditor, PagesEditor]) {
+    const view = mountEditor(site, (site, onChange) => <Editor site={site} catalogue={[]} onChange={onChange} />);
+    expect(view.container.querySelectorAll('details[open]')).toHaveLength(0);
+    view.savedResponse();
+    expect(view.container.querySelectorAll('details[open]')).toHaveLength(0);
+    view.unmount();
+  }
 });

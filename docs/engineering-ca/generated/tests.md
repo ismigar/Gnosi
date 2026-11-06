@@ -11,7 +11,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 36 | 113 |
-| Vitest | 759 | 3475 |
+| Vitest | 759 | 3476 |
 | pytest | 781 | 6016 |
 
 ## Fitxers
@@ -565,7 +565,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/websites/PrivatePanels.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PrivatePanels.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/websites/SourcesEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/SourcesEditor.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/websites/WebsiteAppearance.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteAppearance.test.tsx) | 5 | call-pattern estimate |
-| Vitest | [`frontend/src/features/websites/WebsiteContentEditors.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteContentEditors.test.tsx) | 13 | call-pattern estimate |
+| Vitest | [`frontend/src/features/websites/WebsiteContentEditors.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteContentEditors.test.tsx) | 14 | call-pattern estimate |
 | Vitest | [`frontend/src/features/websites/WebsiteFileField.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteFileField.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/websites/WebsitesManagement.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesManagement.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/websites/WebsitesPage.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesPage.test.tsx) | 26 | call-pattern estimate |
