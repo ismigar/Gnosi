@@ -82,6 +82,7 @@ CI_COMMANDS = {
         "desktop/tests/test_backend_resources.py",
         "uv run python desktop/scripts/backend_resources.py check-source --repository .",
         "uv run python -m compileall -q backend pipeline scripts extensions",
+        "npm ci --prefix extensions/web-publishing/renderer --no-audit --no-fund",
         "uv run pytest",
     ],
     "native-smoke": [
