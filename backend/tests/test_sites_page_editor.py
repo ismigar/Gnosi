@@ -17,7 +17,7 @@ from backend.tests.test_sites_imported_pilot import imported_pilot
 def add_static(store):
     path = store.site_dir(store.list()[0].id) / 'imported/baseline.json'
     payload = json.loads(path.read_text())
-    body = '<main><div class="content-extra"><div class="layout layout--twocol-section layout--twocol-section--50-50"><div class="layout__region"><h2>Heading</h2><p>Keep <strong>bold</strong> and <a href="/ca/blog">link</a>.</p></div><div class="layout__region"><img src="/sites/default/files/photo.png" alt="Portrait" width="1215" height="1215"></div></div></div></main>'
+    body = '<main><div class="content-extra"><div class="layout layout--twocol-section layout--twocol-section--50-50"><div class="layout__region"><h2>Heading</h2><p>Keep <strong>bold</strong> and <a href="/ca/blog">link</a>.</p></div><div class="layout__region"><img src="/sites/default/files/photo.png" alt="Portrait"></div></div></div></main>'
     payload['data']['nodes'].append({'uuid': 'static-public', 'nid': 5, 'type': 'page', 'lang': 'ca', 'title': 'Profile', 'url': '/ca/profile', 'body_html': body, 'fields': {}})
     path.write_text(json.dumps(payload))
     return path, path.read_bytes(), body
@@ -85,7 +85,7 @@ def test_imported_image_frames_survive_conversion_and_preview_respects_withdrawa
     asset['private_source'] = str(copy)
     payload['assets'].append(asset)
     node = payload['data']['nodes'][-1]
-    node['body_html'] = body.replace('<img ', '<div class="img-coneix-me"><img ').replace('height="1215">', 'height="1215"></div>').replace('/photo.png', '/portrait2.png')
+    node['body_html'] = body.replace('<img ', '<div class="img-coneix-me"><img ').replace('alt="Portrait">', 'alt="Portrait"></div>').replace('/photo.png', '/portrait2.png')
     path.write_text(json.dumps(payload))
     page = imported_static_pages(store, site)[0]
     assert page.blocks[0].image_width == 80 and page.blocks[0].image_frame == 'inset'
@@ -131,3 +131,23 @@ def test_unrepresented_row_semantics_remain_lossless(attributes):
     original = BeautifulSoup(body, 'html.parser').select_one('.layout')
     preserved = BeautifulSoup(block.body, 'html.parser').select_one('.layout')
     assert preserved == original
+
+
+@pytest.mark.parametrize("image_region", [
+    '<div class="layout__region" id="destination"><img src="/portrait.png" alt="Portrait"></div>',
+    '<div class="layout__region custom-image"><img src="/portrait.png" alt="Portrait"></div>',
+    '<div class="layout__region" style="padding:20px"><img src="/portrait.png" alt="Portrait"></div>',
+    '<div class="layout__region"><div id="destination"><img src="/portrait.png" alt="Portrait"></div></div>',
+    '<div class="layout__region"><img src="/portrait.png" alt="Portrait" width="200" class="custom-image"></div>',
+])
+def test_unrepresented_image_region_semantics_remain_lossless(image_region):
+    body = f'<div class="content-extra"><div class="layout layout--twocol-section"><div class="layout__region"><p>Text</p></div>{image_region}</div></div>'
+    block = static_blocks(body)[0]
+    assert block.type == 'text' and block.body_format == 'html'
+    assert BeautifulSoup(block.body, 'html.parser').select_one('.layout') == BeautifulSoup(body, 'html.parser').select_one('.layout')
+
+
+def test_outer_anchor_is_preserved_when_projecting_independent_blocks():
+    body = '<div class="content-extra" id="section"><div class="layout layout--twocol-section"><div class="layout__region"><p>Text</p></div><div class="layout__region"><img src="/portrait.png" alt="Portrait"></div></div></div>'
+    block = static_blocks(body)[0]
+    assert block.type == 'text' and block.body == body

@@ -17,6 +17,10 @@ def static_blocks(body: str) -> list[SiteBlock]:
     layouts = soup.select(".content-extra > .layout")
     if not layouts:
         return [SiteBlock(type="text", body=body, body_format="html")]
+    # Ancestor anchors/styles cannot be represented on independently sorted blocks.
+    if any(set(parent.attrs) - {"class"} or set(parent.get("class", [])) - {"content-extra"}
+           for layout in layouts for parent in layout.parents if getattr(parent, "attrs", None)):
+        return [SiteBlock(type="text", body=body, body_format="html")]
     result = []
     for layout in layouts:
         regions = layout.find_all(class_="layout__region", recursive=False)
@@ -30,8 +34,14 @@ def static_blocks(body: str) -> list[SiteBlock]:
             if image_side is not None:
                 region = regions[image_side]
                 # A row with captions, links or text next to the image stays lossless HTML.
-                if not region.get_text(strip=True) and not region.find("a"):
-                    image = pictures[image_side][0]
+                image = pictures[image_side][0]
+                plain_region = (set(region.attrs) <= {"class"}
+                                and set(region.get("class", [])) <= {"layout__region", "layout__region--first", "layout__region--second"})
+                plain_wrappers = all(node.name == "div" and set(node.attrs) <= {"class"}
+                                     and set(node.get("class", [])) <= {"img-coneix-me", "img-temenos"}
+                                     for node in region.find_all(True) if node is not image)
+                if (plain_region and plain_wrappers and set(image.attrs) <= {"src", "alt"}
+                        and not region.get_text(strip=True) and not region.find("a")):
                     framed = any(set(parent.get("class", [])) & {"img-coneix-me", "img-temenos"}
                                  for parent in image.parents if parent is not region)
                     result.append(SiteBlock(type="split", body=str(regions[1 - image_side]), body_format="html",
