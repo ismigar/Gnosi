@@ -393,7 +393,8 @@ def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[di
             section = _write_episode(context, briefs, outline, budget, [], '')
         else:
             section = previous_section
-        for attempt in range(2):
+        previous_counts: dict[str, int] | None = None
+        for attempt in range(3):
             progress('Checking final narration before speech' if attempt else 'Brief factual and thematic review')
             issues = review(context, briefs, section['narration'], subjects)
             if not issues:
@@ -401,9 +402,18 @@ def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[di
                     'automatic_correction_applied': bool(attempt), 'original_fragment_audit': False,
                     'final_narration_validated': True, 'policy_revision': policy_revision()}
                 return [section], outline, budget
-            if attempt == 0:
-                progress('Applying the brief review')
-                section = _write_episode(context, briefs, outline, budget, issues, section['narration'])
+            counts = {kind: sum(issue['kind'] == kind for issue in issues)
+                      for kind in ('omission', 'distortion', 'production', 'duplicate')}
+            # One further correction is useful only after measurable improvement,
+            # without trading fewer omissions for new factual or production errors.
+            improving = previous_counts is None or (
+                sum(counts.values()) < sum(previous_counts.values())
+                and all(counts[kind] <= previous_counts[kind] for kind in counts))
+            if attempt == 2 or not improving:
+                break
+            previous_counts = counts
+            progress('Applying the brief review')
+            section = _write_episode(context, briefs, outline, budget, issues, section['narration'])
         raise ValueError('podcast_final_narration_review_failed')
     for attempt in range(3):
         progress(f"Writing and reviewing complete daily briefing: pass {attempt + 1}/3")

@@ -115,6 +115,60 @@ def test_brief_findings_trigger_one_correction_and_review_of_the_corrected_text(
     assert report['review']['final_narration_validated'] is True
 
 
+
+@pytest.mark.parametrize(('round_kinds', 'succeeds'), [
+    ([['distortion', 'distortion'], ['distortion'], []], True),
+    ([['distortion'] * 3, ['distortion'] * 2, ['distortion']], False),
+    ([['distortion'] * 2, ['distortion'] * 2], False),
+    ([['omission'] * 2, ['distortion']], False),
+])
+def test_second_brief_correction_requires_improvement_and_still_validates_final_text(pipeline, round_kinds, succeeds):
+    from types import SimpleNamespace
+    brief_mode(pipeline)
+    reviews, limits = [], []
+
+    def model(request, **kwargs):
+        data = json.loads(request.input)['data']
+        if request.operation.endswith('audit'):
+            reviews.append(data['narration'])
+            limits.append((request.max_model_calls, request.timeout_seconds))
+            record = data['source_summaries'][0]
+            quote = f'Revision {len(reviews) - 1}.'
+            result = {'issues': [{'kind': kind, 'detail': f'Unresolved material finding {index}.',
+                'narration_quotes': [] if kind == 'omission' else [quote],
+                'source_part_ids': [record['part_id']], 'evidence_quote': record['quote']}
+                for index, kind in enumerate(round_kinds[len(reviews) - 1])]}
+        elif request.operation.endswith('write'):
+            limits.append((request.max_model_calls, request.timeout_seconds))
+            if data.get('revision_encoding') in {'grounded_edits_v1', 'grounded_anchor_ids_v1'}:
+                result = patch_response(request, f'Revision {len(reviews) - 1}.', f'Revision {len(reviews)}.')
+                if 'finding_anchors' in result:
+                    anchor = result['finding_anchors']['0']
+                    result['finding_anchors'] = {str(i): anchor for i in range(len(data['feedback']))}
+                else:
+                    result['edits'][0]['finding_indices'] = list(range(len(data['feedback'])))
+            else:
+                result = written(request, 'Revision 0.' + ' Context.' * request.options['min_words'])
+        else:
+            return pipeline.model(request, **kwargs)
+        text = json.dumps(result); kwargs['output_validator'](text)
+        return SimpleNamespace(result=text)
+
+    pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
+    sources = [{'id': 'a', 'title': 'Source', 'text': 'The original supporting evidence is clear.'}]
+    if succeeds:
+        script = pipeline.run(sources)
+        assert script.startswith('Revision 2.') and reviews[-1] == script
+        review = pipeline.saved['podcast-coverage-report']['review']
+        assert review['semantic_reviews'] == 3 and review['final_narration_validated'] is True
+    else:
+        with pytest.raises(ValueError, match='podcast_final_narration_review_failed'):
+            pipeline.run(sources)
+        assert 'podcast-coverage-report' not in pipeline.saved
+    assert len(reviews) == len(round_kinds)
+    assert all(limit == (2, 300) for limit in limits)
+
+
 def test_new_error_introduced_by_a_correction_cannot_reach_speech(pipeline):
     from types import SimpleNamespace
     brief_mode(pipeline)
