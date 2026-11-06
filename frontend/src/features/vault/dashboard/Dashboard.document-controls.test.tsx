@@ -11,7 +11,7 @@ const state = vi.hoisted(() => ({
     setIsGlobalSearchOpen: vi.fn(),
 }));
 vi.mock('./useDashboardController', () => ({ useDashboardController: () => ({
-    ...state, breadcrumbs: [], promptModal: { isOpen: false },
+    ...state, breadcrumbs: [], promptModal: { isOpen: false }, recordActionDialogs: { pendingAction: null },
 }) }));
 vi.mock('./DashboardSidebar', () => ({ DashboardSidebar: () => <nav>Navigation</nav> }));
 vi.mock('./DashboardContent', () => ({ DashboardContent: () => <main>{state.activeTabId ? 'Document' : 'Choose a page'}</main> }));

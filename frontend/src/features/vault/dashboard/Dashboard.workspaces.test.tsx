@@ -31,6 +31,7 @@ function useFixtureController(): DashboardController {
   const [isWorkspacesOpen, setIsWorkspacesOpen] = useState(true);
   const noop = () => undefined;
   return { tabs, setTabs, activeTabId, setActiveTabId, viewMode, setViewMode, isWorkspacesOpen, setIsWorkspacesOpen,
+    recordActionDialogs: { pendingAction: null },
     promptModal: { isOpen: false }, registry: { tables: [], views: [] }, activeTableId: null, activeViewId: null,
     setActiveTableId: noop, setActiveViewId: noop, setSplitTabIds: noop, setSplitTableIds: noop, setPaneSizes: noop,
     t: (_key: string, fallback: string) => fallback,
