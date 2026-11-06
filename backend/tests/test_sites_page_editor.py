@@ -164,3 +164,11 @@ def test_empty_layout_anchor_survives_projection():
     body = '<div class="content-extra"><div class="layout" id="destination"></div><div class="layout"><p><a href="#destination">Text</a></p></div></div>'
     blocks = static_blocks(body)
     assert BeautifulSoup(''.join(block.body for block in blocks), 'html.parser').select_one('#destination') is not None
+
+
+@pytest.mark.parametrize("extra", ['<a id="destination"></a>', '<hr>', '<p>Important introduction</p>', 'Important introduction'])
+def test_extra_row_children_are_not_dropped_by_split_conversion(extra):
+    body = f'<div class="content-extra"><div class="layout layout--twocol-section">{extra}<div class="layout__region"><p>Text</p></div><div class="layout__region"><img src="/portrait.png" alt="Portrait"></div></div></div>'
+    block = static_blocks(body)[0]
+    assert block.type == 'text'
+    assert BeautifulSoup(block.body, 'html.parser').select_one('.layout') == BeautifulSoup(body, 'html.parser').select_one('.layout')

@@ -34,7 +34,9 @@ def static_blocks(body: str) -> list[SiteBlock]:
         # semantics (ratios, anchors, classes and attributes) in lossless HTML.
         plain_row = (set(layout.attrs) <= {"class"}
                      and set(layout.get("class", [])) <= {"layout", "layout--twocol-section", "layout--twocol-section--50-50"})
-        if len(regions) == 2 and plain_row:
+        plain_children = all(child in regions if getattr(child, "name", None) else not str(child).strip()
+                             for child in layout.children)
+        if len(regions) == 2 and plain_row and plain_children:
             pictures = [region.find_all("img") for region in regions]
             image_side = next((index for index in (0, 1) if len(pictures[index]) == 1 and not pictures[1 - index]), None)
             if image_side is not None:
