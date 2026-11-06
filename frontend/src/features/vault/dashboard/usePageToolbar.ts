@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useOpenRecordActions } from './useOpenRecordActions';
 import { tabBookmarkTarget } from './bookmark-target';
 import { useVaultHome } from './useVaultHome';
 import { fetchResourceProcessingStatus } from '../../../shared/api/resource-processing';
@@ -6,7 +7,7 @@ import { restoreResourceProcessingTask } from '../../literature';
 import type { DashboardActions } from './useDashboardActions';
 export function usePageToolbar(context: DashboardActions) {
     const home = useVaultHome(context);
-    const { activeTabId, codeViewByTabId, editLockedByPageId, handleDeletePage, handleToggleFavorite, isPluginEnabled, llmWikiConfig, llmWikiJobs, pages, registry, resolvePageTableId, setCodeViewByTabId, setCommentsOpen, setEditLockedByPageId, setHistoryOpenSignal, setLlmWikiJobs, setResourceToProcess, setShareOpen, setTranslatePageModalId, setTranslatePageMode, t, tabs, viewMode } = context;
+    const { activeTabId, codeViewByTabId, editLockedByPageId, handleDeletePage, handleToggleFavorite, isPluginEnabled, llmWikiConfig, pages, resolvePageTableId, setCodeViewByTabId, setCommentsOpen, setEditLockedByPageId, setHistoryOpenSignal, setLlmWikiJobs, setShareOpen, setTranslatePageModalId, setTranslatePageMode, t, tabs, viewMode } = context;
     const currentOpenPage = activeTabId ? pages.find(p => p.id === activeTabId) : null;
     const currentOpenPageId = currentOpenPage?.id;
     const currentActiveTab = activeTabId ? tabs.find(t => t.id === activeTabId) : null;
@@ -26,9 +27,6 @@ export function usePageToolbar(context: DashboardActions) {
     // itself a translation), the menu must translate the FIELDS into a submenu item
     // ('row' mode), not the body into a subpage. For normal pages, 'page' mode.
     const openPageTableId = currentOpenPage ? resolvePageTableId(currentOpenPage) : null;
-    const openPageTable = openPageTableId ? registry.tables.find(t => t.id === openPageTableId) : null;
-    const openPageIsTranslatableRecord = Boolean(openPageTable?.translation_enabled)
-        && !currentOpenPage?.metadata?.translation_lang;
     const llmWikiSourceConfig = (llmWikiConfig?.source_tables || []).find((source) => source.table_id === openPageTableId) || null;
     useEffect(() => {
         let alive = true;
@@ -54,29 +52,14 @@ export function usePageToolbar(context: DashboardActions) {
         });
         return () => { alive = false; };
     }, [currentOpenPageId, currentOpenPage?.title, isPluginEnabled, llmWikiSourceConfig, openPageTableId, setLlmWikiJobs, t]);
-    const llmWikiResourceJob = llmWikiJobs[openPageTableId || '']?.[currentOpenPage?.id || ''] || null;
-    const llmWikiResourceRunning = Boolean(llmWikiResourceJob?.running);
-    const llmWikiResourceRetryable = ['partial', 'error'].includes(llmWikiResourceJob?.phase || '');
-    const llmWikiResourceProcessed = currentOpenPage?.metadata?.['Processat pel Cervell']
-        || currentOpenPage?.metadata?.['processat pel cervell']
-        || llmWikiConfig?.processed_resources?.[openPageTableId || '']?.[currentOpenPage?.id || ''];
-    const canProcessOpenResource = isPluginEnabled('llm-wiki')
-        && Boolean(llmWikiSourceConfig)
-        && !llmWikiResourceRunning;
-    const llmWikiResourceLabel = llmWikiResourceRetryable
-        ? t('table.reprocess_resource_error', "Resume interrupted processing")
-        : !llmWikiResourceProcessed
-            ? t('table.process_resource', "Process resource (Brain)")
-            : t('table.reprocess_resource', "Reprocess resource (processed on {{date}})", {
-                date: typeof llmWikiResourceProcessed === 'number'
-                    ? new Date(llmWikiResourceProcessed * 1000).toLocaleDateString()
-                    : llmWikiResourceProcessed,
-            });
     // Page-level actions, formerly the VaultShell top-bar "…" menu. They now
     // render as inline icon buttons next to the page title (PageActionsBar,
     // wired through BlockEditor). The gating/handlers are unchanged — the set is
     // active-page-scoped and only the active pane's title shows the toolbar.
+    const { recordActions, recordActionDialogs } = useOpenRecordActions(context, currentOpenPage, openPageTableId,
+        viewMode === 'editor' && Boolean(currentActiveTab && !currentActiveTab.isTable && !currentActiveTab.isPdf));
     const pageActions = {
+        recordActions,
         canSetHome: home.homeReady && Boolean(currentOpenPage) && canToggleCodeView,
         isHome: home.homeId === currentActiveTab?.id,
         onToggleHome: () => { void home.toggleHome(); },
@@ -133,27 +116,13 @@ export function usePageToolbar(context: DashboardActions) {
                 return;
             setShareOpen(true);
         },
-        canTranslatePage,
-        translateLabel: openPageIsTranslatableRecord
-            ? t('shell.translate_record', "Translate record")
-            : t('shell.translate_page', "Translate page"),
+        canTranslatePage: canTranslatePage && !openPageTableId,
+        translateLabel: t('shell.translate_page', 'Translate page'),
         onTranslatePage: () => {
             if (!canTranslatePage || !currentOpenPage?.id)
                 return;
-            setTranslatePageMode(openPageIsTranslatableRecord ? 'row' : 'page');
+            setTranslatePageMode('page');
             setTranslatePageModalId(currentOpenPage.id);
-        },
-        canProcessResource: canProcessOpenResource,
-        processResourceLabel: llmWikiResourceLabel,
-        onProcessResource: () => {
-            if (!canProcessOpenResource || !currentOpenPage?.id || !openPageTableId)
-                return;
-            setResourceToProcess({
-                noteId: currentOpenPage.id,
-                title: currentOpenPage.title || '',
-                sourceTableId: openPageTableId,
-                force: Boolean(llmWikiResourceProcessed) && !llmWikiResourceRetryable,
-            });
         },
         canDeleteCurrentPage,
         onDeleteCurrentPage: () => {
@@ -165,5 +134,5 @@ export function usePageToolbar(context: DashboardActions) {
             void handleDeletePage(page.id, page.title || t('common.untitled'));
         },
     };
-    return { currentOpenPage, currentActiveTab, openPageTableId, pageActions };
+    return { currentOpenPage, currentActiveTab, openPageTableId, pageActions, recordActionDialogs };
 }

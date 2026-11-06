@@ -51,6 +51,11 @@ export function useTableActions({
     });
     return true;
   }, [handleCellSave, safeNotes]);
+  const { executeTableFunctionality } = useFunctionalityActions({ executingButtonKey, setPendingAction, t, setExecutingButtonKey, onTranslated });
+  return { handleRelationUnlink, executeTableFunctionality };
+}
+
+export function useFunctionalityActions({ executingButtonKey, setPendingAction, t, setExecutingButtonKey, onTranslated }: Pick<Inputs, 'executingButtonKey' | 'setPendingAction' | 't' | 'setExecutingButtonKey' | 'onTranslated'>) {
   const executeTableFunctionality = async (event: React.MouseEvent | null, note: TableNote, functionality: TableFunctionality) => {
     event?.stopPropagation();
     if (!functionality.enabled) return;
@@ -116,5 +121,5 @@ export function useTableActions({
       }
     }
   };
-  return { handleRelationUnlink, executeTableFunctionality };
+  return { executeTableFunctionality };
 }

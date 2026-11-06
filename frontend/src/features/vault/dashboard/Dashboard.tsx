@@ -23,6 +23,7 @@ export default function Dashboard() {
     || Boolean(dashboard.createSourceTableId)
     || Boolean(dashboard.translatePageModalId)
     || Boolean(dashboard.resourceToProcess)
+    || Boolean(dashboard.recordActionDialogs.pendingAction)
     || (dashboard.viewMode === 'editor'
       && Boolean(dashboard.currentOpenPage)
       && Boolean(dashboard.currentActiveTab)
