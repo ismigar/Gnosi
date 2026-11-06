@@ -21,6 +21,12 @@ def static_blocks(body: str) -> list[SiteBlock]:
     if any(set(parent.attrs) - {"class"} or set(parent.get("class", [])) - {"content-extra"}
            for layout in layouts for parent in layout.parents if getattr(parent, "attrs", None)):
         return [SiteBlock(type="text", body=body, body_format="html")]
+    # Even empty siblings (anchors, separators, decorative nodes) are content.
+    # Only structural ancestors may be discarded when extracting whole rows.
+    if any(node not in layouts and not node.find_parent(class_="layout")
+           and not any(layout in node.descendants for layout in layouts)
+           for node in soup.find_all(True)):
+        return [SiteBlock(type="text", body=body, body_format="html")]
     result = []
     for layout in layouts:
         regions = layout.find_all(class_="layout__region", recursive=False)
@@ -50,8 +56,7 @@ def static_blocks(body: str) -> list[SiteBlock]:
                                             alignment="center" if framed else "left",
                                             image_position="left" if image_side == 0 else "right"))
                     continue
-        if layout.get_text(strip=True) or layout.find(["img", "video", "audio", "iframe"]):
-            result.append(SiteBlock(type="text", body=str(layout), body_format="html"))
+        result.append(SiteBlock(type="text", body=str(layout), body_format="html"))
     # Do not drop meaningful content outside the recognized layouts.
     remainder = BeautifulSoup(body, "html.parser")
     for layout in remainder.select(".content-extra > .layout"):

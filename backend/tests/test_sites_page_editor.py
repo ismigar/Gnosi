@@ -151,3 +151,16 @@ def test_outer_anchor_is_preserved_when_projecting_independent_blocks():
     body = '<div class="content-extra" id="section"><div class="layout layout--twocol-section"><div class="layout__region"><p>Text</p></div><div class="layout__region"><img src="/portrait.png" alt="Portrait"></div></div></div>'
     block = static_blocks(body)[0]
     assert block.type == 'text' and block.body == body
+
+
+@pytest.mark.parametrize("sibling", ['<a id="destination"></a>', '<hr>', '<div class="decoration"></div>'])
+def test_empty_nonlayout_siblings_remain_in_original_position(sibling):
+    body = f'<div class="content-extra">{sibling}<div class="layout layout--twocol-section"><div class="layout__region"><p><a href="#destination">Text</a></p></div><div class="layout__region"><img src="/portrait.png" alt="Portrait"></div></div></div>'
+    block = static_blocks(body)[0]
+    assert block.type == 'text' and block.body == body
+
+
+def test_empty_layout_anchor_survives_projection():
+    body = '<div class="content-extra"><div class="layout" id="destination"></div><div class="layout"><p><a href="#destination">Text</a></p></div></div>'
+    blocks = static_blocks(body)
+    assert BeautifulSoup(''.join(block.body for block in blocks), 'html.parser').select_one('#destination') is not None
