@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Iterator, Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, PrivateAttr, SecretStr, field_validator, model_validator
@@ -74,7 +74,7 @@ class NavigationLink(Contract):
 
 class SiteBlock(Contract):
     id: str = Field(default_factory=identifier)
-    type: Literal["text", "image", "split", "gallery", "selected", "collection", "collaborators", "form", "cta"] = "text"
+    type: Literal["text", "image", "split", "gallery", "selected", "collection", "collaborators", "form", "cta", "links", "social", "newsletter"] = "text"
     title: str = ""
     body: str = ""
     body_format: Literal["markdown", "html"] = "markdown"
@@ -94,6 +94,7 @@ class SiteBlock(Contract):
     limit: int = Field(default=3, ge=1, le=100)
     href: str = ""
     actions: list[NavigationLink] | None = None
+    links: list[NavigationLink] = Field(default_factory=list)
     css: str = Field(default="", max_length=10000)
 
 
@@ -209,6 +210,14 @@ class SiteTarget(Contract):
         return value.rstrip("/")
 
 
+class SiteFooterColumn(Contract):
+    id: str = Field(default_factory=identifier)
+    title: str = ""
+    alignment: Literal["left", "center", "right"] = "left"
+    language: str | None = None
+    blocks: list[SiteBlock] = Field(default_factory=list)
+
+
 class SiteConfig(Contract):
     schema_version: Literal[1] = 1
     id: str = Field(default_factory=identifier)
@@ -224,10 +233,25 @@ class SiteConfig(Contract):
     header_actions: list[NavigationLink] = Field(default_factory=list)
     navigation: list[NavigationLink] = Field(default_factory=list)
     footer: list[NavigationLink] = Field(default_factory=list)
+    footer_columns: list[SiteFooterColumn] | None = Field(default=None, max_length=12)
+    footer_blocks: list[SiteBlock] | None = None
+    footer_bottom_links: list[NavigationLink] | None = None
+    footer_copyright: str | None = Field(default=None, max_length=500)
     social_links: list[NavigationLink] = Field(default_factory=list)
     redirects: dict[str, str] = Field(default_factory=dict)
     targets: list[SiteTarget] = Field(default_factory=lambda: [SiteTarget(id="local")])
     legacy_pilot: bool = False
+
+    def editorial_blocks(self, *, enabled_only: bool = False) -> Iterator[tuple[str | None, SiteBlock]]:
+        for page in self.pages:
+            if not enabled_only or page.enabled:
+                for block in page.blocks:
+                    yield page.language, block
+        for column in self.footer_columns or []:
+            for block in column.blocks:
+                yield column.language, block
+        for block in self.footer_blocks or []:
+            yield None, block
 
     @model_validator(mode="after")
     def identity_and_languages(self) -> SiteConfig:
@@ -238,7 +262,7 @@ class SiteConfig(Contract):
         for lang in self.languages:
             if not re.fullmatch(r"[a-z]{2,3}(?:-[a-z]{2,8})?", lang):
                 raise ValueError("Invalid language")
-        for group in (self.sources, self.pages, self.forms, self.targets):
+        for group in (self.sources, self.pages, self.forms, self.targets, self.footer_columns or []):
             if len({item.id for item in group}) != len(group):
                 raise ValueError("Duplicate configuration identities")
             if any(not re.fullmatch(r"[a-zA-Z0-9_-]{1,100}", item.id) for item in group):
@@ -246,6 +270,8 @@ class SiteConfig(Contract):
         for page in self.pages:
             if page.language not in self.languages:
                 raise ValueError("Page language is not enabled")
+        if any(column.language and column.language not in self.languages for column in self.footer_columns or []):
+            raise ValueError("Footer column language is not enabled")
         for path, destination in self.redirects.items():
             safe_path(path)
             safe_path(destination)

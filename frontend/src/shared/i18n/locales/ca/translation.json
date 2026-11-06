@@ -9212,7 +9212,10 @@
       "collection": "Llistat de continguts",
       "collaborators": "Col·laboradores",
       "form": "Formulari de contacte",
-      "cta": "Crida a l’acció"
+      "cta": "Crida a l’acció",
+      "links": "Enllaços",
+      "social": "Xarxes socials",
+      "newsletter": "Butlletí"
     },
     "fieldTypes": {
       "text": "Text curt",
@@ -9482,6 +9485,13 @@
       "dragDropped": "{{name}} col·locat a la posició {{position}}.",
       "dragCancelled": "Moviment cancel·lat."
     },
-    "otherSocialNetworks": "Altres xarxes socials"
+    "otherSocialNetworks": "Altres xarxes socials",
+    "footerLayout": "Disseny del peu",
+    "customFooter": "Personalitza les columnes i els blocs del peu",
+    "footerCopyright": "Text del copyright",
+    "footerBottomLinks": "Enllaços al costat del copyright",
+    "footerWideBlocks": "Blocs del peu a tot l’ample",
+    "addColumn": "Afegeix una columna",
+    "newsletter": "Butlletí"
   }
 }

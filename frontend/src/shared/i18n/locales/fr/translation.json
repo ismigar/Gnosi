@@ -9212,7 +9212,10 @@
       "collection": "Liste de contenus",
       "collaborators": "Partenaires",
       "form": "Formulaire de contact",
-      "cta": "Appel à l’action"
+      "cta": "Appel à l’action",
+      "links": "Liens",
+      "social": "Réseaux sociaux",
+      "newsletter": "Lettre d’information"
     },
     "fieldTypes": {
       "text": "Texte court",
@@ -9482,6 +9485,13 @@
       "dragDropped": "{{name}} placé à la position {{position}}.",
       "dragCancelled": "Déplacement annulé."
     },
-    "otherSocialNetworks": "Autres réseaux sociaux"
+    "otherSocialNetworks": "Autres réseaux sociaux",
+    "footerLayout": "Disposition du pied de page",
+    "customFooter": "Personnaliser les colonnes et blocs du pied",
+    "footerCopyright": "Texte du copyright",
+    "footerBottomLinks": "Liens à côté du copyright",
+    "footerWideBlocks": "Blocs du pied en pleine largeur",
+    "addColumn": "Ajouter une colonne",
+    "newsletter": "Lettre d’information"
   }
 }

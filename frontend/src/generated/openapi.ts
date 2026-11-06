@@ -25702,6 +25702,8 @@ export interface components {
              * @default 3
              */
             limit: number;
+            /** Links */
+            links?: components["schemas"]["NavigationLink"][];
             /** Page Ids */
             page_ids?: string[];
             /** Source Id */
@@ -25722,7 +25724,7 @@ export interface components {
              * @default text
              * @enum {string}
              */
-            type: "text" | "image" | "split" | "gallery" | "selected" | "collection" | "collaborators" | "form" | "cta";
+            type: "text" | "image" | "split" | "gallery" | "selected" | "collection" | "collaborators" | "form" | "cta" | "links" | "social" | "newsletter";
             /**
              * Width
              * @default 100
@@ -25750,6 +25752,14 @@ export interface components {
             default_language: string;
             /** Footer */
             footer?: components["schemas"]["NavigationLink"][];
+            /** Footer Blocks */
+            footer_blocks?: components["schemas"]["SiteBlock"][] | null;
+            /** Footer Bottom Links */
+            footer_bottom_links?: components["schemas"]["NavigationLink"][] | null;
+            /** Footer Columns */
+            footer_columns?: components["schemas"]["SiteFooterColumn"][] | null;
+            /** Footer Copyright */
+            footer_copyright?: string | null;
             /** Forms */
             forms?: components["schemas"]["SiteForm"][];
             /** Header Actions */
@@ -25824,6 +25834,26 @@ export interface components {
              * @default 400
              */
             weight: string;
+        };
+        /** SiteFooterColumn */
+        SiteFooterColumn: {
+            /**
+             * Alignment
+             * @default left
+             * @enum {string}
+             */
+            alignment: "left" | "center" | "right";
+            /** Blocks */
+            blocks?: components["schemas"]["SiteBlock"][];
+            /** Id */
+            id?: string;
+            /** Language */
+            language?: string | null;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
         };
         /** SiteForm */
         SiteForm: {

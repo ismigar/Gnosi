@@ -120,13 +120,13 @@ def read_asset(store: SiteStore, site: SiteConfig, source: str) -> bytes:
     path = unquote(parsed.path)
     uploaded = "/" + asset_directory(store, site.id).relative_to(store.vault).as_posix() + "/"
     configured = {site.theme.logo, site.theme.favicon} | {font.src for font in site.theme.fonts}
-    for page in site.pages:
-        for block in page.blocks:
-            configured.update([block.image, block.href, *block.images])
-            configured.update(link.href for link in block.actions or [])
-            if block.body_format == "html":
-                from bs4 import BeautifulSoup
-                configured.update(str(image.get("src", "")) for image in BeautifulSoup(block.body, "html.parser").find_all("img"))
+    for _, block in site.editorial_blocks():
+        configured.update([block.image, block.href, *block.images])
+        configured.update(link.href for link in [*(block.actions or []), *block.links])
+        if block.body_format == "html":
+            from bs4 import BeautifulSoup
+            configured.update(str(image.get("src", "")) for image in BeautifulSoup(block.body, "html.parser").find_all("img"))
+    configured.update(link.href for link in site.footer_bottom_links or [])
     configured.update(form.privacy_url for form in site.forms)
     configured.update(link.href for link in [*site.navigation, *site.header_actions, *site.footer, *site.social_links])
     if source not in configured and site.legacy_pilot:

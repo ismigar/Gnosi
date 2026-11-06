@@ -35521,6 +35521,13 @@
             "title": "Limit",
             "type": "integer"
           },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/NavigationLink"
+            },
+            "title": "Links",
+            "type": "array"
+          },
           "page_ids": {
             "items": {
               "type": "string"
@@ -35565,7 +35572,10 @@
               "collection",
               "collaborators",
               "form",
-              "cta"
+              "cta",
+              "links",
+              "social",
+              "newsletter"
             ],
             "title": "Type",
             "type": "string"
@@ -35625,6 +35635,61 @@
             },
             "title": "Footer",
             "type": "array"
+          },
+          "footer_blocks": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SiteBlock"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Footer Blocks"
+          },
+          "footer_bottom_links": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NavigationLink"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Footer Bottom Links"
+          },
+          "footer_columns": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SiteFooterColumn"
+                },
+                "maxItems": 12,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Footer Columns"
+          },
+          "footer_copyright": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Footer Copyright"
           },
           "forms": {
             "items": {
@@ -35787,6 +35852,50 @@
           "src"
         ],
         "title": "SiteFont",
+        "type": "object"
+      },
+      "SiteFooterColumn": {
+        "additionalProperties": false,
+        "properties": {
+          "alignment": {
+            "default": "left",
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "title": "Alignment",
+            "type": "string"
+          },
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/SiteBlock"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "title": "SiteFooterColumn",
         "type": "object"
       },
       "SiteForm": {

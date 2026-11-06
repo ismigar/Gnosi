@@ -1,19 +1,20 @@
 ---
 import {prefix,href,site} from '../lib/site.mjs';
 import {temenosLabels} from '../lib/temenos.mjs';
-const {lang}=Astro.props;
+const {lang,instance='newsletter',compact=false,title}=Astro.props;
+const identity=String(instance).replace(/[^a-zA-Z0-9_-]/g,'')+'-'+lang;
 const text=temenosLabels(lang);
-const privacy=site.footer.find(link=>link.language===lang && link.label.toLocaleLowerCase(lang)===text.privacy.toLocaleLowerCase(lang));
+const privacy=[...(site.footer_bottom_links||[]),...site.footer].find(link=>(!link.language||link.language===lang) && link.label.toLocaleLowerCase(lang)===text.privacy.toLocaleLowerCase(lang));
 ---
-<section class="newsletter" data-pagefind-ignore><div class="wrap newsletter-inner">
-  <h2>{text.newsletter}</h2>
+<section class:list={["newsletter",{"newsletter--compact":compact}]} data-pagefind-ignore><div class:list={["newsletter-inner",{wrap:!compact}]}>
+  <h2>{title || text.newsletter}</h2>
   <form class="staging-subscription" action={prefix('/api/newsletter.php')} method="post">
     <input type="hidden" name="action" value="subscribe"/><input type="hidden" name="language" value={lang}/><input type="hidden" name="list_id" value="main"/>
     <div class="newsletter-names">
-      <label for={`newsletter-first-${lang}`}>{text.firstName}<input id={`newsletter-first-${lang}`} name="first_name" type="text" autocomplete="given-name" required maxlength="100" pattern={'.*\\S.*'}/></label>
-      <label for={`newsletter-last-${lang}`}>{text.lastName}<input id={`newsletter-last-${lang}`} name="last_name" type="text" autocomplete="family-name" required maxlength="100" pattern={'.*\\S.*'}/></label>
+      <label for={`newsletter-first-${identity}`}>{text.firstName}<input id={`newsletter-first-${identity}`} name="first_name" type="text" autocomplete="given-name" required maxlength="100" pattern={'.*\\S.*'}/></label>
+      <label for={`newsletter-last-${identity}`}>{text.lastName}<input id={`newsletter-last-${identity}`} name="last_name" type="text" autocomplete="family-name" required maxlength="100" pattern={'.*\\S.*'}/></label>
     </div>
-    <label for={`newsletter-email-${lang}`}>{text.email}</label><input id={`newsletter-email-${lang}`} type="email" name="email" required maxlength="254" placeholder="lectora@example.invalid" pattern="[^@\s]+@[^@\s]+\.invalid" autocomplete="off"/>
+    <label for={`newsletter-email-${identity}`}>{text.email}</label><input id={`newsletter-email-${identity}`} type="email" name="email" required maxlength="254" placeholder="lectora@example.invalid" pattern="[^@\s]+@[^@\s]+\.invalid" autocomplete="off"/>
     <div class="honeypot" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"/></label></div>
     <label class="choice"><input type="checkbox" name="consent" value="1" required/><span>{privacy ? <>{text.consentStart} <a href={href(privacy.href)}>{text.privacy}</a></> : text.consent}</span></label>
     <button class="button button-light" type="submit">{text.subscribe}</button>

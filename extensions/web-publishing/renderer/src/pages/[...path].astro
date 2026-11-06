@@ -1,13 +1,13 @@
 ---
 import {site,pages,records,labels,translate,prefix,href,linkProps,html,selection,themeCss} from '../lib/site.mjs';
 import Actions from '../components/Actions.astro';
+import RenderBlock from '../components/RenderBlock.astro';
+import SiteFooter from '../components/SiteFooter.astro';
 import PublicListing from '../components/PublicListing.astro';
 import ContactForm from '../components/ContactForm.astro';
 import ReadingCard from '../components/ReadingCard.astro';
 import ResourceList from '../components/ResourceList.astro';
 import ShareButtons from '../components/ShareButtons.astro';
-import Newsletter from '../components/Newsletter.astro';
-import FooterSocials from '../components/FooterSocials.astro';
 import {temenosLabels,publishedDate,splitArticleImage} from '../lib/temenos.mjs';
 import {landingPath} from '../lib/routing.mjs';
 import '../lib/styles.css';
@@ -76,16 +76,7 @@ const currentNavigationLink = link => href(link.href).replace(/\/$/, '') === pre
     {['home','listing'].includes(page.template) && !page.blocks.length && <section class="block">
       <PublicListing items={selected} source={source} lang={lang} resource={resourceListing} title={page.title} fields={fields} fieldLabel={fieldLabel} format={format}/>
     </section>}
-    {blocks.map(block=><section class="block" data-layout data-align={block.alignment || 'left'} data-image-frame={block.image_frame || 'none'} style={`--block-width:${block.width || 100}%;--image-width:${block.image_width || 100}%;--block-space:${{compact:'0',normal:'1rem',generous:'2rem'}[block.spacing || 'compact']}`} data-block-id={block.id} data-section={site.sources.find(source=>source.id===block.source_id)?.source_id.split(':').pop()}>
-      {block.title && <h2>{block.title}</h2>}
-      {block.type==='text' && <div class:list={['reading','record-body',{'static-page-body':page.template==='page' || block.body_format==='html'}]} set:html={html(block.body_html)}/>}
-      {block.type==='image' && <figure><img src={href(block.image)} alt={block.alt} loading="lazy"/></figure>}
-      {block.type==='split' && <div class:list={['split',{'image-left':block.image_position==='left'}]}><div><div class="record-body static-page-body" set:html={html(block.body_html)}/><Actions links={block.actions || []} lang={lang}/></div><figure><img src={href(block.image)} alt={block.alt} loading="lazy"/></figure></div>}
-      {block.type==='gallery' && <div class="block-grid" style={`--columns:${block.columns}`}>{block.images.map(image=><img src={href(image)} alt={block.alt} loading="lazy"/>)}</div>}
-      {['selected','collection','collaborators'].includes(block.type) && (site.legacy_pilot && block.type==='collaborators' ? <div class="collaborators">{selection(block,lang).map(record=><a href={href(record.presentation?.href)} {...linkProps(record.presentation?.href)}>{record.presentation?.image?.url ? <img src={href(record.presentation.image.url)} alt={record.title} width="180" height="72" loading="lazy"/>:record.title}</a>)}</div> : site.legacy_pilot && ['research','stories'].includes(site.sources.find(source=>source.id===block.source_id)?.source_id.split(':').pop()) ? <ResourceList items={selection(block,lang)} lang={lang}/> : <div class="block-grid" style={`--columns:${block.columns}`}>{selection(block,lang).map(record=>site.legacy_pilot ? <ReadingCard record={record} lang={lang} selectedReading={block.type==='selected'}/> : <article class="card"><h3><a href={prefix(record.path)}>{record.title}</a></h3>{Object.entries(record.fields).map(([key,value])=><p><strong>{fieldLabel(key,record)}</strong> {format(value)}</p>)}</article>)}</div>)}
-      {block.type==='cta' && <a class="button" href={href(block.href)} {...linkProps(block.href)}>{block.body || block.title}</a>}
-      {block.type==='form' && site.forms.filter(form=>form.enabled && form.id===block.form_id).map(form=><ContactForm form={form} lang={lang} instance={block.id}/>)}
-    </section>)}
+    {blocks.map(block=><RenderBlock block={block} lang={lang} template={page.template} fieldLabel={fieldLabel}/>)}
     {feedPath && <p class="listing-rss"><a href={prefix(feedPath)}>RSS</a></p>}
     {tagLinks.length>0 && <section class="entry-tags" aria-labelledby="entry-tags-title">
       <h2 id="entry-tags-title"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 3h7l11 11-7 7L3 10Z"/><circle cx="7" cy="7" r="1"/><path d="m14 3 9 9"/></svg>{legacyText.tags}</h2>
@@ -94,8 +85,8 @@ const currentNavigationLink = link => href(link.href).replace(/\/$/, '') === pre
     {sharing && <ShareButtons page={page} lang={lang}/>}
     {!site.legacy_pilot && alternatives.length>1 && <nav class="languages translations" data-pagefind-ignore>{alternatives.map(other=><a href={prefix(other.path)} data-search-language={page.template==='search'?true:undefined} lang={other.language} aria-current={other.language===lang?'page':undefined}>{other.language.split('-')[0].toUpperCase()}</a>)}</nav>}
   </main>
-  {site.legacy_pilot && <Newsletter lang={lang}/>}
-  <footer class="site-footer" data-pagefind-ignore><div class="wrap">{!site.legacy_pilot && <p>{site.name}</p>}<nav class="navigation">{site.footer.filter(link=>!link.language||link.language===lang).map(link=><a class={navigationClass(link)} href={href(link.href)} {...linkProps(link.href)}>{link.label}</a>)}<a href={prefix(`/${lang}/mapa-web`)}>{text.map}</a><a href={prefix(`/${lang}/rss.xml`)}>RSS</a></nav><FooterSocials lang={lang}/>{site.legacy_pilot && <p class="footer-credit">© Temenos Ismael · <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.ca" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 4.0</a></p>}</div></footer>
+  <SiteFooter lang={lang}/>
+
   <script>
     import {initForms,initSearch,initDisclosure,initLanguageLinks,initMenu,initListings,initCompactHeader} from '../lib/interactions';
     initForms();initSearch();initDisclosure();initLanguageLinks();initMenu();initListings();initCompactHeader();

@@ -6,6 +6,7 @@ import { NavigationEditor } from './NavigationEditor';
 import { PagesEditor } from './PagesEditor';
 import { SourcesEditor } from './SourcesEditor';
 import { FormsEditor } from './FormsEditor';
+import { FooterEditor } from './FooterEditor';
 import { ImportedHtmlEditor } from './ImportedHtmlEditor';
 
 vi.mock('../../shared/editor/InstructionMarkdownEditor', () => ({ InstructionMarkdownEditor: ({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) => <textarea aria-label={label} value={value} onChange={event => { onChange(event.target.value); }} /> }));
@@ -241,4 +242,26 @@ test('social network URL fields keep unrelated profiles and explicitly remove a 
   edit(view.container, 'Mastodon', '');
   expect(view.savedResponse().social_links).not.toContainEqual(expect.objectContaining({ label: 'Mastodon' }));
   expect(view.savedResponse().social_links).toContainEqual(initial.social_links[1]);
+});
+
+
+test('footer columns and visual blocks persist independently with the copyright row', () => {
+  const initial = { ...base, legacy_pilot: true, footer: [{ label: 'Privacy', href: '/ca/privacy', language: 'ca' }, { label: 'Collaborate', href: '/ca/collaborate', language: 'ca' }] };
+  const view = mountEditor(initial, (site, onChange) => <FooterEditor site={site} catalogue={[]} onChange={onChange} />);
+  click(view.container, 'websites.customFooter');
+  expect(view.site.footer_columns).toHaveLength(3);
+  expect(view.site.footer_blocks?.[0]?.type).toBe('newsletter');
+  expect(view.site.footer_columns?.[2]?.blocks?.[0]?.type).toBe('social');
+  edit(view.container, 'websites.footerCopyright', '© Example association');
+  click(view.container, 'websites.addColumn');
+  const columns = view.container.querySelectorAll<HTMLElement>('.websites-footer-column');
+  const last = required(columns[3]);
+  edit(last, 'websites.titleLabel', 'Information');
+  click(last, 'websites.addBlock');
+  edit(last, 'websites.blockType', 'links');
+  expect(view.savedResponse().footer_columns?.[3]).toMatchObject({ title: 'Information', blocks: [{ type: 'links' }] });
+  expect(view.savedResponse().footer_copyright).toBe('© Example association');
+  click(last, 'websites.moveUp');
+  expect(view.site.footer_columns?.[2]?.title).toBe('Information');
+  expect(view.site.footer?.[0]?.href).toBe('/ca/privacy');
 });

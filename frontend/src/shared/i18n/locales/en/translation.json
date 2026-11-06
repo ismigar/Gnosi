@@ -9157,7 +9157,10 @@
       "collection": "Content list",
       "collaborators": "Collaborators",
       "form": "Contact form",
-      "cta": "Call to action"
+      "cta": "Call to action",
+      "links": "Links",
+      "social": "Social networks",
+      "newsletter": "Newsletter"
     },
     "fieldTypes": {
       "text": "Short text",
@@ -9427,6 +9430,13 @@
       "dragDropped": "Placed {{name}} at position {{position}}.",
       "dragCancelled": "Movement cancelled."
     },
-    "otherSocialNetworks": "Other social networks"
+    "otherSocialNetworks": "Other social networks",
+    "footerLayout": "Footer layout",
+    "customFooter": "Customize footer columns and blocks",
+    "footerCopyright": "Copyright text",
+    "footerBottomLinks": "Links beside copyright",
+    "footerWideBlocks": "Full-width footer blocks",
+    "addColumn": "Add column",
+    "newsletter": "Newsletter"
   }
 }

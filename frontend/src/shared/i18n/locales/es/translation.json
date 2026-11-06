@@ -9212,7 +9212,10 @@
       "collection": "Listado de contenidos",
       "collaborators": "Colaboradoras",
       "form": "Formulario de contacto",
-      "cta": "Llamada a la acción"
+      "cta": "Llamada a la acción",
+      "links": "Enlaces",
+      "social": "Redes sociales",
+      "newsletter": "Boletín"
     },
     "fieldTypes": {
       "text": "Texto corto",
@@ -9482,6 +9485,13 @@
       "dragDropped": "{{name}} colocado en la posición {{position}}.",
       "dragCancelled": "Movimiento cancelado."
     },
-    "otherSocialNetworks": "Otras redes sociales"
+    "otherSocialNetworks": "Otras redes sociales",
+    "footerLayout": "Diseño del pie",
+    "customFooter": "Personaliza las columnas y los bloques del pie",
+    "footerCopyright": "Texto del copyright",
+    "footerBottomLinks": "Enlaces junto al copyright",
+    "footerWideBlocks": "Bloques del pie a todo el ancho",
+    "addColumn": "Añade una columna",
+    "newsletter": "Boletín"
   }
 }

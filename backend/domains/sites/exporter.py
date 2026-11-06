@@ -548,7 +548,7 @@ def _editor_file_link(value: str, asset: AssetExporter) -> str:
     return target + ("?" + parsed.query if parsed.query else "") + ("#" + parsed.fragment if parsed.fragment else "")
 
 
-def _export_block_assets(block: SiteBlock, asset: AssetExporter, language: str) -> None:
+def _export_block_assets(block: SiteBlock, asset: AssetExporter, language: str | None) -> None:
     if block.body_format == "html":
         from bs4 import BeautifulSoup
         content = BeautifulSoup(block.body, "html.parser")
@@ -567,9 +567,10 @@ def _export_block_assets(block: SiteBlock, asset: AssetExporter, language: str) 
         block.images = [asset(value) if not urlsplit(value).scheme else value for value in block.images if value]
     if block.type == "cta":
         block.href = _editor_file_link(block.href, asset)
-    if block.type == "split":
-        for link in block.actions or []:
-            if not link.language or link.language == language:
+    if block.type in {"split", "links"}:
+        links = (block.actions or []) if block.type == "split" else block.links
+        for link in links:
+            if not language or not link.language or link.language == language:
                 link.href = _editor_file_link(link.href, asset)
 
 
@@ -582,10 +583,10 @@ def _exported_site(site: SiteConfig, asset: AssetExporter) -> SiteConfig:
     for font in exported.theme.fonts:
         if not urlsplit(font.src).scheme:
             font.src = asset(font.src)
-    for page in exported.pages:
-        if page.enabled:
-            for block in page.blocks:
-                _export_block_assets(block, asset, page.language)
+    for language, block in exported.editorial_blocks(enabled_only=True):
+        _export_block_assets(block, asset, language)
+    for link in exported.footer_bottom_links or []:
+        link.href = _editor_file_link(link.href, asset)
     for link in [*exported.navigation, *exported.header_actions, *exported.footer]:
         if not link.language or link.language in exported.languages:
             link.href = _editor_file_link(link.href, asset)

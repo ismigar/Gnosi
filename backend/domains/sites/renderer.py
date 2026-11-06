@@ -53,7 +53,7 @@ def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
             target.write_bytes(raw)
         payload.pop("source_hashes", None)
         parser = MarkdownIt("commonmark", {"html": False})
-        for page in payload["site"]["pages"]:
+        for page in [*payload["site"]["pages"], *(payload["site"].get("footer_columns") or []), {"blocks": payload["site"].get("footer_blocks") or []}]:
             for block in page["blocks"]:
                 # HTML is sanitized by the public renderer, including imported fragments.
                 block["body_html"] = block.get("body", "") if block.get("body_format") == "html" else parser.render(block.get("body", ""))

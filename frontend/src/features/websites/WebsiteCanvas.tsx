@@ -62,6 +62,9 @@ function CanvasBlock({ block, site, selected, onSelect, index, length, onMove, o
       {block.type === 'gallery' && <div className="websites-canvas-gallery" style={{ gridTemplateColumns: `repeat(${String(block.columns)},minmax(0,1fr))` }}>{block.images?.map((url, at) => <ImagePreview key={`${String(at)}:${url}`} source={url} alt={block.alt} />)}</div>}
       {['collection', 'selected', 'collaborators'].includes(block.type) && <div className="websites-notice">{source?.title || t(`websites.blockTypes.${block.type}`)} · {t('websites.visual.dataPreview', { count: block.limit })}</div>}
       {block.type === 'form' && <div className="websites-notice">{site.forms?.find(form => form.id === block.form_id)?.name || t('websites.blockTypes.form')}</div>}
+      {block.type === 'links' && <div className="websites-list">{(block.links ?? []).map((link, index) => <span key={index}>{link.label}</span>)}</div>}
+      {block.type === 'social' && <div className="websites-notice">{(site.social_links ?? []).map(link => link.label).join(' · ') || t('websites.social_links')}</div>}
+      {block.type === 'newsletter' && <div className="websites-notice">{t('websites.newsletter')} · {t('websites.visual.previewHint')}</div>}
       {block.type === 'cta' && <span className="websites-button">{block.body || block.title || t('websites.blockTypes.cta')}</span>}
     </div>
   </section>;

@@ -30,7 +30,7 @@ export function PagesEditor({ site, catalogue, onChange }: { site: SiteConfig; c
   </Card>;
 }
 
-function BlocksEditor({ site, catalogue, blocks, onChange }: { site: SiteConfig; catalogue: CatalogueItem[]; blocks: SiteBlock[]; onChange: (blocks: SiteBlock[]) => void }) {
+export function BlocksEditor({ site, catalogue, blocks, onChange }: { site: SiteConfig; catalogue: CatalogueItem[]; blocks: SiteBlock[]; onChange: (blocks: SiteBlock[]) => void }) {
   const { t } = useTranslation(); const [selected, setSelected] = useState('');
   const [undo, setUndo] = useState<SiteBlock[][]>([]); const [redo, setRedo] = useState<SiteBlock[][]>([]);
   const selectedId = blocks.some(block => block.id === selected) ? selected : blocks[0]?.id ?? '';
@@ -44,7 +44,7 @@ function BlockFields({ site, catalogue, blocks, selectedId, onChange }: { site: 
   const { t } = useTranslation();
   const change = (index: number, patch: Partial<SiteBlock>) => { onChange(blocks.map((block, position) => position === index ? { ...block, ...patch } : block)); };
   return <div className="websites-list"><div className="websites-section-title"><h3>{t('websites.blocks')}</h3><button type="button" className="websites-button" onClick={() => { onChange([...blocks, { id: newId('block'), type: 'text', title: '', body: '', image: '', alt: '', image_position: 'right', columns: 3, limit: 3, page_ids: [], images: [], href: '', css: '' }]); }}>{t('websites.addBlock')}</button></div>
-    {blocks.map((block, index) => block.id === selectedId && <section key={block.id} className="websites-row"><div className="websites-row-title"><Field label={t('websites.blockType')}><Select value={block.type} onChange={event => { change(index, { type: event.target.value as SiteBlock['type'] }); }}>{['text', 'image', 'split', 'gallery', 'selected', 'collection', 'collaborators', 'form', 'cta'].map(value => <option key={value} value={value}>{t(`websites.blockTypes.${value}`)}</option>)}</Select></Field></div>
+    {blocks.map((block, index) => block.id === selectedId && <section key={block.id} className="websites-row"><div className="websites-row-title"><Field label={t('websites.blockType')}><Select value={block.type} onChange={event => { change(index, { type: event.target.value as SiteBlock['type'] }); }}>{['text', 'image', 'split', 'gallery', 'selected', 'collection', 'collaborators', 'form', 'cta', 'links', 'social', 'newsletter'].map(value => <option key={value} value={value}>{t(`websites.blockTypes.${value}`)}</option>)}</Select></Field></div>
       <div className="websites-grid"><Field label={t('websites.titleLabel')}><Input value={block.title} onChange={event => { change(index, { title: event.target.value }); }} /></Field>
         {['text', 'split'].includes(block.type) && <div className="websites-block-body">{block.body_format === 'html' ? <ImportedHtmlEditor label={t('websites.body')} value={block.body} onChange={body => { change(index, { body }); }} /> : <InstructionMarkdownEditor label={t('websites.body')} value={block.body} onChange={body => { change(index, { body }); }} />}</div>}
         {block.type === 'cta' && <Field label={t('websites.body')}><Input value={block.body} onChange={event => { change(index, { body: event.target.value }); }} /></Field>}
@@ -61,6 +61,8 @@ function BlockFields({ site, catalogue, blocks, selectedId, onChange }: { site: 
       {['image', 'split'].includes(block.type) && <Field label={t('websites.visual.imageWidth')}><Input type="number" min={20} max={100} value={block.image_width ?? 100} onChange={event => { change(index, { image_width: Math.max(20, Math.min(100, event.target.valueAsNumber || 100)) }); }} /></Field>}
       {['image', 'split'].includes(block.type) && <Field label={t('websites.visual.imageFrame')}><Select value={block.image_frame ?? 'none'} onChange={event => { change(index, { image_frame: event.target.value as SiteBlock['image_frame'] }); }}><option value="none">{t('websites.visual.noFrame')}</option><option value="inset">{t('websites.visual.inset')}</option></Select></Field>}
       <Field label={t('websites.visual.spacing')}><Select value={block.spacing ?? 'compact'} onChange={event => { change(index, { spacing: event.target.value as SiteBlock['spacing'] }); }}>{['compact', 'normal', 'generous'].map(value => <option key={value} value={value}>{t(`websites.visual.${value}`)}</option>)}</Select></Field></div>
+      {block.type === 'links' && <LinksEditor title={t('websites.footer')} links={block.links ?? []} languages={site.languages ?? []} onChange={links => { change(index, { links }); }} />}
+      {['social', 'newsletter'].includes(block.type) && <p className="websites-muted">{t('websites.visual.previewHint')}</p>}
       {block.type === 'split' && <LinksEditor title={t('websites.blockActions')} links={block.actions ?? []} defaultAppearance="button" onChange={actions => { change(index, { actions }); }} />}
     </section>)}
   </div>;
