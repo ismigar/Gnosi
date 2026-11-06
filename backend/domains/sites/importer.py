@@ -309,6 +309,8 @@ def _public_references(site: SiteConfig, public: dict[tuple[str, str], PublicRec
             for block in page.blocks:
                 references.add(block.image)
                 references.update(block.images)
+                if block.body_format == "html":
+                    references.update(re.findall(r'(?:src|href)=["\']([^"\']+)', block.body))
     return {unquote(urlsplit(unescape(value)).path) for value in references if isinstance(value, str)}
 
 

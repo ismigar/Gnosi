@@ -6,6 +6,58 @@ import { NavigationEditor } from './NavigationEditor';
 import { PagesEditor } from './PagesEditor';
 import { SourcesEditor } from './SourcesEditor';
 import { FormsEditor } from './FormsEditor';
+import { ImportedHtmlEditor } from './ImportedHtmlEditor';
+
+vi.mock('../../shared/editor/InstructionMarkdownEditor', () => ({ InstructionMarkdownEditor: ({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) => <textarea aria-label={label} value={value} onChange={event => { onChange(event.target.value); }} /> }));
+
+test('visual blocks preserve selected layout, keyboard reorder and undo through a saved response', () => {
+  const initial: SiteConfig = { ...base, pages: [{ id: 'visual', title: 'Visual', path: '/ca/visual', language: 'ca', enabled: true, template: 'page', description: '', css: '', blocks: [
+    { id: 'one', type: 'image', title: 'Portrait', body: '', image: '/portrait.png', alt: 'Portrait', image_position: 'right', columns: 3, limit: 3, href: '', css: '' },
+    { id: 'two', type: 'text', title: 'Introduction', body: 'Original introduction', image: '', alt: '', image_position: 'right', columns: 3, limit: 3, href: '', css: '' },
+  ] }] };
+  const view = mountEditor(initial, (site, onChange) => <PagesEditor site={site} catalogue={[]} onChange={onChange} />);
+  edit(view.container, 'websites.visual.imageWidth', '60');
+  edit(view.container, 'websites.visual.alignment', 'center');
+  const first = required(view.container.querySelector<HTMLElement>('.websites-canvas-block'));
+  click(first, 'websites.moveDown');
+  expect(view.site.pages?.[0]?.blocks?.map(block => block.id)).toEqual(['two', 'one']);
+  expect(view.site.pages?.[0]?.blocks?.[1]).toMatchObject({ image_width: 60, alignment: 'center' });
+  click(view.container, 'websites.visual.undo');
+  expect(view.site.pages?.[0]?.blocks?.map(block => block.id)).toEqual(['one', 'two']);
+  click(view.container, 'websites.visual.redo');
+  view.savedResponse();
+  expect(view.site.pages?.[0]?.blocks?.[1]).toMatchObject({ image_width: 60, alignment: 'center' });
+  click(view.container, 'websites.visual.mobile');
+  expect(view.container.querySelector('.websites-canvas')?.getAttribute('data-width')).toBe('mobile');
+});
+
+test('imported text edits immediately preserve columns, links, image and other paragraphs without executing markup', () => {
+  const original = '<div class="layout layout--twocol-section"><div class="layout__region"><p>Keep <strong>bold</strong></p><p>Other paragraph</p></div><div class="layout__region"><img src="/portrait.png" alt="Portrait"></div></div>';
+  const changes = vi.fn();
+  const view = mountTestComponent(<ImportedHtmlEditor label="Body" value={original} onChange={changes} />);
+  const field = required(view.container.querySelector<HTMLElement>('[role="textbox"]'));
+  act(() => { field.innerHTML = 'Updated <em>text</em>'; field.dispatchEvent(new Event('input', { bubbles: true })); });
+  const saved = String(changes.mock.lastCall?.[0]);
+  expect(saved).toContain('layout--twocol-section');
+  expect(saved).toContain('<em>text</em>'); expect(saved).toContain('Other paragraph'); expect(saved).toContain('src="/portrait.png"');
+  view.render(<ImportedHtmlEditor label="Body" value={'<p><a href="javascript:bad()">Unsafe</a><img src="https://tracker.invalid/pixel" onerror="bad()"><script>bad()</script></p>'} onChange={changes} />);
+  expect(view.container.querySelector('[role="textbox"] img')).toBeNull();
+  expect(view.container.querySelector('[role="textbox"] script')).toBeNull();
+  expect(view.container.querySelector('[role="textbox"] a[href^="javascript:"]')).toBeNull();
+});
+
+test('imported text keeps quote styling and new lines when typing inside a preserved fragment', () => {
+  const changes = vi.fn();
+  const original = '<div class="layout__region"><p><span class="cita-coneix-me">Original quote</span></p><p>Unchanged</p></div>';
+  const view = mountTestComponent(<ImportedHtmlEditor label="Body" value={original} onChange={changes} />);
+  const field = required(view.container.querySelector<HTMLElement>('[role="textbox"]'));
+  const span = required(field.querySelector('span'));
+  act(() => { span.textContent = 'Updated quote'; field.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(changes.mock.lastCall?.[0]).toContain('<span class="cita-coneix-me">Updated quote</span>');
+  act(() => { field.innerHTML = 'First line<div>Second line</div>'; field.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(changes.mock.lastCall?.[0]).toContain('First line<br>Second line');
+  expect(changes.mock.lastCall?.[0]).toContain('<p>Unchanged</p>');
+});
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 

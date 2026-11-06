@@ -124,8 +124,19 @@ def read_asset(store: SiteStore, site: SiteConfig, source: str) -> bytes:
         for block in page.blocks:
             configured.update([block.image, block.href, *block.images])
             configured.update(link.href for link in block.actions or [])
+            if block.body_format == "html":
+                from bs4 import BeautifulSoup
+                configured.update(str(image.get("src", "")) for image in BeautifulSoup(block.body, "html.parser").find_all("img"))
     configured.update(form.privacy_url for form in site.forms)
     configured.update(link.href for link in [*site.navigation, *site.header_actions, *site.footer, *site.social_links])
+    if source not in configured and site.legacy_pilot:
+        # A read-only imported-page projection can be previewed before its first autosave.
+        from bs4 import BeautifulSoup
+        from .page_editor import imported_static_pages
+        for page in imported_static_pages(store, site):
+            for block in page.blocks:
+                configured.add(block.image)
+                configured.update(str(image.get("src", "")) for image in BeautifulSoup(block.body, "html.parser").find_all("img"))
     if source not in configured and not (path.startswith(uploaded) and len(path[len(uploaded):].split("/")) == 1):
         raise HTTPException(404, "This asset is not selected for the website")
     imported = store.site_dir(site.id) / "imported"

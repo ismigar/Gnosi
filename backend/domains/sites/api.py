@@ -80,6 +80,14 @@ def site_status(site_id: str, context: Editor) -> SiteStatus:
     return SiteStatus(site=site, jobs=publication.jobs(store, site_id), releases=publication.releases(store, site_id), service_available=private_service.SERVICE_ROOT.joinpath("cli.php").is_file())
 
 
+@router.get("/{site_id}/editable-pages", response_model=list[SitePage])
+def editable_pages(site_id: str, context: Editor, response: Response) -> list[SitePage]:
+    from .page_editor import imported_static_pages
+    response.headers["Cache-Control"] = "no-store"
+    store = store_for(context)
+    return imported_static_pages(store, store.load(site_id))
+
+
 @router.delete("/{site_id}", status_code=204)
 def remove_site(site_id: str, context: Admin, revision: Annotated[int, Query(ge=1)]) -> Response:
     store_for(context).remove(site_id, revision)

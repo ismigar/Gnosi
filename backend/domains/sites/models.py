@@ -77,6 +77,12 @@ class SiteBlock(Contract):
     type: Literal["text", "image", "split", "gallery", "selected", "collection", "collaborators", "form", "cta"] = "text"
     title: str = ""
     body: str = ""
+    body_format: Literal["markdown", "html"] = "markdown"
+    width: int = Field(default=100, ge=20, le=100)
+    alignment: Literal["left", "center", "right"] = "left"
+    image_width: int = Field(default=100, ge=20, le=100)
+    image_frame: Literal["none", "inset"] = "none"
+    spacing: Literal["compact", "normal", "generous"] = "compact"
     image: str = ""
     alt: str = ""
     source_id: str | None = None
@@ -101,6 +107,7 @@ class SitePage(Contract):
     description: str = ""
     template: Literal["home", "page", "article", "listing"] = "page"
     blocks: list[SiteBlock] = Field(default_factory=list)
+    imported_record_id: str | None = None
     css: str = Field(default="", max_length=20000)
 
     @field_validator("path")

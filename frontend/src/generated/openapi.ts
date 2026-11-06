@@ -10282,6 +10282,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/sites/{site_id}/editable-pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Editable Pages */
+        get: operations["editable_pages_api_vault_sites__site_id__editable_pages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/sites/{site_id}/jobs": {
         parameters: {
             query?: never;
@@ -25616,6 +25633,12 @@ export interface components {
             /** Actions */
             actions?: components["schemas"]["NavigationLink"][] | null;
             /**
+             * Alignment
+             * @default left
+             * @enum {string}
+             */
+            alignment: "left" | "center" | "right";
+            /**
              * Alt
              * @default
              */
@@ -25625,6 +25648,12 @@ export interface components {
              * @default
              */
             body: string;
+            /**
+             * Body Format
+             * @default markdown
+             * @enum {string}
+             */
+            body_format: "markdown" | "html";
             /**
              * Columns
              * @default 3
@@ -25650,11 +25679,22 @@ export interface components {
              */
             image: string;
             /**
+             * Image Frame
+             * @default none
+             * @enum {string}
+             */
+            image_frame: "none" | "inset";
+            /**
              * Image Position
              * @default right
              * @enum {string}
              */
             image_position: "left" | "right";
+            /**
+             * Image Width
+             * @default 100
+             */
+            image_width: number;
             /** Images */
             images?: string[];
             /**
@@ -25667,6 +25707,12 @@ export interface components {
             /** Source Id */
             source_id?: string | null;
             /**
+             * Spacing
+             * @default compact
+             * @enum {string}
+             */
+            spacing: "compact" | "normal" | "generous";
+            /**
              * Title
              * @default
              */
@@ -25677,6 +25723,11 @@ export interface components {
              * @enum {string}
              */
             type: "text" | "image" | "split" | "gallery" | "selected" | "collection" | "collaborators" | "form" | "cta";
+            /**
+             * Width
+             * @default 100
+             */
+            width: number;
         };
         /** SiteChange */
         SiteChange: {
@@ -25995,6 +26046,8 @@ export interface components {
             enabled: boolean;
             /** Id */
             id?: string;
+            /** Imported Record Id */
+            imported_record_id?: string | null;
             /**
              * Language
              * @default ca
@@ -51658,6 +51711,44 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    editable_pages_api_vault_sites__site_id__editable_pages_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitePage"][];
+                };
             };
             /** @description Validation Error */
             422: {

@@ -11,6 +11,7 @@ import {temenosLabels,publishedDate,splitArticleImage} from '../lib/temenos.mjs'
 import {landingPath} from '../lib/routing.mjs';
 import '../lib/styles.css';
 import '../lib/temenos.css';
+import '../lib/page-layout.css';
 export function getStaticPaths(){return pages.map(page=>({params:{path:page.path.slice(1)||undefined},props:{page}}));}
 const {page}=Astro.props;
 const lang=page.language;
@@ -64,7 +65,7 @@ const socialIcon=label=>({mastodon:'mastodon',linkedin:'linkedin-in',facebook:'f
   <main id="main-content" class:list={['wrap',{'temenos-home':legacyHome}]} data-pagefind-body={page.template==='article' || !['map','search'].includes(page.template) ? true : undefined}>
     {hero ? <section class="temenos-hero"><img class="temenos-hero-photo" src={href(hero.image)} alt="" fetchpriority="high"/><div class="wrap"><div class="temenos-hero-copy"><h1 data-pagefind-meta="title">{page.title}</h1><div class="record-body" set:html={html(hero.body_html)}/><Actions links={hero.actions ?? [homeLink(2656) && {label:legacyText.about,href:homeLink(2656),appearance:'button'},homeLink(5) && {label:legacyText.me,href:homeLink(5),appearance:'link'}].filter(Boolean)} lang={lang} className="hero-actions"/></div></div></section> : <h1 class="page-title" data-pagefind-meta="title">{page.title}</h1>}
     {date && page.template==='article' && !legacyArticle && <p class="article-date"><time datetime={date.iso}>{date.text}</time>{page.presentation?.year && <> · {page.presentation.year}</>}</p>}
-    {(page.body_html || (sharing && date)) && <div class="reading record-body" data-blog-article={blogArticle || undefined}>
+    {(page.body_html || (sharing && date)) && <div class:list={['reading','record-body',{'static-page-body':page.presentation?.kind==='page'}]} data-blog-article={blogArticle || undefined}>
       {articleContent?.image && <Fragment set:html={html(articleContent.image)}/>}
       {sharing && date && <p class="article-date">{legacyText.writtenBy} Ismael García Fernández - <time datetime={date.iso}>{date.short}</time></p>}
       <Fragment set:html={html(articleContent ? articleContent.body : page.body_html)}/>
@@ -75,11 +76,11 @@ const socialIcon=label=>({mastodon:'mastodon',linkedin:'linkedin-in',facebook:'f
     {['home','listing'].includes(page.template) && !page.blocks.length && <section class="block">
       <PublicListing items={selected} source={source} lang={lang} resource={resourceListing} title={page.title} fields={fields} fieldLabel={fieldLabel} format={format}/>
     </section>}
-    {blocks.map(block=><section class="block" data-block-id={block.id} data-section={site.sources.find(source=>source.id===block.source_id)?.source_id.split(':').pop()}>
+    {blocks.map(block=><section class="block" data-layout data-align={block.alignment || 'left'} data-image-frame={block.image_frame || 'none'} style={`--block-width:${block.width || 100}%;--image-width:${block.image_width || 100}%;--block-space:${{compact:'0',normal:'1rem',generous:'2rem'}[block.spacing || 'compact']}`} data-block-id={block.id} data-section={site.sources.find(source=>source.id===block.source_id)?.source_id.split(':').pop()}>
       {block.title && <h2>{block.title}</h2>}
-      {block.type==='text' && <div class="reading record-body" set:html={html(block.body_html)}/>}
+      {block.type==='text' && <div class:list={['reading','record-body',{'static-page-body':page.template==='page' || block.body_format==='html'}]} set:html={html(block.body_html)}/>}
       {block.type==='image' && <figure><img src={href(block.image)} alt={block.alt} loading="lazy"/></figure>}
-      {block.type==='split' && <div class:list={['split',{'image-left':block.image_position==='left'}]}><div><div class="record-body" set:html={html(block.body_html)}/><Actions links={block.actions || []} lang={lang}/></div><figure><img src={href(block.image)} alt={block.alt} loading="lazy"/></figure></div>}
+      {block.type==='split' && <div class:list={['split',{'image-left':block.image_position==='left'}]}><div><div class="record-body static-page-body" set:html={html(block.body_html)}/><Actions links={block.actions || []} lang={lang}/></div><figure><img src={href(block.image)} alt={block.alt} loading="lazy"/></figure></div>}
       {block.type==='gallery' && <div class="block-grid" style={`--columns:${block.columns}`}>{block.images.map(image=><img src={href(image)} alt={block.alt} loading="lazy"/>)}</div>}
       {['selected','collection','collaborators'].includes(block.type) && (site.legacy_pilot && block.type==='collaborators' ? <div class="collaborators">{selection(block,lang).map(record=><a href={href(record.presentation?.href)} {...linkProps(record.presentation?.href)}>{record.presentation?.image?.url ? <img src={href(record.presentation.image.url)} alt={record.title} width="180" height="72" loading="lazy"/>:record.title}</a>)}</div> : site.legacy_pilot && ['research','stories'].includes(site.sources.find(source=>source.id===block.source_id)?.source_id.split(':').pop()) ? <ResourceList items={selection(block,lang)} lang={lang}/> : <div class="block-grid" style={`--columns:${block.columns}`}>{selection(block,lang).map(record=>site.legacy_pilot ? <ReadingCard record={record} lang={lang} selectedReading={block.type==='selected'}/> : <article class="card"><h3><a href={prefix(record.path)}>{record.title}</a></h3>{Object.entries(record.fields).map(([key,value])=><p><strong>{fieldLabel(key,record)}</strong> {format(value)}</p>)}</article>)}</div>)}
       {block.type==='cta' && <a class="button" href={href(block.href)} {...linkProps(block.href)}>{block.body || block.title}</a>}

@@ -121,17 +121,22 @@ export function AppSidebar() {
         const canonical = legacyBrowserPathToCanonical(item.to);
         return location.pathname === canonical || location.pathname.startsWith(`${canonical}/`);
     });
-    const railNavItems = activeNavItem && !pinnedNavItems.some((item) => item.to === activeNavItem.to)
-        ? [...pinnedNavItems, activeNavItem]
-        : pinnedNavItems;
-    const railRoutes = new Set(railNavItems.map((item) => item.to));
-    const quickAccessItems = visibleNavItems.filter((item) => !railRoutes.has(item.to));
+    // Keep Websites discoverable at the bottom, including with older saved pin preferences.
+    // The destination catalogue places Websites last, after any active unpinned item.
+    const railNavItems = pinnedNavItems.filter((item) => item.to !== '/websites');
+    for (const item of visibleNavItems) {
+        if ((item === activeNavItem || item.to === '/websites') && !railNavItems.includes(item)) railNavItems.push(item);
+    }
+    const quickAccessItems = visibleNavItems.filter((item) => !railNavItems.includes(item));
+
+    const closeNavigation = (): void => {
+        setMobileOpen(false);
+        setQuickAccessOpen(false);
+    };
 
     useModalKeyboard({
         isOpen: isCompact && mobileOpen,
-        onClose: () => {
-            setMobileOpen(false);
-        },
+        onClose: closeNavigation,
         containerRef: navigationRef,
         trapFocus: true,
     });
@@ -251,10 +256,6 @@ export function AppSidebar() {
         return subscribeWindowEvent('keydown', handler);
     }, [isEnabled, navigate, settingsOpen]);
 
-    const closeNavigation = (): void => {
-        setMobileOpen(false);
-        setQuickAccessOpen(false);
-    };
     const openSettings = (): void => {
         setSettingsOpen(true);
     };
@@ -280,9 +281,7 @@ export function AppSidebar() {
             {mobileOpen && (
                 <div
                     className="app-sidebar-overlay"
-                    onClick={() => {
-                        setMobileOpen(false);
-                    }}
+                    onClick={closeNavigation}
                     aria-hidden="true"
                 />
             )}
@@ -304,9 +303,7 @@ export function AppSidebar() {
                             className="app-sidebar__logo"
                             title="Gnosi"
                             aria-label={t('command_palette.nav_home', 'Go to Home')}
-                            onClick={() => {
-                                setMobileOpen(false);
-                            }}
+                            onClick={closeNavigation}
                         >
                             G
                         </Link>
@@ -335,7 +332,7 @@ export function AppSidebar() {
                 />
             </nav>
 
-            {quickAccessOpen ? <QuickAccessMenu
+            {quickAccessOpen && quickAccessItems[0] ? <QuickAccessMenu
                 items={quickAccessItems}
                 navigationRef={quickAccessRef}
                 onSelect={closeNavigation}

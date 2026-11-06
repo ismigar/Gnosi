@@ -549,6 +549,18 @@ def _editor_file_link(value: str, asset: AssetExporter) -> str:
 
 
 def _export_block_assets(block: SiteBlock, asset: AssetExporter, language: str) -> None:
+    if block.body_format == "html":
+        from bs4 import BeautifulSoup
+        content = BeautifulSoup(block.body, "html.parser")
+        changed = False
+        for element in content.find_all(["img", "a"]):
+            key = "src" if element.name == "img" else "href"
+            value = str(element.get(key, ""))
+            if value.startswith("/.gnosi/sites/assets/"):
+                element[key] = _editor_file_link(value, asset)
+                changed = True
+        if changed:
+            block.body = str(content)
     if block.type in {"image", "split"} and block.image and not urlsplit(block.image).scheme:
         block.image = asset(block.image)
     if block.type == "gallery":
@@ -622,6 +634,8 @@ def build_bundle(store: SiteStore, site: SiteConfig, target_id: str) -> SiteBund
     projection.import_baseline()
     projection.guard_missing_files()
     projection.render_bodies()
+    from .page_editor import apply_page_overrides
+    apply_page_overrides(site, projection.public)
     exported = _exported_site(site, projection.asset)
     withdrawn = _withdrawn_paths(projection, exported)
     from .importer import imported_feed_aliases

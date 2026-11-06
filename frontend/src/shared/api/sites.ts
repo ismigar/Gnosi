@@ -5,8 +5,13 @@ import type { RequestContext } from './request-context';
 
 type Identified<T> = Omit<T, 'id'> & { id: string };
 export type SiteSource = Omit<Identified<components['schemas']['SiteSource']>, 'page_size' | 'show_tag_filter'> & { page_size?: number; show_tag_filter?: boolean };
-export type SiteBlock = Omit<Identified<components['schemas']['SiteBlock']>, 'actions'> & { actions?: NavigationLink[] | null };
+type BlockLayout = 'body_format' | 'width' | 'alignment' | 'image_width' | 'image_frame' | 'spacing';
+export type SiteBlock = Omit<Identified<components['schemas']['SiteBlock']>, 'actions' | BlockLayout> & Partial<Pick<components['schemas']['SiteBlock'], BlockLayout>> & { actions?: NavigationLink[] | null };
 export type SitePage = Omit<Identified<components['schemas']['SitePage']>, 'blocks'> & { blocks?: SiteBlock[] };
+
+export async function editableSitePages(siteId: string, context: RequestContext, signal?: AbortSignal): Promise<SitePage[]> {
+  return unwrapApiResult(await apiClient.GET('/api/vault/sites/{site_id}/editable-pages', { params: { path: { site_id: siteId } }, ...scope(context, signal) })).map(page => ({ ...identity(page), blocks: (page.blocks ?? []).map(identity) }));
+}
 export type FormField = Identified<components['schemas']['FormField']>;
 export type SiteForm = Omit<Identified<components['schemas']['SiteForm']>, 'fields'> & { fields?: FormField[] };
 export type SiteConfig = Omit<Identified<components['schemas']['SiteConfig']>, 'sources' | 'pages' | 'forms' | 'targets' | 'header_actions' | 'navigation' | 'footer' | 'social_links'> & { sources?: SiteSource[]; pages?: SitePage[]; forms?: SiteForm[]; targets?: SiteTarget[]; header_actions?: NavigationLink[]; navigation?: NavigationLink[]; footer?: NavigationLink[]; social_links?: NavigationLink[] };
