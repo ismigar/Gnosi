@@ -327,3 +327,64 @@ def test_initial_bound_repair_still_reviews_the_whole_original_day(pipeline):
     assert report['review']['semantic_reviews'] == 1 and report['review']['mode'] == 'brief'
     assert {brief['part_id'] for brief in audits[0]['source_summaries']} == {
         brief['part_id'] for brief in report['briefs']}
+
+
+@pytest.mark.parametrize(('old_kind', 'new_kind', 'old_ids', 'new_ids', 'after', 'expected'), [
+    ('omission', 'omission', ['a:0'], ['b:0'], 'First paragraph. Added fact.\n\nSecond paragraph.', True),
+    ('omission', 'omission', ['a:0'], ['a:0'], 'First paragraph. Added fact.\n\nSecond paragraph.', False),
+    ('omission', 'omission', ['a:0'], ['b:0'], 'Rewritten paragraph.\n\nSecond paragraph.', False),
+    ('omission', 'omission', ['a:0'], ['b:0'], 'Second paragraph.\n\nFirst paragraph.', False),
+    ('omission', 'omission', ['a:0'], ['b:0'], 'First paragraph.\n\nSecond paragraph.', False),
+    ('distortion', 'omission', ['a:0'], ['b:0'], 'First paragraph. Added fact.\n\nSecond paragraph.', False),
+    ('omission', 'distortion', ['a:0'], ['b:0'], 'First paragraph. Added fact.\n\nSecond paragraph.', False),
+    ('omission', 'omission', [], ['b:0'], 'First paragraph. Added fact.\n\nSecond paragraph.', False),
+])
+def test_additive_omission_progress_preserves_every_previous_paragraph(old_kind, new_kind, old_ids, new_ids, after, expected):
+    from backend.services.podcast_automatic import _additive_omission_progress
+    previous = [{'kind': old_kind, 'source_part_ids': old_ids}]
+    current = [{'kind': new_kind, 'source_part_ids': new_ids}]
+    assert _additive_omission_progress(previous, current, 'First paragraph.\n\nSecond paragraph.', after) is expected
+
+
+@pytest.mark.parametrize(('second_ids', 'second_kind', 'rewrite', 'final_clear', 'succeeds', 'expected_reviews'), [
+    (['b:0'], 'omission', False, True, True, 3),
+    (['a:0'], 'omission', False, True, False, 2),
+    (['b:0'], 'distortion', False, True, False, 2),
+    (['b:0'], 'omission', True, True, False, 2),
+    (['b:0'], 'omission', False, False, False, 3),
+])
+def test_additive_omission_gets_only_the_existing_final_correction(monkeypatch, second_ids, second_kind, rewrite,
+                                                                 final_clear, succeeds, expected_reviews):
+    from types import SimpleNamespace
+    from backend.services import podcast_automatic as automatic
+    context = SimpleNamespace()
+    monkeypatch.setattr(automatic, 'preferences', lambda _: SimpleNamespace(review_mode='brief', word_target=lambda _: 100))
+    drafts = ['Original paragraph.', ('Rewritten paragraph.' if rewrite else 'Original paragraph.') + '\n\nAdded first fact.',
+              'Original paragraph.\n\nAdded first fact.\n\nAdded second fact.']
+    writes, reviews = [], []
+
+    def write(*args):
+        writes.append(args[-1])
+        return {'narration': drafts[len(writes) - 1]}
+
+    rounds = [[{'kind': 'omission', 'source_part_ids': ['a:0']}],
+              [{'kind': second_kind, 'source_part_ids': second_ids}],
+              [] if final_clear else [{'kind': 'omission', 'source_part_ids': ['c:0']}]]
+
+    def review(_context, _briefs, narration, _subjects):
+        reviews.append(narration)
+        return rounds[len(reviews) - 1]
+
+    monkeypatch.setattr(automatic, '_write_episode', write)
+    monkeypatch.setattr('backend.services.podcast_brief_review.review', review)
+    if succeeds:
+        sections, _, _ = automatic.write_day(context, [{'source_id': 'source'}], [{'topic': 'Daily'}], lambda _: None)
+        assert sections[0]['narration'] == drafts[2] == reviews[-1]
+        assert context.review_metadata['semantic_reviews'] == 3
+        assert context.review_metadata['final_narration_validated'] is True
+    else:
+        with pytest.raises(ValueError, match='podcast_final_narration_review_failed'):
+            automatic.write_day(context, [{'source_id': 'source'}], [{'topic': 'Daily'}], lambda _: None)
+        assert not hasattr(context, 'review_metadata')
+    assert len(reviews) == expected_reviews
+    assert len(writes) <= 3

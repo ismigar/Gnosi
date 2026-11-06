@@ -379,6 +379,28 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
 
 
 
+def _additive_omission_progress(previous: list[dict[str, Any]], current: list[dict[str, Any]],
+                                before: str, after: str) -> bool:
+    """Allow a newly discovered omission only when the old narration is preserved."""
+    if not previous or not current or len(current) > len(previous) or before == after:
+        return False
+    if any(issue['kind'] != 'omission' for issue in previous + current):
+        return False
+    old_ids = {part for issue in previous for part in issue.get('source_part_ids', [])}
+    new_ids = {part for issue in current for part in issue.get('source_part_ids', [])}
+    if not old_ids or not new_ids or old_ids & new_ids:
+        return False
+    cursor = 0
+    for paragraph in before.split('\n\n'):
+        if not paragraph.strip():
+            continue
+        index = after.find(paragraph, cursor)
+        if index < 0:
+            return False
+        cursor = index + len(paragraph)
+    return bool(before.strip())
+
+
 def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[dict[str, Any]],
               progress: Callable[[str], None], *,
               previous_section: dict[str, Any] | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
@@ -394,6 +416,8 @@ def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[di
         else:
             section = previous_section
         previous_counts: dict[str, int] | None = None
+        previous_issues: list[dict[str, Any]] = []
+        reviewed_narration = ""
         for attempt in range(3):
             progress('Checking final narration before speech' if attempt else 'Brief factual and thematic review')
             issues = review(context, briefs, section['narration'], subjects)
@@ -404,14 +428,17 @@ def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[di
                 return [section], outline, budget
             counts = {kind: sum(issue['kind'] == kind for issue in issues)
                       for kind in ('omission', 'distortion', 'production', 'duplicate')}
-            # One further correction is useful only after measurable improvement,
-            # without trading fewer omissions for new factual or production errors.
+            # Require fewer findings, or resolved omissions with strictly additive text.
+            # Newly introduced factual or production errors must still stop the loop.
             improving = previous_counts is None or (
                 sum(counts.values()) < sum(previous_counts.values())
-                and all(counts[kind] <= previous_counts[kind] for kind in counts))
+                and all(counts[kind] <= previous_counts[kind] for kind in counts)) or _additive_omission_progress(
+                    previous_issues, issues, reviewed_narration, section["narration"])
             if attempt == 2 or not improving:
                 break
             previous_counts = counts
+            previous_issues = issues
+            reviewed_narration = section["narration"]
             progress('Applying the brief review')
             section = _write_episode(context, briefs, outline, budget, issues, section['narration'])
         raise ValueError('podcast_final_narration_review_failed')
