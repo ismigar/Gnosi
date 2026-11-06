@@ -106,6 +106,13 @@ def test_actual_imported_homes_and_articles_keep_public_features(imported_pilot,
         links = article.select('.entry-sharing a')
         assert [link['class'][0] for link in links] == ['a2a_button_' + name for name in ('whatsapp', 'telegram', 'mastodon', 'bluesky', 'facebook', 'linkedin', 'email')]
         assert all(link['target'] == '_blank' and 'noreferrer' in link['rel'] for link in links)
+        for link in links:
+            assert link['aria-label'] == link.select_one('[role="tooltip"]').get_text()
+            assert link.select_one('.share-icon svg[aria-hidden="true"][focusable="false"]')
+            assert link.select_one('.share-icon svg path')
+        assert links[-1]['aria-label'] == {
+            'ca': 'Correu electrònic', 'es': 'Correo electrónico', 'en-gb': 'Email',
+        }[language]
     design = BeautifulSoup((output / 'ca/dissenys/public/index.html').read_text(), 'html.parser')
     assert design.select_one('.materials').get_text(' ', strip=True) == 'Materials ABS'
     listing = BeautifulSoup((output / 'ca/investigacio/index.html').read_text(), 'html.parser')

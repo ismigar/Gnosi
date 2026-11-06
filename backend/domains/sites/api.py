@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, File, Query, UploadFile
@@ -17,15 +17,17 @@ from backend.domains.sites import theme_upload_route
 
 from . import exporter, newsletter, private_service, publication, runtime
 from .models import (
-    CatalogueItem, ConnectionStatus, LocalServeResponse, PrivateServiceRequest, PrivateServiceResponse,
+    CatalogueItem, CatalogueSnapshot, ConnectionStatus, LocalServeResponse, PrivateServiceRequest, PrivateServiceResponse,
     ServiceSettings, ServiceSettingsResponse, SiteBlock, SiteConfig, SiteCreate, SiteJob, SitePage,
     SitePreview, SitePreviewRequest, SitePublishRequest, SiteRelease, SiteSource, SiteStatus, SiteTarget,
-    SiteTheme, SiteThemeAsset, TargetConnection,
+    SiteTheme, SiteThemeAsset, TargetConnection, TargetConnectionSecret,
 )
 from .storage import SiteStore
 
 
 router = APIRouter(prefix="/sites", tags=["sites"], dependencies=[Depends(require_plugins("web-publishing"))])
+from .web_import_routes import router as import_router
+router.include_router(import_router)
 Editor = Annotated[WorkspaceContext, Depends(require_role("editor"))]
 Admin = Annotated[WorkspaceContext, Depends(require_role("admin"))]
 
@@ -64,6 +66,11 @@ def create_site(request: SiteCreate, context: Admin) -> SiteConfig:
 @router.get("/catalogue", response_model=list[CatalogueItem])
 def catalogue(context: Editor) -> list[CatalogueItem]:
     return exporter.catalogue(store_for(context))
+
+
+@router.get("/catalogue/snapshot", response_model=CatalogueSnapshot)
+def catalogue_snapshot(context: Editor) -> CatalogueSnapshot:
+    return exporter.catalogue_snapshot(store_for(context))
 
 
 @router.get("/{site_id}", response_model=SiteStatus)
@@ -179,7 +186,7 @@ def font_preview(site_id: str, source: str, context: Editor) -> Response:
     return Response(raw, media_type=media_type, headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
 
 
-async def upload_theme_asset(site_id: str, context: Editor, kind: Literal["image", "font"], file: UploadFile = File(...)) -> SiteThemeAsset:
+async def upload_theme_asset(site_id: str, context: Editor, kind: Literal["image", "font", "file"], file: UploadFile = File(...)) -> SiteThemeAsset:
     from starlette.concurrency import run_in_threadpool
     from .theme_assets import LIMIT, upload
     try:
@@ -202,6 +209,15 @@ def theme_image(site_id: str, source: str, context: Editor) -> Response:
     store = store_for(context)
     raw = read_asset(store, store.load(site_id), source)
     return Response(image_preview(raw, Path(unquote(urlsplit(source).path)).suffix.lower()), media_type="image/png", headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+
+
+@router.get("/{site_id}/theme/file", response_class=Response, responses={200: {"content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}}})
+def theme_file(site_id: str, source: str, context: Editor) -> Response:
+    from .theme_assets import read_asset
+    store = store_for(context)
+    raw = read_asset(store, store.load(site_id), source)
+    filename = quote(Path(unquote(urlsplit(source).path)).name, safe="")
+    return Response(raw, media_type="application/octet-stream", headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Content-Disposition": "attachment; filename*=UTF-8''" + filename})
 
 
 @router.get("/{site_id}/theme/history", response_model=list[SiteTheme])
@@ -235,6 +251,15 @@ def connection(site_id: str, target_id: str, context: Admin) -> TargetConnection
 @router.put("/{site_id}/targets/{target_id}/connection", response_model=TargetConnection)
 def save_connection(site_id: str, target_id: str, request: TargetConnection, context: Admin) -> TargetConnection:
     return runtime.save_connection(store_for(context), site_id, target_id, request)
+
+
+@router.put("/{site_id}/targets/{target_id}/credentials", response_model=TargetConnection)
+def save_connection_secret(site_id: str, target_id: str, request: TargetConnectionSecret, context: Admin, response: Response) -> TargetConnection:
+    from .connection_credentials import save_secret
+    response.headers["Cache-Control"] = "no-store"
+    store = store_for(context)
+    save_secret(store, site_id, target_id, request)
+    return runtime.connection(store, site_id, target_id)
 
 
 @router.post("/{site_id}/targets/{target_id}/probe", response_model=ConnectionStatus)

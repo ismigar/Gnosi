@@ -48,3 +48,11 @@ Configuration saves automatically. Check the save status and resolve failures be
 In Newsletters, choose the destination and language, then add already published content to a digest or featured-reading draft. The list shows the newest content first. Reorder up to twenty unique pages, add an introduction and review HTML, plain text and recipients before explicitly queuing a test. Drafts save automatically per site and destination; changed publications or edits require another review. Captured test messages can be read from the delivery queue; reading does not activate confirmation or unsubscribe links. Use the explicit test-link controls when needed.
 
 The current pilot permits protected test publication and captured email for synthetic recipients only. Production publication and real email delivery are disabled. A destination also needs its required renderer and private-service dependencies; use its connection check before publication. If an action’s outcome is uncertain, refresh status before retrying.
+
+### Import a website and configure its connection
+
+In **Create website**, choose a blank website or URL import. Enter its public address, analyze it and review the pages, languages and warnings before importing the selection. This creates editable pages without publishing. Original server applications and form handlers are not migrated automatically.
+
+In **Hosting**, configure the server, port, user, folders and authentication using the SSH agent, a device key or a password. Transfer files using SSH or SFTP; passwords are stored only in the device credential manager. Test the connection: publication with the private service also requires SSH commands, PHP and SQLite. An SFTP-only connection can be verified without meeting those publication requirements.
+
+In **Contact forms**, add, reorder or remove fields and edit language-specific text, including consent, errors and confirmation. Leave optional text blank to retain its defaults. Review the result before publishing.

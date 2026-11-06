@@ -8,12 +8,14 @@ agent tools return the same error as an auditable tool result.
 from __future__ import annotations
 
 import asyncio
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Protocol, cast
 
 from backend.domains.vault.registry.records import is_record
 from backend.utils.open_values import get_value, iterable_values
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
 
 
 @dataclass
@@ -57,6 +59,32 @@ class VaultActionsPort(Protocol):
     def get_p(self, key: str) -> Path: ...
 
 
+def _source_page_path(vr: VaultActionsPort, item_id: str) -> Path | None:
+    """Use a verified cold-cache hint without making stale data authoritative."""
+    from backend.api import vault_routes as legacy
+
+    vault = vr.get_p("VAULT").resolve()
+    if not legacy._page_index_initialized.get(str(vault)):
+        try:
+            cached = json.loads(read_metadata_text(legacy.get_page_index_cache_path(str(vault)), encoding="utf-8"))
+            target = legacy._canonicalize_id(item_id)
+            if is_record(cached):
+                for saved_path, entry in cached.items():
+                    if not isinstance(saved_path, str) or not is_record(entry) or legacy._canonicalize_id(entry.get("id")) != target:
+                        continue
+                    candidate = Path(saved_path)
+                    if not candidate.resolve().is_relative_to(vault):
+                        continue
+                    metadata, _ = vr.parse_frontmatter(read_metadata_text(candidate, encoding="utf-8"), candidate)
+                    if legacy._canonicalize_id(metadata.get("id")) == target:
+                        return candidate
+        except MetadataUnavailable:
+            raise
+        except (OSError, ValueError, TypeError, RuntimeError):
+            pass
+    return vr.find_page_path(item_id)
+
+
 def start_source_process(
     resource_id: str,
     *,
@@ -89,7 +117,7 @@ def start_source_process(
     if not vr._table_by_id(brain_table_id):  # noqa: SLF001
         raise LlmWikiActionError(400, "The configured Brain table does not exist")
 
-    path = vr.find_page_path(item_id)
+    path = _source_page_path(vr, item_id) if estimate_only or estimate_id else vr.find_page_path(item_id)
     if not path or not path.exists():
         raise LlmWikiActionError(404, f"Resource {item_id} was not found")
     metadata, body = vr.parse_frontmatter(path.read_text(encoding="utf-8"), path)

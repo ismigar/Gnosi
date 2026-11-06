@@ -1,0 +1,4 @@
+Font Awesome Free 6.6.0 brand icons. Copyright Fonticons, Inc.
+Icons licensed under CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+Source: https://github.com/FortAwesome/Font-Awesome/tree/6.6.0/svgs/brands
+SVG copyright and license notices retained in each file.

@@ -89,6 +89,31 @@ def test_unknown_glyph_recovery_requires_full_page_agreement():
     assert reconcile_unknown_characters(different, 'greco-católicos') is different
 
 
+def test_independent_soft_hyphens_retain_native_geometry_indices():
+    from backend.domains.llm_wiki.pdf_quote_matching import PageTextIndex, reconcile_unknown_characters
+
+    native = PageTextIndex('ras\ufffegosycreen\ufffecias', tuple(range(18)))
+    recovered = reconcile_unknown_characters(native, 'ras\u00ad\n gos y creen\u00ad cias')
+    assert recovered.text == 'rasgosycreencias'
+    assert recovered.find('rasgos') == (0, 7)
+    assert recovered.find('creencias') == (8, 10)
+    assert reconcile_unknown_characters(native, 'rasgos y creencias') is native
+    assert reconcile_unknown_characters(native, 'ras\u00adgos y creen\u00adcías') is native
+    assert reconcile_unknown_characters(native, 'ras\u00adgos y creen\ufffdcias') is native
+
+
+def test_shared_unresolved_glyph_does_not_block_recovery_elsewhere_on_aligned_page():
+    from backend.domains.llm_wiki.pdf_quote_matching import PageTextIndex, reconcile_unknown_characters
+    text = 'x\ufffdras\ufffegos'
+    native = PageTextIndex(text, tuple(range(len(text))))
+    recovered = reconcile_unknown_characters(native, 'x\ufffd ras\u00adgos')
+    assert recovered.text == 'x\ufffdrasgos'
+    assert recovered.indices == (0, 1, 2, 3, 4, 6, 7, 8)
+    assert recovered.find('rasgos') == (2, 7)
+    assert reconcile_unknown_characters(native, 'xe ras\u00adgos') is native
+    assert reconcile_unknown_characters(native, 'x\ufffd ras\ufffdgos') is native
+
+
 def test_unknown_native_glyph_uses_independent_page_text_not_requested_quote(tmp_path, monkeypatch):
     from backend.services import llm_wiki_pdf_annotations as annotations
     from backend.domains.llm_wiki.pdf_quote_matching import PageTextIndex

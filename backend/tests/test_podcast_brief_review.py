@@ -11,6 +11,17 @@ from backend.services.podcast_review import _schema
 from backend.tests.test_podcast_briefing import diverse_sources, pipeline, written  # noqa: F401
 
 
+def patch_response(request, before, after):
+    data = json.loads(request.input)['data']
+    if data.get('revision_encoding') == 'grounded_anchor_ids_v1':
+        key = next(key for key, text in data['anchor_clauses'].items() if text == before)
+        return {'draft_sha256': data['draft_sha256'],
+            'finding_anchors': {'0': [key]},
+            'changes': {anchor: after if anchor == key else None for anchor in data['anchor_clauses']}}
+    return {'draft_sha256': data['draft_sha256'], 'edits': [
+        {'before': before, 'after': after, 'finding_indices': [0]}]}
+
+
 def brief_mode(pipeline):
     pipeline.snapshot.skill_instructions = {SKILL_ID:
         '```json\n{"podcast_preferences":{"review_mode":"brief"}}\n```'}
@@ -81,10 +92,8 @@ def test_brief_findings_trigger_one_correction_and_review_of_the_corrected_text(
                 'narration_quotes': ['Inaccurate attribution'], 'source_part_ids': [record['part_id']],
                 'evidence_quote': record['quote']}]}
         elif request.operation.endswith('write'):
-            if data.get('revision_encoding') == 'grounded_edits_v1':
-                result = {'draft_sha256': data['draft_sha256'], 'edits': [{
-                    'before': 'Inaccurate attribution.', 'after': 'Correct attribution.',
-                    'finding_indices': [0]}]}
+            if data.get('revision_encoding') in {'grounded_edits_v1', 'grounded_anchor_ids_v1'}:
+                result = patch_response(request, 'Inaccurate attribution.', 'Correct attribution.')
             else:
                 text = 'Inaccurate attribution.' + ' Context.' * request.options['min_words']
                 result = written(request, text)
@@ -106,6 +115,60 @@ def test_brief_findings_trigger_one_correction_and_review_of_the_corrected_text(
     assert report['review']['final_narration_validated'] is True
 
 
+
+@pytest.mark.parametrize(('round_kinds', 'succeeds'), [
+    ([['distortion', 'distortion'], ['distortion'], []], True),
+    ([['distortion'] * 3, ['distortion'] * 2, ['distortion']], False),
+    ([['distortion'] * 2, ['distortion'] * 2], False),
+    ([['omission'] * 2, ['distortion']], False),
+])
+def test_second_brief_correction_requires_improvement_and_still_validates_final_text(pipeline, round_kinds, succeeds):
+    from types import SimpleNamespace
+    brief_mode(pipeline)
+    reviews, limits = [], []
+
+    def model(request, **kwargs):
+        data = json.loads(request.input)['data']
+        if request.operation.endswith('audit'):
+            reviews.append(data['narration'])
+            limits.append((request.max_model_calls, request.timeout_seconds))
+            record = data['source_summaries'][0]
+            quote = f'Revision {len(reviews) - 1}.'
+            result = {'issues': [{'kind': kind, 'detail': f'Unresolved material finding {index}.',
+                'narration_quotes': [] if kind == 'omission' else [quote],
+                'source_part_ids': [record['part_id']], 'evidence_quote': record['quote']}
+                for index, kind in enumerate(round_kinds[len(reviews) - 1])]}
+        elif request.operation.endswith('write'):
+            limits.append((request.max_model_calls, request.timeout_seconds))
+            if data.get('revision_encoding') in {'grounded_edits_v1', 'grounded_anchor_ids_v1'}:
+                result = patch_response(request, f'Revision {len(reviews) - 1}.', f'Revision {len(reviews)}.')
+                if 'finding_anchors' in result:
+                    anchor = result['finding_anchors']['0']
+                    result['finding_anchors'] = {str(i): anchor for i in range(len(data['feedback']))}
+                else:
+                    result['edits'][0]['finding_indices'] = list(range(len(data['feedback'])))
+            else:
+                result = written(request, 'Revision 0.' + ' Context.' * request.options['min_words'])
+        else:
+            return pipeline.model(request, **kwargs)
+        text = json.dumps(result); kwargs['output_validator'](text)
+        return SimpleNamespace(result=text)
+
+    pipeline.monkeypatch.setattr('backend.services.agent_execution.run_sync', model)
+    sources = [{'id': 'a', 'title': 'Source', 'text': 'The original supporting evidence is clear.'}]
+    if succeeds:
+        script = pipeline.run(sources)
+        assert script.startswith('Revision 2.') and reviews[-1] == script
+        review = pipeline.saved['podcast-coverage-report']['review']
+        assert review['semantic_reviews'] == 3 and review['final_narration_validated'] is True
+    else:
+        with pytest.raises(ValueError, match='podcast_final_narration_review_failed'):
+            pipeline.run(sources)
+        assert 'podcast-coverage-report' not in pipeline.saved
+    assert len(reviews) == len(round_kinds)
+    assert all(limit == (2, 300) for limit in limits)
+
+
 def test_new_error_introduced_by_a_correction_cannot_reach_speech(pipeline):
     from types import SimpleNamespace
     brief_mode(pipeline)
@@ -121,9 +184,8 @@ def test_new_error_introduced_by_a_correction_cannot_reach_speech(pipeline):
                 'narration_quotes': [quote], 'source_part_ids': [record['part_id']],
                 'evidence_quote': record['quote']}]}
         elif request.operation.endswith('write'):
-            if data.get('revision_encoding') == 'grounded_edits_v1':
-                result = {'draft_sha256': data['draft_sha256'], 'edits': [{
-                    'before': 'Initial error.', 'after': 'New error.', 'finding_indices': [0]}]}
+            if data.get('revision_encoding') in {'grounded_edits_v1', 'grounded_anchor_ids_v1'}:
+                result = patch_response(request, 'Initial error.', 'New error.')
             else:
                 result = written(request, 'Initial error.' + ' Context.' * request.options['min_words'])
         else:
@@ -265,3 +327,64 @@ def test_initial_bound_repair_still_reviews_the_whole_original_day(pipeline):
     assert report['review']['semantic_reviews'] == 1 and report['review']['mode'] == 'brief'
     assert {brief['part_id'] for brief in audits[0]['source_summaries']} == {
         brief['part_id'] for brief in report['briefs']}
+
+
+@pytest.mark.parametrize(('old_kind', 'new_kind', 'old_ids', 'new_ids', 'after', 'expected'), [
+    ('omission', 'omission', ['a:0'], ['b:0'], 'First paragraph. Added fact.\n\nSecond paragraph.', True),
+    ('omission', 'omission', ['a:0'], ['a:0'], 'First paragraph. Added fact.\n\nSecond paragraph.', False),
+    ('omission', 'omission', ['a:0'], ['b:0'], 'Rewritten paragraph.\n\nSecond paragraph.', False),
+    ('omission', 'omission', ['a:0'], ['b:0'], 'Second paragraph.\n\nFirst paragraph.', False),
+    ('omission', 'omission', ['a:0'], ['b:0'], 'First paragraph.\n\nSecond paragraph.', False),
+    ('distortion', 'omission', ['a:0'], ['b:0'], 'First paragraph. Added fact.\n\nSecond paragraph.', False),
+    ('omission', 'distortion', ['a:0'], ['b:0'], 'First paragraph. Added fact.\n\nSecond paragraph.', False),
+    ('omission', 'omission', [], ['b:0'], 'First paragraph. Added fact.\n\nSecond paragraph.', False),
+])
+def test_additive_omission_progress_preserves_every_previous_paragraph(old_kind, new_kind, old_ids, new_ids, after, expected):
+    from backend.services.podcast_automatic import _additive_omission_progress
+    previous = [{'kind': old_kind, 'source_part_ids': old_ids}]
+    current = [{'kind': new_kind, 'source_part_ids': new_ids}]
+    assert _additive_omission_progress(previous, current, 'First paragraph.\n\nSecond paragraph.', after) is expected
+
+
+@pytest.mark.parametrize(('second_ids', 'second_kind', 'rewrite', 'final_clear', 'succeeds', 'expected_reviews'), [
+    (['b:0'], 'omission', False, True, True, 3),
+    (['a:0'], 'omission', False, True, False, 2),
+    (['b:0'], 'distortion', False, True, False, 2),
+    (['b:0'], 'omission', True, True, False, 2),
+    (['b:0'], 'omission', False, False, False, 3),
+])
+def test_additive_omission_gets_only_the_existing_final_correction(monkeypatch, second_ids, second_kind, rewrite,
+                                                                 final_clear, succeeds, expected_reviews):
+    from types import SimpleNamespace
+    from backend.services import podcast_automatic as automatic
+    context = SimpleNamespace()
+    monkeypatch.setattr(automatic, 'preferences', lambda _: SimpleNamespace(review_mode='brief', word_target=lambda _: 100))
+    drafts = ['Original paragraph.', ('Rewritten paragraph.' if rewrite else 'Original paragraph.') + '\n\nAdded first fact.',
+              'Original paragraph.\n\nAdded first fact.\n\nAdded second fact.']
+    writes, reviews = [], []
+
+    def write(*args):
+        writes.append(args[-1])
+        return {'narration': drafts[len(writes) - 1]}
+
+    rounds = [[{'kind': 'omission', 'source_part_ids': ['a:0']}],
+              [{'kind': second_kind, 'source_part_ids': second_ids}],
+              [] if final_clear else [{'kind': 'omission', 'source_part_ids': ['c:0']}]]
+
+    def review(_context, _briefs, narration, _subjects):
+        reviews.append(narration)
+        return rounds[len(reviews) - 1]
+
+    monkeypatch.setattr(automatic, '_write_episode', write)
+    monkeypatch.setattr('backend.services.podcast_brief_review.review', review)
+    if succeeds:
+        sections, _, _ = automatic.write_day(context, [{'source_id': 'source'}], [{'topic': 'Daily'}], lambda _: None)
+        assert sections[0]['narration'] == drafts[2] == reviews[-1]
+        assert context.review_metadata['semantic_reviews'] == 3
+        assert context.review_metadata['final_narration_validated'] is True
+    else:
+        with pytest.raises(ValueError, match='podcast_final_narration_review_failed'):
+            automatic.write_day(context, [{'source_id': 'source'}], [{'topic': 'Daily'}], lambda _: None)
+        assert not hasattr(context, 'review_metadata')
+    assert len(reviews) == expected_reviews
+    assert len(writes) <= 3

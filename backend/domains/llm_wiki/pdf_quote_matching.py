@@ -70,11 +70,24 @@ def reconcile_unknown_characters(index: PageTextIndex, extracted_page: str) -> P
 
     PDFium may emit U+FFFE for a mapped glyph. Never guess its value from a
     requested quote: another PDF decoder must agree on every other character
-    and on the complete page length. Native geometry indices remain unchanged.
+    and on the complete page length. An independently decoded soft hyphen may
+    be omitted from search text while retaining the surrounding native indices.
     """
     text = compact(extracted_page)
-    if len(text) != len(index.text) or any(char in text for char in ("\ufffe", "\ufffd")):
+    if len(text) != len(index.text):
+        text = "".join(char.casefold() for char in extracted_page if not char.isspace())
+    if len(text) != len(index.text):
+        return index
+    # A shared replacement glyph remains unresolved at its original index; it
+    # must not prevent independent recovery elsewhere on the same aligned page.
+    # An undecoded glyph cannot supply a value for a different native character.
+    if any(b in {"\ufffe", "\ufffd"} and a != b for a, b in zip(index.text, text, strict=True)):
         return index
     if any(a != b and a != "\ufffe" for a, b in zip(index.text, text, strict=True)):
         return index
+    if "\u00ad" in text:
+        retained = [(char, position) for char, position in zip(text, index.indices, strict=True)
+                    if char != "\u00ad"]
+        return PageTextIndex("".join(char for char, _ in retained),
+                             tuple(position for _, position in retained))
     return PageTextIndex(text, index.indices)

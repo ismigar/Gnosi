@@ -716,10 +716,9 @@ class SchedulerManager:
 
     def _task_generate_podcast(self) -> dict[str, Any]:
         """Generate the daily podcast from unread articles."""
-        from backend.services.audio_summarizer import generate_daily_podcast
+        from backend.services.audio_summarizer import generate_scheduled_podcast
 
-        filename = run_personal_schedule(generate_daily_podcast)
-        return {"filename": filename, "generated": bool(filename)}
+        return generate_scheduled_podcast()
 
     def _task_llm_wiki_maintenance(self) -> dict[str, Any]:
         """Rebuild managed Brain indexes without invoking an LLM."""

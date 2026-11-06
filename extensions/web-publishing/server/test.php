@@ -222,6 +222,36 @@ try {
     $regressions->subscribe(['email' => 'orphan@example.invalid', 'language' => 'ca', 'consent' => '1'], 'matrix-orphan');
     check($regressions->admin('subscribers_list', ['q' => 'orphan@'])['total'] === 0, 'SVC-05 suppression tombstone survives absence of subscriber row');
     unset($rdb, $regressions);
+    // Subscriber names are staged until the address owner confirms, including old databases.
+    $namesConfig = $config; $namesConfig['db_path'] = $temporary.'/names.sqlite'; $namesConfig['spool_path'] = $temporary.'/names-spool';
+    $namesService = new SiteService($namesConfig); $namesDb = new PDO('sqlite:'.$namesConfig['db_path']);
+    $namesService->admin('subscribers_import', ['items' => [['email' => 'legacy@example.invalid', 'language' => 'ca']]]);
+    $namesDb->exec('DROP TABLE subscription_names; DROP TABLE subscriber_names;');
+    $namesService = new SiteService($namesConfig); $namesService = new SiteService($namesConfig);
+    check($namesService->admin('subscribers_list', [])['total'] === 1, 'NAMES-01 additive startup preserves legacy records and is repeatable');
+    $namesRequest = ['email' => 'named@example.invalid', 'language' => 'ca', 'consent' => '1', 'first_name' => '  Núria  ', 'last_name' => ' García Fernández '];
+    $namesService->subscribe($namesRequest, 'names-new');
+    $named = $namesService->admin('subscribers_list', ['q' => 'named@'])['items'][0];
+    check($named['first_name'] === '' && $named['last_name'] === '', 'NAMES-02 unconfirmed names are not effective profile data');
+    $confirmNames = function () use ($namesDb, &$namesService): void {
+        $body = $namesDb->query("SELECT body_html FROM queue WHERE kind='confirmation' ORDER BY rowid DESC LIMIT 1")->fetchColumn();
+        preg_match('/action=confirm&(?:amp;)?token=([a-f0-9]{64})/', $body, $match);
+        check(isset($match[1]), 'NAMES-03 confirmation queued'); $namesService->applyToken(['action' => 'confirm', 'token' => $match[1]]);
+    };
+    $confirmNames(); $namesService = new SiteService($namesConfig);
+    $named = $namesService->admin('subscribers_export', ['q' => 'named@'])['items'][0];
+    check($named['first_name'] === 'Núria' && $named['last_name'] === 'García Fernández', 'NAMES-03 confirmed Unicode names persist and export after restart');
+    $forged = $namesRequest; $forged['list_id'] = 'other'; $forged['first_name'] = 'Unconfirmed'; $namesService->subscribe($forged, 'names-forged');
+    check($namesService->admin('subscribers_list', ['q' => 'named@'])['items'][0]['first_name'] === 'Núria', 'NAMES-04 unconfirmed requests cannot rename existing subscribers');
+    $legacyRequest = $namesRequest; unset($legacyRequest['first_name'], $legacyRequest['last_name']); $legacyRequest['list_id'] = 'legacy-client';
+    $namesService->subscribe($legacyRequest, 'names-legacy-client'); $confirmNames();
+    check($namesService->admin('subscribers_list', ['q' => 'named@'])['items'][0]['first_name'] === 'Núria', 'NAMES-05 old clients without names preserve existing profile');
+    foreach ([['', ''], ['Only', ''], [[], 'Family'], [str_repeat('é', 101), 'Family'], ["Bad\nName", 'Family'], ["\xff", 'Family']] as $index => $badNames) {
+        $badRequest = $namesRequest; $badRequest['email'] = 'bad-name-'.$index.'@example.invalid'; [$badRequest['first_name'], $badRequest['last_name']] = $badNames;
+        $namesService->subscribe($badRequest, 'bad-name-'.$index);
+        check($namesService->admin('subscribers_list', ['q' => 'bad-name-'.$index.'@'])['total'] === 0, 'NAMES-06 invalid names cannot poison stored profiles');
+    }
+    unset($namesDb, $namesService);
     $different = $config; $different['site_id'] = 'other'; try { new SiteService($different); throw new RuntimeException('Cross-site database accepted'); } catch (RuntimeException $e) { check($e->getMessage() === 'Service site mismatch', 'Cross-site isolation'); }
     echo "PASS: forms, persistence, lifecycle, privacy, campaign binding, suppression, scheduling, recovery and retention\n";
 } finally { unset($db, $service); removeTree($temporary); }

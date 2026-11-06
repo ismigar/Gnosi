@@ -86,6 +86,13 @@ describe('website private service management', () => {
     expect(call).toHaveBeenCalledWith('campaign_preview', expect.objectContaining({ interests: ['first', 'second'] }));
   });
 
+  it('shows confirmed subscriber names from the private service beside the email', async () => {
+    const call = vi.fn<PrivateCall>().mockResolvedValue({ items: [{ id: 'named', email: 'reader@example.invalid', first_name: 'Núria', last_name: 'García Fernández', status: 'active' }], total: 1 });
+    const view = mountTestComponent(<SubscribersPanel site={site} call={call} />); await tick();
+    expect(view.container.textContent).toContain('Núria García Fernández');
+    expect(view.container.textContent).toContain('reader@example.invalid');
+  });
+
   it('exposes subscriber import as a focusable native button wired to its file input', async () => {
     const call = vi.fn<PrivateCall>().mockResolvedValue({ items: [], total: 0 });
     const view = mountTestComponent(<SubscribersPanel site={site} call={call} />); await tick();

@@ -10,6 +10,9 @@ import jsonschema
 from backend.services.agent_output_repair import OutputRepair, RepairBuilder
 
 
+MAX_BRIEF_QUOTE_LENGTH = 160
+
+
 class InvalidBriefQuotes(ValueError):
     """Identify every nonliteral quote in one otherwise valid source batch."""
 
@@ -35,7 +38,7 @@ def _quote_options(part: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 start += 1
             if start == len(text):
                 break
-            end = min(start + 160, len(text))
+            end = min(start + MAX_BRIEF_QUOTE_LENGTH, len(text))
             if end < len(text) and not text[end].isspace():
                 end = next((i for i in range(end - 1, start, -1) if text[i].isspace()), end)
             quoted_end = end
@@ -52,14 +55,34 @@ def _quote_options(part: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 def brief_quote_repair(parts: list[dict[str, Any]], schema: dict[str, Any]) -> RepairBuilder:
     originals, full_schema = deepcopy(parts), deepcopy(schema)
+    repairable_schema = deepcopy(full_schema)
+    for brief_schema in repairable_schema['properties']['briefs']['properties'].values():
+        brief_schema['properties']['quote'].pop('maxLength', None)
 
     def build(rejected: str, error: Exception) -> OutputRepair | None:
-        if not isinstance(error, InvalidBriefQuotes):
+        quote_too_long = (
+            isinstance(error, jsonschema.ValidationError)
+            and error.validator == 'maxLength'
+            and len(error.absolute_path) == 3
+            and error.absolute_path[0] == 'briefs'
+            and error.absolute_path[2] == 'quote'
+        )
+        if not isinstance(error, InvalidBriefQuotes) and not quote_too_long:
             return None
-        original = json.loads(rejected)
-        jsonschema.validate(original, full_schema)
-        invalid = invalid_quote_ids(original, originals)
-        if tuple(invalid) != error.part_ids or not invalid:
+        from backend.services.agent_execution import _validate_output
+
+        try:
+            original = json.loads(_validate_output(rejected, repairable_schema))
+        except (ValueError, jsonschema.ValidationError):
+            return None
+        nonliteral = invalid_quote_ids(original, originals)
+        if isinstance(error, InvalidBriefQuotes) and tuple(nonliteral) != error.part_ids:
+            raise ValueError('podcast_quote_repair_scope_mismatch')
+        invalid = [
+            part_id for part_id, brief in original['briefs'].items()
+            if part_id in nonliteral or len(brief['quote']) > MAX_BRIEF_QUOTE_LENGTH
+        ]
+        if not invalid:
             raise ValueError('podcast_quote_repair_scope_mismatch')
         options = {part['part_id']: _quote_options(part) for part in originals if part['part_id'] in invalid}
         quote_properties = {identifier: {'type': 'string', 'enum': list(options[identifier])}

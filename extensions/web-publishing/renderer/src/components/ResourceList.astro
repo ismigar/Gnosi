@@ -1,5 +1,7 @@
 ---
 import {prefix} from '../lib/site.mjs';
-const {items}=Astro.props;
+import {listingLabels} from '../lib/listing.js';
+const {items,lang}=Astro.props;
+const text=listingLabels(lang);
 ---
-<ul class="resource-list">{items.map(record=><li><span class="resource-year">{record.presentation?.year}</span><a href={prefix(record.path)}>{record.title}</a></li>)}</ul>
+<ul class="resource-list">{items.map(record=><li><span class="resource-year">{record.presentation?.year}</span><a class="resource-title" href={prefix(record.path)}>{record.title}</a><a class="text-link table-record-link" href={prefix(record.path)} aria-label={`${text.show}: ${record.title}`}>{text.show}<span aria-hidden="true">↗</span></a></li>)}</ul>

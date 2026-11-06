@@ -32,6 +32,8 @@ def observe(value: Any, *, state: dict[str, Any] | None = None) -> None:
     usage = _mapping(response.get("usage"))
     if usage:
         state["raw_usage"] = usage
+    if isinstance(response.get('is_byok'), bool):
+        state['is_byok'] = response['is_byok']
     if response.get("id"):
         state["generation_id"] = str(response["id"])
     if response.get("model"):
@@ -165,6 +167,7 @@ class UsageCallback(BaseCallbackHandler):
         except Exception:
             state["rates"] = None
         from backend.services import reading_budget
+        state['reading_budget_active'] = reading_budget.active()
         reading_budget.reserve(str(run_id), messages, kwargs.get("invocation_params") or {}, state.get("rates"), self.provider)
         with self.lock:
             self.pending[str(run_id)] = state
@@ -186,12 +189,21 @@ class UsageCallback(BaseCallbackHandler):
             # Estimates use the route's tariff frozen at invocation time, never
             # a native vendor's tariff inferred from an OpenRouter model prefix.
             cost, source = price(self.provider, model, tokens, raw, state.get("rates"))
+            defer_budget = self.provider == 'openrouter' and state.get('reading_budget_active', False)
             added = ledger.write_call(provider=self.provider, model_id=model, **tokens,
                 cost_usd=cost, cost_source=source, call_id=state["id"], created=state["started"],
                 duration_ms=(time.time() - state["started"]) * 1000,
                 status="cancelled" if isinstance(error, BaseException) and (type(error).__name__ in {"CancelledError", "AgentTurnCancelled"}) else "failed" if error is not None else "completed",
-                metadata=state["attribution"], generation_id=generation_id)
-            if added and self.provider == "openrouter" and source != "reported" and generation_id.startswith("gen-") and self.api_key:
+                metadata=state["attribution"], generation_id=generation_id, settle_budget=not defer_budget)
+            funding_confirmed = False
+            if added and defer_budget:
+                from backend.services.ai_usage_openrouter import budget_cost
+                funding = {**raw, **({'is_byok': state['is_byok']} if 'is_byok' in state else {})}
+                consumed = budget_cost(funding)
+                if consumed is not None and generation_id.startswith('gen-'):
+                    funding_confirmed = ledger.reconcile_budget_cost(state['id'], generation_id, consumed)
+            if (added and self.provider == "openrouter" and (source != "reported" or (defer_budget and not funding_confirmed))
+                    and generation_id.startswith("gen-") and self.api_key):
                 from backend.services.ai_usage_openrouter import schedule
                 schedule(state["id"], generation_id, self.api_key)
             for item in messages:

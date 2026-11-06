@@ -34,8 +34,10 @@ def _plan_request(context: _Briefing, cards: list[dict[str, Any]]) -> Any:
     limit = min(policy.max_topic_groups, len(cards))
     schema = _object({"topics": {"type": "array", "minItems": 1, "maxItems": limit,
         "items": {"type": "string", "minLength": 1, "maxLength": 180}},
-        "assignments": _object({c["part_ids"][0]: {"type": "integer", "enum": list(range(limit))}
+        "assignments": _object({c["part_ids"][0]: {"$ref": "#/$defs/topic_index"}
                                 for c in cards})})
+    # Share the finite index set so large days stay within provider enum limits.
+    schema["$defs"] = {"topic_index": {"type": "integer", "enum": list(range(limit))}}
     return context.request("podcast.coverage.plan", {"cards": cards}, schema).model_copy(update={
         "options": {"planning_contract": resource("operations/podcast/assignment-contract.md"),
                     "editorial_policy": policy.model_dump(exclude={'review_mode'})}})

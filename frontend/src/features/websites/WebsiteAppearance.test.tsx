@@ -5,7 +5,7 @@ import { currentRequestContext } from '../../shared/api/request-context';
 import * as api from '../../shared/api/sites';
 import WebsitesPage from './WebsitesPage';
 
-vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont', 'previewSiteImage', 'uploadSiteThemeAsset'].map(name => [name, vi.fn()])));
+vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont', 'previewSiteImage', 'previewSiteAsset', 'uploadSiteThemeAsset'].map(name => [name, vi.fn()])));
 vi.mock('../../shared/api/request-context', () => ({ currentRequestContext: vi.fn() }));
 vi.mock('../../shared/hooks/useModalKeyboard', () => ({ useModalKeyboard: () => undefined }));
 vi.mock('../../shared/ui/layout/AppHeader', () => ({ AppHeader: ({ children, title }: { children: React.ReactNode; title: string }) => <header><h1>{title}</h1>{children}</header> }));
@@ -31,7 +31,7 @@ beforeEach(() => {
   vi.mocked(api.localTargetStatus).mockResolvedValue({ running: false, url: 'http://127.0.0.1:4321' });
   vi.mocked(api.serveTarget).mockResolvedValue({ running: true, url: 'http://127.0.0.1:4321' });
   vi.mocked(api.stopLocalTarget).mockResolvedValue({ running: false, url: 'http://127.0.0.1:4321' });
-  vi.mocked(api.getTargetConnection).mockResolvedValue({ local_port: 4321, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', document_root: '', remote_private_root: '' });
+  vi.mocked(api.getTargetConnection).mockResolvedValue({ local_port: 4321, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' });
 });
 afterEach(() => { vi.useRealTimers(); });
 
@@ -55,12 +55,21 @@ describe('Webs appearance and nonblocking navigation', () => {
     expect(api.saveSite).not.toHaveBeenCalled(); view.unmount();
   });
 
+  it('shows available sources with an explicit pending-page-index status', async () => {
+    vi.mocked(api.siteCatalogue).mockImplementation((_context, _signal, status) => { status?.(false); return Promise.resolve(catalogue); });
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'sources'); await settle();
+    expect(view.container.textContent).toContain('websites.cataloguePagesPending');
+    expect(view.container.querySelector('[aria-label="websites.addSource"]')).not.toBeNull();
+    expect(view.container.textContent).not.toContain('websites.catalogueLoading'); view.unmount();
+  });
+
   it('uploads a logo without overwriting edits made during the upload and autosaves its reference', async () => {
     let finish: (asset: { source: string; media_type: string }) => void = () => undefined;
     vi.mocked(api.uploadSiteThemeAsset).mockReturnValue(new Promise(resolve => { finish = resolve; }));
     vi.mocked(api.previewSiteImage).mockRejectedValue(new Error('Synthetic thumbnail unavailable'));
     const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'appearance');
-    const input = view.container.querySelector<HTMLInputElement>('input[type="file"][accept*=".png"]');
+    act(() => { button(view.container, 'websites.uploadAsset').click(); }); await settle();
+    const input = document.querySelector<HTMLInputElement>('[role="dialog"] input[type="file"][accept*=".png"]');
     if (!input) throw new Error('Missing image upload');
     const file = new File(['image'], 'logo.png', { type: 'image/png' });
     Object.defineProperty(input, 'files', { value: [file], configurable: true });
@@ -82,7 +91,8 @@ describe('Webs appearance and nonblocking navigation', () => {
     const nextSite = { ...structuredClone(base), id: 'next-site', name: 'Next site' };
     vi.mocked(api.createSite).mockResolvedValue(nextSite);
     const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'appearance');
-    const input = view.container.querySelector<HTMLInputElement>('input[type="file"][accept*=".png"]');
+    act(() => { button(view.container, 'websites.uploadAsset').click(); }); await settle();
+    const input = document.querySelector<HTMLInputElement>('[role="dialog"] input[type="file"][accept*=".png"]');
     if (!input) throw new Error('Missing image upload');
     Object.defineProperty(input, 'files', { value: [new File(['image'], 'logo.png', { type: 'image/png' })], configurable: true });
     act(() => { input.dispatchEvent(new Event('change', { bubbles: true })); }); await settle();

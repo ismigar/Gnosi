@@ -7,11 +7,13 @@ from math import ceil
 from typing import Any, TYPE_CHECKING, cast
 
 from backend.services.agent_behavior import resource as resource
+from backend.services.agent_output_repair import OutputRepair
 from backend.services.podcast_composition import BOUNDED_TEXT, WORD_TEXT, advisory_targets, schema as composition_schema, spoken_text, word_guidance
 from backend.services.podcast_policy import preferences, synthesis_context_limit
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from backend.services.agent_execution_models import AgentOperation
     from backend.services.podcast_briefing import _Briefing
 
 
@@ -19,12 +21,21 @@ class _WordBudgetRejected(RuntimeError):
     """Return length rejection to its bounded owner, outside generic format repair."""
 
 
-def _within_word_guidance(actual: int, options: dict[str, Any]) -> bool:
+class _PlainNarrationLength(ValueError):
+    """Route a valid script with the wrong length to focused revision."""
+
+
+def _accepted_word_range(options: dict[str, Any]) -> range:
     low, high = options['min_words'], options['max_words']
     if options.get('word_range_is_advisory'):
-        # Speech rate varies; do not reject a useful draft for a few words.
-        actual, low, high = (100 * ((value + 50) // 100) for value in (actual, low, high))
-    return cast(bool, low <= actual <= high)
+        # Invert the existing round-to-hundreds check into its accepted integers.
+        low = 100 * ((low + 50) // 100) - 50
+        high = 100 * ((high + 50) // 100) + 49
+    return range(low, high + 1)
+
+
+def _within_word_guidance(actual: int, options: dict[str, Any]) -> bool:
+    return actual in _accepted_word_range(options)
 
 
 def _request(context: _Briefing, phase: str, data: dict[str, Any], schema: dict[str, Any], **options: Any) -> Any:
@@ -112,14 +123,15 @@ def _write_episode(context: _Briefing, evidence: list[dict[str, Any]], outline: 
 
 def _write_request(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> Any:
     from backend.services.podcast_outline import _digest
+    limit = synthesis_context_limit(context)
+    request = _request(context, "write", data, composition_schema(data), **options)
     if (data.get('composition_encoding') == 'bounded_narration_v1'
-            and not data.get('previous_draft')):
+            and not data.get('previous_draft') and context.cost(request) > limit):
         from backend.services.podcast_editorial_digest import grouped_evidence
         data = grouped_evidence(context, data)
+        request = _request(context, "write", data, composition_schema(data), **options)
     previous: dict[str, Any] = {key: data[key] for key in ("previous_draft", "previous_composition") if key in data}
     source_part_ids = [brief["part_id"] for brief in data.get("briefs", [])]
-    request = _request(context, "write", data, composition_schema(data), **options)
-    limit = synthesis_context_limit(context)
     state = data.get("length_repair", {})
     retain_short_composition = ("previous_composition" in previous
                                 and 0 < state.get("current_words", 0) < options.get("min_words", 0))
@@ -199,6 +211,49 @@ def _write_length_stream(context: _Briefing, request: Any, data: dict[str, Any],
                                                data, minimum, maximum), data)}
 
 
+def _repair_narration_length(
+    context: _Briefing, request: AgentOperation, payload: dict[str, Any], draft: str,
+    options: dict[str, Any], limit: int,
+) -> OutputRepair | None:
+    from backend.services.podcast_briefing import _object
+    from backend.services.podcast_passage_length import episode_stream, fit_passages, split_passages
+
+    passages = split_passages(draft)
+    minimum, maximum, target = options['min_words'], options['max_words'], options['target_words']
+    data = {key: value for key, value in payload['data'].items() if key != 'previous_draft'}
+    stream = episode_stream(draft, _accepted_word_range(options))
+    if stream is not None:
+        data['length_repair'] = {'mode': 'compress_episode_words', 'target_words': target, **json.loads(stream.input)}
+        repair_input = json.dumps({**payload, 'data': data}, ensure_ascii=False)
+        if context.cost(request.model_copy(update={'input': repair_input, 'output_schema': stream.output_schema})) <= limit:
+            return OutputRepair(repair_input, stream.output_schema, stream.restore)
+    if len(passages) < 2:
+        return None
+    # Leave room to retain original prose when the model can compress a
+    # passage well, and reserve headroom for alternatives that exceed guidance.
+    targets = advisory_targets(minimum, {key: len(text.split()) for key, text in passages.items()}, minimum=1)
+    schema = _object({'passages': _object({
+        key: {'type': 'string', 'minLength': 1} for key in passages
+    })})
+    data = {key: value for key, value in payload['data'].items() if key != 'previous_draft'}
+    data['length_repair'] = {
+        'mode': 'compress_passages', 'target_words': target, 'min_words': minimum, 'max_words': maximum,
+        'passages': {key: {'original': text, 'target_words': targets[key]} for key, text in passages.items()},
+    }
+    repair_input = json.dumps({**payload, 'data': data}, ensure_ascii=False)
+    if context.cost(request.model_copy(update={'input': repair_input, 'output_schema': schema})) > limit:
+        return None
+
+    def restore(text: str) -> str:
+        narration = fit_passages(
+            passages, json.loads(text)['passages'], preferred=range(minimum, maximum + 1),
+            accepted=_accepted_word_range(options), target=target,
+        )
+        return json.dumps({'narration': narration}, ensure_ascii=False)
+
+    return OutputRepair(repair_input, schema, restore)
+
+
 def _write_plain_narration(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> dict[str, Any]:
     minimum, maximum = options["min_words"], options["max_words"]
     data = {key: value for key, value in data.items() if key != 'composition_groups'}
@@ -211,12 +266,52 @@ def _write_plain_narration(context: _Briefing, data: dict[str, Any], options: di
         if not _within_word_guidance(actual, options):
             direction = 'Reduce' if actual > maximum else 'Expand'
             delta = abs(actual - options['target_words'])
-            raise ValueError(f"podcast_word_budget: expected {minimum}..{maximum}; received {actual}. "
+            raise _PlainNarrationLength(f"podcast_word_budget: expected {minimum}..{maximum}; received {actual}. "
                 f"Target {options['target_words']}. {direction} the complete script by about {delta} words. "
                 "Return one complete coherent narration, merging "
                 "repeated accounts and secondary detail while preserving distinct themes and essential qualifications.")
     request = _write_request(context, data, options)
-    return {'narration': narration(context.stage(request, checked_narration))}
+    def repair_length(rejected: str, error: Exception) -> OutputRepair | None:
+        if not isinstance(error, _PlainNarrationLength) or request.output_schema is None:
+            return None
+        payload = json.loads(request.input)
+        draft = narration(json.loads(rejected))
+        actual = len(draft.split())
+        target = options['target_words']
+        limit = min(context.budget, synthesis_context_limit(context))
+        if actual > maximum:
+            repair = _repair_narration_length(context, request, payload, draft, options, limit)
+            if repair is not None:
+                return repair
+        repair_data = {
+            **payload['data'],
+            'previous_draft': draft,
+            'length_repair': {
+                'mode': 'revise_draft',
+                'current_words': actual,
+                'target_words': target,
+                'min_words': minimum,
+                'max_words': maximum,
+                'word_delta': target - actual,
+                'instruction': str(error),
+            },
+        }
+        def encode() -> str:
+            return json.dumps({**payload, 'data': repair_data}, ensure_ascii=False)
+
+        repair_input = encode()
+        if context.cost(request.model_copy(update={'input': repair_input})) > limit:
+            repair_data.pop('previous_draft')
+            repair_data['length_repair'] = {
+                'mode': 'fresh_composition', 'target_words': target,
+                'min_words': minimum, 'max_words': maximum,
+            }
+            repair_input = encode()
+            if context.cost(request.model_copy(update={'input': repair_input})) > limit:
+                raise RuntimeError('podcast_length_repair_context_insufficient') from error
+        return OutputRepair(repair_input, request.output_schema, lambda corrected: corrected)
+
+    return {'narration': narration(context.stage(request, checked_narration, output_repair=repair_length))}
 
 
 def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, Any]) -> dict[str, Any]:
@@ -284,6 +379,28 @@ def _bounded_write(context: _Briefing, data: dict[str, Any], options: dict[str, 
 
 
 
+def _additive_omission_progress(previous: list[dict[str, Any]], current: list[dict[str, Any]],
+                                before: str, after: str) -> bool:
+    """Allow a newly discovered omission only when the old narration is preserved."""
+    if not previous or not current or len(current) > len(previous) or before == after:
+        return False
+    if any(issue['kind'] != 'omission' for issue in previous + current):
+        return False
+    old_ids = {part for issue in previous for part in issue.get('source_part_ids', [])}
+    new_ids = {part for issue in current for part in issue.get('source_part_ids', [])}
+    if not old_ids or not new_ids or old_ids & new_ids:
+        return False
+    cursor = 0
+    for paragraph in before.split('\n\n'):
+        if not paragraph.strip():
+            continue
+        index = after.find(paragraph, cursor)
+        if index < 0:
+            return False
+        cursor = index + len(paragraph)
+    return bool(before.strip())
+
+
 def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[dict[str, Any]],
               progress: Callable[[str], None], *,
               previous_section: dict[str, Any] | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
@@ -298,7 +415,10 @@ def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[di
             section = _write_episode(context, briefs, outline, budget, [], '')
         else:
             section = previous_section
-        for attempt in range(2):
+        previous_counts: dict[str, int] | None = None
+        previous_issues: list[dict[str, Any]] = []
+        reviewed_narration = ""
+        for attempt in range(3):
             progress('Checking final narration before speech' if attempt else 'Brief factual and thematic review')
             issues = review(context, briefs, section['narration'], subjects)
             if not issues:
@@ -306,9 +426,21 @@ def write_day(context: _Briefing, briefs: list[dict[str, Any]], outline: list[di
                     'automatic_correction_applied': bool(attempt), 'original_fragment_audit': False,
                     'final_narration_validated': True, 'policy_revision': policy_revision()}
                 return [section], outline, budget
-            if attempt == 0:
-                progress('Applying the brief review')
-                section = _write_episode(context, briefs, outline, budget, issues, section['narration'])
+            counts = {kind: sum(issue['kind'] == kind for issue in issues)
+                      for kind in ('omission', 'distortion', 'production', 'duplicate')}
+            # Require fewer findings, or resolved omissions with strictly additive text.
+            # Newly introduced factual or production errors must still stop the loop.
+            improving = previous_counts is None or (
+                sum(counts.values()) < sum(previous_counts.values())
+                and all(counts[kind] <= previous_counts[kind] for kind in counts)) or _additive_omission_progress(
+                    previous_issues, issues, reviewed_narration, section["narration"])
+            if attempt == 2 or not improving:
+                break
+            previous_counts = counts
+            previous_issues = issues
+            reviewed_narration = section["narration"]
+            progress('Applying the brief review')
+            section = _write_episode(context, briefs, outline, budget, issues, section['narration'])
         raise ValueError('podcast_final_narration_review_failed')
     for attempt in range(3):
         progress(f"Writing and reviewing complete daily briefing: pass {attempt + 1}/3")

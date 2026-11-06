@@ -21,7 +21,7 @@ def test_truncated_structured_response_records_reasoning_cost_and_settles_reserv
     def respond(request):
         requests.append(request)
         return httpx.Response(200, json={
-            'id': 'gen-truncated', 'model': 'test', 'object': 'chat.completion', 'created': 1,
+            'id': 'gen-truncated', 'model': 'test', 'object': 'chat.completion', 'created': 1, 'is_byok': False,
             'choices': [{'index': 0, 'finish_reason': 'length',
                          'message': {'role': 'assistant', 'content': ''}}],
             'usage': {'prompt_tokens': 14441, 'completion_tokens': 16384, 'total_tokens': 30825,
@@ -133,7 +133,7 @@ def test_connection_recovery_reserves_each_attempt_and_preserves_unknown_cost(mo
         calls.append(request)
         if len(calls) == 1:
             raise httpx.ReadError('connection lost while receiving the response', request=request)
-        return httpx.Response(200, json={'id': 'gen-offline-retry', 'object': 'chat.completion', 'created': 1, 'model': 'test',
+        return httpx.Response(200, json={'id': 'gen-offline-retry', 'object': 'chat.completion', 'created': 1, 'model': 'test', 'is_byok': False,
             'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': 'saved notes'}, 'finish_reason': 'stop'}],
             'usage': {'prompt_tokens': 10, 'completion_tokens': 3, 'total_tokens': 13, 'cost': .001}})
     identifier = budget.configure(limit)
@@ -184,7 +184,7 @@ def test_inline_reported_cost_releases_only_its_reservation():
 
 def test_successful_sdk_request_stores_real_cost_and_releases_hold():
     def response(request):
-        return httpx.Response(200, json={'id':'gen-offline', 'object':'chat.completion', 'created':1, 'model':'test',
+        return httpx.Response(200, json={'id':'gen-offline', 'object':'chat.completion', 'created':1, 'model':'test', 'is_byok':False,
             'choices':[{'index':0, 'message':{'role':'assistant','content':'validated notes'}, 'finish_reason':'stop'}],
             'usage':{'prompt_tokens':10, 'completion_tokens':3, 'total_tokens':13, 'cost':.001}})
     identifier = budget.configure(.50)

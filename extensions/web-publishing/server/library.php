@@ -47,6 +47,10 @@ final class SiteService {
         foreach ($value as $item) { if (!is_string($item) || strlen($item) > 100) throw new InvalidArgumentException('interests'); $result[] = trim($item); }
         $result = array_values(array_unique(array_filter($result, fn($x) => $x !== ''))); sort($result); return $result;
     }
+    private function subscriberName(mixed $value): string {
+        if (!is_string($value) || !mb_check_encoding($value, 'UTF-8') || mb_strlen($value, 'UTF-8') > 100 || preg_match('/[\x00-\x1f\x7f]/u', $value)) throw new InvalidArgumentException('name');
+        return preg_replace('/^[\p{Z}\s]+|[\p{Z}\s]+$/u', '', $value) ?? '';
+    }
     private function labels(string $language): array {
         return match ($language) {
             'ca' => ['confirm' => 'Confirma la subscripció', 'unsubscribe' => 'Dona’m de baixa', 'received' => 'Hem rebut el teu missatge.', 'preferences' => 'Preferències'],
@@ -209,9 +213,9 @@ final class SiteService {
 
     public function subscribe(array $request, string $ip): array {
         if (!$this->storage->rate('subscribe', $ip) || !empty($request['website']) || !in_array($request['consent'] ?? '', ['1', true, 1, 'on'], true)) return ['received' => true];
-        try { $email = $this->email($request['email'] ?? ''); $lang = $this->lang($request['language'] ?? 'ca'); $list = $this->key($request['list_id'] ?? 'main'); $interests = $this->interests($request['interests'] ?? []); }
+        try { $email = $this->email($request['email'] ?? ''); $lang = $this->lang($request['language'] ?? 'ca'); $list = $this->key($request['list_id'] ?? 'main'); $interests = $this->interests($request['interests'] ?? []); $firstName = $this->subscriberName($request['first_name'] ?? ''); $lastName = $this->subscriberName($request['last_name'] ?? ''); if ((array_key_exists('first_name', $request) || array_key_exists('last_name', $request)) && ($firstName === '' || $lastName === '')) throw new InvalidArgumentException('name'); }
         catch (InvalidArgumentException $e) { return ['received' => true]; }
-        $this->tx(function () use ($email, $lang, $list, $interests) {
+        $this->tx(function () use ($email, $lang, $list, $interests, $firstName, $lastName) {
             $existing = $this->q('SELECT * FROM subscribers WHERE email=?', [$email])->fetch();
             if ($this->q('SELECT reason FROM suppressions WHERE email=?', [$email])->fetchColumn() === 'suppressed') return;
             if ($existing && $this->stronglySuppressed((int)$existing['id'], $list)) return;
@@ -225,6 +229,7 @@ final class SiteService {
             $this->q("UPDATE tokens SET used_at=? WHERE subscriber_id=? AND kind='confirm' AND list_id=? AND used_at IS NULL", [$now, $id, $list]);
             $token = $this->token($id, 'confirm', $list); $unsubscribe = $this->token($id, 'unsubscribe', '*');
             $this->q('INSERT INTO subscription_requests VALUES (?,?,?,?,?,NULL)', [hash('sha256', $token), $lang, $this->json($interests), $now, 'webs-v1']);
+            if ($firstName !== '') $this->q('INSERT INTO subscription_names VALUES (?,?,?)', [hash('sha256', $token), $firstName, $lastName]);
             $labels = $this->labels($lang); $url = $this->tokenLink('confirm', $token, $lang); $off = $this->tokenLink('unsubscribe', $unsubscribe, $lang);
             $body = '<p><a href="'.$this->escape($url).'">'.$this->escape($labels['confirm']).'</a></p><p><a href="'.$this->escape($off).'">'.$this->escape($labels['unsubscribe']).'</a></p>';
             $this->queue('confirmation', hash('sha256', $token), $email, $labels['confirm'], $body, $labels['confirm']."\n".$url."\n".$labels['unsubscribe']."\n".$off, '', $id, $list, null, [$token, $unsubscribe]);
@@ -253,6 +258,8 @@ final class SiteService {
                     $this->q("INSERT OR IGNORE INTO consent_history(subscriber_id,list_id,language,interests,consent_at,consent_revision,confirmed_at) SELECT id,'*',language,interests,consent_at,consent_revision,updated_at FROM subscribers WHERE id=? AND consent_at>0 AND consent_revision!=''", [$id]);
                     $this->q('INSERT OR IGNORE INTO consent_history(subscriber_id,list_id,language,interests,consent_at,consent_revision,confirmed_at) VALUES (?,?,?,?,?,?,?)', [$id, $row['list_id'], $pending['language'], $pending['interests'], $pending['consent_at'], $pending['consent_revision'], time()]);
                     $this->q("UPDATE subscribers SET status='active',language=?,interests=?,consent_at=?,consent_revision=?,revision=revision+1,updated_at=? WHERE id=?", [$pending['language'], $pending['interests'], $pending['consent_at'], $pending['consent_revision'], time(), $id]);
+                    $names = $this->q('SELECT first_name,last_name FROM subscription_names WHERE token_hash=?', [$row['hash']])->fetch();
+                    if ($names) $this->q('INSERT INTO subscriber_names VALUES (?,?,?) ON CONFLICT(subscriber_id) DO UPDATE SET first_name=excluded.first_name,last_name=excluded.last_name', [$id, $names['first_name'], $names['last_name']]);
                     $this->q('UPDATE subscription_requests SET confirmed_at=? WHERE token_hash=?', [time(), $row['hash']]);
                 } else {
                     // Pre-migration confirmation links retain their existing data.
@@ -453,7 +460,7 @@ final class SiteService {
         $filter = $where ? ' WHERE '.implode(' AND ', $where) : '';
         $total = (int)$this->q('SELECT COUNT(*) FROM subscribers s'.$filter, $args)->fetchColumn();
         $limit = min(1000, max(1, (int)($request['limit'] ?? 100))); $offset = max(0, (int)($request['offset'] ?? 0));
-        $rows = $this->q('SELECT s.* FROM subscribers s'.$filter.' ORDER BY s.id LIMIT '.$limit.' OFFSET '.$offset, $args)->fetchAll();
+        $rows = $this->q("SELECT s.*,COALESCE(n.first_name,'') AS first_name,COALESCE(n.last_name,'') AS last_name FROM subscribers s LEFT JOIN subscriber_names n ON n.subscriber_id=s.id".$filter.' ORDER BY s.id LIMIT '.$limit.' OFFSET '.$offset, $args)->fetchAll();
         foreach ($rows as &$row) { $row['interests'] = json_decode($row['interests'], true); $row['lists'] = $this->q('SELECT list_id AS id,status FROM memberships WHERE subscriber_id=? ORDER BY list_id', [$row['id']])->fetchAll(); foreach (['consent_at', 'updated_at'] as $key) $row[$key] = gmdate('c', (int)$row[$key]); }
         unset($row); return ['items' => $rows, 'total' => $total];
     }

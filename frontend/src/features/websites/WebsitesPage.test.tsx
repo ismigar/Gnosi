@@ -7,7 +7,7 @@ import * as api from '../../shared/api/sites';
 import { GnosiApiError } from '../../shared/api/errors';
 import WebsitesPage from './WebsitesPage';
 
-vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'removeSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont', 'previewSiteImage', 'uploadSiteThemeAsset'].map(name => [name, vi.fn()])));
+vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'removeSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont', 'previewSiteImage', 'previewSiteAsset', 'uploadSiteThemeAsset'].map(name => [name, vi.fn()])));
 vi.mock('../../shared/api/request-context', () => ({ currentRequestContext: vi.fn() }));
 vi.mock('../../shared/hooks/useModalKeyboard', () => ({ useModalKeyboard: () => undefined }));
 vi.mock('../../shared/ui/layout/AppHeader', () => ({ AppHeader: ({ children, title }: { children: React.ReactNode; title: string }) => <header><h1>{title}</h1>{children}</header> }));
@@ -41,7 +41,7 @@ beforeEach(() => {
   vi.mocked(api.localTargetStatus).mockResolvedValue({ running: false, url: 'http://127.0.0.1:4321' });
   vi.mocked(api.serveTarget).mockResolvedValue({ running: true, url: 'http://127.0.0.1:4321' });
   vi.mocked(api.stopLocalTarget).mockResolvedValue({ running: false, url: 'http://127.0.0.1:4321' });
-  vi.mocked(api.getTargetConnection).mockResolvedValue({ local_port: 4321, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', document_root: '', remote_private_root: '' });
+  vi.mocked(api.getTargetConnection).mockResolvedValue({ local_port: 4321, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' });
 });
 afterEach(() => { vi.useRealTimers(); });
 
@@ -148,14 +148,24 @@ describe('Webs manager', () => {
     expect(field?.required).toBe(true);
   });
 
-  it.each(['languages', 'options', 'gallery', 'filter'])('keeps typed delimiters in %s and automatically saves the complete list after typing', async kind => {
+  it('selects multiple website languages from the dropdown and autosaves them', async () => {
+    const initial = structuredClone(base); initial.languages = ['ca'];
+    vi.mocked(api.listSites).mockResolvedValue([initial]); vi.mocked(api.getSite).mockResolvedValue({ site: initial, jobs: [], releases: [], service_available: true });
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'navigation');
+    const combo = view.container.querySelector<HTMLElement>('[role="combobox"][aria-label="websites.languages"]');
+    if (!combo) throw new Error('Missing language multi-select'); act(() => { combo.click(); }); await settle();
+    const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(item => item.textContent.includes('español'));
+    if (!option) throw new Error('Missing Spanish language option'); act(() => { option.click(); }); await settle(); await autosave();
+    expect(vi.mocked(api.saveSite).mock.calls.at(-1)?.[0].languages).toEqual(['ca', 'es']); view.unmount();
+  });
+
+  it.each(['options', 'gallery', 'filter'])('keeps typed delimiters in %s and automatically saves the complete list after typing', async kind => {
     const initial = structuredClone(base);
     initial.languages = ['ca'];
     vi.mocked(api.listSites).mockResolvedValue([initial]);
     vi.mocked(api.getSite).mockResolvedValue({ site: initial, jobs: [], releases: [], service_available: true });
     const view = mountTestComponent(<WebsitesPage />); await settle();
     let label = 'websites.languages'; let text = ',es';
-    if (kind === 'languages') tab(view.container, 'navigation');
     if (kind === 'options') {
       tab(view.container, 'forms');
       act(() => { changeInput(control(view.container, 'websites.fieldType'), 'select'); });
@@ -186,7 +196,6 @@ describe('Webs manager', () => {
     await autosave();
     expect(api.saveSite).toHaveBeenCalledOnce();
     const saved = vi.mocked(api.saveSite).mock.calls[0]?.[0];
-    if (kind === 'languages') expect(saved?.languages).toEqual(['ca', 'es']);
     if (kind === 'options') expect(saved?.forms?.[0]?.fields?.[0]?.options).toEqual(['First, item', 'Second']);
     if (kind === 'gallery') expect(saved?.pages?.[0]?.blocks?.[0]?.images).toEqual(['/first.png', '/second.png']);
     if (kind === 'filter') expect(saved?.sources?.[0]?.filters?.[0]?.value).toEqual(['first', 'second']);
@@ -253,7 +262,7 @@ describe('Webs manager', () => {
     act(() => { changeInput(control(view.container, 'websites.localPort'), '4340'); });
     expect(button(view.container, 'websites.startLocal').disabled).toBe(true);
     await autosave(); expect(api.saveTargetConnection).toHaveBeenCalledWith(base.id, 'local', expect.objectContaining({ local_port: 4340 }), context, expect.any(AbortSignal));
-    act(() => { finish({ local_port: 4340, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', document_root: '', remote_private_root: '' }); }); await settle();
+    act(() => { finish({ local_port: 4340, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' }); }); await settle();
     expect(button(view.container, 'websites.startLocal').disabled).toBe(false);
     expect([...view.container.querySelectorAll('button')].some(item => item.textContent === 'websites.saveConnection')).toBe(false);
   });
@@ -262,7 +271,7 @@ describe('Webs manager', () => {
     const privateValue: api.ServiceSettingsResponse = { configured: true, test_mode: true, smtp_host: '', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
     vi.mocked(api.getServiceSettings).mockResolvedValue(privateValue);
     vi.mocked(api.saveServiceSettings).mockResolvedValue(privateValue);
-    vi.mocked(api.saveTargetConnection).mockResolvedValue({ local_port: 4340, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', document_root: '', remote_private_root: '' });
+    vi.mocked(api.saveTargetConnection).mockResolvedValue({ local_port: 4340, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' });
     const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, section); await settle();
     act(() => { changeInput(control(view.container, section === 'settings' ? 'websites.smtpHost' : 'websites.localPort'), section === 'settings' ? 'smtp.example.invalid' : '4340'); });
     view.unmount(); await settle(); await settle();
@@ -272,7 +281,7 @@ describe('Webs manager', () => {
 
   it.each(['settings', 'publishing'])('prevents edits while refreshing %s settings instead of overwriting a fresh edit', async section => {
     const privateValue: api.ServiceSettingsResponse = { configured: true, test_mode: true, smtp_host: 'stored-host', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
-    const connection: api.TargetConnection = { local_port: 4321, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', document_root: '', remote_private_root: '' };
+    const connection: api.TargetConnection = { local_port: 4321, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' };
     let finishPrivate: (value: api.ServiceSettingsResponse) => void = () => undefined;
     let finishConnection: (value: api.TargetConnection) => void = () => undefined;
     vi.mocked(api.getServiceSettings).mockResolvedValueOnce(privateValue).mockReturnValueOnce(new Promise(resolve => { finishPrivate = resolve; }));
@@ -320,7 +329,7 @@ describe('Webs manager', () => {
   });
 
   it('flushes connection edits together with pending public target configuration on close', async () => {
-    vi.mocked(api.saveTargetConnection).mockResolvedValue({ local_port: 4349, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', document_root: '', remote_private_root: '' });
+    vi.mocked(api.saveTargetConnection).mockResolvedValue({ local_port: 4349, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' });
     const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'publishing'); await settle();
     act(() => { changeInput(control(view.container, 'websites.localPort'), '4349'); });
     act(() => { changeInput(control(view.container, 'websites.name'), 'Renamed local target'); });
@@ -341,7 +350,7 @@ describe('Webs manager', () => {
     expect(button(view.container, 'websites.publishReviewed').disabled).toBe(true);
     await autosave();
     expect(button(view.container, 'websites.reviewChanges').disabled).toBe(true);
-    act(() => { finish({ local_port: 4349, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', document_root: '', remote_private_root: '' }); }); await settle();
+    act(() => { finish({ local_port: 4349, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' }); }); await settle();
     expect(button(view.container, 'websites.reviewChanges').disabled).toBe(false);
     expect(button(view.container, 'websites.publishReviewed').disabled).toBe(true);
     expect(api.publishSite).not.toHaveBeenCalled();

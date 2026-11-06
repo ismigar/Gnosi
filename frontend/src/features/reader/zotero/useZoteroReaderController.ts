@@ -9,6 +9,7 @@ import {
 
 import { logError } from '../../../shared/notifications/notifyError';
 import { transportFetch } from '../../../shared/api/transports';
+import { canonicalDocumentSource } from '../../../shared/resources/documentSourceIdentity';
 import type { DocumentLocationEventDetail } from '../../../shared/platform/app-events';
 import {
   currentBrowserOrigin,
@@ -80,10 +81,19 @@ async function registerLocalFile(rawSrc: string): Promise<string> {
 }
 
 export async function openReaderDocumentExternally(rawSrc: string): Promise<void> {
-  const filePath = toFilesystemPath(rawSrc);
-  if (!filePath) return;
+  if (!rawSrc) return;
+  const scopedLibrary = /^\/api\/v1\/vaults\/[^/]+\/knowledge\/library\//;
+  const query = (rawSrc.split('#')[0] ?? rawSrc).split('?')[1];
+  const vaultSelectors = new URLSearchParams(query).getAll('vault');
+  // The host opener accepts the legacy Library route. Validate the active
+  // vault with the shared identity resolver, but preserve escaped filenames.
+  const path = scopedLibrary.test(rawSrc) && vaultSelectors.length <= 1
+    && canonicalDocumentSource(rawSrc) !== rawSrc
+    ? (rawSrc.split(/[?#]/)[0] ?? rawSrc).replace(scopedLibrary, '/api/vault/library/')
+    : rawSrc;
+  // The backend resolves served routes, local paths and escaped file URLs.
   const response = await transportFetch('/api/vault/open-local-path', {
-    body: JSON.stringify({ path: `file://${filePath}` }),
+    body: JSON.stringify({ path }),
     headers: { 'Content-Type': 'application/json' },
     method: 'POST',
   });

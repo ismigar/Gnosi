@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { NavigationLink } from '../../shared/api/sites';
 import { Card, Field, Input, ReorderActions, Select } from './components';
+import { WebsiteFileField } from './WebsiteFileField';
 import { moveItem } from './helpers';
 
 type LinkAppearance = NonNullable<NavigationLink['appearance']>;
@@ -24,7 +25,7 @@ export function LinksEditor({ title, links, languages, showAppearance = true, de
     <div className="websites-list">{links.map((link, index) => <div className="websites-row" key={index}>
       <div className="websites-grid">
         <Field label={t('websites.label')}><Input value={link.label} onChange={event => { update(index, { label: event.target.value }); }} /></Field>
-        <Field label={t('websites.destination')}><Input value={link.href} onChange={event => { update(index, { href: event.target.value }); }} /></Field>
+        <Field label={t('websites.destination')}><WebsiteFileField label={t('websites.destination')} value={link.href} onChange={href => { update(index, { href }); }} /></Field>
         {languages && <Field label={t('websites.language')}><Select value={link.language ?? ''} onChange={event => { update(index, { language: event.target.value || null }); }}>
           <option value="">{t('websites.allLanguages')}</option>
           {languages.map(language => <option key={language} value={language}>{language.toUpperCase()}</option>)}

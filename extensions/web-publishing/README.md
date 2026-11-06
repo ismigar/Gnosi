@@ -2,6 +2,12 @@
 
 Optional per-vault `web-publishing` capability. Open **Settings → Plugins → Websites**, enable it, then use **Websites** in the application sidebar. Every site has its own sources, layouts, theme, forms, private service, destinations and release history. Existing page sharing and the staging publisher remain compatible.
 
+## Create or import a website
+
+Choose **Create a blank website** or **Import a website by URL**. URL import reads public HTML, reviews up to the configured page limit (20 by default, at most 100), then lets the administrator select pages before creating them. A 60-second/64 MB download budget and 4 MB image limit apply. Paths, languages, readable content, supported images and navigation become editable configuration. Unsupported or partial results are disclosed. Scripts, server applications, CMS databases and original form handlers are not migrated. Review and configure contact forms separately. Creation and import do not publish anything.
+
+The review is private to the approving account and vault, expires after 30 minutes and binds the exact downloaded content. Creation consumes it idempotently without refetching. Local assets are selected only on explicit creation. Existing pilot sites retain their compatibility adapter; new users see a generic creation flow.
+
 ## Runtime
 
 The editor uses Gnosi’s regular authenticated API at `/api/vault/sites` (also available through the canonical vault API). The static renderer uses separately locked Astro/Pagefind dependencies. Prepare development dependencies with:
@@ -26,13 +32,17 @@ Review an immutable snapshot, inspect the change list and desktop/mobile preview
 
 SSH destinations require an owned isolated namespace and an explicit public document root/private service location. Uploads are integrity checked before an atomic pointer change; uncertain acknowledgements reconcile against the exact owned pointer and manifest. Rollback preserves message, consent and campaign state. Scheduled local publication requires the host to be running; a stopped host recovers pending work when Gnosi restarts.
 
+SSH connections are provider-neutral: configure host, port, remote user, paths, authentication (system agent, explicit private-key file, or password) and file transfer (SSH/SFTP) in **Hosting**. Passwords are explicitly stored in the device credential manager and never in synchronized site JSON or API responses. The exact remote account owns each credential. Both protocols require a verified system SSH host key; no automatic trust is granted. An encrypted private key can be loaded into the system SSH agent.
+
+SFTP transfer keeps the same owned namespace, digest verification and atomic activation contract as SSH upload. Publication still requires remote SSH commands, PHP 8 and PDO SQLite for the private service. The connection check can report a successful SFTP login separately from unavailable publication capabilities; SFTP-only shell-less accounts cannot publish this service.
+
 ## Temenos compatibility
 
 Import the administrator-configured existing pilot to freeze its public baseline and assets. Existing URLs and translations survive the import; internal resource exclusions remain. Newly selected Gnosi sources can override matching public identities. The native Pangea adapter reuses the maintained SSH/Suweb bridge and its registered vault list. It publishes only beneath `/_gnosi-proves/webs/<site-id>/current`, inheriting the protected test namespace. Private service data lives outside the document root. Drupal and the earlier `/_gnosi-proves/current` pilot are separate.
 
 ## Forms, subscribers and newsletters
 
-The form editor configures localized fields, validation, confirmation, privacy text, optional newsletter signup and private delivery settings. A receipt is stored before notification. Review submissions under Messages; failed mail remains visible and retryable without losing the receipt. Public forms support JavaScript and no-JavaScript submissions.
+The form editor configures arbitrary supported fields, their order, localized labels/help/placeholders, validation, confirmation, privacy description and consent captions, optional newsletter signup and private delivery settings. Validation and submission-error messages also accept localized overrides; leaving them blank keeps the language default. A receipt is stored before notification. Review submissions under Messages; failed mail remains visible and retryable without losing the receipt. Public forms support JavaScript and no-JavaScript submissions.
 
 The private service manages double opt-in, list/global restrictions, suppression-preserving imports, immutable campaign previews, queued schedules and uncertain delivery reconciliation. The daemon runs independently of Gnosi with a per-site lock and heartbeat. Full private protocol and worker setup are documented in [server/README.md](server/README.md).
 
@@ -61,3 +71,22 @@ Split blocks in **Pages** expose their own action list, including the imported h
 Each source exposes **Items per page** (1–100) and an optional public area filter. Listings paginate only already selected public records, and the filter contains only their public tags. The page/tag query can be bookmarked and browser Back restores it. Public records remain available without JavaScript. Imported article and design collections retain images and excerpts; research/story lists retain publication years. Responsive navigation provides a keyboard-accessible mobile toggle and preserves desktop navigation.
 
 These options participate in the existing configuration autosave, review fingerprint and publication workflow. Saving configuration does not publish it. Existing withdrawals and private-content exclusions remain authoritative. New imported contact forms require their configurable privacy acceptance; existing form settings are preserved.
+
+Select and radio fields keep stable submitted option values with optional captions for each language. The privacy policy link caption is editable separately from the consent checkbox text. Existing forms retain their original option and privacy captions when these settings are blank.
+The public retry form also preserves translated captions, hints, selected values and consent choices without JavaScript. New websites use neutral theme metadata; explicitly imported pilot themes retain their name.
+
+## Editorial file fields
+
+Logo, favicon, fonts, block images, gallery entries and file-link fields use the
+same upload modal. Raster images show scoped thumbnails; other supported files
+show authenticated download links. Uploads are capped at 4 MB, remain private
+until an enabled public reference is published, and do not save a configuration
+revision by themselves. Public file links are snapshotted into the reviewed
+bundle, including CTA links, split actions and form privacy attachments. SSH
+identity files instead use the existing local filesystem picker and stay in
+private connection configuration.
+
+The Contents editor uses `/api/vault/sites/catalogue/snapshot`: existing registry
+and imported choices plus cached page-index metadata, without scanning Markdown.
+`pages_ready:false` is an explicit incomplete-index state; it never triggers a
+cold full-vault scan. Publication still validates authoritative source files.

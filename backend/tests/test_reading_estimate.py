@@ -1,11 +1,90 @@
 """Preflight includes all planned phases and never performs inference or saves evidence."""
 from types import SimpleNamespace
 from unittest.mock import Mock
+import json
+
+import pytest
 
 from backend.domains.llm_wiki.chunking import reading_chunks, reading_chunk_budget
 from backend.domains.llm_wiki.contextual_reading import fingerprint
 from backend.domains.llm_wiki.origins import finalize_origin
 from backend.services import reading_estimate as estimate
+
+
+@pytest.mark.parametrize('hint', ['valid', 'stale', 'absent', 'outside', 'symlink', 'loop', 'invalid'])
+def test_cold_source_lookup_verifies_cached_identity_and_preserves_fallback(monkeypatch, tmp_path, hint):
+    from backend.api import vault_routes as vr
+    from backend.services.llm_wiki_actions import _source_page_path
+
+    vault = tmp_path / 'vault'; vault.mkdir()
+    source = vault / 'source.md'; source.write_text('requested')
+    old = vault / 'old.md'; old.write_text('another-id')
+    outside = tmp_path / 'outside.md'; outside.write_text('requested')
+    link = vault / 'link.md'; link.symlink_to(outside)
+    loop = vault / 'loop.md'; loop.symlink_to(loop)
+    candidate = {'valid': source, 'stale': old, 'outside': outside, 'symlink': link, 'loop': loop}.get(hint)
+    cache = tmp_path / 'cache.json'
+    cache.write_text(json.dumps({str(candidate): {'id': 'requested'}} if candidate else {}))
+    if hint == 'invalid': cache.write_text('{broken')
+    initialized = {}
+    monkeypatch.setattr(vr, '_page_index_initialized', initialized)
+    monkeypatch.setattr(vr, 'get_page_index_cache_path', lambda *_: cache)
+    fallback = Mock(return_value=source)
+    ports = SimpleNamespace(get_p=lambda _: vault, find_page_path=fallback,
+                            parse_frontmatter=lambda text, _path: ({'id': text}, ''))
+    assert _source_page_path(ports, 'requested') == source
+    assert fallback.call_count == (0 if hint == 'valid' else 1)
+    assert initialized == {}  # A disk hint cannot suppress discovery of newer files.
+
+
+def test_warm_source_lookup_keeps_the_current_index(monkeypatch, tmp_path):
+    from backend.api import vault_routes as vr
+    from backend.services.llm_wiki_actions import _source_page_path
+
+    monkeypatch.setattr(vr, '_page_index_initialized', {str(tmp_path): True})
+    monkeypatch.setattr(vr, 'get_page_index_cache_path', lambda *_: pytest.fail('Warm lookup must not reload disk'))
+    ports = SimpleNamespace(get_p=lambda _: tmp_path, find_page_path=lambda _: tmp_path / 'current.md')
+    assert _source_page_path(ports, 'requested') == tmp_path / 'current.md'
+
+
+def test_source_lookup_preserves_unavailable_metadata_without_scanning_or_writing(monkeypatch, tmp_path):
+    from backend.api import vault_routes as vr
+    from backend.services import llm_wiki_actions as actions
+    from backend.utils.metadata_io import MetadataUnavailable
+
+    monkeypatch.setattr(vr, '_page_index_initialized', {})
+    monkeypatch.setattr(vr, 'get_page_index_cache_path', lambda *_: tmp_path / 'cache.json')
+    failure = MetadataUnavailable('Provider metadata is pending')
+    monkeypatch.setattr(actions, 'read_metadata_text', Mock(side_effect=failure))
+    fallback = Mock(side_effect=AssertionError('Unavailable metadata must stay visible'))
+    ports = SimpleNamespace(get_p=lambda _: tmp_path, find_page_path=fallback)
+    with pytest.raises(MetadataUnavailable) as result:
+        actions._source_page_path(ports, 'requested')
+    assert result.value is failure
+    fallback.assert_not_called()
+
+
+def test_semantic_preflight_does_not_prepare_the_unused_legacy_workflow(monkeypatch, tmp_path):
+    from backend.agent import model_catalog
+
+    origin = finalize_origin({'kind': 'text', 'label': 'Book', 'input_order': 0,
+                              'segments': [{'text': 'A complete qualified argument.', 'locator': {'page': 1}}]})
+    runtime = SimpleNamespace(provider='openrouter', model='test', identity='runtime', reading_engine='semantic',
+                              instructions='Preserve evidence.', input_budget=120000, count_tokens=lambda text: len(text.encode()))
+    monkeypatch.setattr(estimate, 'prepare_reading_runtime', lambda *_: runtime)
+    monkeypatch.setattr(estimate.llm_wiki_extractors, 'extract_resource_sources', lambda *_: ([origin], []))
+    monkeypatch.setattr(estimate.llm_wiki_config, 'load_config', lambda: {})
+    monkeypatch.setattr(estimate.llm_wiki, '_dimension_context', lambda *_: ({}, []))
+    monkeypatch.setattr(estimate.llm_wiki, '_load_brain_index', lambda *_: [])
+    monkeypatch.setattr(estimate.llm_wiki_storage, 'get_job_status', lambda *_: {})
+    monkeypatch.setattr(model_catalog, 'catalog_model_cost', lambda *_: {'cost_in': .1, 'cost_out': .5})
+    legacy_schema = Mock(side_effect=AssertionError('Semantic preflight must not prepare legacy actions'))
+    monkeypatch.setattr(estimate, 'action_schemas', legacy_schema)
+    result = estimate.estimate('book', {}, '', tmp_path, {'id': 'table'}, {}, 'brain')
+    assert result['reading_engine'] == 'semantic' and result['phase_calls']['interpretation'] == 1
+    assert result['input_token_bound'] >= result['source_token_bound'] > 0
+    assert result['cost_usd'] > 0 and result['cost_with_repairs_usd'] > result['cost_usd']
+    legacy_schema.assert_not_called()
 
 
 def test_full_cost_and_exact_checkpoint_compatibility(monkeypatch, tmp_path):

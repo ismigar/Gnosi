@@ -10472,6 +10472,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/sites/{site_id}/targets/{target_id}/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Connection Secret */
+        put: operations["save_connection_secret_api_vault_sites__site_id__targets__target_id__credentials_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/sites/{site_id}/targets/{target_id}/probe": {
         parameters: {
             query?: never;
@@ -10550,6 +10567,23 @@ export interface paths {
         };
         /** Export Theme */
         get: operations["export_theme_api_vault_sites__site_id__theme_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/{site_id}/theme/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Theme File */
+        get: operations["theme_file_api_vault_sites__site_id__theme_file_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10637,6 +10671,57 @@ export interface paths {
         get: operations["catalogue_api_vault_sites_catalogue_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/catalogue/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalogue Snapshot */
+        get: operations["catalogue_snapshot_api_vault_sites_catalogue_snapshot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/import/create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create From Url */
+        post: operations["create_from_url_api_vault_sites_import_create_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/import/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Url */
+        post: operations["preview_url_api_vault_sites_import_preview_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15054,6 +15139,13 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** CatalogueSnapshot */
+        CatalogueSnapshot: {
+            /** Items */
+            items: components["schemas"]["CatalogueItem"][];
+            /** Pages Ready */
+            pages_ready: boolean;
+        };
         /** ChangePasswordPayload */
         ChangePasswordPayload: {
             /** Current Password */
@@ -16948,6 +17040,12 @@ export interface components {
              * @default 2000
              */
             max_length: number;
+            /** Option Labels */
+            option_labels?: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
             /** Options */
             options?: string[];
             /** Placeholder */
@@ -25687,6 +25785,10 @@ export interface components {
              * @default false
              */
             enabled: boolean;
+            /** Failure Message */
+            failure_message?: {
+                [key: string]: string;
+            };
             /** Fields */
             fields?: components["schemas"]["FormField"][];
             /** Id */
@@ -25700,8 +25802,20 @@ export interface components {
              * @default Contact
              */
             name: string;
+            /** Newsletter Label */
+            newsletter_label?: {
+                [key: string]: string;
+            };
             /** Newsletter List */
             newsletter_list?: string | null;
+            /** Privacy Label */
+            privacy_label?: {
+                [key: string]: string;
+            };
+            /** Privacy Link Label */
+            privacy_link_label?: {
+                [key: string]: string;
+            };
             /** Privacy Text */
             privacy_text?: {
                 [key: string]: string;
@@ -25718,6 +25832,10 @@ export interface components {
              * @default false
              */
             require_privacy: boolean;
+            /** Required Message */
+            required_message?: {
+                [key: string]: string;
+            };
             /**
              * Revision
              * @default 1
@@ -26099,7 +26217,7 @@ export interface components {
             logo_alt: string;
             /**
              * Name
-             * @default Temenos
+             * @default Default
              */
             name: string;
             /**
@@ -26676,6 +26794,12 @@ export interface components {
         /** TargetConnection */
         TargetConnection: {
             /**
+             * Authentication
+             * @default agent
+             * @enum {string}
+             */
+            authentication: "agent" | "key" | "password";
+            /**
              * Document Root
              * @default
              */
@@ -26686,10 +26810,20 @@ export interface components {
              */
             host: string;
             /**
+             * Identity File
+             * @default
+             */
+            identity_file: string;
+            /**
              * Local Port
              * @default 4321
              */
             local_port: number;
+            /**
+             * Password Configured
+             * @default false
+             */
+            password_configured: boolean;
             /**
              * Port
              * @default 22
@@ -26711,10 +26845,26 @@ export interface components {
              */
             ssh_key_reference: string;
             /**
+             * Transfer Protocol
+             * @default ssh
+             * @enum {string}
+             */
+            transfer_protocol: "ssh" | "sftp";
+            /**
              * Username
              * @default
              */
             username: string;
+        };
+        /** TargetConnectionSecret */
+        TargetConnectionSecret: {
+            /**
+             * Clear
+             * @default false
+             */
+            clear: boolean;
+            /** Password */
+            password?: string | null;
         };
         /** TaskCaseResult */
         TaskCaseResult: {
@@ -28173,6 +28323,53 @@ export interface components {
             page_ids?: string[];
             /** Withdraw Ids */
             withdraw_ids?: string[];
+        };
+        /** WebsiteImportCreate */
+        WebsiteImportCreate: {
+            /** Name */
+            name: string;
+            /** Preview Id */
+            preview_id: string;
+            /** Selected Page Ids */
+            selected_page_ids: string[];
+        };
+        /** WebsiteImportPage */
+        WebsiteImportPage: {
+            /** Id */
+            id: string;
+            /** Language */
+            language: string;
+            /** Path */
+            path: string;
+            /** Title */
+            title: string;
+        };
+        /** WebsiteImportPreview */
+        WebsiteImportPreview: {
+            /** Assets Count */
+            assets_count: number;
+            /** Expires At */
+            expires_at: string;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Pages */
+            pages: components["schemas"]["WebsiteImportPage"][];
+            /** Url */
+            url: string;
+            /** Warnings */
+            warnings: string[];
+        };
+        /** WebsiteImportRequest */
+        WebsiteImportRequest: {
+            /**
+             * Max Pages
+             * @default 20
+             */
+            max_pages: number;
+            /** Url */
+            url: string;
         };
         /** WebStatus */
         WebStatus: {
@@ -52053,6 +52250,49 @@ export interface operations {
             };
         };
     };
+    save_connection_secret_api_vault_sites__site_id__targets__target_id__credentials_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+                target_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TargetConnectionSecret"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetConnection"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     probe_api_vault_sites__site_id__targets__target_id__probe_post: {
         parameters: {
             query?: never;
@@ -52212,7 +52452,7 @@ export interface operations {
     upload_theme_asset_api_vault_sites__site_id__theme_assets_post: {
         parameters: {
             query: {
-                kind: "image" | "font";
+                kind: "image" | "font" | "file";
             };
             header?: {
                 authorization?: string | null;
@@ -52278,6 +52518,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteTheme"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    theme_file_api_vault_sites__site_id__theme_file_get: {
+        parameters: {
+            query: {
+                source: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
                 };
             };
             /** @description Validation Error */
@@ -52474,6 +52754,122 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogueItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    catalogue_snapshot_api_vault_sites_catalogue_snapshot_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_from_url_api_vault_sites_import_create_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebsiteImportCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteConfig"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_url_api_vault_sites_import_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebsiteImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebsiteImportPreview"];
                 };
             };
             /** @description Validation Error */

@@ -38,28 +38,7 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     count, token_method = reading_price_counter(runtime.provider, runtime.model)
     batch_size = batch_limit(batch_size, saved)
     remaining = [chunk for chunk in chunks if str(chunk["id"]) not in saved.get("plans", {})]
-    # Same context bound as automatic delivery; conservative fixed full memory
-    # avoids an optimistic four-fragment count when the context is small.
-    schema, _ = action_schemas(dimensions)
-    groups: list[list[dict[str, object]]] = []
-    for chunk in remaining:
-        if (not groups or len(groups[-1]) >= batch_size or
-                runtime.count_tokens(encoded([groups[-1]+[chunk], "x"*(runtime.input_budget//8), schema, dimensions])) > runtime.input_budget//2):
-            groups.append([])
-        groups[-1].append(chunk)
-    restore_calls = 0
-    if saved.get("plans") and not saved.get("memory"):
-        restore_calls = math.ceil(len(encoded(saved["plans"]).encode()) / max(1, runtime.input_budget//3)) + 1
-    calls = len(groups) + 1 + restore_calls
     source_tokens = sum(count(str(segment.get("text", ""))) for origin in origins for segment in records(origin.get("segments")))
-    repeated = calls * (2*count(runtime.instructions) + 3*count(encoded(schema)) + min(8000, runtime.input_budget//8) + 8192)
-    passages = sum(count(encoded(group)) for group in groups)
-    restore_input = count(encoded(saved.get("plans", {}))) if restore_calls else 0
-    input_bound = 2*passages + repeated + 2*restore_input
-    # Explicit planning assumptions; extra searches or larger notes remain
-    # possible and are subject to the durable spending limit.
-    output_assumed = sum(count(encoded(chunk)) for chunk in remaining)//2 + 512*calls
-    output_bound = 16384*calls
     semantic_cost = {}
     if semantic:
         from backend.services.reading_semantic_estimate import phase_estimate
@@ -69,6 +48,26 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
         input_bound = semantic_cost["input_token_bound"]
         output_assumed = semantic_cost["output_tokens_assumed"]
         output_bound = semantic_cost["output_token_bound"]
+    else:
+        # Keep the legacy engine's context bounds without preparing and then
+        # discarding this work for every semantic quote.
+        schema, _ = action_schemas(dimensions)
+        groups: list[list[dict[str, object]]] = []
+        for chunk in remaining:
+            if (not groups or len(groups[-1]) >= batch_size or
+                    runtime.count_tokens(encoded([groups[-1]+[chunk], "x"*(runtime.input_budget//8), schema, dimensions])) > runtime.input_budget//2):
+                groups.append([])
+            groups[-1].append(chunk)
+        restore_calls = 0
+        if saved.get("plans") and not saved.get("memory"):
+            restore_calls = math.ceil(len(encoded(saved["plans"]).encode()) / max(1, runtime.input_budget//3)) + 1
+        calls = len(groups) + 1 + restore_calls
+        repeated = calls * (2*count(runtime.instructions) + 3*count(encoded(schema)) + min(8000, runtime.input_budget//8) + 8192)
+        passages = sum(count(encoded(group)) for group in groups)
+        restore_input = count(encoded(saved.get("plans", {}))) if restore_calls else 0
+        input_bound = 2*passages + repeated + 2*restore_input
+        output_assumed = sum(count(encoded(chunk)) for chunk in remaining)//2 + 512*calls
+        output_bound = 16384*calls
     from backend.agent.model_catalog import catalog_model_cost
     from backend.agent.model_router import load_registry
     rates = catalog_model_cost(runtime.provider, runtime.model)

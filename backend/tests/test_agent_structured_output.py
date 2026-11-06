@@ -10,6 +10,82 @@ from backend.domains.agent.structured_output import constrain_output
 from backend.domains.llm_wiki.directed_reading import ACTION_SCHEMA
 
 
+@pytest.mark.parametrize('responses', [False, True])
+def test_direct_openai_receives_complete_contract_without_router_parameters(responses):
+    import copy
+    import jsonschema
+    from backend.services.agent_execution import _validate_output
+    schema = {'type': 'object', 'properties': {'reason': {'$ref': '#/$defs/reason'}},
+              'required': ['reason'], 'additionalProperties': False,
+              '$defs': {'reason': {'type': 'string', 'minLength': 1}}}
+    before = copy.deepcopy(schema)
+    model = ChatOpenAI(model='gpt-6-luna', api_key='fixture', use_responses_api=responses,
+                       store=False, max_retries=0)
+    constrained = constrain_output(model, 'openai', schema)
+    payload = model._get_request_payload([HumanMessage(content='Return JSON')], **constrained.kwargs)
+    wire = payload['text']['format'] if responses else payload['response_format']['json_schema']
+    assert wire['strict'] is True and wire['schema'] == before
+    assert 'provider' not in payload and 'provider' not in payload.get('extra_body', {})
+    assert payload['store'] is False and schema == before
+    with pytest.raises(jsonschema.ValidationError):
+        _validate_output('{"reason":""}', schema)
+    assert json.loads(_validate_output('{"reason":"Supported by the passage."}', schema))['reason']
+
+
+
+@pytest.mark.parametrize('responses', [False, True])
+def test_direct_openai_uniqueness_is_enforced_locally_without_rejected_wire_keyword(responses):
+    import copy
+    import jsonschema
+    from backend.services.agent_execution import _validate_output
+
+    schema = {'type': 'object', 'properties': {'ids': {'type': 'array', 'uniqueItems': True,
+        'items': {'$ref': '#/$defs/id'}}}, 'required': ['ids'], 'additionalProperties': False,
+        '$defs': {'id': {'type': 'string', 'enum': ['a', 'b']}}}
+    original = copy.deepcopy(schema)
+    model = ChatOpenAI(model='gpt-6.1-sol', api_key='fixture', use_responses_api=responses,
+                       store=False, max_retries=0)
+    constrained = constrain_output(model, 'openai', schema)
+    payload = model._get_request_payload([HumanMessage(content='Return JSON')], **constrained.kwargs)
+    wire = payload['text']['format'] if responses else payload['response_format']['json_schema']
+    assert wire['strict'] is True and 'uniqueItems' not in wire['schema']['properties']['ids']
+    assert wire['schema']['$defs'] == original['$defs'] and schema == original
+    assert 'provider' not in payload and 'extra_body' not in constrained.kwargs
+    with pytest.raises(jsonschema.ValidationError):
+        _validate_output('{"ids":["a","a"]}', schema)
+    assert json.loads(_validate_output('{"ids":["a","b"]}', schema)) == {'ids': ['a', 'b']}
+
+
+def test_direct_openai_dynamic_contract_keeps_complete_local_validation():
+    model = ChatOpenAI(model='gpt-6-luna', api_key='fixture')
+    constrained = constrain_output(model, 'openai', {'type': 'object'})
+    assert constrained.kwargs['response_format'] == {'type': 'json_object'}
+    assert 'extra_body' not in constrained.kwargs
+
+
+def test_direct_openai_optional_help_keeps_strict_sdk_parsing_and_original_contract(monkeypatch):
+    from backend.domains.agent import operation_graph
+    from backend.domains.agent.team_help import TeamHelp
+    monkeypatch.setattr(operation_graph, '_invoke_agent_model', lambda model, messages, state: model.invoke(messages))
+    sent = []
+    def respond(request):
+        sent.append(json.loads(request.content))
+        return httpx.Response(200, json={'id': 'fixture', 'model': 'fixture', 'object': 'chat.completion',
+            'choices': [{'index': 0, 'finish_reason': 'stop', 'message': {
+                'role': 'assistant', 'content': '{"action":"index","arguments":{}}'}}]})
+    with httpx.Client(transport=httpx.MockTransport(respond)) as transport:
+        model = ChatOpenAI(model='fixture', api_key='fixture', base_url='https://fixture.invalid/v1',
+                           http_client=transport, use_responses_api=False, max_retries=0)
+        graph = operation_graph.operation_workflow(model, 'Return JSON', 32000,
+            team_help=TeamHelp({}, True), provider='openai', output_schema=ACTION_SCHEMA).compile()
+        graph.invoke({'messages': [HumanMessage(content='Return JSON')], 'team_help_allowed': True})
+    assert len(sent) == 1
+    assert sent[0]['response_format']['json_schema']['schema'] == ACTION_SCHEMA
+    assert sent[0]['tools'][0]['function']['name'] == 'request_team_help'
+    assert sent[0]['tools'][0]['function']['strict'] is True
+    assert 'provider' not in sent[0]
+
+
 def test_google_json_transport_retains_complete_local_schema_and_fixed_recipient():
     import copy
     import jsonschema
@@ -31,7 +107,10 @@ def test_google_json_transport_retains_complete_local_schema_and_fixed_recipient
     assert json.loads(_validate_output('{"ids":["a","b"]}', schema)) == {'ids': ['a', 'b']}
 
 
-def test_deepinfra_wire_omits_unsupported_uniqueness_but_local_contract_still_rejects_duplicates():
+@pytest.mark.parametrize('model_id,upstream', [
+    ('fixture', 'deepinfra'), ('fixture', 'openai'), ('openai/gpt-fixture', 'chosen'),
+])
+def test_native_wire_omits_unsupported_uniqueness_but_local_contract_still_rejects_duplicates(model_id, upstream):
     import copy
     import jsonschema
     from backend.services.agent_execution import _validate_output
@@ -39,14 +118,14 @@ def test_deepinfra_wire_omits_unsupported_uniqueness_but_local_contract_still_re
         'items': {'$ref': '#/$defs/id'}}}, 'required': ['ids'], 'additionalProperties': False,
         '$defs': {'id': {'type': 'string', 'enum': ['a', 'b']}}}
     original = copy.deepcopy(schema)
-    model = ChatOpenAI(model='fixture', api_key='fixture', extra_body={
-        'provider': {'order': ['deepinfra'], 'allow_fallbacks': False}})
+    model = ChatOpenAI(model=model_id, api_key='fixture', extra_body={
+        'provider': {'order': [upstream], 'allow_fallbacks': False}})
     constrained = constrain_output(model, 'openrouter', schema)
     native = constrained.kwargs['response_format']['json_schema']['schema']
     assert 'uniqueItems' not in native['properties']['ids'] and schema == original
     assert native['$defs'] == schema['$defs']
     assert constrained.kwargs['extra_body']['provider'] == {
-        'order': ['deepinfra'], 'allow_fallbacks': False, 'require_parameters': True}
+        'order': [upstream], 'allow_fallbacks': False, 'require_parameters': True}
     with pytest.raises(jsonschema.ValidationError):
         _validate_output('{"ids":["a","a"]}', schema)
     assert json.loads(_validate_output('{"ids":["a","b"]}', schema)) == {'ids': ['a', 'b']}
@@ -54,12 +133,12 @@ def test_deepinfra_wire_omits_unsupported_uniqueness_but_local_contract_still_re
     assert constrain_output(other, 'openrouter', schema).kwargs['response_format']['json_schema']['schema'] == schema
 
 
-def test_deepinfra_adapter_preserves_literal_data_and_a_property_named_unique_items():
-    from backend.domains.agent.structured_output import _deepinfra_schema
+def test_native_adapter_preserves_literal_data_and_a_property_named_unique_items():
+    from backend.domains.agent.structured_output import _native_schema
     schema = {'type': 'object', 'properties': {'uniqueItems': {'type': 'array', 'uniqueItems': True,
         'items': {'type': 'object', 'enum': [{'uniqueItems': 'literal value'}]}}},
         'required': ['uniqueItems'], 'additionalProperties': False}
-    result = _deepinfra_schema(schema)
+    result = _native_schema(schema)
     assert 'uniqueItems' in result['properties']
     assert 'uniqueItems' not in result['properties']['uniqueItems']
     assert result['properties']['uniqueItems']['items']['enum'] == [{'uniqueItems': 'literal value'}]
@@ -386,3 +465,41 @@ def test_optional_binary_default_keeps_fallback_tool_protocol(monkeypatch):
     assert payload['extra_body']['reasoning'] == {'enabled': False}
     assert payload['response_format'] == {'type': 'json_object'}
     assert payload['extra_body']['provider'] == {'order': ['chosen'], 'require_parameters': True}
+
+
+@pytest.mark.parametrize('model_id,upstream,adapted', [
+    ('openai/gpt-fixture', 'chosen', True), ('fixture', 'openai', True), ('fixture', 'deepinfra', False),
+])
+def test_quoted_anchor_enums_are_portable_on_openai_and_remain_strict_locally(model_id, upstream, adapted):
+    import copy
+    import jsonschema
+    from backend.services.agent_execution import _validate_output
+    from backend.services.podcast_brief_edits import _anchor_schema
+    schema = {'type': 'object', 'properties': {
+        'before': _anchor_schema('La font diu "provisional". Cal esperar.'),
+        'path': {'type': 'string', 'enum': [r'C:\Docs', 'safe']}},
+        'required': ['before', 'path'], 'additionalProperties': False}
+    original = copy.deepcopy(schema)
+    model = ChatOpenAI(model=model_id, api_key='fixture', extra_body={
+        'provider': {'order': [upstream], 'allow_fallbacks': False}})
+    constrained = constrain_output(model, 'openrouter', schema)
+    native = constrained.kwargs['response_format']['json_schema']['schema']
+    for name in ('before', 'path'):
+        assert ('enum' not in native['properties'][name]) == adapted
+    assert native['properties']['before']['maxLength'] == 512
+    assert schema == original
+    assert constrained.kwargs['extra_body']['provider'] == {
+        'order': [upstream], 'allow_fallbacks': False, 'require_parameters': True}
+    valid = {'before': 'La font diu "provisional".', 'path': r'C:\Docs'}
+    assert json.loads(_validate_output(json.dumps(valid), schema)) == valid
+    with pytest.raises(jsonschema.ValidationError):
+        _validate_output(json.dumps({**valid, 'before': 'An invented anchor.'}), schema)
+    with pytest.raises(jsonschema.ValidationError):
+        _validate_output(json.dumps({**valid, 'path': 'unknown'}), schema)
+
+
+def test_openai_safe_enums_and_literal_enum_data_are_preserved():
+    from backend.domains.agent.structured_output import _native_schema
+    schema = {'type': 'object', 'properties': {'choice': {'type': 'string', 'enum': ['a', 'b']},
+        'literal': {'enum': [{'enum': ['quoted "data"']}]}}}
+    assert _native_schema(schema, openai_literals=True) == schema

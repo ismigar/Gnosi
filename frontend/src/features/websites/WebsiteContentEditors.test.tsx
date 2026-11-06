@@ -5,6 +5,7 @@ import type { SiteConfig } from '../../shared/api/sites';
 import { NavigationEditor } from './NavigationEditor';
 import { PagesEditor } from './PagesEditor';
 import { SourcesEditor } from './SourcesEditor';
+import { FormsEditor } from './FormsEditor';
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
@@ -117,4 +118,62 @@ test('source pagination and the public tag filter retain their values through ot
   expect(view.site.sources?.[0]?.page_size).toBe(100);
   edit(view.container, 'websites.pageSize', '0');
   expect(view.savedResponse().sources?.[0]?.page_size).toBe(1);
+});
+
+
+test('contact consent and error captions remain independent for each configured language', () => {
+  const initial = { ...base, forms: [{ id: 'support', name: 'Support', revision: 1, enabled: false, privacy_url: '', require_privacy: false }] };
+  const view = mountEditor(initial, (site, onChange) => <FormsEditor site={site} onChange={onChange} />);
+  edit(view.container, 'websites.formTexts.privacy_label', 'Consentiment propi');
+  edit(view.container, 'websites.formTexts.privacy_link_label', 'Política pròpia');
+  edit(view.container, 'websites.formTexts.failure_message', 'Torna-ho a provar');
+  edit(view.container, 'websites.editingLanguage', 'en');
+  edit(view.container, 'websites.formTexts.privacy_label', 'My consent');
+  edit(view.container, 'websites.formTexts.privacy_link_label', 'Our policy');
+  edit(view.container, 'websites.formTexts.required_message', 'Check these fields');
+  const saved = view.savedResponse();
+  expect(saved.forms?.[0]).toMatchObject({ privacy_label: { ca: 'Consentiment propi', en: 'My consent' }, privacy_link_label: { ca: 'Política pròpia', en: 'Our policy' }, failure_message: { ca: 'Torna-ho a provar' }, required_message: { en: 'Check these fields' } });
+  edit(view.container, 'websites.editingLanguage', 'ca');
+  expect(control(view.container, 'websites.formTexts.privacy_label').value).toBe('Consentiment propi');
+  view.unmount();
+});
+
+test.each(['select', 'radio'] as const)('%s captions translate independently while submitted option values stay stable', type => {
+  const initial = { ...base, forms: [{ id: 'support', name: 'Support', revision: 1, enabled: false, privacy_url: '', require_privacy: false, fields: [{ id: 'topic', type, required: false, max_length: 2000, options: ['blue'] }] }] };
+  const view = mountEditor(initial, (site, onChange) => <FormsEditor site={site} onChange={onChange} />);
+  edit(view.container, 'websites.optionCaption', 'Blau');
+  edit(view.container, 'websites.editingLanguage', 'en');
+  expect(control(view.container, 'websites.optionCaption').value).toBe('');
+  edit(view.container, 'websites.optionCaption', 'Blue');
+  expect(view.savedResponse().forms?.[0]?.fields?.[0]).toMatchObject({ options: ['blue'], option_labels: { blue: { ca: 'Blau', en: 'Blue' } } });
+  edit(view.container, 'websites.editingLanguage', 'ca');
+  expect(control(view.container, 'websites.optionCaption').value).toBe('Blau');
+  view.unmount();
+});
+
+
+test('each form folds independently and keeps edited values when reopened', () => {
+  const initial = { ...base, forms: [{ id: 'one', name: 'One', revision: 1, enabled: false, privacy_url: '', require_privacy: false }, { id: 'two', name: 'Two', revision: 1, enabled: false, privacy_url: '', require_privacy: false }] };
+  const view = mountEditor(initial, (site, onChange) => <FormsEditor site={site} onChange={onChange} />);
+  edit(view.container, 'websites.titleLabel', 'Retained title');
+  const details = required(view.container.querySelector<HTMLDetailsElement>('details.websites-form'));
+  act(() => { details.open = false; details.dispatchEvent(new Event('toggle')); });
+  expect(details.open).toBe(false);
+  expect(details.querySelector('input')).toBeNull();
+  act(() => { details.open = true; details.dispatchEvent(new Event('toggle')); });
+  expect(control(details, 'websites.titleLabel').value).toBe('Retained title');
+  expect(view.container.querySelectorAll('details.websites-form[open]')).toHaveLength(1);
+  expect(view.savedResponse().forms?.[0]?.title).toEqual({ ca: 'Retained title' }); view.unmount();
+});
+
+
+test('gallery path editing keeps the same input and keyboard focus', () => {
+  const initial: SiteConfig = { ...base, pages: [{ id: 'gallery-page', title: 'Gallery', language: 'ca', path: '/ca/gallery', enabled: false, template: 'page', description: '', css: '', blocks: [{ id: 'gallery', type: 'gallery', images: ['a'], title: '', body: '', image: '', alt: '', image_position: 'right', href: '', columns: 3, limit: 3, css: '' }] }] };
+  const view = mountEditor(initial, (site, onChange) => <PagesEditor site={site} catalogue={[]} onChange={onChange} />);
+  const input = required(view.container.querySelector<HTMLInputElement>('input[aria-label="websites.image 1"]'));
+  input.focus();
+  act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, 'ab'); input.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(view.container.querySelector('input[aria-label="websites.image 1"]')).toBe(input);
+  expect(document.activeElement).toBe(input);
+  expect(input.value).toBe('ab'); view.unmount();
 });
