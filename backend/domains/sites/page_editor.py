@@ -18,7 +18,7 @@ def static_blocks(body: str) -> list[SiteBlock]:
     if not layouts:
         return [SiteBlock(type="text", body=body, body_format="html")]
     # Ancestor anchors/styles cannot be represented on independently sorted blocks.
-    if any(set(parent.attrs) - {"class"} or set(parent.get("class", [])) - {"content-extra"}
+    if any(set(parent.attrs) - {"class"} or set(parent.get_attribute_list("class")) - {"content-extra"}
            for layout in layouts for parent in layout.parents if getattr(parent, "attrs", None)):
         return [SiteBlock(type="text", body=body, body_format="html")]
     # Even empty siblings (anchors, separators, decorative nodes) are content.
@@ -33,7 +33,7 @@ def static_blocks(body: str) -> list[SiteBlock]:
         # Split blocks only represent plain equal-width rows. Keep other row
         # semantics (ratios, anchors, classes and attributes) in lossless HTML.
         plain_row = (set(layout.attrs) <= {"class"}
-                     and set(layout.get("class", [])) <= {"layout", "layout--twocol-section", "layout--twocol-section--50-50"})
+                     and set(layout.get_attribute_list("class")) <= {"layout", "layout--twocol-section", "layout--twocol-section--50-50"})
         plain_children = all(child in regions if getattr(child, "name", None) else not str(child).strip()
                              for child in layout.children)
         if len(regions) == 2 and plain_row and plain_children:
@@ -44,13 +44,13 @@ def static_blocks(body: str) -> list[SiteBlock]:
                 # A row with captions, links or text next to the image stays lossless HTML.
                 image = pictures[image_side][0]
                 plain_region = (set(region.attrs) <= {"class"}
-                                and set(region.get("class", [])) <= {"layout__region", "layout__region--first", "layout__region--second"})
+                                and set(region.get_attribute_list("class")) <= {"layout__region", "layout__region--first", "layout__region--second"})
                 plain_wrappers = all(node.name == "div" and set(node.attrs) <= {"class"}
-                                     and set(node.get("class", [])) <= {"img-coneix-me", "img-temenos"}
+                                     and set(node.get_attribute_list("class")) <= {"img-coneix-me", "img-temenos"}
                                      for node in region.find_all(True) if node is not image)
                 if (plain_region and plain_wrappers and set(image.attrs) <= {"src", "alt"}
                         and not region.get_text(strip=True) and not region.find("a")):
-                    framed = any(set(parent.get("class", [])) & {"img-coneix-me", "img-temenos"}
+                    framed = any(set(parent.get_attribute_list("class")) & {"img-coneix-me", "img-temenos"}
                                  for parent in image.parents if parent is not region)
                     result.append(SiteBlock(type="split", body=str(regions[1 - image_side]), body_format="html",
                                             image=str(image.get("src", "")), alt=str(image.get("alt", "")),
