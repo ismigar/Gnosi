@@ -3,7 +3,7 @@ import { PublishSocialModal } from '../../../social/publishing/PublishSocialModa
 import { TranslateLanguagesModal } from '../../editor/TranslateLanguagesModal';
 import type { TableController } from './useTableController';
 
-export function TableActionDialogs({ model }: { model: TableController; }) {
+export function TableActionDialogs({ model }: { model: Pick<TableController, 'clearSelection' | 'schema' | 'pendingAction' | 'setPendingAction' | 'noteById' | 'onTranslated' | 'setLlmWikiJobs' | 'bulkTranslateIds' | 'setBulkTranslateIds'>; }) {
   const {
     clearSelection,
     schema,

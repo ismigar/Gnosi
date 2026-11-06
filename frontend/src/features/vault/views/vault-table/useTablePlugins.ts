@@ -27,11 +27,10 @@ export function useTablePlugins({ schema, functionalities, notes, llmWikiConfig,
     [functionalities, schema]
   );
   const hasTranslateFunctionality = tableFunctionalities.some((functionality) => functionality.action === 'translate_row');
+  const tableNote = notes.find(note => note.resolved_table_id || note.metadata?.table_id || note.metadata?.database_table_id);
   const llmWikiTableId = displayString(
-    notes.find((note) => note.metadata?.table_id)?.metadata?.table_id
-    || schema.id
-    || schema.table_id
-    || '',
+    tableNote?.resolved_table_id || tableNote?.metadata?.table_id || tableNote?.metadata?.database_table_id
+    || schema.id || schema.table_id || '',
   );
   const llmWikiSourceConfig = (llmWikiConfig?.source_tables || []).find(
     (source) => source.table_id === llmWikiTableId,

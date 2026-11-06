@@ -2,6 +2,7 @@ import React, { act, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { Zap } from 'lucide-react';
 import { PageActionsBar } from './PageActionsBar';
 
 
@@ -115,4 +116,29 @@ describe('PageActionsBar', () => {
         });
         expect(document.body.querySelector('[role="menu"]')).toBeNull();
     });
+    it('keeps left-side row overflow inside the viewport and preserves disabled labels', () => {
+        render(<PageActionsBar compactHeader compactOverflowItems={[{ key: 'disabled', Icon: Zap, label: 'Publish', disabled: true, disabledReason: 'Needs review' }]} />);
+        const trigger = document.querySelector<HTMLButtonElement>('[aria-haspopup="menu"]');
+        if (!trigger) throw new Error('Missing trigger');
+        vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({ right: 100, bottom: 40 } as DOMRect);
+        act(() => { trigger.click(); });
+        const menu = document.querySelector<HTMLElement>('[role="menu"]');
+        expect(window.innerWidth - Number.parseFloat(menu?.style.right || '0') - 224).toBeGreaterThanOrEqual(8);
+        const item = menu?.querySelector<HTMLButtonElement>('button');
+        expect(item?.disabled).toBe(true);
+        expect(item?.textContent).toBe('Publish');
+        expect(item?.title).toBe('Needs review');
+    });
+
+    it('opens bottom-row actions above the trigger when there is no space below', () => {
+        render(<PageActionsBar compactHeader compactOverflowItems={[{ key: 'action', Icon: Zap, label: 'Review' }]} />);
+        const trigger = document.querySelector<HTMLButtonElement>('[aria-haspopup="menu"]');
+        if (!trigger) throw new Error('Missing trigger');
+        const top = window.innerHeight - 32;
+        vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({ right: 100, top, bottom: top + 24 } as DOMRect);
+        act(() => { trigger.click(); });
+        const menu = document.querySelector<HTMLElement>('[role="menu"]');
+        expect(Number.parseFloat(menu?.style.top || '0') + 50).toBeLessThan(top);
+    });
+
 });

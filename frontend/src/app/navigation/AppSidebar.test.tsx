@@ -231,6 +231,31 @@ describe('AppSidebar adaptive navigation', () => {
 
         expect(container.querySelector('[aria-label="More applications"]')).toBeNull();
     });
+
+    it('keeps enabled Websites immediately before hidden applications with old pin preferences', async () => {
+        pluginState.enabled.add('web-publishing');
+        pluginState.settings = { pinnedRoutes: ['/vault'] };
+        const container = document.createElement('div'); document.body.appendChild(container);
+        const root = createRoot(container); mountedRoots.push({ root, container });
+        await renderSidebar(root);
+        const rail = container.querySelector('.app-sidebar__nav');
+        const trigger = container.querySelector<HTMLButtonElement>('[aria-label="More applications"]');
+        expect(rail?.querySelectorAll('[href="/@principal/websites"]')).toHaveLength(1);
+        expect(trigger?.previousElementSibling?.getAttribute('href')).toBe('/@principal/websites');
+        act(() => { trigger?.click(); });
+        expect(container.querySelector('[role="menu"] [href="/@principal/websites"]')).toBeNull();
+        expect(container.querySelector('[role="menu"] [href="/@principal/graph"]')).not.toBeNull();
+    });
+
+    it('shows Websites without an empty hidden-applications button', async () => {
+        pluginState.enabled.add('web-publishing');
+        pluginState.settings = { pinnedRoutes: ['/vault', '/graph'] };
+        const container = document.createElement('div'); document.body.appendChild(container);
+        const root = createRoot(container); mountedRoots.push({ root, container });
+        await renderSidebar(root);
+        expect(container.querySelector('.app-sidebar__nav')?.lastElementChild?.getAttribute('href')).toBe('/@principal/websites');
+        expect(container.querySelector('[aria-label="More applications"]')).toBeNull();
+    });
 });
 
 it('suspends background navigation for modal layers and open Settings', async () => {

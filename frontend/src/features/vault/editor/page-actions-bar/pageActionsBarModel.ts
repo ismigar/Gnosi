@@ -18,6 +18,7 @@ import {
 
 
 export interface PageActionsConfig {
+    readonly recordActions?: readonly PageActionItem[];
     readonly canComposeNote?: boolean;
     readonly onComposeNote?: () => void;
     readonly canToggleFreeWidth?: boolean;
@@ -55,6 +56,8 @@ export interface PageActionsConfig {
 
 
 export interface PageActionItem {
+    readonly disabled?: boolean;
+    readonly disabledReason?: string;
     readonly toggle?: boolean;
     readonly overflowOnly?: boolean;
     readonly Icon: LucideIcon;
@@ -189,6 +192,7 @@ export function buildPageActionItems(
                 || t('table.process_resource', 'Process resource (Brain)'),
             onClick: pageActions.onProcessResource,
         },
+        ...(pageActions.recordActions || []),
         pageActions.canDeleteCurrentPage && {
             Icon: Trash2,
             danger: true,

@@ -304,11 +304,12 @@ def _public_references(site: SiteConfig, public: dict[tuple[str, str], PublicRec
         image = obj(record.presentation.get("image", {}))
         if image.get("url"):
             references.add(str(image["url"]))
-    for page in site.pages:
-        if page.enabled:
-            for block in page.blocks:
-                references.add(block.image)
-                references.update(block.images)
+    references.update(link.href for link in site.footer_bottom_links or [])
+    for _, block in site.editorial_blocks(enabled_only=True):
+        references.update([block.image, block.href, *block.images])
+        references.update(link.href for link in [*(block.actions or []), *block.links])
+        if block.body_format == "html":
+            references.update(re.findall(r'(?:src|href)=["\']([^"\']+)', block.body))
     return {unquote(urlsplit(unescape(value)).path) for value in references if isinstance(value, str)}
 
 

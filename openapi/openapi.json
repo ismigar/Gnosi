@@ -35415,6 +35415,16 @@
             ],
             "title": "Actions"
           },
+          "alignment": {
+            "default": "left",
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "title": "Alignment",
+            "type": "string"
+          },
           "alt": {
             "default": "",
             "title": "Alt",
@@ -35423,6 +35433,15 @@
           "body": {
             "default": "",
             "title": "Body",
+            "type": "string"
+          },
+          "body_format": {
+            "default": "markdown",
+            "enum": [
+              "markdown",
+              "html"
+            ],
+            "title": "Body Format",
             "type": "string"
           },
           "columns": {
@@ -35463,6 +35482,15 @@
             "title": "Image",
             "type": "string"
           },
+          "image_frame": {
+            "default": "none",
+            "enum": [
+              "none",
+              "inset"
+            ],
+            "title": "Image Frame",
+            "type": "string"
+          },
           "image_position": {
             "default": "right",
             "enum": [
@@ -35471,6 +35499,13 @@
             ],
             "title": "Image Position",
             "type": "string"
+          },
+          "image_width": {
+            "default": 100,
+            "maximum": 100.0,
+            "minimum": 20.0,
+            "title": "Image Width",
+            "type": "integer"
           },
           "images": {
             "items": {
@@ -35485,6 +35520,13 @@
             "minimum": 1.0,
             "title": "Limit",
             "type": "integer"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/NavigationLink"
+            },
+            "title": "Links",
+            "type": "array"
           },
           "page_ids": {
             "items": {
@@ -35504,6 +35546,16 @@
             ],
             "title": "Source Id"
           },
+          "spacing": {
+            "default": "compact",
+            "enum": [
+              "compact",
+              "normal",
+              "generous"
+            ],
+            "title": "Spacing",
+            "type": "string"
+          },
           "title": {
             "default": "",
             "title": "Title",
@@ -35520,10 +35572,20 @@
               "collection",
               "collaborators",
               "form",
-              "cta"
+              "cta",
+              "links",
+              "social",
+              "newsletter"
             ],
             "title": "Type",
             "type": "string"
+          },
+          "width": {
+            "default": 100,
+            "maximum": 100.0,
+            "minimum": 20.0,
+            "title": "Width",
+            "type": "integer"
           }
         },
         "title": "SiteBlock",
@@ -35573,6 +35635,61 @@
             },
             "title": "Footer",
             "type": "array"
+          },
+          "footer_blocks": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SiteBlock"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Footer Blocks"
+          },
+          "footer_bottom_links": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NavigationLink"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Footer Bottom Links"
+          },
+          "footer_columns": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SiteFooterColumn"
+                },
+                "maxItems": 12,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Footer Columns"
+          },
+          "footer_copyright": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Footer Copyright"
           },
           "forms": {
             "items": {
@@ -35735,6 +35852,50 @@
           "src"
         ],
         "title": "SiteFont",
+        "type": "object"
+      },
+      "SiteFooterColumn": {
+        "additionalProperties": false,
+        "properties": {
+          "alignment": {
+            "default": "left",
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "title": "Alignment",
+            "type": "string"
+          },
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/SiteBlock"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "title": "SiteFooterColumn",
         "type": "object"
       },
       "SiteForm": {
@@ -36172,6 +36333,17 @@
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "imported_record_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imported Record Id"
           },
           "language": {
             "default": "ca",
@@ -116420,6 +116592,133 @@
           }
         },
         "summary": "Save Site",
+        "tags": [
+          "Vault",
+          "sites"
+        ]
+      }
+    },
+    "/api/vault/sites/{site_id}/editable-pages": {
+      "get": {
+        "operationId": "editable_pages_api_vault_sites__site_id__editable_pages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SitePage"
+                  },
+                  "title": "Response Editable Pages Api Vault Sites  Site Id  Editable Pages Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Editable Pages",
         "tags": [
           "Vault",
           "sites"

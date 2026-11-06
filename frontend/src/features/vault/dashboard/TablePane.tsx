@@ -95,7 +95,8 @@ export function TablePane({ dashboard: d, tableId, mode }: Props) {
     activeView={searchView}
     viewStateScope={JSON.stringify(['table', tableId, mode])}
     searchTerm={d.searchTerm}
-    {...(mode === 'tab' ? {} : { isEmbedded: split, actionRules: table?.action_rules })}
+    isEmbedded={split}
+    actionRules={table?.action_rules}
     restoreRecordFocus={d.recordReturnFocus?.isArmed === true && d.recordReturnFocus.tableId === tableId
       && d.consumedRecordReturnFocus !== d.recordReturnFocus.requestId
       && (!d.recordReturnFocus.viewId || d.recordReturnFocus.viewId === (inline ? view.id : currentViewId)) ? d.recordReturnFocus : null}

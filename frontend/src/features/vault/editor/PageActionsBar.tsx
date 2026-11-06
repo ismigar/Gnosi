@@ -65,7 +65,7 @@ export function PageActionsBar({
         return () => { document.removeEventListener('mousedown', handler); };
     }, [overflowOpen]);
 
-    useModalKeyboard({ isOpen: overflowOpen, onClose: () => { setOverflowOpen(false); } });
+    useModalKeyboard({ isOpen: overflowOpen, onClose: () => { setOverflowOpen(false); }, trapFocus: true, containerRef: menuRef });
 
     if (!items.length && compactOverflowItems.length === 0) return null;
     const showOverflowMenu = overflowOpen && overflow.length > 0 && menuPosition;
@@ -77,8 +77,10 @@ export function PageActionsBar({
         const rect = triggerRef.current?.getBoundingClientRect();
         if (rect) {
             setMenuPosition({
-                right: Math.max(8, window.innerWidth - rect.right),
-                top: rect.bottom + 6,
+                right: Math.max(8, Math.min(window.innerWidth - rect.right, window.innerWidth - 232)),
+                top: rect.bottom + 6 + Math.min(overflow.length * 40 + 10, window.innerHeight - 16) <= window.innerHeight - 8
+                    ? rect.bottom + 6
+                    : Math.max(8, rect.top - Math.min(overflow.length * 40 + 10, window.innerHeight - 16) - 6),
             });
         }
         setOverflowOpen(true);
@@ -88,6 +90,7 @@ export function PageActionsBar({
         {inline.map((item) => {
             const { Icon } = item;
             return <button
+                disabled={item.disabled}
                 aria-label={item.label}
                 aria-pressed={item.active || undefined}
                 className={pageActionButtonClass(item)}
@@ -115,7 +118,19 @@ export function PageActionsBar({
             className="fixed z-[var(--z-popover)] w-56 animate-in rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] py-1 shadow-xl duration-150 fade-in zoom-in-95"
             ref={menuRef}
             role="menu"
-            style={{ right: `${String(menuPosition.right)}px`, top: `${String(menuPosition.top)}px` }}
+            aria-label={t('shell.page_options', 'Page options')}
+            onKeyDown={event => {
+                if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const buttons = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') || []);
+                if (!buttons.length) return;
+                const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+                const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1
+                    : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
+                buttons[next]?.focus();
+            }}
+            style={{ right: `${String(menuPosition.right)}px`, top: `${String(menuPosition.top)}px`, maxHeight: `calc(100vh - ${String(menuPosition.top + 8)}px)`, overflowY: 'auto' }}
         >
             {overflow.map((item, index) => {
                 const { Icon } = item;
@@ -124,7 +139,9 @@ export function PageActionsBar({
                         ? <div className="my-1 border-t border-[var(--border-primary)]" />
                         : null}
                     <button
-                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${item.danger
+                        disabled={item.disabled}
+                        title={item.disabledReason}
+                        className={`disabled:opacity-40 disabled:cursor-not-allowed flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${item.danger
                             ? 'text-red-600 hover:bg-red-500/10'
                             : item.active
                                 ? item.activeClassName

@@ -1,3 +1,4 @@
+import { TableActionDialogs } from '../views/vault-table/TableActionDialogs';
 import { GlobalSearchModal } from '../../../shared/page-search/GlobalSearchModal';
 import TagsModal from '../navigation/TagsModal';
 import PresentationMode from '../editor/PresentationMode';
@@ -52,6 +53,7 @@ export function BrowseDialogs(dashboard: BrowseDialogsProps) {
   } = context;
   const noteCallbacks = { onNoteSelect: loadPage };
   return <>
+    <TableActionDialogs model={dashboard.recordActionDialogs} />
     <GlobalSearchModal
       isOpen={isGlobalSearchOpen}
       onClose={() => { setIsGlobalSearchOpen(false); }}

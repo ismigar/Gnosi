@@ -20,6 +20,7 @@ it.each([
     const sourceConfig = { source_tables: [{ table_id: 'resources' }] };
     const isPluginEnabled = () => true;
     const translate = (_key: string, fallback: string) => fallback;
+    let toolbar: ReturnType<typeof usePageToolbar> | undefined;
     let actions: ReturnType<typeof usePageToolbar>['pageActions'] | undefined;
     function Harness() {
         const [llmWikiJobs, setLlmWikiJobs] = useState<DashboardActions['llmWikiJobs']>({});
@@ -30,17 +31,19 @@ it.each([
             tabs: [{ id: 'source' }], registry: { tables: [{ id: 'resources' }] },
             codeViewByTabId: {}, editLockedByPageId: {}, resolvePageTableId: () => 'resources',
             llmWikiConfig: sourceConfig, llmWikiJobs, setLlmWikiJobs, isPluginEnabled, setResourceToProcess,
-            t: translate,
+            t: translate, i18n: { language: 'en' }, getSchemaFromTableId: () => ({}),
         } as unknown as DashboardActions;
-        actions = usePageToolbar(context).pageActions;
+        toolbar = usePageToolbar(context);
+        actions = toolbar.pageActions;
         return null;
     }
     const root = createRoot(document.createElement('div'));
     try {
         await act(async () => { root.render(<Harness />); await Promise.resolve(); });
-        expect(actions?.canProcessResource).toBe(true);
+        const process = actions?.recordActions.find(item => item.key === 'process_resource');
+        expect(process?.disabled).toBe(false);
         if (phase === 'error' || phase === 'partial') {
-            expect(actions?.processResourceLabel).toBe('Resume interrupted processing');
+            expect(process?.label).toBe('Resume interrupted processing');
             expect(getResourceProcessingTasks()).toEqual([expect.objectContaining({
                 noteId: 'source', state: 'error', background: true, error: 'Durable processing failure',
             })]);
@@ -49,9 +52,9 @@ it.each([
         } else {
             expect(getResourceProcessingTasks()).toHaveLength(0);
         }
-        act(() => { actions?.onProcessResource(); });
-        expect(setResourceToProcess).toHaveBeenCalledExactlyOnceWith({
-            noteId: 'source', title: 'Book', sourceTableId: 'resources', force,
+        act(() => { process?.onClick?.(); });
+        expect(toolbar?.recordActionDialogs.pendingAction).toEqual({
+            noteId: 'source', action: 'process_resource', sourceTableId: 'resources', force,
         });
     } finally {
         act(() => { root.unmount(); });

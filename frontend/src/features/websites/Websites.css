@@ -64,3 +64,27 @@ textarea.websites-input{resize:vertical;min-height:80px}
 .websites-asset-link{overflow-wrap:anywhere;max-width:100%}
 
 .websites-form>summary{cursor:pointer;list-style:none;margin:0}.websites-form>summary::-webkit-details-marker{display:none}.websites-form:not([open])>summary svg{transform:rotate(-90deg)}.websites-form-body{display:grid;gap:16px;padding-top:16px}.websites-form-body>.websites-actions{justify-content:flex-end}
+
+.websites-visual-editor{display:grid;grid-template-columns:minmax(0,3fr) minmax(280px,2fr);gap:20px;align-items:start}
+.websites-canvas{margin:12px auto;padding:16px;display:grid;gap:12px;max-width:100%;background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:10px;box-sizing:border-box}
+.websites-canvas[data-width=mobile]{max-width:390px}
+.websites-canvas-block{box-sizing:border-box;min-width:0;border:1px solid var(--border-primary);border-radius:8px;background:var(--bg-primary)}
+.websites-canvas-block[data-selected]{outline:2px solid var(--accent-color,var(--text-primary));outline-offset:2px}
+.websites-canvas-block-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.websites-canvas-block-tools>button:first-child{touch-action:none}
+.websites-canvas-content{overflow-wrap:anywhere;cursor:pointer;min-height:40px}
+.websites-canvas-content img{display:block;width:100%;height:auto;max-width:100%;border-radius:6px}
+.websites-canvas-content iframe{width:100%;height:260px;border:0;background:white;pointer-events:none;display:block}
+.websites-canvas-content p{margin-block:.7em}
+.websites-canvas-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.websites-canvas-gallery{display:grid;gap:8px}
+.websites-image-placeholder{padding:24px;border:1px dashed var(--border-primary);border-radius:6px;color:var(--text-secondary);overflow-wrap:anywhere}
+.websites-canvas[data-width=mobile] .websites-canvas-split{grid-template-columns:1fr}
+.websites-canvas[data-width=mobile] .websites-canvas-split[data-image=left]>:first-child{order:1}
+.websites-canvas[data-width=mobile] .websites-canvas-block{width:100%!important}
+@media(max-width:1100px){.websites-visual-editor{grid-template-columns:minmax(0,1fr)}}
+
+.websites-block-body{grid-column:1/-1;min-width:0}.websites-html-text{min-height:44px;white-space:pre-wrap}
+
+.websites-social-label{display:flex;align-items:center;gap:8px}
+.websites-social-icon{display:inline-block;width:20px;height:20px;background:currentColor;mask-size:contain;mask-repeat:no-repeat;mask-position:center}

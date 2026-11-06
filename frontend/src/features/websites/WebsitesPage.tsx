@@ -107,7 +107,7 @@ function Session({ context }: { context: RequestContext }) {
     return () => { active = false; };
   }, [context, refreshRevision, request, t]);
 
-  const needsCatalogue = tab === 'sources' || tab === 'pages';
+  const needsCatalogue = tab === 'sources' || tab === 'pages' || tab === 'navigation';
   useEffect(() => {
     if (!catalogueRequested) return;
     let active = true; const controller = new AbortController();
@@ -191,7 +191,7 @@ function Session({ context }: { context: RequestContext }) {
   }), [request, siteId, context]);
 
   const changeTab = (value: Tab) => {
-    const select = () => { if (value === 'sources' || value === 'pages') setCatalogueRequested(true); setTab(value); setError(''); };
+    const select = () => { if (value === 'sources' || value === 'pages' || value === 'navigation') setCatalogueRequested(true); setTab(value); setError(''); };
     if (![...writers.current.entries()].some(([key, writer]) => key !== 'public' && writer.pending)) { select(); return; }
     void action(async () => { if (await flushWriters()) select(); });
   };
@@ -229,7 +229,7 @@ function Session({ context }: { context: RequestContext }) {
       {needsCatalogue && catalogueRevision === refreshRevision && cataloguePartial && <p role="status" className="websites-muted">{t('websites.cataloguePagesPending')}</p>}
       {tab === 'sources' && catalogueRevision === refreshRevision && <SourcesEditor site={site} catalogue={catalogue} onChange={change} />}
       {tab === 'pages' && <PagesEditor site={site} catalogue={catalogue} onChange={change} />}
-      {tab === 'navigation' && <NavigationEditor site={site} onChange={change} />}
+      {tab === 'navigation' && <NavigationEditor site={site} catalogue={catalogue} onChange={change} />}
       {tab === 'forms' && <FormsEditor site={site} onChange={change} />}
       {tab === 'appearance' && <AppearanceEditor key={site.id} register={registerAutosave} context={context} site={site} busy={busy} history={themes} onChange={change} onExport={() => { downloadBlob(new Blob([JSON.stringify(site.theme, null, 2)], { type: 'application/json' }), `${site.name}-theme.json`); }} onImport={file => { void action(async () => { if (file.size > 200_000) throw new Error(t('websites.importTooLarge')); const raw = record(JSON.parse(await file.text())); const tokens = record(raw.tokens); if (raw.schema_version !== 1 || typeof raw.name !== 'string' || Object.values(tokens).some(value => typeof value !== 'string')) throw new Error(t('websites.invalidTheme')); const theme: api.SiteTheme = { schema_version: 1, name: raw.name, tokens: Object.fromEntries(Object.entries(tokens).map(([key, value]) => [key, String(value)])), logo: typeof raw.logo === 'string' ? raw.logo : '', logo_alt: typeof raw.logo_alt === 'string' ? raw.logo_alt : '', favicon: typeof raw.favicon === 'string' ? raw.favicon : '', fonts: Array.isArray(raw.fonts) ? raw.fonts.map(value => { const font = record(value); if (typeof font.family !== 'string' || typeof font.src !== 'string' || (font.style !== 'normal' && font.style !== 'italic')) throw new Error(t('websites.invalidTheme')); return { family: font.family, src: font.src, weight: typeof font.weight === 'string' ? font.weight : '400', style: font.style }; }) : [], advanced_css: typeof raw.advanced_css === 'string' ? raw.advanced_css : '' }; change({ ...site, theme }); setNotice(t('websites.themeImported')); }); }} onHistory={() => { void action(async () => { setThemes(await request(signal => api.themeHistory(site.id, context, signal))); }); }} />}
       {!targetId && ['messages', 'subscribers', 'campaigns', 'settings'].includes(tab) && <Empty>{t('websites.noTargets')}</Empty>}

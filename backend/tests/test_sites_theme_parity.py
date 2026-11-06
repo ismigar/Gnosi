@@ -201,3 +201,73 @@ def test_static_pages_have_no_byline_and_newsletter_collects_names(imported_pilo
             assert field['maxlength'] == '100'
         assert not home.select('.newsletter-test-note')
         assert not form.select('[aria-describedby]')
+
+
+def test_footer_networks_use_packaged_icons_tooltips_and_localized_visibility(imported_pilot, tmp_path):
+    store, site, _, _ = imported_pilot
+    bundle = build_bundle(store, site, 'local').model_dump(mode='json')
+    bundle['site']['social_links'] = [
+        {'label': 'Instagram', 'href': 'https://instagram.com/reader', 'language': None},
+        {'label': 'Twitter', 'href': 'https://x.com/reader', 'language': 'ca'},
+        {'label': 'Custom network', 'href': 'https://social.example.invalid', 'language': 'es'},
+        {'label': 'YouTube', 'href': '', 'language': None},
+    ]
+    output = tmp_path / 'social-render'
+    render_bundle(bundle, output)
+    home = BeautifulSoup((output / 'ca/index.html').read_text(), 'html.parser')
+    links = home.select('.site-footer .social-links a')
+    assert [link['aria-label'] for link in links] == ['Instagram', 'X']
+    for link in links:
+        assert link['title'] == link['aria-label']
+        assert link.select_one('.social-icon svg path') is not None
+        tooltip = home.find(id=link['aria-describedby'])
+        assert tooltip['role'] == 'tooltip' and tooltip.text == link['aria-label']
+
+
+def test_default_footer_contains_newsletter_and_groups_legal_links_after_copyright(imported_pilot, tmp_path):
+    store, site, _, _ = imported_pilot
+    from backend.domains.sites.models import NavigationLink
+    site.footer = [
+        NavigationLink(label='Avís legal', href='/ca/legal', language='ca'),
+        NavigationLink(label='Política de privacitat', href='/ca/privacy', language='ca'),
+        NavigationLink(label='Política de galetes', href='/ca/cookies', language='ca'),
+        NavigationLink(label='Col·labora', href='/ca/collabora', language='ca'),
+    ]
+    output = tmp_path / 'default-footer'
+    render_bundle(build_bundle(store, site, 'local').model_dump(mode='json'), output)
+    home = BeautifulSoup((output / 'ca/index.html').read_text(), 'html.parser')
+    footer = home.select_one('footer.site-footer')
+    assert footer.select_one('.newsletter form') is not None
+    columns = footer.select('.footer-column')
+    assert len(columns) == 3
+    assert [link.text for link in columns[0].select('a')] == ['Mapa del web', 'RSS']
+    assert columns[1].select_one('a').text == 'Col·labora'
+    bottom = footer.select_one('.footer-bottom')
+    assert bottom.select_one('.footer-credit') is not None
+    assert [link.text for link in bottom.select('.footer-legal a')] == ['Avís legal', 'Política de privacitat', 'Política de galetes']
+
+
+def test_custom_footer_blocks_export_assets_and_keep_widget_ids_distinct(imported_pilot, tmp_path):
+    from backend.domains.sites.models import SiteBlock, SiteFooterColumn
+    store, site, _, _ = imported_pilot
+    site.footer_copyright = '© Example association'
+    site.footer_bottom_links = []
+    site.footer_blocks = [SiteBlock(id='subscribe', type='newsletter')]
+    site.footer_columns = [
+        SiteFooterColumn(id='left', blocks=[SiteBlock(id='photo', type='image', image='/sites/default/files/photo.png', alt='Portrait'), SiteBlock(id='intro', type='text', body='**Footer text**<script>BAD()</script>')]),
+        SiteFooterColumn(id='right', alignment='right', blocks=[SiteBlock(id='subscribe', type='newsletter')]),
+    ]
+    bundle = build_bundle(store, site, 'local').model_dump(mode='json')
+    assert any(asset['path'].endswith('photo.png') for asset in bundle['assets'])
+    output = tmp_path / 'custom-footer'
+    render_bundle(bundle, output)
+    home = BeautifulSoup((output / 'ca/index.html').read_text(), 'html.parser')
+    footer = home.select_one('footer.site-footer')
+    assert len(footer.select('.footer-column')) == 2
+    assert footer.select_one('img')['alt'] == 'Portrait'
+    assert footer.select_one('strong').text == 'Footer text'
+    assert footer.select_one('script') is None
+    assert footer.select_one('.footer-credit').text == '© Example association'
+    assert not footer.select('.footer-legal a')
+    identifiers = [item['id'] for item in footer.select('[id]')]
+    assert len(identifiers) == len(set(identifiers))

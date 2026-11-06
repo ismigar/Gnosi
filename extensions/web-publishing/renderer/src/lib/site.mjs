@@ -112,6 +112,6 @@ export function themeCss(page) {
     if (!/^[\w -]+$/.test(font.family) || !/^[0-9 ]+$/.test(font.weight)) throw new Error('Invalid local font');
     return `@font-face{font-family:"${font.family}";src:url("${href(font.src)}");font-weight:${font.weight};font-style:${font.style};font-display:swap}`;
   }).join('');
-  const blockCss = (page.blocks || []).map(block => css(block.css,`[data-block-id="${block.id.replace(/[^a-zA-Z0-9_-]/g,'')}"]`)).join('\n');
+  const blockCss = [...(page.blocks || []), ...(site.footer_columns || []).flatMap(column=>column.blocks || []), ...(site.footer_blocks || [])].map(block => css(block.css,`[data-block-id="${block.id.replace(/[^a-zA-Z0-9_-]/g,'')}"]`)).join('\n');
   return `@layer base,theme,components,page,advanced;@layer theme{${fonts}:root{${tokens}}}@layer page{${css(page.css,`[data-page-id="${page.id.replace(/[^a-zA-Z0-9_-]/g,'')}"]`)}${blockCss}}@layer advanced{${css(site.theme.advanced_css,anchor)}}`;
 }

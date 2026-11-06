@@ -257,6 +257,10 @@ jobs:
           uv run python desktop/scripts/backend_resources.py check-source --repository .
       - run: uv run python -m compileall -q backend pipeline scripts extensions
         if: steps.scope.outputs.runtime_required != 'false'
+      - name: Install locked website renderer dependencies
+        if: steps.scope.outputs.runtime_required != 'false'
+        timeout-minutes: 10
+        run: npm ci --prefix extensions/web-publishing/renderer --no-audit --no-fund
       - run: uv run pytest
         if: steps.scope.outputs.runtime_required != 'false'
 

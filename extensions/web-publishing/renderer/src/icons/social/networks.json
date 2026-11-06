@@ -1,0 +1,130 @@
+[
+  {
+    "id": "mastodon",
+    "name": "Mastodon",
+    "icon": "mastodon",
+    "aliases": [
+      "mastodon",
+      "mastodon"
+    ]
+  },
+  {
+    "id": "bluesky",
+    "name": "Bluesky",
+    "icon": "bluesky",
+    "aliases": [
+      "bluesky",
+      "bluesky"
+    ]
+  },
+  {
+    "id": "facebook",
+    "name": "Facebook",
+    "icon": "facebook-f",
+    "aliases": [
+      "facebook",
+      "facebook"
+    ]
+  },
+  {
+    "id": "linkedin",
+    "name": "LinkedIn",
+    "icon": "linkedin-in",
+    "aliases": [
+      "linkedin",
+      "linkedin"
+    ]
+  },
+  {
+    "id": "telegram",
+    "name": "Telegram",
+    "icon": "telegram",
+    "aliases": [
+      "telegram",
+      "telegram"
+    ]
+  },
+  {
+    "id": "whatsapp",
+    "name": "WhatsApp",
+    "icon": "whatsapp",
+    "aliases": [
+      "whatsapp",
+      "whatsapp"
+    ]
+  },
+  {
+    "id": "instagram",
+    "name": "Instagram",
+    "icon": "instagram",
+    "aliases": [
+      "instagram",
+      "instagram"
+    ]
+  },
+  {
+    "id": "youtube",
+    "name": "YouTube",
+    "icon": "youtube",
+    "aliases": [
+      "youtube",
+      "youtube"
+    ]
+  },
+  {
+    "id": "x",
+    "name": "X",
+    "icon": "x-twitter",
+    "aliases": [
+      "x",
+      "x",
+      "twitter",
+      "x-twitter"
+    ]
+  },
+  {
+    "id": "threads",
+    "name": "Threads",
+    "icon": "threads",
+    "aliases": [
+      "threads",
+      "threads"
+    ]
+  },
+  {
+    "id": "tiktok",
+    "name": "TikTok",
+    "icon": "tiktok",
+    "aliases": [
+      "tiktok",
+      "tiktok"
+    ]
+  },
+  {
+    "id": "pinterest",
+    "name": "Pinterest",
+    "icon": "pinterest-p",
+    "aliases": [
+      "pinterest",
+      "pinterest"
+    ]
+  },
+  {
+    "id": "github",
+    "name": "GitHub",
+    "icon": "github",
+    "aliases": [
+      "github",
+      "github"
+    ]
+  },
+  {
+    "id": "discord",
+    "name": "Discord",
+    "icon": "discord",
+    "aliases": [
+      "discord",
+      "discord"
+    ]
+  }
+]
