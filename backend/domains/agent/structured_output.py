@@ -108,7 +108,7 @@ def constrain_output(model: Any, provider: str, schema: dict[str, Any] | None) -
     if provider == "openai":
         response_format = {"type": "json_object"} if _has_dynamic_object(schema) else {
             "type": "json_schema",
-            "json_schema": {"name": "gnosi_operation", "strict": True, "schema": deepcopy(schema)},
+            "json_schema": {"name": "gnosi_operation", "strict": True, "schema": _native_schema(schema)},
         }
         return model.bind(response_format=response_format)
     base = getattr(model, "bound", model)

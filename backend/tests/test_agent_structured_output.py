@@ -32,6 +32,30 @@ def test_direct_openai_receives_complete_contract_without_router_parameters(resp
     assert json.loads(_validate_output('{"reason":"Supported by the passage."}', schema))['reason']
 
 
+
+@pytest.mark.parametrize('responses', [False, True])
+def test_direct_openai_uniqueness_is_enforced_locally_without_rejected_wire_keyword(responses):
+    import copy
+    import jsonschema
+    from backend.services.agent_execution import _validate_output
+
+    schema = {'type': 'object', 'properties': {'ids': {'type': 'array', 'uniqueItems': True,
+        'items': {'$ref': '#/$defs/id'}}}, 'required': ['ids'], 'additionalProperties': False,
+        '$defs': {'id': {'type': 'string', 'enum': ['a', 'b']}}}
+    original = copy.deepcopy(schema)
+    model = ChatOpenAI(model='gpt-6.1-sol', api_key='fixture', use_responses_api=responses,
+                       store=False, max_retries=0)
+    constrained = constrain_output(model, 'openai', schema)
+    payload = model._get_request_payload([HumanMessage(content='Return JSON')], **constrained.kwargs)
+    wire = payload['text']['format'] if responses else payload['response_format']['json_schema']
+    assert wire['strict'] is True and 'uniqueItems' not in wire['schema']['properties']['ids']
+    assert wire['schema']['$defs'] == original['$defs'] and schema == original
+    assert 'provider' not in payload and 'extra_body' not in constrained.kwargs
+    with pytest.raises(jsonschema.ValidationError):
+        _validate_output('{"ids":["a","a"]}', schema)
+    assert json.loads(_validate_output('{"ids":["a","b"]}', schema)) == {'ids': ['a', 'b']}
+
+
 def test_direct_openai_dynamic_contract_keeps_complete_local_validation():
     model = ChatOpenAI(model='gpt-6-luna', api_key='fixture')
     constrained = constrain_output(model, 'openai', {'type': 'object'})
