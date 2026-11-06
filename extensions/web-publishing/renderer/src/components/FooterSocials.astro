@@ -1,0 +1,16 @@
+---
+import networks from '../icons/social/networks.json';
+import {site,href,linkProps} from '../lib/site.mjs';
+const {lang}=Astro.props;
+const icons=import.meta.glob('../icons/social/*.svg',{eager:true,query:'?raw',import:'default'});
+---
+<nav class="social-links" aria-label={lang==='ca'?'Xarxes socials':lang==='es'?'Redes sociales':lang==='fr'?'Réseaux sociaux':'Social networks'}>{site.social_links.filter(link=>link.href.trim()&&(!link.language||link.language===lang)).map((link,index)=>{
+  const network=networks.find(item=>item.aliases.includes(link.label.toLowerCase().trim()));
+  const name=network?.name||link.label;
+  const icon=network&&icons[`../icons/social/${network.icon}.svg`];
+  const tooltip=`footer-social-${index}`;
+  return <a href={href(link.href)} {...linkProps(link.href)} aria-label={name} title={name} aria-describedby={tooltip}>
+    {icon?<span class="social-icon" aria-hidden="true" set:html={icon}/>:<svg class="social-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a18 18 0 0 1 0 18 18 18 0 0 1 0-18"/></svg>}
+    <span class="footer-social-tooltip" id={tooltip} role="tooltip">{name}</span>
+  </a>;
+})}</nav>

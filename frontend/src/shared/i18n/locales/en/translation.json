@@ -9426,6 +9426,7 @@
       "dragOutside": "The block is outside the block area.",
       "dragDropped": "Placed {{name}} at position {{position}}.",
       "dragCancelled": "Movement cancelled."
-    }
+    },
+    "otherSocialNetworks": "Other social networks"
   }
 }

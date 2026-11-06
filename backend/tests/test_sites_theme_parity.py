@@ -201,3 +201,24 @@ def test_static_pages_have_no_byline_and_newsletter_collects_names(imported_pilo
             assert field['maxlength'] == '100'
         assert not home.select('.newsletter-test-note')
         assert not form.select('[aria-describedby]')
+
+
+def test_footer_networks_use_packaged_icons_tooltips_and_localized_visibility(imported_pilot, tmp_path):
+    store, site, _, _ = imported_pilot
+    bundle = build_bundle(store, site, 'local').model_dump(mode='json')
+    bundle['site']['social_links'] = [
+        {'label': 'Instagram', 'href': 'https://instagram.com/reader', 'language': None},
+        {'label': 'Twitter', 'href': 'https://x.com/reader', 'language': 'ca'},
+        {'label': 'Custom network', 'href': 'https://social.example.invalid', 'language': 'es'},
+        {'label': 'YouTube', 'href': '', 'language': None},
+    ]
+    output = tmp_path / 'social-render'
+    render_bundle(bundle, output)
+    home = BeautifulSoup((output / 'ca/index.html').read_text(), 'html.parser')
+    links = home.select('.site-footer .social-links a')
+    assert [link['aria-label'] for link in links] == ['Instagram', 'X']
+    for link in links:
+        assert link['title'] == link['aria-label']
+        assert link.select_one('.social-icon svg path') is not None
+        tooltip = home.find(id=link['aria-describedby'])
+        assert tooltip['role'] == 'tooltip' and tooltip.text == link['aria-label']

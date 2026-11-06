@@ -229,3 +229,16 @@ test('gallery path editing keeps the same input and keyboard focus', () => {
   expect(document.activeElement).toBe(input);
   expect(input.value).toBe('ab'); view.unmount();
 });
+
+
+test('social network URL fields keep unrelated profiles and explicitly remove a cleared network', () => {
+  const initial = { ...base, social_links: [{ label: 'Mastodon', href: 'https://social.example.invalid/@reader', language: null }, { label: 'Custom network', href: 'https://custom.example.invalid/profile', language: null }] };
+  const view = mountEditor(initial, (site, onChange) => <NavigationEditor site={site} onChange={onChange} />);
+  expect(view.container.querySelectorAll('.websites-social-icon')).toHaveLength(14);
+  expect(control(view.container, 'Mastodon').value).toBe('https://social.example.invalid/@reader');
+  edit(view.container, 'Instagram', 'https://www.instagram.com/reader/');
+  expect(view.savedResponse().social_links).toContainEqual({ label: 'Instagram', href: 'https://www.instagram.com/reader/', language: null });
+  edit(view.container, 'Mastodon', '');
+  expect(view.savedResponse().social_links).not.toContainEqual(expect.objectContaining({ label: 'Mastodon' }));
+  expect(view.savedResponse().social_links).toContainEqual(initial.social_links[1]);
+});

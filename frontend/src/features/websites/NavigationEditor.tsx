@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { SiteConfig } from '../../shared/api/sites';
 import { Card, Field, Input, Select } from './components';
 import { LinksEditor } from './LinksEditor';
+import { SocialLinksEditor } from './SocialLinksEditor';
 
 export function NavigationEditor({ site, onChange }: { site: SiteConfig; onChange: (site: SiteConfig) => void }) {
   const { t } = useTranslation();
@@ -10,7 +11,7 @@ export function NavigationEditor({ site, onChange }: { site: SiteConfig; onChang
     <LinksEditor title={t('websites.navigation')} links={site.navigation ?? []} languages={site.languages ?? []} onChange={navigation => { onChange({ ...site, navigation }); }} />
     <LinksEditor title={t('websites.headerActions')} links={site.header_actions ?? []} languages={site.languages ?? []} defaultAppearance="button" onChange={header_actions => { onChange({ ...site, header_actions }); }} />
     <LinksEditor title={t('websites.footer')} links={site.footer ?? []} languages={site.languages ?? []} onChange={footer => { onChange({ ...site, footer }); }} />
-    <LinksEditor title={t('websites.social_links')} links={site.social_links ?? []} languages={site.languages ?? []} showAppearance={false} onChange={social_links => { onChange({ ...site, social_links }); }} />
+    <SocialLinksEditor site={site} onChange={onChange} />
     <Card title={t('websites.redirects')} actions={<button type="button" className="websites-button" onClick={() => { const key = `/old-${String(Object.keys(site.redirects ?? {}).length + 1)}`; onChange({ ...site, redirects: { ...site.redirects, [key]: '/' } }); }}>{t('websites.addRedirect')}</button>}><div className="websites-list">{Object.entries(site.redirects ?? {}).map(([path, destination], index) => <div className="websites-grid" key={index}><Field label={t('websites.oldPath')}><Input value={path} onChange={event => { onChange({ ...site, redirects: Object.fromEntries(Object.entries(site.redirects ?? {}).map(([key, value]) => key === path ? [event.target.value, value] : [key, value])) }); }} /></Field><Field label={t('websites.destination')}><Input value={destination} onChange={event => { onChange({ ...site, redirects: { ...site.redirects, [path]: event.target.value } }); }} /></Field><button type="button" className="websites-button" onClick={() => { onChange({ ...site, redirects: Object.fromEntries(Object.entries(site.redirects ?? {}).filter(([key]) => key !== path)) }); }}>{t('websites.remove')}</button></div>)}</div></Card>
   </div>;
 }

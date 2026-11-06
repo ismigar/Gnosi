@@ -9481,6 +9481,7 @@
       "dragOutside": "Le bloc est hors de la zone des blocs.",
       "dragDropped": "{{name}} placé à la position {{position}}.",
       "dragCancelled": "Déplacement annulé."
-    }
+    },
+    "otherSocialNetworks": "Autres réseaux sociaux"
   }
 }

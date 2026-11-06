@@ -85,3 +85,6 @@ textarea.websites-input{resize:vertical;min-height:80px}
 @media(max-width:1100px){.websites-visual-editor{grid-template-columns:minmax(0,1fr)}}
 
 .websites-block-body{grid-column:1/-1;min-width:0}.websites-html-text{min-height:44px;white-space:pre-wrap}
+
+.websites-social-label{display:flex;align-items:center;gap:8px}
+.websites-social-icon{display:inline-block;width:20px;height:20px;background:currentColor;mask-size:contain;mask-repeat:no-repeat;mask-position:center}

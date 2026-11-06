@@ -74,8 +74,15 @@ test('visual website blocks edit, reorder, undo and persist without publishing',
   await settleVisualState(page);
   await page.screenshot({ path: testInfo.outputPath('website-visual-editor-desktop.png'), fullPage: true });
   await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'Navigation & languages', exact: true }).click();
+  await expect(page.locator('.websites-social-icon')).toHaveCount(14);
+  await page.getByRole('textbox', { name: 'Instagram', exact: true }).fill('https://www.instagram.com/disposable/');
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('website-social-networks.png'), fullPage: true });
   await page.reload();
   await page.getByRole('combobox', { name: 'Website', exact: true }).selectOption({ label: 'Disposable visual blocks' });
+  await page.getByRole('tab', { name: 'Navigation & languages', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Instagram', exact: true })).toHaveValue('https://www.instagram.com/disposable/');
   await page.getByRole('tab', { name: 'Pages', exact: true }).click();
   await page.getByRole('combobox', { name: 'Page to edit', exact: true }).selectOption({ label: 'Visual profile · CA' });
   await expect(page.locator('.websites-canvas-block').first()).toContainText('Portrait');

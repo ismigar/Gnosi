@@ -9481,6 +9481,7 @@
       "dragOutside": "El bloc és fora de la zona de blocs.",
       "dragDropped": "{{name}} col·locat a la posició {{position}}.",
       "dragCancelled": "Moviment cancel·lat."
-    }
+    },
+    "otherSocialNetworks": "Altres xarxes socials"
   }
 }

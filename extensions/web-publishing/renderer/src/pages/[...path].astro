@@ -7,6 +7,7 @@ import ReadingCard from '../components/ReadingCard.astro';
 import ResourceList from '../components/ResourceList.astro';
 import ShareButtons from '../components/ShareButtons.astro';
 import Newsletter from '../components/Newsletter.astro';
+import FooterSocials from '../components/FooterSocials.astro';
 import {temenosLabels,publishedDate,splitArticleImage} from '../lib/temenos.mjs';
 import {landingPath} from '../lib/routing.mjs';
 import '../lib/styles.css';
@@ -41,7 +42,6 @@ const sharing=site.legacy_pilot && page.template==='article' && (page.source_ids
 const homeLink=nid=>records.find(record=>record.language===lang && Number(record.presentation?.nid)===nid)?.path;
 const navigationClass=link=>['action-link',...(['button','outline'].includes(link.appearance)?['button']:[]),...(link.appearance==='outline'?['button-outline']:[])].join(' ');
 const currentNavigationLink = link => href(link.href).replace(/\/$/, '') === prefix(page.path).replace(/\/$/, '');
-const socialIcon=label=>({mastodon:'mastodon',linkedin:'linkedin-in',facebook:'facebook-f',telegram:'telegram'})[label.toLowerCase()];
 ---
 <!doctype html>
 <html lang={lang}><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><meta name="robots" content="noindex,nofollow"/><title>{page.title} · {site.name}</title><meta name="description" content={page.description || page.title}/><link rel="canonical" href={canonical}/>{site.theme.favicon && <link rel="icon" href={href(site.theme.favicon)}/>}<link rel="alternate" type="application/rss+xml" href={prefix(`/${lang}/rss.xml`)} title={site.name}/>{alternatives.map(other=><link rel="alternate" hreflang={other.language} href={new URL(other.path,site.origin).href}/>)}<style is:inline set:html={themeCss(page)} /></head>
@@ -95,7 +95,7 @@ const socialIcon=label=>({mastodon:'mastodon',linkedin:'linkedin-in',facebook:'f
     {!site.legacy_pilot && alternatives.length>1 && <nav class="languages translations" data-pagefind-ignore>{alternatives.map(other=><a href={prefix(other.path)} data-search-language={page.template==='search'?true:undefined} lang={other.language} aria-current={other.language===lang?'page':undefined}>{other.language.split('-')[0].toUpperCase()}</a>)}</nav>}
   </main>
   {site.legacy_pilot && <Newsletter lang={lang}/>}
-  <footer class="site-footer" data-pagefind-ignore><div class="wrap">{!site.legacy_pilot && <p>{site.name}</p>}<nav class="navigation">{site.footer.filter(link=>!link.language||link.language===lang).map(link=><a class={navigationClass(link)} href={href(link.href)} {...linkProps(link.href)}>{link.label}</a>)}<a href={prefix(`/${lang}/mapa-web`)}>{text.map}</a><a href={prefix(`/${lang}/rss.xml`)}>RSS</a></nav><nav class="social-links">{site.social_links.map(link=><a href={href(link.href)} {...linkProps(link.href)}>{site.legacy_pilot && socialIcon(link.label) ? <span class="social-icon social-mask" style={`--social-icon:url("${href(`/icons/social/${socialIcon(link.label)}.svg`)}")`} aria-hidden="true"/> : <svg class="social-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/></svg>}{link.label}</a>)}</nav>{site.legacy_pilot && <p class="footer-credit">© Temenos Ismael · <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.ca" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 4.0</a></p>}</div></footer>
+  <footer class="site-footer" data-pagefind-ignore><div class="wrap">{!site.legacy_pilot && <p>{site.name}</p>}<nav class="navigation">{site.footer.filter(link=>!link.language||link.language===lang).map(link=><a class={navigationClass(link)} href={href(link.href)} {...linkProps(link.href)}>{link.label}</a>)}<a href={prefix(`/${lang}/mapa-web`)}>{text.map}</a><a href={prefix(`/${lang}/rss.xml`)}>RSS</a></nav><FooterSocials lang={lang}/>{site.legacy_pilot && <p class="footer-credit">© Temenos Ismael · <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.ca" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 4.0</a></p>}</div></footer>
   <script>
     import {initForms,initSearch,initDisclosure,initLanguageLinks,initMenu,initListings,initCompactHeader} from '../lib/interactions';
     initForms();initSearch();initDisclosure();initLanguageLinks();initMenu();initListings();initCompactHeader();

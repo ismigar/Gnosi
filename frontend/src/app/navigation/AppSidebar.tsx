@@ -79,8 +79,8 @@ function getInitialSettingsRequest(): { readonly open: boolean; readonly tab: st
 }
 
 function readSidebarPreferences(value: unknown): SidebarPreferences | null {
-    if (typeof value !== 'object' || value === null || !('pinnedRoutes' in value)) return null;
-    return Array.isArray(value.pinnedRoutes) ? { pinnedRoutes: value.pinnedRoutes } : null;
+    return typeof value === 'object' && value !== null && 'pinnedRoutes' in value && Array.isArray(value.pinnedRoutes)
+        ? { pinnedRoutes: value.pinnedRoutes } : null;
 }
 
 
@@ -91,6 +91,7 @@ export function AppSidebar() {
     const [settingsTab, setSettingsTab] = useState(initialSettingsRequest.tab);
     const [settingsPluginId, setSettingsPluginId] = useState<string | null>(null);
     const [gnosiMode, setGnosiMode] = useState('personal');
+    const isPersonal = gnosiMode === 'personal';
     const [quickAccessOpen, setQuickAccessOpen] = useState(false);
     const mobileToggleRef = useRef<HTMLButtonElement>(null);
     const navigationRef = useRef<HTMLElement>(null);
@@ -123,10 +124,9 @@ export function AppSidebar() {
     });
     // Keep Websites discoverable at the bottom, including with older saved pin preferences.
     // The destination catalogue places Websites last, after any active unpinned item.
-    const railNavItems = pinnedNavItems.filter((item) => item.to !== '/websites');
-    for (const item of visibleNavItems) {
-        if ((item === activeNavItem || item.to === '/websites') && !railNavItems.includes(item)) railNavItems.push(item);
-    }
+    const railNavItems = pinnedNavItems.filter((item) => item.to !== '/websites').concat(
+        visibleNavItems.filter((item) => item.to === '/websites' || (item === activeNavItem && !pinnedNavItems.includes(item))),
+    );
     const quickAccessItems = visibleNavItems.filter((item) => !railNavItems.includes(item));
 
     const closeNavigation = (): void => {
@@ -151,9 +151,8 @@ export function AppSidebar() {
     useEffect(() => {
         if (!quickAccessOpen) return undefined;
         const closeOnPointerDown = (event: PointerEvent): void => {
-            if (!(event.target instanceof Node)) return;
-            if (quickAccessRef.current?.contains(event.target)) return;
-            if (quickAccessTriggerRef.current?.contains(event.target)) return;
+            if (!(event.target instanceof Node) || quickAccessRef.current?.contains(event.target)
+                || quickAccessTriggerRef.current?.contains(event.target)) return;
             setQuickAccessOpen(false);
         };
         const closeOnEscape = (event: KeyboardEvent): void => {
@@ -191,11 +190,7 @@ export function AppSidebar() {
         const nextIndex = currentIndex + offset;
         if (currentIndex < 0 || nextIndex < 0 || nextIndex >= sidebarPreferences.pinnedRoutes.length) return;
         const pinnedRoutes = [...sidebarPreferences.pinnedRoutes];
-        const currentRoute = pinnedRoutes[currentIndex];
-        const nextRoute = pinnedRoutes[nextIndex];
-        if (currentRoute === undefined || nextRoute === undefined) return;
-        pinnedRoutes[currentIndex] = nextRoute;
-        pinnedRoutes[nextIndex] = currentRoute;
+        pinnedRoutes.splice(nextIndex, 0, ...pinnedRoutes.splice(currentIndex, 1));
         savePinnedRoutes(pinnedRoutes);
     };
 
@@ -216,17 +211,8 @@ export function AppSidebar() {
         }
 
         const handleOpenSettings = (detail: OpenSettingsEventDetail): void => {
-            if (detail) {
-                if (typeof detail === 'string') {
-                    setSettingsTab(detail);
-                    setSettingsPluginId(null);
-                } else {
-                    setSettingsTab(detail.tab || 'general');
-                    setSettingsPluginId(detail.pluginId || null);
-                }
-            } else {
-                setSettingsPluginId(null);
-            }
+            if (detail) setSettingsTab(typeof detail === 'string' ? detail : detail.tab || 'general');
+            setSettingsPluginId(typeof detail === 'object' && detail ? detail.pluginId || null : null);
             setSettingsOpen(true);
         };
         return subscribeAppEvent('open-settings', handleOpenSettings);
@@ -309,7 +295,7 @@ export function AppSidebar() {
                         </Link>
                     </div>
 
-                    {gnosiMode !== 'personal' && <WorkspaceSwitcher />}
+                    {!isPersonal && <WorkspaceSwitcher />}
                 </div>
 
                 <SidebarRail
@@ -323,7 +309,7 @@ export function AppSidebar() {
                     showQuickAccess={quickAccessItems.length > 0}
                 />
                 <SidebarFooter
-                    isPersonal={gnosiMode === 'personal'}
+                    isPersonal={isPersonal}
                     onLogout={handleLogout}
                     onOpenSettings={openSettings}
                     onPreloadSettings={preloadGlobalSettings}

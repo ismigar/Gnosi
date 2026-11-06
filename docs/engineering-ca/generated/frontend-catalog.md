@@ -51,8 +51,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
-| `app` | 22 | 2676 | 0 |
-| `features` | 1290 | 137435 | 57 |
+| `app` | 22 | 2662 | 0 |
+| `features` | 1291 | 137462 | 57 |
 | `generated` | 3 | 57253 | 591 |
 | `shared` | 348 | 37153 | 506 |
 
@@ -69,7 +69,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/app/initialization/interfaceLanguage.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/initialization/interfaceLanguage.ts) | 114 | `DEFAULT_INTERFACE_LANGUAGE`, `INTERFACE_LANGUAGE_STORAGE_KEY`, `SUPPORTED_INTERFACE_LANGUAGES`, `getStoredInterfaceLanguage`, `initializeInterfaceLanguage`, `normalizeInterfaceLanguage`, `resolveInitialInterfaceLanguage`, `setInterfaceLanguage` | — |
 | [`frontend/src/app/integration/useFileLinkInterceptor.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/integration/useFileLinkInterceptor.ts) | 121 | `useFileLinkInterceptor` | — |
 | [`frontend/src/app/main.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/main.tsx) | 4 | — | — |
-| [`frontend/src/app/navigation/AppSidebar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/AppSidebar.tsx) | 363 | `AppSidebar` | — |
+| [`frontend/src/app/navigation/AppSidebar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/AppSidebar.tsx) | 349 | `AppSidebar` | — |
 | [`frontend/src/app/navigation/CommandPalette.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/CommandPalette.tsx) | 318 | `CommandPalette`, `function` | — |
 | [`frontend/src/app/navigation/appSidebarNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/appSidebarNavigation.ts) | 36 | `normalizeSidebarPreferences`, `orderSidebarItems` | — |
 | [`frontend/src/app/navigation/sidebar/AppSidebarNavigation.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/sidebar/AppSidebarNavigation.tsx) | 190 | `QuickAccessMenu`, `SidebarFooter`, `SidebarRail` | — |
@@ -1353,11 +1353,12 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/websites/ImportedHtmlEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/ImportedHtmlEditor.tsx) | 86 | `ImportedHtmlEditor` | — |
 | [`frontend/src/features/websites/ImportedPages.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/ImportedPages.tsx) | 23 | `ImportedPages` | — |
 | [`frontend/src/features/websites/LinksEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/LinksEditor.tsx) | 40 | `LinksEditor` | — |
-| [`frontend/src/features/websites/NavigationEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/NavigationEditor.tsx) | 16 | `NavigationEditor` | — |
+| [`frontend/src/features/websites/NavigationEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/NavigationEditor.tsx) | 17 | `NavigationEditor` | — |
 | [`frontend/src/features/websites/NewsletterComposer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/NewsletterComposer.tsx) | 125 | `NewsletterComposer` | — |
 | [`frontend/src/features/websites/PagesEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PagesEditor.tsx) | 67 | `PagesEditor` | — |
 | [`frontend/src/features/websites/PrivatePanels.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PrivatePanels.tsx) | 142 | `CampaignsPanel`, `MessagesPanel`, `PrivateSettingsEditor`, `SubscribersPanel` | — |
 | [`frontend/src/features/websites/PublishingPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PublishingPanel.tsx) | 25 | `PublishingPanel` | — |
+| [`frontend/src/features/websites/SocialLinksEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/SocialLinksEditor.tsx) | 26 | `SocialLinksEditor` | — |
 | [`frontend/src/features/websites/SourcesEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/SourcesEditor.tsx) | 38 | `SourcesEditor` | — |
 | [`frontend/src/features/websites/ThemeAssetPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/ThemeAssetPicker.tsx) | 81 | `ThemeAssetPicker` | — |
 | [`frontend/src/features/websites/TypographyPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/TypographyPicker.tsx) | 29 | `TypographyPicker` | — |
