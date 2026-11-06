@@ -140,6 +140,35 @@ def test_planner_can_use_fewer_groups_and_retains_all_sources_and_child_subjects
     assert ctx.sent[0].options['editorial_policy']['max_topic_groups'] == 3
 
 
+
+@pytest.mark.parametrize(('source_count', 'group_limit'), [(84, 12), (227, 32)])
+def test_large_day_planning_schema_fits_native_enum_limit_and_preserves_validation(source_count, group_limit):
+    from backend.domains.agent.structured_output import constrain_output
+
+    source = [{'part_ids': [f'card:{i}'], 'topic': f'Subject {i}'} for i in range(source_count)]
+    request = _plan_request(Planner({'max_topic_groups': group_limit}, {}), source)
+    bound = constrain_output(SimpleNamespace(bind=lambda **kwargs: kwargs), 'openai', request.output_schema)
+    response_format = bound['response_format']
+    assert response_format['type'] == 'json_schema' and response_format['json_schema']['strict'] is True
+    schema = response_format['json_schema']['schema']
+
+    def enum_count(value):
+        if isinstance(value, dict):
+            return len(value.get('enum', [])) + sum(enum_count(child) for child in value.values())
+        return sum(enum_count(child) for child in value) if isinstance(value, list) else 0
+
+    assert enum_count(schema) <= 1000
+    valid = {'topics': [f'Topic {i}' for i in range(group_limit)],
+             'assignments': {f'card:{i}': i % group_limit for i in range(source_count)}}
+    validator = jsonschema.Draft202012Validator(schema)
+    validator.validate(valid)
+    for key, value in [('card:0', -1), ('card:0', group_limit), ('card:0', True), ('foreign', 0)]:
+        invalid = {**valid, 'assignments': {**valid['assignments'], key: value}}
+        assert not validator.is_valid(invalid)
+    missing = {**valid, 'assignments': {key: value for key, value in valid['assignments'].items() if key != 'card:0'}}
+    assert not validator.is_valid(missing)
+
+
 def test_undeclared_topic_indices_fail_validation_instead_of_losing_cards():
     ctx = Planner({'max_topic_groups': 3}, {'topics': ['Only declared group'],
                   'assignments': {f'card:{i}': 2 for i in range(20)}})
