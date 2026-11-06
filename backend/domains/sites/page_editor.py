@@ -20,7 +20,11 @@ def static_blocks(body: str) -> list[SiteBlock]:
     result = []
     for layout in layouts:
         regions = layout.find_all(class_="layout__region", recursive=False)
-        if len(regions) == 2:
+        # Split blocks only represent plain equal-width rows. Keep other row
+        # semantics (ratios, anchors, classes and attributes) in lossless HTML.
+        plain_row = (set(layout.attrs) <= {"class"}
+                     and set(layout.get("class", [])) <= {"layout", "layout--twocol-section", "layout--twocol-section--50-50"})
+        if len(regions) == 2 and plain_row:
             pictures = [region.find_all("img") for region in regions]
             image_side = next((index for index in (0, 1) if len(pictures[index]) == 1 and not pictures[1 - index]), None)
             if image_side is not None:

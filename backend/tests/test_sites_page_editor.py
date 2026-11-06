@@ -116,3 +116,18 @@ def test_rendered_html_blocks_keep_layout_and_strip_executable_content(imported_
     assert result.select_one('strong').text == 'bold'
     assert 'BAD_EXECUTION' not in str(result) and 'BAD_HANDLER' not in str(result)
     assert 'javascript:' not in str(result)
+
+
+@pytest.mark.parametrize("attributes", [
+    'class="layout layout--twocol-section layout--twocol-section--33-67"',
+    'class="layout layout--twocol-section layout--twocol-section--67-33"',
+    'class="layout layout--twocol-section" id="destination"',
+    'class="layout layout--twocol-section custom-composition"',
+])
+def test_unrepresented_row_semantics_remain_lossless(attributes):
+    body = f'<div class="content-extra"><div {attributes}><div class="layout__region"><p>Text</p></div><div class="layout__region"><img src="/portrait.png" alt="Portrait"></div></div></div>'
+    block = static_blocks(body)[0]
+    assert block.type == 'text' and block.body_format == 'html'
+    original = BeautifulSoup(body, 'html.parser').select_one('.layout')
+    preserved = BeautifulSoup(block.body, 'html.parser').select_one('.layout')
+    assert preserved == original
