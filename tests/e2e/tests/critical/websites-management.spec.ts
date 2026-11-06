@@ -163,7 +163,12 @@ test('website file references upload through a modal, preview and persist', asyn
   await create.getByRole('textbox').fill('Disposable file website');
   await create.getByRole('button', { name: 'Create', exact: true }).click();
   await expect(create).toBeHidden();
+  const catalogue = page.waitForResponse(response => response.url().endsWith('/api/vault/sites/catalogue/snapshot'));
+  const catalogueStart = Date.now();
   await page.getByRole('tab', { name: 'Navigation & languages', exact: true }).click();
+  expect((await catalogue).ok()).toBe(true);
+  const catalogueMs = Date.now() - catalogueStart; expect(catalogueMs).toBeLessThan(15_000);
+  await testInfo.attach('catalogue-latency', { body: JSON.stringify({ milliseconds: catalogueMs }), contentType: 'application/json' });
   const languages = page.locator('div[role="combobox"][aria-label="Languages"]'); await languages.press('Enter');
   await page.getByRole('option', { name: /Deutsch/u }).waitFor();
   await settleVisualState(page);
@@ -188,13 +193,9 @@ test('website file references upload through a modal, preview and persist', asyn
   await logoDialog.locator('input[type=file]').setInputFiles({ name: 'logo.png', mimeType: 'image/png', buffer: png });
   await expect(logoDialog).toBeHidden();
   await expect(page.getByRole('img', { name: 'Logo', exact: true })).toBeVisible();
-  const catalogue = page.waitForResponse(response => response.url().endsWith('/api/vault/sites/catalogue/snapshot'));
-  const catalogueStart = Date.now();
   await page.getByRole('tab', { name: 'Pages', exact: true }).click();
-  expect((await catalogue).ok()).toBe(true);
-  const catalogueMs = Date.now() - catalogueStart; expect(catalogueMs).toBeLessThan(15_000);
-  await testInfo.attach('catalogue-latency', { body: JSON.stringify({ milliseconds: catalogueMs }), contentType: 'application/json' });
   await page.getByRole('button', { name: 'Add page', exact: true }).click();
+  const uploadedPageId = await page.getByRole('combobox', { name: 'Page to edit', exact: true }).inputValue();
   await page.getByRole('button', { name: 'Add block', exact: true }).last().click();
   await page.getByRole('combobox', { name: 'Block type', exact: true }).last().selectOption('cta');
   await page.getByRole('button', { name: 'Upload Link', exact: true }).click();
@@ -208,6 +209,7 @@ test('website file references upload through a modal, preview and persist', asyn
   await settleVisualState(page);
   await page.screenshot({ path: testInfo.outputPath('website-file-modal-preview.png'), fullPage: true });
   await page.reload(); await page.getByRole('tab', { name: 'Pages', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Page to edit', exact: true }).selectOption(uploadedPageId);
   await page.getByLabel('Link', { exact: true }).scrollIntoViewIfNeeded();
   await expect(page.locator('.websites-asset-link')).toBeVisible();
   await expect(page.getByLabel('Link', { exact: true })).toHaveValue(/\.pdf$/u);
