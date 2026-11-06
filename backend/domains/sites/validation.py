@@ -73,17 +73,18 @@ def validate_site(site: SiteConfig) -> None:
         raise HTTPException(422, "Public page paths must be unique")
     for page in site.pages:
         validate_css(page.css)
-        for block in page.blocks:
-            validate_css(block.css)
-            safe_link(block.href)
-            _validate_links(block.actions, site.languages, "Action language is not enabled")
-            safe_link(block.image, image=True)
-            for image in block.images:
-                safe_link(image, image=True)
-            if block.form_id and block.form_id not in {form.id for form in site.forms}:
-                raise HTTPException(422, "Unknown form block")
-            if block.source_id and block.source_id not in {source.id for source in site.sources}:
-                raise HTTPException(422, "Unknown collection block")
+    for _, block in site.editorial_blocks():
+        validate_css(block.css)
+        safe_link(block.href)
+        _validate_links(block.actions, site.languages, "Action language is not enabled")
+        _validate_links(block.links, site.languages, "Link language is not enabled")
+        safe_link(block.image, image=True)
+        for image in block.images:
+            safe_link(image, image=True)
+        if block.form_id and block.form_id not in {form.id for form in site.forms}:
+            raise HTTPException(422, "Unknown form block")
+        if block.source_id and block.source_id not in {source.id for source in site.sources}:
+            raise HTTPException(422, "Unknown collection block")
     for form in site.forms:
         safe_link(form.privacy_url)
     _validate_links(site.header_actions + site.navigation + site.footer + site.social_links,

@@ -212,7 +212,7 @@ test('each form folds independently and keeps edited values when reopened', () =
   const details = required(view.container.querySelector<HTMLDetailsElement>('details.websites-form'));
   act(() => { details.open = false; details.dispatchEvent(new Event('toggle')); });
   expect(details.open).toBe(false);
-  expect(details.querySelector('input')).toBeNull();
+  expect(control(details, 'websites.titleLabel').value).toBe('Retained title');
   act(() => { details.open = true; details.dispatchEvent(new Event('toggle')); });
   expect(control(details, 'websites.titleLabel').value).toBe('Retained title');
   expect(view.container.querySelectorAll('details.websites-form[open]')).toHaveLength(1);
@@ -264,4 +264,35 @@ test('footer columns and visual blocks persist independently with the copyright 
   click(last, 'websites.moveUp');
   expect(view.site.footer_columns?.[2]?.title).toBe('Information');
   expect(view.site.footer?.[0]?.href).toBe('/ca/privacy');
+});
+
+
+test('rows and columns survive folding, parent save responses, reorder and undo', () => {
+  const view = mountEditor({ ...base, pages: [{ id: 'page', title: 'Page', path: '/ca/page', language: 'ca', template: 'page', enabled: false, description: '', css: '', blocks: [] }] }, (site, onChange) => <PagesEditor site={site} catalogue={[]} onChange={onChange} />);
+  click(view.container, 'websites.rows.addRow');
+  click(view.container, 'websites.addColumn');
+  let children = view.site.pages?.[0]?.blocks?.[0]?.children ?? [];
+  expect(children).toHaveLength(2);
+  const body = required(view.container.querySelector<HTMLTextAreaElement>('textarea[aria-label="websites.body"]'));
+  act(() => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(body, '**Formatted** text'); body.dispatchEvent(new Event('input', { bubbles: true })); });
+  const column = required([...view.container.querySelectorAll<HTMLDetailsElement>('details')].find(node => node.querySelector(':scope > summary')?.textContent === 'websites.rows.column 1'));
+  act(() => { column.open = false; column.dispatchEvent(new Event('toggle')); });
+  expect(body.isConnected).toBe(true);
+  edit(column, 'websites.visual.width', '20');
+  edit(column, 'websites.visual.alignment', 'right');
+  edit(column, 'websites.visual.spacing', 'generous');
+  const previewColumn = required(view.container.querySelector<HTMLElement>('.websites-row-columns > div'));
+  expect(previewColumn.style.width).toBe('20%');
+  expect(previewColumn.style.marginInline).toBe('auto 0');
+  expect(previewColumn.style.paddingBlock).toBe('32px');
+  view.savedResponse();
+  expect(view.site.pages?.[0]?.blocks?.[0]?.children?.[0]?.body).toBe('**Formatted** text');
+  expect(column.open).toBe(false);
+  act(() => { column.open = true; column.dispatchEvent(new Event('toggle')); });
+  click(column, 'websites.moveDown');
+  children = view.site.pages?.[0]?.blocks?.[0]?.children ?? [];
+  expect(children[1]?.body).toBe('**Formatted** text');
+  click(view.container, 'websites.visual.undo');
+  expect(view.site.pages?.[0]?.blocks?.[0]?.children?.[0]?.body).toBe('**Formatted** text');
+  view.unmount();
 });

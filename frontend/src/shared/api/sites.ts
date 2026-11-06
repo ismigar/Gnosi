@@ -6,11 +6,11 @@ import type { RequestContext } from './request-context';
 type Identified<T> = Omit<T, 'id'> & { id: string };
 export type SiteSource = Omit<Identified<components['schemas']['SiteSource']>, 'page_size' | 'show_tag_filter'> & { page_size?: number; show_tag_filter?: boolean };
 type BlockLayout = 'body_format' | 'width' | 'alignment' | 'image_width' | 'image_frame' | 'spacing';
-export type SiteBlock = Omit<Identified<components['schemas']['SiteBlock']>, 'actions' | 'links' | BlockLayout> & Partial<Pick<components['schemas']['SiteBlock'], BlockLayout>> & { actions?: NavigationLink[] | null; links?: NavigationLink[] };
+export type SiteBlock = Omit<Identified<components['schemas']['SiteBlock']>, 'actions' | 'links' | 'children' | BlockLayout> & Partial<Pick<components['schemas']['SiteBlock'], BlockLayout>> & { actions?: NavigationLink[] | null; links?: NavigationLink[]; children?: SiteBlock[] };
 export type SitePage = Omit<Identified<components['schemas']['SitePage']>, 'blocks'> & { blocks?: SiteBlock[] };
 
 export async function editableSitePages(siteId: string, context: RequestContext, signal?: AbortSignal): Promise<SitePage[]> {
-  return unwrapApiResult(await apiClient.GET('/api/vault/sites/{site_id}/editable-pages', { params: { path: { site_id: siteId } }, ...scope(context, signal) })).map(page => ({ ...identity(page), blocks: (page.blocks ?? []).map(identity) }));
+  return unwrapApiResult(await apiClient.GET('/api/vault/sites/{site_id}/editable-pages', { params: { path: { site_id: siteId } }, ...scope(context, signal) })).map(page => ({ ...identity(page), blocks: (page.blocks ?? []).map(identifiedBlock) }));
 }
 export type FormField = Identified<components['schemas']['FormField']>;
 export type SiteForm = Omit<Identified<components['schemas']['SiteForm']>, 'fields'> & { fields?: FormField[] };
@@ -60,7 +60,7 @@ function identity<T extends { id?: string }>(value: T): T & { id: string } {
   return { ...value, id: value.id };
 }
 function configuration(value: components['schemas']['SiteConfig']): SiteConfig {
-  return { ...identity(value), footer_columns: value.footer_columns == null ? value.footer_columns : value.footer_columns.map(column => ({ ...identity(column), blocks: (column.blocks ?? []).map(identity) })), footer_blocks: value.footer_blocks == null ? value.footer_blocks : value.footer_blocks.map(identity), sources: (value.sources ?? []).map(identity), targets: (value.targets ?? []).map(identity), pages: (value.pages ?? []).map(page => ({ ...identity(page), blocks: (page.blocks ?? []).map(identity) })), forms: (value.forms ?? []).map(form => ({ ...identity(form), fields: (form.fields ?? []).map(identity) })) };
+  return { ...identity(value), footer_columns: value.footer_columns == null ? value.footer_columns : value.footer_columns.map(column => ({ ...identity(column), blocks: (column.blocks ?? []).map(identifiedBlock) })), footer_blocks: value.footer_blocks == null ? value.footer_blocks : value.footer_blocks.map(identifiedBlock), sources: (value.sources ?? []).map(identity), targets: (value.targets ?? []).map(identity), pages: (value.pages ?? []).map(page => ({ ...identity(page), blocks: (page.blocks ?? []).map(identifiedBlock) })), forms: (value.forms ?? []).map(form => ({ ...identity(form), fields: (form.fields ?? []).map(identity) })) };
 }
 
 function scope(context: RequestContext, signal?: AbortSignal) {
@@ -91,8 +91,10 @@ function requestLinks(links: NavigationLink[] | undefined): components['schemas'
   return links?.map(link => ({ ...link, appearance: link.appearance ?? 'link' }));
 }
 
+function identifiedBlock(block: components['schemas']['SiteBlock']): SiteBlock { return { ...identity(block), children: (block.children ?? []).map(identifiedBlock) }; }
+
 function requestBlock(block: SiteBlock): components['schemas']['SiteBlock'] {
-  return { ...block, body_format: block.body_format ?? 'markdown', width: block.width ?? 100, alignment: block.alignment ?? 'left', image_width: block.image_width ?? 100, image_frame: block.image_frame ?? 'none', spacing: block.spacing ?? 'compact', actions: block.actions === null ? null : requestLinks(block.actions), links: requestLinks(block.links) };
+  return { ...block, children: block.children?.map(requestBlock), body_format: block.body_format ?? 'markdown', width: block.width ?? 100, alignment: block.alignment ?? 'left', image_width: block.image_width ?? 100, image_frame: block.image_frame ?? 'none', spacing: block.spacing ?? 'compact', actions: block.actions === null ? null : requestLinks(block.actions), links: requestLinks(block.links) };
 }
 
 function requestConfiguration(site: SiteConfig): components['schemas']['SiteConfig'] {

@@ -73,8 +73,11 @@ class NavigationLink(Contract):
 
 
 class SiteBlock(Contract):
+    # Recursive rows share the same wire shape for reads and writes.
+    model_config = ConfigDict(extra="forbid", json_schema_mode_override="validation")
     id: str = Field(default_factory=identifier)
-    type: Literal["text", "image", "split", "gallery", "selected", "collection", "collaborators", "form", "cta", "links", "social", "newsletter"] = "text"
+    type: Literal["text", "image", "split", "gallery", "selected", "collection", "collaborators", "form", "cta", "links", "social", "newsletter", "row"] = "text"
+    children: list[SiteBlock] = Field(default_factory=list, max_length=4)
     title: str = ""
     body: str = ""
     body_format: Literal["markdown", "html"] = "markdown"
@@ -96,6 +99,22 @@ class SiteBlock(Contract):
     actions: list[NavigationLink] | None = None
     links: list[NavigationLink] = Field(default_factory=list)
     css: str = Field(default="", max_length=10000)
+
+    @model_validator(mode="after")
+    def row_columns(self) -> SiteBlock:
+        if self.type == "row" and not self.children:
+            raise ValueError("Rows need at least one column")
+        if self.children and self.type != "row":
+            raise ValueError("Only rows contain columns")
+        if any(child.type == "row" for child in self.children):
+            raise ValueError("Rows cannot be nested")
+        if len({child.id for child in self.children}) != len(self.children):
+            raise ValueError("Column identities must be unique")
+        return self
+
+    def walk(self) -> Iterator[SiteBlock]:
+        yield self
+        yield from self.children
 
 
 class SitePage(Contract):
@@ -246,12 +265,15 @@ class SiteConfig(Contract):
         for page in self.pages:
             if not enabled_only or page.enabled:
                 for block in page.blocks:
-                    yield page.language, block
+                    for item in block.walk():
+                        yield page.language, item
         for column in self.footer_columns or []:
             for block in column.blocks:
-                yield column.language, block
+                for item in block.walk():
+                    yield column.language, item
         for block in self.footer_blocks or []:
-            yield None, block
+            for item in block.walk():
+                yield None, item
 
     @model_validator(mode="after")
     def identity_and_languages(self) -> SiteConfig:

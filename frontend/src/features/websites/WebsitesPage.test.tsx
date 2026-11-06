@@ -99,7 +99,7 @@ describe('Webs manager', () => {
       { id: 'native-private-note', kind: 'page', title: 'Private vault note' },
     ]);
     const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'sources'); await settle();
-    const details = view.container.querySelector('details');
+    const details = view.container.querySelector('.websites-record-selection');
     expect(details?.textContent).toContain('Public translated article');
     expect(details?.textContent).not.toContain('Private vault note');
     expect([...control(view.container, 'websites.source').querySelectorAll('option')].some(option => option.value.startsWith('record:'))).toBe(false);
@@ -497,4 +497,23 @@ describe('Webs manager', () => {
     expect(view.container.textContent).not.toContain('websites.loading');
     expect(view.container.querySelector<HTMLButtonElement>('button[aria-label="common.refresh"]')?.disabled).toBe(false);
   });
+});
+
+it('autosaves nested row text after folding and leaving the page tab', async () => {
+  const view = mountTestComponent(<WebsitesPage />); await settle();
+  tab(view.container, 'pages');
+  act(() => { button(view.container, 'websites.addPage').click(); });
+  act(() => { button(view.container, 'websites.rows.addRow').click(); });
+  act(() => { button(view.container, 'websites.addColumn').click(); });
+  const body = view.container.querySelector<HTMLTextAreaElement>('textarea[aria-label="websites.body"]');
+  if (!body) throw new Error('Missing column rich text');
+  act(() => { changeInput(body, '**Autosaved column**'); });
+  const page = view.container.querySelector<HTMLDetailsElement>('.websites-card details');
+  if (page) act(() => { page.open = false; page.dispatchEvent(new Event('toggle')); });
+  tab(view.container, 'navigation');
+  await autosave();
+  const saved = vi.mocked(api.saveSite).mock.lastCall?.[0];
+  expect(saved?.pages?.[0]?.blocks?.[0]).toMatchObject({ type: 'row', children: [{ body: '**Autosaved column**' }, { body: '' }] });
+  tab(view.container, 'pages');
+  expect(view.container.querySelector<HTMLTextAreaElement>('textarea[aria-label="websites.body"]')?.value).toBe('**Autosaved column**');
 });

@@ -25654,6 +25654,8 @@ export interface components {
              * @enum {string}
              */
             body_format: "markdown" | "html";
+            /** Children */
+            children?: components["schemas"]["SiteBlock"][];
             /**
              * Columns
              * @default 3
@@ -25724,7 +25726,7 @@ export interface components {
              * @default text
              * @enum {string}
              */
-            type: "text" | "image" | "split" | "gallery" | "selected" | "collection" | "collaborators" | "form" | "cta" | "links" | "social" | "newsletter";
+            type: "text" | "image" | "split" | "gallery" | "selected" | "collection" | "collaborators" | "form" | "cta" | "links" | "social" | "newsletter" | "row";
             /**
              * Width
              * @default 100

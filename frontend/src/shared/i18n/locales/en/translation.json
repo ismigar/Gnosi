@@ -9160,7 +9160,8 @@
       "cta": "Call to action",
       "links": "Links",
       "social": "Social networks",
-      "newsletter": "Newsletter"
+      "newsletter": "Newsletter",
+      "row": "Row"
     },
     "fieldTypes": {
       "text": "Short text",
@@ -9437,6 +9438,12 @@
     "footerBottomLinks": "Links beside copyright",
     "footerWideBlocks": "Full-width footer blocks",
     "addColumn": "Add column",
-    "newsletter": "Newsletter"
+    "newsletter": "Newsletter",
+    "rows": {
+      "addRow": "Add row",
+      "column": "Column",
+      "insertImage": "Insert image",
+      "imageDescription": "Description of the image to insert"
+    }
   }
 }

@@ -9215,7 +9215,8 @@
       "cta": "Llamada a la acción",
       "links": "Enlaces",
       "social": "Redes sociales",
-      "newsletter": "Boletín"
+      "newsletter": "Boletín",
+      "row": "Fila"
     },
     "fieldTypes": {
       "text": "Texto corto",
@@ -9492,6 +9493,12 @@
     "footerBottomLinks": "Enlaces junto al copyright",
     "footerWideBlocks": "Bloques del pie a todo el ancho",
     "addColumn": "Añade una columna",
-    "newsletter": "Boletín"
+    "newsletter": "Boletín",
+    "rows": {
+      "addRow": "Añade una fila",
+      "column": "Columna",
+      "insertImage": "Inserta la imagen",
+      "imageDescription": "Descripción de la imagen que insertar"
+    }
   }
 }

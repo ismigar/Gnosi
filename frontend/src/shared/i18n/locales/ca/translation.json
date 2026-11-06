@@ -9215,7 +9215,8 @@
       "cta": "Crida a l’acció",
       "links": "Enllaços",
       "social": "Xarxes socials",
-      "newsletter": "Butlletí"
+      "newsletter": "Butlletí",
+      "row": "Fila"
     },
     "fieldTypes": {
       "text": "Text curt",
@@ -9492,6 +9493,12 @@
     "footerBottomLinks": "Enllaços al costat del copyright",
     "footerWideBlocks": "Blocs del peu a tot l’ample",
     "addColumn": "Afegeix una columna",
-    "newsletter": "Butlletí"
+    "newsletter": "Butlletí",
+    "rows": {
+      "addRow": "Afegeix una fila",
+      "column": "Columna",
+      "insertImage": "Insereix la imatge",
+      "imageDescription": "Descripció de la imatge a inserir"
+    }
   }
 }

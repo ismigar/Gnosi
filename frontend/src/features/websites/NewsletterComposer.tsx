@@ -6,7 +6,7 @@ import { useDraftAutosave } from '../../shared/hooks/useDraftAutosave';
 import { RefreshButton } from '../../shared/ui/actions/RefreshButton';
 import { WebsitePreview } from './AppearanceEditor';
 import { useAutosaveRegistration, type RegisterAutosave } from './autosaveRequest';
-import { Card, Empty, Field, Input, ReorderActions, Select, Textarea } from './components';
+import { Card, Empty, Field, Input, ReorderActions, Select, Textarea, Disclosure } from './components';
 import { count, decodeCampaignPreview, record, type CampaignPreview } from './serviceModels';
 import { AutosaveStatus } from './WebsiteAutosave';
 
@@ -107,13 +107,13 @@ export function NewsletterComposer({ site, actions, onQueued, register, autosave
     </div>
     {draft.mode === 'contents' ? <>
       <Field label={t('websites.newsletterIntroduction')}><Textarea rows={4} maxLength={10000} value={draft.introduction} onChange={event => { update({ introduction: event.target.value }); }} /></Field>
-      <h3>{t('websites.newsletterSelected')}</h3>
+      <Disclosure title={t('websites.newsletterSelected')}>
       <p className="websites-muted">{t('websites.newsletterPublishedHelp')}</p>
       {invalid && <p role="alert" className="websites-error">{t('websites.newsletterSelectionUnavailable')}</p>}
-      <div className="websites-list">{selected.map(({ path, item }, index) => <div className="websites-row" key={path}><div className="websites-row-title"><strong>{item?.title ?? path}</strong><ReorderActions index={index} length={paths.length} remove={() => { update({ paths: paths.filter(value => value !== path) }); }} move={direction => { const reordered = [...paths]; const other = reordered[index + direction]; if (other === undefined) return; reordered[index] = other; reordered[index + direction] = path; update({ paths: reordered }); }} /></div><p className="websites-muted">{path}</p></div>)}</div>
-      {!paths.length && <Empty>{t('websites.newsletterEmptySelection')}</Empty>}
+      <div className="websites-list">{selected.map(({ path, item }, index) => <Disclosure className="websites-row" key={path} title={(item?.title ?? path)}><div className="websites-row-title"><ReorderActions index={index} length={paths.length} remove={() => { update({ paths: paths.filter(value => value !== path) }); }} move={direction => { const reordered = [...paths]; const other = reordered[index + direction]; if (other === undefined) return; reordered[index] = other; reordered[index + direction] = path; update({ paths: reordered }); }} /></div><p className="websites-muted">{path}</p></Disclosure>)}</div>
+      {!paths.length && <Empty>{t('websites.newsletterEmptySelection')}</Empty>}</Disclosure>
       <Field label={t('websites.newsletterSearch')}><Input type="search" value={query} onChange={event => { setQuery(event.target.value); }} /></Field>
-      <div className="websites-list">{available.filter(item => !paths.includes(item.path) && `${item.title} ${item.summary}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())).map(item => <div className="websites-row" key={item.path}><div className="websites-row-title"><strong>{item.title}</strong><button type="button" className="websites-button" disabled={paths.length >= 20} aria-label={t('websites.newsletterAddTitle', { title: item.title })} onClick={() => { update({ paths: [...paths, item.path] }); }}>{t('common.add')}</button></div><p className="websites-muted">{item.summary}</p></div>)}</div>
+      <div className="websites-list">{available.filter(item => !paths.includes(item.path) && `${item.title} ${item.summary}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())).map(item => <Disclosure className="websites-row" key={item.path} title={(item.title)}><div className="websites-row-title"><button type="button" className="websites-button" disabled={paths.length >= 20} aria-label={t('websites.newsletterAddTitle', { title: item.title })} onClick={() => { update({ paths: [...paths, item.path] }); }}>{t('common.add')}</button></div><p className="websites-muted">{item.summary}</p></Disclosure>)}</div>
       {!available.length && <Empty>{t('websites.newsletterNoPublished')}</Empty>}
     </> : <div className="websites-grid websites-spacer"><Field label={t('websites.htmlBody')}><Textarea rows={10} maxLength={200000} value={draft.body_html} onChange={event => { update({ body_html: event.target.value }); }} /></Field><Field label={t('websites.textBody')}><Textarea rows={10} maxLength={200000} value={draft.body_text} onChange={event => { update({ body_text: event.target.value }); }} /></Field></div>}
     <Field label={t('websites.scheduledAt')}><Input type="datetime-local" value={draft.scheduled_at} onChange={event => { update({ scheduled_at: event.target.value }); }} /></Field>

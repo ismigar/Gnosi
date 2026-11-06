@@ -46,16 +46,14 @@ function HtmlPreview({ body, title, legacy }: { body: string; title: string; leg
   return <iframe title={title} sandbox="" tabIndex={-1} srcDoc={`<!doctype html><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob:; style-src 'unsafe-inline'"><style>body{font:16px/1.6 Georgia,serif;color:#264653;margin:0;overflow-wrap:anywhere}img{max-width:100%;height:auto}.split{display:grid;grid-template-columns:1fr 1fr;gap:1rem}${layoutCss}</style><div class="${legacy ? 'temenos-site' : ''}"><div class="static-page-body">${html}</div></div>`} />;
 }
 
-function CanvasBlock({ block, site, selected, onSelect, index, length, onMove, onRemove }: { block: SiteBlock; site: SiteConfig; selected: boolean; onSelect: () => void; index: number; length: number; onMove: (offset: -1 | 1) => void; onRemove: () => void }) {
-  const { t } = useTranslation(); const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition } = useSortable({ id: block.id });
+function CanvasContent({ block, site }: { block: SiteBlock; site: SiteConfig }) {
+  const { t } = useTranslation();
   const body = block.body_format === 'html' ? <HtmlPreview body={block.body} title={t('websites.visual.blockPreview')} legacy={site.legacy_pilot} /> : <ReactMarkdown components={{ img: ({ src, alt }) => <ImagePreview source={typeof src === 'string' ? src : ''} alt={alt || ''} />, a: ({ children }) => <span>{children}</span> }}>{block.body}</ReactMarkdown>;
   const image = <div style={{ padding: block.image_frame === 'inset' ? '4rem' : 0 }}><div style={{ width: `${String(block.image_width ?? 100)}%`, marginInline: block.alignment === 'center' ? 'auto' : block.alignment === 'right' ? 'auto 0' : '0 auto' }}><ImagePreview source={block.image} alt={block.alt} /></div></div>;
   const source = site.sources?.find(item => item.id === block.source_id);
-  const style: CSSProperties = { transform: CSS.Transform.toString(transform), transition: transition, width: `${String(block.width ?? 100)}%`, marginInline: block.alignment === 'center' ? 'auto' : block.alignment === 'right' ? 'auto 0' : '0 auto', padding: { compact: '8px', normal: '16px', generous: '32px' }[block.spacing ?? 'normal'] };
-  return <section ref={setNodeRef} style={style} className="websites-canvas-block" data-block-id={block.id} data-selected={selected || undefined}>
-    <div className="websites-canvas-block-tools"><button ref={setActivatorNodeRef} type="button" className="websites-button" {...attributes} {...listeners} aria-label={t('websites.visual.dragBlock')}><GripVertical size={16} /></button><button type="button" className="websites-button" aria-pressed={selected} onClick={onSelect}>{block.title || t(`websites.blockTypes.${block.type}`)}</button><ReorderActions index={index} length={length} move={onMove} remove={onRemove} /></div>
-    <div className="websites-canvas-content" onClick={onSelect}>
+  return (    <div className="websites-canvas-content">
       {block.title && <h3>{block.title}</h3>}
+      {block.type === 'row' && <div className="websites-row-columns" style={{ '--row-columns': Math.max(1, block.children?.length ?? 1) } as CSSProperties}>{(block.children ?? []).map(child => <div key={child.id} style={{ width: `${String(child.width ?? 100)}%`, marginInline: child.alignment === 'center' ? 'auto' : child.alignment === 'right' ? 'auto 0' : '0 auto', paddingBlock: { compact: '0', normal: '16px', generous: '32px' }[child.spacing ?? 'compact'] }}><CanvasContent site={site} block={child} /></div>)}</div>}
       {block.type === 'text' && body}
       {block.type === 'image' && image}
       {block.type === 'split' && <div className="websites-canvas-split" data-image={block.image_position}>{block.image_position === 'left' && image}<div>{body}</div>{block.image_position !== 'left' && image}</div>}
@@ -66,7 +64,15 @@ function CanvasBlock({ block, site, selected, onSelect, index, length, onMove, o
       {block.type === 'social' && <div className="websites-notice">{(site.social_links ?? []).map(link => link.label).join(' · ') || t('websites.social_links')}</div>}
       {block.type === 'newsletter' && <div className="websites-notice">{t('websites.newsletter')} · {t('websites.visual.previewHint')}</div>}
       {block.type === 'cta' && <span className="websites-button">{block.body || block.title || t('websites.blockTypes.cta')}</span>}
-    </div>
+    </div>);
+}
+
+function CanvasBlock({ block, site, selected, onSelect, index, length, onMove, onRemove }: { block: SiteBlock; site: SiteConfig; selected: boolean; onSelect: () => void; index: number; length: number; onMove: (offset: -1 | 1) => void; onRemove: () => void }) {
+  const { t } = useTranslation(); const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition } = useSortable({ id: block.id });
+  const style: CSSProperties = { transform: CSS.Transform.toString(transform), transition: transition, width: `${String(block.width ?? 100)}%`, marginInline: block.alignment === 'center' ? 'auto' : block.alignment === 'right' ? 'auto 0' : '0 auto', padding: { compact: '8px', normal: '16px', generous: '32px' }[block.spacing ?? 'normal'] };
+  return <section ref={setNodeRef} style={style} className="websites-canvas-block" data-block-id={block.id} data-selected={selected || undefined}>
+    <div className="websites-canvas-block-tools"><button ref={setActivatorNodeRef} type="button" className="websites-button" {...attributes} {...listeners} aria-label={t('websites.visual.dragBlock')}><GripVertical size={16} /></button><button type="button" className="websites-button" aria-pressed={selected} onClick={onSelect}>{block.title || t(`websites.blockTypes.${block.type}`)}</button><ReorderActions index={index} length={length} move={onMove} remove={onRemove} /></div>
+    <div onClick={onSelect}><CanvasContent block={block} site={site} /></div>
   </section>;
 }
 

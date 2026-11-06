@@ -35444,6 +35444,14 @@
             "title": "Body Format",
             "type": "string"
           },
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/SiteBlock"
+            },
+            "maxItems": 4,
+            "title": "Children",
+            "type": "array"
+          },
           "columns": {
             "default": 3,
             "maximum": 4.0,
@@ -35575,7 +35583,8 @@
               "cta",
               "links",
               "social",
-              "newsletter"
+              "newsletter",
+              "row"
             ],
             "title": "Type",
             "type": "string"

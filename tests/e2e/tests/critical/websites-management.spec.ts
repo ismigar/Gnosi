@@ -216,3 +216,48 @@ test('website file references upload through a modal, preview and persist', asyn
   await page.getByRole('button', { name: 'Delete website', exact: true }).click();
   await page.getByRole('dialog', { name: 'Delete website', exact: true }).getByRole('button', { name: 'Delete', exact: true }).click();
 });
+
+
+test('website rows autosave rich columns, images and folded edits across reload', async ({ page }, testInfo) => {
+  const state = acceptanceState();
+  await page.addInitScript(() => { localStorage.setItem('i18nextLng', 'en'); });
+  await page.goto(`/@${state.primary_vault.slug}/websites`);
+  await page.getByRole('button', { name: 'Create website', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create website', exact: true });
+  await dialog.getByRole('textbox').fill('Disposable rows');
+  await dialog.getByRole('button', { name: 'Create', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await page.getByRole('tab', { name: 'Pages', exact: true }).click();
+  await page.getByRole('button', { name: 'Add page', exact: true }).click();
+  await page.getByRole('button', { name: 'Add row', exact: true }).click();
+  await page.getByRole('button', { name: 'Add column', exact: true }).click();
+  const column = page.locator('details').filter({ has: page.locator(':scope > summary', { hasText: /^Column 1$/ }) });
+  const editor = column.locator('[contenteditable=true][aria-label="Text content"]');
+  await editor.fill('Autosaved rich column');
+  await editor.press('ControlOrMeta+a');
+  await editor.press('ControlOrMeta+b');
+  await expect(page.locator('.websites-canvas strong')).toHaveText('Autosaved rich column');
+  await column.getByRole('button', { name: 'Upload Insert image', exact: true }).click();
+  const upload = page.getByRole('dialog', { name: 'Upload Insert image', exact: true });
+  await upload.locator('input[type=file]').setInputFiles({ name: 'column.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAGAAAABACAIAAABqVuVZAAAAxElEQVR4nO3bIRFCQRhG0X0MFdB0YKhBAiSWOFhSEAFPBzQlSMBezHPn2P3Vnc/u8jwfB79tJm8I1CwoCBQECgIFgYJAQaAgUBAobMcfDrfHWMHrepofXD77sbL77j0/sKAgUBAoCBQECgIFgYJAQaAgUBAoCBQECgIFgYJAQaAgUBAoCBQECgIFgYJAQaAgUBAoCBQECgIFgYJAQaAgUBAoCBQECgIFgYJAYfGpd86CgkBBoCBQECgIFAQKAgWBgkBj7gtuMAklIKYMjgAAAABJRU5ErkJggg==', 'base64') });
+  await expect(upload).toBeHidden();
+  await column.getByLabel('Description of the image to insert', { exact: true }).fill('Column portrait');
+  await column.getByRole('button', { name: 'Insert image', exact: true }).click();
+  await expect(page.locator('.websites-canvas img[alt="Column portrait"]')).toBeVisible();
+  const summary = column.locator(':scope > summary');
+  await summary.click();
+  await expect(editor).toBeHidden();
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await summary.click();
+  await expect(editor).toContainText('Autosaved rich column');
+  await page.getByRole('button', { name: 'Mobile', exact: true }).click();
+  await settleVisualState(page);
+  await page.screenshot({ path: testInfo.outputPath('rows-mobile.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Desktop', exact: true }).click();
+  await page.screenshot({ path: testInfo.outputPath('rows-desktop.png'), fullPage: true });
+  await page.reload();
+  await page.getByRole('tab', { name: 'Pages', exact: true }).click();
+  await expect(page.locator('.websites-canvas strong')).toHaveText('Autosaved rich column');
+  await expect(page.locator('.websites-canvas img[alt="Column portrait"]')).toBeVisible();
+  await expect(page.locator('.websites-canvas .websites-row-columns > div')).toHaveCount(2);
+});
