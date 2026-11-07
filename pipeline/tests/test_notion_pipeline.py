@@ -36,6 +36,7 @@ def test_notion_pipeline_in_isolated_subprocess(monkeypatch: pytest.MonkeyPatch)
             (root / name).mkdir()
         environment = {
             "PATH": os.defpath,
+            "TMPDIR": str(root),
             "PYTHONDONTWRITEBYTECODE": "1",
             "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
             "GNOSI_VALIDATION_ROOT": str(root),
@@ -71,6 +72,7 @@ def isolated_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
     from backend.config.validation_runtime import validation_runtime_enabled
 
     assert validation_runtime_enabled()
+    assert Path(tempfile.gettempdir()).resolve() == Path(os.environ["GNOSI_VALIDATION_ROOT"])
 
     def forbidden(*args: object, **kwargs: object) -> None:
         raise AssertionError("A synthetic Notion check attempted real network access")
