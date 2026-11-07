@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   FILE_PROTOCOL_SENTINEL,
   sentinelToFileUrl,
-} from '../../shared/editor/markdown-mapper';
+} from '../../shared/editor/markdown-mapper/protocol';
 import { citationParamsFromHref, isCitationHref } from '../../shared/resources/citationDeepLink';
 import { openCitation, openFileResource } from '../../shared/resources/fileResource';
 import {
