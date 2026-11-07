@@ -257,13 +257,17 @@ def test_temporary_directory_is_job_scoped_and_never_follows_links(tmp_path: Pat
     assert temporary.is_dir()
 
 
-def test_backend_temporaries_persist_between_check_steps(tmp_path: Path) -> None:
+@pytest.mark.parametrize("job_name", ["backend", "docker"])
+def test_temporaries_persist_between_check_steps(tmp_path: Path, job_name: str) -> None:
     workflow = yaml.safe_load((REPOSITORY / ".github/workflows/ci.yml").read_text())
-    steps = workflow["jobs"]["backend"]["steps"]
+    steps = workflow["jobs"][job_name]["steps"]
+    label = "Docker" if job_name == "docker" else "backend"
     index = next(i for i, step in enumerate(steps)
-                 if step.get("name") == "Use disk-backed backend temporaries")
-    checks = [i for i, step in enumerate(steps) if "uv run" in step.get("run", "")]
+                 if step.get("name") == f"Use disk-backed {label} temporaries")
+    command = "docker" if job_name == "docker" else "uv run"
+    checks = [i for i, step in enumerate(steps) if command in step.get("run", "").lower()]
     assert checks and index < min(checks)
+    assert steps[index]["if"] == "steps.scope.outputs.runtime_required != 'false'"
     runner_temp = tmp_path / "runner temp"
     runner_temp.mkdir()
     github_env = tmp_path / "github-env"
