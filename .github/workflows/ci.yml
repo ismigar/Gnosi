@@ -324,6 +324,10 @@ jobs:
         with:
           name: gnosi-reader-${{ github.sha }}
           path: frontend/public/zotero-reader
+      - name: Install locked website renderer for browser CSS acceptance
+        if: steps.scope.outputs.runtime_required != 'false'
+        timeout-minutes: 10
+        run: npm ci --prefix extensions/web-publishing/renderer --no-audit --no-fund
       - name: Accept production browser workflows and restart persistence
         if: steps.scope.outputs.runtime_required != 'false'
         timeout-minutes: 15

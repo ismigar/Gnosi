@@ -1,5 +1,6 @@
 """Editable stylesheet layers retain defaults, safety and publication cache identity."""
 import json
+import os
 import subprocess
 from pathlib import Path
 from functools import partial
@@ -73,10 +74,11 @@ def test_published_stylesheet_uses_the_edited_layer_and_content_hash(website, tm
     assert document.select_one('.css-proof').get_text() == 'Styled content'
 
 
-@pytest.mark.skipif(not (extension_root() / 'renderer/node_modules/node/bin/node').is_file(), reason='Pinned renderer required')
+@pytest.mark.skipif(os.environ.get('GNOSI_STYLESHEET_BROWSER_PROBE') != '1', reason='Required in browser acceptance with its Playwright/Chromium dependencies')
 def test_edited_base_css_applies_in_chromium_to_actual_astro_output(website, tmp_path):
+    assert (extension_root() / 'renderer/node_modules/node/bin/node').is_file(), 'Browser acceptance requires pinned renderer dependencies'
     site = website.site
-    original = website_stylesheet(site.theme)
+    original = (extension_root() / 'renderer/src/lib/styles.css').read_text()
     site.theme.stylesheet_overrides = {'base': original + '\n.page-title { color: rgb(1, 2, 3); }'}
     output = tmp_path / 'public'
     render_bundle(build_bundle(website.store, site, 'local').model_dump(mode='json'), output)
