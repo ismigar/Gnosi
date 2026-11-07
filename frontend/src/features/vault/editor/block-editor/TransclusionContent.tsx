@@ -1,3 +1,4 @@
+import { SavedFeedback } from '../../../../shared/editor/SavedFeedback';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/mantine';
@@ -108,7 +109,7 @@ export function TransclusionContent({ page, section, context, requestContext }: 
         </div>
         <div className="text-xs text-[var(--text-tertiary)] mt-2" role="status" aria-live="polite">
             {status === 'saving' && t('editor.saving')}
-            {status === 'saved' && t('editor.saved')}
+            {status === 'saved' && <SavedFeedback>{t('editor.saved')}</SavedFeedback>}
             {status === 'conflict' && t('editor.transclusion_conflict')}
             {status === 'error' && <button type="button" onClick={() => { state.current.blocked = false; void flush(); }}>{t('common.retry')}</button>}
         </div>

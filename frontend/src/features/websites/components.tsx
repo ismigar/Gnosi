@@ -28,15 +28,26 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) { return 
 export function Toggle({ label, value, onChange, disabled = false }: { label: string; value: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
   return <div className="websites-toggle"><span>{label}</span><GnosiToggle label={label} active={value} disabled={disabled} onChange={() => { onChange(!value); }} /></div>;
 }
-export function Card({ title, children, actions }: { title: string; children: ReactNode; actions?: ReactNode }) {
-  return <section className="websites-card"><div className="websites-section-title"><h2>{title}</h2>{actions}</div>{children}</section>;
+export function Card({ title, children, actions, collapsible = true }: { title: string; children: ReactNode; actions?: ReactNode; collapsible?: boolean }) {
+  if (!collapsible) return <section className="websites-card"><div className="websites-row-title"><h2>{title}</h2>{actions}</div>{children}</section>;
+  return <Disclosure title={title} className="websites-card" level={2} actions={actions}>{children}</Disclosure>;
 }
 export function Empty({ children }: { children: ReactNode }) { return <p className="websites-empty">{children}</p>; }
 export function FileImportButton({ label, accept, disabled = false, onFile }: { label: string; accept: string; disabled?: boolean; onFile: (file: File) => void }) {
   const input = useRef<HTMLInputElement>(null);
   return <><button type="button" className="websites-button" aria-label={label} disabled={disabled} onClick={() => { input.current?.click(); }}>{label}</button><input ref={input} type="file" accept={accept} disabled={disabled} hidden aria-label={label} onChange={event => { const file = event.target.files?.[0]; if (file) onFile(file); event.target.value = ''; }} /></>;
 }
-export function ReorderActions({ index, length, move, remove }: { index: number; length: number; move: (direction: -1 | 1) => void; remove: () => void }) {
+export function ReorderActions({ index, length, move, remove, removeDisabled = false }: { index: number; length: number; move: (direction: -1 | 1) => void; remove: () => void; removeDisabled?: boolean }) {
   const { t } = useTranslation();
-  return <div className="websites-actions"><button type="button" className="websites-button" aria-label={t('websites.moveUp')} disabled={index === 0} onClick={() => { move(-1); }}><ArrowUp size={15} /></button><button type="button" className="websites-button" aria-label={t('websites.moveDown')} disabled={index === length - 1} onClick={() => { move(1); }}><ArrowDown size={15} /></button><button type="button" className="websites-button" aria-label={t('websites.remove')} onClick={remove}><Trash2 size={15} /></button></div>;
+  return <div className="websites-actions"><button type="button" className="websites-button" aria-label={t('websites.moveUp')} disabled={index === 0} onClick={() => { move(-1); }}><ArrowUp size={15} /></button><button type="button" className="websites-button" aria-label={t('websites.moveDown')} disabled={index === length - 1} onClick={() => { move(1); }}><ArrowDown size={15} /></button><button type="button" className="websites-button" aria-label={t('websites.remove')} disabled={removeDisabled} onClick={remove}><Trash2 size={15} /></button></div>;
+}
+
+/** Keep children mounted when folded so drafts and uploads survive. */
+export function Disclosure({ title, children, actions, className = 'websites-row', level = 3 }: { title: string; children: ReactNode; actions?: ReactNode; className?: string; level?: 2 | 3 }) {
+  const [open, setOpen] = useState(false);
+  const Heading = level === 2 ? 'h2' : 'h3';
+  return <details className={`websites-disclosure ${className}`} open={open} onToggle={event => { setOpen(event.currentTarget.open); }}>
+    <summary><Heading>{title}</Heading></summary>
+    <div className="websites-disclosure-body">{actions && <div className="websites-actions">{actions}</div>}{children}</div>
+  </details>;
 }

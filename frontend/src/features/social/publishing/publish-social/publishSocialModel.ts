@@ -39,6 +39,7 @@ export type PublishSocialAction =
     | { readonly type: 'draft-changed'; readonly network: string; readonly value: string }
     | { readonly type: 'hint-changed'; readonly value: string }
     | { readonly type: 'networks-loaded'; readonly networks: readonly SocialNetwork[] }
+    | { readonly type: 'publication-received'; readonly results: SocialPublicationResult['results'] }
     | { readonly type: 'publish-finished' }
     | { readonly type: 'publish-started' }
     | { readonly type: 'regenerate-finished'; readonly network: string; readonly proposal?: SocialProposal; readonly variation: number }
@@ -133,6 +134,12 @@ export function publishSocialReducer(
     };
     if (action.type === 'schedule-open-changed') return { ...state, scheduleOpen: action.value };
     if (action.type === 'scheduled-at-changed') return { ...state, scheduledAt: action.value };
+    if (action.type === 'publication-received') return {
+        ...state,
+        selected: new Set([...state.selected].filter(
+            network => action.results[network]?.status !== 'success',
+        )),
+    };
     if (action.type === 'publish-started') return { ...state, publishing: true };
     if (action.type === 'publish-finished') return { ...state, publishing: false };
     return { ...state, step: action.value };

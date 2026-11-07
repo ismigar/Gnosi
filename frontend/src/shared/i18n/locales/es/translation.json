@@ -8975,7 +8975,7 @@
     "pageEnabled": "Publicar esta página",
     "pageCss": "Ajustes de estilo de la página",
     "customCss": "CSS personalizado",
-    "blocks": "Bloques de la página",
+    "blocks": "Bloques",
     "addBlock": "Añadir bloque",
     "blockType": "Tipo de bloque",
     "body": "Contenido de texto",
@@ -9044,7 +9044,7 @@
     "previewHelp": "Guarda y revisa una publicación para ver aquí el web generado.",
     "themeImported": "Tema importado. Guarda los cambios para conservarlo.",
     "invalidTheme": "El archivo seleccionado no es un tema compatible.",
-    "importTooLarge": "El archivo de importación es demasiado grande.",
+    "importTooLarge": "El archivo del tema es demasiado grande (máximo 2 MB).",
     "search": "Buscar",
     "status": "Estado",
     "allStatuses": "Todos los estados",
@@ -9156,7 +9156,7 @@
       "overview": "Resumen",
       "sources": "Contenidos",
       "pages": "Páginas",
-      "navigation": "Navegación e idiomas",
+      "navigation": "Menús",
       "appearance": "Apariencia",
       "forms": "Formularios",
       "messages": "Mensajes",
@@ -9164,7 +9164,9 @@
       "campaigns": "Boletines",
       "publishing": "Publicación",
       "settings": "Configuración privada",
-      "hosting": "Alojamientos"
+      "hosting": "Alojamientos",
+      "configuration": "Configuración",
+      "regions": "Bloques y regiones"
     },
     "tokens": {
       "primary": "Azul petróleo / principal",
@@ -9215,7 +9217,8 @@
       "cta": "Llamada a la acción",
       "links": "Enlaces",
       "social": "Redes sociales",
-      "newsletter": "Boletín"
+      "newsletter": "Boletín",
+      "row": "Fila"
     },
     "fieldTypes": {
       "text": "Texto corto",
@@ -9304,7 +9307,7 @@
       "autoresponse": "Confirmación automática"
     },
     "fontLibrary": "Biblioteca de fuentes locales",
-    "addFont": "Añadir fuente",
+    "addFont": "Añade la fuente",
     "fontFamily": "Familia tipográfica",
     "fontFile": "Archivo de tipografía",
     "fontWeight": "Peso o intervalo de pesos",
@@ -9492,6 +9495,44 @@
     "footerBottomLinks": "Enlaces junto al copyright",
     "footerWideBlocks": "Bloques del pie a todo el ancho",
     "addColumn": "Añade una columna",
-    "newsletter": "Boletín"
+    "newsletter": "Boletín",
+    "rows": {
+      "addRow": "Añade una fila",
+      "column": "Columna",
+      "insertImage": "Inserta la imagen",
+      "imageDescription": "Descripción de la imagen que insertar"
+    },
+    "stylesheets": {
+      "help": "Consulta y edita los estilos originales del sitio. Los cambios afectan solo a este sitio y se guardan automáticamente. La configuración de colores, tipografía, páginas y bloques sigue aplicándose.",
+      "base": "CSS de base",
+      "template": "CSS de la plantilla",
+      "layout": "CSS de distribución",
+      "additional": "CSS adicional",
+      "restore": "Restaura el CSS original"
+    },
+    "fontManagerHelp": "Elige una fuente de la lista, añádela del catálogo o importa un archivo. El nombre y la ruta se detectan automáticamente.",
+    "importFont": "Importa un archivo de fuente",
+    "replaceFont": "Sustituye el archivo de fuente",
+    "fontSampleText": "El veloz zorro salta sobre el perro perezoso. Ágora, ilusión y cuestiones.",
+    "useFontBody": "Utiliza para el texto",
+    "useFontHeading": "Utiliza para los títulos",
+    "fontOptions": "Opciones de la fuente",
+    "fontCatalogue": "Catálogo de fuentes",
+    "fontCatalogueHelp": "Fuentes de Google Fonts y Fontsource. Se descargan en tu web; los visitantes no necesitan conexiones externas.",
+    "fontLicense": "Licencia y origen",
+    "importGoogleFont": "Importa de Google Fonts",
+    "googleFontUrl": "URL de Google Fonts",
+    "importFontUrl": "Importa desde la URL",
+    "fontCatalogueFailed": "No se ha podido cargar el catálogo de fuentes.",
+    "addRegionGroup": "Añade un grupo de bloques",
+    "regionPosition": "Región",
+    "regionsHelp": "Crea bloques y elige dónde se muestran. Se conservan los bloques y enlaces existentes.",
+    "regionPositions": {
+      "header": "Cabecera",
+      "before_content": "Antes del contenido",
+      "after_content": "Después del contenido",
+      "footer": "Pie"
+    },
+    "pageRegionsHelp": "Este editor muestra solo el contenido de la página. Los bloques comunes de cabecera y pie se gestionan en Bloques y regiones y se aplican al sitio publicado."
   }
 }

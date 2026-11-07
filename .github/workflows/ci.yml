@@ -197,6 +197,10 @@ jobs:
           CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           CI_RELEASE_CANDIDATE: ${{ inputs.release_candidate }}
         run: python3 scripts/ci/classify_changes.py
+      - name: Use disk-backed backend temporaries
+        if: steps.scope.outputs.runtime_required != 'false'
+        # Export to every later step, including pipeline type checks and tests.
+        run: printf 'TMPDIR=%s\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: pnpm/action-setup@v6
         if: steps.scope.outputs.runtime_required != 'false'
         with:
@@ -324,6 +328,10 @@ jobs:
         with:
           name: gnosi-reader-${{ github.sha }}
           path: frontend/public/zotero-reader
+      - name: Install locked website renderer for browser CSS acceptance
+        if: steps.scope.outputs.runtime_required != 'false'
+        timeout-minutes: 10
+        run: npm ci --prefix extensions/web-publishing/renderer --no-audit --no-fund
       - name: Accept production browser workflows and restart persistence
         if: steps.scope.outputs.runtime_required != 'false'
         timeout-minutes: 15
@@ -366,6 +374,9 @@ jobs:
           CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           CI_RELEASE_CANDIDATE: ${{ inputs.release_candidate }}
         run: python3 scripts/ci/classify_changes.py
+      - name: Use disk-backed Docker temporaries
+        if: steps.scope.outputs.runtime_required != 'false'
+        run: printf 'TMPDIR=%s\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: astral-sh/setup-uv@v10.3.3
         if: steps.scope.outputs.runtime_required != 'false'
         with:

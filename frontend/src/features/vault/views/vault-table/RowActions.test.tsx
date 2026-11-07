@@ -2,6 +2,7 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { useTablePlugins } from './useTablePlugins';
+import { CellButton } from './CellButton';
 import { RowActions } from './RowActions';
 import { PageActionsBar } from '../../editor/PageActionsBar';
 import { useOpenRecordActions } from '../../dashboard/useOpenRecordActions';
@@ -69,6 +70,33 @@ describe('compact record action menus', () => {
     }
     render(<Harness />);
     expect(configured).toBe(true);
+  });
+
+  it.each(['allowed', 'blocked', 'plugin-off', 'translated'])('aligns social table buttons and row menus for %s records', mode => {
+    const controller = model();
+    controller.schema = { Publish: 'button', Publish_config: { button_action: 'publish_social', button_label: 'Share article' }, Status: 'select', Status_config: { role: 'status' } };
+    const note = { id: 'article', metadata: { Status: mode === 'blocked' ? 'Draft' : 'Reviewed', ...(mode === 'translated' ? { translation_lang: 'en' } : {}) } };
+    controller.noteById = new Map([['article', note]]);
+    controller.isPluginEnabled = () => mode !== 'plugin-off';
+    controller.tableFunctionalities = [{ id: 'publish', action: 'publish_social', label: 'Share article', enabled: true, config: {} }];
+    controller.actionRules = { publish_social: { requires: [{ role: 'status', not_in: ['Draft'], reason: 'Needs review' }] } };
+    const host = render(<><CellButton model={controller} noteId="article" field="Publish" type="button" value="" originalMetaKey="Publish" /><table><tbody><tr><RowActions model={controller} note={note} isChild={false} /></tr></tbody></table></>);
+    const cellButton = [...host.querySelectorAll('button')].find(button => button.textContent.includes('Share article'));
+    if (mode === 'plugin-off' || mode === 'translated') {
+      expect(cellButton).toBeUndefined();
+      return;
+    }
+    expect(cellButton?.disabled).toBe(mode === 'blocked');
+    act(() => { cellButton?.click(); });
+    if (mode === 'blocked') expect(controller.setPendingAction).not.toHaveBeenCalled();
+    else expect(controller.setPendingAction).toHaveBeenCalledWith(expect.objectContaining({ noteId: 'article', action: 'publish_social' }));
+    vi.mocked(controller.setPendingAction).mockClear();
+    act(() => { (host.querySelector('[aria-haspopup="menu"]') as HTMLButtonElement).click(); });
+    const item = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button => button.textContent.includes('Share article'));
+    expect(item?.disabled).toBe(mode === 'blocked');
+    act(() => { item?.click(); });
+    if (mode === 'blocked') expect(controller.setPendingAction).not.toHaveBeenCalled();
+    else expect(controller.setPendingAction).toHaveBeenCalledWith(expect.objectContaining({ noteId: 'article', action: 'publish_social' }));
   });
 
 });

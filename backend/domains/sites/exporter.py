@@ -549,6 +549,9 @@ def _editor_file_link(value: str, asset: AssetExporter) -> str:
 
 
 def _export_block_assets(block: SiteBlock, asset: AssetExporter, language: str | None) -> None:
+    if block.body_format == "markdown" and "/.gnosi/sites/assets/" in block.body:
+        block.body = MarkdownIt("commonmark", {"html": False}).render(block.body)
+        block.body_format = "html"
     if block.body_format == "html":
         from bs4 import BeautifulSoup
         content = BeautifulSoup(block.body, "html.parser")

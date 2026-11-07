@@ -10626,6 +10626,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/sites/{site_id}/theme/fonts/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Font */
+        post: operations["import_font_api_vault_sites__site_id__theme_fonts_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/sites/{site_id}/theme/history": {
         parameters: {
             query?: never;
@@ -10703,6 +10720,40 @@ export interface paths {
         };
         /** Catalogue Snapshot */
         get: operations["catalogue_snapshot_api_vault_sites_catalogue_snapshot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/fonts/catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalogue */
+        get: operations["catalogue_api_vault_sites_fonts_catalogue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/fonts/catalogue/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview */
+        get: operations["preview_api_vault_sites_fonts_catalogue_preview_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -16940,6 +16991,30 @@ export interface components {
          */
         FolderSchemaRequest: {
             [key: string]: components["schemas"]["JsonValue"];
+        };
+        /** FontCatalogueEntry */
+        FontCatalogueEntry: {
+            /** Family */
+            family: string;
+            /** Id */
+            id: string;
+            /** License Url */
+            license_url: string;
+            /** Provider */
+            provider: string;
+        };
+        /** FontImportRequest */
+        FontImportRequest: {
+            /**
+             * Catalogue Id
+             * @default
+             */
+            catalogue_id: string;
+            /**
+             * Url
+             * @default
+             */
+            url: string;
         };
         /**
          * FormattedBibliographyResponse
@@ -25654,6 +25729,8 @@ export interface components {
              * @enum {string}
              */
             body_format: "markdown" | "html";
+            /** Children */
+            children?: components["schemas"]["SiteBlock"][];
             /**
              * Columns
              * @default 3
@@ -25724,7 +25801,7 @@ export interface components {
              * @default text
              * @enum {string}
              */
-            type: "text" | "image" | "split" | "gallery" | "selected" | "collection" | "collaborators" | "form" | "cta" | "links" | "social" | "newsletter";
+            type: "text" | "image" | "split" | "gallery" | "selected" | "collection" | "collaborators" | "form" | "cta" | "links" | "social" | "newsletter" | "row";
             /**
              * Width
              * @default 100
@@ -25788,6 +25865,8 @@ export interface components {
             redirects?: {
                 [key: string]: string;
             };
+            /** Regions */
+            regions?: components["schemas"]["SiteRegion"][];
             /**
              * Revision
              * @default 1
@@ -26133,6 +26212,32 @@ export interface components {
             /** Scheduled At */
             scheduled_at?: string | null;
         };
+        /** SiteRegion */
+        SiteRegion: {
+            /**
+             * Alignment
+             * @default left
+             * @enum {string}
+             */
+            alignment: "left" | "center" | "right";
+            /** Blocks */
+            blocks?: components["schemas"]["SiteBlock"][];
+            /** Id */
+            id?: string;
+            /** Language */
+            language?: string | null;
+            /**
+             * Position
+             * @default after_content
+             * @enum {string}
+             */
+            position: "header" | "before_content" | "after_content" | "footer";
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+        };
         /** SiteRelease */
         SiteRelease: {
             /** Created At */
@@ -26309,6 +26414,10 @@ export interface components {
              * @constant
              */
             schema_version: 1;
+            /** Stylesheet Overrides */
+            stylesheet_overrides?: {
+                [key: string]: string;
+            };
             /** Tokens */
             tokens?: {
                 [key: string]: string;
@@ -26316,6 +26425,7 @@ export interface components {
         };
         /** SiteThemeAsset */
         SiteThemeAsset: {
+            font?: components["schemas"]["SiteFont"] | null;
             /** Media Type */
             media_type: string;
             /** Source */
@@ -52732,6 +52842,48 @@ export interface operations {
             };
         };
     };
+    import_font_api_vault_sites__site_id__theme_fonts_import_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FontImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteFont"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     theme_history_api_vault_sites__site_id__theme_history_get: {
         parameters: {
             query?: never;
@@ -52912,6 +53064,78 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CatalogueSnapshot"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    catalogue_api_vault_sites_fonts_catalogue_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FontCatalogueEntry"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_api_vault_sites_fonts_catalogue_preview_get: {
+        parameters: {
+            query: {
+                catalogue_id: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

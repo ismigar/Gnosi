@@ -8920,7 +8920,7 @@
     "pageEnabled": "Publish this page",
     "pageCss": "Page style adjustments",
     "customCss": "Custom CSS",
-    "blocks": "Page blocks",
+    "blocks": "Blocks",
     "addBlock": "Add block",
     "blockType": "Block type",
     "body": "Text content",
@@ -8989,7 +8989,7 @@
     "previewHelp": "Save and review a publication to see the generated website here.",
     "themeImported": "Theme imported. Save changes to keep it.",
     "invalidTheme": "The selected file is not a supported theme.",
-    "importTooLarge": "The import file is too large.",
+    "importTooLarge": "The theme file is too large (2 MB maximum).",
     "search": "Search",
     "status": "Status",
     "allStatuses": "All statuses",
@@ -9101,7 +9101,7 @@
       "overview": "Overview",
       "sources": "Contents",
       "pages": "Pages",
-      "navigation": "Navigation & languages",
+      "navigation": "Menus",
       "appearance": "Appearance",
       "forms": "Forms",
       "messages": "Inbox",
@@ -9109,7 +9109,9 @@
       "campaigns": "Newsletters",
       "publishing": "Publication",
       "settings": "Private settings",
-      "hosting": "Hosting"
+      "hosting": "Hosting",
+      "configuration": "Configuration",
+      "regions": "Blocks & regions"
     },
     "tokens": {
       "primary": "Petrol blue / primary",
@@ -9160,7 +9162,8 @@
       "cta": "Call to action",
       "links": "Links",
       "social": "Social networks",
-      "newsletter": "Newsletter"
+      "newsletter": "Newsletter",
+      "row": "Row"
     },
     "fieldTypes": {
       "text": "Short text",
@@ -9437,6 +9440,44 @@
     "footerBottomLinks": "Links beside copyright",
     "footerWideBlocks": "Full-width footer blocks",
     "addColumn": "Add column",
-    "newsletter": "Newsletter"
+    "newsletter": "Newsletter",
+    "rows": {
+      "addRow": "Add row",
+      "column": "Column",
+      "insertImage": "Insert image",
+      "imageDescription": "Description of the image to insert"
+    },
+    "stylesheets": {
+      "help": "View and edit the website’s original styles. Changes apply only to this website and save automatically. Colour, typography, page and block settings continue to apply.",
+      "base": "Base CSS",
+      "template": "Template CSS",
+      "layout": "Layout CSS",
+      "additional": "Additional CSS",
+      "restore": "Restore original CSS"
+    },
+    "fontManagerHelp": "Choose a font from the list, add one from the catalogue or import a file. Its name and path are detected automatically.",
+    "importFont": "Import a font file",
+    "replaceFont": "Replace font file",
+    "fontSampleText": "The quick brown fox jumps over the lazy dog. Àgora, il·lusió and qüestions.",
+    "useFontBody": "Use for body text",
+    "useFontHeading": "Use for headings",
+    "fontOptions": "Font options",
+    "fontCatalogue": "Font catalogue",
+    "fontCatalogueHelp": "Fonts from Google Fonts and Fontsource. Downloaded to your website; visitors do not need external font connections.",
+    "fontLicense": "License and source",
+    "importGoogleFont": "Import from Google Fonts",
+    "googleFontUrl": "Google Fonts URL",
+    "importFontUrl": "Import from URL",
+    "fontCatalogueFailed": "The font catalogue could not be loaded.",
+    "addRegionGroup": "Add block group",
+    "regionPosition": "Region",
+    "regionsHelp": "Create blocks and choose their location. Existing blocks and links are preserved.",
+    "regionPositions": {
+      "header": "Header",
+      "before_content": "Before content",
+      "after_content": "After content",
+      "footer": "Footer"
+    },
+    "pageRegionsHelp": "This editor shows only this page’s content. Shared header and footer blocks are managed in Blocks & regions and applied to the published website."
   }
 }

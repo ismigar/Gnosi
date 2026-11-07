@@ -178,6 +178,12 @@ def accept(output: Path, frontend_port: int, backend_port: int) -> None:
             "GNOSI_ACCEPTANCE_PYTHON": sys.executable,
             "GNOSI_ACCEPTANCE_PROXY": proxy,
         })
+        # CSS editor acceptance must include actual Astro output in Chromium.
+        # Keep browser dependencies out of the independent Python-only CI job.
+        run((sys.executable, "-m", "pytest", "-q",
+             "backend/tests/test_sites_stylesheets.py::test_edited_base_css_applies_in_chromium_to_actual_astro_output"),
+            ROOT, {**environment, "GNOSI_STYLESHEET_BROWSER_PROBE": "1"}, output / "website-css-browser.log")
+        result["website_css_computed_style"] = "passed"
         # The full product build retains reader validation and the bundle budget.
         vite = ROOT / "frontend/node_modules/vite/bin/vite.js"
         playwright = ROOT / "tests/e2e/node_modules/@playwright/test/cli.js"

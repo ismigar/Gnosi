@@ -175,3 +175,20 @@ def test_every_upload_document_type_survives_public_export(website, suffix):
     target = bundle.site.header_actions[0].href
     assert target.endswith("." + suffix)
     assert any(asset.path == target for asset in bundle.assets)
+
+
+def test_nested_rich_column_upload_is_previewable_and_published_without_changing_the_draft(website):
+    from backend.domains.sites.models import SiteBlock
+    source, _ = theme_assets.upload(website.store, website.site, 'column.png', png(), 'image')
+    body = f'**Column text**\n\n![Portrait](<{source}>)'
+    column = SiteBlock(body=body)
+    website.site.pages[0].blocks.append(SiteBlock(type='row', children=[column]))
+    assert theme_assets.read_asset(website.store, website.site, source) == png()
+    bundle = exporter.build_bundle(website.store, website.site, 'local')
+    exported = bundle.site.pages[0].blocks[-1].children[0]
+    assert '<strong>Column text</strong>' in exported.body
+    from bs4 import BeautifulSoup
+    assert BeautifulSoup(exported.body, 'html.parser').select_one('img')['src'].startswith('/assets/')
+    assert '/.gnosi/' not in exported.body
+    assert column.body == body and column.body_format == 'markdown'
+    assert any(asset.path.endswith('.png') for asset in bundle.assets)

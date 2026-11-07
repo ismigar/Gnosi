@@ -64,6 +64,7 @@ CI_COMMANDS = {
     ],
     "backend": [
         "python3 scripts/ci/classify_changes.py",
+        "printf 'TMPDIR=%s\\n' \"$RUNNER_TEMP\" >> \"$GITHUB_ENV\"",
         "pnpm install --frozen-lockfile --ignore-scripts --filter @gnosi/desktop",
         "python scripts/ci/prepare_python_environment.py",
         "python scripts/ci/prepare_analysis_cache.py",
@@ -93,10 +94,12 @@ CI_COMMANDS = {
         "uv sync --frozen",
         "pnpm --filter @gnosi/e2e exec playwright install-deps chromium",
         "pnpm test:e2e:install",
+        "npm ci --prefix extensions/web-publishing/renderer --no-audit --no-fund",
         'uv run --frozen --no-sync python scripts/ci/browser_acceptance.py --output "${RUNNER_TEMP}/gnosi-browser-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"',
     ],
     "docker": [
         "python3 scripts/ci/classify_changes.py",
+        "printf 'TMPDIR=%s\\n' \"$RUNNER_TEMP\" >> \"$GITHUB_ENV\"",
         "python3 scripts/ci/prepare_docker_runner.py",
         "docker compose config --quiet",
         "python3 scripts/ci/build_container_image.py --dockerfile Dockerfile.frontend "

@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import psutil
 
 from scripts.ci import pre_pr_resources as resources
 from scripts.ci.pre_pr_commands import Step
@@ -21,11 +22,20 @@ def test_resource_environment_replaces_heap_and_threads() -> None:
 
 
 def test_process_tree_includes_escaped_and_reparented_children(monkeypatch: pytest.MonkeyPatch) -> None:
-    rows = "10 1 10 100\n11 10 99 200\n12 11 99 300\n13 1 99 400\n20 1 20 900\n"
-    monkeypatch.setattr(resources.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 0, stdout=rows))
+    from types import SimpleNamespace
+    rows = [(0, 0, 0, 99999), (10, 1, 10, 100), (11, 10, 99, 200), (12, 11, 99, 300), (13, 1, 99, 400), (20, 1, 20, 900)]
+    processes = [SimpleNamespace(pid=pid, info={"ppid": parent}, memory_info=lambda rss=rss: SimpleNamespace(rss=rss * 1024)) for pid, parent, _, rss in rows]
+    monkeypatch.setattr(psutil, "process_iter", lambda *_: processes)
+    monkeypatch.setattr(resources.os, "getpgid", lambda pid: 10 if pid == 0 else next(group for item, _, group, _ in rows if item == pid))
+    # Reproduce the failed external observation: the direct observer must not
+    # invoke it, and must still include escaped and reparented descendants.
+    def unavailable(*args: object, **kwargs: object) -> None:
+        raise subprocess.TimeoutExpired(("ps", "-axo"), 2)
+    monkeypatch.setattr(resources.subprocess, "run", unavailable)
     tracked = {13, 999}
     assert resources.process_tree_rss(10, tracked) == 1000
     assert tracked == {10, 11, 12, 13}
+
 
 
 @pytest.mark.parametrize("reason, expected", [("critical", 75), ("warning", 75), ("memory", 137), ("timeout", 124), ("orphan", 125), ("signal", 137)])
@@ -381,3 +391,46 @@ def test_pre_pr_uses_only_explicit_named_pressure_runner(
 ])
 def test_only_complete_frontend_lint_has_a_longer_static_deadline(name: str, expected: int) -> None:
     assert resources.step_timeout(Step(name, ("fixture",))) == expected
+
+
+@pytest.mark.parametrize('failure', ['access', 'empty', 'deadline'])
+def test_direct_process_observation_fails_closed_without_mutating_tracking(monkeypatch: pytest.MonkeyPatch, failure: str) -> None:
+    import threading
+    release = threading.Event()
+    finished = threading.Event()
+    def observe(*args: object) -> tuple[int, set[int]]:
+        try:
+            if failure == 'access':
+                raise psutil.AccessDenied(42)
+            if failure == 'empty':
+                raise ValueError('No process rows')
+            release.wait(5)
+            return 0, set()
+        finally:
+            finished.set()
+    monkeypatch.setattr(resources, '_read_process_tree', observe)
+    tracked = {42, 43}
+    try:
+        with pytest.raises(ValueError, match='supervis'):
+            resources.process_tree_rss(42, tracked)
+        assert tracked == {42, 43}
+    finally:
+        release.set()
+        assert finished.wait(1)
+
+
+def test_direct_process_memory_access_failure_never_reports_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+    def denied() -> None:
+        raise psutil.AccessDenied(42)
+    process = SimpleNamespace(pid=42, info={'ppid': 1}, memory_info=denied)
+    monkeypatch.setattr(psutil, 'process_iter', lambda *_: [process])
+    monkeypatch.setattr(resources.os, 'getpgid', lambda *_: 42)
+    with pytest.raises(ValueError, match='Cannot supervise'):
+        resources.process_tree_rss(42, set())
+
+
+def test_profile_import_without_application_dependencies() -> None:
+    root = Path(__file__).resolve().parents[2]
+    script = f"import sys; sys.path.insert(0, {str(root)!r}); import scripts.ci.pre_pr_resources; assert 'psutil' not in sys.modules"
+    subprocess.run((sys.executable, '-I', '-S', '-c', script), check=True, capture_output=True)

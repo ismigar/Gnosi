@@ -53,6 +53,7 @@ def test_citation_export_composition_in_isolated_subprocess(suite: str) -> None:
             (root / name).mkdir()
         environment = {
             "PATH": os.defpath,
+            "TMPDIR": str(root),
             "PYTHONDONTWRITEBYTECODE": "1",
             "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
             "GNOSI_VALIDATION_ROOT": str(root),
@@ -125,6 +126,7 @@ def isolated_backend() -> None:
     assert MODULE not in sys.modules
     root = Path(os.environ["GNOSI_VALIDATION_ROOT"])
     assert root.is_absolute() and root.is_dir()
+    assert Path(tempfile.gettempdir()).resolve() == root
     for selector, suffix in (
         ("GNOSI_DATA_DIR", "data"),
         ("DIGITAL_BRAIN_VAULT_PATH", "vault"),

@@ -1,3 +1,4 @@
+import { SavedFeedback } from '../../../shared/editor/SavedFeedback';
 import {ExternalLink, MapPin, Calendar, Tag, FileText, X, FolderOpen, Check, Loader2, AlertCircle} from 'lucide-react';
 import toast from '../../../shared/notifications/toast';
 import type {MediaCenterState} from './useMediaCenter';
@@ -102,9 +103,9 @@ return <>{!isFullscreen && !slideshowActive && (
                         </span>
                       )}
                       {saveStatus === 'saved' && (
-                        <span className="text-emerald-600 inline-flex items-center gap-1.5">
+                        <SavedFeedback className="inline-flex items-center gap-1.5">
                           <Check size={12} /> {t('media.saved')}
-                        </span>
+                        </SavedFeedback>
                       )}
                       {saveStatus === 'error' && (
                         <span className="text-red-500 inline-flex items-center gap-1.5">

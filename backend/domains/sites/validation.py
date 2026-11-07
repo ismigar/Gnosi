@@ -12,7 +12,12 @@ from .models import NavigationLink, SiteConfig
 def validate_css(css: str) -> None:
     # CSS never executes in Gnosi; reject external fetches and markup boundaries.
     lowered = re.sub(r"/\*.*?\*/", "", css, flags=re.S).lower()
-    if any(token in lowered for token in ("@import", "url(", "expression(", "javascript:", "</", "@charset", "\\")):
+    if any(token in lowered for token in ("@import", "javascript:", "</", "@charset", "\\")):
+        raise HTTPException(422, "CSS must not load external resources or contain markup")
+    # Quoted image-set()/image()/src() URLs do not use url(). Comments are
+    # stripped above and escapes are forbidden, so whitespace/obfuscation cannot
+    # turn a permitted spelling into an external resource function in the browser.
+    if re.search(r"(?<![\w-])(?:url|(?:-webkit-)?image-set|image|src|expression)\s*\(", lowered):
         raise HTTPException(422, "CSS must not load external resources or contain markup")
     stack: list[str] = []
     quote = ""
@@ -59,9 +64,12 @@ def validate_site(site: SiteConfig) -> None:
         if any(language not in site.languages for languages in source.withdrawn_versions.values() for language in languages):
             raise HTTPException(422, "A withdrawn translation uses an unconfigured language")
     validate_css(site.theme.advanced_css)
+    for stylesheet in site.theme.stylesheet_overrides.values():
+        validate_css(stylesheet)
     for key, value in site.theme.tokens.items():
         if not re.fullmatch(r"[a-z][a-z0-9-]{0,60}", key) or len(value) > 300 or any(c in value for c in "{};<>\\") or re.search(r"url\s*\(|@import|expression\s*\(", value, re.I):
             raise HTTPException(422, "Invalid theme value")
+        validate_css(value)
     safe_link(site.theme.logo, image=True)
     safe_link(site.theme.favicon, image=True)
     for font in site.theme.fonts:
@@ -73,17 +81,18 @@ def validate_site(site: SiteConfig) -> None:
         raise HTTPException(422, "Public page paths must be unique")
     for page in site.pages:
         validate_css(page.css)
-        for block in page.blocks:
-            validate_css(block.css)
-            safe_link(block.href)
-            _validate_links(block.actions, site.languages, "Action language is not enabled")
-            safe_link(block.image, image=True)
-            for image in block.images:
-                safe_link(image, image=True)
-            if block.form_id and block.form_id not in {form.id for form in site.forms}:
-                raise HTTPException(422, "Unknown form block")
-            if block.source_id and block.source_id not in {source.id for source in site.sources}:
-                raise HTTPException(422, "Unknown collection block")
+    for _, block in site.editorial_blocks():
+        validate_css(block.css)
+        safe_link(block.href)
+        _validate_links(block.actions, site.languages, "Action language is not enabled")
+        _validate_links(block.links, site.languages, "Link language is not enabled")
+        safe_link(block.image, image=True)
+        for image in block.images:
+            safe_link(image, image=True)
+        if block.form_id and block.form_id not in {form.id for form in site.forms}:
+            raise HTTPException(422, "Unknown form block")
+        if block.source_id and block.source_id not in {source.id for source in site.sources}:
+            raise HTTPException(422, "Unknown collection block")
     for form in site.forms:
         safe_link(form.privacy_url)
     _validate_links(site.header_actions + site.navigation + site.footer + site.social_links,

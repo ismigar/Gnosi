@@ -8,8 +8,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Domain | Status | Guide | Source files | Test files | Directives found |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 939 | 340 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1152 | 333 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 941 | 341 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1154 | 334 | 0 |
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 545 | 172 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 70 | 42 | 0 |
 | `genograms` | **covered** | [`Genograms`](../domains/genograms.md) | 30 | 7 | 0 |
@@ -19,8 +19,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 108 | 66 | 0 |
 | `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 107 | 49 | 0 |
 | `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 24 | 8 | 0 |
-| `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 74 | 23 | 0 |
-| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 297 | 89 | 0 |
+| `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 74 | 24 | 0 |
+| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 311 | 95 | 0 |
 | `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 70 | 41 | 0 |
 | `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 18 | 10 | 0 |
 | `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 156 | 57 | 0 |

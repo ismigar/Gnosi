@@ -8975,7 +8975,7 @@
     "pageEnabled": "Publier cette page",
     "pageCss": "Ajustements du style de la page",
     "customCss": "CSS personnalisé",
-    "blocks": "Blocs de la page",
+    "blocks": "Blocs",
     "addBlock": "Ajouter un bloc",
     "blockType": "Type de bloc",
     "body": "Contenu textuel",
@@ -9044,7 +9044,7 @@
     "previewHelp": "Enregistrez et examinez une publication pour afficher ici le site généré.",
     "themeImported": "Thème importé. Enregistrez les modifications pour le conserver.",
     "invalidTheme": "Le fichier sélectionné n’est pas un thème compatible.",
-    "importTooLarge": "Le fichier d’importation est trop volumineux.",
+    "importTooLarge": "Le fichier du thème est trop volumineux (2 Mo maximum).",
     "search": "Rechercher",
     "status": "État",
     "allStatuses": "Tous les états",
@@ -9156,7 +9156,7 @@
       "overview": "Vue d’ensemble",
       "sources": "Contenus",
       "pages": "Pages",
-      "navigation": "Navigation et langues",
+      "navigation": "Menus",
       "appearance": "Apparence",
       "forms": "Formulaires",
       "messages": "Messages",
@@ -9164,7 +9164,9 @@
       "campaigns": "Lettres d’information",
       "publishing": "Publication",
       "settings": "Paramètres privés",
-      "hosting": "Hébergements"
+      "hosting": "Hébergements",
+      "configuration": "Configuration",
+      "regions": "Blocs et régions"
     },
     "tokens": {
       "primary": "Bleu pétrole / principal",
@@ -9215,7 +9217,8 @@
       "cta": "Appel à l’action",
       "links": "Liens",
       "social": "Réseaux sociaux",
-      "newsletter": "Lettre d’information"
+      "newsletter": "Lettre d’information",
+      "row": "Ligne"
     },
     "fieldTypes": {
       "text": "Texte court",
@@ -9304,7 +9307,7 @@
       "autoresponse": "Accusé de réception automatique"
     },
     "fontLibrary": "Bibliothèque de polices locales",
-    "addFont": "Ajouter une police",
+    "addFont": "Ajouter la police",
     "fontFamily": "Famille de police",
     "fontFile": "Fichier de police",
     "fontWeight": "Graisse ou plage de graisses",
@@ -9492,6 +9495,44 @@
     "footerBottomLinks": "Liens à côté du copyright",
     "footerWideBlocks": "Blocs du pied en pleine largeur",
     "addColumn": "Ajouter une colonne",
-    "newsletter": "Lettre d’information"
+    "newsletter": "Lettre d’information",
+    "rows": {
+      "addRow": "Ajouter une ligne",
+      "column": "Colonne",
+      "insertImage": "Insérer l’image",
+      "imageDescription": "Description de l’image à insérer"
+    },
+    "stylesheets": {
+      "help": "Consultez et modifiez les styles d’origine du site. Les modifications concernent uniquement ce site et sont enregistrées automatiquement. Les réglages des couleurs, de la typographie, des pages et des blocs restent appliqués.",
+      "base": "CSS de base",
+      "template": "CSS du modèle",
+      "layout": "CSS de mise en page",
+      "additional": "CSS supplémentaire",
+      "restore": "Restaurer le CSS d’origine"
+    },
+    "fontManagerHelp": "Choisissez une police dans la liste, ajoutez-la depuis le catalogue ou importez un fichier. Son nom et son chemin sont détectés automatiquement.",
+    "importFont": "Importer un fichier de police",
+    "replaceFont": "Remplacer le fichier de police",
+    "fontSampleText": "Portez ce vieux whisky au juge blond qui fume. Àgora, illusion et questions.",
+    "useFontBody": "Utiliser pour le texte",
+    "useFontHeading": "Utiliser pour les titres",
+    "fontOptions": "Options de la police",
+    "fontCatalogue": "Catalogue de polices",
+    "fontCatalogueHelp": "Polices de Google Fonts et Fontsource. Téléchargées sur votre site ; les visiteurs n’ont pas besoin de connexions externes.",
+    "fontLicense": "Licence et origine",
+    "importGoogleFont": "Importer depuis Google Fonts",
+    "googleFontUrl": "URL Google Fonts",
+    "importFontUrl": "Importer depuis l’URL",
+    "fontCatalogueFailed": "Le catalogue de polices n’a pas pu être chargé.",
+    "addRegionGroup": "Ajouter un groupe de blocs",
+    "regionPosition": "Région",
+    "regionsHelp": "Créez des blocs et choisissez leur emplacement. Les blocs et liens existants sont conservés.",
+    "regionPositions": {
+      "header": "En-tête",
+      "before_content": "Avant le contenu",
+      "after_content": "Après le contenu",
+      "footer": "Pied de page"
+    },
+    "pageRegionsHelp": "Cet éditeur affiche uniquement le contenu de la page. Les blocs communs d’en-tête et de pied de page se gèrent dans Blocs et régions et sont appliqués au site publié."
   }
 }
