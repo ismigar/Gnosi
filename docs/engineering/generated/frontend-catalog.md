@@ -52,7 +52,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2662 | 0 |
-| `features` | 1292 | 137520 | 57 |
+| `features` | 1292 | 137533 | 57 |
 | `generated` | 3 | 57283 | 591 |
 | `shared` | 349 | 37176 | 506 |
 
@@ -977,7 +977,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/vault/editor/block-editor/schema.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/schema.ts) | 43 | `createEditorSchema` | — |
 | [`frontend/src/features/vault/editor/block-editor/transclusionDocument.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/transclusionDocument.ts) | 10 | `replaceTransclusion` | — |
 | [`frontend/src/features/vault/editor/block-editor/useDropBridge.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useDropBridge.ts) | 12 | `useDropBridge` | — |
-| [`frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts) | 179 | `useEditorPersistence` | — |
+| [`frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts) | 192 | `useEditorPersistence` | — |
 | [`frontend/src/features/vault/editor/block-editor/useEditorRuntime.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorRuntime.ts) | 57 | `useEditorRuntime` | — |
 | [`frontend/src/features/vault/editor/block-editor/useGeneratedContent.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useGeneratedContent.ts) | 32 | `useGeneratedContent` | — |
 | [`frontend/src/features/vault/editor/block-editor/useInitialDocument.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useInitialDocument.ts) | 55 | `useInitialDocument` | — |
