@@ -1,3 +1,4 @@
+import { SavedFeedback } from '../../../../shared/editor/SavedFeedback';
 import type { ModalInput } from './useViewController';
 import type { useViewStateResult } from './useViewState';
 import type { useViewClosingResult } from './useViewClosing';
@@ -27,10 +28,10 @@ export function ViewFooter({
                 </span>
             )}
             {autosaveStatus === 'saved' && !flushing && (
-                <span className="flex items-center gap-1.5 text-green-500">
+                <SavedFeedback className="flex items-center gap-1.5">
                     <span className="inline-block w-2 h-2 rounded-full bg-current" />
                     {t('view.all_changes_saved', "All changes saved")}
-                </span>
+                </SavedFeedback>
             )}
             {autosaveStatus === 'error' && !flushing && (
                 <span className="flex items-center gap-1.5 text-red-500">
