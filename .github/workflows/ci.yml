@@ -197,9 +197,9 @@ jobs:
           CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           CI_RELEASE_CANDIDATE: ${{ inputs.release_candidate }}
         run: python3 scripts/ci/classify_changes.py
-      - name: Use disk-backed backend temporaries
+      - name: Use disk-backed temporary directory
         if: steps.scope.outputs.runtime_required != 'false'
-        # Export to every later step, including pipeline type checks and tests.
+        # Keep every later tool off the Linux guest's quota-limited /tmp tmpfs.
         run: printf 'TMPDIR=%s\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: pnpm/action-setup@v6
         if: steps.scope.outputs.runtime_required != 'false'
@@ -293,6 +293,10 @@ jobs:
           CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           CI_RELEASE_CANDIDATE: ${{ inputs.release_candidate }}
         run: python3 scripts/ci/classify_changes.py
+      - name: Use disk-backed temporary directory
+        if: steps.scope.outputs.runtime_required != 'false'
+        # Keep every later tool off the Linux guest's quota-limited /tmp tmpfs.
+        run: printf 'TMPDIR=%s\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v7
         if: steps.scope.outputs.runtime_required != 'false'
         with:
@@ -370,6 +374,10 @@ jobs:
           CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           CI_RELEASE_CANDIDATE: ${{ inputs.release_candidate }}
         run: python3 scripts/ci/classify_changes.py
+      - name: Use disk-backed temporary directory
+        if: steps.scope.outputs.runtime_required != 'false'
+        # Keep every later tool off the Linux guest's quota-limited /tmp tmpfs.
+        run: printf 'TMPDIR=%s\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: astral-sh/setup-uv@v10.3.3
         if: steps.scope.outputs.runtime_required != 'false'
         with:
