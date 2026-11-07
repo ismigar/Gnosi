@@ -155,4 +155,57 @@ describe('PublishSocialModal', () => {
         expect(onPublished).toHaveBeenCalledWith(expect.objectContaining({ status: 'ok' }));
         expect(onClose).toHaveBeenCalledOnce();
     });
+    it('keeps failed drafts open and retries only unsuccessful networks', async () => {
+        mocks.fetchSocialNetworks.mockResolvedValue(['mastodon', 'bluesky'].map(id => ({
+            id, name: id, configured: true, enabled: true, char_limit: 500,
+        })));
+        const proposal = { text: 'Reviewed article', hashtags: [], char_count: 16, over_limit: false, provider: 'test' };
+        mocks.composeSocialPosts.mockResolvedValue({ proposals: { mastodon: proposal, bluesky: proposal } });
+        mocks.fetchVaultPage.mockResolvedValue({ title: 'Article', content: 'Article body', metadata: {} });
+        mocks.publishSocialPosts.mockResolvedValueOnce({
+            status: 'partial', record_id: 'first', results: {
+                mastodon: { status: 'success' }, bluesky: { status: 'error', error: 'Unavailable' },
+            },
+        }).mockResolvedValueOnce({ status: 'published', record_id: 'retry', results: { bluesky: { status: 'success' } } });
+        const onClose = vi.fn();
+        const onPublished = vi.fn();
+        await act(async () => { root.render(<PublishSocialModal isOpen noteId="article" onClose={onClose} onPublished={onPublished} />); await Promise.resolve(); });
+        await act(async () => { buttonWithText(container, 'Generate with AI').click(); await Promise.resolve(); });
+        expect(mocks.composeSocialPosts).toHaveBeenCalledWith(expect.objectContaining({ source_page_id: 'article', content: 'Article body', title: 'Article' }));
+        await act(async () => { buttonWithText(container, 'Publish now').click(); await Promise.resolve(); });
+        expect(onClose).not.toHaveBeenCalled();
+        expect(onPublished).not.toHaveBeenCalled();
+        expect(container.querySelectorAll('textarea')).toHaveLength(1);
+        expect(container.querySelector('textarea')?.value).toBe('Reviewed article');
+        await act(async () => { buttonWithText(container, 'Publish now').click(); await Promise.resolve(); });
+        expect(mocks.publishSocialPosts).toHaveBeenLastCalledWith({
+            posts: { bluesky: { text: 'Reviewed article' } }, source_page_id: 'article', source_title: 'Article',
+        });
+        expect(onClose).toHaveBeenCalledOnce();
+        expect(onPublished).toHaveBeenCalledOnce();
+    });
+
+    it('retains the dialog after total failure', async () => {
+        mocks.publishSocialPosts.mockResolvedValueOnce({ status: 'error', results: { mastodon: { status: 'error' } } });
+        const onClose = vi.fn();
+        await act(async () => { root.render(<PublishSocialModal isOpen recordMetadata={{ title: 'Article' }} onClose={onClose} />); await Promise.resolve(); });
+        await act(async () => { buttonWithText(container, 'Generate with AI').click(); await Promise.resolve(); });
+        await act(async () => { buttonWithText(container, 'Publish now').click(); await Promise.resolve(); });
+        expect(onClose).not.toHaveBeenCalled();
+        expect(container.querySelector('textarea')?.value).toBe('Generated post');
+    });
+
+    it('lets missing network proposals be edited and blocks publishing during regeneration', async () => {
+        mocks.fetchSocialNetworks.mockResolvedValue(['mastodon', 'bluesky'].map(id => ({ id, name: id, configured: true, enabled: true, char_limit: 500 })));
+        await act(async () => { root.render(<PublishSocialModal isOpen recordMetadata={{ title: 'Article' }} onClose={vi.fn()} />); await Promise.resolve(); });
+        await act(async () => { buttonWithText(container, 'Generate with AI').click(); await Promise.resolve(); });
+        expect(container.querySelectorAll('textarea')).toHaveLength(2);
+        let finish: (value: unknown) => void = () => {};
+        mocks.composeSocialPosts.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+        await act(async () => { (container.querySelector('[title="Regenerate"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+        expect(buttonWithText(container, 'Publish now').disabled).toBe(true);
+        await act(async () => { finish({ proposals: {} }); await Promise.resolve(); });
+        expect(buttonWithText(container, 'Publish now').disabled).toBe(false);
+    });
+
 });
