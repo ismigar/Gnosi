@@ -11,7 +11,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Módulos | Líneas |
 | --- | ---: | ---: |
 | `agent` | 53 | 9531 |
-| `api` | 40 | 13588 |
+| `api` | 40 | 13593 |
 | `app` | 8 | 832 |
 | `application root` | 2 | 57 |
 | `config` | 14 | 1428 |
@@ -28,7 +28,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1104 modules** and **208446 source lines**.
+Total: **1104 modules** and **208451 source lines**.
 
 ## agent
 
@@ -122,7 +122,7 @@ Total: **1104 modules** and **208446 source lines**.
 | [`backend/api/reader.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/reader.py) | 75 | 0 | 0 | 0 | 0 | Compatibility facade for the Reader HTTP API. |
 | [`backend/api/scheduler_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/scheduler_routes.py) | 135 | 1 | 6 | 6 | 6 | No module docstring |
 | [`backend/api/share_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/share_routes.py) | 249 | 6 | 7 | 4 | 5 | External share links for single vault pages (Notion-style). |
-| [`backend/api/social_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/social_routes.py) | 740 | 0 | 21 | 18 | 20 | No module docstring |
+| [`backend/api/social_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/social_routes.py) | 745 | 0 | 22 | 18 | 21 | No module docstring |
 | [`backend/api/system_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/system_routes.py) | 714 | 1 | 25 | 9 | 25 | HTTP routes for system notifications, status and filesystem access. |
 | [`backend/api/tools_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/tools_routes.py) | 187 | 4 | 6 | 5 | 6 | API Routes for Generated Tools Management. |
 | [`backend/api/vault_graph_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_graph_routes.py) | 146 | 1 | 5 | 1 | 3 | No module docstring |

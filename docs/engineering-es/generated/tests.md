@@ -11,8 +11,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 36 | 115 |
-| Vitest | 761 | 3484 |
-| pytest | 783 | 6030 |
+| Vitest | 761 | 3487 |
+| pytest | 784 | 6033 |
 
 ## Archivos
 
@@ -342,7 +342,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/social/components/network/social/SocialNetworkIcon.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/components/network/social/SocialNetworkIcon.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/social/components/socialComponents.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/components/socialComponents.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/social/public-entry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/public-entry.test.ts) | 1 | call-pattern estimate |
-| Vitest | [`frontend/src/features/social/publishing/PublishSocialModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/publishing/PublishSocialModal.test.tsx) | 2 | call-pattern estimate |
+| Vitest | [`frontend/src/features/social/publishing/PublishSocialModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/publishing/PublishSocialModal.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/social/publishing/publish-social/publishSocialModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/publishing/publish-social/publishSocialModel.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault-management/VaultSelection.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultSelection.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault-management/VaultSwitcher.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultSwitcher.test.tsx) | 2 | call-pattern estimate |
@@ -1397,7 +1397,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_sites_public_http.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_public_http.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_sites_rendering.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_rendering.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_sites_ssh_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_ssh_transport.py) | 13 | Python AST |
-| pytest | [`backend/tests/test_sites_stylesheets.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_stylesheets.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_sites_stylesheets.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_stylesheets.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_sites_theme_assets.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_theme_assets.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_sites_theme_parity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_theme_parity.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_sites_url_import.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_url_import.py) | 10 | Python AST |
@@ -1408,6 +1408,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_social_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_social_api_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_social_clients_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_social_clients_contract.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_social_compose_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_social_compose_contract.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_social_scheduling_timezones.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_social_scheduling_timezones.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_social_source_open_metadata.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_social_source_open_metadata.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_social_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_social_store.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_ssrf_guard.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ssrf_guard.py) | 7 | Python AST |

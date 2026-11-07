@@ -52,7 +52,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2662 | 0 |
-| `features` | 1296 | 137719 | 57 |
+| `features` | 1296 | 137735 | 57 |
 | `generated` | 3 | 57426 | 593 |
 | `shared` | 348 | 37176 | 508 |
 
@@ -745,8 +745,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/social/publishing/PublishSocialModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/publishing/PublishSocialModal.tsx) | 143 | `PublishSocialModal` | — |
 | [`frontend/src/features/social/publishing/publish-social/PublishSocialComposeStep.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/publishing/publish-social/PublishSocialComposeStep.tsx) | 108 | `PublishSocialComposeStep` | — |
 | [`frontend/src/features/social/publishing/publish-social/PublishSocialSelectStep.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/publishing/publish-social/PublishSocialSelectStep.tsx) | 98 | `PublishSocialSelectStep` | — |
-| [`frontend/src/features/social/publishing/publish-social/publishSocialModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/publishing/publish-social/publishSocialModel.ts) | 181 | `buildSocialPosts`, `deriveSocialContent`, `initialPublishSocialState`, `publishSocialReducer`, `socialErrorMessage` | — |
-| [`frontend/src/features/social/publishing/publish-social/usePublishSocialController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/publishing/publish-social/usePublishSocialController.ts) | 278 | `usePublishSocialController` | — |
+| [`frontend/src/features/social/publishing/publish-social/publishSocialModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/publishing/publish-social/publishSocialModel.ts) | 188 | `buildSocialPosts`, `deriveSocialContent`, `initialPublishSocialState`, `publishSocialReducer`, `socialErrorMessage` | — |
+| [`frontend/src/features/social/publishing/publish-social/usePublishSocialController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/publishing/publish-social/usePublishSocialController.ts) | 281 | `usePublishSocialController` | — |
 | [`frontend/src/features/vault/VaultDashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/VaultDashboard.tsx) | 1 | — | — |
 | [`frontend/src/features/vault/collaboration/collabProvider.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/collaboration/collabProvider.ts) | 238 | `GnosiCollabProvider`, `buildCollaborationWebSocketUrl` | — |
 | [`frontend/src/features/vault/collaboration/useCollaboration.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/collaboration/useCollaboration.ts) | 169 | `useCollaboration` | — |
@@ -1256,7 +1256,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/views/vault-kanban/VaultKanbanCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-kanban/VaultKanbanCard.tsx) | 236 | `VaultKanbanCard` | — |
 | [`frontend/src/features/vault/views/vault-kanban/VaultKanbanColumn.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-kanban/VaultKanbanColumn.tsx) | 62 | `VaultKanbanColumn` | — |
 | [`frontend/src/features/vault/views/vault-kanban/vaultKanbanModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-kanban/vaultKanbanModel.ts) | 202 | `EMPTY_KANBAN_BUCKET`, `buildKanbanColumns`, `findKanbanMetadataKey`, `kanbanGroupValues`, `normalizeKanbanMetadataKey`, `readKanbanCardValue`, `readKanbanGroupBy`, `readKanbanVisibleProperties`, `resolveKanbanDropValue` | — |
-| [`frontend/src/features/vault/views/vault-table/CellButton.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/CellButton.tsx) | 106 | `CellButton` | — |
+| [`frontend/src/features/vault/views/vault-table/CellButton.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/CellButton.tsx) | 112 | `CellButton` | — |
 | [`frontend/src/features/vault/views/vault-table/CellContent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/CellContent.tsx) | 67 | `createCellRenderer` | — |
 | [`frontend/src/features/vault/views/vault-table/CellDropdownPortal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/CellDropdownPortal.tsx) | 80 | `CellDropdownPortal` | — |
 | [`frontend/src/features/vault/views/vault-table/CellEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/CellEditor.tsx) | 186 | `CellEditor` | — |
