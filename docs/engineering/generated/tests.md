@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 36 | 116 |
-| Vitest | 763 | 3491 |
+| Vitest | 763 | 3493 |
 | pytest | 785 | 6043 |
 
 ## Files
@@ -446,7 +446,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/features/vault/editor/block-editor/property-controls/values.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/property-controls/values.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/schema.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/schema.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/transclusionDocument.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/transclusionDocument.test.ts) | 7 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/editor/block-editor/useEditorPersistence.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorPersistence.test.tsx) | 16 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/editor/block-editor/useEditorPersistence.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorPersistence.test.tsx) | 18 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/useInitialDocument.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useInitialDocument.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/useLinkCommands.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useLinkCommands.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/cite-inline/citationResolver.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/cite-inline/citationResolver.test.ts) | 3 | call-pattern estimate |

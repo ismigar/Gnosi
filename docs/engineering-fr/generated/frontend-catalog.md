@@ -52,7 +52,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2662 | 0 |
-| `features` | 1298 | 137834 | 57 |
+| `features` | 1298 | 137844 | 57 |
 | `generated` | 3 | 57507 | 594 |
 | `shared` | 349 | 37198 | 509 |
 
@@ -977,7 +977,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/editor/block-editor/schema.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/schema.ts) | 43 | `createEditorSchema` | — |
 | [`frontend/src/features/vault/editor/block-editor/transclusionDocument.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/transclusionDocument.ts) | 10 | `replaceTransclusion` | — |
 | [`frontend/src/features/vault/editor/block-editor/useDropBridge.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useDropBridge.ts) | 12 | `useDropBridge` | — |
-| [`frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts) | 192 | `useEditorPersistence` | — |
+| [`frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts) | 202 | `useEditorPersistence` | — |
 | [`frontend/src/features/vault/editor/block-editor/useEditorRuntime.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorRuntime.ts) | 57 | `useEditorRuntime` | — |
 | [`frontend/src/features/vault/editor/block-editor/useGeneratedContent.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useGeneratedContent.ts) | 32 | `useGeneratedContent` | — |
 | [`frontend/src/features/vault/editor/block-editor/useInitialDocument.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useInitialDocument.ts) | 55 | `useInitialDocument` | — |
