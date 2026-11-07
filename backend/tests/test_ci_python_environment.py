@@ -234,7 +234,7 @@ def test_dependency_workflows_enable_native_package_reuse() -> None:
         assert document["env"]["GNOSI_CI_PACKAGE_CACHE"] == "1"
 
 
-def test_backend_temporary_directory_is_job_scoped_and_never_follows_links(tmp_path: Path) -> None:
+def test_temporary_directory_is_job_scoped_and_never_follows_links(tmp_path: Path) -> None:
     environment = ci_environment(tmp_path)
     candidate = environment_path(environment)
     temporary = candidate.with_name(TEMP_PREFIX + candidate.name.removeprefix(ENVIRONMENT_PREFIX))
@@ -251,5 +251,7 @@ def test_backend_temporary_directory_is_job_scoped_and_never_follows_links(tmp_p
     other = {**environment, "GITHUB_JOB": "frontend"}
     Path(environment["GITHUB_ENV"]).write_text("")
     prepare(other)
-    assert "TMPDIR=" not in Path(environment["GITHUB_ENV"]).read_text()
+    other_values = dict(line.split("=", 1) for line in Path(environment["GITHUB_ENV"]).read_text().splitlines())
+    assert other_values["TMPDIR"] != str(temporary)
+    assert Path(other_values["TMPDIR"]).is_dir()
     assert temporary.is_dir()
