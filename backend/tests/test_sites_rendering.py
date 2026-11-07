@@ -107,6 +107,7 @@ def test_native_pangea_upload_verify_service_and_rollback_without_remote_access(
     site = SiteConfig(name="Synthetic Pangea", targets=[SiteTarget(id="pangea", adapter="legacy-pangea", environment="staging", enabled=True, base_url="https://example.invalid/_gnosi-proves/webs/test/current")])
     site.targets[0].base_url = "https://temenosismael.org/_gnosi-proves/webs/" + site.id + "/current"
     if environment == "production":
+        from types import SimpleNamespace
         site.targets[0] = site.targets[0].model_copy(update={"id": "pangea-production", "environment": "production", "base_url": "https://temenosismael.org"})
     site = store.save(site, create=True)
     if environment == "production":
@@ -114,7 +115,9 @@ def test_native_pangea_upload_verify_service_and_rollback_without_remote_access(
         from backend.domains.sites.models import ServiceSettings
         from backend.domains.sites.storage import private_json
         root = service_root(store, site.id, "pangea-production")
-        private_json(root / "settings.json", ServiceSettings(test_mode=False, delivery_transport="server-mail", sender_email="site@example.invalid").model_dump(mode="json"))
+        private_json(root / "settings.json", ServiceSettings(test_mode=False, delivery_transport="smtp", smtp_host="smtp.example.invalid", smtp_username="site", sender_email="site@example.invalid").model_dump(mode="json"))
+        private_json(root / "credential-reference.json", {"key": "synthetic-smtp-only"})
+        monkeypatch.setattr("backend.security.keychain_manager.get_keychain", lambda: SimpleNamespace(get_credential=lambda reference: "SYNTHETIC-SMTP-ONLY"))
         private_json(root / "production-registration.json", {"site_id": site.id, "scope": store.private_root.name, "target_id": "pangea-production", "base_url": "https://temenosismael.org"})
     remote = tmp_path / "account"
     marker = remote / "web/_gnosi-proves/.gnosi-staging-marker"
@@ -123,7 +126,14 @@ def test_native_pangea_upload_verify_service_and_rollback_without_remote_access(
 
     class LocalBridge:
         def run(self, command):
-            return subprocess.run(command, shell=True, capture_output=True, text=True, check=True).stdout
+            result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True).stdout
+            if command.startswith("tar -xzf "):
+                configs = list(remote.glob("**/releases/*/service/config.json"))
+                assert configs
+                for config in configs:
+                    assert config.parent.stat().st_mode & 0o777 == 0o700
+                    assert config.stat().st_mode & 0o777 == 0o600
+            return result
 
     class LocalDriver:
         REMOTE_ROOT = str(remote)
@@ -137,6 +147,17 @@ def test_native_pangea_upload_verify_service_and_rollback_without_remote_access(
             return subprocess.run([shutil.which("php"), "-r", code], capture_output=True, text=True, check=True).stdout
 
         def put(self, bridge, source, destination):
+            if source.name == "release.tar.gz":
+                import tarfile
+                assert source.stat().st_mode & 0o777 == 0o600
+                assert Path(destination).parent.stat().st_mode & 0o777 == 0o700
+                assert Path(destination).stat().st_mode & 0o777 == 0o600
+                with tarfile.open(source) as archive:
+                    assert archive.getmember("service").mode == 0o700
+                    assert archive.getmember("service/config.json").mode == 0o600
+                    if environment == "production":
+                        config = json.loads(archive.extractfile("service/config.json").read())
+                        assert config["smtp"]["password"] == "SYNTHETIC-SMTP-ONLY"
             shutil.copyfile(source, destination)
 
     monkeypatch.setattr(pangea, "driver", lambda store: LocalDriver())

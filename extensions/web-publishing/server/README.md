@@ -195,3 +195,9 @@ preserves protected staging and historical public attachments while routing
 public requests to the retained Webs release. It does not itself connect or
 perform a cutover. Retain Drupal and a verified copy of its root routing so the
 operator can reverse the cutover without reverting new subscriber history.
+
+Pangea uploads the release archive into the private `0700` service directory,
+pre-creating its destination as `0600` before the transfer starts. The tar's
+service directory is explicitly `0700` and all service members are `0600`.
+This also protects credentials if upload or extraction stops before final
+installation; privacy does not depend on the hosting account's umask.

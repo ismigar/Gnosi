@@ -206,11 +206,14 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
         with tempfile.TemporaryDirectory(prefix="gnosi-pangea-release-") as temporary:
             root = Path(temporary)
             service = root / "service"
-            service.mkdir()
+            service.mkdir(mode=0o700)
             for source in SERVICE_ROOT.glob("*.php"):
                 if source.name != "test.php":
-                    (service / source.name).write_bytes(source.read_bytes())
+                    destination = service / source.name
+                    destination.write_bytes(source.read_bytes())
+                    destination.chmod(0o600)
             (service / "config.json").write_text(json.dumps(config))
+            (service / "config.json").chmod(0o600)
             htaccess = (output / ".htaccess").read_text() if (output / ".htaccess").is_file() else "Options -Indexes\n"
             htaccess += '\nSetEnv GNOSI_SITES_SERVICE_CONFIG "' + service_root + '/config.json"\n'
             (root / ".htaccess").write_text(htaccess)
@@ -224,10 +227,17 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
                         tar.add(path, arcname="public/" + str(path.relative_to(output)), recursive=False)
                 tar.add(root / ".htaccess", arcname="public/.htaccess")
                 tar.add(root / "checksums.json", arcname="checksums.json")
+                tar.add(service, arcname="service", recursive=False)
                 for path in service.iterdir():
                     tar.add(path, arcname="service/" + path.name, recursive=False)
-            transport.put(bridge, archive, release_root + "/upload.tar.gz")
-        bridge.run("tar -xzf " + shlex.quote(release_root + "/upload.tar.gz") + " -C " + shlex.quote(release_root) + " && rm " + shlex.quote(release_root + "/upload.tar.gz"))
+            archive.chmod(0o600)
+            package_name = "upload-" + release_id + ".tar.gz"
+            package_path = service_root + "/" + package_name
+            # Keep credentials private from the first upload byte, including
+            # interrupted transfers. The retained static tree is traversable.
+            transport.php(bridge, _policy(public, private, owner) + '$s=' + json.dumps(service_root) + ';$name=' + json.dumps(package_name) + ';$file=gnosi_file($s,$name);if(gnosi_exists($file)){throw new Exception("Upload already exists");}gnosi_write($s,$name,"",0600);')
+            transport.put(bridge, archive, package_path)
+        bridge.run("tar -xzf " + shlex.quote(package_path) + " -C " + shlex.quote(release_root) + " && rm " + shlex.quote(package_path))
         # Service code/config have a separate lifecycle from retained static releases.
         prepare = _policy(public, private, owner) + '$release=' + json.dumps(release_root) + ';$s=' + json.dumps(service_root) + ';foreach(glob($release."/service/*") as $file){$name=basename($file);$source=gnosi_file($release,"service/".$name);gnosi_write($s,$name,file_get_contents($source));unlink($source);}rmdir($release."/service");$it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($release."/public",FilesystemIterator::SKIP_DOTS),RecursiveIteratorIterator::SELF_FIRST);foreach($it as $entry){if($entry->isLink()){throw new Exception("Unreviewed version symlink");}chmod($entry->getPathname(),$entry->isDir()?0755:0644);}chmod($release."/public",0755);'
         transport.php(bridge, prepare)
