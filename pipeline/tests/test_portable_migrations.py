@@ -38,6 +38,7 @@ def test_portable_migrations_in_isolated_subprocess(monkeypatch: pytest.MonkeyPa
             (root / directory).mkdir()
         environment = {
             "PATH": os.defpath,
+            "TMPDIR": str(root),
             "PYTHONDONTWRITEBYTECODE": "1",
             "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
             "GNOSI_VALIDATION_ROOT": str(root),
@@ -71,6 +72,7 @@ def isolated_runtime() -> None:
     from backend.config.validation_runtime import validation_runtime_enabled
 
     assert validation_runtime_enabled()
+    assert Path(tempfile.gettempdir()).resolve() == Path(os.environ["GNOSI_VALIDATION_ROOT"])
 
 
 def _write(path: Path, content: str) -> None:
