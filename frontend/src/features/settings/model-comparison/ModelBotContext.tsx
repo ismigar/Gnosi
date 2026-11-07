@@ -1,3 +1,4 @@
+import { SavedFeedback } from '../../../shared/editor/SavedFeedback';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AiModelRegistryEntry } from '../../../shared/api/ai';
@@ -50,7 +51,7 @@ export function ModelBotContext({ bots, bot, onBotChange, registry, onAssign, on
             <p className="settings-desc">{t('model_comparison.workspace.assignment_help')}</p>
         </details>}
         {saveStatus === 'saving' || saveStatus === 'error' || saveStatus === 'saved' ? <p role={saveStatus === 'error' ? 'alert' : 'status'}>
-            {t(`model_comparison.workspace.${saveStatus === 'saving' ? 'saving' : saveStatus === 'saved' ? 'saved' : 'save_error'}`)}
+            {saveStatus === 'saved' ? <SavedFeedback>{t('model_comparison.workspace.saved')}</SavedFeedback> : t(`model_comparison.workspace.${saveStatus === 'saving' ? 'saving' : 'save_error'}`)}
         </p> : null}
     </section>;
 }

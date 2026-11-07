@@ -1,3 +1,4 @@
+import { SavedFeedback } from '../../../shared/editor/SavedFeedback';
 import { X } from 'lucide-react';
 
 import type { VaultFeedController } from './useVaultFeedController';
@@ -37,7 +38,7 @@ export function VaultFeedOverlays({ controller }: VaultFeedOverlaysProps) {
               ? t('feed.sync_saving', 'Saving changes…')
               : bulkSaveState === 'error'
                 ? t('feed.sync_error', 'Changes need attention')
-                : t('feed.sync_saved', 'Changes saved')}
+                : bulkSaveState === 'saved' ? <SavedFeedback>{t('feed.sync_saved', 'Changes saved')}</SavedFeedback> : null}
           </span>
           {pendingBulkUndo && (
             <button type="button" onClick={() => { void undoBulkField(); }}>
