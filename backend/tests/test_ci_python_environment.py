@@ -255,3 +255,25 @@ def test_temporary_directory_is_job_scoped_and_never_follows_links(tmp_path: Pat
     assert other_values["TMPDIR"] != str(temporary)
     assert Path(other_values["TMPDIR"]).is_dir()
     assert temporary.is_dir()
+
+
+def test_backend_temporaries_persist_between_check_steps(tmp_path: Path) -> None:
+    workflow = yaml.safe_load((REPOSITORY / ".github/workflows/ci.yml").read_text())
+    steps = workflow["jobs"]["backend"]["steps"]
+    index = next(i for i, step in enumerate(steps)
+                 if step.get("name") == "Use disk-backed backend temporaries")
+    checks = [i for i, step in enumerate(steps) if "uv run" in step.get("run", "")]
+    assert checks and index < min(checks)
+    runner_temp = tmp_path / "runner temp"
+    runner_temp.mkdir()
+    github_env = tmp_path / "github-env"
+    subprocess.run(["/bin/bash", "-e", "-c", steps[index]["run"]], check=True,
+                   env={"RUNNER_TEMP": str(runner_temp), "GITHUB_ENV": str(github_env)})
+    exported = dict(line.split("=", 1) for line in github_env.read_text().splitlines())
+    # Each Actions step gets a fresh process; both must inherit the disk path.
+    for _ in range(2):
+        result = subprocess.run(
+            [sys.executable, "-c", "import tempfile; print(tempfile.gettempdir())"],
+            env=exported, text=True, capture_output=True, check=True,
+        )
+        assert Path(result.stdout.strip()).resolve() == runner_temp.resolve()
