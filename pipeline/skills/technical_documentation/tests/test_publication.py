@@ -88,6 +88,7 @@ CI_COMMANDS = {
     ],
     "native-smoke": [
         "python3 scripts/ci/classify_changes.py",
+        "printf 'TMPDIR=%s\\n' \"$RUNNER_TEMP\" >> \"$GITHUB_ENV\"",
         "npm install --global --ignore-scripts --no-audit --no-fund pnpm@11.19.0",
         "python scripts/ci/prepare_python_environment.py",
         "pnpm install --frozen-lockfile",
