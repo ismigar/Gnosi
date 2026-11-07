@@ -64,6 +64,7 @@ CI_COMMANDS = {
     ],
     "backend": [
         "python3 scripts/ci/classify_changes.py",
+        "printf 'TMPDIR=%s\\n' \"$RUNNER_TEMP\" >> \"$GITHUB_ENV\"",
         "pnpm install --frozen-lockfile --ignore-scripts --filter @gnosi/desktop",
         "python scripts/ci/prepare_python_environment.py",
         "python scripts/ci/prepare_analysis_cache.py",
@@ -87,6 +88,7 @@ CI_COMMANDS = {
     ],
     "native-smoke": [
         "python3 scripts/ci/classify_changes.py",
+        "printf 'TMPDIR=%s\\n' \"$RUNNER_TEMP\" >> \"$GITHUB_ENV\"",
         "npm install --global --ignore-scripts --no-audit --no-fund pnpm@11.19.0",
         "python scripts/ci/prepare_python_environment.py",
         "pnpm install --frozen-lockfile",
@@ -97,6 +99,7 @@ CI_COMMANDS = {
     ],
     "docker": [
         "python3 scripts/ci/classify_changes.py",
+        "printf 'TMPDIR=%s\\n' \"$RUNNER_TEMP\" >> \"$GITHUB_ENV\"",
         "python3 scripts/ci/prepare_docker_runner.py",
         "docker compose config --quiet",
         "python3 scripts/ci/build_container_image.py --dockerfile Dockerfile.frontend "

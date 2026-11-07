@@ -52,9 +52,9 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2662 | 0 |
-| `features` | 1292 | 137512 | 57 |
+| `features` | 1292 | 137533 | 57 |
 | `generated` | 3 | 57283 | 591 |
-| `shared` | 348 | 37161 | 506 |
+| `shared` | 349 | 37176 | 506 |
 
 ## app
 
@@ -216,7 +216,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/calendar/components/calendar-sidebar-right/EventDates.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/EventDates.tsx) | 92 | `EventDates` | — |
 | [`frontend/src/features/calendar/components/calendar-sidebar-right/EventDescription.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/EventDescription.tsx) | 21 | `EventDescription` | — |
 | [`frontend/src/features/calendar/components/calendar-sidebar-right/EventDetails.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/EventDetails.tsx) | 32 | `EventDetails` | — |
-| [`frontend/src/features/calendar/components/calendar-sidebar-right/EventForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/EventForm.tsx) | 95 | `EventForm` | — |
+| [`frontend/src/features/calendar/components/calendar-sidebar-right/EventForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/EventForm.tsx) | 96 | `EventForm` | — |
 | [`frontend/src/features/calendar/components/calendar-sidebar-right/EventLocation.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/EventLocation.tsx) | 79 | `EventLocation` | — |
 | [`frontend/src/features/calendar/components/calendar-sidebar-right/EventRecurrence.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/EventRecurrence.tsx) | 123 | `EventRecurrence` | — |
 | [`frontend/src/features/calendar/components/calendar-sidebar-right/calendarBoundary.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/components/calendar-sidebar-right/calendarBoundary.ts) | 47 | `attendeeList`, `calendarEntry`, `eventMetadata`, `exdatesFor`, `record`, `stringList`, `textValue` | — |
@@ -445,7 +445,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/media/browser/MediaGallery.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/browser/MediaGallery.tsx) | 103 | `MediaGallery` | — |
 | [`frontend/src/features/media/browser/MediaHeader.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/browser/MediaHeader.tsx) | 65 | `MediaHeader` | — |
 | [`frontend/src/features/media/browser/MediaLightbox.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/browser/MediaLightbox.tsx) | 131 | `MediaLightbox` | — |
-| [`frontend/src/features/media/browser/MediaMetadataPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/browser/MediaMetadataPanel.tsx) | 121 | `MediaMetadataPanel` | — |
+| [`frontend/src/features/media/browser/MediaMetadataPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/browser/MediaMetadataPanel.tsx) | 122 | `MediaMetadataPanel` | — |
 | [`frontend/src/features/media/browser/MediaSidebar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/browser/MediaSidebar.tsx) | 107 | `MediaSidebar` | — |
 | [`frontend/src/features/media/browser/MediaToolbar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/browser/MediaToolbar.tsx) | 224 | `MediaToolbar` | — |
 | [`frontend/src/features/media/browser/Thumb.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/media/browser/Thumb.tsx) | 70 | `Thumb` | — |
@@ -690,7 +690,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/global-settings/useSettingsState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsState.ts) | 101 | `useSettingsState` | — |
 | [`frontend/src/features/settings/identity/IdentityProfile.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/identity/IdentityProfile.tsx) | 233 | `IdentityProfile`, `function` | — |
 | [`frontend/src/features/settings/model-comparison/ComparisonDetails.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ComparisonDetails.tsx) | 57 | `ComparisonDetails` | — |
-| [`frontend/src/features/settings/model-comparison/ModelBotContext.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelBotContext.tsx) | 56 | `ModelBotContext` | — |
+| [`frontend/src/features/settings/model-comparison/ModelBotContext.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelBotContext.tsx) | 57 | `ModelBotContext` | — |
 | [`frontend/src/features/settings/model-comparison/ModelOfferList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelOfferList.tsx) | 19 | `ModelOfferList` | — |
 | [`frontend/src/features/settings/model-comparison/ModelParameterReview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelParameterReview.tsx) | 53 | `ModelParameterReview` | — |
 | [`frontend/src/features/settings/model-comparison/ModelPriceOffer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelPriceOffer.tsx) | 59 | `ModelPriceOffer` | — |
@@ -888,7 +888,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/editor/block-editor/MarkdownCodeEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/MarkdownCodeEditor.tsx) | 40 | `MarkdownCodeEditor` | — |
 | [`frontend/src/features/vault/editor/block-editor/QueryBlock.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/QueryBlock.tsx) | 22 | `QueryBlock` | — |
 | [`frontend/src/features/vault/editor/block-editor/SelectableSideMenu.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/SelectableSideMenu.tsx) | 39 | `SelectableSideMenu` | — |
-| [`frontend/src/features/vault/editor/block-editor/TransclusionContent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/TransclusionContent.tsx) | 116 | `TransclusionContent` | — |
+| [`frontend/src/features/vault/editor/block-editor/TransclusionContent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/TransclusionContent.tsx) | 117 | `TransclusionContent` | — |
 | [`frontend/src/features/vault/editor/block-editor/TransclusionEmbed.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/TransclusionEmbed.tsx) | 32 | `TransclusionEmbed` | — |
 | [`frontend/src/features/vault/editor/block-editor/blockSpecs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/blockSpecs.tsx) | 96 | `createBlockSpecs` | — |
 | [`frontend/src/features/vault/editor/block-editor/blockValues.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/blockValues.ts) | 107 | `readEditorBlocks`, `sanitizeBlocks` | — |
@@ -945,7 +945,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/editor/block-editor/page-editor/PageModals.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PageModals.tsx) | 96 | `PageModals` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/PagePropertiesPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PagePropertiesPanel.tsx) | 168 | `PagePropertiesPanel` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/PageSpellLanguage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PageSpellLanguage.tsx) | 28 | `PageSpellLanguage` | — |
-| [`frontend/src/features/vault/editor/block-editor/page-editor/PageTitle.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PageTitle.tsx) | 124 | `PageTitle` | — |
+| [`frontend/src/features/vault/editor/block-editor/page-editor/PageTitle.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PageTitle.tsx) | 125 | `PageTitle` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/PropertyValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PropertyValue.tsx) | 149 | `PropertyValue` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/ScalarPropertyValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/ScalarPropertyValue.tsx) | 125 | `ScalarPropertyValue` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/SchemaPropertyRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/SchemaPropertyRow.tsx) | 74 | `SchemaPropertyRow` | — |
@@ -977,7 +977,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/editor/block-editor/schema.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/schema.ts) | 43 | `createEditorSchema` | — |
 | [`frontend/src/features/vault/editor/block-editor/transclusionDocument.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/transclusionDocument.ts) | 10 | `replaceTransclusion` | — |
 | [`frontend/src/features/vault/editor/block-editor/useDropBridge.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useDropBridge.ts) | 12 | `useDropBridge` | — |
-| [`frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts) | 180 | `useEditorPersistence` | — |
+| [`frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts) | 192 | `useEditorPersistence` | — |
 | [`frontend/src/features/vault/editor/block-editor/useEditorRuntime.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorRuntime.ts) | 57 | `useEditorRuntime` | — |
 | [`frontend/src/features/vault/editor/block-editor/useGeneratedContent.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useGeneratedContent.ts) | 32 | `useGeneratedContent` | — |
 | [`frontend/src/features/vault/editor/block-editor/useInitialDocument.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useInitialDocument.ts) | 55 | `useInitialDocument` | — |
@@ -1148,7 +1148,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/view-config/page-view-modal/ViewDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/ViewDialog.tsx) | 140 | `ViewDialog` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/ViewExistingPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/ViewExistingPicker.tsx) | 70 | `ViewExistingPicker` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/ViewFilters.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/ViewFilters.tsx) | 43 | `ViewFilters` | — |
-| [`frontend/src/features/vault/view-config/page-view-modal/ViewFooter.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/ViewFooter.tsx) | 68 | `ViewFooter` | — |
+| [`frontend/src/features/vault/view-config/page-view-modal/ViewFooter.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/ViewFooter.tsx) | 69 | `ViewFooter` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/ViewGalleryOptions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/ViewGalleryOptions.tsx) | 105 | `ViewGalleryOptions` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/ViewGrouping.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/ViewGrouping.tsx) | 139 | `ViewGrouping` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/ViewHeightOptions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/ViewHeightOptions.tsx) | 56 | `ViewHeightOptions` | — |
@@ -1194,7 +1194,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/views/VaultFeed.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultFeed.tsx) | 158 | `VaultFeed` | — |
 | [`frontend/src/features/vault/views/VaultFeedCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultFeedCard.tsx) | 285 | `VaultFeedCard` | — |
 | [`frontend/src/features/vault/views/VaultFeedList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultFeedList.tsx) | 122 | `VaultFeedList` | — |
-| [`frontend/src/features/vault/views/VaultFeedOverlays.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultFeedOverlays.tsx) | 122 | `VaultFeedOverlays` | — |
+| [`frontend/src/features/vault/views/VaultFeedOverlays.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultFeedOverlays.tsx) | 123 | `VaultFeedOverlays` | — |
 | [`frontend/src/features/vault/views/VaultFeedReadingPane.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultFeedReadingPane.tsx) | 157 | `VaultFeedReadingPane` | — |
 | [`frontend/src/features/vault/views/VaultGallery.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultGallery.tsx) | 271 | `VaultGallery` | — |
 | [`frontend/src/features/vault/views/VaultGraph.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/VaultGraph.tsx) | 192 | `VaultGraph` | — |
@@ -1350,7 +1350,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/websites/CreateSiteDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/CreateSiteDialog.tsx) | 66 | `CreateSiteDialog` | — |
 | [`frontend/src/features/websites/FooterEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/FooterEditor.tsx) | 43 | `FooterEditor` | — |
 | [`frontend/src/features/websites/FormsEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/FormsEditor.tsx) | 40 | `FormsEditor` | — |
-| [`frontend/src/features/websites/HostingPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/HostingPanel.tsx) | 76 | `HostingPanel` | — |
+| [`frontend/src/features/websites/HostingPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/HostingPanel.tsx) | 77 | `HostingPanel` | — |
 | [`frontend/src/features/websites/ImportedHtmlEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/ImportedHtmlEditor.tsx) | 86 | `ImportedHtmlEditor` | — |
 | [`frontend/src/features/websites/ImportedPages.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/ImportedPages.tsx) | 23 | `ImportedPages` | — |
 | [`frontend/src/features/websites/LinksEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/LinksEditor.tsx) | 40 | `LinksEditor` | — |
@@ -1367,7 +1367,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/websites/WebsiteCanvas.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteCanvas.tsx) | 89 | `WebsiteCanvas` | — |
 | [`frontend/src/features/websites/WebsiteFileField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteFileField.tsx) | 13 | `WebsiteAssetProvider`, `WebsiteFileField` | — |
 | [`frontend/src/features/websites/WebsiteLanguages.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteLanguages.tsx) | 18 | `WebsiteLanguages` | — |
-| [`frontend/src/features/websites/WebsitesPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesPage.tsx) | 249 | `WebsitesPage`, `function` | — |
+| [`frontend/src/features/websites/WebsitesPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesPage.tsx) | 250 | `WebsitesPage`, `function` | — |
 | [`frontend/src/features/websites/autosaveRequest.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/autosaveRequest.ts) | 29 | `autosaveRequest`, `useAutosaveRegistration` | — |
 | [`frontend/src/features/websites/components.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/components.tsx) | 42 | `Card`, `Empty`, `Field`, `FileImportButton`, `Input`, `ListInput`, `ReorderActions`, `Select`, `Textarea`, `Toggle` | — |
 | [`frontend/src/features/websites/helpers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/helpers.ts) | 34 | `capturedDisplayHtml`, `configurationKey`, `escaped`, `filterValueText`, `moveItem`, `newId`, `safePreviewDocument`, `splitList` | — |
@@ -1532,10 +1532,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/dates/periodValue.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/dates/periodValue.ts) | 203 | `isPeriodObject`, `normalizePeriodUnit`, `normalizedIds`, `parsePeriod`, `periodBoundary`, `serializePeriod`, `validDuration`, `withPeriodBoundaries` | — |
 | [`frontend/src/shared/dates/projectPlanning.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/dates/projectPlanning.ts) | 339 | `addPeriodDuration`, `addWorkingDuration`, `dependencySuccessorIds`, `formatLocalDateTime`, `latestPredecessorEnd`, `nextWorkingInstant`, `periodDaysInclusive`, `periodDurationFromBoundaries`, `periodDurationToWorkingDays`, `workingDurationDays`, `wouldCreateDependencyCycle` | — |
 | [`frontend/src/shared/dates/unifiedDate.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/dates/unifiedDate.ts) | 80 | `dateBoundary`, `dateDuration`, `dateWithDuration`, `formatUnifiedDate`, `unifiedDate`, `unifiedDateInput` | — |
-| [`frontend/src/shared/editor/DraftSaveStatus.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/DraftSaveStatus.tsx) | 18 | `DraftSaveStatus` | — |
+| [`frontend/src/shared/editor/DraftSaveStatus.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/DraftSaveStatus.tsx) | 19 | `DraftSaveStatus` | — |
 | [`frontend/src/shared/editor/InstructionMarkdownEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/InstructionMarkdownEditor.tsx) | 102 | `InstructionMarkdownEditor` | — |
 | [`frontend/src/shared/editor/InstructionRichEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/InstructionRichEditor.tsx) | 111 | `InstructionRichEditor`, `function` | — |
 | [`frontend/src/shared/editor/PageHoverCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/PageHoverCard.tsx) | 254 | `PageHoverCard` | — |
+| [`frontend/src/shared/editor/SavedFeedback.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/SavedFeedback.tsx) | 14 | `SAVED_FEEDBACK_DURATION_MS`, `SavedFeedback` | — |
 | [`frontend/src/shared/editor/VaultEditorContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultEditorContext.ts) | 43 | `VaultEditorContext` | — |
 | [`frontend/src/shared/editor/VaultMarkdown.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultMarkdown.tsx) | 349 | `VaultMarkdown`, `VaultMarkdownTransclusion` | — |
 | [`frontend/src/shared/editor/WikilinkContextMenu.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/WikilinkContextMenu.tsx) | 199 | `WikilinkContextMenu` | — |

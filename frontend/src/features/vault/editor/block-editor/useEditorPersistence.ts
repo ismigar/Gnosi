@@ -4,6 +4,7 @@ import { patchVaultPage } from '../../../../shared/api/vaults';
 import { GnosiApiError } from '../../../../shared/api/errors';
 import { notifyError, logError } from '../../../../shared/notifications/notifyError';
 import { blocksToRichMarkdown } from '../../../../shared/editor/markdown-mapper';
+import { SAVED_FEEDBACK_DURATION_MS } from '../../../../shared/editor/SavedFeedback';
 import { inFlightSaves } from '../editorState';
 import { extractOutgoingPageLinks } from './outgoingLinks';
 import type { MarkdownCodeEditorProps, CodeEditorMetadata } from './codeTypes';
@@ -53,6 +54,12 @@ function clearOwnSave(id: string, promise: Promise<unknown>): void {
 export function useEditorPersistence({ editor, noteFilename, isParsing, editorReady, metadataRef, setSaveStatus, onUpdate, onOutgoingLinksChange, idToTitle, registerSave }: EditorPersistenceOptions) {
     const { t } = useTranslation();
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const savedStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const cancelSavedStatusTimer = useCallback(() => {
+        if (savedStatusTimerRef.current) clearTimeout(savedStatusTimerRef.current);
+        savedStatusTimerRef.current = null;
+    }, []);
+    useEffect(() => cancelSavedStatusTimer, [cancelSavedStatusTimer, editor, noteFilename]);
     const transientRetryRef = useRef(0);
     const lastSaveFailedRef = useRef(false);
     const outgoingSignatureRef = useRef('');
@@ -72,14 +79,19 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
             const tracked = contentRef.current;
             if (!force && tracked?.editor === editor && tracked.noteFilename === noteFilename
                 && content === tracked.saved && !inFlightSaves.has(noteFilename)) return;
+            cancelSavedStatusTimer();
             setSaveStatus('saving');
             const { data, promise } = savePage(noteFilename, content, readMetadata(), t('editor.untitled'));
             try { await promise; } finally { clearOwnSave(noteFilename, promise); }
             if (tracked?.editor === editor && tracked.noteFilename === noteFilename) tracked.saved = data.content;
             transientRetryRef.current = 0;
             setSaveStatus('saved');
+            cancelSavedStatusTimer();
+            savedStatusTimerRef.current = setTimeout(() => {
+                savedStatusTimerRef.current = null;
+                setSaveStatus(previous => previous === 'saved' ? 'idle' : previous);
+            }, SAVED_FEEDBACK_DURATION_MS);
             onUpdate?.(noteFilename, data.content, { title: data.title, metadata: data.metadata });
-            setTimeout(() => { setSaveStatus(previous => previous === 'saved' ? 'idle' : previous); }, 3000);
         } catch (error) {
             lastSaveFailedRef.current = true;
             const retryDelay = transientRetryDelay(error, transientRetryRef.current);
@@ -97,7 +109,7 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
             notifyError('autosave', error, t('editor.autosave_error'));
             setSaveStatus('error');
         }
-    }, [editor, editorReady, isParsing, readMetadata, noteFilename, onUpdate, setSaveStatus, t]);
+    }, [cancelSavedStatusTimer, editor, editorReady, isParsing, readMetadata, noteFilename, onUpdate, setSaveStatus, t]);
 
     const cancelPendingSave = useCallback(() => {
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);

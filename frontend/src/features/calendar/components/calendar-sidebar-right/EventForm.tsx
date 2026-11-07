@@ -1,3 +1,4 @@
+import { SavedFeedback } from '../../../../shared/editor/SavedFeedback';
 import { X, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '../../../../shared/ui/dialogs/ConfirmModal';
 import { RecurrenceChoiceModal } from '../RecurrenceChoiceModal';
@@ -46,7 +47,7 @@ export function EventForm(props: EventFormProps) {
             {/* Footer */}
             <div className="px-4 py-2 border-t border-[var(--border-primary)] bg-[var(--bg-tertiary)] flex items-center justify-between gap-2">
                 <div className={`text-[10px] italic ${saveError ? 'text-red-500' : 'text-[var(--text-tertiary)]'}`}>
-                    {saving ? t('calendar.saving', "Saving...") : deleting ? t('calendar.deleting', "Deleting...") : saveError ? '⚠ Error desant' : t('calendar.saved', "Saved")}
+                    {saving ? t('calendar.saving', "Saving...") : deleting ? t('calendar.deleting', "Deleting...") : saveError ? '⚠ Error desant' : <SavedFeedback>{t('calendar.saved', "Saved")}</SavedFeedback>}
                 </div>
                 <div className="flex gap-1.5">
                     {mode !== 'view' && ((mode === 'edit' && eventData?.id) || createdId || isDeletableGoogleEvent) && (

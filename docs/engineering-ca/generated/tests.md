@@ -11,8 +11,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 36 | 112 |
-| Vitest | 759 | 3473 |
-| pytest | 781 | 6012 |
+| Vitest | 760 | 3475 |
+| pytest | 781 | 6013 |
 
 ## Fitxers
 
@@ -446,7 +446,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/vault/editor/block-editor/property-controls/values.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/property-controls/values.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/schema.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/schema.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/transclusionDocument.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/transclusionDocument.test.ts) | 7 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/editor/block-editor/useEditorPersistence.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorPersistence.test.tsx) | 15 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/editor/block-editor/useEditorPersistence.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorPersistence.test.tsx) | 16 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/useInitialDocument.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useInitialDocument.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/useLinkCommands.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useLinkCommands.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/cite-inline/citationResolver.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/cite-inline/citationResolver.test.ts) | 3 | call-pattern estimate |
@@ -681,6 +681,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/shared/editor/InstructionMarkdownEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/InstructionMarkdownEditor.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/InstructionRichEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/InstructionRichEditor.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/PageHoverCard.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/PageHoverCard.test.tsx) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/editor/SavedFeedback.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/SavedFeedback.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/VaultMarkdown.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultMarkdown.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx) | 12 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/VaultMarkdown.wikiEscapes.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultMarkdown.wikiEscapes.test.tsx) | 8 | call-pattern estimate |
@@ -970,7 +971,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_ci_native_readiness.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_native_readiness.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_ci_native_smoke_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_native_smoke_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_ci_performance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_performance.py) | 14 | Python AST |
-| pytest | [`backend/tests/test_ci_python_environment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_python_environment.py) | 12 | Python AST |
+| pytest | [`backend/tests/test_ci_python_environment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_python_environment.py) | 13 | Python AST |
 | pytest | [`backend/tests/test_ci_scheduling_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_scheduling_contract.py) | 16 | Python AST |
 | pytest | [`backend/tests/test_citation_io_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_citation_io_response_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_citation_key_and_pubmed.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_citation_key_and_pubmed.py) | 41 | Python AST |

@@ -229,3 +229,27 @@ def test_dependency_workflows_enable_native_package_reuse() -> None:
     for filename in ("ci.yml", "learn-quality.yml", "documentation-pages.yml", "build-release.yml"):
         document = yaml.safe_load((REPOSITORY / ".github/workflows" / filename).read_text())
         assert document["env"]["GNOSI_CI_PACKAGE_CACHE"] == "1"
+
+
+@pytest.mark.parametrize("job", ["backend", "native-smoke", "docker"])
+def test_linux_job_temporaries_persist_between_check_steps(tmp_path: Path, job: str) -> None:
+    workflow = yaml.safe_load((REPOSITORY / ".github/workflows/ci.yml").read_text())
+    steps = workflow["jobs"][job]["steps"]
+    index = next(i for i, step in enumerate(steps)
+                 if step.get("name") == "Use disk-backed temporary directory")
+    checks = [i for i, step in enumerate(steps)
+              if any(command in step.get("run", "") for command in ("uv run", "docker"))]
+    assert checks and index < min(checks)
+    runner_temp = tmp_path / "runner temp"
+    runner_temp.mkdir()
+    github_env = tmp_path / "github-env"
+    subprocess.run(["/bin/bash", "-e", "-c", steps[index]["run"]], check=True,
+                   env={"RUNNER_TEMP": str(runner_temp), "GITHUB_ENV": str(github_env)})
+    exported = dict(line.split("=", 1) for line in github_env.read_text().splitlines())
+    # Each Actions step gets a fresh process; both must inherit the disk path.
+    for _ in range(2):
+        result = subprocess.run(
+            [sys.executable, "-c", "import tempfile; print(tempfile.gettempdir())"],
+            env=exported, text=True, capture_output=True, check=True,
+        )
+        assert Path(result.stdout.strip()).resolve() == runner_temp.resolve()
