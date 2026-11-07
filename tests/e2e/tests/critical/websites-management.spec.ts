@@ -268,7 +268,7 @@ test('website rows autosave rich columns, images and folded edits across reload'
   await expect(dialog).toBeHidden();
   await page.getByRole('tab', { name: 'Pages', exact: true }).click();
   await expect(page.locator('.websites-page details[open]')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Add page', exact: true })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Add page', exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('sections-folded-default.png'), fullPage: true });
   await expandWebsiteSections(page);
   await page.getByRole('button', { name: 'Add page', exact: true }).click();
