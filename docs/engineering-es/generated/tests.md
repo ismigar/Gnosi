@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 36 | 115 |
 | Vitest | 761 | 3487 |
-| pytest | 784 | 6033 |
+| pytest | 784 | 6035 |
 
 ## Archivos
 
@@ -1397,7 +1397,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_sites_public_http.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_public_http.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_sites_rendering.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_rendering.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_sites_ssh_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_ssh_transport.py) | 13 | Python AST |
-| pytest | [`backend/tests/test_sites_stylesheets.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_stylesheets.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_sites_stylesheets.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_stylesheets.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_sites_theme_assets.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_theme_assets.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_sites_theme_parity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_theme_parity.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_sites_url_import.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_url_import.py) | 10 | Python AST |

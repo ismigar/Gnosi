@@ -16,7 +16,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 57 |
 | `config` | 14 | 1428 |
 | `data` | 2 | 214 |
-| `domains` | 611 | 119400 |
+| `domains` | 611 | 119406 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -28,7 +28,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1104 modules** and **208451 source lines**.
+Total: **1104 modules** and **208457 source lines**.
 
 ## agent
 
@@ -558,7 +558,7 @@ Total: **1104 modules** and **208451 source lines**.
 | [`backend/domains/sites/translations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/translations.py) | 115 | 1 | 5 | 0 | 1 | Public language and translation identities from Gnosi's native metadata. |
 | [`backend/domains/sites/transport_settings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/transport_settings.py) | 19 | 0 | 1 | 0 | 1 | Normalize settings supplied by the maintained website SSH/Suweb driver. |
 | [`backend/domains/sites/url_import.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/url_import.py) | 442 | 2 | 28 | 0 | 0 | Review public HTML before creating editable, unpublished website pages. |
-| [`backend/domains/sites/validation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/validation.py) | 93 | 0 | 4 | 0 | 0 | Closed website CSS and URL configuration validation. |
+| [`backend/domains/sites/validation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/validation.py) | 99 | 0 | 4 | 0 | 0 | Closed website CSS and URL configuration validation. |
 | [`backend/domains/sites/web_import_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/web_import_models.py) | 56 | 7 | 0 | 0 | 0 | Validated private snapshots and the public URL import preview projection. |
 | [`backend/domains/sites/web_import_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/web_import_routes.py) | 57 | 4 | 2 | 0 | 0 | Administrator-only public URL import; creation never publishes a website. |
 | [`backend/domains/social/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/social/__init__.py) | 1 | 0 | 0 | 0 | 0 | Social publishing domain boundaries. |
