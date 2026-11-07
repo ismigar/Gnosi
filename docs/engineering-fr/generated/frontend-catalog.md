@@ -52,7 +52,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2662 | 0 |
-| `features` | 1298 | 137819 | 57 |
+| `features` | 1298 | 137821 | 57 |
 | `generated` | 3 | 57507 | 594 |
 | `shared` | 349 | 37198 | 509 |
 
@@ -1346,7 +1346,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault-management/VaultTemplatePrivacyPreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultTemplatePrivacyPreview.tsx) | 44 | `VaultTemplatePrivacyPreview` | — |
 | [`frontend/src/features/websites/AppearanceEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/AppearanceEditor.tsx) | 39 | `AppearanceEditor`, `WebsitePreview` | — |
 | [`frontend/src/features/websites/CapturedMailViewer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/CapturedMailViewer.tsx) | 60 | `CapturedMailViewer` | — |
-| [`frontend/src/features/websites/CatalogueFontSample.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/CatalogueFontSample.tsx) | 47 | `CatalogueFontSample` | — |
+| [`frontend/src/features/websites/CatalogueFontSample.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/CatalogueFontSample.tsx) | 49 | `CatalogueFontSample` | — |
 | [`frontend/src/features/websites/ConnectionAuthentication.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/ConnectionAuthentication.tsx) | 30 | `ConnectionAuthentication` | — |
 | [`frontend/src/features/websites/CreateSiteDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/CreateSiteDialog.tsx) | 66 | `CreateSiteDialog` | — |
 | [`frontend/src/features/websites/FontManager.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/FontManager.tsx) | 56 | `FontManager` | — |
