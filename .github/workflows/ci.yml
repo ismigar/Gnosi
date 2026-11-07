@@ -245,9 +245,6 @@ jobs:
         if: steps.scope.outputs.runtime_required != 'false'
       - name: Strict type-check of the complete backend
         if: steps.scope.outputs.runtime_required != 'false'
-        env:
-          # Avoid the guest's per-user /tmp tmpfs quota for the fresh mypy cache.
-          TMPDIR: ${{ runner.temp }}
         run: uv run python scripts/check_backend_types.py
       - name: Strict type-check of every public pipeline Python file
         if: steps.scope.outputs.runtime_required != 'false'
@@ -265,9 +262,6 @@ jobs:
         timeout-minutes: 10
         run: npm ci --prefix extensions/web-publishing/renderer --no-audit --no-fund
       - run: uv run pytest
-        env:
-          # Full suites exceed the Linux guest's per-user /tmp tmpfs quota.
-          TMPDIR: ${{ runner.temp }}
         if: steps.scope.outputs.runtime_required != 'false'
 
   native-smoke:

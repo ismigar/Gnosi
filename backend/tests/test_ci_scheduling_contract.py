@@ -143,7 +143,7 @@ def test_extra_capacity_does_not_expand_permissions_or_fork_access(
     checkout = _mapping(steps[0])
     assert _mapping(checkout["with"])["persist-credentials"] is False
     assert _mapping(checkout["with"])["ref"] == "${{ github.sha }}"
-    assert {"run": "uv run pytest", "env": {"TMPDIR": "${{ runner.temp }}"}, "if": "steps.scope.outputs.runtime_required != 'false'"} in steps
+    assert {"run": "uv run pytest", "if": "steps.scope.outputs.runtime_required != 'false'"} in steps
 
 
 def test_python_release_integration_has_locked_desktop_dependencies(

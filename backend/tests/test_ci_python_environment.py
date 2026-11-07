@@ -10,6 +10,7 @@ import yaml
 from scripts.ci.prepare_python_environment import (
     CACHE_PREFIX,
     ENVIRONMENT_PREFIX,
+    TEMP_PREFIX,
     cache_path,
     environment_path,
     prepare,
@@ -53,6 +54,7 @@ def test_prepare_removes_only_the_job_environment_and_exports_path(tmp_path: Pat
         f"UV_PROJECT_ENVIRONMENT={candidate}\n"
         f"UV_CACHE_DIR={cache}\n"
         "UV_LINK_MODE=copy\n"
+        f"TMPDIR={tmp_path / (TEMP_PREFIX + candidate.name.removeprefix(ENVIRONMENT_PREFIX))}\n"
     )
 
 
@@ -110,11 +112,12 @@ def test_cli_is_idempotent_and_uses_only_runner_temp(tmp_path: Path) -> None:
     subprocess.run(command, env=environment, check=True)
 
     exported = Path(environment["GITHUB_ENV"]).read_text(encoding="utf-8").splitlines()
-    assert len(exported) == 6
-    assert exported[:3] == exported[3:]
+    assert len(exported) == 8
+    assert exported[:4] == exported[4:]
     assert exported[0].startswith(f"UV_PROJECT_ENVIRONMENT={tmp_path / ENVIRONMENT_PREFIX}")
     assert exported[1].startswith(f"UV_CACHE_DIR={tmp_path / CACHE_PREFIX}")
     assert exported[2] == "UV_LINK_MODE=copy"
+    assert exported[3].startswith(f"TMPDIR={tmp_path / TEMP_PREFIX}")
 
 
 def test_python_workflows_prepare_every_uv_project_environment() -> None:
@@ -229,3 +232,24 @@ def test_dependency_workflows_enable_native_package_reuse() -> None:
     for filename in ("ci.yml", "learn-quality.yml", "documentation-pages.yml", "build-release.yml"):
         document = yaml.safe_load((REPOSITORY / ".github/workflows" / filename).read_text())
         assert document["env"]["GNOSI_CI_PACKAGE_CACHE"] == "1"
+
+
+def test_backend_temporary_directory_is_job_scoped_and_never_follows_links(tmp_path: Path) -> None:
+    environment = ci_environment(tmp_path)
+    candidate = environment_path(environment)
+    temporary = candidate.with_name(TEMP_PREFIX + candidate.name.removeprefix(ENVIRONMENT_PREFIX))
+    external = tmp_path / "user-data"
+    external.mkdir()
+    (external / "keep").write_text("preserved")
+    temporary.symlink_to(external, target_is_directory=True)
+    prepare(environment)
+    assert temporary.is_dir() and not temporary.is_symlink()
+    assert (external / "keep").read_text() == "preserved"
+    values = dict(line.split("=", 1) for line in Path(environment["GITHUB_ENV"]).read_text().splitlines())
+    result = subprocess.check_output([sys.executable, "-c", "import tempfile; print(tempfile.gettempdir())"], env=values, text=True)
+    assert result.strip() == str(temporary)
+    other = {**environment, "GITHUB_JOB": "frontend"}
+    Path(environment["GITHUB_ENV"]).write_text("")
+    prepare(other)
+    assert "TMPDIR=" not in Path(environment["GITHUB_ENV"]).read_text()
+    assert temporary.is_dir()

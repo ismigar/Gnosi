@@ -18,6 +18,7 @@ from typing import Mapping
 LOG = logging.getLogger(__name__)
 ENVIRONMENT_PREFIX = "gnosi-venv-"
 CACHE_PREFIX = "gnosi-uv-cache-"
+TEMP_PREFIX = "gnosi-python-tmp-"
 SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 
 
@@ -110,10 +111,18 @@ def prepare(environment: Mapping[str, str]) -> Path:
         from scripts.ci.python_cache import restore_for_job
         restore_for_job(environment, cache)
 
+    temporary = None
+    if environment.get("GITHUB_JOB") == "backend":
+        temporary = candidate.with_name(TEMP_PREFIX + candidate.name.removeprefix(ENVIRONMENT_PREFIX))
+        _remove_scoped_path(temporary)
+        temporary.mkdir(mode=0o700)
+
     with github_env.open("a", encoding="utf-8", newline="\n") as handle:
         handle.write(f"UV_PROJECT_ENVIRONMENT={candidate}\n")
         handle.write(f"UV_CACHE_DIR={cache}\n")
         handle.write("UV_LINK_MODE=copy\n")
+        if temporary is not None:
+            handle.write(f"TMPDIR={temporary}\n")
     LOG.info("Prepared isolated uv environment at %s", candidate)
     LOG.info("Python package cache: %s (%s)", cache, "persistent" if persistent else "job-private")
     return candidate
