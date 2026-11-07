@@ -115,14 +115,14 @@ def newsletter_preview(site_id: str, request: newsletter.SiteNewsletterReview, c
     response.headers["Cache-Control"] = "no-store"
     store = store_for(context)
     site = store.load(site_id)
-    return PrivateServiceResponse(data=newsletter.preview(store, site, target_id, request))
+    return PrivateServiceResponse(data=newsletter.preview(store, site, target_id, request), test_mode=private_service.read_settings(store, site_id, target_id).test_mode)
 
 
 @router.post("/{site_id}/newsletter/queue", response_model=PrivateServiceResponse)
 def newsletter_queue(site_id: str, request: newsletter.SiteNewsletterQueue, context: Admin, response: Response, target_id: str = "local") -> PrivateServiceResponse:
     response.headers["Cache-Control"] = "no-store"
     store = store_for(context)
-    return PrivateServiceResponse(data=newsletter.queue(store, store.load(site_id), target_id, request))
+    return PrivateServiceResponse(data=newsletter.queue(store, store.load(site_id), target_id, request), test_mode=private_service.read_settings(store, site_id, target_id).test_mode)
 
 
 @router.put("/{site_id}", response_model=SiteConfig)
@@ -252,7 +252,7 @@ def private_operation(site_id: str, request: PrivateServiceRequest, context: Adm
     response.headers["Cache-Control"] = "no-store"
     store = store_for(context)
     result = private_service.invoke(store, store.load(site_id), request.action, request.request, request.target_id)
-    return PrivateServiceResponse(data=result)
+    return PrivateServiceResponse(data=result, test_mode=result.get("test_mode") is not False)
 
 
 @router.get("/{site_id}/targets/{target_id}/connection", response_model=TargetConnection)

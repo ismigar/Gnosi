@@ -9533,6 +9533,9 @@
       "after_content": "Després del contingut",
       "footer": "Peu"
     },
-    "pageRegionsHelp": "Aquest editor mostra només el contingut de la pàgina. Els blocs comuns de capçalera i peu es gestionen a Blocs i regions i s’apliquen al web publicat."
+    "pageRegionsHelp": "Aquest editor mostra només el contingut de la pàgina. Els blocs comuns de capçalera i peu es gestionen a Blocs i regions i s’apliquen al web publicat.",
+    "productionDelivery": "Correu de producció: els enviaments s’entregaran al servidor de correu.",
+    "deliveryTransport": "Sistema d’enviament",
+    "serverMail": "Correu del servidor"
   }
 }

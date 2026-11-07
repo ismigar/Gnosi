@@ -433,7 +433,8 @@ class FormDeliverySettings(Contract):
 
 
 class ServiceSettings(Contract):
-    test_mode: Literal[True] = True
+    test_mode: bool = True
+    delivery_transport: Literal["smtp", "server-mail"] = "smtp"
     smtp_host: str = ""
     smtp_port: int = Field(default=587, ge=1, le=65535)
     smtp_username: str = ""
@@ -447,7 +448,8 @@ class ServiceSettings(Contract):
 
 class ServiceSettingsResponse(Contract):
     configured: bool
-    test_mode: Literal[True] = True
+    test_mode: bool = True
+    delivery_transport: Literal["smtp", "server-mail"] = "smtp"
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""
@@ -469,7 +471,7 @@ class PrivateServiceRequest(Contract):
 
 class PrivateServiceResponse(Contract):
     data: dict[str, JsonValue]
-    test_mode: Literal[True] = True
+    test_mode: bool = True
 
 
 class TargetConnection(Contract):

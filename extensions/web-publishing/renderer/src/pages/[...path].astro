@@ -1,5 +1,5 @@
 ---
-import {bundle,site,pages,records,labels,translate,prefix,href,linkProps,html,selection,themeCss} from '../lib/site.mjs';
+import {bundle,site,production,pages,records,labels,translate,prefix,href,linkProps,html,selection,themeCss} from '../lib/site.mjs';
 import Actions from '../components/Actions.astro';
 import RenderBlock from '../components/RenderBlock.astro';
 import SiteFooter from '../components/SiteFooter.astro';
@@ -42,10 +42,10 @@ const navigationClass=link=>['action-link',...(['button','outline'].includes(lin
 const currentNavigationLink = link => href(link.href).replace(/\/$/, '') === prefix(page.path).replace(/\/$/, '');
 ---
 <!doctype html>
-<html lang={lang}><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><meta name="robots" content="noindex,nofollow"/><title>{page.title} · {site.name}</title><meta name="description" content={page.description || page.title}/><link rel="canonical" href={canonical}/>{site.theme.favicon && <link rel="icon" href={href(site.theme.favicon)}/>}<link rel="alternate" type="application/rss+xml" href={prefix(`/${lang}/rss.xml`)} title={site.name}/>{alternatives.map(other=><link rel="alternate" hreflang={other.language} href={new URL(other.path,site.origin).href}/>)}<link rel="stylesheet" href={prefix(bundle.stylesheet_path)}/><style is:inline set:html={themeCss(page)} /></head>
+<html lang={lang}><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><meta name="robots" content={production ? "index,follow" : "noindex,nofollow"}/><title>{page.title} · {site.name}</title><meta name="description" content={page.description || page.title}/><link rel="canonical" href={canonical}/>{site.theme.favicon && <link rel="icon" href={href(site.theme.favicon)}/>}<link rel="alternate" type="application/rss+xml" href={prefix(`/${lang}/rss.xml`)} title={site.name}/>{alternatives.map(other=><link rel="alternate" hreflang={other.language} href={new URL(other.path,site.origin).href}/>)}<link rel="stylesheet" href={prefix(bundle.stylesheet_path)}/><style is:inline set:html={themeCss(page)} /></head>
 <body class:list={['site-root',{'temenos-site':site.legacy_pilot}]} data-page-id={page.id}>
   <a class="skip" href="#main-content">{text.skip}</a>
-  <div class="preview" data-pagefind-ignore><span>{text.preview}</span>{site.legacy_pilot && <a href={new URL(page.path,site.origin).href} target="_blank" rel="noopener noreferrer">{legacyText.currentSite} ↗</a>}</div>
+  {!production && <div class="preview" data-pagefind-ignore><span>{text.preview}</span>{site.legacy_pilot && <a href={new URL(page.path,site.origin).href} target="_blank" rel="noopener noreferrer">{legacyText.currentSite} ↗</a>}</div>}
   <header class="site-header" data-pagefind-ignore><div class="wrap header-layout"><a class="brand" href={prefix(landingPath(pages,lang))}>{site.theme.logo ? <img src={href(site.theme.logo)} alt={site.theme.logo_alt || site.name} width="230" height="90"/> : site.name}</a><button class="menu-toggle" type="button" aria-label={site.legacy_pilot ? text.menu : undefined} aria-expanded="false" aria-controls="site-navigation" data-menu-toggle>
       {site.legacy_pilot ? (
         <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">

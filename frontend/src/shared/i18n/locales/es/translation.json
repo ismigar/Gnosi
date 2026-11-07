@@ -9533,6 +9533,9 @@
       "after_content": "Después del contenido",
       "footer": "Pie"
     },
-    "pageRegionsHelp": "Este editor muestra solo el contenido de la página. Los bloques comunes de cabecera y pie se gestionan en Bloques y regiones y se aplican al sitio publicado."
+    "pageRegionsHelp": "Este editor muestra solo el contenido de la página. Los bloques comunes de cabecera y pie se gestionan en Bloques y regiones y se aplican al sitio publicado.",
+    "productionDelivery": "Correo de producción: los envíos se entregarán al servidor de correo.",
+    "deliveryTransport": "Sistema de envío",
+    "serverMail": "Correo del servidor"
   }
 }

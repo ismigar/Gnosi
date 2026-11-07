@@ -439,3 +439,34 @@ test('shared regions autosave separately from page content and menus', async ({ 
   await page.getByRole('combobox', { name: 'Region', exact: true }).selectOption('footer');
   await expect(page.getByText('Saved', { exact: true })).toBeVisible();
 });
+
+test('production hosting keeps host-mail settings private and autosaves without delivery', async ({ page }, testInfo) => {
+  const state = acceptanceState();
+  await page.addInitScript(() => { localStorage.setItem('i18nextLng', 'en'); });
+  await page.goto(`/@${state.primary_vault.slug}/websites`);
+  await page.getByRole('button', { name: 'Create website', exact: true }).click();
+  const creation = page.getByRole('dialog', { name: 'Create website', exact: true });
+  await creation.getByRole('textbox').fill('Disposable production mail');
+  await creation.getByRole('button', { name: 'Create', exact: true }).click();
+  await expect(creation).toBeHidden();
+  await page.getByRole('tab', { name: 'Hosting', exact: true }).click();
+  await expandWebsiteSections(page);
+  await page.getByRole('button', { name: 'Add hosting', exact: true }).click();
+  await expandWebsiteSections(page);
+  await page.getByLabel('Destination URL', { exact: true }).last().fill('https://example.invalid');
+  await page.getByRole('combobox', { name: 'Environment', exact: true }).last().selectOption('production');
+  await expect(page.getByRole('combobox', { name: 'Environment', exact: true }).last()).toHaveValue('production');
+  await page.getByRole('tab', { name: 'Private settings', exact: true }).click();
+  await expandWebsiteSections(page);
+  await page.getByRole('combobox', { name: 'Delivery transport', exact: true }).selectOption('server-mail');
+  await page.getByLabel('Sender email', { exact: true }).fill('owner@example.invalid');
+  await expect(page.getByLabel('SMTP password', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Production mail: messages will be handed to the mail server.', { exact: true })).toBeVisible();
+  await expect(page.locator('.websites-autosave-error')).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Overview', exact: true }).click();
+  await page.getByRole('tab', { name: 'Private settings', exact: true }).click();
+  await expandWebsiteSections(page);
+  await expect(page.getByRole('combobox', { name: 'Delivery transport', exact: true })).toHaveValue('server-mail');
+  await expect(page.getByLabel('Sender email', { exact: true })).toHaveValue('owner@example.invalid');
+  await page.screenshot({ path: testInfo.outputPath('production-host-mail-settings.png'), fullPage: true });
+});

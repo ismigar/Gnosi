@@ -15,6 +15,17 @@ beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => { vi.useRealTimers(); });
 
 describe('website private service management', () => {
+  it('preserves live delivery mode and hides SMTP credentials for server mail', async () => {
+    const value: ServiceSettingsResponse = { configured: true, test_mode: false, delivery_transport: 'server-mail', smtp_host: '', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: 'site@example.invalid', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
+    const load = vi.fn().mockResolvedValue(value);
+    const save = vi.fn().mockImplementation((next: ServiceSettings) => Promise.resolve({ ...value, ...next }));
+    const view = mountTestComponent(<PrivateSettingsEditor site={site} load={load} save={save} />); await settle();
+    expect(view.container.textContent).toContain('websites.productionDelivery');
+    expect(view.container.querySelector('input[type="password"]')).toBeNull();
+    act(() => { change(input(view.container, 'websites.senderName'), 'Site owner'); });
+    await act(async () => { vi.advanceTimersByTime(650); await Promise.resolve(); }); await settle();
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ test_mode: false, delivery_transport: 'server-mail', sender_name: 'Site owner' }));
+  });
   it('shows the saved contact and failed notification independently', async () => {
     const call = vi.fn<PrivateCall>().mockResolvedValue({ items: [{ id: 'message', email: 'reader@example.invalid', form_id: 'contact', status: 'new', notification_status: 'rejected', fields: [{ id: 'body', label: 'Message', value: 'Stored even when SMTP failed' }] }], total: 1 });
     const view = mountTestComponent(<MessagesPanel site={site} call={call} />); await tick();
@@ -44,7 +55,7 @@ describe('website private service management', () => {
   });
 
   it('preserves edited private settings when saving fails', async () => {
-    const value: ServiceSettingsResponse = { configured: true, test_mode: true, smtp_host: '', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: true, applied: true, apply_error: null, forms: {} };
+    const value: ServiceSettingsResponse = { configured: true, test_mode: true, delivery_transport: 'smtp', smtp_host: '', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: true, applied: true, apply_error: null, forms: {} };
     const load = vi.fn().mockResolvedValue(value); const save = vi.fn().mockRejectedValue(new Error('unavailable'));
     const view = mountTestComponent(<PrivateSettingsEditor site={site} load={load} save={save} />); await settle();
     act(() => { change(input(view.container, 'websites.smtpHost'), 'smtp.example.invalid'); });
@@ -55,7 +66,7 @@ describe('website private service management', () => {
 
   it('keeps recipient delimiters while typing and saves both addresses immediately', async () => {
     const contactSite = { ...site, forms: [{ id: 'contact', name: 'Contact', revision: 1, enabled: false, privacy_url: '', require_privacy: false, fields: [] }] };
-    const value: ServiceSettingsResponse = { configured: true, test_mode: true, smtp_host: '', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
+    const value: ServiceSettingsResponse = { configured: true, test_mode: true, delivery_transport: 'smtp', smtp_host: '', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
     const load = vi.fn().mockResolvedValue(value); const save = vi.fn<(settings: ServiceSettings) => Promise<ServiceSettingsResponse>>().mockResolvedValue(value);
     const view = mountTestComponent(<PrivateSettingsEditor site={contactSite} load={load} save={save} />); await settle();
     const field = input(view.container, 'websites.recipients');

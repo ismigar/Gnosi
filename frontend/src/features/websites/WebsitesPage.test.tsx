@@ -272,7 +272,7 @@ describe('Webs manager', () => {
   });
 
   it.each(['settings', 'publishing'])('flushes pending %s settings when leaving the whole Webs page', async section => {
-    const privateValue: api.ServiceSettingsResponse = { configured: true, test_mode: true, smtp_host: '', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
+    const privateValue: api.ServiceSettingsResponse = { configured: true, test_mode: true, delivery_transport: 'smtp', smtp_host: '', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
     vi.mocked(api.getServiceSettings).mockResolvedValue(privateValue);
     vi.mocked(api.saveServiceSettings).mockResolvedValue(privateValue);
     vi.mocked(api.saveTargetConnection).mockResolvedValue({ local_port: 4340, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' });
@@ -284,7 +284,7 @@ describe('Webs manager', () => {
   });
 
   it.each(['settings', 'publishing'])('prevents edits while refreshing %s settings instead of overwriting a fresh edit', async section => {
-    const privateValue: api.ServiceSettingsResponse = { configured: true, test_mode: true, smtp_host: 'stored-host', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
+    const privateValue: api.ServiceSettingsResponse = { configured: true, test_mode: true, delivery_transport: 'smtp', smtp_host: 'stored-host', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
     const connection: api.TargetConnection = { local_port: 4321, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' };
     let finishPrivate: (value: api.ServiceSettingsResponse) => void = () => undefined;
     let finishConnection: (value: api.TargetConnection) => void = () => undefined;
@@ -361,7 +361,7 @@ describe('Webs manager', () => {
   });
 
   it('retains a private draft on its tab when navigation cannot flush it', async () => {
-    const value: api.ServiceSettingsResponse = { configured: true, test_mode: true, smtp_host: '', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
+    const value: api.ServiceSettingsResponse = { configured: true, test_mode: true, delivery_transport: 'smtp', smtp_host: '', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
     vi.mocked(api.getServiceSettings).mockResolvedValue(value);
     vi.mocked(api.saveServiceSettings).mockRejectedValueOnce(new Error('offline')).mockResolvedValue(value);
     const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'settings'); await settle();

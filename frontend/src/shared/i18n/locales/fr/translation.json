@@ -9533,6 +9533,9 @@
       "after_content": "Après le contenu",
       "footer": "Pied de page"
     },
-    "pageRegionsHelp": "Cet éditeur affiche uniquement le contenu de la page. Les blocs communs d’en-tête et de pied de page se gèrent dans Blocs et régions et sont appliqués au site publié."
+    "pageRegionsHelp": "Cet éditeur affiche uniquement le contenu de la page. Les blocs communs d’en-tête et de pied de page se gèrent dans Blocs et régions et sont appliqués au site publié.",
+    "productionDelivery": "Courrier de production : les messages seront remis au serveur de messagerie.",
+    "deliveryTransport": "Mode d’envoi",
+    "serverMail": "Courrier du serveur"
   }
 }

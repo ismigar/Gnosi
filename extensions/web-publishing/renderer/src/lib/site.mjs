@@ -5,6 +5,9 @@ import {importedLocalLink} from './routing.mjs';
 
 export const bundle = JSON.parse(fs.readFileSync('bundle.json', 'utf8'));
 export const site = bundle.site;
+// Preview and staging renders fail closed unless the publisher explicitly
+// identifies a reviewed production build.
+export const production = bundle.deployment_environment === 'production';
 export const records = bundle.records;
 export const deployment = new URL(bundle.deployment_url || site.origin);
 export const base = deployment.pathname.replace(/\/$/, '');

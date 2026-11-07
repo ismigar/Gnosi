@@ -30683,7 +30683,6 @@
             "type": "object"
           },
           "test_mode": {
-            "const": true,
             "default": true,
             "title": "Test Mode",
             "type": "boolean"
@@ -34796,6 +34795,15 @@
       "ServiceSettings": {
         "additionalProperties": false,
         "properties": {
+          "delivery_transport": {
+            "default": "smtp",
+            "enum": [
+              "smtp",
+              "server-mail"
+            ],
+            "title": "Delivery Transport",
+            "type": "string"
+          },
           "forms": {
             "additionalProperties": {
               "$ref": "#/components/schemas/FormDeliverySettings"
@@ -34865,7 +34873,6 @@
             "type": "string"
           },
           "test_mode": {
-            "const": true,
             "default": true,
             "title": "Test Mode",
             "type": "boolean"
@@ -34896,6 +34903,15 @@
           "configured": {
             "title": "Configured",
             "type": "boolean"
+          },
+          "delivery_transport": {
+            "default": "smtp",
+            "enum": [
+              "smtp",
+              "server-mail"
+            ],
+            "title": "Delivery Transport",
+            "type": "string"
           },
           "forms": {
             "additionalProperties": {
@@ -34951,7 +34967,6 @@
             "type": "string"
           },
           "test_mode": {
-            "const": true,
             "default": true,
             "title": "Test Mode",
             "type": "boolean"

@@ -9478,6 +9478,9 @@
       "after_content": "After content",
       "footer": "Footer"
     },
-    "pageRegionsHelp": "This editor shows only this page’s content. Shared header and footer blocks are managed in Blocks & regions and applied to the published website."
+    "pageRegionsHelp": "This editor shows only this page’s content. Shared header and footer blocks are managed in Blocks & regions and applied to the published website.",
+    "productionDelivery": "Production mail: messages will be handed to the mail server.",
+    "deliveryTransport": "Delivery transport",
+    "serverMail": "Server mail"
   }
 }

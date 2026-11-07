@@ -244,7 +244,7 @@ def start_server(store: SiteStore, site: SiteConfig, target_id: str, output: Pat
     base_url = "http://127.0.0.1:" + str(port)
     active_bundle = store.active_bundle(site.id, target_id) if not preview_id else None
     forms_site = SiteConfig.model_validate(active_bundle["site"]) if active_bundle else site
-    config = configuration(store, site, target_id, forms_site=forms_site)
+    config = configuration(store, site, target_id, forms_site=forms_site, preview=bool(preview_id))
     config_data = json.loads(config.read_text())
     config_data["public_base_url"] = base_url
     if preview_id:
@@ -289,9 +289,9 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
     root = settings.remote_root
     if not settings.document_root:
         raise HTTPException(409, "Configure the server document root before deploying")
-    private_root = remote_private_root(store, site.id, settings)
-    ownership = json.dumps({"site_id": site.id, "scope": store.private_root.name}, sort_keys=True)
-    namespace = namespace_program(root, private_root, ownership, settings.document_root)
+    private_root = remote_private_root(store, site.id, settings, production_target_id=target.id if target.environment == "production" else None)
+    ownership = json.dumps({"site_id": site.id, "scope": store.private_root.name, **({"environment": "production", "target_id": target.id} if target.environment == "production" else {})}, sort_keys=True)
+    namespace = namespace_program(root, private_root, ownership, settings.document_root, production=target.environment == "production")
     identity = '$id=' + json.dumps(release_id) + ';gnosi_id($id);'
     setup = namespace + identity + 'gnosi_namespace(true);gnosi_current();$destination=$r."/releases/".$id;if(gnosi_exists($destination)){throw new Exception("Immutable release exists");}gnosi_directory($destination,true);gnosi_write($p,".htaccess","Require all denied\\n");'
     _ssh(settings, "php -r " + shlex.quote(setup))
@@ -321,13 +321,13 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
     _ssh(settings, "php -r " + shlex.quote(config_code), json.dumps(local_config).encode())
     htaccess = output / ".htaccess"
     rules = htaccess.read_text() if htaccess.is_file() else "Options -Indexes +FollowSymLinks\nRewriteEngine On\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME}.html -f\nRewriteRule ^(.+?)/?$ $1.html [L]\n"
-    rules += "\nHeader always set X-Robots-Tag \"noindex, nofollow\"\nSetEnv GNOSI_SITES_SERVICE_CONFIG " + private_root + "/config.json\n"
+    rules += "\nSetEnv GNOSI_SITES_SERVICE_CONFIG " + private_root + "/config.json\n"
     write_file(".htaccess", rules.encode())
     manifest[".htaccess"] = hashlib.sha256(rules.encode()).hexdigest()
     verify = namespace + identity + 'gnosi_namespace();gnosi_verify($id,json_decode(file_get_contents("php://stdin"),true,64,JSON_THROW_ON_ERROR));'
     _ssh(settings, "php -r " + shlex.quote(verify), json.dumps(manifest).encode())
     write_file("manifests/" + release_id + ".json", json.dumps(manifest).encode(), private=True)
-    activate = activation_program(root, private_root, release_id, parent_id, verify_manifest=True, ownership=ownership, document_root=settings.document_root)
+    activate = activation_program(root, private_root, release_id, parent_id, verify_manifest=True, ownership=ownership, document_root=settings.document_root, production=target.environment == "production")
     if activation_guard is not None:
         activation_guard()
     _ssh(settings, "php -r " + shlex.quote(activate))
@@ -343,9 +343,9 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
 def start_remote_worker(store: SiteStore, site: SiteConfig, target: SiteTarget) -> None:
     """Open a verified log handle and detach the fixed worker without shell redirection."""
     settings = connection(store, site.id, target.id)
-    private_root = remote_private_root(store, site.id, settings)
-    ownership = json.dumps({"site_id": site.id, "scope": store.private_root.name}, sort_keys=True)
-    code = namespace_program(settings.remote_root, private_root, ownership, settings.document_root) + 'gnosi_namespace();' + worker_start_program()
+    private_root = remote_private_root(store, site.id, settings, production_target_id=target.id if target.environment == "production" else None)
+    ownership = json.dumps({"site_id": site.id, "scope": store.private_root.name, **({"environment": "production", "target_id": target.id} if target.environment == "production" else {})}, sort_keys=True)
+    code = namespace_program(settings.remote_root, private_root, ownership, settings.document_root, production=target.environment == "production") + 'gnosi_namespace();' + worker_start_program()
     try:
         response = json.loads(_ssh(settings, "php -r " + shlex.quote(code)))
         if not isinstance(response, dict) or response.get("started") is not True:
@@ -356,8 +356,8 @@ def start_remote_worker(store: SiteStore, site: SiteConfig, target: SiteTarget) 
     private_json(service_root(store, site.id, target.id) / "worker-start.json", {"error": None})
 
 
-def activation_program(root: str, private_root: str, release_id: str, parent_id: str | None, *, verify_manifest: bool = False, ownership: str | None = None, document_root: str = "") -> str:
-    code = namespace_program(root, private_root, ownership, document_root) + '$id=' + json.dumps(release_id) + ';gnosi_namespace();gnosi_release($id);$l=gnosi_lock();$current=gnosi_current();if($current!==' + json.dumps(parent_id) + '){throw new Exception("Parent changed");}'
+def activation_program(root: str, private_root: str, release_id: str, parent_id: str | None, *, verify_manifest: bool = False, ownership: str | None = None, document_root: str = "", production: bool = False) -> str:
+    code = namespace_program(root, private_root, ownership, document_root, production=production) + '$id=' + json.dumps(release_id) + ';gnosi_namespace();gnosi_release($id);$l=gnosi_lock();$current=gnosi_current();if($current!==' + json.dumps(parent_id) + '){throw new Exception("Parent changed");}'
     if verify_manifest:
         code += 'gnosi_manifest($id);'
     code += '$expected="releases/".$id;$n=$r."/.current-pending-".$id;if(gnosi_exists($n)){if(!is_link($n)||readlink($n)!==$expected){throw new Exception("An unrelated activation pointer is pending");}}elseif(!symlink($expected,$n)){throw new Exception("Could not create the pending activation pointer");}if(!is_link($n)||readlink($n)!==$expected||realpath($n)!==gnosi_release($id)){throw new Exception("Could not verify the pending activation pointer");}gnosi_namespace();if(gnosi_current()!==$current){throw new Exception("Parent changed during activation");}'
@@ -375,34 +375,34 @@ def restore_remote_release(store: SiteStore, site: SiteConfig, target: SiteTarge
     settings = connection(store, site.id, target.id)
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,100}", release_id):
         raise HTTPException(422, "Invalid retained release identity")
-    private_root = remote_private_root(store, site.id, settings)
-    ownership = json.dumps({"site_id": site.id, "scope": store.private_root.name}, sort_keys=True)
-    code = activation_program(settings.remote_root, private_root, release_id, parent_id, verify_manifest=True, ownership=ownership, document_root=settings.document_root)
+    private_root = remote_private_root(store, site.id, settings, production_target_id=target.id if target.environment == "production" else None)
+    ownership = json.dumps({"site_id": site.id, "scope": store.private_root.name, **({"environment": "production", "target_id": target.id} if target.environment == "production" else {})}, sort_keys=True)
+    code = activation_program(settings.remote_root, private_root, release_id, parent_id, verify_manifest=True, ownership=ownership, document_root=settings.document_root, production=target.environment == "production")
     if activation_guard is not None:
         activation_guard()
     _ssh(settings, "php -r " + shlex.quote(code))
 
 
-def remote_private_root(store: SiteStore, site_id: str, settings: TargetConnection) -> str:
+def remote_private_root(store: SiteStore, site_id: str, settings: TargetConnection, *, production_target_id: str | None = None) -> str:
     path = Path(settings.remote_private_root) if settings.remote_private_root else Path(settings.remote_root).parent.parent / ".gnosi-sites-private" / store.private_root.name / site_id
+    if production_target_id and not settings.remote_private_root:
+        path = path / "production" / production_target_id
     if settings.document_root and path.is_relative_to(Path(settings.document_root)):
         raise HTTPException(409, "The service directory must be outside the public document root")
     return str(path)
 
 
 def sync_service_settings(store: SiteStore, site: SiteConfig, target: SiteTarget, forms_site: SiteConfig) -> None:
-    if target.environment == "production":
-        raise HTTPException(409, "Production service changes require pilot validation")
     if target.adapter == "legacy-pangea":
         from .pangea import sync_settings
         sync_settings(store, site, target, forms_site)
         return
     settings = connection(store, site.id, target.id)
-    root = remote_private_root(store, site.id, settings)
+    root = remote_private_root(store, site.id, settings, production_target_id=target.id if target.environment == "production" else None)
     data = json.loads(configuration(store, site, target.id, forms_site=forms_site).read_text())
     data.update({"db_path": root + "/state.sqlite", "spool_path": root + "/captures", "library_path": root + "/library.php"})
-    ownership = json.dumps({"site_id": site.id, "scope": store.private_root.name}, sort_keys=True)
-    code = namespace_program(settings.remote_root, root, ownership, settings.document_root) + 'gnosi_namespace();gnosi_install_config(file_get_contents("php://stdin"));'
+    ownership = json.dumps({"site_id": site.id, "scope": store.private_root.name, **({"environment": "production", "target_id": target.id} if target.environment == "production" else {})}, sort_keys=True)
+    code = namespace_program(settings.remote_root, root, ownership, settings.document_root, production=target.environment == "production") + 'gnosi_namespace();gnosi_install_config(file_get_contents("php://stdin"));'
     _ssh(settings, "php -r " + shlex.quote(code), json.dumps(data).encode())
 
 
@@ -413,9 +413,9 @@ def active_release(store: SiteStore, site: SiteConfig, target: SiteTarget) -> st
         return current_release(store, site, target)
     if target.adapter == "ssh":
         settings = connection(store, site.id, target.id)
-        private_root = remote_private_root(store, site.id, settings)
-        ownership = json.dumps({"site_id": site.id, "scope": store.private_root.name}, sort_keys=True)
-        code = namespace_program(settings.remote_root, private_root, ownership, settings.document_root) + 'gnosi_namespace();$l=gnosi_lock();$id=gnosi_current();if($id!==null){gnosi_manifest($id);}echo json_encode($id);'
+        private_root = remote_private_root(store, site.id, settings, production_target_id=target.id if target.environment == "production" else None)
+        ownership = json.dumps({"site_id": site.id, "scope": store.private_root.name, **({"environment": "production", "target_id": target.id} if target.environment == "production" else {})}, sort_keys=True)
+        code = namespace_program(settings.remote_root, private_root, ownership, settings.document_root, production=target.environment == "production") + 'gnosi_namespace();$l=gnosi_lock();$id=gnosi_current();if($id!==null){gnosi_manifest($id);}echo json_encode($id);'
         result: object = json.loads(_ssh(settings, "php -r " + shlex.quote(code)))
         return str(result) if isinstance(result, str) else None
     return local_artifacts.current(store, site.id, target.id)
@@ -423,24 +423,22 @@ def active_release(store: SiteStore, site: SiteConfig, target: SiteTarget) -> st
 
 def remote_service(store: SiteStore, site: SiteConfig, target_id: str, action: str, request: dict[str, JsonValue]) -> dict[str, JsonValue]:
     target = next(t for t in site.targets if t.id == target_id)
-    if target.environment == "production":
-        raise HTTPException(409, "This destination service requires separate validation")
     if target.adapter == "legacy-pangea":
         from .pangea import service
         return service(store, site, target_id, action, request)
     settings = connection(store, site.id, target_id)
-    root = remote_private_root(store, site.id, settings)
+    root = remote_private_root(store, site.id, settings, production_target_id=target.id if target.environment == "production" else None)
     payload = json.dumps({"action": action, "request": request}).encode()
     if len(payload) > 1_000_000:
         raise HTTPException(413, "The website service request is too large")
-    ownership = json.dumps({"site_id": site.id, "scope": store.private_root.name}, sort_keys=True)
-    code = namespace_program(settings.remote_root, root, ownership, settings.document_root) + 'gnosi_namespace();$config=gnosi_service_config();$cli=gnosi_service_script("cli.php");if(!putenv("GNOSI_SITES_SERVICE_CONFIG=".$config)){throw new Exception("Service configuration unavailable");}require $cli;'
+    ownership = json.dumps({"site_id": site.id, "scope": store.private_root.name, **({"environment": "production", "target_id": target.id} if target.environment == "production" else {})}, sort_keys=True)
+    code = namespace_program(settings.remote_root, root, ownership, settings.document_root, production=target.environment == "production") + 'gnosi_namespace();$config=gnosi_service_config();$cli=gnosi_service_script("cli.php");if(!putenv("GNOSI_SITES_SERVICE_CONFIG=".$config)){throw new Exception("Service configuration unavailable");}require $cli;'
     response = _ssh(settings, "php -r " + shlex.quote(code), payload)
     try:
         if len(response) > 4_000_000:
             raise ValueError("Service response too large")
         data: object = json.loads(response)
-        if not isinstance(data, dict) or data.get("error") or data.get("test_mode", True) is not True:
+        if not isinstance(data, dict) or data.get("error") or data.get("test_mode") is not (target.environment != "production"):
             raise ValueError("Invalid service response")
         return cast(dict[str, JsonValue], data)
     except ValueError:

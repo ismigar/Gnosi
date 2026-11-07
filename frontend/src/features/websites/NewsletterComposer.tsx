@@ -19,7 +19,7 @@ export interface NewsletterActions {
 type Draft = Omit<NewsletterDraft, 'revision'>;
 const withoutRevision = ({ revision: _revision, ...draft }: NewsletterDraft): Draft => draft;
 
-export function NewsletterComposer({ site, actions, onQueued, register, autosaveKey = 'newsletter' }: { site: SiteConfig; actions: NewsletterActions; onQueued: () => void; register?: RegisterAutosave; autosaveKey?: string }) {
+export function NewsletterComposer({ site, actions, onQueued, register, autosaveKey = 'newsletter', production = false }: { site: SiteConfig; production?: boolean; actions: NewsletterActions; onQueued: () => void; register?: RegisterAutosave; autosaveKey?: string }) {
   const { t } = useTranslation();
   const [loaded, setLoaded] = useState<NewsletterState | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -95,7 +95,7 @@ export function NewsletterComposer({ site, actions, onQueued, register, autosave
   const invalid = selected.some(item => !item.item);
   const canReview = Boolean(draft?.subject.trim() && (draft.mode === 'manual' ? draft.body_html.trim() : paths.length && !invalid && loaded?.fingerprint));
   return <><Card title={t('websites.campaignDraft')} actions={<RefreshButton loading={loading} disabled={busy || autosave.dirty} onClick={() => { generation.current++; setPreview(null); setLoading(true); setRefresh(value => value + 1); }} />}>
-    <p className="websites-notice">{t('websites.testOnly')}</p>
+    <p className="websites-notice">{t(production ? 'websites.productionDelivery' : 'websites.testOnly')}</p>
     {loading && <p role="status">{t('websites.loading')}</p>}
     {draft && <fieldset disabled={loading} inert={loading} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}><div className="websites-grid websites-spacer">
       <Field label={t('websites.subject')}><Input value={draft.subject} maxLength={300} onChange={event => { update({ subject: event.target.value }); }} /></Field>

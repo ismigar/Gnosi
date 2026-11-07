@@ -98,14 +98,24 @@ def test_actual_astro_output_scopes_assets_and_forms_without_private_snapshot(tm
 
 
 @pytest.mark.skipif(shutil.which("php") is None, reason="PHP is required")
-def test_native_pangea_upload_verify_service_and_rollback_without_remote_access(tmp_path, monkeypatch):
+@pytest.mark.parametrize("environment", ["staging", "production"])
+def test_native_pangea_upload_verify_service_and_rollback_without_remote_access(tmp_path, monkeypatch, environment):
     vault = tmp_path / "vault"
     vault.mkdir()
     monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path / "device"))
     store = SiteStore(WorkspaceContext("workspace", "owner", "owner", vault))
     site = SiteConfig(name="Synthetic Pangea", targets=[SiteTarget(id="pangea", adapter="legacy-pangea", environment="staging", enabled=True, base_url="https://example.invalid/_gnosi-proves/webs/test/current")])
     site.targets[0].base_url = "https://temenosismael.org/_gnosi-proves/webs/" + site.id + "/current"
+    if environment == "production":
+        site.targets[0] = site.targets[0].model_copy(update={"id": "pangea-production", "environment": "production", "base_url": "https://temenosismael.org"})
     site = store.save(site, create=True)
+    if environment == "production":
+        from backend.domains.sites.private_service import service_root
+        from backend.domains.sites.models import ServiceSettings
+        from backend.domains.sites.storage import private_json
+        root = service_root(store, site.id, "pangea-production")
+        private_json(root / "settings.json", ServiceSettings(test_mode=False, delivery_transport="server-mail", sender_email="site@example.invalid").model_dump(mode="json"))
+        private_json(root / "production-registration.json", {"site_id": site.id, "scope": store.private_root.name, "target_id": "pangea-production", "base_url": "https://temenosismael.org"})
     remote = tmp_path / "account"
     marker = remote / "web/_gnosi-proves/.gnosi-staging-marker"
     marker.parent.mkdir(parents=True)
@@ -139,12 +149,12 @@ def test_native_pangea_upload_verify_service_and_rollback_without_remote_access(
     target = site.targets[0]
     pangea.upload_release(store, site, target, first, output, None)
     assert pangea.current_release(store, site, target) == first
-    public, private = pangea.paths(LocalDriver(), site)
+    public, private = pangea.paths(LocalDriver(), site, target)
     assert not Path(private).is_relative_to(remote / "web")
     assert "RewriteEngine On" in (Path(public) / "current/.htaccess").read_text()
     assert "SetEnv GNOSI_SITES_SERVICE_CONFIG" in (Path(public) / "current/.htaccess").read_text()
-    status = pangea.service(store, site, "pangea", "status", {})
-    assert status["test_mode"] is True
+    status = pangea.service(store, site, target.id, "status", {})
+    assert status["test_mode"] is (environment != "production")
     assert not (Path(public) / "current/config.json").exists()
     pangea.upload_release(store, site, target, second, output, first)
     pangea.revert(store, site, target, first, second)

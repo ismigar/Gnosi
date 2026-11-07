@@ -23626,9 +23626,8 @@ export interface components {
             /**
              * Test Mode
              * @default true
-             * @constant
              */
-            test_mode: true;
+            test_mode: boolean;
         };
         /** ProcessedPublicationResponse */
         ProcessedPublicationResponse: {
@@ -25432,6 +25431,12 @@ export interface components {
         };
         /** ServiceSettings */
         ServiceSettings: {
+            /**
+             * Delivery Transport
+             * @default smtp
+             * @enum {string}
+             */
+            delivery_transport: "smtp" | "server-mail";
             /** Forms */
             forms?: {
                 [key: string]: components["schemas"]["FormDeliverySettings"];
@@ -25474,9 +25479,8 @@ export interface components {
             /**
              * Test Mode
              * @default true
-             * @constant
              */
-            test_mode: true;
+            test_mode: boolean;
         };
         /** ServiceSettingsResponse */
         ServiceSettingsResponse: {
@@ -25489,6 +25493,12 @@ export interface components {
             apply_error?: string | null;
             /** Configured */
             configured: boolean;
+            /**
+             * Delivery Transport
+             * @default smtp
+             * @enum {string}
+             */
+            delivery_transport: "smtp" | "server-mail";
             /** Forms */
             forms?: {
                 [key: string]: components["schemas"]["FormDeliverySettings"];
@@ -25533,9 +25543,8 @@ export interface components {
             /**
              * Test Mode
              * @default true
-             * @constant
              */
-            test_mode: true;
+            test_mode: boolean;
         };
         /** ShareCreateRequest */
         ShareCreateRequest: {
