@@ -14,14 +14,27 @@ from backend.tests.test_sites import website as website
 
 
 def font_file():
-    # A genuine checked-in font exercises metadata and the upload validator.
+    # Build an uncompressed WOFF fixture from the repository's licensed TTF.
+    # Backend CI deliberately does not install frontend node_modules.
     root = Path(__file__).resolve().parents[2]
-    return (root / 'frontend/node_modules/@blocknote/core/src/fonts/inter-v12-latin/inter-v12-latin-regular.woff').read_bytes()
+    raw = (root / 'frontend/src/features/genograms/assets/LiberationSans-Regular.ttf').read_bytes()
+    count = struct.unpack_from('>H', raw, 4)[0]
+    offset = 44 + count * 20
+    directory = bytearray()
+    payload = bytearray()
+    for index in range(count):
+        tag, checksum, source, length = struct.unpack_from('>4sIII', raw, 12 + index * 16)
+        directory.extend(struct.pack('>4sIIII', tag, offset + len(payload), length, length, checksum))
+        payload.extend(raw[source:source + length])
+        payload.extend(b'\0' * (-length % 4))
+    header = struct.pack('>4sIIHHIHHIIIII', b'wOFF', struct.unpack_from('>I', raw)[0], offset + len(payload), count, 0, len(raw), 1, 0, 0, 0, 0, 0, 0)
+    return header + directory + payload
+
 
 
 def test_upload_describes_real_woff_without_typing_family_or_weight():
     detected = describe_font(font_file(), 'opaque-download.woff', '/local.woff')
-    assert detected.family == 'Inter'
+    assert detected.family == 'Liberation Sans'
     assert detected.weight == '400'
     assert detected.style == 'normal'
     assert detected.src == '/local.woff'
