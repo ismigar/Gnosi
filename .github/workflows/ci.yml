@@ -265,6 +265,9 @@ jobs:
         timeout-minutes: 10
         run: npm ci --prefix extensions/web-publishing/renderer --no-audit --no-fund
       - run: uv run pytest
+        env:
+          # Full suites exceed the Linux guest's per-user /tmp tmpfs quota.
+          TMPDIR: ${{ runner.temp }}
         if: steps.scope.outputs.runtime_required != 'false'
 
   native-smoke:
