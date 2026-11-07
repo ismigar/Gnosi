@@ -142,7 +142,26 @@ describe('rich editor persistence', () => {
         expect(patch).toHaveBeenCalledExactlyOnceWith('page', { title: 'Document', content: 'Body', metadata: view.metadataRef.current });
         expect(view.onUpdate).toHaveBeenCalledWith('page', 'Body', { title: 'Document', metadata: view.metadataRef.current });
         expect(view.container.textContent).toBe('saved'); expect(inFlightSaves.has('page')).toBe(false);
-        await advance(3000); expect(view.container.textContent).toBe('idle');
+        await advance(999); expect(view.container.textContent).toBe('saved');
+        await advance(1); expect(view.container.textContent).toBe('idle');
+    });
+    it('gives consecutive saves a full second and cancels the confirmation timer on close', async () => {
+        const view = fixture();
+        view.edit(); await advance(700);
+        await advance(500);
+        const button = view.container.querySelector('button');
+        if (!button) throw new Error('Missing save action');
+        await act(async () => { button.click(); await Promise.resolve(); });
+        await advance(500);
+        expect(view.container.textContent).toBe('saved');
+        await advance(499);
+        expect(view.container.textContent).toBe('saved');
+        await advance(1);
+        expect(view.container.textContent).toBe('idle');
+        await act(async () => { button.click(); await Promise.resolve(); });
+        expect(view.container.textContent).toBe('saved');
+        view.unmount();
+        expect(vi.getTimerCount()).toBe(0);
     });
     it('flushes latest metadata on close and retains cache for the one-second handoff', async () => {
         const view = fixture(); view.edit();
