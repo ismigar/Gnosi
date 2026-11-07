@@ -193,10 +193,11 @@ function Session({ context }: { context: RequestContext }) {
 
   const changeTab = (value: Tab) => {
     const select = () => { if (value === 'sources' || value === 'pages' || value === 'regions') setCatalogueRequested(true); setTab(value); setError(''); };
-    if (![...writers.current.entries()].some(([key, writer]) => key !== 'public' && writer.pending)) { select(); return; }
-    void action(async () => { if (await flushWriters()) select(); });
+    const privateDestination = ['settings', 'messages', 'subscribers', 'campaigns'].includes(value);
+    if (![...writers.current.entries()].some(([key, writer]) => (privateDestination || key !== 'public') && writer.pending)) { select(); return; }
+    void action(async () => { if (await flushWriters(privateDestination)) select(); });
   };
-  const changeTarget = (value: string) => { void action(async () => { if (await flushWriters()) { setTargetId(value); setPreview(null); } }); };
+  const changeTarget = (value: string) => { void action(async () => { if (await flushWriters(true)) { setTargetId(value); setPreview(null); } }); };
   const removeTarget = async (id: string) => { let removed = false; await action(async () => {
     if (!site || !await flushWriters(true)) return;
     const current = await request(signal => api.getSite(site.id, context, signal));

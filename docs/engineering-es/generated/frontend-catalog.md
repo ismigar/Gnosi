@@ -52,7 +52,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2662 | 0 |
-| `features` | 1298 | 137844 | 57 |
+| `features` | 1298 | 137845 | 57 |
 | `generated` | 3 | 57516 | 594 |
 | `shared` | 349 | 37198 | 509 |
 
@@ -1373,7 +1373,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/websites/WebsiteFileField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteFileField.tsx) | 13 | `WebsiteAssetProvider`, `WebsiteFileField` | — |
 | [`frontend/src/features/websites/WebsiteLanguages.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteLanguages.tsx) | 18 | `WebsiteLanguages` | — |
 | [`frontend/src/features/websites/WebsiteRichEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteRichEditor.tsx) | 45 | `WebsiteRichEditor` | — |
-| [`frontend/src/features/websites/WebsitesPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesPage.tsx) | 252 | `WebsitesPage`, `function` | — |
+| [`frontend/src/features/websites/WebsitesPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesPage.tsx) | 253 | `WebsitesPage`, `function` | — |
 | [`frontend/src/features/websites/autosaveRequest.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/autosaveRequest.ts) | 29 | `autosaveRequest`, `useAutosaveRegistration` | — |
 | [`frontend/src/features/websites/components.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/components.tsx) | 53 | `Card`, `Disclosure`, `Empty`, `Field`, `FileImportButton`, `Input`, `ListInput`, `ReorderActions`, `Select`, `Textarea`, `Toggle` | — |
 | [`frontend/src/features/websites/helpers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/helpers.ts) | 34 | `capturedDisplayHtml`, `configurationKey`, `escaped`, `filterValueText`, `moveItem`, `newId`, `safePreviewDocument`, `splitList` | — |
