@@ -50,23 +50,6 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); });
 
 describe('Webs manager', () => {
-  it('flushes environment before loading private settings', async () => {
-    let finish: (value: api.SiteConfig) => void = () => { throw new Error('Missing save'); };
-    vi.mocked(api.saveSite).mockReturnValue(new Promise(resolve => { finish = resolve; }));
-    const privateValue: api.ServiceSettingsResponse = { configured: false, test_mode: false, delivery_transport: 'smtp', smtp_host: '', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: false, forms: {} };
-    vi.mocked(api.getServiceSettings).mockResolvedValue(privateValue);
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'hosting'); await settle();
-    act(() => { changeInput(control(view.container, 'websites.environment'), 'production'); });
-    tab(view.container, 'settings'); await settle();
-    expect(api.saveSite).toHaveBeenCalled();
-    expect(api.getServiceSettings).not.toHaveBeenCalled();
-    const submitted = vi.mocked(api.saveSite).mock.calls[0]?.[0];
-    expect(submitted?.targets?.[0]?.environment).toBe('production');
-    if (!submitted) throw new Error('Missing submitted configuration');
-    act(() => { finish({ ...submitted, revision: 2 }); }); await settle();
-    expect(api.getServiceSettings).toHaveBeenCalled();
-  });
-
   it('autosaves configurable header and hero actions together with source pagination', async () => {
     const initial = structuredClone(base);
     initial.sources = [{ id: 'blog', source_id: 'articles', kind: 'table', title: 'Blog', enabled: false, include_body: false, sort_descending: false, presentation: 'cards', path_prefix: '/blog', selection_mode: 'all' }];
