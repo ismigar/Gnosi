@@ -107,3 +107,39 @@ const {chromium} = require(process.argv[1]);
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+@pytest.mark.parametrize('value', [
+    'image-set("https://tracker.invalid/pixel.png" 1x)',
+    '-webkit-image-set("https://tracker.invalid/pixel.png" 1x)',
+    'IMAGE-SET ("/private.png" 1x)',
+    'image-/**/set("relative.png" 1x)',
+    'image("https://tracker.invalid/pixel.png")',
+    'src("https://tracker.invalid/font.woff2")',
+    'url /* whitespace */ ("https://tracker.invalid/pixel.png")',
+    r'\69mage-set("https://tracker.invalid/pixel.png" 1x)',
+])
+def test_resource_functions_rejected_at_all_css_entry_points(website, value):
+    css = '.probe { background-image: ' + value + '; }'
+    for layer in ('base', 'template', 'layout'):
+        theme = SiteTheme(stylesheet_overrides={layer: css})
+        with pytest.raises(HTTPException):
+            website_stylesheet(theme)
+    for location in ('advanced', 'page', 'block', 'token'):
+        site = website.site.model_copy(deep=True)
+        if location == 'advanced':
+            site.theme.advanced_css = css
+        elif location == 'page':
+            site.pages[0].css = css
+        elif location == 'block':
+            site.pages[0].blocks[0].css = css
+        else:
+            site.theme.tokens['surface'] = value
+        with pytest.raises(HTTPException):
+            validate_site(site)
+
+
+def test_safe_stylesheet_functions_and_font_stacks_remain_editable(website):
+    website.site.theme.advanced_css = '.probe:where(:not(.hidden)){width:clamp(1rem, calc(100% - var(--spacing)), 80rem);background:linear-gradient(45deg, rgb(1,2,3), #fff);}'
+    website.site.theme.tokens['font-body'] = '"Inter", Georgia, serif'
+    validate_site(website.site)
