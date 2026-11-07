@@ -52,7 +52,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2662 | 0 |
-| `features` | 1296 | 137735 | 57 |
+| `features` | 1296 | 137736 | 57 |
 | `generated` | 3 | 57426 | 593 |
 | `shared` | 348 | 37176 | 508 |
 
@@ -1373,7 +1373,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/websites/WebsiteRichEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteRichEditor.tsx) | 45 | `WebsiteRichEditor` | — |
 | [`frontend/src/features/websites/WebsitesPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesPage.tsx) | 249 | `WebsitesPage`, `function` | — |
 | [`frontend/src/features/websites/autosaveRequest.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/autosaveRequest.ts) | 29 | `autosaveRequest`, `useAutosaveRegistration` | — |
-| [`frontend/src/features/websites/components.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/components.tsx) | 52 | `Card`, `Disclosure`, `Empty`, `Field`, `FileImportButton`, `Input`, `ListInput`, `ReorderActions`, `Select`, `Textarea`, `Toggle` | — |
+| [`frontend/src/features/websites/components.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/components.tsx) | 53 | `Card`, `Disclosure`, `Empty`, `Field`, `FileImportButton`, `Input`, `ListInput`, `ReorderActions`, `Select`, `Textarea`, `Toggle` | — |
 | [`frontend/src/features/websites/helpers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/helpers.ts) | 34 | `capturedDisplayHtml`, `configurationKey`, `escaped`, `filterValueText`, `moveItem`, `newId`, `safePreviewDocument`, `splitList` | — |
 | [`frontend/src/features/websites/serviceModels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/serviceModels.ts) | 53 | `count`, `decodeCampaignPreview`, `decodeCampaigns`, `decodeCapturedMail`, `decodeMessages`, `decodeQueue`, `decodeSubscribers`, `list`, `parseCsv`, `record`, `text` | `/api/newsletter.php` |
 | [`frontend/src/features/websites/useWebsiteFontSamples.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/useWebsiteFontSamples.ts) | 54 | `useWebsiteFontSamples` | — |

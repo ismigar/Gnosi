@@ -28,7 +28,8 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) { return 
 export function Toggle({ label, value, onChange, disabled = false }: { label: string; value: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
   return <div className="websites-toggle"><span>{label}</span><GnosiToggle label={label} active={value} disabled={disabled} onChange={() => { onChange(!value); }} /></div>;
 }
-export function Card({ title, children, actions }: { title: string; children: ReactNode; actions?: ReactNode }) {
+export function Card({ title, children, actions, collapsible = true }: { title: string; children: ReactNode; actions?: ReactNode; collapsible?: boolean }) {
+  if (!collapsible) return <section className="websites-card"><div className="websites-row-title"><h2>{title}</h2>{actions}</div>{children}</section>;
   return <Disclosure title={title} className="websites-card" level={2} actions={actions}>{children}</Disclosure>;
 }
 export function Empty({ children }: { children: ReactNode }) { return <p className="websites-empty">{children}</p>; }

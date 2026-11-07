@@ -2,7 +2,7 @@ import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SiteConfig, SitePage, SiteBlock, CatalogueItem } from '../../shared/api/sites';
-import { Card, Disclosure, Empty, Field, Input, ListInput, Textarea, Select, Toggle, ReorderActions } from './components';
+import { Disclosure, Empty, Field, Input, ListInput, Textarea, Select, Toggle, ReorderActions } from './components';
 import { moveItem, newId } from './helpers';
 import { WebsiteFileField } from './WebsiteFileField';
 import { LinksEditor } from './LinksEditor';
@@ -17,7 +17,7 @@ export function PagesEditor({ site, catalogue, onChange }: { site: SiteConfig; c
   const pages = site.pages ?? [];
   const activePage = pages.some(page => page.id === selectedPage) ? selectedPage : pages[0]?.id;
   const change = (index: number, patch: Partial<SitePage>) => { onChange({ ...site, pages: pages.map((page, position) => position === index ? { ...page, ...patch } : page) }); };
-  return <Card title={t('websites.pages')} actions={<button type="button" className="websites-button" onClick={() => { const page: SitePage = { id: newId('page'), title: t('websites.newPage'), language: site.default_language, path: `/${site.default_language}/${newId('page')}`, enabled: false, template: 'page', blocks: [], css: '', description: '' }; onChange({ ...site, pages: [...pages, page] }); setSelectedPage(page.id); }}><Plus size={16} />{t('websites.addPage')}</button>}>
+  return <div className="websites-panel"><div className="websites-actions"><button type="button" className="websites-button" onClick={() => { const page: SitePage = { id: newId('page'), title: t('websites.newPage'), language: site.default_language, path: `/${site.default_language}/${newId('page')}`, enabled: false, template: 'page', blocks: [], css: '', description: '' }; onChange({ ...site, pages: [...pages, page] }); setSelectedPage(page.id); }}><Plus size={16} />{t('websites.addPage')}</button></div>
     <ImportedPages key={site.id} site={site} onChange={onChange} />
     {!pages.length && <Empty>{t('websites.noPages')}</Empty>}
     {!!pages.length && <Field label={t('websites.visual.pageToEdit')}><Select value={activePage} onChange={event => { setSelectedPage(event.target.value); }}>{pages.map(page => <option key={page.id} value={page.id}>{page.title} · {page.language.toUpperCase()}</option>)}</Select></Field>}
@@ -27,7 +27,7 @@ export function PagesEditor({ site, catalogue, onChange }: { site: SiteConfig; c
       <BlocksEditor site={site} catalogue={catalogue} blocks={page.blocks ?? []} onChange={blocks => { change(index, { blocks }); }} />
       <details className="websites-spacer"><summary>{t('websites.pageCss')}</summary><Field label={t('websites.customCss')}><Textarea className="websites-code" spellCheck={false} value={page.css} onChange={event => { change(index, { css: event.target.value }); }} /></Field></details>
     </Disclosure>)}</div>
-  </Card>;
+  </div>;
 }
 
 export function BlocksEditor({ site, catalogue, blocks, onChange }: { site: SiteConfig; catalogue: CatalogueItem[]; blocks: SiteBlock[]; onChange: (blocks: SiteBlock[]) => void }) {

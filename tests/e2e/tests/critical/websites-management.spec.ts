@@ -11,7 +11,17 @@ test('visual website blocks edit, reorder, undo and persist without publishing',
   await creation.getByRole('textbox').fill('Disposable visual blocks');
   await creation.getByRole('button', { name: 'Create', exact: true }).click();
   await expect(creation).toBeHidden();
+  // Overview statistics stay visible; content/page editors have no outer fold.
+  await expect(page.locator('[role="tabpanel"] .websites-stat')).toHaveCount(3);
+  for (const stat of await page.locator('[role="tabpanel"] .websites-stat').all()) await expect(stat).toBeVisible();
+  await expect(page.locator('[role="tabpanel"] > .websites-panel > details')).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('website-overview-open.png'), fullPage: true });
+  await page.getByRole('tab', { name: 'Contents', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Add source', exact: true })).toBeVisible();
+  await expect(page.locator('[role="tabpanel"] > .websites-panel > details')).toHaveCount(0);
   await page.getByRole('tab', { name: 'Pages', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Add page', exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('website-pages-no-outer-fold.png'), fullPage: true });
   await expandWebsiteSections(page);
   await page.getByRole('button', { name: 'Add page', exact: true }).click();
   await expandWebsiteSections(page);
