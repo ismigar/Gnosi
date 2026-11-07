@@ -79,7 +79,6 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
             transientRetryRef.current = 0;
             setSaveStatus('saved');
             onUpdate?.(noteFilename, data.content, { title: data.title, metadata: data.metadata });
-            setTimeout(() => { setSaveStatus(previous => previous === 'saved' ? 'idle' : previous); }, 3000);
         } catch (error) {
             lastSaveFailedRef.current = true;
             const retryDelay = transientRetryDelay(error, transientRetryRef.current);

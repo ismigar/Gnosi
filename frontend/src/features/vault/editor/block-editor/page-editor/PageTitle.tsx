@@ -1,3 +1,4 @@
+import { SavedFeedback } from '../../../../../shared/editor/SavedFeedback';
 import { emitAppEvent } from '../../../../../shared/platform/app-events';
 import { CheckSquare } from 'lucide-react';
 import { CollaborationPresence } from '../../CollaborationPresence';
@@ -62,10 +63,10 @@ export function PageTitle({ context }: { context: PageEditorController }) {
         </div>
       )}
       {saveStatus === 'saved' && (
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--status-success)]/5 text-[var(--status-success)]/60 text-[10px] font-bold uppercase tracking-wider">
+        <SavedFeedback className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--gnosi-blue)]/5 text-[10px] font-bold uppercase tracking-wider">
           <CheckSquare size={12} />
           {t('editor.saved')}
-        </div>
+        </SavedFeedback>
       )}
       {saveStatus === 'error' && (
         <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--status-error)]/5 text-[var(--status-error)]/60 text-[10px] font-bold uppercase tracking-wider">
