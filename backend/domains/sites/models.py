@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import datetime, timezone
-from typing import Iterator, Literal
+from typing import Annotated, Iterator, Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, PrivateAttr, SecretStr, field_validator, model_validator
@@ -146,6 +146,7 @@ class SiteFont(Contract):
 class SiteThemeAsset(Contract):
     source: str
     media_type: str
+    font: SiteFont | None = None
 
 
 class SiteTheme(Contract):
@@ -161,6 +162,7 @@ class SiteTheme(Contract):
     favicon: str = ""
     fonts: list[SiteFont] = Field(default_factory=list)
     advanced_css: str = Field(default="", max_length=100000)
+    stylesheet_overrides: dict[Literal["base", "template", "layout"], Annotated[str, Field(max_length=100000)]] = Field(default_factory=dict)
 
 
 class FormField(Contract):

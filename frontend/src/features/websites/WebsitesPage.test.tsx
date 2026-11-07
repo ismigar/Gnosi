@@ -9,7 +9,7 @@ import WebsitesPage from './WebsitesPage';
 
 vi.mock('../../shared/editor/InstructionMarkdownEditor', () => ({ InstructionMarkdownEditor: ({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) => <textarea aria-label={label} value={value} onChange={event => { onChange(event.target.value); }} /> }));
 
-vi.mock('../../shared/api/sites', () => Object.fromEntries(['editableSitePages', 'listSites', 'createSite', 'removeSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont', 'previewSiteImage', 'previewSiteAsset', 'uploadSiteThemeAsset'].map(name => [name, vi.fn()])));
+vi.mock('../../shared/api/sites', () => Object.fromEntries(['editableSitePages', 'listSites', 'createSite', 'removeSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont', 'previewSiteImage', 'previewSiteAsset', 'uploadSiteThemeAsset', 'siteFontCatalogue', 'importSiteFonts'].map(name => [name, vi.fn()])));
 vi.mock('../../shared/api/request-context', () => ({ currentRequestContext: vi.fn() }));
 vi.mock('../../shared/hooks/useModalKeyboard', () => ({ useModalKeyboard: () => undefined }));
 vi.mock('../../shared/ui/layout/AppHeader', () => ({ AppHeader: ({ children, title }: { children: React.ReactNode; title: string }) => <header><h1>{title}</h1>{children}</header> }));
@@ -34,7 +34,7 @@ function addSource(container: HTMLElement) {
 }
 
 beforeEach(() => {
-  vi.resetAllMocks(); vi.useFakeTimers();
+  vi.resetAllMocks(); vi.mocked(api.siteFontCatalogue).mockResolvedValue([]); vi.useFakeTimers();
   vi.mocked(api.previewSiteImage).mockRejectedValue(new Error('No synthetic image configured'));
   vi.mocked(api.editableSitePages).mockResolvedValue([]);
   vi.mocked(currentRequestContext).mockReturnValue(context);

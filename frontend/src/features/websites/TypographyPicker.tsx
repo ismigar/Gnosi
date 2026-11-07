@@ -5,7 +5,7 @@ import type { PropertyScalar } from '../../shared/ui/selection/types';
 
 const primaryFamily = (value: string) => value.split(',')[0]?.trim().replace(/^['"]|['"]$/gu, '') || value;
 
-export function TypographyPicker({ label, value, fonts, aliases, onChange }: { label: string; value: string; fonts: readonly SiteFont[]; aliases: Readonly<Record<string, string>>; onChange: (value: string) => void }) {
+export function TypographyPicker({ label, value, fonts, aliases, onChange, disabled = false }: { label: string; value: string; fonts: readonly SiteFont[]; aliases: Readonly<Record<string, string>>; onChange: (value: string) => void; disabled?: boolean }) {
   const { t } = useTranslation();
   const options = new Map<string, string>([
     ['system-ui, sans-serif', t('websites.fontSystem')], ['serif', t('websites.fontSerif')],
@@ -25,5 +25,5 @@ export function TypographyPicker({ label, value, fonts, aliases, onChange }: { l
     const css = String(item ?? '');
     return <span className="websites-font-sample" style={{ fontFamily: (Object.hasOwn(aliases, primaryFamily(css)) ? aliases[primaryFamily(css)] : css) }} title={titles[css]}>{titles[css] || css}</span>;
   };
-  return <MultiSelectPills single label={label} value={value} options={[...options.keys()]} idToTitle={titles} placeholder={t('websites.chooseFont')} emptyMessage={t('websites.fontNotFound')} renderValue={sample} renderOption={sample} onChange={next => { if (typeof next === 'string' && next) onChange(next); }} />;
+  return <MultiSelectPills single disabled={disabled} label={label} value={value} options={[...options.keys()]} idToTitle={titles} placeholder={t('websites.chooseFont')} emptyMessage={t('websites.fontNotFound')} renderValue={sample} renderOption={sample} onChange={next => { if (typeof next === 'string' && next) onChange(next); }} />;
 }

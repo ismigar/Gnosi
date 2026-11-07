@@ -9044,7 +9044,7 @@
     "previewHelp": "Desa i revisa una publicació per veure aquí el web generat.",
     "themeImported": "Tema importat. Desa els canvis per conservar-lo.",
     "invalidTheme": "El fitxer seleccionat no és un tema compatible.",
-    "importTooLarge": "El fitxer d’importació és massa gran.",
+    "importTooLarge": "El fitxer del tema és massa gran (màxim 2 MB).",
     "search": "Cerca",
     "status": "Estat",
     "allStatuses": "Tots els estats",
@@ -9305,7 +9305,7 @@
       "autoresponse": "Confirmació automàtica"
     },
     "fontLibrary": "Biblioteca de fonts locals",
-    "addFont": "Afegeix una font",
+    "addFont": "Afegeix la font",
     "fontFamily": "Família tipogràfica",
     "fontFile": "Fitxer de tipografia",
     "fontWeight": "Pes o interval de pesos",
@@ -9499,6 +9499,28 @@
       "column": "Columna",
       "insertImage": "Insereix la imatge",
       "imageDescription": "Descripció de la imatge a inserir"
-    }
+    },
+    "stylesheets": {
+      "help": "Aquí pots consultar i editar els estils originals del web. Els canvis afecten només aquest web i es desen automàticament. Les regles de colors, tipografia, pàgines i blocs continuen aplicant-se.",
+      "base": "CSS de base",
+      "template": "CSS de la plantilla",
+      "layout": "CSS de distribució",
+      "additional": "CSS addicional",
+      "restore": "Restaura el CSS original"
+    },
+    "fontManagerHelp": "Tria una font de la llista, afegeix-la del catàleg o importa un fitxer. El nom i la ruta es detecten automàticament.",
+    "importFont": "Importa un fitxer de font",
+    "replaceFont": "Substitueix el fitxer de font",
+    "fontSampleText": "La guineu ràpida salta sobre el gos mandrós. Àgora, il·lusió i qüestions.",
+    "useFontBody": "Utilitza per al text",
+    "useFontHeading": "Utilitza per als títols",
+    "fontOptions": "Opcions de la font",
+    "fontCatalogue": "Catàleg de fonts",
+    "fontCatalogueHelp": "Fonts de Google Fonts i Fontsource. Es descarreguen al web; no requereixen connexions externes dels visitants.",
+    "fontLicense": "Llicència i origen",
+    "importGoogleFont": "Importa de Google Fonts",
+    "googleFontUrl": "URL de Google Fonts",
+    "importFontUrl": "Importa des de la URL",
+    "fontCatalogueFailed": "No s’ha pogut carregar el catàleg de fonts."
   }
 }

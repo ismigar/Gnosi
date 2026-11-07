@@ -17,6 +17,7 @@ export type SiteForm = Omit<Identified<components['schemas']['SiteForm']>, 'fiel
 export type SiteFooterColumn = Omit<Identified<components['schemas']['SiteFooterColumn']>, 'blocks'> & { blocks?: SiteBlock[] };
 export type SiteConfig = Omit<Identified<components['schemas']['SiteConfig']>, 'sources' | 'pages' | 'forms' | 'targets' | 'header_actions' | 'navigation' | 'footer' | 'social_links' | 'footer_columns' | 'footer_blocks' | 'footer_bottom_links' | 'footer_copyright'> & { sources?: SiteSource[]; pages?: SitePage[]; forms?: SiteForm[]; targets?: SiteTarget[]; header_actions?: NavigationLink[]; navigation?: NavigationLink[]; footer?: NavigationLink[]; social_links?: NavigationLink[]; footer_columns?: SiteFooterColumn[] | null; footer_blocks?: SiteBlock[] | null; footer_bottom_links?: NavigationLink[] | null; footer_copyright?: string | null };
 export type SiteTheme = components['schemas']['SiteTheme'];
+export type SiteThemeAsset = components['schemas']['SiteThemeAsset'];
 export type SiteFont = components['schemas']['SiteFont'];
 export type SiteTarget = Identified<components['schemas']['SiteTarget']>;
 export type SiteStatus = Omit<components['schemas']['SiteStatus'], 'site'> & { site: SiteConfig };
@@ -190,4 +191,11 @@ export async function previewSiteAsset(siteId: string, source: string, context: 
   return unwrapApiResult<Blob, unknown>(await apiClient.GET('/api/vault/sites/{site_id}/theme/file', {
     params: { path: { site_id: siteId }, query: { source } }, parseAs: 'blob', ...scope(context, signal),
   }));
+}
+
+export async function siteFontCatalogue(context: RequestContext, signal?: AbortSignal) {
+  return unwrapApiResult(await apiClient.GET('/api/vault/sites/fonts/catalogue', { ...scope(context, signal) }));
+}
+export async function importSiteFonts(siteId: string, body: { url?: string; catalogue_id?: string }, context: RequestContext, signal?: AbortSignal) {
+  return unwrapApiResult(await apiClient.POST('/api/vault/sites/{site_id}/theme/fonts/import', { params: { path: { site_id: siteId } }, body: { url: body.url ?? '', catalogue_id: body.catalogue_id ?? '' }, ...scope(context, signal) }));
 }

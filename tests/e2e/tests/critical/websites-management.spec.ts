@@ -269,8 +269,9 @@ test('website rows autosave rich columns, images and folded edits across reload'
   const column = page.locator('details').filter({ has: page.locator(':scope > summary', { hasText: /^Column 1$/ }) });
   const editor = column.locator('[contenteditable=true][aria-label="Text content"]');
   await editor.fill('Autosaved rich column');
+  await expect(page.locator('.websites-canvas')).toContainText('Autosaved rich column');
   await editor.press('ControlOrMeta+a');
-  await editor.press('ControlOrMeta+b');
+  await column.getByRole('button', { name: 'Bold', exact: true }).click();
   await expect(page.locator('.websites-canvas strong')).toHaveText('Autosaved rich column');
   await column.getByRole('button', { name: 'Upload Insert image', exact: true }).click();
   const upload = page.getByRole('dialog', { name: 'Upload Insert image', exact: true });
@@ -309,4 +310,76 @@ test('website rows autosave rich columns, images and folded edits across reload'
   await expect(page.locator('.websites-canvas strong')).toHaveText('Autosaved rich column');
   await expect(page.locator('.websites-canvas img[alt="Column portrait"]')).toBeVisible();
   await expect(page.locator('.websites-canvas .websites-row-columns > div')).toHaveCount(2);
+});
+
+
+test('advanced CSS exposes template styles, autosaves edits across reload and restores originals', async ({ page }, testInfo) => {
+  const state = acceptanceState();
+  await page.addInitScript(() => { localStorage.setItem('i18nextLng', 'en'); });
+  await page.goto(`/@${state.primary_vault.slug}/websites`);
+  await page.getByRole('button', { name: 'Create website', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create website', exact: true });
+  await dialog.getByRole('textbox').fill('Disposable stylesheet editor');
+  await dialog.getByRole('button', { name: 'Create', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
+  await expect(page.locator('.websites-page details[open]')).toHaveCount(0);
+  await expandWebsiteSections(page);
+  const base = page.getByRole('textbox', { name: 'Base CSS', exact: true });
+  const original = await base.inputValue();
+  expect(original).toContain('@layer base');
+  await expect(page.getByRole('textbox', { name: 'Template CSS', exact: true })).toHaveValue(/\.temenos-site/u);
+  await expect(page.getByRole('textbox', { name: 'Layout CSS', exact: true })).toHaveValue(/\.editor-row/u);
+  const custom = original + '\n.page-title { color: rgb(1, 2, 3); }';
+  await base.fill(custom);
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('advanced-css-originals.png'), fullPage: true });
+  await page.reload();
+  await page.getByRole('combobox', { name: 'Website', exact: true }).selectOption({ label: 'Disposable stylesheet editor' });
+  await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
+  await expandWebsiteSections(page);
+  await expect(base).toHaveValue(custom);
+  // Actual Astro output and Chromium's computed colour are verified by
+  // test_edited_base_css_applies_in_chromium_to_actual_astro_output. The
+  // authenticated fixture intentionally forbids starting the PHP preview server.
+  const layer = page.locator('details').filter({ has: page.locator(':scope > summary', { hasText: /^Base CSS$/ }) });
+  await layer.getByRole('button', { name: 'Restore original CSS', exact: true }).click();
+  await expect(base).toHaveValue(original);
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Delete website', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Delete website', exact: true }).getByRole('button', { name: 'Delete', exact: true }).click();
+});
+
+
+test('font files import with automatic names and can be selected without typing paths', async ({ page }, testInfo) => {
+  const state = acceptanceState();
+  await page.addInitScript(() => { localStorage.setItem('i18nextLng', 'en'); });
+  await page.goto(`/@${state.primary_vault.slug}/websites`);
+  await page.getByRole('button', { name: 'Create website', exact: true }).click();
+  const creation = page.getByRole('dialog', { name: 'Create website', exact: true });
+  await creation.getByRole('textbox').fill('Disposable font manager');
+  await creation.getByRole('button', { name: 'Create', exact: true }).click();
+  await expect(creation).toBeHidden();
+  await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
+  await expandWebsiteSections(page);
+  await page.getByRole('button', { name: 'Import a font file', exact: true }).click();
+  const upload = page.getByRole('dialog', { name: 'Upload Font file', exact: true });
+  await upload.locator('input[type=file]').setInputFiles('../../frontend/node_modules/@blocknote/core/src/fonts/inter-v12-latin/inter-v12-latin-regular.woff');
+  await expect(upload).toBeHidden();
+  await expandWebsiteSections(page);
+  const font = page.locator('details').filter({ has: page.locator(':scope > summary', { hasText: /^Inter$/ }) });
+  await expect(font.locator('p.websites-font-sample')).toBeVisible();
+  await expect(font.locator('p.websites-font-sample')).toHaveCSS('font-family', /GnosiWebFont/u);
+  await font.getByRole('button', { name: 'Use for body text', exact: true }).click();
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Font family', exact: true })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('font-click-manager.png'), fullPage: true });
+  await page.reload();
+  await page.getByRole('combobox', { name: 'Website', exact: true }).selectOption({ label: 'Disposable font manager' });
+  await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
+  await expandWebsiteSections(page);
+  await expect(page.getByRole('combobox', { name: 'Body font', exact: true })).toContainText('Inter');
+  await expect(font.locator('p.websites-font-sample')).toHaveCSS('font-family', /GnosiWebFont/u);
+  await page.getByRole('button', { name: 'Delete website', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Delete website', exact: true }).getByRole('button', { name: 'Delete', exact: true }).click();
 });

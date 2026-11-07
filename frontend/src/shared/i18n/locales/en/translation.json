@@ -8989,7 +8989,7 @@
     "previewHelp": "Save and review a publication to see the generated website here.",
     "themeImported": "Theme imported. Save changes to keep it.",
     "invalidTheme": "The selected file is not a supported theme.",
-    "importTooLarge": "The import file is too large.",
+    "importTooLarge": "The theme file is too large (2 MB maximum).",
     "search": "Search",
     "status": "Status",
     "allStatuses": "All statuses",
@@ -9444,6 +9444,28 @@
       "column": "Column",
       "insertImage": "Insert image",
       "imageDescription": "Description of the image to insert"
-    }
+    },
+    "stylesheets": {
+      "help": "View and edit the website’s original styles. Changes apply only to this website and save automatically. Colour, typography, page and block settings continue to apply.",
+      "base": "Base CSS",
+      "template": "Template CSS",
+      "layout": "Layout CSS",
+      "additional": "Additional CSS",
+      "restore": "Restore original CSS"
+    },
+    "fontManagerHelp": "Choose a font from the list, add one from the catalogue or import a file. Its name and path are detected automatically.",
+    "importFont": "Import a font file",
+    "replaceFont": "Replace font file",
+    "fontSampleText": "The quick brown fox jumps over the lazy dog. Àgora, il·lusió and qüestions.",
+    "useFontBody": "Use for body text",
+    "useFontHeading": "Use for headings",
+    "fontOptions": "Font options",
+    "fontCatalogue": "Font catalogue",
+    "fontCatalogueHelp": "Fonts from Google Fonts and Fontsource. Downloaded to your website; visitors do not need external font connections.",
+    "fontLicense": "License and source",
+    "importGoogleFont": "Import from Google Fonts",
+    "googleFontUrl": "Google Fonts URL",
+    "importFontUrl": "Import from URL",
+    "fontCatalogueFailed": "The font catalogue could not be loaded."
   }
 }

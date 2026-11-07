@@ -12234,6 +12234,54 @@
         "title": "FolderSchemaRequest",
         "type": "object"
       },
+      "FontCatalogueEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "license_url": {
+            "title": "License Url",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "family",
+          "provider",
+          "license_url"
+        ],
+        "title": "FontCatalogueEntry",
+        "type": "object"
+      },
+      "FontImportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "catalogue_id": {
+            "default": "",
+            "maxLength": 100,
+            "title": "Catalogue Id",
+            "type": "string"
+          },
+          "url": {
+            "default": "",
+            "maxLength": 8000,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "title": "FontImportRequest",
+        "type": "object"
+      },
       "FormCandidatesResponse": {
         "properties": {
           "fields": {
@@ -36804,6 +36852,21 @@
             "title": "Schema Version",
             "type": "integer"
           },
+          "stylesheet_overrides": {
+            "additionalProperties": {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            "propertyNames": {
+              "enum": [
+                "base",
+                "template",
+                "layout"
+              ]
+            },
+            "title": "Stylesheet Overrides",
+            "type": "object"
+          },
           "tokens": {
             "additionalProperties": {
               "type": "string"
@@ -36818,6 +36881,16 @@
       "SiteThemeAsset": {
         "additionalProperties": false,
         "properties": {
+          "font": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SiteFont"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "media_type": {
             "title": "Media Type",
             "type": "string"
@@ -115981,6 +116054,124 @@
         ]
       }
     },
+    "/api/vault/sites/fonts/catalogue": {
+      "get": {
+        "operationId": "catalogue_api_vault_sites_fonts_catalogue_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FontCatalogueEntry"
+                  },
+                  "title": "Response Catalogue Api Vault Sites Fonts Catalogue Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Catalogue",
+        "tags": [
+          "Vault",
+          "sites"
+        ]
+      }
+    },
     "/api/vault/sites/import/create": {
       "post": {
         "operationId": "create_from_url_api_vault_sites_import_create_post",
@@ -119828,6 +120019,143 @@
           }
         },
         "summary": "Font Preview",
+        "tags": [
+          "Vault",
+          "sites"
+        ]
+      }
+    },
+    "/api/vault/sites/{site_id}/theme/fonts/import": {
+      "post": {
+        "operationId": "import_font_api_vault_sites__site_id__theme_fonts_import_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FontImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SiteFont"
+                  },
+                  "title": "Response Import Font Api Vault Sites  Site Id  Theme Fonts Import Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Font",
         "tags": [
           "Vault",
           "sites"

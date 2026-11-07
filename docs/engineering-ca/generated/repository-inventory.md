@@ -10,10 +10,10 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Àrea | Recompte |
 | --- | ---: |
-| Backend Python files | 1832 |
-| Backend Python test files | 732 |
-| Frontend JS/TS source files | 2406 |
-| Frontend unit test files | 740 |
+| Backend Python files | 1838 |
+| Backend Python test files | 734 |
+| Frontend JS/TS source files | 2410 |
+| Frontend unit test files | 741 |
 | Registered FastAPI routers | 42 |
 | Pipeline skill contracts | 17 |
 | Development-memory directives | 24 |
@@ -22,8 +22,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Àrea | Fitxers | Abast funcional |
 | --- | ---: | --- |
-| `backend/` | 1971 | FastAPI, services, models, agents, scheduling, and storage adapters |
-| `frontend/src/` | 2511 | React application, UI behavior, state, and browser integrations |
+| `backend/` | 1977 | FastAPI, services, models, agents, scheduling, and storage adapters |
+| `frontend/src/` | 2515 | React application, UI behavior, state, and browser integrations |
 | `pipeline/` | 108 | Reusable development and application skills, and deterministic processing tools |
 | `desktop/` | 133 | Desktop lifecycle, backend packaging, IPC, and updates |
 | `extensions/` | 116 | Office, browser, plugin, marketplace, and external-system adapters |

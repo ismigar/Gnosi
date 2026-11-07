@@ -28,6 +28,8 @@ from .storage import SiteStore
 router = APIRouter(prefix="/sites", tags=["sites"], dependencies=[Depends(require_plugins("web-publishing"))])
 from .web_import_routes import router as import_router
 router.include_router(import_router)
+from .font_routes import router as font_router
+router.include_router(font_router)
 Editor = Annotated[WorkspaceContext, Depends(require_role("editor"))]
 Admin = Annotated[WorkspaceContext, Depends(require_role("admin"))]
 
@@ -199,11 +201,13 @@ async def upload_theme_asset(site_id: str, context: Editor, kind: Literal["image
     from .theme_assets import LIMIT, upload
     try:
         raw = await file.read(LIMIT + 1)
-        def persist() -> tuple[str, str]:
+        def persist() -> SiteThemeAsset:
+            from .font_metadata import describe_font
             store = store_for(context)
-            return upload(store, store.load(site_id), file.filename or "", raw, kind)
-        source, media_type = await run_in_threadpool(persist)
-        return SiteThemeAsset(source=source, media_type=media_type)
+            source, media_type = upload(store, store.load(site_id), file.filename or "", raw, kind)
+            font = describe_font(raw, file.filename or "", source) if kind == "font" else None
+            return SiteThemeAsset(source=source, media_type=media_type, font=font)
+        return await run_in_threadpool(persist)
     finally:
         await file.close()
 

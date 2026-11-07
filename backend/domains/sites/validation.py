@@ -59,6 +59,8 @@ def validate_site(site: SiteConfig) -> None:
         if any(language not in site.languages for languages in source.withdrawn_versions.values() for language in languages):
             raise HTTPException(422, "A withdrawn translation uses an unconfigured language")
     validate_css(site.theme.advanced_css)
+    for stylesheet in site.theme.stylesheet_overrides.values():
+        validate_css(stylesheet)
     for key, value in site.theme.tokens.items():
         if not re.fullmatch(r"[a-z][a-z0-9-]{0,60}", key) or len(value) > 300 or any(c in value for c in "{};<>\\") or re.search(r"url\s*\(|@import|expression\s*\(", value, re.I):
             raise HTTPException(422, "Invalid theme value")

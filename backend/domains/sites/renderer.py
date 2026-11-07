@@ -13,6 +13,8 @@ from markdown_it import MarkdownIt
 from pydantic import JsonValue
 
 from .paths import extension_root
+from .models import SiteTheme
+from .stylesheets import website_stylesheet
 
 
 def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
@@ -52,6 +54,12 @@ def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(raw)
         payload.pop("source_hashes", None)
+        # Generated, validated CSS is separate from executable attachment uploads.
+        stylesheet = website_stylesheet(SiteTheme.model_validate(payload["site"]["theme"]))
+        filename = "gnosi-styles-" + hashlib.sha256(stylesheet.encode()).hexdigest()[:20] + ".css"
+        (public / "_astro").mkdir(exist_ok=True)
+        (public / "_astro" / filename).write_text(stylesheet, encoding="utf-8")
+        payload["stylesheet_path"] = "/_astro/" + filename
         parser = MarkdownIt("commonmark", {"html": False})
         for page in [*payload["site"]["pages"], *(payload["site"].get("footer_columns") or []), {"blocks": payload["site"].get("footer_blocks") or []}]:
             for block in [item for parent in page["blocks"] for item in [parent, *parent.get("children", [])]]:
