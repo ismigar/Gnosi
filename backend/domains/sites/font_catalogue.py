@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
@@ -12,7 +13,7 @@ from . import public_http
 from .font_metadata import describe_font
 from .models import Contract, SiteFont
 from .storage import SiteStore
-from .theme_assets import LIMIT, upload
+from .theme_assets import LIMIT, upload, validate_font
 
 
 class FontCatalogueEntry(Contract):
@@ -36,6 +37,36 @@ class FontImportRequest(Contract):
 GOOGLE_FAMILIES = ('Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Poppins', 'Raleway', 'Nunito', 'Oswald', 'Merriweather', 'Lora', 'Playfair Display', 'Libre Baskerville', 'Source Sans 3', 'Source Serif 4', 'Noto Sans', 'Noto Serif', 'Fira Sans', 'Fira Code', 'IBM Plex Sans', 'IBM Plex Serif')
 FONTSOURCE_FAMILIES = {'inter': 'Inter', 'literata': 'Literata', 'atkinson-hyperlegible': 'Atkinson Hyperlegible', 'work-sans': 'Work Sans'}
 CATALOGUE = [FontCatalogueEntry(id='google:' + family, family=family, provider='Google Fonts', license_url='https://fonts.google.com/specimen/' + quote(family.replace(' ', '+'), safe='+')) for family in GOOGLE_FAMILIES] + [FontCatalogueEntry(id='fontsource:' + slug, family=family, provider='Fontsource', license_url='https://fontsource.org/fonts/' + slug + '/license') for slug, family in FONTSOURCE_FAMILIES.items()]
+
+
+@lru_cache(maxsize=24)
+def catalogue_preview(catalogue_id: str) -> tuple[bytes, str]:
+    """Read a bounded catalogue sample without importing into a vault."""
+    entry = next((item for item in CATALOGUE if item.id == catalogue_id), None)
+    if entry is None:
+        raise HTTPException(422, 'Choose a font from the catalogue')
+    budget = public_http.FetchBudget.start(15)
+    budget.remaining = budget.encoded_remaining = 600_000
+    try:
+        if entry.provider == 'Fontsource':
+            slug = catalogue_id.removeprefix('fontsource:')
+            url = f'https://cdn.jsdelivr.net/fontsource/fonts/{slug}@latest/latin-400-normal.woff2'
+        else:
+            # Display only the name: keep previews small and never execute CSS.
+            url = 'https://fonts.googleapis.com/css?family=' + quote(entry.family + ':400') + '&text=' + quote(entry.family)
+            css = public_http.fetch(url, budget, maximum=64_000).body.decode('utf-8')
+            sources = re.findall(r'url\(\s*[\'"]?(https://fonts\.gstatic\.com/[^\s)\'";]+)', css)
+            if len(sources) != 1:
+                raise ValueError('The provider did not return a single font sample')
+            url = sources[0]
+        raw = public_http.fetch(url, budget, maximum=500_000).body
+        suffix = Path(urlsplit(url).path).suffix.lower()
+        # Google subset URLs have no extension; determine the font signature.
+        if not suffix:
+            suffix = next((ext for signature, ext in ((b'wOF2', '.woff2'), (b'wOFF', '.woff'), (b'OTTO', '.otf'), (b'\x00\x01\x00\x00', '.ttf')) if raw.startswith(signature)), '')
+        return raw, validate_font(raw, suffix)
+    except (ValueError, UnicodeError) as error:
+        raise HTTPException(422, str(error)) from None
 
 
 def _google_families(url: str) -> list[str]:

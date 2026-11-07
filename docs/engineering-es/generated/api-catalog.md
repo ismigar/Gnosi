@@ -9,7 +9,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 ## Resumen
 
 - Enrutadores registrados: **42**
-- Operaciones descubiertas: **385**
+- Operaciones descubiertas: **386**
 - Módulos de rutas no registrados: **14**
 
 ## Registro de enrutadores
@@ -366,6 +366,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `POST` | `/databases` | `create_database` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Create database | [`backend/domains/vault/tables/routes.py:78`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L78) |
 | `DELETE` | `/databases/{database_id}` | `delete_database` | — | [Depends(get_workspace_context)], [Depends(require_role('admin'))] | Delete database | [`backend/domains/vault/tables/routes.py:90`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L90) |
 | `GET` | `/fonts/catalogue` | `catalogue` | — | — | Catalogue | [`backend/domains/sites/font_routes.py:13`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/font_routes.py#L13) |
+| `GET` | `/fonts/catalogue/preview` | `preview` | — | — | Preview | [`backend/domains/sites/font_routes.py:18`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/font_routes.py#L18) |
 | `POST` | `/generate` | `generate_content` | — | — | One-shot AI text generation to insert into Vault pages. | [`backend/domains/configuration/ai/content_routes.py:84`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/content_routes.py#L84) |
 | `POST` | `/import/create` | `create_from_url` | — | [Depends(require_plugins('web-publishing'))] | Create from url | [`backend/domains/sites/web_import_routes.py:55`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/web_import_routes.py#L55) |
 | `POST` | `/import/preview` | `preview_url` | — | [Depends(require_plugins('web-publishing'))] | Preview url | [`backend/domains/sites/web_import_routes.py:49`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/web_import_routes.py#L49) |
@@ -447,7 +448,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `POST` | `/web-publishing/publish` | `publish` | web-publishing | — | Publish | [`backend/domains/vault/publishing/web.py:236`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/web.py#L236) |
 | `POST` | `/web-publishing/rollback` | `rollback` | web-publishing | — | Rollback | [`backend/domains/vault/publishing/web.py:241`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/web.py#L241) |
 | `GET` | `/web-publishing/status` | `status` | web-publishing | — | Status | [`backend/domains/vault/publishing/web.py:220`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/publishing/web.py#L220) |
-| `POST` | `/{site_id}/theme/fonts/import` | `import_font` | — | — | Import font | [`backend/domains/sites/font_routes.py:18`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/font_routes.py#L18) |
+| `POST` | `/{site_id}/theme/fonts/import` | `import_font` | — | — | Import font | [`backend/domains/sites/font_routes.py:24`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/font_routes.py#L24) |
 
 ## Módulos no registrados
 

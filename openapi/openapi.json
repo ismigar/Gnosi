@@ -35812,6 +35812,14 @@
             "title": "Redirects",
             "type": "object"
           },
+          "regions": {
+            "items": {
+              "$ref": "#/components/schemas/SiteRegion"
+            },
+            "maxItems": 24,
+            "title": "Regions",
+            "type": "array"
+          },
           "revision": {
             "default": 1,
             "minimum": 1.0,
@@ -36542,6 +36550,61 @@
           "preview_id"
         ],
         "title": "SitePublishRequest",
+        "type": "object"
+      },
+      "SiteRegion": {
+        "additionalProperties": false,
+        "properties": {
+          "alignment": {
+            "default": "left",
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "title": "Alignment",
+            "type": "string"
+          },
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/SiteBlock"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "position": {
+            "default": "after_content",
+            "enum": [
+              "header",
+              "before_content",
+              "after_content",
+              "footer"
+            ],
+            "title": "Position",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "title": "SiteRegion",
         "type": "object"
       },
       "SiteRelease": {
@@ -116166,6 +116229,123 @@
           }
         },
         "summary": "Catalogue",
+        "tags": [
+          "Vault",
+          "sites"
+        ]
+      }
+    },
+    "/api/vault/sites/fonts/catalogue/preview": {
+      "get": {
+        "operationId": "preview_api_vault_sites_fonts_catalogue_preview_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "catalogue_id",
+            "required": true,
+            "schema": {
+              "maxLength": 100,
+              "title": "Catalogue Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview",
         "tags": [
           "Vault",
           "sites"

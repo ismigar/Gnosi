@@ -103,7 +103,7 @@ function click(container: HTMLElement, label: string) {
 }
 
 test('header actions retain all link fields through parent updates and a saved response', () => {
-  const view = mountEditor(base, (site, onChange) => <NavigationEditor site={site} onChange={onChange} />);
+  const view = mountEditor(base, (site, onChange) => <><NavigationEditor section="configuration" site={site} onChange={onChange} /><NavigationEditor section="regions" site={site} onChange={onChange} /></>);
   const actions = card(view.container, 'websites.headerActions');
   click(actions, 'websites.addLink');
   expect(view.site.header_actions).toEqual([{ label: '', href: '', language: null, appearance: 'button' }]);
@@ -127,7 +127,7 @@ test('header actions retain all link fields through parent updates and a saved r
 
 test('menu and footer links offer styles while social links keep their existing fields', () => {
   const initial = { ...base, navigation: [{ label: 'Home', href: '/ca/', language: 'ca' }], footer: [{ label: 'Contact', href: '/ca/contacte', language: null }], social_links: [{ label: 'Social', href: 'https://social.example.invalid', language: null }] };
-  const view = mountEditor(initial, (site, onChange) => <NavigationEditor site={site} onChange={onChange} />);
+  const view = mountEditor(initial, (site, onChange) => <><NavigationEditor section="menus" site={site} onChange={onChange} /><NavigationEditor section="regions" site={site} onChange={onChange} /></>);
   const navigation = card(view.container, 'websites.navigation');
   expect(control(navigation, 'websites.linkAppearance').value).toBe('link');
   edit(navigation, 'websites.linkAppearance', 'button');
@@ -237,7 +237,7 @@ test('gallery path editing keeps the same input and keyboard focus', () => {
 
 test('social network URL fields keep unrelated profiles and explicitly remove a cleared network', () => {
   const initial = { ...base, social_links: [{ label: 'Mastodon', href: 'https://social.example.invalid/@reader', language: null }, { label: 'Custom network', href: 'https://custom.example.invalid/profile', language: null }] };
-  const view = mountEditor(initial, (site, onChange) => <NavigationEditor site={site} onChange={onChange} />);
+  const view = mountEditor(initial, (site, onChange) => <NavigationEditor section="regions" site={site} onChange={onChange} />);
   expect(view.container.querySelectorAll('.websites-social-icon')).toHaveLength(14);
   expect(control(view.container, 'Mastodon').value).toBe('https://social.example.invalid/@reader');
   edit(view.container, 'Instagram', 'https://www.instagram.com/reader/');

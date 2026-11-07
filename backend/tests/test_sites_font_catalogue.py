@@ -93,3 +93,24 @@ def test_public_fetch_failures_do_not_modify_configuration(website, monkeypatch)
     with pytest.raises(HTTPException, match='422'):
         fonts.import_fonts(website.store, website.site.id, fonts.FontImportRequest(url='https://fonts.google.com/specimen/Inter'))
     assert website.store.load(website.site.id).model_dump() == before
+
+
+def test_catalogue_preview_is_bounded_cached_and_does_not_import(monkeypatch):
+    fonts.catalogue_preview.cache_clear()
+    raw = font_file()
+    requests = []
+    def fetch(url, budget, *, maximum):
+        requests.append((url, maximum))
+        body = b"@font-face{src:url(https://fonts.gstatic.com/font.woff)}" if 'googleapis' in url else raw
+        return PublicResponse(url, body, 'text/css')
+    monkeypatch.setattr(fonts.public_http, 'fetch', fetch)
+    try:
+        assert fonts.catalogue_preview('google:Roboto') == (raw, 'font/woff')
+        assert fonts.catalogue_preview('google:Roboto') == (raw, 'font/woff')
+        assert len(requests) == 2
+        assert requests[1][1] == 500_000
+        with pytest.raises(HTTPException):
+            fonts.catalogue_preview('https://127.0.0.1/private')
+        assert len(requests) == 2
+    finally:
+        fonts.catalogue_preview.cache_clear()

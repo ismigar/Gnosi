@@ -61,7 +61,7 @@ def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
         (public / "_astro" / filename).write_text(stylesheet, encoding="utf-8")
         payload["stylesheet_path"] = "/_astro/" + filename
         parser = MarkdownIt("commonmark", {"html": False})
-        for page in [*payload["site"]["pages"], *(payload["site"].get("footer_columns") or []), {"blocks": payload["site"].get("footer_blocks") or []}]:
+        for page in [*payload["site"]["pages"], *(payload["site"].get("footer_columns") or []), *(payload["site"].get("regions") or []), {"blocks": payload["site"].get("footer_blocks") or []}]:
             for block in [item for parent in page["blocks"] for item in [parent, *parent.get("children", [])]]:
                 # HTML is sanitized by the public renderer, including imported fragments.
                 block["body_html"] = block.get("body", "") if block.get("body_format") == "html" else parser.render(block.get("body", ""))

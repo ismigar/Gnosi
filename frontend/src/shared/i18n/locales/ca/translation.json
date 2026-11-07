@@ -9156,7 +9156,7 @@
       "overview": "Resum",
       "sources": "Continguts",
       "pages": "Pàgines",
-      "navigation": "Navegació i idiomes",
+      "navigation": "Menús",
       "appearance": "Aparença",
       "forms": "Formularis",
       "messages": "Missatges",
@@ -9164,7 +9164,9 @@
       "campaigns": "Butlletins",
       "publishing": "Publicació",
       "settings": "Configuració privada",
-      "hosting": "Allotjaments"
+      "hosting": "Allotjaments",
+      "configuration": "Configuració",
+      "regions": "Blocs i regions"
     },
     "tokens": {
       "primary": "Blau petroli / principal",
@@ -9521,6 +9523,16 @@
     "importGoogleFont": "Importa de Google Fonts",
     "googleFontUrl": "URL de Google Fonts",
     "importFontUrl": "Importa des de la URL",
-    "fontCatalogueFailed": "No s’ha pogut carregar el catàleg de fonts."
+    "fontCatalogueFailed": "No s’ha pogut carregar el catàleg de fonts.",
+    "addRegionGroup": "Afegeix un grup de blocs",
+    "regionPosition": "Regió",
+    "regionsHelp": "Crea blocs i tria on es mostren. Els blocs i enllaços existents es conserven.",
+    "regionPositions": {
+      "header": "Capçalera",
+      "before_content": "Abans del contingut",
+      "after_content": "Després del contingut",
+      "footer": "Peu"
+    },
+    "pageRegionsHelp": "Aquest editor mostra només el contingut de la pàgina. Els blocs comuns de capçalera i peu es gestionen a Blocs i regions i s’apliquen al web publicat."
   }
 }

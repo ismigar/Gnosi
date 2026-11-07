@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { CatalogueItem, SiteBlock, SiteConfig, SiteFooterColumn } from '../../shared/api/sites';
 import { Card, Field, Input, ReorderActions, Select, Disclosure } from './components';
-import { LinksEditor } from './LinksEditor';
 import { BlocksEditor } from './PagesEditor';
 import { moveItem, newId } from './helpers';
 
@@ -27,7 +26,6 @@ export function FooterEditor({ site, catalogue, onChange }: { site: SiteConfig; 
   const changeColumn = (index: number, patch: Partial<SiteFooterColumn>) => { onChange({ ...site, footer_columns: columns.map((column, at) => at === index ? { ...column, ...patch } : column) }); };
   return <Card title={t('websites.footerLayout')}>
     <Field label={t('websites.footerCopyright')}><Input value={site.footer_copyright ?? `© ${site.name}`} onChange={event => { onChange({ ...site, footer_copyright: event.target.value }); }} /></Field>
-    <LinksEditor title={t('websites.footerBottomLinks')} languages={site.languages} links={site.footer_bottom_links ?? (site.footer ?? []).filter(legal)} onChange={footer_bottom_links => { onChange({ ...site, footer_bottom_links }); }} />
     {!custom && <button type="button" className="websites-button" onClick={() => { onChange({ ...site, footer_columns: defaults(site), footer_blocks: site.legacy_pilot ? [block('newsletter')] : [] }); }}>{t('websites.customFooter')}</button>}
     {custom && <>
       <Disclosure title={t('websites.footerWideBlocks')}>

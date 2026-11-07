@@ -2,6 +2,7 @@
 import {site,labels,href,linkProps} from '../lib/site.mjs';
 import Newsletter from './Newsletter.astro';
 import RenderBlock from './RenderBlock.astro';
+import SiteRegions from './SiteRegions.astro';
 const {lang}=Astro.props;
 const visible=link=>!link.language||link.language===lang;
 const legal=link=>/legal|privac|privaci|galetes|cookies/i.test(link.label+' '+link.href);
@@ -17,6 +18,7 @@ const bottom=(site.footer_bottom_links??site.footer.filter(legal)).filter(visibl
 const copyright=site.footer_copyright??`© ${site.name}`;
 ---
 <footer class="site-footer" data-pagefind-ignore>
+  <SiteRegions lang={lang} position="footer"/>
   {site.footer_blocks==null?(site.legacy_pilot&&<Newsletter lang={lang} instance="footer-newsletter"/>):site.footer_blocks.map(block=><div class:list={["footer-wide",{wrap:block.type!=='newsletter'}]}><RenderBlock block={block} lang={lang} instance={`footer-wide-${block.id}`}/></div>)}
   <div class="wrap">
     {columns.length>0&&<div class="footer-columns" style={`--footer-columns:${columns.length}`}>{columns.map(column=><section class="footer-column" data-align={column.alignment||'left'} data-footer-column={column.id}>

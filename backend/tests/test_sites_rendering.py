@@ -55,6 +55,8 @@ def test_packaged_renderer_never_writes_to_sealed_dependency_cache(tmp_path, mon
 @pytest.mark.skipif(not (extension_root() / "renderer/node_modules/node/bin/node").is_file(), reason="Pinned renderer runtime must be prepared")
 def test_actual_astro_output_scopes_assets_and_forms_without_private_snapshot(tmp_path):
     site = SiteConfig(name="Example", origin="https://example.invalid")
+    from backend.domains.sites.models import SiteRegion
+    site.regions = [SiteRegion(id="top", position="header", blocks=[SiteBlock(type="text", body="**Region header**")]), SiteRegion(id="bottom", position="footer", blocks=[SiteBlock(type="text", body="**Region footer**")])]
     site.forms[0].enabled = True
     site.pages = [SitePage(id="home", title="Public heading", language="ca", path="/ca", enabled=True,
                            blocks=[SiteBlock(type="text", body="**Public** body"), SiteBlock(type="form", form_id="contact")])]
@@ -67,6 +69,9 @@ def test_actual_astro_output_scopes_assets_and_forms_without_private_snapshot(tm
     output = tmp_path / "public"
     render_bundle(bundle, output)
     html = (output / "ca/index.html").read_text()
+    assert '<strong>Region header</strong>' in html
+    assert '<strong>Region footer</strong>' in html
+    assert html.index('Region header') < html.index('<main') < html.index('Region footer')
     assert '<strong>Public</strong>' in html
     record_html = (output / "ca/content/record/index.html").read_text()
     collection_html = (output / "ca/content/index.html").read_text()

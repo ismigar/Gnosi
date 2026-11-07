@@ -9156,7 +9156,7 @@
       "overview": "Vue d’ensemble",
       "sources": "Contenus",
       "pages": "Pages",
-      "navigation": "Navigation et langues",
+      "navigation": "Menus",
       "appearance": "Apparence",
       "forms": "Formulaires",
       "messages": "Messages",
@@ -9164,7 +9164,9 @@
       "campaigns": "Lettres d’information",
       "publishing": "Publication",
       "settings": "Paramètres privés",
-      "hosting": "Hébergements"
+      "hosting": "Hébergements",
+      "configuration": "Configuration",
+      "regions": "Blocs et régions"
     },
     "tokens": {
       "primary": "Bleu pétrole / principal",
@@ -9521,6 +9523,16 @@
     "importGoogleFont": "Importer depuis Google Fonts",
     "googleFontUrl": "URL Google Fonts",
     "importFontUrl": "Importer depuis l’URL",
-    "fontCatalogueFailed": "Le catalogue de polices n’a pas pu être chargé."
+    "fontCatalogueFailed": "Le catalogue de polices n’a pas pu être chargé.",
+    "addRegionGroup": "Ajouter un groupe de blocs",
+    "regionPosition": "Région",
+    "regionsHelp": "Créez des blocs et choisissez leur emplacement. Les blocs et liens existants sont conservés.",
+    "regionPositions": {
+      "header": "En-tête",
+      "before_content": "Avant le contenu",
+      "after_content": "Après le contenu",
+      "footer": "Pied de page"
+    },
+    "pageRegionsHelp": "Cet éditeur affiche uniquement le contenu de la page. Les blocs communs d’en-tête et de pied de page se gèrent dans Blocs et régions et sont appliqués au site publié."
   }
 }

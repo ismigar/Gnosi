@@ -42,3 +42,20 @@ it('autosaves nested row text after folding and leaving the page tab', async () 
   tab(view.container, 'pages');
   expect(view.container.querySelector<HTMLTextAreaElement>('textarea[aria-label="websites.body"]')?.value).toBe('**Autosaved column**');
 });
+
+it('autosaves global blocks and region changes without replacing existing links', async () => {
+  vi.useFakeTimers(); vi.mocked(api.editableSitePages).mockResolvedValue([]);
+  const site: api.SiteConfig = { id: 'regions', name: 'Regions', schema_version: 1, revision: 1, legacy_pilot: false, origin: 'https://example.invalid', languages: ['ca'], default_language: 'ca', targets: [], sources: [], pages: [], header_actions: [{ label: 'Support', href: '/ca/support' }], footer: [{ label: 'Legal', href: '/ca/legal' }] };
+  vi.mocked(api.listSites).mockResolvedValue([site]); vi.mocked(api.getSite).mockResolvedValue({ site, jobs: [], releases: [], service_available: false }); vi.mocked(api.siteCatalogue).mockResolvedValue([]);
+  vi.mocked(api.saveSite).mockImplementation(value => Promise.resolve({ ...value, revision: value.revision + 1 }));
+  const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'regions');
+  act(() => { button(view.container, 'websites.addRegionGroup').click(); });
+  const position = [...view.container.querySelectorAll('label')].find(label => label.querySelector('span')?.textContent === 'websites.regionPosition')?.querySelector('select');
+  if (!position) throw new Error('Missing region selector');
+  act(() => { Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set?.call(position, 'header'); position.dispatchEvent(new Event('change', { bubbles: true })); });
+  act(() => { button(view.container, 'websites.rows.addRow').click(); });
+  tab(view.container, 'configuration'); await autosave();
+  const saved = vi.mocked(api.saveSite).mock.lastCall?.[0];
+  expect(saved?.regions?.[0]).toMatchObject({ position: 'header', blocks: [{ type: 'row', children: [{ type: 'text' }] }] });
+  expect(saved?.header_actions).toEqual(site.header_actions); expect(saved?.footer).toEqual(site.footer);
+});

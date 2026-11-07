@@ -9101,7 +9101,7 @@
       "overview": "Overview",
       "sources": "Contents",
       "pages": "Pages",
-      "navigation": "Navigation & languages",
+      "navigation": "Menus",
       "appearance": "Appearance",
       "forms": "Forms",
       "messages": "Inbox",
@@ -9109,7 +9109,9 @@
       "campaigns": "Newsletters",
       "publishing": "Publication",
       "settings": "Private settings",
-      "hosting": "Hosting"
+      "hosting": "Hosting",
+      "configuration": "Configuration",
+      "regions": "Blocks & regions"
     },
     "tokens": {
       "primary": "Petrol blue / primary",
@@ -9466,6 +9468,16 @@
     "importGoogleFont": "Import from Google Fonts",
     "googleFontUrl": "Google Fonts URL",
     "importFontUrl": "Import from URL",
-    "fontCatalogueFailed": "The font catalogue could not be loaded."
+    "fontCatalogueFailed": "The font catalogue could not be loaded.",
+    "addRegionGroup": "Add block group",
+    "regionPosition": "Region",
+    "regionsHelp": "Create blocks and choose their location. Existing blocks and links are preserved.",
+    "regionPositions": {
+      "header": "Header",
+      "before_content": "Before content",
+      "after_content": "After content",
+      "footer": "Footer"
+    },
+    "pageRegionsHelp": "This editor shows only this page’s content. Shared header and footer blocks are managed in Blocks & regions and applied to the published website."
   }
 }

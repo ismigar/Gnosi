@@ -91,7 +91,7 @@ test('visual website blocks edit, reorder, undo and persist without publishing',
   await settleVisualState(page);
   await page.screenshot({ path: testInfo.outputPath('website-visual-editor-desktop.png'), fullPage: true });
   await expect(page.getByText('Saved', { exact: true })).toBeVisible();
-  await page.getByRole('tab', { name: 'Navigation & languages', exact: true }).click();
+  await page.getByRole('tab', { name: 'Blocks & regions', exact: true }).click();
   await expandWebsiteSections(page);
   await expect(page.locator('.websites-social-icon')).toHaveCount(14);
   await page.getByRole('textbox', { name: 'Instagram', exact: true }).fill('https://www.instagram.com/disposable/');
@@ -112,7 +112,7 @@ test('visual website blocks edit, reorder, undo and persist without publishing',
   await page.screenshot({ path: testInfo.outputPath('website-social-networks.png'), fullPage: true });
   await page.reload();
   await page.getByRole('combobox', { name: 'Website', exact: true }).selectOption({ label: 'Disposable visual blocks' });
-  await page.getByRole('tab', { name: 'Navigation & languages', exact: true }).click();
+  await page.getByRole('tab', { name: 'Blocks & regions', exact: true }).click();
   await expandWebsiteSections(page);
   await expect(page.getByRole('textbox', { name: 'Instagram', exact: true })).toHaveValue('https://www.instagram.com/disposable/');
   await expect(page.locator('.websites-footer-column')).toHaveCount(4);
@@ -193,11 +193,13 @@ test('website file references upload through a modal, preview and persist', asyn
   await expect(create).toBeHidden();
   const catalogue = page.waitForResponse(response => response.url().endsWith('/api/vault/sites/catalogue/snapshot'));
   const catalogueStart = Date.now();
-  await page.getByRole('tab', { name: 'Navigation & languages', exact: true }).click();
+  await page.getByRole('tab', { name: 'Blocks & regions', exact: true }).click();
   await expandWebsiteSections(page);
   expect((await catalogue).ok()).toBe(true);
   const catalogueMs = Date.now() - catalogueStart; expect(catalogueMs).toBeLessThan(15_000);
   await testInfo.attach('catalogue-latency', { body: JSON.stringify({ milliseconds: catalogueMs }), contentType: 'application/json' });
+  await page.getByRole('tab', { name: 'Configuration', exact: true }).click();
+  await expandWebsiteSections(page);
   const languages = page.locator('div[role="combobox"][aria-label="Languages"]'); await languages.press('Enter');
   await page.getByRole('option', { name: /Deutsch/u }).waitFor();
   await settleVisualState(page);
@@ -372,6 +374,14 @@ test('font files import with automatic names and can be selected without typing 
   await expect(creation).toBeHidden();
   await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
   await expandWebsiteSections(page);
+  // Use a real font binary while keeping the browser fixture offline.
+  await page.route('**/api/vault/sites/fonts/catalogue/preview?*', route => route.fulfill({ path: '../../frontend/node_modules/@blocknote/core/src/fonts/inter-v12-latin/inter-v12-latin-regular.woff', contentType: 'font/woff' }));
+  await page.getByRole('combobox', { name: 'Choose a typeface', exact: true }).click();
+  const catalogueSample = page.locator('[data-property-dropdown] [role="option"]').first().locator('[data-font-loaded="true"]');
+  await expect(catalogueSample).toBeVisible();
+  await expect(catalogueSample).toHaveCSS('font-family', /GnosiCatalogue/u);
+  await page.screenshot({ path: testInfo.outputPath('font-catalogue-samples.png'), fullPage: true });
+  await page.locator('[data-property-dropdown] input[role="combobox"]').press('Escape');
   await page.getByRole('button', { name: 'Import a font file', exact: true }).click();
   const upload = page.getByRole('dialog', { name: 'Upload Font file', exact: true });
   await upload.locator('input[type=file]').setInputFiles('../../frontend/node_modules/@blocknote/core/src/fonts/inter-v12-latin/inter-v12-latin-regular.woff');
@@ -392,4 +402,40 @@ test('font files import with automatic names and can be selected without typing 
   await expect(font.locator('p.websites-font-sample')).toHaveCSS('font-family', /GnosiWebFont/u);
   await page.getByRole('button', { name: 'Delete website', exact: true }).click();
   await page.getByRole('dialog', { name: 'Delete website', exact: true }).getByRole('button', { name: 'Delete', exact: true }).click();
+});
+
+test('shared regions autosave separately from page content and menus', async ({ page }, testInfo) => {
+  const state = acceptanceState();
+  await page.addInitScript(() => { localStorage.setItem('i18nextLng', 'en'); });
+  await page.goto(`/@${state.primary_vault.slug}/websites`);
+  await page.getByRole('button', { name: 'Create website', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create website', exact: true });
+  await dialog.getByRole('textbox').fill('Disposable regions');
+  await dialog.getByRole('button', { name: 'Create', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await page.getByRole('tab', { name: 'Configuration', exact: true }).click();
+  await expandWebsiteSections(page);
+  await expect(page.getByRole('combobox', { name: 'Languages', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Main navigation', exact: true })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Blocks & regions', exact: true }).click();
+  await expandWebsiteSections(page);
+  await page.getByRole('button', { name: 'Add block group', exact: true }).click();
+  await expandWebsiteSections(page);
+  await page.getByRole('combobox', { name: 'Region', exact: true }).selectOption('header');
+  await page.getByRole('button', { name: 'Add block', exact: true }).click();
+  await expandWebsiteSections(page);
+  await page.locator('[contenteditable="true"][aria-label="Text content"]').fill('Shared header announcement');
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await page.getByRole('combobox', { name: 'Region', exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('shared-regions-editor.png'), fullPage: true });
+  await page.getByRole('tab', { name: 'Pages', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Region', exact: true })).toHaveCount(0);
+  await page.reload();
+  await page.getByRole('combobox', { name: 'Website', exact: true }).selectOption({ label: 'Disposable regions' });
+  await page.getByRole('tab', { name: 'Blocks & regions', exact: true }).click();
+  await expandWebsiteSections(page);
+  await expect(page.getByRole('combobox', { name: 'Region', exact: true })).toHaveValue('header');
+  await expect(page.locator('[contenteditable="true"][aria-label="Text content"]')).toContainText('Shared header announcement');
+  await page.getByRole('combobox', { name: 'Region', exact: true }).selectOption('footer');
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
 });

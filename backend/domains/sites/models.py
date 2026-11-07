@@ -239,6 +239,10 @@ class SiteFooterColumn(Contract):
     blocks: list[SiteBlock] = Field(default_factory=list)
 
 
+class SiteRegion(SiteFooterColumn):
+    position: Literal["header", "before_content", "after_content", "footer"] = "after_content"
+
+
 class SiteConfig(Contract):
     schema_version: Literal[1] = 1
     id: str = Field(default_factory=identifier)
@@ -261,6 +265,7 @@ class SiteConfig(Contract):
     social_links: list[NavigationLink] = Field(default_factory=list)
     redirects: dict[str, str] = Field(default_factory=dict)
     targets: list[SiteTarget] = Field(default_factory=lambda: [SiteTarget(id="local")])
+    regions: list[SiteRegion] = Field(default_factory=list, max_length=24)
     legacy_pilot: bool = False
 
     def editorial_blocks(self, *, enabled_only: bool = False) -> Iterator[tuple[str | None, SiteBlock]]:
@@ -269,7 +274,7 @@ class SiteConfig(Contract):
                 for block in page.blocks:
                     for item in block.walk():
                         yield page.language, item
-        for column in self.footer_columns or []:
+        for column in [*(self.footer_columns or []), *self.regions]:
             for block in column.blocks:
                 for item in block.walk():
                     yield column.language, item
@@ -286,7 +291,7 @@ class SiteConfig(Contract):
         for lang in self.languages:
             if not re.fullmatch(r"[a-z]{2,3}(?:-[a-z]{2,8})?", lang):
                 raise ValueError("Invalid language")
-        for group in (self.sources, self.pages, self.forms, self.targets, self.footer_columns or []):
+        for group in (self.sources, self.pages, self.forms, self.targets, self.footer_columns or [], self.regions):
             if len({item.id for item in group}) != len(group):
                 raise ValueError("Duplicate configuration identities")
             if any(not re.fullmatch(r"[a-zA-Z0-9_-]{1,100}", item.id) for item in group):
@@ -294,7 +299,7 @@ class SiteConfig(Contract):
         for page in self.pages:
             if page.language not in self.languages:
                 raise ValueError("Page language is not enabled")
-        if any(column.language and column.language not in self.languages for column in self.footer_columns or []):
+        if any(column.language and column.language not in self.languages for column in [*(self.footer_columns or []), *self.regions]):
             raise ValueError("Footer column language is not enabled")
         for path, destination in self.redirects.items():
             safe_path(path)

@@ -10745,6 +10745,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/sites/fonts/catalogue/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview */
+        get: operations["preview_api_vault_sites_fonts_catalogue_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/sites/import/create": {
         parameters: {
             query?: never;
@@ -25848,6 +25865,8 @@ export interface components {
             redirects?: {
                 [key: string]: string;
             };
+            /** Regions */
+            regions?: components["schemas"]["SiteRegion"][];
             /**
              * Revision
              * @default 1
@@ -26192,6 +26211,32 @@ export interface components {
             preview_id: string;
             /** Scheduled At */
             scheduled_at?: string | null;
+        };
+        /** SiteRegion */
+        SiteRegion: {
+            /**
+             * Alignment
+             * @default left
+             * @enum {string}
+             */
+            alignment: "left" | "center" | "right";
+            /** Blocks */
+            blocks?: components["schemas"]["SiteBlock"][];
+            /** Id */
+            id?: string;
+            /** Language */
+            language?: string | null;
+            /**
+             * Position
+             * @default after_content
+             * @enum {string}
+             */
+            position: "header" | "before_content" | "after_content" | "footer";
+            /**
+             * Title
+             * @default
+             */
+            title: string;
         };
         /** SiteRelease */
         SiteRelease: {
@@ -53055,6 +53100,42 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["FontCatalogueEntry"][];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_api_vault_sites_fonts_catalogue_preview_get: {
+        parameters: {
+            query: {
+                catalogue_id: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

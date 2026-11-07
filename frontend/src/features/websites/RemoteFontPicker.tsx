@@ -6,6 +6,8 @@ import { apiErrorDetail } from '../../shared/api/errors';
 import { MultiSelectPills } from '../../shared/ui/selection/MultiSelectPills';
 import { useAutosaveRegistration, type RegisterAutosave } from './autosaveRequest';
 import { Disclosure, Field, Input } from './components';
+import { CatalogueFontSample } from './CatalogueFontSample';
+import type { PropertyScalar } from '../../shared/ui/selection/types';
 
 type Entry = { id: string; family: string; provider: string; license_url: string };
 export function RemoteFontPicker({ siteId, context, register, disabled, onImported, onUploadState }: { siteId: string; context: RequestContext; register?: RegisterAutosave; disabled: boolean; onImported: (fonts: SiteFont[]) => void; onUploadState: (delta: number) => void }) {
@@ -35,9 +37,13 @@ export function RemoteFontPicker({ siteId, context, register, disabled, onImport
     });
   };
   const selected = entries.find(entry => entry.id === chosen);
+  const sample = (value: PropertyScalar) => {
+    const entry = entries.find(item => item.id === value);
+    return entry ? <CatalogueFontSample {...entry} context={context} /> : String(value ?? '');
+  };
   return <Disclosure title={t('websites.fontCatalogue')}>
     <p className="websites-muted">{t('websites.fontCatalogueHelp')}</p>
-    <Field label={t('websites.chooseFont')}><MultiSelectPills single label={t('websites.chooseFont')} value={chosen} options={entries.map(entry => entry.id)} idToTitle={Object.fromEntries(entries.map(entry => [entry.id, `${entry.family} · ${entry.provider}`]))} disabled={disabled || busy || loading} placeholder={t('websites.chooseFont')} emptyMessage={t('websites.fontNotFound')} onChange={value => { if (typeof value === 'string') setChosen(value); }} /></Field>
+    <Field label={t('websites.chooseFont')}><MultiSelectPills single label={t('websites.chooseFont')} value={chosen} options={entries.map(entry => entry.id)} idToTitle={Object.fromEntries(entries.map(entry => [entry.id, `${entry.family} · ${entry.provider}`]))} renderOption={sample} renderValue={sample} disabled={disabled || busy || loading} placeholder={t('websites.chooseFont')} emptyMessage={t('websites.fontNotFound')} onChange={value => { if (typeof value === 'string') setChosen(value); }} /></Field>
     <div className="websites-actions websites-spacer"><button type="button" className="websites-button" disabled={disabled || busy || !chosen} onClick={() => { start({ catalogue_id: chosen }); }}>{t('websites.addFont')}</button>{selected && <a href={selected.license_url} target="_blank" rel="noopener noreferrer">{t('websites.fontLicense')}</a>}</div>
     <Disclosure title={t('websites.importGoogleFont')} className="websites-row websites-spacer">
       <Field label={t('websites.googleFontUrl')}><Input type="url" value={url} disabled={disabled || busy} placeholder="https://fonts.google.com/specimen/Roboto" onChange={event => { setUrl(event.target.value); }} /></Field>

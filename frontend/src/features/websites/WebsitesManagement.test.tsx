@@ -117,7 +117,7 @@ describe('Website and hosting management', () => {
   });
 
   it('waits for pending edits before allowing website removal', async () => {
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'navigation');
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'configuration');
     act(() => { changeInput(control(view.container, 'websites.siteName'), 'Edited name'); });
     expect(button(view.container, 'websites.removeSite').disabled).toBe(true);
     await autosave();

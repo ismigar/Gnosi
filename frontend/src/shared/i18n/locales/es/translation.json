@@ -9156,7 +9156,7 @@
       "overview": "Resumen",
       "sources": "Contenidos",
       "pages": "Páginas",
-      "navigation": "Navegación e idiomas",
+      "navigation": "Menús",
       "appearance": "Apariencia",
       "forms": "Formularios",
       "messages": "Mensajes",
@@ -9164,7 +9164,9 @@
       "campaigns": "Boletines",
       "publishing": "Publicación",
       "settings": "Configuración privada",
-      "hosting": "Alojamientos"
+      "hosting": "Alojamientos",
+      "configuration": "Configuración",
+      "regions": "Bloques y regiones"
     },
     "tokens": {
       "primary": "Azul petróleo / principal",
@@ -9521,6 +9523,16 @@
     "importGoogleFont": "Importa de Google Fonts",
     "googleFontUrl": "URL de Google Fonts",
     "importFontUrl": "Importa desde la URL",
-    "fontCatalogueFailed": "No se ha podido cargar el catálogo de fuentes."
+    "fontCatalogueFailed": "No se ha podido cargar el catálogo de fuentes.",
+    "addRegionGroup": "Añade un grupo de bloques",
+    "regionPosition": "Región",
+    "regionsHelp": "Crea bloques y elige dónde se muestran. Se conservan los bloques y enlaces existentes.",
+    "regionPositions": {
+      "header": "Cabecera",
+      "before_content": "Antes del contenido",
+      "after_content": "Después del contenido",
+      "footer": "Pie"
+    },
+    "pageRegionsHelp": "Este editor muestra solo el contenido de la página. Los bloques comunes de cabecera y pie se gestionan en Bloques y regiones y se aplican al sitio publicado."
   }
 }

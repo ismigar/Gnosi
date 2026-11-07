@@ -3,6 +3,7 @@ import {bundle,site,pages,records,labels,translate,prefix,href,linkProps,html,se
 import Actions from '../components/Actions.astro';
 import RenderBlock from '../components/RenderBlock.astro';
 import SiteFooter from '../components/SiteFooter.astro';
+import SiteRegions from '../components/SiteRegions.astro';
 import PublicListing from '../components/PublicListing.astro';
 import ContactForm from '../components/ContactForm.astro';
 import ReadingCard from '../components/ReadingCard.astro';
@@ -58,7 +59,8 @@ const currentNavigationLink = link => href(link.href).replace(/\/$/, '') === pre
               <path d="m15.5 15.5 5 5" />
             </svg>
           ) : text.search}
-        </summary><form class="search-box" method="get" action={prefix(`/${lang}/search/node`)} role="search"><input name="keys" type="search" aria-label={text.search} placeholder={text.searchHint}/><button type="submit">{text.search}</button></form></details></nav></div></header>
+        </summary><form class="search-box" method="get" action={prefix(`/${lang}/search/node`)} role="search"><input name="keys" type="search" aria-label={text.search} placeholder={text.searchHint}/><button type="submit">{text.search}</button></form></details></nav></div><SiteRegions lang={lang} position="header"/></header>
+  <SiteRegions lang={lang} position="before_content"/>
   <main id="main-content" class:list={['wrap',{'temenos-home':legacyHome}]} data-pagefind-body={page.template==='article' || !['map','search'].includes(page.template) ? true : undefined}>
     {hero ? <section class="temenos-hero"><img class="temenos-hero-photo" src={href(hero.image)} alt="" fetchpriority="high"/><div class="wrap"><div class="temenos-hero-copy"><h1 data-pagefind-meta="title">{page.title}</h1><div class="record-body" set:html={html(hero.body_html)}/><Actions links={hero.actions ?? [homeLink(2656) && {label:legacyText.about,href:homeLink(2656),appearance:'button'},homeLink(5) && {label:legacyText.me,href:homeLink(5),appearance:'link'}].filter(Boolean)} lang={lang} className="hero-actions"/></div></div></section> : <h1 class="page-title" data-pagefind-meta="title">{page.title}</h1>}
     {date && page.template==='article' && !legacyArticle && <p class="article-date"><time datetime={date.iso}>{date.text}</time>{page.presentation?.year && <> · {page.presentation.year}</>}</p>}
@@ -82,6 +84,7 @@ const currentNavigationLink = link => href(link.href).replace(/\/$/, '') === pre
     {sharing && <ShareButtons page={page} lang={lang}/>}
     {!site.legacy_pilot && alternatives.length>1 && <nav class="languages translations" data-pagefind-ignore>{alternatives.map(other=><a href={prefix(other.path)} data-search-language={page.template==='search'?true:undefined} lang={other.language} aria-current={other.language===lang?'page':undefined}>{other.language.split('-')[0].toUpperCase()}</a>)}</nav>}
   </main>
+  <SiteRegions lang={lang} position="after_content"/>
   <SiteFooter lang={lang}/>
 
   <script>
