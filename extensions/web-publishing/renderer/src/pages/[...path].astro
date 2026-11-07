@@ -1,5 +1,5 @@
 ---
-import {site,pages,records,labels,translate,prefix,href,linkProps,html,selection,themeCss} from '../lib/site.mjs';
+import {bundle,site,pages,records,labels,translate,prefix,href,linkProps,html,selection,themeCss} from '../lib/site.mjs';
 import Actions from '../components/Actions.astro';
 import RenderBlock from '../components/RenderBlock.astro';
 import SiteFooter from '../components/SiteFooter.astro';
@@ -10,9 +10,6 @@ import ResourceList from '../components/ResourceList.astro';
 import ShareButtons from '../components/ShareButtons.astro';
 import {temenosLabels,publishedDate,splitArticleImage} from '../lib/temenos.mjs';
 import {landingPath} from '../lib/routing.mjs';
-import '../lib/styles.css';
-import '../lib/temenos.css';
-import '../lib/page-layout.css';
 export function getStaticPaths(){return pages.map(page=>({params:{path:page.path.slice(1)||undefined},props:{page}}));}
 const {page}=Astro.props;
 const lang=page.language;
@@ -44,7 +41,7 @@ const navigationClass=link=>['action-link',...(['button','outline'].includes(lin
 const currentNavigationLink = link => href(link.href).replace(/\/$/, '') === prefix(page.path).replace(/\/$/, '');
 ---
 <!doctype html>
-<html lang={lang}><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><meta name="robots" content="noindex,nofollow"/><title>{page.title} · {site.name}</title><meta name="description" content={page.description || page.title}/><link rel="canonical" href={canonical}/>{site.theme.favicon && <link rel="icon" href={href(site.theme.favicon)}/>}<link rel="alternate" type="application/rss+xml" href={prefix(`/${lang}/rss.xml`)} title={site.name}/>{alternatives.map(other=><link rel="alternate" hreflang={other.language} href={new URL(other.path,site.origin).href}/>)}<style is:inline set:html={themeCss(page)} /></head>
+<html lang={lang}><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><meta name="robots" content="noindex,nofollow"/><title>{page.title} · {site.name}</title><meta name="description" content={page.description || page.title}/><link rel="canonical" href={canonical}/>{site.theme.favicon && <link rel="icon" href={href(site.theme.favicon)}/>}<link rel="alternate" type="application/rss+xml" href={prefix(`/${lang}/rss.xml`)} title={site.name}/>{alternatives.map(other=><link rel="alternate" hreflang={other.language} href={new URL(other.path,site.origin).href}/>)}<link rel="stylesheet" href={prefix(bundle.stylesheet_path)}/><style is:inline set:html={themeCss(page)} /></head>
 <body class:list={['site-root',{'temenos-site':site.legacy_pilot}]} data-page-id={page.id}>
   <a class="skip" href="#main-content">{text.skip}</a>
   <div class="preview" data-pagefind-ignore><span>{text.preview}</span>{site.legacy_pilot && <a href={new URL(page.path,site.origin).href} target="_blank" rel="noopener noreferrer">{legacyText.currentSite} ↗</a>}</div>

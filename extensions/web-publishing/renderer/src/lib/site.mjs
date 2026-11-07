@@ -109,7 +109,7 @@ export function themeCss(page) {
   }).join(';');
   const anchor = '.site-root';
   const fonts = (site.theme.fonts || []).map(font=>{
-    if (!/^[\w -]+$/.test(font.family) || !/^[0-9 ]+$/.test(font.weight)) throw new Error('Invalid local font');
+    if (!/^[\p{L}\p{N}_ -]+$/u.test(font.family) || !/^[0-9 ]+$/.test(font.weight)) throw new Error('Invalid local font');
     return `@font-face{font-family:"${font.family}";src:url("${href(font.src)}");font-weight:${font.weight};font-style:${font.style};font-display:swap}`;
   }).join('');
   const blockCss = [...(page.blocks || []), ...(site.footer_columns || []).flatMap(column=>column.blocks || []), ...(site.footer_blocks || [])].flatMap(block => [block, ...(block.children || [])]).map(block => css(block.css,`[data-block-id="${block.id.replace(/[^a-zA-Z0-9_-]/g,'')}"]`)).join('\n');
