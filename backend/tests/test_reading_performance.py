@@ -63,41 +63,67 @@ def test_shared_prefix_is_stable_and_complete_values_are_lossless():
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
-def test_sdk_preserves_schema_and_sends_flex_breakpoints_and_prices_returned_usage(asynchronous):
+@pytest.mark.parametrize("responses", [False, True])
+@pytest.mark.parametrize("reported_zero", [False, True])
+def test_sdk_preserves_schema_and_sends_flex_breakpoints_and_prices_returned_usage(asynchronous, responses, reported_zero, monkeypatch):
     requests = []
     def respond(request):
         requests.append(json.loads(request.content))
-        return httpx.Response(200, json={"id": "chatcmpl-proof", "object": "chat.completion", "created": 1,
+        response = {"id": "chatcmpl-proof", "object": "chat.completion", "created": 1,
             "model": MODEL, "service_tier": "flex", "choices": [{"index": 0, "finish_reason": "stop",
             "message": {"role": "assistant", "content": '{"answer":"faithful"}'}}],
             "usage": {"prompt_tokens": 2000, "completion_tokens": 100, "total_tokens": 2100,
                 "prompt_tokens_details": {"cached_tokens": 1024, "cache_write_tokens": 512},
-                "completion_tokens_details": {"reasoning_tokens": 20}}})
+                "completion_tokens_details": {"reasoning_tokens": 20}}}
+        if reported_zero:
+            response["usage"]["cost"] = 0
+        if responses:
+            response.update(id="resp-proof", object="response", created_at=1, status="completed",
+                output=[{"id": "msg-proof", "type": "message", "role": "assistant", "status": "completed",
+                    "content": [{"type": "output_text", "text": '{"answer":"faithful"}', "annotations": []}]}])
+            response["usage"]["input_tokens"] = response["usage"].pop("prompt_tokens")
+            response["usage"]["output_tokens"] = response["usage"].pop("completion_tokens")
+            response["usage"]["input_tokens_details"] = response["usage"].pop("prompt_tokens_details")
+            response["usage"]["output_tokens_details"] = response["usage"].pop("completion_tokens_details")
+        return httpx.Response(200, json=response)
     schema = {"type": "object", "properties": {"answer": {"type": "string"}},
               "required": ["answer"], "additionalProperties": False}
     identifier = reading_budget.configure(.50)
     client = httpx.Client(transport=httpx.MockTransport(respond))
     async_client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
-    model = instrument(ChatOpenAI(model=MODEL, api_key="fake", use_responses_api=False,
-        max_tokens=16384, http_client=client, http_async_client=async_client), "openai", MODEL)
+    def construct(**kwargs):
+        kwargs.setdefault("use_responses_api", responses)
+        return ChatOpenAI(http_client=client, http_async_client=async_client, **kwargs)
+    monkeypatch.setattr("langchain_openai.ChatOpenAI", construct)
+    from backend.domains.agent.llm import get_llm
+    model = get_llm(provider="openai", model=MODEL, api_key="fake", timeout=120,
+                    reasoning_effort="high" if responses else None).bind(max_tokens=16384)
     model = constrain_output(model, "openai", schema)
     model, messages = prepare(model, [SystemMessage(content="All skill text. " * 600),
                                       HumanMessage(content=json.dumps(source()))])
     with reading_budget.session(identifier):
         result = asyncio.run(model.ainvoke(messages)) if asynchronous else model.invoke(messages)
-    assert "faithful" in result.content
+    assert "faithful" in (text(result.content) if isinstance(result.content, list) else result.content)
     assert len(requests) == 1
     sent = requests[0]
     assert sent["service_tier"] == "flex"
     assert sent["prompt_cache_options"] == {"mode": "explicit", "ttl": "30m"}
-    assert sent["response_format"]["json_schema"]["strict"] is True
-    assert sent["messages"][0]["content"][0]["prompt_cache_breakpoint"] == {"mode": "explicit"}
-    assert json.loads(text(sent["messages"][1]["content"]))["operation"] == "knowledge.process-source.phase"
+    if responses:
+        assert sent["reasoning"]["effort"] == "high"
+        assert sent["text"]["format"]["strict"] is True
+        messages = sent["input"]
+    else:
+        assert sent["response_format"]["json_schema"]["strict"] is True
+        messages = sent["messages"]
+    assert messages[0]["content"][0]["prompt_cache_breakpoint"] == {"mode": "explicit"}
+    assert json.loads(text(messages[1]["content"]))["operation"] == "knowledge.process-source.phase"
     with ledger.connect() as db:
         row = dict(db.execute("SELECT * FROM usage_calls").fetchone())
         pricing = json.loads(db.execute("SELECT details FROM usage_pricing").fetchone()[0])
     expected = ((Decimal(464) + Decimal(1024)*Decimal(".05") + Decimal(512)*Decimal("1.25"))*2 + 100*10)/2/1_000_000
-    assert Decimal(row["cost_usd"]) == expected and row["cost_source"] == "estimated"
+    assert Decimal(pricing["cost_usd"]) == expected
+    assert Decimal(row["cost_usd"]) == (0 if reported_zero else expected)
+    assert row["cost_source"] == ("reported" if reported_zero else "estimated")
     assert row["cached_tokens"] == 1024 and pricing["cache_write_tokens"] == 512
     budget = reading_budget.status(identifier)
     assert budget["spent_usd"] == 0  # A measured tariff estimate is not an invoice.

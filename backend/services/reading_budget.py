@@ -132,5 +132,5 @@ def refine_reservation(db: Any, call_id: str, upper_bound: Any) -> None:
         return
     schema(db)
     row = db.execute("SELECT reserved_usd,reported_usd FROM reading_reservations WHERE call_id=?", (call_id,)).fetchone()
-    if row is not None and row["reported_usd"] is None and amount < Decimal(row["reserved_usd"]):
+    if row is not None and row["reported_usd"] is None and amount != Decimal(row["reserved_usd"]):
         db.execute("UPDATE reading_reservations SET reserved_usd=? WHERE call_id=?", (str(amount), call_id))

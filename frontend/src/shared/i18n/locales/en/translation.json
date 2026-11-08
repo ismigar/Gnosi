@@ -6524,6 +6524,8 @@
     "budget_available": "Available within your limit: {{amount}}. Processing pauses before a call that cannot fit and saves progress.",
     "estimate_over_budget": "The calculation exceeds your available budget. Starting may only complete part of the work; your limit is not raised automatically.",
     "estimate_calculation": "How this is calculated",
+    "processing_tier_flex": "Flex",
+    "estimate_flex": "Flex halves the base tariff and may take longer. This estimate includes cache-write overhead and assumes no cache hits. Budget reservations use Standard prices; there is no automatic switch to Standard.",
     "estimate_tariff": "Saved tariff for {{provider}}, per million tokens: {{input}} input and {{output}} output. Other providers’ offers do not apply to this run.",
     "estimate_repairs": "Conservative scenario with up to two repairs per call and 10% margin: {{cost}}. This is not an authorized charge.",
     "budget_conversion": "Billing and the saved limit use USD (limit: {{limit}} USD). Display conversion: 1 USD = {{rate}} {{currency}}; {{source}}.",

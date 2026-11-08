@@ -7083,6 +7083,8 @@
     "budget_available": "Disponible dins del límit: {{amount}}. El procés es pausa abans d’una crida que no hi càpiga i desa el progrés.",
     "estimate_over_budget": "El càlcul supera el pressupost disponible. Si comences, pot quedar feina pendent; el límit no s’augmenta automàticament.",
     "estimate_calculation": "Com es calcula",
+    "processing_tier_flex": "Flex",
+    "estimate_flex": "Flex redueix la tarifa base a la meitat i pot trigar més. L’estimació inclou el cost d’escriure la memòria cau i no pressuposa encerts. Les reserves de pressupost utilitzen preus estàndard; no es canvia automàticament a la tarifa estàndard.",
     "estimate_tariff": "Tarifa desada de {{provider}}, per milió de tokens: {{input}} d’entrada i {{output}} de sortida. Les ofertes d’altres proveïdors no s’apliquen a aquesta execució.",
     "estimate_repairs": "Escenari conservador amb fins a dues reparacions per crida i un marge del 10%: {{cost}}. No és una despesa autoritzada.",
     "budget_conversion": "La facturació i el límit desat són en USD (límit: {{limit}} USD). Conversió visual: 1 USD = {{rate}} {{currency}}; {{source}}.",

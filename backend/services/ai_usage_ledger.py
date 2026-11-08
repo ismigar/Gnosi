@@ -115,7 +115,8 @@ def write_call(*, provider: str, model_id: str, input_tokens: int | None,
                cached_tokens: int | None = None, reasoning_tokens: int | None = None,
                duration_ms: float = 0, status: str = "completed",
                metadata: dict[str, str] | None = None, generation_id: str = "",
-               settle_budget: bool = True, pricing_details: dict[str, Any] | None = None) -> bool:
+               settle_budget: bool = True, pricing_details: dict[str, Any] | None = None,
+               refine_budget: bool = False) -> bool:
     attribution = {**context_metadata(), **(metadata or {})}
     stamp = created if created is not None else time.time()
     cost = decimal_cost(cost_usd)
@@ -141,9 +142,11 @@ def write_call(*, provider: str, model_id: str, input_tokens: int | None,
             settle(db, identifier, cost)
         if cursor.rowcount and pricing_details is not None:
             db.execute("INSERT INTO usage_pricing VALUES (?,?)", (identifier, json.dumps(pricing_details)))
-            if settle_budget and cost_source == "estimated" and status == "completed" and generation_id:
+            if (refine_budget or (settle_budget and cost_source == "estimated")) and status == "completed" and generation_id:
                 from backend.services.reading_budget import refine_reservation
-                refine_reservation(db, identifier, pricing_details.get("reservation_bound_usd"))
+                bound = decimal_cost(pricing_details.get("reservation_bound_usd"))
+                if bound is not None:
+                    refine_reservation(db, identifier, max(bound, cost or Decimal(0)))
         return bool(cursor.rowcount)
 
 

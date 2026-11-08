@@ -7083,6 +7083,8 @@
     "budget_available": "Disponible dentro del límite: {{amount}}. El proceso se pausa antes de una llamada que no quepa y guarda el progreso.",
     "estimate_over_budget": "El cálculo supera el presupuesto disponible. Si empiezas, puede quedar trabajo pendiente; el límite no se aumenta automáticamente.",
     "estimate_calculation": "Cómo se calcula",
+    "processing_tier_flex": "Flex",
+    "estimate_flex": "Flex reduce la tarifa base a la mitad y puede tardar más. La estimación incluye el coste de escribir la caché y no presupone aciertos. Las reservas de presupuesto utilizan precios estándar; no se cambia automáticamente a la tarifa estándar.",
     "estimate_tariff": "Tarifa guardada de {{provider}}, por millón de tokens: {{input}} de entrada y {{output}} de salida. Las ofertas de otros proveedores no se aplican a esta ejecución.",
     "estimate_repairs": "Escenario conservador con hasta dos reparaciones por llamada y un margen del 10%: {{cost}}. No es un gasto autorizado.",
     "budget_conversion": "La facturación y el límite guardado están en USD (límite: {{limit}} USD). Conversión visual: 1 USD = {{rate}} {{currency}}; {{source}}.",

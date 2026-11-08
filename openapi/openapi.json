@@ -20375,6 +20375,15 @@
             "title": "Priced",
             "type": "boolean"
           },
+          "processing_tier": {
+            "default": "default",
+            "enum": [
+              "default",
+              "flex"
+            ],
+            "title": "Processing Tier",
+            "type": "string"
+          },
           "provider": {
             "title": "Provider",
             "type": "string"

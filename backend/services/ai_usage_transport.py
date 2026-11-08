@@ -203,15 +203,17 @@ class UsageCallback(BaseCallbackHandler):
             same_model = observed == self.model or (self.model == "gpt-6.1-sol" and bool(SOL.fullmatch(observed)))
             if error is not None or not same_model:
                 pricing = None  # Keep the full hold for failed/changed-model calls.
-            defer_budget = self.provider == 'openrouter' and state.get('reading_budget_active', False)
+            # A wallet charge of zero does not mean subscription credits were
+            # unused. Keep the direct provider's measured consumption separate.
+            defer_budget = self.provider in {'openrouter', 'openai'} and state.get('reading_budget_active', False)
             added = ledger.write_call(provider=self.provider, model_id=model, **tokens,
                 cost_usd=cost, cost_source=source, call_id=state["id"], created=state["started"],
                 duration_ms=(time.time() - state["started"]) * 1000,
                 status="cancelled" if isinstance(error, BaseException) and (type(error).__name__ in {"CancelledError", "AgentTurnCancelled"}) else "failed" if error is not None else "completed",
                 metadata=state["attribution"], generation_id=generation_id, settle_budget=not defer_budget,
-                pricing_details=pricing)
+                pricing_details=pricing, refine_budget=self.provider == 'openai' and state.get('reading_budget_active', False))
             funding_confirmed = False
-            if added and defer_budget:
+            if added and defer_budget and self.provider == 'openrouter':
                 from backend.services.ai_usage_openrouter import budget_cost
                 funding = {**raw, **({'is_byok': state['is_byok']} if 'is_byok' in state else {})}
                 consumed = budget_cost(funding)

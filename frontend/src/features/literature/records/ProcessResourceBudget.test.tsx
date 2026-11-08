@@ -129,6 +129,21 @@ async function flushProcessing(): Promise<void> {
 
 
 describe('Book budget currency', () => {
+    it('explains Flex while keeping four fragments and the authorized dollar limit', async () => {
+        const defaults = await vi.mocked(estimateResourceProcessing)({});
+        vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults,
+            provider: 'openai', model: 'gpt-6.1-sol', processing_tier: 'flex' });
+        await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        expect(container.textContent).toContain('gpt-6.1-sol · openai · Flex');
+        expect(container.textContent).toContain('may take longer');
+        expect(container.textContent).toContain('assumes no cache hits');
+        expect(container.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('0.5');
+        expect(container.querySelector<HTMLSelectElement>('select')?.value).toBe('4');
+        act(() => { buttonWithText('Process').click(); });
+        await flushProcessing();
+        expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ max_cost_usd: .5, batch_size: 4 }));
+    });
+
     it('separates the whole-book estimate from the authorized limit in the configured currency', async () => {
         const defaults = await vi.mocked(estimateResourceProcessing)({});
         vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults,
