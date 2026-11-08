@@ -99,17 +99,20 @@ def test_root_routing_rejects_paths_that_escape_owned_namespace():
         root_htaccess("/_gnosi-live/webs/" + "a" * 32 + "/current", ["/gone\nRequire all granted"])
 
 
-def test_removed_capture_identity_cannot_reuse_retained_state_as_live(website):
+@pytest.mark.parametrize("source_environment,destination_environment", [
+    ("local", "production"), ("staging", "production"), ("production", "staging"),
+])
+def test_removed_identity_cannot_cross_delivery_boundary(website, source_environment, destination_environment):
     from backend.domains.sites.models import SiteTarget
     site = website.site.model_copy(deep=True)
-    stage = SiteTarget(id="reused", adapter="ssh", environment="staging", base_url="https://example.org/test")
+    stage = SiteTarget(id="reused", adapter="ssh", environment=source_environment, base_url="https://example.org/test")
     site.targets.append(stage)
     site = website.store.save(site)
     root = private_service.service_root(website.store, site.id, "reused")
     (root / "state.sqlite").write_bytes(b"retained staging state")
     site.targets = [t for t in site.targets if t.id != "reused"]
     site = website.store.save(site)
-    site.targets.append(stage.model_copy(update={"environment": "production"}))
+    site.targets.append(stage.model_copy(update={"environment": destination_environment}))
     with pytest.raises(HTTPException, match="separate destination"):
         website.store.save(site)
     assert (root / "state.sqlite").read_bytes() == b"retained staging state"

@@ -164,7 +164,9 @@ CREATE TABLE IF NOT EXISTS newsletter_reviews (site_id TEXT NOT NULL, target_id 
                 if history is None:
                     history = [SiteConfig.model_validate_json(row["payload"]) for row in db.execute("SELECT payload FROM versions WHERE site_id=? ORDER BY created_at DESC,rowid DESC", (site.id,))]
                 environment = next((prior.environment for version in history for prior in version.targets if prior.id == target.id), None)
-            if environment is not None and environment != target.environment:
+            # Local previews and remote staging both capture mail. Retained state
+            # must never cross the real-delivery boundary in either direction.
+            if environment is not None and (environment == "production") != (target.environment == "production"):
                 raise HTTPException(409, "Create a separate destination for a different environment")
             db.execute("INSERT OR IGNORE INTO target_environments VALUES (?,?,?)", (site.id, target.id, target.environment))
 
