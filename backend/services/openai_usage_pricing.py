@@ -38,10 +38,10 @@ def measured(provider: str, model: str, tokens: dict[str, Any], usage: dict[str,
              + Decimal(writes) * Decimal("1.25")) * input_rate
             + Decimal(outputs) * output_rate) * factor / Decimal(1_000_000)
     # Do not call a token-priced estimate a reported invoice. The held bound
-    # ignores every cache/Flex discount and retains a 10% margin; only a terminal
+    # ignores cache-hit discounts and retains a 10% margin; only a terminal
     # provider usage record can replace the pre-call maximum-output reservation.
     held = (Decimal(inputs) * input_rate * Decimal("1.25")
-            + Decimal(outputs) * output_rate) * Decimal("1.10") / Decimal(1_000_000)
+            + Decimal(outputs) * output_rate) * factor * Decimal("1.10") / Decimal(1_000_000)
     return {"service_tier": tier, "cache_read_tokens": reads, "cache_write_tokens": writes,
             "cache_ttl": ttl, "tariff_date": "2026-11-08", "cost_usd": str(cost),
             "reservation_bound_usd": str(held), "billing_confirmed": False}

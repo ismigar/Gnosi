@@ -24,11 +24,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 281 | 54719 |
+| `services` | 281 | 54733 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1102 modules** and **208364 source lines**.
+Total: **1102 modules** and **208378 source lines**.
 
 ## agent
 
@@ -1156,9 +1156,9 @@ Total: **1102 modules** and **208364 source lines**.
 | [`backend/services/public_workflow_headers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/public_workflow_headers.py) | 27 | 1 | 0 | 0 | 0 | Keep revocable token responses out of caches and referrers. |
 | [`backend/services/public_workflow_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/public_workflow_scope.py) | 109 | 0 | 5 | 0 | 3 | Resolve public workflows against their stored owner and vault, never headers. |
 | [`backend/services/reader_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reader_analysis.py) | 125 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical Reader analysis domain. |
-| [`backend/services/reading_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_budget.py) | 136 | 1 | 9 | 0 | 2 | Durable per-book reservations: a retry or resumed worker cannot reset spending. |
+| [`backend/services/reading_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_budget.py) | 144 | 1 | 9 | 0 | 2 | Durable per-book reservations: a retry or resumed worker cannot reset spending. |
 | [`backend/services/reading_estimate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_estimate.py) | 139 | 0 | 2 | 0 | 0 | Read-only source preflight; includes repeated context, output and repair allowance. |
-| [`backend/services/reading_performance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_performance.py) | 64 | 0 | 4 | 0 | 1 | Lossless shared-prefix caching for direct Sol source-reading operations. |
+| [`backend/services/reading_performance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_performance.py) | 70 | 0 | 4 | 0 | 1 | Lossless shared-prefix caching for direct Sol source-reading operations. |
 | [`backend/services/reading_semantic_estimate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_semantic_estimate.py) | 73 | 0 | 1 | 0 | 0 | Offline phase estimates for the deterministic reader, including joint review. |
 | [`backend/services/recursos_zotero_mapping.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/recursos_zotero_mapping.py) | 58 | 0 | 1 | 0 | 1 | Bidirectional mapping between Recursos columns and Zotero fields. |
 | [`backend/services/reference_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reference_catalog.py) | 223 | 0 | 0 | 0 | 0 | GENERATED — DO NOT EDIT. Run pipeline/skills/zotero_schema/scripts/build_reference_catalog.py. |

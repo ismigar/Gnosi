@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from urllib.parse import urlsplit
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
@@ -50,6 +51,11 @@ def _shared_input(content: str) -> list[dict[str, Any]] | None:
 
 def prepare(model: Any, messages: list[BaseMessage]) -> tuple[Any, list[BaseMessage]]:
     """Keep the selected model/effort/contract and never fall back from Flex."""
+    base = getattr(model, "bound", model)
+    url = urlsplit(str(getattr(base, "openai_api_base", None) or "https://api.openai.com/v1"))
+    extra = getattr(base, "extra_body", None) or getattr(model, "kwargs", {}).get("extra_body")
+    if url.scheme != "https" or url.netloc != "api.openai.com" or url.path.rstrip("/") != "/v1" or extra:
+        raise ValueError("Reading Flex requires the direct OpenAI endpoint without body overrides")
     prepared = []
     marked_input = False
     for message in messages:

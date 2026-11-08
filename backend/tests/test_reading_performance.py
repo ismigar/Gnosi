@@ -138,7 +138,7 @@ def test_sdk_preserves_schema_and_sends_flex_breakpoints_and_prices_returned_usa
     assert row["cached_tokens"] == 1024 and pricing["cache_write_tokens"] == 512
     budget = reading_budget.status(identifier)
     assert budget["spent_usd"] == 0  # A measured tariff estimate is not an invoice.
-    assert budget["reserved_usd"] == .0066  # Standard, all input as writes, +10%.
+    assert budget["reserved_usd"] == .0033  # Confirmed Flex, all input as writes, +10%.
     assert pricing["billing_confirmed"] is False
     client.close()
     asyncio.run(async_client.aclose())
@@ -173,4 +173,25 @@ def test_long_context_surcharge_and_nonzero_hold_are_preserved():
         {"input_tokens_details": {"cached_tokens": 200000, "cache_write_tokens": 50000}},
         {"cost_in": 2, "cost_out": 10}, "flex", {"ttl": "30m"})
     assert Decimal(result["cost_usd"]) == Decimal(".2525")
-    assert Decimal(result["reservation_bound_usd"]) == Decimal("1.6665")
+    assert Decimal(result["reservation_bound_usd"]) == Decimal(".83325")
+
+
+@pytest.mark.parametrize("url,extra", [("https://proxy.invalid/v1", None),
+    ("https://api.openai.com/v1", {"service_tier": "default"}),
+    ("https://api.openai.com/v1", {"max_output_tokens": 128000})])
+def test_flex_cannot_price_a_proxy_or_body_override(url, extra):
+    model = ChatOpenAI(model=MODEL, api_key="fake", base_url=url, extra_body=extra)
+    with pytest.raises(ValueError):
+        prepare(model, [SystemMessage(content="Instructions"), HumanMessage(content=json.dumps(source()))])
+
+
+def test_explicit_flex_reserves_its_tariff_and_keeps_atomic_ceiling():
+    identifier = reading_budget.configure(.5)
+    with reading_budget.session(identifier):
+        for call in ("one", "two", "three", "four", "five"):
+            reading_budget.reserve(call, "source", {"max_tokens": 16384, "service_tier": "flex"},
+                                   {"cost_in": 2, "cost_out": 10}, "openai", MODEL)
+        with pytest.raises(reading_budget.ReadingBudgetError):
+            reading_budget.reserve("six", "source", {"max_tokens": 16384, "service_tier": "flex"},
+                                   {"cost_in": 2, "cost_out": 10}, "openai", MODEL)
+    assert 0 < reading_budget.status(identifier)["reserved_usd"] <= .5
