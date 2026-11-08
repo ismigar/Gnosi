@@ -19778,6 +19778,12 @@ export interface components {
             planned_calls: number;
             /** Priced */
             priced: boolean;
+            /**
+             * Processing Tier
+             * @default default
+             * @enum {string}
+             */
+            processing_tier: "default" | "flex";
             /** Provider */
             provider: string;
             /** Remaining Chunks */

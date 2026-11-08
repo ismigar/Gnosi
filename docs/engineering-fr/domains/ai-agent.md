@@ -40,6 +40,9 @@ source_paths:
   - backend/domains/llm_wiki/semantic_quote_selection.py
   - backend/domains/llm_wiki/semantic_quote_contracts.py
   - backend/services/reading_semantic_estimate.py
+  - backend/services/reading_performance.py
+  - backend/services/openai_usage_pricing.py
+  - backend/tests/test_reading_performance.py
   - backend/tests/test_semantic_reading.py
   - backend/services/agent_task_cases.py
   - backend/services/agent_task_evaluation_models.py
@@ -1509,6 +1512,12 @@ La livraison automatique groupe jusqu’à quatre fragments existants, réduisan
 
 Le contrôle préalable indique également les fragments enregistrés incompatibles avec la source ou les réglages actuels. Les deux dialogues et les demandes avec identifiant d’estimation bloquent cette reprise, conservant les checkpoints au lieu de payer silencieusement une nouvelle lecture. Un nouveau traitement explicite reste distinct de la reprise.
 
+
+Les phases de lecture des sources avec OpenAI direct et `gpt-6.1-sol` utilisent Flex et un cache explicite de 30 minutes. Les instructions stables et les champs JSON partagés précèdent les preuves variables ; concaténer les blocs restitue toute l’enveloppe de l’opération sans modifier les valeurs des sources, schémas ou instructions. Sol direct accepte les niveaux publiés low, medium, high, xhigh et max via des requêtes Responses sans état. Les autres opérations, fournisseurs et modèles gardent leur comportement. Il n’y a aucun passage automatique à Standard ou à un autre modèle. La taille des lots et la limite persistante du livre sont conservées. La vérification préalable identifie Flex et explique le rapport entre prix et attente. Flex peut attendre davantage ou échouer faute de capacité ; les limites d’annulation, de durée et de tentatives restent applicables.
+
+Les groupes de révision sémantique finale de quatre notes au maximum réservent jusqu’à 4 096 tokens de sortie ; ceux de cinq à dix, 8 192 ; l’interprétation et les groupes plus grands conservent 16 384. Seule la marge de génération change : instructions, schéma, preuves originales et contrôles d’acceptation restent intacts. Une réponse signalée comme tronquée par le fournisseur est rejetée avant son enregistrement, même si son JSON est syntaxiquement valide. Une réservation qui ne tient pas peut diviser uniquement le groupe de révision restant, en conservant tous les brouillons, les cartes complètes et les groupes voisins déjà terminés. Si une seule note ne tient toujours pas, le traitement s’arrête avant une autre transmission. La livraison des fragments reste inchangée et chaque nouvelle tentative acquiert la même réservation atomique.
+
+La vérification préalable suppose zéro lecture réussie du cache et inclut le coût d’écriture. Avant transmission, les réservations utilisent la modalité native explicitement fixée et couvrent les écritures, la sortie maximale et les suppléments de contexte long. Flex refuse les endpoints intermédiaires et les remplacements du corps susceptibles de modifier la requête chiffrée. L’usage renvoyé par OpenAI enregistre lectures, écritures et modalité servie dans la table de métadonnées `usage_pricing`. L’usage connu de Sol est chiffré selon cette modalité et le tarif publié ; cela reste une estimation, pas une facture communiquée. Un relevé terminal complet et valide peut remplacer la réservation maximale par une borne utilisant la modalité servie, traitant toute l’entrée comme une écriture et conservant une marge de 10 %. Les frais de portefeuille restent distincts de la consommation nominale des crédits : un zéro communiqué ne libère pas cette borne. Compteurs absents, tarifs inconnus, modèles modifiés, appels échoués et durées de cache non prises en charge conservent la réservation initiale. L’historique n’est jamais réinitialisé et la conciliation communiquée par le fournisseur reste l’autorité.
 
 ## Tests des fonctions du bot et preuves réutilisables
 

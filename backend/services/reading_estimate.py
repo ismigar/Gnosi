@@ -80,17 +80,30 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     from backend.services.ai_usage_ledger import decimal_cost
     priced = bool(rates and decimal_cost(rates.get("cost_in")) is not None and decimal_cost(rates.get("cost_out")) is not None)
     low = high = None
+    from backend.services.reading_performance import eligible
+    flex = eligible(runtime.provider, runtime.model) and getattr(runtime, "cost_optimization", True)
     if priced and rates:
-        low = (input_bound*float(rates["cost_in"])+output_assumed*float(rates["cost_out"]))/1_000_000
+        multiplier = 0.5 if flex else 1.0
+        # Hits depend on actual provider cache reuse. Forecast no hits and
+        # include the 30-minute write premium instead of promising a discount.
+        input_rate = float(rates["cost_in"]) * multiplier * (1.25 if flex else 1)
+        output_rate = float(rates["cost_out"]) * multiplier
+        low = (input_bound*input_rate+output_assumed*output_rate)/1_000_000
         # Include bounded evidence rounds as well as each call's format repair.
         repair_input = input_bound + semantic_cost.get("evidence_input_token_bound", 0)
         repair_output = output_bound + semantic_cost.get("evidence_output_token_bound", 0)
-        high = (2 if semantic else 3)*(repair_input*float(rates["cost_in"])+repair_output*float(rates["cost_out"]))/1_000_000*1.10
+        high_in = float(rates["cost_in"]) * (1.25 if flex else 1)
+        high_out = float(rates["cost_out"])
+        if flex and runtime.input_budget > 272_000:
+            high_in *= 2
+            high_out *= 1.5
+        high = (2 if semantic else 3)*(repair_input*high_in+repair_output*high_out)/1_000_000*1.10
     budget = None
     if not force and previous.get("budget_id"):
         budget = reading_budget.status(str(previous["budget_id"]))
-    return {"_reading_identity": identity, "estimate_id": fingerprint([identity, source_title, language, rates, batch_size, len(saved.get("plans", {})), previous_plans, token_method, input_bound, output_assumed, high]),
+    return {"_reading_identity": identity, "estimate_id": fingerprint([identity, source_title, language, rates, batch_size, len(saved.get("plans", {})), previous_plans, token_method, input_bound, output_assumed, high, flex]),
             "provider": runtime.provider, "model": runtime.model, "currency": "USD", "priced": priced,
+            "processing_tier": "flex" if flex else "default",
             "display_currency": currency_context(),
             "cost_in_per_million_usd": rates["cost_in"] if priced and rates else None,
             "cost_out_per_million_usd": rates["cost_out"] if priced and rates else None,

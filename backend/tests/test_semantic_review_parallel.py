@@ -101,6 +101,41 @@ def test_truncation_splits_only_failed_range_with_later_success_retained():
     assert checkpoints['new', 'semantic-state']['reviewed_ranges'] == {'0': 2, '2': 2, '4': 4}
 
 
+@pytest.mark.parametrize('reason', ['reading_budget_pending_cost', 'reading_budget_exhausted'])
+def test_reservation_rejection_splits_complete_review_without_dropping_notes(reason):
+    from backend.services.reading_budget import ReadingBudgetError
+    accepted = []
+    def generate(request):
+        if request['phase'] == 'verify':
+            if len(request['notes']) > 2:
+                raise ReadingBudgetError(reason)
+            accepted.extend(n['note']['title'] for n in request['notes'])
+        return response(request)
+    engine, gm, nm, _, checkpoints = prepared(generate, size=4)
+    original = deepcopy(engine.state['plans'])
+    result = engine.review(gm, nm)
+    assert len(result) == 8 and engine.state['plans'] == original
+    assert len(accepted) == len(set(accepted)) == 8
+    assert checkpoints['new', 'semantic-state']['reviewed_ranges'] == {'0':2,'2':2,'4':2,'6':2}
+
+
+def test_budget_rejection_stops_at_one_note_with_all_drafts_preserved():
+    from backend.services.reading_budget import ReadingBudgetError
+    attempts = []
+    def generate(request):
+        if request['phase'] == 'verify':
+            attempts.append(len(request['notes']))
+            raise ReadingBudgetError('reading_budget_pending_cost')
+        return response(request)
+    engine, gm, nm, _, _ = prepared(generate, size=4)
+    original = deepcopy(engine.state['plans'])
+    with pytest.raises(ReadingBudgetError):
+        engine.review(gm, nm)
+    assert engine.state['review_size_limit'] == 1
+    assert engine.state['plans'] == original and not engine.state['reviewed_groups']
+    assert set(attempts) == {4,2,1} and len(attempts) <= 6
+
+
 @pytest.mark.parametrize('cancelled', [False, True])
 def test_governed_review_children_keep_parent_scope_and_cancellation(runtime, monkeypatch, cancelled):
     from dataclasses import replace
