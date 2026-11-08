@@ -483,5 +483,7 @@ test('production hosting keeps host-mail settings private and autosaves without 
   await expandWebsiteSections(page);
   await expect(page.getByRole('textbox', { name: /^Privacy information/ }).first()).toHaveValue('Controller: Example owner. Purpose: newsletter. Rights: owner@example.invalid.');
   await expect(page.getByRole('switch', { name: 'Require newsletter first and last names', exact: true })).not.toBeChecked();
+  await page.getByRole('switch', { name: 'Require newsletter first and last names', exact: true }).scrollIntoViewIfNeeded();
+  await page.getByRole('textbox', { name: /^Privacy information/ }).first().scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath('newsletter-privacy-autosaved.png'), fullPage: true });
 });
