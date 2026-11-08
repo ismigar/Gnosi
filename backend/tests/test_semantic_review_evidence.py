@@ -62,19 +62,24 @@ def test_distant_refutation_uses_complete_original_and_survives_restart(monkeypa
     assert checkpoints['new', 'semantic-state']['review_sources']
 
 
-def test_pending_cost_after_request_replays_request_without_paying_it_again(monkeypatch):
+@pytest.mark.parametrize('reason', ['reading_budget_pending_cost', 'reading_budget_exhausted'])
+def test_pending_cost_after_request_replays_request_without_paying_it_again(monkeypatch, reason):
     engine, gm, nm, calls, checkpoints = retrieval_case(monkeypatch)
+    review_attempts = []
     def generate(prompt, validate, timeout):
         request = json.loads(prompt)
+        review_attempts.append(request)
         if request.get('provisional_review'):
-            raise RuntimeError('reading_budget_pending_cost')
+            raise RuntimeError(reason)
         answer = reviewing(request)
         validate(answer)
         return encoded(answer), 'offline'
     engine.deps.generate_structured = generate
-    with pytest.raises(RuntimeError, match='reading_budget_pending_cost'):
+    with pytest.raises(RuntimeError, match=reason):
         engine.review(gm, nm)
     assert len(engine.state['reviewed_groups']) == 1  # the independent sibling survives
+    assert sum(bool(r.get('provisional_review')) for r in review_attempts) == 1
+    assert all(len(r['notes']) == 2 for r in review_attempts)
     reader, resumed_calls, _ = setup(checkpoints=checkpoints, resume='new', generate=reviewing)
     reader.chunks = engine.reader.chunks
     reader.job_id = 'resumed'

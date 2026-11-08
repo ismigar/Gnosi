@@ -152,15 +152,18 @@ def store_result(engine: SemanticReader, batch: ReviewBatch,
 
 
 def recover_wave(engine: SemanticReader, failures: list[tuple[ReviewBatch, Exception]], completed: int) -> bool:
+    from backend.services.reading_budget import ReadingBudgetError
     fatal = []
     for batch, error in sorted(failures, key=lambda item: item[0].offset):
-        if str(error) == "reading_budget_pending_cost" and completed:
+        reservation_rejected = isinstance(error, ReadingBudgetError) and str(error) in {
+            "reading_budget_pending_cost", "reading_budget_exhausted"}
+        if reservation_rejected and str(error) == "reading_budget_pending_cost" and completed:
             # An overlapping request may have held the remaining allowance.
             # Retry after it settles, with its result cached. No paid blind retry:
             # the SDK must reserve again; a wave without new progress splits.
             continue
         elif len(batch.entries) > 1 and (
-            _has_answer_tokens(error) or str(error) in {"reading_budget_pending_cost", "reading_budget_exhausted"}
+            _has_answer_tokens(error) or reservation_rejected
         ):
             # A pre-transmission reservation can reject a large group while a
             # complete smaller group fits. Keep every note and its full maps;
