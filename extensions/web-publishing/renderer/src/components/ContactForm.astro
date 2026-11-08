@@ -1,13 +1,13 @@
 ---
 import {translate,labels,prefix,href,linkProps} from '../lib/site.mjs';
-const {form,lang}=Astro.props;
+const {form,lang,showTitle=true}=Astro.props;
 const text=labels(lang);
 const override=(values,fallback)=>values?.[lang] || fallback;
 const instance=Astro.props.instance || form.id;
 const privacyUrl=form.privacy_urls?.[lang] ?? form.privacy_url;
 ---
 <section data-pagefind-ignore>
-  <h2>{translate(form.title,lang,form.name)}</h2>
+  {showTitle && <h2>{translate(form.title,lang,form.name)}</h2>}
   {translate(form.intro,lang) && <p>{translate(form.intro,lang)}</p>}
   <form class="contact-form" method="post" action={prefix('/api/contact.php')} data-contact data-failure={override(form.failure_message,text.retry)} data-invalid={override(form.required_message,text.required)}>
     <input type="hidden" name="form_id" value={form.id}/><input type="hidden" name="revision" value={form.revision}/><input type="hidden" name="language" value={lang}/><input type="hidden" name="_request_id" value=""/>

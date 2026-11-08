@@ -3,7 +3,7 @@ import pytest
 from bs4 import BeautifulSoup
 
 from backend.domains.sites.exporter import build_bundle
-from backend.domains.sites.models import FormField, SiteBlock, SiteConfig, SiteForm, SitePage
+from backend.domains.sites.models import FormField, NavigationLink, SiteBlock, SiteConfig, SiteForm, SitePage
 from backend.domains.sites.paths import extension_root
 from backend.domains.sites.renderer import render_bundle
 from backend.domains.sites.storage import SiteStore
@@ -29,10 +29,11 @@ def test_generic_original_routes_and_contact_texts_render_without_temenos_defaul
     site = SiteConfig(name='Independent', origin='https://source.example.org', languages=['fr', 'en', 'es'], default_language='fr', forms=[form],
                       newsletter_privacy_text={'fr': 'Responsable FR <script>not executable</script>', 'en': 'Controller EN'}, newsletter_names_required=False,
                       footer_blocks=[SiteBlock(type='newsletter')], pages=[
-        SitePage(title='Accueil', path='/', language='fr', enabled=True, blocks=[SiteBlock(body='[Local](https://source.example.org/about)\n\n[Original](https://source.example.org/not-imported)')]),
+        SitePage(title='Accueil', path='/', language='fr', enabled=True, blocks=[SiteBlock(body='[Local](https://source.example.org/about)\n\n[Original](https://source.example.org/not-imported)'), SiteBlock(id='main-section', type='collection', title='Main section', heading_level=1, actions=[NavigationLink(label='View all', href='/about', appearance='outline')]), SiteBlock(id='normal-section', title='Normal section')]),
         SitePage(title='About', path='/about', language='en', enabled=True, blocks=[SiteBlock(type='form', form_id='support')]),
         SitePage(title='Contact', path='/contact', language='fr', enabled=True, blocks=[SiteBlock(type='form', form_id='support')]),
         SitePage(title='Contacto', path='/contacto', language='es', enabled=True, blocks=[SiteBlock(type='form', form_id='support')]),
+        SitePage(title='Assistance', path='/assistance', language='fr', enabled=True, blocks=[SiteBlock(type='form', form_id='support')]),
     ])
     site.targets[0].enabled = True
     bundle = build_bundle(store, site, 'local').model_dump(mode='json')
@@ -40,6 +41,13 @@ def test_generic_original_routes_and_contact_texts_render_without_temenos_defaul
     output = tmp_path / 'public'
     render_bundle(bundle, output)
     home = BeautifulSoup((output / 'index.html').read_text(), 'html.parser')
+    assert home.select_one('[data-block-id=main-section] > h1').get_text() == 'Main section'
+    action = home.select_one('[data-block-id=main-section] > .actions > a')
+    assert action.get_text() == 'View all' and action['href'] == '/_gnosi-general/current/about'
+    assert 'button-outline' in action['class']
+    assert home.select_one('[data-block-id=normal-section] > h2').get_text() == 'Normal section'
+    same = BeautifulSoup((output / 'assistance/index.html').read_text(), 'html.parser')
+    assert len([heading for heading in same.select('main h1, main h2') if heading.get_text() == 'Assistance']) == 1
     for path, notice in [('contact', 'Responsable FR <script>not executable</script>'), ('about', 'Controller EN')]:
         rendered = BeautifulSoup((output / path / 'index.html').read_text(), 'html.parser')
         subscription = rendered.select_one('form.staging-subscription')
@@ -60,6 +68,8 @@ def test_generic_original_routes_and_contact_texts_render_without_temenos_defaul
     assert links['Original'] == 'https://source.example.org/not-imported'
     assert 'Temenos Ismael' not in home.get_text()
     contact = BeautifulSoup((output / 'contact/index.html').read_text(), 'html.parser')
+    assert contact.select_one('main h1').get_text() == 'Contact'
+    assert contact.select_one('main h2').get_text() == 'Assistance'
     control = contact.select_one('form[data-contact]')
     assert control['data-failure'] == 'Réessayez plus tard'
     assert control['data-invalid'] == 'À compléter'

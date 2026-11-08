@@ -11,15 +11,16 @@ const canonical=value=>new URL(prefix(value),deployment.origin).href;
 function file(relative,content){const target=path.join(output,relative.replace(/^\//,''));fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target,content);}
 function feed(language,selected,title=site.name){
   const items=selected.map(record=>{
-    const guid=(site.legacy_pilot?'':site.id+':')+record.id+':'+record.language;
+    const guid=record.feed_guid || (site.legacy_pilot?'':site.id+':')+record.id+':'+record.language;
     const seconds=Number(record.presentation?.created);const date=new Date(seconds*1000);
     const published=Number.isFinite(seconds)&&seconds>0&&!Number.isNaN(date.valueOf())?`<pubDate>${date.toUTCString()}</pubDate>`:'';
     return `<item><title>${escape(record.title)}</title><link>${escape(canonical(record.path))}</link><guid isPermaLink="false">${escape(guid)}</guid>${published}<description>${escape(html(record.body_html))}</description></item>`;
   }).join('');
   return `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>${escape(title)}</title><link>${escape(canonical('/'+language))}</link><description>${escape(site.name)}</description><language>${language}</language>${items}</channel></rss>`;
 }
+const editorialArticles=site.pages.filter(page=>page.enabled && page.template==='article' && !page.imported_record_id).map(page=>({...page,feed_guid:site.id+':page:'+page.id+':'+page.language,body_html:(page.blocks || []).flatMap(block=>[block,...(block.children || [])]).map(block=>block.body_html || '').join('\n')}));
 for(const language of site.languages){
-  const selected=records.filter(record=>record.language===language && (!site.legacy_pilot || ['article','recurs','disseny'].includes(record.presentation?.kind)));
+  const selected=[...records.filter(record=>record.language===language && (!site.legacy_pilot || !record.presentation?.kind || ['article','recurs','disseny'].includes(record.presentation.kind))),...editorialArticles.filter(page=>page.language===language)];
   if(site.legacy_pilot)selected.sort((a,b)=>Number(b.presentation?.created||0)-Number(a.presentation?.created||0));
   file(`/${language}/rss.xml`,feed(language,selected));
   for(const source of site.sources.filter(source=>source.enabled)){

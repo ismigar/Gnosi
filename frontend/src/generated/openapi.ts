@@ -25753,6 +25753,12 @@ export interface components {
             /** Form Id */
             form_id?: string | null;
             /**
+             * Heading Level
+             * @default 2
+             * @enum {integer}
+             */
+            heading_level: 1 | 2 | 3 | 4 | 5 | 6;
+            /**
              * Href
              * @default
              */

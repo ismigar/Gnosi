@@ -85,6 +85,12 @@ def test_newsletter_privacy_settings_and_contact_languages_roundtrip(website):
     assert SiteConfig(name='Legacy').newsletter_names_required is True
 
 
+@pytest.mark.parametrize('level', [0, 7, 'script'])
+def test_block_heading_levels_are_closed_to_real_html_headings(level):
+    with pytest.raises(ValidationError):
+        SiteBlock(heading_level=level)
+
+
 def test_editor_rows_roundtrip_and_validate_every_column(website):
     site = website.site
     original = site.pages[0].blocks[0].model_dump()

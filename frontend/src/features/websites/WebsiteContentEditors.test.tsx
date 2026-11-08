@@ -19,15 +19,16 @@ test('visual blocks preserve selected layout, keyboard reorder and undo through 
   const view = mountEditor(initial, (site, onChange) => <PagesEditor site={site} catalogue={[]} onChange={onChange} />);
   edit(view.container, 'websites.visual.imageWidth', '60');
   edit(view.container, 'websites.visual.alignment', 'center');
+  edit(view.container, 'websites.headingLevel', '1');
   const first = required(view.container.querySelector<HTMLElement>('.websites-canvas-block'));
   click(first, 'websites.moveDown');
   expect(view.site.pages?.[0]?.blocks?.map(block => block.id)).toEqual(['two', 'one']);
-  expect(view.site.pages?.[0]?.blocks?.[1]).toMatchObject({ image_width: 60, alignment: 'center' });
+  expect(view.site.pages?.[0]?.blocks?.[1]).toMatchObject({ image_width: 60, alignment: 'center', heading_level: 1 });
   click(view.container, 'websites.visual.undo');
   expect(view.site.pages?.[0]?.blocks?.map(block => block.id)).toEqual(['one', 'two']);
   click(view.container, 'websites.visual.redo');
   view.savedResponse();
-  expect(view.site.pages?.[0]?.blocks?.[1]).toMatchObject({ image_width: 60, alignment: 'center' });
+  expect(view.site.pages?.[0]?.blocks?.[1]).toMatchObject({ image_width: 60, alignment: 'center', heading_level: 1 });
   click(view.container, 'websites.visual.mobile');
   expect(view.container.querySelector('.websites-canvas')?.getAttribute('data-width')).toBe('mobile');
 });

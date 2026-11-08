@@ -570,8 +570,8 @@ def _export_block_assets(block: SiteBlock, asset: AssetExporter, language: str |
         block.images = [asset(value) if not urlsplit(value).scheme else value for value in block.images if value]
     if block.type == "cta":
         block.href = _editor_file_link(block.href, asset)
-    if block.type in {"split", "links"}:
-        links = (block.actions or []) if block.type == "split" else block.links
+    if block.type in {"split", "links", "selected", "collection", "collaborators"}:
+        links = block.links if block.type == "links" else (block.actions or [])
         for link in links:
             if not language or not link.language or link.language == language:
                 link.href = _editor_file_link(link.href, asset)

@@ -9539,6 +9539,7 @@
     "serverMail": "Courrier du serveur",
     "newsletterPrivacy": "Confidentialité de la lettre",
     "newsletterPrivacyHelp": "Informations de base affichées avant le consentement : responsable, finalité, base légale, destinataires et droits. Le lien vers la politique est affiché dans chaque langue.",
-    "newsletterNamesRequired": "Exiger le prénom et le nom pour la lettre"
+    "newsletterNamesRequired": "Exiger le prénom et le nom pour la lettre",
+    "headingLevel": "Niveau du titre"
   }
 }

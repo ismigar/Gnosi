@@ -35539,6 +35539,19 @@
             ],
             "title": "Form Id"
           },
+          "heading_level": {
+            "default": 2,
+            "enum": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ],
+            "title": "Heading Level",
+            "type": "integer"
+          },
           "href": {
             "default": "",
             "title": "Href",

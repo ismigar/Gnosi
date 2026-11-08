@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 from PIL import Image
 from backend.domains.sites import exporter, theme_assets
-from backend.domains.sites.models import SiteConfig
+from backend.domains.sites.models import NavigationLink, SiteBlock, SiteConfig
 from backend.tests.test_sites import website as website
 
 
@@ -51,6 +51,20 @@ def test_localized_form_privacy_exports_only_enabled_language_assets(website):
     assert set(bundle.site.forms[0].privacy_urls) == {site.default_language}
     assert bundle.site.forms[0].privacy_urls[site.default_language].startswith('/assets/')
     assert len(bundle.assets) == 1
+    assert Path(bundle.assets[0].private_source).read_bytes() == png()
+
+
+def test_collection_actions_export_only_their_rendered_language_files(website):
+    public, _ = theme_assets.upload(website.store, website.site, 'public.png', png(), 'image')
+    private, _ = theme_assets.upload(website.store, website.site, 'other-language.png', png() + b'private', 'image')
+    site = website.site.model_copy(deep=True)
+    site.pages[0].blocks.append(SiteBlock(type='selected', page_ids=['one'], actions=[
+        NavigationLink(label='Public', href=public, language='ca'),
+        NavigationLink(label='Other language', href=private, language='en-gb'),
+    ]))
+    bundle = exporter.build_bundle(website.store, site, 'local')
+    assert len(bundle.assets) == 1
+    assert bundle.site.pages[0].blocks[-1].actions[0].href.startswith('/assets/')
     assert Path(bundle.assets[0].private_source).read_bytes() == png()
 
 

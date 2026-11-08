@@ -1,26 +1,29 @@
 ---
-import {site,href,prefix,html,linkProps,selection} from '../lib/site.mjs';
+import {site,href,prefix,html,linkProps,selection,translate} from '../lib/site.mjs';
 import Actions from './Actions.astro';
 import ContactForm from './ContactForm.astro';
 import ReadingCard from './ReadingCard.astro';
 import ResourceList from './ResourceList.astro';
 import Newsletter from './Newsletter.astro';
 import FooterSocials from './FooterSocials.astro';
-const {block,lang,template='page',footer=false,instance=block.id,fieldLabel=(key,record)=>record?.field_labels?.[key]||key}=Astro.props;
+const {block,lang,template='page',footer=false,pageTitle='',instance=block.id,fieldLabel=(key,record)=>record?.field_labels?.[key]||key}=Astro.props;
+const Heading=`h${block.heading_level || 2}`;
+const showFormTitle=form=>![pageTitle,block.title].some(title=>title?.trim()===translate(form.title,lang,form.name).trim());
 const format=value=>typeof value==='object'?JSON.stringify(value):String(value??'');
 const navigationClass=link=>['action-link',...(['button','outline'].includes(link.appearance)?['button']:[]),...(link.appearance==='outline'?['button-outline']:[])].join(' ');
 ---
 <section class="block" data-layout data-align={block.alignment || 'left'} data-image-frame={block.image_frame || 'none'} style={`--block-width:${block.width || 100}%;--image-width:${block.image_width || 100}%;--block-space:${{compact:'0',normal:'1rem',generous:'2rem'}[block.spacing || 'compact']}`} data-block-id={block.id} data-section={site.sources.find(source=>source.id===block.source_id)?.source_id.split(':').pop()}>
-      {block.title && block.type!=='newsletter' && <h2>{block.title}</h2>}
-      {block.type==='row' && <div class="editor-row" style={`--row-columns:${Math.max(1,(block.children || []).length)}`}>{(block.children || []).map(child=><div class="editor-column"><Astro.self block={child} lang={lang} template={template} footer={footer} instance={`${instance}-${child.id}`} fieldLabel={fieldLabel}/></div>)}</div>}
+      {block.title && block.type!=='newsletter' && <Heading>{block.title}</Heading>}
+      {block.type==='row' && <div class="editor-row" style={`--row-columns:${Math.max(1,(block.children || []).length)}`}>{(block.children || []).map(child=><div class="editor-column"><Astro.self block={child} lang={lang} template={template} footer={footer} pageTitle={pageTitle} instance={`${instance}-${child.id}`} fieldLabel={fieldLabel}/></div>)}</div>}
       {block.type==='text' && <div class:list={['reading','record-body',{'static-page-body':template==='page' || block.body_format==='html'}]} set:html={html(block.body_html)}/>}
       {block.type==='image' && <figure><img src={href(block.image)} alt={block.alt} loading="lazy"/></figure>}
       {block.type==='split' && <div class:list={['split',{'image-left':block.image_position==='left'}]}><div><div class="record-body static-page-body" set:html={html(block.body_html)}/><Actions links={block.actions || []} lang={lang}/></div><figure><img src={href(block.image)} alt={block.alt} loading="lazy"/></figure></div>}
       {block.type==='gallery' && <div class="block-grid" style={`--columns:${block.columns}`}>{block.images.map(image=><img src={href(image)} alt={block.alt} loading="lazy"/>)}</div>}
       {['selected','collection','collaborators'].includes(block.type) && (site.legacy_pilot && block.type==='collaborators' ? <div class="collaborators">{selection(block,lang).map(record=><a href={href(record.presentation?.href)} {...linkProps(record.presentation?.href)}>{record.presentation?.image?.url ? <img src={href(record.presentation.image.url)} alt={record.title} width="180" height="72" loading="lazy"/>:record.title}</a>)}</div> : site.legacy_pilot && ['research','stories'].includes(site.sources.find(source=>source.id===block.source_id)?.source_id.split(':').pop()) ? <ResourceList items={selection(block,lang)} lang={lang}/> : <div class="block-grid" style={`--columns:${block.columns}`}>{selection(block,lang).map(record=>site.legacy_pilot ? <ReadingCard record={record} lang={lang} selectedReading={block.type==='selected'}/> : <article class="card"><h3><a href={prefix(record.path)}>{record.title}</a></h3>{Object.entries(record.fields).map(([key,value])=><p><strong>{fieldLabel(key,record)}</strong> {format(value)}</p>)}</article>)}</div>)}
       {block.type==='cta' && <a class="button" href={href(block.href)} {...linkProps(block.href)}>{block.body || block.title}</a>}
-      {block.type==='form' && site.forms.filter(form=>form.enabled && form.id===block.form_id).map(form=><ContactForm form={form} lang={lang} instance={instance}/>)}
+      {block.type==='form' && site.forms.filter(form=>form.enabled && form.id===block.form_id).map(form=><ContactForm form={form} lang={lang} instance={instance} showTitle={showFormTitle(form)}/>)}
       {block.type==='links' && <nav class="navigation footer-block-links">{(block.links || []).filter(link=>!link.language||link.language===lang).map(link=><a class={navigationClass(link)} href={href(link.href)} {...linkProps(link.href)}>{link.label}</a>)}</nav>}
       {block.type==='social' && <FooterSocials lang={lang} instance={instance}/>}
       {block.type==='newsletter' && <Newsletter lang={lang} instance={instance} compact={footer} title={block.title || undefined}/>}
+      {['selected','collection','collaborators'].includes(block.type) && <Actions links={block.actions || []} lang={lang}/>}
     </section>

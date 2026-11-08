@@ -9484,6 +9484,7 @@
     "serverMail": "Server mail",
     "newsletterPrivacy": "Newsletter privacy",
     "newsletterPrivacyHelp": "Basic information shown before consent: controller, purpose, lawful basis, recipients and rights. The policy link is shown in each language.",
-    "newsletterNamesRequired": "Require newsletter first and last names"
+    "newsletterNamesRequired": "Require newsletter first and last names",
+    "headingLevel": "Heading level"
   }
 }

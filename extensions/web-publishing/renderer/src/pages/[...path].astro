@@ -75,7 +75,7 @@ const currentNavigationLink = link => href(link.href).replace(/\/$/, '') === pre
     {['home','listing'].includes(page.template) && !page.blocks.length && <section class="block">
       <PublicListing items={selected} source={source} lang={lang} resource={resourceListing} title={page.title} fields={fields} fieldLabel={fieldLabel} format={format}/>
     </section>}
-    {blocks.map(block=><RenderBlock block={block} lang={lang} template={page.template} fieldLabel={fieldLabel}/>)}
+    {blocks.map(block=><RenderBlock block={block} lang={lang} template={page.template} pageTitle={page.title} fieldLabel={fieldLabel}/>)}
     {feedPath && <p class="listing-rss"><a href={prefix(feedPath)}>RSS</a></p>}
     {tagLinks.length>0 && <section class="entry-tags" aria-labelledby="entry-tags-title">
       <h2 id="entry-tags-title"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 3h7l11 11-7 7L3 10Z"/><circle cx="7" cy="7" r="1"/><path d="m14 3 9 9"/></svg>{legacyText.tags}</h2>

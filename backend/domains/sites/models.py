@@ -79,6 +79,7 @@ class SiteBlock(Contract):
     type: Literal["text", "image", "split", "gallery", "selected", "collection", "collaborators", "form", "cta", "links", "social", "newsletter", "row"] = "text"
     children: list[SiteBlock] = Field(default_factory=list, max_length=4)
     title: str = ""
+    heading_level: Literal[1, 2, 3, 4, 5, 6] = 2
     body: str = ""
     body_format: Literal["markdown", "html"] = "markdown"
     width: int = Field(default=100, ge=20, le=100)

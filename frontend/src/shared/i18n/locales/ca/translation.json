@@ -9539,6 +9539,7 @@
     "serverMail": "Correu del servidor",
     "newsletterPrivacy": "Privacitat del butlletí",
     "newsletterPrivacyHelp": "Informació bàsica visible abans del consentiment: responsable, finalitat, base jurídica, destinataris i drets. L’enllaç a la política es mostra a cada idioma.",
-    "newsletterNamesRequired": "Nom i cognoms obligatoris al butlletí"
+    "newsletterNamesRequired": "Nom i cognoms obligatoris al butlletí",
+    "headingLevel": "Nivell del títol"
   }
 }

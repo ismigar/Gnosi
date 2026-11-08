@@ -9539,6 +9539,7 @@
     "serverMail": "Correo del servidor",
     "newsletterPrivacy": "Privacidad del boletín",
     "newsletterPrivacyHelp": "Información básica visible antes del consentimiento: responsable, finalidad, base jurídica, destinatarios y derechos. El enlace a la política se muestra en cada idioma.",
-    "newsletterNamesRequired": "Nombre y apellidos obligatorios en el boletín"
+    "newsletterNamesRequired": "Nombre y apellidos obligatorios en el boletín",
+    "headingLevel": "Nivel del título"
   }
 }
