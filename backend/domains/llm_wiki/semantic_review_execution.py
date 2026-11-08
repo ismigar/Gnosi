@@ -152,18 +152,31 @@ def store_result(engine: SemanticReader, batch: ReviewBatch,
 
 
 def recover_wave(engine: SemanticReader, failures: list[tuple[ReviewBatch, Exception]], completed: int) -> bool:
+    from backend.services.reading_budget import ReadingBudgetError
     fatal = []
+    limits = []
     for batch, error in sorted(failures, key=lambda item: item[0].offset):
-        if len(batch.entries) > 1 and _has_answer_tokens(error):
-            limit = max(1, len(batch.entries) // 2)
-            engine.state["review_size_limit"] = min(limit, engine.state.get("review_size_limit", limit))
-        elif str(error) == "reading_budget_pending_cost" and completed:
+        reservation_rejected = isinstance(error, ReadingBudgetError) and str(error) in {
+            "reading_budget_pending_cost", "reading_budget_exhausted"}
+        if reservation_rejected and str(error) == "reading_budget_pending_cost" and completed:
             # An overlapping request may have held the remaining allowance.
             # Retry after it settles, with its result cached. No paid blind retry:
-            # the SDK must reserve again; a wave without new progress stops.
+            # the SDK must reserve again; a wave without new progress splits.
             continue
+        elif len(batch.entries) > 1 and (
+            _has_answer_tokens(error) or reservation_rejected
+        ):
+            # A pre-transmission reservation can reject a large group while a
+            # complete smaller group fits. Keep every note and its full maps;
+            # halve only unsaved work, ending at one note if the cap still blocks.
+            limits.append(max(1, len(batch.entries) // 2))
         else:
             fatal.append(error)
+    if not fatal:
+        # A sibling split must not change the key of a possibly paid review.
+        # Classify the complete drained wave before mutating shared grouping.
+        for limit in limits:
+            engine.state["review_size_limit"] = min(limit, engine.state.get("review_size_limit", limit))
     engine.save()
     if fatal:
         raise fatal[0]

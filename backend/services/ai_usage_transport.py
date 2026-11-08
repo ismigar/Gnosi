@@ -38,6 +38,8 @@ def observe(value: Any, *, state: dict[str, Any] | None = None) -> None:
         state["generation_id"] = str(response["id"])
     if response.get("model"):
         state["actual_model"] = str(response["model"])
+    if response.get("service_tier"):
+        state["service_tier"] = str(response["service_tier"])
 
 
 class ObservedStream:
@@ -168,7 +170,9 @@ class UsageCallback(BaseCallbackHandler):
             state["rates"] = None
         from backend.services import reading_budget
         state['reading_budget_active'] = reading_budget.active()
-        reading_budget.reserve(str(run_id), messages, kwargs.get("invocation_params") or {}, state.get("rates"), self.provider)
+        parameters = kwargs.get("invocation_params") or {}
+        state["cache_options"] = parameters.get("prompt_cache_options")
+        reading_budget.reserve(str(run_id), messages, parameters, state.get("rates"), self.provider, self.model)
         with self.lock:
             self.pending[str(run_id)] = state
         _active.set(state)
@@ -189,14 +193,27 @@ class UsageCallback(BaseCallbackHandler):
             # Estimates use the route's tariff frozen at invocation time, never
             # a native vendor's tariff inferred from an OpenRouter model prefix.
             cost, source = price(self.provider, model, tokens, raw, state.get("rates"))
-            defer_budget = self.provider == 'openrouter' and state.get('reading_budget_active', False)
+            from backend.services.openai_usage_pricing import measured
+            pricing = measured(self.provider, model, tokens, raw, state.get("rates"),
+                state.get("service_tier") or response_meta.get("service_tier"), state.get("cache_options"))
+            if pricing is not None and source != "reported":
+                cost, source = Decimal(pricing["cost_usd"]), "estimated"
+            from backend.services.openai_usage_pricing import SOL
+            observed = state.get("actual_model", "")
+            same_model = observed == self.model or (self.model == "gpt-6.1-sol" and bool(SOL.fullmatch(observed)))
+            if error is not None or not same_model:
+                pricing = None  # Keep the full hold for failed/changed-model calls.
+            # A wallet charge of zero does not mean subscription credits were
+            # unused. Keep the direct provider's measured consumption separate.
+            defer_budget = self.provider in {'openrouter', 'openai'} and state.get('reading_budget_active', False)
             added = ledger.write_call(provider=self.provider, model_id=model, **tokens,
                 cost_usd=cost, cost_source=source, call_id=state["id"], created=state["started"],
                 duration_ms=(time.time() - state["started"]) * 1000,
                 status="cancelled" if isinstance(error, BaseException) and (type(error).__name__ in {"CancelledError", "AgentTurnCancelled"}) else "failed" if error is not None else "completed",
-                metadata=state["attribution"], generation_id=generation_id, settle_budget=not defer_budget)
+                metadata=state["attribution"], generation_id=generation_id, settle_budget=not defer_budget,
+                pricing_details=pricing, refine_budget=self.provider == 'openai' and state.get('reading_budget_active', False))
             funding_confirmed = False
-            if added and defer_budget:
+            if added and defer_budget and self.provider == 'openrouter':
                 from backend.services.ai_usage_openrouter import budget_cost
                 funding = {**raw, **({'is_byok': state['is_byok']} if 'is_byok' in state else {})}
                 consumed = budget_cost(funding)

@@ -45,7 +45,7 @@ export function ProcessResourcePreflight({ estimate, estimateError, budgetLimit,
             </select>
         </label>
         {!estimate ? <p>{estimateError || translate('estimate_loading', 'Estimating without AI calls…')}</p> : <>
-            <p className="font-semibold text-[var(--text-primary)]">{estimate.model} · {estimate.provider}</p>
+            <p className="font-semibold text-[var(--text-primary)]">{estimate.model} · {estimate.provider}{estimate.processing_tier === 'flex' ? ` · ${translate('processing_tier_flex', 'Flex')}` : ''}</p>
             {estimate.incompatible_saved_chunks > 0 && <p className="text-red-500">{translate('checkpoint_incompatible_details', '{{count}} saved fragments cannot be reused with the current source or processing settings. They remain saved. Resuming is blocked to avoid paying for a fresh reading. Choose Reprocess to review a fresh estimate before starting again.', { count: estimate.incompatible_saved_chunks })}</p>}
             <p>{translate('estimate_progress', '{{saved}} saved fragments; {{remaining}} remaining; about {{calls}} calls.', { saved: estimate.saved_chunks, remaining: estimate.remaining_chunks, calls: estimate.planned_calls })}</p>
             {estimate.batch_size < batchSize && <p role="status">{t('llm_wiki.batch_reduced', { count: estimate.batch_size })}</p>}
@@ -55,6 +55,7 @@ export function ProcessResourcePreflight({ estimate, estimateError, budgetLimit,
                 {insufficient && <p role="status" className="font-semibold text-[var(--text-primary)]">{translate('estimate_over_budget', 'The calculation exceeds your available budget. Starting may only complete part of the work; your limit is not raised automatically.')}</p>}
                 <details className="space-y-2">
                     <summary className="cursor-pointer">{translate('estimate_calculation', 'How this is calculated')}</summary>
+                    {estimate.processing_tier === 'flex' && <p>{translate('estimate_flex', 'Flex halves the base tariff and may take longer. This estimate includes cache-write overhead and assumes no cache hits. Reservations include the maximum output and cache-write cost; there is no automatic switch to Standard.')}</p>}
                     {estimate.cost_in_per_million_usd != null && estimate.cost_out_per_million_usd != null && <p>{translate('estimate_tariff', 'Saved tariff for {{provider}}, per million tokens: {{input}} input and {{output}} output. Other providers’ offers do not apply to this run.', { provider: estimate.provider, input: money(estimate.cost_in_per_million_usd), output: money(estimate.cost_out_per_million_usd) })}</p>}
                     {estimate.cost_with_repairs_usd !== null && <p>{translate('estimate_repairs', 'Conservative scenario with up to two repairs per call and 10% margin: {{cost}}. This is not an authorized charge.', { cost: money(estimate.cost_with_repairs_usd) })}</p>}
                     <p>{translate('estimate_tokens', 'Estimated input: {{input}}; assumed output: {{output}} tokens. Repeated context is included.', { input: number(estimate.input_token_bound), output: number(estimate.output_tokens_assumed) })}</p>

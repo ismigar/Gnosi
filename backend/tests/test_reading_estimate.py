@@ -64,12 +64,13 @@ def test_source_lookup_preserves_unavailable_metadata_without_scanning_or_writin
     fallback.assert_not_called()
 
 
-def test_semantic_preflight_does_not_prepare_the_unused_legacy_workflow(monkeypatch, tmp_path):
+@pytest.mark.parametrize('flex', [False, True])
+def test_semantic_preflight_does_not_prepare_the_unused_legacy_workflow(monkeypatch, tmp_path, flex):
     from backend.agent import model_catalog
 
     origin = finalize_origin({'kind': 'text', 'label': 'Book', 'input_order': 0,
                               'segments': [{'text': 'A complete qualified argument.', 'locator': {'page': 1}}]})
-    runtime = SimpleNamespace(provider='openrouter', model='test', identity='runtime', reading_engine='semantic',
+    runtime = SimpleNamespace(provider='openai' if flex else 'openrouter', model='gpt-6.1-sol' if flex else 'test', identity='runtime', reading_engine='semantic',
                               instructions='Preserve evidence.', input_budget=120000, count_tokens=lambda text: len(text.encode()))
     monkeypatch.setattr(estimate, 'prepare_reading_runtime', lambda *_: runtime)
     monkeypatch.setattr(estimate.llm_wiki_extractors, 'extract_resource_sources', lambda *_: ([origin], []))
@@ -84,6 +85,10 @@ def test_semantic_preflight_does_not_prepare_the_unused_legacy_workflow(monkeypa
     assert result['reading_engine'] == 'semantic' and result['phase_calls']['interpretation'] == 1
     assert result['input_token_bound'] >= result['source_token_bound'] > 0
     assert result['cost_usd'] > 0 and result['cost_with_repairs_usd'] > result['cost_usd']
+    assert result['processing_tier'] == ('flex' if flex else 'default')
+    if flex:
+        assert result['cost_usd'] == pytest.approx((result['input_token_bound'] * .1 * 1.25
+            + result['output_tokens_assumed'] * .5) * .5 / 1_000_000)
     legacy_schema.assert_not_called()
 
 

@@ -1001,6 +1001,34 @@ def test_reading_prose_truncation_stops_before_format_repair_or_checkpoint(runti
     assert store.list_runs(scope)[0].status == 'failed'
 
 
+@pytest.mark.parametrize('metadata', [{'finish_reason': 'length'},
+    {'incomplete_details': {'reason': 'max_output_tokens'}}])
+def test_valid_json_from_an_incomplete_review_is_not_accepted_or_repaired(runtime, monkeypatch, metadata):
+    from backend.domains.llm_wiki.reading_batch_recovery import IncompleteReadingBatch
+    scope, snapshot = runtime
+    calls = install_workflow(monkeypatch, [AIMessage(content='{"changes":[]}', response_metadata=metadata)])
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation='knowledge.process-source.phase',
+        input='all original evidence', options={'reading_review_notes': 10}, max_model_calls=2)
+    with execution_scope(scope), pytest.raises(IncompleteReadingBatch):
+        asyncio.run(execution.execute_operation(request, snapshot=snapshot))
+    assert len(calls) == 1
+    assert store.list_runs(scope)[0].status == 'failed'
+
+
+@pytest.mark.parametrize('size,limit', [(1,4096),(4,4096),(5,8192),(10,8192),(11,16384),(True,16384),(0,16384),(None,16384),('4',16384),(4.0,16384),(-1,16384)])
+def test_only_small_note_reviews_have_the_smaller_output_reservation(runtime, monkeypatch, size, limit):
+    _, snapshot = runtime
+    captured = {}
+    async def workflow(*args, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(compile=lambda: 'compiled'), {}
+    monkeypatch.setattr('backend.agent.factory.create_agent_workflow', workflow)
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation='knowledge.process-source.phase',
+        input='complete sources and notes', options={'reading_review_notes': size})
+    asyncio.run(execution._operation_application(request, snapshot, {}, None))
+    assert captured['operation_max_output_tokens'] == limit
+
+
 def test_prose_map_output_reservation_is_smaller_and_frozen(runtime, monkeypatch):
     _, snapshot = runtime
     captured = {}
@@ -1013,6 +1041,27 @@ def test_prose_map_output_reservation_is_smaller_and_frozen(runtime, monkeypatch
     asyncio.run(execution._operation_application(request, snapshot, {}, None))
     assert captured['operation_max_output_tokens'] == 8192
     assert captured['prepared_agent_data'] is snapshot.profile
+
+
+@pytest.mark.parametrize('operation,provider,model,opt_out,enabled', [
+    ('knowledge.process-source.phase', 'openai', 'gpt-6.1-sol', False, True),
+    ('knowledge.process-source.phase', 'openai', 'gpt-6.1-sol', True, False),
+    ('knowledge.process-source.phase', 'openrouter', 'openai/gpt-6.1-sol', False, False),
+    ('knowledge.process-source.phase', 'openai', 'gpt-6-luna', False, False),
+    ('podcast.coverage.briefs', 'openai', 'gpt-6.1-sol', False, False),
+])
+def test_reading_flex_is_scoped_to_direct_sol_phases(runtime, monkeypatch, operation, provider, model, opt_out, enabled):
+    _, snapshot = runtime
+    snapshot = snapshot.model_copy(update={'profile': {**snapshot.profile, 'provider': provider, 'model': model}})
+    captured = {}
+    async def workflow(*args, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(compile=lambda: 'compiled'), {}
+    monkeypatch.setattr('backend.agent.factory.create_agent_workflow', workflow)
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation,
+        input='complete sources', options={'reading_performance': False} if opt_out else {})
+    asyncio.run(execution._operation_application(request, snapshot, {}, None))
+    assert captured['operation_reading_performance'] is enabled
 
 
 def test_existing_note_classification_has_bounded_output_and_no_team_handoff(runtime, monkeypatch):

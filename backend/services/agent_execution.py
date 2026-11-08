@@ -373,6 +373,15 @@ async def _operation_response(application: Any, inputs: dict[str, Any], request:
                     if request.operation == "knowledge.process-source.phase" and request.options.get("reading_prose"):
                         from backend.domains.llm_wiki.semantic_map_windows import ensure_complete
                         ensure_complete(text, getattr(message, "response_metadata", {}) or {})
+                    elif request.operation == "knowledge.process-source.phase" and request.options.get("reading_review_notes"):
+                        from backend.domains.llm_wiki.semantic_map_windows import ensure_complete, MapOutputLimit
+                        from backend.domains.llm_wiki.reading_batch_recovery import IncompleteReadingBatch
+                        try:
+                            ensure_complete(text, getattr(message, "response_metadata", {}) or {})
+                        except MapOutputLimit as error:
+                            # Even valid JSON can be an incomplete review. The
+                            # reader must split unsaved work, never accept it.
+                            raise IncompleteReadingBatch() from error
     # Keep source evidence for a format repair. Dropping these messages makes
     # the repair repeat the original read and spend its last call on a tool.
     inputs["messages"].extend(tool_history)
@@ -381,6 +390,11 @@ async def _operation_response(application: Any, inputs: dict[str, Any], request:
 
 async def _operation_application(request: AgentOperation, snapshot: AgentExecutionSnapshot, ai: Any, runtime: Any, *, validation_retry: bool = False) -> tuple[Any, Any]:
     from backend.agent.factory import create_agent_workflow
+    from backend.services.reading_performance import eligible
+    review_size = request.options.get("reading_review_notes")
+    review_count = review_size if isinstance(review_size, int) and not isinstance(review_size, bool) else 0
+    small_review = 0 < review_count <= 10
+    review_output = 4096 if small_review and review_count <= 4 else 8192 if small_review else 16384
     classifying_notes = request.operation == "knowledge" and request.data.get("task") == "knowledge.classify"
     workflow, selection = await create_agent_workflow(
         [], None, agent_id=snapshot.agent_id, user_message=operation_input(request),
@@ -395,7 +409,7 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         operation_team_help=request.operation not in {"knowledge.process-source.phase", "writing.correct.repair", "team.view_edit", "podcast.coverage.briefs", "podcast.coverage.narration", "podcast.coverage.segment", "podcast.coverage.plan", "podcast.coverage.digest", "podcast.coverage.concise", "podcast.coverage.write", "podcast.coverage.audit"} and not classifying_notes,
         # Reading returns one bounded action, never the whole book. Avoid a
         # provider-default reservation of 65,536 output tokens for each step.
-        operation_max_output_tokens=((8192 if request.options.get("reading_prose") else 16384)
+        operation_max_output_tokens=((8192 if request.options.get("reading_prose") else review_output)
                                      if request.operation == "knowledge.process-source.phase"
                                      else 1536 if request.operation == 'team.view_edit'
                                      else 4096 if classifying_notes
@@ -411,6 +425,9 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
             "one_step_lower" if request.operation == "team.plan" and request.options.get("economical_planning")
             and not validation_retry else None),
         output_schema=request.output_schema,
+        operation_reading_performance=(request.operation == "knowledge.process-source.phase"
+            and request.options.get("reading_performance", True) is True
+            and eligible(str(snapshot.profile.get("provider", "")), str(snapshot.profile.get("model", "")))),
     )
     if workflow is None:
         raise RuntimeError("principal_agent_model_unavailable")

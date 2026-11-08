@@ -76,7 +76,8 @@ def active() -> bool:
     return bool(_current.get())
 
 
-def reserve(call_id: str, messages: Any, parameters: dict[str, Any], rates: dict[str, Any] | None, provider: str) -> None:
+def reserve(call_id: str, messages: Any, parameters: dict[str, Any], rates: dict[str, Any] | None,
+            provider: str, model: str = "") -> None:
     identifier = _current.get()
     if not identifier:
         return
@@ -93,6 +94,22 @@ def reserve(call_id: str, messages: Any, parameters: dict[str, Any], rates: dict
         # invocation parameters and framing. Do not discount prompt caching.
         payload = json.dumps([messages, parameters], default=lambda v: v.model_dump() if hasattr(v, "model_dump") else str(v), ensure_ascii=False)
         input_bound = len(payload.encode("utf-8")) + 4096
+        if provider == "openai" and model == "gpt-6.1-sol":
+            options = parameters.get("prompt_cache_options") or {}
+            # Reserve cache writes as well as ordinary input; never assume hits.
+            # The explicitly bound native tier determines the quoted tariff.
+            cost_in *= Decimal("2.5") if options.get("ttl") == "12h" else Decimal("1.25")
+            if input_bound > 272_000:
+                cost_in *= 2
+                cost_out *= Decimal("1.5")
+            if parameters.get("service_tier") == "flex":
+                # Native Flex is explicitly bound, with no automatic Standard
+                # fallback. Reserve its published tariff, including every write.
+                # A body override must never invalidate the priced request.
+                if parameters.get("extra_body"):
+                    raise ReadingBudgetError("reading_budget_body_override")
+                cost_in *= Decimal("0.5")
+                cost_out *= Decimal("0.5")
         amount = (Decimal(input_bound)*cost_in + Decimal(output)*cost_out) / Decimal(1_000_000) * Decimal("1.10")
     with ledger.connect() as db:
         schema(db)
@@ -114,3 +131,14 @@ def settle(db: Any, call_id: str, cost: Any) -> None:
     if amount is not None:
         schema(db)
         db.execute("UPDATE reading_reservations SET reported_usd=? WHERE call_id=?", (str(amount), call_id))
+
+
+def refine_reservation(db: Any, call_id: str, upper_bound: Any) -> None:
+    """Replace a maximum-output hold with a conservative terminal-usage bound."""
+    amount = ledger.decimal_cost(upper_bound)
+    if amount is None or amount <= 0:
+        return
+    schema(db)
+    row = db.execute("SELECT reserved_usd,reported_usd FROM reading_reservations WHERE call_id=?", (call_id,)).fetchone()
+    if row is not None and row["reported_usd"] is None and amount != Decimal(row["reserved_usd"]):
+        db.execute("UPDATE reading_reservations SET reserved_usd=? WHERE call_id=?", (str(amount), call_id))
