@@ -91,6 +91,44 @@ def test_pending_cost_after_request_replays_request_without_paying_it_again(monk
     assert any(job == 'resumed' and key.endswith('evidence-0') for job, key in checkpoints)
 
 
+@pytest.mark.parametrize('reason', ['reading_budget_pending_cost', 'reading_budget_exhausted'])
+@pytest.mark.parametrize('ambiguous_offset', [0, 4])
+def test_mixed_cost_failure_preserves_group_key_and_paid_evidence_on_resume(monkeypatch, reason, ambiguous_offset):
+    from backend.services.reading_budget import ReadingBudgetError
+    engine, gm, nm, _, checkpoints = retrieval_case(monkeypatch)
+    engine.state['review_size_limit'] = 4
+    original = deepcopy(engine.state['plans'])
+    title = f'Argument {ambiguous_offset}:'
+    attempts = []
+    def generate(prompt, validate, timeout):
+        request = json.loads(prompt)
+        attempts.append(request)
+        if title not in request['notes'][0]['note']['title']:
+            raise ReadingBudgetError('reading_budget_pending_cost')
+        if request.get('provisional_review'):
+            raise RuntimeError(reason)
+        answer = response(request)
+        answer.update(evidence_requests=[request_evidence('', [8])], unresolved_issues=['Need the ending.'])
+        validate(answer)
+        return encoded(answer), 'offline'
+    engine.deps.generate_structured = generate
+    with pytest.raises(RuntimeError, match=reason) as failure:
+        engine.review(gm, nm)
+    assert not isinstance(failure.value, ReadingBudgetError)
+    assert engine.state['review_size_limit'] == 4
+    assert engine.state['plans'] == original and not engine.state['reviewed_groups']
+    assert sum(bool(r.get('provisional_review')) for r in attempts) == 1
+    reader, resumed_calls, _ = setup(checkpoints=checkpoints, resume='new')
+    reader.chunks = engine.reader.chunks
+    reader.job_id = 'mixed-resumed'
+    engine.reader = reader
+    engine.deps = reader.dependencies
+    assert len(engine.review(gm, nm)) == 8
+    ambiguous = [c for c in resumed_calls if title in c['notes'][0]['note']['title']]
+    assert len(ambiguous) == 1 and ambiguous[0]['provisional_review']
+    assert engine.state['reviewed_ranges'] == {'0': 4, '4': 4}
+
+
 @pytest.mark.parametrize('final_defect', [False, True])
 def test_requests_can_defer_known_prose_defects_but_final_acceptance_cannot(monkeypatch, final_defect):
     engine, gm, nm, _, _ = retrieval_case(monkeypatch)
