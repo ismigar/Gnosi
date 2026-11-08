@@ -144,7 +144,7 @@ def test_sdk_preserves_schema_and_sends_flex_breakpoints_and_prices_returned_usa
     asyncio.run(async_client.aclose())
 
 
-@pytest.mark.parametrize("change", ["missing_writes", "unknown_tier", "invalid_counts", "other_model", "new_tariff", "long_ttl"])
+@pytest.mark.parametrize("change", ["missing_writes", "unknown_tier", "invalid_counts", "other_model", "new_tariff", "long_ttl", "boolean_input", "missing_output", "negative_writes", "text_reads"])
 def test_incomplete_or_unknown_accounting_does_not_release_holds(change):
     usage = {"input_tokens_details": {"cached_tokens": 100, "cache_write_tokens": 200}}
     args = dict(provider="openai", model=MODEL, tokens={"input_tokens": 1000, "output_tokens": 100},
@@ -155,6 +155,10 @@ def test_incomplete_or_unknown_accounting_does_not_release_holds(change):
     if change == "other_model": args["model"] = "gpt-6-luna"
     if change == "new_tariff": args["rates"]["cost_in"] = 3
     if change == "long_ttl": args["options"]["ttl"] = "12h"
+    if change == "boolean_input": args["tokens"]["input_tokens"] = True
+    if change == "missing_output": del args["tokens"]["output_tokens"]
+    if change == "negative_writes": usage["input_tokens_details"]["cache_write_tokens"] = -1
+    if change == "text_reads": usage["input_tokens_details"]["cached_tokens"] = "100"
     assert measured(**args) is None
 
 

@@ -392,8 +392,9 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
     from backend.agent.factory import create_agent_workflow
     from backend.services.reading_performance import eligible
     review_size = request.options.get("reading_review_notes")
-    small_review = isinstance(review_size, int) and not isinstance(review_size, bool) and 0 < review_size <= 10
-    review_output = 4096 if small_review and review_size <= 4 else 8192 if small_review else 16384
+    review_count = review_size if isinstance(review_size, int) and not isinstance(review_size, bool) else 0
+    small_review = 0 < review_count <= 10
+    review_output = 4096 if small_review and review_count <= 4 else 8192 if small_review else 16384
     classifying_notes = request.operation == "knowledge" and request.data.get("task") == "knowledge.classify"
     workflow, selection = await create_agent_workflow(
         [], None, agent_id=snapshot.agent_id, user_message=operation_input(request),

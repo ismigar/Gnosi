@@ -20,10 +20,12 @@ def measured(provider: str, model: str, tokens: dict[str, Any], usage: dict[str,
     details = usage.get("input_tokens_details", usage.get("prompt_tokens_details", {}))
     if not isinstance(details, dict):
         return None
-    values = [tokens.get("input_tokens"), tokens.get("output_tokens"),
-              details.get("cached_tokens"), details.get("cache_write_tokens")]
-    if any(not isinstance(v, int) or isinstance(v, bool) or v < 0 for v in values):
-        return None
+    values: list[int] = []
+    for value in (tokens.get("input_tokens"), tokens.get("output_tokens"),
+                  details.get("cached_tokens"), details.get("cache_write_tokens")):
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            return None
+        values.append(value)
     inputs, outputs, reads, writes = values
     if reads + writes > inputs:
         return None
