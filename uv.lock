@@ -1008,6 +1008,7 @@ dev = [
     { name = "types-python-jose" },
     { name = "types-pyyaml" },
     { name = "types-regex" },
+    { name = "types-tinycss2" },
 ]
 docs = [
     { name = "mkdocs" },
@@ -1111,6 +1112,7 @@ dev = [
     { name = "types-python-jose", specifier = ">=3.5.0.20260408" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20260815" },
     { name = "types-regex", specifier = ">=2026.9.29.20261005" },
+    { name = "types-tinycss2", specifier = ">=1.5.1.20260414,<1.6" },
 ]
 docs = [
     { name = "mkdocs", specifier = ">=1.6.1,<2" },
@@ -3966,6 +3968,27 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/db/51/703318f7b7be8bee126ec13bf615050f932d0179b8784420f3a0199cc769/types_requests-2.33.0.20260712.tar.gz", hash = "sha256:2141b67ab534a5c5cd2dac5034f2a35f42e699c5bf185eee608c5246a069d7fb", size = 25084, upload-time = "2026-07-12T05:14:20.455Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/62/e7/010c87f559e216d83f9dc51e939633fd0d0ead3377340181ab0e223cd3b5/types_requests-2.33.0.20260712-py3-none-any.whl", hash = "sha256:de027e28c171d3da529689cbfa023b0b4eab188c8dfa22fd834eebd2cee6e7bb", size = 21392, upload-time = "2026-07-12T05:14:19.616Z" },
+]
+
+[[package]]
+name = "types-tinycss2"
+version = "1.5.1.20260414"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "types-webencodings" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d0/c3/cd37a8e100a0ddf329d9569d7baf8c50d46b59b99773a1353aa6603ca52f/types_tinycss2-1.5.1.20260414.tar.gz", hash = "sha256:1c2d3765be3cc09878cde54036f47ff896b445a3f2f1b13bf030a87b01d79735", size = 9531, upload-time = "2026-04-14T04:35:41.674Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4b/7d/d04a79a5124c94d8533fc91672d1e86c3f54f02724ccad4d9b48d8d39629/types_tinycss2-1.5.1.20260414-py3-none-any.whl", hash = "sha256:534e6b35f6a836c06177a05cbd1eb772735eb4b805698e555a880aae8868482b", size = 11380, upload-time = "2026-04-14T04:35:40.361Z" },
+]
+
+[[package]]
+name = "types-webencodings"
+version = "0.6.0.20261104"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/63/b8/722e153333019ac643dfac24be7c8d2fa21cbea791c94c39a1c58f413211/types_webencodings-0.6.0.20261104.tar.gz", hash = "sha256:3021d7ea7011a4a51a43b2dc4c0e4856c8d9b1bb1a1a3d2500ab177224225b08", size = 7818, upload-time = "2026-11-04T08:13:58.651Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/3b/93a20758bf4b0a388a97672c7bd8212856bf744f6894fdaa8d2f877815cd/types_webencodings-0.6.0.20261104-py3-none-any.whl", hash = "sha256:a719903a309f35d43a99461e801df94af2def074dec2694423c7a2601ddcc45d", size = 8577, upload-time = "2026-11-04T08:13:57.726Z" },
 ]
 
 [[package]]
