@@ -393,6 +393,7 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
     from backend.services.reading_performance import eligible
     review_size = request.options.get("reading_review_notes")
     small_review = isinstance(review_size, int) and not isinstance(review_size, bool) and 0 < review_size <= 10
+    review_output = 4096 if small_review and review_size <= 4 else 8192 if small_review else 16384
     classifying_notes = request.operation == "knowledge" and request.data.get("task") == "knowledge.classify"
     workflow, selection = await create_agent_workflow(
         [], None, agent_id=snapshot.agent_id, user_message=operation_input(request),
@@ -407,7 +408,7 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         operation_team_help=request.operation not in {"knowledge.process-source.phase", "writing.correct.repair", "team.view_edit", "podcast.coverage.briefs", "podcast.coverage.narration", "podcast.coverage.segment", "podcast.coverage.plan", "podcast.coverage.digest", "podcast.coverage.concise", "podcast.coverage.write", "podcast.coverage.audit"} and not classifying_notes,
         # Reading returns one bounded action, never the whole book. Avoid a
         # provider-default reservation of 65,536 output tokens for each step.
-        operation_max_output_tokens=((8192 if request.options.get("reading_prose") or small_review else 16384)
+        operation_max_output_tokens=((8192 if request.options.get("reading_prose") else review_output)
                                      if request.operation == "knowledge.process-source.phase"
                                      else 1536 if request.operation == 'team.view_edit'
                                      else 4096 if classifying_notes

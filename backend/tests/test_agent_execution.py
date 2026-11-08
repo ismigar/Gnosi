@@ -1015,7 +1015,7 @@ def test_valid_json_from_an_incomplete_review_is_not_accepted_or_repaired(runtim
     assert store.list_runs(scope)[0].status == 'failed'
 
 
-@pytest.mark.parametrize('size,limit', [(1,8192),(10,8192),(11,16384),(True,16384),(0,16384)])
+@pytest.mark.parametrize('size,limit', [(1,4096),(4,4096),(5,8192),(10,8192),(11,16384),(True,16384),(0,16384)])
 def test_only_small_note_reviews_have_the_smaller_output_reservation(runtime, monkeypatch, size, limit):
     _, snapshot = runtime
     captured = {}
