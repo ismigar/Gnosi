@@ -62,6 +62,17 @@ def test_shared_prefix_is_stable_and_complete_values_are_lossless():
     assert "Another complete" not in prefixes[1]["text"]
 
 
+def test_transport_selection_is_not_exposed_as_a_different_reading_instruction():
+    from backend.services.agent_behavior import operation_input
+    from backend.services.agent_execution_models import AgentOperation
+    request = AgentOperation(skill_id="knowledge", operation="knowledge.process-source.phase",
+        input="Complete original", options={"reading_prose": True, "reading_performance": False})
+    baseline = operation_input(request)
+    optimized = operation_input(request.model_copy(update={"options": {**request.options, "reading_performance": True}}))
+    assert baseline == optimized
+    assert json.loads(baseline)["options"] == {"reading_prose": True}
+
+
 @pytest.mark.parametrize("asynchronous", [False, True])
 @pytest.mark.parametrize("responses", [False, True])
 @pytest.mark.parametrize("reported_zero", [False, True])
