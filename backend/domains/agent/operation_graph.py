@@ -61,9 +61,8 @@ def operation_workflow(model: Any, instructions: str, context_window: int, *, te
         if max_output_tokens is not None:
             active_model = active_model.bind(max_tokens=max_output_tokens)
         active_model = constrain_default_reasoning(active_model, provider, default_reasoning_effort)
-        if reading_performance:
-            from backend.services.reading_performance import prepare
-            active_model, messages = prepare(active_model, messages)
+        from backend.services.reading_performance import prepare
+        active_model, messages = prepare(active_model, messages, enabled=reading_performance)
         from backend.services.agent_context_budget import OperationContextExceeded, messages_budget
         from backend.services.agent_execution_trace import record
         budget = messages_budget(messages, str(getattr(model, "model_name", "") or getattr(model, "model", "")), context_window)

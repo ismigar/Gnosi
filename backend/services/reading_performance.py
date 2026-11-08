@@ -17,6 +17,12 @@ def eligible(provider: str, model: str) -> bool:
     return provider == "openai" and model == MODEL
 
 
+def validate_route(selection: Any, *, enabled: bool) -> None:
+    if enabled and (not eligible(selection.provider_name, str(selection.model_name or ""))
+                    or selection.fallback_metadata):
+        raise RuntimeError("reading_performance_route_changed")
+
+
 def _block(text: str, *, cached: bool = False) -> dict[str, Any]:
     return {"type": "text", "text": text,
             **({"prompt_cache_breakpoint": {"mode": "explicit"}} if cached else {})}
@@ -49,8 +55,10 @@ def _shared_input(content: str) -> list[dict[str, Any]] | None:
     return [_block(prefix, cached=True), _block(tail)]
 
 
-def prepare(model: Any, messages: list[BaseMessage]) -> tuple[Any, list[BaseMessage]]:
+def prepare(model: Any, messages: list[BaseMessage], *, enabled: bool = True) -> tuple[Any, list[BaseMessage]]:
     """Keep the selected model/effort/contract and never fall back from Flex."""
+    if not enabled:
+        return model, messages
     base = getattr(model, "bound", model)
     url = urlsplit(str(getattr(base, "openai_api_base", None) or "https://api.openai.com/v1"))
     extra = getattr(base, "extra_body", None) or getattr(model, "kwargs", {}).get("extra_body")

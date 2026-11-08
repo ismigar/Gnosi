@@ -258,10 +258,8 @@ async def create_agent_workflow(
             general_prompt=prompts.general_prompt + "\n\n" + team_help.instructions)
     if operation_mode:
         from backend.domains.agent.operation_graph import operation_workflow
-        if operation_reading_performance:
-            from backend.services.reading_performance import eligible
-            if not eligible(model.provider_name, str(model.model_name or "")) or model.fallback_metadata:
-                raise RuntimeError("reading_performance_route_changed")
+        from backend.services.reading_performance import validate_route
+        validate_route(model, enabled=operation_reading_performance)
         if operation_read_tools:
             from backend.domains.agent.runtime_tools import _model_supports_tools
             from backend.agent.json_tool_model import JsonToolModel
