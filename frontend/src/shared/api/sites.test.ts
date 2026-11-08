@@ -37,8 +37,9 @@ it.each([{ actions: null }, { actions: [] }, { actions: [{ label: 'Hero', href: 
   const request = requestAt(fetchMock.mock.calls, 0);
   expect(await request.json()).toMatchObject({
     navigation: [{ label: 'Menu', href: '/ca', appearance: 'link' }], footer: [{ appearance: 'outline' }], header_actions: [{ appearance: 'button' }],
+    newsletter_names_required: true,
     sources: [{ page_size: 16, show_tag_filter: false }],
-    pages: [{ blocks: [{ actions: actions?.map(action => ({ ...action, appearance: 'link' })) ?? null }] }],
+    pages: [{ blocks: [{ heading_level: 2, actions: actions?.map(action => ({ ...action, appearance: 'link' })) ?? null }] }],
   });
   expect(site).not.toHaveProperty('navigation.0.appearance');
   expect(site).not.toHaveProperty('sources.0.page_size');

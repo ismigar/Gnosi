@@ -176,7 +176,7 @@ test('source pagination and the public tag filter retain their values through ot
 
 
 test('newsletter privacy edits preserve other languages and contact privacy', () => {
-  const initial = { ...base, newsletter_privacy_text: { ca: 'Existing CA', en: 'Existing EN' }, forms: [{ id: 'support', name: 'Support', revision: 1, enabled: false, privacy_url: '', require_privacy: false, privacy_text: { ca: 'Contact privacy' } }] };
+  const initial = { ...base, newsletter_names_required: true, newsletter_privacy_text: { ca: 'Existing CA', en: 'Existing EN' }, forms: [{ id: 'support', name: 'Support', revision: 1, enabled: false, privacy_url: '', require_privacy: false, privacy_text: { ca: 'Contact privacy' } }] };
   const view = mountEditor(initial, (site, onChange) => <FormsEditor site={site} onChange={onChange} />);
   const notice = required([...view.container.querySelectorAll('details')].find(item => item.querySelector('summary')?.textContent === 'websites.newsletterPrivacy'));
   expect(notice.open).toBe(false);
