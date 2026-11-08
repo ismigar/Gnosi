@@ -8949,7 +8949,7 @@
     "editingLanguage": "Editing language",
     "newForm": "New contact form",
     "addForm": "Add form",
-    "formHelp": "Add this form to a page with a Form block. Recipients are configured in Private settings.",
+    "formHelp": "Add this form to a page with a Form block. Configure recipients in Mail and server data.",
     "noForms": "No contact forms configured.",
     "internalName": "Internal name",
     "introduction": "Introduction",
@@ -9034,7 +9034,7 @@
     "previous": "Previous",
     "next": "Next",
     "resultRange": "{{start}}–{{end}} of {{total}}",
-    "privateSettings": "Private service settings",
+    "privateSettings": "Mail and server data",
     "privateSettingsHelp": "Recipients, credentials and received data are stored privately outside the synchronized vault.",
     "adminRequired": "Administrator access and a configured private service are required.",
     "settingsFailed": "Could not save the private settings.",
@@ -9108,7 +9108,7 @@
       "subscribers": "Subscribers",
       "campaigns": "Newsletters",
       "publishing": "Publication",
-      "settings": "Private settings",
+      "settings": "Mail and server data",
       "hosting": "Hosting",
       "configuration": "Configuration",
       "regions": "Blocks & regions"
@@ -9260,7 +9260,7 @@
     "normal": "Normal",
     "italic": "Italic",
     "settingsApplyFailed": "Settings saved privately, but could not be applied to the website service. Check the connection and save again.",
-    "settingsNotApplied": "Private settings await activation of the website service.",
+    "settingsNotApplied": "Mail and server data settings will apply when the website service is activated.",
     "recordSelection": "Entry selection and withdrawals",
     "allMatchingRecords": "All records matching the source filters",
     "onlySelectedRecords": "Only explicitly selected records",
@@ -9481,6 +9481,9 @@
     "pageRegionsHelp": "This editor shows only this page’s content. Shared header and footer blocks are managed in Blocks & regions and applied to the published website.",
     "productionDelivery": "Production mail: messages will be handed to the mail server.",
     "deliveryTransport": "Delivery transport",
-    "serverMail": "Server mail"
+    "serverMail": "Server mail",
+    "newsletterPrivacy": "Newsletter privacy",
+    "newsletterPrivacyHelp": "Basic information shown before consent: controller, purpose, lawful basis, recipients and rights. The policy link is shown in each language.",
+    "newsletterNamesRequired": "Require newsletter first and last names"
   }
 }

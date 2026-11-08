@@ -20,13 +20,15 @@ def test_generic_original_routes_and_contact_texts_render_without_temenos_defaul
                     privacy_label={'fr': 'Je consens au traitement'}, newsletter_list='news',
                     newsletter_label={'fr': 'Recevoir nos nouvelles'}, required_message={'fr': 'À compléter'},
                     failure_message={'fr': 'Réessayez plus tard'}, privacy_url='/privacy',
-                    privacy_link_label={'fr': 'Notre politique', 'en': 'Our policy'})
+                    privacy_link_label={'fr': 'Notre politique', 'en': 'Our policy'}, privacy_urls={'en': '/en/privacy'})
     for field_type in ('select', 'radio'):
         form.fields.append(FormField(id=field_type, type=field_type, options=['red', 'blue'],
                                      option_labels={'red': {'fr': 'Rouge', 'en': 'Red', 'es': ''}, 'blue': {'fr': 'Bleu', 'en': 'Blue'}}))
     for name in ('privacy_link_label', 'privacy_label', 'newsletter_label', 'required_message', 'failure_message', 'submit_label'):
         getattr(form, name)['es'] = ''
-    site = SiteConfig(name='Independent', origin='https://source.example.org', languages=['fr', 'en', 'es'], default_language='fr', forms=[form], pages=[
+    site = SiteConfig(name='Independent', origin='https://source.example.org', languages=['fr', 'en', 'es'], default_language='fr', forms=[form],
+                      newsletter_privacy_text={'fr': 'Responsable FR <script>not executable</script>', 'en': 'Controller EN'}, newsletter_names_required=False,
+                      footer_blocks=[SiteBlock(type='newsletter')], pages=[
         SitePage(title='Accueil', path='/', language='fr', enabled=True, blocks=[SiteBlock(body='[Local](https://source.example.org/about)\n\n[Original](https://source.example.org/not-imported)')]),
         SitePage(title='About', path='/about', language='en', enabled=True, blocks=[SiteBlock(type='form', form_id='support')]),
         SitePage(title='Contact', path='/contact', language='fr', enabled=True, blocks=[SiteBlock(type='form', form_id='support')]),
@@ -38,6 +40,19 @@ def test_generic_original_routes_and_contact_texts_render_without_temenos_defaul
     output = tmp_path / 'public'
     render_bundle(bundle, output)
     home = BeautifulSoup((output / 'index.html').read_text(), 'html.parser')
+    for path, notice in [('contact', 'Responsable FR <script>not executable</script>'), ('about', 'Controller EN')]:
+        rendered = BeautifulSoup((output / path / 'index.html').read_text(), 'html.parser')
+        subscription = rendered.select_one('form.staging-subscription')
+        assert subscription.select_one('.newsletter-privacy').get_text() == notice
+        assert subscription.select_one('.newsletter-privacy script') is None
+        nodes = list(subscription.descendants)
+        assert nodes.index(subscription.select_one('.newsletter-privacy')) < nodes.index(subscription.select_one('input[name=consent]'))
+        trap = subscription.select_one('input[name=website]')
+        assert trap['tabindex'] == '-1' and trap.parent.parent['aria-hidden'] == 'true'
+        assert not subscription.select_one('input[name=first_name]').has_attr('required')
+        assert not subscription.select_one('input[name=last_name]').has_attr('required')
+        assert subscription.select_one('input[name=email]').has_attr('required')
+        assert subscription.select_one('input[name=consent]').has_attr('required')
     assert home.select_one('.brand')['href'] == '/_gnosi-general/current/'
     assert home.select_one('.header-tools a[lang=en]')['href'] == '/_gnosi-general/current/about'
     links = {link.get_text(): link['href'] for link in home.select('.record-body a')}
@@ -60,6 +75,7 @@ def test_generic_original_routes_and_contact_texts_render_without_temenos_defaul
         assert [radio['value'] for radio in radios] == ['red', 'blue']
         assert [radio.parent.get_text() for radio in radios] == captions
         assert translated.select_one('a[href$="/privacy"]').get_text() == privacy
+        assert translated.select_one('form[data-contact] a')['href'] == '/_gnosi-general/current/' + ('en/privacy' if language == 'en' else 'privacy')
     fallback = BeautifulSoup((output / 'contacto/index.html').read_text(), 'html.parser')
     assert [option.get_text() for option in fallback.select('select option[value]:not([value=""])')] == ['red', 'blue']
     assert [radio.parent.get_text() for radio in fallback.select('input[type=radio]')] == ['red', 'blue']

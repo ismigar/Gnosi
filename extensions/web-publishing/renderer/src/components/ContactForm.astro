@@ -4,6 +4,7 @@ const {form,lang}=Astro.props;
 const text=labels(lang);
 const override=(values,fallback)=>values?.[lang] || fallback;
 const instance=Astro.props.instance || form.id;
+const privacyUrl=form.privacy_urls?.[lang] ?? form.privacy_url;
 ---
 <section data-pagefind-ignore>
   <h2>{translate(form.title,lang,form.name)}</h2>
@@ -25,7 +26,7 @@ const instance=Astro.props.instance || form.id;
         {translate(field.help,lang) && <p id={`${id}-help`} class="field-help">{translate(field.help,lang)}</p>}
       </div>;
     })}
-    {(translate(form.privacy_text,lang) || form.privacy_url) && <div><p>{translate(form.privacy_text,lang)}</p>{form.privacy_url && <a href={href(form.privacy_url)} {...linkProps(form.privacy_url)}>{override(form.privacy_link_label,text.privacy)}</a>}</div>}
+    {(translate(form.privacy_text,lang) || privacyUrl) && <div><p>{translate(form.privacy_text,lang)}</p>{privacyUrl && <a href={href(privacyUrl)} {...linkProps(privacyUrl)}>{override(form.privacy_link_label,text.privacy)}</a>}</div>}
     {form.require_privacy && <label class="choice"><input type="checkbox" name="privacy" value="1" required/>{override(form.privacy_label,text.privacy)}</label>}
     {form.newsletter_list && <label class="choice"><input type="checkbox" name="newsletter_opt_in" value="1"/>{override(form.newsletter_label,text.newsletter)}</label>}
     <div data-contact-status role="status" aria-live="polite" tabindex="-1"></div>

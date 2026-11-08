@@ -199,6 +199,7 @@ class SiteForm(Contract):
     required_message: dict[str, str] = Field(default_factory=dict)
     failure_message: dict[str, str] = Field(default_factory=dict)
     privacy_url: str = ""
+    privacy_urls: dict[str, str] = Field(default_factory=dict)
     require_privacy: bool = False
     redirect_path: str | None = None
     newsletter_list: str | None = None
@@ -254,6 +255,8 @@ class SiteConfig(Contract):
     sources: list[SiteSource] = Field(default_factory=list)
     pages: list[SitePage] = Field(default_factory=list)
     forms: list[SiteForm] = Field(default_factory=lambda: [SiteForm(id="contact")])
+    newsletter_privacy_text: dict[str, str] = Field(default_factory=dict)
+    newsletter_names_required: bool = True
     theme: SiteTheme = Field(default_factory=SiteTheme)
     header_actions: list[NavigationLink] = Field(default_factory=list)
     navigation: list[NavigationLink] = Field(default_factory=list)

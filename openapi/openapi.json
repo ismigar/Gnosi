@@ -35808,6 +35808,18 @@
             "title": "Navigation",
             "type": "array"
           },
+          "newsletter_names_required": {
+            "default": true,
+            "title": "Newsletter Names Required",
+            "type": "boolean"
+          },
+          "newsletter_privacy_text": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Newsletter Privacy Text",
+            "type": "object"
+          },
           "origin": {
             "default": "http://127.0.0.1:4321",
             "title": "Origin",
@@ -36066,6 +36078,13 @@
             "default": "",
             "title": "Privacy Url",
             "type": "string"
+          },
+          "privacy_urls": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Privacy Urls",
+            "type": "object"
           },
           "redirect_path": {
             "anyOf": [

@@ -86,12 +86,12 @@ function required<T>(value: T | null | undefined): T { if (value == null) throw 
 function card(container: HTMLElement, title: string) {
   return required([...container.querySelectorAll<HTMLElement>('.websites-card')].find(element => element.querySelector('h2')?.textContent === title));
 }
-function control(container: HTMLElement, label: string): HTMLInputElement | HTMLSelectElement {
-  return required([...container.querySelectorAll('label')].find(element => element.querySelector('span')?.textContent === label)?.querySelector<HTMLInputElement | HTMLSelectElement>('input,select'));
+function control(container: HTMLElement, label: string): HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement {
+  return required([...container.querySelectorAll('label')].find(element => element.querySelector('span')?.textContent === label)?.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input,select,textarea'));
 }
 function edit(container: HTMLElement, label: string, value: string) {
   const element = control(container, label);
-  const prototype = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+  const prototype = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   act(() => {
     Object.getOwnPropertyDescriptor(prototype, 'value')?.set?.call(element, value);
     element.dispatchEvent(new Event(element instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }));
@@ -173,6 +173,24 @@ test('source pagination and the public tag filter retain their values through ot
   expect(view.savedResponse().sources?.[0]?.page_size).toBe(1);
 });
 
+
+test('newsletter privacy edits preserve other languages and contact privacy', () => {
+  const initial = { ...base, newsletter_privacy_text: { ca: 'Existing CA', en: 'Existing EN' }, forms: [{ id: 'support', name: 'Support', revision: 1, enabled: false, privacy_url: '', require_privacy: false, privacy_text: { ca: 'Contact privacy' } }] };
+  const view = mountEditor(initial, (site, onChange) => <FormsEditor site={site} onChange={onChange} />);
+  const notice = required([...view.container.querySelectorAll('details')].find(item => item.querySelector('summary')?.textContent === 'websites.newsletterPrivacy'));
+  expect(notice.open).toBe(false);
+  act(() => { notice.open = true; notice.dispatchEvent(new Event('toggle')); });
+  click(notice, 'websites.newsletterNamesRequired');
+  edit(notice, 'websites.privacyText', 'Updated CA notice');
+  edit(view.container, 'websites.editingLanguage', 'en');
+  expect(control(notice, 'websites.privacyText').value).toBe('Existing EN');
+  edit(notice, 'websites.privacyText', 'Updated EN notice');
+  const saved = view.savedResponse();
+  expect(saved.newsletter_privacy_text).toEqual({ ca: 'Updated CA notice', en: 'Updated EN notice' });
+  expect(saved.newsletter_names_required).toBe(false);
+  expect(saved.forms?.[0]?.privacy_text).toEqual({ ca: 'Contact privacy' });
+  view.unmount();
+});
 
 test('contact consent and error captions remain independent for each configured language', () => {
   const initial = { ...base, forms: [{ id: 'support', name: 'Support', revision: 1, enabled: false, privacy_url: '', require_privacy: false }] };

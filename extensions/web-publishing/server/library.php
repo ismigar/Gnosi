@@ -122,9 +122,14 @@ final class SiteService {
         foreach ($tokens as $token) $this->q('INSERT OR IGNORE INTO queue_tokens VALUES (?,?)', [$queueId, hash('sha256', $token)]);
     }
 
+    private function honeypotFilled(array $request): bool {
+        // Only an absent field or the empty browser value is legitimate.
+        return array_key_exists('website', $request) && $request['website'] !== '';
+    }
+
     public function contact(array $request, string $ip): array {
         $language = $this->lang($request['language'] ?? 'ca'); $generic = ['received' => true, 'message' => $this->labels($language)['received']];
-        if (!$this->storage->rate('contact', $ip) || !empty($request['website'])) return $generic;
+        if ($this->honeypotFilled($request) || !$this->storage->rate('contact', $ip)) return $generic;
         $formId = $this->key($request['form_id'] ?? null);
         $row = $this->q('SELECT * FROM forms WHERE id=?', [$formId])->fetch();
         if (!$row) throw new InvalidArgumentException('form_unavailable');
@@ -213,8 +218,8 @@ final class SiteService {
     }
 
     public function subscribe(array $request, string $ip): array {
-        if (!$this->storage->rate('subscribe', $ip) || !empty($request['website']) || !in_array($request['consent'] ?? '', ['1', true, 1, 'on'], true)) return ['received' => true];
-        try { $email = $this->email($request['email'] ?? ''); $lang = $this->lang($request['language'] ?? 'ca'); $list = $this->key($request['list_id'] ?? 'main'); $interests = $this->interests($request['interests'] ?? []); $firstName = $this->subscriberName($request['first_name'] ?? ''); $lastName = $this->subscriberName($request['last_name'] ?? ''); if ((array_key_exists('first_name', $request) || array_key_exists('last_name', $request)) && ($firstName === '' || $lastName === '')) throw new InvalidArgumentException('name'); }
+        if ($this->honeypotFilled($request) || !$this->storage->rate('subscribe', $ip) || !in_array($request['consent'] ?? '', ['1', true, 1, 'on'], true)) return ['received' => true];
+        try { $email = $this->email($request['email'] ?? ''); $lang = $this->lang($request['language'] ?? 'ca'); $list = $this->key($request['list_id'] ?? 'main'); $interests = $this->interests($request['interests'] ?? []); $firstName = $this->subscriberName($request['first_name'] ?? ''); $lastName = $this->subscriberName($request['last_name'] ?? ''); if (($this->config['newsletter_names_required'] ?? true) && (array_key_exists('first_name', $request) || array_key_exists('last_name', $request)) && ($firstName === '' || $lastName === '')) throw new InvalidArgumentException('name'); }
         catch (InvalidArgumentException $e) { return ['received' => true]; }
         $this->tx(function () use ($email, $lang, $list, $interests, $firstName, $lastName) {
             $existing = $this->q('SELECT * FROM subscribers WHERE email=?', [$email])->fetch();
@@ -230,7 +235,7 @@ final class SiteService {
             $this->q("UPDATE tokens SET used_at=? WHERE subscriber_id=? AND kind='confirm' AND list_id=? AND used_at IS NULL", [$now, $id, $list]);
             $token = $this->token($id, 'confirm', $list); $unsubscribe = $this->token($id, 'unsubscribe', '*');
             $this->q('INSERT INTO subscription_requests VALUES (?,?,?,?,?,NULL)', [hash('sha256', $token), $lang, $this->json($interests), $now, 'webs-v1']);
-            if ($firstName !== '') $this->q('INSERT INTO subscription_names VALUES (?,?,?)', [hash('sha256', $token), $firstName, $lastName]);
+            if ($firstName !== '' || $lastName !== '') $this->q('INSERT INTO subscription_names VALUES (?,?,?)', [hash('sha256', $token), $firstName, $lastName]);
             $labels = $this->labels($lang); $url = $this->tokenLink('confirm', $token, $lang); $off = $this->tokenLink('unsubscribe', $unsubscribe, $lang);
             $body = '<p><a href="'.$this->escape($url).'">'.$this->escape($labels['confirm']).'</a></p><p><a href="'.$this->escape($off).'">'.$this->escape($labels['unsubscribe']).'</a></p>';
             $this->queue('confirmation', hash('sha256', $token), $email, $labels['confirm'], $body, $labels['confirm']."\n".$url."\n".$labels['unsubscribe']."\n".$off, '', $id, $list, null, [$token, $unsubscribe]);

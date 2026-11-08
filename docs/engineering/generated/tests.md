@@ -11,8 +11,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 36 | 117 |
-| Vitest | 764 | 3495 |
-| pytest | 786 | 6057 |
+| Vitest | 764 | 3496 |
+| pytest | 786 | 6062 |
 
 ## Files
 
@@ -567,7 +567,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/features/websites/PrivatePanels.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/PrivatePanels.test.tsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/websites/SourcesEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/SourcesEditor.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/websites/WebsiteAppearance.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteAppearance.test.tsx) | 8 | call-pattern estimate |
-| Vitest | [`frontend/src/features/websites/WebsiteContentEditors.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteContentEditors.test.tsx) | 14 | call-pattern estimate |
+| Vitest | [`frontend/src/features/websites/WebsiteContentEditors.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteContentEditors.test.tsx) | 15 | call-pattern estimate |
 | Vitest | [`frontend/src/features/websites/WebsiteFileField.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteFileField.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/websites/WebsitesManagement.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesManagement.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/websites/WebsitesPage.production.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesPage.production.test.tsx) | 1 | call-pattern estimate |
@@ -1390,7 +1390,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_sites_generic_configuration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_generic_configuration.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_sites_generic_rendering.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_generic_rendering.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_sites_imported_pilot.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_imported_pilot.py) | 6 | Python AST |
-| pytest | [`backend/tests/test_sites_layout_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_layout_config.py) | 7 | Python AST |
+| pytest | [`backend/tests/test_sites_layout_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_layout_config.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_sites_newsletter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_newsletter.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_sites_page_editor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_page_editor.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_sites_pangea_connections.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_pangea_connections.py) | 5 | Python AST |
@@ -1403,7 +1403,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_sites_rendering.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_rendering.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_sites_ssh_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_ssh_transport.py) | 13 | Python AST |
 | pytest | [`backend/tests/test_sites_stylesheets.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_stylesheets.py) | 8 | Python AST |
-| pytest | [`backend/tests/test_sites_theme_assets.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_theme_assets.py) | 12 | Python AST |
+| pytest | [`backend/tests/test_sites_theme_assets.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_theme_assets.py) | 13 | Python AST |
 | pytest | [`backend/tests/test_sites_theme_parity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_theme_parity.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_sites_url_import.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_url_import.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_skill_catalog_startup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_skill_catalog_startup.py) | 1 | Python AST |
@@ -1567,7 +1567,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`extensions/mcp/gnosi-connector/tests/test_connector.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/mcp/gnosi-connector/tests/test_connector.py) | 21 | Python AST |
 | pytest | [`extensions/mcp/gnosi-connector/tests/test_editing.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/mcp/gnosi-connector/tests/test_editing.py) | 3 | Python AST |
 | pytest | [`extensions/office/libreoffice-cite/tests/test_doc_traversal.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/office/libreoffice-cite/tests/test_doc_traversal.py) | 9 | Python AST |
-| pytest | [`extensions/web-publishing/server/test_http.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/web-publishing/server/test_http.py) | 10 | Python AST |
+| pytest | [`extensions/web-publishing/server/test_http.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/web-publishing/server/test_http.py) | 12 | Python AST |
 | pytest | [`pipeline/skills/python_module_refactor/tests/test_tools.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/python_module_refactor/tests/test_tools.py) | 7 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_ai_guide_parity.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_ai_guide_parity.py) | 4 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_catalog_path_boundaries.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_catalog_path_boundaries.py) | 2 | Python AST |

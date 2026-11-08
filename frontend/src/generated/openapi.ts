@@ -25864,6 +25864,15 @@ export interface components {
             /** Navigation */
             navigation?: components["schemas"]["NavigationLink"][];
             /**
+             * Newsletter Names Required
+             * @default true
+             */
+            newsletter_names_required: boolean;
+            /** Newsletter Privacy Text */
+            newsletter_privacy_text?: {
+                [key: string]: string;
+            };
+            /**
              * Origin
              * @default http://127.0.0.1:4321
              */
@@ -25994,6 +26003,10 @@ export interface components {
              * @default
              */
             privacy_url: string;
+            /** Privacy Urls */
+            privacy_urls?: {
+                [key: string]: string;
+            };
             /** Redirect Path */
             redirect_path?: string | null;
             /**

@@ -9004,7 +9004,7 @@
     "editingLanguage": "Idioma d’edició",
     "newForm": "Formulari de contacte nou",
     "addForm": "Afegeix un formulari",
-    "formHelp": "Afegeix-lo a una pàgina amb un bloc Formulari. Configura els destinataris a Configuració privada.",
+    "formHelp": "Afegeix-lo a una pàgina amb un bloc Formulari. Configura els destinataris a Correu i dades del servidor.",
     "noForms": "Cap formulari de contacte configurat.",
     "internalName": "Nom intern",
     "introduction": "Introducció",
@@ -9089,7 +9089,7 @@
     "previous": "Anterior",
     "next": "Següent",
     "resultRange": "{{start}}–{{end}} de {{total}}",
-    "privateSettings": "Configuració privada del servei",
+    "privateSettings": "Correu i dades del servidor",
     "privateSettingsHelp": "Els destinataris, les credencials i les dades rebudes es desen fora del vault sincronitzat.",
     "adminRequired": "Cal accés d’administració i un servei privat configurat.",
     "settingsFailed": "No s’ha pogut desar la configuració privada.",
@@ -9163,7 +9163,7 @@
       "subscribers": "Subscriptors",
       "campaigns": "Butlletins",
       "publishing": "Publicació",
-      "settings": "Configuració privada",
+      "settings": "Correu i dades del servidor",
       "hosting": "Allotjaments",
       "configuration": "Configuració",
       "regions": "Blocs i regions"
@@ -9315,7 +9315,7 @@
     "normal": "Normal",
     "italic": "Cursiva",
     "settingsApplyFailed": "Configuració desada en privat, però no s’ha pogut aplicar al servei del web. Revisa la connexió i torna a desar.",
-    "settingsNotApplied": "La configuració privada està pendent d’activar el servei del web.",
+    "settingsNotApplied": "La configuració del correu i les dades del servidor s’aplicarà en activar el servei del web.",
     "recordSelection": "Selecció i retirada d’entrades",
     "allMatchingRecords": "Totes les entrades que compleixen els filtres",
     "onlySelectedRecords": "Només les entrades seleccionades explícitament",
@@ -9536,6 +9536,9 @@
     "pageRegionsHelp": "Aquest editor mostra només el contingut de la pàgina. Els blocs comuns de capçalera i peu es gestionen a Blocs i regions i s’apliquen al web publicat.",
     "productionDelivery": "Correu de producció: els enviaments s’entregaran al servidor de correu.",
     "deliveryTransport": "Sistema d’enviament",
-    "serverMail": "Correu del servidor"
+    "serverMail": "Correu del servidor",
+    "newsletterPrivacy": "Privacitat del butlletí",
+    "newsletterPrivacyHelp": "Informació bàsica visible abans del consentiment: responsable, finalitat, base jurídica, destinataris i drets. L’enllaç a la política es mostra a cada idioma.",
+    "newsletterNamesRequired": "Nom i cognoms obligatoris al butlletí"
   }
 }

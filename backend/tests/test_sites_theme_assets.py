@@ -40,6 +40,20 @@ def test_asset_preview_refuses_other_sites_and_private_files(website):
             theme_assets.read_asset(website.store, other, secret)
 
 
+def test_localized_form_privacy_exports_only_enabled_language_assets(website):
+    public, _ = theme_assets.upload(website.store, website.site, 'privacy.png', png(), 'image')
+    private, _ = theme_assets.upload(website.store, website.site, 'unpublished.png', png() + b'private', 'image')
+    site = website.site.model_copy(deep=True)
+    site.forms[0].enabled = True
+    site.forms[0].privacy_urls = {site.default_language: public, 'fr': private}
+    assert 'fr' not in site.languages
+    bundle = exporter.build_bundle(website.store, site, 'local')
+    assert set(bundle.site.forms[0].privacy_urls) == {site.default_language}
+    assert bundle.site.forms[0].privacy_urls[site.default_language].startswith('/assets/')
+    assert len(bundle.assets) == 1
+    assert Path(bundle.assets[0].private_source).read_bytes() == png()
+
+
 @pytest.mark.parametrize("name,raw,kind", [("logo.svg", b'<svg onload="alert(1)"/>', "image"), ("logo.png", b"invalid", "image"), ("font.woff2", b"wOF2broken", "font"), ("font.ttf", b"invalid", "font"), ("logo.png", b"x" * 4_000_001, "image")])
 def test_invalid_or_oversized_uploads_leave_no_asset(website, name, raw, kind):
     with pytest.raises(HTTPException):

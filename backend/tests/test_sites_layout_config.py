@@ -64,6 +64,27 @@ def test_new_import_preserves_privacy_and_exposes_public_filters(imported_pilot)
     assert all(page.blocks[0].actions == [] for page in site.pages if page.template == 'home')
 
 
+@pytest.mark.parametrize('destination', ['javascript:alert(1)', 'https://user:secret@example.invalid/', '//example.invalid/'])
+def test_localized_privacy_links_reject_unsafe_destinations(destination):
+    site = SiteConfig(name='Example')
+    site.forms[0].privacy_urls = {'en': '/privacy', 'ca': destination}
+    with pytest.raises(HTTPException):
+        validate_site(site)
+
+
+def test_newsletter_privacy_settings_and_contact_languages_roundtrip(website):
+    site = website.site
+    site.newsletter_names_required = False
+    site.newsletter_privacy_text = {'ca': 'Responsable i finalitat', 'en': 'Controller and purpose'}
+    site.forms[0].privacy_urls = {'ca': '/privacitat', 'en': '/privacy'}
+    saved = website.store.save(site)
+    restored = website.store.load(saved.id)
+    assert restored.newsletter_names_required is False
+    assert restored.newsletter_privacy_text == site.newsletter_privacy_text
+    assert restored.forms[0].privacy_urls == site.forms[0].privacy_urls
+    assert SiteConfig(name='Legacy').newsletter_names_required is True
+
+
 def test_editor_rows_roundtrip_and_validate_every_column(website):
     site = website.site
     original = site.pages[0].blocks[0].model_dump()

@@ -86,6 +86,34 @@ class ServiceHTTP(unittest.TestCase):
     def contact(self) -> dict[str, object]:
         return {"form_id": "contact", "revision": 1, "language": "ca", "_request_id": "synthetic-http-request", "values": {"email": "reader@example.invalid", "message": "<script>example</script>"}, "privacy": "1"}
 
+    def test_honeypots_discard_zero_and_malformed_values(self) -> None:
+        for endpoint in ("contact", "newsletter"):
+            for index, value in enumerate(("0", 0, False, None, [], ["spam"], "https://spam.invalid")):
+                with self.subTest(endpoint=endpoint, value=value):
+                    with sqlite3.connect(self.config["db_path"]) as db:
+                        db.execute("DELETE FROM rates")
+                        before = {table: db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                                  for table in ("messages", "subscribers", "queue")}
+                    request = self.contact() if endpoint == "contact" else {
+                        "email": f"reader-{index}@example.invalid", "language": "ca", "consent": "1"}
+                    if endpoint == "contact":
+                        request["_request_id"] = f"synthetic-honeypot-{index}"
+                    request["website"] = value
+                    status, body, _ = self.request(f"/api/{endpoint}.php", request)
+                    self.assertEqual(status, 200)
+                    self.assertTrue(json.loads(body)["received"])
+                    with sqlite3.connect(self.config["db_path"]) as db:
+                        for table, count in before.items():
+                            self.assertEqual(db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0], count)
+        for endpoint in ("contact", "newsletter"):
+            request = self.contact() if endpoint == "contact" else {
+                "email": "reader@example.invalid", "language": "ca", "consent": "1"}
+            request["website"] = ""
+            self.assertEqual(self.request(f"/api/{endpoint}.php", request)[0], 200)
+        with sqlite3.connect(self.config["db_path"]) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM messages").fetchone()[0], 1)
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM subscribers").fetchone()[0], 1)
+
     def test_contact_and_privacy(self) -> None:
         status, body, headers = self.request("/api/contact.php", self.contact())
         self.assertEqual(status, 200)
@@ -105,6 +133,29 @@ class ServiceHTTP(unittest.TestCase):
         self.assertIn("&lt;script&gt;keep me&lt;/script&gt;", body)
         self.assertNotIn("<script>", body)
         self.assertIn('value="invalid"', body)
+
+    def test_optional_names_keep_confirmation_and_partial_names(self) -> None:
+        import re
+        self.config["newsletter_names_required"] = False
+        self.config_path.write_text(json.dumps(self.config))
+        for index, names in enumerate((("", ""), ("", "Family"), ("Name", ""))):
+            email = f"optional-{index}@example.invalid"
+            request = {"email": email, "consent": "1", "language": "ca",
+                       "first_name": names[0], "last_name": names[1]}
+            self.assertEqual(self.request('/api/newsletter.php', request)[0], 200)
+            with sqlite3.connect(self.config["db_path"]) as db:
+                subscriber = db.execute('SELECT id,status,consent_at FROM subscribers WHERE email=?', (email,)).fetchone()
+                self.assertEqual(subscriber[1:], ('pending', 0))
+                body = db.execute("SELECT body_html FROM queue WHERE to_email=?", (email,)).fetchone()[0]
+            token = re.search(r'action=confirm&(?:amp;)?token=([a-f0-9]{64})', body).group(1)
+            self.assertEqual(self.request('/api/newsletter.php', {'action': 'confirm', 'token': token, 'language': 'ca'})[0], 200)
+            with sqlite3.connect(self.config["db_path"]) as db:
+                row = db.execute("SELECT s.status,COALESCE(n.first_name,''),COALESCE(n.last_name,'') FROM subscribers s LEFT JOIN subscriber_names n ON n.subscriber_id=s.id WHERE s.email=?", (email,)).fetchone()
+                self.assertEqual(row, ('active', *names))
+        invalid = {'email': 'invalid-name@example.invalid', 'consent': '1', 'first_name': [], 'last_name': ''}
+        self.assertEqual(self.request('/api/newsletter.php', invalid)[0], 200)
+        with sqlite3.connect(self.config["db_path"]) as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM subscribers').fetchone()[0], 3)
 
     def test_lifecycle_get_is_read_only_and_post_confirm(self) -> None:
         request = {"action": "subscribe", "email": "reader@example.invalid", "language": "es", "consent": "1"}

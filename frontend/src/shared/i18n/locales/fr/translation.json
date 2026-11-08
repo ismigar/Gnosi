@@ -9004,7 +9004,7 @@
     "editingLanguage": "Langue de modification",
     "newForm": "Nouveau formulaire de contact",
     "addForm": "Ajouter un formulaire",
-    "formHelp": "Ajoutez-le à une page avec un bloc Formulaire. Configurez les destinataires dans Paramètres privés.",
+    "formHelp": "Ajoutez-le à une page avec un bloc Formulaire. Configurez les destinataires dans Courriel et données du serveur.",
     "noForms": "Aucun formulaire de contact configuré.",
     "internalName": "Nom interne",
     "introduction": "Introduction",
@@ -9089,7 +9089,7 @@
     "previous": "Précédent",
     "next": "Suivant",
     "resultRange": "{{start}}–{{end}} sur {{total}}",
-    "privateSettings": "Paramètres privés du service",
+    "privateSettings": "Courriel et données du serveur",
     "privateSettingsHelp": "Les destinataires, les identifiants et les données reçues sont conservés hors du coffre synchronisé.",
     "adminRequired": "Un accès administrateur et un service privé configuré sont nécessaires.",
     "settingsFailed": "Impossible d’enregistrer les paramètres privés.",
@@ -9163,7 +9163,7 @@
       "subscribers": "Abonnés",
       "campaigns": "Lettres d’information",
       "publishing": "Publication",
-      "settings": "Paramètres privés",
+      "settings": "Courriel et données du serveur",
       "hosting": "Hébergements",
       "configuration": "Configuration",
       "regions": "Blocs et régions"
@@ -9315,7 +9315,7 @@
     "normal": "Normal",
     "italic": "Italique",
     "settingsApplyFailed": "Paramètres enregistrés en privé, mais non appliqués au service du site. Vérifiez la connexion et réenregistrez.",
-    "settingsNotApplied": "Les paramètres privés attendent l’activation du service du site.",
+    "settingsNotApplied": "La configuration du courriel et des données du serveur sera appliquée à l’activation du service du site.",
     "recordSelection": "Sélection et retrait des articles",
     "allMatchingRecords": "Tous les articles correspondant aux filtres",
     "onlySelectedRecords": "Uniquement les articles sélectionnés explicitement",
@@ -9536,6 +9536,9 @@
     "pageRegionsHelp": "Cet éditeur affiche uniquement le contenu de la page. Les blocs communs d’en-tête et de pied de page se gèrent dans Blocs et régions et sont appliqués au site publié.",
     "productionDelivery": "Courrier de production : les messages seront remis au serveur de messagerie.",
     "deliveryTransport": "Mode d’envoi",
-    "serverMail": "Courrier du serveur"
+    "serverMail": "Courrier du serveur",
+    "newsletterPrivacy": "Confidentialité de la lettre",
+    "newsletterPrivacyHelp": "Informations de base affichées avant le consentement : responsable, finalité, base légale, destinataires et droits. Le lien vers la politique est affiché dans chaque langue.",
+    "newsletterNamesRequired": "Exiger le prénom et le nom pour la lettre"
   }
 }

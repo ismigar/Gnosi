@@ -9004,7 +9004,7 @@
     "editingLanguage": "Idioma de edición",
     "newForm": "Nuevo formulario de contacto",
     "addForm": "Añadir formulario",
-    "formHelp": "Añádelo a una página con un bloque Formulario. Configura los destinatarios en Configuración privada.",
+    "formHelp": "Añádelo a una página con un bloque Formulario. Configura los destinatarios en Correo y datos del servidor.",
     "noForms": "Ningún formulario de contacto configurado.",
     "internalName": "Nombre interno",
     "introduction": "Introducción",
@@ -9089,7 +9089,7 @@
     "previous": "Anterior",
     "next": "Siguiente",
     "resultRange": "{{start}}–{{end}} de {{total}}",
-    "privateSettings": "Configuración privada del servicio",
+    "privateSettings": "Correo y datos del servidor",
     "privateSettingsHelp": "Los destinatarios, las credenciales y los datos recibidos se guardan fuera del vault sincronizado.",
     "adminRequired": "Se requiere acceso de administración y un servicio privado configurado.",
     "settingsFailed": "No se ha podido guardar la configuración privada.",
@@ -9163,7 +9163,7 @@
       "subscribers": "Suscriptores",
       "campaigns": "Boletines",
       "publishing": "Publicación",
-      "settings": "Configuración privada",
+      "settings": "Correo y datos del servidor",
       "hosting": "Alojamientos",
       "configuration": "Configuración",
       "regions": "Bloques y regiones"
@@ -9315,7 +9315,7 @@
     "normal": "Normal",
     "italic": "Cursiva",
     "settingsApplyFailed": "Configuración guardada en privado, pero no se ha podido aplicar al servicio del web. Revisa la conexión y vuelve a guardar.",
-    "settingsNotApplied": "La configuración privada está pendiente de activar el servicio del web.",
+    "settingsNotApplied": "La configuración del correo y los datos del servidor se aplicará al activar el servicio del sitio.",
     "recordSelection": "Selección y retirada de entradas",
     "allMatchingRecords": "Todas las entradas que cumplen los filtros",
     "onlySelectedRecords": "Solo las entradas seleccionadas explícitamente",
@@ -9536,6 +9536,9 @@
     "pageRegionsHelp": "Este editor muestra solo el contenido de la página. Los bloques comunes de cabecera y pie se gestionan en Bloques y regiones y se aplican al sitio publicado.",
     "productionDelivery": "Correo de producción: los envíos se entregarán al servidor de correo.",
     "deliveryTransport": "Sistema de envío",
-    "serverMail": "Correo del servidor"
+    "serverMail": "Correo del servidor",
+    "newsletterPrivacy": "Privacidad del boletín",
+    "newsletterPrivacyHelp": "Información básica visible antes del consentimiento: responsable, finalidad, base jurídica, destinatarios y derechos. El enlace a la política se muestra en cada idioma.",
+    "newsletterNamesRequired": "Nombre y apellidos obligatorios en el boletín"
   }
 }

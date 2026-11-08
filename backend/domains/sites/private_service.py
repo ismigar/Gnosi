@@ -104,6 +104,7 @@ def configuration(store: SiteStore, site: SiteConfig, target_id: str, *, forms_s
         "db_path": str(root / "state.sqlite"), "spool_path": str(root / "captures"),
         "library_path": str(SERVICE_ROOT / "library.php"),
         "forms": [form.model_dump(mode="json") for form in (forms_site or site).forms if form.enabled],
+        "newsletter_names_required": (forms_site or site).newsletter_names_required,
         "form_delivery": {key: value.model_dump(mode="json") for key, value in settings.forms.items()},
         "retention_days": settings.retention_days,
         "email_theme": {"primary": (forms_site or site).theme.tokens.get("primary", "#264653"), "background": (forms_site or site).theme.tokens.get("background", "#f5efe7")},

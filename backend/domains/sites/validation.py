@@ -95,5 +95,7 @@ def validate_site(site: SiteConfig) -> None:
             raise HTTPException(422, "Unknown collection block")
     for form in site.forms:
         safe_link(form.privacy_url)
+        for privacy_url in form.privacy_urls.values():
+            safe_link(privacy_url)
     _validate_links(site.header_actions + site.navigation + site.footer + site.social_links,
                     site.languages, "Link language is not enabled")
