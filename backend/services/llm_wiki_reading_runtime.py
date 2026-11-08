@@ -149,9 +149,11 @@ class ReadingRuntime:
             return self._repair_structured(prompt, envelope, selection, validate, text, error)
         import jsonschema
         try:
+            review_options = ({"reading_review_notes": len(envelope.get("notes", []))}
+                if selection and selection.phase == "verify" and isinstance(envelope, dict) else {})
             result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
                 input=operation_prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
-                options=self.performance_options,
+                options={**self.performance_options, **review_options},
                 # Literal choices apply even when the second call repairs syntax.
                 # Keep corrections inside the same call allowance and deadline.
                 output_schema=schema, max_model_calls=2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3), snapshot=self.snapshot, output_validator=checked, output_repair=repair)

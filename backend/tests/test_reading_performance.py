@@ -66,7 +66,7 @@ def test_transport_selection_is_not_exposed_as_a_different_reading_instruction()
     from backend.services.agent_behavior import operation_input
     from backend.services.agent_execution_models import AgentOperation
     request = AgentOperation(skill_id="knowledge", operation="knowledge.process-source.phase",
-        input="Complete original", options={"reading_prose": True, "reading_performance": False})
+        input="Complete original", options={"reading_prose": True, "reading_performance": False, "reading_review_notes": 10})
     baseline = operation_input(request)
     optimized = operation_input(request.model_copy(update={"options": {**request.options, "reading_performance": True}}))
     assert baseline == optimized

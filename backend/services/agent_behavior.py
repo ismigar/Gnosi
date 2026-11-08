@@ -39,7 +39,8 @@ def operation_input(request: Any, *, provider: str = "") -> str:
     options = request.options
     if request.operation == "knowledge.process-source.phase":
         # The tier/cache selector governs transport, not the reading task.
-        options = {key: value for key, value in options.items() if key != "reading_performance"}
+        options = {key: value for key, value in options.items()
+                   if key not in {"reading_performance", "reading_review_notes"}}
     payload = {"operation": request.operation, "input": request.input,
                        "data": request.data, "options": options,
                        "language": request.language, "sources": request.context_refs,
