@@ -68,6 +68,7 @@ def connect() -> Iterator[sqlite3.Connection]:
             estimated_cost_usd TEXT, reported_cost_usd TEXT, reconciled_at REAL)""")
         db.execute("CREATE INDEX IF NOT EXISTS usage_calls_date ON usage_calls(created)")
         db.execute("CREATE INDEX IF NOT EXISTS usage_calls_scope ON usage_calls(workspace_id,user_id,created)")
+        db.execute("CREATE TABLE IF NOT EXISTS usage_pricing (call_id TEXT PRIMARY KEY, details TEXT NOT NULL)")
         db.execute("""CREATE TABLE IF NOT EXISTS usage_legacy (
             period TEXT NOT NULL, provider TEXT NOT NULL, model_id TEXT NOT NULL,
             input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL,
@@ -114,7 +115,7 @@ def write_call(*, provider: str, model_id: str, input_tokens: int | None,
                cached_tokens: int | None = None, reasoning_tokens: int | None = None,
                duration_ms: float = 0, status: str = "completed",
                metadata: dict[str, str] | None = None, generation_id: str = "",
-               settle_budget: bool = True) -> bool:
+               settle_budget: bool = True, pricing_details: dict[str, Any] | None = None) -> bool:
     attribution = {**context_metadata(), **(metadata or {})}
     stamp = created if created is not None else time.time()
     cost = decimal_cost(cost_usd)
@@ -138,6 +139,11 @@ def write_call(*, provider: str, model_id: str, input_tokens: int | None,
         if cursor.rowcount and settle_budget and cost_source in {"reported", "local"}:
             from backend.services.reading_budget import settle
             settle(db, identifier, cost)
+        if cursor.rowcount and pricing_details is not None:
+            db.execute("INSERT INTO usage_pricing VALUES (?,?)", (identifier, json.dumps(pricing_details)))
+            if settle_budget and cost_source == "estimated" and status == "completed" and generation_id:
+                from backend.services.reading_budget import refine_reservation
+                refine_reservation(db, identifier, pricing_details.get("reservation_bound_usd"))
         return bool(cursor.rowcount)
 
 

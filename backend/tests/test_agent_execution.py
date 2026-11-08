@@ -1015,6 +1015,27 @@ def test_prose_map_output_reservation_is_smaller_and_frozen(runtime, monkeypatch
     assert captured['prepared_agent_data'] is snapshot.profile
 
 
+@pytest.mark.parametrize('operation,provider,model,opt_out,enabled', [
+    ('knowledge.process-source.phase', 'openai', 'gpt-6.1-sol', False, True),
+    ('knowledge.process-source.phase', 'openai', 'gpt-6.1-sol', True, False),
+    ('knowledge.process-source.phase', 'openrouter', 'openai/gpt-6.1-sol', False, False),
+    ('knowledge.process-source.phase', 'openai', 'gpt-6-luna', False, False),
+    ('podcast.coverage.briefs', 'openai', 'gpt-6.1-sol', False, False),
+])
+def test_reading_flex_is_scoped_to_direct_sol_phases(runtime, monkeypatch, operation, provider, model, opt_out, enabled):
+    _, snapshot = runtime
+    snapshot = snapshot.model_copy(update={'profile': {**snapshot.profile, 'provider': provider, 'model': model}})
+    captured = {}
+    async def workflow(*args, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(compile=lambda: 'compiled'), {}
+    monkeypatch.setattr('backend.agent.factory.create_agent_workflow', workflow)
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation,
+        input='complete sources', options={'reading_performance': False} if opt_out else {})
+    asyncio.run(execution._operation_application(request, snapshot, {}, None))
+    assert captured['operation_reading_performance'] is enabled
+
+
 def test_existing_note_classification_has_bounded_output_and_no_team_handoff(runtime, monkeypatch):
     _, snapshot = runtime
     captured = {}

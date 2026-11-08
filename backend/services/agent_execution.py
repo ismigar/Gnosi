@@ -381,6 +381,7 @@ async def _operation_response(application: Any, inputs: dict[str, Any], request:
 
 async def _operation_application(request: AgentOperation, snapshot: AgentExecutionSnapshot, ai: Any, runtime: Any, *, validation_retry: bool = False) -> tuple[Any, Any]:
     from backend.agent.factory import create_agent_workflow
+    from backend.services.reading_performance import eligible
     classifying_notes = request.operation == "knowledge" and request.data.get("task") == "knowledge.classify"
     workflow, selection = await create_agent_workflow(
         [], None, agent_id=snapshot.agent_id, user_message=operation_input(request),
@@ -411,6 +412,9 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
             "one_step_lower" if request.operation == "team.plan" and request.options.get("economical_planning")
             and not validation_retry else None),
         output_schema=request.output_schema,
+        operation_reading_performance=(request.operation == "knowledge.process-source.phase"
+            and request.options.get("reading_performance", True) is True
+            and eligible(str(snapshot.profile.get("provider", "")), str(snapshot.profile.get("model", "")))),
     )
     if workflow is None:
         raise RuntimeError("principal_agent_model_unavailable")

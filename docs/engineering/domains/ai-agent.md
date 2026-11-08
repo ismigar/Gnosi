@@ -40,6 +40,9 @@ source_paths:
   - backend/domains/llm_wiki/semantic_quote_selection.py
   - backend/domains/llm_wiki/semantic_quote_contracts.py
   - backend/services/reading_semantic_estimate.py
+  - backend/services/reading_performance.py
+  - backend/services/openai_usage_pricing.py
+  - backend/tests/test_reading_performance.py
   - backend/tests/test_semantic_reading.py
   - backend/services/agent_task_cases.py
   - backend/services/agent_task_evaluation_models.py
@@ -1389,6 +1392,10 @@ Larger source windows contribute to a hierarchical argument map, including the e
 Source cost preflight tokenizes known passages, instructions and schemas with the locally available model tokenizer. For an OpenAI route with an unrecognized model ID, it may use the installed o200k reference encoding and identifies that approximation. Without an available tokenizer it explicitly reports the conservative UTF-8 fallback. The estimate never downloads vocabulary assets. It honors `TIKTOKEN_CACHE_DIR` and `DATA_GYM_CACHE_DIR`. With neither set, it checks `cache/tokenizers` under the per-device Gnosi data directory before the default temporary cache. To prepare the persistent cache separately, point `TIKTOKEN_CACHE_DIR` at that directory while running `uv run python -c 'import tiktoken; tiktoken.get_encoding("o200k_base")'`. Response length, repeated navigation and repairs still require assumptions. Pricing does not change execution context limits, fragment grouping, evidence identities or the durable spending cap.
 
 Semantic preflight prepares only the active reading engine. On a cold Vault, resource lookup can use the per-device page index as a hint: it verifies containment and the current source ID, preserves the shared index and falls back to normal discovery for absent, stale or corrupt hints. Review notes with identical primary evidence share schema definitions, and a common document label is transmitted once. Complete original spans, primary-source constraints, classifications and citation provenance remain intact. Model selection, saved reading identity and the spending limit remain explicit.
+
+Direct OpenAI `gpt-6.1-sol` source-reading phases use Flex and explicit 30-minute prompt caching. Stable instructions and shared JSON fields precede changing evidence; concatenating the content blocks restores the complete operation envelope without changing any parsed source, schema or instruction value. Other operations, providers, models and explicit reasoning settings retain their behavior. There is no automatic fallback to Standard or another model. Delivery size and the durable per-book limit remain unchanged. Flex can wait longer or fail for unavailable capacity; normal cancellation, timeout and retry limits still apply.
+
+Preflight assumes no cache hits and includes cache-write overhead. Reservations allow Standard pricing, cache writes and long-context surcharges before transmission. Returned OpenAI usage records cache reads, writes and the served tier in a metadata-only `usage_pricing` table. Known Sol usage is priced with that tier and the published tariff; it remains an estimate, not a reported invoice. A complete, valid terminal usage record may reduce its maximum-output reservation to a Standard-price bound that treats all input as cache writes and retains a 10% margin. Missing counters, unknown tariffs, changed models, failed calls and unsupported cache lifetimes retain the original hold. Existing history is never reset and provider-reported reconciliation remains authoritative.
 
 Offline regression cases cover complete long-source delivery, joint review, attribution corrections, exact quotation binding, configured property types, partial repair, output-driven batch reduction, checkpoint reuse and interruption. They validate orchestration and invariants, not a live model's understanding of a whole book.
 

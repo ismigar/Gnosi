@@ -81,7 +81,14 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     priced = bool(rates and decimal_cost(rates.get("cost_in")) is not None and decimal_cost(rates.get("cost_out")) is not None)
     low = high = None
     if priced and rates:
-        low = (input_bound*float(rates["cost_in"])+output_assumed*float(rates["cost_out"]))/1_000_000
+        from backend.services.reading_performance import eligible
+        flex = eligible(runtime.provider, runtime.model) and getattr(runtime, "cost_optimization", True)
+        multiplier = 0.5 if flex else 1.0
+        # Hits depend on actual provider cache reuse. Forecast no hits and
+        # include the 30-minute write premium instead of promising a discount.
+        input_rate = float(rates["cost_in"]) * multiplier * (1.25 if flex else 1)
+        output_rate = float(rates["cost_out"]) * multiplier
+        low = (input_bound*input_rate+output_assumed*output_rate)/1_000_000
         # Include bounded evidence rounds as well as each call's format repair.
         repair_input = input_bound + semantic_cost.get("evidence_input_token_bound", 0)
         repair_output = output_bound + semantic_cost.get("evidence_output_token_bound", 0)

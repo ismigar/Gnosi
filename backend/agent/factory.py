@@ -201,6 +201,7 @@ async def create_agent_workflow(
     operation_team_help: bool = True,
     operation_max_output_tokens: int | None = None,
     operation_default_reasoning_effort: str | None = None,
+    operation_reading_performance: bool = False,
     output_schema: dict[str, Any] | None = None,
 ) -> tuple[StateGraph[Any, None, Any, Any] | None, dict[str, Any]]:
     """Delegate to the canonical workflow with explicit compatibility seams."""
@@ -237,6 +238,7 @@ async def create_agent_workflow(
         operation_team_help=operation_team_help,
         operation_max_output_tokens=operation_max_output_tokens,
         operation_default_reasoning_effort=operation_default_reasoning_effort,
+        operation_reading_performance=operation_reading_performance,
         output_schema=output_schema,
         dependencies=dependencies,
     )
