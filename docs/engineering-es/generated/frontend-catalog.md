@@ -52,7 +52,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2662 | 0 |
-| `features` | 1298 | 137847 | 57 |
+| `features` | 1299 | 137905 | 57 |
 | `generated` | 3 | 57535 | 594 |
 | `shared` | 349 | 37199 | 509 |
 
@@ -1344,7 +1344,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault-management/VaultSwitcher.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultSwitcher.tsx) | 218 | `VaultSwitcher`, `function` | — |
 | [`frontend/src/features/vault-management/VaultTemplateMarketplace.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultTemplateMarketplace.tsx) | 398 | `VaultTemplateMarketplace`, `function` | — |
 | [`frontend/src/features/vault-management/VaultTemplatePrivacyPreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultTemplatePrivacyPreview.tsx) | 44 | `VaultTemplatePrivacyPreview` | — |
-| [`frontend/src/features/websites/AppearanceEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/AppearanceEditor.tsx) | 39 | `AppearanceEditor`, `WebsitePreview` | — |
+| [`frontend/src/features/websites/AppearanceEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/AppearanceEditor.tsx) | 40 | `AppearanceEditor`, `WebsitePreview` | — |
 | [`frontend/src/features/websites/CapturedMailViewer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/CapturedMailViewer.tsx) | 60 | `CapturedMailViewer` | — |
 | [`frontend/src/features/websites/CatalogueFontSample.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/CatalogueFontSample.tsx) | 49 | `CatalogueFontSample` | — |
 | [`frontend/src/features/websites/ConnectionAuthentication.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/ConnectionAuthentication.tsx) | 30 | `ConnectionAuthentication` | — |
@@ -1370,6 +1370,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/websites/TypographyPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/TypographyPicker.tsx) | 29 | `TypographyPicker` | — |
 | [`frontend/src/features/websites/WebsiteAutosave.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteAutosave.tsx) | 40 | `AutosaveStatus`, `WebsiteAutosave` | — |
 | [`frontend/src/features/websites/WebsiteCanvas.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteCanvas.tsx) | 95 | `WebsiteCanvas` | — |
+| [`frontend/src/features/websites/WebsiteColors.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteColors.tsx) | 57 | `WebsiteColors` | — |
 | [`frontend/src/features/websites/WebsiteFileField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteFileField.tsx) | 13 | `WebsiteAssetProvider`, `WebsiteFileField` | — |
 | [`frontend/src/features/websites/WebsiteLanguages.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteLanguages.tsx) | 18 | `WebsiteLanguages` | — |
 | [`frontend/src/features/websites/WebsiteRichEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsiteRichEditor.tsx) | 45 | `WebsiteRichEditor` | — |

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import sanitizeHtml from 'sanitize-html';
 import postcss from 'postcss';
 import {importedLocalLink} from './routing.mjs';
+import {colorAssignments} from './color-tokens.mjs';
 
 export const bundle = JSON.parse(fs.readFileSync('bundle.json', 'utf8'));
 export const site = bundle.site;
@@ -106,7 +107,7 @@ export function css(source, anchor) {
   return root.toString();
 }
 export function themeCss(page) {
-  const tokens = Object.entries(site.theme.tokens).map(([key,value]) => {
+  const tokens = Object.entries({secondary:'#e2dfda',...site.theme.tokens}).map(([key,value]) => {
     if (!/^[a-z][a-z0-9-]*$/.test(key) || /[;{}<>]|url\s*\(|@/i.test(value)) throw new Error('Invalid theme value');
     return `--${key}:${value}`;
   }).join(';');
@@ -116,5 +117,5 @@ export function themeCss(page) {
     return `@font-face{font-family:"${font.family}";src:url("${href(font.src)}");font-weight:${font.weight};font-style:${font.style};font-display:swap}`;
   }).join('');
   const blockCss = [...(page.blocks || []), ...(site.footer_columns || []).flatMap(column=>column.blocks || []), ...(site.footer_blocks || []), ...(site.regions || []).flatMap(region=>region.blocks || [])].flatMap(block => [block, ...(block.children || [])]).map(block => css(block.css,`[data-block-id="${block.id.replace(/[^a-zA-Z0-9_-]/g,'')}"]`)).join('\n');
-  return `@layer base,theme,components,page,advanced;@layer theme{${fonts}:root{${tokens}}}@layer page{${css(page.css,`[data-page-id="${page.id.replace(/[^a-zA-Z0-9_-]/g,'')}"]`)}${blockCss}}@layer advanced{${css(site.theme.advanced_css,anchor)}}`;
+  return `@layer base,theme,components,appearance,page,advanced;@layer theme{${fonts}:root{${tokens}}}@layer appearance{${colorAssignments(site.theme)}}@layer page{${css(page.css,`[data-page-id="${page.id.replace(/[^a-zA-Z0-9_-]/g,'')}"]`)}${blockCss}}@layer advanced{${css(site.theme.advanced_css,anchor)}}`;
 }

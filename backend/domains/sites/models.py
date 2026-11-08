@@ -154,7 +154,7 @@ class SiteTheme(Contract):
     schema_version: Literal[1] = 1
     name: str = "Default"
     tokens: dict[str, str] = Field(default_factory=lambda: {
-        "primary": "#264653", "accent": "#c75b35", "background": "#f5efe7", "surface": "#ffffff",
+        "primary": "#264653", "accent": "#c75b35", "secondary": "#e2dfda", "background": "#f5efe7", "surface": "#ffffff",
         "text": "#2c3e50", "muted": "#555555", "font-body": "Georgia, serif", "font-heading": "system-ui, sans-serif",
         "content-width": "76rem", "reading-width": "46rem", "radius": "0.75rem", "spacing": "1.5rem",
     })

@@ -9171,16 +9171,35 @@
     "tokens": {
       "primary": "Color principal",
       "accent": "Color de acento",
-      "background": "Fondo",
-      "surface": "Superficie",
-      "text": "Color del texto",
-      "muted": "Texto secundario",
+      "background": "Fondo general predeterminado",
+      "surface": "Superficies (tarjetas y campos)",
+      "text": "Texto general",
+      "muted": "Texto atenuado",
       "font-body": "Tipografía del cuerpo",
       "font-heading": "Tipografía de los títulos",
       "content-width": "Anchura del contenido",
       "reading-width": "Anchura de lectura",
       "radius": "Radio de las esquinas",
-      "spacing": "Espaciado base"
+      "spacing": "Espaciado base",
+      "secondary": "Color secundario de marca",
+      "header-background": "Fondo de la cabecera",
+      "header-text": "Texto de la cabecera",
+      "header-link": "Enlaces de la cabecera",
+      "header-link-hover": "Enlaces activos de la cabecera",
+      "body-background": "Fondo del cuerpo",
+      "body-text": "Texto del cuerpo",
+      "body-heading": "Titulares del cuerpo",
+      "body-link": "Enlaces del cuerpo",
+      "body-link-hover": "Enlaces activos del cuerpo",
+      "footer-background": "Fondo del pie",
+      "footer-text": "Texto y titulares del pie",
+      "footer-link": "Enlaces del pie",
+      "footer-link-hover": "Enlaces activos del pie",
+      "button-background": "Fondo de los botones",
+      "button-text": "Texto de los botones",
+      "button-border": "Borde de los botones",
+      "button-hover-background": "Fondo de los botones activos",
+      "button-hover-text": "Texto de los botones activos"
     },
     "sourceKinds": {
       "table": "Tabla",
@@ -9540,6 +9559,27 @@
     "newsletterPrivacy": "Privacidad del boletín",
     "newsletterPrivacyHelp": "Información básica visible antes del consentimiento: responsable, finalidad, base jurídica, destinatarios y derechos. El enlace a la política se muestra en cada idioma.",
     "newsletterNamesRequired": "Nombre y apellidos obligatorios en el boletín",
-    "headingLevel": "Nivel del título"
+    "headingLevel": "Nivel del título",
+    "colors": {
+      "title": "Colores de la web",
+      "help": "Define la paleta de marca y asígnala a cada región. Sin una asignación específica se conserva el aspecto actual. El secundario de marca es independiente del texto atenuado.",
+      "logoContrast": "Elige un fondo que permita distinguir todas las partes del logo. Si el logo contiene el color secundario claro, evita poner ese mismo color detrás.",
+      "inherit": "Heredar el valor actual",
+      "white": "Blanco",
+      "black": "Negro",
+      "custom": "Color personalizado",
+      "assignment": "Asignación: {{label}}",
+      "pick": "Elegir el color: {{label}}",
+      "reset": "Heredar el valor: {{label}}",
+      "inheritedValue": "Heredado: {{value}}",
+      "groups": {
+        "palette": "Paleta de marca",
+        "general": "Colores generales",
+        "header": "Cabecera",
+        "body": "Cuerpo de la web",
+        "footer": "Pie de página",
+        "buttons": "Botones principales"
+      }
+    }
   }
 }

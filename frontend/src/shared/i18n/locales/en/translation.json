@@ -9116,16 +9116,35 @@
     "tokens": {
       "primary": "Primary colour",
       "accent": "Accent colour",
-      "background": "Background",
-      "surface": "Surface",
-      "text": "Text colour",
-      "muted": "Secondary text",
+      "background": "Default general background",
+      "surface": "Surfaces (cards and fields)",
+      "text": "General text",
+      "muted": "Muted text",
       "font-body": "Body font",
       "font-heading": "Heading font",
       "content-width": "Content width",
       "reading-width": "Reading width",
       "radius": "Corner radius",
-      "spacing": "Base spacing"
+      "spacing": "Base spacing",
+      "secondary": "Secondary brand colour",
+      "header-background": "Header background",
+      "header-text": "Header text",
+      "header-link": "Header links",
+      "header-link-hover": "Active header links",
+      "body-background": "Body background",
+      "body-text": "Body text",
+      "body-heading": "Body headings",
+      "body-link": "Body links",
+      "body-link-hover": "Active body links",
+      "footer-background": "Footer background",
+      "footer-text": "Footer text and headings",
+      "footer-link": "Footer links",
+      "footer-link-hover": "Active footer links",
+      "button-background": "Button background",
+      "button-text": "Button text",
+      "button-border": "Button border",
+      "button-hover-background": "Active button background",
+      "button-hover-text": "Active button text"
     },
     "sourceKinds": {
       "table": "Table",
@@ -9485,6 +9504,27 @@
     "newsletterPrivacy": "Newsletter privacy",
     "newsletterPrivacyHelp": "Basic information shown before consent: controller, purpose, lawful basis, recipients and rights. The policy link is shown in each language.",
     "newsletterNamesRequired": "Require newsletter first and last names",
-    "headingLevel": "Heading level"
+    "headingLevel": "Heading level",
+    "colors": {
+      "title": "Website colours",
+      "help": "Define the brand palette and assign it to each region. Without an explicit assignment the current appearance is preserved. The secondary brand colour is separate from muted text.",
+      "logoContrast": "Choose a background that keeps every part of the logo visible. If the logo contains the light secondary colour, avoid using that same colour behind it.",
+      "inherit": "Inherit current appearance",
+      "white": "White",
+      "black": "Black",
+      "custom": "Custom colour",
+      "assignment": "Assignment: {{label}}",
+      "pick": "Choose colour: {{label}}",
+      "reset": "Inherit value: {{label}}",
+      "inheritedValue": "Inherited: {{value}}",
+      "groups": {
+        "palette": "Brand palette",
+        "general": "General colours",
+        "header": "Header",
+        "body": "Website body",
+        "footer": "Footer",
+        "buttons": "Primary buttons"
+      }
+    }
   }
 }

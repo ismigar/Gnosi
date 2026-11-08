@@ -6,7 +6,7 @@ Environment names and source-written defaults discovered through static inspecti
 
 Regenerate with `python pipeline/skills/technical_documentation/scripts/generate.py`.
 
-Discovered **134 variables** across **268 source references**.
+Discovered **134 variables** across **269 source references**.
 
 | Variable | Runtime | Source default | Consumers |
 | --- | --- | --- | --- |
@@ -90,7 +90,7 @@ Discovered **134 variables** across **268 source references**.
 | `GNOSI_SCHEDULER_STARTUP_DELAY_SECONDS` | Python | '30' | [`backend/scheduler/startup_policy.py:13`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/startup_policy.py#L13) |
 | `GNOSI_SCHEDULER_WORKERS` | Python | '2' | [`backend/scheduler/manager.py:368`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/manager.py#L368)<br>[`backend/scheduler/manager.py:417`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/manager.py#L417) |
 | `GNOSI_SHARED_ENV_FILE` | Python | unset | [`scripts/migrate-to-keychain.py:90`](https://github.com/ismigar/Gnosi/blob/main/scripts/migrate-to-keychain.py#L90) |
-| `GNOSI_STYLESHEET_BROWSER_PROBE` | Python | unset | [`backend/tests/test_sites_stylesheets.py:77`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_stylesheets.py#L77) |
+| `GNOSI_STYLESHEET_BROWSER_PROBE` | Python | unset | [`backend/tests/test_sites_stylesheets.py:90`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_stylesheets.py#L90)<br>[`backend/tests/test_sites_stylesheets.py:127`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_stylesheets.py#L127) |
 | `GNOSI_TABLE_SECURITY_CONTRACT_CHILD` | Python | unset | [`backend/tests/test_table_workspace_security_contract.py:58`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_table_workspace_security_contract.py#L58) |
 | `GNOSI_TEST_LOG` | Node.js | runtime-provided | [`desktop/release-contract.test.js:74`](https://github.com/ismigar/Gnosi/blob/main/desktop/release-contract.test.js#L74)<br>[`desktop/release-contract.test.js:80`](https://github.com/ismigar/Gnosi/blob/main/desktop/release-contract.test.js#L80) |
 | `GNOSI_TEST_REJECT_FEED` | Node.js | runtime-provided | [`desktop/release-contract.test.js:79`](https://github.com/ismigar/Gnosi/blob/main/desktop/release-contract.test.js#L79) |

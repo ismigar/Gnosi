@@ -181,7 +181,8 @@ def accept(output: Path, frontend_port: int, backend_port: int) -> None:
         # CSS editor acceptance must include actual Astro output in Chromium.
         # Keep browser dependencies out of the independent Python-only CI job.
         run((sys.executable, "-m", "pytest", "-q",
-             "backend/tests/test_sites_stylesheets.py::test_edited_base_css_applies_in_chromium_to_actual_astro_output"),
+             "backend/tests/test_sites_stylesheets.py::test_edited_base_css_applies_in_chromium_to_actual_astro_output",
+             "backend/tests/test_sites_stylesheets.py::test_region_palette_colors_and_css_priority_in_actual_astro_output"),
             ROOT, {**environment, "GNOSI_STYLESHEET_BROWSER_PROBE": "1"}, output / "website-css-browser.log")
         result["website_css_computed_style"] = "passed"
         # The full product build retains reader validation and the bundle budget.

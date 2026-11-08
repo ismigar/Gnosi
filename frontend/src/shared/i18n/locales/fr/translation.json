@@ -9171,16 +9171,35 @@
     "tokens": {
       "primary": "Couleur principale",
       "accent": "Couleur d’accent",
-      "background": "Arrière-plan",
-      "surface": "Surface",
-      "text": "Couleur du texte",
-      "muted": "Texte secondaire",
+      "background": "Fond général par défaut",
+      "surface": "Surfaces (cartes et champs)",
+      "text": "Texte général",
+      "muted": "Texte atténué",
       "font-body": "Police du corps",
       "font-heading": "Police des titres",
       "content-width": "Largeur du contenu",
       "reading-width": "Largeur de lecture",
       "radius": "Rayon des angles",
-      "spacing": "Espacement de base"
+      "spacing": "Espacement de base",
+      "secondary": "Couleur secondaire de marque",
+      "header-background": "Fond de l’en-tête",
+      "header-text": "Texte de l’en-tête",
+      "header-link": "Liens de l’en-tête",
+      "header-link-hover": "Liens actifs de l’en-tête",
+      "body-background": "Fond du corps",
+      "body-text": "Texte du corps",
+      "body-heading": "Titres du corps",
+      "body-link": "Liens du corps",
+      "body-link-hover": "Liens actifs du corps",
+      "footer-background": "Fond du pied",
+      "footer-text": "Texte et titres du pied",
+      "footer-link": "Liens du pied",
+      "footer-link-hover": "Liens actifs du pied",
+      "button-background": "Fond des boutons",
+      "button-text": "Texte des boutons",
+      "button-border": "Bordure des boutons",
+      "button-hover-background": "Fond des boutons actifs",
+      "button-hover-text": "Texte des boutons actifs"
     },
     "sourceKinds": {
       "table": "Table",
@@ -9540,6 +9559,27 @@
     "newsletterPrivacy": "Confidentialité de la lettre",
     "newsletterPrivacyHelp": "Informations de base affichées avant le consentement : responsable, finalité, base légale, destinataires et droits. Le lien vers la politique est affiché dans chaque langue.",
     "newsletterNamesRequired": "Exiger le prénom et le nom pour la lettre",
-    "headingLevel": "Niveau du titre"
+    "headingLevel": "Niveau du titre",
+    "colors": {
+      "title": "Couleurs du site",
+      "help": "Définissez la palette de marque et affectez-la à chaque région. Sans affectation explicite, l’apparence actuelle est conservée. La couleur secondaire de marque est distincte du texte atténué.",
+      "logoContrast": "Choisissez un fond qui permet de distinguer toutes les parties du logo. Si le logo contient la couleur secondaire claire, évitez de placer cette même couleur derrière.",
+      "inherit": "Hériter de l’apparence actuelle",
+      "white": "Blanc",
+      "black": "Noir",
+      "custom": "Couleur personnalisée",
+      "assignment": "Affectation : {{label}}",
+      "pick": "Choisir la couleur : {{label}}",
+      "reset": "Hériter de la valeur : {{label}}",
+      "inheritedValue": "Hérité : {{value}}",
+      "groups": {
+        "palette": "Palette de marque",
+        "general": "Couleurs générales",
+        "header": "En-tête",
+        "body": "Corps du site",
+        "footer": "Pied de page",
+        "buttons": "Boutons principaux"
+      }
+    }
   }
 }

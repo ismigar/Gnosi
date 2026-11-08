@@ -2,6 +2,42 @@ import { expect, test } from '@playwright/test';
 import { expandWebsiteSections, settleVisualState } from '../../support/visual-state.ts';
 import { acceptanceState } from '../../support/acceptance-state.ts';
 
+test('website regional colours autosave palette assignments and restore inheritance', async ({ page }, testInfo) => {
+  const state = acceptanceState();
+  await page.addInitScript(() => { localStorage.setItem('i18nextLng', 'en'); });
+  await page.goto(`/@${state.primary_vault.slug}/websites`);
+  await page.getByRole('button', { name: 'Create website', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create website', exact: true });
+  await dialog.getByRole('textbox').fill('Disposable regional colours');
+  await dialog.getByRole('button', { name: 'Create', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
+  await expandWebsiteSections(page);
+  await page.getByRole('combobox', { name: 'Assignment: Header background', exact: true }).selectOption('white');
+  await page.getByRole('combobox', { name: 'Assignment: Footer background', exact: true }).selectOption('secondary');
+  await page.getByRole('combobox', { name: 'Assignment: Body text', exact: true }).selectOption('primary');
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('website-colour-regions.png'), fullPage: true });
+  await page.reload();
+  await page.getByRole('combobox', { name: 'Website', exact: true }).selectOption({ label: 'Disposable regional colours' });
+  await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
+  await expandWebsiteSections(page);
+  await expect(page.getByRole('combobox', { name: 'Assignment: Header background', exact: true })).toHaveValue('white');
+  await expect(page.getByRole('combobox', { name: 'Assignment: Footer background', exact: true })).toHaveValue('secondary');
+  await expect(page.getByRole('combobox', { name: 'Assignment: Body text', exact: true })).toHaveValue('primary');
+  await expect(page.getByRole('textbox', { name: 'Muted text', exact: true })).toHaveValue('#555555');
+  await expect(page.getByRole('textbox', { name: 'Secondary brand colour', exact: true })).toHaveValue('#e2dfda');
+  await page.getByRole('combobox', { name: 'Assignment: Footer background', exact: true }).selectOption('inherit');
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await page.reload();
+  await page.getByRole('combobox', { name: 'Website', exact: true }).selectOption({ label: 'Disposable regional colours' });
+  await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
+  await expandWebsiteSections(page);
+  await expect(page.getByRole('combobox', { name: 'Assignment: Footer background', exact: true })).toHaveValue('inherit');
+  await page.getByRole('button', { name: 'Delete website', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Delete website', exact: true }).getByRole('button', { name: 'Delete', exact: true }).click();
+});
+
 test('visual website blocks edit, reorder, undo and persist without publishing', async ({ page }, testInfo) => {
   const state = acceptanceState();
   await page.addInitScript(() => { localStorage.setItem('i18nextLng', 'en'); });

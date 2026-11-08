@@ -13,10 +13,10 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from backend.domains.sites.exporter import build_bundle
-from backend.domains.sites.models import SiteBlock, SiteTheme
+from backend.domains.sites.models import NavigationLink, SiteBlock, SiteBundle, SiteTheme
 from backend.domains.sites.paths import extension_root
 from backend.domains.sites.renderer import render_bundle
-from backend.domains.sites.stylesheets import STYLESHEETS, website_stylesheet
+from backend.domains.sites.stylesheets import STYLESHEETS, layered_stylesheet, website_stylesheet
 from backend.domains.sites.validation import validate_site
 from backend.tests.test_sites import website as website
 
@@ -27,6 +27,19 @@ def test_original_styles_are_available_without_writing_overrides():
     for filename in STYLESHEETS.values():
         assert (extension_root() / 'renderer/src/lib' / filename).read_text() in css
     assert theme.stylesheet_overrides == {}
+
+
+def test_regional_colors_opt_into_layers_without_destroying_legacy_overrides():
+    raw = '/* old layout */ .site-footer {background:#eeeeee} @media(max-width:600px){.site-footer{padding:1rem}}'
+    theme = SiteTheme(stylesheet_overrides={'layout': raw})
+    assert raw in website_stylesheet(theme)
+    theme.tokens['footer-background'] = 'var(--secondary)'
+    result = website_stylesheet(theme)
+    assert '@layer components{.site-footer {background:#eeeeee}}' in result
+    assert '@layer components{@media' in result
+    assert theme.stylesheet_overrides['layout'] == raw
+    assert 'components,appearance,page,advanced' in result
+    assert layered_stylesheet('@layer page{.x{color:red}}') == '@layer page{.x{color:red}}'
 
 
 def test_stylesheet_edits_roundtrip_per_website_and_restore_to_defaults(website):
@@ -105,6 +118,45 @@ const {chromium} = require(process.argv[1]);
                                  str(root / 'tests/e2e/node_modules/@playwright/test'),
                                  f'http://127.0.0.1:{server.server_port}/ca/'], capture_output=True, text=True, timeout=60, check=True)
         assert json.loads(result.stdout)['color'] == 'rgb(1, 2, 3)'
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+@pytest.mark.skipif(os.environ.get('GNOSI_STYLESHEET_BROWSER_PROBE') != '1', reason='Required with Chromium in browser acceptance')
+def test_region_palette_colors_and_css_priority_in_actual_astro_output(website, tmp_path):
+    site = website.site
+    site.legacy_pilot = True
+    site.footer = [NavigationLink(label='Política de privacitat', href='/ca/privacy')]
+    site.pages[0].blocks = [SiteBlock(body_format='html', body='<h2>Region heading</h2><a id="body-link" href="/ca">Body link</a><a class="button" id="palette-button" href="/ca">Action</a>')]
+    site.theme.stylesheet_overrides['layout'] = '.site-header{background-color:#ff0000}.site-footer{background-color:#000000}'
+    site.theme.tokens.update({'secondary': '#e2dfda', 'header-background': '#ffffff', 'header-text': 'var(--primary)', 'body-text': 'var(--primary)', 'body-heading': 'var(--accent)', 'body-link': 'var(--primary)', 'body-link-hover': '#000000', 'footer-background': 'var(--secondary)', 'footer-text': 'var(--primary)', 'footer-link': 'var(--primary)', 'button-background': 'var(--primary)', 'button-text': '#ffffff', 'button-hover-background': '#112233'})
+    site.theme.advanced_css = '.site-header{color:rgb(9,8,7)}'
+    custom = site.pages[0].model_copy(deep=True, update={'id': 'custom-color-page', 'path': '/ca/custom-colors', 'css': '.site-header{background-color:rgb(7,8,9)}'})
+    site.pages.append(custom)
+    output = tmp_path / 'public'
+    render_bundle(SiteBundle(site=site).model_dump(mode='json'), output)
+    server = ThreadingHTTPServer(('127.0.0.1', 0), partial(SimpleHTTPRequestHandler, directory=str(output)))
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        root = Path(__file__).resolve().parents[2]
+        script = """
+const {chromium}=require(process.argv[1]);
+(async()=>{const browser=await chromium.launch({headless:true});try{
+ const page=await browser.newPage();await page.goto(process.argv[2]);
+ const style=async(selector,property)=>page.locator(selector).first().evaluate((node,key)=>getComputedStyle(node)[key],property);
+ const result={header:await style('.site-header','backgroundColor'),headerText:await style('.site-header','color'),body:await style('main','color'),heading:await style('main .block h2','color'),footer:await style('.site-footer','backgroundColor'),footerLink:await style('.footer-block-links a','color'),privacy:await style('.newsletter .choice a','color'),button:await style('#palette-button','backgroundColor'),buttonText:await style('#palette-button','color')};
+ await page.locator('#body-link').hover();result.linkHover=await style('#body-link','color');
+ await page.locator('#palette-button').focus();result.buttonFocus=await style('#palette-button','backgroundColor');
+ await page.goto(new URL('/ca/custom-colors',process.argv[2]).href);result.pageOverride=await style('.site-header','backgroundColor');
+ console.log(JSON.stringify(result));
+}finally{await browser.close()}})().catch(error=>{console.error(error);process.exitCode=1});
+"""
+        result = subprocess.run([str(extension_root() / 'renderer/node_modules/node/bin/node'), '-e', script, str(root / 'tests/e2e/node_modules/@playwright/test'), f'http://127.0.0.1:{server.server_port}/ca/'], capture_output=True, text=True, timeout=60, check=False)
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout) == {'header': 'rgb(255, 255, 255)', 'headerText': 'rgb(9, 8, 7)', 'body': 'rgb(38, 70, 83)', 'heading': 'rgb(199, 91, 53)', 'footer': 'rgb(226, 223, 218)', 'footerLink': 'rgb(38, 70, 83)', 'privacy': 'rgb(255, 255, 255)', 'button': 'rgb(38, 70, 83)', 'buttonText': 'rgb(255, 255, 255)', 'linkHover': 'rgb(0, 0, 0)', 'buttonFocus': 'rgb(17, 34, 51)', 'pageOverride': 'rgb(7, 8, 9)'}
     finally:
         server.shutdown()
         server.server_close()

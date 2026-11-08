@@ -9171,16 +9171,35 @@
     "tokens": {
       "primary": "Color principal",
       "accent": "Color d’accent",
-      "background": "Fons",
-      "surface": "Superfície",
-      "text": "Color del text",
-      "muted": "Text secundari",
+      "background": "Fons general per defecte",
+      "surface": "Superfícies (targetes i camps)",
+      "text": "Text general",
+      "muted": "Text atenuat",
       "font-body": "Tipografia del cos",
       "font-heading": "Tipografia dels títols",
       "content-width": "Amplada del contingut",
       "reading-width": "Amplada de lectura",
       "radius": "Radi de les vores",
-      "spacing": "Espaiat base"
+      "spacing": "Espaiat base",
+      "secondary": "Color secundari de marca",
+      "header-background": "Fons de la capçalera",
+      "header-text": "Text de la capçalera",
+      "header-link": "Enllaços de la capçalera",
+      "header-link-hover": "Enllaços actius de la capçalera",
+      "body-background": "Fons del cos",
+      "body-text": "Text del cos",
+      "body-heading": "Titulars del cos",
+      "body-link": "Enllaços del cos",
+      "body-link-hover": "Enllaços actius del cos",
+      "footer-background": "Fons del peu",
+      "footer-text": "Text i titulars del peu",
+      "footer-link": "Enllaços del peu",
+      "footer-link-hover": "Enllaços actius del peu",
+      "button-background": "Fons dels botons",
+      "button-text": "Text dels botons",
+      "button-border": "Vora dels botons",
+      "button-hover-background": "Fons dels botons actius",
+      "button-hover-text": "Text dels botons actius"
     },
     "sourceKinds": {
       "table": "Taula",
@@ -9540,6 +9559,27 @@
     "newsletterPrivacy": "Privacitat del butlletí",
     "newsletterPrivacyHelp": "Informació bàsica visible abans del consentiment: responsable, finalitat, base jurídica, destinataris i drets. L’enllaç a la política es mostra a cada idioma.",
     "newsletterNamesRequired": "Nom i cognoms obligatoris al butlletí",
-    "headingLevel": "Nivell del títol"
+    "headingLevel": "Nivell del títol",
+    "colors": {
+      "title": "Colors del web",
+      "help": "Defineix la paleta de marca i assigna-la a cada regió. Sense una assignació específica es conserva l’aspecte actual. El secundari de marca és independent del text atenuat.",
+      "logoContrast": "Tria un fons que permeti distingir totes les parts del logo. Si el logo conté el color secundari clar, evita posar aquest mateix color al darrere.",
+      "inherit": "Hereta el valor actual",
+      "white": "Blanc",
+      "black": "Negre",
+      "custom": "Color personalitzat",
+      "assignment": "Assignació: {{label}}",
+      "pick": "Tria el color: {{label}}",
+      "reset": "Hereta el valor: {{label}}",
+      "inheritedValue": "Heretat: {{value}}",
+      "groups": {
+        "palette": "Paleta de marca",
+        "general": "Colors generals",
+        "header": "Capçalera",
+        "body": "Cos del web",
+        "footer": "Peu de pàgina",
+        "buttons": "Botons principals"
+      }
+    }
   }
 }
