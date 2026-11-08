@@ -35,7 +35,8 @@ def service_root(store: SiteStore, site_id: str, target_id: str) -> Path:
 def read_settings(store: SiteStore, site_id: str, target_id: str = "local") -> ServiceSettings:
     path = service_root(store, site_id, target_id) / "settings.json"
     if not path.exists():
-        return ServiceSettings()
+        target = next(target for target in store.load(site_id).targets if target.id == target_id)
+        return ServiceSettings(test_mode=target.environment != "production")
     return ServiceSettings.model_validate_json(path.read_text())
 
 
@@ -49,6 +50,10 @@ def settings_response(store: SiteStore, site_id: str, target_id: str = "local") 
 
 def save_settings(store: SiteStore, site_id: str, settings: ServiceSettings, target_id: str = "local") -> ServiceSettingsResponse:
     root = service_root(store, site_id, target_id)
+    site = store.load(site_id)
+    target = next(target for target in site.targets if target.id == target_id)
+    from .production import validate_delivery
+    validate_delivery(target, settings)
     addresses = [settings.sender_email] + [email for delivery in settings.forms.values() for email in delivery.recipients]
     if any(value and not re.fullmatch(r"[^\s<>@\r\n]+@[^\s<>@\r\n]+\.[^\s<>@\r\n]+", value) for value in addresses):
         raise HTTPException(422, "Invalid delivery address")
@@ -80,19 +85,22 @@ def save_settings(store: SiteStore, site_id: str, settings: ServiceSettings, tar
     return settings_response(store, site_id, target_id)
 
 
-def configuration(store: SiteStore, site: SiteConfig, target_id: str, *, forms_site: SiteConfig | None = None) -> Path:
+def configuration(store: SiteStore, site: SiteConfig, target_id: str, *, forms_site: SiteConfig | None = None, preview: bool = False) -> Path:
     root = service_root(store, site.id, target_id)
     settings = read_settings(store, site.id, target_id)
     target = next(target for target in site.targets if target.id == target_id)
-    if target.environment == "production":
-        raise HTTPException(409, "Production services require pilot validation")
+    if preview:
+        settings = settings.model_copy(update={"test_mode": True})
+        target = target.model_copy(update={"environment": "staging", "adapter": "local"})
+    from .production import validate_delivery
+    validate_delivery(target, settings)
     base_url = target.base_url
     if target.adapter == "local":
         from .runtime import connection
         base_url = "http://127.0.0.1:" + str(connection(store, site.id, target_id).local_port)
     # Test mode deliberately never reads or materializes SMTP passwords.
-    config = {
-        "schema_version": 1, "site_id": site.id, "test_mode": True, "public_base_url": base_url, "languages": site.languages,
+    config: dict[str, JsonValue] = {
+        "schema_version": 1, "site_id": site.id, "test_mode": settings.test_mode, "allow_delivery": not settings.test_mode, "delivery_transport": settings.delivery_transport, "public_base_url": base_url, "languages": cast(JsonValue, site.languages),
         "db_path": str(root / "state.sqlite"), "spool_path": str(root / "captures"),
         "library_path": str(SERVICE_ROOT / "library.php"),
         "forms": [form.model_dump(mode="json") for form in (forms_site or site).forms if form.enabled],
@@ -101,7 +109,12 @@ def configuration(store: SiteStore, site: SiteConfig, target_id: str, *, forms_s
         "email_theme": {"primary": (forms_site or site).theme.tokens.get("primary", "#264653"), "background": (forms_site or site).theme.tokens.get("background", "#f5efe7")},
         "smtp": {"host": settings.smtp_host, "port": settings.smtp_port, "security": settings.smtp_security, "username": settings.smtp_username, "from": settings.sender_email, "from_name": settings.sender_name},
     }
-    path = root / "config.json"
+    if not settings.test_mode and settings.delivery_transport == "smtp":
+        reference = root / "credential-reference.json"
+        if reference.exists():
+            from backend.security.keychain_manager import get_keychain
+            cast(dict[str, JsonValue], config["smtp"])["password"] = get_keychain().get_credential(json.loads(reference.read_text())["key"]) or ""
+    path = root / ("preview-config.json" if preview else "config.json")
     private_json(path, config)
     return path
 
@@ -133,7 +146,7 @@ def invoke(store: SiteStore, site: SiteConfig, action: str, request: dict[str, J
     try:
         result = subprocess.run([php, str(cli)], input=payload, capture_output=True, text=True, timeout=45, env=environment, check=False)
         data: object = json.loads(result.stdout)
-        if result.returncode or not isinstance(data, dict) or data.get("error") or data.get("test_mode", True) is not True:
+        if result.returncode or not isinstance(data, dict) or data.get("error") or data.get("test_mode") is not (target.environment != "production"):
             raise ValueError("Service error")
         return cast(dict[str, JsonValue], data)
     except (OSError, ValueError, subprocess.TimeoutExpired):

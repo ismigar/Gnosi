@@ -55,11 +55,18 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
     const { t } = useTranslation();
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const savedStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const savedStatusScopeRef = useRef<object | null>(null);
     const cancelSavedStatusTimer = useCallback(() => {
         if (savedStatusTimerRef.current) clearTimeout(savedStatusTimerRef.current);
         savedStatusTimerRef.current = null;
     }, []);
-    useEffect(() => cancelSavedStatusTimer, [cancelSavedStatusTimer, editor, noteFilename]);
+    useLayoutEffect(() => {
+        savedStatusScopeRef.current = {};
+        return () => {
+            savedStatusScopeRef.current = null;
+            cancelSavedStatusTimer();
+        };
+    }, [cancelSavedStatusTimer, editor, noteFilename]);
     const transientRetryRef = useRef(0);
     const lastSaveFailedRef = useRef(false);
     const outgoingSignatureRef = useRef('');
@@ -73,6 +80,7 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
     const readMetadata = useCallback(() => metadataRef.current, [metadataRef]);
     const handleSave = useCallback(async function persistCurrentPage(force = true) {
         if (!noteFilename || isParsing || !editorReady) return;
+        const savedStatusScope = savedStatusScopeRef.current;
         lastSaveFailedRef.current = false;
         try {
             const content = blocksToRichMarkdown(editor.document);
@@ -85,12 +93,14 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
             try { await promise; } finally { clearOwnSave(noteFilename, promise); }
             if (tracked?.editor === editor && tracked.noteFilename === noteFilename) tracked.saved = data.content;
             transientRetryRef.current = 0;
-            setSaveStatus('saved');
-            cancelSavedStatusTimer();
-            savedStatusTimerRef.current = setTimeout(() => {
-                savedStatusTimerRef.current = null;
-                setSaveStatus(previous => previous === 'saved' ? 'idle' : previous);
-            }, SAVED_FEEDBACK_DURATION_MS);
+            if (savedStatusScope && savedStatusScopeRef.current === savedStatusScope) {
+                setSaveStatus('saved');
+                cancelSavedStatusTimer();
+                savedStatusTimerRef.current = setTimeout(() => {
+                    savedStatusTimerRef.current = null;
+                    setSaveStatus(previous => previous === 'saved' ? 'idle' : previous);
+                }, SAVED_FEEDBACK_DURATION_MS);
+            }
             onUpdate?.(noteFilename, data.content, { title: data.title, metadata: data.metadata });
         } catch (error) {
             lastSaveFailedRef.current = true;

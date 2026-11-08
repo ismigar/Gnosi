@@ -69,3 +69,23 @@ def test_generic_original_routes_and_contact_texts_render_without_temenos_defaul
     assert fallback.select_one('form[data-contact]')['data-invalid'] == 'Revisa los campos indicados.'
     assert fallback.select_one('form[data-contact]')['data-failure'].startswith('No se ha podido enviar.')
     assert fallback.select_one('form[data-contact] button[type=submit]').get_text() == 'Enviar'
+
+
+@pytest.mark.skipif(not (extension_root() / 'renderer/node_modules/node/bin/node').is_file(), reason='Pinned renderer required')
+def test_editor_rows_render_rich_columns_and_scoped_css(tmp_path, monkeypatch):
+    vault = tmp_path / 'vault'; vault.mkdir()
+    monkeypatch.setenv('GNOSI_DATA_DIR', str(tmp_path / 'device'))
+    store = SiteStore(WorkspaceContext('workspace', 'owner', 'owner', vault))
+    row = SiteBlock(type='row', children=[SiteBlock(id='rich-column', body='**Formatted** text', css='p { color: red; }'), SiteBlock(type='text', body='<p>Second <em>column</em><script>bad()</script></p>', body_format='html')])
+    site = SiteConfig(name='Rows', pages=[SitePage(title='Rows', path='/ca/rows', enabled=True, blocks=[row])])
+    site.targets[0].enabled = True
+    bundle = build_bundle(store, site, 'local').model_dump(mode='json')
+    output = tmp_path / 'public'; render_bundle(bundle, output)
+    soup = BeautifulSoup((output / 'ca/rows/index.html').read_text(), 'html.parser')
+    columns = soup.select('.editor-row > .editor-column')
+    assert len(columns) == 2
+    assert columns[0].select_one('strong').get_text() == 'Formatted'
+    assert columns[1].select_one('em').get_text() == 'column'
+    assert columns[1].select_one('script') is None
+    assert '--row-columns:2' in soup.select_one('.editor-row')['style']
+    assert '[data-block-id="rich-column"]' in soup.get_text() or any('[data-block-id="rich-column"]' in str(style) for style in soup.select('style'))

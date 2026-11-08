@@ -274,5 +274,54 @@ class SmtpSubmission(unittest.TestCase):
         self.assertEqual(self.smtp_case("drop")[0], "uncertain")
 
 
+class ServerMail(unittest.TestCase):
+    """Exercise PHP mail against a disposable MTA, never the host mail system."""
+
+    def submit(self, *, reject: bool = False, recipient: str = "reader@example.invalid") -> tuple[str, str]:
+        with tempfile.TemporaryDirectory(prefix="gnosi-server-mail-") as temporary:
+            root = Path(temporary)
+            capture = root / "message.eml"
+            mta = root / "mta.py"
+            mta.write_text("#!/usr/bin/env python3\nimport pathlib, sys\npathlib.Path(" + repr(str(capture)) + ").write_bytes(sys.stdin.buffer.read())\nraise SystemExit(" + ("1" if reject else "0") + ")\n")
+            mta.chmod(0o700)
+            payload = root / "request.json"
+            payload.write_text(json.dumps({"to_email": recipient, "reply_to": "visitor@example.invalid", "subject": "Consulta: ètica", "body_text": "Text de prova", "body_html": "<p>Text de prova</p>"}))
+            code = "require $argv[1];require $argv[2];try{(new SiteServerMail(['from'=>'site@example.invalid']))->send(json_decode(file_get_contents($argv[3]),true));echo 'accepted';}catch(SiteSmtpFailure $e){echo $e->deliveryState;}"
+            result = subprocess.run([PHP, "-d", "sendmail_path=" + str(mta), "-r", code, str(ROOT / "smtp.php"), str(ROOT / "server_mail.php"), str(payload)], text=True, capture_output=True, check=True, timeout=10)
+            return result.stdout, capture.read_text() if capture.exists() else ""
+
+    def test_host_mta_acceptance_and_failure(self) -> None:
+        state, body = self.submit()
+        self.assertEqual(state, "accepted")
+        self.assertIn("From: <site@example.invalid>", body)
+        self.assertIn("Reply-To: <visitor@example.invalid>", body)
+        self.assertIn("multipart/alternative", body)
+        self.assertIn("Content-Transfer-Encoding: base64", body)
+        self.assertEqual(self.submit(reject=True)[0], "pending")
+
+    def test_header_injection_does_not_reach_mta(self) -> None:
+        state, body = self.submit(recipient="reader@example.invalid\r\nBcc: other@example.invalid")
+        self.assertEqual(state, "rejected")
+        self.assertEqual(body, "")
+
+    def test_live_worker_uses_host_transport_and_persists_acceptance(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="gnosi-live-worker-") as temporary:
+            root = Path(temporary)
+            capture = root / "message.eml"
+            mta = root / "mta.py"
+            mta.write_text("#!/usr/bin/env python3\nimport pathlib, sys\npathlib.Path(" + repr(str(capture)) + ").write_bytes(sys.stdin.buffer.read())\n")
+            mta.chmod(0o700)
+            config = {"site_id": "live-worker", "test_mode": False, "allow_delivery": True, "delivery_transport": "server-mail", "public_base_url": "https://example.invalid", "db_path": str(root / "state.sqlite"), "spool_path": str(root / "spool"), "library_path": str(ROOT / "library.php"), "smtp": {"from": "site@example.invalid"}, "forms": [{"id": "contact", "revision": 1, "enabled": True, "require_privacy": False, "fields": [{"id": "email", "type": "email", "required": True, "max_length": 254}]}], "form_delivery": {"contact": {"recipients": ["owner@example.invalid"], "subject": "Contact proof"}}}
+            payload = root / "config.json"
+            payload.write_text(json.dumps(config))
+            code = "require $argv[1];$s=new SiteService(json_decode(file_get_contents($argv[2]),true));$s->contact(['form_id'=>'contact','revision'=>1,'language'=>'ca','_request_id'=>'host-transport-proof','values'=>['email'=>'visitor@example.invalid']], '127.0.0.1');echo json_encode($s->admin('worker',[]));"
+            result = subprocess.run([PHP, "-d", "sendmail_path=" + str(mta), "-r", code, str(ROOT / "library.php"), str(payload)], capture_output=True, text=True, check=True, timeout=10)
+            self.assertEqual(json.loads(result.stdout)["accepted"], 1)
+            self.assertIn("owner@example.invalid", capture.read_text())
+            with sqlite3.connect(config["db_path"]) as db:
+                self.assertEqual(db.execute("SELECT status FROM queue").fetchone()[0], "accepted")
+            self.assertFalse(list((root / "spool").glob("*.eml")))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -52,7 +52,7 @@ and `allow_delivery:true` in private configuration. SMTP takes `host`, `port`,
 `security` (`starttls` or `tls`), `username`, `password`, `from`, and optional
 `per_minute` (default 20, maximum 100). TLS validates the peer and hostname.
 `security:none` exists solely with `allow_insecure_loopback:true` and a literal
-loopback host, for disposable fake SMTP tests. There is no `mail()` fallback.
+loopback host, for disposable fake SMTP tests. SMTP never falls back automatically to `mail()`; host mail is a separate, explicitly selected transport.
 
 ## Public contracts
 
@@ -150,8 +150,8 @@ worker handles due messages, respects paused campaigns and rate limits, checks
 subscription status, then performs retention maintenance. It works without Gnosi.
 Only one worker owns the spool lock. A crashed `sending` delivery becomes
 `uncertain`; it is never automatically retried. Operators reconcile it explicitly
-after investigating SMTP logs. `accepted` means SMTP accepted DATA, not delivery
-to an inbox or reading. Pre-DATA transient failures remain pending with a delay;
+after investigating transport logs. `accepted` means SMTP accepted DATA or the
+host MTA accepted the message, not inbox delivery or reading. Pre-DATA transient failures remain pending with a delay;
 definitive refusals are rejected. Test captures are atomic and idempotent.
 
 Keep database, WAL/SHM and spool together in private backups. Static release
@@ -168,3 +168,36 @@ python3 extensions/web-publishing/server/test_http.py
 
 The tests use temporary directories and synthetic addresses. They do not contact
 Pangea, production services, real subscribers or a live SMTP server.
+
+## Production delivery and migration
+
+Production is a separate remote HTTPS destination, with a separate database,
+spool and ownership marker. Destinations with retained operational state cannot change environment;
+create a new destination. Unused destination drafts can still be configured. A production publication requires private settings
+with `test_mode: false` and a sender address. Select `delivery_transport` as
+`smtp` (TLS required) or `server-mail` (the host PHP `mail()` transport). SMTP
+passwords are read from the credential store only for live SMTP configuration.
+The server-mail transport passes no command-line options or user-selected
+commands to the MTA. Acceptance means the host accepted the message; it does not
+prove inbox delivery.
+
+Local previews always use capture mode, their own database and synthetic
+addresses, including previews of a production destination. Production builds
+remove the preview banner and test address restriction and allow indexing.
+Staging builds retain those restrictions. Captured-mail operations remain
+unavailable in production.
+
+The administrator-bound Pangea bridge requires a separate private production
+registration; its protected staging namespace and state are never reused.
+Production root routing is a separate migration step after verified backups,
+URL comparison and a reviewed retained release. The root-routing generator
+preserves protected staging and historical public attachments while routing
+public requests to the retained Webs release. It does not itself connect or
+perform a cutover. Retain Drupal and a verified copy of its root routing so the
+operator can reverse the cutover without reverting new subscriber history.
+
+Pangea uploads the release archive into the private `0700` service directory,
+pre-creating its destination as `0600` before the transfer starts. The tar's
+service directory is explicitly `0700` and all service members are `0600`.
+This also protects credentials if upload or extraction stops before final
+installation; privacy does not depend on the hosting account's umask.

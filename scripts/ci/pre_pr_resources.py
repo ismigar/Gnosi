@@ -5,11 +5,16 @@ from __future__ import annotations
 import logging
 import os
 import platform
+import queue
 import signal
 import subprocess
+import threading
 from pathlib import Path
 from time import monotonic, sleep
-from typing import Mapping
+from typing import TYPE_CHECKING, Mapping
+
+if TYPE_CHECKING:
+    import psutil
 
 from scripts.ci.pre_pr_commands import Step
 
@@ -91,23 +96,64 @@ def idle_preflight(
         sleep(min(POLL_SECONDS, PREFLIGHT_WAIT_SECONDS - (now - started)))
 
 
-def process_tree_rss(group: int, tracked: set[int]) -> int:
-    """Include descendants that change groups, and retain reparented children."""
-    result = subprocess.run(
-        ("ps", "-axo", "pid=,ppid=,pgid=,rss="),
-        capture_output=True, text=True, check=True, timeout=2,
-    )
-    rows = [tuple(map(int, line.split())) for line in result.stdout.splitlines() if line.strip()]
-    if not rows or any(len(row) != 4 for row in rows):
+def _read_process_tree(group: int, tracked: frozenset[int]) -> tuple[int, set[int]]:
+    """Read kernel process data without repeatedly spawning a system-wide ps."""
+    import psutil
+
+    rows: list[tuple[psutil.Process, int, int]] = []
+    for process in psutil.process_iter(["pid", "ppid"]):
+        try:
+            parent = process.info["ppid"]
+            # POSIX getpgid(0) means the observer, not the kernel process.
+            process_group = 0 if process.pid == 0 else os.getpgid(process.pid)
+            if not isinstance(parent, int):
+                raise ValueError("Cannot classify process parent")
+            rows.append((process, parent, process_group))
+        except (psutil.NoSuchProcess, ProcessLookupError):
+            continue  # A process which exited has no resident memory to retain.
+    if not rows:
         raise ValueError("Cannot supervise process tree")
-    selected = {pid for pid, _, pgid, _ in rows if pgid == group or pid in tracked}
+    selected = {process.pid for process, _, pgid in rows if pgid == group or process.pid in tracked}
     previous: set[int] = set()
     while selected != previous:
         previous = selected.copy()
-        selected.update(pid for pid, parent, _, _ in rows if parent in selected)
+        selected.update(process.pid for process, parent, _ in rows if parent in selected)
+    total = 0
+    for process, _, _ in rows:
+        if process.pid not in selected:
+            continue
+        try:
+            total += process.memory_info().rss
+        except psutil.NoSuchProcess:
+            selected.discard(process.pid)
+    # Match ps's KiB unit, rounding up so sub-KiB totals never undercount.
+    return (total + 1023) // 1024, selected
+
+
+def process_tree_rss(group: int, tracked: set[int]) -> int:
+    """Keep the two-second observation deadline and fail closed on missing data."""
+    results: queue.Queue[tuple[int, set[int]] | Exception] = queue.Queue(maxsize=1)
+    started = monotonic()
+
+    def observe() -> None:
+        try:
+            results.put(_read_process_tree(group, frozenset(tracked)))
+        except Exception as error:
+            results.put(error)
+
+    threading.Thread(target=observe, daemon=True).start()
+    try:
+        result = results.get(timeout=2)
+    except queue.Empty:
+        raise ValueError("Process supervision exceeded its two-second observation deadline") from None
+    if monotonic() - started > 2:
+        raise ValueError("Process supervision exceeded its two-second observation deadline")
+    if isinstance(result, Exception):
+        raise ValueError("Cannot supervise process tree") from result
+    rss, selected = result
     tracked.clear()
     tracked.update(selected)
-    return sum(rss for pid, _, _, rss in rows if pid in selected)
+    return rss
 
 
 def stop_tree(process: subprocess.Popen[bytes], tracked: set[int]) -> None:

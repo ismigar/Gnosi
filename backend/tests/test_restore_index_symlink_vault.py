@@ -43,7 +43,9 @@ def symlinked_vault(monkeypatch, tmp_path):
     # Premise of the regression: the configured root is NOT canonical.
     assert link.resolve() != link
 
-    monkeypatch.setattr(vr, "get_p", lambda key: link)
+    # A background cache writer must never receive the vault symlink as its
+    # output file. Keep non-vault configuration paths inside this fixture too.
+    monkeypatch.setattr(vr, "get_p", lambda key: link if key == "VAULT" else tmp_path / "cache" / f"{key}.json")
     monkeypatch.setattr(vr, "path_resolver", _NoopResolver())
     monkeypatch.setattr(vr, "_page_index_entries", {})
     monkeypatch.setattr(vr, "_page_id_to_path", {})
@@ -69,6 +71,8 @@ def test_restore_reindexes_page_under_symlinked_vault(symlinked_vault):
 
     res = asyncio.run(vr.restore_page(PID))
     assert res["status"] == "restored"
+    # Reproduce a pending background link-cache write before inspecting restore.
+    vr._save_link_index_to_disk()
     assert page.exists(), "restore must put the file back at original_path"
 
     # The point of the regression test: the restored page is in the index

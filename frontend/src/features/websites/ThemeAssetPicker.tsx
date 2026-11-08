@@ -2,15 +2,15 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import { createPortal } from 'react-dom';
 import { useModalKeyboard } from '../../shared/hooks/useModalKeyboard';
 import { useTranslation } from 'react-i18next';
-import { previewSiteImage, previewSiteAsset, uploadSiteThemeAsset } from '../../shared/api/sites';
+import { previewSiteImage, previewSiteAsset, uploadSiteThemeAsset, type SiteThemeAsset } from '../../shared/api/sites';
 import type { RequestContext } from '../../shared/api/request-context';
 import { apiErrorDetail } from '../../shared/api/errors';
 import { useAutosaveRegistration, type RegisterAutosave } from './autosaveRequest';
 import { FileImportButton, Input } from './components';
 
 /** Uploads are independent of the configuration revision; the parent autosaves the reference. */
-export function ThemeAssetPicker({ siteId, value, kind, label, context, disabled, onChange, register, assetKey, revision, onUploadState = () => undefined }: {
-  siteId: string; value: string; kind: 'image' | 'font' | 'file'; label: string; context: RequestContext; disabled: boolean; onChange: (source: string) => void; register?: RegisterAutosave; assetKey: string; revision?: number; onUploadState?: (delta: number) => void;
+export function ThemeAssetPicker({ siteId, value, kind, label, context, disabled, onChange, register, assetKey, revision, onUploadState = () => undefined, compact = false, buttonLabel, onUploaded }: {
+  siteId: string; value: string; kind: 'image' | 'font' | 'file'; label: string; context: RequestContext; disabled: boolean; onChange: (source: string) => void; register?: RegisterAutosave; assetKey: string; revision?: number; onUploadState?: (delta: number) => void; compact?: boolean; buttonLabel?: string; onUploaded?: (asset: SiteThemeAsset, file: File) => void;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false); const dialog = useRef<HTMLDivElement>(null); const dialogId = useId();
@@ -32,8 +32,8 @@ export function ThemeAssetPicker({ siteId, value, kind, label, context, disabled
   const task = useRef<Promise<boolean> | null>(null);
   const flush = useCallback(() => task.current ?? Promise.resolve(true), []);
   useAutosaveRegistration(register, `asset:${siteId}:${assetKey}`, busy, flush);
-  const latest = useRef(onChange); const upload = useRef<AbortController | null>(null);
-  useLayoutEffect(() => { latest.current = onChange; }, [onChange]);
+  const latest = useRef({ onChange, onUploaded }); const upload = useRef<AbortController | null>(null);
+  useLayoutEffect(() => { latest.current = { onChange, onUploaded }; }, [onChange, onUploaded]);
   useEffect(() => () => { upload.current?.abort(); }, [scopeKey]);
   useEffect(() => {
     if (!previewEnabled || (!isImage && !isFile) || !value) return;
@@ -55,7 +55,7 @@ export function ThemeAssetPicker({ siteId, value, kind, label, context, disabled
     try {
       const result = await uploadSiteThemeAsset(siteId, file, kind, context, controller.signal);
       if (controller.signal.aborted || activeScope.current !== scopeKey) return false;
-      latest.current(result.source); setOpen(false); return true;
+      if (latest.current.onUploaded) latest.current.onUploaded(result, file); else latest.current.onChange(result.source); setOpen(false); return true;
     } catch (failure) { if (activeScope.current === scopeKey) setError(apiErrorDetail(failure, t('websites.assetUploadFailed'))); return false; }
     finally { clearTimeout(timer); upload.current = null; onUploadState(-1); setBusy(false); }
   };
@@ -63,11 +63,11 @@ export function ThemeAssetPicker({ siteId, value, kind, label, context, disabled
   const fileName = value.split('/').pop() || label;
   const currentPreview = value && preview.source === value && preview.scope === scopeKey && preview.url;
   return <div className="websites-asset-picker" ref={visible}>
-    <Input aria-label={label} value={value} disabled={disabled || busy} onChange={event => { latest.current(event.target.value); }} />
+    {!compact && <Input aria-label={label} value={value} disabled={disabled || busy} onChange={event => { latest.current.onChange(event.target.value); }} />}
     {isImage && currentPreview && <img className="websites-asset-thumbnail" src={preview.url} alt={label} loading="lazy" />}
     {!isImage && currentPreview && <a className="websites-asset-link" href={preview.url} download={fileName}>{t('websites.openAsset', { name: label })}</a>}
-    <div className="websites-actions"><button type="button" className="websites-button" disabled={disabled || busy} onClick={() => { setError(''); setOpen(true); }}>{t(value ? 'websites.replaceAsset' : 'websites.uploadAsset', { name: label })}</button>
-      {value && <button type="button" className="websites-button" aria-label={`${t('websites.remove')} ${label}`} disabled={disabled || busy} onClick={() => { latest.current(''); }}>{t('websites.remove')}</button>}
+    <div className="websites-actions"><button type="button" className="websites-button" disabled={disabled || busy} onClick={() => { setError(''); setOpen(true); }}>{buttonLabel || t(value ? 'websites.replaceAsset' : 'websites.uploadAsset', { name: label })}</button>
+      {value && !compact && <button type="button" className="websites-button" aria-label={`${t('websites.remove')} ${label}`} disabled={disabled || busy} onClick={() => { latest.current.onChange(''); }}>{t('websites.remove')}</button>}
     </div>
     {busy && <span role="status">{t('websites.uploadingAsset')}</span>}{!open && error && <p role="alert" className="websites-error">{error}</p>}
     {open && createPortal(<div ref={dialog} className="websites-dialog" role="dialog" aria-modal="true" aria-labelledby={dialogId}><form onSubmit={event => { event.preventDefault(); }}>

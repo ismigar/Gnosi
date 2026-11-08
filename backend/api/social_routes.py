@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -585,6 +585,11 @@ async def create_post(
     )
 
 
+def _social_instant(value: datetime) -> datetime:
+    """Compare zoned instants while retaining legacy local, naive schedules."""
+    return value.astimezone(timezone.utc)
+
+
 @router.post(
     "/schedule",
     dependencies=[Depends(require_role("editor"))],
@@ -594,7 +599,7 @@ async def schedule_post(
     request: SchedulePublishRequest, background_tasks: BackgroundTasks
 ) -> ScheduledPublicationResponse:
     """Schedule a future publication (saved to the Vault table, not in memory)."""
-    if request.scheduled_time <= datetime.now():
+    if _social_instant(request.scheduled_time) <= datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="The scheduled time must be in the future.")
     if not request.posts:
         raise HTTPException(status_code=400, detail="Cap publicació a programar.")
@@ -670,13 +675,13 @@ async def process_scheduled_posts(
     background_tasks: BackgroundTasks,
 ) -> ProcessScheduledResponse:
     """Publish overdue scheduled posts. Called periodically by the scheduler."""
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     pending = await social_store.list_publications(status=social_store.STATUS_SCHEDULED)
     processed = []
     for rec in pending:
         sched = rec.get(social_store.COL_SCHEDULED) or ""
         try:
-            due = bool(sched) and datetime.fromisoformat(sched) <= now
+            due = bool(sched) and _social_instant(datetime.fromisoformat(sched)) <= now
         except Exception:
             due = False
         if not due:

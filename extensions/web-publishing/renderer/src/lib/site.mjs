@@ -5,6 +5,9 @@ import {importedLocalLink} from './routing.mjs';
 
 export const bundle = JSON.parse(fs.readFileSync('bundle.json', 'utf8'));
 export const site = bundle.site;
+// Preview and staging renders fail closed unless the publisher explicitly
+// identifies a reviewed production build.
+export const production = bundle.deployment_environment === 'production';
 export const records = bundle.records;
 export const deployment = new URL(bundle.deployment_url || site.origin);
 export const base = deployment.pathname.replace(/\/$/, '');
@@ -109,9 +112,9 @@ export function themeCss(page) {
   }).join(';');
   const anchor = '.site-root';
   const fonts = (site.theme.fonts || []).map(font=>{
-    if (!/^[\w -]+$/.test(font.family) || !/^[0-9 ]+$/.test(font.weight)) throw new Error('Invalid local font');
+    if (!/^[\p{L}\p{N}_ -]+$/u.test(font.family) || !/^[0-9 ]+$/.test(font.weight)) throw new Error('Invalid local font');
     return `@font-face{font-family:"${font.family}";src:url("${href(font.src)}");font-weight:${font.weight};font-style:${font.style};font-display:swap}`;
   }).join('');
-  const blockCss = [...(page.blocks || []), ...(site.footer_columns || []).flatMap(column=>column.blocks || []), ...(site.footer_blocks || [])].map(block => css(block.css,`[data-block-id="${block.id.replace(/[^a-zA-Z0-9_-]/g,'')}"]`)).join('\n');
+  const blockCss = [...(page.blocks || []), ...(site.footer_columns || []).flatMap(column=>column.blocks || []), ...(site.footer_blocks || []), ...(site.regions || []).flatMap(region=>region.blocks || [])].flatMap(block => [block, ...(block.children || [])]).map(block => css(block.css,`[data-block-id="${block.id.replace(/[^a-zA-Z0-9_-]/g,'')}"]`)).join('\n');
   return `@layer base,theme,components,page,advanced;@layer theme{${fonts}:root{${tokens}}}@layer page{${css(page.css,`[data-page-id="${page.id.replace(/[^a-zA-Z0-9_-]/g,'')}"]`)}${blockCss}}@layer advanced{${css(site.theme.advanced_css,anchor)}}`;
 }

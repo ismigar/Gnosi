@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { CatalogueItem, SiteBlock, SiteConfig, SiteFooterColumn } from '../../shared/api/sites';
-import { Card, Field, Input, ReorderActions, Select } from './components';
-import { LinksEditor } from './LinksEditor';
+import { Card, Field, Input, ReorderActions, Select, Disclosure } from './components';
 import { BlocksEditor } from './PagesEditor';
 import { moveItem, newId } from './helpers';
 
@@ -27,17 +26,16 @@ export function FooterEditor({ site, catalogue, onChange }: { site: SiteConfig; 
   const changeColumn = (index: number, patch: Partial<SiteFooterColumn>) => { onChange({ ...site, footer_columns: columns.map((column, at) => at === index ? { ...column, ...patch } : column) }); };
   return <Card title={t('websites.footerLayout')}>
     <Field label={t('websites.footerCopyright')}><Input value={site.footer_copyright ?? `© ${site.name}`} onChange={event => { onChange({ ...site, footer_copyright: event.target.value }); }} /></Field>
-    <LinksEditor title={t('websites.footerBottomLinks')} languages={site.languages} links={site.footer_bottom_links ?? (site.footer ?? []).filter(legal)} onChange={footer_bottom_links => { onChange({ ...site, footer_bottom_links }); }} />
     {!custom && <button type="button" className="websites-button" onClick={() => { onChange({ ...site, footer_columns: defaults(site), footer_blocks: site.legacy_pilot ? [block('newsletter')] : [] }); }}>{t('websites.customFooter')}</button>}
     {custom && <>
-      <h3 className="websites-spacer">{t('websites.footerWideBlocks')}</h3>
-      <BlocksEditor key={`${site.id}:footer-wide`} site={site} catalogue={catalogue} blocks={site.footer_blocks ?? []} onChange={footer_blocks => { onChange({ ...site, footer_blocks }); }} />
-      <div className="websites-section-title websites-spacer"><h3>{t('websites.columns')}</h3><button type="button" className="websites-button" disabled={columns.length >= 12} onClick={() => { onChange({ ...site, footer_columns: [...columns, { id: newId('footer-column'), title: '', alignment: 'left', language: null, blocks: [] }] }); }}>{t('websites.addColumn')}</button></div>
-      <div className="websites-list">{columns.map((column, index) => <section className="websites-row websites-footer-column" key={column.id}>
-        <div className="websites-row-title"><h3>{t('websites.columns')} {index + 1}</h3><ReorderActions index={index} length={columns.length} move={offset => { onChange({ ...site, footer_columns: moveItem(columns, index, offset) }); }} remove={() => { onChange({ ...site, footer_columns: columns.filter((_, at) => at !== index) }); }} /></div>
+      <Disclosure title={t('websites.footerWideBlocks')}>
+      <BlocksEditor key={`${site.id}:footer-wide`} site={site} catalogue={catalogue} blocks={site.footer_blocks ?? []} onChange={footer_blocks => { onChange({ ...site, footer_blocks }); }} /></Disclosure>
+      <Disclosure title={t('websites.columns')} actions={<button type="button" className="websites-button" disabled={columns.length >= 12} onClick={() => { onChange({ ...site, footer_columns: [...columns, { id: newId('footer-column'), title: '', alignment: 'left', language: null, blocks: [] }] }); }}>{t('websites.addColumn')}</button>}>
+      <div className="websites-list">{columns.map((column, index) => <Disclosure className="websites-row websites-footer-column" key={column.id} title={`${t('websites.columns')} ${String(index + 1)}`}>
+        <div className="websites-row-title"><ReorderActions index={index} length={columns.length} move={offset => { onChange({ ...site, footer_columns: moveItem(columns, index, offset) }); }} remove={() => { onChange({ ...site, footer_columns: columns.filter((_, at) => at !== index) }); }} /></div>
         <div className="websites-grid"><Field label={t('websites.titleLabel')}><Input value={column.title} onChange={event => { changeColumn(index, { title: event.target.value }); }} /></Field><Field label={t('websites.language')}><Select value={column.language ?? ''} onChange={event => { changeColumn(index, { language: event.target.value || null }); }}><option value="">{t('websites.allLanguages')}</option>{(site.languages ?? []).map(language => <option key={language} value={language}>{language.toUpperCase()}</option>)}</Select></Field><Field label={t('websites.visual.alignment')}><Select value={column.alignment} onChange={event => { changeColumn(index, { alignment: event.target.value as SiteFooterColumn['alignment'] }); }}>{['left', 'center', 'right'].map(value => <option key={value} value={value}>{t(`websites.visual.${value}`)}</option>)}</Select></Field></div>
         <BlocksEditor site={site} catalogue={catalogue} blocks={column.blocks ?? []} onChange={blocks => { changeColumn(index, { blocks }); }} />
-      </section>)}</div>
+      </Disclosure>)}</div></Disclosure>
     </>}
   </Card>;
 }

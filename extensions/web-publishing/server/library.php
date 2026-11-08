@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/storage.php';
 require_once __DIR__.'/smtp.php';
+require_once __DIR__.'/server_mail.php';
 require_once __DIR__.'/captured.php';
 
 final class SiteValidation extends InvalidArgumentException {
@@ -420,7 +421,10 @@ final class SiteService {
                     else {
                         if (($this->config['allow_delivery'] ?? false) !== true) throw new SiteSmtpFailure('rejected', 'delivery_disabled');
                         $smtp = $this->config['smtp'] ?? []; $smtp['from'] = $row['from_email'];
-                        (new SiteSmtp($smtp))->send($row); $state = 'accepted';
+                        if (($this->config['delivery_transport'] ?? 'smtp') === 'server-mail') (new SiteServerMail($smtp))->send($row);
+                        elseif (($this->config['delivery_transport'] ?? 'smtp') === 'smtp') (new SiteSmtp($smtp))->send($row);
+                        else throw new SiteSmtpFailure('rejected', 'delivery_transport');
+                        $state = 'accepted';
                     }
                     $this->refreshDeliveryTokens($row);
                 } catch (SiteSmtpFailure $e) { $state = $e->deliveryState; $error = $e->getMessage(); }

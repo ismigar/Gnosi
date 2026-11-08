@@ -40,6 +40,9 @@ source_paths:
   - backend/domains/llm_wiki/semantic_quote_selection.py
   - backend/domains/llm_wiki/semantic_quote_contracts.py
   - backend/services/reading_semantic_estimate.py
+  - backend/services/reading_performance.py
+  - backend/services/openai_usage_pricing.py
+  - backend/tests/test_reading_performance.py
   - backend/tests/test_semantic_reading.py
   - backend/services/agent_task_cases.py
   - backend/services/agent_task_evaluation_models.py
@@ -1420,6 +1423,12 @@ El lliurament automàtic agrupa fins a quatre fragments existents, reduint cride
 
 La comprovació prèvia també indica els fragments desats incompatibles amb la font o els ajustos actuals. Els dos diàlegs i les peticions amb identificador d’estimació bloquegen aquesta represa, conservant els checkpoints en lloc de pagar silenciosament una altra lectura. Tornar a processar explícitament continua sent una acció diferent de reprendre.
 
+
+Les fases de lectura de fonts amb OpenAI directe i `gpt-6.1-sol` utilitzen Flex i memòria cau explícita de 30 minuts. Les instruccions estables i els camps JSON compartits precedeixen les evidències variables; concatenar els blocs de contingut restitueix tot l’embolcall de l’operació sense alterar cap valor de les fonts, els esquemes o les instruccions. Sol directe admet els nivells publicats low, medium, high, xhigh i max mitjançant peticions Responses sense estat. Les altres operacions, proveïdors i models conserven el seu comportament. No hi ha canvi automàtic a Standard ni a un altre model. La mida dels lots i el límit persistent del llibre es mantenen. La comprovació prèvia identifica Flex i explica la relació entre preu i espera. Flex pot esperar més o fallar per manca de capacitat; es mantenen els límits de cancel·lació, temps i reintents.
+
+Els grups de revisió semàntica final de fins a quatre notes reserven com a màxim 4.096 tokens de sortida; els de cinc a deu, 8.192; la interpretació i els grups més grans mantenen 16.384. Canvia el marge de generació, però es conserven les instruccions, l’esquema, les evidències originals i els controls d’acceptació. Una resposta amb metadades de truncament del proveïdor es rebutja abans de desar-la, encara que sigui JSON sintàcticament vàlid. Una reserva que no hi cap pot dividir només el grup de revisió pendent, conservant tots els esborranys, els mapes complets i els grups veïns ja completats. Si una sola nota tampoc hi cap, el procés es pausa abans d’una altra transmissió. El lliurament de fragments es manté i cada reintent adquireix la mateixa reserva atòmica.
+
+La comprovació prèvia pressuposa zero encerts de memòria cau i inclou el cost d’escriptura. Abans de transmetre, les reserves utilitzen la modalitat nativa fixada explícitament i cobreixen les escriptures, la sortida màxima i els recàrrecs de context llarg. Flex rebutja endpoints intermediaris i sobreescriptures del cos que podrien alterar la petició valorada. El consum retornat per OpenAI desa lectures, escriptures i modalitat servida a la taula de metadades `usage_pricing`. El consum conegut de Sol es valora amb aquesta modalitat i la tarifa publicada; continua sent una estimació, no una factura comunicada. Un registre terminal complet i vàlid pot substituir la reserva màxima per una cota amb la modalitat servida que tracta tota l’entrada com a escriptura i conserva un marge del 10%. Els càrrecs de cartera es mantenen separats del consum nominal de crèdits: un zero comunicat no allibera aquesta cota. Els comptadors absents, les tarifes desconegudes, els models canviats, les crides fallides i les durades de memòria cau no admeses mantenen la reserva original. L’historial no es reinicia i la conciliació comunicada pel proveïdor continua sent l’autoritat.
 
 ## Proves de funcions del bot i evidència reutilitzable
 

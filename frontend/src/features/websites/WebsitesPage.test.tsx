@@ -9,7 +9,7 @@ import WebsitesPage from './WebsitesPage';
 
 vi.mock('../../shared/editor/InstructionMarkdownEditor', () => ({ InstructionMarkdownEditor: ({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) => <textarea aria-label={label} value={value} onChange={event => { onChange(event.target.value); }} /> }));
 
-vi.mock('../../shared/api/sites', () => Object.fromEntries(['editableSitePages', 'listSites', 'createSite', 'removeSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont', 'previewSiteImage', 'previewSiteAsset', 'uploadSiteThemeAsset'].map(name => [name, vi.fn()])));
+vi.mock('../../shared/api/sites', () => Object.fromEntries(['editableSitePages', 'listSites', 'createSite', 'removeSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont', 'previewSiteImage', 'previewSiteAsset', 'uploadSiteThemeAsset', 'siteFontCatalogue', 'importSiteFonts'].map(name => [name, vi.fn()])));
 vi.mock('../../shared/api/request-context', () => ({ currentRequestContext: vi.fn() }));
 vi.mock('../../shared/hooks/useModalKeyboard', () => ({ useModalKeyboard: () => undefined }));
 vi.mock('../../shared/ui/layout/AppHeader', () => ({ AppHeader: ({ children, title }: { children: React.ReactNode; title: string }) => <header><h1>{title}</h1>{children}</header> }));
@@ -34,7 +34,7 @@ function addSource(container: HTMLElement) {
 }
 
 beforeEach(() => {
-  vi.resetAllMocks(); vi.useFakeTimers();
+  vi.resetAllMocks(); vi.mocked(api.siteFontCatalogue).mockResolvedValue([]); vi.useFakeTimers();
   vi.mocked(api.previewSiteImage).mockRejectedValue(new Error('No synthetic image configured'));
   vi.mocked(api.editableSitePages).mockResolvedValue([]);
   vi.mocked(currentRequestContext).mockReturnValue(context);
@@ -56,7 +56,7 @@ describe('Webs manager', () => {
     initial.pages = [{ id: 'home', title: 'Home', language: 'ca', path: '/ca/', enabled: true, template: 'home', description: '', css: '', blocks: [{ id: 'hero', type: 'split', title: 'Welcome', body: 'Introduction', image: '/hero.webp', alt: 'Landscape', image_position: 'right', href: '', columns: 3, limit: 3, css: '' }] }];
     vi.mocked(api.listSites).mockResolvedValue([initial]);
     vi.mocked(api.getSite).mockResolvedValue({ site: initial, jobs: [], releases: [], service_available: true });
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'navigation');
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'regions');
     const header = [...view.container.querySelectorAll<HTMLElement>('.websites-card')].find(element => element.querySelector('h2')?.textContent === 'websites.headerActions');
     if (!header) throw new Error('Missing header actions');
     act(() => { button(header, 'websites.addLink').click(); });
@@ -82,7 +82,7 @@ describe('Webs manager', () => {
     expect(saved?.sources?.[0]).toMatchObject({ page_size: 24, show_tag_filter: true, enabled: false });
     expect(saved?.header_actions?.[0]?.label).toBe('Col·labora');
     expect(saved?.pages?.[0]?.blocks?.[0]?.actions?.[0]?.label).toBe('Explore');
-    tab(view.container, 'navigation');
+    tab(view.container, 'regions');
     expect(control(view.container, 'websites.label').value).toBe('Col·labora');
   });
 
@@ -99,7 +99,7 @@ describe('Webs manager', () => {
       { id: 'native-private-note', kind: 'page', title: 'Private vault note' },
     ]);
     const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'sources'); await settle();
-    const details = view.container.querySelector('details');
+    const details = view.container.querySelector('.websites-record-selection');
     expect(details?.textContent).toContain('Public translated article');
     expect(details?.textContent).not.toContain('Private vault note');
     expect([...control(view.container, 'websites.source').querySelectorAll('option')].some(option => option.value.startsWith('record:'))).toBe(false);
@@ -155,7 +155,7 @@ describe('Webs manager', () => {
   it('selects multiple website languages from the dropdown and autosaves them', async () => {
     const initial = structuredClone(base); initial.languages = ['ca'];
     vi.mocked(api.listSites).mockResolvedValue([initial]); vi.mocked(api.getSite).mockResolvedValue({ site: initial, jobs: [], releases: [], service_available: true });
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'navigation');
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'configuration');
     const combo = view.container.querySelector<HTMLElement>('[role="combobox"][aria-label="websites.languages"]');
     if (!combo) throw new Error('Missing language multi-select'); act(() => { combo.click(); }); await settle();
     const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(item => item.textContent.includes('español'));
@@ -211,7 +211,7 @@ describe('Webs manager', () => {
     vi.mocked(api.saveSite).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
     const view = mountTestComponent(<WebsitesPage />); await settle();
     expect(api.saveSite).not.toHaveBeenCalled();
-    tab(view.container, 'navigation');
+    tab(view.container, 'configuration');
     act(() => { changeInput(control(view.container, 'websites.siteName'), 'First title'); });
     await autosave(); expect(api.saveSite).toHaveBeenCalledOnce();
     act(() => { changeInput(control(view.container, 'websites.siteName'), 'Latest title'); });
@@ -225,7 +225,7 @@ describe('Webs manager', () => {
 
   it('preserves failed drafts and blocks publication until autosave succeeds on retry', async () => {
     vi.mocked(api.saveSite).mockRejectedValueOnce(new Error('offline'));
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'navigation');
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'configuration');
     act(() => { changeInput(control(view.container, 'websites.siteName'), 'Keep this title'); });
     await autosave();
     expect(control(view.container, 'websites.siteName').value).toBe('Keep this title');
@@ -241,7 +241,7 @@ describe('Webs manager', () => {
   it('autosaves a site left in the selector without writing its draft into the newly selected site', async () => {
     const second = { ...structuredClone(base), id: 'second-site', name: 'Second site' };
     vi.mocked(api.listSites).mockResolvedValue([structuredClone(base), second]);
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'navigation');
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'configuration');
     act(() => { changeInput(control(view.container, 'websites.siteName'), 'First site edited'); });
     act(() => { changeInput(control(view.container, 'websites.website'), second.id); }); await settle();
     await autosave();
@@ -251,7 +251,7 @@ describe('Webs manager', () => {
   });
 
   it('flushes a pending draft when leaving Webs in the same scope', async () => {
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'navigation');
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'configuration');
     act(() => { changeInput(control(view.container, 'websites.siteName'), 'Saved on close'); });
     expect(api.saveSite).not.toHaveBeenCalled();
     view.unmount(); await settle();
@@ -272,7 +272,7 @@ describe('Webs manager', () => {
   });
 
   it.each(['settings', 'publishing'])('flushes pending %s settings when leaving the whole Webs page', async section => {
-    const privateValue: api.ServiceSettingsResponse = { configured: true, test_mode: true, smtp_host: '', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
+    const privateValue: api.ServiceSettingsResponse = { configured: true, test_mode: true, delivery_transport: 'smtp', smtp_host: '', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
     vi.mocked(api.getServiceSettings).mockResolvedValue(privateValue);
     vi.mocked(api.saveServiceSettings).mockResolvedValue(privateValue);
     vi.mocked(api.saveTargetConnection).mockResolvedValue({ local_port: 4340, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' });
@@ -284,7 +284,7 @@ describe('Webs manager', () => {
   });
 
   it.each(['settings', 'publishing'])('prevents edits while refreshing %s settings instead of overwriting a fresh edit', async section => {
-    const privateValue: api.ServiceSettingsResponse = { configured: true, test_mode: true, smtp_host: 'stored-host', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
+    const privateValue: api.ServiceSettingsResponse = { configured: true, test_mode: true, delivery_transport: 'smtp', smtp_host: 'stored-host', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
     const connection: api.TargetConnection = { local_port: 4321, host: '', username: '', port: 22, remote_root: '', ssh_key_reference: '', authentication: 'agent', identity_file: '', transfer_protocol: 'ssh', password_configured: false, document_root: '', remote_private_root: '' };
     let finishPrivate: (value: api.ServiceSettingsResponse) => void = () => undefined;
     let finishConnection: (value: api.TargetConnection) => void = () => undefined;
@@ -306,7 +306,7 @@ describe('Webs manager', () => {
   it('keeps public controls inert through refresh and accepts the refreshed persisted configuration', async () => {
     let finish: (value: api.SiteConfig[]) => void = () => undefined;
     vi.mocked(api.listSites).mockResolvedValueOnce([structuredClone(base)]).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'navigation');
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'configuration');
     act(() => { view.container.querySelector<HTMLButtonElement>('button[aria-label="common.refresh"]')?.click(); }); await settle();
     const field = control(view.container, 'websites.siteName'); expect(field.matches(':disabled')).toBe(true);
     act(() => { changeInput(field, 'cannot-type-during-refresh'); });
@@ -316,7 +316,7 @@ describe('Webs manager', () => {
   });
 
   it('flushes to the original vault when switching vaults within the same account', async () => {
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'navigation');
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'configuration');
     act(() => { changeInput(control(view.container, 'websites.siteName'), 'Original vault draft'); });
     vi.mocked(currentRequestContext).mockReturnValue({ ...context, vaultId: 'second-vault' });
     act(() => { dispatchWindowEvent(new Event('storage')); }); await settle(); await settle();
@@ -325,7 +325,7 @@ describe('Webs manager', () => {
   });
 
   it('does not flush an old-account draft under a newly selected account', async () => {
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'navigation');
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'configuration');
     act(() => { changeInput(control(view.container, 'websites.siteName'), 'Old account draft'); });
     vi.mocked(currentRequestContext).mockReturnValue({ ...context, userId: 'another-account' });
     view.unmount(); await settle();
@@ -361,7 +361,7 @@ describe('Webs manager', () => {
   });
 
   it('retains a private draft on its tab when navigation cannot flush it', async () => {
-    const value: api.ServiceSettingsResponse = { configured: true, test_mode: true, smtp_host: '', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
+    const value: api.ServiceSettingsResponse = { configured: true, test_mode: true, delivery_transport: 'smtp', smtp_host: '', smtp_port: 587, smtp_username: '', smtp_security: 'starttls', sender_email: '', sender_name: '', password_configured: false, applied: true, apply_error: null, forms: {} };
     vi.mocked(api.getServiceSettings).mockResolvedValue(value);
     vi.mocked(api.saveServiceSettings).mockRejectedValueOnce(new Error('offline')).mockResolvedValue(value);
     const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'settings'); await settle();
@@ -394,7 +394,7 @@ describe('Webs manager', () => {
     expect(button(view.container, 'websites.publishReviewed').disabled).toBe(true);
     act(() => { button(view.container, 'websites.reviewChanges').click(); }); await settle();
     expect(button(view.container, 'websites.publishReviewed').disabled).toBe(false);
-    tab(view.container, 'navigation');
+    tab(view.container, 'configuration');
     act(() => { changeInput(control(view.container, 'websites.siteName'), 'Updated title'); });
     tab(view.container, 'publishing'); await settle();
     expect(button(view.container, 'websites.publishReviewed').disabled).toBe(true);

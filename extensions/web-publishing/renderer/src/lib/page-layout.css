@@ -50,3 +50,6 @@
 
 .site-root .newsletter .button.button-light{background:#fff;color:var(--primary,#264653)}
 .footer-wide>.block{margin-block:0}
+.site-root .editor-row{display:grid;grid-template-columns:repeat(var(--row-columns,1),minmax(0,1fr));gap:var(--spacing,1.5rem);align-items:start}
+.site-root .editor-column{min-width:0;overflow-wrap:anywhere}.site-root .editor-column>.block{margin-block:0}
+@media(max-width:760px){.site-root .editor-row{grid-template-columns:minmax(0,1fr)}}

@@ -8,8 +8,11 @@ try {
     if ($raw === false || strlen($raw) > 1048576) throw new InvalidArgumentException('request_size');
     $input = json_decode($raw, true, 64, JSON_THROW_ON_ERROR);
     if (!is_array($input) || !is_string($input['action'] ?? null) || !is_array($input['request'] ?? [])) throw new InvalidArgumentException('request');
-    $service = new SiteService(site_service_config());
-    $output = json_encode($service->admin($input['action'], $input['request'] ?? []), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $config = site_service_config();
+    $service = new SiteService($config);
+    $result = $service->admin($input['action'], $input['request'] ?? []);
+    $result['test_mode'] = ($config['test_mode'] ?? true) !== false;
+    $output = json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     if (strlen($output) > 4000000) throw new InvalidArgumentException('response_size');
     echo $output."\n";
 } catch (Throwable $error) {

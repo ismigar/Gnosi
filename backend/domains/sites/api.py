@@ -28,6 +28,8 @@ from .storage import SiteStore
 router = APIRouter(prefix="/sites", tags=["sites"], dependencies=[Depends(require_plugins("web-publishing"))])
 from .web_import_routes import router as import_router
 router.include_router(import_router)
+from .font_routes import router as font_router
+router.include_router(font_router)
 Editor = Annotated[WorkspaceContext, Depends(require_role("editor"))]
 Admin = Annotated[WorkspaceContext, Depends(require_role("admin"))]
 
@@ -113,14 +115,14 @@ def newsletter_preview(site_id: str, request: newsletter.SiteNewsletterReview, c
     response.headers["Cache-Control"] = "no-store"
     store = store_for(context)
     site = store.load(site_id)
-    return PrivateServiceResponse(data=newsletter.preview(store, site, target_id, request))
+    return PrivateServiceResponse(data=newsletter.preview(store, site, target_id, request), test_mode=private_service.read_settings(store, site_id, target_id).test_mode)
 
 
 @router.post("/{site_id}/newsletter/queue", response_model=PrivateServiceResponse)
 def newsletter_queue(site_id: str, request: newsletter.SiteNewsletterQueue, context: Admin, response: Response, target_id: str = "local") -> PrivateServiceResponse:
     response.headers["Cache-Control"] = "no-store"
     store = store_for(context)
-    return PrivateServiceResponse(data=newsletter.queue(store, store.load(site_id), target_id, request))
+    return PrivateServiceResponse(data=newsletter.queue(store, store.load(site_id), target_id, request), test_mode=private_service.read_settings(store, site_id, target_id).test_mode)
 
 
 @router.put("/{site_id}", response_model=SiteConfig)
@@ -199,11 +201,13 @@ async def upload_theme_asset(site_id: str, context: Editor, kind: Literal["image
     from .theme_assets import LIMIT, upload
     try:
         raw = await file.read(LIMIT + 1)
-        def persist() -> tuple[str, str]:
+        def persist() -> SiteThemeAsset:
+            from .font_metadata import describe_font
             store = store_for(context)
-            return upload(store, store.load(site_id), file.filename or "", raw, kind)
-        source, media_type = await run_in_threadpool(persist)
-        return SiteThemeAsset(source=source, media_type=media_type)
+            source, media_type = upload(store, store.load(site_id), file.filename or "", raw, kind)
+            font = describe_font(raw, file.filename or "", source) if kind == "font" else None
+            return SiteThemeAsset(source=source, media_type=media_type, font=font)
+        return await run_in_threadpool(persist)
     finally:
         await file.close()
 
@@ -248,7 +252,7 @@ def private_operation(site_id: str, request: PrivateServiceRequest, context: Adm
     response.headers["Cache-Control"] = "no-store"
     store = store_for(context)
     result = private_service.invoke(store, store.load(site_id), request.action, request.request, request.target_id)
-    return PrivateServiceResponse(data=result)
+    return PrivateServiceResponse(data=result, test_mode=result.get("test_mode") is not False)
 
 
 @router.get("/{site_id}/targets/{target_id}/connection", response_model=TargetConnection)

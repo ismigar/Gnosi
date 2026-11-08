@@ -12,6 +12,7 @@ const navigationClass=link=>['action-link',...(['button','outline'].includes(lin
 ---
 <section class="block" data-layout data-align={block.alignment || 'left'} data-image-frame={block.image_frame || 'none'} style={`--block-width:${block.width || 100}%;--image-width:${block.image_width || 100}%;--block-space:${{compact:'0',normal:'1rem',generous:'2rem'}[block.spacing || 'compact']}`} data-block-id={block.id} data-section={site.sources.find(source=>source.id===block.source_id)?.source_id.split(':').pop()}>
       {block.title && block.type!=='newsletter' && <h2>{block.title}</h2>}
+      {block.type==='row' && <div class="editor-row" style={`--row-columns:${Math.max(1,(block.children || []).length)}`}>{(block.children || []).map(child=><div class="editor-column"><Astro.self block={child} lang={lang} template={template} footer={footer} instance={`${instance}-${child.id}`} fieldLabel={fieldLabel}/></div>)}</div>}
       {block.type==='text' && <div class:list={['reading','record-body',{'static-page-body':template==='page' || block.body_format==='html'}]} set:html={html(block.body_html)}/>}
       {block.type==='image' && <figure><img src={href(block.image)} alt={block.alt} loading="lazy"/></figure>}
       {block.type==='split' && <div class:list={['split',{'image-left':block.image_position==='left'}]}><div><div class="record-body static-page-body" set:html={html(block.body_html)}/><Actions links={block.actions || []} lang={lang}/></div><figure><img src={href(block.image)} alt={block.alt} loading="lazy"/></figure></div>}

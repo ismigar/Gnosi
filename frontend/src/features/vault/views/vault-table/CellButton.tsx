@@ -4,6 +4,7 @@ import { toast } from '../../../../shared/notifications/toast';
 import { apiErrorDetail } from '../../../../shared/api/errors';
 import { executeVaultTableButtonAction } from '../../../../shared/api/vault-table';
 import { isRetiredTableAction } from '../../properties/tableFunctionalityUtils';
+import { checkActionRequires } from '../../../../shared/records/model/optionCatalogUtils';
 import { getTableFieldConfig } from './fieldConfig';
 import { evaluateFormula as evaluateTableFormula } from '../../properties/formulaUtils';
 import type { TableController } from './useTableController';
@@ -29,10 +30,15 @@ export function CellButton({ model, noteId, field }: { model: TableController, v
   const Icon = isExecuting ? Loader2 : (action === 'translate_row' ? Languages : (action === 'ai_prompt' ? Sparkles : Zap));
 
   if (isRetiredTableAction(action)) return null;
+  if (action === 'publish_social' && (!model.isPluginEnabled('social-publishing')
+    || noteById.get(noteId)?.metadata?.translation_lang)) return null;
+  const gate = action === 'publish_social'
+    ? checkActionRequires(schema, noteById.get(noteId)?.metadata || {}, action, model.actionRules)
+    : { ok: true, reason: undefined };
 
   const handleButtonClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isExecuting) return;
+    if (isExecuting || !gate.ok) return;
 
     if (action === 'translate_row' || action === 'publish_social' || action === 'process_resource') {
       setPendingAction({ noteId, field, fieldConfig: cfg, action });
@@ -93,10 +99,10 @@ export function CellButton({ model, noteId, field }: { model: TableController, v
   return (
     <button
       type="button"
-      disabled={isExecuting}
+      disabled={isExecuting || !gate.ok}
       onClick={event => { void handleButtonClick(event); }}
       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] border border-[var(--gnosi-primary)]/30 hover:bg-[var(--gnosi-primary)]/20 transition-colors disabled:opacity-50"
-      title={label}
+      title={gate.reason || label}
     >
       <Icon size={12} className={isExecuting ? "animate-spin" : ""} />
       {isExecuting ? t('schema.button_executing', "Executant...") : label}

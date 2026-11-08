@@ -1,5 +1,5 @@
 ---
-import {prefix,href,site} from '../lib/site.mjs';
+import {prefix,href,site,production} from '../lib/site.mjs';
 import {temenosLabels} from '../lib/temenos.mjs';
 const {lang,instance='newsletter',compact=false,title}=Astro.props;
 const identity=String(instance).replace(/[^a-zA-Z0-9_-]/g,'')+'-'+lang;
@@ -14,7 +14,7 @@ const privacy=[...(site.footer_bottom_links||[]),...site.footer].find(link=>(!li
       <label for={`newsletter-first-${identity}`}>{text.firstName}<input id={`newsletter-first-${identity}`} name="first_name" type="text" autocomplete="given-name" required maxlength="100" pattern={'.*\\S.*'}/></label>
       <label for={`newsletter-last-${identity}`}>{text.lastName}<input id={`newsletter-last-${identity}`} name="last_name" type="text" autocomplete="family-name" required maxlength="100" pattern={'.*\\S.*'}/></label>
     </div>
-    <label for={`newsletter-email-${identity}`}>{text.email}</label><input id={`newsletter-email-${identity}`} type="email" name="email" required maxlength="254" placeholder="lectora@example.invalid" pattern="[^@\s]+@[^@\s]+\.invalid" autocomplete="off"/>
+    <label for={`newsletter-email-${identity}`}>{text.email}</label><input id={`newsletter-email-${identity}`} type="email" name="email" required maxlength="254" placeholder={production ? 'nom@example.org' : 'lectora@example.invalid'} pattern={production ? undefined : '[^@\\s]+@[^@\\s]+\\.invalid'} autocomplete={production ? 'email' : 'off'}/>
     <div class="honeypot" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"/></label></div>
     <label class="choice"><input type="checkbox" name="consent" value="1" required/><span>{privacy ? <>{text.consentStart} <a href={href(privacy.href)}>{text.privacy}</a></> : text.consent}</span></label>
     <button class="button button-light" type="submit">{text.subscribe}</button>

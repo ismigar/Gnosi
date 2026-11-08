@@ -50,8 +50,6 @@ def preview(store: SiteStore, site: SiteConfig, target_id: str) -> SitePreview:
     target = next((t for t in site.targets if t.id == target_id), None)
     if not target or not target.enabled:
         raise HTTPException(409, "Enable and configure the website destination first")
-    if target.environment == "production":
-        raise HTTPException(409, "Production publication requires pilot validation")
     bundle = build_bundle(store, site, target_id)
     preview_id = identifier()
     expires = datetime.now(timezone.utc) + timedelta(minutes=15)
@@ -66,6 +64,7 @@ def preview(store: SiteStore, site: SiteConfig, target_id: str) -> SitePreview:
     url = runtime.start_server(store, local_site, target_id, output, preview_id=preview_id)
     rendered = cast(dict[str, JsonValue], bundle.model_dump(mode="json"))
     rendered["deployment_url"] = url
+    rendered["deployment_environment"] = "staging"
     try:
         runtime.render_bundle(rendered, output)
         response.preview_url = url + "/" + site.default_language
@@ -176,8 +175,12 @@ def _reviewed_work(store: SiteStore, job: SiteJob, request: dict[str, JsonValue]
     reviewed = SiteBundle.model_validate(request["bundle"])
     site = store.load(job.site_id)
     target = next(t for t in site.targets if t.id == job.target_id)
-    if target.environment == "production" or not target.enabled:
-        raise HTTPException(409, "The publication destination is not enabled for tests")
+    if not target.enabled:
+        raise HTTPException(409, "The publication destination is not enabled")
+    if target.environment == "production":
+        from .private_service import read_settings
+        from .production import validate_delivery
+        validate_delivery(target, read_settings(store, site.id, target.id))
     if build_bundle(store, site, job.target_id).fingerprint != reviewed.fingerprint:
         raise HTTPException(409, "The reviewed content changed before publication")
     previous = store.active_bundle(site.id, job.target_id)
@@ -193,6 +196,7 @@ def _build_release(store: SiteStore, job: SiteJob, site: SiteConfig, target: Sit
     rendered = cast(dict[str, JsonValue], reviewed.model_dump(mode="json"))
     deployment_url = "http://127.0.0.1:" + str(runtime.connection(store, site.id, target.id).local_port) if target.adapter == "local" else target.base_url
     rendered["deployment_url"] = deployment_url
+    rendered["deployment_environment"] = target.environment
     runtime.render_bundle(rendered, output)
     _phase(store, job, "verify")
     local_artifacts.seal(store, site.id, release_id)
@@ -366,7 +370,9 @@ def rollback(store: SiteStore, site: SiteConfig, release_id: str) -> SiteRelease
         if target is None:
             raise HTTPException(409, "The hosting destination for this version was removed")
         if target.environment == "production":
-            raise HTTPException(409, "Production restoration requires pilot validation")
+            from .private_service import read_settings
+            from .production import validate_delivery
+            validate_delivery(target, read_settings(store, site.id, target.id))
         with store.database() as db:
             current = db.execute("SELECT release_id FROM active WHERE site_id=? AND target_id=?", (site.id, target.id)).fetchone()
         parent_id = str(current["release_id"]) if current else None

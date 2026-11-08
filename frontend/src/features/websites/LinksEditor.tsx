@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { NavigationLink } from '../../shared/api/sites';
-import { Card, Field, Input, ReorderActions, Select } from './components';
+import { Card, Disclosure, Field, Input, ReorderActions, Select } from './components';
 import { WebsiteFileField } from './WebsiteFileField';
 import { moveItem } from './helpers';
 
@@ -22,7 +22,7 @@ export function LinksEditor({ title, links, languages, showAppearance = true, de
     onChange([...links, { label: '', href: '', language: null, ...(showAppearance ? { appearance: defaultAppearance } : {}) }]);
   };
   return <Card title={title} actions={<button type="button" className="websites-button" onClick={add}>{t('websites.addLink')}</button>}>
-    <div className="websites-list">{links.map((link, index) => <div className="websites-row" key={index}>
+    <div className="websites-list">{links.map((link, index) => <Disclosure key={index} title={link.label || t('websites.link')}>
       <div className="websites-grid">
         <Field label={t('websites.label')}><Input value={link.label} onChange={event => { update(index, { label: event.target.value }); }} /></Field>
         <Field label={t('websites.destination')}><WebsiteFileField label={t('websites.destination')} value={link.href} onChange={href => { update(index, { href }); }} /></Field>
@@ -35,6 +35,6 @@ export function LinksEditor({ title, links, languages, showAppearance = true, de
         </Select></Field>}
       </div>
       <div className="websites-spacer"><ReorderActions index={index} length={links.length} move={direction => { onChange(moveItem(links, index, direction)); }} remove={() => { onChange(links.filter((_, position) => position !== index)); }} /></div>
-    </div>)}</div>
+    </Disclosure>)}</div>
   </Card>;
 }

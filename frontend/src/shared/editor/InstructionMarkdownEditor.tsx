@@ -16,10 +16,12 @@ interface Props {
     readonly placeholder?: string;
     readonly disabled?: boolean;
     readonly maxLength?: number;
+    readonly persistentToolbar?: boolean;
+    readonly resolveFileUrl?: (url: string) => Promise<string>;
 }
 
 /** Switching between visual and source editing preserves the original Markdown. */
-export function InstructionMarkdownEditor({ label, description, value, onChange, placeholder, disabled = false, maxLength }: Props) {
+export function InstructionMarkdownEditor({ label, description, value, onChange, placeholder, disabled = false, maxLength, persistentToolbar, resolveFileUrl }: Props) {
     const { t } = useTranslation();
     const id = useId();
     const [mode, setMode] = useState<'edit' | 'source'>('edit');
@@ -75,7 +77,7 @@ export function InstructionMarkdownEditor({ label, description, value, onChange,
         </div>
         {description && <div className="settings-desc" id={`${id}-description`}>{description}</div>}
         {mode === 'edit' && <Suspense fallback={<p>{t('editor.loading_editor')}</p>}>
-            <InstructionRichEditor label={label} value={value} onChange={onChange} disabled={disabled} maxLength={maxLength} placeholder={placeholder} />
+            <InstructionRichEditor resolveFileUrl={resolveFileUrl} persistentToolbar={persistentToolbar} label={label} value={value} onChange={onChange} disabled={disabled} maxLength={maxLength} placeholder={placeholder} />
         </Suspense>}
         <div className="instruction-markdown__source" hidden={mode !== 'source'}>
             <pre className="instruction-markdown__highlight" ref={highlighted} aria-hidden="true">
