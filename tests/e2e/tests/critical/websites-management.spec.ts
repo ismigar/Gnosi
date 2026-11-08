@@ -457,6 +457,7 @@ test('production hosting keeps host-mail settings private and autosaves without 
   await page.getByRole('combobox', { name: 'Environment', exact: true }).last().selectOption('production');
   await expect(page.getByRole('combobox', { name: 'Environment', exact: true }).last()).toHaveValue('production');
   await page.getByRole('tab', { name: 'Private settings', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Private service settings', exact: true })).toBeVisible();
   await expandWebsiteSections(page);
   await page.getByRole('combobox', { name: 'Delivery transport', exact: true }).selectOption('server-mail');
   await page.getByLabel('Sender email', { exact: true }).fill('owner@example.invalid');
@@ -464,7 +465,9 @@ test('production hosting keeps host-mail settings private and autosaves without 
   await expect(page.getByText('Production mail: messages will be handed to the mail server.', { exact: true })).toBeVisible();
   await expect(page.locator('.websites-autosave-error')).toHaveCount(0);
   await page.getByRole('tab', { name: 'Overview', exact: true }).click();
+  await expect(page.getByRole('tabpanel', { name: 'Overview', exact: true })).toBeVisible();
   await page.getByRole('tab', { name: 'Private settings', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Private service settings', exact: true })).toBeVisible();
   await expandWebsiteSections(page);
   await expect(page.getByRole('combobox', { name: 'Delivery transport', exact: true })).toHaveValue('server-mail');
   await expect(page.getByLabel('Sender email', { exact: true })).toHaveValue('owner@example.invalid');
