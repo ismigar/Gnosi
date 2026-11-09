@@ -16,7 +16,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 57 |
 | `config` | 14 | 1428 |
 | `data` | 2 | 214 |
-| `domains` | 613 | 119638 |
+| `domains` | 613 | 119659 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -24,11 +24,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 281 | 54759 |
+| `services` | 281 | 54779 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1108 modules** and **208925 source lines**.
+Total: **1108 modules** and **208966 source lines**.
 
 ## agent
 
@@ -413,7 +413,7 @@ Total: **1108 modules** and **208925 source lines**.
 | [`backend/domains/llm_wiki/reading_references.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_references.py) | 57 | 0 | 4 | 0 | 1 | Restore only unambiguous omitted segment digests; never rewrite evidence. |
 | [`backend/domains/llm_wiki/reading_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_repairs.py) | 126 | 0 | 6 | 0 | 0 | Repair rejected references without asking a model to rewrite valid notes. |
 | [`backend/domains/llm_wiki/reading_skill.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_skill.py) | 30 | 0 | 0 | 0 | 0 | The process-source skill's shared, versioned reading methodology. |
-| [`backend/domains/llm_wiki/recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/recovery.py) | 131 | 0 | 4 | 0 | 2 | Bounded retries for one Brain planning call, without provider switching. |
+| [`backend/domains/llm_wiki/recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/recovery.py) | 152 | 0 | 5 | 0 | 2 | Bounded retries for one Brain planning call, without provider switching. |
 | [`backend/domains/llm_wiki/search_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/search_index.py) | 373 | 3 | 14 | 0 | 11 | Typed rebuildable lexical and vector indexes for LLM Wiki. |
 | [`backend/domains/llm_wiki/section_assignment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/section_assignment.py) | 91 | 0 | 5 | 0 | 3 | Single, source-scoped section relations and their derived filter ancestry. |
 | [`backend/domains/llm_wiki/semantic_context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_context.py) | 91 | 0 | 9 | 0 | 2 | Deterministic grouping and lexical retrieval over immutable reading evidence. |
@@ -1162,7 +1162,7 @@ Total: **1108 modules** and **208925 source lines**.
 | [`backend/services/public_workflow_headers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/public_workflow_headers.py) | 27 | 1 | 0 | 0 | 0 | Keep revocable token responses out of caches and referrers. |
 | [`backend/services/public_workflow_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/public_workflow_scope.py) | 109 | 0 | 5 | 0 | 3 | Resolve public workflows against their stored owner and vault, never headers. |
 | [`backend/services/reader_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reader_analysis.py) | 125 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical Reader analysis domain. |
-| [`backend/services/reading_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_budget.py) | 144 | 1 | 9 | 0 | 2 | Durable per-book reservations: a retry or resumed worker cannot reset spending. |
+| [`backend/services/reading_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_budget.py) | 164 | 1 | 11 | 0 | 3 | Durable per-book reservations: a retry or resumed worker cannot reset spending. |
 | [`backend/services/reading_estimate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_estimate.py) | 139 | 0 | 2 | 0 | 0 | Read-only source preflight; includes repeated context, output and repair allowance. |
 | [`backend/services/reading_performance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_performance.py) | 78 | 0 | 5 | 0 | 1 | Lossless shared-prefix caching for direct Sol source-reading operations. |
 | [`backend/services/reading_semantic_estimate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_semantic_estimate.py) | 73 | 0 | 1 | 0 | 0 | Offline phase estimates for the deterministic reader, including joint review. |

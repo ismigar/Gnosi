@@ -12,6 +12,7 @@ from backend.services import ai_usage_ledger as ledger
 
 DEFAULT_LIMIT_USD = 0.50
 _current: ContextVar[str] = ContextVar("reading_budget", default="")
+_attempts: ContextVar[tuple[list[str], ...]] = ContextVar("reading_request_attempts", default=())
 
 
 class ReadingBudgetError(RuntimeError):
@@ -76,6 +77,23 @@ def active() -> bool:
     return bool(_current.get())
 
 
+@contextmanager
+def attempted_requests() -> Iterator[list[str]]:
+    """Keep possible paid requests visible to nested and copied retry contexts."""
+    requests: list[str] = []
+    token = _attempts.set((*_attempts.get(), requests))
+    try:
+        yield requests
+    finally:
+        _attempts.reset(token)
+
+
+def _record_attempt(call_id: str, amount: Decimal) -> None:
+    if amount > 0:
+        for requests in _attempts.get():
+            requests.append(call_id)
+
+
 def reserve(call_id: str, messages: Any, parameters: dict[str, Any], rates: dict[str, Any] | None,
             provider: str, model: str = "") -> None:
     identifier = _current.get()
@@ -115,6 +133,7 @@ def reserve(call_id: str, messages: Any, parameters: dict[str, Any], rates: dict
         schema(db)
         db.execute("BEGIN IMMEDIATE")
         if db.execute("SELECT 1 FROM reading_reservations WHERE call_id=?", (call_id,)).fetchone():
+            _record_attempt(call_id, amount)
             return
         total = totals(db, identifier)
         limit = Decimal(db.execute("SELECT limit_usd FROM reading_budgets WHERE id=?", (identifier,)).fetchone()[0])
@@ -124,6 +143,7 @@ def reserve(call_id: str, messages: Any, parameters: dict[str, Any], rates: dict
             reason = "reading_budget_pending_cost" if total["reserved_usd"] else "reading_budget_exhausted"
             raise ReadingBudgetError(reason)
         db.execute("INSERT INTO reading_reservations VALUES (?,?,?,NULL)", (call_id, identifier, str(amount)))
+        _record_attempt(call_id, amount)
 
 
 def settle(db: Any, call_id: str, cost: Any) -> None:

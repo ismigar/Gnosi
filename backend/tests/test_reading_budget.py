@@ -120,19 +120,25 @@ def test_sdk_hidden_retries_disabled_and_failed_request_retains_reservation():
     assert len(calls) == 1
 
 
-@pytest.mark.parametrize('limit,recovers', [(.03, False), (.10, True)])
+@pytest.mark.parametrize('limit', [.03, .10])
+@pytest.mark.parametrize('failure', [httpx.ConnectError, httpx.ReadError, httpx.ReadTimeout, 408, 429, 500, 503])
 @pytest.mark.parametrize('asynchronous', [False, True])
-def test_connection_recovery_reserves_each_attempt_and_preserves_unknown_cost(monkeypatch, limit, recovers, asynchronous):
+def test_transport_recovery_retries_only_proven_connection_failures(monkeypatch, limit, failure, asynchronous):
     import asyncio
+    from openai import APIConnectionError, APIStatusError
     from backend.domains.llm_wiki import recovery
 
+    ambiguous = failure is not httpx.ConnectError
+    recovers = not ambiguous and limit == .10
     waits, calls = [], []
     monkeypatch.setattr(recovery, 'time', SimpleNamespace(monotonic=lambda: 0, sleep=waits.append))
     monkeypatch.setattr(recovery, 'random', SimpleNamespace(uniform=lambda *_args: 0))
     def response(request):
         calls.append(request)
         if len(calls) == 1:
-            raise httpx.ReadError('connection lost while receiving the response', request=request)
+            if isinstance(failure, int):
+                return httpx.Response(failure, json={'error': {'message': 'request outcome unknown'}})
+            raise failure('simulated transport failure', request=request)
         return httpx.Response(200, json={'id': 'gen-offline-retry', 'object': 'chat.completion', 'created': 1, 'model': 'test', 'is_byok': False,
             'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': 'saved notes'}, 'finish_reason': 'stop'}],
             'usage': {'prompt_tokens': 10, 'completion_tokens': 3, 'total_tokens': 13, 'cost': .001}})
@@ -151,15 +157,107 @@ def test_connection_recovery_reserves_each_attempt_and_preserves_unknown_cost(mo
         with budget.session(identifier):
             if recovers:
                 assert run().content == 'saved notes'
+            elif ambiguous:
+                with pytest.raises(APIStatusError if isinstance(failure, int) else APIConnectionError):
+                    run()
             else:
                 with pytest.raises(budget.ReadingBudgetError, match='reading_budget_pending_cost'):
                     run()
-    assert waits == [5]
+    assert waits == ([] if ambiguous else [5])
     assert len(calls) == (2 if recovers else 1)
     status = budget.status(identifier)
     assert status['limit_usd'] == limit
     assert status['reserved_usd'] > 0
     assert status['spent_usd'] == (.001 if recovers else 0)
+
+
+def test_nested_retry_context_keeps_unknown_request_visible_across_copied_workers(monkeypatch):
+    from contextvars import copy_context
+    from backend.domains.llm_wiki import recovery
+    waits, calls = [], []
+    monkeypatch.setattr(recovery, 'time', SimpleNamespace(monotonic=lambda: 0, sleep=waits.append))
+    monkeypatch.setattr(recovery, 'random', SimpleNamespace(uniform=lambda *_args: 0))
+
+    def request(_timeout):
+        call_id = str(uuid.uuid4())
+        budget.reserve(call_id, 'source', {'max_tokens': 1}, {'cost_in': 1, 'cost_out': 1}, 'openrouter')
+        calls.append(call_id)
+        raise TimeoutError('response lost after transmission')
+
+    def worker(_timeout):
+        context = copy_context()
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(context.run, lambda: recovery.call_with_retry(
+                request, on_wait=lambda: None, on_attempt=lambda: None)).result()
+
+    identifier = budget.configure(.50)
+    with budget.session(identifier), pytest.raises(TimeoutError):
+        recovery.call_with_retry(worker, on_wait=lambda: None, on_attempt=lambda: None)
+    assert len(calls) == 1 and waits == []
+    assert budget.status(identifier)['reserved_usd'] > 0
+
+
+def test_unknown_attempt_does_not_block_an_independent_pre_request_retry(monkeypatch):
+    from backend.domains.llm_wiki import recovery
+    monkeypatch.setattr(recovery, 'time', SimpleNamespace(monotonic=lambda: 0, sleep=lambda _seconds: None))
+    attempts, failed_calls = [], []
+
+    def failed(_timeout):
+        failed_calls.append('unknown')
+        budget.reserve('unknown', 'source', {'max_tokens': 1}, {'cost_in': 1, 'cost_out': 1}, 'openrouter')
+        raise TimeoutError('response lost')
+
+    def independent(_timeout):
+        attempts.append('pre-request')
+        if len(attempts) == 1:
+            raise TimeoutError('not yet submitted to the model')
+        return 'saved sibling'
+
+    with budget.session(budget.configure(.50)):
+        with pytest.raises(TimeoutError):
+            recovery.call_with_retry(failed, on_wait=lambda: None, on_attempt=lambda: None)
+        assert recovery.call_with_retry(independent, on_wait=lambda: None, on_attempt=lambda: None) == 'saved sibling'
+    assert len(attempts) == 2 and len(failed_calls) == 1
+
+
+def test_contextual_reader_does_not_checkpoint_or_replay_an_unknown_paid_request(monkeypatch):
+    from copy import deepcopy
+    from openai import APIConnectionError
+    from backend.domains.llm_wiki import recovery
+    from backend.domains.llm_wiki.contextual_reading import ContextualReader
+
+    calls, waits = [], []
+    checkpoints = {'saved-sibling': {'answer': {'notes': ['existing verified result']}}}
+    before = deepcopy(checkpoints)
+    monkeypatch.setattr(recovery, 'time', SimpleNamespace(monotonic=lambda: 0, sleep=waits.append))
+
+    def response(request):
+        calls.append(request)
+        if len(calls) == 1:
+            raise httpx.ReadTimeout('response lost after transmission', request=request)
+        return httpx.Response(200, json={'id': 'gen-should-not-run', 'object': 'chat.completion', 'created': 1,
+            'model': 'test', 'is_byok': False, 'choices': [{'index': 0, 'message': {'role': 'assistant',
+            'content': '{"notes": []}'}, 'finish_reason': 'stop'}],
+            'usage': {'prompt_tokens': 10, 'completion_tokens': 3, 'total_tokens': 13, 'cost': .001}})
+
+    with httpx.Client(transport=httpx.MockTransport(response)) as client:
+        model = instrument(ChatOpenAI(model='test', api_key='fake', base_url='https://test.invalid',
+            max_tokens=16384, http_client=client), 'openrouter', 'test')
+        dependencies = SimpleNamespace(input_budget=100000, execution_revision='fixture',
+            count_tokens=lambda _text: 1, load_checkpoint=lambda _job, key: checkpoints.get(key),
+            save_checkpoint=lambda _job, key, value: checkpoints.__setitem__(key, value),
+            update_job=lambda *_args, **_kwargs: None,
+            generate_text=lambda prompt, **_kwargs: (model.invoke(prompt).content, 'test'))
+        reader = ContextualReader(dependencies, [], [{'content_hash': 'fixture', 'segments': [{'text': 'source'}]}],
+            'Fixture book', 'en', [], [], job_id='job')
+        identifier = budget.configure(.50)
+        with budget.session(identifier), pytest.raises(APIConnectionError):
+            reader.ask('pending', 'extract', {}, lambda _answer: None)
+    assert len(calls) == 1 and waits == []
+    assert checkpoints == before and reader.models == []
+    assert budget.status(identifier)['reserved_usd'] > 0
+    with ledger.connect() as db:
+        assert [row['status'] for row in db.execute('SELECT status FROM usage_calls')] == ['failed']
 
 
 def test_unknown_tariff_or_unbounded_output_fails_closed():
