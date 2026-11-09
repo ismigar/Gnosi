@@ -44,11 +44,13 @@ class ReadingRuntime:
     input_budget: int
     snapshot: AgentExecutionSnapshot
     cost_optimization: bool = True
+    reuse_results: bool = True
 
     @property
     def performance_options(self) -> dict[str, object]:
         from backend.services.reading_performance import eligible
-        return {"reading_performance": self.cost_optimization} if eligible(self.provider, self.model) else {}
+        return {"reading_result_cache": self.reuse_results,
+                **({"reading_performance": self.cost_optimization} if eligible(self.provider, self.model) else {})}
 
     def count_tokens(self, text: str, *, output_schema: dict[str, object] | None = None) -> int:
         from backend.services.agent_context_budget import count_tokens
@@ -81,6 +83,7 @@ class ReadingRuntime:
             self.model,
             self.instructions,
             self.input_budget,
+            self.snapshot.model_dump(exclude={"parent_run_id", "origin"}),
         ]
         return hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode()).hexdigest()
 

@@ -455,6 +455,8 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                    agent_id=snapshot.agent_id, skill_id=request.skill_id, operation=request.operation,
                    origin=request.origin, status="running", created_at=time.time(), updated_at=time.time(),
                    execution_revision=snapshot.revision)
+    from backend.services.reading_result_cache import result_key, reuse as reading_cached_result
+    reading_cache_key = "" if private_result else result_key(request, snapshot)
     team_enabled = (request.operation != "knowledge.process-source.phase"
                     and bool(snapshot.profile.get("team", {}).get("enabled")))
     # Internal quality phases run from in-memory frozen inputs. Never write
@@ -462,6 +464,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     saved_request = ({"operation": request.operation, "max_model_calls": request.max_model_calls,
                       "resume_requires_parent": True} if private_result else
                      {**request.model_dump(), "checkpoint_key": checkpoint_key,
+                      **({"reading_result_cache_key": reading_cache_key} if reading_cache_key else {}),
                       **({"max_calls": 8} if team_enabled else {})})
     store.create(row, snapshot.scope, saved_request, {} if private_result else snapshot.model_dump())
     report_run(run_id)
@@ -476,6 +479,12 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     try:
         application, selection = await _operation_application(request, snapshot, ai, runtime)
         store.update(snapshot.scope, run_id, provider=str(selection.get("provider") or ""), model=str(selection.get("model") or ""))
+        reused = reading_cached_result(request, snapshot, reading_cache_key,
+            str(selection.get("provider") or ""), str(selection.get("model") or ""), row,
+            lambda text: _operation_output(_validate_output(text, request.output_schema), request, output_validator, None),
+            revalidate_scope)
+        if reused is not None:
+            return reused
         messages: list[BaseMessage] = [HumanMessage(content=operation_input(request, provider=str(selection.get("provider") or "")))]
         deadline = time.monotonic() + request.timeout_seconds
         text = ""

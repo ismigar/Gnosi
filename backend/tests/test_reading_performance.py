@@ -121,8 +121,10 @@ def test_sdk_preserves_schema_and_sends_flex_breakpoints_and_prices_returned_usa
     assert sent["prompt_cache_options"] == {"mode": "explicit", "ttl": "30m"}
     if responses:
         assert sent["reasoning"]["effort"] == "high"
-        assert sent["text"]["format"]["strict"] is True
-        messages = sent["input"]
+        assert sent["text"]["format"] == {"type": "text"}
+        assert sent["input"][1] == {"type": "configuration_update", "text": {"format": {
+            "type": "json_schema", "name": "gnosi_operation", "strict": True, "schema": schema}}}
+        messages = [item for item in sent["input"] if item.get("type") != "configuration_update"]
     else:
         assert sent["response_format"]["json_schema"]["strict"] is True
         messages = sent["messages"]

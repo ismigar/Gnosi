@@ -43,6 +43,19 @@ def restore_note(note: dict[str, Any], quotes: dict[int, str], quote_sources: di
     return value
 
 
+def reference_draft_quotes(note: dict[str, Any], quotes: dict[int, str]) -> dict[str, Any]:
+    """Reference exact existing spans, preserving order and ambiguous literals."""
+    identifiers = []
+    for text in note.get("quotes", []):
+        matches = [number for number, original in quotes.items() if original == text]
+        if len(matches) != 1:
+            return note
+        identifiers.append(matches[0])
+    if not identifiers:
+        return note
+    return {key: value for key, value in note.items() if key != "quotes"} | {"quote_ids": identifiers}
+
+
 def select_note(note: dict[str, Any], quotes: dict[int, str], primary_ids: list[int],
                 quote_sources: dict[int, str] | None = None) -> dict[str, Any]:
     """Invert validated literal choices; never guess, insert or substitute evidence."""

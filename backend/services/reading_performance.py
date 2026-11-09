@@ -75,4 +75,5 @@ def prepare(model: Any, messages: list[BaseMessage], *, enabled: bool = True) ->
                 message = message.model_copy(update={"content": blocks})
                 marked_input = True
         prepared.append(message)
-    return model.bind(service_tier="flex", prompt_cache_options=dict(CACHE_OPTIONS)), prepared
+    from backend.services.reading_cache_transport import preserve_format_prefix
+    return preserve_format_prefix(model).bind(service_tier="flex", prompt_cache_options=dict(CACHE_OPTIONS)), prepared
