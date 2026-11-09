@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
 import re
+from html import unescape
 import time
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 from markdown_it import MarkdownIt
+from markdown_it.token import Token
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.domains.vault.search.query import (
@@ -231,6 +234,72 @@ def evaluate(
     return Match(sum(match.score for match in matches), min(offsets) if offsets else None)
 
 
+def _preview_source(body: str) -> str:
+    # Keep line breaks intact: token maps and navigation refer to source lines.
+    text = re.sub(r"(?m)^[ \t]*:::(?:column(?:-list)?(?:\{[^\n]*\})?)?[ \t]*$", "", body)
+    text = re.sub(r"(?m)^[ \t]*:::callout(?:\{[^\n]*\})?[ \t]*$", "", text)
+    text = re.sub(r"(?m)^[ \t]*:::toggle(?:-heading\{[^\n]*\})?[ \t]+", "", text)
+    text = re.sub(r"(?m)^[ \t]*\{\{[^\n]*\}\}[ \t]*$", "", text)
+    return re.sub(r"!?\[\[([^\]|]+)(?:\|([^\]]+))?\]\]", lambda m: m[2] or m[1], text)
+
+
+def _serialized_preview(text: str) -> bool:
+    try:
+        return isinstance(json.loads(text), (dict, list))
+    except (ValueError, RecursionError):
+        return bool(re.match(r'^\s*\{\s*"[^"\n]+"\s*:', text))
+
+
+def _preview_inline(token: Token) -> str:
+    text = "".join(
+        child.content
+        if child.type in {"text", "code_inline"} and not _serialized_preview(child.content)
+        else " "
+        if child.type in {"softbreak", "hardbreak", "html_inline"}
+        else ""
+        for child in token.children or []
+    )
+    text = re.sub(r"^\[[ xX]\][ \t]+", "", text)
+    return re.sub(r"\s+", " ", unescape(text)).strip()
+
+
+def search_excerpt(body: str, position: int) -> str:
+    """Build readable context before clipping, never a slice of serialized Markdown."""
+    parser = MarkdownIt("commonmark", {"html": True}).enable(["table", "strikethrough"])
+    tokens = parser.parse(_preview_source(body))
+    offsets = [0]
+    for line in body.splitlines(keepends=True):
+        offsets.append(offsets[-1] + len(line))
+    parts: list[str] = []
+    anchor = 0
+    length = 0
+    for token in tokens:
+        if token.type != "inline" or not token.map:
+            continue
+        # Fenced/indented code and configuration blocks are not prose. Avoid
+        # treating ordinary unchecked task items as serialized JSON arrays.
+        if _serialized_preview(token.content):
+            continue
+        text = _preview_inline(token)
+        if not text:
+            continue
+        start, end = token.map
+        if offsets[start] <= position:
+            anchor = length
+            if position < offsets[end]:
+                prefix = _preview_source(body[offsets[start] : position])
+                visible_prefix = " ".join(
+                    _preview_inline(part) for part in parser.parse(prefix) if part.type == "inline"
+                )
+                anchor += min(len(text), len(visible_prefix))
+        parts.append(text)
+        length += len(text) + 1
+    plain = " ".join(parts)
+    start = max(0, anchor - 90)
+    end = min(len(plain), anchor + 190)
+    return ("…" if start else "") + plain[start:end].strip() + ("…" if end < len(plain) else "")
+
+
 def search_documents(
     documents: Iterable[SearchDocument],
     query: str,
@@ -255,13 +324,7 @@ def search_documents(
         if matched is None:
             continue
         position = matched.offset or 0
-        start = max(0, position - 90)
-        end = min(len(document.body), position + 190)
-        excerpt = (
-            ("…" if start else "")
-            + document.body[start:end].strip()
-            + ("…" if end < len(document.body) else "")
-        )
+        excerpt = search_excerpt(document.body, position)
         hits.append(
             (
                 matched.score,

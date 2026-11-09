@@ -49,6 +49,7 @@ tests:
   - backend/tests/test_vault_content_search.py
   - backend/tests/test_page_save_concurrency.py
   - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
+  - frontend/src/shared/page-search/GlobalSearchModal.test.tsx
   - frontend/src/shared/api/vault-search.test.ts
   - frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx
   - backend/tests/test_vault_bookmarks.py
@@ -954,3 +955,9 @@ La traducción interna de filas y páginas crea registros derivados mediante el 
 ## Revisiones de la lectura de detalles Markdown
 
 Los detalles de una página Markdown obtienen el ETag del mismo descriptor abierto que se utiliza para leer el contenido, antes de resolver el título de forma asíncrona. Un guardado atómico o un cambio de nombre entre la lectura y la respuesta no puede devolver una revisión ausente ni asociar la revisión de un archivo nuevo a contenido antiguo. Se mantienen el formato `<mtime_ns>-<size>` y el contrato no nulo de la respuesta de detalles; las revisiones obsoletas siguen impidiendo sobrescrituras.
+
+## Presentación de los previews de búsqueda
+
+Los resultados de búsqueda devuelven prosa legible en lugar de fragmentos del Markdown guardado. Los extractos eliminan las marcas de encabezados, énfasis, enlaces, tablas y tareas, conservan el texto visible de columnas, avisos y desplegables, y omiten los bloques de código y la configuración JSON serializada. La conversión se realiza antes de recortar para que los destinos largos de los enlaces no desplacen la coincidencia visible. La evaluación de la consulta y la línea de origen devuelta siguen utilizando el documento original.
+
+El diálogo de búsqueda global utiliza `PanePortal` en el cuerpo del documento y la capa compartida `--z-command`. Las cabeceras de las tablas incrustadas y sus controles quedan bajo el fondo oscurecido, incluso cuando la página crea su propio contexto de apilamiento. Escape y la navegación de los resultados conservan el comportamiento modal existente.

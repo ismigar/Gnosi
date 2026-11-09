@@ -7083,6 +7083,8 @@
     "budget_available": "Disponible dins del límit: {{amount}}. El procés es pausa abans d’una crida que no hi càpiga i desa el progrés.",
     "estimate_over_budget": "El càlcul supera el pressupost disponible. Si comences, pot quedar feina pendent; el límit no s’augmenta automàticament.",
     "estimate_calculation": "Com es calcula",
+    "processing_tier_flex": "Flex",
+    "estimate_flex": "Flex redueix la tarifa base a la meitat i pot trigar més. L’estimació inclou el cost d’escriure la memòria cau i no pressuposa encerts. Les reserves inclouen el màxim de sortida i el cost d’escriptura; no es canvia automàticament a la tarifa estàndard.",
     "estimate_tariff": "Tarifa desada de {{provider}}, per milió de tokens: {{input}} d’entrada i {{output}} de sortida. Les ofertes d’altres proveïdors no s’apliquen a aquesta execució.",
     "estimate_repairs": "Escenari conservador amb fins a dues reparacions per crida i un marge del 10%: {{cost}}. No és una despesa autoritzada.",
     "budget_conversion": "La facturació i el límit desat són en USD (límit: {{limit}} USD). Conversió visual: 1 USD = {{rate}} {{currency}}; {{source}}.",
@@ -9166,7 +9168,8 @@
       "settings": "Correu i dades del servidor",
       "hosting": "Allotjaments",
       "configuration": "Configuració",
-      "regions": "Blocs i regions"
+      "regions": "Blocs i regions",
+      "statistics": "Estadístiques"
     },
     "tokens": {
       "primary": "Color principal",
@@ -9580,6 +9583,27 @@
         "footer": "Peu de pàgina",
         "buttons": "Botons principals"
       }
+    },
+    "statistics": {
+      "source": "URL de Webalizer",
+      "sourceHelp": "Deixa-ho buit per utilitzar /webalizer/ del domini del web. Es desa automàticament.",
+      "loading": "Carregant estadístiques…",
+      "error": "No s’han pogut llegir les estadístiques. Comprova la URL pública de Webalizer i torna-ho a provar.",
+      "empty": "Encara no hi ha dades.",
+      "traffic": "Trànsit del web",
+      "month": "Mes",
+      "visits": "Visites",
+      "pages": "Pàgines",
+      "hits": "Accessos",
+      "clients": "Clients",
+      "transfer": "Trànsit transferit",
+      "evolution": "Evolució de les visites",
+      "history": "Històric mensual",
+      "generated": "Actualització de la font",
+      "fetched": "Consulta",
+      "unknown": "No disponible",
+      "caveat": "El mes actual és parcial. Els clients són adreces identificades pel servidor, no persones úniques. Les dades poden incloure robots.",
+      "openSource": "Obre Webalizer"
     }
   }
 }

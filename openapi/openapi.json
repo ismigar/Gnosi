@@ -20423,6 +20423,15 @@
             "title": "Priced",
             "type": "boolean"
           },
+          "processing_tier": {
+            "default": "default",
+            "enum": [
+              "default",
+              "flex"
+            ],
+            "title": "Processing Tier",
+            "type": "string"
+          },
           "provider": {
             "title": "Provider",
             "type": "string"
@@ -35886,6 +35895,12 @@
             "title": "Sources",
             "type": "array"
           },
+          "statistics_url": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Statistics Url",
+            "type": "string"
+          },
           "targets": {
             "items": {
               "$ref": "#/components/schemas/SiteTarget"
@@ -36838,6 +36853,37 @@
           "source_id"
         ],
         "title": "SiteSource",
+        "type": "object"
+      },
+      "SiteStatistics": {
+        "properties": {
+          "fetched_at": {
+            "title": "Fetched At",
+            "type": "string"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/StatisticsMonth"
+            },
+            "title": "Months",
+            "type": "array"
+          },
+          "source_url": {
+            "title": "Source Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_url",
+          "generated_at",
+          "fetched_at",
+          "months"
+        ],
+        "title": "SiteStatistics",
         "type": "object"
       },
       "SiteStatus": {
@@ -37896,6 +37942,49 @@
           "language"
         ],
         "title": "SpeechVoice",
+        "type": "object"
+      },
+      "StatisticsMonth": {
+        "properties": {
+          "clients": {
+            "title": "Clients",
+            "type": "integer"
+          },
+          "files": {
+            "title": "Files",
+            "type": "integer"
+          },
+          "hits": {
+            "title": "Hits",
+            "type": "integer"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "pages": {
+            "title": "Pages",
+            "type": "integer"
+          },
+          "transfer_bytes": {
+            "title": "Transfer Bytes",
+            "type": "integer"
+          },
+          "visits": {
+            "title": "Visits",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "month",
+          "visits",
+          "pages",
+          "hits",
+          "files",
+          "clients",
+          "transfer_bytes"
+        ],
+        "title": "StatisticsMonth",
         "type": "object"
       },
       "StoredLevelingProposalResponse": {
@@ -118770,6 +118859,129 @@
           }
         },
         "summary": "Save Service Settings",
+        "tags": [
+          "Vault",
+          "sites"
+        ]
+      }
+    },
+    "/api/vault/sites/{site_id}/statistics": {
+      "get": {
+        "operationId": "site_statistics_api_vault_sites__site_id__statistics_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "site_id",
+            "required": true,
+            "schema": {
+              "title": "Site Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteStatistics"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Site Statistics",
         "tags": [
           "Vault",
           "sites"

@@ -526,3 +526,19 @@ Webs cards and subsections fold independently without unmounting their drafts or
 Advanced CSS exposes the packaged base, template and page-layout stylesheets as separate editable layers, plus the existing additional CSS. A missing override uses the packaged original; an explicitly empty override removes that layer. Changes autosave per website and can restore the original. Publication validates each layer and emits one content-hashed CSS asset before generated theme/page rules. The font manager offers system/imported typeface selection, automatic file metadata, and a curated Google Fonts/Fontsource catalogue. A Google Fonts specimen, selection or CSS URL imports regular and bold faces without requiring family names or file paths. Remote requests reuse the public-address-pinned, bounded downloader; provider CSS is parsed only and never published. Downloaded fonts become immutable site-scoped local assets, selected through the existing autosave writer. Catalogue links expose provider/licensing information; visitors use the locally published files.
 
 Webs separates Configuration (identity, languages and redirects), Menus (navigation and legal links) and Blocks & regions (shared layout). SiteRegion groups contain the same SiteBlock editor used by pages and are placed in the header, before content, after content or footer, optionally restricted by language. Shared blocks are stored once per site and rendered around each page; page blocks stay local to that page. Existing header actions, footer columns, newsletter and social profiles remain unchanged. Region edits use the existing serialized autosave, asset export, block CSS validation and renderer. Catalogue options load visible, isolated font samples with two concurrent requests; an authenticated, bounded preview endpoint validates provider files without importing into the vault.
+
+## Website statistics
+
+The Statistics tab reads each website's public Webalizer/AWFFull monthly summary
+through `GET /api/vault/sites/{site_id}/statistics`. The optional `statistics_url`
+configuration defaults to `/webalizer/` on the website origin. Editor access and
+Vault access checks apply; responses are not cached. Public HTTP reads reuse the
+pinned-address transport, reject private addresses and redirects to them, and
+limit the request to twenty seconds and one MiB. Remote HTML is parsed into
+monthly counters and never rendered in the application.
+
+The dashboard provides a month selector, visits/pages/hits/client/transfer cards,
+a visits chart and an accessible history table. It displays the source's
+update timestamp and retrieval time. Current months are partial, server clients
+are not unique people, and bot traffic may be included. Unsupported or unreachable
+reports produce a visible error with refresh available rather than zero totals.

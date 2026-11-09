@@ -87,6 +87,10 @@ def _openrouter_options() -> dict[str, dict[str, Any]]:
 
 
 def reasoning_options(provider: str, model: str) -> dict[str, Any]:
+    if provider == "openai" and model == "gpt-6.1-sol":
+        # Official OpenAI model documentation, verified 2026-11-08.
+        return {"supported_efforts": ["low", "medium", "high", "xhigh", "max"],
+                "default_effort": "medium", "source": "verified_snapshot"}
     options = _openrouter_options().get(model) if provider == "openrouter" else None
     return dict(options or {"supported_efforts": [], "default_effort": None,
                             "source": "unavailable"})
@@ -112,6 +116,11 @@ def agent_reasoning_kwargs(agent: Mapping[str, Any], provider: str, model: str |
 
 
 def reasoning_client_kwargs(provider: str, model: str | None, effort: str | None) -> dict[str, Any]:
+    if provider == "openai" and model == "gpt-6.1-sol" and effort:
+        if effort not in reasoning_options(provider, model)["supported_efforts"]:
+            raise ValueError("Unsupported reasoning provider or effort")
+        return {"use_responses_api": True, "use_previous_response_id": False,
+                "reasoning": {"effort": effort}, "store": False}
     if not effort and not (provider == "openrouter" and model == "openai/gpt-6-luna"):
         return {}
     if provider != "openrouter" or (effort and effort not in EFFORTS):

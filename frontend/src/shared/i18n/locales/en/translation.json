@@ -6524,6 +6524,8 @@
     "budget_available": "Available within your limit: {{amount}}. Processing pauses before a call that cannot fit and saves progress.",
     "estimate_over_budget": "The calculation exceeds your available budget. Starting may only complete part of the work; your limit is not raised automatically.",
     "estimate_calculation": "How this is calculated",
+    "processing_tier_flex": "Flex",
+    "estimate_flex": "Flex halves the base tariff and may take longer. This estimate includes cache-write overhead and assumes no cache hits. Reservations include the maximum output and cache-write cost; there is no automatic switch to Standard.",
     "estimate_tariff": "Saved tariff for {{provider}}, per million tokens: {{input}} input and {{output}} output. Other providers’ offers do not apply to this run.",
     "estimate_repairs": "Conservative scenario with up to two repairs per call and 10% margin: {{cost}}. This is not an authorized charge.",
     "budget_conversion": "Billing and the saved limit use USD (limit: {{limit}} USD). Display conversion: 1 USD = {{rate}} {{currency}}; {{source}}.",
@@ -9111,7 +9113,8 @@
       "settings": "Mail and server data",
       "hosting": "Hosting",
       "configuration": "Configuration",
-      "regions": "Blocks & regions"
+      "regions": "Blocks & regions",
+      "statistics": "Statistics"
     },
     "tokens": {
       "primary": "Primary colour",
@@ -9525,6 +9528,27 @@
         "footer": "Footer",
         "buttons": "Primary buttons"
       }
+    },
+    "statistics": {
+      "source": "Webalizer URL",
+      "sourceHelp": "Leave blank to use /webalizer/ on the website domain. Saved automatically.",
+      "loading": "Loading statistics…",
+      "error": "Statistics could not be read. Check the public Webalizer URL and try again.",
+      "empty": "No data yet.",
+      "traffic": "Website traffic",
+      "month": "Month",
+      "visits": "Visits",
+      "pages": "Pages",
+      "hits": "Hits",
+      "clients": "Clients",
+      "transfer": "Data transferred",
+      "evolution": "Visits over time",
+      "history": "Monthly history",
+      "generated": "Source updated",
+      "fetched": "Retrieved",
+      "unknown": "Unavailable",
+      "caveat": "The current month is partial. Clients are server-identified addresses, not unique people. Data may include bots.",
+      "openSource": "Open Webalizer"
     }
   }
 }

@@ -15,7 +15,7 @@ from backend.services.workspace_service import WorkspaceContext, require_role
 
 from backend.domains.sites import theme_upload_route
 
-from . import exporter, newsletter, private_service, publication, runtime
+from . import exporter, newsletter, private_service, publication, runtime, statistics
 from .models import (
     CatalogueItem, CatalogueSnapshot, ConnectionStatus, LocalServeResponse, PrivateServiceRequest, PrivateServiceResponse,
     ServiceSettings, ServiceSettingsResponse, SiteBlock, SiteConfig, SiteCreate, SiteJob, SitePage,
@@ -80,6 +80,13 @@ def site_status(site_id: str, context: Editor) -> SiteStatus:
     store = store_for(context)
     site = store.load(site_id)
     return SiteStatus(site=site, jobs=publication.jobs(store, site_id), releases=publication.releases(store, site_id), service_available=private_service.SERVICE_ROOT.joinpath("cli.php").is_file())
+
+
+@router.get("/{site_id}/statistics", response_model=statistics.SiteStatistics)
+def site_statistics(site_id: str, context: Editor, response: Response) -> statistics.SiteStatistics:
+    response.headers["Cache-Control"] = "no-store"
+    store = store_for(context)
+    return statistics.read_statistics(store.load(site_id))
 
 
 @router.get("/{site_id}/editable-pages", response_model=list[SitePage])

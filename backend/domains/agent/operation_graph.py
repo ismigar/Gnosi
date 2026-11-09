@@ -22,7 +22,8 @@ def is_read_tool(descriptor: Any) -> bool:
 def operation_workflow(model: Any, instructions: str, context_window: int, *, team_help: TeamHelp | None = None,
                        output_schema: dict[str, Any] | None = None, provider: str = "",
                        runtime: Any = None, max_output_tokens: int | None = None,
-                       default_reasoning_effort: str | None = None) -> StateGraph[Any, None, Any, Any]:
+                       default_reasoning_effort: str | None = None,
+                       reading_performance: bool = False) -> StateGraph[Any, None, Any, Any]:
     from backend.services.agent_tool_identity import runtime_tool_name
     from backend.domains.agent.policy import _tool_policy_wrapper
     pairs = [(descriptor, tool) for descriptor, tool in zip(runtime.tool_descriptors, runtime.tools, strict=True)
@@ -47,12 +48,6 @@ def operation_workflow(model: Any, instructions: str, context_window: int, *, te
     selected_model = bind_model_tools(model, [*tools, help_tool], **binding) if team_help else read_model
     def execute(state: AgentState) -> dict[str, Any]:
         messages = [SystemMessage(content=instructions), *state["messages"]]
-        from backend.services.agent_context_budget import OperationContextExceeded, messages_budget
-        from backend.services.agent_execution_trace import record
-        budget = messages_budget(messages, str(getattr(model, "model_name", "") or getattr(model, "model", "")), context_window)
-        record("context.budget", budget)
-        if not budget["fits"]:
-            raise OperationContextExceeded()
         active_model = selected_model if can_request_help(state) else read_model
         from backend.domains.agent.structured_output import constrain_output, constrain_default_reasoning
         from backend.agent.json_tool_model import JsonToolModel
@@ -66,6 +61,14 @@ def operation_workflow(model: Any, instructions: str, context_window: int, *, te
         if max_output_tokens is not None:
             active_model = active_model.bind(max_tokens=max_output_tokens)
         active_model = constrain_default_reasoning(active_model, provider, default_reasoning_effort)
+        from backend.services.reading_performance import prepare
+        active_model, messages = prepare(active_model, messages, enabled=reading_performance)
+        from backend.services.agent_context_budget import OperationContextExceeded, messages_budget
+        from backend.services.agent_execution_trace import record
+        budget = messages_budget(messages, str(getattr(model, "model_name", "") or getattr(model, "model", "")), context_window)
+        record("context.budget", budget)
+        if not budget["fits"]:
+            raise OperationContextExceeded()
         return {"messages": [_invoke_agent_model(active_model, messages, state)]}
 
     graph: StateGraph[Any, None, Any, Any] = StateGraph(AgentState)

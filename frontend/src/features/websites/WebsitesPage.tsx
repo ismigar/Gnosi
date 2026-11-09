@@ -22,12 +22,13 @@ import { PublishingPanel } from './PublishingPanel';
 import { HostingPanel, type ConnectionActions } from './HostingPanel';
 import { MessagesPanel, SubscribersPanel, CampaignsPanel, PrivateSettingsEditor, type PrivateCall } from './PrivatePanels';
 import { record } from './serviceModels';
+import { StatisticsPanel } from './StatisticsPanel';
 import { WebsiteAutosave } from './WebsiteAutosave';
 import { configurationKey } from './helpers';
 import { autosaveRequest, type AutosaveEntry, type RegisterAutosave } from './autosaveRequest';
 import './Websites.css';
 
-const TABS = ['overview', 'sources', 'pages', 'configuration', 'navigation', 'regions', 'appearance', 'forms', 'messages', 'subscribers', 'campaigns', 'publishing', 'hosting', 'settings'] as const;
+const TABS = ['overview', 'statistics', 'sources', 'pages', 'configuration', 'navigation', 'regions', 'appearance', 'forms', 'messages', 'subscribers', 'campaigns', 'publishing', 'hosting', 'settings'] as const;
 type Tab = typeof TABS[number];
 const contextKey = (context: RequestContext) => JSON.stringify([context.userId, context.userEmail, context.workspaceId, context.vaultId]);
 
@@ -225,6 +226,7 @@ function Session({ context }: { context: RequestContext }) {
     {loading && <p role="status">{t('websites.loading')}</p>}{busy && <p role="status">{t('websites.working')}</p>}{error && <div role="alert" className="websites-error">{error}</div>}{notice && <div role="status" className="websites-notice">{notice}</div>}
     {!loading && !site && <Empty>{t('websites.noSites')}</Empty>}
     {site && <><div className="websites-tabs" role="tablist" aria-label={t('websites.sections')}>{TABS.map((value, index) => <button type="button" key={value} role="tab" id={`websites-tab-${value}`} aria-controls="websites-panel" aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} onKeyDown={event => { tabKey(event, index); }} onClick={() => { changeTab(value); }}>{t(`websites.tabs.${value}`)}</button>)}</div><fieldset id="websites-panel" role="tabpanel" aria-labelledby={`websites-tab-${tab}`} disabled={busy || loading} inert={busy || loading} className="websites-panel" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      {tab === 'statistics' && <StatisticsPanel key={site.id} site={site} context={context} onChange={change} />}
       {tab === 'overview' && <Overview site={site} status={status} dirty={dirty} onReview={() => { setTab('publishing'); }} />}
       {needsCatalogue && catalogueFailure === refreshRevision && <div role="alert" className="websites-error">{catalogueError}</div>}
       {needsCatalogue && catalogueRevision !== refreshRevision && catalogueFailure !== refreshRevision && <p role="status">{t('websites.catalogueLoading')}</p>}

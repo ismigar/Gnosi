@@ -178,7 +178,7 @@ function renderModal({
 
 
 function requiredInput(): HTMLInputElement {
-  const input = container.querySelector('input');
+  const input = document.body.querySelector('input');
   if (!(input instanceof HTMLInputElement)) {
     throw new Error('Global search input was not rendered');
   }
@@ -201,7 +201,7 @@ async function setInputValue(input: HTMLInputElement, value: string): Promise<vo
 
 
 function buttonWithText(label: string): HTMLButtonElement {
-  const button = Array.from(container.querySelectorAll('button'))
+  const button = Array.from(document.body.querySelectorAll('button'))
     .find((candidate) => candidate.textContent.includes(label));
   if (!button) throw new Error(`Missing button: ${label}`);
   return button;
@@ -209,7 +209,7 @@ function buttonWithText(label: string): HTMLButtonElement {
 
 
 function buttonWithTitle(title: string): HTMLButtonElement {
-  const button = container.querySelector(`button[title="${title}"]`);
+  const button = document.body.querySelector(`button[title="${title}"]`);
   if (!(button instanceof HTMLButtonElement)) {
     throw new Error(`Missing titled button: ${title}`);
   }
@@ -218,6 +218,16 @@ function buttonWithTitle(title: string): HTMLButtonElement {
 
 
 describe('GlobalSearchModal', () => {
+  it('places search outside ancestor stacking contexts at the command layer', () => {
+    container.style.transform = 'translateZ(0)';
+    container.style.isolation = 'isolate';
+    renderModal();
+    const dialog = document.body.querySelector('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(container.contains(dialog)).toBe(false);
+    expect(dialog?.parentElement?.className).toContain('z-[var(--z-command)]');
+  });
+
   it.each(['click', 'Enter'])('opens an opaque original note with %s without traversing extensions', async action => {
     const cycle: Record<string, unknown> = {};
     cycle.self = cycle;
@@ -237,7 +247,7 @@ describe('GlobalSearchModal', () => {
     const onClose = vi.fn();
     const onNoteSelect = vi.fn();
     renderModal({ allNotes, isOpen: false, onClose, onNoteSelect });
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
     renderModal({ allNotes, onClose, onNoteSelect });
     await setInputValue(requiredInput(), 'tag:strategy');
     const result = buttonWithText('Alpha roadmap');
@@ -263,8 +273,8 @@ describe('GlobalSearchModal', () => {
     const onClose = vi.fn();
     renderModal({ allNotes: [absent, nullable], onNoteSelect, onClose });
     await setInputValue(requiredInput(), 'metadata');
-    expect(container.textContent).toContain('Absent metadata');
-    expect(container.textContent).toContain('Null metadata');
+    expect(document.body.textContent).toContain('Absent metadata');
+    expect(document.body.textContent).toContain('Null metadata');
     act(() => { buttonWithText('Absent metadata').click(); });
     expect(onNoteSelect).toHaveBeenNthCalledWith(1, 'absent');
     await setInputValue(requiredInput(), 'null');
@@ -295,18 +305,18 @@ describe('GlobalSearchModal', () => {
 
   it('stays unmounted while closed', () => {
     renderModal({ isOpen: false });
-    expect(container.textContent).toBe('');
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.body.textContent).toBe('');
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
   });
 
 
   it('renders the accessible empty state and focuses the query', async () => {
     renderModal();
     const input = requiredInput();
-    expect(container.querySelector('[role="dialog"]')?.getAttribute(
+    expect(document.body.querySelector('[role="dialog"]')?.getAttribute(
       'aria-label',
     )).toBe('Search');
-    expect(container.textContent).toContain('Search titles and complete notes, or use operators:');
+    expect(document.body.textContent).toContain('Search titles and complete notes, or use operators:');
 
     act(() => {
       vi.advanceTimersByTime(50);
@@ -314,7 +324,7 @@ describe('GlobalSearchModal', () => {
     expect(document.activeElement).toBe(input);
 
     await setInputValue(input, 'missing phrase');
-    expect(container.textContent).toContain(
+    expect(document.body.textContent).toContain(
       'No results found for "missing phrase"',
     );
   });
@@ -326,10 +336,10 @@ describe('GlobalSearchModal', () => {
     renderModal({ onClose, onNoteSelect });
     await setInputValue(requiredInput(), 'Project Alpha');
 
-    expect(container.textContent).toContain('Alpha roadmap');
-    expect(container.textContent).toContain('Projects');
-    expect(container.textContent).toContain('#strategy');
-    expect(container.textContent).not.toContain('Beta note');
+    expect(document.body.textContent).toContain('Alpha roadmap');
+    expect(document.body.textContent).toContain('Projects');
+    expect(document.body.textContent).toContain('#strategy');
+    expect(document.body.textContent).not.toContain('Beta note');
     act(() => {
       buttonWithText('Alpha roadmap').click();
     });
@@ -369,13 +379,13 @@ describe('GlobalSearchModal', () => {
     }]);
     renderModal();
 
-    expect(container.textContent).toContain('Saved searches');
+    expect(document.body.textContent).toContain('Saved searches');
     act(() => {
       buttonWithText('Strategy search').click();
     });
     await act(async () => { await vi.advanceTimersByTimeAsync(200); });
     expect(requiredInput().value).toBe('tag:strategy');
-    expect(container.textContent).toContain('Alpha roadmap');
+    expect(document.body.textContent).toContain('Alpha roadmap');
 
     await setInputValue(requiredInput(), 'Beta');
     act(() => {
@@ -387,7 +397,7 @@ describe('GlobalSearchModal', () => {
     ]);
 
     await setInputValue(requiredInput(), '');
-    const strategyChip = Array.from(container.querySelectorAll('span'))
+    const strategyChip = Array.from(document.body.querySelectorAll('span'))
       .find((candidate) => candidate.textContent.includes('Strategy search'));
     const removeButton = strategyChip?.querySelector('button[title="Remove"]');
     if (!(removeButton instanceof HTMLButtonElement)) {

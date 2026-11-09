@@ -31,6 +31,9 @@ def connect() -> Iterator[sqlite3.Connection]:
             snapshot TEXT NOT NULL, cancelled INTEGER NOT NULL DEFAULT 0)""")
         connection.execute("CREATE TABLE IF NOT EXISTS agent_run_snapshots (digest TEXT PRIMARY KEY, payload TEXT NOT NULL)")
         connection.execute("CREATE INDEX IF NOT EXISTS agent_runs_scope ON agent_runs(user_id,workspace_id,vault_path)")
+        connection.execute("""CREATE INDEX IF NOT EXISTS agent_runs_reading_result_cache ON agent_runs
+            (user_id,workspace_id,vault_path,
+             CASE WHEN json_valid(request) THEN json_extract(request,'$.reading_result_cache_key') END)""")
         yield connection
         connection.commit()
     finally:
@@ -239,6 +242,7 @@ def resume_data(scope: ExecutionScope, run_id: str) -> tuple[dict[str, Any], dic
         request.pop("_worker_instance", None)
         request.pop("_worker_pid", None)
         request.pop("checkpoint_key", None)
+        request.pop("reading_result_cache_key", None)
         return request, _saved_snapshot(db, row)
 
 

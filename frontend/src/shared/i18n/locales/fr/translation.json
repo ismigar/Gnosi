@@ -7083,6 +7083,8 @@
     "budget_available": "Disponible dans la limite : {{amount}}. Le traitement se met en pause avant un appel qui dépasserait le solde et conserve la progression.",
     "estimate_over_budget": "Le calcul dépasse le budget disponible. Le traitement peut rester incomplet ; la limite n’est pas augmentée automatiquement.",
     "estimate_calculation": "Méthode de calcul",
+    "processing_tier_flex": "Flex",
+    "estimate_flex": "Flex réduit le tarif de base de moitié et peut prendre plus de temps. L’estimation inclut le coût d’écriture du cache et ne suppose aucune réutilisation. Les réservations incluent la sortie maximale et le coût d’écriture ; aucun passage automatique au tarif standard n’est effectué.",
     "estimate_tariff": "Tarif enregistré de {{provider}}, par million de tokens : {{input}} en entrée et {{output}} en sortie. Les offres des autres fournisseurs ne s’appliquent pas à cette exécution.",
     "estimate_repairs": "Scénario prudent avec jusqu’à deux corrections par appel et une marge de 10 % : {{cost}}. Ce montant n’est pas une dépense autorisée.",
     "budget_conversion": "La facturation et la limite enregistrée sont en USD (limite : {{limit}} USD). Conversion affichée : 1 USD = {{rate}} {{currency}} ; {{source}}.",
@@ -9166,7 +9168,8 @@
       "settings": "Courriel et données du serveur",
       "hosting": "Hébergements",
       "configuration": "Configuration",
-      "regions": "Blocs et régions"
+      "regions": "Blocs et régions",
+      "statistics": "Statistiques"
     },
     "tokens": {
       "primary": "Couleur principale",
@@ -9580,6 +9583,27 @@
         "footer": "Pied de page",
         "buttons": "Boutons principaux"
       }
+    },
+    "statistics": {
+      "source": "URL de Webalizer",
+      "sourceHelp": "Laisser vide pour utiliser /webalizer/ sur le domaine du site. Enregistrement automatique.",
+      "loading": "Chargement des statistiques…",
+      "error": "Impossible de lire les statistiques. Vérifiez l’URL publique de Webalizer et réessayez.",
+      "empty": "Aucune donnée disponible.",
+      "traffic": "Trafic du site",
+      "month": "Mois",
+      "visits": "Visites",
+      "pages": "Pages",
+      "hits": "Accès",
+      "clients": "Clients",
+      "transfer": "Données transférées",
+      "evolution": "Évolution des visites",
+      "history": "Historique mensuel",
+      "generated": "Mise à jour de la source",
+      "fetched": "Consultation",
+      "unknown": "Indisponible",
+      "caveat": "Le mois en cours est partiel. Les clients sont des adresses identifiées par le serveur, pas des personnes uniques. Les données peuvent inclure des robots.",
+      "openSource": "Ouvrir Webalizer"
     }
   }
 }

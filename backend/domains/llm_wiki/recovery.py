@@ -12,6 +12,7 @@ import httpx
 from openai import APIConnectionError, APITimeoutError
 
 from backend.config.logger_config import get_logger
+from backend.services.reading_budget import attempted_requests
 from backend.utils.http_retry import retry_after_seconds
 
 
@@ -90,6 +91,20 @@ def _retry_delay(error: Exception, retry: int) -> float:
     return max(backoff, delay) if math.isfinite(delay) else math.inf
 
 
+def _failed_before_transmission(error: Exception) -> bool:
+    failures = (httpx.ConnectError, httpx.ConnectTimeout, ConnectionRefusedError)
+    seen: set[int] = set()
+    cause: BaseException | None = error
+    while cause is not None and id(cause) not in seen:
+        if isinstance(cause, failures):
+            return True
+        if isinstance(cause, httpx.RequestError):
+            return False  # A read/write failure cannot prove non-transmission.
+        seen.add(id(cause))
+        cause = cause.__cause__
+    return False
+
+
 def call_with_retry(
     call: Callable[[int], T],
     *,
@@ -111,10 +126,16 @@ def call_with_retry(
     for retry in range(MAX_RETRIES + 1):
         on_attempt()
         timeout = min(request_timeout, max(1, int(deadline - time.monotonic())))
+        requests: list[str] = []
         try:
-            return call(timeout)
+            with attempted_requests() as requests:
+                return call(timeout)
         except Exception as error:
-            if retry == MAX_RETRIES or not _can_retry(error):
+            # A retained reservation protects the cap, but cannot make replay
+            # safe when a transmitted request's result/cost is unknown. Only a
+            # proven connection-establishment failure can retry after reserve.
+            if (retry == MAX_RETRIES or not _can_retry(error)
+                    or (requests and not _failed_before_transmission(error))):
                 raise
             delay = _retry_delay(error, retry)
             if waited + delay > MAX_WAIT_SECONDS or deadline - time.monotonic() - delay < 1:

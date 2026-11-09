@@ -9,7 +9,7 @@ from typing import Any
 from backend.domains.llm_wiki.chunking import encoded
 from backend.domains.llm_wiki.semantic_contracts import obj, validate_schema
 from backend.domains.llm_wiki.semantic_repairs import quote_choices
-from backend.domains.llm_wiki.semantic_quote_contracts import primary_note_schema, restore_note, select_note, shared_note_schema, source_key
+from backend.domains.llm_wiki.semantic_quote_contracts import primary_note_schema, reference_draft_quotes, restore_note, select_note, shared_note_schema, source_key
 from backend.services.agent_output_repair import OutputRepair
 
 
@@ -158,6 +158,18 @@ def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
             entry["support"] = [{"source": next(identities)} for _ in entry["support"]]
     payload["retrieved_originals"] = [{"source": next(identities)} for _ in payload.get("retrieved_originals", [])]
     primary_ids = [[q["quote_id"] for q in catalog[source - 1]["quotes"]] for source in primary_sources]
+    if phase == "verify":
+        original_notes = [entry["note"] for entry in payload["notes"]]
+        compact_notes = [reference_draft_quotes(note, quotes) for note in original_notes]
+        reference_instruction = (
+            " A draft note's quote_ids reference its existing literal quotations in source_quotes,"
+            " in their original order. Read those complete spans when reviewing the draft."
+            " They are the same quotations, not an abbreviated replacement for the original evidence."
+        )
+        if len(encoded(compact_notes).encode()) + len(reference_instruction.encode()) < len(encoded(original_notes).encode()):
+            for entry, note in zip(payload["notes"], compact_notes, strict=True):
+                entry["note"] = note
+            payload["instruction"] = str(payload.get("instruction", "")) + reference_instruction
     schema = selection_contract(payload["output_schema"], str(phase), primary_ids, len(quotes))
     payload["output_schema"] = schema
     documents = {source.get("document", "") for source in catalog}

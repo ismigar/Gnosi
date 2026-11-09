@@ -395,12 +395,14 @@ def process_resource(
     resume_job_id: str = "",
     batch_size: int = 4,
     expected_reading_identity: str = "",
+    reuse_results: bool = True,
 ) -> Dict[str, object]:
     """Run a complete blocking ingest. Call from :func:`start_ingest`."""
     from backend.domains.llm_wiki.chunking import reading_chunk_budget, reading_chunks
     from backend.services.llm_wiki_reading_runtime import prepare_reading_runtime, token_bound
 
     runtime = prepare_reading_runtime(vault_root)
+    runtime.reuse_results = reuse_results
     if job_id:
         llm_wiki_storage.update_job(job_id, execution=runtime.metadata)
 
@@ -565,6 +567,7 @@ def start_ingest(
                 resume_job_id=resume_job_id,
                 batch_size=batch_size,
                 expected_reading_identity=expected_reading_identity,
+                reuse_results=not force,
             )
             llm_wiki_storage.update_job(job_id, phase=PHASE_INDEXING, progress=90)
             index_report = llm_wiki_indices.rebuild_indexes(

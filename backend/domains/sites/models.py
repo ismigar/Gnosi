@@ -253,6 +253,7 @@ class SiteConfig(Contract):
     languages: list[str] = Field(default_factory=lambda: ["ca", "es", "en-gb"], min_length=1, max_length=20)
     default_language: str = "ca"
     origin: str = "http://127.0.0.1:4321"
+    statistics_url: str = Field(default="", max_length=2000)
     sources: list[SiteSource] = Field(default_factory=list)
     pages: list[SitePage] = Field(default_factory=list)
     forms: list[SiteForm] = Field(default_factory=lambda: [SiteForm(id="contact")])
