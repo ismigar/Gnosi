@@ -74,15 +74,36 @@ def driver(store: SiteStore) -> Driver:
     return result
 
 
-def paths(transport: Driver, site: SiteConfig) -> tuple[str, str]:
+def paths(transport: Driver, site: SiteConfig, target: SiteTarget | None = None) -> tuple[str, str]:
+    if target is not None and target.environment == "production":
+        return (transport.REMOTE_ROOT + "/web/_gnosi-live/webs/" + site.id,
+                transport.REMOTE_ROOT + "/.gnosi-sites-production/" + site.id)
     return (transport.REMOTE_ROOT + "/web/_gnosi-proves/webs/" + site.id,
             transport.REMOTE_ROOT + "/.gnosi-sites/" + site.id)
 
 
 def validate_target(site: SiteConfig, target: SiteTarget) -> None:
+    if target.environment == "production":
+        if target.id != "pangea-production" or target.base_url.rstrip("/") != "https://temenosismael.org":
+            raise HTTPException(409, "Invalid registered Pangea production destination")
+        return
     expected = "https://temenosismael.org/_gnosi-proves/webs/" + site.id + "/current"
     if target.environment != "staging" or target.base_url != expected:
         raise HTTPException(409, "The Pangea destination must use its isolated protected test URL")
+
+
+def _owner(store: SiteStore, site: SiteConfig, target: SiteTarget) -> str:
+    value = store.private_root.name + ":" + site.id
+    return value + ":production" if target.environment == "production" else value
+
+
+def _registration(store: SiteStore, site: SiteConfig, target: SiteTarget) -> None:
+    if target.environment != "production":
+        return
+    path = store.site_dir(site.id) / "services" / target.id / "production-registration.json"
+    expected = {"site_id": site.id, "scope": store.private_root.name, "target_id": target.id, "base_url": target.base_url}
+    if path.is_symlink() or not path.is_file() or json.loads(path.read_text()) != expected:
+        raise HTTPException(409, "Register the production migration separately from the staging bridge")
 
 
 def _start_worker(transport: Driver, bridge: Bridge, public: str, private: str, owner: str) -> None:
@@ -93,7 +114,7 @@ def _start_worker(transport: Driver, bridge: Bridge, public: str, private: str, 
 
 
 def _policy(public: str, private: str, owner: str) -> str:
-    return namespace_program(private, private, None) + '$public=' + json.dumps(public) + ';$private=' + json.dumps(private) + ';$expectedOwner=' + json.dumps(owner) + ';' + r'''
+    return namespace_program(private, private, None, production=owner.endswith(":production")) + '$public=' + json.dumps(public) + ';$private=' + json.dumps(private) + ';$expectedOwner=' + json.dumps(owner) + ';' + r'''
 function gnosi_pangea_namespace(){
  global $public,$private,$expectedOwner;
  foreach([$public,$private] as $directory){
@@ -169,10 +190,11 @@ def _activate(transport: Driver, bridge: Bridge, public: str, private: str, rele
 
 def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, release_id: str, output: Path, parent_id: str | None, activation_guard: Callable[[], None] | None = None) -> str:
     validate_target(site, target)
+    _registration(store, site, target)
     with connection(store) as (transport, bridge):
-        public, private = paths(transport, site)
+        public, private = paths(transport, site, target)
         marker = transport.REMOTE_ROOT + "/web/_gnosi-proves/.gnosi-staging-marker"
-        owner = store.private_root.name + ":" + site.id
+        owner = _owner(store, site, target)
         setup = namespace_program(private, private, None) + '$marker=' + json.dumps(marker) + ';if(!is_file($marker)||is_link($marker)){throw new Exception("Protected staging missing");}$owner=' + json.dumps(owner) + ';$directories=[' + json.dumps(public) + ',' + json.dumps(private) + '];foreach($directories as $directory){$parent=$directory;while(!gnosi_exists($parent)){$parent=dirname($parent);}if(gnosi_directory($parent)!==$parent){throw new Exception("Noncanonical namespace parent");}if(gnosi_exists($directory)){if(gnosi_directory($directory)!==$directory){throw new Exception("Noncanonical namespace");}$marker=gnosi_file($directory,".gnosi-owner");if(!is_file($marker)||file_get_contents($marker)!==$owner){throw new Exception("Unowned namespace");}}}foreach($directories as $directory){if(gnosi_directory($directory,true,0711)!==$directory){throw new Exception("Invalid new namespace");}gnosi_write($directory,".gnosi-owner",$owner);}$private=' + json.dumps(private) + ';foreach(["service","releases"] as $name){$path=$private."/".$name;if(gnosi_directory($path,true,$name==="service"?0700:0711)!==$path){throw new Exception("Invalid private directory");}}'
         transport.php(bridge, setup)
         transport.php(bridge, _policy(public, private, owner))
@@ -184,11 +206,14 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
         with tempfile.TemporaryDirectory(prefix="gnosi-pangea-release-") as temporary:
             root = Path(temporary)
             service = root / "service"
-            service.mkdir()
+            service.mkdir(mode=0o700)
             for source in SERVICE_ROOT.glob("*.php"):
                 if source.name != "test.php":
-                    (service / source.name).write_bytes(source.read_bytes())
+                    destination = service / source.name
+                    destination.write_bytes(source.read_bytes())
+                    destination.chmod(0o600)
             (service / "config.json").write_text(json.dumps(config))
+            (service / "config.json").chmod(0o600)
             htaccess = (output / ".htaccess").read_text() if (output / ".htaccess").is_file() else "Options -Indexes\n"
             htaccess += '\nSetEnv GNOSI_SITES_SERVICE_CONFIG "' + service_root + '/config.json"\n'
             (root / ".htaccess").write_text(htaccess)
@@ -202,10 +227,17 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
                         tar.add(path, arcname="public/" + str(path.relative_to(output)), recursive=False)
                 tar.add(root / ".htaccess", arcname="public/.htaccess")
                 tar.add(root / "checksums.json", arcname="checksums.json")
+                tar.add(service, arcname="service", recursive=False)
                 for path in service.iterdir():
                     tar.add(path, arcname="service/" + path.name, recursive=False)
-            transport.put(bridge, archive, release_root + "/upload.tar.gz")
-        bridge.run("tar -xzf " + shlex.quote(release_root + "/upload.tar.gz") + " -C " + shlex.quote(release_root) + " && rm " + shlex.quote(release_root + "/upload.tar.gz"))
+            archive.chmod(0o600)
+            package_name = "upload-" + release_id + ".tar.gz"
+            package_path = service_root + "/" + package_name
+            # Keep credentials private from the first upload byte, including
+            # interrupted transfers. The retained static tree is traversable.
+            transport.php(bridge, _policy(public, private, owner) + '$s=' + json.dumps(service_root) + ';$name=' + json.dumps(package_name) + ';$file=gnosi_file($s,$name);if(gnosi_exists($file)){throw new Exception("Upload already exists");}gnosi_write($s,$name,"",0600);')
+            transport.put(bridge, archive, package_path)
+        bridge.run("tar -xzf " + shlex.quote(package_path) + " -C " + shlex.quote(release_root) + " && rm " + shlex.quote(package_path))
         # Service code/config have a separate lifecycle from retained static releases.
         prepare = _policy(public, private, owner) + '$release=' + json.dumps(release_root) + ';$s=' + json.dumps(service_root) + ';foreach(glob($release."/service/*") as $file){$name=basename($file);$source=gnosi_file($release,"service/".$name);gnosi_write($s,$name,file_get_contents($source));unlink($source);}rmdir($release."/service");$it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($release."/public",FilesystemIterator::SKIP_DOTS),RecursiveIteratorIterator::SELF_FIRST);foreach($it as $entry){if($entry->isLink()){throw new Exception("Unreviewed version symlink");}chmod($entry->getPathname(),$entry->isDir()?0755:0644);}chmod($release."/public",0755);'
         transport.php(bridge, prepare)
@@ -226,18 +258,20 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
 
 def revert(store: SiteStore, site: SiteConfig, target: SiteTarget, release_id: str, parent_id: str | None, activation_guard: Callable[[], None] | None = None) -> None:
     validate_target(site, target)
+    _registration(store, site, target)
     with connection(store) as (transport, bridge):
-        public, private = paths(transport, site)
+        public, private = paths(transport, site, target)
         if activation_guard:
             activation_guard()
-        _activate(transport, bridge, public, private, release_id, parent_id, store.private_root.name + ":" + site.id)
+        _activate(transport, bridge, public, private, release_id, parent_id, _owner(store, site, target))
 
 
 def current_release(store: SiteStore, site: SiteConfig, target: SiteTarget) -> str | None:
     validate_target(site, target)
+    _registration(store, site, target)
     with connection(store, bounded=True) as (transport, bridge):
-        public, private = paths(transport, site)
-        code = '$root=' + json.dumps(public) + ';if(!file_exists($root)&&!is_link($root)){echo "null";exit;}' + _policy(public, private, store.private_root.name + ":" + site.id) + 'echo json_encode(gnosi_pangea_current());'
+        public, private = paths(transport, site, target)
+        code = '$root=' + json.dumps(public) + ';if(!file_exists($root)&&!is_link($root)){echo "null";exit;}' + _policy(public, private, _owner(store, site, target)) + 'echo json_encode(gnosi_pangea_current());'
         response: object = json.loads(transport.php(bridge, code))
     if response is not None and (not isinstance(response, str) or not re.fullmatch(r"[a-f0-9]{32}", response)):
         raise HTTPException(409, "Invalid remote release receipt")
@@ -246,10 +280,11 @@ def current_release(store: SiteStore, site: SiteConfig, target: SiteTarget) -> s
 
 def sync_settings(store: SiteStore, site: SiteConfig, target: SiteTarget, forms_site: SiteConfig) -> None:
     validate_target(site, target)
+    _registration(store, site, target)
     with connection(store, bounded=True) as (transport, bridge):
-        public, private = paths(transport, site)
+        public, private = paths(transport, site, target)
         root = private + "/service"
-        policy = _policy(public, private, store.private_root.name + ":" + site.id)
+        policy = _policy(public, private, _owner(store, site, target))
         pending = "config-" + uuid.uuid4().hex + ".json"
         transport.php(bridge, policy + 'gnosi_file(' + json.dumps(root) + ',' + json.dumps(pending) + ');')
         config: dict[str, JsonValue] = json.loads(configuration(store, site, target.id, forms_site=forms_site).read_text())
@@ -260,7 +295,7 @@ def sync_settings(store: SiteStore, site: SiteConfig, target: SiteTarget, forms_
             local.chmod(0o600)
             transport.put(bridge, local, root + "/" + pending)
         transport.php(bridge, policy + '$root=' + json.dumps(root) + ';$pending=gnosi_file($root,' + json.dumps(pending) + ');$raw=file_get_contents($pending);json_decode($raw,true,512,JSON_THROW_ON_ERROR);$p=$root;gnosi_install_config($raw);unlink($pending);')
-        _service_request(transport, bridge, public, private, store.private_root.name + ":" + site.id, "forms_sync", {"forms": cast(JsonValue, [form.model_dump(mode="json") for form in forms_site.forms if form.enabled]), "form_delivery": config["form_delivery"]})
+        _service_request(transport, bridge, public, private, _owner(store, site, target), "forms_sync", {"forms": cast(JsonValue, [form.model_dump(mode="json") for form in forms_site.forms if form.enabled]), "form_delivery": config["form_delivery"]})
 
 
 def _service_request(transport: Driver, bridge: Bridge, public: str, private: str, owner: str, action: str, request: dict[str, JsonValue]) -> dict[str, JsonValue]:
@@ -281,7 +316,7 @@ def _service_request(transport: Driver, bridge: Bridge, public: str, private: st
     command = "trap " + shlex.quote(cleanup) + " EXIT; php -r " + shlex.quote(code) + " < " + shlex.quote(root + "/" + name)
     raw = bridge.run(command, completed_response=True) if isinstance(bridge, BoundedBridge) else bridge.run(command)
     result: object = json.loads(raw)
-    if not isinstance(result, dict) or result.get("error") or result.get("test_mode", True) is not True:
+    if not isinstance(result, dict) or result.get("error") or result.get("test_mode") is not (not owner.endswith(":production")):
         raise HTTPException(503, "The Pangea test service could not complete the operation")
     return cast(dict[str, JsonValue], result)
 
@@ -291,13 +326,12 @@ def service(store: SiteStore, site: SiteConfig, target_id: str, action: str, req
     from .bounded_bridge import BoundedBridge, PangeaTransportInterrupted
     target = next(target for target in site.targets if target.id == target_id)
     validate_target(site, target)
-    if target.environment != "staging":
-        raise HTTPException(409, "Only the isolated Pangea test service is available")
+    _registration(store, site, target)
     with connection(store, bounded=True) as (transport, bridge):
-        public, private = paths(transport, site)
+        public, private = paths(transport, site, target)
         for attempt in range(2):
             try:
-                return _service_request(transport, bridge, public, private, store.private_root.name + ":" + site.id, action, request)
+                return _service_request(transport, bridge, public, private, _owner(store, site, target), action, request)
             except TimeoutError:
                 raise HTTPException(503, "The Pangea operation exceeded its deadline") from None
             except (PangeaTransportInterrupted, pexpect.EOF, pexpect.TIMEOUT, ConnectionAbortedError):

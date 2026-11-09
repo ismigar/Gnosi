@@ -9,9 +9,9 @@ from __future__ import annotations
 import json
 
 
-def program(root: str, private_root: str, owner: str | None, document_root: str = "") -> str:
+def program(root: str, private_root: str, owner: str | None, document_root: str = "", *, production: bool = False) -> str:
     return ("$r=" + json.dumps(root) + ";$p=" + json.dumps(private_root)
-            + ";$owner=" + json.dumps(owner) + ";$documentRoot=" + json.dumps(document_root) + ";" + _PHP)
+            + ";$production=" + json.dumps(production) + ";$owner=" + json.dumps(owner) + ";$documentRoot=" + json.dumps(document_root) + ";" + _PHP)
 
 
 def worker_start_program() -> str:
@@ -165,21 +165,21 @@ function gnosi_service_state($includeLog=true){
     }
 }
 function gnosi_install_config($raw){
-    global $p,$owner;
+    global $p,$owner,$production;
     gnosi_service_state(false);
     $config=json_decode($raw,true,64,JSON_THROW_ON_ERROR);
     $identity=$owner===null?null:json_decode($owner,true,64,JSON_THROW_ON_ERROR);
-    if(!is_array($config)||($config["test_mode"]??null)!==true||($config["allow_delivery"]??false)!==false||$identity!==null&&($config["site_id"]??null)!==$identity["site_id"]){throw new Exception("Unreviewed service configuration");}
+    if(!is_array($config)||($config["test_mode"]??null)!==!$production||($config["allow_delivery"]??false)!==$production||$identity!==null&&($config["site_id"]??null)!==$identity["site_id"]){throw new Exception("Unreviewed service configuration");}
     $config["db_path"]=$p."/state.sqlite";$config["spool_path"]=$p."/captures";$config["library_path"]=$p."/library.php";
     gnosi_write($p,"config.json",json_encode($config,JSON_THROW_ON_ERROR));
 }
 function gnosi_service_config(){
-    global $p,$owner;
+    global $p,$owner,$production;
     gnosi_service_state();
     $file=gnosi_file($p,"config.json");
     $config=json_decode(file_get_contents($file),true,64,JSON_THROW_ON_ERROR);
     $identity=$owner===null?null:json_decode($owner,true,64,JSON_THROW_ON_ERROR);
-    if(!is_array($config)||($config["test_mode"]??null)!==true||($config["allow_delivery"]??false)!==false||$identity!==null&&($config["site_id"]??null)!==$identity["site_id"]){throw new Exception("Unreviewed service configuration");}
+    if(!is_array($config)||($config["test_mode"]??null)!==!$production||($config["allow_delivery"]??false)!==$production||$identity!==null&&($config["site_id"]??null)!==$identity["site_id"]){throw new Exception("Unreviewed service configuration");}
     foreach(["db_path"=>"state.sqlite","spool_path"=>"captures","library_path"=>"library.php"] as $key=>$name){if(($config[$key]??null)!==$p."/".$name){throw new Exception("Service path escaped its owned namespace");}}
     return $file;
 }

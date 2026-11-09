@@ -26,7 +26,7 @@ def test_contact_retry_keeps_translated_configuration_without_sending(tmp_path, 
     ]
     form = {'id': 'support', 'revision': 1, 'enabled': True, 'title': localized, 'intro': localized,
             'fields': fields, 'privacy_text': localized, 'privacy_label': localized, 'privacy_link_label': localized,
-            'privacy_url': '/privacy', 'require_privacy': True, 'newsletter_list': 'news', 'newsletter_label': localized,
+            'privacy_url': '/privacy', 'privacy_urls': {'fr': '/fr/privacy'}, 'require_privacy': True, 'newsletter_list': 'news', 'newsletter_label': localized,
             'submit_label': localized, 'required_message': {'fr': 'Vérifier', 'es': 'Revisar'},
             'failure_message': {'fr': 'Réessayer', 'es': 'Reintentar'}}
     root = extension_root()
@@ -66,7 +66,7 @@ def test_contact_retry_keeps_translated_configuration_without_sending(tmp_path, 
         assert soup.select_one('input[type=radio][checked]')['value'] == 'blue'
         assert soup.select_one('input[name=privacy]').parent.get_text().strip() == localized[language]
         assert soup.select_one('input[name=newsletter_opt_in][checked]').parent.get_text().strip() == localized[language]
-        assert soup.select_one('a')['href'] == '/_gnosi/current/privacy'
+        assert soup.select_one('a')['href'] == '/_gnosi/current/' + ('fr/privacy' if language == 'fr' else 'privacy')
         assert soup.select_one('a').get_text() == localized[language]
         assert soup.select_one('button').get_text() == localized[language]
         assert not soup.select('script')

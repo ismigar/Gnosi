@@ -14,7 +14,7 @@
   .temenos-site .temenos-hero-copy{max-width:62rem;background:var(--accent,#c75b35);color:#151515;border-radius:1.5rem;padding:clamp(1.5rem,3vw,2.5rem)}
   .temenos-site .temenos-hero-copy h1{color:#fff;font-family:var(--font-body,Georgia,serif);font-size:clamp(1.8rem,3.1vw,2.8rem);margin:0 0 1rem}
   .temenos-site .temenos-hero-copy p{font-size:clamp(1.15rem,1.6vw,1.45rem);line-height:1.5;margin-top:0}
-  .temenos-site .hero-actions .button{background:var(--background,#f5efe7);color:var(--primary,#264653);text-decoration:none;border:1px solid var(--primary,#264653)}
+  .temenos-site .hero-actions .button{background:var(--header-background,var(--background,#f5efe7));color:var(--primary,#264653);text-decoration:none;border:1px solid var(--primary,#264653)}
   .temenos-site .hero-actions .button:hover{text-decoration:underline}
   .temenos-site .hero-actions .text-link{color:#151515}
   .temenos-site .reading-card{padding:0;background:transparent;overflow:hidden}

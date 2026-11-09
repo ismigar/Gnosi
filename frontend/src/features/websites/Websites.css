@@ -88,3 +88,13 @@ textarea.websites-input{resize:vertical;min-height:80px}
 
 .websites-social-label{display:flex;align-items:center;gap:8px}
 .websites-social-icon{display:inline-block;width:20px;height:20px;background:currentColor;mask-size:contain;mask-repeat:no-repeat;mask-position:center}
+
+.websites-disclosure > summary { cursor: pointer; display: list-item; padding-block: .4rem; }
+.websites-disclosure > summary > :is(h2,h3) { display: inline; margin: 0; font-size: 16px; font-weight: 600; }
+.websites-disclosure > summary:focus-visible { outline: 2px solid var(--accent-primary, var(--text-primary)); outline-offset: 4px; }
+.websites-disclosure-body { padding-top: .75rem; min-width: 0; }
+.websites-disclosure-body > .websites-actions { margin-bottom: .75rem; }
+.websites-row-columns { display:grid; grid-template-columns:repeat(var(--row-columns),minmax(0,1fr)); gap:1rem; }
+.websites-row-columns > * { min-width:0; }
+.websites-canvas[data-width="mobile"] .websites-row-columns { grid-template-columns:minmax(0,1fr); }
+@media(max-width:900px) { .websites-row-columns { grid-template-columns:minmax(0,1fr); } }

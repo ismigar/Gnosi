@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS previews (id TEXT PRIMARY KEY, site_id TEXT NOT NULL,
 CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, site_id TEXT NOT NULL, payload TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS releases (id TEXT PRIMARY KEY, site_id TEXT NOT NULL, target_id TEXT NOT NULL, payload TEXT NOT NULL, bundle TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS active (site_id TEXT NOT NULL, target_id TEXT NOT NULL, release_id TEXT NOT NULL, PRIMARY KEY(site_id,target_id));
+CREATE TABLE IF NOT EXISTS target_environments (site_id TEXT NOT NULL, target_id TEXT NOT NULL, environment TEXT NOT NULL, PRIMARY KEY(site_id,target_id));
 CREATE TABLE IF NOT EXISTS versions (id TEXT PRIMARY KEY, site_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS locks (site_id TEXT PRIMARY KEY, job_id TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS newsletter_drafts (site_id TEXT NOT NULL, target_id TEXT NOT NULL, revision INTEGER NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(site_id,target_id));
@@ -137,14 +138,37 @@ CREATE TABLE IF NOT EXISTS newsletter_reviews (site_id TEXT NOT NULL, target_id 
                     raise HTTPException(409, "The website changed; reload before saving")
                 if site.legacy_pilot != current.legacy_pilot:
                     raise HTTPException(422, "Pilot ownership cannot be changed")
+                self._bind_target_environments(db, current)
                 removed = {target.id for target in current.targets} - {target.id for target in site.targets}
                 if removed:
                     self._prepare_removal(db, current, removed)
                 revision = current.revision + 1
             result = site.model_copy(update={"revision": revision}, deep=True)
+            self._bind_target_environments(db, site)
             db.execute("INSERT INTO versions VALUES (?,?,?,?)", (identifier(), site.id, timestamp(), result.model_dump_json()))
             safe_write_json(path, result.model_dump(mode="json"), ensure_ascii=False, indent=2)
             return result
+
+    def _bind_target_environments(self, db: sqlite3.Connection, site: SiteConfig) -> None:
+        """Retained service state keeps its authority after a target is removed."""
+        history: list[SiteConfig] | None = None
+        for target in site.targets:
+            row = db.execute("SELECT environment FROM target_environments WHERE site_id=? AND target_id=?", (site.id, target.id)).fetchone()
+            environment = row["environment"] if row else None
+            if environment is None:
+                root = self.site_dir(site.id) / "services" / target.id
+                retained = root.is_dir() and any(root.iterdir())
+                retained = retained or bool(db.execute("SELECT 1 FROM releases WHERE site_id=? AND target_id=? UNION ALL SELECT 1 FROM previews WHERE site_id=? AND target_id=? LIMIT 1", (site.id, target.id, site.id, target.id)).fetchone())
+                if not retained:
+                    continue
+                if history is None:
+                    history = [SiteConfig.model_validate_json(row["payload"]) for row in db.execute("SELECT payload FROM versions WHERE site_id=? ORDER BY created_at DESC,rowid DESC", (site.id,))]
+                environment = next((prior.environment for version in history for prior in version.targets if prior.id == target.id), None)
+            # Local previews and remote staging both capture mail. Retained state
+            # must never cross the real-delivery boundary in either direction.
+            if environment is not None and (environment == "production") != (target.environment == "production"):
+                raise HTTPException(409, "Create a separate destination for a different environment")
+            db.execute("INSERT OR IGNORE INTO target_environments VALUES (?,?,?)", (site.id, target.id, target.environment))
 
     def _prepare_removal(self, db: sqlite3.Connection, site: SiteConfig, target_ids: set[str]) -> None:
         """Keep publication and process ownership valid while removing registrations."""

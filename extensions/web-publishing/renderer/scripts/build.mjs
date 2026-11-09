@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
-import {bundle,site,pages,records,prefix,base,deployment,html,selection} from '../src/lib/site.mjs';
+import {bundle,site,production,pages,records,prefix,base,deployment,html,selection} from '../src/lib/site.mjs';
 
 const output=path.resolve('dist');
 function run(command,args){const result=spawnSync(command,args,{stdio:'inherit'});if(result.status!==0)throw new Error('Website build failed');}
@@ -11,15 +11,16 @@ const canonical=value=>new URL(prefix(value),deployment.origin).href;
 function file(relative,content){const target=path.join(output,relative.replace(/^\//,''));fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target,content);}
 function feed(language,selected,title=site.name){
   const items=selected.map(record=>{
-    const guid=(site.legacy_pilot?'':site.id+':')+record.id+':'+record.language;
+    const guid=record.feed_guid || (site.legacy_pilot?'':site.id+':')+record.id+':'+record.language;
     const seconds=Number(record.presentation?.created);const date=new Date(seconds*1000);
     const published=Number.isFinite(seconds)&&seconds>0&&!Number.isNaN(date.valueOf())?`<pubDate>${date.toUTCString()}</pubDate>`:'';
     return `<item><title>${escape(record.title)}</title><link>${escape(canonical(record.path))}</link><guid isPermaLink="false">${escape(guid)}</guid>${published}<description>${escape(html(record.body_html))}</description></item>`;
   }).join('');
   return `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>${escape(title)}</title><link>${escape(canonical('/'+language))}</link><description>${escape(site.name)}</description><language>${language}</language>${items}</channel></rss>`;
 }
+const editorialArticles=site.pages.filter(page=>page.enabled && page.template==='article' && !page.imported_record_id).map(page=>({...page,feed_guid:site.id+':page:'+page.id+':'+page.language,body_html:(page.blocks || []).flatMap(block=>[block,...(block.children || [])]).map(block=>block.body_html || '').join('\n')}));
 for(const language of site.languages){
-  const selected=records.filter(record=>record.language===language && (!site.legacy_pilot || ['article','recurs','disseny'].includes(record.presentation?.kind)));
+  const selected=[...records.filter(record=>record.language===language && (!site.legacy_pilot || !record.presentation?.kind || ['article','recurs','disseny'].includes(record.presentation.kind))),...editorialArticles.filter(page=>page.language===language)];
   if(site.legacy_pilot)selected.sort((a,b)=>Number(b.presentation?.created||0)-Number(a.presentation?.created||0));
   file(`/${language}/rss.xml`,feed(language,selected));
   for(const source of site.sources.filter(source=>source.enabled)){
@@ -49,10 +50,10 @@ for(const [origin,destination] of Object.entries(bundle.feed_aliases||{})){
   file(origin,content);
 }
 file('/sitemap.xml',`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.filter(page=>page.template!=='search').map(page=>`<url><loc>${escape(canonical(page.path))}</loc></url>`).join('')}</urlset>`);
-file('/robots.txt','User-agent: *\nDisallow: /\n');
+file('/robots.txt',production ? `User-agent: *\nAllow: /\nSitemap: ${canonical('/sitemap.xml')}\n` : 'User-agent: *\nDisallow: /\n');
 const redirects={...site.redirects};
 if(!pages.some(page=>page.path==='/'))redirects['/']='/'+site.default_language;
-const rewrites=['AddDefaultCharset UTF-8','Options -Indexes -MultiViews','DirectorySlash Off','DirectoryIndex index.html','<IfModule mod_headers.c>','Header always set X-Robots-Tag "noindex, nofollow"','Header always set X-Content-Type-Options "nosniff"','</IfModule>','AddType application/wasm .wasm','<FilesMatch "^feed$">','ForceType application/rss+xml','</FilesMatch>','RewriteEngine On'];
+const rewrites=['AddDefaultCharset UTF-8','Options -Indexes -MultiViews','DirectorySlash Off','DirectoryIndex index.html','<IfModule mod_headers.c>',...(production ? [] : ['Header always set X-Robots-Tag "noindex, nofollow"']),'Header always set X-Content-Type-Options "nosniff"','</IfModule>','AddType application/wasm .wasm','<FilesMatch "^feed$">','ForceType application/rss+xml','</FilesMatch>','RewriteEngine On'];
 if(base)rewrites.push(`RewriteBase ${base}/`);
 const routeFile=value=>value==='/'?'index.html':value.replace(/^\//,'')+'/index.html';
 for(const [from,to] of Object.entries(redirects)){

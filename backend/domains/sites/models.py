@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import datetime, timezone
-from typing import Iterator, Literal
+from typing import Annotated, Iterator, Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, PrivateAttr, SecretStr, field_validator, model_validator
@@ -73,9 +73,13 @@ class NavigationLink(Contract):
 
 
 class SiteBlock(Contract):
+    # Recursive rows share the same wire shape for reads and writes.
+    model_config = ConfigDict(extra="forbid", json_schema_mode_override="validation")
     id: str = Field(default_factory=identifier)
-    type: Literal["text", "image", "split", "gallery", "selected", "collection", "collaborators", "form", "cta", "links", "social", "newsletter"] = "text"
+    type: Literal["text", "image", "split", "gallery", "selected", "collection", "collaborators", "form", "cta", "links", "social", "newsletter", "row"] = "text"
+    children: list[SiteBlock] = Field(default_factory=list, max_length=4)
     title: str = ""
+    heading_level: Literal[1, 2, 3, 4, 5, 6] = 2
     body: str = ""
     body_format: Literal["markdown", "html"] = "markdown"
     width: int = Field(default=100, ge=20, le=100)
@@ -96,6 +100,22 @@ class SiteBlock(Contract):
     actions: list[NavigationLink] | None = None
     links: list[NavigationLink] = Field(default_factory=list)
     css: str = Field(default="", max_length=10000)
+
+    @model_validator(mode="after")
+    def row_columns(self) -> SiteBlock:
+        if self.type == "row" and not self.children:
+            raise ValueError("Rows need at least one column")
+        if self.children and self.type != "row":
+            raise ValueError("Only rows contain columns")
+        if any(child.type == "row" for child in self.children):
+            raise ValueError("Rows cannot be nested")
+        if len({child.id for child in self.children}) != len(self.children):
+            raise ValueError("Column identities must be unique")
+        return self
+
+    def walk(self) -> Iterator[SiteBlock]:
+        yield self
+        yield from self.children
 
 
 class SitePage(Contract):
@@ -127,13 +147,14 @@ class SiteFont(Contract):
 class SiteThemeAsset(Contract):
     source: str
     media_type: str
+    font: SiteFont | None = None
 
 
 class SiteTheme(Contract):
     schema_version: Literal[1] = 1
     name: str = "Default"
     tokens: dict[str, str] = Field(default_factory=lambda: {
-        "primary": "#264653", "accent": "#c75b35", "background": "#f5efe7", "surface": "#ffffff",
+        "primary": "#264653", "accent": "#c75b35", "secondary": "#e2dfda", "background": "#f5efe7", "surface": "#ffffff",
         "text": "#2c3e50", "muted": "#555555", "font-body": "Georgia, serif", "font-heading": "system-ui, sans-serif",
         "content-width": "76rem", "reading-width": "46rem", "radius": "0.75rem", "spacing": "1.5rem",
     })
@@ -142,6 +163,7 @@ class SiteTheme(Contract):
     favicon: str = ""
     fonts: list[SiteFont] = Field(default_factory=list)
     advanced_css: str = Field(default="", max_length=100000)
+    stylesheet_overrides: dict[Literal["base", "template", "layout"], Annotated[str, Field(max_length=100000)]] = Field(default_factory=dict)
 
 
 class FormField(Contract):
@@ -178,6 +200,7 @@ class SiteForm(Contract):
     required_message: dict[str, str] = Field(default_factory=dict)
     failure_message: dict[str, str] = Field(default_factory=dict)
     privacy_url: str = ""
+    privacy_urls: dict[str, str] = Field(default_factory=dict)
     require_privacy: bool = False
     redirect_path: str | None = None
     newsletter_list: str | None = None
@@ -218,6 +241,10 @@ class SiteFooterColumn(Contract):
     blocks: list[SiteBlock] = Field(default_factory=list)
 
 
+class SiteRegion(SiteFooterColumn):
+    position: Literal["header", "before_content", "after_content", "footer"] = "after_content"
+
+
 class SiteConfig(Contract):
     schema_version: Literal[1] = 1
     id: str = Field(default_factory=identifier)
@@ -229,6 +256,8 @@ class SiteConfig(Contract):
     sources: list[SiteSource] = Field(default_factory=list)
     pages: list[SitePage] = Field(default_factory=list)
     forms: list[SiteForm] = Field(default_factory=lambda: [SiteForm(id="contact")])
+    newsletter_privacy_text: dict[str, str] = Field(default_factory=dict)
+    newsletter_names_required: bool = True
     theme: SiteTheme = Field(default_factory=SiteTheme)
     header_actions: list[NavigationLink] = Field(default_factory=list)
     navigation: list[NavigationLink] = Field(default_factory=list)
@@ -240,18 +269,22 @@ class SiteConfig(Contract):
     social_links: list[NavigationLink] = Field(default_factory=list)
     redirects: dict[str, str] = Field(default_factory=dict)
     targets: list[SiteTarget] = Field(default_factory=lambda: [SiteTarget(id="local")])
+    regions: list[SiteRegion] = Field(default_factory=list, max_length=24)
     legacy_pilot: bool = False
 
     def editorial_blocks(self, *, enabled_only: bool = False) -> Iterator[tuple[str | None, SiteBlock]]:
         for page in self.pages:
             if not enabled_only or page.enabled:
                 for block in page.blocks:
-                    yield page.language, block
-        for column in self.footer_columns or []:
+                    for item in block.walk():
+                        yield page.language, item
+        for column in [*(self.footer_columns or []), *self.regions]:
             for block in column.blocks:
-                yield column.language, block
+                for item in block.walk():
+                    yield column.language, item
         for block in self.footer_blocks or []:
-            yield None, block
+            for item in block.walk():
+                yield None, item
 
     @model_validator(mode="after")
     def identity_and_languages(self) -> SiteConfig:
@@ -262,7 +295,7 @@ class SiteConfig(Contract):
         for lang in self.languages:
             if not re.fullmatch(r"[a-z]{2,3}(?:-[a-z]{2,8})?", lang):
                 raise ValueError("Invalid language")
-        for group in (self.sources, self.pages, self.forms, self.targets, self.footer_columns or []):
+        for group in (self.sources, self.pages, self.forms, self.targets, self.footer_columns or [], self.regions):
             if len({item.id for item in group}) != len(group):
                 raise ValueError("Duplicate configuration identities")
             if any(not re.fullmatch(r"[a-zA-Z0-9_-]{1,100}", item.id) for item in group):
@@ -270,7 +303,7 @@ class SiteConfig(Contract):
         for page in self.pages:
             if page.language not in self.languages:
                 raise ValueError("Page language is not enabled")
-        if any(column.language and column.language not in self.languages for column in self.footer_columns or []):
+        if any(column.language and column.language not in self.languages for column in [*(self.footer_columns or []), *self.regions]):
             raise ValueError("Footer column language is not enabled")
         for path, destination in self.redirects.items():
             safe_path(path)
@@ -404,7 +437,8 @@ class FormDeliverySettings(Contract):
 
 
 class ServiceSettings(Contract):
-    test_mode: Literal[True] = True
+    test_mode: bool = True
+    delivery_transport: Literal["smtp", "server-mail"] = "smtp"
     smtp_host: str = ""
     smtp_port: int = Field(default=587, ge=1, le=65535)
     smtp_username: str = ""
@@ -418,7 +452,8 @@ class ServiceSettings(Contract):
 
 class ServiceSettingsResponse(Contract):
     configured: bool
-    test_mode: Literal[True] = True
+    test_mode: bool = True
+    delivery_transport: Literal["smtp", "server-mail"] = "smtp"
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""
@@ -440,7 +475,7 @@ class PrivateServiceRequest(Contract):
 
 class PrivateServiceResponse(Contract):
     data: dict[str, JsonValue]
-    test_mode: Literal[True] = True
+    test_mode: bool = True
 
 
 class TargetConnection(Contract):

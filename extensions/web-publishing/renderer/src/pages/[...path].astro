@@ -1,8 +1,9 @@
 ---
-import {site,pages,records,labels,translate,prefix,href,linkProps,html,selection,themeCss} from '../lib/site.mjs';
+import {bundle,site,production,pages,records,labels,translate,prefix,href,linkProps,html,selection,themeCss} from '../lib/site.mjs';
 import Actions from '../components/Actions.astro';
 import RenderBlock from '../components/RenderBlock.astro';
 import SiteFooter from '../components/SiteFooter.astro';
+import SiteRegions from '../components/SiteRegions.astro';
 import PublicListing from '../components/PublicListing.astro';
 import ContactForm from '../components/ContactForm.astro';
 import ReadingCard from '../components/ReadingCard.astro';
@@ -10,9 +11,6 @@ import ResourceList from '../components/ResourceList.astro';
 import ShareButtons from '../components/ShareButtons.astro';
 import {temenosLabels,publishedDate,splitArticleImage} from '../lib/temenos.mjs';
 import {landingPath} from '../lib/routing.mjs';
-import '../lib/styles.css';
-import '../lib/temenos.css';
-import '../lib/page-layout.css';
 export function getStaticPaths(){return pages.map(page=>({params:{path:page.path.slice(1)||undefined},props:{page}}));}
 const {page}=Astro.props;
 const lang=page.language;
@@ -44,10 +42,10 @@ const navigationClass=link=>['action-link',...(['button','outline'].includes(lin
 const currentNavigationLink = link => href(link.href).replace(/\/$/, '') === prefix(page.path).replace(/\/$/, '');
 ---
 <!doctype html>
-<html lang={lang}><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><meta name="robots" content="noindex,nofollow"/><title>{page.title} · {site.name}</title><meta name="description" content={page.description || page.title}/><link rel="canonical" href={canonical}/>{site.theme.favicon && <link rel="icon" href={href(site.theme.favicon)}/>}<link rel="alternate" type="application/rss+xml" href={prefix(`/${lang}/rss.xml`)} title={site.name}/>{alternatives.map(other=><link rel="alternate" hreflang={other.language} href={new URL(other.path,site.origin).href}/>)}<style is:inline set:html={themeCss(page)} /></head>
+<html lang={lang}><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><meta name="robots" content={production ? "index,follow" : "noindex,nofollow"}/><title>{page.title} · {site.name}</title><meta name="description" content={page.description || page.title}/><link rel="canonical" href={canonical}/>{site.theme.favicon && <link rel="icon" href={href(site.theme.favicon)}/>}<link rel="alternate" type="application/rss+xml" href={prefix(`/${lang}/rss.xml`)} title={site.name}/>{alternatives.map(other=><link rel="alternate" hreflang={other.language} href={new URL(other.path,site.origin).href}/>)}<link rel="stylesheet" href={prefix(bundle.stylesheet_path)}/><style is:inline set:html={themeCss(page)} /></head>
 <body class:list={['site-root',{'temenos-site':site.legacy_pilot}]} data-page-id={page.id}>
   <a class="skip" href="#main-content">{text.skip}</a>
-  <div class="preview" data-pagefind-ignore><span>{text.preview}</span>{site.legacy_pilot && <a href={new URL(page.path,site.origin).href} target="_blank" rel="noopener noreferrer">{legacyText.currentSite} ↗</a>}</div>
+  {!production && <div class="preview" data-pagefind-ignore><span>{text.preview}</span>{site.legacy_pilot && <a href={new URL(page.path,site.origin).href} target="_blank" rel="noopener noreferrer">{legacyText.currentSite} ↗</a>}</div>}
   <header class="site-header" data-pagefind-ignore><div class="wrap header-layout"><a class="brand" href={prefix(landingPath(pages,lang))}>{site.theme.logo ? <img src={href(site.theme.logo)} alt={site.theme.logo_alt || site.name} width="230" height="90"/> : site.name}</a><button class="menu-toggle" type="button" aria-label={site.legacy_pilot ? text.menu : undefined} aria-expanded="false" aria-controls="site-navigation" data-menu-toggle>
       {site.legacy_pilot ? (
         <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -61,7 +59,8 @@ const currentNavigationLink = link => href(link.href).replace(/\/$/, '') === pre
               <path d="m15.5 15.5 5 5" />
             </svg>
           ) : text.search}
-        </summary><form class="search-box" method="get" action={prefix(`/${lang}/search/node`)} role="search"><input name="keys" type="search" aria-label={text.search} placeholder={text.searchHint}/><button type="submit">{text.search}</button></form></details></nav></div></header>
+        </summary><form class="search-box" method="get" action={prefix(`/${lang}/search/node`)} role="search"><input name="keys" type="search" aria-label={text.search} placeholder={text.searchHint}/><button type="submit">{text.search}</button></form></details></nav></div><SiteRegions lang={lang} position="header"/></header>
+  <SiteRegions lang={lang} position="before_content"/>
   <main id="main-content" class:list={['wrap',{'temenos-home':legacyHome}]} data-pagefind-body={page.template==='article' || !['map','search'].includes(page.template) ? true : undefined}>
     {hero ? <section class="temenos-hero"><img class="temenos-hero-photo" src={href(hero.image)} alt="" fetchpriority="high"/><div class="wrap"><div class="temenos-hero-copy"><h1 data-pagefind-meta="title">{page.title}</h1><div class="record-body" set:html={html(hero.body_html)}/><Actions links={hero.actions ?? [homeLink(2656) && {label:legacyText.about,href:homeLink(2656),appearance:'button'},homeLink(5) && {label:legacyText.me,href:homeLink(5),appearance:'link'}].filter(Boolean)} lang={lang} className="hero-actions"/></div></div></section> : <h1 class="page-title" data-pagefind-meta="title">{page.title}</h1>}
     {date && page.template==='article' && !legacyArticle && <p class="article-date"><time datetime={date.iso}>{date.text}</time>{page.presentation?.year && <> · {page.presentation.year}</>}</p>}
@@ -76,7 +75,7 @@ const currentNavigationLink = link => href(link.href).replace(/\/$/, '') === pre
     {['home','listing'].includes(page.template) && !page.blocks.length && <section class="block">
       <PublicListing items={selected} source={source} lang={lang} resource={resourceListing} title={page.title} fields={fields} fieldLabel={fieldLabel} format={format}/>
     </section>}
-    {blocks.map(block=><RenderBlock block={block} lang={lang} template={page.template} fieldLabel={fieldLabel}/>)}
+    {blocks.map(block=><RenderBlock block={block} lang={lang} template={page.template} pageTitle={page.title} fieldLabel={fieldLabel}/>)}
     {feedPath && <p class="listing-rss"><a href={prefix(feedPath)}>RSS</a></p>}
     {tagLinks.length>0 && <section class="entry-tags" aria-labelledby="entry-tags-title">
       <h2 id="entry-tags-title"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 3h7l11 11-7 7L3 10Z"/><circle cx="7" cy="7" r="1"/><path d="m14 3 9 9"/></svg>{legacyText.tags}</h2>
@@ -85,6 +84,7 @@ const currentNavigationLink = link => href(link.href).replace(/\/$/, '') === pre
     {sharing && <ShareButtons page={page} lang={lang}/>}
     {!site.legacy_pilot && alternatives.length>1 && <nav class="languages translations" data-pagefind-ignore>{alternatives.map(other=><a href={prefix(other.path)} data-search-language={page.template==='search'?true:undefined} lang={other.language} aria-current={other.language===lang?'page':undefined}>{other.language.split('-')[0].toUpperCase()}</a>)}</nav>}
   </main>
+  <SiteRegions lang={lang} position="after_content"/>
   <SiteFooter lang={lang}/>
 
   <script>

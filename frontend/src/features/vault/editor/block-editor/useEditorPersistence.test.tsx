@@ -163,6 +163,34 @@ describe('rich editor persistence', () => {
         view.unmount();
         expect(vi.getTimerCount()).toBe(0);
     });
+    it('does not recreate confirmation after an in-flight save finishes on a closed editor', async () => {
+        let resolve: (value: typeof response) => void = () => { throw new Error('Missing save'); };
+        patch.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+        const view = fixture(); view.edit(); await advance(700);
+        view.unmount();
+        await act(async () => { resolve(response); await Promise.resolve(); });
+        expect(vi.getTimerCount()).toBe(0);
+        expect(inFlightSaves.has('page')).toBe(false);
+        expect(view.onUpdate).toHaveBeenCalledExactlyOnceWith('page', 'Body', {
+            title: 'Document', metadata: view.metadataRef.current,
+        });
+    });
+    it('keeps a new page confirmation independent of an old page finishing its save', async () => {
+        let resolve: (value: typeof response) => void = () => { throw new Error('Missing save'); };
+        patch.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+        const view = fixture(); view.edit(); await advance(700);
+        view.render(<Harness editor={view.editor} noteFilename="second" metadataRef={view.metadataRef} isParsing={false} editorReady />);
+        const button = view.container.querySelector('button');
+        if (!button) throw new Error('Missing save action');
+        await act(async () => { button.click(); await Promise.resolve(); });
+        await advance(500);
+        await act(async () => { resolve(response); await Promise.resolve(); });
+        expect(inFlightSaves.has('page')).toBe(false);
+        expect(view.container.textContent).toBe('saved');
+        await advance(499); expect(view.container.textContent).toBe('saved');
+        await advance(1); expect(view.container.textContent).toBe('idle');
+        expect(vi.getTimerCount()).toBe(0);
+    });
     it('flushes latest metadata on close and retains cache for the one-second handoff', async () => {
         const view = fixture(); view.edit();
         view.metadataRef.current = { title: 'Revised', status: 'complete' };
