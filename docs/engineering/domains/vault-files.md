@@ -229,6 +229,18 @@ origins, another Vault prefix, controls, backslashes and encoded path traversal
 are rejected. This preserves destination types without duplicating categories
 such as favorites, dashboards and notes in the shortcut model.
 
+Bookmark creation and editing use a responsive, keyboard-accessible dialog.
+The destination chooser searches titles among loaded pages and uses the existing
+scoped full-Vault search for other notes, rendering a bounded result list with
+pagination. Dashboards are an explicit UI choice backed by canonical `page`
+membership; their names and icons come from the sidebar tree. The open note or
+view can be captured without entering an address, and common app views are
+named choices. Section choices use the same heading/block parser as transclusion.
+Existing groups are visible choices, new names are optional, and the sidebar
+supports bookmark filtering and collapsible groups. Address and reference entry
+remain available in optional advanced controls. Failed mutations retain the
+editing dialog and draft; synchronized storage and route validation are unchanged.
+
 `/api/vault/bookmarks` and its import/item/page/order/sort operations resolve
 `get_workspace_context`, using authenticated identity rather than `X-User-ID`.
 Each user/workspace collection lives in the selected Vault under

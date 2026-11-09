@@ -101,3 +101,5 @@ export function moveBookmark(entries: readonly VaultBookmark[], id: string, dire
   result[destinationIndex] = entry;
   return result;
 }
+
+export const bookmarkSearchText = (value: string) => value.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase();

@@ -8,6 +8,79 @@ from backend.tests.test_semantic_reading import response, setup
 from backend.tests.test_semantic_review_parallel import prepared
 
 
+@pytest.mark.parametrize('reason', [
+    "La caracterització és substantiva; la frase posterior queda incompleta i no se'n reconstrueix la continuació.",
+    "La frase següent queda interrompuda i no permet extreure'n una tesi completa addicional.",
+    'The passage is truncated and cannot provide a complete claim.',
+    'La frase está incompleta y no permite extraer otra idea.',
+    'La phrase est incomplète.',
+])
+def test_truncation_is_not_an_accepted_coverage_rationale(reason):
+    from backend.domains.llm_wiki.reading_quality import validate_boundary_coverage
+    with pytest.raises(ValueError, match='complete claims before'):
+        validate_boundary_coverage(reason)
+
+
+def test_coverage_accepts_supported_claim_without_inventing_tail():
+    from backend.domains.llm_wiki.reading_quality import validate_boundary_coverage
+    validate_boundary_coverage('Preserves the complete theoretical limit and its stated example; no extra list item inferred.')
+    validate_boundary_coverage('Detached connector without an independent proposition.')
+
+
+def test_interpretation_rejects_boundary_loss_before_checkpoint_save():
+    def bad(request):
+        answer = response(request)
+        if request['phase'] == 'interpret':
+            answer['passages'][0]['reason'] = 'The passage is truncated; no further claim retained.'
+        return answer
+    reader, calls, checkpoints = setup(count=1, generate=bad)
+    with pytest.raises(ValueError, match='source-grounded review'):
+        reader.run()
+    assert not checkpoints['new', 'semantic-state']['plans']
+
+
+def test_cached_boundary_loss_blocks_review_before_model_call():
+    from backend.domains.llm_wiki.semantic_review import review_plans
+    from types import SimpleNamespace
+    engine = SimpleNamespace(reader=object(), state={'plans': {'old': {'coverage': [
+        {'reason': 'The sentence is incomplete, so no additional thesis can be extracted.'}]}}})
+    with pytest.raises(ValueError, match='source-grounded review'):
+        review_plans(engine, '', '')
+
+
+def test_resumed_boundary_loss_is_rejected_before_any_new_phase():
+    reader, _, checkpoints = setup(count=1)
+    reader.run()
+    saved = checkpoints['new', 'semantic-state']
+    first = next(iter(saved['plans'].values()))
+    first['coverage'][0]['reason'] = 'The sentence is truncated, so the rest has no complete idea.'
+    before = deepcopy(checkpoints)
+    resumed, calls, _ = setup(count=1, checkpoints=checkpoints, resume='new')
+    with pytest.raises(ValueError, match='source-grounded review'):
+        resumed.run()
+    assert calls == [] and checkpoints == before
+
+
+def test_review_cannot_turn_complete_claims_into_a_truncation_omission():
+    def bad_review(request):
+        answer = response(request)
+        if request['phase'] == 'verify':
+            answer['changes'] = [{'note': 1, 'omit_reason': 'The passage is truncated, so no complete claim can be retained.'}]
+        return answer
+    reader, _, checkpoints = setup(count=1, generate=bad_review)
+    with pytest.raises(ValueError, match='source-grounded review'):
+        reader.run()
+    assert not checkpoints['new', 'semantic-state'].get('completed')
+
+
+def test_cached_review_omission_is_revalidated_when_bound():
+    from backend.domains.llm_wiki.semantic_contracts import bind_review
+    answer = {'assessment': 'Previously accepted', 'changes': [{'note': 1,
+        'omit_reason': 'The sentence is incomplete; no additional complete claim.'}], 'warnings': []}
+    with pytest.raises(ValueError, match='source-grounded review'):
+        bind_review(answer, [({}, {}, [])], [])
+
+
 @pytest.mark.parametrize('body', ['An idea [[27]].', 'Evidence [[#quote:8]].',
                                  'An idea [^1].', 'Ha viscut 역사적ament.', 'Es 해석과란 mútuament.'])
 def test_invalid_generated_prose_is_not_accepted_as_a_reviewed_note(body):

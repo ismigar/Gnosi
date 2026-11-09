@@ -182,6 +182,19 @@ prefijo de otro Vault, los caracteres de control, las barras inversas y la
 travesía de rutas codificada. Esto conserva los tipos de destino sin duplicar
 categorías como favoritos, paneles y notas en el modelo de accesos directos.
 
+La creación y edición de marcadores utilizan un diálogo adaptable y accesible con teclado.
+El selector busca títulos entre las páginas cargadas y emplea la búsqueda existente
+del Vault completo para otras notas, con una lista limitada y paginada.
+Los paneles son una opción explícita de la interfaz con pertenencia canónica `page`;
+sus nombres e iconos proceden del árbol lateral. Se puede guardar la nota o vista
+abierta sin escribir una dirección, y las vistas habituales tienen opciones con nombre.
+Las secciones usan el mismo analizador de encabezados y bloques que las transclusiones.
+Los grupos existentes son opciones visibles y los nombres nuevos son opcionales;
+la barra lateral permite filtrar marcadores y plegar grupos. La entrada de direcciones
+y referencias sigue disponible en los controles avanzados opcionales. Si una modificación
+falla, se conservan el diálogo y el borrador; no cambian el almacenamiento sincronizado
+ni la validación de rutas.
+
 `/api/vault/bookmarks` y sus operaciones de importación, elemento, página,
 orden y ordenación resuelven `get_workspace_context`, usando la identidad
 autenticada en lugar de `X-User-ID`. Cada colección de usuario y espacio de

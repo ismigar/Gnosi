@@ -5,7 +5,7 @@ boundary. Every paid phase remains inside the governed runtime and budget.
 """
 from __future__ import annotations
 
-from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION
+from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION, validate_boundary_coverage
 
 from copy import deepcopy
 from collections.abc import Callable
@@ -51,6 +51,9 @@ class SemanticReader:
                     error = str(self.deps.resume_job_status(candidate).get("error") or "")
                     reduce_batch(self.state, error)
                     resume_incomplete_review(self.state, error)
+        for plan in self.state['plans'].values():
+            for row in records(plan.get('coverage')):
+                validate_boundary_coverage(row.get('reason', ''))
         reader.models.extend(self.state.get("models", []))
         self.save()
 
@@ -176,7 +179,7 @@ class SemanticReader:
                    "primary_passages": [source_view({**s, "origin_label": c.get("origin_label")}) for c in selected for s in records(c.get("segments"))], "properties": fields(self.reader.dimensions),
                    "brain_notes": self.reader.relevant_index("", primary, maximum=8,
                                                            limit=auxiliary_limit(self.reader.budget, 12, 4000)), **context,
-                   "instruction": "Interpret each primary passage in the supplied order. Return exactly one passages entry per primary passage, with substantive atomic reading notes or a concrete omission reason. Each note needs an exact quote from its own primary passage. Context clarifies interpretation, not additional extraction. Preserve qualifications and distinct voices; connect supported ideas with [[wikilinks]]. Record themes, unresolved questions and contradictions; do not edit previous memory or choose workflow actions."}
+                   "instruction": "Interpret each primary passage in the supplied order. Return exactly one passages entry per primary passage, with substantive atomic reading notes or a concrete omission reason. A sentence ending mid-list does not erase its already complete claims: explain each supported claim in note bodies before considering the unfinished tail. Never invent missing list items. Coverage reasons must explain substantive claims retained or source-grounded exclusion, not justify loss by a processing boundary. Each note needs an exact quote from its own primary passage. Context clarifies interpretation, not additional extraction. Preserve qualifications and distinct voices; connect supported ideas with [[wikilinks]]. Record themes, unresolved questions and contradictions; do not edit previous memory or choose workflow actions."}
         key = "semantic-extract-" + fingerprint([c["id"] for c in selected])[:20]
         answer = self.ask(key, "interpret", payload, schema, validate)
         plans = bind_interpretation(answer, selected, evidence, self.reader.dimensions)

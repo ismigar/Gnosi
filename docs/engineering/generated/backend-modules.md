@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 2 | 57 |
 | `config` | 14 | 1428 |
 | `data` | 2 | 214 |
-| `domains` | 614 | 119843 |
+| `domains` | 615 | 119962 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -28,7 +28,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1111 modules** and **209323 source lines**.
+Total: **1112 modules** and **209442 source lines**.
 
 ## agent
 
@@ -409,7 +409,7 @@ Total: **1111 modules** and **209323 source lines**.
 | [`backend/domains/llm_wiki/reading_identity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_identity.py) | 49 | 0 | 5 | 0 | 1 | Stable reading identities: preserve source order, ignore mapping insertion order. |
 | [`backend/domains/llm_wiki/reading_memory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_memory.py) | 56 | 0 | 2 | 0 | 1 | Reconstruct global reading memory from all plans in a legacy checkpoint. |
 | [`backend/domains/llm_wiki/reading_memory_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_memory_repairs.py) | 63 | 1 | 3 | 0 | 1 | Require an explicit memory correction while preserving the original draft. |
-| [`backend/domains/llm_wiki/reading_quality.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_quality.py) | 75 | 0 | 3 | 0 | 2 | Mechanical publication checks; these do not certify semantic correctness. |
+| [`backend/domains/llm_wiki/reading_quality.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_quality.py) | 98 | 0 | 5 | 0 | 3 | Mechanical publication checks; these do not certify semantic correctness. |
 | [`backend/domains/llm_wiki/reading_references.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_references.py) | 57 | 0 | 4 | 0 | 1 | Restore only unambiguous omitted segment digests; never rewrite evidence. |
 | [`backend/domains/llm_wiki/reading_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_repairs.py) | 126 | 0 | 6 | 0 | 0 | Repair rejected references without asking a model to rewrite valid notes. |
 | [`backend/domains/llm_wiki/reading_skill.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_skill.py) | 30 | 0 | 0 | 0 | 0 | The process-source skill's shared, versioned reading methodology. |
@@ -417,14 +417,14 @@ Total: **1111 modules** and **209323 source lines**.
 | [`backend/domains/llm_wiki/search_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/search_index.py) | 373 | 3 | 14 | 0 | 11 | Typed rebuildable lexical and vector indexes for LLM Wiki. |
 | [`backend/domains/llm_wiki/section_assignment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/section_assignment.py) | 91 | 0 | 5 | 0 | 3 | Single, source-scoped section relations and their derived filter ancestry. |
 | [`backend/domains/llm_wiki/semantic_context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_context.py) | 91 | 0 | 9 | 0 | 2 | Deterministic grouping and lexical retrieval over immutable reading evidence. |
-| [`backend/domains/llm_wiki/semantic_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_contracts.py) | 164 | 0 | 10 | 0 | 1 | Small interpretation contracts; the application binds all persistent identities. |
+| [`backend/domains/llm_wiki/semantic_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_contracts.py) | 166 | 0 | 10 | 0 | 1 | Small interpretation contracts; the application binds all persistent identities. |
 | [`backend/domains/llm_wiki/semantic_map_reduction.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_map_reduction.py) | 118 | 1 | 5 | 0 | 4 | Contract summaries without recursively splitting summaries into more calls. |
 | [`backend/domains/llm_wiki/semantic_map_windows.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_map_windows.py) | 51 | 1 | 3 | 0 | 0 | Split only incomplete map windows, preserving complete cached siblings. |
 | [`backend/domains/llm_wiki/semantic_quote_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_quote_contracts.py) | 82 | 0 | 6 | 0 | 3 | Constrain primary evidence before generation without duplicating field schemas. |
 | [`backend/domains/llm_wiki/semantic_quote_selection.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_quote_selection.py) | 196 | 1 | 2 | 0 | 1 | Use immutable quote choices on the first call and every correction alike. |
-| [`backend/domains/llm_wiki/semantic_reading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_reading.py) | 238 | 1 | 1 | 0 | 0 | Application-directed reading: interpret text, then verify it as a whole. |
+| [`backend/domains/llm_wiki/semantic_reading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_reading.py) | 241 | 1 | 1 | 0 | 0 | Application-directed reading: interpret text, then verify it as a whole. |
 | [`backend/domains/llm_wiki/semantic_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_repairs.py) | 122 | 0 | 4 | 0 | 2 | One bounded repair of invalid passage interpretations; preserve valid work. |
-| [`backend/domains/llm_wiki/semantic_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_review.py) | 83 | 0 | 1 | 0 | 0 | Source-grounded joint review with sparse semantic replacements, never a rewrite loop. |
+| [`backend/domains/llm_wiki/semantic_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_review.py) | 88 | 0 | 1 | 0 | 0 | Source-grounded joint review with sparse semantic replacements, never a rewrite loop. |
 | [`backend/domains/llm_wiki/semantic_review_evidence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_review_evidence.py) | 92 | 0 | 5 | 0 | 1 | Bounded local evidence lookup; requests never invent or shorten originals. |
 | [`backend/domains/llm_wiki/semantic_review_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/semantic_review_execution.py) | 264 | 1 | 8 | 0 | 1 | Two independent reviews with one coordinator and inherited spending scope. |
 | [`backend/domains/llm_wiki/source_sections.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/source_sections.py) | 99 | 0 | 1 | 0 | 1 | Persist source-owned section rows through the existing Vault page writer. |
@@ -540,16 +540,17 @@ Total: **1111 modules** and **209323 source lines**.
 | [`backend/domains/sites/models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/models.py) | 515 | 39 | 3 | 0 | 0 | Versioned contracts for website configuration and private operation state. |
 | [`backend/domains/sites/newsletter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/newsletter.py) | 223 | 6 | 10 | 0 | 0 | Private newsletter drafts composed from an immutable published projection. |
 | [`backend/domains/sites/page_editor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/page_editor.py) | 102 | 0 | 3 | 0 | 2 | Non-destructive editorial projections of imported static pages. |
-| [`backend/domains/sites/pangea.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/pangea.py) | 349 | 2 | 15 | 0 | 0 | Native website releases through the existing administrator-bound Suweb bridge. |
+| [`backend/domains/sites/pangea.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/pangea.py) | 354 | 2 | 15 | 0 | 0 | Native website releases through the existing administrator-bound Suweb bridge. |
 | [`backend/domains/sites/paths.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/paths.py) | 13 | 0 | 1 | 0 | 0 | Locate the website runtime in a checkout or an immutable desktop package. |
 | [`backend/domains/sites/private_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/private_service.py) | 154 | 0 | 6 | 0 | 0 | Bounded private PHP service bridge; no browser-selected commands or paths. |
 | [`backend/domains/sites/production.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/production.py) | 19 | 0 | 1 | 0 | 0 | Explicit delivery boundaries shared by previews, publishing and private settings. |
 | [`backend/domains/sites/production_routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/production_routing.py) | 43 | 0 | 1 | 0 | 0 | Reviewed root routing for a retained Drupal-to-Webs cutover. |
 | [`backend/domains/sites/public_http.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/public_http.py) | 222 | 5 | 7 | 0 | 2 | Bounded public HTTP reads with the validated address pinned to the socket. |
-| [`backend/domains/sites/publication.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/publication.py) | 392 | 0 | 21 | 0 | 1 | Persistent reviewed publication jobs, immutable builds and atomic activation. |
+| [`backend/domains/sites/publication.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/publication.py) | 395 | 0 | 21 | 0 | 1 | Persistent reviewed publication jobs, immutable builds and atomic activation. |
 | [`backend/domains/sites/recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/recovery.py) | 120 | 0 | 3 | 0 | 3 | Reauthorize and resume approved website jobs after a backend restart. |
+| [`backend/domains/sites/release_retention.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/release_retention.py) | 74 | 0 | 3 | 0 | 3 | Retain the activated remote website and its predecessor under the publish lock. |
 | [`backend/domains/sites/renderer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/renderer.py) | 82 | 0 | 1 | 0 | 1 | Build reviewed website snapshots with the packaged Astro/Pagefind renderer. |
-| [`backend/domains/sites/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/runtime.py) | 445 | 0 | 23 | 0 | 4 | Owned local preview processes and administrator-bound SSH destinations. |
+| [`backend/domains/sites/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/runtime.py) | 449 | 0 | 23 | 0 | 4 | Owned local preview processes and administrator-bound SSH destinations. |
 | [`backend/domains/sites/site_file_transfer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/site_file_transfer.py) | 31 | 0 | 1 | 0 | 0 | SFTP transfers staged privately, then verified and promoted by the owned SSH service. |
 | [`backend/domains/sites/ssh_namespace.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/ssh_namespace.py) | 193 | 0 | 2 | 0 | 1 | One filesystem policy for every SSH release operation. |
 | [`backend/domains/sites/ssh_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/ssh_transport.py) | 157 | 0 | 10 | 0 | 3 | Bounded system SSH/SFTP transport for administrator configured destinations. |

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, cast
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.semantic_context import source_view
 from backend.domains.llm_wiki.semantic_contracts import semantic_note
+from backend.domains.llm_wiki.reading_quality import validate_boundary_coverage, validate_coverage_rows
 from backend.domains.llm_wiki.reading_quality import REVALIDATABLE_REVIEW_VERSIONS, REVIEW_QUALITY_VERSION, adjacent_originals, prose_issues
 
 
@@ -16,6 +17,9 @@ if TYPE_CHECKING:
 
 def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> list[tuple[dict[str, object], dict[str, object]]]:
     reader = engine.reader
+    # Check even previously paid/cached plans before requesting another review.
+    for plan in engine.state['plans'].values():
+        validate_coverage_rows(plan.get('coverage'))
     if engine.state.get("review_quality_version") != REVIEW_QUALITY_VERSION:
         # Retain the paid interpretations and maps, but an earlier review did
         # not check prose integrity or unresolved evidence. Never certify it.
@@ -72,6 +76,7 @@ def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> lis
             reasons = [str(n["_review_omission"]) for n in omitted if n["source_segment_id"] == row["segment_id"]]
             if reasons and row["segment_id"] not in retained:
                 row["reason"] = "Excluded during review: " + "; ".join(dict.fromkeys(reasons))
+            validate_boundary_coverage(row.get('reason', ''))
         plan["coverage"] = coverage
         from backend.domains.llm_wiki.reading_contracts import validate_notes
         from backend.domains.llm_wiki.reading_action_contracts import validate_note_dimensions

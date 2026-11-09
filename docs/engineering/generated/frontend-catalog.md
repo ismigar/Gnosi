@@ -52,9 +52,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2662 | 0 |
-| `features` | 1300 | 137957 | 57 |
+| `features` | 1300 | 137944 | 57 |
 | `generated` | 3 | 57629 | 595 |
-| `shared` | 349 | 37208 | 510 |
+| `shared` | 352 | 37422 | 510 |
 
 ## app
 
@@ -1070,7 +1070,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/vault/navigation/vault-sidebar/useMenuDismissal.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vault-sidebar/useMenuDismissal.ts) | 17 | `useMenuDismissal` | — |
 | [`frontend/src/features/vault/navigation/vault-sidebar/useSidebarController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vault-sidebar/useSidebarController.ts) | 172 | `useSidebarController` | — |
 | [`frontend/src/features/vault/navigation/vault-sidebar/useSidebarPreferences.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vault-sidebar/useSidebarPreferences.ts) | 30 | `useSidebarPreferences` | — |
-| [`frontend/src/features/vault/navigation/vaultSidebarTree.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vaultSidebarTree.ts) | 181 | `buildVaultSidebarTrees` | — |
+| [`frontend/src/features/vault/navigation/vaultSidebarTree.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vaultSidebarTree.ts) | 168 | `buildVaultSidebarTrees` | — |
 | [`frontend/src/features/vault/navigation/vaultTagTree.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vaultTagTree.ts) | 72 | `buildTagTree`, `noteTags`, `tagNoteIcon` | — |
 | [`frontend/src/features/vault/navigation/workspacesModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/workspacesModel.ts) | 90 | `defaultWorkspaceLayout`, `readWorkspaces`, `saveWorkspaceTab` | — |
 | [`frontend/src/features/vault/properties/AutoriaField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/AutoriaField.tsx) | 292 | `AutoriaDisplay`, `AutoriaEditor` | — |
@@ -1520,13 +1520,15 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/shared/api/workspace-members.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/workspace-members.ts) | 161 | `fetchWorkspaceMemberVaults`, `fetchWorkspaceMembers`, `fetchWorkspaceVaults`, `grantWorkspaceMemberVault`, `inviteWorkspaceMember`, `removeWorkspaceMember`, `revokeWorkspaceMemberVault`, `updateWorkspaceMemberRole` | `/api/workspaces/{workspace_id}/members`, `/api/workspaces/{workspace_id}/members/{target_user_id}`, `/api/workspaces/{workspace_id}/members/{target_user_id}/role`, `/api/workspaces/{workspace_id}/members/{user_id}/vaults`, `/api/workspaces/{workspace_id}/members/{user_id}/vaults/{vault_id}`, `/api/workspaces/{workspace_id}/vaults` |
 | [`frontend/src/shared/api/workspaces.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/workspaces.ts) | 13 | `fetchWorkspaces` | `/api/workspaces` |
 | [`frontend/src/shared/auth/auth-context.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/auth/auth-context.ts) | 37 | `AuthContext`, `useAuth` | — |
-| [`frontend/src/shared/bookmarks/BookmarkForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/BookmarkForm.tsx) | 65 | `BookmarkForm` | — |
-| [`frontend/src/shared/bookmarks/BookmarkRows.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/BookmarkRows.tsx) | 34 | `BookmarkRow` | — |
-| [`frontend/src/shared/bookmarks/BookmarksSection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/BookmarksSection.tsx) | 146 | `BookmarksSection` | — |
+| [`frontend/src/shared/bookmarks/BookmarkForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/BookmarkForm.tsx) | 125 | `BookmarkForm` | — |
+| [`frontend/src/shared/bookmarks/BookmarkPagePicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/BookmarkPagePicker.tsx) | 70 | `BookmarkPagePicker` | — |
+| [`frontend/src/shared/bookmarks/BookmarkRows.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/BookmarkRows.tsx) | 35 | `BookmarkRow` | — |
+| [`frontend/src/shared/bookmarks/BookmarkSectionPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/BookmarkSectionPicker.tsx) | 39 | `BookmarkSectionPicker` | — |
+| [`frontend/src/shared/bookmarks/BookmarksSection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/BookmarksSection.tsx) | 153 | `BookmarksSection` | — |
 | [`frontend/src/shared/bookmarks/bookmark-migration.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/bookmark-migration.ts) | 61 | `cacheBookmarkCollection`, `cachedBookmarkCollection`, `loadSyncedBookmarks` | — |
 | [`frontend/src/shared/bookmarks/bookmark-order.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/bookmark-order.ts) | 22 | `dragBookmark`, `groupedBookmarks` | — |
 | [`frontend/src/shared/bookmarks/bookmark-routes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/bookmark-routes.ts) | 56 | `bookmarkGraphHref`, `bookmarkRouteHref`, `currentBookmarkRoute`, `isBookmarkPageId`, `isBookmarkRoute`, `pageIdFromBookmarkRoute` | — |
-| [`frontend/src/shared/bookmarks/bookmarks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/bookmarks.ts) | 103 | `bookmarkLabel`, `bookmarkScope`, `isBookmark`, `loadBookmarks`, `moveBookmark`, `normalizeBookmarkDestination`, `saveBookmarks` | — |
+| [`frontend/src/shared/bookmarks/bookmarks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/bookmarks.ts) | 105 | `bookmarkLabel`, `bookmarkScope`, `bookmarkSearchText`, `isBookmark`, `loadBookmarks`, `moveBookmark`, `normalizeBookmarkDestination`, `saveBookmarks` | — |
 | [`frontend/src/shared/bookmarks/useBookmarks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/useBookmarks.ts) | 74 | `bookmarkQueryKey`, `useBookmarks` | — |
 | [`frontend/src/shared/citations/bibliographicMetadata.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/citations/bibliographicMetadata.ts) | 117 | `bibliographicDetails`, `bibliographicValues`, `creatorRoles`, `cslDate`, `isMetadata` | — |
 | [`frontend/src/shared/citations/citeproc.d.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/citations/citeproc.d.ts) | 36 | `CSL`, `Engine` | — |
@@ -1572,7 +1574,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/shared/editor/vault-markdown/CitationEvidencePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/CitationEvidencePanel.tsx) | 67 | `CitationEvidencePanel` | — |
 | [`frontend/src/shared/editor/vault-markdown/RetryableImage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/RetryableImage.tsx) | 49 | `RetryableImage` | — |
 | [`frontend/src/shared/editor/vault-markdown/VaultTransclusion.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/VaultTransclusion.tsx) | 157 | `VaultTransclusion` | — |
-| [`frontend/src/shared/editor/vault-markdown/transclusionModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/transclusionModel.ts) | 233 | `MAX_TRANSCLUSION_DEPTH`, `TRANSCLUSION_HREF_SENTINEL`, `embeddedMediaKind`, `extractSectionMarkdown`, `parseTransclusionReference`, `resolveTransclusionLocally`, `transclusionGuard`, `transclusionKey`, `transclusionSourceRange` | — |
+| [`frontend/src/shared/editor/vault-markdown/transclusionModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/transclusionModel.ts) | 256 | `MAX_TRANSCLUSION_DEPTH`, `TRANSCLUSION_HREF_SENTINEL`, `embeddedMediaKind`, `extractSectionMarkdown`, `listSectionReferences`, `parseTransclusionReference`, `resolveTransclusionLocally`, `transclusionGuard`, `transclusionKey`, `transclusionSourceRange` | — |
 | [`frontend/src/shared/editor/vault-markdown/vaultMarkdownModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/vaultMarkdownModel.ts) | 52 | `citationEvidence`, `latexFencesToMath`, `reactNodeText` | — |
 | [`frontend/src/shared/editor/vaultMarkdownBlocks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vaultMarkdownBlocks.ts) | 118 | `parseVaultMarkdownBlocks` | — |
 | [`frontend/src/shared/editor/vaultMarkdownUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vaultMarkdownUtils.ts) | 237 | `CITE_HREF_SENTINEL`, `STYLE_HREF_SENTINEL`, `WIKILINK_HREF_SENTINEL`, `convertInlineHtmlToMd`, `convertWikilinksToMd`, `decodeStylePayload`, `normalizeAssetUrl`, `wikilinkUrlTransform` | — |
@@ -1684,6 +1686,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/shared/records/model/formatUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/formatUtils.ts) | 210 | `formatDate`, `formatNumber`, `localeForDecimalSymbol`, `parseCurrencyCode`, `resolveFieldFormat`, `toNumber` | — |
 | [`frontend/src/shared/records/model/optionCatalogUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/optionCatalogUtils.ts) | 289 | `DEFAULT_ACTION_RULES`, `DEFAULT_STATUS_GROUPS`, `OPTION_COLOR_PALETTE`, `STATUS_CATALOG_REF`, `STATUS_DRAFT`, `STATUS_PUBLISHED_SOCIAL`, `STATUS_REVIEWED`, `STATUS_TRANSLATED`, `autoColorFor`, `checkActionRequires`, `findRoleFieldName`, `normalizeOption`, `normalizeOptions`, `optionChipStyle`, `optionColorHex`, `optionNames`, `seedOptionsForFeature` | — |
 | [`frontend/src/shared/records/model/pageClassification.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/pageClassification.ts) | 29 | `isCalendarPage` | — |
+| [`frontend/src/shared/records/model/pageKind.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/pageKind.ts) | 12 | `isDashboardPage` | — |
 | [`frontend/src/shared/records/model/schemaLanguageUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaLanguageUtils.ts) | 79 | `detectRecordSourceLang`, `getLanguageFieldName`, `normalizeLangCode` | — |
 | [`frontend/src/shared/records/model/schemaTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaTypes.ts) | 59 | — | — |
 | [`frontend/src/shared/records/model/schemaUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaUtils.ts) | 479 | `INTERNAL_METADATA_KEYS`, `buildSchemaFromTableProperties`, `buildTablePropertiesFromSchema`, `discoverFieldNamesFromRecords`, `getFieldConfig`, `getFieldId`, `getFieldNameById`, `getFieldType`, `getMetaValue`, `getSchemaFieldEntries`, `getSchemaFieldNames`, `isAppContent`, `normalizeSorts`, `resolveFieldRef`, `resolveSystemDateValue`, `resolveViewFilters`, `resolveViewSorts`, `setMetaValue`, `withResolvedSystemDates` | — |
