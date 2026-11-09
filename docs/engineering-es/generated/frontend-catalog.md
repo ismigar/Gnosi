@@ -54,7 +54,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `app` | 22 | 2662 | 0 |
 | `features` | 1299 | 137906 | 57 |
 | `generated` | 3 | 57541 | 594 |
-| `shared` | 349 | 37199 | 509 |
+| `shared` | 349 | 37202 | 509 |
 
 ## app
 
@@ -1632,7 +1632,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/offline/model.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/offline/model.ts) | 102 | `MAX_COLLECTION_LENGTH`, `MAX_NOTES`, `MAX_NOTE_LENGTH`, `OfflineError`, `cachedNote`, `compareNote`, `parseCollection`, `requireScope`, `sameScope` | — |
 | [`frontend/src/shared/offline/storage.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/offline/storage.ts) | 64 | `indexedDbOfflineStore` | — |
 | [`frontend/src/shared/page-search/EmbeddedVaultSearch.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/page-search/EmbeddedVaultSearch.tsx) | 31 | `EmbeddedVaultSearch` | — |
-| [`frontend/src/shared/page-search/GlobalSearchModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/page-search/GlobalSearchModal.tsx) | 466 | `GlobalSearchModal` | — |
+| [`frontend/src/shared/page-search/GlobalSearchModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/page-search/GlobalSearchModal.tsx) | 469 | `GlobalSearchModal` | — |
 | [`frontend/src/shared/page-search/global-search-modal/GlobalSearchResults.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/page-search/global-search-modal/GlobalSearchResults.tsx) | 105 | `GlobalSearchResults` | — |
 | [`frontend/src/shared/page-search/globalSearchUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/page-search/globalSearchUtils.ts) | 320 | `buildTagFieldsByTable`, `findSearchTagsField`, `getSearchNoteTags`, `isGlobalSearchShortcut`, `matchesGlobalSearchNote`, `mergeGlobalSearchNotes`, `parseGlobalSearchQuery`, `searchGlobalNotes`, `splitSearchTags` | — |
 | [`frontend/src/shared/page-search/useVaultContentSearch.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/page-search/useVaultContentSearch.ts) | 99 | `useVaultContentSearch` | — |

@@ -16,7 +16,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 57 |
 | `config` | 14 | 1428 |
 | `data` | 2 | 214 |
-| `domains` | 613 | 119684 |
+| `domains` | 613 | 119747 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -28,7 +28,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1110 modules** and **209163 source lines**.
+Total: **1110 modules** and **209226 source lines**.
 
 ## agent
 
@@ -738,7 +738,7 @@ Total: **1110 modules** and **209163 source lines**.
 | [`backend/domains/vault/search/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/search/__init__.py) | 1 | 0 | 0 | 0 | 0 | Full-content, request-scoped Vault search. |
 | [`backend/domains/vault/search/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/search/api.py) | 58 | 0 | 3 | 0 | 0 | Typed full-text search route under the authenticated Vault router. |
 | [`backend/domains/vault/search/query.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/search/query.py) | 226 | 6 | 5 | 0 | 2 | Bounded query grammar shared by global and embedded Vault searches. |
-| [`backend/domains/vault/search/service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/search/service.py) | 286 | 5 | 7 | 0 | 0 | Search complete Markdown documents without reading personal data globally. |
+| [`backend/domains/vault/search/service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/search/service.py) | 349 | 5 | 11 | 0 | 1 | Search complete Markdown documents without reading personal data globally. |
 | [`backend/domains/vault/tables/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault databases, tables, properties and option catalogs. |
 | [`backend/domains/vault/tables/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/api.py) | 131 | 1 | 7 | 4 | 0 | Database and table collection operations. |
 | [`backend/domains/vault/tables/catalogs/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/catalogs/__init__.py) | 71 | 0 | 0 | 0 | 0 | Typed option catalogs, semantic roles and status seeds. |

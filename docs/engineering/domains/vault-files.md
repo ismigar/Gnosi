@@ -152,6 +152,8 @@ context excerpts, a source line, a total and stable pagination (50 by default,
 100 maximum). Normal saves update the existing body cache; external file changes
 follow its existing watcher/TTL invalidation.
 
+Search previews render readable Markdown text before clipping and omit configuration/code blocks. Matching and source-line navigation still use the original document. The global search overlay is portalled above embedded view controls so the backdrop covers the complete pane.
+
 The query grammar supports quoted phrases, implicit/explicit AND, OR, NOT,
 minus negation, parentheses and regular expressions with `i`, `m`, `s` flags.
 Fields are `title`, `path`, `file`, `tag`, `is`, `content`, `line`, `block`,
