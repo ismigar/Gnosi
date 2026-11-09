@@ -193,3 +193,105 @@ def test_inventory_excludes_hidden_foreign_symlink_missing_and_dashboard_documen
     monkeypatch.setattr(tags, "_table_tag_fields", lambda: {})
     docs = list(api.active_documents(root))
     assert [(doc.id, doc.path, doc.body) for doc in docs] == [("visible", "visible.md", "visible")]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        ':::column-list\n:::column{width=50}\n## <span style="color:red">Research</span>\n- **Visible** [label](https://example.org)\n:::\n:::',
+        '```gnosi-view\n{"view_id":"secret-id","section":{"filters":[]}}\n```\n# Research\nVisible label',
+        '```json\n{"filters": ["private-config"]}\n```\n# Research\nVisible label',
+    ],
+)
+def test_search_previews_expose_prose_instead_of_storage_syntax(body):
+    hit = search_documents([document(body)], "Research").results[0]
+    assert "Research" in hit.excerpt
+    assert "Visible label" in hit.excerpt
+    for syntax in (
+        ":::",
+        "##",
+        "<span",
+        "style=",
+        "**",
+        "](https",
+        "view_id",
+        "filters",
+        "```",
+    ):
+        assert syntax not in hit.excerpt
+
+
+def test_serialized_only_match_has_no_raw_json_preview():
+    body = '```gnosi-view\n{"view_id":"secret-id"}\n```'
+    hit = search_documents([document(body)], "secret-id").results[0]
+    assert hit.excerpt == ""
+    assert hit.line == 2
+
+
+def test_preview_clips_after_removing_long_markup_attributes():
+    body = (
+        '## <span style="'
+        + "color:red;" * 100
+        + '">Research target</span>\nReadable context'
+    )
+    hit = search_documents([document(body)], "target").results[0]
+    assert "Research target" in hit.excerpt
+    assert "Readable context" in hit.excerpt
+    assert "<span" not in hit.excerpt
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "| Name | Summary |\n| --- | --- |\n| Research | Visible prose |",
+        "- [x] Research complete\n- [ ] Visible next step",
+        ":::column-list\n\n:::column{width=50}\n\n# Research\nVisible prose\n:::\n:::",
+    ],
+)
+def test_structured_prose_previews_hide_layout_and_task_markers(body):
+    hit = search_documents([document(body)], "Research").results[0]
+    assert "Research" in hit.excerpt
+    assert "Visible" in hit.excerpt
+    for marker in ("|", "---", "[x]", "[ ]", ":::", "#"):
+        assert marker not in hit.excerpt
+    assert hit.line == body[: body.index("Research")].count("\n") + 1
+
+
+def test_long_link_destination_does_not_push_match_out_of_preview():
+    body = (
+        "[Label](https://example.org/"
+        + "x" * 300
+        + ") Research target "
+        + "visible prose " * 40
+    )
+    hit = search_documents([document(body)], "Research").results[0]
+    assert "Research target" in hit.excerpt
+    assert "https://" not in hit.excerpt
+    assert len(hit.excerpt) < 300
+
+
+@pytest.mark.parametrize(
+    "body", ["[1, 2, 3]", '{"view_id":"secret"}', '`{"view_id":"secret"}`']
+)
+def test_json_content_never_appears_as_raw_preview(body):
+    hit = search_documents(
+        [document(body, title="Research")], "title:Research"
+    ).results[0]
+    assert hit.excerpt == ""
+
+
+@pytest.mark.parametrize(
+    "directive",
+    [
+        ":::callout{type=info}",
+        ":::toggle Research",
+        ":::toggle-heading{level=2} Research",
+    ],
+)
+def test_gnosi_container_previews_keep_prose_and_hide_directives(directive):
+    body = directive + "\nResearch Visible prose\n:::"
+    hit = search_documents([document(body)], "Research").results[0]
+    assert "Research" in hit.excerpt
+    assert "Visible prose" in hit.excerpt
+    for marker in (":::", "type=", "level=", "toggle", "callout"):
+        assert marker not in hit.excerpt
