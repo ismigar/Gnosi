@@ -45,7 +45,7 @@ def _transfer(value: str) -> int:
     if unit:
         number = number.replace(".", "").replace(",", ".") if "," in number else number
         power = {"bytes": 0, "b": 0, "kb": 1, "mb": 2, "gb": 3, "tb": 4}[unit.lower()]
-        return round(float(number) * 1024 ** power)
+        return int(round(float(number) * 1024 ** power))
     return _integer(number) * 1024
 
 

@@ -33,7 +33,8 @@ def format_after_prefix(parameters: dict[str, Any]) -> dict[str, Any]:
     text = parameters.get("text")
     output = text.get("format") if isinstance(text, dict) else None
     items = parameters.get("input")
-    if (parameters.get("model") != "gpt-6.1-sol" or parameters.get("service_tier") != "flex"
+    if (not isinstance(text, dict)
+            or parameters.get("model") != "gpt-6.1-sol" or parameters.get("service_tier") != "flex"
             or not isinstance(output, dict) or output.get("type") != "json_schema"
             or output.get("strict") is not True or not isinstance(items, list)):
         return parameters

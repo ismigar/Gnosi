@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 283 | 54951 |
+| `services` | 283 | 54952 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1111 modules** and **209322 source lines**.
+Total: **1111 modules** and **209323 source lines**.
 
 ## agent
 
@@ -1164,7 +1164,7 @@ Total: **1111 modules** and **209322 source lines**.
 | [`backend/services/public_workflow_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/public_workflow_scope.py) | 109 | 0 | 5 | 0 | 3 | Resolve public workflows against their stored owner and vault, never headers. |
 | [`backend/services/reader_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reader_analysis.py) | 125 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical Reader analysis domain. |
 | [`backend/services/reading_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_budget.py) | 164 | 1 | 11 | 0 | 3 | Durable per-book reservations: a retry or resumed worker cannot reset spending. |
-| [`backend/services/reading_cache_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_cache_transport.py) | 88 | 2 | 3 | 0 | 3 | Keep variable reading schemas after the reusable native Responses prefix. |
+| [`backend/services/reading_cache_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_cache_transport.py) | 89 | 2 | 3 | 0 | 3 | Keep variable reading schemas after the reusable native Responses prefix. |
 | [`backend/services/reading_estimate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_estimate.py) | 139 | 0 | 2 | 0 | 0 | Read-only source preflight; includes repeated context, output and repair allowance. |
 | [`backend/services/reading_performance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_performance.py) | 79 | 0 | 5 | 0 | 1 | Lossless shared-prefix caching for direct Sol source-reading operations. |
 | [`backend/services/reading_result_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_result_cache.py) | 63 | 0 | 3 | 0 | 1 | Reuse validated, immutable reading phases within their authenticated scope. |
