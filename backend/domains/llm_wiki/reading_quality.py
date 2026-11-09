@@ -6,15 +6,38 @@ import unicodedata
 
 from backend.domains.llm_wiki.chunking import records
 
-REVIEW_QUALITY_VERSION = 9
-# Version 9 adds an explicit body-coverage review. Earlier accepted reviews
-# cannot establish this semantic criterion through mechanical revalidation.
+REVIEW_QUALITY_VERSION = 10
+# Version 10 rejects unresolved truncation rationales in coverage, including
+# cached interpretations. Retain paid source work, but recheck old reviews.
 REVALIDATABLE_REVIEW_VERSIONS = {REVIEW_QUALITY_VERSION}
 
 _SOURCE_BOUNDARY = re.compile(r"\b(?:fragment\w*|passatg\w*|pasaj\w*|passage\w*|excerpt\w*|text\w*|original\w*|cita\w*|oraci[oó]n|frase|sentence)\b", re.I)
 _UNFINISHED = re.compile(r"\b(?:incomplet\w*|inconclu\w*|trunc\w*|tronqu\w*|interrump\w*|interromp\w*|cortad\w*|cort[ae]\w*|tallat\w*|coup[ée]\w*|mitad|meitat|cut\s+(?:off|short)|missing\s+continuation)\b", re.I)
 _MISSING_EXPLANATION = re.compile(r"\b(?:sin|sense|without|sans)\s+(?:(?:una?|an?|une?)\s+)?(?:explicaci\w*|explanation|explication|continuaci\w*|continuation)\s+(?:complet\w*|compl[eè]\w*|full)\b", re.I)
 _ABSENT_CONTINUATION = re.compile(r"\b(?:no\s+(?:contiene|conté|incluye|inclou)|does\s+not\s+(?:include|contain)|ne\s+contient\s+pas)\s+(?:la\s+|the\s+)?(?:continuaci\w*|continuation)\b", re.I)
+
+
+def validate_boundary_coverage(reason: object) -> None:
+    """Fail closed on processing-boundary rationales, not on the original text.
+
+    This is a diagnostic requiring source-grounded correction, not a semantic
+    completeness classifier. Never delete a claim or invent the missing tail.
+    """
+    text = ''.join(c for c in unicodedata.normalize('NFKD', str(reason)) if not unicodedata.combining(c))
+    if ((_SOURCE_BOUNDARY.search(text) or re.search(r'\bphrase\w*\b', text, re.I)) and
+            any(p.search(text) for p in (_UNFINISHED, _MISSING_EXPLANATION, _ABSENT_CONTINUATION))):
+        raise ValueError(
+            "Reading coverage requires source-grounded review: a truncated sentence or list does not erase "
+            "complete claims before its boundary. Preserve those claims in note bodies with their original "
+            "evidence; distinguish theoretical limits from practical justification and retain attribution. "
+            "Do not invent the missing continuation. Replace the processing-boundary rationale with "
+            "the substantive claims retained or a source-grounded reason why none can be supported. "
+            "If unresolved, stop for review rather than certifying coverage.")
+
+
+def validate_coverage_rows(coverage: object) -> None:
+    for row in records(coverage):
+        validate_boundary_coverage(row.get('reason', ''))
 
 
 def prose_issues(note: dict[str, object], evidence: list[dict[str, object]], language: str = "") -> list[str]:
