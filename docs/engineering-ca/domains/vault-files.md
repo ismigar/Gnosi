@@ -49,6 +49,7 @@ tests:
   - backend/tests/test_vault_content_search.py
   - backend/tests/test_page_save_concurrency.py
   - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
+  - frontend/src/shared/page-search/GlobalSearchModal.test.tsx
   - frontend/src/shared/api/vault-search.test.ts
   - frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx
   - backend/tests/test_vault_bookmarks.py
@@ -143,8 +144,6 @@ Les desades completes amb PUT conserven la detecció inicial de conflictes i tor
 ## Cerca de contingut complet i composició
 
 `GET /api/vault/search` llegeix els cossos Markdown complets, títols, àlies, etiquetes i propietats del Vault actiu autoritzat. Exclou fitxers ocults, historial, paperera, taulers i rutes que es resolen fora del Vault. Els resultats inclouen fragments de context, línia d’origen, total i paginació estable (50 per defecte, màxim 100). Les desades actualitzen la memòria cau de contingut existent; els canvis externs segueixen la invalidació existent per observador/TTL.
-
-Les previsualitzacions de cerca converteixen el Markdown a text llegible abans de retallar-lo i ometen els blocs de configuració i codi. La coincidència i la navegació per línia continuen utilitzant el document original. El diàleg global es mostra per sobre dels controls de les vistes incrustades perquè el fons cobreixi tot el panell.
 
 La gramàtica admet frases entre cometes, AND implícit o explícit, OR, NOT, negació amb menys, parèntesis i expressions regulars amb indicadors `i`, `m`, `s`. Els camps són `title`, `path`, `file`, `tag`, `is`, `content`, `line`, `block`, `section`, `task`, `task-todo` i `task-done`; `[name]` i `[name:value]` consulten les metadades inicials. La coincidència literal ignora majúscules i accents. Les etiquetes literals conserven els límits jeràrquics dins dels grups. Els límits dels tokens CommonMark distingeixen seccions, blocs i tasques dels exemples de codi. La mida, la profunditat, les expressions regulars i el temps total tenen límits explícits; les consultes invàlides o massa costoses retornen 422. El pressupost de dos segons es comparteix entre tots els documents i només compta l’avaluació de la consulta. Carregar l’inventari o esperar fitxers del disc o del núvol no el consumeix. Cada expressió regular conserva el seu límit individual. Aquesta cerca textual determinista és independent de la cerca semàntica i dels sistemes de recuperació dels quaderns.
 
@@ -949,3 +948,9 @@ La traducció interna de files i pàgines crea registres derivats mitjançant el
 ## Revisions de la lectura de detalls Markdown
 
 Els detalls d’una pàgina Markdown obtenen l’ETag del mateix descriptor obert que s’utilitza per llegir el contingut, abans de resoldre el títol de manera asíncrona. Un desament atòmic o un canvi de nom entre la lectura i la resposta no pot retornar una revisió absent ni associar la revisió d’un fitxer nou a contingut antic. Es mantenen el format `<mtime_ns>-<size>` i el contracte no nul de la resposta de detalls; les revisions obsoletes continuen impedint sobreescriptures.
+
+## Presentació dels previews de cerca
+
+Els resultats de cerca retornen prosa llegible en lloc de fragments del Markdown desat. Els extracts eliminen les marques de títols, èmfasi, enllaços, taules i tasques, conserven el text visible de columnes, avisos i desplegables, i ometen els blocs de codi i la configuració JSON serialitzada. La conversió es fa abans de retallar perquè els destins llargs dels enllaços no desplacin la coincidència visible. L’avaluació de la consulta i la línia d’origen retornada continuen utilitzant el document original.
+
+El diàleg de cerca global utilitza `PanePortal` al cos del document i la capa compartida `--z-command`. Les capçaleres de les taules incrustades i els seus controls queden sota el fons enfosquit, també quan la pàgina crea un context d’apilament propi. Escape i la navegació dels resultats mantenen el comportament modal existent.

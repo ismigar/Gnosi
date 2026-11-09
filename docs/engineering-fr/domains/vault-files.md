@@ -49,6 +49,7 @@ tests:
   - backend/tests/test_vault_content_search.py
   - backend/tests/test_page_save_concurrency.py
   - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
+  - frontend/src/shared/page-search/GlobalSearchModal.test.tsx
   - frontend/src/shared/api/vault-search.test.ts
   - frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx
   - backend/tests/test_vault_bookmarks.py
@@ -143,8 +144,6 @@ Les sauvegardes complètes par PUT conservent la détection initiale des conflit
 ## Recherche du contenu complet et composition
 
 `GET /api/vault/search` lit les corps Markdown complets, titres, alias, étiquettes et propriétés du Vault actif autorisé. Les fichiers cachés, historiques, corbeilles, tableaux de bord et chemins résolus hors du Vault sont exclus. Les résultats incluent extraits contextuels, ligne source, total et pagination stable (50 par défaut, maximum 100). Les sauvegardes mettent à jour le cache existant ; les changements externes suivent son invalidation par observateur/TTL.
-
-Les aperçus de recherche convertissent le Markdown en texte lisible avant le découpage et omettent les blocs de configuration et de code. La correspondance et la navigation par ligne utilisent toujours le document original. La boîte de recherche globale apparaît au-dessus des contrôles des vues intégrées pour que le fond couvre tout le panneau.
 
 La grammaire accepte les phrases entre guillemets, AND implicite ou explicite, OR, NOT, la négation par moins, les parenthèses et les expressions régulières avec indicateurs `i`, `m`, `s`. Les champs sont `title`, `path`, `file`, `tag`, `is`, `content`, `line`, `block`, `section`, `task`, `task-todo` et `task-done` ; `[name]` et `[name:value]` interrogent les métadonnées initiales. La recherche littérale ignore la casse et les accents. Les étiquettes littérales conservent leurs limites hiérarchiques dans les groupes. Les limites de tokens CommonMark distinguent sections, blocs et tâches des exemples de code. Taille, profondeur, expressions régulières et évaluation totale ont des limites explicites ; une requête invalide ou trop coûteuse renvoie 422. Le budget de deux secondes est partagé entre tous les documents et ne compte que l’évaluation de la requête. Charger l’inventaire ou attendre des fichiers du disque ou du cloud ne le consomme pas. Chaque expression régulière conserve son délai individuel. Cette recherche textuelle déterministe est indépendante de la recherche sémantique et des systèmes de récupération des carnets.
 
@@ -975,3 +974,9 @@ La traduction interne des lignes et pages crée les enregistrements dérivés vi
 ## Révisions de la lecture des détails Markdown
 
 Les détails d’une page Markdown obtiennent leur ETag depuis le même descripteur ouvert que celui utilisé pour lire le contenu, avant la résolution asynchrone du titre. Une sauvegarde atomique ou un renommage entre la lecture et la réponse ne peut renvoyer une révision absente ni associer la révision d’un nouveau fichier à un ancien contenu. Le format `<mtime_ns>-<size>` et le contrat non nul de la réponse détaillée sont conservés ; les révisions obsolètes empêchent toujours les écrasements.
+
+## Présentation des aperçus de recherche
+
+Les résultats de recherche renvoient un texte lisible plutôt que des fragments du Markdown enregistré. Les extraits retirent les marques de titres, d’emphase, de liens, de tableaux et de tâches, conservent le texte visible des colonnes, encadrés et sections repliables, et omettent les blocs de code et la configuration JSON sérialisée. La conversion précède la troncature afin que les longues destinations des liens ne déplacent pas la correspondance visible. L’évaluation de la requête et la ligne source renvoyée utilisent toujours le document original.
+
+La boîte de recherche globale utilise `PanePortal` dans le corps du document et la couche partagée `--z-command`. Les en-têtes des tableaux intégrés et leurs commandes restent sous le fond assombri, même lorsque la page crée son propre contexte d’empilement. Échap et la navigation des résultats conservent le comportement modal existant.

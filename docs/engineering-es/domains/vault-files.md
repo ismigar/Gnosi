@@ -49,6 +49,7 @@ tests:
   - backend/tests/test_vault_content_search.py
   - backend/tests/test_page_save_concurrency.py
   - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
+  - frontend/src/shared/page-search/GlobalSearchModal.test.tsx
   - frontend/src/shared/api/vault-search.test.ts
   - frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx
   - backend/tests/test_vault_bookmarks.py
@@ -143,8 +144,6 @@ Los guardados completos con PUT conservan la detección inicial de conflictos y 
 ## Búsqueda de contenido completo y composición
 
 `GET /api/vault/search` lee los cuerpos Markdown completos, títulos, alias, etiquetas y propiedades del Vault activo autorizado. Excluye archivos ocultos, historial, papelera, paneles y rutas resueltas fuera del Vault. Los resultados incluyen fragmentos de contexto, línea de origen, total y paginación estable (50 por defecto, máximo 100). Los guardados actualizan la caché existente; los cambios externos siguen su invalidación por observador/TTL.
-
-Las vistas previas de búsqueda convierten Markdown a texto legible antes de recortarlo y omiten los bloques de configuración y código. La coincidencia y la navegación por línea siguen usando el documento original. El diálogo global se muestra por encima de los controles de vistas incrustadas para que el fondo cubra todo el panel.
 
 La gramática admite frases entre comillas, AND implícito o explícito, OR, NOT, negación con menos, paréntesis y expresiones regulares con indicadores `i`, `m`, `s`. Los campos son `title`, `path`, `file`, `tag`, `is`, `content`, `line`, `block`, `section`, `task`, `task-todo` y `task-done`; `[name]` y `[name:value]` consultan los metadatos iniciales. La coincidencia literal ignora mayúsculas y acentos. Las etiquetas literales conservan los límites jerárquicos dentro de grupos. Los límites de tokens CommonMark distinguen secciones, bloques y tareas de los ejemplos de código. El tamaño, la profundidad, las expresiones regulares y la evaluación total tienen límites explícitos; las consultas inválidas o demasiado costosas devuelven 422. El presupuesto de dos segundos se comparte entre todos los documentos y solo cuenta la evaluación de la consulta. Cargar el inventario o esperar archivos del disco o de la nube no lo consume. Cada expresión regular conserva su límite individual. Esta búsqueda textual determinista es independiente de la búsqueda semántica y la recuperación de los cuadernos.
 
@@ -956,3 +955,9 @@ La traducción interna de filas y páginas crea registros derivados mediante el 
 ## Revisiones de la lectura de detalles Markdown
 
 Los detalles de una página Markdown obtienen el ETag del mismo descriptor abierto que se utiliza para leer el contenido, antes de resolver el título de forma asíncrona. Un guardado atómico o un cambio de nombre entre la lectura y la respuesta no puede devolver una revisión ausente ni asociar la revisión de un archivo nuevo a contenido antiguo. Se mantienen el formato `<mtime_ns>-<size>` y el contrato no nulo de la respuesta de detalles; las revisiones obsoletas siguen impidiendo sobrescrituras.
+
+## Presentación de los previews de búsqueda
+
+Los resultados de búsqueda devuelven prosa legible en lugar de fragmentos del Markdown guardado. Los extractos eliminan las marcas de encabezados, énfasis, enlaces, tablas y tareas, conservan el texto visible de columnas, avisos y desplegables, y omiten los bloques de código y la configuración JSON serializada. La conversión se realiza antes de recortar para que los destinos largos de los enlaces no desplacen la coincidencia visible. La evaluación de la consulta y la línea de origen devuelta siguen utilizando el documento original.
+
+El diálogo de búsqueda global utiliza `PanePortal` en el cuerpo del documento y la capa compartida `--z-command`. Las cabeceras de las tablas incrustadas y sus controles quedan bajo el fondo oscurecido, incluso cuando la página crea su propio contexto de apilamiento. Escape y la navegación de los resultados conservan el comportamiento modal existente.
