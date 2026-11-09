@@ -49,6 +49,7 @@ tests:
   - backend/tests/test_vault_content_search.py
   - backend/tests/test_page_save_concurrency.py
   - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
+  - frontend/src/shared/page-search/GlobalSearchModal.test.tsx
   - frontend/src/shared/api/vault-search.test.ts
   - frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx
   - backend/tests/test_vault_bookmarks.py
@@ -947,3 +948,9 @@ La traducció interna de files i pàgines crea registres derivats mitjançant el
 ## Revisions de la lectura de detalls Markdown
 
 Els detalls d’una pàgina Markdown obtenen l’ETag del mateix descriptor obert que s’utilitza per llegir el contingut, abans de resoldre el títol de manera asíncrona. Un desament atòmic o un canvi de nom entre la lectura i la resposta no pot retornar una revisió absent ni associar la revisió d’un fitxer nou a contingut antic. Es mantenen el format `<mtime_ns>-<size>` i el contracte no nul de la resposta de detalls; les revisions obsoletes continuen impedint sobreescriptures.
+
+## Presentació dels previews de cerca
+
+Els resultats de cerca retornen prosa llegible en lloc de fragments del Markdown desat. Els extracts eliminen les marques de títols, èmfasi, enllaços, taules i tasques, conserven el text visible de columnes, avisos i desplegables, i ometen els blocs de codi i la configuració JSON serialitzada. La conversió es fa abans de retallar perquè els destins llargs dels enllaços no desplacin la coincidència visible. L’avaluació de la consulta i la línia d’origen retornada continuen utilitzant el document original.
+
+El diàleg de cerca global utilitza `PanePortal` al cos del document i la capa compartida `--z-command`. Les capçaleres de les taules incrustades i els seus controls queden sota el fons enfosquit, també quan la pàgina crea un context d’apilament propi. Escape i la navegació dels resultats mantenen el comportament modal existent.

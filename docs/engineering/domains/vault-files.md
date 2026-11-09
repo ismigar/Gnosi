@@ -49,6 +49,7 @@ tests:
   - backend/tests/test_vault_content_search.py
   - backend/tests/test_page_save_concurrency.py
   - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
+  - frontend/src/shared/page-search/GlobalSearchModal.test.tsx
   - frontend/src/shared/api/vault-search.test.ts
   - frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx
   - backend/tests/test_vault_bookmarks.py
@@ -875,3 +876,9 @@ Internal row and page translation creates derived records through the canonical 
 ## Markdown detail revision snapshots
 
 Markdown page details derive their ETag from the same open file descriptor used to read the content, before asynchronous title resolution. An atomic save or rename between reading and response assembly cannot return a missing revision or attach a newer file’s revision to older content. The existing `<mtime_ns>-<size>` format and non-null detail response contract remain unchanged; stale revisions still reject overwrites.
+
+## Search preview presentation
+
+Search results return readable prose rather than slices of stored Markdown. Excerpts remove heading, emphasis, link, table and task syntax, retain visible text from columns, callouts and toggles, and omit fenced code and serialized JSON configuration. Conversion happens before clipping, so long link destinations do not displace the visible match. Query evaluation and the returned source line still use the original document.
+
+The global search dialog uses `PanePortal` at the document body and the shared `--z-command` layer. Embedded table headers and their controls remain beneath its dimmed backdrop, including when the calling page creates its own stacking context. Escape and result navigation retain the existing modal behavior.
