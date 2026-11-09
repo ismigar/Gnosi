@@ -10471,6 +10471,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/sites/{site_id}/statistics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Site Statistics */
+        get: operations["site_statistics_api_vault_sites__site_id__statistics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/sites/{site_id}/targets/{target_id}/connection": {
         parameters: {
             query?: never;
@@ -25906,6 +25923,11 @@ export interface components {
             social_links?: components["schemas"]["NavigationLink"][];
             /** Sources */
             sources?: components["schemas"]["SiteSource"][];
+            /**
+             * Statistics Url
+             * @default
+             */
+            statistics_url: string;
             /** Targets */
             targets?: components["schemas"]["SiteTarget"][];
             theme?: components["schemas"]["SiteTheme"];
@@ -26361,6 +26383,17 @@ export interface components {
             withdrawn_versions?: {
                 [key: string]: string[];
             };
+        };
+        /** SiteStatistics */
+        SiteStatistics: {
+            /** Fetched At */
+            fetched_at: string;
+            /** Generated At */
+            generated_at: string;
+            /** Months */
+            months: components["schemas"]["StatisticsMonth"][];
+            /** Source Url */
+            source_url: string;
         };
         /** SiteStatus */
         SiteStatus: {
@@ -26823,6 +26856,23 @@ export interface components {
             id: string;
             /** Language */
             language: string;
+        };
+        /** StatisticsMonth */
+        StatisticsMonth: {
+            /** Clients */
+            clients: number;
+            /** Files */
+            files: number;
+            /** Hits */
+            hits: number;
+            /** Month */
+            month: string;
+            /** Pages */
+            pages: number;
+            /** Transfer Bytes */
+            transfer_bytes: number;
+            /** Visits */
+            visits: number;
         };
         /**
          * StoredLevelingProposalResponse
@@ -52414,6 +52464,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ServiceSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    site_statistics_api_vault_sites__site_id__statistics_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteStatistics"];
                 };
             };
             /** @description Validation Error */
