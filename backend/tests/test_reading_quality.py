@@ -221,11 +221,15 @@ def test_missing_text_and_explanation_caveats_require_source_grounded_correction
     assert prose_issues({'body_md': body}, [{'text': 'A complete original with its continuation.'}], 'Catalan')
 
 
-def test_revalidation_reuses_sound_version_seven_batches_and_retries_only_defective_one():
-    engine, gm, nm, calls, checkpoints = prepared(count=4, size=2)
-    engine.review(gm, nm)
+@pytest.mark.parametrize("version", [7, 8])
+def test_body_coverage_upgrade_rereviews_legacy_batches_without_repeating_interpretation(monkeypatch, version):
+    with monkeypatch.context() as legacy:
+        legacy.setattr("backend.domains.llm_wiki.semantic_review.REVIEW_QUALITY_VERSION", version)
+        legacy.setattr("backend.domains.llm_wiki.semantic_review_execution.REVIEW_QUALITY_VERSION", version)
+        engine, gm, nm, calls, checkpoints = prepared(count=4, size=2)
+        engine.review(gm, nm)
     state = checkpoints['new', 'semantic-state']
-    state['review_quality_version'] = 7
+    state['review_quality_version'] = version
     key = next(iter(state['reviewed_groups']))
     original = next(iter(state['plans'].values()))['notes'][0]
     replacement = {k: original[k] for k in ['title', 'body_md']}
@@ -237,7 +241,7 @@ def test_revalidation_reuses_sound_version_seven_batches_and_retries_only_defect
     result, _ = resumed.run()
     assert len(result['notes']) == 4
     reviews = [c for c in new_calls if c['phase'] == 'verify']
-    assert len(reviews) == 1 and len(reviews[0]['notes']) == 2
-    assert 'prior_review_failure' in reviews[0]
-    assert checkpoints['new', 'semantic-state']['invalidated_review_groups'][key]['answer'] == old_groups[key]
+    assert len(reviews) == 2 and all(len(review['notes']) == 2 for review in reviews)
+    assert all(call['phase'] == 'verify' for call in new_calls)
+    assert checkpoints['new', 'semantic-state']['previous_reviewed_groups'] == old_groups
     assert all('truncado' not in n['body_md'] for n in result['notes'])

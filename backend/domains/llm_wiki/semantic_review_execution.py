@@ -78,6 +78,13 @@ def prepare_batch(engine: SemanticReader, entries: list[dict[str, object]], dest
         " attribute claims and retain their caveats. A page boundary is not missing evidence when its continuation"
         " is supplied; read it or request the complete pages before claiming that the argument is unavailable."
         " Correct every citation validation issue, including redundant isolated words selected as quotations.")
+    payload["instruction"] = str(payload["instruction"]) + (
+        " Check conceptual coverage in the note bodies against every distinct substantive claim in their primary originals."
+        " Retaining a claim only in a quotation or coverage record does not explain it in a note."
+        " Preserve the source's argument steps, conditions, modal force and provisional status of premises."
+        " A following truncated list does not erase a preceding complete, supported claim; do not invent its missing items."
+        " Correct supported points missing from the bodies, and preserve them when editing wording, citations or links."
+        " Another supplied note may cover the point, but verify that its body actually explains it.")
     return ReviewBatch(offset, batch, targets, retrieved, payload,
                        review_schema(len(batch), reader.dimensions, require_resolution=True, allow_requests=True), fingerprint(batch))
 

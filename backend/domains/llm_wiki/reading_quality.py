@@ -6,10 +6,10 @@ import unicodedata
 
 from backend.domains.llm_wiki.chunking import records
 
-REVIEW_QUALITY_VERSION = 8
-# Version 7 already performed the same semantic and citation review. Revalidate
-# its accepted batches against the tightened mechanical checks before reuse.
-REVALIDATABLE_REVIEW_VERSIONS = {7, REVIEW_QUALITY_VERSION}
+REVIEW_QUALITY_VERSION = 9
+# Version 9 adds an explicit body-coverage review. Earlier accepted reviews
+# cannot establish this semantic criterion through mechanical revalidation.
+REVALIDATABLE_REVIEW_VERSIONS = {REVIEW_QUALITY_VERSION}
 
 _SOURCE_BOUNDARY = re.compile(r"\b(?:fragment\w*|passatg\w*|pasaj\w*|passage\w*|excerpt\w*|text\w*|original\w*|cita\w*|oraci[oó]n|frase|sentence)\b", re.I)
 _UNFINISHED = re.compile(r"\b(?:incomplet\w*|inconclu\w*|trunc\w*|tronqu\w*|interrump\w*|interromp\w*|cortad\w*|cort[ae]\w*|tallat\w*|coup[ée]\w*|mitad|meitat|cut\s+(?:off|short)|missing\s+continuation)\b", re.I)

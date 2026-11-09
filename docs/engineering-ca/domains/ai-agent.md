@@ -1765,3 +1765,7 @@ La configuració de veu desa automàticament els canvis, agrupa les modificacion
 ## Configuració de veu compartida i desament automàtic
 
 El xat, els pòdcasts del Lector i l’àudio generat comparteixen la configuració de veu desada dins del Vault actiu. El formulari editable desa automàticament els canvis de proveïdor, veu i idioma mitjançant el gestor compartit d’esborranys i en mostra l’estat. L’edició atura la prova en curs; escoltar una prova requereix una configuració desada i disponible. Canviar de Vault impedeix que el formulari que es tanca desi amb el context del nou Vault. La disponibilitat de la veu local i les credencials del proveïdor neuronal continuen sent requisits independents.
+
+## Cobertura al cos de les notes
+
+La revisió de lectura també comprova la cobertura conceptual al cos de les notes: hi han de continuar explicats els passos argumentals, les condicions i el caràcter provisional de les premisses. Una cita literal o una marca de cobertura, per si soles, no acrediten aquesta cobertura. La política de revisió 9 invalida els lots de revisió anteriors i conserva les interpretacions pagades, els mapes i els originals complets; el criteri semàntic reforçat requereix una nova revisió del model. Les comprovacions mecàniques de cites i prosa continuen sent obligatòries i no certifiquen per si soles la qualitat semàntica.

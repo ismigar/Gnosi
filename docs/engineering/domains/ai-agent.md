@@ -1727,3 +1727,7 @@ Voice settings autosave edited values, coalesce quick changes and flush when the
 ## Shared voice settings and autosave
 
 Chat, Reader podcasts and generated audio share the saved speech configuration within the active Vault. The editable voice form autosaves provider, voice and language changes through the shared draft writer and displays its save status. Editing stops the current preview; a preview requires a saved, available configuration. A Vault switch prevents a closing form from saving through the new Vault’s context. Local speech availability and configured neural-provider credentials remain independent prerequisites.
+
+## Reading body coverage
+
+Source-reading review also checks conceptual coverage in note bodies: argument steps, conditions and the provisional status of premises must remain explained. A literal quotation or a coverage marker alone does not establish that coverage. Review policy 9 invalidates earlier review batches while retaining paid interpretations, maps and the complete originals; a fresh model review is required for the stronger semantic criterion. Mechanical citation and prose checks remain mandatory, and do not themselves certify semantic quality.

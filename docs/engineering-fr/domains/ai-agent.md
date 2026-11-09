@@ -1857,3 +1857,7 @@ Les réglages vocaux enregistrent automatiquement les modifications, regroupent 
 ## Réglages de voix partagés et enregistrement automatique
 
 Le chat, les podcasts du Lecteur et l’audio généré partagent la configuration vocale enregistrée dans le Vault actif. Le formulaire modifiable enregistre automatiquement les changements de fournisseur, de voix et de langue avec le gestionnaire partagé de brouillons et affiche leur état. Toute modification arrête l’essai en cours ; un essai nécessite une configuration enregistrée et disponible. Un changement de Vault empêche le formulaire qui se ferme d’enregistrer avec le contexte du nouveau Vault. La disponibilité de la voix locale et les identifiants du fournisseur neuronal restent des prérequis indépendants.
+
+## Couverture dans le corps des notes
+
+La révision de lecture vérifie aussi la couverture conceptuelle dans le corps des notes : les étapes argumentatives, les conditions et le caractère provisoire des prémisses doivent rester expliqués. Une citation littérale ou un marqueur de couverture ne suffisent pas à établir cette couverture. La politique de révision 9 invalide les anciens lots de révision tout en conservant les interprétations payées, les cartes et les originaux complets ; le critère sémantique renforcé exige une nouvelle révision par le modèle. Les contrôles mécaniques de citations et de prose restent obligatoires et ne certifient pas à eux seuls la qualité sémantique.

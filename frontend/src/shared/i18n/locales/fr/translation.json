@@ -9168,7 +9168,8 @@
       "settings": "Courriel et données du serveur",
       "hosting": "Hébergements",
       "configuration": "Configuration",
-      "regions": "Blocs et régions"
+      "regions": "Blocs et régions",
+      "statistics": "Statistiques"
     },
     "tokens": {
       "primary": "Couleur principale",
@@ -9582,6 +9583,27 @@
         "footer": "Pied de page",
         "buttons": "Boutons principaux"
       }
+    },
+    "statistics": {
+      "source": "URL de Webalizer",
+      "sourceHelp": "Laisser vide pour utiliser /webalizer/ sur le domaine du site. Enregistrement automatique.",
+      "loading": "Chargement des statistiques…",
+      "error": "Impossible de lire les statistiques. Vérifiez l’URL publique de Webalizer et réessayez.",
+      "empty": "Aucune donnée disponible.",
+      "traffic": "Trafic du site",
+      "month": "Mois",
+      "visits": "Visites",
+      "pages": "Pages",
+      "hits": "Accès",
+      "clients": "Clients",
+      "transfer": "Données transférées",
+      "evolution": "Évolution des visites",
+      "history": "Historique mensuel",
+      "generated": "Mise à jour de la source",
+      "fetched": "Consultation",
+      "unknown": "Indisponible",
+      "caveat": "Le mois en cours est partiel. Les clients sont des adresses identifiées par le serveur, pas des personnes uniques. Les données peuvent inclure des robots.",
+      "openSource": "Ouvrir Webalizer"
     }
   }
 }

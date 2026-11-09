@@ -1832,3 +1832,7 @@ La configuración de voz guarda automáticamente los cambios, agrupa las modific
 ## Configuración de voz compartida y guardado automático
 
 El chat, los pódcasts del Lector y el audio generado comparten la configuración de voz guardada dentro del Vault activo. El formulario editable guarda automáticamente los cambios de proveedor, voz e idioma mediante el gestor compartido de borradores y muestra su estado. La edición detiene la prueba en curso; escuchar una prueba requiere una configuración guardada y disponible. Cambiar de Vault impide que el formulario que se cierra guarde con el contexto del nuevo Vault. La disponibilidad de la voz local y las credenciales del proveedor neuronal siguen siendo requisitos independientes.
+
+## Cobertura en el cuerpo de las notas
+
+La revisión de lectura también comprueba la cobertura conceptual en el cuerpo de las notas: deben seguir explicados los pasos argumentales, las condiciones y el carácter provisional de las premisas. Una cita literal o una marca de cobertura, por sí solas, no acreditan esa cobertura. La política de revisión 9 invalida los lotes de revisión anteriores y conserva las interpretaciones pagadas, los mapas y los originales completos; el criterio semántico reforzado requiere una nueva revisión del modelo. Las comprobaciones mecánicas de citas y prosa siguen siendo obligatorias y no certifican por sí solas la calidad semántica.
