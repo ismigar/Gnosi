@@ -182,6 +182,18 @@ caràcters de control, les barres inverses i la travessia de camins codificada.
 Això conserva els tipus de destinació sense duplicar categories com ara
 favorits, taulells i notes en el model de dreceres.
 
+La creació i l’edició de marcadors utilitzen un diàleg adaptable i accessible amb el teclat.
+El selector cerca títols entre les pàgines carregades i fa servir la cerca existent
+del Vault complet per trobar altres notes, amb una llista limitada i paginada.
+Els taulells són una opció explícita de la interfície amb pertinença canònica `page`;
+els noms i les icones provenen de l’arbre lateral. Es pot desar la nota o vista
+oberta sense escriure cap adreça, i les vistes habituals tenen opcions amb nom.
+Les seccions fan servir el mateix analitzador d’encapçalaments i blocs que les transclusions.
+Els grups existents són opcions visibles i els noms nous són opcionals; la barra lateral
+permet filtrar marcadors i plegar grups. L’entrada d’adreces i referències continua
+disponible als controls avançats opcionals. Si una modificació falla, es conserven
+el diàleg i l’esborrany; l’emmagatzematge sincronitzat i la validació de rutes no canvien.
+
 `/api/vault/bookmarks` i les seves operacions d’importació, element, pàgina,
 ordre i ordenació resolen `get_workspace_context`, amb la identitat autenticada
 en lloc de `X-User-ID`. Cada col·lecció d’usuari i espai de treball es desa al

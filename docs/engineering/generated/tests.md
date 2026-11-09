@@ -10,8 +10,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
-| Playwright | 36 | 118 |
-| Vitest | 766 | 3506 |
+| Playwright | 37 | 119 |
+| Vitest | 768 | 3514 |
 | pytest | 792 | 6120 |
 
 ## Files
@@ -27,6 +27,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Playwright | [`tests/e2e/tests/anon/smoke.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/anon/smoke.spec.ts) | 5 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/critical/daily-work.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/critical/daily-work.spec.ts) | 5 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/critical/websites-management.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/critical/websites-management.spec.ts) | 10 | call-pattern estimate |
+| Playwright | [`tests/e2e/tests/disposable/bookmarks-usability.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/bookmarks-usability.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/calendar-public-workflows.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/calendar-public-workflows.spec.ts) | 9 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/canvas-workspaces.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/canvas-workspaces.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/help-menu.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/help-menu.spec.ts) | 1 | call-pattern estimate |
@@ -673,6 +674,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/shared/api/web-publishing.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/web-publishing.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/workspace-members.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/workspace-members.test.ts) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/workspaces.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/workspaces.test.ts) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/bookmarks/BookmarkForm.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/BookmarkForm.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/bookmarks/BookmarksSection.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/BookmarksSection.test.tsx) | 11 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/bookmarks/bookmark-routes.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/bookmark-routes.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/bookmarks/bookmarks.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/bookmarks/bookmarks.test.ts) | 4 | call-pattern estimate |
@@ -703,6 +705,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/shared/editor/useTitlePreview.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/useTitlePreview.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/vault-markdown/RetryableImage.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/RetryableImage.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/vault-markdown/transclusionModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/transclusionModel.test.ts) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/editor/vault-markdown/transclusionReferences.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/transclusionReferences.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/vault-markdown/vaultMarkdownModel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/vaultMarkdownModel.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/vaultMarkdownBlocks.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vaultMarkdownBlocks.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/wikilink-context-menu/wikilinkContextMenuModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/wikilink-context-menu/wikilinkContextMenuModel.test.ts) | 4 | call-pattern estimate |
