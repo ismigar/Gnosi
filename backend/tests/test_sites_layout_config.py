@@ -62,3 +62,57 @@ def test_new_import_preserves_privacy_and_exposes_public_filters(imported_pilot)
     assert site.forms[0].privacy_url == '/politica-de-privacitat'
     assert next(source for source in site.sources if source.source_id == 'imported:blog').show_tag_filter
     assert all(page.blocks[0].actions == [] for page in site.pages if page.template == 'home')
+
+
+@pytest.mark.parametrize('destination', ['javascript:alert(1)', 'https://user:secret@example.invalid/', '//example.invalid/'])
+def test_localized_privacy_links_reject_unsafe_destinations(destination):
+    site = SiteConfig(name='Example')
+    site.forms[0].privacy_urls = {'en': '/privacy', 'ca': destination}
+    with pytest.raises(HTTPException):
+        validate_site(site)
+
+
+def test_newsletter_privacy_settings_and_contact_languages_roundtrip(website):
+    site = website.site
+    site.newsletter_names_required = False
+    site.newsletter_privacy_text = {'ca': 'Responsable i finalitat', 'en': 'Controller and purpose'}
+    site.forms[0].privacy_urls = {'ca': '/privacitat', 'en': '/privacy'}
+    saved = website.store.save(site)
+    restored = website.store.load(saved.id)
+    assert restored.newsletter_names_required is False
+    assert restored.newsletter_privacy_text == site.newsletter_privacy_text
+    assert restored.forms[0].privacy_urls == site.forms[0].privacy_urls
+    assert SiteConfig(name='Legacy').newsletter_names_required is True
+
+
+@pytest.mark.parametrize('level', [0, 7, 'script'])
+def test_block_heading_levels_are_closed_to_real_html_headings(level):
+    with pytest.raises(ValidationError):
+        SiteBlock(heading_level=level)
+
+
+def test_editor_rows_roundtrip_and_validate_every_column(website):
+    site = website.site
+    original = site.pages[0].blocks[0].model_dump()
+    row = SiteBlock(type='row', children=[SiteBlock(body='**Rich text**'), SiteBlock(type='image', image='/photo.png')])
+    site.pages[0].blocks.append(row)
+    saved = website.store.save(site)
+    restored = website.store.load(saved.id)
+    assert restored.pages[0].blocks[0].model_dump() == original
+    assert restored.pages[0].blocks[-1] == row
+    assert [item.id for _, item in restored.editorial_blocks()][-3:] == [row.id, *[child.id for child in row.children]]
+    row.children[1].image = 'javascript:alert(1)'
+    with pytest.raises(HTTPException):
+        validate_site(site)
+
+
+@pytest.mark.parametrize('value', [
+    {'type': 'row'},
+    {'type': 'row', 'children': [{'type': 'row', 'children': [{}]}]},
+    {'type': 'text', 'children': [{}]},
+    {'type': 'row', 'children': [{}] * 5},
+    {'type': 'row', 'children': [{'id': 'same'}, {'id': 'same'}]},
+])
+def test_rows_reject_invalid_column_structures(value):
+    with pytest.raises(ValidationError):
+        SiteBlock.model_validate(value)

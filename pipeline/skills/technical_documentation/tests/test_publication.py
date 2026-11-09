@@ -95,6 +95,7 @@ CI_COMMANDS = {
         "uv sync --frozen",
         "pnpm --filter @gnosi/e2e exec playwright install-deps chromium",
         "pnpm test:e2e:install",
+        "npm ci --prefix extensions/web-publishing/renderer --no-audit --no-fund",
         'uv run --frozen --no-sync python scripts/ci/browser_acceptance.py --output "${RUNNER_TEMP}/gnosi-browser-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"',
     ],
     "docker": [

@@ -17,6 +17,8 @@ export interface InstructionRichEditorProps {
     readonly onChange: (value: string) => void;
     readonly disabled?: boolean;
     readonly maxLength?: number;
+    readonly persistentToolbar?: boolean;
+    readonly resolveFileUrl?: (url: string) => Promise<string>;
     readonly placeholder?: string;
 }
 
@@ -38,13 +40,14 @@ function InstructionFormattingToolbar() {
     </FormattingToolbar>;
 }
 
-export default function InstructionRichEditor({ label, value, onChange, disabled, maxLength, placeholder }: InstructionRichEditorProps) {
+export default function InstructionRichEditor({ label, value, onChange, disabled, maxLength, placeholder, persistentToolbar, resolveFileUrl }: InstructionRichEditorProps) {
     const { t, i18n } = useTranslation();
     const { effectiveTheme } = useTheme();
     const [dictionary] = useState(() => resolveBlockNoteDictionary(i18n.resolvedLanguage || i18n.language));
     const [error, setError] = useState('');
     const [loadFailed, setLoadFailed] = useState(false);
     const editor = useCreateBlockNote({
+        resolveFileUrl,
         dictionary: { ...dictionary, placeholders: { ...dictionary.placeholders, default: placeholder || dictionary.placeholders.default } },
         _tiptapOptions: { editorProps: { attributes: { 'aria-label': label, role: 'textbox', 'aria-multiline': 'true' } } },
     });
@@ -99,7 +102,7 @@ export default function InstructionRichEditor({ label, value, onChange, disabled
     return <div className="instruction-markdown__rich">
         <BlockNoteView editor={editor} theme={effectiveTheme} editable={!disabled && !loadFailed} onChange={changed}
             formattingToolbar={false} slashMenu={false} sideMenu={false} renderEditor={false}>
-            {!disabled && !loadFailed && <FormattingToolbarController formattingToolbar={InstructionFormattingToolbar} />}
+            {!disabled && !loadFailed && (persistentToolbar ? <InstructionFormattingToolbar /> : <FormattingToolbarController formattingToolbar={InstructionFormattingToolbar} />)}
             <BlockNoteViewEditor />
             {!disabled && !loadFailed && <SuggestionMenuController triggerCharacter="/" getItems={query => Promise.resolve(
                 filterSuggestionItems(getDefaultReactSlashMenuItems(editor).filter(item => 'key' in item

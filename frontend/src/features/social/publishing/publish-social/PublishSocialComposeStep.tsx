@@ -34,7 +34,7 @@ export function PublishSocialComposeStep({
 }: PublishSocialComposeStepProps) {
     const { t } = useTranslation();
     return <div className="space-y-3">
-        {selectedNetworks.filter((network) => state.proposals[network]).map((network) => {
+        {selectedNetworks.map((network) => {
             const limit = charLimitFor(network);
             const draft = state.drafts[network] ?? '';
             const overLimit = draft.length > limit;

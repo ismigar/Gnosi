@@ -5,7 +5,7 @@ import { currentRequestContext } from '../../shared/api/request-context';
 import * as api from '../../shared/api/sites';
 import WebsitesPage from './WebsitesPage';
 
-vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'removeSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont', 'previewSiteImage', 'previewSiteAsset', 'uploadSiteThemeAsset'].map(name => [name, vi.fn()])));
+vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'removeSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont', 'previewSiteImage', 'previewSiteAsset', 'uploadSiteThemeAsset', 'siteFontCatalogue', 'importSiteFonts'].map(name => [name, vi.fn()])));
 vi.mock('../../shared/api/request-context', () => ({ currentRequestContext: vi.fn() }));
 vi.mock('../../shared/hooks/useModalKeyboard', () => ({ useModalKeyboard: () => undefined }));
 vi.mock('../../shared/ui/layout/AppHeader', () => ({ AppHeader: ({ children, title }: { children: React.ReactNode; title: string }) => <header><h1>{title}</h1>{children}</header> }));
@@ -21,7 +21,7 @@ function control(container: HTMLElement, label: string): HTMLInputElement | HTML
 function changeInput(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, value: string) { const prototype = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, 'value')?.set?.call(element, value); element.dispatchEvent(new Event(element instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true })); }
 function tab(container: HTMLElement, name: string) { const item = container.querySelector<HTMLButtonElement>(`#websites-tab-${name}`); if (!item) throw new Error('Missing tab'); act(() => { item.click(); }); }
 beforeEach(() => {
-  vi.resetAllMocks(); vi.useFakeTimers();
+  vi.resetAllMocks(); vi.mocked(api.siteFontCatalogue).mockResolvedValue([]); vi.useFakeTimers();
   vi.mocked(currentRequestContext).mockReturnValue(context);
   vi.mocked(api.listSites).mockResolvedValue([structuredClone(base)]);
   vi.mocked(api.siteCatalogue).mockResolvedValue(catalogue);
@@ -117,7 +117,7 @@ describe('Website and hosting management', () => {
   });
 
   it('waits for pending edits before allowing website removal', async () => {
-    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'navigation');
+    const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'configuration');
     act(() => { changeInput(control(view.container, 'websites.siteName'), 'Edited name'); });
     expect(button(view.container, 'websites.removeSite').disabled).toBe(true);
     await autosave();

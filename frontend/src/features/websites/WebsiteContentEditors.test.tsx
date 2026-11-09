@@ -19,15 +19,16 @@ test('visual blocks preserve selected layout, keyboard reorder and undo through 
   const view = mountEditor(initial, (site, onChange) => <PagesEditor site={site} catalogue={[]} onChange={onChange} />);
   edit(view.container, 'websites.visual.imageWidth', '60');
   edit(view.container, 'websites.visual.alignment', 'center');
+  edit(view.container, 'websites.headingLevel', '1');
   const first = required(view.container.querySelector<HTMLElement>('.websites-canvas-block'));
   click(first, 'websites.moveDown');
   expect(view.site.pages?.[0]?.blocks?.map(block => block.id)).toEqual(['two', 'one']);
-  expect(view.site.pages?.[0]?.blocks?.[1]).toMatchObject({ image_width: 60, alignment: 'center' });
+  expect(view.site.pages?.[0]?.blocks?.[1]).toMatchObject({ image_width: 60, alignment: 'center', heading_level: 1 });
   click(view.container, 'websites.visual.undo');
   expect(view.site.pages?.[0]?.blocks?.map(block => block.id)).toEqual(['one', 'two']);
   click(view.container, 'websites.visual.redo');
   view.savedResponse();
-  expect(view.site.pages?.[0]?.blocks?.[1]).toMatchObject({ image_width: 60, alignment: 'center' });
+  expect(view.site.pages?.[0]?.blocks?.[1]).toMatchObject({ image_width: 60, alignment: 'center', heading_level: 1 });
   click(view.container, 'websites.visual.mobile');
   expect(view.container.querySelector('.websites-canvas')?.getAttribute('data-width')).toBe('mobile');
 });
@@ -86,12 +87,12 @@ function required<T>(value: T | null | undefined): T { if (value == null) throw 
 function card(container: HTMLElement, title: string) {
   return required([...container.querySelectorAll<HTMLElement>('.websites-card')].find(element => element.querySelector('h2')?.textContent === title));
 }
-function control(container: HTMLElement, label: string): HTMLInputElement | HTMLSelectElement {
-  return required([...container.querySelectorAll('label')].find(element => element.querySelector('span')?.textContent === label)?.querySelector<HTMLInputElement | HTMLSelectElement>('input,select'));
+function control(container: HTMLElement, label: string): HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement {
+  return required([...container.querySelectorAll('label')].find(element => element.querySelector('span')?.textContent === label)?.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input,select,textarea'));
 }
 function edit(container: HTMLElement, label: string, value: string) {
   const element = control(container, label);
-  const prototype = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+  const prototype = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   act(() => {
     Object.getOwnPropertyDescriptor(prototype, 'value')?.set?.call(element, value);
     element.dispatchEvent(new Event(element instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }));
@@ -103,7 +104,7 @@ function click(container: HTMLElement, label: string) {
 }
 
 test('header actions retain all link fields through parent updates and a saved response', () => {
-  const view = mountEditor(base, (site, onChange) => <NavigationEditor site={site} onChange={onChange} />);
+  const view = mountEditor(base, (site, onChange) => <><NavigationEditor section="configuration" site={site} onChange={onChange} /><NavigationEditor section="regions" site={site} onChange={onChange} /></>);
   const actions = card(view.container, 'websites.headerActions');
   click(actions, 'websites.addLink');
   expect(view.site.header_actions).toEqual([{ label: '', href: '', language: null, appearance: 'button' }]);
@@ -127,7 +128,7 @@ test('header actions retain all link fields through parent updates and a saved r
 
 test('menu and footer links offer styles while social links keep their existing fields', () => {
   const initial = { ...base, navigation: [{ label: 'Home', href: '/ca/', language: 'ca' }], footer: [{ label: 'Contact', href: '/ca/contacte', language: null }], social_links: [{ label: 'Social', href: 'https://social.example.invalid', language: null }] };
-  const view = mountEditor(initial, (site, onChange) => <NavigationEditor site={site} onChange={onChange} />);
+  const view = mountEditor(initial, (site, onChange) => <><NavigationEditor section="menus" site={site} onChange={onChange} /><NavigationEditor section="regions" site={site} onChange={onChange} /></>);
   const navigation = card(view.container, 'websites.navigation');
   expect(control(navigation, 'websites.linkAppearance').value).toBe('link');
   edit(navigation, 'websites.linkAppearance', 'button');
@@ -174,6 +175,24 @@ test('source pagination and the public tag filter retain their values through ot
 });
 
 
+test('newsletter privacy edits preserve other languages and contact privacy', () => {
+  const initial = { ...base, newsletter_names_required: true, newsletter_privacy_text: { ca: 'Existing CA', en: 'Existing EN' }, forms: [{ id: 'support', name: 'Support', revision: 1, enabled: false, privacy_url: '', require_privacy: false, privacy_text: { ca: 'Contact privacy' } }] };
+  const view = mountEditor(initial, (site, onChange) => <FormsEditor site={site} onChange={onChange} />);
+  const notice = required([...view.container.querySelectorAll('details')].find(item => item.querySelector('summary')?.textContent === 'websites.newsletterPrivacy'));
+  expect(notice.open).toBe(false);
+  act(() => { notice.open = true; notice.dispatchEvent(new Event('toggle')); });
+  click(notice, 'websites.newsletterNamesRequired');
+  edit(notice, 'websites.privacyText', 'Updated CA notice');
+  edit(view.container, 'websites.editingLanguage', 'en');
+  expect(control(notice, 'websites.privacyText').value).toBe('Existing EN');
+  edit(notice, 'websites.privacyText', 'Updated EN notice');
+  const saved = view.savedResponse();
+  expect(saved.newsletter_privacy_text).toEqual({ ca: 'Updated CA notice', en: 'Updated EN notice' });
+  expect(saved.newsletter_names_required).toBe(false);
+  expect(saved.forms?.[0]?.privacy_text).toEqual({ ca: 'Contact privacy' });
+  view.unmount();
+});
+
 test('contact consent and error captions remain independent for each configured language', () => {
   const initial = { ...base, forms: [{ id: 'support', name: 'Support', revision: 1, enabled: false, privacy_url: '', require_privacy: false }] };
   const view = mountEditor(initial, (site, onChange) => <FormsEditor site={site} onChange={onChange} />);
@@ -208,11 +227,14 @@ test.each(['select', 'radio'] as const)('%s captions translate independently whi
 test('each form folds independently and keeps edited values when reopened', () => {
   const initial = { ...base, forms: [{ id: 'one', name: 'One', revision: 1, enabled: false, privacy_url: '', require_privacy: false }, { id: 'two', name: 'Two', revision: 1, enabled: false, privacy_url: '', require_privacy: false }] };
   const view = mountEditor(initial, (site, onChange) => <FormsEditor site={site} onChange={onChange} />);
+  expect(view.container.querySelectorAll('details[open]')).toHaveLength(0);
+  const firstForm = required(view.container.querySelector<HTMLDetailsElement>('details.websites-form'));
+  act(() => { firstForm.open = true; firstForm.dispatchEvent(new Event('toggle')); });
   edit(view.container, 'websites.titleLabel', 'Retained title');
   const details = required(view.container.querySelector<HTMLDetailsElement>('details.websites-form'));
   act(() => { details.open = false; details.dispatchEvent(new Event('toggle')); });
   expect(details.open).toBe(false);
-  expect(details.querySelector('input')).toBeNull();
+  expect(control(details, 'websites.titleLabel').value).toBe('Retained title');
   act(() => { details.open = true; details.dispatchEvent(new Event('toggle')); });
   expect(control(details, 'websites.titleLabel').value).toBe('Retained title');
   expect(view.container.querySelectorAll('details.websites-form[open]')).toHaveLength(1);
@@ -234,7 +256,7 @@ test('gallery path editing keeps the same input and keyboard focus', () => {
 
 test('social network URL fields keep unrelated profiles and explicitly remove a cleared network', () => {
   const initial = { ...base, social_links: [{ label: 'Mastodon', href: 'https://social.example.invalid/@reader', language: null }, { label: 'Custom network', href: 'https://custom.example.invalid/profile', language: null }] };
-  const view = mountEditor(initial, (site, onChange) => <NavigationEditor site={site} onChange={onChange} />);
+  const view = mountEditor(initial, (site, onChange) => <NavigationEditor section="regions" site={site} onChange={onChange} />);
   expect(view.container.querySelectorAll('.websites-social-icon')).toHaveLength(14);
   expect(control(view.container, 'Mastodon').value).toBe('https://social.example.invalid/@reader');
   edit(view.container, 'Instagram', 'https://www.instagram.com/reader/');
@@ -264,4 +286,47 @@ test('footer columns and visual blocks persist independently with the copyright 
   click(last, 'websites.moveUp');
   expect(view.site.footer_columns?.[2]?.title).toBe('Information');
   expect(view.site.footer?.[0]?.href).toBe('/ca/privacy');
+});
+
+
+test('rows and columns survive folding, parent save responses, reorder and undo', () => {
+  const view = mountEditor({ ...base, pages: [{ id: 'page', title: 'Page', path: '/ca/page', language: 'ca', template: 'page', enabled: false, description: '', css: '', blocks: [] }] }, (site, onChange) => <PagesEditor site={site} catalogue={[]} onChange={onChange} />);
+  click(view.container, 'websites.rows.addRow');
+  click(view.container, 'websites.addColumn');
+  let children = view.site.pages?.[0]?.blocks?.[0]?.children ?? [];
+  expect(children).toHaveLength(2);
+  const body = required(view.container.querySelector<HTMLTextAreaElement>('textarea[aria-label="websites.body"]'));
+  act(() => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(body, '**Formatted** text'); body.dispatchEvent(new Event('input', { bubbles: true })); });
+  const column = required([...view.container.querySelectorAll<HTMLDetailsElement>('details')].find(node => node.querySelector(':scope > summary')?.textContent === 'websites.rows.column 1'));
+  act(() => { column.open = false; column.dispatchEvent(new Event('toggle')); });
+  expect(body.isConnected).toBe(true);
+  edit(column, 'websites.visual.width', '20');
+  edit(column, 'websites.visual.alignment', 'right');
+  edit(column, 'websites.visual.spacing', 'generous');
+  const previewColumn = required(view.container.querySelector<HTMLElement>('.websites-row-columns > div'));
+  expect(previewColumn.style.width).toBe('20%');
+  expect(previewColumn.style.marginInline).toBe('auto 0');
+  expect(previewColumn.style.paddingBlock).toBe('32px');
+  view.savedResponse();
+  expect(view.site.pages?.[0]?.blocks?.[0]?.children?.[0]?.body).toBe('**Formatted** text');
+  expect(column.open).toBe(false);
+  act(() => { column.open = true; column.dispatchEvent(new Event('toggle')); });
+  click(column, 'websites.moveDown');
+  children = view.site.pages?.[0]?.blocks?.[0]?.children ?? [];
+  expect(children[1]?.body).toBe('**Formatted** text');
+  click(view.container, 'websites.visual.undo');
+  expect(view.site.pages?.[0]?.blocks?.[0]?.children?.[0]?.body).toBe('**Formatted** text');
+  view.unmount();
+});
+
+
+test('page and content cards start folded, retain edits, and stay folded after save responses', () => {
+  const site: SiteConfig = { ...base, sources: [{ id: 'source', source_id: 'table', kind: 'table', enabled: false, title: 'Source', include_body: false, sort_descending: false, presentation: 'cards', path_prefix: '/content', selection_mode: 'all' }], pages: [{ id: 'page', title: 'Page', path: '/ca/page', language: 'ca', enabled: false, template: 'page', description: '', css: '', blocks: [{ id: 'text', type: 'text', title: 'Text', body: 'Retained', image: '', alt: '', image_position: 'right', columns: 3, limit: 3, href: '', css: '' }] }] };
+  for (const Editor of [SourcesEditor, PagesEditor]) {
+    const view = mountEditor(site, (site, onChange) => <Editor site={site} catalogue={[]} onChange={onChange} />);
+    expect(view.container.querySelectorAll('details[open]')).toHaveLength(0);
+    view.savedResponse();
+    expect(view.container.querySelectorAll('details[open]')).toHaveLength(0);
+    view.unmount();
+  }
 });

@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 from PIL import Image
 from backend.domains.sites import exporter, theme_assets
-from backend.domains.sites.models import SiteConfig
+from backend.domains.sites.models import NavigationLink, SiteBlock, SiteConfig
 from backend.tests.test_sites import website as website
 
 
@@ -38,6 +38,34 @@ def test_asset_preview_refuses_other_sites_and_private_files(website):
     for secret in (source, "/BD/Articles/one.md", "/.gnosi/sites/assets/" + other.id + "/../" + website.site.id + "/" + source.split("/")[-1]):
         with pytest.raises(HTTPException):
             theme_assets.read_asset(website.store, other, secret)
+
+
+def test_localized_form_privacy_exports_only_enabled_language_assets(website):
+    public, _ = theme_assets.upload(website.store, website.site, 'privacy.png', png(), 'image')
+    private, _ = theme_assets.upload(website.store, website.site, 'unpublished.png', png() + b'private', 'image')
+    site = website.site.model_copy(deep=True)
+    site.forms[0].enabled = True
+    site.forms[0].privacy_urls = {site.default_language: public, 'fr': private}
+    assert 'fr' not in site.languages
+    bundle = exporter.build_bundle(website.store, site, 'local')
+    assert set(bundle.site.forms[0].privacy_urls) == {site.default_language}
+    assert bundle.site.forms[0].privacy_urls[site.default_language].startswith('/assets/')
+    assert len(bundle.assets) == 1
+    assert Path(bundle.assets[0].private_source).read_bytes() == png()
+
+
+def test_collection_actions_export_only_their_rendered_language_files(website):
+    public, _ = theme_assets.upload(website.store, website.site, 'public.png', png(), 'image')
+    private, _ = theme_assets.upload(website.store, website.site, 'other-language.png', png() + b'private', 'image')
+    site = website.site.model_copy(deep=True)
+    site.pages[0].blocks.append(SiteBlock(type='selected', page_ids=['one'], actions=[
+        NavigationLink(label='Public', href=public, language='ca'),
+        NavigationLink(label='Other language', href=private, language='en-gb'),
+    ]))
+    bundle = exporter.build_bundle(website.store, site, 'local')
+    assert len(bundle.assets) == 1
+    assert bundle.site.pages[0].blocks[-1].actions[0].href.startswith('/assets/')
+    assert Path(bundle.assets[0].private_source).read_bytes() == png()
 
 
 @pytest.mark.parametrize("name,raw,kind", [("logo.svg", b'<svg onload="alert(1)"/>', "image"), ("logo.png", b"invalid", "image"), ("font.woff2", b"wOF2broken", "font"), ("font.ttf", b"invalid", "font"), ("logo.png", b"x" * 4_000_001, "image")])
@@ -175,3 +203,20 @@ def test_every_upload_document_type_survives_public_export(website, suffix):
     target = bundle.site.header_actions[0].href
     assert target.endswith("." + suffix)
     assert any(asset.path == target for asset in bundle.assets)
+
+
+def test_nested_rich_column_upload_is_previewable_and_published_without_changing_the_draft(website):
+    from backend.domains.sites.models import SiteBlock
+    source, _ = theme_assets.upload(website.store, website.site, 'column.png', png(), 'image')
+    body = f'**Column text**\n\n![Portrait](<{source}>)'
+    column = SiteBlock(body=body)
+    website.site.pages[0].blocks.append(SiteBlock(type='row', children=[column]))
+    assert theme_assets.read_asset(website.store, website.site, source) == png()
+    bundle = exporter.build_bundle(website.store, website.site, 'local')
+    exported = bundle.site.pages[0].blocks[-1].children[0]
+    assert '<strong>Column text</strong>' in exported.body
+    from bs4 import BeautifulSoup
+    assert BeautifulSoup(exported.body, 'html.parser').select_one('img')['src'].startswith('/assets/')
+    assert '/.gnosi/' not in exported.body
+    assert column.body == body and column.body_format == 'markdown'
+    assert any(asset.path.endswith('.png') for asset in bundle.assets)

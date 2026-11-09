@@ -549,6 +549,9 @@ def _editor_file_link(value: str, asset: AssetExporter) -> str:
 
 
 def _export_block_assets(block: SiteBlock, asset: AssetExporter, language: str | None) -> None:
+    if block.body_format == "markdown" and "/.gnosi/sites/assets/" in block.body:
+        block.body = MarkdownIt("commonmark", {"html": False}).render(block.body)
+        block.body_format = "html"
     if block.body_format == "html":
         from bs4 import BeautifulSoup
         content = BeautifulSoup(block.body, "html.parser")
@@ -567,8 +570,8 @@ def _export_block_assets(block: SiteBlock, asset: AssetExporter, language: str |
         block.images = [asset(value) if not urlsplit(value).scheme else value for value in block.images if value]
     if block.type == "cta":
         block.href = _editor_file_link(block.href, asset)
-    if block.type in {"split", "links"}:
-        links = (block.actions or []) if block.type == "split" else block.links
+    if block.type in {"split", "links", "selected", "collection", "collaborators"}:
+        links = block.links if block.type == "links" else (block.actions or [])
         for link in links:
             if not language or not link.language or link.language == language:
                 link.href = _editor_file_link(link.href, asset)
@@ -595,6 +598,7 @@ def _exported_site(site: SiteConfig, asset: AssetExporter) -> SiteConfig:
     for form in exported.forms:
         if form.enabled:
             form.privacy_url = _editor_file_link(form.privacy_url, asset)
+            form.privacy_urls = {language: _editor_file_link(url, asset) for language, url in form.privacy_urls.items() if language in exported.languages}
     exported.sources = [source.model_copy(update={"filters": [], "page_ids": [], "withdrawn_ids": [], "withdrawn_versions": {}, "sort_field_id": None, "selection_mode": "all"}) for source in exported.sources if source.enabled]
     exported.pages = [page for page in exported.pages if page.enabled]
     exported.forms = [form for form in exported.forms if form.enabled]

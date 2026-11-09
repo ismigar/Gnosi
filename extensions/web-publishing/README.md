@@ -24,6 +24,10 @@ Nonsecret configuration is versioned under `<vault>/.gnosi/sites`. New sources a
 
 Pages use configurable blocks; global theme tokens, local fonts, page/block adjustments and advanced CSS compile in ordered cascade layers. Generated files are never the editing source. Themes and source changes are reviewed before activation. Search, feeds and sitemap are regenerated with the artifact.
 
+Appearance separates the primary/accent/secondary brand palette from general backgrounds, surfaces, text and muted text. Header, body, footer and primary-button groups assign palette references, white, black or custom colours; an unassigned role inherits the current appearance. Palette references remain linked when their source colour changes. The light secondary brand colour is distinct from muted text. Logos retain their original pixels: choose a contrasting header background rather than automatically placing the secondary colour behind a logo containing that colour.
+
+Regional colour assignments use the `appearance` cascade layer, after components and before page/block adjustments and advanced CSS. When regional assignments are enabled, legacy unlayered stylesheet rules are placed in the components layer without modifying their saved source. Websites with no regional assignments retain their previous stylesheet behaviour. Existing theme tokens, file references, fonts and unrelated custom values survive autosave and theme export/import.
+
 Device-private publication receipts, asset snapshots and operational SQLite live under Gnosi’s local data directory, scoped by workspace/vault/site. SMTP credentials use Gnosi’s credential store. Contact recipients, message contents, subscriber lists and delivery records never enter a public snapshot or the synchronized editorial files.
 
 ## Preview and publication

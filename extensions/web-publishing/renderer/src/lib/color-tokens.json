@@ -1,0 +1,223 @@
+[
+  {
+    "id": "palette",
+    "tokens": [
+      {
+        "key": "primary",
+        "default": "#264653"
+      },
+      {
+        "key": "accent",
+        "default": "#c75b35"
+      },
+      {
+        "key": "secondary",
+        "default": "#e2dfda",
+        "optional": true
+      }
+    ]
+  },
+  {
+    "id": "general",
+    "tokens": [
+      {
+        "key": "background",
+        "default": "#f5efe7"
+      },
+      {
+        "key": "surface",
+        "default": "#ffffff"
+      },
+      {
+        "key": "text",
+        "default": "#2c3e50"
+      },
+      {
+        "key": "muted",
+        "default": "#555555"
+      }
+    ]
+  },
+  {
+    "id": "header",
+    "tokens": [
+      {
+        "key": "header-background",
+        "fallback": "background",
+        "property": "background-color",
+        "selectors": [
+          ".site-root .site-header"
+        ]
+      },
+      {
+        "key": "header-text",
+        "fallback": "primary",
+        "property": "color",
+        "selectors": [
+          ".site-root .site-header",
+          ".site-root .site-header .brand",
+          ".site-root .site-header .menu-toggle"
+        ]
+      },
+      {
+        "key": "header-link",
+        "fallback": "primary",
+        "property": "color",
+        "selectors": [
+          ".site-root .site-header a:not(.button)",
+          ".site-root .site-header .header-search summary"
+        ]
+      },
+      {
+        "key": "header-link-hover",
+        "fallback": "primary",
+        "property": "color",
+        "selectors": [
+          ".site-root .site-header a:not(.button):is(:hover,:focus-visible,[aria-current=page])"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "body",
+    "tokens": [
+      {
+        "key": "body-background",
+        "fallback": "background",
+        "property": "background-color",
+        "selectors": [
+          ".site-root"
+        ],
+        "legacyFallback": "surface"
+      },
+      {
+        "key": "body-text",
+        "fallback": "text",
+        "property": "color",
+        "selectors": [
+          ".site-root main"
+        ]
+      },
+      {
+        "key": "body-heading",
+        "fallback": "text",
+        "property": "color",
+        "selectors": [
+          ".site-root main .page-title",
+          ".site-root main .block :is(h1,h2,h3,h4,h5,h6)",
+          ".site-root main .reading-card h3 a",
+          ".site-root main .record-body :is(h1,h2,h3,h4,h5,h6)",
+          ".site-root main .entry-tags h2",
+          ".site-root main .entry-sharing h2"
+        ],
+        "legacyFallback": "accent"
+      },
+      {
+        "key": "body-link",
+        "fallback": "primary",
+        "property": "color",
+        "selectors": [
+          ".site-root main a:not(.button)"
+        ]
+      },
+      {
+        "key": "body-link-hover",
+        "fallback": "primary",
+        "property": "color",
+        "selectors": [
+          ".site-root main a:not(.button):is(:hover,:focus-visible)",
+          ".site-root main .reading-card h3 a:is(:hover,:focus-visible)"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "footer",
+    "tokens": [
+      {
+        "key": "footer-background",
+        "fallback": "background",
+        "property": "background-color",
+        "selectors": [
+          ".site-root .site-footer"
+        ]
+      },
+      {
+        "key": "footer-text",
+        "fallback": "text",
+        "property": "color",
+        "selectors": [
+          ".site-root .site-footer",
+          ".site-root .site-footer .footer-column h2"
+        ],
+        "legacyFallback": "primary"
+      },
+      {
+        "key": "footer-link",
+        "fallback": "primary",
+        "property": "color",
+        "selectors": [
+          ".site-root .site-footer a:not(.button):not(.newsletter *)"
+        ]
+      },
+      {
+        "key": "footer-link-hover",
+        "fallback": "primary",
+        "property": "color",
+        "selectors": [
+          ".site-root .site-footer a:not(.button):not(.newsletter *):is(:hover,:focus-visible)"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "buttons",
+    "tokens": [
+      {
+        "key": "button-background",
+        "fallback": "primary",
+        "property": "background-color",
+        "selectors": [
+          ".site-root .button:not(.button-outline):not(.button-light):not(.hero-actions .button)",
+          ".site-root button:not(.menu-toggle):not(.button-light)"
+        ]
+      },
+      {
+        "key": "button-text",
+        "fallback": "surface",
+        "property": "color",
+        "selectors": [
+          ".site-root .button:not(.button-outline):not(.button-light):not(.hero-actions .button)",
+          ".site-root button:not(.menu-toggle):not(.button-light)"
+        ]
+      },
+      {
+        "key": "button-border",
+        "fallback": "primary",
+        "property": "border-color",
+        "selectors": [
+          ".site-root .button",
+          ".site-root button:not(.menu-toggle)"
+        ]
+      },
+      {
+        "key": "button-hover-background",
+        "fallback": "primary",
+        "property": "background-color",
+        "selectors": [
+          ".site-root .button:not(.button-outline):not(.button-light):not(.hero-actions .button):is(:hover,:focus-visible)",
+          ".site-root button:not(.menu-toggle):not(.button-light):is(:hover,:focus-visible)"
+        ]
+      },
+      {
+        "key": "button-hover-text",
+        "fallback": "surface",
+        "property": "color",
+        "selectors": [
+          ".site-root .button:not(.button-outline):not(.button-light):not(.hero-actions .button):is(:hover,:focus-visible)",
+          ".site-root button:not(.menu-toggle):not(.button-light):is(:hover,:focus-visible)"
+        ]
+      }
+    ]
+  }
+]

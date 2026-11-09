@@ -79,7 +79,7 @@ function site_public_contact_retry(SiteService $service, string $language, array
         $html .= '</div>';
     }
     $html .= '<p>'.site_public_escape($localized($form['privacy_text'] ?? [])).'</p>';
-    $privacyUrl = site_public_contact_link((string)($form['privacy_url'] ?? ''), $base);
+    $privacyUrl = site_public_contact_link((string)($form['privacy_urls'][$language] ?? $form['privacy_url'] ?? ''), $base);
     if ($privacyUrl !== '') $html .= '<a href="'.site_public_escape($privacyUrl).'">'.site_public_escape($override($form['privacy_link_label'] ?? [], $text['privacy'])).'</a>';
     if ($form['require_privacy'] ?? false) $html .= '<p><label><input type="checkbox" name="privacy" value="1" required'.(!empty($request['privacy']) ? ' checked' : '').'> '.site_public_escape($override($form['privacy_label'] ?? [], $text['privacy'])).'</label></p>';
     if (!empty($form['newsletter_list'])) $html .= '<p><label><input type="checkbox" name="newsletter_opt_in" value="1"'.(!empty($request['newsletter_opt_in']) ? ' checked' : '').'> '.site_public_escape($override($form['newsletter_label'] ?? [], $text['newsletter'])).'</label></p>';

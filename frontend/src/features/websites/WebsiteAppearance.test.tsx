@@ -5,7 +5,11 @@ import { currentRequestContext } from '../../shared/api/request-context';
 import * as api from '../../shared/api/sites';
 import WebsitesPage from './WebsitesPage';
 
-vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont', 'previewSiteImage', 'previewSiteAsset', 'uploadSiteThemeAsset'].map(name => [name, vi.fn()])));
+// Vitest suppresses CSS imports; use the same packaged files for the text editors.
+vi.mock('../../../../extensions/web-publishing/renderer/src/lib/styles.css?raw', async () => ({ default: (await import('node:fs')).readFileSync('../extensions/web-publishing/renderer/src/lib/styles.css', 'utf8') }));
+vi.mock('../../../../extensions/web-publishing/renderer/src/lib/temenos.css?raw', async () => ({ default: (await import('node:fs')).readFileSync('../extensions/web-publishing/renderer/src/lib/temenos.css', 'utf8') }));
+vi.mock('../../../../extensions/web-publishing/renderer/src/lib/page-layout.css?raw', async () => ({ default: (await import('node:fs')).readFileSync('../extensions/web-publishing/renderer/src/lib/page-layout.css', 'utf8') }));
+vi.mock('../../shared/api/sites', () => Object.fromEntries(['listSites', 'createSite', 'siteCatalogue', 'getSite', 'saveSite', 'previewSite', 'publishSite', 'siteJobs', 'cancelJob', 'rollbackSite', 'exportTheme', 'importTheme', 'themeHistory', 'getServiceSettings', 'saveServiceSettings', 'serviceAction', 'getTargetConnection', 'saveTargetConnection', 'probeTarget', 'serveTarget', 'localTargetStatus', 'stopLocalTarget', 'previewSiteFont', 'previewSiteImage', 'previewSiteAsset', 'uploadSiteThemeAsset', 'siteFontCatalogue', 'importSiteFonts'].map(name => [name, vi.fn()])));
 vi.mock('../../shared/api/request-context', () => ({ currentRequestContext: vi.fn() }));
 vi.mock('../../shared/hooks/useModalKeyboard', () => ({ useModalKeyboard: () => undefined }));
 vi.mock('../../shared/ui/layout/AppHeader', () => ({ AppHeader: ({ children, title }: { children: React.ReactNode; title: string }) => <header><h1>{title}</h1>{children}</header> }));
@@ -22,7 +26,7 @@ function changeInput(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelec
 function tab(container: HTMLElement, name: string) { const item = container.querySelector<HTMLButtonElement>(`#websites-tab-${name}`); if (!item) throw new Error('Missing tab'); act(() => { item.click(); }); }
 
 beforeEach(() => {
-  vi.resetAllMocks(); vi.useFakeTimers();
+  vi.resetAllMocks(); vi.mocked(api.siteFontCatalogue).mockResolvedValue([]); vi.useFakeTimers();
   vi.mocked(currentRequestContext).mockReturnValue(context);
   vi.mocked(api.listSites).mockResolvedValue([structuredClone(base)]);
   vi.mocked(api.siteCatalogue).mockResolvedValue(catalogue);
@@ -130,10 +134,7 @@ describe('Webs appearance and nonblocking navigation', () => {
     const view = mountTestComponent(<WebsitesPage />);
     try {
       await settle(); tab(view.container, 'appearance'); await settle();
-      const family = control(view.container, 'websites.fontFamily');
-      for (const value of ['Cr', 'Cri', 'Crimson Pro']) {
-        act(() => { changeInput(family, value); vi.advanceTimersByTime(80); });
-      }
+      expect(view.container.querySelector('[aria-label="websites.fontFamily"]')).toBeNull();
       expect(api.previewSiteFont).not.toHaveBeenCalled();
       act(() => { vi.advanceTimersByTime(250); }); await settle(); await settle();
       expect(add).toHaveBeenCalledTimes(2);
@@ -164,4 +165,57 @@ describe('Webs appearance and nonblocking navigation', () => {
     }
   });
 
+});
+
+it('shows the original stylesheet layers, autosaves a folded edit and restores its default independently', async () => {
+  const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'appearance'); await settle();
+  const source = control(view.container, 'websites.stylesheets.base');
+  const original = source.value;
+  expect(original).toContain('@layer base');
+  expect(control(view.container, 'websites.stylesheets.template').value).toContain('.temenos-site');
+  expect(control(view.container, 'websites.stylesheets.layout').value).toContain('.editor-row');
+  expect(api.saveSite).not.toHaveBeenCalled();
+  act(() => { changeInput(source, '.custom { color: red; }'); });
+  const section = source.closest('details'); if (!section) throw new Error('Missing CSS section');
+  act(() => { section.open = false; section.dispatchEvent(new Event('toggle')); });
+  tab(view.container, 'navigation'); await autosave();
+  expect(vi.mocked(api.saveSite).mock.lastCall?.[0].theme?.stylesheet_overrides).toEqual({ base: '.custom { color: red; }' });
+  tab(view.container, 'appearance'); await settle();
+  const restoredSource = control(view.container, 'websites.stylesheets.base');
+  const layer = restoredSource.closest('details'); if (!layer) throw new Error('Missing CSS layer');
+  act(() => { button(layer, 'websites.stylesheets.restore').click(); }); await autosave();
+  expect(control(view.container, 'websites.stylesheets.base').value).toBe(original);
+  expect(vi.mocked(api.saveSite).mock.lastCall?.[0].theme?.stylesheet_overrides).toEqual({});
+  view.unmount();
+});
+
+it('keeps custom stylesheet layers when importing an exported theme', async () => {
+  const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'appearance'); await settle();
+  const raw = JSON.stringify({ ...base.theme, stylesheet_overrides: { template: '.imported { color: blue; }' } });
+  const file = new File([raw], 'theme.json', { type: 'application/json' });
+  Object.defineProperty(file, 'text', { value: () => Promise.resolve(raw) });
+  const input = view.container.querySelector<HTMLInputElement>('input[type=file][accept*=".json"]');
+  if (!input) throw new Error('Missing theme import');
+  Object.defineProperty(input, 'files', { value: [file], configurable: true });
+  act(() => { input.dispatchEvent(new Event('change', { bubbles: true })); }); await settle(); await autosave();
+  expect(vi.mocked(api.saveSite).mock.lastCall?.[0].theme?.stylesheet_overrides).toEqual({ template: '.imported { color: blue; }' });
+  expect(control(view.container, 'websites.stylesheets.template').value).toBe('.imported { color: blue; }');
+  view.unmount();
+});
+
+it('can reimport a theme containing all three stylesheet layers above the previous file limit', async () => {
+  const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'appearance'); await settle();
+  const css = '/*' + 'x'.repeat(70000) + '*/ .imported { color: blue; }';
+  const raw = JSON.stringify({ ...base.theme, stylesheet_overrides: { base: css, template: css, layout: css } });
+  const file = new File([raw], 'full-theme.json', { type: 'application/json' });
+  expect(file.size).toBeGreaterThan(200000);
+  Object.defineProperty(file, 'text', { value: () => Promise.resolve(raw) });
+  const input = view.container.querySelector<HTMLInputElement>('input[type=file][accept*=".json"]');
+  if (!input) throw new Error('Missing theme import');
+  Object.defineProperty(input, 'files', { value: [file], configurable: true });
+  act(() => { input.dispatchEvent(new Event('change', { bubbles: true })); }); await settle(); await autosave();
+  const saved = vi.mocked(api.saveSite).mock.lastCall?.[0].theme?.stylesheet_overrides;
+  expect(Object.keys(saved ?? {})).toEqual(['base', 'template', 'layout']);
+  for (const value of Object.values(saved ?? {})) expect(value).toHaveLength(css.length);
+  view.unmount();
 });

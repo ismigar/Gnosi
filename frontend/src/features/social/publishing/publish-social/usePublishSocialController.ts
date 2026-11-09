@@ -215,8 +215,11 @@ export function usePublishSocialController({
                 source_title: state.sourceTitle,
             });
             reportResults(result);
-            onPublished?.(result);
-            onClose();
+            dispatch({ type: 'publication-received', results: result.results });
+            if (selectedNetworks.every(network => result.results[network]?.status === 'success')) {
+                onPublished?.(result);
+                onClose();
+            }
         } catch (error: unknown) {
             logError('publish-social.publish', error);
             toast.error(`${t('social.publish_error', 'Error publishing')}: ${socialErrorMessage(error, t('errors.unknown', 'Unknown error'))}`);
@@ -262,7 +265,7 @@ export function usePublishSocialController({
     }, [nameFor, noteId, onClose, onPublished, overLimitNetworks, selectedNetworks, state.drafts, state.scheduledAt, state.sourceTitle, t]);
 
     return {
-        busy: state.composing || state.publishing,
+        busy: state.composing || state.publishing || state.regeneratingNetwork !== null,
         charLimitFor,
         dispatch,
         generate,

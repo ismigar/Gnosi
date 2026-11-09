@@ -2,13 +2,13 @@ import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SiteConfig, SitePage, SiteBlock, CatalogueItem } from '../../shared/api/sites';
-import { Card, Empty, Field, Input, ListInput, Textarea, Select, Toggle, ReorderActions } from './components';
+import { Disclosure, Empty, Field, Input, ListInput, Textarea, Select, Toggle, ReorderActions } from './components';
 import { moveItem, newId } from './helpers';
 import { WebsiteFileField } from './WebsiteFileField';
 import { LinksEditor } from './LinksEditor';
 import { WebsiteCanvas } from './WebsiteCanvas';
 import { ImportedPages } from './ImportedPages';
-import { InstructionMarkdownEditor } from '../../shared/editor/InstructionMarkdownEditor';
+import { WebsiteRichEditor } from './WebsiteRichEditor';
 import { ImportedHtmlEditor } from './ImportedHtmlEditor';
 
 export function PagesEditor({ site, catalogue, onChange }: { site: SiteConfig; catalogue: CatalogueItem[]; onChange: (site: SiteConfig) => void }) {
@@ -17,17 +17,17 @@ export function PagesEditor({ site, catalogue, onChange }: { site: SiteConfig; c
   const pages = site.pages ?? [];
   const activePage = pages.some(page => page.id === selectedPage) ? selectedPage : pages[0]?.id;
   const change = (index: number, patch: Partial<SitePage>) => { onChange({ ...site, pages: pages.map((page, position) => position === index ? { ...page, ...patch } : page) }); };
-  return <Card title={t('websites.pages')} actions={<button type="button" className="websites-button" onClick={() => { const page: SitePage = { id: newId('page'), title: t('websites.newPage'), language: site.default_language, path: `/${site.default_language}/${newId('page')}`, enabled: false, template: 'page', blocks: [], css: '', description: '' }; onChange({ ...site, pages: [...pages, page] }); setSelectedPage(page.id); }}><Plus size={16} />{t('websites.addPage')}</button>}>
+  return <div className="websites-panel"><p className="websites-muted">{t('websites.pageRegionsHelp')}</p><div className="websites-actions"><button type="button" className="websites-button" onClick={() => { const page: SitePage = { id: newId('page'), title: t('websites.newPage'), language: site.default_language, path: `/${site.default_language}/${newId('page')}`, enabled: false, template: 'page', blocks: [], css: '', description: '' }; onChange({ ...site, pages: [...pages, page] }); setSelectedPage(page.id); }}><Plus size={16} />{t('websites.addPage')}</button></div>
     <ImportedPages key={site.id} site={site} onChange={onChange} />
     {!pages.length && <Empty>{t('websites.noPages')}</Empty>}
     {!!pages.length && <Field label={t('websites.visual.pageToEdit')}><Select value={activePage} onChange={event => { setSelectedPage(event.target.value); }}>{pages.map(page => <option key={page.id} value={page.id}>{page.title} · {page.language.toUpperCase()}</option>)}</Select></Field>}
-    <div className="websites-list websites-spacer">{pages.map((page, index) => page.id === activePage && <section key={`${site.id}:${page.id}`} className="websites-row"><div className="websites-row-title"><strong>{page.title}</strong><ReorderActions index={index} length={pages.length} move={direction => { onChange({ ...site, pages: moveItem(pages, index, direction) }); }} remove={() => { onChange({ ...site, pages: pages.filter((_, position) => position !== index) }); }} /></div>
+    <div className="websites-list websites-spacer">{pages.map((page, index) => page.id === activePage && <Disclosure key={`${site.id}:${page.id}`} title={page.title} actions={<ReorderActions index={index} length={pages.length} move={direction => { onChange({ ...site, pages: moveItem(pages, index, direction) }); }} remove={() => { onChange({ ...site, pages: pages.filter((_, position) => position !== index) }); }} />}>
       <div className="websites-grid"><Field label={t('websites.titleLabel')}><Input value={page.title} onChange={event => { change(index, { title: event.target.value }); }} /></Field><Field label={t('websites.path')}><Input value={page.path} onChange={event => { change(index, { path: event.target.value }); }} /></Field><Field label={t('websites.language')}><Select value={page.language} onChange={event => { change(index, { language: event.target.value }); }}>{(site.languages ?? []).map(language => <option key={language} value={language}>{language.toUpperCase()}</option>)}</Select></Field><Field label={t('websites.template')}><Select value={page.template} onChange={event => { change(index, { template: event.target.value as SitePage['template'] }); }}>{['home', 'page', 'article', 'listing'].map(value => <option key={value} value={value}>{t(`websites.templates.${value}`)}</option>)}</Select></Field><Field label={t('websites.description')}><Textarea value={page.description} onChange={event => { change(index, { description: event.target.value }); }} /></Field><Field label={t('websites.translationOf')}><Select value={page.translation_id ?? ''} onChange={event => { change(index, { translation_id: event.target.value || null }); }}><option value="">{t('websites.originalPage')}</option>{pages.filter(other => other.id !== page.id && other.language !== page.language).map(other => <option key={other.id} value={other.translation_id || other.id}>{other.title} · {other.language.toUpperCase()}</option>)}</Select></Field></div>
       <Toggle label={t('websites.pageEnabled')} value={page.enabled} onChange={enabled => { change(index, { enabled }); }} />
       <BlocksEditor site={site} catalogue={catalogue} blocks={page.blocks ?? []} onChange={blocks => { change(index, { blocks }); }} />
       <details className="websites-spacer"><summary>{t('websites.pageCss')}</summary><Field label={t('websites.customCss')}><Textarea className="websites-code" spellCheck={false} value={page.css} onChange={event => { change(index, { css: event.target.value }); }} /></Field></details>
-    </section>)}</div>
-  </Card>;
+    </Disclosure>)}</div>
+  </div>;
 }
 
 export function BlocksEditor({ site, catalogue, blocks, onChange }: { site: SiteConfig; catalogue: CatalogueItem[]; blocks: SiteBlock[]; onChange: (blocks: SiteBlock[]) => void }) {
@@ -35,18 +35,20 @@ export function BlocksEditor({ site, catalogue, blocks, onChange }: { site: Site
   const [undo, setUndo] = useState<SiteBlock[][]>([]); const [redo, setRedo] = useState<SiteBlock[][]>([]);
   const selectedId = blocks.some(block => block.id === selected) ? selected : blocks[0]?.id ?? '';
   const edit = (value: SiteBlock[]) => { setUndo(previous => [...previous.slice(-49), blocks]); setRedo([]); if (value.length > blocks.length) setSelected(value[value.length - 1]?.id ?? ''); onChange(value); };
-  return <div className="websites-spacer"><div className="websites-section-title"><h3>{t('websites.visual.editor')}</h3><div className="websites-actions"><button type="button" className="websites-button" disabled={!undo.length} onClick={() => { const previous = undo[undo.length - 1]; if (previous) { setUndo(undo.slice(0, -1)); setRedo([...redo, blocks]); onChange(previous); } }}>{t('websites.visual.undo')}</button><button type="button" className="websites-button" disabled={!redo.length} onClick={() => { const next = redo[redo.length - 1]; if (next) { setRedo(redo.slice(0, -1)); setUndo([...undo, blocks]); onChange(next); } }}>{t('websites.visual.redo')}</button></div></div>
+  return <Disclosure className="websites-spacer" title={t('websites.visual.editor')} actions={<div className="websites-actions"><button type="button" className="websites-button" disabled={!undo.length} onClick={() => { const previous = undo[undo.length - 1]; if (previous) { setUndo(undo.slice(0, -1)); setRedo([...redo, blocks]); onChange(previous); } }}>{t('websites.visual.undo')}</button><button type="button" className="websites-button" disabled={!redo.length} onClick={() => { const next = redo[redo.length - 1]; if (next) { setRedo(redo.slice(0, -1)); setUndo([...undo, blocks]); onChange(next); } }}>{t('websites.visual.redo')}</button></div>}>
     <div className="websites-visual-editor"><WebsiteCanvas site={site} blocks={blocks} selectedId={selectedId} onSelect={setSelected} onChange={edit} /><div><BlockFields site={site} catalogue={catalogue} blocks={blocks} selectedId={selectedId} onChange={edit} /></div></div>
-  </div>;
+  </Disclosure>;
 }
 
-function BlockFields({ site, catalogue, blocks, selectedId, onChange }: { site: SiteConfig; catalogue: CatalogueItem[]; blocks: SiteBlock[]; selectedId: string; onChange: (blocks: SiteBlock[]) => void }) {
+function BlockFields({ site, catalogue, blocks, selectedId, onChange, nested = false }: { site: SiteConfig; catalogue: CatalogueItem[]; blocks: SiteBlock[]; selectedId: string; onChange: (blocks: SiteBlock[]) => void; nested?: boolean }) {
   const { t } = useTranslation();
   const change = (index: number, patch: Partial<SiteBlock>) => { onChange(blocks.map((block, position) => position === index ? { ...block, ...patch } : block)); };
-  return <div className="websites-list"><div className="websites-section-title"><h3>{t('websites.blocks')}</h3><button type="button" className="websites-button" onClick={() => { onChange([...blocks, { id: newId('block'), type: 'text', title: '', body: '', image: '', alt: '', image_position: 'right', columns: 3, limit: 3, page_ids: [], images: [], href: '', css: '' }]); }}>{t('websites.addBlock')}</button></div>
-    {blocks.map((block, index) => block.id === selectedId && <section key={block.id} className="websites-row"><div className="websites-row-title"><Field label={t('websites.blockType')}><Select value={block.type} onChange={event => { change(index, { type: event.target.value as SiteBlock['type'] }); }}>{['text', 'image', 'split', 'gallery', 'selected', 'collection', 'collaborators', 'form', 'cta', 'links', 'social', 'newsletter'].map(value => <option key={value} value={value}>{t(`websites.blockTypes.${value}`)}</option>)}</Select></Field></div>
+  return <div className="websites-list">{!nested && <div className="websites-section-title"><h3>{t('websites.blocks')}</h3><button type="button" className="websites-button" onClick={() => { onChange([...blocks, { ...emptyBlock(), type: 'row', children: [emptyBlock()] }]); }}>{t('websites.rows.addRow')}</button><button type="button" className="websites-button" onClick={() => { onChange([...blocks, { id: newId('block'), type: 'text', title: '', body: '', image: '', alt: '', image_position: 'right', columns: 3, limit: 3, page_ids: [], images: [], href: '', css: '' }]); }}>{t('websites.addBlock')}</button></div>}
+    {blocks.map((block, index) => block.id === selectedId && <Disclosure key={block.id} title={block.title || t(`websites.blockTypes.${block.type}`)}><div className="websites-row-title"><Field label={t('websites.blockType')}><Select value={block.type} onChange={event => { change(index, { type: event.target.value as SiteBlock['type'] }); }}>{(block.type === 'row' ? ['row'] : ['text', 'image', 'split', 'gallery', 'selected', 'collection', 'collaborators', 'form', 'cta', 'links', 'social', 'newsletter']).map(value => <option key={value} value={value}>{t(`websites.blockTypes.${value}`)}</option>)}</Select></Field></div>
+      {block.type === 'row' && <RowColumns site={site} catalogue={catalogue} row={block} onChange={children => { change(index, { children }); }} />}
       <div className="websites-grid"><Field label={t('websites.titleLabel')}><Input value={block.title} onChange={event => { change(index, { title: event.target.value }); }} /></Field>
-        {['text', 'split'].includes(block.type) && <div className="websites-block-body">{block.body_format === 'html' ? <ImportedHtmlEditor label={t('websites.body')} value={block.body} onChange={body => { change(index, { body }); }} /> : <InstructionMarkdownEditor label={t('websites.body')} value={block.body} onChange={body => { change(index, { body }); }} />}</div>}
+        {block.title && block.type !== 'newsletter' && <Field label={t('websites.headingLevel')}><Select value={block.heading_level ?? 2} onChange={event => { change(index, { heading_level: Number(event.target.value) as SiteBlock['heading_level'] }); }}>{[1, 2, 3, 4, 5, 6].map(level => <option key={level} value={level}>H{level}</option>)}</Select></Field>}
+        {['text', 'split'].includes(block.type) && <div className="websites-block-body">{block.body_format === 'html' ? <ImportedHtmlEditor label={t('websites.body')} value={block.body} onChange={body => { change(index, { body }); }} /> : <WebsiteRichEditor label={t('websites.body')} value={block.body} onChange={body => { change(index, { body }); }} />}</div>}
         {block.type === 'cta' && <Field label={t('websites.body')}><Input value={block.body} onChange={event => { change(index, { body: event.target.value }); }} /></Field>}
         {['image', 'split'].includes(block.type) && <><Field label={t('websites.image')}><WebsiteFileField kind="image" label={t('websites.image')} value={block.image} onChange={image => { change(index, { image }); }} /></Field><Field label={t('websites.altText')}><Input value={block.alt} onChange={event => { change(index, { alt: event.target.value }); }} /></Field></>}
         {block.type === 'split' && <Field label={t('websites.imagePosition')}><Select value={block.image_position} onChange={event => { change(index, { image_position: event.target.value as SiteBlock['image_position'] }); }}><option value="left">{t('websites.left')}</option><option value="right">{t('websites.right')}</option></Select></Field>}
@@ -63,7 +65,20 @@ function BlockFields({ site, catalogue, blocks, selectedId, onChange }: { site: 
       <Field label={t('websites.visual.spacing')}><Select value={block.spacing ?? 'compact'} onChange={event => { change(index, { spacing: event.target.value as SiteBlock['spacing'] }); }}>{['compact', 'normal', 'generous'].map(value => <option key={value} value={value}>{t(`websites.visual.${value}`)}</option>)}</Select></Field></div>
       {block.type === 'links' && <LinksEditor title={t('websites.footer')} links={block.links ?? []} languages={site.languages ?? []} onChange={links => { change(index, { links }); }} />}
       {['social', 'newsletter'].includes(block.type) && <p className="websites-muted">{t('websites.visual.previewHint')}</p>}
-      {block.type === 'split' && <LinksEditor title={t('websites.blockActions')} links={block.actions ?? []} defaultAppearance="button" onChange={actions => { change(index, { actions }); }} />}
-    </section>)}
+      {['split', 'selected', 'collection', 'collaborators'].includes(block.type) && <LinksEditor title={t('websites.blockActions')} links={block.actions ?? []} defaultAppearance="button" onChange={actions => { change(index, { actions }); }} />}
+    </Disclosure>)}
   </div>;
+}
+
+function emptyBlock(): SiteBlock {
+  return { id: newId('block'), type: 'text', title: '', body: '', image: '', alt: '', image_position: 'right', columns: 3, limit: 3, href: '', css: '' };
+}
+function RowColumns({ site, catalogue, row, onChange }: { site: SiteConfig; catalogue: CatalogueItem[]; row: SiteBlock; onChange: (blocks: SiteBlock[]) => void }) {
+  const { t } = useTranslation();
+  const children = row.children ?? [];
+  return <Disclosure title={t('websites.columns')} actions={<button type="button" className="websites-button" disabled={children.length >= 4} onClick={() => { onChange([...children, emptyBlock()]); }}>{t('websites.addColumn')}</button>}>
+    <div className="websites-list">{children.map((child, index) => <Disclosure key={child.id} title={`${t('websites.rows.column')} ${String(index + 1)}`} actions={<ReorderActions removeDisabled={children.length <= 1} index={index} length={children.length} move={offset => { onChange(moveItem(children, index, offset)); }} remove={() => { onChange(children.filter(item => item.id !== child.id)); }} />}>
+      <BlockFields site={site} catalogue={catalogue} blocks={[child]} selectedId={child.id} onChange={updated => { onChange(children.map(item => item.id === child.id ? updated[0] ?? item : item)); }} nested />
+    </Disclosure>)}</div>
+  </Disclosure>;
 }

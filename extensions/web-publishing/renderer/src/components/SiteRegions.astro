@@ -1,0 +1,10 @@
+---
+import {site} from '../lib/site.mjs';
+import RenderBlock from './RenderBlock.astro';
+const {lang,position}=Astro.props;
+const regions=(site.regions||[]).filter(region=>region.position===position&&(!region.language||region.language===lang));
+---
+{regions.map(region=><section class="wrap site-region" data-region={position} data-region-id={region.id}>
+  {region.title&&<h2>{region.title}</h2>}
+  {(region.blocks||[]).map(block=><RenderBlock block={block} lang={lang} instance={`region-${region.id}-${block.id}`}/>)}
+</section>)}

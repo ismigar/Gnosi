@@ -55,6 +55,8 @@ def test_packaged_renderer_never_writes_to_sealed_dependency_cache(tmp_path, mon
 @pytest.mark.skipif(not (extension_root() / "renderer/node_modules/node/bin/node").is_file(), reason="Pinned renderer runtime must be prepared")
 def test_actual_astro_output_scopes_assets_and_forms_without_private_snapshot(tmp_path):
     site = SiteConfig(name="Example", origin="https://example.invalid")
+    from backend.domains.sites.models import SiteRegion
+    site.regions = [SiteRegion(id="top", position="header", blocks=[SiteBlock(type="text", body="**Region header**")]), SiteRegion(id="bottom", position="footer", blocks=[SiteBlock(type="text", body="**Region footer**")])]
     site.forms[0].enabled = True
     site.pages = [SitePage(id="home", title="Public heading", language="ca", path="/ca", enabled=True,
                            blocks=[SiteBlock(type="text", body="**Public** body"), SiteBlock(type="form", form_id="contact")])]
@@ -67,6 +69,9 @@ def test_actual_astro_output_scopes_assets_and_forms_without_private_snapshot(tm
     output = tmp_path / "public"
     render_bundle(bundle, output)
     html = (output / "ca/index.html").read_text()
+    assert '<strong>Region header</strong>' in html
+    assert '<strong>Region footer</strong>' in html
+    assert html.index('Region header') < html.index('<main') < html.index('Region footer')
     assert '<strong>Public</strong>' in html
     record_html = (output / "ca/content/record/index.html").read_text()
     collection_html = (output / "ca/content/index.html").read_text()
@@ -93,14 +98,27 @@ def test_actual_astro_output_scopes_assets_and_forms_without_private_snapshot(tm
 
 
 @pytest.mark.skipif(shutil.which("php") is None, reason="PHP is required")
-def test_native_pangea_upload_verify_service_and_rollback_without_remote_access(tmp_path, monkeypatch):
+@pytest.mark.parametrize("environment", ["staging", "production"])
+def test_native_pangea_upload_verify_service_and_rollback_without_remote_access(tmp_path, monkeypatch, environment):
     vault = tmp_path / "vault"
     vault.mkdir()
     monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path / "device"))
     store = SiteStore(WorkspaceContext("workspace", "owner", "owner", vault))
     site = SiteConfig(name="Synthetic Pangea", targets=[SiteTarget(id="pangea", adapter="legacy-pangea", environment="staging", enabled=True, base_url="https://example.invalid/_gnosi-proves/webs/test/current")])
     site.targets[0].base_url = "https://temenosismael.org/_gnosi-proves/webs/" + site.id + "/current"
+    if environment == "production":
+        from types import SimpleNamespace
+        site.targets[0] = site.targets[0].model_copy(update={"id": "pangea-production", "environment": "production", "base_url": "https://temenosismael.org"})
     site = store.save(site, create=True)
+    if environment == "production":
+        from backend.domains.sites.private_service import service_root
+        from backend.domains.sites.models import ServiceSettings
+        from backend.domains.sites.storage import private_json
+        root = service_root(store, site.id, "pangea-production")
+        private_json(root / "settings.json", ServiceSettings(test_mode=False, delivery_transport="smtp", smtp_host="smtp.example.invalid", smtp_username="site", sender_email="site@example.invalid").model_dump(mode="json"))
+        private_json(root / "credential-reference.json", {"key": "synthetic-smtp-only"})
+        monkeypatch.setattr("backend.security.keychain_manager.get_keychain", lambda: SimpleNamespace(get_credential=lambda reference: "SYNTHETIC-SMTP-ONLY"))
+        private_json(root / "production-registration.json", {"site_id": site.id, "scope": store.private_root.name, "target_id": "pangea-production", "base_url": "https://temenosismael.org"})
     remote = tmp_path / "account"
     marker = remote / "web/_gnosi-proves/.gnosi-staging-marker"
     marker.parent.mkdir(parents=True)
@@ -108,7 +126,14 @@ def test_native_pangea_upload_verify_service_and_rollback_without_remote_access(
 
     class LocalBridge:
         def run(self, command):
-            return subprocess.run(command, shell=True, capture_output=True, text=True, check=True).stdout
+            result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True).stdout
+            if command.startswith("tar -xzf "):
+                configs = list(remote.glob("**/releases/*/service/config.json"))
+                assert configs
+                for config in configs:
+                    assert config.parent.stat().st_mode & 0o777 == 0o700
+                    assert config.stat().st_mode & 0o777 == 0o600
+            return result
 
     class LocalDriver:
         REMOTE_ROOT = str(remote)
@@ -122,6 +147,17 @@ def test_native_pangea_upload_verify_service_and_rollback_without_remote_access(
             return subprocess.run([shutil.which("php"), "-r", code], capture_output=True, text=True, check=True).stdout
 
         def put(self, bridge, source, destination):
+            if source.name == "release.tar.gz":
+                import tarfile
+                assert source.stat().st_mode & 0o777 == 0o600
+                assert Path(destination).parent.stat().st_mode & 0o777 == 0o700
+                assert Path(destination).stat().st_mode & 0o777 == 0o600
+                with tarfile.open(source) as archive:
+                    assert archive.getmember("service").mode == 0o700
+                    assert archive.getmember("service/config.json").mode == 0o600
+                    if environment == "production":
+                        config = json.loads(archive.extractfile("service/config.json").read())
+                        assert config["smtp"]["password"] == "SYNTHETIC-SMTP-ONLY"
             shutil.copyfile(source, destination)
 
     monkeypatch.setattr(pangea, "driver", lambda store: LocalDriver())
@@ -134,12 +170,12 @@ def test_native_pangea_upload_verify_service_and_rollback_without_remote_access(
     target = site.targets[0]
     pangea.upload_release(store, site, target, first, output, None)
     assert pangea.current_release(store, site, target) == first
-    public, private = pangea.paths(LocalDriver(), site)
+    public, private = pangea.paths(LocalDriver(), site, target)
     assert not Path(private).is_relative_to(remote / "web")
     assert "RewriteEngine On" in (Path(public) / "current/.htaccess").read_text()
     assert "SetEnv GNOSI_SITES_SERVICE_CONFIG" in (Path(public) / "current/.htaccess").read_text()
-    status = pangea.service(store, site, "pangea", "status", {})
-    assert status["test_mode"] is True
+    status = pangea.service(store, site, target.id, "status", {})
+    assert status["test_mode"] is (environment != "production")
     assert not (Path(public) / "current/config.json").exists()
     pangea.upload_release(store, site, target, second, output, first)
     pangea.revert(store, site, target, first, second)
