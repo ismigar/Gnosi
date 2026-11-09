@@ -9297,6 +9297,8 @@
     "managedBridgeHelp": "This destination uses the Pangea / Suweb bridge from the imported pilot. The bridge manages its connection and remote directories. You can test its connection here.",
     "jobErrors": {
       "worker_start_pending": "The website release is already active, but the private service worker has not started yet. Test the destination connection, then review and publish again to retry starting it.",
+      "release_retention_pending": "The website is published, but some older versions could not be removed. Review the hosting destination; cleanup will be retried on the next publication.",
+      "worker_and_retention_pending": "The website is published, but the private service worker could not start and some older versions could not be removed. Review the hosting destination; both operations will be retried on the next publication.",
       "publication_failed_review_status": "Publication could not be completed. Check the destination status and review the changes again before publishing."
     },
     "withdrawTranslation": "Withdraw {{language}} version",

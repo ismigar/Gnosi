@@ -180,6 +180,10 @@ def test_native_pangea_upload_verify_service_and_rollback_without_remote_access(
     pangea.upload_release(store, site, target, second, output, first)
     pangea.revert(store, site, target, first, second)
     assert pangea.current_release(store, site, target) == first
+    third = "c" * 32
+    pangea.upload_release(store, site, target, third, output, first)
+    assert {path.name for path in (Path(private) / "releases").iterdir()} == {first, third}
+    pangea.revert(store, site, target, first, third)
     (Path(private) / "releases" / first / "public/index.html").write_text("Corrupted retained release")
     with pytest.raises(subprocess.CalledProcessError):
         pangea.current_release(store, site, target)

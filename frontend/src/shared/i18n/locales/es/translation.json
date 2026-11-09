@@ -9352,6 +9352,8 @@
     "managedBridgeHelp": "Este destino utiliza el puente Pangea / Suweb del piloto importado. El puente gestiona la conexión y los directorios remotos. Puedes comprobar su conexión aquí.",
     "jobErrors": {
       "worker_start_pending": "La versión del sitio web ya está activa, pero aún no se ha podido iniciar el proceso del servicio privado. Prueba la conexión del destino y vuelve a revisar y publicar para reintentar su inicio.",
+      "release_retention_pending": "El sitio web ya está publicado, pero no se han podido eliminar algunas versiones antiguas. Revisa el alojamiento; se volverá a intentar en la próxima publicación.",
+      "worker_and_retention_pending": "El sitio web ya está publicado, pero el servicio privado no se ha podido iniciar y algunas versiones antiguas no se han podido eliminar. Revisa el alojamiento; se volverá a intentar en la próxima publicación.",
       "publication_failed_review_status": "No se ha podido completar la publicación. Revisa el estado del destino y vuelve a revisar los cambios antes de publicar."
     },
     "withdrawTranslation": "Retira la versión {{language}}",

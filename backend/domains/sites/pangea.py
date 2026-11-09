@@ -27,6 +27,7 @@ from .models import SiteConfig, SiteTarget
 from .private_service import SERVICE_ROOT, configuration
 from .storage import SiteStore, private_json
 from .ssh_namespace import program as namespace_program, worker_start_program
+from .release_retention import begin_upload_program, retention_program, record_result
 
 
 _BOUNDED_CONNECTION_LOCK = threading.Lock()
@@ -181,11 +182,14 @@ def connection(store: SiteStore, *, bounded: bool = False) -> Iterator[tuple[Dri
         yield transport, bridge
 
 
-def _activate(transport: Driver, bridge: Bridge, public: str, private: str, release_id: str, parent_id: str | None, owner: str) -> None:
+def _activate(transport: Driver, bridge: Bridge, public: str, private: str, release_id: str, parent_id: str | None, owner: str, *, retain: bool = False) -> str:
     if not re.fullmatch(r"[a-f0-9]{32}", release_id):
         raise HTTPException(409, "Invalid Pangea release identity")
-    code = _policy(public, private, owner) + '$lock=gnosi_lock();$link=$public."/current";$actual=gnosi_pangea_current();if($actual===' + json.dumps(release_id) + '){echo "active";exit;}if($actual!==' + json.dumps(parent_id) + '){throw new Exception("Parent changed");}$target=gnosi_pangea_verify(' + json.dumps(release_id) + ');$tmp=$link.".".bin2hex(random_bytes(6));if(!symlink($target,$tmp)||!rename($tmp,$link)||readlink($link)!==$target){throw new Exception("Test activation failed");}echo "active";'
-    transport.php(bridge, code)
+    code = _policy(public, private, owner) + '$lock=gnosi_lock();$id=' + json.dumps(release_id) + ';$link=$public."/current";$current=gnosi_pangea_current();if($current===$id){echo json_encode(["release_id"=>$id,"retention_error"=>null]);exit;}if($current!==' + json.dumps(parent_id) + '){throw new Exception("Parent changed");}$target=gnosi_pangea_verify($id);$tmp=$link.".".bin2hex(random_bytes(6));if(!symlink($target,$tmp)||!rename($tmp,$link)||readlink($link)!==$target){throw new Exception("Test activation failed");}clearstatcache(true,$link);if(gnosi_pangea_current()!==$id){throw new Exception("Active version could not be verified");}'
+    if retain:
+        code += retention_program(pangea=True)
+    code += 'echo json_encode(["release_id"=>$id,"retention_error"=>' + ('$retentionError' if retain else 'null') + ']);'
+    return transport.php(bridge, code)
 
 
 def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, release_id: str, output: Path, parent_id: str | None, activation_guard: Callable[[], None] | None = None) -> str:
@@ -200,7 +204,7 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
         transport.php(bridge, _policy(public, private, owner))
         service_root = private + "/service"
         release_root = private + "/releases/" + release_id
-        transport.php(bridge, '$r=' + json.dumps(release_root) + ';if(file_exists($r)){throw new Exception("Immutable release exists");}mkdir($r,0711);')
+        transport.php(bridge, _policy(public, private, owner) + '$lock=gnosi_lock();$id=' + json.dumps(release_id) + ';gnosi_id($id);$destination=$private."/releases/".$id;if(gnosi_exists($destination)){throw new Exception("Immutable release exists");}' + begin_upload_program() + 'mkdir($destination,0711);')
         config: dict[str, JsonValue] = json.loads(configuration(store, site, target.id).read_text())
         config.update({"public_base_url": target.base_url, "db_path": service_root + "/state.sqlite", "spool_path": service_root + "/captures", "library_path": service_root + "/library.php"})
         with tempfile.TemporaryDirectory(prefix="gnosi-pangea-release-") as temporary:
@@ -243,7 +247,8 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
         transport.php(bridge, prepare)
         if activation_guard:
             activation_guard()
-        _activate(transport, bridge, public, private, release_id, parent_id, owner)
+        response = _activate(transport, bridge, public, private, release_id, parent_id, owner, retain=True)
+        record_result(store, site, target, response)
         from .private_service import service_root as local_service_root
         receipt = local_service_root(store, site.id, target.id) / "worker-start.json"
         try:

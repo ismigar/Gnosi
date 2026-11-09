@@ -9352,6 +9352,8 @@
     "managedBridgeHelp": "Aquesta destinació utilitza el pont Pangea / Suweb del pilot importat. El pont gestiona la connexió i els directoris remots. Pots comprovar-ne la connexió aquí.",
     "jobErrors": {
       "worker_start_pending": "La versió del web ja està activa, però encara no s’ha pogut iniciar el procés del servei privat. Prova la connexió de la destinació i torna a revisar i publicar per reintentar-ne l’inici.",
+      "release_retention_pending": "El web ja està publicat, però no s’han pogut eliminar algunes versions antigues. Revisa l’allotjament; es tornarà a intentar en la pròxima publicació.",
+      "worker_and_retention_pending": "El web ja està publicat, però el servei privat no s’ha pogut iniciar i algunes versions antigues no s’han pogut eliminar. Revisa l’allotjament; es tornarà a intentar en la pròxima publicació.",
       "publication_failed_review_status": "No s’ha pogut completar la publicació. Revisa l’estat de la destinació i torna a revisar els canvis abans de publicar."
     },
     "withdrawTranslation": "Retira la versió {{language}}",

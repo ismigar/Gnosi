@@ -9352,6 +9352,8 @@
     "managedBridgeHelp": "Cette destination utilise le pont Pangea / Suweb du pilote importé. Le pont gère la connexion et les répertoires distants. Vous pouvez tester sa connexion ici.",
     "jobErrors": {
       "worker_start_pending": "La version du site web est déjà active, mais le processus du service privé n’a pas encore démarré. Testez la connexion de la destination, puis vérifiez et publiez à nouveau pour réessayer de le démarrer.",
+      "release_retention_pending": "Le site est publié, mais certaines anciennes versions n’ont pas pu être supprimées. Vérifiez l’hébergement ; le nettoyage sera réessayé lors de la prochaine publication.",
+      "worker_and_retention_pending": "Le site est publié, mais le service privé n’a pas pu démarrer et certaines anciennes versions n’ont pas pu être supprimées. Vérifiez l’hébergement ; les deux opérations seront réessayées lors de la prochaine publication.",
       "publication_failed_review_status": "La publication n’a pas pu être terminée. Vérifiez l’état de la destination et examinez à nouveau les modifications avant de publier."
     },
     "withdrawTranslation": "Retirer la version {{language}}",
