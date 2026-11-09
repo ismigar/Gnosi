@@ -101,7 +101,7 @@ def _discard_finished_input(db: Any, run_id: str, payload: dict[str, Any]) -> No
         return
     row = db.execute("SELECT request FROM agent_runs WHERE run_id=?", (run_id,)).fetchone()
     original = json.loads(row[0])
-    retained = {key: original[key] for key in ("mode", "checkpoint_key", "_worker_pid", "_worker_instance") if key in original}
+    retained = {key: original[key] for key in ("mode", "checkpoint_key", "reading_result_cache_key", "_worker_pid", "_worker_instance") if key in original}
     db.execute("UPDATE agent_runs SET request=?,snapshot='{}' WHERE run_id=?", (json.dumps(retained), run_id))
     if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='agent_team_artifacts'").fetchone():
         db.execute("DELETE FROM agent_team_artifacts WHERE run_id=?", (run_id,))

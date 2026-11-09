@@ -71,7 +71,8 @@ class _Client:
         self.responses = _Responses(client.responses)
 
     def __getattr__(self, name: str) -> Any:
-        return getattr(self.client, name)
+        attribute = getattr(self.client, name)
+        return _Client(attribute) if name in {"with_raw_response", "with_streaming_response"} else attribute
 
 
 def preserve_format_prefix(model: Any) -> Any:

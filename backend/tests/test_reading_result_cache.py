@@ -1,5 +1,6 @@
 """Cross-run source phases reuse only current, authorized, validated outputs."""
 from copy import deepcopy
+import asyncio
 import json
 
 import pytest
@@ -126,3 +127,70 @@ def test_legacy_malformed_record_does_not_break_cache_index_or_reading(runtime, 
         first = execution.run_sync(request(snapshot), snapshot=snapshot)
         cached = execution.run_sync(request(snapshot), snapshot=snapshot)
     assert first.result == cached.result and len(calls) == 1
+
+
+def test_failed_reading_phase_can_resume_with_internal_cache_metadata(runtime, monkeypatch):
+    scope, snapshot = runtime
+    calls = install_workflow(monkeypatch, ['invalid JSON', '{"answer":"resumed"}'])
+    req = request(snapshot, resume_requires_parent=False, max_model_calls=1)
+    with execution_scope(scope):
+        with pytest.raises(ValueError):
+            execution.run_sync(req, snapshot=snapshot)
+        failed = store.list_runs(scope)[0]
+        assert failed.status == "failed" and failed.resumable
+        resumed = asyncio.run(execution.resume_run(failed.run_id))
+        assert json.loads(resumed.result) == {"answer": "resumed"}
+        assert store.read(scope, failed.run_id).status == "resumed"
+    assert len(calls) == 2
+
+
+def test_changed_provider_endpoint_executes_the_new_effective_model(runtime, monkeypatch):
+    from pathlib import Path
+    from types import SimpleNamespace
+    from langchain_core.messages import AIMessage
+    from backend.domains.agent import workflow_setup
+    scope, snapshot = runtime
+    snapshot.profile.update(provider="local", model="same-label")
+    ai = {"agents": [snapshot.profile], "providers": {"local": {"base_url": "http://endpoint-a.invalid/v1"}}}
+    monkeypatch.setattr("backend.config.app_config.load_params", lambda **kwargs: SimpleNamespace(ai=ai, paths={}))
+    monkeypatch.setattr(workflow_setup, "load_registry", lambda: {})
+    routes, calls = [], []
+    def model(**kwargs):
+        routes.append(kwargs["base_url"])
+        return SimpleNamespace(base_url=kwargs["base_url"])
+    dependencies = SimpleNamespace(resolve_provider_api_key=lambda *args: "fake", get_llm=model,
+                                   provider_fallbacks=lambda *args, **kwargs: [])
+    class Application:
+        def __init__(self, endpoint): self.endpoint = endpoint
+        def compile(self): return self
+        async def astream(self, inputs, **kwargs):
+            calls.append(self.endpoint)
+            yield {"operation": {"messages": [AIMessage(content=json.dumps({"answer": self.endpoint}))]}}
+    async def workflow(*args, **kwargs):
+        profile = await workflow_setup.prepare_profile(mcp_client=None, agent_id=snapshot.agent_id,
+            active_skill_ids=snapshot.skill_ids, vault_path=Path(scope.vault_path), prepared_ai_cfg=kwargs["prepared_ai_cfg"],
+            prepared_agent_data=kwargs["prepared_agent_data"], runtime_capabilities=kwargs["runtime_capabilities"], dependencies=dependencies)
+        selected, _ = workflow_setup.resolve_model(profile, llm_mode="agent_default", llm_provider=None,
+            llm_model=None, user_message=kwargs["user_message"], timeout=kwargs["timeout"], dependencies=dependencies)
+        return Application(selected.llm.base_url), {"provider": selected.provider_name, "model": selected.model_name}
+    monkeypatch.setattr("backend.agent.factory.create_agent_workflow", workflow)
+    with execution_scope(scope):
+        first = execution.run_sync(request(snapshot), snapshot=execution.create_job_run(snapshot, "route-a", "knowledge.process-source"))
+        ai["providers"]["local"]["base_url"] = "http://endpoint-b.invalid/v1"
+        second = execution.run_sync(request(snapshot), snapshot=execution.create_job_run(snapshot, "route-b", "knowledge.process-source"))
+    assert routes == calls == ["http://endpoint-a.invalid/v1", "http://endpoint-b.invalid/v1"]
+    assert json.loads(first.result)["answer"] != json.loads(second.result)["answer"]
+
+
+def test_trace_input_retention_keeps_only_opaque_result_identity_for_reuse(runtime, monkeypatch):
+    from backend.services.agent_execution_trace import _discard_finished_input
+    scope, snapshot = runtime
+    calls = install_workflow(monkeypatch, ['{"answer":"same validated content"}'])
+    with execution_scope(scope):
+        first = execution.run_sync(request(snapshot), snapshot=snapshot)
+        with store.connect() as db:
+            _discard_finished_input(db, first.run_id, first.model_dump())
+            kept = json.loads(db.execute("SELECT request FROM agent_runs WHERE run_id=?", (first.run_id,)).fetchone()[0])
+        assert "input" not in kept and "reading_result_cache_key" in kept
+        second = execution.run_sync(request(snapshot), snapshot=snapshot)
+    assert first.result == second.result and len(calls) == 1

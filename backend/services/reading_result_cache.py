@@ -12,13 +12,13 @@ from backend.services.agent_execution_models import AgentExecutionSnapshot, Agen
 CACHE_VERSION = 1
 
 
-def result_key(request: AgentOperation, snapshot: AgentExecutionSnapshot) -> str:
+def result_key(request: AgentOperation, snapshot: AgentExecutionSnapshot, providers: object = None) -> str:
     if request.operation != "knowledge.process-source.phase" or request.tool_mode != "none":
         return ""
     material = request.model_dump(exclude={"parent_run_id", "origin", "timeout_seconds", "resume_requires_parent"})
     material["options"].pop("reading_result_cache", None)
     frozen = snapshot.model_dump(exclude={"scope", "parent_run_id", "origin"})
-    identity = [CACHE_VERSION, snapshot.scope.model_dump(), frozen, material]
+    identity = [CACHE_VERSION, snapshot.scope.model_dump(), frozen, providers or {}, material]
     return hashlib.sha256(json.dumps(identity, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 

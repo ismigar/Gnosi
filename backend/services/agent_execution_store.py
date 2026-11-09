@@ -242,6 +242,7 @@ def resume_data(scope: ExecutionScope, run_id: str) -> tuple[dict[str, Any], dic
         request.pop("_worker_instance", None)
         request.pop("_worker_pid", None)
         request.pop("checkpoint_key", None)
+        request.pop("reading_result_cache_key", None)
         return request, _saved_snapshot(db, row)
 
 

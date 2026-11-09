@@ -456,7 +456,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                    origin=request.origin, status="running", created_at=time.time(), updated_at=time.time(),
                    execution_revision=snapshot.revision)
     from backend.services.reading_result_cache import result_key, reuse as reading_cached_result
-    reading_cache_key = "" if private_result else result_key(request, snapshot)
+    reading_cache_key = "" if private_result else result_key(request, snapshot, ai.get("providers"))
     team_enabled = (request.operation != "knowledge.process-source.phase"
                     and bool(snapshot.profile.get("team", {}).get("enabled")))
     # Internal quality phases run from in-memory frozen inputs. Never write
@@ -655,7 +655,8 @@ async def resume_run(run_id: str) -> AgentRun:
             store.update(scope, run_id, status="failed", error=str(error))
             raise
         return store.read(scope, run_id)
-    request = AgentOperation.model_validate({key: value for key, value in request_data.items() if key not in {"max_calls", "checkpoint_key"}})
+    request = AgentOperation.model_validate({key: value for key, value in request_data.items()
+        if key not in {"max_calls", "checkpoint_key", "reading_result_cache_key"}})
     snapshot = AgentExecutionSnapshot.model_validate(snapshot_data)
     if snapshot.scope != scope:
         raise PermissionError("agent_execution_scope_changed")

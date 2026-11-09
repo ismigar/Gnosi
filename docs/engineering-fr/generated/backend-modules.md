@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 283 | 54948 |
+| `services` | 283 | 54951 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1110 modules** and **209160 source lines**.
+Total: **1110 modules** and **209163 source lines**.
 
 ## agent
 
@@ -941,10 +941,10 @@ Total: **1110 modules** and **209160 source lines**.
 | [`backend/services/agent_diagnostics.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_diagnostics.py) | 46 | 0 | 1 | 0 | 0 | Explicit model diagnostics using the common transport and usage ledger. |
 | [`backend/services/agent_document_work.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_document_work.py) | 189 | 0 | 7 | 0 | 3 | Shared, replayable read-only action loop for complete source synthesis. |
 | [`backend/services/agent_evidence_security.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_evidence_security.py) | 58 | 0 | 2 | 0 | 1 | Bounded semantic taint analysis for untrusted agent evidence. |
-| [`backend/services/agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution.py) | 683 | 0 | 24 | 5 | 8 | One principal-agent executor for application operations and graph streams. |
+| [`backend/services/agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution.py) | 684 | 0 | 24 | 5 | 8 | One principal-agent executor for application operations and graph streams. |
 | [`backend/services/agent_execution_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_models.py) | 77 | 4 | 0 | 0 | 0 | Transport-independent contracts for principal-agent operations. |
 | [`backend/services/agent_execution_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_scope.py) | 137 | 0 | 8 | 1 | 3 | Bind authenticated application scope before crossing threads or transports. |
-| [`backend/services/agent_execution_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_store.py) | 373 | 0 | 21 | 0 | 9 | Private, scope-bound execution records shared by every application entrypoint. |
+| [`backend/services/agent_execution_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_store.py) | 374 | 0 | 21 | 0 | 9 | Private, scope-bound execution records shared by every application entrypoint. |
 | [`backend/services/agent_execution_trace.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_trace.py) | 202 | 0 | 13 | 0 | 1 | Scoped immutable execution events; source documents and checkpoints live elsewhere. |
 | [`backend/services/agent_gauntlet.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_gauntlet.py) | 237 | 0 | 10 | 4 | 1 | Automatic evidence-based review without repeating an action graph. |
 | [`backend/services/agent_gauntlet_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_gauntlet_models.py) | 75 | 3 | 1 | 0 | 1 | Fixed acceptance criteria and evidence-backed automatic quality reviews. |
@@ -1163,7 +1163,7 @@ Total: **1110 modules** and **209160 source lines**.
 | [`backend/services/public_workflow_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/public_workflow_scope.py) | 109 | 0 | 5 | 0 | 3 | Resolve public workflows against their stored owner and vault, never headers. |
 | [`backend/services/reader_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reader_analysis.py) | 125 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical Reader analysis domain. |
 | [`backend/services/reading_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_budget.py) | 164 | 1 | 11 | 0 | 3 | Durable per-book reservations: a retry or resumed worker cannot reset spending. |
-| [`backend/services/reading_cache_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_cache_transport.py) | 87 | 2 | 3 | 0 | 3 | Keep variable reading schemas after the reusable native Responses prefix. |
+| [`backend/services/reading_cache_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_cache_transport.py) | 88 | 2 | 3 | 0 | 3 | Keep variable reading schemas after the reusable native Responses prefix. |
 | [`backend/services/reading_estimate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_estimate.py) | 139 | 0 | 2 | 0 | 0 | Read-only source preflight; includes repeated context, output and repair allowance. |
 | [`backend/services/reading_performance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_performance.py) | 79 | 0 | 5 | 0 | 1 | Lossless shared-prefix caching for direct Sol source-reading operations. |
 | [`backend/services/reading_result_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_result_cache.py) | 63 | 0 | 3 | 0 | 1 | Reuse validated, immutable reading phases within their authenticated scope. |

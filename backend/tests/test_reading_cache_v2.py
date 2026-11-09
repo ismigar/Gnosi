@@ -1,7 +1,9 @@
 """Lossless draft references and native schemas behind a stable cache prefix."""
 from copy import deepcopy
+import asyncio
 import json
 
+import httpx
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 import pytest
@@ -88,3 +90,41 @@ def test_native_contract_deduplication_preserves_all_original_values_and_strict_
     assert json.loads(outgoing.pop("input")) == json.loads(expected.pop("input")) == original
     assert outgoing == expected
     assert after["input"][2]["content"][0] == before["input"][1]["content"][0]
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("surface", ["ordinary", "resource_raw", "root_raw", "root_streaming"])
+def test_actual_sdk_raw_hierarchies_keep_the_exact_format_update(asynchronous, surface):
+    from openai import OpenAI, AsyncOpenAI
+    from backend.services.reading_cache_transport import _Client
+    sent = []
+    def respond(request):
+        sent.append(json.loads(request.content))
+        return httpx.Response(200, json={"id": "resp-synthetic", "object": "response", "created_at": 1,
+                                       "status": "completed", "model": MODEL, "output": []})
+    params = {"model": MODEL, "service_tier": "flex", "input": [{"role": "system", "content": "Complete instruction."},
+        {"role": "user", "content": "Complete source."}], "text": {"format": {"type": "json_schema", "name": "reading",
+        "strict": True, "schema": {"type": "object", "properties": {"answer": {"type": "string"}},
+                                    "required": ["answer"], "additionalProperties": False}}}}
+    def resource(client):
+        wrapped = _Client(client)
+        return {"ordinary": lambda: wrapped.responses, "resource_raw": lambda: wrapped.responses.with_raw_response,
+                "root_raw": lambda: wrapped.with_raw_response.responses,
+                "root_streaming": lambda: wrapped.with_streaming_response.responses}[surface]()
+    async def run_async():
+        async with AsyncOpenAI(api_key="fake", http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)), max_retries=0) as client:
+            if surface == "root_streaming":
+                async with resource(client).create(**params) as response: await response.parse()
+            else:
+                await resource(client).create(**params)
+    if asynchronous:
+        asyncio.run(run_async())
+    else:
+        with OpenAI(api_key="fake", http_client=httpx.Client(transport=httpx.MockTransport(respond)), max_retries=0) as client:
+            if surface == "root_streaming":
+                with resource(client).create(**params) as response: response.parse()
+            else:
+                resource(client).create(**params)
+    assert len(sent) == 1
+    assert sent[0]["text"]["format"] == {"type": "text"}
+    assert sent[0]["input"][1]["text"]["format"] == params["text"]["format"]
