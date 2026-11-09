@@ -50,6 +50,8 @@ En el menú **⋯** de una nota, elige **Combina y extrae notas**. Selecciona la
 
 En **Marcadores** de la barra lateral, guarda notas, secciones, búsquedas, vistas del grafo o enlaces web y asígnales un grupo. La estrella de una nota la añade o elimina de esta misma lista. Los antiguos favoritos y los marcadores de este dispositivo se importan automáticamente, conservando nombres propios y grupos. Los marcadores pertenecen a la cuenta, espacio de trabajo y Vault seleccionados. Se sincronizan mediante el mismo servidor Gnosi o cuando la carpeta del mismo Vault se sincroniza entre dispositivos. Los cambios se actualizan periódicamente y al volver a la aplicación; pulsa Actualizar para comprobarlos inmediatamente. Si la sincronización falla, se conservan los elementos guardados y los cambios en edición para poder reintentar.
 
+El botón **+** de Marcadores abre un diálogo para buscar notas o elegir **Panel** y encontrar un panel por su nombre. Puedes usar la nota o el panel abierto, elegir encabezados y pasajes, seleccionar grupos existentes o crear uno. **Guardar vista actual**, en el menú de marcadores, captura la vista abierta; también puedes elegir vistas de Gnosi por su nombre. La búsqueda de marcadores filtra por nombre o grupo y los grupos se pueden plegar.
+
 Usa **Guardar la vista actual** para añadir una tabla, una vista guardada, un dibujo u otra vista estable de Gnosi. Las direcciones se guardan en relación con el Vault para que cada dispositivo pueda usar su propia dirección local. Los tableros, registros y plantillas usan el mismo tipo de marcador de página; el catálogo de Tableros sigue disponible.
 
 ## Resultado esperado {#expected-result}

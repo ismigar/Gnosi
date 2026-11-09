@@ -1,4 +1,5 @@
 import { isAppContent, isCalendarPage } from '../../../shared/records/model/schemaUtils';
+import { isDashboardPage } from '../../../shared/records/model/pageKind';
 
 interface SidebarMetadata {
     database_table_id?: string | null;
@@ -37,10 +38,6 @@ interface VaultSidebarTrees<Page extends SidebarPage> {
     rootPages: Page[];
 }
 
-function stringifySidebarValue(value: unknown): string {
-    return Reflect.apply(String, undefined, [value]);
-}
-
 /**
  * Builds the page trees used by the Vault sidebar.
  *
@@ -68,16 +65,6 @@ export const buildVaultSidebarTrees = <Page extends SidebarPage>(
 
     const pagesById: Record<string, Page> = {};
     pages.forEach((page) => { pagesById[page.id] = page; });
-
-    const isDashboardPage = (page: Page | undefined): boolean => {
-        if (!page) return false;
-        const folder = stringifySidebarValue(page.folder || '');
-        return page.metadata?.is_dashboard === true
-            || folder === 'Dashboard'
-            || folder.startsWith('Dashboard/')
-            || folder === '.Dashboards'
-            || folder.startsWith('.Dashboards/');
-    };
 
     const ownTableId = (page: Page): string | null | undefined =>
         page.resolved_table_id || page.metadata?.table_id || page.metadata?.database_table_id;

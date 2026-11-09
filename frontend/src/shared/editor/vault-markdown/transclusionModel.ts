@@ -89,6 +89,29 @@ function headingAt(lines: readonly string[], protectedCode: readonly boolean[], 
     return setext ? { level: setext[1]?.[0] === '=' ? 1 : 2, title: headingTitle(line), end: index + 1 } : null;
 }
 
+/** Offer only references understood by the same parser used to open them. */
+export function listSectionReferences(markdown: string): { target: string; label: string }[] {
+    const lines = markdown.replace(/\r\n?/gu, '\n').split('\n');
+    const code = protectedLines(lines);
+    const references = new Map<string, { target: string; label: string }>();
+    for (let index = 0; index < lines.length; index += 1) {
+        const heading = headingAt(lines, code, index);
+        if (heading?.title && !['[', ']', '|'].some(character => heading.title.includes(character))) {
+            const raw = (lines[index] ?? '').replace(/^ {0,3}#{1,6}[ \t]+/u, '').replace(/[ \t]+#+[ \t]*$/u, '');
+            const label = raw.replace(/\[([^\]]+)\]\([^)]*\)/gu, '$1').replace(/[*_`~]/gu, '').trim();
+            references.set(heading.title, { target: heading.title, label });
+        }
+        if (code[index]) continue;
+        const block = /(?:^|[ \t])\^([\w-]+)[ \t]*$/u.exec(lines[index] ?? '');
+        if (block?.[1]) {
+            const target = `^${block[1]}`;
+            const text = (lines[index] ?? '').replace(/[ \t]*\^[\w-]+[ \t]*$/u, '').trim() || (lines[index - 1] ?? '').trim();
+            references.set(target, { target, label: text || target });
+        }
+    }
+    return [...references.values()];
+}
+
 function blockStart(lines: readonly string[], protectedCode: readonly boolean[], end: number, standalone = false): number {
     let start = end;
     // A marker on its own line can identify a complete fenced code block.
