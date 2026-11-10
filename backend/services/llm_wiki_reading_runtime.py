@@ -43,6 +43,14 @@ class ReadingRuntime:
     instructions: str
     input_budget: int
     snapshot: AgentExecutionSnapshot
+    cost_optimization: bool = True
+    reuse_results: bool = True
+
+    @property
+    def performance_options(self) -> dict[str, object]:
+        from backend.services.reading_performance import eligible
+        return {"reading_result_cache": self.reuse_results,
+                **({"reading_performance": self.cost_optimization} if eligible(self.provider, self.model) else {})}
 
     def count_tokens(self, text: str, *, output_schema: dict[str, object] | None = None) -> int:
         from backend.services.agent_context_budget import count_tokens
@@ -75,6 +83,7 @@ class ReadingRuntime:
             self.model,
             self.instructions,
             self.input_budget,
+            self.snapshot.model_dump(exclude={"parent_run_id", "origin"}),
         ]
         return hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode()).hexdigest()
 
@@ -103,7 +112,7 @@ class ReadingRuntime:
             raise RuntimeError("The reading input exceeds the selected model's context budget")
         result = run_sync(AgentOperation(
             skill_id=SKILL_ID, operation="knowledge.process-source.phase",
-            input=prompt, timeout_seconds=timeout, origin="worker",
+            input=prompt, timeout_seconds=timeout, origin="worker", options=self.performance_options,
         ), snapshot=self.snapshot)
         return result.result, result.model
 
@@ -143,8 +152,11 @@ class ReadingRuntime:
             return self._repair_structured(prompt, envelope, selection, validate, text, error)
         import jsonschema
         try:
+            review_options = ({"reading_review_notes": len(envelope.get("notes", []))}
+                if selection and selection.phase == "verify" and isinstance(envelope, dict) else {})
             result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
                 input=operation_prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
+                options={**self.performance_options, **review_options},
                 # Literal choices apply even when the second call repairs syntax.
                 # Keep corrections inside the same call allowance and deadline.
                 output_schema=schema, max_model_calls=2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3), snapshot=self.snapshot, output_validator=checked, output_repair=repair)
@@ -209,7 +221,7 @@ class ReadingRuntime:
         bounded = isinstance(envelope, dict) and envelope.get("map_contract") == "bounded-reduction-v1"
         result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
             input=prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
-            options={"reading_prose": True}, max_model_calls=1 if bounded else 2),
+            options={"reading_prose": True, **self.performance_options}, max_model_calls=1 if bounded else 2),
             snapshot=self.snapshot, output_validator=validate)
         return result.result, result.model
 

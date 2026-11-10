@@ -223,6 +223,9 @@ def _activate_release(store: SiteStore, job: SiteJob, site: SiteConfig, target: 
     worker_state = service_root(store, site.id, target.id) / "worker-start.json"
     if worker_state.is_file() and json.loads(worker_state.read_text()).get("error"):
         job.error = "worker_start_pending"
+    retention_state = service_root(store, site.id, target.id) / "release-retention.json"
+    if retention_state.is_file() and json.loads(retention_state.read_text()).get("error"):
+        job.error = "worker_and_retention_pending" if job.error == "worker_start_pending" else "release_retention_pending"
     return url
 
 

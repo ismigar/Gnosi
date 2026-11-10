@@ -23,6 +23,7 @@ from .models import ConnectionStatus, LocalServeResponse, SiteConfig, SiteTarget
 from . import local_artifacts
 from .private_service import SERVICE_ROOT, configuration
 from .ssh_namespace import program as namespace_program, worker_start_program
+from .release_retention import begin_upload_program, retention_program, record_result
 from .storage import SiteStore, private_json
 
 
@@ -293,7 +294,7 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
     ownership = json.dumps({"site_id": site.id, "scope": store.private_root.name, **({"environment": "production", "target_id": target.id} if target.environment == "production" else {})}, sort_keys=True)
     namespace = namespace_program(root, private_root, ownership, settings.document_root, production=target.environment == "production")
     identity = '$id=' + json.dumps(release_id) + ';gnosi_id($id);'
-    setup = namespace + identity + 'gnosi_namespace(true);gnosi_current();$destination=$r."/releases/".$id;if(gnosi_exists($destination)){throw new Exception("Immutable release exists");}gnosi_directory($destination,true);gnosi_write($p,".htaccess","Require all denied\\n");'
+    setup = namespace + identity + 'gnosi_namespace(true);$lock=gnosi_lock();gnosi_current();$destination=$r."/releases/".$id;if(gnosi_exists($destination)){throw new Exception("Immutable release exists");}' + begin_upload_program() + 'gnosi_directory($destination,true);gnosi_write($p,".htaccess","Require all denied\\n");'
     _ssh(settings, "php -r " + shlex.quote(setup))
     def write_file(relative: str, data: bytes, *, private: bool = False) -> None:
         base = "$p" if private else "gnosi_release($id)"
@@ -327,10 +328,10 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
     verify = namespace + identity + 'gnosi_namespace();gnosi_verify($id,json_decode(file_get_contents("php://stdin"),true,64,JSON_THROW_ON_ERROR));'
     _ssh(settings, "php -r " + shlex.quote(verify), json.dumps(manifest).encode())
     write_file("manifests/" + release_id + ".json", json.dumps(manifest).encode(), private=True)
-    activate = activation_program(root, private_root, release_id, parent_id, verify_manifest=True, ownership=ownership, document_root=settings.document_root, production=target.environment == "production")
+    activate = activation_program(root, private_root, release_id, parent_id, verify_manifest=True, ownership=ownership, document_root=settings.document_root, production=target.environment == "production", retain=True)
     if activation_guard is not None:
         activation_guard()
-    _ssh(settings, "php -r " + shlex.quote(activate))
+    record_result(store, site, target, _ssh(settings, "php -r " + shlex.quote(activate)))
     if (SERVICE_ROOT / "daemon.php").is_file():
         try:
             start_remote_worker(store, site, target)
@@ -356,14 +357,17 @@ def start_remote_worker(store: SiteStore, site: SiteConfig, target: SiteTarget) 
     private_json(service_root(store, site.id, target.id) / "worker-start.json", {"error": None})
 
 
-def activation_program(root: str, private_root: str, release_id: str, parent_id: str | None, *, verify_manifest: bool = False, ownership: str | None = None, document_root: str = "", production: bool = False) -> str:
+def activation_program(root: str, private_root: str, release_id: str, parent_id: str | None, *, verify_manifest: bool = False, ownership: str | None = None, document_root: str = "", production: bool = False, retain: bool = False) -> str:
     code = namespace_program(root, private_root, ownership, document_root, production=production) + '$id=' + json.dumps(release_id) + ';gnosi_namespace();gnosi_release($id);$l=gnosi_lock();$current=gnosi_current();if($current!==' + json.dumps(parent_id) + '){throw new Exception("Parent changed");}'
     if verify_manifest:
         code += 'gnosi_manifest($id);'
     code += '$expected="releases/".$id;$n=$r."/.current-pending-".$id;if(gnosi_exists($n)){if(!is_link($n)||readlink($n)!==$expected){throw new Exception("An unrelated activation pointer is pending");}}elseif(!symlink($expected,$n)){throw new Exception("Could not create the pending activation pointer");}if(!is_link($n)||readlink($n)!==$expected||realpath($n)!==gnosi_release($id)){throw new Exception("Could not verify the pending activation pointer");}gnosi_namespace();if(gnosi_current()!==$current){throw new Exception("Parent changed during activation");}'
     if verify_manifest:
         code += 'gnosi_manifest($id);'
-    code += 'if(!rename($n,$r."/current")){throw new Exception("Could not replace the activation pointer");}clearstatcache(true,$r."/current");if(gnosi_current()!==$id){throw new Exception("The activated pointer could not be verified");}echo json_encode(["release_id"=>$id]);'
+    code += 'if(!rename($n,$r."/current")){throw new Exception("Could not replace the activation pointer");}clearstatcache(true,$r."/current");if(gnosi_current()!==$id){throw new Exception("The activated pointer could not be verified");}'
+    if retain:
+        code += retention_program()
+    code += 'echo json_encode(["release_id"=>$id' + (',"retention_error"=>$retentionError' if retain else '') + ']);'
     return code
 
 

@@ -49,6 +49,7 @@ tests:
   - backend/tests/test_vault_content_search.py
   - backend/tests/test_page_save_concurrency.py
   - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
+  - frontend/src/shared/page-search/GlobalSearchModal.test.tsx
   - frontend/src/shared/api/vault-search.test.ts
   - frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx
   - backend/tests/test_vault_bookmarks.py
@@ -180,6 +181,18 @@ auditades; es rebutgen els orígens externs, el prefix d’un altre Vault, els
 caràcters de control, les barres inverses i la travessia de camins codificada.
 Això conserva els tipus de destinació sense duplicar categories com ara
 favorits, taulells i notes en el model de dreceres.
+
+La creació i l’edició de marcadors utilitzen un diàleg adaptable i accessible amb el teclat.
+El selector cerca títols entre les pàgines carregades i fa servir la cerca existent
+del Vault complet per trobar altres notes, amb una llista limitada i paginada.
+Els taulells són una opció explícita de la interfície amb pertinença canònica `page`;
+els noms i les icones provenen de l’arbre lateral. Es pot desar la nota o vista
+oberta sense escriure cap adreça, i les vistes habituals tenen opcions amb nom.
+Les seccions fan servir el mateix analitzador d’encapçalaments i blocs que les transclusions.
+Els grups existents són opcions visibles i els noms nous són opcionals; la barra lateral
+permet filtrar marcadors i plegar grups. L’entrada d’adreces i referències continua
+disponible als controls avançats opcionals. Si una modificació falla, es conserven
+el diàleg i l’esborrany; l’emmagatzematge sincronitzat i la validació de rutes no canvien.
 
 `/api/vault/bookmarks` i les seves operacions d’importació, element, pàgina,
 ordre i ordenació resolen `get_workspace_context`, amb la identitat autenticada
@@ -947,3 +960,9 @@ La traducció interna de files i pàgines crea registres derivats mitjançant el
 ## Revisions de la lectura de detalls Markdown
 
 Els detalls d’una pàgina Markdown obtenen l’ETag del mateix descriptor obert que s’utilitza per llegir el contingut, abans de resoldre el títol de manera asíncrona. Un desament atòmic o un canvi de nom entre la lectura i la resposta no pot retornar una revisió absent ni associar la revisió d’un fitxer nou a contingut antic. Es mantenen el format `<mtime_ns>-<size>` i el contracte no nul de la resposta de detalls; les revisions obsoletes continuen impedint sobreescriptures.
+
+## Presentació dels previews de cerca
+
+Els resultats de cerca retornen prosa llegible en lloc de fragments del Markdown desat. Els extracts eliminen les marques de títols, èmfasi, enllaços, taules i tasques, conserven el text visible de columnes, avisos i desplegables, i ometen els blocs de codi i la configuració JSON serialitzada. La conversió es fa abans de retallar perquè els destins llargs dels enllaços no desplacin la coincidència visible. L’avaluació de la consulta i la línia d’origen retornada continuen utilitzant el document original.
+
+El diàleg de cerca global utilitza `PanePortal` al cos del document i la capa compartida `--z-command`. Les capçaleres de les taules incrustades i els seus controls queden sota el fons enfosquit, també quan la pàgina crea un context d’apilament propi. Escape i la navegació dels resultats mantenen el comportament modal existent.

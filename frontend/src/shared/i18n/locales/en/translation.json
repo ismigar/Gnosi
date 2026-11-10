@@ -6524,6 +6524,8 @@
     "budget_available": "Available within your limit: {{amount}}. Processing pauses before a call that cannot fit and saves progress.",
     "estimate_over_budget": "The calculation exceeds your available budget. Starting may only complete part of the work; your limit is not raised automatically.",
     "estimate_calculation": "How this is calculated",
+    "processing_tier_flex": "Flex",
+    "estimate_flex": "Flex halves the base tariff and may take longer. This estimate includes cache-write overhead and assumes no cache hits. Reservations include the maximum output and cache-write cost; there is no automatic switch to Standard.",
     "estimate_tariff": "Saved tariff for {{provider}}, per million tokens: {{input}} input and {{output}} output. Other providers’ offers do not apply to this run.",
     "estimate_repairs": "Conservative scenario with up to two repairs per call and 10% margin: {{cost}}. This is not an authorized charge.",
     "budget_conversion": "Billing and the saved limit use USD (limit: {{limit}} USD). Display conversion: 1 USD = {{rate}} {{currency}}; {{source}}.",
@@ -8550,7 +8552,56 @@
     "reorder": "Reorder {{name}}",
     "route": "Gnosi view",
     "route_target": "View address",
-    "add_view": "Save current view"
+    "add_view": "Save current view",
+    "edit_title": "Edit bookmark",
+    "selected_note": "Selected note",
+    "find_note": "Find a note",
+    "find_note_placeholder": "Type a title or words from the note…",
+    "no_notes": "No notes found. Try another title.",
+    "searching": "Searching the Vault…",
+    "note_search_failed": "The full Vault search failed. Loaded notes are still available.",
+    "find_section": "Choose a heading or passage",
+    "filter_sections": "Filter headings and passages…",
+    "sections": "Headings and passages",
+    "loading_sections": "Loading headings and passages…",
+    "no_sections": "No matching headings or marked passages in this note.",
+    "sections_failed": "The note could not be loaded.",
+    "selected_section": "Selected: {{name}}",
+    "manual_reference": "Enter a reference manually",
+    "choose_view": "Choose a view below",
+    "current_view": "Current view",
+    "use_current_view": "Use the current view",
+    "use_current_note": "Use the open note",
+    "whole_graph": "Whole graph",
+    "advanced_address": "Advanced: edit address",
+    "search_example": "Words, tags or a saved search expression…",
+    "group_placeholder": "Choose below, search or create a group…",
+    "available_groups": "Available groups",
+    "no_group": "No group",
+    "group_help": "Optional. Choose an existing group or type a new name.",
+    "position": "Position in the group",
+    "filter": "Find a bookmark",
+    "no_matches": "No matching bookmarks.",
+    "add_to_group": "Add to {{group}}",
+    "destinations": {
+      "knowledge": "Knowledge",
+      "graph": "Graph",
+      "calendar": "Calendar",
+      "reader": "Reader",
+      "mail": "Mail",
+      "automations": "Automations",
+      "social": "Social media",
+      "media": "Media",
+      "contacts": "Contacts",
+      "planning": "Planning",
+      "resources": "Resources",
+      "notebooks": "Notebooks"
+    },
+    "dashboard": "Dashboard",
+    "find_dashboard": "Find a dashboard",
+    "use_current_dashboard": "Use the open dashboard",
+    "find_dashboard_placeholder": "Type a dashboard name…",
+    "no_dashboards": "No dashboards found. Try another name."
   },
   "json_canvas": {
     "import": "Import .canvas",
@@ -9111,7 +9162,8 @@
       "settings": "Mail and server data",
       "hosting": "Hosting",
       "configuration": "Configuration",
-      "regions": "Blocks & regions"
+      "regions": "Blocks & regions",
+      "statistics": "Statistics"
     },
     "tokens": {
       "primary": "Primary colour",
@@ -9294,6 +9346,8 @@
     "managedBridgeHelp": "This destination uses the Pangea / Suweb bridge from the imported pilot. The bridge manages its connection and remote directories. You can test its connection here.",
     "jobErrors": {
       "worker_start_pending": "The website release is already active, but the private service worker has not started yet. Test the destination connection, then review and publish again to retry starting it.",
+      "release_retention_pending": "The website is published, but some older versions could not be removed. Review the hosting destination; cleanup will be retried on the next publication.",
+      "worker_and_retention_pending": "The website is published, but the private service worker could not start and some older versions could not be removed. Review the hosting destination; both operations will be retried on the next publication.",
       "publication_failed_review_status": "Publication could not be completed. Check the destination status and review the changes again before publishing."
     },
     "withdrawTranslation": "Withdraw {{language}} version",
@@ -9525,6 +9579,27 @@
         "footer": "Footer",
         "buttons": "Primary buttons"
       }
+    },
+    "statistics": {
+      "source": "Webalizer URL",
+      "sourceHelp": "Leave blank to use /webalizer/ on the website domain. Saved automatically.",
+      "loading": "Loading statistics…",
+      "error": "Statistics could not be read. Check the public Webalizer URL and try again.",
+      "empty": "No data yet.",
+      "traffic": "Website traffic",
+      "month": "Month",
+      "visits": "Visits",
+      "pages": "Pages",
+      "hits": "Hits",
+      "clients": "Clients",
+      "transfer": "Data transferred",
+      "evolution": "Visits over time",
+      "history": "Monthly history",
+      "generated": "Source updated",
+      "fetched": "Retrieved",
+      "unknown": "Unavailable",
+      "caveat": "The current month is partial. Clients are server-identified addresses, not unique people. Data may include bots.",
+      "openSource": "Open Webalizer"
     }
   }
 }

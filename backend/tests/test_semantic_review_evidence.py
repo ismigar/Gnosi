@@ -62,19 +62,24 @@ def test_distant_refutation_uses_complete_original_and_survives_restart(monkeypa
     assert checkpoints['new', 'semantic-state']['review_sources']
 
 
-def test_pending_cost_after_request_replays_request_without_paying_it_again(monkeypatch):
+@pytest.mark.parametrize('reason', ['reading_budget_pending_cost', 'reading_budget_exhausted'])
+def test_pending_cost_after_request_replays_request_without_paying_it_again(monkeypatch, reason):
     engine, gm, nm, calls, checkpoints = retrieval_case(monkeypatch)
+    review_attempts = []
     def generate(prompt, validate, timeout):
         request = json.loads(prompt)
+        review_attempts.append(request)
         if request.get('provisional_review'):
-            raise RuntimeError('reading_budget_pending_cost')
+            raise RuntimeError(reason)
         answer = reviewing(request)
         validate(answer)
         return encoded(answer), 'offline'
     engine.deps.generate_structured = generate
-    with pytest.raises(RuntimeError, match='reading_budget_pending_cost'):
+    with pytest.raises(RuntimeError, match=reason):
         engine.review(gm, nm)
     assert len(engine.state['reviewed_groups']) == 1  # the independent sibling survives
+    assert sum(bool(r.get('provisional_review')) for r in review_attempts) == 1
+    assert all(len(r['notes']) == 2 for r in review_attempts)
     reader, resumed_calls, _ = setup(checkpoints=checkpoints, resume='new', generate=reviewing)
     reader.chunks = engine.reader.chunks
     reader.job_id = 'resumed'
@@ -84,6 +89,44 @@ def test_pending_cost_after_request_replays_request_without_paying_it_again(monk
     first_calls = [c for c in resumed_calls if 'Argument 0:' in c['notes'][0]['note']['title']]
     assert len(first_calls) == 1 and first_calls[0]['provisional_review']
     assert any(job == 'resumed' and key.endswith('evidence-0') for job, key in checkpoints)
+
+
+@pytest.mark.parametrize('reason', ['reading_budget_pending_cost', 'reading_budget_exhausted'])
+@pytest.mark.parametrize('ambiguous_offset', [0, 4])
+def test_mixed_cost_failure_preserves_group_key_and_paid_evidence_on_resume(monkeypatch, reason, ambiguous_offset):
+    from backend.services.reading_budget import ReadingBudgetError
+    engine, gm, nm, _, checkpoints = retrieval_case(monkeypatch)
+    engine.state['review_size_limit'] = 4
+    original = deepcopy(engine.state['plans'])
+    title = f'Argument {ambiguous_offset}:'
+    attempts = []
+    def generate(prompt, validate, timeout):
+        request = json.loads(prompt)
+        attempts.append(request)
+        if title not in request['notes'][0]['note']['title']:
+            raise ReadingBudgetError('reading_budget_pending_cost')
+        if request.get('provisional_review'):
+            raise RuntimeError(reason)
+        answer = response(request)
+        answer.update(evidence_requests=[request_evidence('', [8])], unresolved_issues=['Need the ending.'])
+        validate(answer)
+        return encoded(answer), 'offline'
+    engine.deps.generate_structured = generate
+    with pytest.raises(RuntimeError, match=reason) as failure:
+        engine.review(gm, nm)
+    assert not isinstance(failure.value, ReadingBudgetError)
+    assert engine.state['review_size_limit'] == 4
+    assert engine.state['plans'] == original and not engine.state['reviewed_groups']
+    assert sum(bool(r.get('provisional_review')) for r in attempts) == 1
+    reader, resumed_calls, _ = setup(checkpoints=checkpoints, resume='new')
+    reader.chunks = engine.reader.chunks
+    reader.job_id = 'mixed-resumed'
+    engine.reader = reader
+    engine.deps = reader.dependencies
+    assert len(engine.review(gm, nm)) == 8
+    ambiguous = [c for c in resumed_calls if title in c['notes'][0]['note']['title']]
+    assert len(ambiguous) == 1 and ambiguous[0]['provisional_review']
+    assert engine.state['reviewed_ranges'] == {'0': 4, '4': 4}
 
 
 @pytest.mark.parametrize('final_defect', [False, True])

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Star, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { PanePortal } from '../ui/PanePortal';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import { subscribeWindowEvent } from '../platform/browser-events';
 import {
@@ -298,7 +299,7 @@ function OpenGlobalSearchModal({
   const isSaved = saved.some((entry) => entry.query === query.trim());
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-start justify-center pt-[15vh] px-4 sm:p-0">
+    <div className="fixed inset-0 z-[var(--z-command)] flex items-start justify-center pt-[15vh] px-4 sm:p-0">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" />
       <div
         ref={panelRef}
@@ -454,13 +455,15 @@ export function GlobalSearchModal({
 }: GlobalSearchModalProps): React.JSX.Element | null {
   if (!isOpen) return null;
   return (
-    <OpenGlobalSearchModal
-      aliasesById={aliasesById}
-      allNotes={allNotes}
-      globalIndex={globalIndex}
-      onClose={onClose}
-      onNoteSelect={onNoteSelect}
-      tables={tables}
-    />
+    <PanePortal container={document.body}>
+      <OpenGlobalSearchModal
+        aliasesById={aliasesById}
+        allNotes={allNotes}
+        globalIndex={globalIndex}
+        onClose={onClose}
+        onNoteSelect={onNoteSelect}
+        tables={tables}
+      />
+    </PanePortal>
   );
 }

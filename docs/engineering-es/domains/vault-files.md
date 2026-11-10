@@ -49,6 +49,7 @@ tests:
   - backend/tests/test_vault_content_search.py
   - backend/tests/test_page_save_concurrency.py
   - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
+  - frontend/src/shared/page-search/GlobalSearchModal.test.tsx
   - frontend/src/shared/api/vault-search.test.ts
   - frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx
   - backend/tests/test_vault_bookmarks.py
@@ -180,6 +181,19 @@ doce raíces de aplicación auditadas; se rechazan los orígenes externos, el
 prefijo de otro Vault, los caracteres de control, las barras inversas y la
 travesía de rutas codificada. Esto conserva los tipos de destino sin duplicar
 categorías como favoritos, paneles y notas en el modelo de accesos directos.
+
+La creación y edición de marcadores utilizan un diálogo adaptable y accesible con teclado.
+El selector busca títulos entre las páginas cargadas y emplea la búsqueda existente
+del Vault completo para otras notas, con una lista limitada y paginada.
+Los paneles son una opción explícita de la interfaz con pertenencia canónica `page`;
+sus nombres e iconos proceden del árbol lateral. Se puede guardar la nota o vista
+abierta sin escribir una dirección, y las vistas habituales tienen opciones con nombre.
+Las secciones usan el mismo analizador de encabezados y bloques que las transclusiones.
+Los grupos existentes son opciones visibles y los nombres nuevos son opcionales;
+la barra lateral permite filtrar marcadores y plegar grupos. La entrada de direcciones
+y referencias sigue disponible en los controles avanzados opcionales. Si una modificación
+falla, se conservan el diálogo y el borrador; no cambian el almacenamiento sincronizado
+ni la validación de rutas.
 
 `/api/vault/bookmarks` y sus operaciones de importación, elemento, página,
 orden y ordenación resuelven `get_workspace_context`, usando la identidad
@@ -954,3 +968,9 @@ La traducción interna de filas y páginas crea registros derivados mediante el 
 ## Revisiones de la lectura de detalles Markdown
 
 Los detalles de una página Markdown obtienen el ETag del mismo descriptor abierto que se utiliza para leer el contenido, antes de resolver el título de forma asíncrona. Un guardado atómico o un cambio de nombre entre la lectura y la respuesta no puede devolver una revisión ausente ni asociar la revisión de un archivo nuevo a contenido antiguo. Se mantienen el formato `<mtime_ns>-<size>` y el contrato no nulo de la respuesta de detalles; las revisiones obsoletas siguen impidiendo sobrescrituras.
+
+## Presentación de los previews de búsqueda
+
+Los resultados de búsqueda devuelven prosa legible en lugar de fragmentos del Markdown guardado. Los extractos eliminan las marcas de encabezados, énfasis, enlaces, tablas y tareas, conservan el texto visible de columnas, avisos y desplegables, y omiten los bloques de código y la configuración JSON serializada. La conversión se realiza antes de recortar para que los destinos largos de los enlaces no desplacen la coincidencia visible. La evaluación de la consulta y la línea de origen devuelta siguen utilizando el documento original.
+
+El diálogo de búsqueda global utiliza `PanePortal` en el cuerpo del documento y la capa compartida `--z-command`. Las cabeceras de las tablas incrustadas y sus controles quedan bajo el fondo oscurecido, incluso cuando la página crea su propio contexto de apilamiento. Escape y la navegación de los resultados conservan el comportamiento modal existente.

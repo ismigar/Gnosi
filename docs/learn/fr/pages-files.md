@@ -50,6 +50,8 @@ Dans le menu **⋯** d’une note, choisissez **Combiner et extraire des notes**
 
 Dans les **Signets** de la barre latérale, enregistrez notes, sections, recherches, vues du graphe ou liens web et attribuez-leur un groupe. L’étoile d’une note ajoute ou retire cette note de la même liste. Les anciens favoris et les signets de cet appareil sont importés automatiquement en conservant leurs noms et groupes. Les signets appartiennent au compte, à l’espace de travail et au Vault sélectionnés. Ils se synchronisent via le même serveur Gnosi ou lorsque le dossier du même Vault est synchronisé entre appareils. Les changements sont actualisés périodiquement et à votre retour dans l’application ; utilisez Actualiser pour vérifier immédiatement. En cas d’échec, les éléments enregistrés et les modifications en cours sont conservés pour réessayer.
 
+Le bouton **+** des Signets ouvre une boîte de dialogue pour rechercher des notes ou choisir **Tableau de bord** et trouver un tableau par son nom. Vous pouvez utiliser la note ou le tableau ouvert, choisir des titres et passages, sélectionner un groupe existant ou en créer un. **Enregistrer la vue actuelle**, dans le menu des signets, capture la vue ouverte ; les vues de Gnosi peuvent aussi être choisies par leur nom. La recherche des signets filtre par nom ou groupe et les groupes peuvent être repliés.
+
 Utilisez **Enregistrer la vue actuelle** pour ajouter un tableau, une vue enregistrée, un dessin ou une autre vue stable de Gnosi. Les adresses sont enregistrées par rapport au Vault pour que chaque appareil utilise son adresse locale. Les tableaux de bord, fiches et modèles utilisent le même type de signet de page ; le catalogue des tableaux de bord reste accessible.
 
 ## Résultat attendu {#expected-result}

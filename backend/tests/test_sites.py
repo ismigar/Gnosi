@@ -777,6 +777,42 @@ def test_failed_worker_start_preserves_activated_website_and_visible_pending_job
     assert foreign.read_text() == "Unrelated log must survive"
 
 
+@pytest.mark.parametrize("worker_failed", [False, True])
+def test_completed_publication_surfaces_retention_warning(website, tmp_path, monkeypatch, worker_failed):
+    from backend.domains.sites.models import SiteTarget
+    from backend.domains.sites.private_service import service_root
+    from backend.domains.sites.storage import private_json
+    site = website.site.model_copy(deep=True)
+    target = SiteTarget(id="remote", adapter="ssh", environment="staging", enabled=True,
+                        base_url="https://example.invalid/current")
+    site.targets.append(target)
+    site = website.store.save(site)
+
+    def upload(*args, **kwargs):
+        private_json(service_root(website.store, site.id, target.id) / "release-retention.json",
+                     {"error": "release_retention_pending"})
+        private_json(service_root(website.store, site.id, target.id) / "worker-start.json",
+                     {"error": "worker_start_pending" if worker_failed else None})
+        return target.base_url
+
+    def render(bundle, output):
+        output.mkdir(parents=True, exist_ok=True)
+        (output / "index.html").write_text("Reviewed synthetic website")
+
+    monkeypatch.setattr(runtime, "upload_release", upload)
+    monkeypatch.setattr(runtime, "render_bundle", render)
+    monkeypatch.setattr(runtime, "start_server", lambda *args, **kwargs: "http://127.0.0.1:4322")
+    monkeypatch.setattr(publication, "dispatch", lambda *args: None)
+    monkeypatch.setattr(publication, "plugins_enabled_now", lambda *args, **kwargs: True)
+    monkeypatch.setattr("backend.domains.sites.private_service.invoke", lambda *args, **kwargs: {})
+    preview = publication.preview(website.store, site, target.id)
+    job = publication.enqueue(website.store, site, SitePublishRequest(preview_id=preview.id))
+    publication._run(website.store, job)
+    assert job.status == "completed"
+    assert job.error == ("worker_and_retention_pending" if worker_failed else "release_retention_pending")
+    assert website.store.active_bundle(site.id, target.id) is not None
+
+
 def test_revision_compare_and_swap_prevents_lost_edits(website):
     first = website.site.model_copy(deep=True)
     other = website.site.model_copy(deep=True)
@@ -1127,6 +1163,12 @@ def test_generated_ssh_upload_program_verifies_and_activates_without_network(web
     service_status = runtime.remote_service(website.store, site, target.id, "status", {})
     assert service_status["test_mode"] is True
     assert service_status["messages"]["new"] == 0
+
+    runtime.upload_release(website.store, site, target, "release-two", output, "release-one")
+    runtime.upload_release(website.store, site, target, "release-three", output, "release-two")
+    assert {path.name for path in (remote / "releases").iterdir()} == {"release-two", "release-three"}
+    runtime.restore_remote_release(website.store, site, target, "release-two", "release-three")
+    assert (remote / "current").resolve() == remote / "releases" / "release-two"
 
 
 def test_font_preview_only_reads_selected_local_fonts_and_rejects_escapes(website, tmp_path):

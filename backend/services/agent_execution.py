@@ -373,6 +373,15 @@ async def _operation_response(application: Any, inputs: dict[str, Any], request:
                     if request.operation == "knowledge.process-source.phase" and request.options.get("reading_prose"):
                         from backend.domains.llm_wiki.semantic_map_windows import ensure_complete
                         ensure_complete(text, getattr(message, "response_metadata", {}) or {})
+                    elif request.operation == "knowledge.process-source.phase" and request.options.get("reading_review_notes"):
+                        from backend.domains.llm_wiki.semantic_map_windows import ensure_complete, MapOutputLimit
+                        from backend.domains.llm_wiki.reading_batch_recovery import IncompleteReadingBatch
+                        try:
+                            ensure_complete(text, getattr(message, "response_metadata", {}) or {})
+                        except MapOutputLimit as error:
+                            # Even valid JSON can be an incomplete review. The
+                            # reader must split unsaved work, never accept it.
+                            raise IncompleteReadingBatch() from error
     # Keep source evidence for a format repair. Dropping these messages makes
     # the repair repeat the original read and spend its last call on a tool.
     inputs["messages"].extend(tool_history)
@@ -381,6 +390,11 @@ async def _operation_response(application: Any, inputs: dict[str, Any], request:
 
 async def _operation_application(request: AgentOperation, snapshot: AgentExecutionSnapshot, ai: Any, runtime: Any, *, validation_retry: bool = False) -> tuple[Any, Any]:
     from backend.agent.factory import create_agent_workflow
+    from backend.services.reading_performance import eligible
+    review_size = request.options.get("reading_review_notes")
+    review_count = review_size if isinstance(review_size, int) and not isinstance(review_size, bool) else 0
+    small_review = 0 < review_count <= 10
+    review_output = 4096 if small_review and review_count <= 4 else 8192 if small_review else 16384
     classifying_notes = request.operation == "knowledge" and request.data.get("task") == "knowledge.classify"
     workflow, selection = await create_agent_workflow(
         [], None, agent_id=snapshot.agent_id, user_message=operation_input(request),
@@ -395,7 +409,7 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         operation_team_help=request.operation not in {"knowledge.process-source.phase", "writing.correct.repair", "team.view_edit", "podcast.coverage.briefs", "podcast.coverage.narration", "podcast.coverage.segment", "podcast.coverage.plan", "podcast.coverage.digest", "podcast.coverage.concise", "podcast.coverage.write", "podcast.coverage.audit"} and not classifying_notes,
         # Reading returns one bounded action, never the whole book. Avoid a
         # provider-default reservation of 65,536 output tokens for each step.
-        operation_max_output_tokens=((8192 if request.options.get("reading_prose") else 16384)
+        operation_max_output_tokens=((8192 if request.options.get("reading_prose") else review_output)
                                      if request.operation == "knowledge.process-source.phase"
                                      else 1536 if request.operation == 'team.view_edit'
                                      else 4096 if classifying_notes
@@ -411,6 +425,9 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
             "one_step_lower" if request.operation == "team.plan" and request.options.get("economical_planning")
             and not validation_retry else None),
         output_schema=request.output_schema,
+        operation_reading_performance=(request.operation == "knowledge.process-source.phase"
+            and request.options.get("reading_performance", True) is True
+            and eligible(str(snapshot.profile.get("provider", "")), str(snapshot.profile.get("model", "")))),
     )
     if workflow is None:
         raise RuntimeError("principal_agent_model_unavailable")
@@ -438,6 +455,8 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                    agent_id=snapshot.agent_id, skill_id=request.skill_id, operation=request.operation,
                    origin=request.origin, status="running", created_at=time.time(), updated_at=time.time(),
                    execution_revision=snapshot.revision)
+    from backend.services.reading_result_cache import result_key, reuse as reading_cached_result
+    reading_cache_key = "" if private_result else result_key(request, snapshot, ai.get("providers"))
     team_enabled = (request.operation != "knowledge.process-source.phase"
                     and bool(snapshot.profile.get("team", {}).get("enabled")))
     # Internal quality phases run from in-memory frozen inputs. Never write
@@ -445,6 +464,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     saved_request = ({"operation": request.operation, "max_model_calls": request.max_model_calls,
                       "resume_requires_parent": True} if private_result else
                      {**request.model_dump(), "checkpoint_key": checkpoint_key,
+                      **({"reading_result_cache_key": reading_cache_key} if reading_cache_key else {}),
                       **({"max_calls": 8} if team_enabled else {})})
     store.create(row, snapshot.scope, saved_request, {} if private_result else snapshot.model_dump())
     report_run(run_id)
@@ -459,6 +479,12 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     try:
         application, selection = await _operation_application(request, snapshot, ai, runtime)
         store.update(snapshot.scope, run_id, provider=str(selection.get("provider") or ""), model=str(selection.get("model") or ""))
+        reused = reading_cached_result(request, snapshot, reading_cache_key,
+            str(selection.get("provider") or ""), str(selection.get("model") or ""), row,
+            lambda text: _operation_output(_validate_output(text, request.output_schema), request, output_validator, None),
+            revalidate_scope)
+        if reused is not None:
+            return reused
         messages: list[BaseMessage] = [HumanMessage(content=operation_input(request, provider=str(selection.get("provider") or "")))]
         deadline = time.monotonic() + request.timeout_seconds
         text = ""
@@ -629,7 +655,8 @@ async def resume_run(run_id: str) -> AgentRun:
             store.update(scope, run_id, status="failed", error=str(error))
             raise
         return store.read(scope, run_id)
-    request = AgentOperation.model_validate({key: value for key, value in request_data.items() if key not in {"max_calls", "checkpoint_key"}})
+    request = AgentOperation.model_validate({key: value for key, value in request_data.items()
+        if key not in {"max_calls", "checkpoint_key", "reading_result_cache_key"}})
     snapshot = AgentExecutionSnapshot.model_validate(snapshot_data)
     if snapshot.scope != scope:
         raise PermissionError("agent_execution_scope_changed")

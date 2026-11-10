@@ -12,7 +12,7 @@ from backend.domains.llm_wiki.reading_action_contracts import (
     validate_note_dimensions,
 )
 from backend.domains.llm_wiki.reading_contracts import validate_notes
-from backend.domains.llm_wiki.reading_quality import validate_reviewed_prose
+from backend.domains.llm_wiki.reading_quality import validate_boundary_coverage, validate_reviewed_prose
 from backend.domains.llm_wiki.semantic_context import source_view
 from backend.domains.llm_wiki.semantic_quote_contracts import source_key
 
@@ -122,6 +122,7 @@ def bind_interpretation(answer: dict[str, object], chunks: list[dict[str, object
         coverage = []
         for segment in records(chunk.get("segments")):
             passage = next(passages)
+            validate_boundary_coverage(passage['reason'])
             notes.extend(bind_note(n, segment, evidence, dimensions) for n in records(passage["notes"]))
             coverage.append({"segment_id": segment["id"], "reason": passage["reason"]})
         plan: dict[str, object] = {"notes": notes, "coverage": coverage, "warnings": answer["warnings"], "evidence_segments": evidence}
@@ -152,6 +153,7 @@ def bind_review(answer: dict[str, object], targets: list[tuple[dict[str, object]
             raise ValueError("Review each changed note once")
         seen.add(index)
         if "omit_reason" in change:
+            validate_boundary_coverage(change['omit_reason'])
             result[index]["_review_omission"] = change["omit_reason"]
             continue
         _, primary, evidence = targets[index]

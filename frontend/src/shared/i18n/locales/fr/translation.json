@@ -7083,6 +7083,8 @@
     "budget_available": "Disponible dans la limite : {{amount}}. Le traitement se met en pause avant un appel qui dépasserait le solde et conserve la progression.",
     "estimate_over_budget": "Le calcul dépasse le budget disponible. Le traitement peut rester incomplet ; la limite n’est pas augmentée automatiquement.",
     "estimate_calculation": "Méthode de calcul",
+    "processing_tier_flex": "Flex",
+    "estimate_flex": "Flex réduit le tarif de base de moitié et peut prendre plus de temps. L’estimation inclut le coût d’écriture du cache et ne suppose aucune réutilisation. Les réservations incluent la sortie maximale et le coût d’écriture ; aucun passage automatique au tarif standard n’est effectué.",
     "estimate_tariff": "Tarif enregistré de {{provider}}, par million de tokens : {{input}} en entrée et {{output}} en sortie. Les offres des autres fournisseurs ne s’appliquent pas à cette exécution.",
     "estimate_repairs": "Scénario prudent avec jusqu’à deux corrections par appel et une marge de 10 % : {{cost}}. Ce montant n’est pas une dépense autorisée.",
     "budget_conversion": "La facturation et la limite enregistrée sont en USD (limite : {{limit}} USD). Conversion affichée : 1 USD = {{rate}} {{currency}} ; {{source}}.",
@@ -8605,7 +8607,56 @@
     "reorder": "Réordonner {{name}}",
     "route": "Vue de Gnosi",
     "route_target": "Adresse de la vue",
-    "add_view": "Enregistrer la vue actuelle"
+    "add_view": "Enregistrer la vue actuelle",
+    "edit_title": "Modifier le signet",
+    "selected_note": "Note sélectionnée",
+    "find_note": "Rechercher une note",
+    "find_note_placeholder": "Saisissez un titre ou des mots de la note…",
+    "no_notes": "Aucune note trouvée. Essayez un autre titre.",
+    "searching": "Recherche dans le coffre…",
+    "note_search_failed": "La recherche dans tout le coffre a échoué. Les notes chargées restent disponibles.",
+    "find_section": "Choisir un titre ou un passage",
+    "filter_sections": "Filtrer les titres et passages…",
+    "sections": "Titres et passages",
+    "loading_sections": "Chargement des titres et passages…",
+    "no_sections": "Aucun titre ou passage marqué correspondant dans cette note.",
+    "sections_failed": "La note n’a pas pu être chargée.",
+    "selected_section": "Sélection : {{name}}",
+    "manual_reference": "Saisir une référence manuellement",
+    "choose_view": "Choisissez une vue ci-dessous",
+    "current_view": "Vue actuelle",
+    "use_current_view": "Utiliser la vue ouverte",
+    "use_current_note": "Utiliser la note ouverte",
+    "whole_graph": "Graphe complet",
+    "advanced_address": "Avancé : modifier l’adresse",
+    "search_example": "Mots, étiquettes ou expression de recherche…",
+    "group_placeholder": "Choisissez ci-dessous, recherchez ou créez un groupe…",
+    "available_groups": "Groupes disponibles",
+    "no_group": "Sans groupe",
+    "group_help": "Facultatif. Choisissez un groupe existant ou saisissez un nouveau nom.",
+    "position": "Position dans le groupe",
+    "filter": "Rechercher un signet",
+    "no_matches": "Aucun signet correspondant.",
+    "add_to_group": "Ajouter à {{group}}",
+    "destinations": {
+      "knowledge": "Connaissances",
+      "graph": "Graphe",
+      "calendar": "Calendrier",
+      "reader": "Lecteur",
+      "mail": "Courrier",
+      "automations": "Automatisations",
+      "social": "Réseaux sociaux",
+      "media": "Médias",
+      "contacts": "Contacts",
+      "planning": "Planification",
+      "resources": "Ressources",
+      "notebooks": "Carnets"
+    },
+    "dashboard": "Tableau de bord",
+    "find_dashboard": "Rechercher un tableau de bord",
+    "use_current_dashboard": "Utiliser le tableau de bord ouvert",
+    "find_dashboard_placeholder": "Saisissez le nom d’un tableau de bord…",
+    "no_dashboards": "Aucun tableau de bord trouvé. Essayez un autre nom."
   },
   "json_canvas": {
     "import": "Importer .canvas",
@@ -9166,7 +9217,8 @@
       "settings": "Courriel et données du serveur",
       "hosting": "Hébergements",
       "configuration": "Configuration",
-      "regions": "Blocs et régions"
+      "regions": "Blocs et régions",
+      "statistics": "Statistiques"
     },
     "tokens": {
       "primary": "Couleur principale",
@@ -9349,6 +9401,8 @@
     "managedBridgeHelp": "Cette destination utilise le pont Pangea / Suweb du pilote importé. Le pont gère la connexion et les répertoires distants. Vous pouvez tester sa connexion ici.",
     "jobErrors": {
       "worker_start_pending": "La version du site web est déjà active, mais le processus du service privé n’a pas encore démarré. Testez la connexion de la destination, puis vérifiez et publiez à nouveau pour réessayer de le démarrer.",
+      "release_retention_pending": "Le site est publié, mais certaines anciennes versions n’ont pas pu être supprimées. Vérifiez l’hébergement ; le nettoyage sera réessayé lors de la prochaine publication.",
+      "worker_and_retention_pending": "Le site est publié, mais le service privé n’a pas pu démarrer et certaines anciennes versions n’ont pas pu être supprimées. Vérifiez l’hébergement ; les deux opérations seront réessayées lors de la prochaine publication.",
       "publication_failed_review_status": "La publication n’a pas pu être terminée. Vérifiez l’état de la destination et examinez à nouveau les modifications avant de publier."
     },
     "withdrawTranslation": "Retirer la version {{language}}",
@@ -9580,6 +9634,27 @@
         "footer": "Pied de page",
         "buttons": "Boutons principaux"
       }
+    },
+    "statistics": {
+      "source": "URL de Webalizer",
+      "sourceHelp": "Laisser vide pour utiliser /webalizer/ sur le domaine du site. Enregistrement automatique.",
+      "loading": "Chargement des statistiques…",
+      "error": "Impossible de lire les statistiques. Vérifiez l’URL publique de Webalizer et réessayez.",
+      "empty": "Aucune donnée disponible.",
+      "traffic": "Trafic du site",
+      "month": "Mois",
+      "visits": "Visites",
+      "pages": "Pages",
+      "hits": "Accès",
+      "clients": "Clients",
+      "transfer": "Données transférées",
+      "evolution": "Évolution des visites",
+      "history": "Historique mensuel",
+      "generated": "Mise à jour de la source",
+      "fetched": "Consultation",
+      "unknown": "Indisponible",
+      "caveat": "Le mois en cours est partiel. Les clients sont des adresses identifiées par le serveur, pas des personnes uniques. Les données peuvent inclure des robots.",
+      "openSource": "Ouvrir Webalizer"
     }
   }
 }

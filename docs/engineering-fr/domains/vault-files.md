@@ -49,6 +49,7 @@ tests:
   - backend/tests/test_vault_content_search.py
   - backend/tests/test_page_save_concurrency.py
   - frontend/src/shared/page-search/useVaultContentSearch.test.tsx
+  - frontend/src/shared/page-search/GlobalSearchModal.test.tsx
   - frontend/src/shared/api/vault-search.test.ts
   - frontend/src/shared/editor/VaultMarkdown.transclusions.test.tsx
   - backend/tests/test_vault_bookmarks.py
@@ -182,6 +183,19 @@ les caractères de contrôle, les barres obliques inverses et la traversée de
 chemins encodée sont rejetés. Cela préserve les types de destination sans
 dupliquer des catégories telles que favoris, tableaux de bord et notes dans
 le modèle de raccourcis.
+
+La création et la modification des signets utilisent une boîte de dialogue adaptable et accessible au clavier.
+Le sélecteur recherche les titres parmi les pages chargées et utilise la recherche existante
+dans tout le Vault pour les autres notes, avec une liste limitée et paginée.
+Les tableaux de bord sont un choix explicite de l’interface avec une appartenance canonique `page` ;
+leurs noms et icônes proviennent de l’arborescence latérale. La note ou la vue ouverte
+peut être enregistrée sans saisir d’adresse, et les vues courantes sont des choix nommés.
+Les sections utilisent le même analyseur de titres et de blocs que les transclusions.
+Les groupes existants sont des choix visibles et les nouveaux noms sont facultatifs ;
+la barre latérale permet de filtrer les signets et de replier les groupes. La saisie
+d’adresses et de références reste disponible dans les contrôles avancés facultatifs.
+Si une modification échoue, le dialogue et le brouillon sont conservés ; le stockage
+synchronisé et la validation des routes restent inchangés.
 
 `/api/vault/bookmarks` et ses opérations d’importation, d’élément, de page,
 d’ordre et de tri résolvent `get_workspace_context`, en utilisant l’identité
@@ -973,3 +987,9 @@ La traduction interne des lignes et pages crée les enregistrements dérivés vi
 ## Révisions de la lecture des détails Markdown
 
 Les détails d’une page Markdown obtiennent leur ETag depuis le même descripteur ouvert que celui utilisé pour lire le contenu, avant la résolution asynchrone du titre. Une sauvegarde atomique ou un renommage entre la lecture et la réponse ne peut renvoyer une révision absente ni associer la révision d’un nouveau fichier à un ancien contenu. Le format `<mtime_ns>-<size>` et le contrat non nul de la réponse détaillée sont conservés ; les révisions obsolètes empêchent toujours les écrasements.
+
+## Présentation des aperçus de recherche
+
+Les résultats de recherche renvoient un texte lisible plutôt que des fragments du Markdown enregistré. Les extraits retirent les marques de titres, d’emphase, de liens, de tableaux et de tâches, conservent le texte visible des colonnes, encadrés et sections repliables, et omettent les blocs de code et la configuration JSON sérialisée. La conversion précède la troncature afin que les longues destinations des liens ne déplacent pas la correspondance visible. L’évaluation de la requête et la ligne source renvoyée utilisent toujours le document original.
+
+La boîte de recherche globale utilise `PanePortal` dans le corps du document et la couche partagée `--z-command`. Les en-têtes des tableaux intégrés et leurs commandes restent sous le fond assombri, même lorsque la page crée son propre contexte d’empilement. Échap et la navigation des résultats conservent le comportement modal existant.

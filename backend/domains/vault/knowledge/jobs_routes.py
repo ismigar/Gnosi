@@ -1,7 +1,7 @@
 """Typed Vault domain extracted from the historical route facade."""
 
 import importlib as _legacy_importlib
-from typing import TYPE_CHECKING, Never
+from typing import TYPE_CHECKING, Literal, Never
 
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
@@ -70,6 +70,7 @@ class LlmWikiEstimateResponse(BaseModel):
     estimate_id: str
     provider: str
     model: str
+    processing_tier: Literal["default", "flex"] = "default"
     currency: str
     display_currency: CurrencyInfoResponse | None = None
     cost_in_per_million_usd: float | None = None

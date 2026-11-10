@@ -16,7 +16,7 @@ export type FormField = Identified<components['schemas']['FormField']>;
 export type SiteForm = Omit<Identified<components['schemas']['SiteForm']>, 'fields'> & { fields?: FormField[] };
 export type SiteFooterColumn = Omit<Identified<components['schemas']['SiteFooterColumn']>, 'blocks'> & { blocks?: SiteBlock[] };
 export type SiteRegion = SiteFooterColumn & { position: 'header' | 'before_content' | 'after_content' | 'footer' };
-export type SiteConfig = Omit<Identified<components['schemas']['SiteConfig']>, 'newsletter_names_required' | 'sources' | 'pages' | 'forms' | 'targets' | 'header_actions' | 'navigation' | 'footer' | 'social_links' | 'footer_columns' | 'footer_blocks' | 'footer_bottom_links' | 'footer_copyright' | 'regions'> & { newsletter_names_required?: boolean; regions?: SiteRegion[]; sources?: SiteSource[]; pages?: SitePage[]; forms?: SiteForm[]; targets?: SiteTarget[]; header_actions?: NavigationLink[]; navigation?: NavigationLink[]; footer?: NavigationLink[]; social_links?: NavigationLink[]; footer_columns?: SiteFooterColumn[] | null; footer_blocks?: SiteBlock[] | null; footer_bottom_links?: NavigationLink[] | null; footer_copyright?: string | null };
+export type SiteConfig = Omit<Identified<components['schemas']['SiteConfig']>, 'statistics_url' | 'newsletter_names_required' | 'sources' | 'pages' | 'forms' | 'targets' | 'header_actions' | 'navigation' | 'footer' | 'social_links' | 'footer_columns' | 'footer_blocks' | 'footer_bottom_links' | 'footer_copyright' | 'regions'> & { statistics_url?: string; newsletter_names_required?: boolean; regions?: SiteRegion[]; sources?: SiteSource[]; pages?: SitePage[]; forms?: SiteForm[]; targets?: SiteTarget[]; header_actions?: NavigationLink[]; navigation?: NavigationLink[]; footer?: NavigationLink[]; social_links?: NavigationLink[]; footer_columns?: SiteFooterColumn[] | null; footer_blocks?: SiteBlock[] | null; footer_bottom_links?: NavigationLink[] | null; footer_copyright?: string | null };
 export type SiteTheme = components['schemas']['SiteTheme'];
 export type SiteThemeAsset = components['schemas']['SiteThemeAsset'];
 export type SiteFont = components['schemas']['SiteFont'];
@@ -102,6 +102,7 @@ function requestBlock(block: SiteBlock): components['schemas']['SiteBlock'] {
 function requestConfiguration(site: SiteConfig): components['schemas']['SiteConfig'] {
   return {
     ...site,
+    statistics_url: site.statistics_url ?? '',
     newsletter_names_required: site.newsletter_names_required ?? true,
     header_actions: requestLinks(site.header_actions), navigation: requestLinks(site.navigation),
     footer: requestLinks(site.footer), social_links: requestLinks(site.social_links),
@@ -206,4 +207,9 @@ export async function previewCatalogueFont(catalogueId: string, context: Request
 }
 export async function importSiteFonts(siteId: string, body: { url?: string; catalogue_id?: string }, context: RequestContext, signal?: AbortSignal) {
   return unwrapApiResult(await apiClient.POST('/api/vault/sites/{site_id}/theme/fonts/import', { params: { path: { site_id: siteId } }, body: { url: body.url ?? '', catalogue_id: body.catalogue_id ?? '' }, ...scope(context, signal) }));
+}
+
+export type SiteStatistics = components['schemas']['SiteStatistics'];
+export async function siteStatistics(siteId: string, context: RequestContext, signal?: AbortSignal): Promise<SiteStatistics> {
+  return unwrapApiResult(await apiClient.GET('/api/vault/sites/{site_id}/statistics', { params: { path: { site_id: siteId } }, ...scope(context, signal) }));
 }

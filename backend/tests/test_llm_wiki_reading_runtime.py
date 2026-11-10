@@ -73,6 +73,18 @@ def test_changed_skill_changes_checkpoint_identity(configured, tmp_path):
     assert first.identity != prepare_reading_runtime(tmp_path).identity
 
 
+def test_reading_identity_binds_reasoning_and_scope_but_not_job_parent(configured, tmp_path):
+    from dataclasses import replace
+    first = prepare_reading_runtime(tmp_path)
+    changed = first.snapshot.model_copy(deep=True)
+    changed.profile["reasoning_effort"] = "high"
+    assert replace(first, snapshot=changed).identity != first.identity
+    changed = first.snapshot.model_copy(update={"scope": first.snapshot.scope.model_copy(update={"user_id": "other"})})
+    assert replace(first, snapshot=changed).identity != first.identity
+    changed = first.snapshot.model_copy(update={"parent_run_id": "another-job"})
+    assert replace(first, snapshot=changed).identity == first.identity
+
+
 def test_oversized_prompt_never_reaches_provider(configured, tmp_path):
     _, _, execute = configured
     runtime = prepare_reading_runtime(tmp_path)
