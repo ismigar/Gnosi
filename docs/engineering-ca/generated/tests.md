@@ -11,7 +11,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 37 | 119 |
-| Vitest | 768 | 3514 |
+| Vitest | 769 | 3516 |
 | pytest | 792 | 6127 |
 
 ## Fitxers
@@ -576,6 +576,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/websites/WebsitesPage.production.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesPage.production.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/websites/WebsitesPage.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesPage.test.tsx) | 25 | call-pattern estimate |
 | Vitest | [`frontend/src/features/websites/WebsitesRowsAutosave.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/WebsitesRowsAutosave.test.tsx) | 2 | call-pattern estimate |
+| Vitest | [`frontend/src/features/websites/components.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/components.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/websites/serviceModels.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/websites/serviceModels.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/workspaces/Navigation/WorkspaceSwitcher.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/workspaces/Navigation/WorkspaceSwitcher.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/workspaces/Workspace/WorkspaceMembersPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/workspaces/Workspace/WorkspaceMembersPanel.test.tsx) | 4 | call-pattern estimate |
