@@ -12,6 +12,13 @@ test('website regional colours autosave palette assignments and restore inherita
   await dialog.getByRole('button', { name: 'Create', exact: true }).click();
   await expect(dialog).toBeHidden();
   await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
+  const colours = page.locator('.websites-card').filter({ has: page.getByRole('heading', { name: 'Website colours', exact: true }) });
+  await expect(colours.getByRole('heading', { name: 'Header', exact: true })).toBeVisible();
+  const headerAssignment = colours.getByRole('combobox', { name: 'Assignment: Header background', exact: true });
+  await expect(headerAssignment).toBeHidden();
+  await colours.locator('summary').filter({ hasText: /^Header$/u }).click();
+  await expect(headerAssignment).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('website-cards-visible-default.png'), fullPage: true });
   await expandWebsiteSections(page);
   await page.getByRole('combobox', { name: 'Assignment: Header background', exact: true }).selectOption('white');
   await page.getByRole('combobox', { name: 'Assignment: Footer background', exact: true }).selectOption('secondary');
