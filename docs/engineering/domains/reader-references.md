@@ -420,6 +420,8 @@ Structured calls enforce the same model context limit as ordinary reading calls.
 
 ## PDF reader runtime assets
 
+The reader build installs the upstream lockfile with `npm ci`, preserves the caller’s Node heap limit and compiles only the web PDF engine and webpack configuration consumed by Gnosi. Zotero, development and mobile variants are not built in parallel. CI transfers the resulting reader assets to native smoke tests under the exact candidate SHA; a missing artifact remains a validation failure.
+
 The embedded PDF reader requires its complete generated Zotero runtime in `frontend/public/zotero-reader`. Run `bash scripts/runtime/build-zotero-reader.sh` before building a fresh checkout. Vite checks the source assets before compiling and the output after writing, including the PDF engine, worker, viewer and fallback locale. Desktop packaging uses the same validator. Frontend-only installations must copy this directory as well as the application chunks; a missing host otherwise times out before the document is opened. Both frontend CI and release jobs prepare these assets.
 
 Citation evidence with an empty source URL falls back to the resource attachment. Local attachment and active-vault HTTP routes share the same reader tab and annotation identity. The reader loads existing highlights from both URI forms, deduplicates them by database identifier, and saves new annotations under the canonical attachment URI. Generated and manual annotations remain available without reprocessing the source; documents from other vaults and external URLs retain separate identities.

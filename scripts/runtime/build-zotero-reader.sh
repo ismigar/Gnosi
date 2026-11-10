@@ -29,13 +29,16 @@ fi
 
 cd "$READER_DIR"
 
-if [ ! -d node_modules ]; then
-    echo "→ npm install (zotero-reader)"
-    NODE_OPTIONS=--openssl-legacy-provider npm i --no-audit --no-fund
-fi
+# Keep the checked-in dependency resolution and the caller's memory bound.
+READER_NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--openssl-legacy-provider"
+echo "→ npm ci (zotero-reader)"
+NODE_OPTIONS="$READER_NODE_OPTIONS" npm ci --no-audit --no-fund
 
-echo "→ npm run build (zotero-reader)"
-NODE_OPTIONS=--openssl-legacy-provider npm run build
+# Gnosi embeds build/web only. The upstream all-target build also compiles
+# Zotero, development and mobile readers concurrently, outside our memory budget.
+echo "→ Build web PDF engine and reader (zotero-reader)"
+NODE_OPTIONS="$READER_NODE_OPTIONS" PDFJS_CONFIG=web bash pdfjs/build
+NODE_OPTIONS="$READER_NODE_OPTIONS" npm exec --no -- webpack --config-name web
 
 if [ ! -d "$READER_DIR/build/web" ]; then
     echo "ERROR: build/web no existeix després del build" >&2

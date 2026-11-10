@@ -422,6 +422,8 @@ Les crides estructurades respecten el mateix límit de context que la resta de l
 
 ## Fitxers del lector PDF
 
+La construcció del lector instal·la les dependències fixades amb `npm ci`, conserva el límit de memòria de Node del procés invocador i compila només el motor PDF i la configuració webpack web que utilitza Gnosi. No es construeixen en paral·lel les variants Zotero, de desenvolupament i mòbils. La CI transfereix els recursos resultants a les proves natives amb el SHA exacte de la candidata; un artefacte absent continua sent una fallada de validació.
+
 El lector PDF integrat necessita tots els fitxers generats de Zotero a `frontend/public/zotero-reader`. Cal executar `bash scripts/runtime/build-zotero-reader.sh` abans de compilar una còpia nova. Vite comprova els fitxers d’entrada i de sortida, incloent-hi el motor PDF, el worker, el visor i la llengua alternativa. L’empaquetat d’escriptori utilitza el mateix validador. Les actualitzacions només de la interfície també han de copiar aquest directori; si falta el host, l’espera s’esgota abans d’obrir el document. Tant el CI de la interfície com les releases preparen aquests fitxers.
 
 Quan l’evidència d’una cita té l’adreça de la font buida, s’utilitza el document adjunt del recurs. Les adreces locals dels adjunts i les rutes HTTP del vault actiu comparteixen la mateixa pestanya del lector i la identitat de les anotacions. El lector carrega els ressaltats existents de totes dues formes d’URI, elimina duplicats segons l’identificador de la base de dades i desa les anotacions noves amb l’URI canònic de l’adjunt. Les anotacions generades i manuals continuen disponibles sense tornar a processar la font; els documents d’altres vaults i les adreces externes mantenen identitats separades.
