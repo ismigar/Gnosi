@@ -3,7 +3,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { test } = require('node:test');
+const nodeTest = require('node:test');
+
+// This reader build entry point is POSIX; Windows packaging uses native commands.
+const test = process.platform === 'win32' ? nodeTest.skip : nodeTest;
 const { verifyReaderAssets } = require('./scripts/verify-frontend-assets.cjs');
 
 function buildFixture(t) {
