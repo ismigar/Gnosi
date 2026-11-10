@@ -118,7 +118,7 @@ async function render(element: ReactElement): Promise<void> {
 }
 
 function buttonWithText(label: string): HTMLButtonElement {
-    const button = [...container.querySelectorAll('button')]
+    const button = [...document.body.querySelectorAll('button')]
         .find((candidate) => candidate.textContent.includes(label));
     if (!button) throw new Error(`Missing button: ${label}`);
     return button;
@@ -141,7 +141,7 @@ describe('ProcessResourceModal', () => {
         await render(<ProcessResourceModal isOpen force noteId="note-1" onClose={vi.fn()} />);
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
-        expect(container.textContent).toContain('The AI provider did not respond in time.');
+        expect(document.body.textContent).toContain('The AI provider did not respond in time.');
         expect(vi.getTimerCount()).toBe(0);
         act(() => { buttonWithText('Retry').click(); });
         await flushProcessing();
@@ -158,8 +158,8 @@ describe('ProcessResourceModal', () => {
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
 
-        expect(container.textContent).toContain('processing status is unavailable');
-        expect(container.textContent).not.toContain('Reading the source');
+        expect(document.body.textContent).toContain('processing status is unavailable');
+        expect(document.body.textContent).not.toContain('Reading the source');
         expect(buttonWithText('Retry')).toBeDefined();
         expect(vi.getTimerCount()).toBe(0);
     });
@@ -197,8 +197,8 @@ describe('ProcessResourceModal', () => {
         await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
-        expect(container.textContent).toContain('Reading observations');
-        expect(container.textContent).toContain('A distant definition remains uncertain.');
+        expect(document.body.textContent).toContain('Reading observations');
+        expect(document.body.textContent).toContain('A distant definition remains uncertain.');
     });
 
     it('keeps polling while the provider cooldown is in progress', async () => {
@@ -209,15 +209,15 @@ describe('ProcessResourceModal', () => {
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
 
-        expect(container.textContent).toContain('Waiting for the AI provider');
-        expect(container.textContent).toContain('retrying automatically');
-        expect(container.textContent).toContain('1 of 85 fragments completed');
+        expect(document.body.textContent).toContain('Waiting for the AI provider');
+        expect(document.body.textContent).toContain('retrying automatically');
+        expect(document.body.textContent).toContain('1 of 85 fragments completed');
         expect(vi.getTimerCount()).toBe(1);
         expect(toast.error).not.toHaveBeenCalled();
 
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce(doneJob);
         await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
-        expect(container.textContent).toContain('Resource processed');
+        expect(document.body.textContent).toContain('Resource processed');
         expect(vi.getTimerCount()).toBe(0);
     });
 
@@ -230,9 +230,9 @@ describe('ProcessResourceModal', () => {
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
 
-        expect(container.textContent).toContain('The AI provider is limiting requests');
-        expect(container.textContent).toContain('Completed fragments are saved');
-        expect(container.textContent).not.toContain("'code': '1300'");
+        expect(document.body.textContent).toContain('The AI provider is limiting requests');
+        expect(document.body.textContent).toContain('Completed fragments are saved');
+        expect(document.body.textContent).not.toContain("'code': '1300'");
         expect(vi.getTimerCount()).toBe(0);
 
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce(doneJob);
@@ -242,7 +242,7 @@ describe('ProcessResourceModal', () => {
         expect(vi.mocked(startResourceProcessing).mock.calls.map(([request]) => request.force)).toEqual([
             true, false,
         ]);
-        expect(container.textContent).toContain('Resource processed');
+        expect(document.body.textContent).toContain('Resource processed');
         expect(vi.getTimerCount()).toBe(0);
     });
 
@@ -250,7 +250,7 @@ describe('ProcessResourceModal', () => {
         vi.mocked(estimateResourceProcessing).mockReturnValueOnce(new Promise(() => {}));
         await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
         expect(buttonWithText('Process').disabled).toBe(true);
-        expect(container.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('0.5');
+        expect(document.body.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('0.5');
         act(() => { buttonWithText('Process').click(); });
         expect(startResourceProcessing).not.toHaveBeenCalled();
         expect(vi.mocked(useModalKeyboard).mock.calls.at(-1)?.[0].confirmDisabled).toBe(true);
@@ -261,7 +261,7 @@ describe('ProcessResourceModal', () => {
         vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults, priced: false, cost_usd: null, cost_with_repairs_usd: null });
         await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
         expect(buttonWithText('Process').disabled).toBe(true);
-        expect(container.textContent).toContain('no verified tariff');
+        expect(document.body.textContent).toContain('no verified tariff');
         expect(startResourceProcessing).not.toHaveBeenCalled();
     });
 
@@ -270,9 +270,9 @@ describe('ProcessResourceModal', () => {
         vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults, saved_chunks: 166, remaining_chunks: 25,
             budget: { id: 'book-budget', limit_usd: 0.75, spent_usd: 0.20, reserved_usd: 0.10, remaining_usd: 0.45 } });
         await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
-        expect(container.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('0.75');
-        expect(container.textContent).toContain('166 saved fragments');
-        expect(container.textContent).toContain('$0.20');
+        expect(document.body.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('0.75');
+        expect(document.body.textContent).toContain('166 saved fragments');
+        expect(document.body.textContent).toContain('$0.20');
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
         expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ max_cost_usd: 0.75, batch_size: 4, estimate_id: 'estimate-1' }));
@@ -283,7 +283,7 @@ describe('ProcessResourceModal', () => {
         vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults, saved_chunks: 0, incompatible_saved_chunks: 166 });
         await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
         expect(buttonWithText('Reprocess').disabled).toBe(false);
-        expect(container.textContent).toContain('166 saved fragments cannot be reused');
+        expect(document.body.textContent).toContain('166 saved fragments cannot be reused');
         expect(startResourceProcessing).not.toHaveBeenCalled();
     });
 
@@ -296,7 +296,7 @@ describe('ProcessResourceModal', () => {
         await act(async () => { buttonWithText('Reprocess').click(); await Promise.resolve(); });
         expect(startResourceProcessing).not.toHaveBeenCalled();
         expect(estimateResourceProcessing).toHaveBeenLastCalledWith(expect.objectContaining({ force: true }), expect.any(AbortSignal));
-        expect(container.textContent).toContain('All configured sources will be processed again');
+        expect(document.body.textContent).toContain('All configured sources will be processed again');
         await act(async () => { buttonWithText('Reprocess').click(); await Promise.resolve(); });
         expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ force: true, estimate_id: 'fresh-estimate', max_cost_usd: 0.5, batch_size: 4 }));
     });
@@ -314,14 +314,14 @@ describe('ProcessResourceModal', () => {
             />,
         );
 
-        const dialog = container.querySelector('[role="dialog"]');
-        const closeButton = container.querySelector('button[aria-label="Close"]');
+        const dialog = document.body.querySelector('[role="dialog"]');
+        const closeButton = document.body.querySelector('button[aria-label="Close"]');
         const processButton = buttonWithText('Process');
         expect(dialog?.getAttribute('aria-modal')).toBe('true');
         expect(closeButton).toBeInstanceOf(HTMLButtonElement);
         expect(processButton.dataset.autofocus).toBe('true');
-        expect(container.textContent).toContain('Research source');
-        expect(container.textContent).toContain(
+        expect(document.body.textContent).toContain('Research source');
+        expect(document.body.textContent).toContain(
             'All configured sources will be processed again',
         );
 
@@ -370,9 +370,9 @@ describe('ProcessResourceModal', () => {
         expect(onJobUpdate.mock.calls).toEqual([[runningJob], [doneJob]]);
         expect(onProcessed).toHaveBeenCalledOnce();
         expect(toast.success).toHaveBeenCalledWith('2 Brain pages updated');
-        expect(container.textContent).toContain('Resource processed');
-        expect(container.textContent).toContain('First note');
-        expect(container.textContent).toContain('Existing note');
+        expect(document.body.textContent).toContain('Resource processed');
+        expect(document.body.textContent).toContain('First note');
+        expect(document.body.textContent).toContain('Existing note');
         expect(vi.getTimerCount()).toBe(0);
     });
 
@@ -395,13 +395,13 @@ describe('ProcessResourceModal', () => {
         });
         await flushProcessing();
 
-        expect(container.textContent).toContain('Planning notes with AI');
-        expect(container.textContent).toContain('1 pages');
-        expect(container.textContent).toContain('follow progress in the corner');
-        const progress = container.querySelector<HTMLElement>('[style]');
+        expect(document.body.textContent).toContain('Planning notes with AI');
+        expect(document.body.textContent).toContain('1 pages');
+        expect(document.body.textContent).toContain('follow progress in the corner');
+        const progress = document.body.querySelector<HTMLElement>('[role="progressbar"] > div');
         expect(progress?.style.width).toBe('25%');
         act(() => {
-            container.querySelector<HTMLButtonElement>(
+            document.body.querySelector<HTMLButtonElement>(
                 'button[aria-label="Close"]',
             )?.click();
         });
@@ -432,14 +432,14 @@ describe('ProcessResourceModal', () => {
             buttonWithText('Process').click();
         });
         await flushProcessing();
-        expect(container.textContent).toContain('follow progress in the corner');
+        expect(document.body.textContent).toContain('follow progress in the corner');
 
         await act(async () => {
             await vi.advanceTimersByTimeAsync(1500);
         });
 
         expect(fetchResourceProcessingStatus).toHaveBeenCalledTimes(2);
-        expect(container.textContent).toContain('Provider quota reached');
+        expect(document.body.textContent).toContain('Provider quota reached');
         expect(vi.getTimerCount()).toBe(0);
     });
 
@@ -461,7 +461,7 @@ describe('ProcessResourceModal', () => {
         await flushProcessing();
 
         const message = 'No Brain table is configured. Create one in Settings';
-        expect(container.textContent).toContain(message);
+        expect(document.body.textContent).toContain(message);
         expect(toast.error).toHaveBeenCalledWith(
             'No Brain table is configured. Create one in Settings → Plugins → LLM Wiki.',
         );
@@ -476,6 +476,6 @@ describe('ProcessResourceModal', () => {
                 sourceTableId="resources"
             />,
         );
-        expect(container.childElementCount).toBe(0);
+        expect(document.querySelector('[role="dialog"]')).toBeNull();
     });
 });

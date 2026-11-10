@@ -109,7 +109,7 @@ test('publication manager reviews, creates, updates and revokes only explicit sn
     if (await release.count()) await release.click();
     await page.getByRole('button', { name: 'Opcions de pàgina', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Comparteix', exact: true }).click();
-    await page.getByRole('button', { name: 'Publica notes seleccionades', exact: true }).click();
+    await page.getByRole('button', { name: 'Web públic independent: notes seleccionades', exact: true }).click();
     const manager = page.getByRole('dialog', { name: 'Publica notes seleccionades', exact: true });
     await expect(manager.getByRole('switch', { name: 'First selected note', exact: true })).toHaveAttribute('aria-checked', 'false');
     await expect(manager.getByRole('button', { name: 'Publica aquesta previsualització', exact: true })).toBeDisabled();

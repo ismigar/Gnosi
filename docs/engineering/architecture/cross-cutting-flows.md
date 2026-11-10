@@ -152,6 +152,15 @@ labels.
 
 Cancelable modal dialogs use the shared keyboard layer so only the topmost
 dialog handles Escape, Tab remains inside it, and focus returns to the opener.
+Blocking dialogs render through `ModalPortal` at the document body, outside
+transformed editors and scrolling tables. The host preserves the owning pane's
+visibility, blocks React event propagation to the editor, and assigns shared
+modal tokens; nested dialogs and portaled menus inherit the active layer.
+Explicitly nonblocking hover panels use `aria-modal={false}`. The frontend lint
+rule rejects blocking dialogs outside the shared host. Disposable browser
+regressions exercise actual editor embedding, competing toolbars, small windows,
+pane switching, nested menus, and direct navigation before Settings loads.
+
 Responsive tab sets expose complete tab-to-panel relationships and roving
 keyboard focus. Playwright combines axe WCAG 2.2 AA scans across the product
 route matrix with explicit keyboard assertions because neither layer proves the

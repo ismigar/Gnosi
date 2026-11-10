@@ -213,3 +213,12 @@ export type SiteStatistics = components['schemas']['SiteStatistics'];
 export async function siteStatistics(siteId: string, context: RequestContext, signal?: AbortSignal): Promise<SiteStatistics> {
   return unwrapApiResult(await apiClient.GET('/api/vault/sites/{site_id}/statistics', { params: { path: { site_id: siteId } }, ...scope(context, signal) }));
 }
+
+export type RecordWebsiteDestination = components['schemas']['RecordDestination'];
+export type RecordWebsiteAction = components['schemas']['RecordPublicationReview']['action'];
+export async function recordWebsiteDestinations(selection: { page_id?: string; table_id?: string }, context: RequestContext, signal?: AbortSignal): Promise<RecordWebsiteDestination[]> {
+  return unwrapApiResult(await apiClient.GET('/api/vault/sites/record-publication/destinations', { params: { query: selection }, ...scope(context, signal) }));
+}
+export async function reviewRecordWebsite(siteId: string, pageId: string, targetId: string, action: RecordWebsiteAction, context: RequestContext, signal?: AbortSignal): Promise<SitePreview> {
+  return unwrapApiResult(await apiClient.POST('/api/vault/sites/{site_id}/record-publication/preview', { params: { path: { site_id: siteId } }, body: { page_id: pageId, target_id: targetId, action }, ...scope(context, signal) }));
+}

@@ -26,7 +26,8 @@ test('Dashboard Cancel and role select never add a member; email Enter adds once
  const state = {isAddMemberModalOpen: true, newMemberEmail: 'test@example.invalid', newMemberRole: 'viewer', handleAddMember: add, setIsAddMemberModalOpen: close, setNewMemberEmail: vi.fn(), setNewMemberRole: vi.fn(), scrollContainerRef: {current: null}, t: (key: string) => key} as unknown as DashboardState;
  function Dashboard() { useDashboardKeyboard(state); return <AddMemberDialog state={state}/>; }
  act(() => { root.render(<Dashboard/>); });
- activate(required(host.querySelector('button')), 'Enter'); expect(close).toHaveBeenCalledWith(false); expect(add).not.toHaveBeenCalled();
- const select = required(host.querySelector('select')); select.focus(); press(select, 'Enter'); expect(add).not.toHaveBeenCalled(); expect(select.labels).toHaveLength(1);
- const input = required(host.querySelector('input')); input.focus(); press(input, 'Enter'); expect(add).toHaveBeenCalledOnce();
+ const dialog = required(document.body.querySelector('[role="dialog"]'));
+ activate(required(dialog.querySelector('button')), 'Enter'); expect(close).toHaveBeenCalledWith(false); expect(add).not.toHaveBeenCalled();
+ const select = required(dialog.querySelector('select')); select.focus(); press(select, 'Enter'); expect(add).not.toHaveBeenCalled(); expect(select.labels).toHaveLength(1);
+ const input = required(dialog.querySelector('input')); input.focus(); press(input, 'Enter'); expect(add).toHaveBeenCalledOnce();
 });

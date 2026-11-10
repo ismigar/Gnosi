@@ -116,7 +116,9 @@ describe('VaultFeed direct renderer contract', () => {
     selectFirst(container);
     act(() => { button(container, 'Apply template').click(); });
     act(() => { button(container, 'Imported template').click(); });
-    await act(async () => { button(container, 'bulk_actions.confirm_apply_template').click(); await Promise.resolve(); });
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"][aria-describedby]');
+    if (!dialog) throw new Error('Missing template confirmation dialog');
+    await act(async () => { button(dialog, 'bulk_actions.confirm_apply_template').click(); await Promise.resolve(); });
     expect(onApplyTemplate.mock.calls[0]?.[0]).toBeInstanceOf(Set);
     expect(onApplyTemplate.mock.calls[0]?.[0]).toEqual(new Set(['a', 'template']));
     expect(onApplyTemplate.mock.calls[0]?.[1]).toBe('template');

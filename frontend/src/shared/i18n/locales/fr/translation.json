@@ -9656,5 +9656,23 @@
       "caveat": "Le mois en cours est partiel. Les clients sont des adresses identifiées par le serveur, pas des personnes uniques. Les données peuvent inclure des robots.",
       "openSource": "Ouvrir Webalizer"
     }
+  },
+  "recordWebsite": {
+    "title": "Publication sur le site",
+    "publish": "Publier sur le site",
+    "withdraw": "Retirer du site",
+    "thisRecord": "Publier ou retirer cet article du site",
+    "destination": "Site et hébergement",
+    "choose": "Choisir une destination",
+    "change": "Modification",
+    "published": "Publié dans la version active du site",
+    "unpublished": "Absent de la version active du site",
+    "noDestinations": "Aucun site activé n’utilise la table de cet enregistrement comme source. Configurez-la d’abord dans Webs.",
+    "wholeSite": "Vérifiez toutes les modifications : une version complète du site sera publiée, y compris les autres modifications en attente.",
+    "confirm": "Confirmer ces modifications du site",
+    "completion": "L’état correspond à la version terminée du site. Fermer cette fenêtre n’annule pas une publication en attente.",
+    "failed": "Impossible de terminer l’action. Rechargez la destination et vérifiez les modifications.",
+    "legacyStaging": "Ancien outil de publication de test",
+    "independentSite": "Site public distinct : notes sélectionnées"
   }
 }

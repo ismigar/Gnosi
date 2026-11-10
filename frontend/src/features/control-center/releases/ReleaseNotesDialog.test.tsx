@@ -57,7 +57,7 @@ function renderDialog(props: Partial<ReleaseNotesDialogProps> = {}): void {
 
 function findReleaseArticle(version: string): HTMLElement | null {
   if (!container) throw new Error('Expected a mounted release notes dialog.');
-  const heading = [...container.querySelectorAll('h3')]
+  const heading = [...document.body.querySelectorAll('h3')]
     .find((candidate) => candidate.textContent === `Gnosi ${version}`);
   return heading?.closest<HTMLElement>('article') ?? null;
 }
@@ -65,7 +65,7 @@ function findReleaseArticle(version: string): HTMLElement | null {
 describe('ReleaseNotesDialog', () => {
   it('shows the requested version first and keeps the full history visible', () => {
     renderDialog({ initialVersion: '0.3.0-rc.1' });
-    const headings = [...(container?.querySelectorAll('h3') ?? [])]
+    const headings = [...document.body.querySelectorAll('h3')]
       .map((heading) => heading.textContent);
     expect(headings).toEqual([
       'Gnosi 0.3.0-rc.1',
@@ -78,7 +78,7 @@ describe('ReleaseNotesDialog', () => {
   it('closes from its accessible close button', () => {
     const onClose = vi.fn();
     renderDialog({ onClose });
-    const closeButton = container?.querySelector(
+    const closeButton = document.body.querySelector(
       'button[aria-label="release_notes.close"]',
     );
     if (!(closeButton instanceof HTMLButtonElement)) {

@@ -157,6 +157,12 @@ async function renderSettings(): Promise<HTMLDivElement> {
     return nextContainer;
 }
 
+function lifecycleConfirmation(): HTMLElement {
+    const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
+    if (!dialog) throw new Error('Missing plugin lifecycle confirmation');
+    return dialog;
+}
+
 function buttonByText(parent: ParentNode, text: string): HTMLButtonElement {
     const button = [...parent.querySelectorAll('button')].find((candidate) => candidate.textContent.includes(text));
     if (!(button instanceof HTMLButtonElement)) throw new Error(`Missing button: ${text}`);
@@ -280,7 +286,7 @@ describe('PluginsSettings lifecycle and marketplace flows', () => {
         const toggle = view.querySelector('[role="switch"]');
         if (!(toggle instanceof HTMLButtonElement)) throw new Error('Missing lifecycle switch');
         await click(toggle);
-        await click(buttonByText(view, 'settings.plugins.dependency_confirm_action'));
+        await click(buttonByText(lifecycleConfirmation(), 'settings.plugins.dependency_confirm_action'));
         expect(pluginState.setPluginEnabled.mock.calls).toEqual([
             ['daily-notes', true],
             ['daily-notes', true, { confirmDependencies: true, confirmDisable: false }],
@@ -301,10 +307,10 @@ describe('PluginsSettings lifecycle and marketplace flows', () => {
         const toggle = view.querySelector('[role="switch"]');
         if (!(toggle instanceof HTMLButtonElement)) throw new Error('Missing lifecycle switch');
         await click(toggle);
-        expect(view.textContent).toContain('settings.plugins.dependency_disable_message');
+        expect(lifecycleConfirmation().textContent).toContain('settings.plugins.dependency_disable_message');
         expect(notifyError).not.toHaveBeenCalled();
         expect(pluginState.setPluginEnabled).toHaveBeenCalledTimes(1);
-        await click(buttonByText(view, 'settings.plugins.dependency_confirm_action'));
+        await click(buttonByText(lifecycleConfirmation(), 'settings.plugins.dependency_confirm_action'));
         expect(pluginState.setPluginEnabled.mock.calls).toEqual([
             [pluginId, false],
             [pluginId, false, { confirmDependencies: false, confirmDisable: true }],
@@ -319,7 +325,7 @@ describe('PluginsSettings lifecycle and marketplace flows', () => {
         if (!(toggle instanceof HTMLButtonElement)) throw new Error('Missing lifecycle switch');
         await click(toggle);
         expect(pluginState.setPluginEnabled.mock.calls).toEqual([['llm-wiki', false]]);
-        expect(view.textContent).not.toContain('settings.plugins.dependency_confirm_action');
+        expect(document.body.textContent).not.toContain('settings.plugins.dependency_confirm_action');
         expect(notifyError).not.toHaveBeenCalled();
     });
 

@@ -1,3 +1,7 @@
+import { ModalPortal } from '../../../../shared/ui/ModalPortal';
+import { useId, useRef } from 'react';
+import { useModalKeyboard } from '../../../../shared/hooks/useModalKeyboard';
+import { createPanePortal } from '../../../../shared/ui/createPanePortal';
 import { toast } from '../../../../shared/notifications/toast';
 import { transportFetch } from '../../../../shared/api/transports';
 import { displayString, isRecord } from './fieldConfig';
@@ -5,17 +9,25 @@ import type { TableController } from './useTableController';
 
 export function FileDeleteDialog({ model }: { model: TableController; }) {
   const { t, handleCellSave, fileDeletePrompt, fileDeleteBusy, setFileDeletePrompt, setFileDeleteBusy } = model;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  useModalKeyboard({
+    isOpen: Boolean(fileDeletePrompt), containerRef, trapFocus: true,
+    onClose: () => { if (!fileDeleteBusy) setFileDeletePrompt(null); },
+  });
   if (!fileDeletePrompt) return null;
-  return ((
-    <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+  return createPanePortal(
+    <ModalPortal layer="confirm"><div
+      aria-modal="true" aria-labelledby={titleId} role="dialog"
+      className="fixed inset-0 z-[var(--z-confirm-modal)] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
       onClick={() => { if (!fileDeleteBusy) setFileDeletePrompt(null); }}
     >
       <div
+        ref={containerRef}
         className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl w-full max-w-md p-5"
         onClick={(e) => { e.stopPropagation(); }}
       >
-        <h2 className="text-base font-semibold text-[var(--text-primary)] mb-1">
+        <h2 id={titleId} className="text-base font-semibold text-[var(--text-primary)] mb-1">
           {t('files.delete_title', { defaultValue: "Delete file" })}
         </h2>
         <p className="text-sm text-[var(--text-secondary)] mb-4 break-words">
@@ -80,6 +92,5 @@ export function FileDeleteDialog({ model }: { model: TableController; }) {
           </button>
         </div>
       </div>
-    </div>
-  ));
+    </div></ModalPortal>, document.body);
 }

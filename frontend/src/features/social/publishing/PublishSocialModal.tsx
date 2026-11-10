@@ -1,8 +1,10 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import { useRef } from 'react';
 import { ArrowLeft, Loader2, Send, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
+import { createPanePortal } from '../../../shared/ui/createPanePortal';
 import { PublishSocialComposeStep } from './publish-social/PublishSocialComposeStep';
 import { PublishSocialSelectStep } from './publish-social/PublishSocialSelectStep';
 import type { SocialResult } from './publish-social/publishSocialModel';
@@ -46,7 +48,7 @@ function PublishSocialDialog({
         trapFocus: true,
     });
 
-    return <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 font-sans backdrop-blur-sm">
+    return createPanePortal(<ModalPortal><div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/60 p-4 font-sans backdrop-blur-sm">
         <div
             aria-label={t('social.publish_title', 'Publish to social media')}
             aria-modal="true"
@@ -136,7 +138,7 @@ function PublishSocialDialog({
                 </>}
             </div>
         </div>
-    </div>;
+    </div></ModalPortal>, document.body);
 }
 
 

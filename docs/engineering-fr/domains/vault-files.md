@@ -992,4 +992,6 @@ Les détails d’une page Markdown obtiennent leur ETag depuis le même descript
 
 Les résultats de recherche renvoient un texte lisible plutôt que des fragments du Markdown enregistré. Les extraits retirent les marques de titres, d’emphase, de liens, de tableaux et de tâches, conservent le texte visible des colonnes, encadrés et sections repliables, et omettent les blocs de code et la configuration JSON sérialisée. La conversion précède la troncature afin que les longues destinations des liens ne déplacent pas la correspondance visible. L’évaluation de la requête et la ligne source renvoyée utilisent toujours le document original.
 
-La boîte de recherche globale utilise `PanePortal` dans le corps du document et la couche partagée `--z-command`. Les en-têtes des tableaux intégrés et leurs commandes restent sous le fond assombri, même lorsque la page crée son propre contexte d’empilement. Échap et la navigation des résultats conservent le comportement modal existant.
+La recherche classe les documents correspondants avant de générer les extraits, étiquettes et lignes d’origine uniquement pour la page de résultats demandée. Le total et l’ordre déterministe restent indépendants de la pagination.
+
+La boîte de recherche globale utilise `ModalPortal` dans le corps du document et la couche partagée `--z-command`. Les en-têtes des tableaux intégrés et leurs commandes restent sous le fond assombri, même lorsque la page crée son propre contexte d’empilement. Échap et la navigation des résultats conservent le comportement modal existant.

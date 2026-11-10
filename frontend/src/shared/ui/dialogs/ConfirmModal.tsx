@@ -1,3 +1,4 @@
+import { ModalPortal } from '../ModalPortal';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -94,7 +95,7 @@ export const ConfirmModal = ({
     };
 
     return (
-        <div
+        <ModalPortal layer="confirm"><div
             className="fixed inset-0 flex items-center justify-center"
             style={{ zIndex: 'var(--z-confirm-modal)' }}
             onClick={handleBackdropClick}
@@ -179,7 +180,7 @@ export const ConfirmModal = ({
                     </button>
                 </div>
             </div>
-        </div>
+        </div></ModalPortal>
     );
 };
 

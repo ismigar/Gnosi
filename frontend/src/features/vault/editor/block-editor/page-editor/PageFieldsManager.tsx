@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../../../shared/ui/ModalPortal';
 import { useId, useRef, useState } from 'react';
 import { createPanePortal as createPortal } from '../../../../../shared/ui/createPanePortal';
 import { Settings, Trash2, X } from 'lucide-react';
@@ -18,7 +19,7 @@ export function PageFieldsManager({ context, onClose }: { context: PageEditorCon
     finally { setRemoving(null); }
   };
   return createPortal(
-    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 'var(--z-confirm-modal)' }} onClick={close} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+    <ModalPortal layer="confirm"><div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 'var(--z-confirm-modal)' }} onClick={close} role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <div className="absolute inset-0 bg-[var(--bg-primary)]/40 backdrop-blur-sm" />
       <div ref={modalRef} onClick={event => { event.stopPropagation(); }} className="relative bg-[var(--bg-primary)] text-[var(--text-primary)] rounded-2xl shadow-xl w-full max-w-xl max-h-[85vh] overflow-y-auto p-6 border border-[var(--border-primary)]">
         <div className="flex items-center justify-between gap-3 mb-5">
@@ -49,6 +50,6 @@ export function PageFieldsManager({ context, onClose }: { context: PageEditorCon
           </ul>
         </section>
       </div>
-    </div>, document.body,
+    </div></ModalPortal>, document.body,
   );
 }

@@ -1,9 +1,12 @@
 import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import {
-    actAndFlush, existingView, renderModal, requireButton, requireContainer,
+    actAndFlush, existingView, renderModal, requireButton,
     requireElement, settle, updateInput,
 } from './PageViewModal.test-harness';
+
+const requireDialog = () =>
+    requireElement(document.body, '[role="dialog"][aria-labelledby="page-view-modal-title"]', HTMLDivElement);
 
 // Rendering the full modal can exceed five seconds on the shared CI machine.
 describe('PageViewModal editing', { timeout: 15_000 }, () => {
@@ -14,7 +17,7 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
                 { name: 'title', type: 'title' }, { name: 'Area', type: 'select', options: ['Research'] },
             ] }],
         });
-        const modal = requireContainer();
+        const modal = requireDialog();
         const source = requireElement(modal, 'select[aria-label="Source table"]', HTMLSelectElement);
         expect(source.disabled).toBe(false);
         expect(source.value).toBe('');
@@ -47,7 +50,7 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
             mode: 'table', editingView: { ...existingView }, editingBlock: null,
             allTables: [{ id: 'resources', name: 'Resources', properties: types.map(type => ({ name: type, type })) }],
         });
-        const modal = requireContainer();
+        const modal = requireDialog();
         await actAndFlush(() => { requireButton(modal, 'Grouping').click(); });
         const group = requireElement(modal, 'select', HTMLSelectElement);
         expect(Array.from(group.options).map(option => option.value)).toEqual(expect.arrayContaining(['title', ...types]));
@@ -58,14 +61,14 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
 
     it('shows the fixed source table when configuring an existing registry view', async () => {
         await renderModal(undefined, { mode: 'table', editingView: { ...existingView }, editingBlock: null });
-        const source = requireElement(requireContainer(), 'select[aria-label="Source table"]', HTMLSelectElement);
+        const source = requireElement(requireDialog(), 'select[aria-label="Source table"]', HTMLSelectElement);
         expect(source.value).toBe('resources');
         expect(source.disabled).toBe(true);
     });
 
     it('can recover an unavailable preselected table by choosing a current source', async () => {
         await renderModal(undefined, { mode: 'table', editingView: null, editingBlock: null, preselectedTableId: 'removed-table' });
-        expect(requireElement(requireContainer(), 'select[aria-label="Source table"]', HTMLSelectElement).disabled).toBe(false);
+        expect(requireElement(requireDialog(), 'select[aria-label="Source table"]', HTMLSelectElement).disabled).toBe(false);
     });
 
     it.each(['gallery', 'table', 'feed'])('restores and saves the common height setting for a %s view', async type => {
@@ -75,7 +78,7 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
                 prepared.fetchVaultViews.mockResolvedValue([view]);
                 prepared.fetchVaultView.mockResolvedValue(view);
             });
-        const modal = requireContainer();
+        const modal = requireDialog();
         expect(requireButton(modal, 'Limited').getAttribute('aria-pressed')).toBe('true');
         const height = requireElement(modal, 'input[type="number"][max="100"]', HTMLInputElement);
         expect(height.value).toBe('45');
@@ -93,14 +96,14 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
     it('autosaves the chosen height percentage and restores it on reopening', async () => {
         const view = { ...existingView, heightMode: 'limited' };
         const { api, rerender } = await renderModal(undefined, { mode: 'table', editingView: view, editingBlock: null });
-        const height = requireElement(requireContainer(), 'input[type="number"][max="100"]', HTMLInputElement);
+        const height = requireElement(requireDialog(), 'input[type="number"][max="100"]', HTMLInputElement);
         expect(height.value).toBe('70');
         await actAndFlush(() => { updateInput(height, '55'); });
         await act(async () => { await vi.advanceTimersByTimeAsync(800); });
         expect(api.updateVaultView).toHaveBeenLastCalledWith(view.id, expect.objectContaining({ heightPercent: 55 }));
         await rerender({ isOpen: false });
         await rerender({ isOpen: true, editingView: { ...view, heightPercent: 55 } });
-        expect(requireElement(requireContainer(), 'input[type="number"][max="100"]', HTMLInputElement).value).toBe('55');
+        expect(requireElement(requireDialog(), 'input[type="number"][max="100"]', HTMLInputElement).value).toBe('55');
     });
 
     it('opens with the displayed view configuration and persists full-width reading without losing filters', async () => {
@@ -112,7 +115,7 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
         api.fetchVaultView.mockRejectedValue(new Error('Network unavailable'));
         await rerender({ isOpen: true, preselectedTableId: 'resources',
             editingBlock: { props: { view_id: view.id }, view } });
-        const modal = requireContainer();
+        const modal = requireDialog();
         expect(requireElement(modal, 'input[placeholder="e.g. By area"]', HTMLInputElement).value).toBe(view.name);
         expect(requireButton(modal, 'Large').getAttribute('aria-pressed')).toBe('true');
         expect(api.fetchVaultView).not.toHaveBeenCalled();
@@ -133,7 +136,7 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
         const pendingCatalog = new Promise<unknown>((resolve) => { resolveCatalog = resolve; });
         await renderModal(undefined, { editingBlock: { props: { view_id: existingView.id }, view: existingView } },
             (api) => { api.fetchVaultViews.mockReturnValue(pendingCatalog); });
-        const modal = requireContainer();
+        const modal = requireDialog();
         const name = requireElement(modal, 'input[placeholder="e.g. By area"]', HTMLInputElement);
         await actAndFlush(() => { updateInput(name, 'My updated view'); });
         await actAndFlush(() => { resolveCatalog?.([{ ...existingView, name: 'Old catalog name' }]); });
@@ -145,7 +148,7 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
         const { api } = await renderModal(undefined, {}, (prepared) => {
             prepared.fetchVaultView.mockRejectedValueOnce(new Error('Network unavailable'));
         });
-        const modal = requireContainer();
+        const modal = requireDialog();
         expect(modal.textContent).toContain("Couldn't load this view's settings. Try again.");
         expect(modal.querySelector('input[placeholder="e.g. By area"]')).toBeNull();
         expect(requireButton(modal, 'Insert').disabled).toBe(true);
@@ -160,7 +163,7 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
 
     it('mirrors a renamed view in the existing-view picker while typing and after blur', async () => {
         await renderModal();
-        const modal = requireContainer();
+        const modal = requireDialog();
         const picker = requireElement(modal, 'select', HTMLSelectElement);
         const nameInput = requireElement(
             modal,
@@ -185,7 +188,7 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
     it('asks before Cancel discards edits and closes without saving after confirmation', async () => {
         const onClose = vi.fn();
         const { api } = await renderModal(onClose);
-        const modal = requireContainer();
+        const modal = requireDialog();
         const nameInput = requireElement(
             modal,
             'input[placeholder="e.g. By area"]',
@@ -217,7 +220,7 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
         const onClose = vi.fn();
         await renderModal(onClose);
         const closeButton = requireElement(
-            requireContainer(),
+            requireDialog(),
             'button[aria-label="Close"]',
             HTMLButtonElement,
         );
@@ -233,7 +236,7 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
     it('uses the same guarded discard flow from the close button', async () => {
         const onClose = vi.fn();
         await renderModal(onClose);
-        const modal = requireContainer();
+        const modal = requireDialog();
         const nameInput = requireElement(
             modal,
             'input[placeholder="e.g. By area"]',
@@ -259,7 +262,7 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
     it('persists the renamed existing view when Insert is confirmed', async () => {
         const onClose = vi.fn();
         const { api } = await renderModal(onClose);
-        const modal = requireContainer();
+        const modal = requireDialog();
         const nameInput = requireElement(
             modal,
             'input[placeholder="e.g. By area"]',
@@ -285,7 +288,7 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
     it('creates once during table autosave, updates the same id and flushes before closing', async () => {
         const onClose = vi.fn();
         const { api } = await renderModal(onClose, { mode: 'table', editingView: null, editingBlock: null });
-        const modal = requireContainer();
+        const modal = requireDialog();
         const input = requireElement(modal, 'input[placeholder="e.g. By area"]', HTMLInputElement);
         await actAndFlush(() => { updateInput(input, 'Saved table'); });
         await act(async () => { await vi.advanceTimersByTimeAsync(800); });
@@ -305,7 +308,7 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
     it('reports a save error without closing and permits retry', async () => {
         const onClose = vi.fn();
         const { api } = await renderModal(onClose);
-        const modal = requireContainer();
+        const modal = requireDialog();
         const input = requireElement(modal, 'input[placeholder="e.g. By area"]', HTMLInputElement);
         await actAndFlush(() => { updateInput(input, 'Retry view'); });
         api.createVaultView.mockRejectedValueOnce(new Error('Synthetic write failure'));
@@ -318,8 +321,8 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
 
     it('validates the source before creating an embedded section', async () => {
         const { api, onClose } = await renderModal(undefined, { preselectedTableId: '', editingBlock: null });
-        await actAndFlush(() => { requireButton(requireContainer(), 'Create view').click(); });
-        expect(requireContainer().textContent).toContain('You must select a source table');
+        await actAndFlush(() => { requireButton(requireDialog(), 'Create view').click(); });
+        expect(requireDialog().textContent).toContain('You must select a source table');
         expect(api.upsertPageView).not.toHaveBeenCalled();
         expect(onClose).not.toHaveBeenCalled();
     });
@@ -327,7 +330,7 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
     it('guards keyboard Escape exactly like the Cancel action', async () => {
         const onClose = vi.fn();
         await renderModal(onClose);
-        const input = requireElement(requireContainer(), 'input[placeholder="e.g. By area"]', HTMLInputElement);
+        const input = requireElement(requireDialog(), 'input[placeholder="e.g. By area"]', HTMLInputElement);
         await actAndFlush(() => { updateInput(input, 'Changed by keyboard'); });
         await actAndFlush(() => {
             input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -341,7 +344,7 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
             { id: 'resources', name: 'Resources', properties: [{ name: 'title', type: 'title' }] },
             { id: 'authors', name: 'Authors', properties: [{ name: 'Country', type: 'text' }] },
         ] });
-        const modal = requireContainer();
+        const modal = requireDialog();
         await actAndFlush(() => { requireButton(modal, 'Add table (join)').click(); });
         await actAndFlush(() => { requireButton(modal, 'Fields').click(); });
         const country = Array.from(modal.querySelectorAll('label')).find(label => label.textContent.includes('Country'));
@@ -360,20 +363,20 @@ describe('view titles and exposed filters', () => {
     it('saves and reopens the short title without renaming the catalog entry', async () => {
         const view = { ...existingView, name: 'Tasks per project - Kanban', type: 'board' };
         const { api, rerender } = await renderModal(undefined, { mode: 'table', editingView: view, editingBlock: null });
-        const modal = requireContainer();
+        const modal = requireDialog();
         const title = requireElement(modal, 'input[placeholder="Tasks per project - Kanban"]', HTMLInputElement);
         await actAndFlush(() => { updateInput(title, 'Kanban'); });
         await act(async () => { await vi.advanceTimersByTimeAsync(800); });
         expect(api.updateVaultView).toHaveBeenLastCalledWith(view.id, expect.objectContaining({ name: view.name, displayTitle: 'Kanban' }));
         await rerender({ isOpen: false });
         await rerender({ isOpen: true, editingView: { ...view, displayTitle: 'Kanban' } });
-        expect(requireElement(requireContainer(), 'input[placeholder="Tasks per project - Kanban"]', HTMLInputElement).value).toBe('Kanban');
+        expect(requireElement(requireDialog(), 'input[placeholder="Tasks per project - Kanban"]', HTMLInputElement).value).toBe('Kanban');
     });
     it('persists exposed filter switches in both the tree and flat representation', async () => {
         const view = { ...existingView, filters: [{ field: 'title', operator: 'contains', value: 'Task' }] };
         const { api } = await renderModal(undefined, { mode: 'table', editingView: view, editingBlock: null });
-        await actAndFlush(() => { requireButton(requireContainer(), 'Filters').click(); });
-        const toggle = requireElement(requireContainer(), '[role="switch"][aria-label="view.expose_filter"]', HTMLDivElement);
+        await actAndFlush(() => { requireButton(requireDialog(), 'Filters').click(); });
+        const toggle = requireElement(requireDialog(), '[role="switch"][aria-label="view.expose_filter"]', HTMLDivElement);
         await actAndFlush(() => { toggle.click(); });
         await act(async () => { await vi.advanceTimersByTimeAsync(800); });
         expect(api.updateVaultView).toHaveBeenLastCalledWith(view.id, expect.objectContaining({

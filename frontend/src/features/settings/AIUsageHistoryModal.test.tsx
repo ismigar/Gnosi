@@ -91,7 +91,7 @@ describe('AIUsageHistoryModal', () => {
             );
         });
 
-        expect(container.textContent).toBe('');
+        expect(document.body.querySelector('[role="dialog"][aria-labelledby="usage-history-title"]')).toBeNull();
         expect(mocks.fetchUsageHistory).not.toHaveBeenCalled();
     });
 
@@ -119,10 +119,12 @@ describe('AIUsageHistoryModal', () => {
         expect(mocks.fetchUsageHistory.mock.calls[0]?.[0]).toBeInstanceOf(
             AbortSignal,
         );
-        expect(container.textContent).toContain('GPT 5');
-        expect(container.textContent).toContain('Històric de consum');
+        const dialog = document.body.querySelector('[role="dialog"][aria-labelledby="usage-history-title"]');
+        if (!dialog) throw new Error('Missing usage history dialog');
+        expect(dialog.textContent).toContain('GPT 5');
+        expect(dialog.textContent).toContain('Històric de consum');
 
-        const closeButton = container.querySelector<HTMLButtonElement>(
+        const closeButton = dialog.querySelector<HTMLButtonElement>(
             'button.gnosi-close-btn',
         );
         if (!closeButton) throw new Error('Close action was not rendered');

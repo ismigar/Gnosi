@@ -1,3 +1,4 @@
+import type { RecordWebsiteDestination } from '../../../../shared/api/sites';
 import type { TFunction } from 'i18next';
 import { BrainCircuit, Languages, Loader2, Send, Sparkles, Zap } from 'lucide-react';
 import { checkActionRequires } from '../../../../shared/records/model/optionCatalogUtils';
@@ -11,6 +12,7 @@ import type { TableNote, PendingTableAction } from './types';
 
 interface RecordActionsInput {
   note: TableNote;
+  websiteDestinations?: RecordWebsiteDestination[];
   schema: Record<string, unknown>;
   functionalities?: unknown;
   actionRules?: unknown;
@@ -60,7 +62,7 @@ export function buildRecordActions(input: RecordActionsInput): PageActionItem[] 
       overflowOnly: true,
       onClick: () => {
         if (disabled) return;
-        if (['translate_row', 'publish_social', 'process_resource'].includes(action)) setPendingAction(pending(action, functionality));
+        if (['translate_row', 'publish_social', 'process_resource', 'publish_website', 'withdraw_website'].includes(action)) setPendingAction(pending(action, functionality));
         else if (functionality) input.execute(functionality);
       },
     });
@@ -80,6 +82,12 @@ export function buildRecordActions(input: RecordActionsInput): PageActionItem[] 
     add('process_resource', retryable ? t('table.reprocess_resource_error', 'Resume interrupted processing')
       : processed ? t('table.reprocess_resource', 'Reprocess resource (processed on {{date}})', { date })
       : t('table.process_resource', 'Process resource (Brain)'));
+  }
+  if (isPluginEnabled('web-publishing') && input.websiteDestinations?.length) {
+    add('publish_website', t('recordWebsite.publish', 'Publish to website'));
+    if (input.websiteDestinations.some(destination => (destination.published_page_ids ?? []).includes(note.id))) {
+      add('withdraw_website', t('recordWebsite.withdraw', 'Unpublish from website'));
+    }
   }
   return actions;
 }

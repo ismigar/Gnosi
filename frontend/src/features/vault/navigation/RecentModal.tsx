@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import {
     useCallback,
     useEffect,
@@ -139,7 +140,7 @@ export function RecentModal({
     };
 
     return (
-        <div className="fixed inset-0 z-[150] flex items-start justify-center pt-[15vh] px-4 sm:p-0">
+        <ModalPortal><div className="fixed inset-0 z-[150] flex items-start justify-center pt-[15vh] px-4 sm:p-0">
             {/* Overlay */}
             <div
                 className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
@@ -216,6 +217,6 @@ export function RecentModal({
                     )}
                 </div>
             </div>
-        </div>
+        </div></ModalPortal>
     );
 }

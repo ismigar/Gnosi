@@ -50,7 +50,7 @@ export function VaultFeedOverlays({ controller }: VaultFeedOverlaysProps) {
       {bulkProposal && (
         <div
           className="vault-feed-bulk-proposal"
-          role="dialog"
+          role="dialog" aria-modal={false}
           aria-label={t('feed.confirm_bulk_update', 'Confirm batch update')}
         >
           <strong>{t('feed.bulk_preview_title', 'Review batch update')}</strong>
@@ -77,7 +77,7 @@ export function VaultFeedOverlays({ controller }: VaultFeedOverlaysProps) {
       {isCommandOpen && (
         <div
           className="vault-feed-command"
-          role="dialog"
+          role="dialog" aria-modal={false}
           aria-label={t('feed.command_title', 'Feed command')}
         >
           <button

@@ -51,8 +51,8 @@ vi.mock('../../../shared/api/social', () => ({
 vi.mock('../../../shared/api/vaults', () => ({ fetchVaultPage: mocks.fetchVaultPage }));
 
 
-function buttonWithText(container: ParentNode, text: string): HTMLButtonElement {
-    const button = Array.from(container.querySelectorAll('button'))
+function buttonWithText(scope: ParentNode, text: string): HTMLButtonElement {
+    const button = Array.from(scope.querySelectorAll('button'))
         .find((candidate) => candidate.textContent.includes(text));
     if (!button) throw new Error(`Button not found: ${text}`);
     return button;
@@ -112,7 +112,7 @@ describe('PublishSocialModal', () => {
                 onClose={vi.fn()}
             />);
         });
-        expect(container.textContent).toBe('');
+        expect(document.body.textContent).toBe('');
         expect(mocks.fetchSocialNetworks).not.toHaveBeenCalled();
     });
 
@@ -130,9 +130,9 @@ describe('PublishSocialModal', () => {
             await Promise.resolve();
         });
 
-        expect(container.textContent).toContain('Mastodon');
+        expect(document.body.textContent).toContain('Mastodon');
         await act(async () => {
-            buttonWithText(container, 'Generate with AI').click();
+            buttonWithText(document.body, 'Generate with AI').click();
             await Promise.resolve();
             await Promise.resolve();
         });
@@ -140,10 +140,10 @@ describe('PublishSocialModal', () => {
             networks: ['mastodon'],
             title: 'Source title',
         }));
-        expect(container.textContent).toContain('Generated post');
+        expect(document.body.textContent).toContain('Generated post');
 
         await act(async () => {
-            buttonWithText(container, 'Publish now').click();
+            buttonWithText(document.body, 'Publish now').click();
             await Promise.resolve();
             await Promise.resolve();
         });
@@ -170,14 +170,14 @@ describe('PublishSocialModal', () => {
         const onClose = vi.fn();
         const onPublished = vi.fn();
         await act(async () => { root.render(<PublishSocialModal isOpen noteId="article" onClose={onClose} onPublished={onPublished} />); await Promise.resolve(); });
-        await act(async () => { buttonWithText(container, 'Generate with AI').click(); await Promise.resolve(); });
+        await act(async () => { buttonWithText(document.body, 'Generate with AI').click(); await Promise.resolve(); });
         expect(mocks.composeSocialPosts).toHaveBeenCalledWith(expect.objectContaining({ source_page_id: 'article', content: 'Article body', title: 'Article' }));
-        await act(async () => { buttonWithText(container, 'Publish now').click(); await Promise.resolve(); });
+        await act(async () => { buttonWithText(document.body, 'Publish now').click(); await Promise.resolve(); });
         expect(onClose).not.toHaveBeenCalled();
         expect(onPublished).not.toHaveBeenCalled();
-        expect(container.querySelectorAll('textarea')).toHaveLength(1);
-        expect(container.querySelector('textarea')?.value).toBe('Reviewed article');
-        await act(async () => { buttonWithText(container, 'Publish now').click(); await Promise.resolve(); });
+        expect(document.body.querySelectorAll('textarea')).toHaveLength(1);
+        expect(document.body.querySelector('textarea')?.value).toBe('Reviewed article');
+        await act(async () => { buttonWithText(document.body, 'Publish now').click(); await Promise.resolve(); });
         expect(mocks.publishSocialPosts).toHaveBeenLastCalledWith({
             posts: { bluesky: { text: 'Reviewed article' } }, source_page_id: 'article', source_title: 'Article',
         });
@@ -189,23 +189,23 @@ describe('PublishSocialModal', () => {
         mocks.publishSocialPosts.mockResolvedValueOnce({ status: 'error', results: { mastodon: { status: 'error' } } });
         const onClose = vi.fn();
         await act(async () => { root.render(<PublishSocialModal isOpen recordMetadata={{ title: 'Article' }} onClose={onClose} />); await Promise.resolve(); });
-        await act(async () => { buttonWithText(container, 'Generate with AI').click(); await Promise.resolve(); });
-        await act(async () => { buttonWithText(container, 'Publish now').click(); await Promise.resolve(); });
+        await act(async () => { buttonWithText(document.body, 'Generate with AI').click(); await Promise.resolve(); });
+        await act(async () => { buttonWithText(document.body, 'Publish now').click(); await Promise.resolve(); });
         expect(onClose).not.toHaveBeenCalled();
-        expect(container.querySelector('textarea')?.value).toBe('Generated post');
+        expect(document.body.querySelector('textarea')?.value).toBe('Generated post');
     });
 
     it('lets missing network proposals be edited and blocks publishing during regeneration', async () => {
         mocks.fetchSocialNetworks.mockResolvedValue(['mastodon', 'bluesky'].map(id => ({ id, name: id, configured: true, enabled: true, char_limit: 500 })));
         await act(async () => { root.render(<PublishSocialModal isOpen recordMetadata={{ title: 'Article' }} onClose={vi.fn()} />); await Promise.resolve(); });
-        await act(async () => { buttonWithText(container, 'Generate with AI').click(); await Promise.resolve(); });
-        expect(container.querySelectorAll('textarea')).toHaveLength(2);
+        await act(async () => { buttonWithText(document.body, 'Generate with AI').click(); await Promise.resolve(); });
+        expect(document.body.querySelectorAll('textarea')).toHaveLength(2);
         let finish: (value: unknown) => void = () => {};
         mocks.composeSocialPosts.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
-        await act(async () => { (container.querySelector('[title="Regenerate"]') as HTMLButtonElement).click(); await Promise.resolve(); });
-        expect(buttonWithText(container, 'Publish now').disabled).toBe(true);
+        await act(async () => { (document.body.querySelector('[title="Regenerate"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+        expect(buttonWithText(document.body, 'Publish now').disabled).toBe(true);
         await act(async () => { finish({ proposals: {} }); await Promise.resolve(); });
-        expect(buttonWithText(container, 'Publish now').disabled).toBe(false);
+        expect(buttonWithText(document.body, 'Publish now').disabled).toBe(false);
     });
 
 });

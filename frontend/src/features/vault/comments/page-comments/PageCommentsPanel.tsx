@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../../shared/ui/ModalPortal';
 import { Loader2, MessageSquare, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -15,7 +16,7 @@ export function PageCommentsPanel({
 }: PageCommentsPanelProps) {
     const { t } = useTranslation();
     return (
-        <div className="fixed inset-0 z-[var(--z-modal)] flex justify-end animate-in fade-in duration-150">
+        <ModalPortal><div className="fixed inset-0 z-[var(--z-modal)] flex justify-end animate-in fade-in duration-150">
             <button
                 aria-label={t('common.close', 'Close')}
                 className="absolute inset-0 bg-black/30"
@@ -90,6 +91,6 @@ export function PageCommentsPanel({
                     />
                 </div>
             </div>
-        </div>
+        </div></ModalPortal>
     );
 }

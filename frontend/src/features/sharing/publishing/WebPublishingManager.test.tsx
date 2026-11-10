@@ -23,7 +23,7 @@ const status: api.WebStatus = { configured: true, target: 'staging', pages: [
 const preview: api.WebPreview = { preview_id: 'reviewed', expires_at: '2030-01-01T00:00:00Z', target: 'staging', changes: [{ kind: 'create', title: 'One', language: 'ca', url: '/one' }], warnings: [] };
 const settle = async () => { await act(async () => { await Promise.resolve(); await Promise.resolve(); }); };
 function button(container: HTMLElement, key: string) {
-    const result = [...container.querySelectorAll('button')].find(item => item.textContent === key);
+    const result = [...document.body.querySelectorAll('button')].find(item => item.textContent === key);
     if (!result) throw new Error(`Missing button ${key}`);
     return result;
 }
@@ -32,8 +32,8 @@ function pending<T>() {
     const promise = new Promise<T>(complete => { resolve = complete; });
     return { promise, resolve };
 }
-function refresh(container: HTMLElement) {
-    const result = container.querySelector<HTMLButtonElement>('button[aria-label="common.refresh"]');
+function refresh(_container: HTMLElement) {
+    const result = document.body.querySelector<HTMLButtonElement>('button[aria-label="common.refresh"]');
     if (!result) throw new Error('Refresh missing');
     return result;
 }
@@ -52,7 +52,7 @@ describe('staging web publication', () => {
         const view = mountTestComponent(<WebPublishingManager onClose={vi.fn()} onBack={vi.fn()} />);
         await settle();
         expect(button(view.container, 'webPublishing.publish').disabled).toBe(true);
-        const switches = view.container.querySelectorAll<HTMLElement>('[role="switch"]');
+        const switches = document.body.querySelectorAll<HTMLElement>('[role="switch"]');
         expect(switches).toHaveLength(3);
         expect(switches[1]?.getAttribute('aria-disabled')).toBe('true');
         act(() => { switches[0]?.click(); switches[2]?.click(); });
@@ -64,7 +64,7 @@ describe('staging web publication', () => {
 
     it('invalidates reviewed previews when selection changes or the driver reports stale content', async () => {
         const view = mountTestComponent(<WebPublishingManager onClose={vi.fn()} onBack={vi.fn()} />); await settle();
-        const first = view.container.querySelector<HTMLElement>('[role="switch"]');
+        const first = document.body.querySelector<HTMLElement>('[role="switch"]');
         act(() => { first?.click(); });
         act(() => { button(view.container, 'webPublishing.review').click(); }); await settle();
         act(() => { first?.click(); });
@@ -74,16 +74,16 @@ describe('staging web publication', () => {
         vi.mocked(api.webPublish).mockRejectedValue(new Error('stale'));
         act(() => { button(view.container, 'webPublishing.publish').click(); }); await settle();
         expect(button(view.container, 'webPublishing.publish').disabled).toBe(true);
-        expect(view.container.querySelector('[role="alert"]')).not.toBeNull();
+        expect(document.body.querySelector('[role="alert"]')).not.toBeNull();
     });
 
     it('previews a newsletter in a restricted iframe and queues only its reviewed token', async () => {
         vi.mocked(api.newsletterPreview).mockResolvedValue({ preview_id: 'mail-reviewed', subject: 'Test', body_html: '<p>Test</p>', recipient_count: 2, test_mode: true });
         vi.mocked(api.newsletterSend).mockResolvedValue({ campaign_id: 'campaign', queued: 2, test_mode: true });
         const view = mountTestComponent(<WebPublishingManager onClose={vi.fn()} onBack={vi.fn()} />); await settle();
-        const subject = view.container.querySelector<HTMLInputElement>('input');
-        const body = view.container.querySelector<HTMLTextAreaElement>('textarea');
-        expect([...view.container.querySelectorAll('select option')].map(option => option.getAttribute('value'))).toEqual(['ca', 'es', 'en-gb']);
+        const subject = document.body.querySelector<HTMLInputElement>('input');
+        const body = document.body.querySelector<HTMLTextAreaElement>('textarea');
+        expect([...document.body.querySelectorAll('select option')].map(option => option.getAttribute('value'))).toEqual(['ca', 'es', 'en-gb']);
         act(() => {
             Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(subject, 'Test');
             subject?.dispatchEvent(new Event('input', { bubbles: true }));
@@ -92,7 +92,7 @@ describe('staging web publication', () => {
         });
         act(() => { button(view.container, 'webPublishing.reviewMail').click(); }); await settle();
         expect(api.newsletterPreview).toHaveBeenCalledWith({ subject: 'Test', body_markdown: 'Test body', language: 'ca' }, context, expect.any(AbortSignal));
-        const iframe = view.container.querySelector('iframe');
+        const iframe = document.body.querySelector('iframe');
         expect(iframe?.getAttribute('sandbox')).toBe('');
         expect(iframe?.getAttribute('srcdoc')).toContain("default-src 'none'");
         act(() => { button(view.container, 'webPublishing.queue').click(); }); await settle();
@@ -103,11 +103,11 @@ describe('staging web publication', () => {
     it.each(['userId', 'workspaceId', 'vaultId'] as const)('removes private content and cancels requests when %s changes', async part => {
         vi.mocked(api.webStatus).mockReturnValue(new Promise(() => undefined));
         const close = vi.fn();
-        const view = mountTestComponent(<WebPublishingManager onClose={close} onBack={vi.fn()} />); await settle();
+        mountTestComponent(<WebPublishingManager onClose={close} onBack={vi.fn()} />); await settle();
         const signal = vi.mocked(api.webStatus).mock.calls[0]?.[1];
         vi.mocked(currentRequestContext).mockReturnValue({ ...context, [part]: 'other' });
         act(() => { dispatchWindowEvent(new Event('storage')); });
-        expect(view.container.textContent).toBe('');
+        expect(document.body.textContent).toBe('');
         expect(signal?.aborted).toBe(true);
         expect(close).toHaveBeenCalledOnce();
     });
@@ -117,22 +117,22 @@ describe('staging web publication', () => {
         const old = pending<api.WebStatus>();
         vi.mocked(api.webStatus).mockReturnValueOnce(old.promise).mockResolvedValueOnce({ ...status, pages: [{ ...firstPage, title: 'Fresh catalog' }] });
         const view = mountTestComponent(<WebPublishingManager onClose={vi.fn()} onBack={vi.fn()} />); await settle();
-        expect(view.container.textContent).toContain('webPublishing.loadingWeb');
+        expect(document.body.textContent).toContain('webPublishing.loadingWeb');
         expect(api.newsletterStatus).not.toHaveBeenCalled();
         const signal = vi.mocked(api.webStatus).mock.calls[0]?.[1];
         await act(async () => { await vi.advanceTimersByTimeAsync(64_999); });
         expect(refresh(view.container).disabled).toBe(true);
         await act(async () => { await vi.advanceTimersByTimeAsync(1); });
         expect(signal?.aborted).toBe(true);
-        expect(view.container.textContent).not.toContain('webPublishing.loadingWeb');
-        expect(view.container.querySelector('[role="alert"]')?.textContent).toBe('webPublishing.webReadFailed');
+        expect(document.body.textContent).not.toContain('webPublishing.loadingWeb');
+        expect(document.body.querySelector('[role="alert"]')?.textContent).toBe('webPublishing.webReadFailed');
         expect(refresh(view.container).disabled).toBe(false);
         expect(vi.getTimerCount()).toBe(0);
         act(() => { refresh(view.container).click(); }); await settle();
-        expect(view.container.textContent).toContain('Fresh catalog');
+        expect(document.body.textContent).toContain('Fresh catalog');
         await act(async () => { old.resolve({ ...status, pages: [{ ...firstPage, title: 'Obsolete catalog' }] }); await old.promise; });
-        expect(view.container.textContent).not.toContain('Obsolete catalog');
-        expect(view.container.textContent).toContain('Fresh catalog');
+        expect(document.body.textContent).not.toContain('Obsolete catalog');
+        expect(document.body.textContent).toContain('Fresh catalog');
         expect(api.newsletterStatus).toHaveBeenCalledOnce();
         expect(vi.getTimerCount()).toBe(0);
     });
@@ -142,24 +142,24 @@ describe('staging web publication', () => {
         const mail = pending<api.NewsletterStatus>();
         vi.mocked(api.newsletterStatus).mockReturnValue(mail.promise);
         const view = mountTestComponent(<WebPublishingManager onClose={vi.fn()} onBack={vi.fn()} />); await settle();
-        expect(view.container.textContent).toContain('One');
-        expect(view.container.textContent).toContain('webPublishing.loadingNewsletter');
-        const first = view.container.querySelector<HTMLElement>('[role="switch"]');
+        expect(document.body.textContent).toContain('One');
+        expect(document.body.textContent).toContain('webPublishing.loadingNewsletter');
+        const first = document.body.querySelector<HTMLElement>('[role="switch"]');
         expect(first?.getAttribute('aria-disabled')).toBe('true');
         act(() => { first?.click(); button(view.container, 'webPublishing.review').click(); });
         expect(api.webPreview).not.toHaveBeenCalled();
         await act(async () => { await vi.advanceTimersByTimeAsync(65_000); });
         expect(vi.mocked(api.newsletterStatus).mock.calls[0]?.[1]?.aborted).toBe(true);
-        expect(view.container.textContent).not.toContain('webPublishing.loadingNewsletter');
-        expect(view.container.querySelector('[role="alert"]')?.textContent).toBe('webPublishing.newsletterReadFailed');
+        expect(document.body.textContent).not.toContain('webPublishing.loadingNewsletter');
+        expect(document.body.querySelector('[role="alert"]')?.textContent).toBe('webPublishing.newsletterReadFailed');
         expect(first?.getAttribute('aria-disabled')).toBeNull();
         expect(refresh(view.container).disabled).toBe(false);
         act(() => { first?.click(); });
         act(() => { button(view.container, 'webPublishing.review').click(); }); await settle();
         expect(api.webPreview).toHaveBeenCalledOnce();
         await act(async () => { mail.resolve({ subscribers: { pending: 0, active: 999, unsubscribed: 0 }, campaigns: [], test_mode: true }); await mail.promise; });
-        expect(view.container.textContent).not.toContain('webPublishing.counts');
-        expect(view.container.textContent).toContain('webPublishing.newsletterReadFailed');
+        expect(document.body.textContent).not.toContain('webPublishing.counts');
+        expect(document.body.textContent).toContain('webPublishing.newsletterReadFailed');
         expect(vi.getTimerCount()).toBe(0);
     });
 
@@ -167,20 +167,20 @@ describe('staging web publication', () => {
         const payload = { detail: { code: 'web_publishing_unavailable', message: 'Preview expired' } };
         vi.mocked(api.webStatus).mockRejectedValue(new GnosiApiError(Response.json(payload, { status: 503 }), payload));
         const view = mountTestComponent(<WebPublishingManager onClose={vi.fn()} onBack={vi.fn()} />); await settle();
-        expect(view.container.querySelector('[role="alert"]')?.textContent).toBe('webPublishing.webReadFailed');
-        expect(view.container.textContent).not.toContain('Preview expired');
+        expect(document.body.querySelector('[role="alert"]')?.textContent).toBe('webPublishing.webReadFailed');
+        expect(document.body.textContent).not.toContain('Preview expired');
         expect(api.newsletterStatus).not.toHaveBeenCalled();
         expect(refresh(view.container).disabled).toBe(false);
     });
 
     it('clears previous reviewed previews when refreshing', async () => {
         const view = mountTestComponent(<WebPublishingManager onClose={vi.fn()} onBack={vi.fn()} />); await settle();
-        act(() => { view.container.querySelector<HTMLElement>('[role="switch"]')?.click(); });
+        act(() => { document.body.querySelector<HTMLElement>('[role="switch"]')?.click(); });
         act(() => { button(view.container, 'webPublishing.review').click(); }); await settle();
         expect(button(view.container, 'webPublishing.publish').disabled).toBe(false);
         vi.mocked(api.webStatus).mockReturnValue(new Promise(() => undefined));
         act(() => { refresh(view.container).click(); }); await settle();
-        expect(view.container.textContent).not.toContain('webPublishing.expires');
+        expect(document.body.textContent).not.toContain('webPublishing.expires');
         expect(api.webPublish).not.toHaveBeenCalled();
     });
 

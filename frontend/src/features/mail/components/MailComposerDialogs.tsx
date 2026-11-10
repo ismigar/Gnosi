@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import { useId, useRef } from 'react';
 import type { MailComposerController } from './useMailComposerController';
 import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
@@ -22,7 +23,7 @@ export function MailComposerDialogs({ controller }: MailComposerDialogsProps) {
   if (!showCloseConfirm) return null;
 
   return (
-    <div className="fixed inset-0 z-[var(--z-modal)] flex animate-in items-center justify-center bg-black/30 backdrop-blur-sm fade-in duration-150">
+    <ModalPortal><div className="fixed inset-0 z-[var(--z-modal)] flex animate-in items-center justify-center bg-black/30 backdrop-blur-sm fade-in duration-150">
       <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="w-[340px] max-w-[calc(100vw-2rem)] animate-in rounded-2xl border border-[var(--border-primary)] bg-[var(--bg-primary)] p-6 shadow-2xl zoom-in-95 duration-150">
         <h3 id={titleId} className="mb-1 text-[16px] font-bold text-[var(--text-primary)]">
           {t('mail.close_confirm_title')}
@@ -58,6 +59,6 @@ export function MailComposerDialogs({ controller }: MailComposerDialogsProps) {
           </button>
         </div>
       </div>
-    </div>
+    </div></ModalPortal>
   );
 }

@@ -41,8 +41,8 @@ describe('interactive timeline and its shared table records', () => {
         Object.defineProperty(event, 'pointerId', { value: 1 });
         target.dispatchEvent(event);
     }
-    function find(selector: string): HTMLElement {
-        const element = container.querySelector<HTMLElement>(selector);
+    function find(selector: string, scope: ParentNode = container): HTMLElement {
+        const element = scope.querySelector<HTMLElement>(selector);
         if (!element) throw new Error(`Missing ${selector}`);
         return element;
     }
@@ -149,7 +149,7 @@ describe('interactive timeline and its shared table records', () => {
         act(() => { root.render(<Harness />); });
         const before = find('[data-table-record="b"]').textContent;
         act(() => { find('[data-timeline-dependency="a->b"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); });
-        const dialog = find('[role="dialog"]');
+        const dialog = find('[role="dialog"][aria-describedby]', document.body);
         const remove = [...dialog.querySelectorAll('button')].find(button => button.textContent === 'Remove dependency');
         if (!remove) throw new Error('Remove dependency action missing');
         await act(async () => { remove.click(); await Promise.resolve(); });
@@ -165,7 +165,7 @@ describe('interactive timeline and its shared table records', () => {
     it('does not remove a connection when its dialog is cancelled', () => {
         act(() => { root.render(<Harness />); });
         act(() => { find('[data-timeline-dependency="a->b"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); });
-        const cancel = [...find('[role="dialog"]').querySelectorAll('button')].find(button => button.textContent === 'Cancel');
+        const cancel = [...find('[role="dialog"][aria-describedby]', document.body).querySelectorAll('button')].find(button => button.textContent === 'Cancel');
         if (!cancel) throw new Error('Cancel action missing');
         act(() => { cancel.click(); });
         expect(writes).toHaveLength(0);

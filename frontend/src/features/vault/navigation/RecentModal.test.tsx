@@ -93,10 +93,10 @@ describe('RecentModal', () => {
         />,
       );
     });
-    expect(container.textContent).toContain('Newer note');
-    expect(container.textContent).toContain('Older note');
-    expect(container.textContent).not.toContain('Calendar event');
-    expect(container.textContent).not.toContain('Index · Topics');
+    expect(document.body.textContent).toContain('Newer note');
+    expect(document.body.textContent).toContain('Older note');
+    expect(document.body.textContent).not.toContain('Calendar event');
+    expect(document.body.textContent).not.toContain('Index · Topics');
 
     act(() => {
       document.body.dispatchEvent(new KeyboardEvent('keydown', {

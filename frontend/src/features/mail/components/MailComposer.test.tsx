@@ -182,6 +182,12 @@ function changeValue(
     element.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+function closeConfirmation(): HTMLElement {
+    const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
+    if (!dialog) throw new Error('Missing draft close confirmation');
+    return dialog;
+}
+
 function buttonContaining(container: HTMLElement, text: string): HTMLButtonElement {
     const button = [...container.querySelectorAll<HTMLButtonElement>('button')]
         .find((candidate) => candidate.textContent.includes(text));
@@ -366,12 +372,12 @@ describe('MailComposer shared Mail API migration', () => {
         if (!trigger) throw new Error('Missing close control');
         await act(async () => { trigger.click(); await Promise.resolve(); });
         expect(onClose).not.toHaveBeenCalled();
-        expect(container.querySelector('[role="dialog"]')).not.toBeNull();
-        await act(async () => { buttonContaining(container, 'mail.close_cancel').click(); await Promise.resolve(); });
+        expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+        await act(async () => { buttonContaining(closeConfirmation(), 'mail.close_cancel').click(); await Promise.resolve(); });
         expect(onClose).not.toHaveBeenCalled();
-        expect(container.querySelector('[role="dialog"]')).toBeNull();
+        expect(document.body.querySelector('[role="dialog"]')).toBeNull();
         await act(async () => { trigger.click(); await Promise.resolve(); });
-        await act(async () => { buttonContaining(container, 'mail.close_discard').click(); await Promise.resolve(); });
+        await act(async () => { buttonContaining(closeConfirmation(), 'mail.close_discard').click(); await Promise.resolve(); });
         expect(onClose).toHaveBeenCalledOnce();
     });
 
@@ -384,7 +390,7 @@ describe('MailComposer shared Mail API migration', () => {
         });
         if (initialCc) {
             expect(onClose).not.toHaveBeenCalled();
-            expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+            expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
         } else {
             expect(onClose).toHaveBeenCalledOnce();
         }

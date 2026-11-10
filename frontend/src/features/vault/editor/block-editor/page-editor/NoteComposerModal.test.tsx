@@ -33,11 +33,11 @@ async function mount(flush = vi.fn<() => Promise<boolean>>().mockResolvedValue(t
   cleanups.push(view.unmount);
   const container = view.container;
   const button = (text: string) => {
-    const found = [...container.querySelectorAll('button')].find(item => item.textContent === text);
+    const found = [...document.body.querySelectorAll('button')].find(item => item.textContent === text);
     if (!found) throw new Error(`Missing button ${text}`);
     return found;
   };
-  const input = container.querySelector('input');
+  const input = document.body.querySelector('input');
   if (!input) throw new Error('Missing title');
   const title = (value: string) => { act(() => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, value);
@@ -53,9 +53,9 @@ describe('Note Composer review flow', () => {
       const view = await mount();
       view.title('New');
       await act(async () => { view.button('composer.preview').click(); await Promise.resolve(); });
-      expect(view.container.textContent).toContain('Original');
+      expect(document.body.textContent).toContain('Original');
       act(() => { writeApiTestStorage(key, 'different'); dispatchWindowEvent(new StorageEvent('storage', { key })); });
-      expect(view.container.textContent).toBe('');
+      expect(document.body.textContent).toBe('');
       expect(view.onClose).toHaveBeenCalledOnce();
       expect(applyNoteComposition).not.toHaveBeenCalled();
     },
@@ -72,7 +72,7 @@ describe('Note Composer review flow', () => {
       finish?.(true);
       await Promise.resolve();
     });
-    expect(view.container.textContent).toBe('');
+    expect(document.body.textContent).toBe('');
     expect(previewNoteComposition).not.toHaveBeenCalled();
   });
   it('does not apply an old-scope response or seed its ETag into the new context', async () => {
@@ -88,7 +88,7 @@ describe('Note Composer review flow', () => {
       finish?.({ source_id: 'source', target_id: 'new', changes: preview.changes });
       await Promise.resolve();
     });
-    expect(view.container.textContent).toBe('');
+    expect(document.body.textContent).toBe('');
     expect(view.onApplied).not.toHaveBeenCalled();
     expect(fetchVaultPage).toHaveBeenCalledOnce();
   });
@@ -98,8 +98,8 @@ describe('Note Composer review flow', () => {
     expect(view.button('composer.apply').disabled).toBe(true);
     view.title('New');
     await act(async () => { view.button('composer.preview').click(); await Promise.resolve(); });
-    expect(view.container.textContent).toContain('![[new]]');
-    expect(view.container.textContent).toContain('composer.before');
+    expect(document.body.textContent).toContain('![[new]]');
+    expect(document.body.textContent).toContain('composer.before');
     await act(async () => { view.button('composer.apply').click(); await Promise.resolve(); });
     expect(applyNoteComposition).toHaveBeenCalledWith(preview, expect.any(Object));
     expect(view.onApplied).toHaveBeenCalledOnce();
@@ -112,7 +112,7 @@ describe('Note Composer review flow', () => {
     await act(async () => { view.button('composer.preview').click(); await Promise.resolve(); });
     vi.mocked(applyNoteComposition).mockRejectedValueOnce(new GnosiApiError(new Response('{}', { status: 409 }), {}));
     await act(async () => { view.button('composer.apply').click(); await Promise.resolve(); });
-    expect(view.container.querySelector('[role="alert"]')?.textContent).toBe('composer.conflict');
+    expect(document.body.querySelector('[role="alert"]')?.textContent).toBe('composer.conflict');
     expect(view.button('composer.apply').disabled).toBe(true);
     expect(view.onApplied).not.toHaveBeenCalled();
   });
@@ -121,11 +121,11 @@ describe('Note Composer review flow', () => {
     expect(fetchVaultPage).not.toHaveBeenCalled();
     expect(view.onFlushed).not.toHaveBeenCalled();
     expect(view.button('composer.preview').disabled).toBe(true);
-    expect(view.container.querySelector('[role="alert"]')?.textContent).toBe('composer.save_error');
+    expect(document.body.querySelector('[role="alert"]')?.textContent).toBe('composer.save_error');
   });
   it('moves selected whole Markdown lines from the source preview', async () => {
     const view = await mount(); view.title('New');
-    const textarea = view.container.querySelector('textarea');
+    const textarea = document.body.querySelector('textarea');
     textarea?.setSelectionRange(0, 9);
     act(() => { view.button('composer.use_selection').click(); });
     await act(async () => { view.button('composer.preview').click(); await Promise.resolve(); });

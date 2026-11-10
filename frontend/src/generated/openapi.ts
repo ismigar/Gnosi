@@ -10419,6 +10419,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/sites/{site_id}/record-publication/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Preview */
+        post: operations["record_preview_api_vault_sites__site_id__record_publication_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/sites/{site_id}/rollback/{release_id}": {
         parameters: {
             query?: never;
@@ -10807,6 +10824,23 @@ export interface paths {
         put?: never;
         /** Preview Url */
         post: operations["preview_url_api_vault_sites_import_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/sites/record-publication/destinations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Record Destinations */
+        get: operations["record_destinations_api_vault_sites_record_publication_destinations_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -24534,6 +24568,35 @@ export interface components {
              * @default []
              */
             tasks: components["schemas"]["TaskFactPayload"][];
+        };
+        /** RecordDestination */
+        RecordDestination: {
+            /** Environment */
+            environment: string;
+            /** Published Page Ids */
+            published_page_ids?: string[];
+            /** Site Id */
+            site_id: string;
+            /** Site Name */
+            site_name: string;
+            /** Target Id */
+            target_id: string;
+            /** Target Name */
+            target_name: string;
+            /** Url */
+            url: string;
+        };
+        /** RecordPublicationReview */
+        RecordPublicationReview: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "publish" | "withdraw";
+            /** Page Id */
+            page_id: string;
+            /** Target Id */
+            target_id: string;
         };
         /**
          * RecurrenceMaterializationResponse
@@ -52318,6 +52381,48 @@ export interface operations {
             };
         };
     };
+    record_preview_api_vault_sites__site_id__record_publication_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordPublicationReview"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitePreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     rollback_api_vault_sites__site_id__rollback__release_id__post: {
         parameters: {
             query?: never;
@@ -53337,6 +53442,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WebsiteImportPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_destinations_api_vault_sites_record_publication_destinations_get: {
+        parameters: {
+            query?: {
+                page_id?: string | null;
+                table_id?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordDestination"][];
                 };
             };
             /** @description Validation Error */

@@ -4,11 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { InsertContentModal } from './InsertContentModal';
 
-
 type UploadFile = typeof import('../../../shared/api/vault-content')['uploadVaultInsertFile'];
 type LinkFile = typeof import('../../../shared/api/vault-content')['linkExistingVaultFile'];
 type RegisterFile = typeof import('../../../shared/api/vault-content')['registerLocalVaultFile'];
-
 
 interface VaultMediaItem {
     readonly filename: string;
@@ -30,12 +28,10 @@ interface ReactTestGlobal {
     IS_REACT_ACT_ENVIRONMENT?: boolean;
 }
 
-
 interface MountedRoot {
     readonly container: HTMLDivElement;
     readonly root: Root;
 }
-
 
 const apiMocks = vi.hoisted(() => ({
     link: vi.fn<LinkFile>(),
@@ -43,33 +39,27 @@ const apiMocks = vi.hoisted(() => ({
     upload: vi.fn<UploadFile>(),
 }));
 
-
 const toastMocks = vi.hoisted(() => ({
     error: vi.fn<(message: string) => void>(),
 }));
-
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: translate }),
 }));
 
-
 vi.mock('../../../shared/hooks/useModalKeyboard', () => ({
     useModalKeyboard: vi.fn(),
 }));
 
-
 vi.mock('../../../shared/notifications/toast', () => ({
     toast: { error: toastMocks.error },
 }));
-
 
 vi.mock('../../../shared/api/vault-content', () => ({
     linkExistingVaultFile: apiMocks.link,
     registerLocalVaultFile: apiMocks.register,
     uploadVaultInsertFile: apiMocks.upload,
 }));
-
 
 vi.mock('../../../shared/editor/markdown-mapper', () => ({
     fileUrlToSentinel: (href: string) => href.replace(
@@ -181,7 +171,7 @@ function translate(
 }
 
 
-async function renderModal(element: ReactElement): Promise<HTMLDivElement> {
+async function renderModal(element: ReactElement): Promise<void> {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -190,7 +180,14 @@ async function renderModal(element: ReactElement): Promise<HTMLDivElement> {
         root.render(element);
         await Promise.resolve();
     });
-    return container;
+}
+
+const modalSelector = '[role="dialog"][aria-labelledby="insert-content-title"]';
+
+function requireDialog(): HTMLElement {
+    const dialog = document.querySelector<HTMLElement>(modalSelector);
+    if (!dialog) throw new Error('Missing insert content dialog');
+    return dialog;
 }
 
 
@@ -291,7 +288,7 @@ async function chooseUpload(container: ParentNode, file: File): Promise<void> {
 
 describe('InsertContentModal', () => {
     it('stays unmounted while closed', async () => {
-        const container = await renderModal(
+        await renderModal(
             <InsertContentModal
                 onClose={vi.fn()}
                 onInsert={vi.fn()}
@@ -299,32 +296,33 @@ describe('InsertContentModal', () => {
             />,
         );
 
-        expect(container.childElementCount).toBe(0);
+        expect(document.querySelector(modalSelector)).toBeNull();
     });
 
 
     it('keeps Vault search, selection, preview and callbacks connected', async () => {
         const onClose = vi.fn<() => void>();
         const onInsert = vi.fn<(result: unknown) => void>();
-        const container = await renderModal(
+        await renderModal(
             <InsertContentModal onClose={onClose} onInsert={onInsert} open />,
         );
+        const dialog = requireDialog();
 
-        expect(container.textContent).toContain('Insert content');
-        expect(container.textContent).toContain('Vault');
-        expect(container.textContent).toContain('Disc local');
-        expect(container.textContent).toContain('Puja');
-        expect(container.textContent).toContain('URL');
-        const search = findInput(container, 'input[aria-label="Vault search"]');
+        expect(dialog.textContent).toContain('Insert content');
+        expect(dialog.textContent).toContain('Vault');
+        expect(dialog.textContent).toContain('Disc local');
+        expect(dialog.textContent).toContain('Puja');
+        expect(dialog.textContent).toContain('URL');
+        const search = findInput(dialog, 'input[aria-label="Vault search"]');
         act(() => {
             setInputValue(search, 'paper');
         });
         expect(search.value).toBe('paper');
 
-        await click(findButton(container, 'Pick Vault PDF'));
-        expect(container.textContent).toContain('paper.pdf');
-        expect(container.textContent).toContain('From the Vault');
-        await click(findButton(container, 'Insert'));
+        await click(findButton(dialog, 'Pick Vault PDF'));
+        expect(dialog.textContent).toContain('paper.pdf');
+        expect(dialog.textContent).toContain('From the Vault');
+        await click(findButton(dialog, 'Insert'));
 
         expect(onInsert).toHaveBeenCalledWith({
             imageMeta: undefined,
@@ -339,19 +337,20 @@ describe('InsertContentModal', () => {
 
     it('detects and previews an external video before inserting a frame', async () => {
         const onInsert = vi.fn<(result: unknown) => void>();
-        const container = await renderModal(
+        await renderModal(
             <InsertContentModal onClose={vi.fn()} onInsert={onInsert} open />,
         );
+        const dialog = requireDialog();
 
-        await click(findButton(container, 'URL'));
-        const urlInput = findInput(container, 'input[type="url"]');
+        await click(findButton(dialog, 'URL'));
+        const urlInput = findInput(dialog, 'input[type="url"]');
         act(() => {
             setInputValue(urlInput, 'https://www.youtube.com/watch?v=evidence');
         });
-        expect(container.textContent).toContain('YouTube');
-        expect(container.textContent).toContain('Embedded frame recommended');
-        await click(findButton(container, 'Frame'));
-        await click(findButton(container, 'Insert'));
+        expect(dialog.textContent).toContain('YouTube');
+        expect(dialog.textContent).toContain('Embedded frame recommended');
+        await click(findButton(dialog, 'Frame'));
+        await click(findButton(dialog, 'Insert'));
 
         expect(onInsert).toHaveBeenCalledWith({
             imageMeta: undefined,
@@ -365,7 +364,7 @@ describe('InsertContentModal', () => {
 
     it('registers local batches and preserves folder sentinels', async () => {
         const onInsert = vi.fn<(result: unknown) => void>();
-        const container = await renderModal(
+        await renderModal(
             <InsertContentModal
                 fileField={{
                     fileMode: 'upload',
@@ -379,13 +378,14 @@ describe('InsertContentModal', () => {
                 tableId="papers"
             />,
         );
+        const dialog = requireDialog();
 
-        await click(findButton(container, 'Disc local'));
-        await click(findButton(container, 'Open the file browser'));
+        await click(findButton(dialog, 'Disc local'));
+        await click(findButton(dialog, 'Open the file browser'));
         await click(findButton(document.body, 'Pick local batch'));
-        expect(container.textContent).toContain('/Users/ismael/report.pdf');
-        expect(container.textContent).toContain('/Users/ismael/Archive');
-        await click(findButton(container, 'Insert'));
+        expect(dialog.textContent).toContain('/Users/ismael/report.pdf');
+        expect(dialog.textContent).toContain('/Users/ismael/Archive');
+        await click(findButton(dialog, 'Insert'));
 
         expect(apiMocks.link).toHaveBeenCalledWith('/Users/ismael/report.pdf', '');
         expect(onInsert).toHaveBeenCalledWith({
@@ -413,7 +413,7 @@ describe('InsertContentModal', () => {
 
     it('asks once for a free destination and uploads through the typed API', async () => {
         const onInsert = vi.fn<(result: unknown) => void>();
-        const container = await renderModal(
+        await renderModal(
             <InsertContentModal
                 fileField={{
                     fileMode: 'upload',
@@ -428,10 +428,11 @@ describe('InsertContentModal', () => {
                 tableId="papers"
             />,
         );
+        const dialog = requireDialog();
         const file = readableFile('report.pdf');
 
-        await chooseUpload(container, file);
-        await click(findButton(container, 'Insert'));
+        await chooseUpload(dialog, file);
+        await click(findButton(dialog, 'Insert'));
         await click(findButton(document.body, 'Choose destination'));
 
         expect(apiMocks.upload).toHaveBeenCalledOnce();
@@ -457,7 +458,7 @@ describe('InsertContentModal', () => {
 
     it('saves image metadata without replacing the current image', async () => {
         const onInsert = vi.fn<(result: unknown) => void>();
-        const container = await renderModal(
+        await renderModal(
             <InsertContentModal
                 imageField
                 initialImageMeta={{ alt: 'Old alt', src: 'Images/photo.jpg' }}
@@ -466,11 +467,12 @@ describe('InsertContentModal', () => {
                 open
             />,
         );
-        const altInput = findInput(container, 'input[placeholder="Alt text (accessibility)"]');
+        const dialog = requireDialog();
+        const altInput = findInput(dialog, 'input[placeholder="Alt text (accessibility)"]');
         act(() => {
             setInputValue(altInput, 'New alt');
         });
-        await click(findButton(container, 'Save'));
+        await click(findButton(dialog, 'Save'));
 
         expect(onInsert).toHaveBeenCalledWith({
             imageMeta: { alt: 'New alt', src: 'Images/photo.jpg' },
@@ -481,17 +483,18 @@ describe('InsertContentModal', () => {
 
     it('reports unreadable uploads and returns the user to local selection', async () => {
         apiMocks.upload.mockRejectedValue(new Error('unreadable-file'));
-        const container = await renderModal(
+        await renderModal(
             <InsertContentModal onClose={vi.fn()} onInsert={vi.fn()} open />,
         );
+        const dialog = requireDialog();
 
-        await click(findButton(container, 'Puja'));
-        await chooseUpload(container, readableFile('cloud.pdf'));
-        await click(findButton(container, 'Insert'));
+        await click(findButton(dialog, 'Puja'));
+        await chooseUpload(dialog, readableFile('cloud.pdf'));
+        await click(findButton(dialog, 'Insert'));
 
         expect(toastMocks.error).toHaveBeenCalledWith(
             'This file is online-only. Locate it in "Local disk" and Gnosi will download it automatically.',
         );
-        expect(container.textContent).toContain('Locate “cloud.pdf” on disk');
+        expect(dialog.textContent).toContain('Locate “cloud.pdf” on disk');
     });
 });

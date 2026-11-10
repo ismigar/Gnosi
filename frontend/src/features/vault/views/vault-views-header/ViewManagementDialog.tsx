@@ -69,7 +69,7 @@ export function ViewManagementDialog({
                 onClick={onClose}
             />
             <div
-                role="dialog"
+                role="dialog" aria-modal={false}
                 aria-label={t('views_header.manage_views', 'Views')}
                 className="fixed flex flex-col overflow-y-auto bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1.5 animate-in fade-in zoom-in-95 duration-150"
                 style={layout}

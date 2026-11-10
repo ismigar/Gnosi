@@ -332,7 +332,7 @@ describe('VaultTimeline', () => {
             .find(button => button.textContent === 'Untitled');
         if (!option) throw new Error('Missing untitled template');
         act(() => { option.click(); });
-        const confirm = Array.from(container.querySelectorAll('button'))
+        const confirm = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="dialog"][aria-describedby] button'))
             .find(button => button.textContent === 'bulk_actions.confirm_apply_template');
         if (!confirm) throw new Error('Missing template confirmation');
         await act(async () => { confirm.click(); await Promise.resolve(); });

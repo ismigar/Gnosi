@@ -893,4 +893,8 @@ Markdown page details derive their ETag from the same open file descriptor used 
 
 Search results return readable prose rather than slices of stored Markdown. Excerpts remove heading, emphasis, link, table and task syntax, retain visible text from columns, callouts and toggles, and omit fenced code and serialized JSON configuration. Conversion happens before clipping, so long link destinations do not displace the visible match. Query evaluation and the returned source line still use the original document.
 
-The global search dialog uses `PanePortal` at the document body and the shared `--z-command` layer. Embedded table headers and their controls remain beneath its dimmed backdrop, including when the calling page creates its own stacking context. Escape and result navigation retain the existing modal behavior.
+Search ranks matching documents before constructing excerpts, tags, and source lines
+for the requested result page only. Total counts and deterministic ordering
+remain independent of pagination.
+
+The global search dialog uses `ModalPortal` at the document body and the shared `--z-command` layer. Embedded table headers and their controls remain beneath its dimmed backdrop, including when the calling page creates its own stacking context. Escape and result navigation retain the existing modal behavior.

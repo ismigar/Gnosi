@@ -9601,5 +9601,23 @@
       "caveat": "The current month is partial. Clients are server-identified addresses, not unique people. Data may include bots.",
       "openSource": "Open Webalizer"
     }
+  },
+  "recordWebsite": {
+    "title": "Website publication",
+    "publish": "Publish to website",
+    "withdraw": "Unpublish from website",
+    "thisRecord": "Publish or unpublish this article",
+    "destination": "Website and hosting",
+    "choose": "Choose a destination",
+    "change": "Change",
+    "published": "Published in the active website version",
+    "unpublished": "Absent from the active website version",
+    "noDestinations": "No enabled website uses this record’s table as a source. Configure it in Webs first.",
+    "wholeSite": "Review all changes below: this publishes a complete website version, including other pending changes.",
+    "confirm": "Confirm these website changes",
+    "completion": "Publication status comes from the completed website version. Closing this dialog does not cancel a queued publication.",
+    "failed": "Could not complete the website action. Reload the destination and review again.",
+    "legacyStaging": "Legacy staging publisher",
+    "independentSite": "Separate public site: selected notes"
   }
 }

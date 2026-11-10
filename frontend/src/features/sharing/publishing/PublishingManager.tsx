@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Copy, Globe, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -126,7 +127,7 @@ function PublishingSession({ onClose, onBack, context, invalidate }: PublishingP
     const visiblePages = pages.filter(page => page.title.toLocaleLowerCase().includes(filter.toLocaleLowerCase()));
     const shown = preview?.bundle.pages.find(page => page.id === previewPageId) ?? preview?.bundle.pages[0];
 
-    return <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-3 md:p-6">
+    return <ModalPortal><div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-3 md:p-6">
         <div className="absolute inset-0 bg-black/40" />
         <div role="dialog" aria-modal="true" aria-label={t('publishing.manage', 'Publish selected notes')} ref={ref} className="relative flex max-h-[90vh] w-full max-w-5xl flex-col rounded-2xl border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-2xl">
             <header className="flex items-center justify-between gap-3 border-b border-[var(--border-primary)] px-5 py-4">
@@ -175,5 +176,5 @@ function PublishingSession({ onClose, onBack, context, invalidate }: PublishingP
             </div>
         </div>
         <ConfirmModal isOpen={!!revokeTarget} title={t('publishing.revoke_title', 'Revoke publication')} message={t('publishing.revoke_message', 'This link will stop serving the publication. Copies already saved by readers cannot be removed.')} confirmText={t('share.revoke', 'Revoke')} onClose={() => { if (!busy) setRevokeTarget(null); }} onConfirm={revoke} />
-    </div>;
+    </div></ModalPortal>;
 }

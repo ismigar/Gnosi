@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -123,7 +124,7 @@ function Session({ context, invalidate, onClose, onBack }: Props & { context: Re
         else { setSelected(update); setWithdrawn(values => values.filter(value => value !== id)); }
         setPreview(null);
     };
-    return <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-3 md:p-6">
+    return <ModalPortal><div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-3 md:p-6">
         <div className="absolute inset-0 bg-black/40" />
         <div ref={ref} role="dialog" aria-modal="true" aria-label={t('webPublishing.title')} className="relative flex max-h-[90vh] w-full max-w-5xl flex-col rounded-2xl border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-2xl">
             <header className="flex items-center justify-between border-b border-[var(--border-primary)] px-5 py-4"><h2 className="font-bold">{t('webPublishing.title')}</h2><div className="flex gap-2"><RefreshButton loading={loading} disabled={busy} onClick={() => { controller.current.abort(); setPhase('web'); setPreview(null); setMailPreview(null); setReload(value => value + 1); }} /><button className="gnosi-close-btn" disabled={busy} aria-label={t('common.close')} onClick={onClose}><X /></button></div></header>
@@ -158,5 +159,5 @@ function Session({ context, invalidate, onClose, onBack }: Props & { context: Re
                 <button className={button} disabled={busy} onClick={onBack}>{t('publishing.back')}</button>
             </div>
         </div>
-    </div>;
+    </div></ModalPortal>;
 }

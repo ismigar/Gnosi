@@ -85,7 +85,7 @@ function installResolvedFetch(payload: unknown): MockedFunction<typeof fetch> {
 
 async function renderDialog(
     props: NotebookCreateDialogProps,
-): Promise<HTMLDivElement> {
+): Promise<HTMLElement> {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -94,7 +94,9 @@ async function renderDialog(
         root.render(<NotebookCreateDialog {...props} />);
         await Promise.resolve();
     });
-    return container;
+    const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
+    if (!dialog) throw new Error('Missing notebook creation dialog');
+    return dialog;
 }
 
 async function waitForCatalog(): Promise<void> {
@@ -169,36 +171,34 @@ describe('NotebookCreateDialog', () => {
             page_size: 50,
             hidden_without_sources: 3,
         });
-        const container = await renderDialog({
+        const dialog = await renderDialog({
             isOpen: true,
             onClose: vi.fn(),
             onCreated: vi.fn(),
         });
         await waitForCatalog();
 
-        expect(container.textContent).toContain(
+        expect(dialog.textContent).toContain(
             '3 Resources are not shown because they have no attachments or URLs.',
         );
-        expect(container.textContent).toContain('Paper');
+        expect(dialog.textContent).toContain('Paper');
     });
 
     it('exposes dialog semantics, closes with Escape, and does not close from the backdrop', async () => {
         installResolvedFetch({ items: [], total: 0, page: 1, page_size: 50 });
         const onClose = vi.fn<NonNullable<NotebookCreateDialogProps['onClose']>>();
-        const container = await renderDialog({
+        const dialog = await renderDialog({
             isOpen: true,
             onClose,
             onCreated: vi.fn(),
         });
-        const dialog = container.querySelector('[role="dialog"]');
-        if (!(dialog instanceof HTMLElement)) throw new Error('Missing dialog');
         expect(dialog.getAttribute('aria-modal')).toBe('true');
         expect(dialog.getAttribute('aria-labelledby')).toBe('notebook-create-title');
         expect(document.activeElement).toBe(
-            container.querySelector('input[data-autofocus]'),
+            dialog.querySelector('input[data-autofocus]'),
         );
 
-        const backdrop = container.querySelector('.notebook-modal-backdrop');
+        const backdrop = dialog.closest('.notebook-modal-backdrop');
         if (!(backdrop instanceof HTMLElement)) throw new Error('Missing backdrop');
         act(() => {
             backdrop.click();
@@ -231,7 +231,7 @@ describe('NotebookCreateDialog', () => {
         const onCreated = vi.fn<
             NonNullable<NotebookCreateDialogProps['onCreated']>
         >();
-        const container = await renderDialog({
+        const dialog = await renderDialog({
             isOpen: true,
             initialResourceIds: ['resource-1'],
             onClose: vi.fn(),
@@ -240,7 +240,7 @@ describe('NotebookCreateDialog', () => {
         await waitForCatalog();
 
         await act(async () => {
-            findButton(container, 'Create notebook').click();
+            findButton(dialog, 'Create notebook').click();
             await Promise.resolve();
             await Promise.resolve();
         });
@@ -272,7 +272,7 @@ describe('NotebookCreateDialog', () => {
                 page_size: 50,
             }));
         });
-        const container = await renderDialog({
+        const dialog = await renderDialog({
             isOpen: true,
             onClose: vi.fn(),
             onCreated: vi.fn(),
@@ -280,12 +280,12 @@ describe('NotebookCreateDialog', () => {
         await waitForCatalog();
 
         act(() => {
-            findButton(container, 'Manual selection').click();
+            findButton(dialog, 'Manual selection').click();
         });
-        expect(container.textContent).toContain('1 Resources selected');
+        expect(dialog.textContent).toContain('1 Resources selected');
 
         await act(async () => {
-            findButton(container, 'Create notebook').click();
+            findButton(dialog, 'Create notebook').click();
             await Promise.resolve();
             await Promise.resolve();
         });
@@ -314,7 +314,7 @@ describe('NotebookCreateDialog', () => {
                 page_size: 50,
             }));
         });
-        const container = await renderDialog({
+        const dialog = await renderDialog({
             isOpen: true,
             onClose: vi.fn(),
             onCreated: vi.fn(),
@@ -322,9 +322,9 @@ describe('NotebookCreateDialog', () => {
         await waitForCatalog();
 
         act(() => {
-            findButton(container, 'First page Resource').click();
+            findButton(dialog, 'First page Resource').click();
         });
-        const nextPage = container.querySelector(
+        const nextPage = dialog.querySelector(
             'nav[aria-label="Resource pages"] button:last-child',
         );
         if (!(nextPage instanceof HTMLButtonElement)) {
@@ -335,10 +335,10 @@ describe('NotebookCreateDialog', () => {
         });
         await waitForCatalog();
         act(() => {
-            findButton(container, 'Second page Resource').click();
+            findButton(dialog, 'Second page Resource').click();
         });
         await act(async () => {
-            findButton(container, 'Create notebook').click();
+            findButton(dialog, 'Create notebook').click();
             await Promise.resolve();
             await Promise.resolve();
         });
@@ -365,7 +365,7 @@ describe('NotebookCreateDialog', () => {
                 tags: [{ value: 'Education', count: 1 }],
             },
         })));
-        const container = await renderDialog({
+        const dialog = await renderDialog({
             isOpen: true,
             onClose: vi.fn(),
             onCreated: vi.fn(),
@@ -373,7 +373,7 @@ describe('NotebookCreateDialog', () => {
         await waitForCatalog();
 
         const setFilter = async (label: string, value: string): Promise<void> => {
-            const select = [...container.querySelectorAll('label')]
+            const select = [...dialog.querySelectorAll('label')]
                 .find((candidate) => candidate.textContent.includes(label))
                 ?.querySelector('select');
             if (!(select instanceof HTMLSelectElement)) {

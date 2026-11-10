@@ -1,3 +1,5 @@
+import './FeedManagerModal.css';
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import { useRef } from 'react';
 import { Clock, Plus, Rss, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -63,7 +65,7 @@ export function FeedManagerModal({
     ];
 
     return (
-        <div className="settings-overlay">
+        <ModalPortal><div className="feed-manager-overlay">
             <div
                 ref={modalRef}
                 className="feed-modal"
@@ -148,6 +150,6 @@ export function FeedManagerModal({
                     isDestructive
                 />
             </div>
-        </div>
+        </div></ModalPortal>
     );
 }

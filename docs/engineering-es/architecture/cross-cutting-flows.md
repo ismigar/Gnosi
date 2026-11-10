@@ -144,6 +144,8 @@ análisis de axe WCAG 2.2 AA en la matriz de rutas del producto con comprobacion
 explícitas de teclado, porque ninguna de las dos capas demuestra lo que verifica
 la otra.
 
+Los diálogos bloqueantes utilizan `ModalPortal` en el cuerpo del documento, fuera de editores transformados y tablas desplazables. La capa conserva la visibilidad del panel propietario, impide que los eventos React lleguen al editor y asigna los tokens modales compartidos; los diálogos hijos y menús en portales heredan la capa activa. Los paneles explícitamente no bloqueantes utilizan `aria-modal={false}`. El lint del frontend rechaza diálogos bloqueantes fuera de esta capa. Las regresiones de navegador con datos temporales comprueban editores reales, barras superpuestas, ventanas pequeñas, cambio de panel, menús anidados y acceso directo antes de cargar Configuración.
+
 ## Política de efectos externos
 
 Las herramientas de agente y las acciones de aplicación clasifican efectos como leer, escribir, comunicación externa o cambio destructivo. Las comprobaciones de roles, servicios con alcance, registros de confirmación y operaciones recuperables se aplican de acuerdo con el efecto. La confirmación del cliente por sí sola no autoriza la acción backend.

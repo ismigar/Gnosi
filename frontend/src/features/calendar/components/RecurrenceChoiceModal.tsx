@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import { useRef } from 'react';
 import { Trash2, CalendarPlus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -49,7 +50,7 @@ export const RecurrenceChoiceModal = ({
     const seriesText = isDelete ? 'text-red-500' : 'text-[var(--gnosi-primary)]';
 
     return (
-        <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4">
+        <ModalPortal><div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" />
             <div ref={modalRef} className="relative bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200" role="dialog" aria-modal="true" aria-label={title}>
                 <div className="flex items-center gap-4 mb-6">
@@ -104,6 +105,6 @@ export const RecurrenceChoiceModal = ({
                     {t('common.cancel', "Cancel")}
                 </button>
             </div>
-        </div>
+        </div></ModalPortal>
     );
 };

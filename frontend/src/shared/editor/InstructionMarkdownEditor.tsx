@@ -1,3 +1,4 @@
+import { ModalPortal } from '../ui/ModalPortal';
 import { lazy, Suspense, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { createPanePortal as createPortal } from '../ui/createPanePortal';
 import { useTranslation } from 'react-i18next';
@@ -96,9 +97,9 @@ export function InstructionMarkdownEditor({ label, description, value, onChange,
         <p className="instruction-markdown__help">{t(mode === 'edit' ? 'instruction_editor.rich_help' : 'instruction_editor.help')}</p>
     </div>;
 
-    return expanded ? createPortal(<div className="instruction-markdown__backdrop">
+    return expanded ? createPortal(<ModalPortal><div className="instruction-markdown__backdrop">
         <div ref={dialog} className="instruction-markdown__dialog" role="dialog" aria-modal="true" aria-labelledby={`${id}-label`}>
             {editor}
         </div>
-    </div>, document.body) : editor;
+    </div></ModalPortal>, document.body) : editor;
 }

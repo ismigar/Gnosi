@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import { useRef, useState, type SubmitEvent } from 'react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -34,7 +35,7 @@ export default function NotebookGroupDialog({ isOpen, initialName = '', onClose,
     };
 
     return (
-        <div className="notebook-modal-backdrop">
+        <ModalPortal><div className="notebook-modal-backdrop">
             <div
                 ref={dialogRef}
                 className="notebook-modal notebook-modal--compact"
@@ -76,6 +77,6 @@ export default function NotebookGroupDialog({ isOpen, initialName = '', onClose,
                     </footer>
                 </form>
             </div>
-        </div>
+        </div></ModalPortal>
     );
 }

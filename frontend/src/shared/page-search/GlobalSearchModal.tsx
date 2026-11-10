@@ -1,3 +1,4 @@
+import { ModalPortal } from '../ui/ModalPortal';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Star, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -299,7 +300,7 @@ function OpenGlobalSearchModal({
   const isSaved = saved.some((entry) => entry.query === query.trim());
 
   return (
-    <div className="fixed inset-0 z-[var(--z-command)] flex items-start justify-center pt-[15vh] px-4 sm:p-0">
+    <ModalPortal layer="command"><div className="fixed inset-0 z-[var(--z-command)] flex items-start justify-center pt-[15vh] px-4 sm:p-0">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" />
       <div
         ref={panelRef}
@@ -439,7 +440,7 @@ function OpenGlobalSearchModal({
           </div>
         ) : null}
       </div>
-    </div>
+    </div></ModalPortal>
   );
 }
 

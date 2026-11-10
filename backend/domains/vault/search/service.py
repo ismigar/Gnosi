@@ -312,7 +312,7 @@ def search_documents(
     if expression is None:
         return VaultSearchResponse(results=[], total=0, offset=offset, limit=limit)
     remaining_budget = budget_seconds
-    hits: list[tuple[int, VaultSearchHit]] = []
+    hits: list[tuple[int, SearchDocument, Match]] = []
     for document in documents:
         # Loading the next document may hydrate cloud files or refresh the Vault
         # inventory. Charge only query evaluation to the shared safety budget.
@@ -323,26 +323,22 @@ def search_documents(
             raise SearchQueryError("Search exceeded its time budget; narrow the query")
         if matched is None:
             continue
-        position = matched.offset or 0
-        excerpt = search_excerpt(document.body, position)
-        hits.append(
-            (
-                matched.score,
-                VaultSearchHit(
-                    id=document.id,
-                    title=document.title,
-                    path=document.path,
-                    excerpt=excerpt,
-                    line=document.body.count("\n", 0, position) + 1
-                    if matched.offset is not None
-                    else None,
-                    tags=document_tags(document),
-                ),
-            )
-        )
+        hits.append((matched.score, document, matched))
     hits.sort(key=lambda hit: (-hit[0], hit[1].title.casefold(), hit[1].id))
+    results = []
+    for _, document, matched in hits[offset : offset + limit]:
+        position = matched.offset or 0
+        results.append(VaultSearchHit(
+            id=document.id,
+            title=document.title,
+            path=document.path,
+            excerpt=search_excerpt(document.body, position),
+            line=document.body.count("\n", 0, position) + 1
+            if matched.offset is not None else None,
+            tags=document_tags(document),
+        ))
     return VaultSearchResponse(
-        results=[hit for _, hit in hits[offset : offset + limit]],
+        results=results,
         total=len(hits),
         offset=offset,
         limit=limit,

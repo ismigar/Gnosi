@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import {
   useCallback,
   useRef,
@@ -124,7 +125,7 @@ export default function AddStreamModal({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <ModalPortal><div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" />
       <div
         aria-label={t('social.add_stream_title', 'Add New Stream')}
@@ -221,6 +222,6 @@ export default function AddStreamModal({
           </button>
         </form>
       </div>
-    </div>
+    </div></ModalPortal>
   );
 }

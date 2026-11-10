@@ -46,3 +46,17 @@ describe('table-specific record actions', () => {
     expect(actions[1]?.disabled).toBe(true);
   });
 });
+
+
+describe('configured website record actions', () => {
+  it('uses actual destinations and active publication receipts', () => {
+    const input = base();
+    expect(buildRecordActions(input).some(item => item.key === 'publish_website')).toBe(false);
+    const destinations = [{ site_id: 'site', site_name: 'Example', target_id: 'local', target_name: 'Local', environment: 'staging', url: '', published_page_ids: [input.note.id] }];
+    const actions = buildRecordActions({ ...input, websiteDestinations: destinations });
+    expect(actions.map(item => item.key)).toEqual(['publish_website', 'withdraw_website']);
+    actions[1]?.onClick?.();
+    expect(input.setPendingAction).toHaveBeenCalledWith(expect.objectContaining({ noteId: input.note.id, action: 'withdraw_website' }));
+    expect(buildRecordActions({ ...input, websiteDestinations: destinations, isPluginEnabled: () => false })).toEqual([]);
+  });
+});

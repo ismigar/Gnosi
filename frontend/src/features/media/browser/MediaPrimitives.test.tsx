@@ -56,14 +56,16 @@ describe('media leaf components', () => {
     it('trims view names, keeps Enter/Escape behavior and disables empty names', async () => {
         const confirm = vi.fn(), cancel = vi.fn();
         await run(() => {root.render(<ViewNamePromptModal open defaultValue=" A view " onConfirm={confirm} onCancel={cancel}/>);});
-        const input = container.querySelector('input');
+        const dialog = document.body.querySelector('[role="dialog"]');
+        if (!dialog) throw new Error('Missing view name dialog');
+        const input = dialog.querySelector('input');
         if (!input) throw new Error('Missing view name input');
         await run(() => {input.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));});
         expect(confirm).toHaveBeenCalledWith('A view');
         await run(() => {input.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));});
         expect(cancel).toHaveBeenCalledOnce();
         await run(() => {root.render(<ViewNamePromptModal open defaultValue=" " onConfirm={confirm} onCancel={cancel}/>);});
-        expect(container.querySelector('button:last-child')?.hasAttribute('disabled')).toBe(true);
+        expect(dialog.querySelector('button:last-child')?.hasAttribute('disabled')).toBe(true);
     });
     it('tolerates missing fullscreen support and keeps successful fullscreen calls bound to their target', async () => {
         expect(() => {enterMediaFullscreen({}); exitMediaFullscreen({});}).not.toThrow();

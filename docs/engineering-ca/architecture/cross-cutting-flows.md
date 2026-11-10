@@ -165,6 +165,8 @@ panells i desplaçament del focus amb teclat. Playwright combina anàlisis axe
 WCAG 2.2 AA sobre la matriu de rutes del producte amb proves explícites de
 teclat, perquè cap de les dues capes demostra el funcionament de l'altra.
 
+Els diàlegs bloquejants utilitzen `ModalPortal` al cos del document, fora dels editors transformats i les taules desplaçables. La capa conserva la visibilitat del panell propietari, impedeix que els esdeveniments React arribin a l’editor i assigna els tokens modals compartits; els diàlegs fills i menús en portals hereten la capa activa. Els panells explícitament no bloquejants utilitzen `aria-modal={false}`. El lint del frontend rebutja diàlegs bloquejants fora d’aquesta capa. Les regressions de navegador amb dades temporals comproven editors reals, barres superposades, finestres petites, canvi de panell, menús imbricats i accés directe abans de carregar Configuració.
+
 ## Política d'efectes externs
 
 Les eines d'agent i les accions de l'aplicació classifiquen els efectes com a

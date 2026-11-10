@@ -86,7 +86,7 @@ export default function MailMessagePreview({
   return createPortal(
     <div
       ref={cardRef}
-      role="dialog"
+      role="dialog" aria-modal={false}
       aria-label={title}
       data-testid="mail-message-preview"
       className="fixed z-[var(--z-popover)] flex flex-col overflow-hidden rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl"

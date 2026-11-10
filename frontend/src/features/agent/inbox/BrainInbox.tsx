@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import {
     useEffect,
     useRef,
@@ -124,7 +125,7 @@ export function BrainInbox({ onAccepted, open: controlledOpen, onOpenChange }: B
             </button>
 
             {open && createPortal(
-                <div
+                <ModalPortal><div
                     className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] p-4 font-sans backdrop-blur-sm"
                     role="dialog"
                     aria-modal="true"
@@ -244,7 +245,7 @@ export function BrainInbox({ onAccepted, open: controlledOpen, onOpenChange }: B
                             ))}
                         </div>
                     </div>
-                </div>, browserDocumentBody(),
+                </div></ModalPortal>, browserDocumentBody(),
             )}
         </>
     );

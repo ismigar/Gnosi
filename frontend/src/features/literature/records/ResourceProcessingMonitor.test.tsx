@@ -128,7 +128,7 @@ async function render(element: ReactElement): Promise<void> {
 
 
 function buttonWithText(label: string): HTMLButtonElement {
-    const button = [...container.querySelectorAll('button')]
+    const button = [...document.body.querySelectorAll('button')]
         .find((candidate) => candidate.textContent.includes(label));
     if (!button) throw new Error(`Missing button: ${label}`);
     return button;
@@ -157,7 +157,9 @@ function ProcessingScreen({ visible = true }: { readonly visible?: boolean }) {
 }
 
 function closeDialog(): void {
-    act(() => { container.querySelector<HTMLButtonElement>('[role="dialog"] button[aria-label="Close"]')?.click(); });
+    const close = document.body.querySelector<HTMLButtonElement>('[role="dialog"] button[aria-label="Close"]');
+    if (!close) throw new Error('Missing resource processing close button');
+    act(() => { close.click(); });
 }
 
 describe('resource processing corner monitor', () => {
@@ -172,21 +174,21 @@ describe('resource processing corner monitor', () => {
         expect(toast.success).not.toHaveBeenCalled();
         expect(toast).toHaveBeenCalled();
         act(() => { container.querySelector<HTMLButtonElement>('.resource-processing-card-open')?.click(); });
-        expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Saved with observations to review');
-        expect(container.querySelectorAll('[role="dialog"] li')).toHaveLength(1);
+        expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain('Saved with observations to review');
+        expect(document.body.querySelectorAll('[role="dialog"] li')).toHaveLength(1);
     });
     it('minimizes, updates and reopens details without starting a second job', async () => {
         await render(<ProcessingScreen />);
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
         closeDialog();
-        expect(container.querySelector('[role="dialog"]')).toBeNull();
+        expect(document.body.querySelector('[role="dialog"]')).toBeNull();
         expect(container.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('25');
         act(() => { buttonWithText('Keep working').focus(); });
         expect(document.activeElement?.textContent).toBe('Keep working');
 
         act(() => { container.querySelector<HTMLButtonElement>('.resource-processing-card-open')?.click(); });
-        expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Planning notes');
+        expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain('Planning notes');
         expect(startResourceProcessing).toHaveBeenCalledOnce();
         closeDialog();
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce(doneJob);
@@ -235,7 +237,7 @@ describe('resource processing corner monitor', () => {
         vi.mocked(findResumableResourceProcessing).mockResolvedValue(interrupted);
         act(() => { container.querySelector<HTMLButtonElement>('.resource-processing-card-open')?.click(); });
         await flushProcessing();
-        expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Provider unavailable');
+        expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain('Provider unavailable');
         expect(getResourceProcessingTasks()[0]?.background).toBe(true);
         vi.mocked(findResumableResourceProcessing).mockResolvedValue(null);
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce(doneJob);
@@ -243,7 +245,7 @@ describe('resource processing corner monitor', () => {
         act(() => { buttonWithText('Retry').click(); });
         await flushProcessing();
         expect(startResourceProcessing).toHaveBeenLastCalledWith({ force: false, resource_id: 'note-1', source_table_id: 'resources', max_cost_usd: 0.5, batch_size: 4, estimate_id: 'estimate-1' });
-        expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Resource processed');
+        expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain('Resource processed');
     });
 
     it('ignores a pending start from a previous Vault after the monitor resets', async () => {
@@ -266,7 +268,7 @@ describe('existing backend resource jobs', () => {
         vi.mocked(findResumableResourceProcessing).mockResolvedValue(runningJob);
         await render(<ProcessingScreen />);
         await flushProcessing();
-        expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Planning notes');
+        expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain('Planning notes');
         expect(getResourceProcessingTasks()[0]?.job?.progress).toBe(25);
         expect(startResourceProcessing).not.toHaveBeenCalled();
         expect(estimateResourceProcessing).not.toHaveBeenCalled();
@@ -284,8 +286,8 @@ describe('existing backend resource jobs', () => {
         await render(<ProcessResourceModal isOpen noteId="note-1" title="Book" sourceTableId="resources"
             onClose={vi.fn()} onProcessed={processed} />);
         await flushProcessing();
-        expect(container.textContent).toContain('llm_wiki.error_provider_connection');
-        expect(container.textContent).toContain('Connection error.');
+        expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain('llm_wiki.error_provider_connection');
+        expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain('Connection error.');
         expect(startResourceProcessing).not.toHaveBeenCalled();
         expect(processed).not.toHaveBeenCalled();
         expect(toast.success).not.toHaveBeenCalled();
@@ -297,7 +299,7 @@ describe('existing backend resource jobs', () => {
         expect(buttonWithText('Process')).toBeDefined();
         vi.mocked(findResumableResourceProcessing).mockResolvedValue(runningJob);
         await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
-        expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Planning notes');
+        expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain('Planning notes');
         expect(startResourceProcessing).not.toHaveBeenCalled();
         expect(getResourceProcessingTasks()[0]?.job?.job_id).toBe('job-1');
     });

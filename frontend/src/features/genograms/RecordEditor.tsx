@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../shared/ui/ModalPortal';
 import { pageReferenceTitle } from '../../shared/records/pageReferenceTitle';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -74,7 +75,7 @@ export function RecordEditor({ target, network, onClose, onSaved }: Props) {
     } finally { setBusy(false); }
   };
   const referenceSelect = (field: string, list: { id: string; title?: string }[], multiple = false) => <select multiple={multiple} value={multiple ? Array.isArray(draft[field]) ? draft[field] : [] : String(draft[field] ?? '')} onChange={event => { set(field, multiple ? [...event.target.selectedOptions].map(option => option.value) : event.target.value); }}><option value="">{t('genograms.unspecified')}</option>{list.map(item => <option key={item.id} value={item.id}>{item.title || t('genograms.unnamed')}</option>)}</select>;
-  return <div className="genogram-modal"><div ref={containerRef} role="dialog" aria-modal="true" aria-labelledby="genogram-editor-title" className="genogram-editor">
+  return <ModalPortal><div className="genogram-modal"><div ref={containerRef} role="dialog" aria-modal="true" aria-labelledby="genogram-editor-title" className="genogram-editor">
     <h2 id="genogram-editor-title">{t(target.record ? 'genograms.edit_record' : 'genograms.add_record')}</h2>
     {target.relative && <label>{t('genograms.link_existing')}<select value={existing} onChange={event => { setExisting(event.target.value); }} disabled={Boolean(createdPersonId)}><option value="">{t('genograms.create_person')}</option>{network.people.filter(person => person.id !== target.relative?.personId).map(person => <option key={person.id} value={person.id}>{personOptionLabel(person, network.people)}</option>)}</select></label>}
     {!existing && !createdPersonId && <div className="genogram-fields">{fields.map(field => <label key={field}>
@@ -90,5 +91,5 @@ export function RecordEditor({ target, network, onClose, onSaved }: Props) {
     </label>)}</div>}
     {error && <p role="alert">{error}</p>}
     <footer><button disabled={busy} onClick={onClose}>{t('common.cancel')}</button><button disabled={busy} onClick={() => { void save(); }}>{t(busy ? 'common.loading' : 'common.save')}</button></footer>
-  </div></div>;
+  </div></div></ModalPortal>;
 }

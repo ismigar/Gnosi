@@ -6,6 +6,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 import tseslint from 'typescript-eslint'
 import { fileURLToPath } from 'node:url'
 import featureBoundaries from './eslint/feature-boundaries.js'
+import modalLayers from './eslint/modal-layers.js'
 import publicFeatureEntries from './feature-public-entries.json' with { type: 'json' }
 
 export default defineConfig([
@@ -105,12 +106,13 @@ export default defineConfig([
   },
   {
     files: ['src/**/*.{js,jsx,ts,tsx}', 'tests/**/*.{ts,tsx}'],
-    plugins: { gnosi: { rules: { 'feature-boundaries': featureBoundaries } } },
+    plugins: { gnosi: { rules: { 'feature-boundaries': featureBoundaries, 'modal-layers': modalLayers } } },
     rules: {
       'gnosi/feature-boundaries': ['error', {
         sourceRoot: fileURLToPath(new URL('./src', import.meta.url)),
         publicEntries: Object.keys(publicFeatureEntries),
       }],
+      'gnosi/modal-layers': ['error', { sourceRoot: fileURLToPath(new URL('./src', import.meta.url)) }],
       'no-restricted-imports': ['error', {
         patterns: [{
           regex: '(^|/)shared/api(/index([.][^/]+)?)?/?$',

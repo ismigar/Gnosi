@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../../../shared/ui/ModalPortal';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
@@ -104,7 +105,7 @@ export function NoteComposerModal({ sourceId, idToTitle, flush, onFlushed, onClo
     && (request.selection !== 'heading' || Boolean(request.heading.trim()))
     && (request.selection !== 'lines' || Boolean(request.start_line && request.end_line && request.end_line >= request.start_line));
   if (!inScope) return null;
-  return createPanePortal(<div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 p-4">
+  return createPanePortal(<ModalPortal><div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 p-4">
     <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-2xl">
       <div className="flex items-center justify-between border-b border-[var(--border-primary)] p-4">
         <h2 id={titleId} className="font-semibold">{t('composer.title', 'Compose notes')}</h2>
@@ -140,5 +141,5 @@ export function NoteComposerModal({ sourceId, idToTitle, flush, onFlushed, onClo
         <button type="button" className={`${buttonClass} bg-[var(--gnosi-blue)] text-white`} disabled={busy || !preview} onClick={() => { void apply(); }}>{busy ? t('common.loading', 'Loading…') : t('composer.apply', 'Apply reviewed changes')}</button>
       </div>
     </div>
-  </div>, document.body);
+  </div></ModalPortal>, document.body);
 }

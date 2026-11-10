@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import {
     useCallback,
     useEffect,
@@ -128,7 +129,7 @@ function OpenAIGenerateModal({ request, onClose, onInsert, t }: OpenAIGenerateMo
         }
     };
 
-    return createPortal(<div className="fixed inset-0 z-[var(--z-modal)] flex items-start justify-center bg-black/40 pt-[12vh] px-4">
+    return createPortal(<ModalPortal><div className="fixed inset-0 z-[var(--z-modal)] flex items-start justify-center bg-black/40 pt-[12vh] px-4">
         <div
             ref={dialogRef}
             className="w-full max-w-xl rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-2xl"
@@ -228,7 +229,7 @@ function OpenAIGenerateModal({ request, onClose, onInsert, t }: OpenAIGenerateMo
                 <span className="ml-auto text-xs text-[var(--text-secondary)]">⌘↵</span>
             </div>
         </div>
-    </div>, document.body);
+    </div></ModalPortal>, document.body);
 }
 
 

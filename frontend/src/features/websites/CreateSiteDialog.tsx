@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../shared/ui/ModalPortal';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useModalKeyboard } from '../../shared/hooks/useModalKeyboard';
@@ -39,7 +40,7 @@ export function CreateSiteDialog({ busy, onClose, onCreate, onReview, onImport }
     } catch (failure) { if (alive.current) setError(apiErrorDetail(failure, t('websites.importFailed'))); }
     finally { if (alive.current) setReviewing(false); }
   };
-  return <div ref={ref} className="websites-dialog" role="dialog" aria-modal="true" aria-label={t('websites.createSite')}><form onSubmit={event => {
+  return <ModalPortal><div ref={ref} className="websites-dialog" role="dialog" aria-modal="true" aria-label={t('websites.createSite')}><form onSubmit={event => {
     event.preventDefault();
     if (pending || !name.trim()) return;
     if (mode === 'blank') onCreate(name.trim(), false);
@@ -62,5 +63,5 @@ export function CreateSiteDialog({ busy, onClose, onCreate, onReview, onImport }
     </>}
     {error && <p role="alert" className="websites-error">{error}</p>}
     <div className="websites-actions"><button type="button" className="websites-button" disabled={pending} onClick={onClose}>{t('websites.cancel')}</button><button type="submit" className="btn btn-gnosi-primary" disabled={pending || !name.trim() || (mode === 'url' && (!preview || !selected.length))}>{t(mode === 'url' ? 'websites.importSelected' : 'websites.create')}</button></div>
-  </form></div>;
+  </form></div></ModalPortal>;
 }

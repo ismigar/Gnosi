@@ -1,3 +1,4 @@
+import { useRecordWebsiteDestinations } from '../../../websites';
 import { useMemo } from 'react';
 import { getSchemaFieldNames } from '../../../../shared/records/model/schemaUtils';
 import { isRetiredTableAction, normalizeTableFunctionalities } from '../../properties/tableFunctionalityUtils';
@@ -39,5 +40,6 @@ export function useTablePlugins({ schema, functionalities, notes, llmWikiConfig,
     () => isPluginEnabled('llm-wiki') && Boolean(llmWikiSourceConfig),
     [isPluginEnabled, llmWikiSourceConfig],
   );
-  return { isTranslatableTable, isSocialPublishTable, tableFunctionalities, hasTranslateFunctionality, llmWikiTableId, isLlmWikiTable };
+  const websites = useRecordWebsiteDestinations({ table_id: llmWikiTableId }, isPluginEnabled('web-publishing'));
+  return { ...websites, isTranslatableTable, isSocialPublishTable, tableFunctionalities, hasTranslateFunctionality, llmWikiTableId, isLlmWikiTable };
 }
