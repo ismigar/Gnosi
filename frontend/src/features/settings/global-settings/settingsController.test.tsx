@@ -49,7 +49,6 @@ let api: SettingsApiFixture;
 let root: Root;
 let container: HTMLDivElement;
 let current: SettingsController | undefined;
-
 function snapshot(): SettingsController {
   if (!current) throw new Error('Controller not mounted');
   return current;
@@ -68,8 +67,12 @@ async function mount(props: Partial<GlobalSettingsModalProps> = {}) {
 async function advance(milliseconds = 800) {
   await act(async () => { await vi.advanceTimersByTimeAsync(milliseconds); });
 }
+function settingsDialog(): HTMLElement {
+  const dialog = document.body.querySelector<HTMLElement>('[role="dialog"][aria-labelledby="settings-modal-title"]');
+  if (!dialog) throw new Error('Missing settings dialog');
+  return dialog;
+}
 function writes() { return api.requests.filter(request => request.method !== 'GET'); }
-
 beforeAll(async () => {
   // These integration cases render real editors. Transform their module graphs
   // before fake timers/act start so a slow test compiler cannot strand an act
@@ -83,7 +86,6 @@ beforeAll(async () => {
     import('../../literature/settings/ResourcesPluginConfig'),
   ]);
 }, 30_000);
-
 beforeEach(() => {
   queryClient.clear();
   vi.useFakeTimers();
@@ -114,7 +116,7 @@ describe('settings controller persistence contracts', () => {
   });
   it('scrolls the form from toggles and focuses reading areas without activating controls', async () => {
     await act(async () => { root.render(<Harness isOpen onClose={vi.fn()} initialTab="general" showView />); await Promise.resolve(); });
-    const main = container.querySelector<HTMLElement>('.settings-main');
+    const main = settingsDialog().querySelector<HTMLElement>('.settings-main');
     if (!main) throw new Error('Missing settings form');
     const toggle = document.createElement('button');
     toggle.setAttribute('role', 'switch'); toggle.setAttribute('aria-checked', 'false');
@@ -209,7 +211,7 @@ describe('settings controller persistence contracts', () => {
       await vi.dynamicImportSettled();
     });
     await advance();
-    const configure = container.querySelector<HTMLButtonElement>(
+    const configure = settingsDialog().querySelector<HTMLButtonElement>(
       '#settings-plugin-automations button[aria-label="settings.plugins.configure"]',
     );
     expect(configure).not.toBeNull();
@@ -237,7 +239,8 @@ describe('settings controller persistence contracts', () => {
         await vi.dynamicImportSettled();
       });
       await advance();
-      expect(container.querySelector('[data-testid="resources-plugin-editor"]')).toBeNull();
+      const dialog = settingsDialog();
+      expect(dialog.querySelector('[data-testid="resources-plugin-editor"]')).toBeNull();
       await act(async () => {
         root.render(<Harness isOpen onClose={vi.fn()} initialTab={entryTab} initialPluginId={entryTab === 'plugins' ? 'resources' : null} showView />);
         await Promise.resolve();
@@ -245,16 +248,16 @@ describe('settings controller persistence contracts', () => {
       await advance();
       await act(async () => { await vi.dynamicImportSettled(); });
       expect(snapshot().activeTab).toBe(entryTab === 'plugins' ? 'resources' : 'references');
-      expect(container.querySelector('.settings-sidebar__item.active')?.textContent).toContain('settings.tabs.plugins');
-      expect(container.querySelector('#settings-plugin-resources')).toBeNull();
-      expect(container.querySelectorAll('[data-testid="resources-plugin-editor"]')).toHaveLength(1);
-      const back = container.querySelector<HTMLButtonElement>('.settings-content-wrap > button');
+      expect(dialog.querySelector('.settings-sidebar__item.active')?.textContent).toContain('settings.tabs.plugins');
+      expect(dialog.querySelector('#settings-plugin-resources')).toBeNull();
+      expect(dialog.querySelectorAll('[data-testid="resources-plugin-editor"]')).toHaveLength(1);
+      const back = dialog.querySelector<HTMLButtonElement>('.settings-content-wrap > button');
       expect(back?.textContent).toContain('settings.tabs.plugins');
       await act(async () => { back?.click(); await vi.dynamicImportSettled(); });
       await advance();
       expect(snapshot().activeTab).toBe('plugins');
-      expect(container.querySelector('[data-testid="resources-plugin-editor"]')).toBeNull();
-      expect(container.querySelector('#settings-plugin-resources')).not.toBeNull();
+      expect(dialog.querySelector('[data-testid="resources-plugin-editor"]')).toBeNull();
+      expect(dialog.querySelector('#settings-plugin-resources')).not.toBeNull();
       expect(writes()).toEqual([]);
       expect(automationActions.enablePlugin).not.toHaveBeenCalled();
     } finally {
@@ -326,11 +329,11 @@ describe('settings controller persistence contracts', () => {
   it.each(['general', 'appearance', 'language', 'mail', 'reader', 'graph', 'ai'])('renders the %s pane in the original modal shell', async initialTab => {
     await act(async () => { root.render(<Harness isOpen onClose={vi.fn()} initialTab={initialTab} showView />); await Promise.resolve(); });
     await act(async () => { await vi.dynamicImportSettled(); });
-    expect(container.querySelector('[role=dialog][aria-labelledby=settings-modal-title]')).not.toBeNull();
-    expect(container.querySelector('.settings-sidebar')).not.toBeNull();
-    expect(container.querySelector('.settings-main')).not.toBeNull();
-    expect(container.querySelector('.settings-section')).not.toBeNull();
-    expect(container.querySelectorAll('.settings-sidebar__item.active')).toHaveLength(1);
+    const dialog = settingsDialog();
+    expect(dialog.querySelector('.settings-sidebar')).not.toBeNull();
+    expect(dialog.querySelector('.settings-main')).not.toBeNull();
+    expect(dialog.querySelector('.settings-section')).not.toBeNull();
+    expect(dialog.querySelectorAll('.settings-sidebar__item.active')).toHaveLength(1);
     expect(snapshot().activeTab).toBe(initialTab);
   });
   it('hydrates independent documents without saving placeholder state', async () => {

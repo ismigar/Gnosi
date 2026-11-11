@@ -458,7 +458,9 @@ it('escapes the transformed bot editor and mounts the whole modal at the viewpor
         <AIModelComparisonModal isOpen onClose={vi.fn()} bots={[{ id: 'principal', name: 'Principal' }, { id: 'wiki', name: 'Knowledge' }]} principalId="principal" initialBotId="wiki" />
     </div>); });
     const layer = document.body.querySelector('.model-comparison-layer');
-    expect(layer?.parentElement).toBe(document.body);
+    const host = layer?.closest('[data-gnosi-modal-layer]');
+    expect(host).not.toBeNull();
+    expect(host?.parentElement?.closest('[data-gnosi-modal-context]')?.parentElement).toBe(document.body);
     expect(container.contains(layer)).toBe(false);
     expect(layer?.querySelector('.model-comparison-header')).not.toBeNull();
     expect(layer?.querySelector<HTMLSelectElement>('.model-bot-context select')?.value).toBe('wiki');

@@ -58,7 +58,7 @@ function ScopedBookmarks({ onPageSelect, pages, activePageId, expanded: controll
   const create = (group = '') => {
     const current = pages.find((page) => page.id === activePageId);
     setActionError(null); setActionsOpen(false); setLocalExpanded(true); onExpandedChange?.(true);
-    setDraft({ id: crypto.randomUUID(), kind: 'page', label: bookmarkLabel(current?.title ?? ''), target: current?.id ?? '', group });
+    setDraft({ id: crypto.randomUUID(), kind: 'page', label: bookmarkLabel(current?.title ?? '', current?.id), target: current?.id ?? '', group });
   };
   const createView = () => {
     if (!currentView) return;

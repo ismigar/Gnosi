@@ -9656,5 +9656,23 @@
       "caveat": "El mes actual és parcial. Els clients són adreces identificades pel servidor, no persones úniques. Les dades poden incloure robots.",
       "openSource": "Obre Webalizer"
     }
+  },
+  "recordWebsite": {
+    "title": "Publicació al web",
+    "publish": "Publica al web",
+    "withdraw": "Retira del web",
+    "thisRecord": "Publica o retira aquest article del web",
+    "destination": "Web i allotjament",
+    "choose": "Tria una destinació",
+    "change": "Canvi",
+    "published": "Publicat a la versió activa del web",
+    "unpublished": "Absent de la versió activa del web",
+    "noDestinations": "Cap web habilitat utilitza la taula d’aquest registre com a font. Configura-la primer a Webs.",
+    "wholeSite": "Revisa tots els canvis: es publicarà una versió completa del web, inclosos altres canvis pendents.",
+    "confirm": "Confirma aquests canvis al web",
+    "completion": "L’estat correspon a la versió completada del web. Tancar aquest diàleg no cancel·la una publicació en cua.",
+    "failed": "No s’ha pogut completar l’acció. Torna a carregar la destinació i revisa els canvis.",
+    "legacyStaging": "Publicador antic de proves",
+    "independentSite": "Web públic independent: notes seleccionades"
   }
 }

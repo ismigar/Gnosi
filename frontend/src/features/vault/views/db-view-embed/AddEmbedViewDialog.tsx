@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../../shared/ui/ModalPortal';
 import { useId, useRef, useState } from 'react';
 import { createPanePortal as createPortal } from '../../../../shared/ui/createPanePortal';
 import { Plus, X } from 'lucide-react';
@@ -21,7 +22,7 @@ export function AddEmbedViewDialog({ views, onCreate, onSelect, onClose }: AddEm
     const matchingViews = views.filter(view => (view.name || view.heading || '').toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
     useModalKeyboard({ isOpen: true, onClose, containerRef: panelRef, trapFocus: true, confirmDisabled: true });
     return createPortal(
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[var(--z-modal)] p-4 backdrop-blur-sm">
+        <ModalPortal><div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[var(--z-modal)] p-4 backdrop-blur-sm">
             <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId}
                 className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-lg border border-[var(--border-primary)] flex flex-col max-h-[85vh]">
                 <div className="px-5 py-4 border-b border-[var(--border-primary)] flex items-center justify-between gap-3">
@@ -48,6 +49,6 @@ export function AddEmbedViewDialog({ views, onCreate, onSelect, onClose }: AddEm
                     </div>
                 </div>
             </div>
-        </div>, browserDocumentBody(),
+        </div></ModalPortal>, browserDocumentBody(),
     );
 }

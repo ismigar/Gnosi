@@ -197,7 +197,7 @@ async function renderModal(
 
 
 function buttonWithText(label: string): HTMLButtonElement {
-    const button = Array.from(container.querySelectorAll('button'))
+    const button = Array.from(document.body.querySelectorAll('button'))
         .find((candidate) => candidate.textContent.includes(label));
     if (!button) throw new Error(`Missing button: ${label}`);
     return button;
@@ -205,7 +205,7 @@ function buttonWithText(label: string): HTMLButtonElement {
 
 
 function buttonWithTitle(title: string): HTMLButtonElement {
-    const button = container.querySelector(`button[title="${title}"]`);
+    const button = document.body.querySelector(`button[title="${title}"]`);
     if (!(button instanceof HTMLButtonElement)) {
         throw new Error(`Missing button title: ${title}`);
     }
@@ -214,7 +214,7 @@ function buttonWithTitle(title: string): HTMLButtonElement {
 
 
 function inputWithPlaceholder(placeholder: string): HTMLInputElement {
-    const input = container.querySelector(`input[placeholder="${placeholder}"]`);
+    const input = document.body.querySelector(`input[placeholder="${placeholder}"]`);
     if (!(input instanceof HTMLInputElement)) {
         throw new Error(`Missing input: ${placeholder}`);
     }
@@ -250,7 +250,7 @@ describe('FeedManagerModal', () => {
             <FeedManagerModal isOpen={false} onClose={vi.fn()} />,
         );
 
-        expect(container.textContent).toBe('');
+        expect(document.body.textContent).toBe('');
         expect(fetchReaderSources).not.toHaveBeenCalled();
         expect(fetchScheduledTasks).not.toHaveBeenCalled();
     });
@@ -258,15 +258,15 @@ describe('FeedManagerModal', () => {
     it('loads sources and shows only reader scheduler tasks', async () => {
         await renderModal();
 
-        expect(container.textContent).toContain('Research feed');
-        expect(container.textContent).toContain('Daily letter');
+        expect(document.body.textContent).toContain('Research feed');
+        expect(document.body.textContent).toContain('Daily letter');
         act(() => {
             buttonWithText('Automatic').click();
         });
 
-        expect(container.textContent).toContain('Fetch feeds');
-        expect(container.textContent).toContain('Every 2h');
-        expect(container.textContent).not.toContain('Unrelated cleanup');
+        expect(document.body.textContent).toContain('Fetch feeds');
+        expect(document.body.textContent).toContain('Every 2h');
+        expect(document.body.textContent).not.toContain('Unrelated cleanup');
     });
 
     it('creates an RSS source with normalized form values and reloads', async () => {
@@ -298,7 +298,7 @@ describe('FeedManagerModal', () => {
         act(() => {
             buttonWithText('Add').click();
         });
-        const fileInput = container.querySelector('input[type="file"]');
+        const fileInput = document.body.querySelector('input[type="file"]');
         if (!(fileInput instanceof HTMLInputElement)) {
             throw new Error('Missing OPML file input');
         }
@@ -381,6 +381,6 @@ describe('FeedManagerModal', () => {
             'feed-manager.task-run',
             expect.objectContaining({ message: 'task failed' }),
         );
-        expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+        expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
     });
 });

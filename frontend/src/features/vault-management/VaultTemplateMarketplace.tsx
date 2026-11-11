@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../shared/ui/ModalPortal';
 import {
     useEffect,
     useMemo,
@@ -268,7 +269,7 @@ export default function VaultTemplateMarketplace({
     };
 
     return (
-        <div className="vault-template-modal" role="presentation">
+        <ModalPortal><div className="vault-template-modal" role="presentation">
             <div ref={dialogRef} className="vault-template-modal__content" role="dialog" aria-modal="true" aria-labelledby="vault-template-title">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                     <Store size={20} />
@@ -393,6 +394,6 @@ export default function VaultTemplateMarketplace({
                     </div>
                 )}
             </div>
-        </div>
+        </div></ModalPortal>
     );
 }

@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../shared/ui/ModalPortal';
 import type { RefObject } from 'react';
 import {
     Activity,
@@ -77,7 +78,7 @@ export function AIUsageHistoryView({
     ];
 
     return (
-        <div className="usage-history-layer" role="presentation">
+        <ModalPortal><div className="usage-history-layer" role="presentation">
             <div className="usage-history-backdrop" />
             <section
                 ref={dialogRef}
@@ -285,6 +286,6 @@ export function AIUsageHistoryView({
                     )}
                 </div>
             </section>
-        </div>
+        </div></ModalPortal>
     );
 }

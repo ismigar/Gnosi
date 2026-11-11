@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import { useRef } from 'react';
 import { Download, Rocket, Sparkles, Wrench, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -32,7 +33,7 @@ export function ReleaseNotesDialog({ open, onClose, initialVersion }: ReleaseNot
     : RELEASES;
 
   return (
-    <div
+    <ModalPortal><div
       className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
       role="presentation"
     >
@@ -120,6 +121,6 @@ export function ReleaseNotesDialog({ open, onClose, initialVersion }: ReleaseNot
           </div>
         </div>
       </section>
-    </div>
+    </div></ModalPortal>
   );
 }

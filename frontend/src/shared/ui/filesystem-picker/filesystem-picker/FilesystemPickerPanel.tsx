@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../ModalPortal';
 import {
     ArrowLeft,
     Folder,
@@ -57,7 +58,7 @@ export function FilesystemPickerPanel({
     } = picker;
 
     return (
-        <div
+        <ModalPortal layer="confirm"><div
             className="fixed inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
             style={{ zIndex: 'var(--z-modal)' }}
         >
@@ -262,6 +263,6 @@ export function FilesystemPickerPanel({
                     </div>
                 </div>
             </div>
-        </div>
+        </div></ModalPortal>
     );
 }

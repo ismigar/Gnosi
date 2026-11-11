@@ -1,8 +1,10 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import { useMemo, useRef, useState } from 'react';
 import { Languages, Loader2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
+import { createPanePortal } from '../../../shared/ui/createPanePortal';
 import { toast } from '../../../shared/notifications/toast';
 import { detectRecordSourceLang } from '../../../shared/records/model/schemaUtils';
 import {
@@ -118,11 +120,11 @@ function TranslateLanguagesModalContent({
         trapFocus: true,
     });
 
-    return <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 font-sans backdrop-blur-sm">
+    return createPanePortal(<ModalPortal><div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/60 p-4 font-sans backdrop-blur-sm">
         <div
             aria-label={title}
             aria-modal="true"
-            className="flex w-full max-w-md flex-col overflow-hidden rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl"
+            className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl"
             ref={containerRef}
             role="dialog"
         >
@@ -140,7 +142,7 @@ function TranslateLanguagesModalContent({
                 ><X /></button>
             </div>
 
-            <div className="space-y-4 p-5">
+            <div className="min-h-0 space-y-4 overflow-y-auto p-5">
                 <p className="text-xs text-[var(--text-secondary)]/80">
                     {isBulk
                         ? t('translate.intro_bulk', 'Choose target languages. For each selected record and language a subitem will be created (or updated) with the translation of the fields marked as translatable.')
@@ -192,7 +194,7 @@ function TranslateLanguagesModalContent({
                 </p>
             </div>
 
-            <div className="flex justify-end gap-2 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] px-5 py-3">
+            <div className="flex shrink-0 justify-end gap-2 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] px-5 py-3">
                 <button
                     className="rounded-md border border-[var(--border-primary)] px-4 py-2 text-sm font-bold text-[var(--text-secondary)]/80 transition-colors hover:bg-[var(--bg-primary)] disabled:opacity-50"
                     disabled={submitting}
@@ -210,5 +212,5 @@ function TranslateLanguagesModalContent({
                 </button>
             </div>
         </div>
-    </div>;
+    </div></ModalPortal>, document.body);
 }

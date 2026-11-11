@@ -128,6 +128,30 @@ def test_query_evaluation_budget_is_shared_across_documents(monkeypatch):
         search_documents([document("matching")] * 3, "matching", budget_seconds=2.0)
 
 
+@pytest.mark.parametrize("offset,limit", [(0, 50), (50, 10), (700, 50)])
+def test_previews_are_built_only_for_the_returned_ranked_page(monkeypatch, offset, limit):
+    from backend.domains.vault.search import service
+
+    pages = [document(f"Opening\n**matching** note {index}.\n", id=str(index),
+                      title=f"Note {index:04d}", tags=["research"])
+             for index in reversed(range(600))]
+    original = service.search_excerpt
+    rendered = []
+
+    def preview(body, position):
+        rendered.append(body)
+        return original(body, position)
+
+    monkeypatch.setattr(service, "search_excerpt", preview)
+    response = search_documents(pages, "matching", offset=offset, limit=limit)
+    expected = sorted(pages, key=lambda page: (page.title.casefold(), page.id))[offset:offset + limit]
+    assert response.total == 600
+    assert [hit.id for hit in response.results] == [page.id for page in expected]
+    assert rendered == [page.body for page in expected]
+    assert all(hit.line == 2 and "matching" in hit.excerpt and "**" not in hit.excerpt
+               and hit.tags == ["research"] for hit in response.results)
+
+
 def test_pagination_is_stable_and_counts_all_hits():
     pages = [document("matching", id=str(index), title=f"Page {index:02}") for index in range(15)]
     first = search_documents(pages, "matching", limit=5)

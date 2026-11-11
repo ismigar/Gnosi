@@ -66,7 +66,7 @@ const render = async (element: ReactElement): Promise<HTMLDivElement> => {
 
 
 const buttonByText = (container: HTMLElement, text: string): HTMLButtonElement => {
-    const button = [...container.querySelectorAll('button')]
+    const button = [...document.body.querySelectorAll('button')]
         .find((item) => item.textContent.includes(text));
     if (!button) throw new Error(`Button not rendered: ${text}`);
     return button;
@@ -124,8 +124,8 @@ describe('MetadataLookupModal', () => {
             await Promise.resolve();
         });
 
-        expect(container.textContent).toContain('Evidence');
-        expect(container.textContent).toContain('Article de revista acadèmica');
+        expect(document.body.textContent).toContain('Evidence');
+        expect(document.body.textContent).toContain('Article de revista acadèmica');
         act(() => {
             buttonByText(container, 'Apply selection').dispatchEvent(
                 new MouseEvent('click', { bubbles: true }),
@@ -179,8 +179,8 @@ describe('MetadataLookupModal', () => {
             suggested: { Title: 'Uploaded report', 'Item Type': 'report' },
         });
         const onCreate = vi.fn();
-        const container = await render(<MetadataLookupModal isOpen mode="create" onCreate={onCreate} />);
-        const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+        await render(<MetadataLookupModal isOpen mode="create" onCreate={onCreate} />);
+        const input = document.body.querySelector<HTMLInputElement>('input[type="file"]');
         if (!input) throw new Error('Missing PDF input');
         const file = new File(['pdf'], 'report.pdf', { type: 'application/pdf' });
         Object.defineProperty(input, 'files', { value: [file] });
@@ -203,7 +203,7 @@ describe('MetadataLookupModal', () => {
             buttonByText(container, 'Search').click();
             await Promise.resolve();
         });
-        expect(container.querySelector('img[src="https://example.org/proposed.jpg"]')).not.toBeNull();
+        expect(document.body.querySelector('img[src="https://example.org/proposed.jpg"]')).not.toBeNull();
         act(() => { buttonByText(container, 'Apply selection').click(); });
         expect(onApply).toHaveBeenCalledWith({ Title: 'Paper' });
     });

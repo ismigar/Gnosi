@@ -48,7 +48,7 @@ vi.mock('react-i18next', () => ({
 
 const mountedRoots: MountedRoot[] = [];
 
-const render = async (element: ReactElement): Promise<HTMLDivElement> => {
+const render = async (element: ReactElement): Promise<void> => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -57,7 +57,6 @@ const render = async (element: ReactElement): Promise<HTMLDivElement> => {
         root.render(element);
         await Promise.resolve();
     });
-    return container;
 };
 
 const getButton = (container: HTMLElement, label: string): HTMLButtonElement => {
@@ -207,7 +206,7 @@ describe('agent action confirmations', () => {
     it('focuses cancel and disables global Enter confirmation', async () => {
         const onClose = vi.fn();
         const onConfirm = vi.fn().mockResolvedValue(undefined);
-        const container = await render(
+        await render(
             <ConfirmModal
                 isOpen
                 onClose={onClose}
@@ -221,8 +220,10 @@ describe('agent action confirmations', () => {
             />,
         );
 
-        const cancel = getButton(container, 'Cancel');
-        const execute = getButton(container, 'Execute');
+        const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
+        if (!dialog) throw new Error('Confirmation dialog not found');
+        const cancel = getButton(dialog, 'Cancel');
+        const execute = getButton(dialog, 'Execute');
         expect(document.activeElement).toBe(cancel);
         expect(cancel.dataset.autofocus).toBe('true');
         expect(execute.dataset.autofocus).toBeUndefined();
@@ -245,7 +246,7 @@ describe('agent action confirmations', () => {
 
     it('requires the acknowledgement checkbox before confirming', async () => {
         const onConfirm = vi.fn().mockResolvedValue(undefined);
-        const container = await render(
+        await render(
             <ConfirmModal
                 isOpen
                 onClose={vi.fn()}
@@ -259,10 +260,12 @@ describe('agent action confirmations', () => {
             />,
         );
 
-        const checkbox = container.querySelector<HTMLInputElement>(
+        const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
+        if (!dialog) throw new Error('Confirmation dialog not found');
+        const checkbox = dialog.querySelector<HTMLInputElement>(
             'input[type="checkbox"]',
         );
-        const execute = getButton(container, 'Execute');
+        const execute = getButton(dialog, 'Execute');
         expect(checkbox).not.toBeNull();
         expect(execute.disabled).toBe(true);
         if (!checkbox) throw new Error('Acknowledgement checkbox not found');

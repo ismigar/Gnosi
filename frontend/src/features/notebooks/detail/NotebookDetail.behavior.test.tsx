@@ -76,27 +76,29 @@ async function renderDetail() {
     });
 }
 
-function element<T extends Element>(selector: string, constructor: { new(): T }): T {
-    const found = container.querySelector(selector);
+function element<T extends Element>(selector: string, constructor: { new(): T }, scope: ParentNode = container): T {
+    const found = scope.querySelector(selector);
     if (!(found instanceof constructor)) throw new Error(`Missing element ${selector}`);
     return found;
 }
 
-async function click(selector: string) {
+async function click(selector: string, scope: ParentNode = container) {
     await act(async () => {
-        element(selector, HTMLElement).click();
+        element(selector, HTMLElement, scope).click();
         await Promise.resolve();
     });
 }
 
-async function changeSelect(selector: string, value: string) {
+async function changeSelect(selector: string, value: string, scope: ParentNode = container) {
     await act(async () => {
-        const select = element(selector, HTMLSelectElement);
+        const select = element(selector, HTMLSelectElement, scope);
         select.value = value;
         select.dispatchEvent(new Event('change', { bubbles: true }));
         await Promise.resolve();
     });
 }
+
+const addResourcesDialog = '[role="dialog"][aria-labelledby="notebook-add-resources-title"]';
 
 describe('NotebookDetail behavior', () => {
     it('reconciles source revisions before publishing detail and retains page parameters', async () => {
@@ -154,27 +156,29 @@ describe('NotebookDetail behavior', () => {
     it('keeps resource selections through filtering/paging and excludes existing resources', async () => {
         await renderDetail();
         await click('button[aria-label="Add Resources"]');
-        expect(container.textContent).not.toContain('Existing Resource');
-        await click('.notebook-resource-row');
-        await changeSelect('.notebook-resource-filter select', 'paper');
+        const dialog = element(addResourcesDialog, HTMLElement, document.body);
+        expect(dialog.textContent).not.toContain('Existing Resource');
+        await click('.notebook-resource-row', dialog);
+        await changeSelect('.notebook-resource-filter select', 'paper', dialog);
         expect(api.fetchReferenceResources).toHaveBeenLastCalledWith({ notebookId: 'notebook-1', query: '', page: 1, pageSize: 50, author: undefined, resourceType: 'paper', tag: undefined }, expect.any(AbortSignal));
-        await click('button[aria-label="Next"]');
+        await click('button[aria-label="Next"]', dialog);
         expect(vi.mocked(api.fetchReferenceResources).mock.calls.at(-1)?.[0]?.page).toBe(2);
-        expect(element('.notebook-resource-row', HTMLButtonElement).getAttribute('aria-pressed')).toBe('true');
-        await click('.notebook-modal__footer .btn-gnosi-primary');
+        expect(element('.notebook-resource-row', HTMLButtonElement, dialog).getAttribute('aria-pressed')).toBe('true');
+        await click('.notebook-modal__footer .btn-gnosi-primary', dialog);
         expect(api.addNotebookSources).toHaveBeenCalledWith('notebook-1', ['resource-3']);
-        expect(container.querySelector('[role="dialog"]')).toBeNull();
+        expect(document.body.querySelector(addResourcesDialog)).toBeNull();
     });
 
     it('keeps the resource dialog open and selection intact on add failure', async () => {
         vi.mocked(api.addNotebookSources).mockRejectedValueOnce(new Error('offline'));
         await renderDetail();
         await click('button[aria-label="Add Resources"]');
-        await click('.notebook-resource-row');
-        await click('.notebook-modal__footer .btn-gnosi-primary');
+        const dialog = element(addResourcesDialog, HTMLElement, document.body);
+        await click('.notebook-resource-row', dialog);
+        await click('.notebook-modal__footer .btn-gnosi-primary', dialog);
         expect(toast.error).toHaveBeenCalledWith('Resources could not be added.');
-        expect(element('.notebook-resource-row', HTMLButtonElement).getAttribute('aria-pressed')).toBe('true');
-        expect(element('.notebook-modal__footer .btn-gnosi-primary', HTMLButtonElement).disabled).toBe(false);
+        expect(element('.notebook-resource-row', HTMLButtonElement, dialog).getAttribute('aria-pressed')).toBe('true');
+        expect(element('.notebook-modal__footer .btn-gnosi-primary', HTMLButtonElement, dialog).disabled).toBe(false);
     });
 
     it('patches settings and reports recoverable errors', async () => {
@@ -189,7 +193,7 @@ describe('NotebookDetail behavior', () => {
         await renderDetail();
         const initialMounts = chatMount.mock.calls.length;
         await click('.notebook-clear-conversation');
-        await click('[role="dialog"] .mt-2 button:last-child');
+        await click('[role="dialog"] .mt-2 button:last-child', document.body);
         expect(transportFetch).toHaveBeenCalledWith('/api/chat/sessions/gnosy/session%20%2F%20one?notebook_id=notebook-1', { method: 'DELETE' });
         expect(chatMount.mock.calls.length).toBe(initialMounts + 1);
     });
@@ -235,9 +239,9 @@ describe('NotebookDetail behavior', () => {
         await renderDetail();
         const initialMounts = chatMount.mock.calls.length;
         await click('.notebook-clear-conversation');
-        await click('[role="dialog"] .mt-2 button:last-child');
+        await click('[role="dialog"] .mt-2 button:last-child', document.body);
         expect(toast.error).toHaveBeenCalledWith('The conversation could not be cleared.');
-        expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+        expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
         expect(chatMount.mock.calls.length).toBe(initialMounts);
     });
 

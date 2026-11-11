@@ -112,8 +112,8 @@ afterEach(() => {
 });
 
 
-function buttonWithText(text: string): HTMLButtonElement {
-  const button = [...container.querySelectorAll('button')]
+function buttonWithText(text: string, scope: ParentNode = container): HTMLButtonElement {
+  const button = [...scope.querySelectorAll('button')]
     .find((candidate) => candidate.textContent.includes(text));
   if (!button) throw new Error(`Button not found: ${text}`);
   return button;
@@ -206,8 +206,10 @@ describe('social controls', () => {
       );
     });
 
+    const dialog = document.body.querySelector('[role="dialog"][aria-label="Add New Stream"]');
+    if (!dialog) throw new Error('Missing add stream dialog');
     act(() => {
-      buttonWithText('Add stream').click();
+      buttonWithText('Add stream', dialog).click();
     });
 
     expect(onAdd).toHaveBeenCalledWith({

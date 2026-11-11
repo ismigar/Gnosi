@@ -17,6 +17,11 @@ const catalogue: api.CatalogueItem[] = [{ id: 'articles', kind: 'table', title: 
 const autosave = async () => { await act(async () => { vi.advanceTimersByTime(650); await Promise.resolve(); }); await settle(); };
 const settle = async () => { await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); }); };
 function button(container: HTMLElement, value: string) { const found = [...container.querySelectorAll('button')].find(element => element.textContent === value); if (!found) throw new Error(`Missing button ${value}`); return found; }
+function removalConfirmation(): HTMLElement {
+  const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
+  if (!dialog) throw new Error('Missing removal confirmation');
+  return dialog;
+}
 function control(container: HTMLElement, label: string): HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement { const found = [...container.querySelectorAll('label')].find(element => element.querySelector('span')?.textContent === label)?.querySelector('input,textarea,select'); if (!found) throw new Error(`Missing field ${label}`); return found as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement; }
 function changeInput(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, value: string) { const prototype = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, 'value')?.set?.call(element, value); element.dispatchEvent(new Event(element instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true })); }
 function tab(container: HTMLElement, name: string) { const item = container.querySelector<HTMLButtonElement>(`#websites-tab-${name}`); if (!item) throw new Error('Missing tab'); act(() => { item.click(); }); }
@@ -58,10 +63,10 @@ describe('Website and hosting management', () => {
   it('requires confirmation and permits cancelling website removal', async () => {
     const view = mountTestComponent(<WebsitesPage />); await settle();
     act(() => { button(view.container, 'websites.removeSite').click(); }); await settle();
-    expect(view.container.querySelector('[role="dialog"]')?.textContent).toContain('websites.removeSiteHelp');
+    expect(removalConfirmation().textContent).toContain('websites.removeSiteHelp');
     expect(api.removeSite).not.toHaveBeenCalled();
-    act(() => { button(view.container, 'websites.cancel').click(); }); await settle();
-    expect(view.container.querySelector('[role="dialog"]')).toBeNull();
+    act(() => { button(removalConfirmation(), 'websites.cancel').click(); }); await settle();
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
     expect(control(view.container, 'websites.website').value).toBe(base.id);
   });
 
@@ -69,7 +74,7 @@ describe('Website and hosting management', () => {
     vi.mocked(api.removeSite).mockResolvedValue(undefined);
     const view = mountTestComponent(<WebsitesPage />); await settle();
     act(() => { button(view.container, 'websites.removeSite').click(); }); await settle();
-    act(() => { button(view.container, 'websites.delete').click(); }); await settle(); await autosave();
+    act(() => { button(removalConfirmation(), 'websites.delete').click(); }); await settle(); await autosave();
     expect(api.removeSite).toHaveBeenCalledWith(base.id, base.revision, context, expect.any(AbortSignal));
     expect(view.container.textContent).toContain('websites.noSites');
     expect(view.container.querySelector('[role="tabpanel"]')).toBeNull();
@@ -83,7 +88,7 @@ describe('Website and hosting management', () => {
     vi.mocked(api.removeSite).mockResolvedValue(undefined);
     const view = mountTestComponent(<WebsitesPage />); await settle();
     act(() => { button(view.container, 'websites.removeSite').click(); }); await settle();
-    act(() => { button(view.container, 'websites.delete').click(); }); await settle();
+    act(() => { button(removalConfirmation(), 'websites.delete').click(); }); await settle();
     expect(control(view.container, 'websites.website').value).toBe(other.id);
     expect(view.container.textContent).toContain(other.name);
     expect([...control(view.container, 'websites.website').querySelectorAll('option')]).toHaveLength(1);
@@ -93,10 +98,10 @@ describe('Website and hosting management', () => {
     vi.mocked(api.removeSite).mockRejectedValue(new Error('Removal unavailable'));
     const view = mountTestComponent(<WebsitesPage />); await settle();
     act(() => { button(view.container, 'websites.removeSite').click(); }); await settle();
-    act(() => { button(view.container, 'websites.delete').click(); }); await settle();
+    act(() => { button(removalConfirmation(), 'websites.delete').click(); }); await settle();
     expect(control(view.container, 'websites.website').value).toBe(base.id);
     expect(view.container.querySelector('[role="alert"]')).not.toBeNull();
-    expect(view.container.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
   });
 
   it('opens hosting directly, confirms removal of the last target and creates another', async () => {
@@ -105,10 +110,10 @@ describe('Website and hosting management', () => {
     expect(view.container.querySelector('#websites-tab-hosting')?.getAttribute('aria-selected')).toBe('true');
     act(() => { button(view.container, 'websites.removeHosting').click(); }); await settle();
     expect(api.saveSite).not.toHaveBeenCalled();
-    act(() => { button(view.container, 'websites.cancel').click(); }); await settle();
+    act(() => { button(removalConfirmation(), 'websites.cancel').click(); }); await settle();
     expect(api.saveSite).not.toHaveBeenCalled();
     act(() => { button(view.container, 'websites.removeHosting').click(); }); await settle();
-    act(() => { button(view.container, 'websites.delete').click(); }); await settle();
+    act(() => { button(removalConfirmation(), 'websites.delete').click(); }); await settle();
     expect(vi.mocked(api.saveSite).mock.calls[0]?.[0].targets).toEqual([]);
     expect(view.container.textContent).toContain('websites.noTargets');
     act(() => { button(view.container, 'websites.addTarget').click(); }); await settle(); await autosave();

@@ -10,7 +10,7 @@ it('focuses Cancel, contains Tab in both directions and returns to the composer'
  const controller={showCloseConfirm:true,handleSaveAndClose:save,onClose:close,setShowCloseConfirm:setConfirm,t:(key:string)=>key} as unknown as MailComposerController;
  const view=mountTestComponent(<MailComposerDialogs controller={controller}/>);
  try {
-  const buttons=view.container.querySelectorAll('button');const first=buttons[0],cancel=buttons[2];
+  const buttons=document.body.querySelector('[role="dialog"]')?.querySelectorAll('button') ?? [];const first=buttons[0],cancel=buttons[2];
   if(!first || !cancel)throw new Error('Missing dialog buttons');
   expect(document.activeElement).toBe(cancel);
   const key=(name:string,shiftKey=false)=>{const event=new KeyboardEvent('keydown',{key:name,shiftKey,bubbles:true,cancelable:true});act(()=>{document.activeElement?.dispatchEvent(event);});return event;};

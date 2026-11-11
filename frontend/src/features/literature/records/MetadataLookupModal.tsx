@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import { useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Search, X } from 'lucide-react';
@@ -68,7 +69,7 @@ export function MetadataLookupModal({
         })
         : t('metadata_lookup.title', { defaultValue: 'Fill in metadata' });
     return createPortal(
-        <div
+        <ModalPortal><div
             className="fixed inset-0 z-[var(--z-modal)] flex items-start justify-center pt-16 bg-black/40"
             onKeyDown={controller.handleKeyDown}
         >
@@ -123,7 +124,7 @@ export function MetadataLookupModal({
                     </button>
                 </div>
             </div>
-        </div>,
+        </div></ModalPortal>,
         portalElement,
     );
 }

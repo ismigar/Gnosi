@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../shared/ui/ModalPortal';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useModalKeyboard } from '../../shared/hooks/useModalKeyboard';
@@ -70,12 +71,12 @@ export function ThemeAssetPicker({ siteId, value, kind, label, context, disabled
       {value && !compact && <button type="button" className="websites-button" aria-label={`${t('websites.remove')} ${label}`} disabled={disabled || busy} onClick={() => { latest.current.onChange(''); }}>{t('websites.remove')}</button>}
     </div>
     {busy && <span role="status">{t('websites.uploadingAsset')}</span>}{!open && error && <p role="alert" className="websites-error">{error}</p>}
-    {open && createPortal(<div ref={dialog} className="websites-dialog" role="dialog" aria-modal="true" aria-labelledby={dialogId}><form onSubmit={event => { event.preventDefault(); }}>
+    {open && createPortal(<ModalPortal><div ref={dialog} className="websites-dialog" role="dialog" aria-modal="true" aria-labelledby={dialogId}><form onSubmit={event => { event.preventDefault(); }}>
       <h2 id={dialogId}>{t('websites.uploadAsset', { name: label })}</h2>
       <p className="websites-muted">{t(kind === 'font' ? 'websites.fontUploadHelp' : kind === 'image' ? 'websites.imageUploadHelp' : 'websites.fileUploadHelp')}</p>
       <FileImportButton label={t('websites.chooseFile')} accept={accept} disabled={disabled || busy} onFile={file => { task.current = choose(file); void task.current.finally(() => { task.current = null; }); }} />
       {busy && <span role="status">{t('websites.uploadingAsset')}</span>}{error && <p role="alert" className="websites-error">{error}</p>}
       <button type="button" className="websites-button" disabled={busy} onClick={close}>{t('websites.cancel')}</button>
-    </form></div>, document.body)}
+    </form></div></ModalPortal>, document.body)}
   </div>;
 }

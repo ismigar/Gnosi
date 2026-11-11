@@ -188,7 +188,7 @@ function PageHoverCardContent({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         ref={cardRef}
-        role="dialog"
+        role="dialog" aria-modal={false}
         style={position
             ? { ...CARD_STYLE, left: position.left, opacity: 1, pointerEvents: 'auto', top: position.top }
             : { ...CARD_STYLE, left: -9999, opacity: 0, pointerEvents: 'none', top: -9999 }}

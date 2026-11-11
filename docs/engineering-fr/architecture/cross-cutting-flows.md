@@ -143,6 +143,8 @@ avec leurs panneaux et un déplacement du focus au clavier. Playwright combine
 les analyses axe WCAG 2.2 AA sur la matrice des routes du produit avec des
 assertions clavier explicites, car aucune de ces deux couches ne prouve l'autre.
 
+Les dialogues bloquants utilisent `ModalPortal` dans le corps du document, hors des éditeurs transformés et des tableaux défilants. La couche conserve la visibilité du panneau propriétaire, empêche les événements React d’atteindre l’éditeur et attribue les jetons modaux partagés ; les dialogues enfants et menus en portails héritent de la couche active. Les panneaux explicitement non bloquants utilisent `aria-modal={false}`. Le lint du frontend refuse les dialogues bloquants hors de cette couche. Les régressions de navigateur sur données temporaires vérifient de vrais éditeurs, les barres superposées, les petites fenêtres, le changement de panneau, les menus imbriqués et l’accès direct avant le chargement des Paramètres.
+
 ## Politique des effets externes
 
 Les outils de l'agent et les actions de l'application classent les effets : lecture, écriture, communication externe ou modification destructive. Les contrôles de rôle, services à périmètre limité, enregistrements de confirmation et opérations récupérables s'appliquent selon l'effet. La confirmation du client ne suffit pas à autoriser l'action dans le backend.

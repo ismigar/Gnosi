@@ -57,7 +57,7 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
       <PageActionsBar compactHeader compactOverflowItems={[
         ...(hasOpenableResource(note) ? [{ key: 'open-resource', Icon: LinkIcon, label: t('table.open_resource_tooltip'), disabled: openingResourceId === note.id, onClick: () => { void handleOpenExternalResource(note); } }] : []),
         ...(onOpenParallel ? [{ key: 'open-parallel', Icon: Columns2, label: t('table.open_parallel'), onClick: () => { onOpenParallel(note.id); } }] : []),
-        ...buildRecordActions({ note, schema, functionalities: tableFunctionalities, actionRules,
+        ...buildRecordActions({ note, schema, websiteDestinations: model.websiteDestinations, functionalities: tableFunctionalities, actionRules,
           tableId: llmWikiTableId, isPluginEnabled: model.isPluginEnabled,
           processingConfigured: isLlmWikiTable, job: llmWikiJobs[llmWikiTableId]?.[note.id],
           processed: llmWikiConfig?.processed_resources[llmWikiTableId]?.[note.id],

@@ -45,7 +45,7 @@ function setInput(input: HTMLInputElement, value: string): void {
 }
 
 function findButton(container: HTMLElement, label: string): HTMLButtonElement {
-    const button = [...container.querySelectorAll('button')]
+    const button = [...document.body.querySelectorAll('button')]
         .find((candidate) => candidate.textContent.includes(label));
     if (!(button instanceof HTMLButtonElement)) {
         throw new Error(`Missing button: ${label}`);
@@ -93,7 +93,7 @@ describe('WorkspacesModal', () => {
             );
         });
 
-        const input = container.querySelector('input');
+        const input = document.body.querySelector('input');
         if (!(input instanceof HTMLInputElement)) {
             throw new Error('Missing workspace name input');
         }

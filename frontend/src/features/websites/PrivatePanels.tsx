@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../shared/ui/ModalPortal';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDraftAutosave } from '../../shared/hooks/useDraftAutosave';
@@ -61,7 +62,7 @@ export function MessagesPanel({ site, call }: { site: SiteConfig; call: PrivateC
     <p className="websites-muted websites-spacer">{t('websites.messageCount', { count: result.data.total })}</p>
     <div className="websites-inbox websites-spacer"><div className="websites-list">{!result.data.items.length && !result.loading && <Empty>{t('websites.noMessages')}</Empty>}{result.data.items.map(message => <button type="button" key={message.id} className="websites-row text-left" aria-pressed={message.id === selectedId} onClick={() => { setSelectedId(message.id); }}><strong>{message.email || message.formId}</strong><p className="websites-muted">{message.createdAt} · {message.language.toUpperCase()}</p><span className="websites-badge">{t(`websites.states.${message.status}`, message.status)}</span></button>)}</div><div>{selected && <MessageDetail message={selected} busy={busy} onStatus={value => { void action('messages_update', { id: selected.id, status: value }); }} onDelete={() => { setDeleteId(selected.id); }} />}</div></div>
     <Pagination offset={offset} total={result.data.total} onChange={setOffset} />
-    {deleteId && <div className="websites-dialog" role="dialog" aria-modal="true" aria-label={t('websites.deleteMessage')}><form onSubmit={event => { event.preventDefault(); void action('messages_delete', { ids: [deleteId] }); }}><h2>{t('websites.deleteMessage')}</h2><p>{t('websites.deleteMessageHelp')}</p><div className="websites-actions"><button type="button" className="websites-button" disabled={busy} onClick={() => { setDeleteId(''); }}>{t('websites.cancel')}</button><button type="submit" className="websites-button" disabled={busy}>{t('websites.delete')}</button></div></form></div>}
+    {deleteId && <ModalPortal><div className="websites-dialog" role="dialog" aria-modal="true" aria-label={t('websites.deleteMessage')}><form onSubmit={event => { event.preventDefault(); void action('messages_delete', { ids: [deleteId] }); }}><h2>{t('websites.deleteMessage')}</h2><p>{t('websites.deleteMessageHelp')}</p><div className="websites-actions"><button type="button" className="websites-button" disabled={busy} onClick={() => { setDeleteId(''); }}>{t('websites.cancel')}</button><button type="submit" className="websites-button" disabled={busy}>{t('websites.delete')}</button></div></form></div></ModalPortal>}
   </Card>;
 }
 function MessageDetail({ message, busy, onStatus, onDelete }: { message: ContactMessage; busy: boolean; onStatus: (value: string) => void; onDelete: () => void }) {

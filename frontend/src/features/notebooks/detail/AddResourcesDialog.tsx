@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -82,7 +83,7 @@ export default function AddResourcesDialog({ notebookId, currentIds, onClose, on
     };
 
     return (
-        <div className="notebook-modal-backdrop">
+        <ModalPortal><div className="notebook-modal-backdrop">
             <section
                 ref={dialogRef}
                 className="notebook-modal notebook-modal--compact"
@@ -134,6 +135,6 @@ export default function AddResourcesDialog({ notebookId, currentIds, onClose, on
                 </div>
                 <footer className="notebook-modal__footer"><button type="button" className="btn-gnosi" disabled={saving} onClick={onClose}>{t('common.cancel', 'Cancel')}</button><button type="button" className="btn-gnosi btn-gnosi-primary" disabled={!selected.size || saving} onClick={() => { void add(); }}>{t('notebooks.add_selected', 'Add selected')}</button></footer>
             </section>
-        </div>
+        </div></ModalPortal>
     );
 }

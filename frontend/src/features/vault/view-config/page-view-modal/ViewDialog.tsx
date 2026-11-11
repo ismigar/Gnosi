@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../../shared/ui/ModalPortal';
 import { X, Eye } from 'lucide-react';
 import { TABS } from './constants';
 import { ViewIdentity } from './ViewIdentity';
@@ -24,7 +25,7 @@ type ViewData = Omit<ReturnType<typeof useViewController>, 'panelRef'>;
 
 export function ViewDialog({ panelRef, view }: { panelRef: RefObject<HTMLDivElement | null>; view: ViewData }) {
     const { isTableMode, editingView, t, editingBlock, requestClose, activeTab, setActiveTab, error, viewLoadStatus, setViewLoadRetryKey } = view;
-    return (<>        <div
+    return (<>        <ModalPortal><div
         className="fixed inset-0 bg-black/60 flex items-center justify-center z-[var(--z-modal)] p-4 backdrop-blur-sm"
     >
         <div ref={panelRef} className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-2xl border border-[var(--border-primary)] flex flex-col max-h-[85vh]" role="dialog" aria-modal="true" aria-labelledby="page-view-modal-title">
@@ -136,5 +137,5 @@ export function ViewDialog({ panelRef, view }: { panelRef: RefObject<HTMLDivElem
             <ViewFooter {...view} />
         </div>
         <ViewConfirmations {...view} />
-    </div></>);
+    </div></ModalPortal></>);
 }

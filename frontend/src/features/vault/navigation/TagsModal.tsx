@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import { useState, useMemo, useRef, type MouseEvent } from 'react';
 import { Hash, ChevronRight, FileText, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -127,7 +128,7 @@ export default function TagsModal({
     const pages = selectedNode ? Array.from(selectedNode.pages.values()) : [];
 
     return (
-        <div className="fixed inset-0 z-[150] flex items-start justify-center pt-[10vh] px-4">
+        <ModalPortal><div className="fixed inset-0 z-[150] flex items-start justify-center pt-[10vh] px-4">
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm"></div>
             <div ref={panelRef} className="relative flex h-[70vh] w-full max-w-3xl overflow-hidden rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl" role="dialog" aria-modal="true" aria-label={t('tags.title', 'Tags')}>
                 {/* Tag tree */}
@@ -182,6 +183,6 @@ export default function TagsModal({
                     </div>
                 </div>
             </div>
-        </div>
+        </div></ModalPortal>
     );
 }

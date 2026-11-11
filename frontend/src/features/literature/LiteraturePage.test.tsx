@@ -213,8 +213,9 @@ describe('LiteraturePage', () => {
         expect(page.textContent).toContain('literature.result.occurrences');
 
         await click(buttonContaining(page, 'literature.result.view'));
-        expect(page.querySelector('[role="dialog"]')).not.toBeNull();
-        expect(page.textContent).toContain('literature.preview.conflicts');
+        const preview = document.body.querySelector('[role="dialog"][aria-labelledby="literature-preview-title"]');
+        expect(preview).not.toBeNull();
+        expect(preview?.textContent).toContain('literature.preview.conflicts');
         expect(mockedCreateLiteratureSearch).toHaveBeenCalledTimes(1);
     });
 

@@ -105,6 +105,15 @@ describe('unified bookmarks section', () => {
     await change('View address', '/knowledge/page/page-a'); await change('Name', 'My alias'); await change('Group', 'Work'); await click('Save');
     expect(fixture.save).toHaveBeenCalledWith(expect.objectContaining({ kind: 'page', target: 'page-a', label: 'My alias', group: 'Work' }));
   });
+  it('can save an untitled current page using its ID as the initial name', async () => {
+    await render([{ id: 'page-a', title: '   ' }]);
+    await openActions(); await click('Add bookmark');
+    expect(field('Name').value).toBe('page-a');
+    await click('Save');
+    expect(fixture.save).toHaveBeenCalledWith(expect.objectContaining({
+      kind: 'page', target: 'page-a', label: 'page-a',
+    }));
+  });
   it('keeps one titled empty section and adds the current page with an alias and group', async () => {
     await render();
     expect(document.body.querySelectorAll('section[aria-label="Bookmarks"]')).toHaveLength(1);

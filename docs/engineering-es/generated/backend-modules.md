@@ -16,7 +16,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 57 |
 | `config` | 14 | 1428 |
 | `data` | 2 | 214 |
-| `domains` | 615 | 119962 |
+| `domains` | 616 | 120163 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -28,7 +28,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1112 modules** and **209442 source lines**.
+Total: **1113 modules** and **209643 source lines**.
 
 ## agent
 
@@ -525,7 +525,7 @@ Total: **1112 modules** and **209442 source lines**.
 | [`backend/domains/reader/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/state.py) | 49 | 1 | 0 | 0 | 1 | Shared state and limits for durable Reader analyses. |
 | [`backend/domains/reader/storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/storage.py) | 200 | 0 | 18 | 0 | 0 | Durable Reader job, snapshot and checkpoint storage. |
 | [`backend/domains/sites/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault-scoped website management and reviewed static publication. |
-| [`backend/domains/sites/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py) | 312 | 0 | 36 | 1 | 0 | Authenticated website editor and private administrator operations. |
+| [`backend/domains/sites/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py) | 325 | 0 | 38 | 1 | 0 | Authenticated website editor and private administrator operations. |
 | [`backend/domains/sites/bounded_bridge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_bridge.py) | 142 | 2 | 0 | 0 | 2 | Deadline-bound read sessions using the maintained SSH/Suweb login procedure. |
 | [`backend/domains/sites/bounded_child.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_child.py) | 85 | 2 | 0 | 0 | 1 | Apply a single SSH deadline even when the maintained driver uses the child directly. |
 | [`backend/domains/sites/bounded_pty.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_pty.py) | 32 | 0 | 1 | 0 | 0 | Nonblocking PTY writes with one caller-owned absolute deadline. |
@@ -546,7 +546,8 @@ Total: **1112 modules** and **209442 source lines**.
 | [`backend/domains/sites/production.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/production.py) | 19 | 0 | 1 | 0 | 0 | Explicit delivery boundaries shared by previews, publishing and private settings. |
 | [`backend/domains/sites/production_routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/production_routing.py) | 43 | 0 | 1 | 0 | 0 | Reviewed root routing for a retained Drupal-to-Webs cutover. |
 | [`backend/domains/sites/public_http.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/public_http.py) | 222 | 5 | 7 | 0 | 2 | Bounded public HTTP reads with the validated address pinned to the socket. |
-| [`backend/domains/sites/publication.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/publication.py) | 395 | 0 | 21 | 0 | 1 | Persistent reviewed publication jobs, immutable builds and atomic activation. |
+| [`backend/domains/sites/publication.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/publication.py) | 437 | 0 | 23 | 0 | 3 | Persistent reviewed publication jobs, immutable builds and atomic activation. |
+| [`backend/domains/sites/record_publication.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/record_publication.py) | 150 | 3 | 6 | 0 | 0 | Contextual record publication through the existing website release pipeline. |
 | [`backend/domains/sites/recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/recovery.py) | 120 | 0 | 3 | 0 | 3 | Reauthorize and resume approved website jobs after a backend restart. |
 | [`backend/domains/sites/release_retention.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/release_retention.py) | 74 | 0 | 3 | 0 | 3 | Retain the activated remote website and its predecessor under the publish lock. |
 | [`backend/domains/sites/renderer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/renderer.py) | 82 | 0 | 1 | 0 | 1 | Build reviewed website snapshots with the packaged Astro/Pagefind renderer. |
@@ -740,7 +741,7 @@ Total: **1112 modules** and **209442 source lines**.
 | [`backend/domains/vault/search/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/search/__init__.py) | 1 | 0 | 0 | 0 | 0 | Full-content, request-scoped Vault search. |
 | [`backend/domains/vault/search/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/search/api.py) | 58 | 0 | 3 | 0 | 0 | Typed full-text search route under the authenticated Vault router. |
 | [`backend/domains/vault/search/query.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/search/query.py) | 226 | 6 | 5 | 0 | 2 | Bounded query grammar shared by global and embedded Vault searches. |
-| [`backend/domains/vault/search/service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/search/service.py) | 349 | 5 | 11 | 0 | 1 | Search complete Markdown documents without reading personal data globally. |
+| [`backend/domains/vault/search/service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/search/service.py) | 345 | 5 | 11 | 0 | 1 | Search complete Markdown documents without reading personal data globally. |
 | [`backend/domains/vault/tables/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault databases, tables, properties and option catalogs. |
 | [`backend/domains/vault/tables/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/api.py) | 131 | 1 | 7 | 4 | 0 | Database and table collection operations. |
 | [`backend/domains/vault/tables/catalogs/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/catalogs/__init__.py) | 71 | 0 | 0 | 0 | 0 | Typed option catalogs, semantic roles and status seeds. |

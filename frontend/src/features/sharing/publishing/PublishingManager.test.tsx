@@ -24,7 +24,7 @@ function pending<T>() {
     return { promise, resolve };
 }
 function button(container: HTMLElement, label: string): HTMLButtonElement {
-    const result = [...container.querySelectorAll('button')].find(item => item.textContent === label);
+    const result = [...document.body.querySelectorAll('button')].find(item => item.textContent === label);
     if (!result) throw new Error(`Missing button ${label}`);
     return result;
 }
@@ -48,22 +48,22 @@ describe('publication manager', () => {
     it('requires explicit selection and preview, and publishes only the reviewed preview ID', async () => {
         const view = mountTestComponent(<PublishingManager onClose={vi.fn()} onBack={vi.fn()} />);
         await settle();
-        expect(view.container.querySelector('[role="switch"][aria-checked="true"]')).toBeNull();
+        expect(document.body.querySelector('[role="switch"][aria-checked="true"]')).toBeNull();
         expect(button(view.container, 'Publish this preview').disabled).toBe(true);
-        const title = view.container.querySelector<HTMLInputElement>('input[maxlength="160"]');
+        const title = document.body.querySelector<HTMLInputElement>('input[maxlength="160"]');
         if (!title) throw new Error('Title missing');
         value(title, 'Selected notes');
-        act(() => { view.container.querySelector<HTMLElement>('[role="switch"][aria-label="One"]')?.click(); });
+        act(() => { document.body.querySelector<HTMLElement>('[role="switch"][aria-label="One"]')?.click(); });
         act(() => { button(view.container, 'Preview selected notes').click(); });
         await settle();
         expect(previewPublication).toHaveBeenCalledWith({ title: 'Selected notes', page_ids: ['one'], expires_in_days: null, site_id: null, expected_revision: null }, context);
-        expect(view.container.textContent).toContain('Exact snapshot');
+        expect(document.body.textContent).toContain('Exact snapshot');
         value(title, 'Changed title');
         expect(button(view.container, 'Publish this preview').disabled).toBe(true);
         act(() => { button(view.container, 'Preview selected notes').click(); }); await settle();
         act(() => { button(view.container, 'Publish this preview').click(); }); await settle();
         expect(commitPublication).toHaveBeenCalledWith(preview.preview_id, context);
-        expect(view.container.textContent).toContain('/p/' + site.token);
+        expect(document.body.textContent).toContain('/p/' + site.token);
     });
 
     it('updates with the saved revision, retains explicit selection and confirms revocation', async () => {
@@ -76,7 +76,7 @@ describe('publication manager', () => {
         expect(revokePublication).not.toHaveBeenCalled();
         act(() => { button(view.container, 'Confirm revoke').click(); }); await settle();
         expect(revokePublication).toHaveBeenCalledWith(site, context);
-        expect(view.container.textContent).toContain('Revoked');
+        expect(document.body.textContent).toContain('Revoked');
     });
 
     it('refuses an operation after the active account or vault changes', async () => {
@@ -87,18 +87,18 @@ describe('publication manager', () => {
         vi.mocked(currentRequestContext).mockReturnValue({ ...context, vaultId: 'other' });
         act(() => { button(view.container, 'Preview selected notes').click(); }); await settle();
         expect(previewPublication).not.toHaveBeenCalled();
-        expect(view.container.textContent).toBe('');
+        expect(document.body.textContent).toBe('');
         expect(close).toHaveBeenCalledOnce();
     });
 
     it.each(['userId', 'workspaceId', 'vaultId'] as const)('removes private content when %s changes in another tab', async part => {
         vi.mocked(fetchPublications).mockResolvedValue([site]);
         const close = vi.fn();
-        const view = mountTestComponent(<PublishingManager onClose={close} onBack={vi.fn()} />); await settle();
-        expect(view.container.textContent).toContain(site.title);
+        mountTestComponent(<PublishingManager onClose={close} onBack={vi.fn()} />); await settle();
+        expect(document.body.textContent).toContain(site.title);
         vi.mocked(currentRequestContext).mockReturnValue({ ...context, [part]: 'other' });
         act(() => { dispatchWindowEvent(new Event('storage')); });
-        expect(view.container.textContent).toBe('');
+        expect(document.body.textContent).toBe('');
         expect(close).toHaveBeenCalledOnce();
     });
 
@@ -106,10 +106,10 @@ describe('publication manager', () => {
         const loading = pending<PublicationSummary[]>();
         vi.mocked(fetchPublications).mockReturnValue(loading.promise);
         const close = vi.fn();
-        const view = mountTestComponent(<PublishingManager onClose={close} onBack={vi.fn()} />);
+        mountTestComponent(<PublishingManager onClose={close} onBack={vi.fn()} />);
         vi.mocked(currentRequestContext).mockReturnValue({ ...context, userId: 'other' });
         await act(async () => { loading.resolve([site]); await loading.promise; });
-        expect(view.container.textContent).toBe('');
+        expect(document.body.textContent).toBe('');
         expect(close).toHaveBeenCalledOnce();
     });
 
@@ -123,7 +123,7 @@ describe('publication manager', () => {
         act(() => { button(view.container, 'Preview selected notes').click(); });
         vi.mocked(currentRequestContext).mockReturnValue({ ...context, workspaceId: 'other' });
         await act(async () => { preparing.resolve(preview); await preparing.promise; });
-        expect(view.container.textContent).toBe('');
+        expect(document.body.textContent).toBe('');
         expect(close).toHaveBeenCalledOnce();
         expect(commitPublication).not.toHaveBeenCalled();
     });
@@ -139,7 +139,7 @@ describe('publication manager', () => {
         act(() => { button(view.container, 'Publish update').click(); });
         vi.mocked(currentRequestContext).mockReturnValue({ ...context, vaultId: 'other' });
         await act(async () => { publishing.resolve(site); await publishing.promise; });
-        expect(view.container.textContent).toBe('');
+        expect(document.body.textContent).toBe('');
         expect(close).toHaveBeenCalledOnce();
     });
 });

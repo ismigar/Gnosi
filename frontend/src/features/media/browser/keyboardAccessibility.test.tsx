@@ -24,20 +24,23 @@ test('Media Cancel never confirms; confirmation executes once and focus returns'
  const cancel = vi.fn(), confirm = vi.fn();
  const opener = document.createElement('button'); document.body.append(opener); opener.focus();
  act(() => { root.render(<ConfirmDialog open danger title="Delete" onCancel={cancel} onConfirm={confirm}/>); });
- const [a,b] = host.querySelectorAll('button'); expect(document.activeElement).toBe(a);
+ const dialog = required(document.body.querySelector('[role="dialog"]'));
+ const [a,b] = dialog.querySelectorAll('button'); expect(document.activeElement).toBe(a);
  activate(required(a), 'Enter'); activate(required(a), ' '); expect(cancel).toHaveBeenCalledTimes(2); expect(confirm).not.toHaveBeenCalled();
  activate(required(b), 'Enter'); expect(confirm).toHaveBeenCalledOnce();
- expect(host.querySelector('[role="dialog"]')?.getAttribute('aria-labelledby')).toBeTruthy();
+ expect(dialog.getAttribute('aria-labelledby')).toBeTruthy();
  act(() => { root.render(null); }); expect(document.activeElement).toBe(opener); opener.remove();
 });
 test('View name respects Cancel, input Enter, composition and empty values', () => {
  const cancel = vi.fn(), confirm = vi.fn();
  act(() => { root.render(<ViewNamePromptModal open defaultValue="Synthetic" onCancel={cancel} onConfirm={confirm}/>); });
- activate(required(host.querySelector('button')), 'Enter'); expect(cancel).toHaveBeenCalledOnce(); expect(confirm).not.toHaveBeenCalled();
- const input = required(host.querySelector('input')); input.focus();
+ const dialog = required(document.body.querySelector('[role="dialog"]'));
+ activate(required(dialog.querySelector('button')), 'Enter'); expect(cancel).toHaveBeenCalledOnce(); expect(confirm).not.toHaveBeenCalled();
+ const input = required(dialog.querySelector('input')); input.focus();
  press(input, 'Enter', {isComposing: true}); press(input, 'Enter', {ctrlKey: true}); expect(confirm).not.toHaveBeenCalled();
  press(input, 'Enter'); expect(confirm).toHaveBeenCalledExactlyOnceWith('Synthetic');
  act(() => { root.render(null); });
  act(() => { root.render(<ViewNamePromptModal open defaultValue=" " onCancel={cancel} onConfirm={confirm}/>); });
- press(required(host.querySelector('input')), 'Enter'); expect(confirm).toHaveBeenCalledOnce();
+ const emptyDialog = required(document.body.querySelector('[role="dialog"]'));
+ press(required(emptyDialog.querySelector('input')), 'Enter'); expect(confirm).toHaveBeenCalledOnce();
 });

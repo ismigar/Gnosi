@@ -31,7 +31,7 @@ export function ViewTools({ onToggleGroup, groupMode = 'none', presets = [], onE
             <HelpCircle size={14} />
         </button>
         {showTools && (
-            <div className="vault-view-tools-popover" role="dialog" aria-label={t('views_header.tools_and_shortcuts')}>
+            <div className="vault-view-tools-popover" role="dialog" aria-modal={false} aria-label={t('views_header.tools_and_shortcuts')}>
                 <div className="vault-view-tools-title">{t('views_header.shortcuts')}</div>
                 <div className="vault-shortcut-grid">
                     {[

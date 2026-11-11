@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import { detachBotModels } from '../model-comparison/detachBotModels';
 import { withBotModel } from '../model-comparison/botModelChoice';
 import { ProfileSettingsNavigation } from '../../../shared/ui/settings/ProfileSettingsNavigation';
@@ -68,7 +69,7 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
   };
   const pluginTab = activeTab === 'ai' && profileOrigin ? profileOrigin.tab : activeTab;
   return (
-    <ProfileSettingsNavigation.Provider value={openPluginAISettings}>
+    <ModalPortal><ProfileSettingsNavigation.Provider value={openPluginAISettings}>
       <div className={`settings-overlay ${isOpen ? 'active' : ''}`} />
       <div
         ref={panelRef}
@@ -285,6 +286,6 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
         />}
       </Suspense>
 
-    </ProfileSettingsNavigation.Provider>
+    </ProfileSettingsNavigation.Provider></ModalPortal>
   );
 }

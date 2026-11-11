@@ -137,7 +137,9 @@ describe('vault tag views', () => {
         />,
       );
     });
-    const knowledge = [...container.querySelectorAll('div')]
+    const dialog = document.querySelector('[role="dialog"][aria-label="Tags"]');
+    if (!dialog) throw new Error('Tags dialog was not rendered');
+    const knowledge = [...dialog.querySelectorAll('div')]
       .find((element) => element.textContent.includes('knowledge')
         && element.className.includes('cursor-pointer'));
     if (!(knowledge instanceof HTMLDivElement)) {
@@ -146,7 +148,7 @@ describe('vault tag views', () => {
     act(() => {
       knowledge.click();
     });
-    const note = [...container.querySelectorAll('button')]
+    const note = [...dialog.querySelectorAll('button')]
       .find((button) => button.textContent.includes('Gnosi note'));
     if (!note) throw new Error('Tagged page was not rendered');
     act(() => {

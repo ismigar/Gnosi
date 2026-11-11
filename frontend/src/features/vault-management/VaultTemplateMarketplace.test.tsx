@@ -92,13 +92,13 @@ describe('VaultTemplateMarketplace', () => {
             await Promise.resolve();
         });
         if (!container) throw new Error('Marketplace container is missing');
-        const templateButton = [...container.querySelectorAll('button')]
+        const templateButton = [...document.body.querySelectorAll('button')]
             .find((button) => button.textContent.includes('Starter Vault'));
         if (!templateButton) throw new Error('Catalog template was not rendered');
         act(() => {
             templateButton.click();
         });
-        const createButton = [...container.querySelectorAll('button')]
+        const createButton = [...document.body.querySelectorAll('button')]
             .find((button) => button.textContent.includes('vault_templates.create'));
         if (!createButton) throw new Error('Create button was not rendered');
         act(() => {
@@ -138,16 +138,16 @@ describe('VaultTemplateMarketplace', () => {
             'vault-1',
             expect.any(AbortSignal),
         );
-        expect(container.textContent).toContain('vault_templates.included_count');
-        expect(container.textContent).toContain('vault_templates.findings_ack');
-        expect(container.textContent).toContain('Wiki/Note.md');
-        expect(container.textContent).toContain('vault_templates.privacy_reason_credential-assignment');
-        const excluded = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('vault_templates.files_excluded'));
+        expect(document.body.textContent).toContain('vault_templates.included_count');
+        expect(document.body.textContent).toContain('vault_templates.findings_ack');
+        expect(document.body.textContent).toContain('Wiki/Note.md');
+        expect(document.body.textContent).toContain('vault_templates.privacy_reason_credential-assignment');
+        const excluded = [...document.body.querySelectorAll('button')].find((button) => button.textContent.includes('vault_templates.files_excluded'));
         if (!excluded) throw new Error('Excluded files tab is missing');
         act(() => { excluded.click(); });
-        expect(container.textContent).toContain('.gnosi/plugins.json');
-        expect(container.textContent).toContain('vault_templates.privacy_reason_private-root');
-        const submit = [...container.querySelectorAll('button')]
+        expect(document.body.textContent).toContain('.gnosi/plugins.json');
+        expect(document.body.textContent).toContain('vault_templates.privacy_reason_private-root');
+        const submit = [...document.body.querySelectorAll('button')]
             .find((button) => button.textContent.includes('vault_templates.submit'));
         if (!(submit instanceof HTMLButtonElement)) {
             throw new Error('Submit button was not rendered');
@@ -170,10 +170,10 @@ describe('VaultTemplateMarketplace', () => {
         });
 
         if (!container) throw new Error('Marketplace container is missing');
-        expect(container.textContent).toContain('Vault export exceeds the template limits');
-        const download = [...container.querySelectorAll('button')]
+        expect(document.body.textContent).toContain('Vault export exceeds the template limits');
+        const download = [...document.body.querySelectorAll('button')]
             .find((button) => button.textContent.includes('vault_templates.download_package'));
-        const submit = [...container.querySelectorAll('button')]
+        const submit = [...document.body.querySelectorAll('button')]
             .find((button) => button.textContent.includes('vault_templates.submit'));
         if (!(download instanceof HTMLButtonElement)
             || !(submit instanceof HTMLButtonElement)) {
@@ -188,13 +188,13 @@ describe('VaultTemplateMarketplace', () => {
         vi.mocked(fetchVaultTemplateExportPreview).mockResolvedValueOnce(preview).mockResolvedValueOnce(preview);
         await renderMarketplace({ initialSection: 'publish' });
         if (!container) throw new Error('Missing dialog');
-        const submit = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('vault_templates.submit'));
-        const toggle = container.querySelector<HTMLElement>('[role="switch"]');
+        const submit = [...document.body.querySelectorAll('button')].find((button) => button.textContent.includes('vault_templates.submit'));
+        const toggle = document.body.querySelector<HTMLElement>('[role="switch"]');
         if (!submit || !toggle) throw new Error('Missing publishing controls');
         expect(submit.disabled).toBe(true);
         act(() => { toggle.click(); });
         expect(submit.disabled).toBe(false);
-        const refresh = container.querySelector<HTMLButtonElement>('.template-section-heading button');
+        const refresh = document.body.querySelector<HTMLButtonElement>('.template-section-heading button');
         if (!refresh) throw new Error('Missing refresh control');
         await act(async () => { refresh.click(); await Promise.resolve(); });
         expect(submit.disabled).toBe(true);
@@ -208,16 +208,16 @@ describe('VaultTemplateMarketplace', () => {
         ], submissionConfigured: false });
         await renderMarketplace();
         if (!container) throw new Error('Missing dialog');
-        const category = container.querySelector('select');
+        const category = document.body.querySelector('select');
         if (!category) throw new Error('Missing category filter');
         act(() => { category.value = 'study'; category.dispatchEvent(new Event('change', { bubbles: true })); });
-        const cards = container.querySelectorAll('button');
+        const cards = document.body.querySelectorAll('button');
         const study = [...cards].find((button) => button.textContent.includes('Study Workspace'));
         expect([...cards].some((button) => button.textContent.includes('Project Workspace'))).toBe(false);
         if (!study) throw new Error('Missing study template');
         act(() => { study.click(); });
-        expect(container.textContent).toContain('Concept notes and active recall');
-        expect(container.textContent).toContain('FR');
+        expect(document.body.textContent).toContain('Concept notes and active recall');
+        expect(document.body.textContent).toContain('FR');
     });
 
 });

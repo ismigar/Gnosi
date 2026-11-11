@@ -101,8 +101,10 @@ describe('Webs appearance and nonblocking navigation', () => {
     Object.defineProperty(input, 'files', { value: [new File(['image'], 'logo.png', { type: 'image/png' })], configurable: true });
     act(() => { input.dispatchEvent(new Event('change', { bubbles: true })); }); await settle();
     act(() => { button(view.container, 'websites.createSite').click(); }); await settle();
-    act(() => { changeInput(control(view.container, 'websites.siteName'), 'Next site'); });
-    act(() => { button(view.container, 'websites.create').click(); }); await settle();
+    const createDialog = document.body.querySelector<HTMLElement>('[role="dialog"][aria-label="websites.createSite"]');
+    if (!createDialog) throw new Error('Missing create site dialog');
+    act(() => { changeInput(control(createDialog, 'websites.siteName'), 'Next site'); });
+    act(() => { button(createDialog, 'websites.create').click(); }); await settle();
     expect(api.createSite).not.toHaveBeenCalled();
     expect(control(view.container, 'websites.website').value).toBe(base.id);
     act(() => { finish({ source: '/.gnosi/sites/assets/test-site/logo.png', media_type: 'image/png' }); }); await settle(); await autosave();

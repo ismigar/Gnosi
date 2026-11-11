@@ -24,7 +24,7 @@ export function CitationEvidencePanel({
             aria-label={t('llm_wiki.evidence_title', 'Citation evidence')}
             className="fixed bottom-4 right-4 z-[130] w-[min(420px,calc(100vw-2rem))] rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] p-4 shadow-2xl"
             ref={panelRef}
-            role="dialog"
+            role="dialog" aria-modal={false}
         >
             <div className="mb-2 flex items-center justify-between gap-3">
                 <div className="min-w-0">

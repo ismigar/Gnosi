@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../../shared/ui/ModalPortal';
 import { Edit2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -53,7 +54,7 @@ export const RenamePromptModal = ({ isOpen, type, defaultValue, onClose, onConfi
         : t('sidebar.prompt_new_name_table', "New name for the table");
 
     return createPortal(
-        <div
+        <ModalPortal layer="confirm"><div
             className="fixed inset-0 flex items-center justify-center"
             style={{ zIndex: 'var(--z-confirm-modal)' }}
             onClick={() => { if (!isSubmitting) onClose(); }}
@@ -112,7 +113,7 @@ export const RenamePromptModal = ({ isOpen, type, defaultValue, onClose, onConfi
                     </button>
                 </div>
             </div>
-        </div>,
+        </div></ModalPortal>,
         document.body
     );
 };

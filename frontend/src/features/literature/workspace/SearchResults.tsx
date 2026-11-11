@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import {
   Check,
   ExternalLink,
@@ -35,7 +36,7 @@ export function WorkPreview({ onClose, onImport, t, work }: WorkPreviewProps) {
     ...(work.identifiers?.isbn13 ?? []),
   ].filter(Boolean).join(' · ') || '—';
   return (
-    <div
+    <ModalPortal><div
       aria-labelledby="literature-preview-title"
       aria-modal="true"
       className="literature-preview-backdrop"
@@ -155,7 +156,7 @@ export function WorkPreview({ onClose, onImport, t, work }: WorkPreviewProps) {
           </button>
         </footer>
       </aside>
-    </div>
+    </div></ModalPortal>
   );
 }
 

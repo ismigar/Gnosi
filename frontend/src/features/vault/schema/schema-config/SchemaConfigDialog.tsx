@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../../shared/ui/ModalPortal';
 import React from 'react';
 import type { SchemaConfigModel } from './useSchemaConfig';
 import { createPortal } from 'react-dom';
@@ -20,7 +21,7 @@ export function SchemaConfigDialog({ model }: { model: SchemaConfigModel }) {
     if (!isOpen) return null;
     return createPortal(
         <>
-        <div
+        <ModalPortal><div
             ref={modalRef}
             className="fixed inset-0 bg-black/60 flex items-center justify-center z-[var(--z-modal-dropdown)] p-4 font-sans backdrop-blur-sm"
         >
@@ -99,7 +100,7 @@ export function SchemaConfigDialog({ model }: { model: SchemaConfigModel }) {
                 </div>
 
             </div>
-        </div>
+        </div></ModalPortal>
 
         <ConfirmModal
             isOpen={confirmRemoveField.isOpen}

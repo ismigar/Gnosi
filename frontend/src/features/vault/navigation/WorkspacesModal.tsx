@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LayoutPanelLeft, Plus, Trash2, X, FolderOpen } from 'lucide-react';
@@ -76,7 +77,7 @@ export default function WorkspacesModal({
     };
 
     return (
-        <div className="fixed inset-0 z-[150] flex items-start justify-center px-4 pt-[14vh]">
+        <ModalPortal><div className="fixed inset-0 z-[150] flex items-start justify-center px-4 pt-[14vh]">
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm"></div>
             <div ref={panelRef} className="relative w-full max-w-md overflow-hidden rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl" role="dialog" aria-modal="true" aria-label={t('doc_tabs.workspaces_title', 'Workspaces')}>
                 <div className="flex items-center justify-between border-b border-[var(--border-primary)] px-4 py-3">
@@ -119,6 +120,6 @@ export default function WorkspacesModal({
                     ))}
                 </div>
             </div>
-        </div>
+        </div></ModalPortal>
     );
 }

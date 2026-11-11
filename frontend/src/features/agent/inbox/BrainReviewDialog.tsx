@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import { useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ClipboardCheck, Loader2, X } from 'lucide-react';
@@ -23,7 +24,7 @@ export function BrainReviewDialog({ busy, semantic, error, lint, onClose, onRetr
     const modalRef = useRef<HTMLDivElement>(null);
     useModalKeyboard({ isOpen: true, onClose, containerRef: modalRef, trapFocus: true });
 
-    return createPortal(<div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] p-4 font-sans backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+    return createPortal(<ModalPortal><div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] p-4 font-sans backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <div ref={modalRef} className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto border border-[var(--border-primary)]">
             <div className="px-5 py-3 border-b border-[var(--border-primary)] flex justify-between items-center gap-3 bg-[var(--bg-secondary)]">
                 <h2 id={titleId} className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
@@ -56,5 +57,5 @@ export function BrainReviewDialog({ busy, semantic, error, lint, onClose, onRetr
                 </div>}
             </div>
         </div>
-    </div>, browserDocumentBody());
+    </div></ModalPortal>, browserDocumentBody());
 }

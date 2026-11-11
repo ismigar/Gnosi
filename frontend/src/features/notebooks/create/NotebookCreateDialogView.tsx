@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import {
     type RefObject,
     type SyntheticEvent,
@@ -82,7 +83,7 @@ export default function NotebookCreateDialogView({
 }: NotebookCreateDialogViewProps) {
     const { t } = useTranslation();
     return (
-        <div className="notebook-modal-backdrop" role="presentation">
+        <ModalPortal><div className="notebook-modal-backdrop" role="presentation">
             <form
                 ref={dialogRef}
                 className="notebook-modal"
@@ -305,6 +306,6 @@ export default function NotebookCreateDialogView({
                     </button>
                 </footer>
             </form>
-        </div>
+        </div></ModalPortal>
     );
 }

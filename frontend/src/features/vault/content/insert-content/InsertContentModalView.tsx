@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../../shared/ui/ModalPortal';
 import { createElement, useRef } from 'react';
 import { Frame, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -85,7 +86,7 @@ export function InsertContentModalView({ modal, onClose }: InsertContentModalVie
     });
     return (
         <>
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <ModalPortal><div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                 <div
                     ref={panelRef}
                     aria-labelledby="insert-content-title"
@@ -114,7 +115,7 @@ export function InsertContentModalView({ modal, onClose }: InsertContentModalVie
                     </div>
                     <InsertContentFooter modal={modal} onClose={onClose} />
                 </div>
-            </div>
+            </div></ModalPortal>
             <InsertContentPickers modal={modal} />
         </>
     );

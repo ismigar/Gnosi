@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../shared/ui/ModalPortal';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
@@ -48,7 +49,7 @@ export default function FormsManager({ tableId, tableName, onClose }: Props) {
     try { await writeClipboardText(new URL(form.url, window.location.origin).href); setNotice(t('forms.copied', 'Link copied.')); }
     catch { setError(t('forms.copy_error', 'Copy the link from its address.')); }
   }
-  return createPortal(<div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-3">
+  return createPortal(<ModalPortal><div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-3">
     <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[var(--border-primary)] bg-[var(--bg-primary)] p-5 text-[var(--text-primary)] shadow-xl">
       <div className="flex items-center gap-3"><h2 id={titleId} className="flex-1 text-lg font-semibold">{t('forms.manage', 'Public forms')} · {tableName}</h2>
         <RefreshButton loading={loading} onClick={() => { setLoading(true); setError(''); void load(); }} /><button type="button" className="gnosi-close-btn" aria-label={t('common.close', 'Close')} onClick={onClose}><X size={18} /></button></div>
@@ -72,5 +73,5 @@ export default function FormsManager({ tableId, tableName, onClose }: Props) {
         setForms(previous => [form, ...previous]); setNotice(t('forms.published', 'The form is ready. Copy its link to collect responses.'));
       }} />}
     </div>
-  </div>, document.body);
+  </div></ModalPortal>, document.body);
 }

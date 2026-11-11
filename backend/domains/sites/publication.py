@@ -46,7 +46,7 @@ def changes(previous: dict[str, JsonValue] | None, bundle: SiteBundle) -> list[S
     return output
 
 
-def preview(store: SiteStore, site: SiteConfig, target_id: str) -> SitePreview:
+def preview(store: SiteStore, site: SiteConfig, target_id: str, *, expected_revision: int | None = None) -> SitePreview:
     target = next((t for t in site.targets if t.id == target_id), None)
     if not target or not target.enabled:
         raise HTTPException(409, "Enable and configure the website destination first")
@@ -70,7 +70,7 @@ def preview(store: SiteStore, site: SiteConfig, target_id: str) -> SitePreview:
         response.preview_url = url + "/" + site.default_language
         payload = {"preview": response.model_dump(mode="json"), "bundle": bundle.model_dump(mode="json"), "parent_fingerprint": previous.get("fingerprint") if previous else None}
         with store.database() as db:
-            if store.load(site.id).revision != site.revision:
+            if store.load(site.id).revision != (site.revision if expected_revision is None else expected_revision):
                 raise HTTPException(409, "The website changed; review a new publication preview")
             db.execute("INSERT INTO previews(id,site_id,user_id,target_id,fingerprint,expires,payload) VALUES(?,?,?,?,?,?,?)", (preview_id, site.id, store.context.user_id, target_id, bundle.fingerprint, expires.timestamp(), json.dumps(payload)))
     except BaseException:
@@ -94,6 +94,38 @@ def _phase(store: SiteStore, job: SiteJob, phase: str) -> None:
     _save_job(store, job)
 
 
+def _reviewed_record_selection(store: SiteStore, site: SiteConfig, pending: dict[str, JsonValue]) -> tuple[SiteConfig, SiteConfig | None]:
+    """Revalidate a contextual source selection without saving configuration."""
+    original_site = None
+    record_proposal = pending.get("record_proposal")
+    if isinstance(record_proposal, dict):
+        from .record_publication import RecordPublicationReview, context_fingerprint, proposal
+        if fingerprint(site.model_dump(mode="json")) != record_proposal.get("original_fingerprint"):
+            raise HTTPException(409, "The website changed; review the record again")
+        record_request = RecordPublicationReview.model_validate(record_proposal["request"])
+        if context_fingerprint(store, record_request.page_id) != record_proposal.get("record_fingerprint"):
+            raise HTTPException(409, "The record or its table changed; review the record again")
+        original_site = site
+        site = proposal(store, site, record_request)
+        if site.model_dump(mode="json") != record_proposal.get("site"):
+            raise HTTPException(409, "The record binding changed; review the record again")
+    return site, original_site
+
+
+def _publication_schedule(scheduled_at: str | None) -> str | None:
+    """Validate and normalize a requested future publication time."""
+    scheduled: str | None = None
+    if scheduled_at:
+        try:
+            when = datetime.fromisoformat(scheduled_at.replace("Z", "+00:00"))
+            if when.tzinfo is None or when <= datetime.now(timezone.utc):
+                raise ValueError("Invalid schedule")
+            scheduled = when.isoformat()
+        except ValueError:
+            raise HTTPException(422, "Choose a future publication time with timezone") from None
+    return scheduled
+
+
 def enqueue(store: SiteStore, site: SiteConfig, request: SitePublishRequest) -> SiteJob:
     with store.database() as db:
         row = db.execute("SELECT * FROM previews WHERE id=? AND site_id=? AND user_id=?", (request.preview_id, site.id, store.context.user_id)).fetchone()
@@ -101,35 +133,45 @@ def enqueue(store: SiteStore, site: SiteConfig, request: SitePublishRequest) -> 
             raise HTTPException(409, "Review a new publication preview")
         pending: dict[str, JsonValue] = json.loads(row["payload"])
     bundle = SiteBundle.model_validate(pending["bundle"])
+    site, original_site = _reviewed_record_selection(store, site, pending)
     current = build_bundle(store, site, row["target_id"])
     if current.fingerprint != bundle.fingerprint:
         raise HTTPException(409, "The selected content or configuration changed; review a new preview")
     previous = store.active_bundle(site.id, row["target_id"])
     if (previous.get("fingerprint") if previous else None) != pending.get("parent_fingerprint"):
         raise HTTPException(409, "The published website changed; review a new preview")
-    scheduled: str | None = None
-    if request.scheduled_at:
-        try:
-            when = datetime.fromisoformat(request.scheduled_at.replace("Z", "+00:00"))
-            if when.tzinfo is None or when <= datetime.now(timezone.utc):
-                raise ValueError("Invalid schedule")
-            scheduled = when.isoformat()
-        except ValueError:
-            raise HTTPException(422, "Choose a future publication time with timezone") from None
-    job = SiteJob(id=identifier(), site_id=site.id, target_id=row["target_id"], scheduled_at=scheduled)
-    request_path = store.site_dir(site.id) / "jobs" / (job.id + ".json")
-    private_json(store.private_root / "scope.json", {"schema_version": 1, "workspace_id": store.context.workspace_id, "vault_path": str(store.vault)})
-    private_json(request_path, {"bundle": bundle.model_dump(mode="json"), "parent_fingerprint": pending.get("parent_fingerprint"), "user_id": store.context.user_id, "preview_id": request.preview_id})
-    with store.database() as db:
-        if store.load(site.id).revision != site.revision:
-            raise HTTPException(409, "The website changed; review a new publication preview")
-        changed = db.execute("UPDATE previews SET consumed=1 WHERE id=? AND consumed=0", (request.preview_id,)).rowcount
-        if changed != 1:
-            raise HTTPException(409, "This publication preview was already used")
-        if db.execute("SELECT 1 FROM locks WHERE site_id=?", (site.id,)).fetchone():
-            raise HTTPException(409, "Another website publication is already running")
-        db.execute("INSERT INTO jobs VALUES (?,?,?)", (job.id, site.id, job.model_dump_json()))
-    dispatch(store, job)
+    scheduled = _publication_schedule(request.scheduled_at)
+    if original_site is not None:
+        site = store.save(site.model_copy(update={"revision": original_site.revision}))
+    try:
+        job = SiteJob(id=identifier(), site_id=site.id, target_id=row["target_id"], scheduled_at=scheduled)
+        request_path = store.site_dir(site.id) / "jobs" / (job.id + ".json")
+        private_json(store.private_root / "scope.json", {"schema_version": 1, "workspace_id": store.context.workspace_id, "vault_path": str(store.vault)})
+        private_json(request_path, {"bundle": bundle.model_dump(mode="json"), "parent_fingerprint": pending.get("parent_fingerprint"), "user_id": store.context.user_id, "preview_id": request.preview_id})
+        with store.database() as db:
+            if store.load(site.id).revision != site.revision:
+                raise HTTPException(409, "The website changed; review a new publication preview")
+            changed = db.execute("UPDATE previews SET consumed=1 WHERE id=? AND consumed=0", (request.preview_id,)).rowcount
+            if changed != 1:
+                raise HTTPException(409, "This publication preview was already used")
+            if db.execute("SELECT 1 FROM locks WHERE site_id=?", (site.id,)).fetchone():
+                raise HTTPException(409, "Another website publication is already running")
+            db.execute("INSERT INTO jobs VALUES (?,?,?)", (job.id, site.id, job.model_dump_json()))
+    except BaseException:
+        if original_site is not None:
+            current_site = store.load(site.id)
+            if current_site.model_dump(mode="json") == site.model_dump(mode="json"):
+                store.save(original_site.model_copy(update={"revision": current_site.revision}))
+            else:
+                raise HTTPException(409, "Publication was not queued; the website selection changed concurrently. Reload and review its sources") from None
+        raise
+    try:
+        dispatch(store, job)
+    except Exception:
+        if original_site is None:
+            raise
+        # The durable queue owns this confirmed selection. Status reads retry
+        # dispatch; restoring configuration here would contradict the queued job.
     return job
 
 

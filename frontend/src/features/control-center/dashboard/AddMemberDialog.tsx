@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import {useId, useRef} from 'react';
 import {useModalKeyboard} from '../../../shared/hooks/useModalKeyboard';
 
@@ -9,7 +10,7 @@ const panelRef = useRef<HTMLDivElement>(null);
 const titleId = useId(), emailId = useId(), roleId = useId();
 useModalKeyboard({isOpen: isAddMemberModalOpen, onClose: () => { setIsAddMemberModalOpen(false); }, onConfirm: handleAddMember, containerRef: panelRef, trapFocus: true});
 return <>{isAddMemberModalOpen && (
-                <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+                <ModalPortal><div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
                     <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="w-full max-w-md bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl p-6 zoom-in animate-in duration-300">
                         <h3 id={titleId} className="text-xl font-bold text-[var(--text-primary)] mb-4">{t('dashboard.add_new_member')}</h3>
                         <div className="space-y-4">
@@ -53,6 +54,6 @@ return <>{isAddMemberModalOpen && (
                             </div>
                         </div>
                     </div>
-                </div>
+                </div></ModalPortal>
             )}</>;
 }

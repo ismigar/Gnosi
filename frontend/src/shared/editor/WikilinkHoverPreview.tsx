@@ -220,7 +220,7 @@ export function WikilinkHoverPreview({
   const popup = (
     <div
       ref={popupRef}
-      role="dialog"
+      role="dialog" aria-modal={false}
       aria-label={title}
       data-testid="wikilink-hover-preview"
       className="fixed z-[var(--z-popover)] flex flex-col bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700/60 overflow-hidden animate-in fade-in zoom-in-95 duration-150"

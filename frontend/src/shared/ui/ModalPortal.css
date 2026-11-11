@@ -1,0 +1,4 @@
+/* A mounted but CSS-hidden dialog must leave the application clickable. */
+:where([data-gnosi-modal-layer], [data-gnosi-modal-context]) > * {
+    pointer-events: auto;
+}

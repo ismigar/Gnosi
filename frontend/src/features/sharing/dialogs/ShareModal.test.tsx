@@ -2,6 +2,7 @@ import React, { act, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { recordWebsiteDestinations } from '../../../shared/api/sites';
 import { toast } from '../../../shared/notifications/toast';
 import {
     createShareLink,
@@ -12,6 +13,14 @@ import {
 import { writeClipboardText } from '../../../shared/platform/clipboard';
 import { ShareModal } from './ShareModal';
 
+
+const plugin = vi.hoisted(() => ({ enabled: false }));
+vi.mock('../../../shared/plugins/usePlugins', () => ({ usePlugins: () => ({ isEnabled: (id: string) => id === 'web-publishing' && plugin.enabled }) }));
+vi.mock('../../../shared/api/sites', () => ({ recordWebsiteDestinations: vi.fn() }));
+vi.mock('../../websites', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../../websites')>()),
+    RecordWebsitePublicationDialog: ({ pageId }: { pageId: string }) => <div data-testid="record-website-dialog">{pageId}</div>,
+}));
 
 vi.mock('../../../shared/hooks/useModalKeyboard', () => ({
     useModalKeyboard: () => undefined,
@@ -83,6 +92,7 @@ afterEach(() => {
         act(() => { mounted.root.unmount(); });
         mounted.container.remove();
     }
+    plugin.enabled = false;
     vi.clearAllMocks();
 });
 
@@ -157,5 +167,30 @@ describe('ShareModal', () => {
 
         expect(revokeShareLink).toHaveBeenCalledWith('token-1');
         expect(document.body.textContent).not.toContain('/s/token-1');
+    });
+});
+
+
+describe('contextual website action', () => {
+    it('loads ordinary sharing without discovering website destinations when Webs is disabled', async () => {
+        vi.mocked(recordWebsiteDestinations).mockResolvedValue([]);
+        vi.mocked(fetchShareLinks).mockResolvedValue({ shares: [] });
+        render(<ShareModal open onClose={() => undefined} pageId="article-a" />);
+        await flushRequests();
+        expect(fetchShareLinks).toHaveBeenCalledWith('article-a', expect.any(AbortSignal));
+        expect(recordWebsiteDestinations).not.toHaveBeenCalled();
+        expect(document.body.textContent).toContain('recordWebsite.legacyStaging');
+        expect(document.body.textContent).toContain('recordWebsite.independentSite');
+    });
+
+    it('passes the current article identity into website publication', async () => {
+        plugin.enabled = true;
+        vi.mocked(recordWebsiteDestinations).mockResolvedValue([{ site_id: 'bound', site_name: 'Bound website', target_id: 'local', target_name: 'Local', environment: 'local', url: '' }]);
+        vi.mocked(fetchShareLinks).mockResolvedValue({ shares: [] });
+        render(<ShareModal open onClose={() => undefined} pageId="article-a" pageTitle="Article A" />);
+        await flushRequests();
+        const action = [...document.querySelectorAll('button')].find(button => button.textContent === 'recordWebsite.thisRecord');
+        await act(async () => { action?.click(); await Promise.resolve(); });
+        expect(document.querySelector('[data-testid="record-website-dialog"]')?.textContent).toBe('article-a');
     });
 });

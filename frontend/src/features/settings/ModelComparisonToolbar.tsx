@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../shared/ui/ModalPortal';
 import { useEffect, useRef, type Dispatch, type RefObject } from 'react';
 import { ChevronDown, Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -151,7 +152,7 @@ export function ModelComparisonToolbar({
                         <ChevronDown size={16} />
                     </button>
                     {state.modesMenuOpen ? (
-                        <div className="model-modes-menu" role="dialog" aria-label={t('model_comparison.modes')}>
+                        <div className="model-modes-menu" role="dialog" aria-modal={false} aria-label={t('model_comparison.modes')}>
                             <select aria-label={t('model_comparison.mode_match')}
                                 value={state.modeMatch} onChange={(event) => {
                                     dispatch({ type: 'set-mode-match', value: event.target.value as 'all' | 'any' });
@@ -250,7 +251,7 @@ export function ModelComparisonToolbar({
             </div>}
 
             {state.showProfileHelp ? (
-                <div className="model-profile-help-backdrop" role="presentation">
+                <ModalPortal><div className="model-profile-help-backdrop" role="presentation">
                     <section
                         aria-labelledby="model-profile-help-title"
                         aria-modal="true"
@@ -301,7 +302,7 @@ export function ModelComparisonToolbar({
                             </article>
                         </div>
                     </section>
-                </div>
+                </div></ModalPortal>
             ) : null}
 
             <ModelTokenBudget state={state} dispatch={dispatch} />

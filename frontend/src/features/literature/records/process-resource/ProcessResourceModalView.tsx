@@ -1,7 +1,9 @@
+import { ModalPortal } from '../../../../shared/ui/ModalPortal';
 import type { RefObject } from 'react';
 import { ProcessResourcePreflight } from './ProcessResourcePreflight';
 import { AlertTriangle, BrainCircuit, CheckCircle2, Loader2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { createPanePortal } from '../../../../shared/ui/createPanePortal';
 
 import type { ResourceProcessingJob, ResourceProcessingEstimate } from '../../../../shared/api/resource-processing';
 import {
@@ -63,8 +65,8 @@ export function ProcessResourceModalView({
     const warnings = [...new Set(job?.warnings ?? [])];
     const ResultIcon = warnings.length ? AlertTriangle : CheckCircle2;
 
-    return (
-        <div
+    return createPanePortal(
+        <ModalPortal><div
             aria-modal="true"
             aria-label={translate('modal_title', 'Process resource into the Brain')}
             className="fixed inset-0 bg-black/60 flex items-center justify-center z-[var(--z-modal)] p-4 font-sans backdrop-blur-sm"
@@ -288,6 +290,5 @@ export function ProcessResourceModalView({
                     ) : null}
                 </div>
             </div>
-        </div>
-    );
+        </div></ModalPortal>, document.body);
 }

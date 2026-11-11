@@ -16,8 +16,8 @@ vi.mock('react-i18next', () => ({
     }),
 }));
 
-function findButton(container: HTMLElement, label: string): HTMLButtonElement {
-    const button = [...container.querySelectorAll('button')]
+function findButton(label: string): HTMLButtonElement {
+    const button = [...document.body.querySelectorAll('button')]
         .find((candidate) => candidate.textContent.includes(label));
     if (!(button instanceof HTMLButtonElement)) {
         throw new Error(`Missing button: ${label}`);
@@ -65,10 +65,10 @@ describe('RecurrenceChoiceModal', () => {
         });
 
         act(() => {
-            findButton(container, 'Only this instance').click();
-            findButton(container, 'This and following').click();
-            findButton(container, 'Entire series').click();
-            findButton(container, 'Cancel').click();
+            findButton('Only this instance').click();
+            findButton('This and following').click();
+            findButton('Entire series').click();
+            findButton('Cancel').click();
         });
 
         expect(onConfirm.mock.calls).toEqual([

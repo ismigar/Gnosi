@@ -1,8 +1,10 @@
+import { ModalPortal } from '../ModalPortal';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { HTMLInputTypeAttribute } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pencil, X } from 'lucide-react';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { usePaneVisibility } from '../PaneVisibility';
 
 /**
  * Centered input modal (Gnosi aesthetic). Replaces `window.prompt` (see the
@@ -24,7 +26,11 @@ export interface PromptModalProps {
     readonly title?: string;
 }
 
-export const PromptModal = ({
+export const PromptModal = (props: PromptModalProps) => props.isOpen
+    ? <PromptModalContent key={props.defaultValue ?? ''} {...props} />
+    : null;
+
+const PromptModalContent = ({
     isOpen,
     onClose,
     onSubmit,
@@ -49,23 +55,6 @@ export const PromptModal = ({
     const inputId = useId();
     const [value, setValue] = useState(defaultValue);
     const [isSubmitting, setIsSubmitting] = useState(false);
-
-    // Resets the value every time it opens (with the current defaultValue).
-    useEffect(() => {
-        if (isOpen) {
-            // autofocus + selects the existing content
-            const id = setTimeout(() => {
-                setValue(defaultValue);
-                setIsSubmitting(false);
-                inputRef.current?.focus();
-                inputRef.current?.select();
-            }, 0);
-            return () => {
-                clearTimeout(id);
-            };
-        }
-        return undefined;
-    }, [isOpen, defaultValue]);
 
     const handleSubmit = useCallback(async () => {
         if (isSubmitting) return;
@@ -92,14 +81,17 @@ export const PromptModal = ({
         trapFocus: true,
     });
 
-    if (!isOpen) return null;
+    const visible = usePaneVisibility();
+    useEffect(() => {
+        if (visible) inputRef.current?.select();
+    }, [visible]);
 
     const handleBackdropClick = () => {
         if (!isSubmitting) onClose();
     };
 
     return (
-        <div
+        <ModalPortal layer="confirm"><div
             className="fixed inset-0 flex items-center justify-center"
             style={{ zIndex: 'var(--z-confirm-modal)' }}
             onClick={handleBackdropClick}
@@ -149,6 +141,7 @@ export const PromptModal = ({
                     <input
                         id={inputId}
                         ref={inputRef}
+                        data-autofocus
                         aria-label={!label ? resolvedTitle : undefined}
                         type={inputType}
                         value={value}
@@ -188,7 +181,7 @@ export const PromptModal = ({
                     </button>
                 </div>
             </div>
-        </div>
+        </div></ModalPortal>
     );
 };
 

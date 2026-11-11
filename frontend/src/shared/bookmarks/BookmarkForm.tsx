@@ -1,3 +1,4 @@
+import { ModalPortal } from '../ui/ModalPortal';
 import { useId, useRef, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, Bookmark, Check, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -75,7 +76,7 @@ export function BookmarkForm({ draft, pages, activePageId, groups, disabled, exi
   };
   const matchingGroups = groups.filter(group => group && (groups.length <= 12 || bookmarkSearchText(group).includes(bookmarkSearchText(draft.group)))).slice(0, 12);
   return <PanePortal container={document.body}>
-    <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm">
+    <ModalPortal><div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm">
       <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="flex max-h-[90dvh] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-2xl">
         <div className="flex items-center gap-2 border-b border-[var(--border-primary)] px-5 py-4">
           <Bookmark size={18} /><h3 id={titleId} className="flex-1 text-base font-semibold">{existing ? t('bookmarks.edit_title', 'Edit bookmark') : t('bookmarks.add', 'Add bookmark')}</h3>
@@ -120,6 +121,6 @@ export function BookmarkForm({ draft, pages, activePageId, groups, disabled, exi
           </div>
         </form>
       </div>
-    </div>
+    </div></ModalPortal>
   </PanePortal>;
 }

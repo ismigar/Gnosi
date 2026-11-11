@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import {useModalKeyboard} from '../../../shared/hooks/useModalKeyboard';
 import {useState, useEffect, useRef, useId} from 'react';
 import {useTranslation} from 'react-i18next';
@@ -30,7 +31,7 @@ export function ViewNamePromptModal({ open, defaultValue, onCancel, onConfirm }:
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4">
+    <ModalPortal><div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={onCancel} />
       <div
         className="relative bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200"
@@ -74,6 +75,6 @@ export function ViewNamePromptModal({ open, defaultValue, onCancel, onConfirm }:
           </button>
         </div>
       </div>
-    </div>
+    </div></ModalPortal>
   );
 }

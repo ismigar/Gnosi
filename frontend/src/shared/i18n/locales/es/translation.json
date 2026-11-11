@@ -9656,5 +9656,23 @@
       "caveat": "El mes actual es parcial. Los clientes son direcciones identificadas por el servidor, no personas únicas. Los datos pueden incluir robots.",
       "openSource": "Abrir Webalizer"
     }
+  },
+  "recordWebsite": {
+    "title": "Publicación en el sitio web",
+    "publish": "Publicar en el sitio web",
+    "withdraw": "Retirar del sitio web",
+    "thisRecord": "Publicar o retirar este artículo del sitio web",
+    "destination": "Sitio web y alojamiento",
+    "choose": "Elige un destino",
+    "change": "Cambio",
+    "published": "Publicado en la versión activa del sitio web",
+    "unpublished": "Ausente de la versión activa del sitio web",
+    "noDestinations": "Ningún sitio habilitado utiliza la tabla de este registro como fuente. Configúrala primero en Webs.",
+    "wholeSite": "Revisa todos los cambios: se publicará una versión completa del sitio, incluidos otros cambios pendientes.",
+    "confirm": "Confirmar estos cambios en el sitio web",
+    "completion": "El estado corresponde a la versión completada del sitio. Cerrar este diálogo no cancela una publicación en cola.",
+    "failed": "No se ha podido completar la acción. Recarga el destino y revisa los cambios.",
+    "legacyStaging": "Publicador antiguo de pruebas",
+    "independentSite": "Sitio público independiente: notas seleccionadas"
   }
 }

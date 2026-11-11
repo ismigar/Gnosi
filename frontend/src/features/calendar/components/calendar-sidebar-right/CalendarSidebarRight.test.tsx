@@ -48,8 +48,8 @@ async function select(index: number, value: string) {
     const select = container.querySelectorAll('select')[index]; if (!select) throw new Error('Missing select');
     await act(async () => { select.value = value; select.dispatchEvent(new Event('change', {bubbles: true})); await Promise.resolve(); });
 }
-async function click(label: string) {
-    const button = [...container.querySelectorAll('button')].reverse().find(b => b.textContent.trim() === label || b.getAttribute('aria-label') === label || b.firstElementChild?.textContent.trim() === label);
+async function click(label: string, scope: ParentNode = container) {
+    const button = [...scope.querySelectorAll('button')].reverse().find(b => b.textContent.trim() === label || b.getAttribute('aria-label') === label || b.firstElementChild?.textContent.trim() === label);
     if (!button) throw new Error('Missing button: ' + label);
     await act(async () => { button.click(); await vi.dynamicImportSettled(); });
 }
@@ -95,7 +95,10 @@ describe('calendar sidebar behavior', () => {
         await change('input[required][type=text]', 'Updated external'); await tick(460);
         expect(updateCalendarEvent).toHaveBeenCalledWith(expect.objectContaining<Record<string, unknown>>({eventId: 'created-external', email: provider + '@example.test', event: expect.objectContaining<Record<string, unknown>>({provider})}));
         expect(createCalendarEvent).toHaveBeenCalledOnce();
-        await click('Delete'); await click('Delete');
+        await click('Delete');
+        const confirmation = document.querySelector('[role="dialog"][aria-describedby]');
+        if (!confirmation) throw new Error('Missing delete confirmation dialog');
+        await click('Delete', confirmation);
         expect(deleteCalendarEvent).toHaveBeenCalledWith(expect.objectContaining<Record<string, unknown>>({
             eventId: 'created-external', email: provider + '@example.test', calendarId: 'primary', provider,
         }));
@@ -130,9 +133,14 @@ describe('calendar sidebar behavior', () => {
     });
     it('keeps recurrence instance deletion as an EXDATE patch', async () => {
         await render(form({mode: 'edit', eventData: {...LOCAL_EVENT, metadata: {...LOCAL_EVENT.metadata, rrule: 'FREQ=DAILY'}}}));
-        await click('Delete'); await click('Delete');
-        expect(container.textContent).toContain('This is a recurring event.');
-        await click('Only this instance');
+        await click('Delete');
+        const confirmation = document.querySelector('[role="dialog"][aria-describedby]');
+        if (!confirmation) throw new Error('Missing delete confirmation dialog');
+        await click('Delete', confirmation);
+        const recurrence = document.querySelector('[role="dialog"][aria-label="Delete recurring event"]');
+        if (!recurrence) throw new Error('Missing recurring event deletion dialog');
+        expect(recurrence.textContent).toContain('This is a recurring event.');
+        await click('Only this instance', recurrence);
         expect(patchVaultPage).toHaveBeenCalledWith('local-event', {metadata: {exdates: ['2026-09-02']}});
         expect(deleteVaultPage).not.toHaveBeenCalled();
     });

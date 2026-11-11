@@ -1,3 +1,4 @@
+import { ModalPortal } from '../../shared/ui/ModalPortal';
 import { createPortal } from 'react-dom';
 import { browserDocumentBody } from '../../shared/platform/browser-events';
 import ConfirmModal from '../../shared/ui/dialogs/ConfirmModal';
@@ -158,7 +159,7 @@ export function AIModelComparisonModal({
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="model-comparison-layer" role="presentation">
+        <ModalPortal><div className="model-comparison-layer" role="presentation">
             <ConfirmModal isOpen={Boolean(controller.detachConfirmation)} onClose={controller.cancelDeactivation} onConfirm={controller.confirmDeactivation}
                 title={t('model_comparison.deactivate_assigned_title')} confirmText={t('model_comparison.deactivate_assigned_confirm')} confirmOnEnter={false} autofocusConfirm={false}
                 message={<><p>{t('model_comparison.deactivate_assigned_help')}</p><ul>{controller.detachConfirmation?.agents.map(agent => <li key={agent.id}>{profileDisplayName(agent, t)}</li>)}</ul></>} />
@@ -285,7 +286,7 @@ export function AIModelComparisonModal({
                     ) : null}
                 </div>
             </section>
-        </div>,
+        </div></ModalPortal>,
         browserDocumentBody(),
     );
 }

@@ -1,9 +1,10 @@
+import { RecordWebsitePublicationDialog } from '../../../websites';
 import { ProcessResourceModal } from '../../../literature/records/ProcessResourceModal';
 import { PublishSocialModal } from '../../../social/publishing/PublishSocialModal';
 import { TranslateLanguagesModal } from '../../editor/TranslateLanguagesModal';
 import type { TableController } from './useTableController';
 
-export function TableActionDialogs({ model }: { model: Pick<TableController, 'clearSelection' | 'schema' | 'pendingAction' | 'setPendingAction' | 'noteById' | 'onTranslated' | 'setLlmWikiJobs' | 'bulkTranslateIds' | 'setBulkTranslateIds'>; }) {
+export function TableActionDialogs({ model }: { model: Pick<TableController, 'clearSelection' | 'schema' | 'pendingAction' | 'setPendingAction' | 'noteById' | 'onTranslated' | 'setLlmWikiJobs' | 'bulkTranslateIds' | 'setBulkTranslateIds'> & Partial<Pick<TableController, 'refreshWebsiteDestinations'>>; }) {
   const {
     clearSelection,
     schema,
@@ -15,7 +16,14 @@ export function TableActionDialogs({ model }: { model: Pick<TableController, 'cl
     bulkTranslateIds,
     setBulkTranslateIds,
   } = model;
-  return <>            {pendingAction && pendingAction.action === 'translate_row' && (
+  return <>
+    {pendingAction && ['publish_website', 'withdraw_website'].includes(pendingAction.action) && <RecordWebsitePublicationDialog
+      pageId={pendingAction.noteId}
+      title={noteById.get(pendingAction.noteId)?.title}
+      action={pendingAction.action === 'withdraw_website' ? 'withdraw' : 'publish'}
+      onClose={() => { setPendingAction(null); model.refreshWebsiteDestinations?.(); }}
+    />}
+            {pendingAction && pendingAction.action === 'translate_row' && (
     <TranslateLanguagesModal
       isOpen={true}
       onClose={() => { setPendingAction(null); }}
