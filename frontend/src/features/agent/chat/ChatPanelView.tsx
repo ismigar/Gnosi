@@ -24,7 +24,7 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
         confirmationTitle, confirmationSummary, setPendingConfirmation, setPendingRewindIndex,
         setDetailsMessageIndex, focusComposerWith, copyMessage, quoteMessage, markMessage,
         submitMessageFeedback, refreshMessageJob, previousUserPrompt, retryMessage,
-        processingPhase, processingElapsedSeconds, cancelResponse, messagesEndRef,
+        processingPhase, processingElapsedSeconds, cancelResponse, handleMessagesScroll,
         isUploadingAttachment, showMentionMenu, inputValue, inputRef, fileInputRef, attachments,
         mentionResults, setInputValue, handleSubmit, handlePickAttachment,
         handleAttachmentInputChange, removeAttachment, applyMention, createNewSession,
@@ -72,7 +72,7 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
                         onClose={() => { setLearningGoal(''); setShowLearning(false); }}
                     />}
                     {/* Messages */}
-                    <div ref={messagesContainerRef} style={{ display: learningVisible ? 'none' : 'flex', flex: 1, padding: '20px', overflowY: 'auto', flexDirection: 'column', gap: '16px' }}>
+                    <div ref={messagesContainerRef} onScroll={handleMessagesScroll} style={{ display: learningVisible ? 'none' : 'flex', flex: 1, padding: '20px', overflowY: 'auto', flexDirection: 'column', gap: '16px' }}>
                         {showSessionsView && (
                             <ChatSessionList sortedSessions={sortedSessions} setShowSessionsView={setShowSessionsView} selectSession={(id) => { void selectSession(id); }} deleteSessionById={(id) => { void deleteSessionById(id); }} />
                         )}
@@ -125,7 +125,6 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
                                 </button>
                             </div>
                         )}
-                        {!showSessionsView && <div ref={messagesEndRef} />}
                     </div>
 
                     {!learningVisible && !readOnly && <PromptQueue items={controller.queueItems} error={controller.queueStorageError} update={controller.updateQueuedPrompt} remove={controller.removeQueuedPrompt} move={controller.moveQueuedPromptBy} resume={controller.resumeQueue} />}

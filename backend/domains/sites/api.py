@@ -23,7 +23,7 @@ from .models import (
     SiteTheme, SiteThemeAsset, TargetConnection, TargetConnectionSecret,
 )
 from .storage import SiteStore
-from . import record_publication
+from . import record_publication, table_binding
 
 
 router = APIRouter(prefix="/sites", tags=["sites"], dependencies=[Depends(require_plugins("web-publishing"))])
@@ -80,6 +80,12 @@ def catalogue_snapshot(context: Editor) -> CatalogueSnapshot:
 def record_destinations(context: Editor, response: Response, page_id: str | None = None, table_id: str | None = None) -> list[record_publication.RecordDestination]:
     response.headers["Cache-Control"] = "no-store"
     return record_publication.destinations(store_for(context), page_id=page_id, table_id=table_id)
+
+
+@router.post("/{site_id}/table-binding", response_model=SiteConfig)
+def bind_table(site_id: str, request: table_binding.TableBindingRequest, context: Editor) -> SiteConfig:
+    store = store_for(context)
+    return table_binding.bind(store, store.load(site_id), request)
 
 
 @router.post("/{site_id}/record-publication/preview", response_model=SitePreview)

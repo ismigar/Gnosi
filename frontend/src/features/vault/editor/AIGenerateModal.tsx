@@ -19,6 +19,7 @@ type Translate = (key: string, options: { readonly defaultValue: string }) => un
 
 
 export interface AiGenerateRequest {
+    readonly replacePage?: boolean;
     readonly anchor?: unknown;
     readonly context?: string | null;
     readonly mode?: AiGenerateMode;
@@ -61,9 +62,10 @@ function OpenAIGenerateModal({ request, onClose, onInsert, t }: OpenAIGenerateMo
         }
     }, [t]);
     const [mode, setMode] = useState<AiGenerateMode>(request.mode ?? 'free');
-    const [prompt, setPrompt] = useState('');
+    const [prompt, setPrompt] = useState(request.replacePage ? tr('editor.ai_edit_prompt', 'Edit this article by highlighting its most relevant passages in bold. Preserve all wording, meaning, language, links and structure. Return the complete article in Markdown.') : '');
     const [language, setLanguage] = useState('English');
     const [loading, setLoading] = useState(false);
+    const [applying, setApplying] = useState(false);
     const [result, setResult] = useState('');
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const dialogRef = useRef<HTMLDivElement>(null);
@@ -78,11 +80,11 @@ function OpenAIGenerateModal({ request, onClose, onInsert, t }: OpenAIGenerateMo
     }, []);
 
     const handleClose = useCallback((): void => {
-        if (!loading) onClose();
-    }, [loading, onClose]);
+        if (!loading && !applying) onClose();
+    }, [loading, applying, onClose]);
 
     useModalKeyboard({
-        closeOnEscape: !loading,
+        closeOnEscape: !loading && !applying,
         containerRef: dialogRef,
         isOpen: true,
         onClose: handleClose,
@@ -116,11 +118,16 @@ function OpenAIGenerateModal({ request, onClose, onInsert, t }: OpenAIGenerateMo
         }
     }, [language, loading, mode, needsPrompt, prompt, request.context, tr]);
 
-    const insert = useCallback((): void => {
-        if (!result) return;
-        void onInsert(result, request.anchor ?? null);
-        onClose();
-    }, [onClose, onInsert, request.anchor, result]);
+    const insert = useCallback(async (): Promise<void> => {
+        if (!result || applying) return;
+        setApplying(true);
+        try {
+            await onInsert(result, request.anchor ?? null);
+            onClose();
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : tr('common.error', 'Error'));
+        } finally { setApplying(false); }
+    }, [applying, onClose, onInsert, request.anchor, result, tr]);
 
     const onCtrlEnter = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
@@ -135,11 +142,11 @@ function OpenAIGenerateModal({ request, onClose, onInsert, t }: OpenAIGenerateMo
             className="w-full max-w-xl rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-2xl"
             role="dialog"
             aria-modal="true"
-            aria-label={tr('editor.ai_title', 'Generate with AI')}
+            aria-label={request.replacePage ? tr('editor.ai_edit_page', 'Edit with AI…') : tr('editor.ai_title', 'Generate with AI')}
         >
             <div className="flex items-center gap-2 border-b border-[var(--border-color)] px-4 py-3">
                 <Sparkles size={18} className="text-violet-500" />
-                <span className="font-medium">{tr('editor.ai_title', 'Generate with AI')}</span>
+                <span className="font-medium">{request.replacePage ? tr('editor.ai_edit_page', 'Edit with AI…') : tr('editor.ai_title', 'Generate with AI')}</span>
                 <button
                     type="button"
                     onClick={handleClose}
@@ -153,7 +160,7 @@ function OpenAIGenerateModal({ request, onClose, onInsert, t }: OpenAIGenerateMo
 
             <div className="p-4 space-y-3">
                 <div className="flex flex-wrap gap-1.5">
-                    {PRESETS.map((preset) => <button
+                    {!request.replacePage && PRESETS.map((preset) => <button
                         key={preset.mode}
                         type="button"
                         onClick={() => {
@@ -210,9 +217,9 @@ function OpenAIGenerateModal({ request, onClose, onInsert, t }: OpenAIGenerateMo
                     {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                     {loading ? tr('editor.ai_generating', 'Generating…') : tr('editor.ai_generate', 'Generate')}
                 </button> : <>
-                    <button type="button" onClick={insert} className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">
+                    <button type="button" onClick={() => { void insert(); }} disabled={applying || loading} className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">
                         <Check size={16} />
-                        {tr('editor.ai_insert', 'Insert')}
+                        {request.replacePage ? tr('editor.ai_apply_edit', 'Apply edit') : tr('editor.ai_insert', 'Insert')}
                     </button>
                     <button
                         type="button"

@@ -35,7 +35,11 @@ export function EditorInner(props: PageEditorBodyProps) {
     const icons = useInlineIcon(editor);
     const handleSave = useEditorPersistence({ ...props, editor, editorReady, isParsing: isParsing || loadError !== null });
     const commands = useLinkCommands({ editor, handleSave, onRefreshNotes: props.onRefreshNotes });
-    const generated = useGeneratedContent(editor, schema, handleSave);
+    const generated = useGeneratedContent(editor, schema, handleSave, props.noteFilename, props.isEditable);
+    const { registerEditorApi: registerPageEditorApi } = props;
+    const registerEditorApi = useCallback((api: { focusFirstBlock: () => boolean } | null) => {
+        registerPageEditorApi(api ? { ...api, editWithAI: generated.openPageEdit } : null);
+    }, [registerPageEditorApi, generated.openPageEdit]);
     const capturePageViewAnchor = useViewSection(editor, props.applyViewSectionRef);
     const getNoteHeadings = useNoteHeadings();
     const normalizedLinkableNotes = useLinkableNotes(props.idToTitle, props.aliasIndex, props.contextValue.registry);
@@ -44,7 +48,7 @@ export function EditorInner(props: PageEditorBodyProps) {
     useLayoutEffect(() => { applyInsertResultRef.current = applyInsertResult; return () => { applyInsertResultRef.current = null; }; }, [applyInsertResult]);
     usePlusShortcut(editor, insert.requestInsertContent, applyInsertResultRef);
     const navigation = useEditorEffects({
-        ...runtime, ...props, editorWrapperRef, applyInsertResultRef,
+        ...runtime, ...props, registerEditorApi, editorWrapperRef, applyInsertResultRef,
         requestInsertContent: insert.requestInsertContent, setLinkPasteCtx: links.setLinkPasteCtx, setIsCitePickerOpen,
     });
     const providerValue = {

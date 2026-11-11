@@ -45,6 +45,7 @@ export interface PageNote extends Record<string, unknown> {
 export interface PagePatch { title: string; metadata: PageMetadata }
 export type PageUpdate = (id: string, content?: unknown, patch?: PagePatch) => void;
 export interface PageEditorApi {
+  editWithAI?: () => void;
   focusFirstBlock?: () => void;
   focusLastBlock?: () => void;
 }

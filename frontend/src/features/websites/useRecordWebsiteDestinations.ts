@@ -1,3 +1,4 @@
+import { subscribeAppEvent } from '../../shared/platform/app-events';
 import { useEffect, useState } from 'react';
 import { recordWebsiteDestinations, type RecordWebsiteDestination } from '../../shared/api/sites';
 import { useRequestContext } from '../../shared/hooks/useRequestContext';
@@ -7,6 +8,7 @@ export function useRecordWebsiteDestinations(selection: { page_id?: string; tabl
   const context = useRequestContext();
   const { page_id, table_id } = selection;
   const [revision, refresh] = useState(0);
+  useEffect(() => subscribeAppEvent('gnosi:website-sources-changed', () => { refresh(value => value + 1); }), []);
   const key = JSON.stringify([context, page_id, table_id, enabled, revision]);
   const [state, setState] = useState<{ key: string; destinations: RecordWebsiteDestination[] }>({ key: '', destinations: [] });
   useEffect(() => {

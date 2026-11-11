@@ -41,6 +41,8 @@ test.beforeEach(async ({ context, page }) => {
     const url = new URL(route.request().url());
     const send = (body: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (url.pathname.startsWith('/api/')) {
+      if (url.pathname === '/api/vault/plugins') return send({ enabled_builtin: ['web-publishing'], disabled: [], settings: {} });
+      if (url.pathname === '/api/vault/sites' && route.request().method() === 'GET') return send([{ id: 'fixture-site', name: 'Web de prova', revision: 1, sources: [] }]);
       if (url.pathname === '/api/ai/usage/history') return send({ currency: { code: 'EUR', symbol: '€', usd_rate: 1, source: 'fixture', fetched_at: '2026-01-01T00:00:00Z' }, periods: {} });
       if (url.pathname === '/api/reader/sources' || url.pathname === '/api/schedulers') return send([]);
       unexpected.push(`Unexpected fixture API: ${url.pathname}`);
@@ -145,4 +147,43 @@ test('feed manager is visible and clickable before Settings has loaded', async (
   await page.screenshot({ path: testInfo.outputPath('feed-manager-direct.png') });
   await dialog.getByRole('button', { name: 'Tanca', exact: true }).click();
   await expect(dialog).toHaveCount(0);
+});
+
+
+test('table website setup uses its own source switch and saves no publication', async ({ page }, testInfo) => {
+  let saved: Record<string, unknown> | null = null;
+  await page.route('**/api/vault/sites/fixture-site/table-binding', async route => {
+    saved = route.request().postDataJSON();
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ id: 'fixture-site', name: 'Web de prova', revision: 2, sources: [{ id: 'bound', kind: 'table', source_id: 'articles', path_prefix: '/blog', enabled: true, include_body: false, field_ids: [], attachment_field_ids: [] }] }) });
+  });
+  await page.getByRole('button', { name: 'table-website', exact: true }).click();
+  const section = page.getByRole('region', { name: 'Publicar al web', exact: true });
+  await section.getByRole('combobox', { name: 'Web', exact: true }).selectOption('fixture-site');
+  await section.getByRole('switch', { name: 'Publicar al web', exact: true }).click();
+  await section.getByRole('combobox', { name: 'Secció del web (ruta)', exact: true }).fill('/blog');
+  await section.getByRole('button', { name: 'Desa vinculació', exact: true }).click();
+  await expect(section.getByRole('status')).toContainText('Cap canvi publicat');
+  expect(saved).toMatchObject({ table_id: 'articles', section: '/blog', enabled: true, field_ids: [], attachment_field_ids: [] });
+  await page.screenshot({ path: testInfo.outputPath('table-website-binding.png') });
+});
+
+test('article editing previews bold changes before applying them', async ({ page }, testInfo) => {
+  let requests = 0;
+  await page.route('**/api/ai/generate', async route => {
+    requests += 1;
+    expect(route.request().postDataJSON()).toMatchObject({ context: 'Text original', mode: 'free' });
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ content: '**Text original**', provider: 'fixture' }) });
+  });
+  await page.getByRole('button', { name: 'edit-article', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit with AI…', exact: true });
+  await expect(dialog.getByRole('textbox')).toHaveValue(/bold/);
+  expect(requests).toBe(0);
+  await dialog.getByRole('button', { name: 'Generate', exact: true }).click();
+  await expect(dialog).toContainText('**Text original**');
+  await expect(page.getByTestId('saved-draft')).toHaveText('');
+  await page.screenshot({ path: testInfo.outputPath('article-edit-preview.png') });
+  await dialog.getByRole('button', { name: 'Apply edit', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByTestId('saved-draft')).toHaveText('**Text original**');
+  expect(requests).toBe(1);
 });

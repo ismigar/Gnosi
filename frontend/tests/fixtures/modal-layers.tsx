@@ -1,3 +1,6 @@
+import { TableWebsiteSettings } from '../../src/features/websites';
+// eslint-disable-next-line gnosi/feature-boundaries -- This browser regression composes the actual private dialog without application services.
+import AIGenerateModal from '../../src/features/vault/editor/AIGenerateModal';
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createInstance } from 'i18next';
@@ -48,7 +51,7 @@ function TableActions() {
     const close = () => { setDialog(''); };
     return <div contentEditable={false} data-testid="table-actions" style={{ minHeight: 800, padding: 24, background: 'var(--bg-secondary)' }}>
         <div style={{ position: 'sticky', top: 0, zIndex: 'var(--z-popover)', display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-            {['translation', 'confirm', 'prompt', 'nested', 'feeds'].map(kind => <button key={kind} onClick={() => { setDialog(kind); }}>{kind}</button>)}
+            {['translation', 'confirm', 'prompt', 'nested', 'feeds', 'table-website', 'edit-article'].map(kind => <button key={kind} onClick={() => { setDialog(kind); }}>{kind}</button>)}
         </div>
         <p>Embedded table controls inside a real BlockNote node view.</p>
         <output data-testid="confirmed">{confirmed}</output><output data-testid="saved-draft">{draft}</output>
@@ -57,6 +60,8 @@ function TableActions() {
         <ConfirmModal isOpen={dialog === 'confirm'} title="Confirmation contract" confirmText="Confirm fixture" onClose={close} onConfirm={() => { setConfirmed(value => value + 1); close(); }} />
         <PromptModal isOpen={dialog === 'prompt'} title="Prompt contract" label="Draft" confirmText="Save fixture" onClose={close} onSubmit={value => { setDraft(value); close(); }} />
         {dialog === 'nested' && <NestedDialog onClose={close} />}
+        {dialog === 'table-website' && <TableWebsiteSettings tableId="articles" tableName="Articles" fields={[{ id: 'title', name: 'Títol', type: 'title' }]} />}
+        <AIGenerateModal request={dialog === 'edit-article' ? { replacePage: true, mode: 'free', context: 'Text original', anchor: 'article' } : null} onClose={close} onInsert={value => { setDraft(value); }} t={(_key, options) => options.defaultValue} />
         <FeedManagerModal isOpen={dialog === 'feeds'} onClose={close} />
     </div>;
 }

@@ -552,7 +552,7 @@
     "view_comments": "Comentarios",
     "lock_edit": "Bloquear edición (solo lectura)",
     "unlock_edit": "Desbloquear para editar",
-    "share_page": "Compartir",
+    "share_page": "Compartir por enlace…",
     "add_favorite": "Añadir a favoritos",
     "remove_favorite": "Quitar de favoritos",
     "add_bookmark": "Añadir a marcadores",
@@ -621,7 +621,7 @@
     "period_days_many": "{{count}} días",
     "period_days_one": "{{count}} día",
     "period_days_other": "{{count}} días",
-    "publish_social": "Publicar en RRSS",
+    "publish_social": "Publicar en redes sociales…",
     "remove_option_error": "Error eliminando la opción de los registros",
     "save_cell_error": "Error guardando la celda",
     "title_save_error": "No se pudo guardar el título",
@@ -1248,7 +1248,11 @@
     "transclusion_depth": "Abre esta nota para seguir leyendo sus incrustaciones.",
     "source_preview": "Vista previa",
     "source_vim": "Modo Vim",
-    "source_help": "Alt-clic añade un cursor. Ctrl/⌘ D selecciona la siguiente coincidencia. Ctrl/⌘ F busca texto."
+    "source_help": "Alt-clic añade un cursor. Ctrl/⌘ D selecciona la siguiente coincidencia. Ctrl/⌘ F busca texto.",
+    "ai_edit_page": "Editar con IA…",
+    "ai_edit_prompt": "Edita este artículo destacando en negrita los pasajes más relevantes. Conserva todo el texto, el significado, el idioma, los enlaces y la estructura. Devuelve el artículo completo en Markdown.",
+    "ai_apply_edit": "Aplicar edición",
+    "ai_edit_stale": "La página ha cambiado. Cierra esta vista previa y solicita una nueva edición."
   },
   "view_config": {
     "title": "Configurar Vista",
@@ -4373,7 +4377,8 @@
   "notion_clone": "Clonar",
   "notion_cloning": "Clonando…",
   "share": {
-    "title": "Compartir",
+    "title": "Compartir por enlace…",
+    "selected_notes": "Comparte notas seleccionadas mediante enlace…",
     "permission": "Permiso",
     "perm_view": "Lectura",
     "perm_comment": "Comentar",
@@ -8995,7 +9000,7 @@
     "presentation": "Presentación",
     "pathPrefix": "Prefijo de las URL",
     "publishSource": "Incluir esta fuente en el web",
-    "includeBody": "Publicar el cuerpo de los documentos",
+    "includeBody": "Texto de la página (sin vistas de trabajo)",
     "publicFields": "Campos públicos",
     "publicAttachments": "Adjuntos públicos",
     "attachmentsHint": "Solo se exportan los archivos de los campos de adjuntos seleccionados.",
@@ -9659,7 +9664,7 @@
   },
   "recordWebsite": {
     "title": "Publicación en el sitio web",
-    "publish": "Publicar en el sitio web",
+    "publish": "Publicar en la web…",
     "withdraw": "Retirar del sitio web",
     "thisRecord": "Publicar o retirar este artículo del sitio web",
     "destination": "Sitio web y alojamiento",
@@ -9674,5 +9679,17 @@
     "failed": "No se ha podido completar la acción. Recarga el destino y revisa los cambios.",
     "legacyStaging": "Publicador antiguo de pruebas",
     "independentSite": "Sitio público independiente: notas seleccionadas"
+  },
+  "tableWebsite": {
+    "title": "Publicar en la web",
+    "hint": "Elige la web, la sección y los campos públicos. Guarda la vinculación y publica o retira cada registro desde su menú. Este cambio no publica ni retira contenido.",
+    "website": "Web",
+    "choose": "Elige una web…",
+    "section": "Sección de la web (ruta)",
+    "save": "Guardar vinculación",
+    "saved": "Vinculación guardada. Ningún cambio publicado.",
+    "noSites": "Crea primero una web en Webs.",
+    "binding": "Vinculación",
+    "newBinding": "Añadir otra sección…"
   }
 }

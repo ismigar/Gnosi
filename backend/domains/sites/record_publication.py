@@ -1,7 +1,8 @@
 """Contextual record publication through the existing website release pipeline."""
 from __future__ import annotations
 
-from typing import Literal
+import json
+from typing import Literal, cast
 
 from fastapi import HTTPException
 from pydantic import Field, JsonValue
@@ -53,21 +54,59 @@ def _context(store: SiteStore, page_id: str) -> tuple[dict[str, JsonValue], list
     return data, notes, note, str(tables[0]["id"])
 
 
+def _discovery_notes(store: SiteStore) -> list[exporter.Note]:
+    """Use the mutation-invalidated Vault inventory for non-publishing menus.
+
+    Review/confirmation still reread and hash the full source via exporter.notes.
+    Never traverse OneDrive or hash every body just to display an action.
+    """
+    from backend.services.context_vars import active_vault_path
+    # Initialize the compatibility composition root before its runtime ports.
+    from backend.api import vault_routes  # noqa: F401
+    from backend.domains.vault.links.runtime import _iter_linkable_page_documents
+
+    token = active_vault_path.set(store.vault)
+    try:
+        documents = _iter_linkable_page_documents()
+    finally:
+        active_vault_path.reset(token)
+    notes: list[exporter.Note] = []
+    identities: set[str] = set()
+    for path, metadata, _body, dashboard in documents:
+        if dashboard or not path.is_relative_to(store.vault) or path.is_symlink():
+            continue
+        if any(part.startswith(".") for part in path.relative_to(store.vault).parts) or not metadata.get("id"):
+            continue
+        identity = str(metadata["id"])
+        if identity in identities:
+            raise HTTPException(409, "Duplicate note identities must be resolved before publication")
+        identities.add(identity)
+        notes.append(exporter.Note(path, cast(dict[str, JsonValue], json.loads(json.dumps(metadata, default=str))), "", ""))
+    return notes
+
+
 def destinations(store: SiteStore, *, page_id: str | None = None, table_id: str | None = None) -> list[RecordDestination]:
     if bool(page_id) == bool(table_id):
         raise HTTPException(422, "Choose a record or a table")
+    from backend.domains.vault.tables.rows import build_table_folder_index, resolve_table_id_from_context
+
+    data, _ = exporter.registry(store)
+    notes = _discovery_notes(store)
     if page_id:
-        try:
-            data, notes, _, table_id = _context(store, page_id)
-        except _TableBindingConflict:
+        matching = [note for note in notes if str(note.metadata["id"]) == page_id]
+        if len(matching) != 1:
+            raise HTTPException(409, "The record is unavailable or has conflicting identities")
+        note = matching[0]
+        table_id = resolve_table_id_from_context(cast(dict[object, object], note.metadata), str(note.path.parent.relative_to(store.vault)), build_table_folder_index(cast(dict[object, object], data)))
+        if table_id is None:
             return []
-    else:
-        data, _ = exporter.registry(store)
-        notes = exporter.notes(store)
-        table = next((table for table in exporter.records(data, "tables") if str(table.get("id")) == table_id), None)
-        if table is None:
-            raise HTTPException(404, "Table not found")
-        notes = exporter._table_notes(notes, data, table, store.vault)
+    tables = [table for table in exporter.records(data, "tables") if str(table.get("id")) == table_id]
+    if page_id and len(tables) != 1:
+        return []
+    table = tables[0] if len(tables) == 1 else None
+    if table is None:
+        raise HTTPException(404, "Table not found")
+    notes = exporter._table_notes(notes, data, table, store.vault)
     result = []
     for site in store.list():
         if not any(_binding(source, str(table_id), data) for source in site.sources):

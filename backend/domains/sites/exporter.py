@@ -333,8 +333,24 @@ class AssetExporter:
     links: dict[str, str] = field(default_factory=dict)
 
     def _local_path(self, raw_path: str, note: Note | None) -> Path:
-        candidates = [(note.path.parent / raw_path)] if note and not raw_path.startswith("/") else []
-        candidates.extend([self.store.vault / raw_path.lstrip("/"), self.store.vault / "Attachments" / raw_path.lstrip("/")])
+        from backend.services.library_paths import resolve_library
+        served_roots = {"/api/vault/library/": resolve_library(self.store.vault), "/api/vault/assets/": self.store.vault / "Assets"}
+        served = None
+        for prefix, base in served_roots.items():
+            if raw_path.startswith(prefix):
+                relative = Path(raw_path[len(prefix):])
+                if relative.is_absolute() or ".." in relative.parts or not (base / relative).resolve().is_relative_to(base.resolve()):
+                    raise HTTPException(409, "A selected public asset is outside its storage root")
+                served = base / relative
+                break
+        absolute = Path(raw_path)
+        if served is not None:
+            candidates = [served]
+        elif absolute.is_absolute() and absolute.resolve().is_relative_to(self.store.vault):
+            candidates = [absolute]
+        else:
+            candidates = [(note.path.parent / raw_path)] if note and not raw_path.startswith("/") else []
+            candidates.extend([self.store.vault / raw_path.lstrip("/"), self.store.vault / "Attachments" / raw_path.lstrip("/")])
         local = next((path for path in candidates if path.is_file()), None)
         if local is None:
             raise HTTPException(409, "A selected public asset is missing")
@@ -374,6 +390,18 @@ def _note_identity(note: Note, translations: PublicTranslations, *, required: bo
     return public_id(note.metadata, translations.site), translations.language(note.metadata, required=required)
 
 
+
+def publication_identity(note: Note, source: SiteSource, translations: PublicTranslations) -> tuple[str, str] | None:
+    """Apply the final record eligibility rules shared with binding preservation."""
+    if translations.site.legacy_pilot:
+        from .importer import eligible_note
+        if not eligible_note(note.metadata):
+            return None
+    key = _note_identity(note, translations)
+    if key[1] not in translations.site.languages or key[1] in source.withdrawn_versions.get(str(note.metadata["id"]), []):
+        return None
+    return key
+
 def _record(note: Note, source: SiteSource, translations: PublicTranslations, paths: dict[tuple[str, str], str]) -> PublicRecord:
     identity, language = _note_identity(note, translations)
     page_id = str(note.metadata["id"])
@@ -388,11 +416,13 @@ def _record(note: Note, source: SiteSource, translations: PublicTranslations, pa
 
 
 def _record_fields(record: PublicRecord, note: Note, source: SiteSource, table: dict[str, JsonValue], asset: AssetExporter) -> None:
-    labels = {definition["id"]: definition["name"] for definition in fields(table)}
-    for field_id in source.field_ids:
+    definitions = fields(table)
+    labels = {definition["id"]: definition["name"] for definition in definitions}
+    file_fields = {definition["id"] for definition in definitions if re.search(r"file|attachment|image|media", definition["type"])}
+    for field_id in (field for field in source.field_ids if field not in file_fields):
         record.fields[field_id] = value_for(note, field_id, table)
         record.field_labels[field_id] = labels.get(field_id, field_id)
-    for field_id in source.attachment_field_ids:
+    for field_id in dict.fromkeys([*source.attachment_field_ids, *(field for field in source.field_ids if field in file_fields)]):
         value = value_for(note, field_id, table)
         if isinstance(value, str) and value:
             record.fields[field_id] = asset(value, note)
@@ -462,23 +492,19 @@ class Projection:
                 self._collect_note(source, note, table, position)
 
     def _collect_note(self, source: SiteSource, note: Note, table: dict[str, JsonValue], position: int) -> None:
-        if self.site.legacy_pilot:
-            from .importer import eligible_note
-            if not eligible_note(note.metadata):
-                return
-        key = _note_identity(note, self.translations)
-        if key[1] not in self.site.languages:
-            return
-        if key[1] in source.withdrawn_versions.get(str(note.metadata["id"]), []):
+        key = publication_identity(note, source, self.translations)
+        if key is None:
             return
         record = self.public.setdefault(key, _record(note, source, self.translations, self.paths))
         record.source_ids.append(source.id)
         record.source_order[source.id] = position
         _record_fields(record, note, source, table, self.asset)
+        if self.site.legacy_pilot:
+            from .native_presentation import project_presentation
+            record.presentation = project_presentation(record, table, self.site)
         if source.include_body:
-            if re.search(r"gnosi-view:|gnosi-view-snapshot", note.body, re.I):
-                raise HTTPException(422, "Publish embedded table views through an explicitly selected website collection")
-            self.bodies[key] = note
+            from .public_body import public_markdown
+            self.bodies[key] = Note(note.path, note.metadata, public_markdown(note.body), note.digest)
         self.hashes[str(note.path.relative_to(self.store.vault))] = note.digest
 
     def import_baseline(self) -> None:
@@ -524,7 +550,10 @@ class Projection:
                 links[str(note.path.relative_to(self.store.vault))] = self.public[key].path
         allowed = {record.path for record in self.public.values()} | {page.path for page in self.site.pages if page.enabled}
         for key, note in self.bodies.items():
-            self.public[key].body_html = _body_html(note, self.asset, links, allowed)
+            from .native_presentation import detail_image
+            record = self.public[key]
+            body = _body_html(note, self.asset, links, allowed)
+            record.body_html = detail_image(body, record.presentation) if self.site.legacy_pilot else body
 
 
 def _projection(store: SiteStore, site: SiteConfig, target_id: str) -> Projection:
@@ -600,6 +629,13 @@ def _exported_site(site: SiteConfig, asset: AssetExporter) -> SiteConfig:
             form.privacy_url = _editor_file_link(form.privacy_url, asset)
             form.privacy_urls = {language: _editor_file_link(url, asset) for language, url in form.privacy_urls.items() if language in exported.languages}
     exported.sources = [source.model_copy(update={"filters": [], "page_ids": [], "withdrawn_ids": [], "withdrawn_versions": {}, "sort_field_id": None, "selection_mode": "all"}) for source in exported.sources if source.enabled]
+    # Keep the imported theme's stable collection markers on the public wire.
+    # The private configuration still resolves native tables, and the snapshot
+    # contributes no record bodies for these replaced collection sources.
+    if exported.legacy_pilot:
+        for source in exported.sources:
+            if source.kind in {"table", "view"} and source.id in {"imported-blog", "imported-research", "imported-stories", "imported-design", "imported-collaborators"}:
+                source.source_id = "imported:" + source.id.removeprefix("imported-")
     exported.pages = [page for page in exported.pages if page.enabled]
     exported.forms = [form for form in exported.forms if form.enabled]
     return exported
@@ -644,7 +680,7 @@ def build_bundle(store: SiteStore, site: SiteConfig, target_id: str) -> SiteBund
     exported = _exported_site(site, projection.asset)
     withdrawn = _withdrawn_paths(projection, exported)
     from .importer import imported_feed_aliases
-    feed_aliases = imported_feed_aliases(store, site)
+    feed_aliases = imported_feed_aliases(store, exported)
     bundle = SiteBundle(site=exported, records=list(projection.public.values()), assets=list(projection.asset.assets.values()), source_hashes=projection.hashes, withdrawn_paths=withdrawn, feed_aliases=feed_aliases)
     public_paths = [record.path for record in bundle.records] + [page.path for page in exported.pages]
     if len(public_paths) != len(set(public_paths)):

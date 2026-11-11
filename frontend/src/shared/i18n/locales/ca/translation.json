@@ -552,7 +552,7 @@
     "unlock_edit": "Desbloqueja per editar",
     "translate_record": "Tradueix el registre",
     "view_comments": "Comentaris",
-    "share_page": "Comparteix",
+    "share_page": "Comparteix per enllaç…",
     "add_favorite": "Afegeix a favorits",
     "remove_favorite": "Treu dels favorits",
     "add_bookmark": "Afegeix a marcadors",
@@ -621,7 +621,7 @@
     "period_days_many": "{{count}} dies",
     "period_days_one": "{{count}} dia",
     "period_days_other": "{{count}} dies",
-    "publish_social": "Publicar a XXSS",
+    "publish_social": "Publica a XXSS…",
     "remove_option_error": "Error eliminant l'opció dels registres",
     "save_cell_error": "Error desant la cel·la",
     "title_save_error": "No s'ha pogut desar el títol",
@@ -1248,7 +1248,11 @@
     "transclusion_depth": "Obre aquesta nota per continuar llegint les seves incrustacions.",
     "source_preview": "Previsualització",
     "source_vim": "Mode Vim",
-    "source_help": "Alt-clic afegeix un cursor. Ctrl/⌘ D selecciona la coincidència següent. Ctrl/⌘ F cerca text."
+    "source_help": "Alt-clic afegeix un cursor. Ctrl/⌘ D selecciona la coincidència següent. Ctrl/⌘ F cerca text.",
+    "ai_edit_page": "Edita amb IA…",
+    "ai_edit_prompt": "Edita aquest article destacant en negreta els passatges més rellevants. Conserva tot el text, el significat, la llengua, els enllaços i l’estructura. Retorna l’article complet en Markdown.",
+    "ai_apply_edit": "Aplica l’edició",
+    "ai_edit_stale": "La pàgina ha canviat. Tanca aquesta previsualització i demana una nova edició."
   },
   "view_config": {
     "title": "Configurar Vista",
@@ -4427,7 +4431,8 @@
   "notion_clone": "Clonar",
   "notion_cloning": "Clonant…",
   "share": {
-    "title": "Comparteix",
+    "title": "Comparteix per enllaç…",
+    "selected_notes": "Comparteix notes seleccionades per enllaç…",
     "permission": "Permís",
     "perm_view": "Lectura",
     "perm_comment": "Comentar",
@@ -8995,7 +9000,7 @@
     "presentation": "Presentació",
     "pathPrefix": "Prefix de les URL",
     "publishSource": "Inclou aquesta font al web",
-    "includeBody": "Publica el cos dels documents",
+    "includeBody": "Text de la pàgina (sense vistes de treball)",
     "publicFields": "Camps públics",
     "publicAttachments": "Adjunts públics",
     "attachmentsHint": "Només s’exporten els fitxers dels camps d’adjunts seleccionats.",
@@ -9659,7 +9664,7 @@
   },
   "recordWebsite": {
     "title": "Publicació al web",
-    "publish": "Publica al web",
+    "publish": "Publica al web…",
     "withdraw": "Retira del web",
     "thisRecord": "Publica o retira aquest article del web",
     "destination": "Web i allotjament",
@@ -9674,5 +9679,17 @@
     "failed": "No s’ha pogut completar l’acció. Torna a carregar la destinació i revisa els canvis.",
     "legacyStaging": "Publicador antic de proves",
     "independentSite": "Web públic independent: notes seleccionades"
+  },
+  "tableWebsite": {
+    "title": "Publicar al web",
+    "hint": "Tria el web, la secció i els camps públics. Desa la vinculació i publica o retira cada registre des del seu menú. Aquest canvi no publica ni retira contingut.",
+    "website": "Web",
+    "choose": "Tria un web…",
+    "section": "Secció del web (ruta)",
+    "save": "Desa vinculació",
+    "saved": "Vinculació desada. Cap canvi publicat.",
+    "noSites": "Crea primer un web a Webs.",
+    "binding": "Vinculació",
+    "newBinding": "Afegeix una altra secció…"
   }
 }

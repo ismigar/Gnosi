@@ -319,3 +319,38 @@ def test_gnosi_container_previews_keep_prose_and_hide_directives(directive):
     assert "Visible prose" in hit.excerpt
     for marker in (":::", "type=", "level=", "toggle", "callout"):
         assert marker not in hit.excerpt
+
+
+def test_inventory_resolves_schema_once_and_preserves_title_tags(tmp_path, monkeypatch, isolated_validation_runtime):
+    from backend.api import vault_routes
+    from backend.domains.vault.links import runtime
+    from backend.domains.vault.pages import tags
+    from backend.domains.vault.search import api
+
+    root = tmp_path / "scoped"
+    root.mkdir()
+    rows = []
+    for index in range(120):
+        path = root / f"{index}.md"
+        path.write_text("body")
+        rows.append((path, {"id": str(index), "table_id": "articles", "headline": f"Article {index}", "topics": ["semantic"]}, "body", False))
+    calls = []
+    def registry():
+        calls.append(True)
+        return {"tables": [{"id": "articles", "properties": [{"id": "headline", "name": "Headline", "type": "title"}]}]}
+    monkeypatch.setattr(vault_routes, "load_registry", registry)
+    monkeypatch.setattr(runtime, "_iter_linkable_page_documents", lambda: rows)
+    monkeypatch.setattr(tags, "_table_tag_fields", lambda: {"articles": ("topics", "Topics")})
+    documents = list(api.active_documents(root))
+    assert len(calls) == 1
+    assert len(documents) == 120
+    assert documents[17].title == "Article 17"
+    assert documents[17].metadata["tags"] == ["semantic"]
+
+
+@pytest.mark.parametrize("text", ["À café Straße", "a\u034f\u0301\ufe0f", "İ \ufb03", "漢字", "\U0001f600", "\u0327\u0301"])
+def test_normalization_preserves_unicode_casefold_and_combining_class_contract(text):
+    import unicodedata
+    from backend.domains.vault.search.query import normalize_text
+    expected = "".join(character for character in unicodedata.normalize("NFD", text.casefold()) if not unicodedata.combining(character))
+    assert normalize_text(text) == expected

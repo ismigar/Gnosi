@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { ShareModal } from '../../../sharing/dialogs/ShareModal';
 import { pageReferenceTitle } from '../../../../shared/records/pageReferenceTitle';
 import { Columns2, ExternalLink, Link as LinkIcon, Trash2 } from 'lucide-react';
 import { PageActionsBar } from '../../editor/PageActionsBar';
@@ -6,6 +8,7 @@ import type { TableNote } from './types';
 import type { TableController } from './useTableController';
 
 export function RowActions({ model, note, isChild }: { model: TableController, note: TableNote; isChild: boolean; }) {
+  const [shareOpen, setShareOpen] = useState(false);
   const {
     isListView,
     isSelected,
@@ -57,6 +60,7 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
       <PageActionsBar compactHeader compactOverflowItems={[
         ...(hasOpenableResource(note) ? [{ key: 'open-resource', Icon: LinkIcon, label: t('table.open_resource_tooltip'), disabled: openingResourceId === note.id, onClick: () => { void handleOpenExternalResource(note); } }] : []),
         ...(onOpenParallel ? [{ key: 'open-parallel', Icon: Columns2, label: t('table.open_parallel'), onClick: () => { onOpenParallel(note.id); } }] : []),
+        ...(model.isPluginEnabled('share-links') ? [{ key: 'share-link', Icon: LinkIcon, label: t('shell.share_page', 'Share by link…'), onClick: () => { setShareOpen(true); } }] : []),
         ...buildRecordActions({ note, schema, websiteDestinations: model.websiteDestinations, functionalities: tableFunctionalities, actionRules,
           tableId: llmWikiTableId, isPluginEnabled: model.isPluginEnabled,
           processingConfigured: isLlmWikiTable, job: llmWikiJobs[llmWikiTableId]?.[note.id],
@@ -79,5 +83,6 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
         </button>
       )}
     </div>
+    {shareOpen && <ShareModal open pageId={note.id} pageTitle={note.title} onClose={() => { setShareOpen(false); }} />}
   </td>);
 }

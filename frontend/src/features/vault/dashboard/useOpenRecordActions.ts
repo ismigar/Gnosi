@@ -1,3 +1,4 @@
+import { useRecordWebsiteDestinations } from '../../websites';
 import { useState } from 'react';
 import { buildRecordActions } from '../views/vault-table/recordActions';
 import { useFunctionalityActions } from '../views/vault-table/useTableActions';
@@ -6,6 +7,7 @@ import type { DashboardActions } from './useDashboardActions';
 import type { Page } from './types';
 
 export function useOpenRecordActions(context: DashboardActions, page: Page | null | undefined, tableId: string | null, enabled: boolean) {
+  const { websiteDestinations, refreshWebsiteDestinations } = useRecordWebsiteDestinations({ table_id: tableId ?? undefined }, enabled && context.isPluginEnabled('web-publishing'));
   const [pendingAction, setPendingAction] = useState<PendingTableAction | null>(null);
   const [executingButtonKey, setExecutingButtonKey] = useState<string | null>(null);
   const table = context.registry.tables.find(item => item.id === tableId);
@@ -17,7 +19,7 @@ export function useOpenRecordActions(context: DashboardActions, page: Page | nul
   const schema = context.getSchemaFromTableId(tableId);
   const note = page ? { ...page, parent_id: page.parent_id ?? undefined, last_modified: page.last_modified ?? undefined, resolved_table_id: page.resolved_table_id ?? undefined } : null;
   const recordActions = enabled && note && tableId && table ? buildRecordActions({
-    note, schema, tableId, functionalities: table.functionalities, actionRules: table.action_rules,
+    note, schema, tableId, websiteDestinations, functionalities: table.functionalities, actionRules: table.action_rules,
     isPluginEnabled: context.isPluginEnabled,
     processingConfigured: Boolean(context.llmWikiConfig?.source_tables?.some(source => source.table_id === tableId)),
     job: context.llmWikiJobs[tableId]?.[note.id], processed: context.llmWikiConfig?.processed_resources?.[tableId]?.[note.id],
@@ -26,7 +28,7 @@ export function useOpenRecordActions(context: DashboardActions, page: Page | nul
   }) : [];
   const noteById = new Map<string, TableNote>(dialogPage ? [[dialogPage.id, { ...dialogPage, parent_id: dialogPage.parent_id ?? undefined, last_modified: dialogPage.last_modified ?? undefined, resolved_table_id: dialogPage.resolved_table_id ?? undefined }]] : []);
   return { recordActions, recordActionDialogs: {
-    pendingAction, setPendingAction, schema: context.getSchemaFromTableId(dialogTableId), noteById,
+    refreshWebsiteDestinations, pendingAction, setPendingAction, schema: context.getSchemaFromTableId(dialogTableId), noteById,
     onTranslated, setLlmWikiJobs: context.setLlmWikiJobs,
     bulkTranslateIds: null, setBulkTranslateIds: () => {}, clearSelection: () => {},
   } };

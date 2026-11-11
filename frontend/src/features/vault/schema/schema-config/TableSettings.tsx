@@ -1,3 +1,4 @@
+import { TableWebsiteSettings } from '../../../websites';
 import React from 'react';
 import type { SchemaConfigModel } from './useSchemaConfig';
 import { Layers, Languages, Send } from 'lucide-react';
@@ -87,6 +88,7 @@ export function TableSettings({ model }: { model: SchemaConfigModel }) {
                             </p>
                         </div>
 
+                        <TableWebsiteSettings tableId={model.tableId ?? undefined} tableName={model.resolvedTableName} fields={model.fields} />
                         <FunctionalitiesSection model={model} />
                     </div>
 

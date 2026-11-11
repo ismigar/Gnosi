@@ -31,7 +31,8 @@ describe('compact record action menus', () => {
     expect(host.querySelectorAll('button')).toHaveLength(3);
     expect(document.querySelector('[role="menuitem"]')).toBeNull();
     act(() => { (host.querySelector('[aria-haspopup="menu"]') as HTMLButtonElement).click(); });
-    const item = document.querySelector('[role="menuitem"]') as HTMLButtonElement;
+    const item = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button => button.textContent.includes('Mark reviewed'));
+    if (!item) throw new Error('Review action was not rendered');
     expect(item.textContent).toContain('Mark reviewed');
     act(() => { item.click(); });
     expect(controller.executeTableFunctionality).toHaveBeenCalledWith(null, { id: 'record' }, expect.objectContaining({ id: 'action' }));

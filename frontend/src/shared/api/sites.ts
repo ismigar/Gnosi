@@ -1,3 +1,4 @@
+import { emitAppEvent } from '../platform/app-events';
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
 import { assertApiSuccess, unwrapApiResult } from './errors';
@@ -116,7 +117,9 @@ function requestConfiguration(site: SiteConfig): components['schemas']['SiteConf
 }
 
 export async function saveSite(site: SiteConfig, context: RequestContext, signal?: AbortSignal) {
-  return configuration(unwrapApiResult(await apiClient.PUT('/api/vault/sites/{site_id}', { params: { path: { site_id: site.id } }, body: requestConfiguration(site), ...scope(context, signal) })));
+  const result = configuration(unwrapApiResult(await apiClient.PUT('/api/vault/sites/{site_id}', { params: { path: { site_id: site.id } }, body: requestConfiguration(site), ...scope(context, signal) })));
+  emitAppEvent('gnosi:website-sources-changed');
+  return result;
 }
 export async function previewSite(siteId: string, targetId: string, context: RequestContext, signal?: AbortSignal) {
   return unwrapApiResult(await apiClient.POST('/api/vault/sites/{site_id}/preview', { params: { path: { site_id: siteId } }, body: { target_id: targetId }, ...scope(context, signal) }));
@@ -221,4 +224,10 @@ export async function recordWebsiteDestinations(selection: { page_id?: string; t
 }
 export async function reviewRecordWebsite(siteId: string, pageId: string, targetId: string, action: RecordWebsiteAction, context: RequestContext, signal?: AbortSignal): Promise<SitePreview> {
   return unwrapApiResult(await apiClient.POST('/api/vault/sites/{site_id}/record-publication/preview', { params: { path: { site_id: siteId } }, body: { page_id: pageId, target_id: targetId, action }, ...scope(context, signal) }));
+}
+
+export async function saveTableWebsiteBinding(siteId: string, input: components['schemas']['TableBindingRequest'], context: RequestContext, signal?: AbortSignal) {
+  const result = configuration(unwrapApiResult(await apiClient.POST('/api/vault/sites/{site_id}/table-binding', { params: { path: { site_id: siteId } }, body: input, ...scope(context, signal) })));
+  emitAppEvent('gnosi:website-sources-changed');
+  return result;
 }

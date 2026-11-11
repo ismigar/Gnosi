@@ -56,10 +56,15 @@ def _has_dynamic_object(schema: Any) -> bool:
     if any(key in schema for key in ("oneOf", "allOf", "if", "then", "else", "prefixItems")):
         # These local contracts are outside the provider's strict subset.
         return True
-    if schema.get("type") == "object" and (
-        "properties" not in schema or isinstance(schema.get("additionalProperties"), dict)
-    ):
-        return True
+    if schema.get("type") == "object":
+        properties = schema.get("properties")
+        if not isinstance(properties, dict) or isinstance(schema.get("additionalProperties"), dict):
+            return True
+        # Strict providers require every property to be required. Preserve
+        # optional/defaulted fields in the local contract instead of making
+        # them mandatory (or nullable) merely to satisfy the wire format.
+        if set(properties) != set(schema.get("required") or []):
+            return True
     return any(_has_dynamic_object(value) for value in schema.values())
 
 

@@ -16,6 +16,10 @@ export function usePageEditorController(props: PageEditorProps) {
   const s5 = usePageLayout({ ...s0, ...s1, ...s2, ...s3, ...s4 });
   const s6 = usePageContext({ ...s0, ...s1, ...s2, ...s3, ...s4, ...s5 });
   const s7 = useNoteComposer({ ...s0, ...s1 });
-  return { ...s0, ...s1, ...s2, ...s3, ...s4, ...s5, ...s6, ...s7 };
+  return { ...s0, ...s1, ...s2, ...s3, ...s4, ...s5, ...s6, ...s7, pageActions: {
+    ...s7.pageActions,
+    canEditWithAI: s0.isEditable && !s0.isEditLocked && !s0.isCodeView && !s7.composerLocked && s0.isPluginEnabled('ai-platform'),
+    onEditWithAI: () => { s0.editorApiRef.current?.editWithAI?.(); },
+  } };
 }
 export type PageEditorController = ReturnType<typeof usePageEditorController>;

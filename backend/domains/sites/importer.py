@@ -232,10 +232,7 @@ def merge_imported_bundle(store: SiteStore, site: SiteConfig, public: dict[tuple
         selected = [source for source in site.sources if source.enabled and source.source_id in {"imported:" + group for group in groups} and key[0] not in source.withdrawn_ids and key[1] not in source.withdrawn_versions.get(key[0], []) and (source.selection_mode != "selected" or key[0] in source.page_ids)]
         existing = public.get(key)
         if existing:
-            existing.path = str(node["url"])
-            existing.translation_id = key[0]
             existing.source_ids = list(dict.fromkeys(existing.source_ids + [source.id for source in selected]))
-            existing.presentation = _presentation(node, baseline_nodes)
             continue
         if not selected:
             continue

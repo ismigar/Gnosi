@@ -600,7 +600,7 @@
     "view_comments": "Comments",
     "lock_edit": "Lock editing (read-only)",
     "unlock_edit": "Unlock to edit",
-    "share_page": "Share",
+    "share_page": "Share by link…",
     "add_favorite": "Add to favorites",
     "remove_favorite": "Remove from favorites",
     "add_bookmark": "Add to bookmarks",
@@ -665,7 +665,7 @@
     "paste_skipped_other": "{{count}} cells skipped (incompatible type)",
     "period_days_one": "{{count}} day",
     "period_days_other": "{{count}} days",
-    "publish_social": "Publish to social",
+    "publish_social": "Publish to social media…",
     "remove_option_error": "Error removing the option from the records",
     "save_cell_error": "Error saving the cell",
     "title_save_error": "Couldn't save the title",
@@ -1289,7 +1289,11 @@
     "transclusion_depth": "Open this note to continue reading its nested embeds.",
     "source_preview": "Preview",
     "source_vim": "Vim mode",
-    "source_help": "Alt-click adds a cursor. Ctrl/⌘ D selects the next match. Ctrl/⌘ F finds text."
+    "source_help": "Alt-click adds a cursor. Ctrl/⌘ D selects the next match. Ctrl/⌘ F finds text.",
+    "ai_edit_page": "Edit with AI…",
+    "ai_edit_prompt": "Edit this article by highlighting its most relevant passages in bold. Preserve all wording, meaning, language, links and structure. Return the complete article in Markdown.",
+    "ai_apply_edit": "Apply edit",
+    "ai_edit_stale": "The page changed. Close this preview and request a new edit."
   },
   "view_config": {
     "title": "Configure View",
@@ -4397,7 +4401,8 @@
   "notion_clone": "Clone",
   "notion_cloning": "Cloning…",
   "share": {
-    "title": "Share",
+    "title": "Share by link…",
+    "selected_notes": "Share selected notes by link…",
     "permission": "Permission",
     "perm_view": "Read",
     "perm_comment": "Comment",
@@ -8940,7 +8945,7 @@
     "presentation": "Presentation",
     "pathPrefix": "URL prefix",
     "publishSource": "Include this source in the website",
-    "includeBody": "Publish document body",
+    "includeBody": "Page text (without work views)",
     "publicFields": "Public fields",
     "publicAttachments": "Public attachments",
     "attachmentsHint": "Only files in selected attachment fields can be exported.",
@@ -9604,7 +9609,7 @@
   },
   "recordWebsite": {
     "title": "Website publication",
-    "publish": "Publish to website",
+    "publish": "Publish to website…",
     "withdraw": "Unpublish from website",
     "thisRecord": "Publish or unpublish this article",
     "destination": "Website and hosting",
@@ -9619,5 +9624,17 @@
     "failed": "Could not complete the website action. Reload the destination and review again.",
     "legacyStaging": "Legacy staging publisher",
     "independentSite": "Separate public site: selected notes"
+  },
+  "tableWebsite": {
+    "title": "Publish to website",
+    "hint": "Choose the website, section and public fields. Save the binding, then publish or unpublish each record from its menu. This change does not publish or unpublish content.",
+    "website": "Website",
+    "choose": "Choose a website…",
+    "section": "Website section (path)",
+    "save": "Save binding",
+    "saved": "Binding saved. No changes published.",
+    "noSites": "Create a website in Webs first.",
+    "binding": "Binding",
+    "newBinding": "Add another section…"
   }
 }
