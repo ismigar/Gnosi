@@ -3165,7 +3165,7 @@
     "period_days_many": "{{count}} jours",
     "period_days_one": "{{count}} jour",
     "period_days_other": "{{count}} jours",
-    "publish_social": "Publier sur les réseaux",
+    "publish_social": "Publier sur les réseaux sociaux…",
     "remove_option_error": "Erreur en supprimant l'option des fiches",
     "save_cell_error": "Erreur en enregistrant la cellule",
     "title_save_error": "Impossible d'enregistrer le titre",
@@ -3385,7 +3385,7 @@
     "show_sidebar": "Afficher la barre latérale",
     "lock_edit": "Verrouiller l'édition (lecture seule)",
     "unlock_edit": "Déverrouiller pour modifier",
-    "share_page": "Partager",
+    "share_page": "Partager par lien…",
     "add_favorite": "Ajouter aux favoris",
     "remove_favorite": "Retirer des favoris",
     "add_bookmark": "Ajouter aux signets",
@@ -3712,7 +3712,8 @@
     "error_deleting_event": "Impossible de supprimer l'événement"
   },
   "share": {
-    "title": "Partager",
+    "title": "Partager par lien…",
+    "selected_notes": "Partager des notes sélectionnées par lien…",
     "permission": "Autorisation",
     "perm_view": "Lecture",
     "perm_comment": "Commenter",
@@ -4330,7 +4331,11 @@
     "transclusion_depth": "Ouvrez cette note pour continuer à lire ses inclusions imbriquées.",
     "source_preview": "Aperçu",
     "source_vim": "Mode Vim",
-    "source_help": "Alt-clic ajoute un curseur. Ctrl/⌘ D sélectionne la correspondance suivante. Ctrl/⌘ F recherche du texte."
+    "source_help": "Alt-clic ajoute un curseur. Ctrl/⌘ D sélectionne la correspondance suivante. Ctrl/⌘ F recherche du texte.",
+    "ai_edit_page": "Modifier avec l’IA…",
+    "ai_edit_prompt": "Modifie cet article en mettant en gras ses passages les plus importants. Préserve tout le texte, le sens, la langue, les liens et la structure. Renvoie l’article complet en Markdown.",
+    "ai_apply_edit": "Appliquer la modification",
+    "ai_edit_stale": "La page a changé. Fermez cet aperçu et demandez une nouvelle modification."
   },
   "metadata_lookup": {
     "creating_resource": "Préparation de la ressource…",
@@ -8995,7 +9000,7 @@
     "presentation": "Présentation",
     "pathPrefix": "Préfixe des URL",
     "publishSource": "Inclure cette source dans le site",
-    "includeBody": "Publier le corps des documents",
+    "includeBody": "Texte de la page (sans vues de travail)",
     "publicFields": "Colonnes publiques",
     "publicAttachments": "Pièces jointes publiques",
     "attachmentsHint": "Seuls les fichiers des colonnes sélectionnées peuvent être exportés.",
@@ -9659,7 +9664,7 @@
   },
   "recordWebsite": {
     "title": "Publication sur le site",
-    "publish": "Publier sur le site",
+    "publish": "Publier sur le web…",
     "withdraw": "Retirer du site",
     "thisRecord": "Publier ou retirer cet article du site",
     "destination": "Site et hébergement",
@@ -9674,5 +9679,17 @@
     "failed": "Impossible de terminer l’action. Rechargez la destination et vérifiez les modifications.",
     "legacyStaging": "Ancien outil de publication de test",
     "independentSite": "Site public distinct : notes sélectionnées"
+  },
+  "tableWebsite": {
+    "title": "Publier sur le web",
+    "hint": "Choisissez le site, la section et les champs publics. Enregistrez la liaison, puis publiez ou retirez chaque enregistrement depuis son menu. Ce changement ne publie ni ne retire de contenu.",
+    "website": "Site web",
+    "choose": "Choisissez un site…",
+    "section": "Section du site (chemin)",
+    "save": "Enregistrer la liaison",
+    "saved": "Liaison enregistrée. Aucun changement publié.",
+    "noSites": "Créez d’abord un site dans Webs.",
+    "binding": "Liaison",
+    "newBinding": "Ajouter une autre section…"
   }
 }

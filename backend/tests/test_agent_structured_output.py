@@ -63,7 +63,7 @@ def test_direct_openai_dynamic_contract_keeps_complete_local_validation():
     assert 'extra_body' not in constrained.kwargs
 
 
-def test_direct_openai_optional_help_keeps_strict_sdk_parsing_and_original_contract(monkeypatch):
+def test_direct_openai_optional_help_keeps_strict_tools_and_json_output(monkeypatch):
     from backend.domains.agent import operation_graph
     from backend.domains.agent.team_help import TeamHelp
     monkeypatch.setattr(operation_graph, '_invoke_agent_model', lambda model, messages, state: model.invoke(messages))
@@ -80,7 +80,7 @@ def test_direct_openai_optional_help_keeps_strict_sdk_parsing_and_original_contr
             team_help=TeamHelp({}, True), provider='openai', output_schema=ACTION_SCHEMA).compile()
         graph.invoke({'messages': [HumanMessage(content='Return JSON')], 'team_help_allowed': True})
     assert len(sent) == 1
-    assert sent[0]['response_format']['json_schema']['schema'] == ACTION_SCHEMA
+    assert sent[0]['response_format'] == {'type': 'json_object'}
     assert sent[0]['tools'][0]['function']['name'] == 'request_team_help'
     assert sent[0]['tools'][0]['function']['strict'] is True
     assert 'provider' not in sent[0]
@@ -166,7 +166,7 @@ def test_bounded_reader_uses_supported_low_reasoning_on_the_wire(monkeypatch):
     assert sent[0]['reasoning'] == {'effort': 'low'}
     assert sent[0]['max_completion_tokens'] == 16384
     assert sent[0]['provider'] == {'order': ['chosen'], 'require_parameters': True}
-    assert sent[0]['response_format']['json_schema']['schema'] == ACTION_SCHEMA
+    assert sent[0]['response_format'] == {'type': 'json_object'}
     assert 'reasoning' not in model.extra_body
 
 
@@ -238,9 +238,7 @@ def test_schema_reaches_provider_and_preserves_tools_routing_and_reasoning():
     assert json.loads(response.content)["action"] == "index"
     assert len(requests) == 1
     payload = requests[0]
-    assert payload["response_format"] == {"type": "json_schema", "json_schema": {
-        "name": "gnosi_operation", "strict": True, "schema": ACTION_SCHEMA,
-    }}
+    assert payload["response_format"] == {"type": "json_object"}
     assert payload["provider"] == {"order": ["fixture"], "allow_fallbacks": False,
                                    "ignore": ["excluded"], "require_parameters": True}
     assert payload["reasoning"] == {"effort": "low"}
@@ -249,14 +247,12 @@ def test_schema_reaches_provider_and_preserves_tools_routing_and_reasoning():
     assert "response_format" not in with_tools.kwargs
 
 
-def test_responses_transport_receives_schema_in_its_native_format():
+def test_responses_transport_receives_json_mode_for_optional_action_fields():
     model = ChatOpenAI(model="fixture", api_key="fixture", use_responses_api=True,
                        use_previous_response_id=False, store=False)
     constrained = constrain_output(model, "openrouter", ACTION_SCHEMA)
     payload = model._get_request_payload([HumanMessage(content="Return JSON")], **constrained.kwargs)
-    assert payload["text"]["format"] == {
-        "type": "json_schema", "name": "gnosi_operation", "strict": True, "schema": ACTION_SCHEMA,
-    }
+    assert payload["text"]["format"] == {"type": "json_object"}
     assert payload["extra_body"]["provider"]["require_parameters"] is True
     assert payload["store"] is False
 
@@ -364,7 +360,7 @@ def test_operation_graph_binds_schema_after_optional_tools(monkeypatch):
             assert json.loads(result["messages"][-1].content)["action"] == "index"
     assert requests[0]["tools"][0]["function"]["strict"] is True
     assert "tools" not in requests[1]
-    assert all(r["response_format"]["json_schema"]["schema"] == ACTION_SCHEMA for r in requests)
+    assert all(r["response_format"] == {"type": "json_object"} for r in requests)
 
 
 def test_fallback_tool_transport_keeps_its_protocol_and_validates_final_answer():
@@ -391,7 +387,7 @@ def test_fallback_tool_transport_keeps_its_protocol_and_validates_final_answer()
     assert requests[0]["response_format"] == {"type": "json_object"}
     assert requests[0]["provider"]["require_parameters"] is True
     unwrapped = constrain_output(JsonToolModel(model), "openrouter", ACTION_SCHEMA)
-    assert unwrapped.model.kwargs["response_format"]["type"] == "json_schema"
+    assert unwrapped.model.kwargs["response_format"] == {"type": "json_object"}
 
 
 def test_capped_podcast_action_preserves_fallback_transport_and_provider_settings(monkeypatch):

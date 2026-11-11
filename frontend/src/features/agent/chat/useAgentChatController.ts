@@ -27,6 +27,7 @@ import { useChatRewind } from './useChatRewind';
 import { logChatError } from './chatDiagnostics';
 import { submitChatTurn } from './submitChatTurn';
 import { useChatPanelState } from './useChatPanelState';
+import { useChatScroll } from './useChatScroll';
 
 export function useAgentChatController({
   storageIdentity = '', contextRefs = [], embedded = false, forcedSessionId = '',
@@ -61,9 +62,6 @@ export function useAgentChatController({
     const [isDockOpen, setIsDockOpen] = useFloatingActionDock();
     useExclusiveFloatingPanel('chat', !embedded && isOpen, setIsOpen);
 
-    // Ref to scroll to the bottom
-    const messagesEndRef = useRef<HTMLDivElement | null>(null);
-    const messagesContainerRef = useRef<HTMLDivElement | null>(null);
     const inputRef = useRef<HTMLTextAreaElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const requestAbortRef = useRef<AbortController | null>(null);
@@ -84,6 +82,11 @@ export function useAgentChatController({
         workspaceId: workspaceStorageScope,
         userId: userStorageScope,
     });
+    const { messagesContainerRef, handleMessagesScroll } = useChatScroll(
+        `${browserStorageScope}:${sessionId}`,
+        messages,
+        (embedded || (isOpen && !isMinimized)) && !showSessionsView && !showLearning,
+    );
     const scopedStorageKey = useCallback(
         (key: string) => scopedChatStorageKey(key, browserStorageScope),
         [browserStorageScope],
@@ -190,14 +193,6 @@ export function useAgentChatController({
         messagesContainerRef.current?.scrollBy({ top: scrollDelta, behavior: 'smooth' });
     };
 
-
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
-
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages, isOpen, isMinimized]);
 
     const {
         confirmationTitle, confirmationSummary, confirmPendingAction, cancelPendingAction,
@@ -385,7 +380,7 @@ export function useAgentChatController({
         confirmationTitle, confirmationSummary, setPendingConfirmation, setPendingRewindIndex,
         setDetailsMessageIndex, focusComposerWith, copyMessage, quoteMessage, markMessage,
         submitMessageFeedback, refreshMessageJob, previousUserPrompt, retryMessage,
-        processingPhase, processingElapsedSeconds, cancelResponse, messagesEndRef,
+        processingPhase, processingElapsedSeconds, cancelResponse, handleMessagesScroll,
         isUploadingAttachment, showMentionMenu, inputValue, inputRef, fileInputRef, attachments,
         mentionResults, setInputValue, handleSubmit, handlePickAttachment,
         handleAttachmentInputChange, removeAttachment, applyMention, createNewSession,

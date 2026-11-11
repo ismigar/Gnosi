@@ -279,6 +279,14 @@ def ensure_citation_index(
             metadata = entry.get("metadata") or {}
             if not isinstance(metadata, dict):
                 metadata = {}
+            table_value = metadata.get("table_id") or metadata.get("database_table_id")
+            if str(table_value or "").strip() and not _matches_reference_table(
+                table_value, canonical_reference, dependencies
+            ):
+                # A known unrelated table cannot contribute a citation. Apply
+                # the same cached scope used for existing keys before opening
+                # a keyless page, which may be an unavailable cloud document.
+                continue
             metadata_entry = _metadata_citation_entry(
                 entry,
                 metadata,

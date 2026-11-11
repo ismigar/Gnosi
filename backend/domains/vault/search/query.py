@@ -38,12 +38,13 @@ class Term:
     literal: str | None = None
 
 
+_COMBINING_MARKS = {codepoint: None for codepoint in range(0x110000) if unicodedata.combining(chr(codepoint))}
+
+
 def normalize_text(value: str) -> str:
-    return "".join(
-        char
-        for char in unicodedata.normalize("NFD", value.casefold())
-        if not unicodedata.combining(char)
-    )
+    # Preserve combining-class-zero marks (e.g. variation selectors), matching
+    # the previous accent-insensitive contract without a Python loop per byte.
+    return unicodedata.normalize("NFD", value.casefold()).translate(_COMBINING_MARKS)
 
 
 @dataclass(frozen=True)

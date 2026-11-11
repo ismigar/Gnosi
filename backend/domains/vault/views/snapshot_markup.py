@@ -6,6 +6,7 @@ import json
 import re
 from collections.abc import Sequence
 from typing import Match, overload
+from urllib.parse import quote
 
 SNAPSHOT_OPEN_PREFIX = "<!-- gnosi-view:result"
 SNAPSHOT_BLOCK_RE = re.compile(
@@ -148,10 +149,11 @@ def flatten_view_columns(body: object) -> object:
 
 def build_list_block(view_id: str, items: Sequence[str], truncated: int = 0) -> str:
     open_tag = (
-        f"<!-- gnosi-view:result view_id={view_id} -->" if view_id else "<!-- gnosi-view:result -->"
+        f"<!-- gnosi-view:result view_id={quote(view_id, safe='-_.:')} -->" if view_id else "<!-- gnosi-view:result -->"
     )
     lines = [open_tag]
-    lines.extend(f"- {item}" for item in items)
+    # A cached cell is data, never a second result-region boundary.
+    lines.extend(f"- {item.replace('<!--', '&lt;!--')}" for item in items)
     if truncated > 0:
         lines.append(f"<!-- gnosi-view:result-truncated {truncated} -->")
     lines.append("<!-- /gnosi-view:result -->")
@@ -161,7 +163,7 @@ def build_list_block(view_id: str, items: Sequence[str], truncated: int = 0) -> 
 def markdown_cell(value: object) -> str:
     rendered = "" if value is None else str(value)
     return (
-        rendered.replace("\\", "\\\\")
+        rendered.replace("<!--", "&lt;!--").replace("\\", "\\\\")
         .replace("|", "\\|")
         .replace("\r", " ")
         .replace("\n", " ")
@@ -176,7 +178,7 @@ def build_table_block(
     truncated: int = 0,
 ) -> str:
     open_tag = (
-        f"<!-- gnosi-view:result view_id={view_id} -->" if view_id else "<!-- gnosi-view:result -->"
+        f"<!-- gnosi-view:result view_id={quote(view_id, safe='-_.:')} -->" if view_id else "<!-- gnosi-view:result -->"
     )
     lines = [open_tag]
     lines.append("| " + " | ".join(markdown_cell(header) for header in headers) + " |")

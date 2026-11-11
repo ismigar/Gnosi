@@ -39,7 +39,7 @@ export function PageBody({ context }: { context: PageEditorController }) {
           saveStatus={saveStatus}
           setSaveStatus={setSaveStatus}
           metadataRef={metadataRef}
-          isEditable={isEditable && !context.composerLocked}
+          isEditable={isEditable && !context.composerLocked && !context.isEditLocked}
           onOpenPageViewModal={context.openPageViewModalFromContext}
           applyViewSectionRef={applyViewSectionRef}
           registerEditorApi={registerEditorApi}

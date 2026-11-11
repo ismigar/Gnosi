@@ -142,3 +142,23 @@ def test_page_discovery_still_reports_registry_failure(website):
     (website.vault / "BD/vault_db_registry.json").write_text("invalid registry")
     with pytest.raises(HTTPException, match="409.*registry is unavailable"):
         records.destinations(website.store, page_id="one")
+
+
+def test_menu_discovery_uses_scoped_inventory_without_exporting_every_body(website, monkeypatch, isolated_validation_runtime):
+    from backend.api import vault_routes  # noqa: F401
+    from backend.domains.vault.links import runtime as links
+    from backend.services.context_vars import active_vault_path
+    notes = records.exporter.notes(website.store)
+    seen = []
+    def inventory():
+        seen.append(active_vault_path.get())
+        return [(note.path, note.metadata, note.body, False) for note in notes]
+    monkeypatch.setattr(links, "_iter_linkable_page_documents", inventory)
+    monkeypatch.setattr(records.exporter, "notes", lambda *_: pytest.fail("menu must not export/hash full vault bodies"))
+    prior = active_vault_path.get()
+    by_page = records.destinations(website.store, page_id="one")
+    by_table = records.destinations(website.store, table_id="articles")
+    assert [item.site_id for item in by_page] == [website.site.id]
+    assert by_page == by_table
+    assert seen == [website.vault, website.vault]
+    assert active_vault_path.get() == prior

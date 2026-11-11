@@ -10,6 +10,7 @@ import {
     Lock,
     MessageSquare,
     Share2,
+    Sparkles,
     Star,
     Trash2,
     Unlock,
@@ -19,6 +20,8 @@ import {
 
 export interface PageActionsConfig {
     readonly recordActions?: readonly PageActionItem[];
+    readonly canEditWithAI?: boolean;
+    readonly onEditWithAI?: () => void;
     readonly canComposeNote?: boolean;
     readonly onComposeNote?: () => void;
     readonly canToggleFreeWidth?: boolean;
@@ -101,6 +104,10 @@ export function buildPageActionItems(
 ): PageActionItem[] {
     if (!pageActions) return [];
     const items: Array<PageActionItem | false | undefined> = [
+        pageActions.canEditWithAI && {
+            Icon: Sparkles, overflowOnly: true, key: 'edit-with-ai',
+            label: t('editor.ai_edit_page', 'Edit with AI…'), onClick: pageActions.onEditWithAI,
+        },
         pageActions.canComposeNote && {
             Icon: Files,
             overflowOnly: true,
@@ -176,7 +183,7 @@ export function buildPageActionItems(
         pageActions.canOpenShare && {
             Icon: Share2,
             key: 'share',
-            label: t('shell.share_page', 'Share'),
+            label: t('shell.share_page', 'Share by link…'),
             onClick: pageActions.onOpenShare,
         },
         pageActions.canTranslatePage && {

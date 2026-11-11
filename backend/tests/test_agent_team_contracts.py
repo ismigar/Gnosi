@@ -23,16 +23,30 @@ def test_native_planning_format_does_not_duplicate_the_schema_in_the_message():
     from backend.services.agent_behavior import operation_input
     from backend.services.agent_execution_models import AgentOperation
     request = AgentOperation(skill_id="core.gnosi-coordination", operation="team.plan", input="original evidence",
-                             output_schema=TeamPlan.model_json_schema())
+                             output_schema=BOOLEAN)
     native = json.loads(operation_input(request, provider="openrouter"))
     assert native["input"] == "original evidence" and "output_schema" not in native
     assert json.loads(operation_input(request))["output_schema"] == request.output_schema
     assert json.loads(operation_input(request, provider="local"))["output_schema"] == request.output_schema
-    assert request.output_schema == TeamPlan.model_json_schema()
+    assert request.output_schema == BOOLEAN
     request.input = '{"request":"current task","recent_conversation":[{"role":"human","text":"previous task"}]}'
     native = json.loads(operation_input(request, provider="openrouter"))
     assert native["request"] == "current task" and native["phase"] == "team.plan"
     assert native["recent_conversation"][0]["text"] == "previous task" and "input" not in native
+
+
+def test_optional_planning_schema_keeps_complete_contract_in_fallback_message():
+    from backend.services.agent_behavior import operation_input
+    from backend.services.agent_execution_models import AgentOperation
+    schema = TeamPlan.model_json_schema()
+    instruction = '{"request":"current task","recent_conversation":[{"role":"human","text":"previous task"}]}'
+    request = AgentOperation(skill_id="core.gnosi-coordination", operation="team.plan", input=instruction,
+                             output_schema=schema)
+    fallback = json.loads(operation_input(request, provider="openrouter"))
+    assert fallback["output_schema"] == schema
+    assert fallback["input"] == instruction
+    assert fallback["operation"] == "team.plan"
+    assert request.output_schema == schema
 
 
 def test_explicit_format_keys_anchor_the_current_request_without_executing_quoted_text():

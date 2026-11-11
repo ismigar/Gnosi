@@ -10505,6 +10505,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/sites/{site_id}/table-binding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bind Table */
+        post: operations["bind_table_api_vault_sites__site_id__table_binding_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/sites/{site_id}/targets/{target_id}/connection": {
         parameters: {
             query?: never;
@@ -27054,6 +27071,25 @@ export interface components {
             ram_percent: number;
             /** Status */
             status: string;
+        };
+        /** TableBindingRequest */
+        TableBindingRequest: {
+            /** Attachment Field Ids */
+            attachment_field_ids?: string[];
+            /** Enabled */
+            enabled: boolean;
+            /** Field Ids */
+            field_ids?: string[];
+            /** Include Body */
+            include_body: boolean;
+            /** Revision */
+            revision: number;
+            /** Section */
+            section: string;
+            /** Source Id */
+            source_id?: string | null;
+            /** Table Id */
+            table_id: string;
         };
         /** TableOptionRemoveRequest */
         TableOptionRemoveRequest: {
@@ -52613,6 +52649,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteStatistics"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bind_table_api_vault_sites__site_id__table_binding_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TableBindingRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteConfig"];
                 };
             };
             /** @description Validation Error */

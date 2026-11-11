@@ -171,26 +171,15 @@ describe('ShareModal', () => {
 });
 
 
-describe('contextual website action', () => {
-    it('loads ordinary sharing without discovering website destinations when Webs is disabled', async () => {
-        vi.mocked(recordWebsiteDestinations).mockResolvedValue([]);
+describe('link sharing is separate from publishing', () => {
+    it('offers links without loading websites or offering publishing controls', async () => {
+        plugin.enabled = true;
         vi.mocked(fetchShareLinks).mockResolvedValue({ shares: [] });
         render(<ShareModal open onClose={() => undefined} pageId="article-a" />);
         await flushRequests();
         expect(fetchShareLinks).toHaveBeenCalledWith('article-a', expect.any(AbortSignal));
         expect(recordWebsiteDestinations).not.toHaveBeenCalled();
-        expect(document.body.textContent).toContain('recordWebsite.legacyStaging');
-        expect(document.body.textContent).toContain('recordWebsite.independentSite');
-    });
-
-    it('passes the current article identity into website publication', async () => {
-        plugin.enabled = true;
-        vi.mocked(recordWebsiteDestinations).mockResolvedValue([{ site_id: 'bound', site_name: 'Bound website', target_id: 'local', target_name: 'Local', environment: 'local', url: '' }]);
-        vi.mocked(fetchShareLinks).mockResolvedValue({ shares: [] });
-        render(<ShareModal open onClose={() => undefined} pageId="article-a" pageTitle="Article A" />);
-        await flushRequests();
-        const action = [...document.querySelectorAll('button')].find(button => button.textContent === 'recordWebsite.thisRecord');
-        await act(async () => { action?.click(); await Promise.resolve(); });
-        expect(document.querySelector('[data-testid="record-website-dialog"]')?.textContent).toBe('article-a');
+        expect(document.body.textContent).not.toContain('recordWebsite.');
+        expect(document.body.textContent).toContain('Share by link…');
     });
 });

@@ -898,3 +898,7 @@ for the requested result page only. Total counts and deterministic ordering
 remain independent of pagination.
 
 The global search dialog uses `ModalPortal` at the document body and the shared `--z-command` layer. Embedded table headers and their controls remain beneath its dimmed backdrop, including when the calling page creates its own stacking context. Escape and result navigation retain the existing modal behavior.
+
+Search resolves table folders, title aliases and schema maps once per request. Accent folding preserves the Unicode combining-class contract using a shared translation map. **Edit with AI…** opens a whole-page editing request with a suggested bold-emphasis instruction. The complete output is previewed before **Apply edit** replaces the original document. A changed, switched or locked document rejects the stale preview; generation alone never saves the article.
+
+Generated view snapshot serializers escape HTML comment openers in list items, table headers and cells, and encode unsafe view identifiers in comment attributes. Cached row values therefore cannot create structural result boundaries. Website publication separately rejects ambiguous legacy result layouts and retains the original native page bytes and digest while projecting authored text.

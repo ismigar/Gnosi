@@ -14,6 +14,15 @@ const result: ComposerResult = {
 afterEach(() => { clearPageEtag('fixture'); });
 
 describe('composed page content and external updates', () => {
+  it('keeps composition and existing page actions available when adding AI editing', async () => {
+    await mount({ isCodeView: true, pageActions: { canOpenHistory: true } });
+    expect(state().pageActions.canComposeNote).toBe(true);
+    expect(state().pageActions.canOpenHistory).toBe(true);
+    expect(state().pageActions.canEditWithAI).toBe(false);
+    act(() => { state().pageActions.onComposeNote(); });
+    expect(state().composerOpen).toBe(true);
+  });
+
   it('shows a saved edit immediately and then accepts a later parent revision', async () => {
     const onUpdate = vi.fn();
     const props = { view: true, initialContent: 'Original', onUpdate };

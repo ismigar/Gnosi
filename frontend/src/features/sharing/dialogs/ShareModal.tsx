@@ -1,4 +1,3 @@
-import { RecordWebsitePublicationDialog, useRecordWebsiteDestinations } from '../../websites';
 import { ModalPortal } from '../../../shared/ui/ModalPortal';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Check, Copy, Link2, Loader2, Share2, Trash2, X } from 'lucide-react';
@@ -13,7 +12,6 @@ import {
     type ShareLink,
 } from '../../../shared/api/sharing';
 import { writeClipboardText } from '../../../shared/platform/clipboard';
-import { usePlugins } from '../../../shared/plugins/usePlugins';
 import { ConfirmModal } from '../../../shared/ui/dialogs/ConfirmModal';
 import {
     SHARE_PERMISSIONS,
@@ -35,24 +33,17 @@ export function ShareModal(props: ShareModalProps) {
     return <ShareSession {...props} key={props.pageId || ''} />;
 }
 
-const WebPublishingManager = lazy(() => import('../publishing/WebPublishingManager'));
 const PublishingManager = lazy(() => import('../publishing/PublishingManager'));
 
 function ShareSession(props: ShareModalProps) {
-    const [publishing, setPublishing] = useState(false);
-    const [webPublishing, setWebPublishing] = useState(false);
-    const [recordPublishing, setRecordPublishing] = useState(false);
-    if (recordPublishing && props.pageId) return <RecordWebsitePublicationDialog pageId={props.pageId} title={props.pageTitle ?? undefined} onClose={() => { setRecordPublishing(false); }} />;
-    if (webPublishing) return <Suspense fallback={null}><WebPublishingManager onClose={props.onClose} onBack={() => { setWebPublishing(false); }} /></Suspense>;
-    return publishing
-        ? <Suspense fallback={null}><PublishingManager onClose={props.onClose} onBack={() => { setPublishing(false); }} /></Suspense>
-        : <ShareModalContent {...props} onOpenRecordPublishing={() => { setRecordPublishing(true); }} onOpenPublishing={() => { setPublishing(true); }} onOpenWebPublishing={() => { setWebPublishing(true); }} />;
+    const [selectedNotes, setSelectedNotes] = useState(false);
+    return selectedNotes
+        ? <Suspense fallback={null}><PublishingManager onClose={props.onClose} onBack={() => { setSelectedNotes(false); }} /></Suspense>
+        : <ShareModalContent {...props} onOpenSelectedNotes={() => { setSelectedNotes(true); }} />;
 }
 
-function ShareModalContent({ onClose, pageId, pageTitle, onOpenPublishing, onOpenWebPublishing, onOpenRecordPublishing }: ShareModalProps & { readonly onOpenRecordPublishing: () => void; readonly onOpenPublishing: () => void; readonly onOpenWebPublishing: () => void }) {
+function ShareModalContent({ onClose, pageId, pageTitle, onOpenSelectedNotes }: ShareModalProps & { readonly onOpenSelectedNotes: () => void }) {
     const { i18n, t } = useTranslation();
-    const { isEnabled } = usePlugins();
-    const { websiteDestinations } = useRecordWebsiteDestinations({ page_id: pageId ?? undefined }, isEnabled('web-publishing'));
     const modalRef = useRef<HTMLDivElement | null>(null);
     const copiedTimerRef = useRef<number | null>(null);
     const [shares, setShares] = useState<readonly ShareLink[]>([]);
@@ -155,7 +146,7 @@ function ShareModalContent({ onClose, pageId, pageTitle, onOpenPublishing, onOpe
                 <div className="flex min-w-0 items-center gap-2">
                     <Share2 className="shrink-0 text-[var(--gnosi-blue)]" size={18} />
                     <div className="min-w-0">
-                        <h3 className="truncate text-base font-bold text-[var(--text-primary)]">{t('share.title', 'Share')}</h3>
+                        <h3 className="truncate text-base font-bold text-[var(--text-primary)]">{t('share.title', 'Share by link…')}</h3>
                         {pageTitle ? <p className="truncate text-xs text-[var(--text-tertiary)]">{pageTitle}</p> : null}
                     </div>
                 </div>
@@ -163,9 +154,7 @@ function ShareModalContent({ onClose, pageId, pageTitle, onOpenPublishing, onOpe
             </div>
 
             <div className="space-y-3 border-b border-[var(--border-primary)] px-5 py-4">
-                {pageId && websiteDestinations.length > 0 && <button type="button" className="btn btn-gnosi-primary w-full" onClick={onOpenRecordPublishing}>{t('recordWebsite.thisRecord')}</button>}
-                <button type="button" className="w-full rounded-lg border border-[var(--border-primary)] px-3 py-2 text-left text-sm text-[var(--gnosi-blue)] hover:bg-[var(--bg-secondary)]" onClick={onOpenWebPublishing}>{t('recordWebsite.legacyStaging')}</button>
-                <button type="button" className="w-full rounded-lg border border-[var(--border-primary)] px-3 py-2 text-left text-sm text-[var(--gnosi-blue)] hover:bg-[var(--bg-secondary)]" onClick={onOpenPublishing}>{t('recordWebsite.independentSite')}</button>
+                <button type="button" className="w-full rounded-lg border border-[var(--border-primary)] px-3 py-2 text-left text-sm text-[var(--gnosi-blue)] hover:bg-[var(--bg-secondary)]" onClick={onOpenSelectedNotes}>{t('share.selected_notes', 'Share selected notes by link…')}</button>
                 <div className="flex flex-wrap items-end gap-2">
                     <div className="min-w-[120px] flex-1">
                         <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{t('share.permission', 'Permission')}</label>
