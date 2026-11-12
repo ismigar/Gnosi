@@ -357,17 +357,17 @@ class AssetExporter:
         return local
 
     def _snapshot(self, local: Path) -> tuple[str, str, Path]:
-        raw = bounded_read(local, self.store.vault, 32_000_000)
-        digest = hashlib.sha256(raw).hexdigest()
         suffix = local.suffix.lower()
-        if suffix not in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".pdf", ".mp3", ".mp4", ".ogg", ".woff", ".woff2", ".ttf", ".otf", ".ico", ".stl", ".obj", ".3mf", ".step", ".stp", ".dxf", ".txt", ".csv", ".zip", ".docx", ".xlsx", ".pptx"}:
+        if suffix not in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".pdf", ".mp3", ".mp4", ".ogg", ".woff", ".woff2", ".ttf", ".otf", ".ico", ".stl", ".obj", ".3mf", ".step", ".stp", ".dxf", ".txt", ".csv", ".zip", ".docx", ".xlsx", ".pptx", ".odp"}:
             raise HTTPException(422, "Unsupported public attachment type")
+        from .asset_files import AssetFileError, AssetTooLarge, snapshot_asset
         directory = self.store.site_dir(self.site_id) / "asset-snapshots"
-        directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-        snapshot = directory / (digest + suffix)
-        if not snapshot.exists():
-            snapshot.write_bytes(raw)
-            snapshot.chmod(0o600)
+        try:
+            digest, snapshot = snapshot_asset(local, self.store.vault, directory)
+        except AssetTooLarge as exc:
+            raise HTTPException(422, str(exc)) from None
+        except (AssetFileError, OSError):
+            raise HTTPException(409, "A selected attachment is unavailable or changed while being read") from None
         return "/assets/" + digest[:24] + suffix, digest, snapshot
 
     def __call__(self, value: str, note: Note | None = None) -> str:

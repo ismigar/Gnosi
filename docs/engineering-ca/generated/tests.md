@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 38 | 126 |
 | Vitest | 776 | 3537 |
-| pytest | 800 | 6194 |
+| pytest | 800 | 6202 |
 
 ## Fitxers
 
@@ -1410,7 +1410,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_sites_generic_rendering.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_generic_rendering.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_sites_imported_pilot.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_imported_pilot.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_sites_layout_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_layout_config.py) | 10 | Python AST |
-| pytest | [`backend/tests/test_sites_native_assets.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_native_assets.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_sites_native_assets.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_native_assets.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_sites_native_presentation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_native_presentation.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_sites_newsletter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_newsletter.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_sites_page_editor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_page_editor.py) | 11 | Python AST |
