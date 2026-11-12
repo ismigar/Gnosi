@@ -286,3 +286,32 @@ def test_html_looking_wrapper_cannot_make_cached_result_boundary_opaque():
     with pytest.raises(HTTPException) as error:
         public_markdown(body)
     assert error.value.status_code == 422
+@pytest.mark.parametrize('embed', [
+    '<!-- gnosi-view:def {"view_id":"notes-view"} -->',
+    '```gnosi-view\n{"view_id":"notes-view"}\n```',
+    '    ```gnosi-view\n    {"view_id":"notes-view"}\n    ```',
+])
+def test_empty_work_view_section_heading_is_omitted_without_touching_authored_sections(embed):
+    body = '# Notes\n\n' + embed + '\n\n# Conclusions\nActual public prose.\n'
+    result = public_markdown(body)
+    assert '# Notes' not in result
+    assert '# Conclusions' in result and 'Actual public prose.' in result
+    assert '# Different caption' not in public_markdown('# Different caption\n\n' + embed)
+    for authored in [
+        '# Notes\n\nAn authored introduction.\n\n' + embed,
+        '# Notes\n\n' + embed + '\n\nActual authored notes.',
+        '# Notes\n\n' + embed + '\n\n## Authored subheading\nSome notes.',
+        '# Notes\n\n' + embed + '\n\n```text\nAuthored code\n```',
+    ]:
+        assert '# Notes' in public_markdown(authored)
+
+
+def test_private_cached_headings_do_not_end_an_authored_public_section():
+    private_view = ('<!-- gnosi-view:def {"view_id":"notes-view"} -->\n'
+                    '<!-- gnosi-view:result -->\n# PRIVATE CACHED HEADING\n'
+                    '<!-- /gnosi-view:result -->\n')
+    authored = '# Notes\n\n' + private_view + '\nActual authored notes.\n'
+    result = public_markdown(authored)
+    assert '# Notes' in result and 'Actual authored notes.' in result
+    assert 'PRIVATE CACHED HEADING' not in result
+    assert '# Notes' not in public_markdown('# Notes\n\n' + private_view)

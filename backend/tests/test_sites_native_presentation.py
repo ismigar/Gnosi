@@ -220,3 +220,42 @@ def test_native_design_detail_uses_selected_image_once_and_clears_on_deselection
     record = exporter.build_bundle(w.store, w.bound, 'local').records[0]
     assert 'image' not in record.presentation
     assert '<img' not in record.body_html
+def test_resource_detail_has_citation_tags_and_download_without_work_view_title(native_site, tmp_path):
+    from backend.domains.sites.renderer import render_bundle
+
+    w = native_site
+    registry = w.vault / 'BD/vault_db_registry.json'
+    data = json.loads(registry.read_text())
+    data['tables'][0]['name'] = 'Recursos'
+    data['tables'][0]['properties'] += [
+        {'id': 'citation', 'name': 'Full Citation', 'type': 'text'},
+        {'id': 'paper', 'name': 'Arxiu/s', 'type': 'files'},
+    ]
+    data['tables'].append({'id': 'notes', 'name': 'Working collection', 'properties': []})
+    data.setdefault('views', []).append({'id': 'work-notes', 'table_id': 'notes', 'name': 'Notes per recurs', 'displayTitle': 'Grouped view'})
+    registry.write_text(json.dumps(data))
+    (w.vault / 'Assets/paper.pdf').write_bytes(b'%PDF-1.7\nselected document')
+    w.metadata.update({'Full Citation': 'Author (2027). Bibliographic citation.', 'Arxiu/s': ['Assets/paper.pdf']})
+    w.write('# Notes\n\n<!-- gnosi-view:def {"view_id":"work-notes"} -->\n')
+    w.bound.sources[0].id = 'imported-research'
+    w.bound.sources[0].field_ids.append('citation')
+    w.bound.sources[0].attachment_field_ids.append('paper')
+    bundle = exporter.build_bundle(w.store, w.bound, 'local')
+    record = bundle.records[0]
+    assert record.presentation['year'] == '2027'  # Still available for resource listings.
+    assert record.presentation['citation'] == 'Author (2027). Bibliographic citation.'
+    assert 'Notes' not in record.body_html
+    output = tmp_path / 'rendered'
+    render_bundle(bundle.model_dump(mode='json'), output)
+    soup = BeautifulSoup((output / 'ca/native-stable/index.html').read_text(), 'html.parser')
+    assert soup.select_one('.record-fields') is None
+    assert soup.select_one('.resource-citation').get_text() == 'Author (2027). Bibliographic citation.'
+    button = soup.select_one('.resource-attachments a[download]')
+    assert button and button['title'] == 'Descarrega'
+    assert button.get_text(strip=True) == 'PDF' and button['href'].endswith('.pdf')
+    assert 'NATIVE TAG' in soup.select_one('.entry-tags .tag-list').get_text()
+    assert not soup.select_one('h1 + .record-body h1')
+    w.bound.sources[0].field_ids.remove('citation')
+    w.bound.sources[0].attachment_field_ids.remove('paper')
+    cleared = exporter.build_bundle(w.store, w.bound, 'local').records[0]
+    assert 'citation' not in cleared.presentation and 'attachments' not in cleared.presentation

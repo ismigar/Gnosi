@@ -1,0 +1,23 @@
+---
+import {href,labels} from '../lib/site.mjs';
+const {page,lang}=Astro.props;
+const text=labels(lang);
+const citation=page.presentation?.citation;
+const files=(page.presentation?.attachments || []).filter(value=>typeof value==='string');
+const fileType=value=>{
+  try{return new URL(value,'https://local.invalid').pathname.match(/\.([a-z0-9]{1,8})$/i)?.[1]?.toUpperCase() || text.file;}
+  catch{return text.file;}
+};
+---
+{citation && <div class="reading resource-citation">{citation}</div>}
+{files.length>0 && <nav class="actions resource-attachments" aria-label={text.files}>
+  {files.map(file=><a class="action-link button button-outline" href={href(file)} download title={text.download} aria-label={`${text.download} ${fileType(file)}`}>
+    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M12 11v7m-3-3 3 3 3-3"/></svg>
+    <span>{fileType(file)}</span>
+  </a>)}
+</nav>}
+
+<style>
+.resource-attachments{margin-block:1.5rem}
+.resource-attachments .button{gap:.5rem}
+</style>
