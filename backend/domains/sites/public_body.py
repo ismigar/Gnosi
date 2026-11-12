@@ -1,6 +1,8 @@
 """Publish authored Markdown while omitting native embedded work views/cache."""
 from __future__ import annotations
 
+import unicodedata
+
 import json
 import re
 from html.parser import HTMLParser
@@ -229,3 +231,42 @@ def public_markdown(body: str) -> str:
     if _RESERVED.search(visible) or _FENCE_MARKER.search(visible) or _COLUMN_MARKER.search(visible) or _HTML_MARKER.search(visible):
         _invalid()
     return _apply(body, edits)
+def without_private_property_lists(body: str, private_names: set[str]) -> str:
+    """Omit metadata lists headed by an unselected schema property.
+
+    Historical imported pages can duplicate property values in their Markdown.
+    Only standalone plain-label lists are property blocks; authored paragraphs,
+    code, links, subheadings and unrelated lists remain public body content.
+    """
+    def normalized(text: str) -> str:
+        return unicodedata.normalize('NFKC', text).strip().casefold()
+
+    names = {normalized(name) for name in private_names}
+    if not names:
+        return body
+    tokens = MarkdownIt('commonmark', {'html': False}).parse(body)
+    lines = body.splitlines(keepends=True)
+    remove: set[int] = set()
+    for index, token in enumerate(tokens):
+        if token.type != 'heading_open' or token.map is None or index + 2 >= len(tokens):
+            continue
+        title = tokens[index + 1]
+        if normalized(title.content) not in names or any(child.type != 'text' for child in title.children or []):
+            continue
+        end = next((position for position in range(index + 3, len(tokens)) if tokens[position].type == 'heading_open' and int(tokens[position].tag[1:]) <= int(token.tag[1:])), len(tokens))
+        section = tokens[index + 3:end]
+        allowed = {'bullet_list_open', 'bullet_list_close', 'list_item_open', 'list_item_close', 'paragraph_open', 'paragraph_close', 'inline'}
+        if not section or section[0].type != 'bullet_list_open' or section[-1].type != 'bullet_list_close':
+            continue
+        if any(item.type not in allowed or (item.type == 'inline' and any(child.type != 'text' for child in item.children or [])) for item in section):
+            continue
+        # Exactly one top-level list: no prose or second structural section.
+        if sum(item.type == 'bullet_list_open' for item in section) != 1:
+            continue
+        last = section[-1].map
+        if last is None:
+            # Closing tokens have no source map; the opening list owns its span.
+            last = section[0].map
+        if last is not None:
+            remove.update(range(token.map[0], last[1]))
+    return ''.join(line for index, line in enumerate(lines) if index not in remove)

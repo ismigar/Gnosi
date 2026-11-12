@@ -17,7 +17,7 @@ vi.mock('react-i18next', () => { const t = (key: string) => key; return { useTra
 
 const context = { userId: 'owner', workspaceId: 'workspace', vaultId: 'vault', userEmail: 'owner@example.invalid' };
 const base: api.SiteConfig = { id: 'test-site', name: 'Synthetic website', revision: 1, languages: ['ca', 'es', 'en-gb'], default_language: 'ca', origin: 'https://example.invalid', schema_version: 1, legacy_pilot: false, sources: [], pages: [], forms: [{ id: 'contact', name: 'Contact', enabled: false, revision: 1, privacy_url: '', require_privacy: false, title: { ca: 'Contacta', es: 'Contacto' }, fields: [{ id: 'email', type: 'email', required: true, label: { ca: 'Correu', es: 'Correo' }, help: {}, placeholder: {}, max_length: 2000, options: [] }] }], theme: { name: 'Synthetic', tokens: {}, advanced_css: '', schema_version: 1, logo: '', logo_alt: '', favicon: '' }, navigation: [], footer: [], social_links: [], redirects: {}, targets: [{ id: 'local', name: 'Local', enabled: true, environment: 'local', adapter: 'local', base_url: 'http://127.0.0.1:4321' }] };
-const catalogue: api.CatalogueItem[] = [{ id: 'articles', kind: 'table', title: 'Articles', fields: [{ id: 'summary', name: 'Public summary', type: 'text' }, { id: 'notes', name: 'Private note', type: 'text' }] }];
+const catalogue: api.CatalogueItem[] = [{ id: 'articles', kind: 'table', publishable: true, title: 'Articles', fields: [{ id: 'summary', name: 'Public summary', type: 'text' }, { id: 'notes', name: 'Private note', type: 'text' }] }];
 const autosave = async () => { await act(async () => { vi.advanceTimersByTime(650); await Promise.resolve(); }); await settle(); };
 const settle = async () => { await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); }); };
 function button(container: HTMLElement, value: string) { const found = [...container.querySelectorAll('button')].find(element => element.textContent === value); if (!found) throw new Error(`Missing button ${value}`); return found; }
@@ -94,9 +94,9 @@ describe('Webs manager', () => {
     vi.mocked(api.listSites).mockResolvedValue([initial]);
     vi.mocked(api.getSite).mockResolvedValue({ site: initial, jobs: [], releases: [], service_available: true });
     vi.mocked(api.siteCatalogue).mockResolvedValue([
-      { id: 'imported:blog', kind: 'page', title: 'Imported Blog' },
-      { id: publicId, kind: 'record', title: 'Public translated article', source_ids: ['imported:blog'], languages: ['ca', 'es'] },
-      { id: 'native-private-note', kind: 'page', title: 'Private vault note' },
+      { id: 'imported:blog', kind: 'page', publishable: true, title: 'Imported Blog' },
+      { id: publicId, kind: 'record', publishable: true, title: 'Public translated article', source_ids: ['imported:blog'], languages: ['ca', 'es'] },
+      { id: 'native-private-note', kind: 'page', publishable: true, title: 'Private vault note' },
     ]);
     const view = mountTestComponent(<WebsitesPage />); await settle(); tab(view.container, 'sources'); await settle();
     const details = view.container.querySelector('.websites-record-selection');

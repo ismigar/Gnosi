@@ -60,7 +60,7 @@ function TableActions() {
         <ConfirmModal isOpen={dialog === 'confirm'} title="Confirmation contract" confirmText="Confirm fixture" onClose={close} onConfirm={() => { setConfirmed(value => value + 1); close(); }} />
         <PromptModal isOpen={dialog === 'prompt'} title="Prompt contract" label="Draft" confirmText="Save fixture" onClose={close} onSubmit={value => { setDraft(value); close(); }} />
         {dialog === 'nested' && <NestedDialog onClose={close} />}
-        {dialog === 'table-website' && <TableWebsiteSettings tableId="articles" tableName="Articles" fields={[{ id: 'title', name: 'Títol', type: 'title' }]} />}
+        {dialog === 'table-website' && <TableWebsiteSettings tableId="articles" />}
         <AIGenerateModal request={dialog === 'edit-article' ? { replacePage: true, mode: 'free', context: 'Text original', anchor: 'article' } : null} onClose={close} onInsert={value => { setDraft(value); }} t={(_key, options) => options.defaultValue} />
         <FeedManagerModal isOpen={dialog === 'feeds'} onClose={close} />
     </div>;

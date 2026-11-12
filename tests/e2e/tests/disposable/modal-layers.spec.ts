@@ -150,21 +150,27 @@ test('feed manager is visible and clickable before Settings has loaded', async (
 });
 
 
-test('table website setup uses its own source switch and saves no publication', async ({ page }, testInfo) => {
-  let saved: Record<string, unknown> | null = null;
-  await page.route('**/api/vault/sites/fixture-site/table-binding', async route => {
-    saved = route.request().postDataJSON();
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ id: 'fixture-site', name: 'Web de prova', revision: 2, sources: [{ id: 'bound', kind: 'table', source_id: 'articles', path_prefix: '/blog', enabled: true, include_body: false, field_ids: [], attachment_field_ids: [] }] }) });
+test('table website eligibility saves only its global capability without publishing', async ({ page }, testInfo) => {
+  const saved: unknown[] = [];
+  await page.route('**/api/vault/sites/tables/articles/publication', async route => {
+    const updating = route.request().method() === 'PUT';
+    if (updating) saved.push(route.request().postDataJSON());
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ table_id: 'articles', publishable: updating }) });
   });
   await page.getByRole('button', { name: 'table-website', exact: true }).click();
-  const section = page.getByRole('region', { name: 'Publicar al web', exact: true });
-  await section.getByRole('combobox', { name: 'Web', exact: true }).selectOption('fixture-site');
-  await section.getByRole('switch', { name: 'Publicar al web', exact: true }).click();
-  await section.getByRole('combobox', { name: 'Secció del web (ruta)', exact: true }).fill('/blog');
-  await section.getByRole('button', { name: 'Desa vinculació', exact: true }).click();
-  await expect(section.getByRole('status')).toContainText('Cap canvi publicat');
-  expect(saved).toMatchObject({ table_id: 'articles', section: '/blog', enabled: true, field_ids: [], attachment_field_ids: [] });
-  await page.screenshot({ path: testInfo.outputPath('table-website-binding.png') });
+  const section = page.getByRole('region', { name: 'Publicable al web', exact: true });
+  const capability = section.getByRole('switch', { name: 'Publicable al web', exact: true });
+  await expect(capability).toBeEnabled();
+  await expect(capability).not.toBeChecked();
+  await capability.scrollIntoViewIfNeeded();
+  await receivesClick(capability);
+  await capability.click();
+  await expect(capability).toBeChecked();
+  await expect(capability).toBeEnabled();
+  expect(saved).toEqual([{ publishable: true }]);
+  await expect(section.getByRole('combobox')).toHaveCount(0);
+  await expect(section).toContainText('Webs');
+  await page.screenshot({ path: testInfo.outputPath('table-website-eligibility.png') });
 });
 
 test('article editing previews bold changes before applying them', async ({ page }, testInfo) => {

@@ -220,7 +220,8 @@ def test_native_design_detail_uses_selected_image_once_and_clears_on_deselection
     record = exporter.build_bundle(w.store, w.bound, 'local').records[0]
     assert 'image' not in record.presentation
     assert '<img' not in record.body_html
-def test_resource_detail_has_citation_tags_and_download_without_work_view_title(native_site, tmp_path):
+@pytest.mark.parametrize('title,expected_name,count', [('Un recurs amb títol', 'Un recurs amb títol.pdf',1), ('New Age: /religió?*', 'New Age religió.pdf',1), ('A'*220,'A'*180+'.pdf',1), ('Recurs amb annexos','Recurs amb annexos-1.pdf',2)])
+def test_resource_detail_has_citation_tags_and_download_without_work_view_title(native_site, tmp_path, title, expected_name, count):
     from backend.domains.sites.renderer import render_bundle
 
     w = native_site
@@ -235,7 +236,8 @@ def test_resource_detail_has_citation_tags_and_download_without_work_view_title(
     data.setdefault('views', []).append({'id': 'work-notes', 'table_id': 'notes', 'name': 'Notes per recurs', 'displayTitle': 'Grouped view'})
     registry.write_text(json.dumps(data))
     (w.vault / 'Assets/paper.pdf').write_bytes(b'%PDF-1.7\nselected document')
-    w.metadata.update({'Full Citation': 'Author (2027). Bibliographic citation.', 'Arxiu/s': ['Assets/paper.pdf']})
+    (w.vault / 'Assets/second.pdf').write_bytes(b'%PDF-1.7\nsecond document')
+    w.metadata.update({'title': title, 'Full Citation': 'Author (2027). Bibliographic citation.', 'Arxiu/s': ['Assets/paper.pdf'] + (['Assets/second.pdf'] if count==2 else [])})
     w.write('# Notes\n\n<!-- gnosi-view:def {"view_id":"work-notes"} -->\n')
     w.bound.sources[0].id = 'imported-research'
     w.bound.sources[0].field_ids.append('citation')
@@ -252,6 +254,10 @@ def test_resource_detail_has_citation_tags_and_download_without_work_view_title(
     assert soup.select_one('.resource-citation').get_text() == 'Author (2027). Bibliographic citation.'
     button = soup.select_one('.resource-attachments a[download]')
     assert button and button['title'] == 'Descarrega'
+    assert button['download'] == expected_name
+    buttons=soup.select('.resource-attachments a[download]')
+    assert len(buttons)==count
+    if count==2:assert buttons[1]['download']=='Recurs amb annexos-2.pdf'
     assert button.get_text(strip=True) == 'PDF' and button['href'].endswith('.pdf')
     assert 'NATIVE TAG' in soup.select_one('.entry-tags .tag-list').get_text()
     assert not soup.select_one('h1 + .record-body h1')

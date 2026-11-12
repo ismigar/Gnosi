@@ -9660,7 +9660,8 @@
       "unknown": "Indisponible",
       "caveat": "Le mois en cours est partiel. Les clients sont des adresses identifiées par le serveur, pas des personnes uniques. Les données peuvent inclure des robots.",
       "openSource": "Ouvrir Webalizer"
-    }
+    },
+    "tableNotPublishable": "Activez « Publiable sur le web » dans les paramètres de la table pour activer cette source."
   },
   "recordWebsite": {
     "title": "Publication sur le site",
@@ -9681,8 +9682,8 @@
     "independentSite": "Site public distinct : notes sélectionnées"
   },
   "tableWebsite": {
-    "title": "Publier sur le web",
-    "hint": "Choisissez le site, la section et les champs publics. Enregistrez la liaison, puis publiez ou retirez chaque enregistrement depuis son menu. Ce changement ne publie ni ne retire de contenu.",
+    "title": "Publiable sur le web",
+    "hint": "Permet d’utiliser cette table comme source d’un site web. Dans Sites web → Contenus, choisissez le site, la section, les champs, les pièces jointes et le texte public. Cet interrupteur ne publie ni ne retire de contenu.",
     "website": "Site web",
     "choose": "Choisissez un site…",
     "section": "Section du site (chemin)",

@@ -158,7 +158,7 @@ test('split-block actions survive page edits and save responses and can be expli
 
 test('source pagination and the public tag filter retain their values through other edits and save responses', () => {
   const initial: SiteConfig = { ...base, sources: [{ id: 'blog', source_id: 'articles', kind: 'table', title: 'Blog', enabled: false, include_body: false, sort_descending: false, presentation: 'cards', path_prefix: '/blog', selection_mode: 'all' }] };
-  const view = mountEditor(initial, (site, onChange) => <SourcesEditor site={site} catalogue={[{ id: 'articles', kind: 'table', title: 'Articles' }]} onChange={onChange} />);
+  const view = mountEditor(initial, (site, onChange) => <SourcesEditor site={site} catalogue={[{ id: 'articles', kind: 'table', publishable: true, title: 'Articles' }]} onChange={onChange} />);
   expect(control(view.container, 'websites.pageSize').value).toBe('16');
   const tagFilter = required(view.container.querySelector<HTMLElement>('[role="switch"][aria-label="websites.showTagFilter"]'));
   expect(tagFilter.getAttribute('aria-checked')).toBe('false');

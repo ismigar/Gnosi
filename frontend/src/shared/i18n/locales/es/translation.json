@@ -9660,7 +9660,8 @@
       "unknown": "No disponible",
       "caveat": "El mes actual es parcial. Los clientes son direcciones identificadas por el servidor, no personas únicas. Los datos pueden incluir robots.",
       "openSource": "Abrir Webalizer"
-    }
+    },
+    "tableNotPublishable": "Activa «Publicable en la web» en la configuración de la tabla para habilitar esta fuente."
   },
   "recordWebsite": {
     "title": "Publicación en el sitio web",
@@ -9681,8 +9682,8 @@
     "independentSite": "Sitio público independiente: notas seleccionadas"
   },
   "tableWebsite": {
-    "title": "Publicar en la web",
-    "hint": "Elige la web, la sección y los campos públicos. Guarda la vinculación y publica o retira cada registro desde su menú. Este cambio no publica ni retira contenido.",
+    "title": "Publicable en la web",
+    "hint": "Permite usar esta tabla como fuente de un sitio web. En Webs → Contenidos elige el sitio, la sección, los campos, los adjuntos y el texto público. Este interruptor no publica ni retira contenido.",
     "website": "Web",
     "choose": "Elige una web…",
     "section": "Sección de la web (ruta)",

@@ -321,6 +321,7 @@ class CatalogueItem(Contract):
     id: str
     kind: Literal["table", "view", "page", "record"]
     title: str
+    publishable: bool = True
     table_id: str | None = None
     fields: list[dict[str, str]] = Field(default_factory=list)
     source_ids: list[str] = Field(default_factory=list)

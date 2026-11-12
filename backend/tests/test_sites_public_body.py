@@ -315,3 +315,18 @@ def test_private_cached_headings_do_not_end_an_authored_public_section():
     assert '# Notes' in result and 'Actual authored notes.' in result
     assert 'PRIVATE CACHED HEADING' not in result
     assert '# Notes' not in public_markdown('# Notes\n\n' + private_view)
+
+
+@pytest.mark.parametrize('suffix', ['\nA genuine paragraph.\n', '\n- A label\n\nAuthored paragraph.\n', '\n```md\n- Code example\n```\n', '\n- [An authored link](https://example.org)\n', '\n### A subsection\n\n- Authored labels\n'])
+def test_property_projection_preserves_authored_body_under_a_matching_heading(suffix):
+    from backend.domains.sites.public_body import without_private_property_lists
+    body='## Àrees\n'+suffix
+    assert without_private_property_lists(body, {'Àrees'}) == body
+
+
+def test_property_projection_hides_only_unselected_metadata_lists():
+    from backend.domains.sites.public_body import without_private_property_lists
+    body='Introduction.\n\n## Àrees\n\n- Private label\n\n## Tags\n\n- Public tag\n'
+    result=without_private_property_lists(body, {'Àrees'})
+    assert 'Àrees' not in result and 'Private label' not in result
+    assert 'Introduction.' in result and 'Public tag' in result

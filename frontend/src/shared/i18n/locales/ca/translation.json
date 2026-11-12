@@ -9660,7 +9660,8 @@
       "unknown": "No disponible",
       "caveat": "El mes actual és parcial. Els clients són adreces identificades pel servidor, no persones úniques. Les dades poden incloure robots.",
       "openSource": "Obre Webalizer"
-    }
+    },
+    "tableNotPublishable": "Activa «Publicable al web» a la configuració de la taula per habilitar aquesta font."
   },
   "recordWebsite": {
     "title": "Publicació al web",
@@ -9681,8 +9682,8 @@
     "independentSite": "Web públic independent: notes seleccionades"
   },
   "tableWebsite": {
-    "title": "Publicar al web",
-    "hint": "Tria el web, la secció i els camps públics. Desa la vinculació i publica o retira cada registre des del seu menú. Aquest canvi no publica ni retira contingut.",
+    "title": "Publicable al web",
+    "hint": "Permet utilitzar aquesta taula com a font d’un web. A Webs → Continguts tria el web, la secció, els camps, els adjunts i el text públic. Aquest interruptor no publica ni retira contingut.",
     "website": "Web",
     "choose": "Tria un web…",
     "section": "Secció del web (ruta)",
