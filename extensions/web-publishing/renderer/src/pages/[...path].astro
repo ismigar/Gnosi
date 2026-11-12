@@ -11,6 +11,7 @@ import ResourceList from '../components/ResourceList.astro';
 import ShareButtons from '../components/ShareButtons.astro';
 import {temenosLabels,publishedDate,splitArticleImage} from '../lib/temenos.mjs';
 import {landingPath} from '../lib/routing.mjs';
+import ResourceDetails from '../components/ResourceDetails.astro';
 export function getStaticPaths(){return pages.map(page=>({params:{path:page.path.slice(1)||undefined},props:{page}}));}
 const {page}=Astro.props;
 const lang=page.language;
@@ -35,7 +36,8 @@ const date=publishedDate(page,lang);
 const legacyArticle=site.legacy_pilot && page.template==='article';
 const blogArticle=legacyArticle && (page.source_ids||[]).some(id=>site.sources.some(source=>source.id===id && source.source_id==='imported:blog'));
 const articleContent=legacyArticle ? splitArticleImage(page.body_html) : null;
-const tagLinks=site.legacy_pilot ? (page.presentation?.tags || []).flatMap(tag=>{const target=pages.find(item=>item.id===`tag-${tag.tid}-${lang}`);return target ? [{label:tag.label,path:target.path}] : [];}) : [];
+const tagLinks=site.legacy_pilot ? (page.presentation?.tags || []).map(tag=>{const target=pages.find(item=>item.id===`tag-${tag.tid}-${lang}`);return {label:tag.label,path:target?.path};}) : [];
+const resourceDetail=page.presentation?.kind==='recurs';
 const sharing=site.legacy_pilot && page.template==='article' && (page.source_ids||[]).some(id=>site.sources.some(source=>source.id===id && ['imported:blog','imported:research','imported:stories','imported:design'].includes(source.source_id)));
 const homeLink=nid=>records.find(record=>record.language===lang && Number(record.presentation?.nid)===nid)?.path;
 const navigationClass=link=>['action-link',...(['button','outline'].includes(link.appearance)?['button']:[]),...(link.appearance==='outline'?['button-outline']:[])].join(' ');
@@ -69,7 +71,7 @@ const currentNavigationLink = link => href(link.href).replace(/\/$/, '') === pre
       {sharing && date && <p class="article-date">{legacyText.writtenBy} Ismael García Fernández - <time datetime={date.iso}>{date.short}</time></p>}
       <Fragment set:html={html(articleContent ? articleContent.body : page.body_html)}/>
     </div>}
-    {page.fields && Object.keys(page.fields).length>0 && <dl class="record-fields">{Object.entries(page.fields).map(([key,value])=><><dt>{fieldLabel(key,page)}</dt><dd>{values(value).map((item,index)=><>{index>0 && ', '}{isLink(item)?<a href={href(item)} {...linkProps(item)}>{format(item)}</a>:format(item)}</>)}</dd></>)}</dl>}
+    {resourceDetail ? <ResourceDetails page={page} lang={lang}/> : page.fields && Object.keys(page.fields).length>0 && <dl class="record-fields">{Object.entries(page.fields).map(([key,value])=><><dt>{fieldLabel(key,page)}</dt><dd>{values(value).map((item,index)=><>{index>0 && ', '}{isLink(item)?<a href={href(item)} {...linkProps(item)}>{format(item)}</a>:format(item)}</>)}</dd></>)}</dl>}
     {page.template==='map' && <ul>{visiblePages.map(item=><li><a href={prefix(item.path)}>{item.title}</a></li>)}</ul>}
     {page.template==='search' && <div id="search" data-search-base={prefix('/pagefind/')} data-search-placeholder={text.searchHint}></div>}
     {['home','listing'].includes(page.template) && !page.blocks.length && <section class="block">
@@ -79,7 +81,7 @@ const currentNavigationLink = link => href(link.href).replace(/\/$/, '') === pre
     {feedPath && <p class="listing-rss"><a href={prefix(feedPath)}>RSS</a></p>}
     {tagLinks.length>0 && <section class="entry-tags" aria-labelledby="entry-tags-title">
       <h2 id="entry-tags-title"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 3h7l11 11-7 7L3 10Z"/><circle cx="7" cy="7" r="1"/><path d="m14 3 9 9"/></svg>{legacyText.tags}</h2>
-      <nav class="tag-list" aria-label={legacyText.tags}>{tagLinks.map(tag=><a class="button button-outline" href={prefix(tag.path)}>{tag.label}</a>)}</nav>
+      <nav class="tag-list" aria-label={legacyText.tags}>{tagLinks.map(tag=>tag.path ? <a class="button button-outline" href={prefix(tag.path)}>{tag.label}</a> : <span class="button button-outline">{tag.label}</span>)}</nav>
     </section>}
     {sharing && <ShareButtons page={page} lang={lang}/>}
     {!site.legacy_pilot && alternatives.length>1 && <nav class="languages translations" data-pagefind-ignore>{alternatives.map(other=><a href={prefix(other.path)} data-search-language={page.template==='search'?true:undefined} lang={other.language} aria-current={other.language===lang?'page':undefined}>{other.language.split('-')[0].toUpperCase()}</a>)}</nav>}

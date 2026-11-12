@@ -96,3 +96,11 @@ The Contents editor uses `/api/vault/sites/catalogue/snapshot`: existing registr
 and imported choices plus cached page-index metadata, without scanning Markdown.
 `pages_ready:false` is an explicit incomplete-index state; it never triggers a
 cold full-vault scan. Publication still validates authoritative source files.
+The loopback preview serves static attachments in bounded chunks and answers HEAD
+requests with the complete file size, so large selected PDFs do not require an
+equally large PHP heap.
+
+Native resource detail pages display the selected full citation, attachment
+download buttons and tags without repeating the raw property list. Empty values
+are omitted. A section heading followed only by omitted work views is excluded with those
+views. Sections containing authored prose, code or subheadings are preserved.

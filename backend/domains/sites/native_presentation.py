@@ -92,6 +92,17 @@ def _project_value(presentation: dict[str, JsonValue], definition: dict[str, Jso
         image = next((_text(v) for v in values if _text(v)), '')
         if image and 'image' not in presentation:
             presentation['image'] = {'url': image, 'alt': ''}
+    elif re.search(r'files?|attachment', field_type):
+        values = value if isinstance(value, list) else [value]
+        files = [_text(item) for item in values if _text(item)]
+        if files:
+            presentation.setdefault('attachments', [])
+            existing = presentation['attachments']
+            if isinstance(existing, list):
+                existing.extend(item for item in files if item not in existing)
+    elif name in {'fullcitation', 'citation', 'citaciocompleta', 'citacioncompleta', 'referencebibliographique'}:
+        if _text(value):
+            presentation['citation'] = _text(value)
     elif name in {'summary', 'resum', 'resumen', 'resume', 'abstract', 'description', 'descripcio', 'descripcion'}:
         if _text(value):
             presentation.setdefault('summary', _text(value))

@@ -16,7 +16,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 57 |
 | `config` | 14 | 1428 |
 | `data` | 2 | 214 |
-| `domains` | 620 | 120924 |
+| `domains` | 620 | 120960 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -28,7 +28,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **1117 modules** and **210404 source lines**.
+Total: **1117 modules** and **210440 source lines**.
 
 ## agent
 
@@ -539,7 +539,7 @@ Total: **1117 modules** and **210404 source lines**.
 | [`backend/domains/sites/importer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/importer.py) | 344 | 0 | 15 | 0 | 4 | Freeze the existing public pilot as an explicitly selected publication source. |
 | [`backend/domains/sites/local_artifacts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/local_artifacts.py) | 190 | 0 | 17 | 0 | 0 | Canonical local release namespaces, exact inventories and atomic pointers. |
 | [`backend/domains/sites/models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/models.py) | 515 | 39 | 3 | 0 | 0 | Versioned contracts for website configuration and private operation state. |
-| [`backend/domains/sites/native_presentation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/native_presentation.py) | 161 | 0 | 8 | 0 | 1 | Legacy renderer presentation derived only from explicitly exported native fields. |
+| [`backend/domains/sites/native_presentation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/native_presentation.py) | 172 | 0 | 8 | 0 | 1 | Legacy renderer presentation derived only from explicitly exported native fields. |
 | [`backend/domains/sites/newsletter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/newsletter.py) | 223 | 6 | 10 | 0 | 0 | Private newsletter drafts composed from an immutable published projection. |
 | [`backend/domains/sites/page_editor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/page_editor.py) | 102 | 0 | 3 | 0 | 2 | Non-destructive editorial projections of imported static pages. |
 | [`backend/domains/sites/pangea.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/pangea.py) | 354 | 2 | 15 | 0 | 0 | Native website releases through the existing administrator-bound Suweb bridge. |
@@ -547,7 +547,7 @@ Total: **1117 modules** and **210404 source lines**.
 | [`backend/domains/sites/private_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/private_service.py) | 154 | 0 | 6 | 0 | 0 | Bounded private PHP service bridge; no browser-selected commands or paths. |
 | [`backend/domains/sites/production.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/production.py) | 19 | 0 | 1 | 0 | 0 | Explicit delivery boundaries shared by previews, publishing and private settings. |
 | [`backend/domains/sites/production_routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/production_routing.py) | 43 | 0 | 1 | 0 | 0 | Reviewed root routing for a retained Drupal-to-Webs cutover. |
-| [`backend/domains/sites/public_body.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/public_body.py) | 206 | 1 | 9 | 0 | 2 | Publish authored Markdown while omitting native embedded work views/cache. |
+| [`backend/domains/sites/public_body.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/public_body.py) | 231 | 1 | 10 | 0 | 2 | Publish authored Markdown while omitting native embedded work views/cache. |
 | [`backend/domains/sites/public_http.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/public_http.py) | 222 | 5 | 7 | 0 | 2 | Bounded public HTTP reads with the validated address pinned to the socket. |
 | [`backend/domains/sites/publication.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/publication.py) | 437 | 0 | 23 | 0 | 3 | Persistent reviewed publication jobs, immutable builds and atomic activation. |
 | [`backend/domains/sites/record_publication.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/record_publication.py) | 189 | 3 | 7 | 0 | 1 | Contextual record publication through the existing website release pipeline. |

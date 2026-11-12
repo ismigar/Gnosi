@@ -26,4 +26,17 @@ if(str_ends_with($file,'.php')){
 }
 $mime=['html'=>'text/html; charset=UTF-8','css'=>'text/css; charset=UTF-8','js'=>'text/javascript; charset=UTF-8','wasm'=>'application/wasm','json'=>'application/json','xml'=>'application/xml; charset=UTF-8','svg'=>'image/svg+xml','png'=>'image/png','jpg'=>'image/jpeg','jpeg'=>'image/jpeg','webp'=>'image/webp','woff2'=>'font/woff2','woff'=>'font/woff','ttf'=>'font/ttf','otf'=>'font/otf','ico'=>'image/x-icon','txt'=>'text/plain; charset=UTF-8','pdf'=>'application/pdf'];
 $extension=strtolower(pathinfo($file,PATHINFO_EXTENSION));header('Content-Type: '.($mime[$extension]??'application/octet-stream'));
-readfile($file);
+$stream=fopen($file,'rb');
+if($stream===false){http_response_code(503);exit;}
+$info=fstat($stream);
+if($info===false){fclose($stream);http_response_code(503);exit;}
+header('Content-Length: '.(string)$info['size']);
+if(($_SERVER['REQUEST_METHOD']??'GET')!=='HEAD'){
+ while(!feof($stream)&&!connection_aborted()){
+  $chunk=fread($stream,65536);
+  if($chunk===false)break;
+  echo $chunk;
+  flush();
+ }
+}
+fclose($stream);

@@ -56,6 +56,7 @@ class _ViewComments(HTMLParser):
         self.offsets = offsets
         self.results: list[int] = []
         self.removals: list[tuple[int, int, str]] = []
+        self.definitions: list[tuple[int, int]] = []
 
     def _standalone(self, start: int, end: int) -> None:
         line_start = self.body.rfind('\n', 0, start) + 1
@@ -80,6 +81,7 @@ class _ViewComments(HTMLParser):
         if definition:
             self._standalone(start, end)
             _payload(definition.group('json'))
+            self.definitions.append((start, end))
             self.removals.append((start, end, ''))
         elif re.fullmatch(r'gnosi-view:result(?:\s+view_id=[^\s<>]+)?', text):
             self._standalone(start, end)
@@ -103,9 +105,10 @@ def _line_offsets(body: str) -> list[int]:
     return offsets
 
 
-def _fences(body: str, offsets: list[int]) -> tuple[list[tuple[int, int, str]], list[tuple[int, int]]]:
+def _fences(body: str, offsets: list[int]) -> tuple[list[tuple[int, int, str]], list[tuple[int, int]], list[tuple[int, int]]]:
     removals: list[tuple[int, int, str]] = []
     opaque: list[tuple[int, int]] = []
+    definitions: list[tuple[int, int]] = []
     # Match the actual public body renderer: an HTML-looking wrapper must not
     # hide authored code fences from the Markdown lexer. Native view controls
     # are still recognized independently by the comment parser below.
@@ -123,6 +126,7 @@ def _fences(body: str, offsets: list[int]) -> tuple[list[tuple[int, int, str]], 
                 _invalid()
             _payload(token.content)
             removals.append((offsets[start], offsets[end], ''))
+            definitions.append((offsets[start], offsets[end]))
         elif token.type == 'fence':
             opaque.append((offsets[start], offsets[end]))
         elif token.type == 'code_block' and (_RESERVED.search(token.content) or _FENCE_MARKER.search(token.content)):
@@ -134,7 +138,27 @@ def _fences(body: str, offsets: list[int]) -> tuple[list[tuple[int, int, str]], 
             projected = public_markdown(token.content)
             replacement = ''.join('    ' + line if line.strip() else line for line in projected.splitlines(keepends=True))
             removals.append((offsets[start], offsets[end], replacement))
-    return removals, opaque
+            definitions.append((offsets[start], offsets[end]))
+    return removals, opaque, definitions
+
+
+def _view_headings(body: str, offsets: list[int], definitions: list[tuple[int, int]], edits: list[tuple[int, int, str]]) -> list[tuple[int, int, str]]:
+    # Private cached headings cannot define public section boundaries.
+    # Preserve source offsets and meaningful authored replacements.
+    masked = _mask(body, [(start, end) for start, end, replacement in edits if not replacement.strip()])
+    headings: list[tuple[int, int, int]] = []
+    for token in MarkdownIt('commonmark', {'html': False, 'linkify': False}).parse(masked):
+        if token.type == 'heading_open' and token.map is not None:
+            headings.append((offsets[token.map[0]], offsets[token.map[1]], int(token.tag[1:])))
+    result: list[tuple[int, int, str]] = []
+    for start, _end in definitions:
+        previous = next((heading for heading in reversed(headings) if heading[1] <= start), None)
+        if previous is None or body[previous[1]:start].strip():
+            continue
+        section_end = next((heading[0] for heading in headings if heading[0] > previous[0] and heading[2] <= previous[2]), len(body))
+        if not masked[previous[1]:section_end].strip():
+            result.append((previous[0], previous[1], ''))
+    return result
 
 
 def _mask(body: str, ranges: list[tuple[int, int]]) -> str:
@@ -185,7 +209,7 @@ def public_markdown(body: str) -> str:
     """No note writes, view evaluation, snapshots, or fallback content sources."""
     _cache_boundaries(body)
     offsets = _line_offsets(body)
-    fences, opaque = _fences(body, offsets)
+    fences, opaque, definitions = _fences(body, offsets)
     fence_ranges = [(start, end) for start, end, _replacement in fences]
     masked = _mask(body, fence_ranges + opaque)
     opaque += _inline_code(masked)
@@ -200,6 +224,7 @@ def public_markdown(body: str) -> str:
     if comments.results:
         _invalid()
     edits = fences + comments.removals
+    edits += _view_headings(body, offsets, definitions + comments.definitions, edits)
     visible = _mask(body, [(start, end) for start, end, _replacement in edits] + opaque)
     if _RESERVED.search(visible) or _FENCE_MARKER.search(visible) or _COLUMN_MARKER.search(visible) or _HTML_MARKER.search(visible):
         _invalid()
