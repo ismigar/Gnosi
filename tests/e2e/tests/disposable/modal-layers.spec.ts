@@ -33,7 +33,7 @@ test.afterAll(async () => {
   if (server.exitCode === null) process.kill(-server.pid, 'SIGKILL');
 });
 
-test.beforeEach(async ({ context, page }) => {
+test.beforeEach(async ({ context, page }, testInfo) => {
   const unexpected: string[] = [];
   errors.set(page, unexpected);
   page.on('pageerror', error => { unexpected.push(error.message); });
@@ -52,8 +52,24 @@ test.beforeEach(async ({ context, page }) => {
     unexpected.push(`External fixture request: ${url.origin}`);
     return route.abort();
   });
-  await page.goto(`${ORIGIN}/tests/fixtures/modal-layers.html`);
-  await expect(page.getByTestId('table-actions')).toBeVisible();
+  const pending = new Set<string>();
+  const failed: string[] = [];
+  page.on('request', request => { pending.add(request.url()); });
+  page.on('requestfinished', request => { pending.delete(request.url()); });
+  page.on('requestfailed', request => {
+    pending.delete(request.url());
+    failed.push(`${request.url()}: ${request.failure()?.errorText}`);
+  });
+  try {
+    await page.goto(`${ORIGIN}/tests/fixtures/modal-layers.html`);
+    await expect(page.getByTestId('table-actions')).toBeVisible();
+  } catch (error) {
+    await testInfo.attach('modal-fixture-startup', {
+      body: JSON.stringify({ log, exitCode: server.exitCode, signalCode: server.signalCode, pending: [...pending], failed }, null, 2),
+      contentType: 'application/json',
+    });
+    throw error;
+  }
 });
 
 test.afterEach(({ page }) => { expect(errors.get(page)).toEqual([]); });
