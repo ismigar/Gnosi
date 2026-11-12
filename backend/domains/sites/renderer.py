@@ -47,12 +47,10 @@ def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
             if relative.parts[0] in {"api", "pagefind", "_astro"} or relative.suffix.lower() in {".php", ".html", ".htm", ".js", ".mjs", ".css"}:
                 raise ValueError("Executable attachments cannot be published")
             source = Path(str(asset["private_source"]))
-            raw = source.read_bytes()
-            if hashlib.sha256(raw).hexdigest() != asset["sha256"]:
-                raise ValueError("A reviewed asset changed before construction")
             target = public / relative
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(raw)
+            from .asset_files import copy_reviewed_asset
+            copy_reviewed_asset(source, target, str(asset["sha256"]))
         payload.pop("source_hashes", None)
         # Generated, validated CSS is separate from executable attachment uploads.
         stylesheet = website_stylesheet(SiteTheme.model_validate(payload["site"]["theme"]))
