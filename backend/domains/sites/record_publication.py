@@ -7,7 +7,7 @@ from typing import Literal, cast
 from fastapi import HTTPException
 from pydantic import Field, JsonValue
 
-from . import exporter, publication
+from . import exporter, publication, runtime
 from .models import Contract, SiteConfig, SitePreview, SiteSource
 from .storage import SiteStore, fingerprint
 from .translations import PublicTranslations
@@ -41,9 +41,11 @@ class _TableBindingConflict(HTTPException):
         super().__init__(409, "The record has no unambiguous table binding")
 
 
-def _context(store: SiteStore, page_id: str) -> tuple[dict[str, JsonValue], list[exporter.Note], exporter.Note, str]:
-    data, _ = exporter.registry(store)
-    notes = exporter.notes(store)
+def _context(store: SiteStore, page_id: str, snapshot: exporter.SourceSnapshot | None = None) -> tuple[dict[str, JsonValue], list[exporter.Note], exporter.Note, str]:
+    if snapshot is None:
+        snapshot = exporter.source_snapshot(store)
+    snapshot.require_vault(store)
+    data, notes = snapshot.data, snapshot.notes
     matching = [note for note in notes if str(note.metadata["id"]) == page_id]
     if len(matching) != 1:
         raise HTTPException(409, "The record is unavailable or has conflicting identities")
@@ -132,8 +134,8 @@ def destinations(store: SiteStore, *, page_id: str | None = None, table_id: str 
     return result
 
 
-def proposal(store: SiteStore, site: SiteConfig, request: RecordPublicationReview) -> SiteConfig:
-    data, notes, note, table_id = _context(store, request.page_id)
+def proposal(store: SiteStore, site: SiteConfig, request: RecordPublicationReview, *, snapshot: exporter.SourceSnapshot | None = None) -> SiteConfig:
+    data, notes, note, table_id = _context(store, request.page_id, snapshot)
     candidate = site.model_copy(deep=True)
     language = exporter._note_identity(note, PublicTranslations(site, [item.metadata for item in notes]))[1]
     bound = [source for source in candidate.sources if _binding(source, table_id, data)]
@@ -162,28 +164,37 @@ def proposal(store: SiteStore, site: SiteConfig, request: RecordPublicationRevie
     return candidate
 
 
-def context_fingerprint(store: SiteStore, page_id: str) -> str:
-    data, _, note, table_id = _context(store, page_id)
+def context_fingerprint(store: SiteStore, page_id: str, *, snapshot: exporter.SourceSnapshot | None = None) -> str:
+    data, _, note, table_id = _context(store, page_id, snapshot)
     return fingerprint([data, note.digest, str(note.path.relative_to(store.vault)), table_id])
 
 
 def review(store: SiteStore, site: SiteConfig, request: RecordPublicationReview) -> SitePreview:
-    record_fingerprint = context_fingerprint(store, request.page_id)
-    candidate = proposal(store, site, request)
-    from .exporter import build_bundle
-    bundle = build_bundle(store, candidate, request.target_id)
-    _, notes, note, _ = _context(store, request.page_id)
+    snapshot = exporter.source_snapshot(store)
+    record_fingerprint = context_fingerprint(store, request.page_id, snapshot=snapshot)
+    candidate = proposal(store, site, request, snapshot=snapshot)
+    bundle = exporter.build_bundle(store, candidate, request.target_id, snapshot=snapshot)
+    _, notes, note, _ = _context(store, request.page_id, snapshot)
     identity = exporter._note_identity(note, PublicTranslations(site, [item.metadata for item in notes]))
     included = any((record.id, record.language) == identity for record in bundle.records)
     if included != (request.action == "publish"):
         raise HTTPException(409, "Other source selections prevent this record change; review the website sources")
-    result = publication.preview(store, candidate, request.target_id, expected_revision=site.revision)
-    if context_fingerprint(store, request.page_id) != record_fingerprint:
-        raise HTTPException(409, "The record changed during review; review again")
-    import json
-    with store.database() as db:
-        row = db.execute("SELECT payload FROM previews WHERE id=?", (result.id,)).fetchone()
-        payload = json.loads(row["payload"])
-        payload["record_proposal"] = {"request": request.model_dump(mode="json"), "site": candidate.model_dump(mode="json"), "original_fingerprint": fingerprint(site.model_dump(mode="json")), "record_fingerprint": record_fingerprint}
-        db.execute("UPDATE previews SET payload=? WHERE id=?", (json.dumps(payload), result.id))
+    result = publication._preview_bundle(store, candidate, request.target_id, bundle, expected_revision=site.revision)
+    try:
+        # An independent fresh scan retains duplicate-identity, source-availability
+        # and record/registry freshness checks after rendering the exact bundle.
+        if context_fingerprint(store, request.page_id) != record_fingerprint:
+            raise HTTPException(409, "The record changed during review; review again")
+        with store.database() as db:
+            row = db.execute("SELECT payload FROM previews WHERE id=?", (result.id,)).fetchone()
+            payload = json.loads(row["payload"])
+            payload["record_proposal"] = {"request": request.model_dump(mode="json"), "site": candidate.model_dump(mode="json"), "original_fingerprint": fingerprint(site.model_dump(mode="json")), "record_fingerprint": record_fingerprint}
+            db.execute("UPDATE previews SET payload=? WHERE id=?", (json.dumps(payload), result.id))
+    except BaseException:
+        try:
+            runtime.stop_preview(store, site.id, result.id)
+        finally:
+            with store.database() as db:
+                db.execute("DELETE FROM previews WHERE id=? AND consumed=0", (result.id,))
+        raise
     return result

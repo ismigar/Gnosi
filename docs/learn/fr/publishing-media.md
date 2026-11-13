@@ -56,3 +56,5 @@ Dans **Créer un site**, choisissez un site vide ou une importation par URL. Ind
 Dans **Hébergement**, configurez le serveur, port, utilisateur, dossiers et authentification par agent SSH, clé de l’appareil ou mot de passe. Transférez les fichiers par SSH ou SFTP ; le mot de passe reste dans le gestionnaire d’identifiants de l’appareil. Testez la connexion : publier avec le service privé exige aussi des commandes SSH, PHP et SQLite. Une connexion SFTP seule peut être vérifiée sans remplir ces conditions de publication.
 
 Dans **Formulaires de contact**, ajoutez, réordonnez ou supprimez les champs et modifiez les textes par langue, notamment le consentement, les erreurs et la confirmation. Laissez les textes facultatifs vides pour conserver les valeurs par défaut. Vérifiez le résultat avant publication.
+
+L’aperçu des fiches évite de reconstruire plusieurs fois le même site. Chaque nouvel aperçu lit les notes actuelles et vérifie à nouveau la fiche après le rendu. Si elle change pendant la révision, relancez celle-ci. Préparer ou rouvrir un aperçu ne publie rien et ne modifie pas le contenu sélectionné.

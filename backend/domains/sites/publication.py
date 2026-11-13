@@ -51,6 +51,14 @@ def preview(store: SiteStore, site: SiteConfig, target_id: str, *, expected_revi
     if not target or not target.enabled:
         raise HTTPException(409, "Enable and configure the website destination first")
     bundle = build_bundle(store, site, target_id)
+    return _preview_bundle(store, site, target_id, bundle, expected_revision=expected_revision)
+
+
+def _preview_bundle(store: SiteStore, site: SiteConfig, target_id: str, bundle: SiteBundle, *, expected_revision: int | None = None) -> SitePreview:
+    """Render one already-built internal bundle without reading the vault again."""
+    target = next((t for t in site.targets if t.id == target_id), None)
+    if not target or not target.enabled:
+        raise HTTPException(409, "Enable and configure the website destination first")
     preview_id = identifier()
     expires = datetime.now(timezone.utc) + timedelta(minutes=15)
     previous = store.active_bundle(site.id, target_id)

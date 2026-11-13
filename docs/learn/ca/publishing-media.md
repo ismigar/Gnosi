@@ -56,3 +56,5 @@ A **Crear web**, tria un web buit o la importació per URL. Indica l’adreça p
 A **Allotjament**, configura el servidor, port, usuari, carpetes i autenticació amb agent SSH, clau del dispositiu o contrasenya. Pots transferir els fitxers per SSH o SFTP; la contrasenya es desa només al gestor de credencials del dispositiu. Comprova la connexió: publicar amb el servei privat també requereix ordres SSH, PHP i SQLite. Una connexió només SFTP pot quedar verificada sense disposar d’aquests requisits de publicació.
 
 A **Formularis de contacte**, afegeix, ordena o elimina camps i edita els textos per idioma, inclosos consentiments, errors i confirmació. Deixa els textos opcionals buits per conservar els valors predeterminats. Revisa el resultat abans de publicar.
+
+La previsualització dels registres evita tornar a generar repetidament el mateix web. Cada previsualització nova llegeix les notes actuals i torna a comprovar el registre després de generar-la. Si canvia durant la revisió, torna a revisar-lo. Preparar o reobrir una previsualització no publica ni canvia el contingut seleccionat.

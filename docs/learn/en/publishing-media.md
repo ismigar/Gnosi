@@ -56,3 +56,5 @@ In **Create website**, choose a blank website or URL import. Enter its public ad
 In **Hosting**, configure the server, port, user, folders and authentication using the SSH agent, a device key or a password. Transfer files using SSH or SFTP; passwords are stored only in the device credential manager. Test the connection: publication with the private service also requires SSH commands, PHP and SQLite. An SFTP-only connection can be verified without meeting those publication requirements.
 
 In **Contact forms**, add, reorder or remove fields and edit language-specific text, including consent, errors and confirmation. Leave optional text blank to retain its defaults. Review the result before publishing.
+
+Record previews avoid repeatedly rebuilding the same website. Each new preview still reads your current notes and checks the record again after rendering. If it changes during review, start a fresh review. Preparing or reopening a preview never publishes or changes the selected content.
