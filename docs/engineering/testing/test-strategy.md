@@ -355,6 +355,8 @@ and bundle budgets. The report binds the source commit/diff and compiled file
 inventory, and fails if either changes during the run. It explicitly records
 that source/browser evidence is not acceptance of an installed desktop package.
 
+The acceptance process guard resolves descriptor-relative `os.open` calls against the actual directory descriptor, using Darwin `F_GETPATH` or Linux `/proc/self/fd`, and checks descriptor identity before applying its existing path policy. A scoped audit context supplies the full path omitted by Python's open audit event; the original descriptor-relative operation and `os.supports_dir_fd` behavior remain intact. Unverifiable descriptors fail closed. Regressions cover owned `.gnosi` reads and rejection of outside credential reads and writes through directory descriptors.
+
 Run `uv run --frozen --no-sync python scripts/ci/browser_acceptance.py` to create
 a new ignored evidence directory, or pass `--output` with a new directory.
 The normal Playwright configuration still connects only to explicitly selected

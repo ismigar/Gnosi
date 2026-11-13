@@ -13,6 +13,7 @@ from typing import BinaryIO
 PUBLIC_ATTACHMENT_MAX_BYTES = 32_000_000
 PUBLIC_PDF_MAX_BYTES = 1024 ** 3
 _CHUNK_BYTES = 1024 * 1024
+_READ_ATTEMPTS = 3
 
 
 class AssetFileError(ValueError):
@@ -21,6 +22,10 @@ class AssetFileError(ValueError):
 
 class AssetTooLarge(AssetFileError):
     """The explicitly selected attachment exceeds its bounded allowance."""
+
+
+class SourceChanged(AssetFileError):
+    """Discard this attempt because its open source changed during the read."""
 
 
 def attachment_limit(suffix: str) -> int:
@@ -69,7 +74,29 @@ def _source(path: Path, maximum: int, root: Path | None = None) -> Iterator[tupl
         if (_identity(before) != _identity(os.fstat(stream.fileno()))
                 or _identity(before) != _identity(resolved.lstat())
                 or path.resolve(strict=True) != resolved):
-            raise AssetFileError("A selected attachment changed while it was being read")
+            raise SourceChanged("A selected attachment changed while it was being read")
+
+
+def read_selected_bytes(path: Path, root: Path, maximum: int) -> bytes:
+    """Retry a complete bounded read, never bytes from an unstable attempt.
+
+    Cloud hydration can update stat metadata while delivering a file. Each
+    attempt still pins the source and requires unchanged descriptor/path
+    identities. A continuously changing source remains unavailable.
+    """
+    for attempt in range(_READ_ATTEMPTS):
+        try:
+            with _source(path, maximum, root) as (source, size):
+                raw = source.read(maximum + 1)
+                if len(raw) > maximum:
+                    raise AssetTooLarge("A selected file exceeds the publication size limit")
+                if len(raw) != size:
+                    raise SourceChanged("A selected file changed while it was being read")
+            return raw
+        except SourceChanged:
+            if attempt == _READ_ATTEMPTS - 1:
+                raise
+    raise AssertionError("No source read attempted")
 
 
 def _chunks(source: BinaryIO, target: BinaryIO | None, maximum: int) -> tuple[str, int]:
@@ -94,7 +121,9 @@ def _stage(path: Path, directory: Path, maximum: int, *, root: Path | None = Non
             temporary = Path(name)
             with os.fdopen(descriptor, "wb") as target:
                 digest, copied = _chunks(source, target, maximum)
-            if copied != size or expected is not None and digest != expected:
+            if copied != size:
+                raise SourceChanged("A selected attachment changed while it was being read")
+            if expected is not None and digest != expected:
                 raise AssetFileError("A reviewed asset changed before construction")
         return temporary, digest
     except BaseException:
@@ -109,7 +138,13 @@ def snapshot_asset(path: Path, root: Path, directory: Path) -> tuple[str, Path]:
         raise AssetFileError("Invalid attachment snapshot directory")
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     maximum = attachment_limit(path.suffix)
-    temporary, digest = _stage(path, directory, maximum, root=root)
+    for attempt in range(_READ_ATTEMPTS):
+        try:
+            temporary, digest = _stage(path, directory, maximum, root=root)
+            break
+        except SourceChanged:
+            if attempt == _READ_ATTEMPTS - 1:
+                raise
     snapshot = directory / (digest + path.suffix.lower())
     try:
         if snapshot.exists() or snapshot.is_symlink():

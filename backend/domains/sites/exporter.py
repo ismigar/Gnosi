@@ -55,17 +55,13 @@ def verify_selected_ids(source: SiteSource, available_ids: set[str]) -> None:
 
 
 def bounded_read(path: Path, root: Path, maximum: int = 4_000_000) -> bytes:
-    if path.is_symlink() or not path.resolve(strict=True).is_relative_to(root):
-        raise HTTPException(409, "A selected file is outside the vault")
-    before = path.stat()
-    if before.st_size > maximum:
-        raise HTTPException(422, "A selected file exceeds the publication size limit")
-    with path.open("rb") as stream:
-        raw = stream.read(maximum + 1)
-    after = path.stat()
-    if len(raw) > maximum or (before.st_mtime_ns, before.st_size) != (after.st_mtime_ns, after.st_size):
-        raise HTTPException(409, "A selected file changed while it was being read")
-    return raw
+    from .asset_files import AssetFileError, AssetTooLarge, read_selected_bytes
+    try:
+        return read_selected_bytes(path, root, maximum)
+    except AssetTooLarge:
+        raise HTTPException(422, "A selected file exceeds the publication size limit") from None
+    except AssetFileError:
+        raise HTTPException(409, "A selected file is unavailable or changed while being read") from None
 
 
 def registry(store: SiteStore) -> tuple[dict[str, JsonValue], str]:

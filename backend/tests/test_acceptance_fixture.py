@@ -167,6 +167,49 @@ def test_process_guard_refuses_external_sockets_files_and_processes(tmp_path: Pa
     assert not (tmp_path.parent / "unowned.sqlite").exists()
 
 
+def test_process_guard_checks_descriptor_relative_paths(tmp_path: Path) -> None:
+    result = _child("""
+        import os
+        from pathlib import Path
+        import sys
+        from scripts.ci.acceptance_backend import install_process_guard, prepare_runtime
+
+        root = Path(sys.argv[1])
+        (root / 'owned').mkdir()
+        runtime = prepare_runtime(root / 'owned', 38573, root / 'owned/state.json')
+        from backend.domains.sites.asset_files import read_selected_bytes
+        owned = runtime.root / 'vault/.gnosi'
+        owned.mkdir(parents=True, exist_ok=True)
+        selected = owned / 'params.yaml'
+        selected.write_bytes(b'synthetic fixture')
+        outside = root / 'outside'
+        outside.mkdir()
+        secret = outside / '.gnosi'
+        secret.mkdir()
+        (secret / 'params.yaml').write_text('must stay private')
+        directory = os.open(outside, os.O_RDONLY | os.O_DIRECTORY)
+        private_directory = os.open(secret, os.O_RDONLY | os.O_DIRECTORY)
+        install_process_guard(runtime)
+        assert os.open in os.supports_dir_fd
+        assert read_selected_bytes(selected, runtime.root, 100) == b'synthetic fixture'
+        for path, flags, fd in (
+            ('.gnosi/params.yaml', os.O_RDONLY, directory),
+            ('params.yaml', os.O_RDONLY, private_directory),
+            ('unowned.txt', os.O_WRONLY | os.O_CREAT, directory),
+        ):
+            try:
+                os.open(path, flags, dir_fd=fd)
+            except PermissionError:
+                pass
+            else:
+                raise AssertionError('Outside descriptor-relative operation was allowed')
+        os.close(directory)
+        os.close(private_directory)
+    """, tmp_path.resolve())
+    assert result.returncode == 0, result.stderr
+    assert not (tmp_path / 'outside/unowned.txt').exists()
+
+
 _PERSISTENCE_PROBE = """
     import asyncio
     import json

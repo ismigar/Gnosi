@@ -361,6 +361,8 @@ mida. L'informe vincula el commit, el diff i l'inventari compilat, i falla si
 canvien durant la prova. L'evidència de codi i navegador no acredita per si sola
 el paquet d'escriptori instal·lat.
 
+La protecció del procés d’acceptació resol les crides a `os.open` relatives a un descriptor amb el camí real del descriptor de directori, mitjançant `F_GETPATH` a Darwin o `/proc/self/fd` a Linux, i en comprova la identitat abans d’aplicar la política de camins existent. Un context d’auditoria acotat proporciona el camí complet que omet l’esdeveniment d’obertura de Python; es conserven l’operació original relativa al descriptor i el comportament de `os.supports_dir_fd`. Els descriptors no verificables es rebutgen. Les regressions cobreixen les lectures pròpies de `.gnosi` i el rebuig de lectures de credencials i escriptures externes mitjançant descriptors de directori.
+
 Executeu `uv run --frozen --no-sync python scripts/ci/browser_acceptance.py` per
 crear un directori nou d'evidència ignorada, o indiqueu-ne un de nou amb `--output`.
 La configuració Playwright ordinària continua connectant-se a serveis existents
