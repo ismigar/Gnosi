@@ -24,5 +24,11 @@ const server = await createServer({
     } }] : [])],
 });
 await server.listen();
+// HTTP readiness alone does not mean a cold dependency graph is usable yet.
+const client = server.environments.client;
+await client.warmupRequest('/tests/fixtures/modal-layers.tsx');
+await client.waitForRequestsIdle();
+await client.depsOptimizer?.scanProcessing;
+await Promise.all(Object.values(client.depsOptimizer?.metadata.discovered || {}).map(dependency => dependency.processing));
 console.log('Modal fixture ready on http://127.0.0.1:5189/tests/fixtures/modal-layers.html');
 for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => { void server.close().then(() => process.exit(0)); });

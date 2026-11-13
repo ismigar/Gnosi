@@ -10,7 +10,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
-| Playwright | 38 | 126 |
+| Playwright | 38 | 128 |
 | Vitest | 776 | 3539 |
 | pytest | 802 | 6222 |
 
@@ -47,7 +47,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Playwright | [`tests/e2e/tests/e2e/contacts.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/contacts.spec.ts) | 3 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/e2e/dashboards.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/dashboards.spec.ts) | 2 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/e2e/drawing-save-guard.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/drawing-save-guard.spec.ts) | 3 | call-pattern estimate |
-| Playwright | [`tests/e2e/tests/e2e/mail-composer-paste.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/mail-composer-paste.spec.ts) | 2 | call-pattern estimate |
+| Playwright | [`tests/e2e/tests/e2e/mail-composer-paste.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/mail-composer-paste.spec.ts) | 4 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/e2e/notebooks.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/notebooks.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/e2e/vault-entrypoints.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/e2e/vault-entrypoints.spec.ts) | 1 | call-pattern estimate |

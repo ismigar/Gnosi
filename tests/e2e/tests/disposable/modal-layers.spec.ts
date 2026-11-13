@@ -19,7 +19,9 @@ test.beforeAll(async () => {
   const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {
     if (server.exitCode !== null) throw new Error(`Owned modal fixture exited: ${log}`);
-    try { if ((await fetch(`${ORIGIN}/tests/fixtures/modal-layers.html`)).ok) return; } catch { /* Wait for the owned listener. */ }
+    try {
+      if (log.includes('Modal fixture ready on ') && (await fetch(`${ORIGIN}/tests/fixtures/modal-layers.html`)).ok) return;
+    } catch { /* Wait for the owned listener and its prepared module graph. */ }
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   throw new Error(`Owned modal fixture did not become ready: ${log}`);
