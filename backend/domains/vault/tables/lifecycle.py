@@ -158,6 +158,10 @@ def _upsert_table(
         tables.append(table)
     else:
         old_table = tables[existing_index]
+        # Schema autosaves can carry an older table snapshot. Only the dedicated
+        # publication-settings operation changes this independent capability.
+        if 'web_publishable' in old_table:
+            table['web_publishable'] = old_table['web_publishable']
         preserve_required_properties(old_table, table)
         _preserve_property_aliases(old_table, table)
         reconcile_table_schema_revision(old_table, table)

@@ -88,7 +88,7 @@ export function TableSettings({ model }: { model: SchemaConfigModel }) {
                             </p>
                         </div>
 
-                        <TableWebsiteSettings tableId={model.tableId ?? undefined} tableName={model.resolvedTableName} fields={model.fields} />
+                        <TableWebsiteSettings tableId={model.tableId ?? undefined} />
                         <FunctionalitiesSection model={model} />
                     </div>
 

@@ -9605,7 +9605,8 @@
       "unknown": "Unavailable",
       "caveat": "The current month is partial. Clients are server-identified addresses, not unique people. Data may include bots.",
       "openSource": "Open Webalizer"
-    }
+    },
+    "tableNotPublishable": "Enable “Publishable to websites” in the table settings to enable this source."
   },
   "recordWebsite": {
     "title": "Website publication",
@@ -9626,8 +9627,8 @@
     "independentSite": "Separate public site: selected notes"
   },
   "tableWebsite": {
-    "title": "Publish to website",
-    "hint": "Choose the website, section and public fields. Save the binding, then publish or unpublish each record from its menu. This change does not publish or unpublish content.",
+    "title": "Publishable to websites",
+    "hint": "Allows this table to be used as a website source. In Websites → Content choose the website, section, fields, attachments and public text. This switch does not publish or withdraw content.",
     "website": "Website",
     "choose": "Choose a website…",
     "section": "Website section (path)",

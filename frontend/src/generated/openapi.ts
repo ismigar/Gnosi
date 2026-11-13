@@ -10864,6 +10864,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/sites/tables/{table_id}/publication": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Table Publication Settings */
+        get: operations["table_publication_settings_api_vault_sites_tables__table_id__publication_get"];
+        /** Update Table Publication Settings */
+        put: operations["update_table_publication_settings_api_vault_sites_tables__table_id__publication_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/skills/execute-button-action": {
         parameters: {
             query?: never;
@@ -15268,6 +15286,11 @@ export interface components {
             kind: "table" | "view" | "page" | "record";
             /** Languages */
             languages?: string[];
+            /**
+             * Publishable
+             * @default true
+             */
+            publishable: boolean;
             /** Source Ids */
             source_ids?: string[];
             /** Table Id */
@@ -27139,6 +27162,18 @@ export interface components {
             status: "success";
             /** Table Id */
             table_id: string;
+        };
+        /** TablePublicationSettings */
+        TablePublicationSettings: {
+            /** Publishable */
+            publishable: boolean;
+            /** Table Id */
+            table_id: string;
+        };
+        /** TablePublicationUpdate */
+        TablePublicationUpdate: {
+            /** Publishable */
+            publishable: boolean;
         };
         /** TableRenameRequest */
         TableRenameRequest: {
@@ -53559,6 +53594,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecordDestination"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    table_publication_settings_api_vault_sites_tables__table_id__publication_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                table_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TablePublicationSettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_table_publication_settings_api_vault_sites_tables__table_id__publication_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                table_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TablePublicationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TablePublicationSettings"];
                 };
             };
             /** @description Validation Error */

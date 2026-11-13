@@ -104,3 +104,25 @@ Native resource detail pages display the selected full citation, attachment
 download buttons and tags without repeating the raw property list. Empty values
 are omitted. A section heading followed only by omitted work views is excluded with those
 views. Sections containing authored prose, code or subheadings are preserved.
+
+### Table eligibility and public properties
+
+Table settings expose only **Publishable to websites**. This table-wide capability
+is stored independently of website sources. Enabling it does not select records,
+fields or attachments, and never publishes or withdraws content. Configure those
+choices in **Websites → Content**. Existing enabled native table/view and table-row page bindings
+retain eligibility on upgrade; new, unbound tables require explicit opt-in.
+Turning eligibility off preserves source settings and blocks their publication
+until the source is disabled or table eligibility is restored. Schema autosaves
+cannot overwrite this independently saved capability.
+
+Public Markdown excludes native work views and standalone plain-label property
+lists headed by an unselected schema field (for example `## Àrees` followed by a
+bullet list). Authored paragraphs, code, links and unrelated sections are retained.
+The original note is never rewritten. Field permissions are combined before body
+projection when multiple sources explicitly select the same record.
+
+Resource download buttons suggest the public resource title as the filename,
+remove filesystem-reserved characters, preserve the file extension and distinguish
+multiple attachments with a numbered suffix. Internal content-addressed asset URLs
+remain stable.

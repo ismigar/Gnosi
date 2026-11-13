@@ -23,7 +23,7 @@ from .models import (
     SiteTheme, SiteThemeAsset, TargetConnection, TargetConnectionSecret,
 )
 from .storage import SiteStore
-from . import record_publication, table_binding
+from . import record_publication, table_binding, table_eligibility
 
 
 router = APIRouter(prefix="/sites", tags=["sites"], dependencies=[Depends(require_plugins("web-publishing"))])
@@ -69,6 +69,16 @@ def create_site(request: SiteCreate, context: Admin) -> SiteConfig:
 @router.get("/catalogue", response_model=list[CatalogueItem])
 def catalogue(context: Editor) -> list[CatalogueItem]:
     return exporter.catalogue(store_for(context))
+
+
+@router.get('/tables/{table_id}/publication', response_model=table_eligibility.TablePublicationSettings)
+def table_publication_settings(table_id: str, context: Editor) -> table_eligibility.TablePublicationSettings:
+    return table_eligibility.read(store_for(context), table_id)
+
+
+@router.put('/tables/{table_id}/publication', response_model=table_eligibility.TablePublicationSettings)
+def update_table_publication_settings(table_id: str, request: table_eligibility.TablePublicationUpdate, context: Editor) -> table_eligibility.TablePublicationSettings:
+    return table_eligibility.update(store_for(context), table_id, request)
 
 
 @router.get("/catalogue/snapshot", response_model=CatalogueSnapshot)
@@ -157,6 +167,7 @@ def save_site(site_id: str, request: SiteConfig, context: Editor) -> SiteConfig:
     if request.id != site_id:
         raise HTTPException(422, "The website identity cannot change")
     current = store.load(site_id)
+    table_eligibility.validate_sources(store, request)
     if context.role not in {"owner", "admin"} and request.targets != current.targets:
         raise HTTPException(403, "Only administrators can change website destinations")
     old_forms = {form.id: form for form in current.forms}

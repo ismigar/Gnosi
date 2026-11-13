@@ -13,6 +13,7 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
  */
 
 const FAKE_ASSET_URL = '/api/vault/assets/Inline/pw-paste-test.png';
+const UPLOAD_PATH = /^\/api\/(?:vault\/assets\/upload|v1\/vaults\/[^/]+\/knowledge\/assets\/upload)$/;
 
 // 1x1 transparent PNG
 const PNG_BASE64 =
@@ -52,11 +53,21 @@ function pasteFile(editor: Locator, name: string, mime: string, base64: string) 
 
 test.describe('Mail composer paste', () => {
   test.describe.configure({ timeout: 90_000 });
+  let uploadMocks: string[];
+  let uploadResponses: { url: string; status: number }[];
 
   test.beforeEach(async ({ page }) => {
+    uploadMocks = [];
+    uploadResponses = [];
+    page.on('response', response => {
+      if (UPLOAD_PATH.test(new URL(response.url()).pathname)) {
+        uploadResponses.push({ url: response.url(), status: response.status() });
+      }
+    });
     // Mock upload: keep the real vault clean and the test deterministic
-    await page.route('**/api/vault/assets/upload**', (route) =>
-      route.fulfill({
+    await page.route(url => UPLOAD_PATH.test(url.pathname), (route) => {
+      uploadMocks.push(route.request().url());
+      return route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
@@ -64,8 +75,8 @@ test.describe('Mail composer paste', () => {
           path: 'Assets/Inline/pw-paste-test.png',
           is_image: true,
         }),
-      }),
-    );
+      });
+    });
     // Serve the fake asset so the inserted <img> actually renders
     await page.route(`**${FAKE_ASSET_URL}`, (route) =>
       route.fulfill({
@@ -76,6 +87,13 @@ test.describe('Mail composer paste', () => {
     );
   });
 
+  test.afterEach(async ({}, testInfo) => {
+    await testInfo.attach('asset-upload-audit', {
+      body: JSON.stringify({ mocked: uploadMocks, responses: uploadResponses }),
+      contentType: 'application/json',
+    });
+  });
+
   test('pasted image becomes an inline image block', async ({ page }) => {
     const editor = await openComposer(page);
     await pasteFile(editor, 'captura.png', 'image/png', PNG_BASE64);
@@ -84,6 +102,7 @@ test.describe('Mail composer paste', () => {
       `.mail-block-editor img[src*="/api/vault/assets/"]`,
     );
     await expect(img).toBeVisible({ timeout: 10_000 });
+    expect(uploadMocks).toHaveLength(1);
   });
 
   test('pasted PDF becomes a real attachment, not a vault link', async ({ page }) => {

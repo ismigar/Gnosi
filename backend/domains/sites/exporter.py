@@ -124,12 +124,15 @@ def fields(table: dict[str, JsonValue]) -> list[dict[str, str]]:
 
 
 def catalogue_metadata(store: SiteStore) -> list[CatalogueItem]:
+    from .table_eligibility import eligible, native_page_tables
     data, _ = registry(store) if (store.vault / "BD/vault_db_registry.json").exists() else ({}, "")
     tables = {str(t.get("id")): t for t in records(data, "tables")}
-    output = [CatalogueItem(id=tid, kind="table", title=str(t.get("name") or tid), fields=fields(t)) for tid, t in tables.items()]
+    sites = store.list()
+    page_tables = native_page_tables(store, data, sites)
+    output = [CatalogueItem(id=tid, kind="table", title=str(t.get("name") or tid), fields=fields(t), publishable=eligible(t, data, sites, page_tables)) for tid, t in tables.items()]
     for view in records(data, "views"):
         table_id = str(view.get("table_id") or "")
-        output.append(CatalogueItem(id=str(view.get("id")), kind="view", title=str(view.get("name") or view.get("id")), table_id=table_id, fields=fields(tables.get(table_id, {}))))
+        output.append(CatalogueItem(id=str(view.get("id")), kind="view", title=str(view.get("name") or view.get("id")), table_id=table_id, fields=fields(tables.get(table_id, {})), publishable=bool(tables.get(table_id)) and eligible(tables.get(table_id, {}), data, sites, page_tables)))
     if any(site.legacy_pilot for site in store.list()):
         from .importer import imported_catalogue
         try:
@@ -141,8 +144,11 @@ def catalogue_metadata(store: SiteStore) -> list[CatalogueItem]:
 
 def catalogue(store: SiteStore) -> list[CatalogueItem]:
     output = catalogue_metadata(store)
+    data, _ = registry(store) if (store.vault / 'BD/vault_db_registry.json').exists() else ({}, '')
+    capabilities = {item.id: item.publishable for item in output if item.kind == 'table'}
     for note in notes(store):
-        output.append(CatalogueItem(id=str(note.metadata["id"]), kind="page", title=str(note.metadata.get("title") or note.metadata.get("Títol") or note.path.stem)))
+        table = note_table(note, data, store.vault)
+        output.append(CatalogueItem(id=str(note.metadata["id"]), kind="page", title=str(note.metadata.get("title") or note.metadata.get("Títol") or note.path.stem), publishable=capabilities.get(str(table.get('id')), False) if table else True))
     return output
 
 
@@ -150,6 +156,8 @@ def catalogue_snapshot(store: SiteStore) -> CatalogueSnapshot:
     """Return indexed editorial choices without opening Markdown or starting discovery."""
     from backend.domains.vault.pages.index_service import get_available_page_entries
     output = catalogue_metadata(store)
+    data, _ = registry(store) if (store.vault / 'BD/vault_db_registry.json').exists() else ({}, '')
+    capabilities = {item.id: item.publishable for item in output if item.kind == 'table'}
     entries = get_available_page_entries(store.vault)
     identities: set[str] = set()
     for entry in entries or []:
@@ -163,7 +171,8 @@ def catalogue_snapshot(store: SiteStore) -> CatalogueSnapshot:
         if identity in identities:
             raise HTTPException(409, "Duplicate note identities must be resolved before publication")
         identities.add(identity)
-        output.append(CatalogueItem(id=identity, kind="page", title=str(entry.get("title") or metadata.get("title") or metadata.get("Títol") or path.stem)))
+        table = note_table(Note(path, cast(dict[str, JsonValue], metadata), '', ''), data, store.vault)
+        output.append(CatalogueItem(id=identity, kind="page", title=str(entry.get("title") or metadata.get("title") or metadata.get("Títol") or path.stem), publishable=capabilities.get(str(table.get('id')), False) if table else True))
     return CatalogueSnapshot(items=output, pages_ready=entries is not None)
 
 
@@ -235,6 +244,12 @@ def _source_table(source: SiteSource, data: dict[str, JsonValue]) -> tuple[dict[
     if not table:
         raise HTTPException(409, "A selected table is missing")
     return table, view
+
+
+def note_table(note: Note, data: dict[str, JsonValue], vault: Path) -> dict[str, JsonValue]:
+    from backend.domains.vault.tables.rows import build_table_folder_index, resolve_table_id_from_context
+    table_id = resolve_table_id_from_context(cast(dict[object, object], note.metadata), str(note.path.parent.relative_to(vault)), build_table_folder_index(cast(dict[object, object], data)))
+    return next((item for item in records(data, 'tables') if str(item.get('id')) == table_id), {})
 
 
 def _table_notes(all_notes: list[Note], data: dict[str, JsonValue], table: dict[str, JsonValue], vault: Path) -> list[Note]:
@@ -311,8 +326,14 @@ def source_notes(source: SiteSource, all_notes: list[Note], data: dict[str, Json
         return [], {}
     verify_selected_ids(source, {str(note.metadata["id"]) for note in all_notes})
     if source.kind == "page":
-        return _direct_notes(source, all_notes), {}
+        selected = _direct_notes(source, all_notes)
+        table = note_table(selected[0], data, vault) if selected else {}
+        if 'web_publishable' in table and table.get('web_publishable') is not True:
+            raise HTTPException(409, 'Website publication is disabled for this table')
+        return selected, table
     table, view = _source_table(source, data)
+    if 'web_publishable' in table and table.get('web_publishable') is not True:
+        raise HTTPException(409, 'Website publication is disabled for this table')
     selected = _view_notes(_table_notes(all_notes, data, table, vault), view, table)
     for rule in source.filters:
         selected = [note for note in selected if match_rule(note, cast(dict[str, JsonValue], rule.model_dump(mode="json")), table)]
@@ -474,6 +495,7 @@ class Projection:
     previous_withdrawn: list[str] = field(default_factory=list)
     public: dict[tuple[str, str], PublicRecord] = field(default_factory=dict)
     bodies: dict[tuple[str, str], Note] = field(default_factory=dict)
+    body_tables: dict[tuple[str, str], dict[str, JsonValue]] = field(default_factory=dict)
     asset: AssetExporter = field(init=False)
     paths: dict[tuple[str, str], str] = field(init=False)
     translations: PublicTranslations = field(init=False)
@@ -504,7 +526,10 @@ class Projection:
             record.presentation = project_presentation(record, table, self.site)
         if source.include_body:
             from .public_body import public_markdown
+            # Keep schema privacy independent of how a record is reached.
+            body_table = table or note_table(note, self.data, self.store.vault)
             self.bodies[key] = Note(note.path, note.metadata, public_markdown(note.body), note.digest)
+            self.body_tables[key] = body_table or self.body_tables.get(key, {})
         self.hashes[str(note.path.relative_to(self.store.vault))] = note.digest
 
     def import_baseline(self) -> None:
@@ -552,6 +577,9 @@ class Projection:
         for key, note in self.bodies.items():
             from .native_presentation import detail_image
             record = self.public[key]
+            from .public_body import without_private_property_lists
+            private_names = {definition["name"] for definition in fields(self.body_tables.get(key, {})) if definition["id"] not in record.fields}
+            note = Note(note.path, note.metadata, without_private_property_lists(note.body, private_names), note.digest)
             body = _body_html(note, self.asset, links, allowed)
             record.body_html = detail_image(body, record.presentation) if self.site.legacy_pilot else body
 

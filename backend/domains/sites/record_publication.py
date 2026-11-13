@@ -33,7 +33,7 @@ def _binding(source: SiteSource, table_id: str, data: dict[str, JsonValue]) -> b
     if not source.enabled or source.kind == "page" or source.source_id.startswith("imported:"):
         return False
     table, _ = exporter._source_table(source, data)
-    return str(table.get("id")) == table_id
+    return ('web_publishable' not in table or table.get('web_publishable') is True) and str(table.get("id")) == table_id
 
 
 class _TableBindingConflict(HTTPException):

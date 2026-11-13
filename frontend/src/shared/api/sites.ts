@@ -231,3 +231,12 @@ export async function saveTableWebsiteBinding(siteId: string, input: components[
   emitAppEvent('gnosi:website-sources-changed');
   return result;
 }
+
+export async function getTablePublicationSettings(tableId: string, context: RequestContext, signal?: AbortSignal) {
+  return unwrapApiResult(await apiClient.GET('/api/vault/sites/tables/{table_id}/publication', { params: { path: { table_id: tableId } }, ...scope(context, signal) }));
+}
+export async function setTablePublicationSettings(tableId: string, publishable: boolean, context: RequestContext, signal?: AbortSignal) {
+  const result = unwrapApiResult(await apiClient.PUT('/api/vault/sites/tables/{table_id}/publication', { params: { path: { table_id: tableId } }, body: { publishable }, ...scope(context, signal) }));
+  emitAppEvent('gnosi:website-sources-changed');
+  return result;
+}

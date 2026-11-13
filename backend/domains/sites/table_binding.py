@@ -97,6 +97,10 @@ def bind(store: SiteStore, site: SiteConfig, request: TableBindingRequest) -> Si
     tables = [table for table in exporter.records(data, "tables") if str(table.get("id")) == request.table_id]
     if len(tables) != 1:
         raise HTTPException(409, "The table binding is unavailable or ambiguous")
+    from .table_eligibility import eligible as table_is_publishable, native_page_tables
+    sites = store.list()
+    if request.enabled and not table_is_publishable(tables[0], data, sites, native_page_tables(store, data, sites)):
+        raise HTTPException(409, "Enable website publication in the table settings first")
     fields = {field["id"]: field for field in exporter.fields(tables[0])}
     if set(request.field_ids + request.attachment_field_ids) - fields.keys():
         raise HTTPException(409, "A selected public field is unavailable")

@@ -7,11 +7,21 @@ const files=(page.presentation?.attachments || []).filter(value=>typeof value===
 const fileType=value=>{
   try{return new URL(value,'https://local.invalid').pathname.match(/\.([a-z0-9]{1,8})$/i)?.[1]?.toUpperCase() || text.file;}
   catch{return text.file;}
+ };
+const downloadName=(file,index)=>{
+  const extension=new URL(file,'https://local.invalid').pathname.match(/\.([a-z0-9]{1,8})$/i)?.[1]?.toLowerCase() || 'bin';
+  const title=String(page.title || text.file).normalize('NFC').replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().replace(/^[. ]+|[. ]+$/g,'');
+  let base='';
+  const encoder=new TextEncoder();
+  for(const character of title || text.file){if(encoder.encode(base+character).length>180)break;base+=character;}
+  base=base.replace(/[. ]+$/g,'');
+  const safe=/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(base) ? `Document-${base}` : base;
+  return `${safe}${files.length>1 ? `-${index+1}` : ''}.${extension}`;
 };
 ---
 {citation && <div class="reading resource-citation">{citation}</div>}
 {files.length>0 && <nav class="actions resource-attachments" aria-label={text.files}>
-  {files.map(file=><a class="action-link button button-outline" href={href(file)} download title={text.download} aria-label={`${text.download} ${fileType(file)}`}>
+  {files.map((file,index)=><a class="action-link button button-outline" href={href(file)} download={downloadName(file,index)} title={text.download} aria-label={`${text.download} ${fileType(file)}`}>
     <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M12 11v7m-3-3 3 3 3-3"/></svg>
     <span>{fileType(file)}</span>
   </a>)}
