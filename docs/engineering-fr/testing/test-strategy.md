@@ -364,6 +364,8 @@ et les budgets de taille. Le rapport lie le commit, le diff et l'inventaire comp
 et échoue s'ils changent pendant l'exécution. Une preuve de source et de navigateur
 ne certifie pas à elle seule le paquet de bureau installé.
 
+La protection du processus d’acceptation résout les appels à `os.open` relatifs à un descripteur à partir du chemin réel du descripteur de répertoire, avec `F_GETPATH` sur Darwin ou `/proc/self/fd` sur Linux, et vérifie son identité avant d’appliquer la politique de chemins existante. Un contexte d’audit limité fournit le chemin complet omis par l’événement d’ouverture de Python ; l’opération originale relative au descripteur et le comportement de `os.supports_dir_fd` restent intacts. Les descripteurs invérifiables sont refusés. Les régressions couvrent les lectures autorisées de `.gnosi` et le rejet des lectures d’identifiants et des écritures externes via des descripteurs de répertoire.
+
 Exécutez `uv run --frozen --no-sync python scripts/ci/browser_acceptance.py` pour
 créer un nouveau répertoire de preuves ignorées, ou indiquez-en un nouveau avec
 `--output`. La configuration Playwright habituelle continue à se connecter à des

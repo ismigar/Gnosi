@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 import hashlib
 import importlib
@@ -234,6 +235,34 @@ def install_process_guard(runtime: AcceptanceRuntime) -> None:
     routes, dependencies, middleware and authentication intact.
     """
     ports = {runtime.port, runtime.frontend_port} - {None}
+    open_path: ContextVar[Path | None] = ContextVar("acceptance_open_path", default=None)
+    original_open = os.open
+
+    def descriptor_path(descriptor: int) -> Path:
+        if sys.platform == "darwin":
+            import fcntl
+            raw = fcntl.fcntl(descriptor, fcntl.F_GETPATH, bytes(1024))
+            path = Path(os.fsdecode(raw.split(b"\0", 1)[0]))
+        elif sys.platform.startswith("linux"):
+            path = Path(os.readlink(f"/proc/self/fd/{descriptor}"))
+        else:
+            raise PermissionError("Acceptance cannot verify a directory descriptor")
+        opened, named = os.fstat(descriptor), path.stat()
+        if (opened.st_dev, opened.st_ino) != (named.st_dev, named.st_ino):
+            raise PermissionError("Acceptance directory descriptor changed")
+        return path
+
+    def guarded_open(path: Any, flags: int, mode: int = 0o777, *, dir_fd: int | None = None) -> int:
+        # Python's open audit event omits dir_fd. Validate its actual full path,
+        # while preserving the original pinned descriptor-relative operation.
+        resolved = None
+        if dir_fd is not None and not Path(os.fsdecode(path)).is_absolute():
+            resolved = (descriptor_path(dir_fd) / os.fsdecode(path)).resolve()
+        token = open_path.set(resolved)
+        try:
+            return original_open(path, flags, mode, dir_fd=dir_fd)
+        finally:
+            open_path.reset(token)
 
     def check_address(address: object, *, binding: bool = False) -> None:
         if (not isinstance(address, tuple) or len(address) < 2
@@ -264,7 +293,7 @@ def install_process_guard(runtime: AcceptanceRuntime) -> None:
         elif event in {"subprocess.Popen", "os.system", "os.exec", "os.posix_spawn", "pty.spawn"}:
             raise PermissionError("Acceptance does not launch provider or credential helper processes")
         elif event == "open":
-            path = check_path(args[0])
+            path = open_path.get() or check_path(args[0])
             if path is None:
                 return
             if (path.name == ".env" or path.name.startswith(".env.")
@@ -273,7 +302,7 @@ def install_process_guard(runtime: AcceptanceRuntime) -> None:
                 raise PermissionError("Acceptance refused a non-fixture credential/configuration file")
             flags = args[2] or 0
             if flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_TRUNC | os.O_APPEND):
-                require_owned(args[0])
+                require_owned(path)
         elif event == "sqlite3.connect" and args[0] != ":memory:":
             database = os.fsdecode(args[0])
             if database.startswith("file:"):
@@ -291,6 +320,9 @@ def install_process_guard(runtime: AcceptanceRuntime) -> None:
                 raise PermissionError("Acceptance storage does not create links")
 
     sys.addaudithook(audit)
+    os.open = guarded_open
+    if original_open in os.supports_dir_fd:
+        os.supports_dir_fd.add(guarded_open)
 
 
 def verify_source_imports() -> dict[str, str]:

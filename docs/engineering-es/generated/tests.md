@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 38 | 128 |
 | Vitest | 776 | 3539 |
-| pytest | 802 | 6222 |
+| pytest | 803 | 6228 |
 
 ## Archivos
 
@@ -840,7 +840,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/page_write_open_fixtures.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/page_write_open_fixtures.py) | 0 | Python AST |
 | pytest | [`backend/tests/test_academic_connectors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_academic_connectors.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_academic_connectors_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_academic_connectors_domain_contract.py) | 4 | Python AST |
-| pytest | [`backend/tests/test_acceptance_fixture.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_acceptance_fixture.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_acceptance_fixture.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_acceptance_fixture.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_action_rules.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_action_rules.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_action_rules_open_metadata.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_action_rules_open_metadata.py) | 13 | Python AST |
 | pytest | [`backend/tests/test_active_vault_async_singleflight.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_active_vault_async_singleflight.py) | 4 | Python AST |
@@ -1428,6 +1428,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_sites_rendering.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_rendering.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_sites_rss.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_rss.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_sites_ssh_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_ssh_transport.py) | 13 | Python AST |
+| pytest | [`backend/tests/test_sites_stable_reads.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_stable_reads.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_sites_statistics.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_statistics.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_sites_stylesheets.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_stylesheets.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_sites_table_binding.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_table_binding.py) | 11 | Python AST |

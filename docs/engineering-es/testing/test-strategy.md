@@ -356,6 +356,8 @@ tamaño. El informe vincula el commit, el diff y el inventario compilado, y fall
 si cambian durante la prueba. La evidencia de código y navegador no acredita
 por sí sola el paquete de escritorio instalado.
 
+La protección del proceso de aceptación resuelve las llamadas a `os.open` relativas a un descriptor con la ruta real del descriptor de directorio, mediante `F_GETPATH` en Darwin o `/proc/self/fd` en Linux, y comprueba su identidad antes de aplicar la política de rutas existente. Un contexto de auditoría acotado proporciona la ruta completa que omite el evento de apertura de Python; se conservan la operación original relativa al descriptor y el comportamiento de `os.supports_dir_fd`. Los descriptores no verificables se rechazan. Las regresiones cubren las lecturas propias de `.gnosi` y el rechazo de lecturas de credenciales y escrituras externas mediante descriptores de directorio.
+
 Ejecute `uv run --frozen --no-sync python scripts/ci/browser_acceptance.py` para
 crear un directorio nuevo de evidencia ignorada, o indique uno nuevo con `--output`.
 La configuración Playwright habitual sigue conectándose a servicios existentes
