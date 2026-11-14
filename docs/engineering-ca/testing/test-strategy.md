@@ -343,6 +343,8 @@ inestables o amb proves omeses no acrediten acceptació. Les captures visuals de
 macOS continuen com una comprovació específica de plataforma i no s'atribueixen
 al job Linux.
 
+El runner conserva tots els casos i comprova els seus identificadors exactes. L’accessibilitat utilitza grups de sis casos; «disposable-web» utilitza grups amb un objectiu de dotze, mantenint cada fitxer complet per preservar els hooks i les sèries. Un fitxer més gran es manté sencer i continua subjecte al mateix límit de memòria. No canvien els reintents, els terminis ni el procés únic.
+
 La fixture crea usuaris owner/viewer sintètics, dos vaults i una taula amb dades.
 L'acceptació diària edita amb l'editor real, reobre la pàgina desada, comprova
 l'aïllament dels vaults i exigeix que un viewer no pugui sobreescriure-la. Després

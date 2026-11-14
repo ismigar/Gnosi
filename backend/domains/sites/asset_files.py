@@ -18,6 +18,7 @@ PUBLIC_PDF_MAX_BYTES = 1024 ** 3
 _CHUNK_BYTES = 1024 * 1024
 _READ_ATTEMPTS = 3
 _read_roots: ContextVar[list[tuple[Path, Path, int | None]] | None] = ContextVar("website_read_root", default=None)
+_cached_parents: ContextVar[dict[Path, int] | None] = ContextVar("website_initial_parent_descriptors", default=None)
 _cloud_source: ContextVar[bool] = ContextVar("website_cloud_source", default=False)
 
 
@@ -110,15 +111,54 @@ def _open_resolved(resolved: Path) -> int:
 
 
 @contextmanager
+def parent_descriptor_cache() -> Iterator[None]:
+    """Reuse initial directory handles; every source still gets a fresh end walk."""
+    cache: dict[Path, int] = {}
+    token = _cached_parents.set(cache)
+    try:
+        yield
+    finally:
+        for descriptor in cache.values():
+            os.close(descriptor)
+        _cached_parents.reset(token)
+
+
+def _open_initial(path: Path) -> int:
+    cache, roots = _cached_parents.get(), _read_roots.get()
+    if cache is None or not roots or roots[0][2] is None or not path.is_relative_to(roots[0][1]) or ".." in path.parts:
+        return _open_resolved(path)
+    parent = cache.get(path.parent)
+    if parent is None:
+        if len(cache) >= 64:
+            return _open_resolved(path)
+        parent = _open_resolved(path.parent)
+        if not stat.S_ISDIR(os.fstat(parent).st_mode):
+            os.close(parent)
+            raise AssetFileError("Invalid selected file directory")
+        cache[path.parent] = parent
+    return os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
+
+
+@contextmanager
 def _source(path: Path, maximum: int, root: Path | None = None) -> Iterator[tuple[BinaryIO, int]]:
     if path.is_symlink():
         raise AssetFileError("A selected attachment is a symbolic link")
-    resolved = path.resolve(strict=True)
-    if root is not None and not resolved.is_relative_to(_canonical_root(root)):
-        raise AssetFileError("A selected attachment is outside the vault")
-    # Pin every directory in the resolved path so a concurrent parent-link
-    # replacement cannot redirect the open outside the authorized tree.
-    descriptor = _open_resolved(resolved)
+    roots = _read_roots.get()
+    pinned_root = roots[0] if root is not None and roots and roots[0][0] == root and roots[0][2] is not None else None
+    fast = False
+    if pinned_root is not None and path.is_relative_to(pinned_root[1]) and ".." not in path.parts:
+        # Walk beneath the already-open authorized root, rejecting every alias.
+        # This avoids repeatedly resolving all cloud-provider ancestors per file.
+        try:
+            descriptor = _open_initial(path)
+            resolved, fast = path, True
+        except OSError:
+            pinned_root = None
+    if not fast:
+        resolved = path.resolve(strict=True)
+        if root is not None and not resolved.is_relative_to(_canonical_root(root)):
+            raise AssetFileError("A selected attachment is outside the vault")
+        descriptor = _open_resolved(resolved)
     with os.fdopen(descriptor, "rb") as stream:
         before = os.fstat(stream.fileno())
         if not stat.S_ISREG(before.st_mode):
@@ -130,9 +170,23 @@ def _source(path: Path, maximum: int, root: Path | None = None) -> Iterator[tupl
             yield stream, before.st_size
         finally:
             _cloud_source.reset(token)
-        if (_identity(before) != _identity(os.fstat(stream.fileno()))
-                or _identity(before) != _identity(resolved.lstat())
-                or path.resolve(strict=True) != resolved):
+        if fast and pinned_root is not None and pinned_root[2] is not None:
+            # A second no-follow walk verifies every parent and the named file;
+            # also reject replacement of the authorized root itself.
+            try:
+                current = _open_resolved(path)
+            except OSError as error:
+                raise SourceChanged("A selected attachment path changed while it was being read") from error
+            try:
+                root_now = pinned_root[1].lstat()
+                root_open = os.fstat(pinned_root[2])
+                changed = (_identity(before) != _identity(os.fstat(current))
+                           or (root_now.st_dev, root_now.st_ino) != (root_open.st_dev, root_open.st_ino))
+            finally:
+                os.close(current)
+        else:
+            changed = _identity(before) != _identity(resolved.lstat()) or path.resolve(strict=True) != resolved
+        if _identity(before) != _identity(os.fstat(stream.fileno())) or changed:
             raise SourceChanged("A selected attachment changed while it was being read")
 
 
