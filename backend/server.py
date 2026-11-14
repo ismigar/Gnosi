@@ -6,9 +6,6 @@ import os
 import sys
 from pathlib import Path
 
-import uvicorn
-
-
 # Configure paths before importing the application package. Packaged desktop
 # builds still rely on both roots being available exactly as in the legacy
 # entrypoint.
@@ -22,6 +19,14 @@ if str(BASE_DIR) not in sys.path:
 while str(BACKEND_DIR) in sys.path:
     sys.path.remove(str(BACKEND_DIR))
 sys.path.append(str(BACKEND_DIR))
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "--bounded-file-io-worker":
+    if len(sys.argv) != 4:
+        raise SystemExit(64)
+    from backend.utils.bounded_file_io import worker_main
+    raise SystemExit(worker_main(int(sys.argv[2]), int(sys.argv[3])))
+
+import uvicorn
 
 from backend.config.startup_vault import materialize_startup_vault_files
 from backend.config.startup_errors import desktop_startup_errors

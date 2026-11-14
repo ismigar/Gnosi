@@ -274,3 +274,9 @@ El texto público se proyecta desde la página nativa sin las definiciones de la
 La caché generada antigua solo se admite como una única región de resultado equilibrada e independiente por página. Las regiones múltiples, anidadas o intercaladas son ambiguas y detienen la exportación para evitar exponer datos de trabajo o eliminar texto escrito silenciosamente; las definiciones de vista normales siguen admitidas sin esa caché.
 
 Los ejemplos en bloques de código normales y el código en línea de una sola línea compatible se conservan literalmente. Las plantillas en línea ambiguas o los delimitadores de resultado antiguos dentro del código detienen la exportación en lugar de alterar los ejemplos escritos.
+
+La reutilización de adjuntos solo para vista previa registra la versión fijada del origen (dispositivo, inode, modo, tamaño, mtime y ctime) tras una copia estable. Rechaza archivos pendientes de descarga, fija y comprueba de nuevo la versión original y calcula el hash de la copia privada. Los cambios obligan a copiar de nuevo; confirmación y activación siempre calculan el hash de los originales. Las lecturas en la nube usan procesos propios con descriptores y un límite de diez segundos por operación, terminados y recogidos al vencer, antes de importar el arranque de la aplicación empaquetada. No se reinicia ningún proveedor ni se cambia la conservación local.
+
+Windows con Python 3.11 expone la fecha de creación como ctime; por ello se desactivan la reutilización de versiones y sus registros, y cada vista previa copia de nuevo los originales. Los identificadores de cambio POSIX conservan la optimización.
+
+Cada recorrido resuelve y fija la raíz del vault una sola vez. Cada archivo conserva el recorrido sin seguir enlaces, el descriptor fijado, la lectura limitada y las comprobaciones de identidad y ruta antes y después. Los descriptores de raíz se cierran al terminar o fallar y no se comparten entre peticiones.

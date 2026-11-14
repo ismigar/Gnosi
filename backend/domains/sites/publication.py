@@ -50,7 +50,7 @@ def preview(store: SiteStore, site: SiteConfig, target_id: str, *, expected_revi
     target = next((t for t in site.targets if t.id == target_id), None)
     if not target or not target.enabled:
         raise HTTPException(409, "Enable and configure the website destination first")
-    bundle = build_bundle(store, site, target_id)
+    bundle = build_bundle(store, site, target_id, reuse_asset_snapshots=True)
     return _preview_bundle(store, site, target_id, bundle, expected_revision=expected_revision)
 
 
