@@ -345,6 +345,8 @@ des tests ignorés ne prouvent pas l'acceptation. Les captures visuelles macOS
 restent un contrôle spécifique à cette plateforme et ne sont pas attribuées au
 job Linux.
 
+Le runner conserve tous les cas et vérifie leurs identifiants exacts. L’accessibilité utilise des groupes de six cas ; « disposable-web » vise douze cas par groupe, en conservant chaque fichier complet pour préserver hooks et séries. Un fichier plus grand reste entier et soumis à la même limite mémoire. Les nouvelles tentatives, délais et le processus unique restent inchangés.
+
 La fixture crée des comptes owner/viewer synthétiques, deux vaults et une table
 remplie. L'acceptation quotidienne modifie une page dans le véritable éditeur,
 la rouvre, contrôle l'isolation des vaults et exige qu'un viewer ne puisse pas

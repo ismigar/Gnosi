@@ -109,7 +109,7 @@ def test_proxy_rejects_absolute_external_http_requests() -> None:
             assert client.getresponse().status == 403
 
 
-def test_browser_batches_keep_serial_projects_whole_and_bound_accessibility() -> None:
+def test_browser_batches_preserve_small_projects_and_bound_accessibility() -> None:
     from scripts.ci.acceptance_batches import case_batches
     cases = {(project, str(index)): f'{project}-{index}'
              for project, length in [('disposable-web', 10), ('accessibility', 14)]
@@ -153,3 +153,29 @@ def test_browser_batches_keep_fail_closed_report_validation(tmp_path: Path) -> N
         run_projects('node', Path('playwright'), ('accessibility',), 'functional', tmp_path,
                      tmp_path, {}, runner, report_counts)
     assert runner.call_count == 1
+
+
+def test_disposable_batches_preserve_whole_files_and_every_case_in_order():
+    from scripts.ci.acceptance_batches import case_batches
+    cases = {}
+    for filename, count in [('calendar.spec.ts', 10), ('modal.spec.ts', 7), ('web.spec.ts', 5)]:
+        for index in range(count):
+            cases[('disposable-web', f'{filename}-{index}')] = f'[disposable-web] › {filename} › serial case {index}'
+    batches = case_batches(cases, ('disposable-web',))
+    assert [len(batch) for batch in batches] == [10, 12]
+    assert [key for batch in batches for key in batch] == list(cases)
+    for filename in ('calendar.spec.ts', 'modal.spec.ts', 'web.spec.ts'):
+        assert sum(any(filename in label for label in batch.values()) for batch in batches) == 1
+
+
+def test_disposable_file_larger_than_target_is_not_split_or_skipped():
+    from scripts.ci.acceptance_batches import case_batches
+    cases = {('disposable-web', str(index)): f'[disposable-web] › large.spec.ts › serial case {index}' for index in range(15)}
+    assert case_batches(cases, ('disposable-web',)) == [cases]
+
+
+def test_disposable_interleaved_files_fail_instead_of_reordering_serial_cases():
+    from scripts.ci.acceptance_batches import case_batches
+    cases = {('disposable-web', str(index)): f'[disposable-web] › {filename} › case {index}' for index, filename in enumerate(('one.spec.ts', 'two.spec.ts', 'one.spec.ts'))}
+    with pytest.raises(ValueError, match='contiguous'):
+        case_batches(cases, ('disposable-web',))

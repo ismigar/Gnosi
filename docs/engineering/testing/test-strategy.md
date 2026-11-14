@@ -326,7 +326,10 @@ separate platform-specific check and are not claimed by the Linux job.
 
 The runner collects the exact test matrix before execution, starts a separate
 Playwright process per project, and bounds accessibility browsers to six cases
-per process. Other projects remain whole to preserve serial-suite contracts.
+per process. Disposable-web cases use batches targeting twelve cases, keeping
+each complete file together to preserve before/after hooks and serial suites.
+A file larger than the target remains whole; the memory limit still applies.
+Other projects remain whole to preserve serial-suite contracts.
 Each batch uses the collected fully qualified test list; its actual stable case
 IDs must match exactly, without omissions, additions or repetitions. Aggregate
 reports retain every raw batch report and require every mandatory project.
