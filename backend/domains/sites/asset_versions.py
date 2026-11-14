@@ -17,6 +17,9 @@ from backend.platform.files.coordinated import is_cloud_placeholder
 from . import asset_files
 from .storage import private_json
 
+# Windows/Python 3.11 ctime is creation time, not an edit token.
+_STRONG_CHANGE_TOKEN = os.name == "posix"
+
 
 def _entry(path: Path, directory: Path) -> Path:
     folder = directory / ".source-versions"
@@ -26,6 +29,8 @@ def _entry(path: Path, directory: Path) -> Path:
 
 
 def cached_snapshot(path: Path, root: Path, directory: Path, maximum: int) -> tuple[str, Path] | None:
+    if not _STRONG_CHANGE_TOKEN:
+        return None
     entry = _entry(path, directory)
     if not entry.exists():
         return None
@@ -54,6 +59,8 @@ def cached_snapshot(path: Path, root: Path, directory: Path, maximum: int) -> tu
 
 
 def save_version(path: Path, root: Path, directory: Path, digest: str, identity: tuple[int, ...]) -> None:
+    if not _STRONG_CHANGE_TOKEN:
+        return
     # The completed stage already pinned and validated the descriptor/path.
     # This metadata-only check avoids opening the original a third time.
     info = path.lstat()

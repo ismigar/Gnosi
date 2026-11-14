@@ -304,3 +304,7 @@ La memòria cau generada antiga només s’admet com una única regió de result
 Els exemples en blocs de codi normals i el codi en línia d’una sola línia compatible es conserven literalment. Les plantilles en línia ambigües o els delimitadors de resultat antics dins del codi aturen l’exportació en lloc d’alterar els exemples escrits.
 
 La reutilització d’adjunts només per a previsualització registra la versió fixada de l’origen (dispositiu, inode, mode, mida, mtime i ctime) després d’una còpia estable. Rebutja fitxers pendents de descarregar, fixa i torna a comprovar la versió original i calcula el hash de la còpia privada. Els canvis obliguen a copiar de nou; confirmació i activació sempre calculen el hash dels originals. Les lectures al núvol usen processos propis amb descriptors i un límit de deu segons per operació, finalitzats i recollits si expira, abans d’importar l’arrencada de l’aplicació empaquetada. No es reinicia cap proveïdor ni es canvia la conservació local.
+
+Windows amb Python 3.11 exposa la data de creació com a ctime; per això s’hi desactiven la reutilització de versions i els seus registres, i cada previsualització copia de nou els originals. Els identificadors de canvi POSIX conserven l’optimització.
+
+Cada recorregut resol i fixa l’arrel del vault una sola vegada. Cada fitxer conserva el recorregut sense seguir enllaços, el descriptor fixat, la lectura limitada i les comprovacions d’identitat i ruta abans i després. Els descriptors d’arrel es tanquen tant en acabar com en fallar i no es comparteixen entre peticions.

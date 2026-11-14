@@ -294,3 +294,7 @@ Legacy generated cache is accepted only as one balanced, standalone result regio
 Ordinary fenced examples and safe single-line inline code remain literal. Ambiguous inline templates or raw legacy result-boundary markers inside code stop export instead of changing authored examples.
 
 Preview-only attachment reuse records the pinned source version (device, inode, mode, size, mtime and ctime) after a stable copy. Reuse rejects placeholders, pins and rechecks the original version, and hashes the private snapshot. Changed versions fall back to a fresh copy; confirmation and activation always hash originals. Cloud content reads use request-owned descriptor workers with a ten-second deadline per operation and termination/reaping on timeout, before application startup imports in the frozen executable. No provider service is restarted and no cloud retention setting is changed.
+
+Windows/Python 3.11 exposes creation time as ctime, so source-version reuse and receipts are disabled there; previews keep fresh original copies. POSIX edit tokens retain the optimization.
+
+Each source scan resolves and pins its vault root once. Every file still has its own no-follow traversal, pinned descriptor, bounded content read and before/after identity and path checks. Root descriptors close on success or failure and are never shared across requests.

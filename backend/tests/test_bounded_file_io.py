@@ -139,3 +139,28 @@ def test_cloud_notes_use_owned_reader_and_preserve_content(tmp_path, monkeypatch
     assert notes[0].body == "Unchanged body\n"
     assert notes[0].digest == hashlib.sha256(path.read_bytes()).hexdigest()
     assert io._current.get() is None
+
+
+def test_scan_root_cannot_be_redirected_and_pin_closes_on_failure(tmp_path):
+    from backend.domains.sites import asset_files
+    inside, outside, alias = tmp_path / "inside", tmp_path / "outside", tmp_path / "alias"
+    inside.mkdir()
+    outside.mkdir()
+    (inside / "note.md").write_bytes(b"allowed")
+    (outside / "note.md").write_bytes(b"outside")
+    alias.symlink_to(inside, target_is_directory=True)
+    descriptor = None
+    with pytest.raises(asset_files.AssetFileError, match="outside"):
+        with asset_files.read_session():
+            assert asset_files.read_selected_bytes(alias / "note.md", alias, 100) == b"allowed"
+            descriptor = asset_files._read_roots.get()[0][2]
+            alias.unlink()
+            alias.symlink_to(outside, target_is_directory=True)
+            asset_files.read_selected_bytes(alias / "note.md", alias, 100)
+    assert asset_files._read_roots.get() is None
+    if descriptor is not None:
+        with pytest.raises(OSError):
+            os.fstat(descriptor)
+    # A separate request takes its own root; no authorization cache persists.
+    with asset_files.read_session():
+        assert asset_files.read_selected_bytes(alias / "note.md", alias, 100) == b"outside"

@@ -17,6 +17,7 @@ PUBLIC_ATTACHMENT_MAX_BYTES = 32_000_000
 PUBLIC_PDF_MAX_BYTES = 1024 ** 3
 _CHUNK_BYTES = 1024 * 1024
 _READ_ATTEMPTS = 3
+_read_roots: ContextVar[list[tuple[Path, Path, int | None]] | None] = ContextVar("website_read_root", default=None)
 _cloud_source: ContextVar[bool] = ContextVar("website_cloud_source", default=False)
 
 
@@ -41,21 +42,71 @@ def _identity(info: os.stat_result) -> tuple[int, ...]:
             info.st_mtime_ns, info.st_ctime_ns)
 
 
-def _open_resolved(resolved: Path) -> int:
-    if os.open not in os.supports_dir_fd or not hasattr(os, "O_NOFOLLOW"):
-        # Windows has no openat directory traversal. Descriptor/path identity
-        # and resolved-path checks below still precede exposing any copy.
-        return os.open(resolved, os.O_RDONLY | getattr(os, "O_BINARY", 0))
-    directory = os.open(resolved.anchor, os.O_RDONLY | os.O_DIRECTORY)
+@contextmanager
+def read_session() -> Iterator[None]:
+    """Pin one canonical root for a scan; retain every per-file check."""
+    existing = _read_roots.get()
+    roots: list[tuple[Path, Path, int | None]] = []
+    token = _read_roots.set(roots) if existing is None else None
     try:
-        for part in resolved.parent.parts[1:]:
+        with bounded_file_io.session():
+            yield
+    finally:
+        if token is not None:
+            if roots and roots[0][2] is not None:
+                os.close(roots[0][2])
+            _read_roots.reset(token)
+
+
+def _open_directory(path: Path) -> int:
+    directory = os.open(path.anchor, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        for part in path.parts[1:]:
             child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
             os.close(directory)
             directory = child
-        return os.open(resolved.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+        return directory
+    except BaseException:
+        os.close(directory)
+        raise
+
+
+def _canonical_root(root: Path) -> Path:
+    roots = _read_roots.get()
+    if roots and roots[0][0] == root:
+        return roots[0][1]
+    canonical = root.resolve(strict=True)
+    if roots is not None and not roots:
+        descriptor = (_open_directory(canonical)
+                      if os.open in os.supports_dir_fd and hasattr(os, "O_NOFOLLOW") and canonical.is_dir()
+                      else None)
+        roots.append((root, canonical, descriptor))
+    return canonical
+
+
+def _open_resolved(resolved: Path) -> int:
+    if os.open not in os.supports_dir_fd or not hasattr(os, "O_NOFOLLOW"):
+        return os.open(resolved, os.O_RDONLY | getattr(os, "O_BINARY", 0))
+    roots = _read_roots.get()
+    if roots and roots[0][2] is not None and resolved.is_relative_to(roots[0][1]):
+        directory = roots[0][2]
+        parts = resolved.relative_to(roots[0][1]).parts
+        owned = False
+    else:
+        directory = os.open(resolved.anchor, os.O_RDONLY | os.O_DIRECTORY)
+        parts = resolved.parts[1:]
+        owned = True
+    try:
+        for part in parts[:-1]:
+            child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+            if owned:
+                os.close(directory)
+            directory, owned = child, True
+        return os.open(parts[-1] if parts else ".", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
                        dir_fd=directory)
     finally:
-        os.close(directory)
+        if owned:
+            os.close(directory)
 
 
 @contextmanager
@@ -63,7 +114,7 @@ def _source(path: Path, maximum: int, root: Path | None = None) -> Iterator[tupl
     if path.is_symlink():
         raise AssetFileError("A selected attachment is a symbolic link")
     resolved = path.resolve(strict=True)
-    if root is not None and not resolved.is_relative_to(root.resolve(strict=True)):
+    if root is not None and not resolved.is_relative_to(_canonical_root(root)):
         raise AssetFileError("A selected attachment is outside the vault")
     # Pin every directory in the resolved path so a concurrent parent-link
     # replacement cannot redirect the open outside the authorized tree.

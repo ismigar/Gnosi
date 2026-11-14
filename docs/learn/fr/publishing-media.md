@@ -59,4 +59,4 @@ Dans **Formulaires de contact**, ajoutez, réordonnez ou supprimez les champs et
 
 L’aperçu des fiches évite de reconstruire plusieurs fois le même site. Chaque nouvel aperçu lit les notes actuelles et vérifie à nouveau la fiche après le rendu. Si elle change pendant la révision, relancez celle-ci. Préparer ou rouvrir un aperçu ne publie rien et ne modifie pas le contenu sélectionné.
 
-Pour les pièces jointes téléchargées et inchangées, l’aperçu réutilise une copie locale vérifiée. Les notes sont relues. Si un fichier cloud ne peut pas être lu à temps, la révision s’arrête : téléchargez-le et réessayez. La confirmation vérifie à nouveau les originaux avant la publication.
+Sur macOS et Linux, pour les pièces jointes téléchargées et inchangées, l’aperçu réutilise une copie locale vérifiée. Les notes sont relues. Si un fichier cloud ne peut pas être lu à temps, la révision s’arrête : téléchargez-le et réessayez. La confirmation vérifie à nouveau les originaux avant la publication.

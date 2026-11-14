@@ -13,7 +13,7 @@ from typing import cast
 from urllib.parse import quote, unquote, urlsplit
 
 import yaml
-from backend.utils.bounded_file_io import session as read_session
+from .asset_files import read_session
 from fastapi import HTTPException
 from markdown_it import MarkdownIt
 from markdown_it.token import Token

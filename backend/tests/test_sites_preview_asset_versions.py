@@ -11,6 +11,7 @@ from backend.domains.sites import asset_files, asset_versions, exporter, publica
 from backend.tests.test_sites import website  # noqa: F401
 
 
+@pytest.mark.skipif(not asset_versions._STRONG_CHANGE_TOKEN, reason="Cache requires POSIX edit tokens")
 def test_preview_reuses_verified_bytes_but_strict_build_reads_original(tmp_path, monkeypatch):
     source = tmp_path / "source.pdf"
     source.write_bytes(b"reviewed source")
@@ -123,3 +124,21 @@ def test_confirmation_rehashes_source_after_cached_preview(website, monkeypatch)
     assert website.store.config_path(website.site.id).read_bytes() == before
     with website.store.database() as db:
         assert db.execute('SELECT COUNT(*) FROM jobs').fetchone()[0] == 0
+
+
+def test_platform_without_edit_tokens_reads_same_size_rewrite_afresh(tmp_path, monkeypatch):
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"Original")
+    directory = tmp_path / "snapshots"
+    identity = asset_files._identity
+    # Emulate Windows creation-time ctime without changing global OS behavior.
+    monkeypatch.setattr(asset_files, "_identity", lambda info: (*identity(info)[:-1], 0))
+    monkeypatch.setattr(asset_versions, "_STRONG_CHANGE_TOKEN", False)
+    first = asset_files.snapshot_asset(source, tmp_path, directory, reuse_source_version=True)
+    info = source.stat()
+    source.write_bytes(b"Modified")
+    os.utime(source, ns=(info.st_atime_ns, info.st_mtime_ns))
+    second = asset_files.snapshot_asset(source, tmp_path, directory, reuse_source_version=True)
+    assert second[0] != first[0]
+    assert second[1].read_bytes() == b"Modified"
+    assert not (directory / ".source-versions").exists()
