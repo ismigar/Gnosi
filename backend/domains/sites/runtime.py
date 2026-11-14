@@ -10,6 +10,7 @@ import shutil
 import signal
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import cast
@@ -25,6 +26,15 @@ from .private_service import SERVICE_ROOT, configuration
 from .ssh_namespace import program as namespace_program, worker_start_program
 from .release_retention import begin_upload_program, retention_program, record_result
 from .storage import SiteStore, private_json
+
+_MAC_PHP_PATH = os.pathsep.join(("/opt/homebrew/bin", "/usr/local/bin"))
+
+def _php_executable() -> str | None:
+    """Finder launches have a minimal PATH; retain explicit PATH precedence."""
+    found = shutil.which("php")
+    if found or sys.platform != "darwin":
+        return found
+    return shutil.which("php", path=_MAC_PHP_PATH)
 
 
 def connection(store: SiteStore, site_id: str, target_id: str) -> TargetConnection:
@@ -83,7 +93,8 @@ def probe(store: SiteStore, site: SiteConfig, target_id: str) -> ConnectionStatu
         response = _driver("status", store.context, {})
         return ConnectionStatus(configured=bool(response.get("configured")), reachable=True, detail="staging")
     if target.adapter == "local":
-        return ConnectionStatus(configured=True, reachable=bool(shutil.which("php")), detail="php" if shutil.which("php") else "php_unavailable")
+        php = _php_executable()
+        return ConnectionStatus(configured=True, reachable=bool(php), detail="php" if php else "php_unavailable")
     settings = connection(store, site.id, target_id)
     sftp_ready = False
     try:
@@ -115,7 +126,7 @@ def _owned_process(state: object, expected_output: Path) -> psutil.Process | Non
     if not isinstance(argv, list) or not argv or not all(isinstance(value, str) for value in argv):
         return None
     port = state.get("port")
-    php = shutil.which("php")
+    php = _php_executable()
     if not isinstance(port, int) or not 1024 <= port <= 65535 or not php or state.get("output") != str(expected_output):
         return None
     expected_argv = [php, "-S", "127.0.0.1:" + str(port), "-t", str(expected_output), str(SERVICE_ROOT.parent / "public/router.php")]
@@ -216,7 +227,7 @@ def _validate_started_target(store: SiteStore, site_id: str, target_id: str, pid
 
 
 def start_server(store: SiteStore, site: SiteConfig, target_id: str, output: Path, *, preview_id: str | None = None) -> str:
-    php = shutil.which("php")
+    php = _php_executable()
     router = SERVICE_ROOT.parent / "public" / "router.php"
     if not php or not router.is_file():
         raise HTTPException(503, "The local website PHP runtime is unavailable")
@@ -257,8 +268,11 @@ def start_server(store: SiteStore, site: SiteConfig, target_id: str, output: Pat
     output.mkdir(parents=True, exist_ok=True)
     env = _server_environment(config, output, None if preview_id else store.site_dir(site.id) / "releases")
     argv = [php, "-S", "127.0.0.1:" + str(port), "-t", str(output), str(router)]
+    from .preview_worker import in_worker
+    # During construction, owner loss must also terminate the owned preview PHP.
+    separate_session = not (preview_id and in_worker.get())
     with (root / "server.log").open("ab") as log:
-        process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=log, stderr=log, env=env, start_new_session=True)
+        process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=log, stderr=log, env=env, start_new_session=separate_session)
     try:
         started_at = psutil.Process(process.pid).create_time()
     except psutil.Error:

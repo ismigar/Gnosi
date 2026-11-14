@@ -47,6 +47,10 @@ def changes(previous: dict[str, JsonValue] | None, bundle: SiteBundle) -> list[S
 
 
 def preview(store: SiteStore, site: SiteConfig, target_id: str, *, expected_revision: int | None = None) -> SitePreview:
+    from .preview_worker import run_isolated, in_worker
+    from backend.utils.bounded_file_io import cloud_path
+    if cloud_path(store.vault) and not in_worker.get():
+        return run_isolated(store, site, target_id, expected_revision=expected_revision)
     target = next((t for t in site.targets if t.id == target_id), None)
     if not target or not target.enabled:
         raise HTTPException(409, "Enable and configure the website destination first")
@@ -59,7 +63,8 @@ def _preview_bundle(store: SiteStore, site: SiteConfig, target_id: str, bundle: 
     target = next((t for t in site.targets if t.id == target_id), None)
     if not target or not target.enabled:
         raise HTTPException(409, "Enable and configure the website destination first")
-    preview_id = identifier()
+    from .preview_worker import preview_identity
+    preview_id = preview_identity.get() or identifier()
     expires = datetime.now(timezone.utc) + timedelta(minutes=15)
     previous = store.active_bundle(site.id, target_id)
     response = SitePreview(id=preview_id, site_id=site.id, target_id=target_id, fingerprint=bundle.fingerprint, expires_at=expires.isoformat(), changes=changes(previous, bundle))

@@ -170,6 +170,10 @@ def context_fingerprint(store: SiteStore, page_id: str, *, snapshot: exporter.So
 
 
 def review(store: SiteStore, site: SiteConfig, request: RecordPublicationReview) -> SitePreview:
+    from .preview_worker import run_isolated, in_worker
+    from backend.utils.bounded_file_io import cloud_path
+    if cloud_path(store.vault) and not in_worker.get():
+        return run_isolated(store, site, request.target_id, record=request)
     snapshot = exporter.source_snapshot(store)
     record_fingerprint = context_fingerprint(store, request.page_id, snapshot=snapshot)
     candidate = proposal(store, site, request, snapshot=snapshot)

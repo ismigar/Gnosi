@@ -26,6 +26,12 @@ if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "--bounded-fi
     from backend.utils.bounded_file_io import worker_main
     raise SystemExit(worker_main(int(sys.argv[2]), int(sys.argv[3])))
 
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "--website-preview-worker":
+    if len(sys.argv) != 7:
+        raise SystemExit(64)
+    from backend.domains.sites.preview_worker import worker_main as preview_worker_main
+    raise SystemExit(preview_worker_main(*(int(value) for value in sys.argv[2:])))
+
 import uvicorn
 
 from backend.config.startup_vault import materialize_startup_vault_files

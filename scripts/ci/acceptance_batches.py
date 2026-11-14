@@ -7,6 +7,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 Case = tuple[str, str]
 ACCESSIBILITY_BATCH_SIZE = 6
+DISPOSABLE_BATCH_SIZE = 12
 
 
 def report_cases(report: Path, projects: Sequence[str]) -> dict[Case, str]:
@@ -36,12 +37,42 @@ def report_cases(report: Path, projects: Sequence[str]) -> dict[Case, str]:
     return cases
 
 
+def file_batches(selected: list[tuple[Case, str]]) -> list[dict[Case, str]]:
+    """Recycle browsers between complete files, retaining every serial suite."""
+    groups: list[list[tuple[Case, str]]] = []
+    seen: set[str] = set()
+    previous: str | None = None
+    for key, label in selected:
+        parts = label.split(' › ', 2)
+        filename = parts[1] if len(parts) > 1 else label
+        if filename != previous:
+            if filename in seen:
+                raise ValueError('Collected browser file cases must remain contiguous')
+            groups.append([])
+            seen.add(filename)
+            previous = filename
+        groups[-1].append((key, label))
+    batches: list[dict[Case, str]] = []
+    current: list[tuple[Case, str]] = []
+    for group in groups:
+        if current and len(current) + len(group) > DISPOSABLE_BATCH_SIZE:
+            batches.append(dict(current))
+            current = []
+        current.extend(group)
+    if current:
+        batches.append(dict(current))
+    return batches
+
+
 def case_batches(cases: dict[Case, str], projects: Sequence[str]) -> list[dict[Case, str]]:
     batches: list[dict[Case, str]] = []
     for project in projects:
         selected = [(key, label) for key, label in cases.items() if key[0] == project]
         if not selected:
             raise ValueError(f'Browser project collected no cases: {project}')
+        if project == 'disposable-web':
+            batches.extend(file_batches(selected))
+            continue
         size = ACCESSIBILITY_BATCH_SIZE if project == 'accessibility' else len(selected)
         batches.extend(dict(selected[start:start + size]) for start in range(0, len(selected), size))
     return batches

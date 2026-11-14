@@ -338,6 +338,8 @@ fallidos, inestables o con pruebas omitidas no acreditan aceptación. Las captur
 visuales de macOS siguen siendo una comprobación específica de plataforma y no
 se atribuyen al job Linux.
 
+El runner conserva todos los casos y comprueba sus identificadores exactos. Accesibilidad utiliza grupos de seis casos; «disposable-web» utiliza grupos con un objetivo de doce, manteniendo cada archivo completo para preservar hooks y series. Un archivo mayor se mantiene entero y sigue sujeto al mismo límite de memoria. No cambian los reintentos, los plazos ni el proceso único.
+
 La fixture crea usuarios owner/viewer sintéticos, dos vaults y una tabla con datos.
 La aceptación diaria edita con el editor real, reabre la página guardada, comprueba
 el aislamiento de vaults y exige que un viewer no pueda sobrescribirla. Después
