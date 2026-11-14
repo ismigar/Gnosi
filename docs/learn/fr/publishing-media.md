@@ -58,3 +58,5 @@ Dans **Hébergement**, configurez le serveur, port, utilisateur, dossiers et aut
 Dans **Formulaires de contact**, ajoutez, réordonnez ou supprimez les champs et modifiez les textes par langue, notamment le consentement, les erreurs et la confirmation. Laissez les textes facultatifs vides pour conserver les valeurs par défaut. Vérifiez le résultat avant publication.
 
 L’aperçu des fiches évite de reconstruire plusieurs fois le même site. Chaque nouvel aperçu lit les notes actuelles et vérifie à nouveau la fiche après le rendu. Si elle change pendant la révision, relancez celle-ci. Préparer ou rouvrir un aperçu ne publie rien et ne modifie pas le contenu sélectionné.
+
+Pour les pièces jointes téléchargées et inchangées, l’aperçu réutilise une copie locale vérifiée. Les notes sont relues. Si un fichier cloud ne peut pas être lu à temps, la révision s’arrête : téléchargez-le et réessayez. La confirmation vérifie à nouveau les originaux avant la publication.

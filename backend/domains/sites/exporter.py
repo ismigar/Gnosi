@@ -13,6 +13,7 @@ from typing import cast
 from urllib.parse import quote, unquote, urlsplit
 
 import yaml
+from backend.utils.bounded_file_io import session as read_session
 from fastapi import HTTPException
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
@@ -117,32 +118,51 @@ def _note_paths(vault: Path) -> list[Path]:
 
 
 def notes(store: SiteStore) -> list[Note]:
-    result: list[Note] = []
+    with read_session():
+        return _read_notes(store)
+
+
+def _read_notes(store: SiteStore) -> list[Note]:
+    paths = _note_paths(store.vault)
+    result = _read_note_batch(paths, store.vault)
     identities: set[str] = set()
-    for path in _note_paths(store.vault):
-        relative = path.relative_to(store.vault)
-        if any(part.startswith(".") for part in relative.parts) or path.is_symlink():
-            continue
-        try:
-            raw = bounded_read(path, store.vault)
-            text = raw.decode("utf-8")
-            match = re.match(r"\A---\s*\n(.*?)\n---\s*\n", text, re.S)
-            if not match:
-                continue
-            # Both loaders accept only SafeLoader constructors. The bundled C
-            # implementation avoids reparsing large vaults in Python bytecode.
-            meta: object = yaml.load(match.group(1), Loader=getattr(yaml, "CSafeLoader", yaml.SafeLoader))
-            if not isinstance(meta, dict) or not meta.get("id"):
-                continue
-            metadata = cast(dict[str, JsonValue], json.loads(json.dumps(meta, default=str)))
-            identity = str(metadata["id"])
-            if identity in identities:
-                raise HTTPException(409, "Duplicate note identities must be resolved before publication")
-            identities.add(identity)
-            result.append(Note(path, metadata, text[match.end():], hashlib.sha256(raw).hexdigest()))
-        except (OSError, UnicodeError, yaml.YAMLError, ValueError):
-            raise HTTPException(409, "A vault file is unavailable or incomplete; publication was stopped") from None
+    for note in result:
+        identity = str(note.metadata["id"])
+        if identity in identities:
+            raise HTTPException(409, "Duplicate note identities must be resolved before publication")
+        identities.add(identity)
     return result
+
+
+def _read_note_batch(paths: list[Path], vault: Path) -> list[Note]:
+    result: list[Note] = []
+    with read_session():
+        for path in paths:
+            note = _read_note(path, vault)
+            if note is not None:
+                result.append(note)
+    return result
+
+
+def _read_note(path: Path, vault: Path) -> Note | None:
+    relative = path.relative_to(vault)
+    if any(part.startswith(".") for part in relative.parts) or path.is_symlink():
+        return None
+    try:
+        raw = bounded_read(path, vault)
+        text = raw.decode("utf-8")
+        match = re.match(r"\A---\s*\n(.*?)\n---\s*\n", text, re.S)
+        if not match:
+            return None
+        # Both loaders accept only SafeLoader constructors. The bundled C
+        # implementation avoids reparsing large vaults in Python bytecode.
+        meta: object = yaml.load(match.group(1), Loader=getattr(yaml, "CSafeLoader", yaml.SafeLoader))
+        if not isinstance(meta, dict) or not meta.get("id"):
+            return None
+        metadata = cast(dict[str, JsonValue], json.loads(json.dumps(meta, default=str)))
+        return Note(path, metadata, text[match.end():], hashlib.sha256(raw).hexdigest())
+    except (OSError, UnicodeError, yaml.YAMLError, ValueError):
+        raise HTTPException(409, "A vault file is unavailable or incomplete; publication was stopped") from None
 
 
 def fields(table: dict[str, JsonValue]) -> list[dict[str, str]]:
@@ -383,6 +403,8 @@ class AssetExporter:
     site_id: str
     assets: dict[str, BundleAsset] = field(default_factory=dict)
     links: dict[str, str] = field(default_factory=dict)
+    reuse_source_versions: bool = False
+    snapshots: dict[Path, tuple[str, str, Path]] = field(default_factory=dict)
 
     def _local_path(self, raw_path: str, note: Note | None) -> Path:
         from backend.services.library_paths import resolve_library
@@ -415,12 +437,22 @@ class AssetExporter:
         from .asset_files import AssetFileError, AssetTooLarge, snapshot_asset
         directory = self.store.site_dir(self.site_id) / "asset-snapshots"
         try:
-            digest, snapshot = snapshot_asset(local, self.store.vault, directory)
+            if local.is_symlink():
+                raise AssetFileError("A selected attachment is a symbolic link")
+            # One immutable version per path within this bundle. Other requests
+            # and all confirmation/activation builds use their own fresh inputs.
+            key = local.resolve()
+            if self.reuse_source_versions and key in self.snapshots:
+                return self.snapshots[key]
+            digest, snapshot = snapshot_asset(local, self.store.vault, directory,
+                                             reuse_source_version=self.reuse_source_versions)
         except AssetTooLarge as exc:
             raise HTTPException(422, str(exc)) from None
         except (AssetFileError, OSError):
             raise HTTPException(409, "A selected attachment is unavailable or changed while being read") from None
-        return "/assets/" + digest[:24] + suffix, digest, snapshot
+        result = "/assets/" + digest[:24] + suffix, digest, snapshot
+        self.snapshots[key] = result
+        return result
 
     def __call__(self, value: str, note: Note | None = None) -> str:
         if value in self.assets:
@@ -732,9 +764,15 @@ def _withdrawn_paths(projection: Projection, exported: SiteConfig) -> list[str]:
     return sorted(withdrawn)
 
 
-def build_bundle(store: SiteStore, site: SiteConfig, target_id: str, *, snapshot: SourceSnapshot | None = None) -> SiteBundle:
+def build_bundle(store: SiteStore, site: SiteConfig, target_id: str, *, snapshot: SourceSnapshot | None = None, reuse_asset_snapshots: bool = False) -> SiteBundle:
+    with read_session():
+        return _build_bundle(store, site, target_id, snapshot, reuse_asset_snapshots)
+
+
+def _build_bundle(store: SiteStore, site: SiteConfig, target_id: str, snapshot: SourceSnapshot | None, reuse_asset_snapshots: bool) -> SiteBundle:
     validate_site(site)
     projection = _projection(store, site, target_id, snapshot)
+    projection.asset.reuse_source_versions = reuse_asset_snapshots
     projection.collect()
     projection.import_baseline()
     projection.guard_missing_files()

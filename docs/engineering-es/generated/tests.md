@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 38 | 128 |
 | Vitest | 776 | 3539 |
-| pytest | 804 | 6235 |
+| pytest | 806 | 6249 |
 
 ## Archivos
 
@@ -951,6 +951,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_booking_availability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_booking_availability.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_booking_local_recurrence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_booking_local_recurrence.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_booking_reservations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_booking_reservations.py) | 10 | Python AST |
+| pytest | [`backend/tests/test_bounded_file_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_bounded_file_io.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_brain_inbox_routes_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_brain_inbox_routes_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_brain_registry_integration_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_brain_registry_integration_contract.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_browser_acceptance_runner.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_browser_acceptance_runner.py) | 10 | Python AST |
@@ -1418,6 +1419,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_sites_pangea_pty_writes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_pangea_pty_writes.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_sites_pangea_read_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_pangea_read_recovery.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_sites_pangea_transfer_deadline.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_pangea_transfer_deadline.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_sites_preview_asset_versions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_preview_asset_versions.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_sites_preview_performance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_preview_performance.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_sites_preview_streaming.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_preview_streaming.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_sites_production.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_production.py) | 11 | Python AST |

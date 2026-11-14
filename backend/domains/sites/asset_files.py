@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from contextvars import ContextVar
 from collections.abc import Iterator
 import hashlib
 import os
@@ -10,10 +11,13 @@ import stat
 import tempfile
 from typing import BinaryIO
 
+from backend.utils import bounded_file_io
+
 PUBLIC_ATTACHMENT_MAX_BYTES = 32_000_000
 PUBLIC_PDF_MAX_BYTES = 1024 ** 3
 _CHUNK_BYTES = 1024 * 1024
 _READ_ATTEMPTS = 3
+_cloud_source: ContextVar[bool] = ContextVar("website_cloud_source", default=False)
 
 
 class AssetFileError(ValueError):
@@ -70,7 +74,11 @@ def _source(path: Path, maximum: int, root: Path | None = None) -> Iterator[tupl
             raise AssetFileError("A selected attachment is not a regular file")
         if before.st_size > maximum:
             raise AssetTooLarge("A selected attachment exceeds the publication size limit")
-        yield stream, before.st_size
+        token = _cloud_source.set(bounded_file_io.cloud_path(resolved))
+        try:
+            yield stream, before.st_size
+        finally:
+            _cloud_source.reset(token)
         if (_identity(before) != _identity(os.fstat(stream.fileno()))
                 or _identity(before) != _identity(resolved.lstat())
                 or path.resolve(strict=True) != resolved):
@@ -87,7 +95,13 @@ def read_selected_bytes(path: Path, root: Path, maximum: int) -> bytes:
     for attempt in range(_READ_ATTEMPTS):
         try:
             with _source(path, maximum, root) as (source, size):
-                raw = source.read(maximum + 1)
+                if _cloud_source.get():
+                    try:
+                        raw, _, _ = bounded_file_io.transfer(source.fileno(), maximum)
+                    except bounded_file_io.ReadUnavailable as error:
+                        raise AssetFileError("A cloud source could not be read within its deadline") from error
+                else:
+                    raw = source.read(maximum + 1)
                 if len(raw) > maximum:
                     raise AssetTooLarge("A selected file exceeds the publication size limit")
                 if len(raw) != size:
@@ -100,6 +114,14 @@ def read_selected_bytes(path: Path, root: Path, maximum: int) -> bytes:
 
 
 def _chunks(source: BinaryIO, target: BinaryIO | None, maximum: int) -> tuple[str, int]:
+    if _cloud_source.get():
+        try:
+            _, cloud_digest, total = bounded_file_io.transfer(
+                source.fileno(), maximum, target.fileno() if target is not None else None,
+                read_bytes=False)
+            return cloud_digest, total
+        except bounded_file_io.ReadUnavailable as error:
+            raise AssetFileError("A cloud attachment could not be read within its deadline") from error
     digest = hashlib.sha256()
     total = 0
     while chunk := source.read(min(_CHUNK_BYTES, maximum - total + 1)):
@@ -113,10 +135,12 @@ def _chunks(source: BinaryIO, target: BinaryIO | None, maximum: int) -> tuple[st
 
 
 def _stage(path: Path, directory: Path, maximum: int, *, root: Path | None = None,
-           expected: str | None = None) -> tuple[Path, str]:
+           expected: str | None = None, version: list[tuple[int, ...]] | None = None) -> tuple[Path, str]:
     temporary = None
     try:
         with _source(path, maximum, root) as (source, size):
+            if version is not None:
+                version.append(_identity(os.fstat(source.fileno())))
             descriptor, name = tempfile.mkstemp(prefix=".gnosi-asset-", dir=directory)
             temporary = Path(name)
             with os.fdopen(descriptor, "wb") as target:
@@ -132,15 +156,21 @@ def _stage(path: Path, directory: Path, maximum: int, *, root: Path | None = Non
         raise
 
 
-def snapshot_asset(path: Path, root: Path, directory: Path) -> tuple[str, Path]:
+def snapshot_asset(path: Path, root: Path, directory: Path, *, reuse_source_version: bool = False) -> tuple[str, Path]:
     """Hash and stage bounded chunks; expose the snapshot only after validation."""
     if directory.is_symlink():
         raise AssetFileError("Invalid attachment snapshot directory")
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     maximum = attachment_limit(path.suffix)
+    from .asset_versions import cached_snapshot, save_version
+    if reuse_source_version:
+        cached = cached_snapshot(path, root, directory, maximum)
+        if cached is not None:
+            return cached
     for attempt in range(_READ_ATTEMPTS):
         try:
-            temporary, digest = _stage(path, directory, maximum, root=root)
+            version: list[tuple[int, ...]] = []
+            temporary, digest = _stage(path, directory, maximum, root=root, version=version)
             break
         except SourceChanged:
             if attempt == _READ_ATTEMPTS - 1:
@@ -154,6 +184,7 @@ def snapshot_asset(path: Path, root: Path, directory: Path) -> tuple[str, Path]:
                     raise AssetFileError("A reviewed attachment snapshot changed")
         else:
             os.replace(temporary, snapshot)
+        save_version(path, root, directory, digest, version[0])
         return digest, snapshot
     finally:
         temporary.unlink(missing_ok=True)

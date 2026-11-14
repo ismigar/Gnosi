@@ -58,3 +58,5 @@ In **Hosting**, configure the server, port, user, folders and authentication usi
 In **Contact forms**, add, reorder or remove fields and edit language-specific text, including consent, errors and confirmation. Leave optional text blank to retain its defaults. Review the result before publishing.
 
 Record previews avoid repeatedly rebuilding the same website. Each new preview still reads your current notes and checks the record again after rendering. If it changes during review, start a fresh review. Preparing or reopening a preview never publishes or changes the selected content.
+
+For unchanged, downloaded attachments, preview reuses a verified local copy. Notes are read afresh. If a cloud file cannot be read promptly, review stops instead of waiting indefinitely: download the file and try again. Confirmation checks the original files again before publication.

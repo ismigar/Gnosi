@@ -13,10 +13,10 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `agent` | 53 | 9533 |
 | `api` | 40 | 13593 |
 | `app` | 8 | 832 |
-| `application root` | 2 | 57 |
+| `application root` | 2 | 62 |
 | `config` | 14 | 1428 |
 | `data` | 2 | 214 |
-| `domains` | 621 | 121248 |
+| `domains` | 622 | 121383 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -26,9 +26,9 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `security` | 6 | 948 |
 | `services` | 283 | 54952 |
 | `sync` | 1 | 1 |
-| `utils` | 7 | 865 |
+| `utils` | 8 | 1067 |
 
-Total: **1118 modules** and **210728 source lines**.
+Total: **1120 modules** and **211070 source lines**.
 
 ## agent
 
@@ -151,7 +151,7 @@ Total: **1118 modules** and **210728 source lines**.
 | Módulo | Líneas | Clases | Funciones | Asíncronas | Declaraciones documentadas | Indicio de propósito |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/server.py) | 57 | 0 | 0 | 0 | 0 | Stable Uvicorn and Electron entrypoint for the Gnosi backend. |
+| [`backend/server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/server.py) | 62 | 0 | 0 | 0 | 0 | Stable Uvicorn and Electron entrypoint for the Gnosi backend. |
 
 ## config
 
@@ -526,12 +526,13 @@ Total: **1118 modules** and **210728 source lines**.
 | [`backend/domains/reader/storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/storage.py) | 200 | 0 | 18 | 0 | 0 | Durable Reader job, snapshot and checkpoint storage. |
 | [`backend/domains/sites/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault-scoped website management and reviewed static publication. |
 | [`backend/domains/sites/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py) | 342 | 0 | 41 | 1 | 0 | Authenticated website editor and private administrator operations. |
-| [`backend/domains/sites/asset_files.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/asset_files.py) | 169 | 3 | 9 | 0 | 6 | Bounded immutable copies of explicitly selected public attachments. |
+| [`backend/domains/sites/asset_files.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/asset_files.py) | 200 | 3 | 9 | 0 | 6 | Bounded immutable copies of explicitly selected public attachments. |
+| [`backend/domains/sites/asset_versions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/asset_versions.py) | 66 | 0 | 3 | 0 | 0 | Preview-only reuse of verified private snapshots of unchanged local files. |
 | [`backend/domains/sites/bounded_bridge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_bridge.py) | 142 | 2 | 0 | 0 | 2 | Deadline-bound read sessions using the maintained SSH/Suweb login procedure. |
 | [`backend/domains/sites/bounded_child.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_child.py) | 85 | 2 | 0 | 0 | 1 | Apply a single SSH deadline even when the maintained driver uses the child directly. |
 | [`backend/domains/sites/bounded_pty.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_pty.py) | 32 | 0 | 1 | 0 | 0 | Nonblocking PTY writes with one caller-owned absolute deadline. |
 | [`backend/domains/sites/connection_credentials.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/connection_credentials.py) | 55 | 0 | 4 | 0 | 0 | Device-only website connection secrets, scoped to the exact remote account. |
-| [`backend/domains/sites/exporter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/exporter.py) | 754 | 4 | 38 | 0 | 5 | Create immutable public projections from explicitly selected registry identities. |
+| [`backend/domains/sites/exporter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/exporter.py) | 792 | 4 | 42 | 0 | 5 | Create immutable public projections from explicitly selected registry identities. |
 | [`backend/domains/sites/font_catalogue.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/font_catalogue.py) | 140 | 2 | 3 | 0 | 1 | Click-based public font sources, downloaded as bounded local website assets. |
 | [`backend/domains/sites/font_metadata.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/font_metadata.py) | 98 | 0 | 3 | 0 | 0 | Bounded OpenType/WOFF naming metadata, with a filename-based CSS alias fallback. |
 | [`backend/domains/sites/font_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/font_routes.py) | 26 | 0 | 3 | 0 | 0 | Authenticated catalogue and local import for website typography. |
@@ -1225,6 +1226,7 @@ Total: **1118 modules** and **210728 source lines**.
 
 | Módulo | Líneas | Clases | Funciones | Asíncronas | Declaraciones documentadas | Indicio de propósito |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| [`backend/utils/bounded_file_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/bounded_file_io.py) | 202 | 2 | 6 | 0 | 1 | Deadline-bound reads of already-authorized descriptors in an owned child. |
 | [`backend/utils/cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/cache.py) | 104 | 1 | 0 | 0 | 1 | Thread-safe in-memory cache with TTL and bounded size. |
 | [`backend/utils/errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/errors.py) | 49 | 0 | 1 | 0 | 1 | Safe error handling helpers for HTTP responses. |
 | [`backend/utils/http_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/http_retry.py) | 54 | 0 | 1 | 0 | 1 | Tolerant parsing of the HTTP `Retry-After` header (RFC 7231). |

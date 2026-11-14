@@ -58,3 +58,5 @@ A **Allotjament**, configura el servidor, port, usuari, carpetes i autenticació
 A **Formularis de contacte**, afegeix, ordena o elimina camps i edita els textos per idioma, inclosos consentiments, errors i confirmació. Deixa els textos opcionals buits per conservar els valors predeterminats. Revisa el resultat abans de publicar.
 
 La previsualització dels registres evita tornar a generar repetidament el mateix web. Cada previsualització nova llegeix les notes actuals i torna a comprovar el registre després de generar-la. Si canvia durant la revisió, torna a revisar-lo. Preparar o reobrir una previsualització no publica ni canvia el contingut seleccionat.
+
+Per als adjunts descarregats que no han canviat, la previsualització reutilitza una còpia local comprovada. Les notes es tornen a llegir. Si un fitxer al núvol no es pot llegir a temps, la revisió s’atura: descarrega’l i torna-ho a provar. La confirmació torna a comprovar els originals abans de publicar.

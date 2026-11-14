@@ -58,3 +58,5 @@ En **Alojamiento**, configura servidor, puerto, usuario, carpetas y autenticaci�
 En **Formularios de contacto**, añade, ordena o elimina campos y edita los textos por idioma, incluidos consentimiento, errores y confirmación. Deja los textos opcionales vacíos para conservar los valores predeterminados. Revisa el resultado antes de publicar.
 
 La vista previa de registros evita volver a generar repetidamente la misma web. Cada vista previa nueva lee las notas actuales y vuelve a comprobar el registro después de generarla. Si cambia durante la revisión, vuelve a revisarlo. Preparar o reabrir una vista previa no publica ni cambia el contenido seleccionado.
+
+Para los adjuntos descargados que no han cambiado, la vista previa reutiliza una copia local verificada. Las notas se leen de nuevo. Si un archivo en la nube no se puede leer a tiempo, la revisión se detiene: descárgalo e inténtalo de nuevo. La confirmación vuelve a comprobar los originales antes de publicar.
