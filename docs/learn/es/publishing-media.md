@@ -56,3 +56,5 @@ En **Crear web**, elige una web vacía o la importación por URL. Indica la dire
 En **Alojamiento**, configura servidor, puerto, usuario, carpetas y autenticación mediante agente SSH, clave del dispositivo o contraseña. Transfiere los archivos por SSH o SFTP; la contraseña se guarda solo en el gestor de credenciales del dispositivo. Comprueba la conexión: publicar con el servicio privado también requiere órdenes SSH, PHP y SQLite. Una conexión solo SFTP puede quedar verificada sin cumplir esos requisitos de publicación.
 
 En **Formularios de contacto**, añade, ordena o elimina campos y edita los textos por idioma, incluidos consentimiento, errores y confirmación. Deja los textos opcionales vacíos para conservar los valores predeterminados. Revisa el resultado antes de publicar.
+
+La vista previa de registros evita volver a generar repetidamente la misma web. Cada vista previa nueva lee las notas actuales y vuelve a comprobar el registro después de generarla. Si cambia durante la revisión, vuelve a revisarlo. Preparar o reabrir una vista previa no publica ni cambia el contenido seleccionado.

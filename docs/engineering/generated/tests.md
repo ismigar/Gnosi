@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 38 | 128 |
 | Vitest | 776 | 3539 |
-| pytest | 803 | 6228 |
+| pytest | 804 | 6235 |
 
 ## Files
 
@@ -1418,6 +1418,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_sites_pangea_pty_writes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_pangea_pty_writes.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_sites_pangea_read_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_pangea_read_recovery.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_sites_pangea_transfer_deadline.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_pangea_transfer_deadline.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_sites_preview_performance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_preview_performance.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_sites_preview_streaming.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_preview_streaming.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_sites_production.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_production.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_sites_public_body.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_public_body.py) | 24 | Python AST |

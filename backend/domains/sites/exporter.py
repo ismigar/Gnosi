@@ -32,6 +32,25 @@ class Note:
     digest: str
 
 
+@dataclass(frozen=True)
+class SourceSnapshot:
+    """Fresh request-local inputs, never retained across reviews or confirmations."""
+
+    vault: Path
+    data: dict[str, JsonValue]
+    registry_hash: str
+    notes: list[Note]
+
+    def require_vault(self, store: SiteStore) -> None:
+        if self.vault != store.vault.resolve():
+            raise HTTPException(409, "The publication snapshot belongs to another vault")
+
+
+def source_snapshot(store: SiteStore) -> SourceSnapshot:
+    data, registry_hash = registry(store)
+    return SourceSnapshot(store.vault.resolve(), data, registry_hash, notes(store))
+
+
 def is_public_metadata(metadata: dict[str, JsonValue]) -> bool:
     """Use one privacy predicate for direct pages, collections and imported notes."""
     if metadata.get("private") or metadata.get("draft") or metadata.get("published") is False or metadata.get("public") is False:
@@ -83,10 +102,24 @@ def records(data: dict[str, JsonValue], key: str) -> list[dict[str, JsonValue]]:
     return [item for item in value if isinstance(item, dict)]
 
 
+def _note_paths(vault: Path) -> list[Path]:
+    paths: list[Path] = []
+
+    def unavailable(error: OSError) -> None:
+        raise HTTPException(409, "A vault directory is unavailable; publication was stopped") from error
+
+    for directory, directories, files in os.walk(vault, onerror=unavailable, followlinks=False):
+        parent = Path(directory)
+        # Do not enumerate private indexes/sidecars or follow directory aliases.
+        directories[:] = [name for name in directories if not name.startswith(".") and not (parent / name).is_symlink()]
+        paths.extend(parent / name for name in files if name.endswith(".md") and not name.startswith("."))
+    return sorted(paths)
+
+
 def notes(store: SiteStore) -> list[Note]:
     result: list[Note] = []
     identities: set[str] = set()
-    for path in sorted(store.vault.rglob("*.md")):
+    for path in _note_paths(store.vault):
         relative = path.relative_to(store.vault)
         if any(part.startswith(".") for part in relative.parts) or path.is_symlink():
             continue
@@ -96,7 +129,9 @@ def notes(store: SiteStore) -> list[Note]:
             match = re.match(r"\A---\s*\n(.*?)\n---\s*\n", text, re.S)
             if not match:
                 continue
-            meta: object = yaml.safe_load(match.group(1))
+            # Both loaders accept only SafeLoader constructors. The bundled C
+            # implementation avoids reparsing large vaults in Python bytecode.
+            meta: object = yaml.load(match.group(1), Loader=getattr(yaml, "CSafeLoader", yaml.SafeLoader))
             if not isinstance(meta, dict) or not meta.get("id"):
                 continue
             metadata = cast(dict[str, JsonValue], json.loads(json.dumps(meta, default=str)))
@@ -580,10 +615,15 @@ class Projection:
             record.body_html = detail_image(body, record.presentation) if self.site.legacy_pilot else body
 
 
-def _projection(store: SiteStore, site: SiteConfig, target_id: str) -> Projection:
+def _projection(store: SiteStore, site: SiteConfig, target_id: str, snapshot: SourceSnapshot | None = None) -> Projection:
     has_sources = any(source.enabled for source in site.sources)
-    data, registry_hash = registry(store) if has_sources or (store.vault / "BD/vault_db_registry.json").exists() else ({}, "")
-    all_notes = notes(store) if has_sources else []
+    if snapshot is not None:
+        snapshot.require_vault(store)
+        data, registry_hash = snapshot.data, snapshot.registry_hash
+        all_notes = snapshot.notes if has_sources else []
+    else:
+        data, registry_hash = registry(store) if has_sources or (store.vault / "BD/vault_db_registry.json").exists() else ({}, "")
+        all_notes = notes(store) if has_sources else []
     previous = store.active_bundle(site.id, target_id)
     raw_records = previous.get("records", []) if previous else []
     previous_records = [record for record in raw_records if isinstance(record, dict)] if isinstance(raw_records, list) else []
@@ -692,9 +732,9 @@ def _withdrawn_paths(projection: Projection, exported: SiteConfig) -> list[str]:
     return sorted(withdrawn)
 
 
-def build_bundle(store: SiteStore, site: SiteConfig, target_id: str) -> SiteBundle:
+def build_bundle(store: SiteStore, site: SiteConfig, target_id: str, *, snapshot: SourceSnapshot | None = None) -> SiteBundle:
     validate_site(site)
-    projection = _projection(store, site, target_id)
+    projection = _projection(store, site, target_id, snapshot)
     projection.collect()
     projection.import_baseline()
     projection.guard_missing_files()
