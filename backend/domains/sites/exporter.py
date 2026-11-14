@@ -7,6 +7,7 @@ import os
 import re
 import unicodedata
 from functools import cmp_to_key
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast
@@ -32,6 +33,9 @@ class Note:
     body: str
     digest: str
 
+
+# Scoped to one owned preview worker. Every hit still rereads and hashes the file.
+parsed_note_cache: ContextVar[dict[str, str] | None] = ContextVar("preview_parsed_notes", default=None)
 
 @dataclass(frozen=True)
 class SourceSnapshot:
@@ -150,17 +154,28 @@ def _read_note(path: Path, vault: Path) -> Note | None:
         return None
     try:
         raw = bounded_read(path, vault)
+        digest = hashlib.sha256(raw).hexdigest()
+        cache = parsed_note_cache.get()
         text = raw.decode("utf-8")
         match = re.match(r"\A---\s*\n(.*?)\n---\s*\n", text, re.S)
         if not match:
             return None
+        cached = cache.get(digest) if cache is not None else None
+        if cached is not None:
+            metadata_value = json.loads(cached)
+            if isinstance(metadata_value, dict) and metadata_value.get("id"):
+                return Note(path, metadata_value, text[match.end():], digest)
         # Both loaders accept only SafeLoader constructors. The bundled C
         # implementation avoids reparsing large vaults in Python bytecode.
         meta: object = yaml.load(match.group(1), Loader=getattr(yaml, "CSafeLoader", yaml.SafeLoader))
         if not isinstance(meta, dict) or not meta.get("id"):
             return None
-        metadata = cast(dict[str, JsonValue], json.loads(json.dumps(meta, default=str)))
-        return Note(path, metadata, text[match.end():], hashlib.sha256(raw).hexdigest())
+        serialized = json.dumps(meta, default=str)
+        metadata = cast(dict[str, JsonValue], json.loads(serialized))
+        body = text[match.end():]
+        if cache is not None:
+            cache[digest] = serialized
+        return Note(path, metadata, body, digest)
     except (OSError, UnicodeError, yaml.YAMLError, ValueError):
         raise HTTPException(409, "A vault file is unavailable or incomplete; publication was stopped") from None
 

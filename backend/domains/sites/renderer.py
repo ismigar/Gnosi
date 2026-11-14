@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+from contextvars import ContextVar
 from pathlib import Path
 
 from markdown_it import MarkdownIt
@@ -15,6 +16,8 @@ from pydantic import JsonValue
 from .paths import extension_root
 from .models import SiteTheme
 from .stylesheets import website_stylesheet
+
+preview_work_root: ContextVar[Path | None] = ContextVar("preview_work_root", default=None)
 
 
 def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
@@ -27,7 +30,7 @@ def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
     if output.exists() and any(output.iterdir()):
         raise ValueError("Website output must be an empty private build directory")
     output.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="gnosi-site-build-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="gnosi-site-build-", dir=preview_work_root.get()) as temporary:
         work = Path(temporary)
         for entry in ("src", "scripts", "astro.config.mjs", "package.json"):
             source = renderer / entry
@@ -40,6 +43,7 @@ def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
         public = work / "public"
         public.mkdir()
         payload = json.loads(json.dumps(bundle))
+        attachments: list[tuple[Path, Path, str]] = []
         for asset in payload.pop("assets", []):
             relative = Path(str(asset["path"]).lstrip("/"))
             if relative.is_absolute() or ".." in relative.parts or any(p.startswith(".") for p in relative.parts):
@@ -47,10 +51,7 @@ def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
             if relative.parts[0] in {"api", "pagefind", "_astro"} or relative.suffix.lower() in {".php", ".html", ".htm", ".js", ".mjs", ".css"}:
                 raise ValueError("Executable attachments cannot be published")
             source = Path(str(asset["private_source"]))
-            target = public / relative
-            target.parent.mkdir(parents=True, exist_ok=True)
-            from .asset_files import copy_reviewed_asset
-            copy_reviewed_asset(source, target, str(asset["sha256"]))
+            attachments.append((source, relative, str(asset["sha256"])))
         payload.pop("source_hashes", None)
         # Generated, validated CSS is separate from executable attachment uploads.
         stylesheet = website_stylesheet(SiteTheme.model_validate(payload["site"]["theme"]))
@@ -77,4 +78,19 @@ def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
         log.chmod(0o600)
         if result.returncode:
             raise ValueError("Website construction failed; check the renderer installation and reviewed content")
-        shutil.copytree(work / "dist", output, dirs_exist_ok=True)
+        # Astro/Pagefind consume the reviewed HTML and asset URLs, not the
+        # attachment bytes. Stage verified files directly into the completed
+        # disposable tree, avoiding Astro's second copy of large PDFs.
+        from .asset_files import copy_reviewed_asset
+        for source, relative, expected in attachments:
+            target = work / "dist" / relative
+            if target.exists() or target.is_symlink():
+                raise ValueError("A generated website file conflicts with an attachment")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            copy_reviewed_asset(source, target, expected)
+        # Move the complete private tree without copying its attachments again.
+        for generated in (work / "dist").iterdir():
+            destination = output / generated.name
+            if destination.exists() or destination.is_symlink():
+                raise ValueError("Website output changed during construction")
+            shutil.move(str(generated), destination)
