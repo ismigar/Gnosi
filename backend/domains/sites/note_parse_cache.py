@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from contextvars import ContextVar
 import hashlib
 import hmac
 import json
@@ -11,6 +12,8 @@ import re
 import secrets
 import stat
 from collections.abc import Iterator
+from typing import cast
+from pydantic import JsonValue
 
 import yaml
 
@@ -18,6 +21,27 @@ from .storage import private_json
 
 _MAXIMUM = 32 * 1024 * 1024
 _FORMAT = 'safe-note-metadata-v1:' + yaml.__version__
+
+
+parsed_note_cache: ContextVar[dict[str, str] | None] = ContextVar("preview_parsed_notes", default=None)
+
+
+def parse_metadata(frontmatter: str, digest: str) -> dict[str, JsonValue] | None:
+    """Reuse only the parse of freshly read and hashed original bytes."""
+    cache = parsed_note_cache.get()
+    cached = cache.get(digest) if cache is not None else None
+    if cached is not None:
+        value = json.loads(cached)
+        if isinstance(value, dict) and value.get("id"):
+            return cast(dict[str, JsonValue], value)
+    # Both loaders accept only SafeLoader constructors.
+    meta: object = yaml.load(frontmatter, Loader=getattr(yaml, "CSafeLoader", yaml.SafeLoader))
+    if not isinstance(meta, dict) or not meta.get("id"):
+        return None
+    serialized = json.dumps(meta, default=str)
+    if cache is not None:
+        cache[digest] = serialized
+    return cast(dict[str, JsonValue], json.loads(serialized))
 
 
 def _read(path: Path, maximum: int) -> bytes:

@@ -43,15 +43,7 @@ def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
         public = work / "public"
         public.mkdir()
         payload = json.loads(json.dumps(bundle))
-        attachments: list[tuple[Path, Path, str]] = []
-        for asset in payload.pop("assets", []):
-            relative = Path(str(asset["path"]).lstrip("/"))
-            if relative.is_absolute() or ".." in relative.parts or any(p.startswith(".") for p in relative.parts):
-                raise ValueError("Invalid public asset path")
-            if relative.parts[0] in {"api", "pagefind", "_astro"} or relative.suffix.lower() in {".php", ".html", ".htm", ".js", ".mjs", ".css"}:
-                raise ValueError("Executable attachments cannot be published")
-            source = Path(str(asset["private_source"]))
-            attachments.append((source, relative, str(asset["sha256"])))
+        attachments = _attachments(payload)
         payload.pop("source_hashes", None)
         # Generated, validated CSS is separate from executable attachment uploads.
         stylesheet = website_stylesheet(SiteTheme.model_validate(payload["site"]["theme"]))
@@ -81,16 +73,37 @@ def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
         # Astro/Pagefind consume the reviewed HTML and asset URLs, not the
         # attachment bytes. Stage verified files directly into the completed
         # disposable tree, avoiding Astro's second copy of large PDFs.
-        from .asset_files import copy_reviewed_asset
-        for source, relative, expected in attachments:
-            target = work / "dist" / relative
-            if target.exists() or target.is_symlink():
-                raise ValueError("A generated website file conflicts with an attachment")
-            target.parent.mkdir(parents=True, exist_ok=True)
-            copy_reviewed_asset(source, target, expected)
+        _stage_attachments(attachments, work / "dist")
         # Move the complete private tree without copying its attachments again.
         for generated in (work / "dist").iterdir():
             destination = output / generated.name
             if destination.exists() or destination.is_symlink():
                 raise ValueError("Website output changed during construction")
             shutil.move(str(generated), destination)
+
+
+def _attachments(payload: dict[str, JsonValue]) -> list[tuple[Path, Path, str]]:
+    attachments: list[tuple[Path, Path, str]] = []
+    values = payload.pop("assets", [])
+    if not isinstance(values, list):
+        raise ValueError("Invalid reviewed attachments")
+    for asset in values:
+        if not isinstance(asset, dict):
+            raise ValueError("Invalid reviewed attachment")
+        relative = Path(str(asset["path"]).lstrip("/"))
+        if relative.is_absolute() or ".." in relative.parts or any(p.startswith(".") for p in relative.parts):
+            raise ValueError("Invalid public asset path")
+        if relative.parts[0] in {"api", "pagefind", "_astro"} or relative.suffix.lower() in {".php", ".html", ".htm", ".js", ".mjs", ".css"}:
+            raise ValueError("Executable attachments cannot be published")
+        attachments.append((Path(str(asset["private_source"])), relative, str(asset["sha256"])))
+    return attachments
+
+
+def _stage_attachments(attachments: list[tuple[Path, Path, str]], output: Path) -> None:
+    from .asset_files import copy_reviewed_asset
+    for source, relative, expected in attachments:
+        target = output / relative
+        if target.exists() or target.is_symlink():
+            raise ValueError("A generated website file conflicts with an attachment")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        copy_reviewed_asset(source, target, expected)
