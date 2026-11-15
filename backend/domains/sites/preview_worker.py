@@ -239,7 +239,7 @@ def _perform(payload: dict[str, object], root_descriptor: int) -> SitePreview:
     parse_session = parsed_metadata(store.private_root)
     parsed_token = exporter.parsed_note_cache.set(parse_session.__enter__())
     try:
-        with asset_files.parent_descriptor_cache(), asset_files.read_session():
+        with asset_files.verified_request_reads(), asset_files.parent_descriptor_cache(), asset_files.read_session():
             if operation == "record-preview":
                 request = record_publication.RecordPublicationReview.model_validate(payload["record"])
                 if request.target_id != payload["target_id"]:

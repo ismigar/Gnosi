@@ -16,6 +16,8 @@ The editor uses Gnosi’s regular authenticated API at `/api/vault/sites` (also 
 npm ci --prefix extensions/web-publishing/renderer --no-audit --no-fund
 ```
 
+Local previews reuse authenticated generated pages whose content and dependencies have not changed. An article body edit rebuilds its route and dependent collections; Pagefind indexes the complete restored site. An unchanged preview skips Astro and Pagefind. Feeds still use the current preview URL. Cache faults trigger a full build, source discovery remains current, attachments keep their independent checks, and confirmation/publication never trust preview cache state.
+
 The pinned Node executable is included by that package and is used for construction. Astro and Vite caches belong to each private temporary build directory; the installed dependencies and signed application remain immutable. Desktop packaging prepares and verifies the host architecture automatically, then includes the renderer/service outside the application archive. PHP with PDO SQLite, DOM and OpenSSL is required for the private service and local PHP preview. Destination probes report missing runtime capabilities.
 
 ## Editorial and private state

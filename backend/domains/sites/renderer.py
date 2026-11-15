@@ -13,6 +13,7 @@ from pathlib import Path
 from markdown_it import MarkdownIt
 from pydantic import JsonValue
 
+from . import preview_render_cache
 from .paths import extension_root
 from .models import SiteTheme
 from .stylesheets import website_stylesheet
@@ -31,7 +32,7 @@ def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
         raise ValueError("Website output must be an empty private build directory")
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="gnosi-site-build-", dir=preview_work_root.get()) as temporary:
-        work = Path(temporary)
+        work = Path(temporary).resolve()
         for entry in ("src", "scripts", "astro.config.mjs", "package.json"):
             source = renderer / entry
             destination = work / entry
@@ -56,6 +57,9 @@ def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
             for block in [item for parent in page["blocks"] for item in [parent, *parent.get("children", [])]]:
                 # HTML is sanitized by the public renderer, including imported fragments.
                 block["body_html"] = block.get("body", "") if block.get("body_format") == "html" else parser.render(block.get("body", ""))
+        cache_root = preview_render_cache.preview_cache_root.get()
+        identity = preview_render_cache.renderer_identity(renderer) if cache_root is not None else ""
+        preview_render_cache.restore(cache_root, work, identity)
         (work / "bundle.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         service_public = renderer.parent / "public"
         if service_public.exists():
@@ -73,6 +77,7 @@ def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
         # Astro/Pagefind consume the reviewed HTML and asset URLs, not the
         # attachment bytes. Stage verified files directly into the completed
         # disposable tree, avoiding Astro's second copy of large PDFs.
+        preview_render_cache.save(cache_root, work, identity)
         _stage_attachments(attachments, work / "dist")
         # Move the complete private tree without copying its attachments again.
         for generated in (work / "dist").iterdir():
