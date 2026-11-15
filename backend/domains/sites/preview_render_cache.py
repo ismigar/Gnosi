@@ -63,7 +63,7 @@ def _relative(value: str) -> Path:
 
 def restore(root: Path | None, work: Path, identity: str) -> None:
     """Copy verified bytes into a disposable build; any cache fault is a miss."""
-    if root is None:
+    if root is None or os.name != "posix":
         return
     seed = work / 'prior'
     try:
@@ -107,7 +107,7 @@ def restore(root: Path | None, work: Path, identity: str) -> None:
 
 def save(root: Path | None, work: Path, identity: str) -> None:
     """Publish one complete cache generation atomically; failure never breaks preview."""
-    if root is None:
+    if root is None or os.name != "posix":
         return
     generation = secrets.token_hex(16)
     directory = root / generation

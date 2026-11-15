@@ -80,3 +80,13 @@ def test_cache_capacity_does_not_turn_into_unbounded_request_memory(source,monke
         asset_files.read_selected_bytes(path,path.parent,100)
         assert asset_files._verified_reads.get().size==0
     assert len(reads)==2
+
+
+def test_unsupported_render_cache_platform_uses_full_build_without_posix_calls(tmp_path,monkeypatch):
+    from types import SimpleNamespace
+    from backend.domains.sites import preview_render_cache
+    monkeypatch.setattr(preview_render_cache, 'os', SimpleNamespace(name='nt'))
+    root=tmp_path/'private';work=tmp_path/'work';work.mkdir()
+    preview_render_cache.restore(root,work,'renderer')
+    preview_render_cache.save(root,work,'renderer')
+    assert not root.exists() and not (work/'prior-index.json').exists()

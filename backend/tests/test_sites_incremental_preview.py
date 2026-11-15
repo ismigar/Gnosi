@@ -1,5 +1,6 @@
 """Real renderer reuse must match a full rebuild and preserve fresh review checks."""
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -9,7 +10,7 @@ from backend.domains.sites.models import PublicRecord, SiteBlock, SiteBundle, Si
 from backend.domains.sites.paths import extension_root
 from backend.domains.sites.renderer import render_bundle
 
-pytestmark = pytest.mark.skipif(not (extension_root() / 'renderer/node_modules/node/bin/node').is_file(), reason='Pinned renderer required')
+pytestmark = pytest.mark.skipif(os.name != 'posix' or not (extension_root() / 'renderer/node_modules/node/bin/node').is_file(), reason='Pinned renderer and POSIX private-cache guards required')
 
 
 def bundle():
