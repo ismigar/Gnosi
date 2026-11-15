@@ -79,7 +79,12 @@ def _preview_bundle(store: SiteStore, site: SiteConfig, target_id: str, bundle: 
     rendered["deployment_url"] = url
     rendered["deployment_environment"] = "staging"
     try:
-        runtime.render_bundle(rendered, output)
+        from .preview_render_cache import preview_cache_root
+        cache_token = preview_cache_root.set(store.site_dir(site.id) / "render-cache" / target_id)
+        try:
+            runtime.render_bundle(rendered, output)
+        finally:
+            preview_cache_root.reset(cache_token)
         response.preview_url = url + "/" + site.default_language
         payload = {"preview": response.model_dump(mode="json"), "bundle": bundle.model_dump(mode="json"), "parent_fingerprint": previous.get("fingerprint") if previous else None}
         with store.database() as db:

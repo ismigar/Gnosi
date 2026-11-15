@@ -3,9 +3,13 @@ import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {bundle,site,production,pages,records,prefix,base,deployment,html,selection} from '../src/lib/site.mjs';
 
+import {plan,restore} from './incremental.mjs';
+const incremental=plan();
 const output=path.resolve('dist');
 function run(command,args){const result=spawnSync(command,args,{stdio:'inherit'});if(result.status!==0)throw new Error('Website build failed');}
-run(process.execPath,['node_modules/astro/bin/astro.mjs','build']);
+if(incremental.changed.length)run(process.execPath,['node_modules/astro/bin/astro.mjs','build']);
+else fs.cpSync('public',output,{recursive:true});
+restore(incremental);
 const escape=value=>String(value??'').replace(/[<>&"']/g,char=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[char]));
 const canonical=value=>new URL(prefix(value),deployment.origin).href;
 function file(relative,content){const target=path.join(output,relative.replace(/^\//,''));fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target,content);}
@@ -70,6 +74,7 @@ for(const withdrawn of bundle.withdrawn_paths || []){
 }
 for(const page of pages){if(page.path==='/')continue;const relative=page.path.slice(1);const escaped=relative.replace(/[.*+?^${}()|[\]\\\s#]/g,'\\$&');rewrites.push(`RewriteRule ^${escaped}/?$ ${encodeURI(relative)}/index.html [END]`);}
 file('/.htaccess',rewrites.join('\n')+'\n');
-run(process.execPath,['node_modules/pagefind/lib/runner/bin.cjs','--site','dist']);
+if(!incremental.same)run(process.execPath,['node_modules/pagefind/lib/runner/bin.cjs','--site','dist']);
+console.log(JSON.stringify({incremental:{rendered:incremental.changed.length,reused:incremental.reused.length,search_rebuilt:!incremental.same}}));
 // The renderer's build-time snapshot is private and is never copied into dist.
 if(fs.existsSync(path.join(output,'bundle.json')))throw new Error('Private snapshot leaked into website output');

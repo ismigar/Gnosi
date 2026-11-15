@@ -1,4 +1,5 @@
 ---
+import fs from 'node:fs';
 import {bundle,site,production,pages,records,labels,translate,prefix,href,linkProps,html,selection,themeCss} from '../lib/site.mjs';
 import Actions from '../components/Actions.astro';
 import RenderBlock from '../components/RenderBlock.astro';
@@ -12,7 +13,7 @@ import ShareButtons from '../components/ShareButtons.astro';
 import {temenosLabels,publishedDate,splitArticleImage} from '../lib/temenos.mjs';
 import {landingPath} from '../lib/routing.mjs';
 import ResourceDetails from '../components/ResourceDetails.astro';
-export function getStaticPaths(){return pages.map(page=>({params:{path:page.path.slice(1)||undefined},props:{page}}));}
+export function getStaticPaths(){const changed=fs.existsSync('render-paths.json')?new Set(JSON.parse(fs.readFileSync('render-paths.json','utf8'))):null;return pages.filter(page=>!changed||changed.has(page.path)).map(page=>({params:{path:page.path.slice(1)||undefined},props:{page}}));}
 const {page}=Astro.props;
 const lang=page.language;
 const text=labels(lang);

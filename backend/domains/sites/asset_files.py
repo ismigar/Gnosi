@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass, field
 from collections.abc import Iterator
 import hashlib
 import os
@@ -19,6 +20,14 @@ _CHUNK_BYTES = 1024 * 1024
 _READ_ATTEMPTS = 3
 _read_roots: ContextVar[list[tuple[Path, Path, int | None]] | None] = ContextVar("website_read_root", default=None)
 _cached_parents: ContextVar[dict[Path, int] | None] = ContextVar("website_initial_parent_descriptors", default=None)
+@dataclass
+class _VerifiedReadCache:
+    entries: dict[Path, tuple[tuple[int, ...], bytes]] = field(default_factory=dict)
+    size: int = 0
+
+
+_verified_reads: ContextVar[_VerifiedReadCache | None] = ContextVar("website_verified_request_reads", default=None)
+_VERIFIED_READ_MAXIMUM = 128 * 1024 * 1024
 _cloud_source: ContextVar[bool] = ContextVar("website_cloud_source", default=False)
 
 
@@ -41,6 +50,20 @@ def attachment_limit(suffix: str) -> int:
 def _identity(info: os.stat_result) -> tuple[int, ...]:
     return (info.st_dev, info.st_ino, info.st_mode, info.st_size,
             info.st_mtime_ns, info.st_ctime_ns)
+
+
+@contextmanager
+def verified_request_reads() -> Iterator[None]:
+    """Reuse bytes only within one preview after fresh no-follow version checks.
+
+    Every new request starts empty. POSIX ctime is an edit token; Windows ctime
+    is creation time, so that platform always reads the original bytes again.
+    """
+    token = _verified_reads.set(_VerifiedReadCache() if os.name == "posix" else None)
+    try:
+        yield
+    finally:
+        _verified_reads.reset(token)
 
 
 @contextmanager
@@ -200,7 +223,15 @@ def read_selected_bytes(path: Path, root: Path, maximum: int) -> bytes:
     for attempt in range(_READ_ATTEMPTS):
         try:
             with _source(path, maximum, root) as (source, size):
-                if _cloud_source.get():
+                info = os.fstat(source.fileno())
+                version = _identity(info)
+                cache = _verified_reads.get()
+                cached = cache.entries.get(path) if cache is not None else None
+                from backend.platform.files.coordinated import is_cloud_placeholder
+                reusable = not is_cloud_placeholder(path, info)
+                if cached is not None and cached[0] == version and reusable:
+                    raw = cached[1]
+                elif _cloud_source.get():
                     try:
                         raw, _, _ = bounded_file_io.transfer(source.fileno(), maximum)
                     except bounded_file_io.ReadUnavailable as error:
@@ -211,6 +242,15 @@ def read_selected_bytes(path: Path, root: Path, maximum: int) -> bytes:
                     raise AssetTooLarge("A selected file exceeds the publication size limit")
                 if len(raw) != size:
                     raise SourceChanged("A selected file changed while it was being read")
+            # _source has now rechecked the descriptor, named file and parents.
+            if cache is not None:
+                if cached is not None and cached[0] != version:
+                    cache.size -= len(cached[1])
+                    cache.entries.pop(path, None)
+                if (reusable and path not in cache.entries
+                        and cache.size + len(raw) <= _VERIFIED_READ_MAXIMUM):
+                    cache.entries[path] = (version, raw)
+                    cache.size += len(raw)
             return raw
         except SourceChanged:
             if attempt == _READ_ATTEMPTS - 1:
