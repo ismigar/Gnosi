@@ -58,6 +58,9 @@ def test_native_translation_subitem_review_preserves_original_and_other_language
     first = {**active[0], 'deployment_url': 'http://127.0.0.1:49999', 'deployment_environment': 'staging'}
     render(first, tmp_path / 'initial', cache_root)
     previous_keys = keys(cache_root)
+    # The old site can acquire aliases when this translation is first published.
+    site = w.store.save(site.model_copy(update={'redirects': {
+        '/es/node/123': '/es/translation', '/translation-es': '/es/translation'}}))
     for step, action in enumerate(['publish', 'withdraw', 'publish']):
         request = record_publication.RecordPublicationReview(page_id='one-es', target_id='local', action=action)
         candidate = record_publication.proposal(w.store, site, request)
@@ -88,6 +91,8 @@ def test_native_translation_subitem_review_preserves_original_and_other_language
         assert bool(html.select('link[hreflang="es"]')) == (action == 'publish')
         assert html.select_one('link[hreflang="fr"]')['href'].endswith('/fr/translation')
         assert (output / 'es/translation/index.html').exists() == (action == 'publish')
+        assert (output / 'es/node/123/index.html').exists() == (action == 'publish')
+        assert (output / 'translation-es/index.html').exists() == (action == 'publish')
         render({**bundle, 'deployment_url': 'http://127.0.0.1:49999', 'deployment_environment': 'staging'}, tmp_path / ('full-' + str(step)), None)
         assert documents(output) == documents(tmp_path / ('full-' + str(step)))
         active[0] = bundle  # Synthetic installed reference; no release or activation is performed.
