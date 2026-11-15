@@ -7,7 +7,9 @@ import {landingPath} from '../src/lib/routing.mjs';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const blocks=values=>(values||[]).flatMap(block=>[block,...blocks(block.children)]);
 const chrome=[...(site.footer_columns||[]).flatMap(column=>column.blocks||[]),...(site.footer_blocks||[]),...(site.regions||[]).flatMap(region=>region.blocks||[])];
-const {pages:configuredPages,revision,updated_at,created_at,...configuration}=site;
+// Redirect files and rewrite rules are regenerated independently by build.mjs.
+// Retiring a legacy alias must not invalidate unrelated page HTML.
+const {pages:configuredPages,redirects,revision,updated_at,created_at,...configuration}=site;
 const shared={configuration,base,production,stylesheet:bundle.stylesheet_path};
 // Route membership affects same-origin links and withdrawn HTML anchors. Hash
 // the existing rendering helpers' outputs, rather than the entire route table.
