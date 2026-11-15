@@ -257,7 +257,12 @@ def _build_release(store: SiteStore, job: SiteJob, site: SiteConfig, target: Sit
     deployment_url = "http://127.0.0.1:" + str(runtime.connection(store, site.id, target.id).local_port) if target.adapter == "local" else target.base_url
     rendered["deployment_url"] = deployment_url
     rendered["deployment_environment"] = target.environment
-    runtime.render_bundle(rendered, output)
+    from .preview_render_cache import release_cache_root
+    cache_token = release_cache_root.set(store.site_dir(site.id) / 'release-render-cache' / target.id)
+    try:
+        runtime.render_bundle(rendered, output)
+    finally:
+        release_cache_root.reset(cache_token)
     _phase(store, job, "verify")
     local_artifacts.seal(store, site.id, release_id)
     return release_id, output, deployment_url

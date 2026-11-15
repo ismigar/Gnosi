@@ -16,7 +16,7 @@ The editor uses Gnosi’s regular authenticated API at `/api/vault/sites` (also 
 npm ci --prefix extensions/web-publishing/renderer --no-audit --no-fund
 ```
 
-Local previews reuse authenticated generated pages whose content and dependencies have not changed. An article body edit rebuilds its route and dependent collections; Pagefind indexes the complete restored site. An unchanged preview skips Astro and Pagefind. Feeds still use the current preview URL. Cache faults trigger a full build, source discovery remains current, attachments keep their independent checks, and confirmation/publication never trust preview cache state.
+Local previews and separately scoped publication builds reuse authenticated generated pages whose content and dependencies have not changed. An article body edit rebuilds its route and dependent collections; Pagefind indexes the complete restored site. An unchanged preview skips Astro and Pagefind. Feeds still use the current preview URL. Cache faults trigger a full build, source discovery remains current, attachments keep their independent checks, and confirmation/publication never trust preview cache state. Translation publication/withdrawal invalidates its language family, relevant collections and consumed links; unrelated article order metadata does not invalidate its HTML.
 
 The pinned Node executable is included by that package and is used for construction. Astro and Vite caches belong to each private temporary build directory; the installed dependencies and signed application remain immutable. Desktop packaging prepares and verifies the host architecture automatically, then includes the renderer/service outside the application archive. PHP with PDO SQLite, DOM and OpenSSL is required for the private service and local PHP preview. Destination probes report missing runtime capabilities.
 
@@ -128,3 +128,5 @@ Resource download buttons suggest the public resource title as the filename,
 remove filesystem-reserved characters, preserve the file extension and distinguish
 multiple attachments with a numbered suffix. Internal content-addressed asset URLs
 remain stable.
+
+Unchanged Markdown bytes can be reused between previews only with authenticated private storage and fresh complete POSIX file-version/path checks; both source scans and independent confirmation reads remain. APFS uses independent copy-on-write attachment staging with complete hash verification, and other filesystems stream normally. SSH and legacy-Pangea transfer only changed public files, copying unchanged verified parent bytes into a complete immutable candidate under the publication lock. Removed paths are excluded; complete manifest verification, atomic activation and rollback remain. Private service/config refreshes stay separate.

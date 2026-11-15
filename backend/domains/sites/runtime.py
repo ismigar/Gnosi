@@ -308,8 +308,17 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
     ownership = json.dumps({"site_id": site.id, "scope": store.private_root.name, **({"environment": "production", "target_id": target.id} if target.environment == "production" else {})}, sort_keys=True)
     namespace = namespace_program(root, private_root, ownership, settings.document_root, production=target.environment == "production")
     identity = '$id=' + json.dumps(release_id) + ';gnosi_id($id);'
-    setup = namespace + identity + 'gnosi_namespace(true);$lock=gnosi_lock();gnosi_current();$destination=$r."/releases/".$id;if(gnosi_exists($destination)){throw new Exception("Immutable release exists");}' + begin_upload_program() + 'gnosi_directory($destination,true);gnosi_write($p,".htaccess","Require all denied\\n");'
-    _ssh(settings, "php -r " + shlex.quote(setup))
+    from .incremental_upload import output_manifest, reuse_program
+    manifest = output_manifest(output)
+    htaccess = output / ".htaccess"
+    rules = htaccess.read_text() if htaccess.is_file() else "Options -Indexes +FollowSymLinks\nRewriteEngine On\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME}.html -f\nRewriteRule ^(.+?)/?$ $1.html [L]\n"
+    rules += "\nSetEnv GNOSI_SITES_SERVICE_CONFIG " + private_root + "/config.json\n"
+    rules_data = rules.encode()
+    manifest[".htaccess"] = hashlib.sha256(rules_data).hexdigest()
+    setup = namespace + identity + '$parent=' + json.dumps(parent_id) + ';gnosi_namespace(true);$lock=gnosi_lock();if(gnosi_current()!==$parent){throw new Exception("Parent changed");}$destination=$r."/releases/".$id;if(gnosi_exists($destination)){throw new Exception("Immutable release exists");}' + begin_upload_program() + 'gnosi_directory($destination,true);gnosi_write($p,".htaccess","Require all denied\\n");' + reuse_program()
+    missing = json.loads(_ssh(settings, "php -r " + shlex.quote(setup), json.dumps(manifest).encode(), timeout=300))
+    if not isinstance(missing, list) or any(not isinstance(relative, str) or relative not in manifest for relative in missing) or len(set(missing)) != len(missing):
+        raise HTTPException(503, "The server returned an invalid release transfer plan")
     def write_file(relative: str, data: bytes, *, private: bool = False) -> None:
         base = "$p" if private else "gnosi_release($id)"
         if settings.transfer_protocol == "sftp":
@@ -319,13 +328,10 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
             return
         code = namespace + identity + 'gnosi_namespace();gnosi_write(' + base + ',' + json.dumps(relative) + ',file_get_contents("php://stdin"),' + ("0600" if private else "0644") + ');'
         _ssh(settings, "php -r " + shlex.quote(code), data)
-    manifest: dict[str, str] = {}
-    for path in sorted(output.rglob("*")):
-        if not path.is_file() or path.is_symlink():
-            continue
-        relative = str(path.relative_to(output))
-        data = path.read_bytes()
-        manifest[relative] = hashlib.sha256(data).hexdigest()
+    for relative in missing:
+        data = rules_data if relative == ".htaccess" else (output / relative).read_bytes()
+        if hashlib.sha256(data).hexdigest() != manifest[relative]:
+            raise HTTPException(409, "The website output changed during transfer")
         write_file(relative, data)
     # Ship the private service independently of static releases and never overwrite its database.
     for path in SERVICE_ROOT.glob("*.php"):
@@ -334,11 +340,6 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
     local_config.update({"db_path": private_root + "/state.sqlite", "spool_path": private_root + "/captures", "library_path": private_root + "/library.php"})
     config_code = namespace + 'gnosi_namespace();gnosi_install_config(file_get_contents("php://stdin"));'
     _ssh(settings, "php -r " + shlex.quote(config_code), json.dumps(local_config).encode())
-    htaccess = output / ".htaccess"
-    rules = htaccess.read_text() if htaccess.is_file() else "Options -Indexes +FollowSymLinks\nRewriteEngine On\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME}.html -f\nRewriteRule ^(.+?)/?$ $1.html [L]\n"
-    rules += "\nSetEnv GNOSI_SITES_SERVICE_CONFIG " + private_root + "/config.json\n"
-    write_file(".htaccess", rules.encode())
-    manifest[".htaccess"] = hashlib.sha256(rules.encode()).hexdigest()
     verify = namespace + identity + 'gnosi_namespace();gnosi_verify($id,json_decode(file_get_contents("php://stdin"),true,64,JSON_THROW_ON_ERROR));'
     _ssh(settings, "php -r " + shlex.quote(verify), json.dumps(manifest).encode())
     write_file("manifests/" + release_id + ".json", json.dumps(manifest).encode(), private=True)
