@@ -25,6 +25,26 @@ function model(list = false) {
     hasOpenableResource: () => false, openingResourceId: null, tableFunctionalities: [{ id: 'action', action: 'set_fields', label: 'Mark reviewed', enabled: true, config: { assignments: [{ field: 'Status', value: 'Reviewed' }] } }], schema: {}, actionRules: null, executingButtonKey: null, executeTableFunctionality: vi.fn(), setPendingAction: vi.fn(), isLlmWikiTable: false, llmWikiJobs: {}, llmWikiTableId: 'table-a', llmWikiConfig: null, i18n: { language: 'ca' }, onDeletePage: vi.fn(), navRowIndexById: new Map(), isPluginEnabled: () => true } as unknown as TableController;
 }
 describe('compact record action menus', () => {
+  it.each([
+    { translated: false, published: false },
+    { translated: false, published: true },
+    { translated: true, published: false },
+    { translated: true, published: true },
+  ])('offers only the applicable website action for %j', ({ translated, published }) => {
+    const controller = model();
+    const note = { id: translated ? 'translation' : 'original', metadata: translated ? { translation_lang: 'es' } : {} };
+    controller.websiteDestinations = [{ site_id: 'site', site_name: 'Example', target_id: 'production', target_name: 'Production', environment: 'production', url: '', published_page_ids: published ? ['original', note.id] : translated ? ['original'] : [] }];
+    const host = render(<table><tbody><tr><RowActions model={controller} note={note} isChild={translated} /></tr></tbody></table>);
+    act(() => { (host.querySelector('[aria-haspopup="menu"]') as HTMLButtonElement).click(); });
+    const items = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
+    const applicable = published ? 'Unpublish from website' : 'Publish to website';
+    const opposite = published ? 'Publish to website' : 'Unpublish from website';
+    expect(items.some(item => item.textContent.includes(opposite))).toBe(false);
+    const action = items.find(item => item.textContent.includes(applicable));
+    expect(action).toBeDefined();
+    act(() => { action?.click(); });
+    expect(controller.setPendingAction).toHaveBeenCalledWith(expect.objectContaining({ noteId: note.id, action: published ? 'withdraw_website' : 'publish_website' }));
+  });
   it.each([false, true])('keeps plugin actions in overflow and works in list=%s', list => {
     const controller = model(list);
     const host = render(<table><tbody><tr><RowActions model={controller} note={{ id: 'record' }} isChild={false} /></tr></tbody></table>);

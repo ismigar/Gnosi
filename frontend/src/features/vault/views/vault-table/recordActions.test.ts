@@ -54,9 +54,20 @@ describe('configured website record actions', () => {
     expect(buildRecordActions(input).some(item => item.key === 'publish_website')).toBe(false);
     const destinations = [{ site_id: 'site', site_name: 'Example', target_id: 'local', target_name: 'Local', environment: 'staging', url: '', published_page_ids: [input.note.id] }];
     const actions = buildRecordActions({ ...input, websiteDestinations: destinations });
-    expect(actions.map(item => item.key)).toEqual(['publish_website', 'withdraw_website']);
-    actions[1]?.onClick?.();
+    expect(actions.map(item => item.key)).toEqual(['withdraw_website']);
+    actions[0]?.onClick?.();
     expect(input.setPendingAction).toHaveBeenCalledWith(expect.objectContaining({ noteId: input.note.id, action: 'withdraw_website' }));
     expect(buildRecordActions({ ...input, websiteDestinations: destinations, isPluginEnabled: () => false })).toEqual([]);
+  });
+  it('switches the action when publication changes and keeps translations independent', () => {
+    const input = base();
+    const destination = { site_id: 'site', site_name: 'Example', target_id: 'production', target_name: 'Production', environment: 'production', url: '', published_page_ids: [input.note.id] };
+    const translated = { id: 'translation', metadata: { translation_lang: 'es', translation_of: input.note.id } };
+    expect(buildRecordActions({ ...input, note: translated, websiteDestinations: [destination] }).map(item => item.key)).toEqual(['publish_website']);
+    expect(buildRecordActions({ ...input, note: translated, websiteDestinations: [{ ...destination, published_page_ids: [input.note.id, translated.id] }] }).map(item => item.key)).toEqual(['withdraw_website']);
+    const unpublished = buildRecordActions({ ...input, websiteDestinations: [{ ...destination, published_page_ids: [] }] });
+    expect(unpublished.map(item => item.key)).toEqual(['publish_website']);
+    unpublished[0]?.onClick?.();
+    expect(input.setPendingAction).toHaveBeenCalledWith(expect.objectContaining({ noteId: input.note.id, action: 'publish_website' }));
   });
 });

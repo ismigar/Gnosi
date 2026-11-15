@@ -84,9 +84,10 @@ export function buildRecordActions(input: RecordActionsInput): PageActionItem[] 
       : t('table.process_resource', 'Process resource (Brain)'));
   }
   if (isPluginEnabled('web-publishing') && input.websiteDestinations?.length) {
-    add('publish_website', t('recordWebsite.publish', 'Publish to website'));
     if (input.websiteDestinations.some(destination => (destination.published_page_ids ?? []).includes(note.id))) {
       add('withdraw_website', t('recordWebsite.withdraw', 'Unpublish from website'));
+    } else {
+      add('publish_website', t('recordWebsite.publish', 'Publish to website'));
     }
   }
   return actions;
