@@ -28,6 +28,7 @@ from .private_service import SERVICE_ROOT, configuration
 from .storage import SiteStore, private_json
 from .ssh_namespace import program as namespace_program, worker_start_program
 from .release_retention import begin_upload_program, retention_program, record_result
+from .incremental_upload import output_manifest, reuse_program
 
 
 _BOUNDED_CONNECTION_LOCK = threading.Lock()
@@ -204,7 +205,25 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
         transport.php(bridge, _policy(public, private, owner))
         service_root = private + "/service"
         release_root = private + "/releases/" + release_id
-        transport.php(bridge, _policy(public, private, owner) + '$lock=gnosi_lock();$id=' + json.dumps(release_id) + ';gnosi_id($id);$destination=$private."/releases/".$id;if(gnosi_exists($destination)){throw new Exception("Immutable release exists");}' + begin_upload_program() + 'mkdir($destination,0711);')
+        checks = output_manifest(output)
+        htaccess = (output / ".htaccess").read_text() if (output / ".htaccess").is_file() else "Options -Indexes\n"
+        htaccess += '\nSetEnv GNOSI_SITES_SERVICE_CONFIG "' + service_root + '/config.json"\n'
+        checks[".htaccess"] = hashlib.sha256(htaccess.encode()).hexdigest()
+        begin = _policy(public, private, owner) + '$lock=gnosi_lock();$id=' + json.dumps(release_id) + ';gnosi_id($id);$parent=' + json.dumps(parent_id) + ';if(gnosi_pangea_current()!==$parent){throw new Exception("Parent changed");}$destination=$private."/releases/".$id;if(gnosi_exists($destination)){throw new Exception("Immutable release exists");}' + begin_upload_program() + 'gnosi_directory($destination,true,0711);gnosi_write($destination,"checksums.json","",0600);'
+        transport.php(bridge, begin)
+        # Transfer the complete control manifest as a private file rather than
+        # embedding an unbounded file list in a remote shell command.
+        with tempfile.TemporaryDirectory(prefix="gnosi-pangea-manifest-") as temporary:
+            manifest_path = Path(temporary) / "checksums.json"
+            manifest_data = json.dumps(checks).encode()
+            manifest_path.write_bytes(manifest_data)
+            manifest_path.chmod(0o600)
+            transport.put(bridge, manifest_path, release_root + "/checksums.json")
+        manifest_expression = 'json_decode(file_get_contents($manifestFile),true,512,JSON_THROW_ON_ERROR)'
+        plan = _policy(public, private, owner) + '$lock=gnosi_lock();$id=' + json.dumps(release_id) + ';$parent=' + json.dumps(parent_id) + ';if(gnosi_pangea_current()!==$parent){throw new Exception("Parent changed");}$manifestFile=gnosi_file(gnosi_release($id),"checksums.json");if(hash_file("sha256",$manifestFile)!==' + json.dumps(hashlib.sha256(manifest_data).hexdigest()) + '){throw new Exception("Transfer manifest integrity failure");}' + reuse_program(pangea=True, manifest_expression=manifest_expression)
+        missing = json.loads(transport.php(bridge, plan))
+        if not isinstance(missing, list) or any(not isinstance(relative, str) or relative not in checks for relative in missing) or len(set(missing)) != len(missing):
+            raise HTTPException(503, "The server returned an invalid release transfer plan")
         config: dict[str, JsonValue] = json.loads(configuration(store, site, target.id).read_text())
         config.update({"public_base_url": target.base_url, "db_path": service_root + "/state.sqlite", "spool_path": service_root + "/captures", "library_path": service_root + "/library.php"})
         with tempfile.TemporaryDirectory(prefix="gnosi-pangea-release-") as temporary:
@@ -218,19 +237,15 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
                     destination.chmod(0o600)
             (service / "config.json").write_text(json.dumps(config))
             (service / "config.json").chmod(0o600)
-            htaccess = (output / ".htaccess").read_text() if (output / ".htaccess").is_file() else "Options -Indexes\n"
-            htaccess += '\nSetEnv GNOSI_SITES_SERVICE_CONFIG "' + service_root + '/config.json"\n'
             (root / ".htaccess").write_text(htaccess)
-            checks = {str(path.relative_to(output)): hashlib.sha256(path.read_bytes()).hexdigest() for path in output.rglob("*") if path.is_file()}
-            checks[".htaccess"] = hashlib.sha256(htaccess.encode()).hexdigest()
-            (root / "checksums.json").write_text(json.dumps(checks))
             archive = root / "release.tar.gz"
             with tarfile.open(archive, "w:gz") as tar:
-                for path in sorted(output.rglob("*")):
-                    if path.is_file() and path.name != ".htaccess":
-                        tar.add(path, arcname="public/" + str(path.relative_to(output)), recursive=False)
-                tar.add(root / ".htaccess", arcname="public/.htaccess")
-                tar.add(root / "checksums.json", arcname="checksums.json")
+                for relative in missing:
+                    path = root / ".htaccess" if relative == ".htaccess" else output / relative
+                    with path.open("rb") as stream:
+                        if hashlib.file_digest(stream, "sha256").hexdigest() != checks[relative]:
+                            raise HTTPException(409, "The website output changed during transfer")
+                    tar.add(path, arcname="public/" + relative, recursive=False)
                 tar.add(service, arcname="service", recursive=False)
                 for path in service.iterdir():
                     tar.add(path, arcname="service/" + path.name, recursive=False)

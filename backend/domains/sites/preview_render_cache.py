@@ -20,6 +20,7 @@ from .note_parse_cache import _key, _read
 from .storage import private_json
 
 preview_cache_root: ContextVar[Path | None] = ContextVar('website_preview_render_cache', default=None)
+release_cache_root: ContextVar[Path | None] = ContextVar('website_release_render_cache', default=None)
 _MAXIMUM = 64 * 1024 * 1024
 _FILE_MAXIMUM = 8 * 1024 * 1024
 _FORMAT = b'preview-render-cache-v1\0'

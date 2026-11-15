@@ -57,7 +57,7 @@ def render_bundle(bundle: dict[str, JsonValue], output: Path) -> None:
             for block in [item for parent in page["blocks"] for item in [parent, *parent.get("children", [])]]:
                 # HTML is sanitized by the public renderer, including imported fragments.
                 block["body_html"] = block.get("body", "") if block.get("body_format") == "html" else parser.render(block.get("body", ""))
-        cache_root = preview_render_cache.preview_cache_root.get()
+        cache_root = preview_render_cache.release_cache_root.get() or preview_render_cache.preview_cache_root.get()
         identity = preview_render_cache.renderer_identity(renderer) if cache_root is not None else ""
         preview_render_cache.restore(cache_root, work, identity)
         (work / "bundle.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")

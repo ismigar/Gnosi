@@ -24,6 +24,9 @@ _cached_parents: ContextVar[dict[Path, int] | None] = ContextVar("website_initia
 class _VerifiedReadCache:
     entries: dict[Path, tuple[tuple[int, ...], bytes]] = field(default_factory=dict)
     size: int = 0
+    seen_notes: set[Path] = field(default_factory=set)
+    notes_changed: bool = False
+    vault: Path | None = None
 
 
 _verified_reads: ContextVar[_VerifiedReadCache | None] = ContextVar("website_verified_request_reads", default=None)
@@ -53,17 +56,27 @@ def _identity(info: os.stat_result) -> tuple[int, ...]:
 
 
 @contextmanager
-def verified_request_reads() -> Iterator[None]:
-    """Reuse bytes only within one preview after fresh no-follow version checks.
+def verified_request_reads(persistent_root: Path | None = None, vault: Path | None = None) -> Iterator[None]:
+    """Reuse bytes after fresh no-follow version checks, only inside previews.
 
-    Every new request starts empty. POSIX ctime is an edit token; Windows ctime
-    is creation time, so that platform always reads the original bytes again.
+    Optional authenticated Markdown reuse spans previews. POSIX ctime is an
+    edit token; other platforms always read the original bytes again.
     """
-    token = _verified_reads.set(_VerifiedReadCache() if os.name == "posix" else None)
+    from . import preview_note_reads
+    entries = preview_note_reads.load(persistent_root, vault)
+    cache = _VerifiedReadCache(entries, sum(len(v[1]) for v in entries.values()), vault=vault) if os.name == "posix" else None
+    prior = set(entries)
+    token = _verified_reads.set(cache)
+    completed = False
     try:
         yield
+        completed = True
     finally:
         _verified_reads.reset(token)
+        if completed and cache is not None and vault is not None:
+            notes = {p: v for p, v in cache.entries.items() if p in cache.seen_notes}
+            if cache.notes_changed or set(notes) != prior:
+                preview_note_reads.save(persistent_root, vault, notes)
 
 
 @contextmanager
@@ -244,13 +257,18 @@ def read_selected_bytes(path: Path, root: Path, maximum: int) -> bytes:
                     raise SourceChanged("A selected file changed while it was being read")
             # _source has now rechecked the descriptor, named file and parents.
             if cache is not None:
-                if cached is not None and cached[0] != version:
+                note = root == cache.vault and path.suffix == '.md' and path.is_relative_to(root)
+                if note:
+                    cache.seen_notes.add(path)
+                if cached is not None and (cached[0] != version or not reusable):
                     cache.size -= len(cached[1])
                     cache.entries.pop(path, None)
+                    cache.notes_changed |= note
                 if (reusable and path not in cache.entries
                         and cache.size + len(raw) <= _VERIFIED_READ_MAXIMUM):
                     cache.entries[path] = (version, raw)
                     cache.size += len(raw)
+                    cache.notes_changed |= note
             return raw
         except SourceChanged:
             if attempt == _READ_ATTEMPTS - 1:
@@ -286,10 +304,17 @@ def _stage(path: Path, directory: Path, maximum: int, *, root: Path | None = Non
         with _source(path, maximum, root) as (source, size):
             if version is not None:
                 version.append(_identity(os.fstat(source.fileno())))
-            descriptor, name = tempfile.mkstemp(prefix=".gnosi-asset-", dir=directory)
-            temporary = Path(name)
-            with os.fdopen(descriptor, "wb") as target:
-                digest, copied = _chunks(source, target, maximum)
+            if expected is not None and not _cloud_source.get():
+                from .asset_clone import clone
+                temporary = clone(source.fileno(), directory)
+            if temporary is not None:
+                with _source(temporary, maximum, directory) as (cloned, _):
+                    digest, copied = _chunks(cloned, None, maximum)
+            else:
+                descriptor, name = tempfile.mkstemp(prefix=".gnosi-asset-", dir=directory)
+                temporary = Path(name)
+                with os.fdopen(descriptor, "wb") as target:
+                    digest, copied = _chunks(source, target, maximum)
             if copied != size:
                 raise SourceChanged("A selected attachment changed while it was being read")
             if expected is not None and digest != expected:

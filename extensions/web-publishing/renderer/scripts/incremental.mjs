@@ -2,13 +2,30 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-import {bundle,site,pages,records,base,production,selection} from '../src/lib/site.mjs';
+import {bundle,site,pages,records,base,production,selection,href,html} from '../src/lib/site.mjs';
+import {landingPath} from '../src/lib/routing.mjs';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const blocks=values=>(values||[]).flatMap(block=>[block,...blocks(block.children)]);
 const chrome=[...(site.footer_columns||[]).flatMap(column=>column.blocks||[]),...(site.footer_blocks||[]),...(site.regions||[]).flatMap(region=>region.blocks||[])];
 const {pages:configuredPages,revision,updated_at,created_at,...configuration}=site;
-const routes=pages.map(page=>({id:page.id,translation_id:page.translation_id,language:page.language,path:page.path,template:page.template,title:page.title,nid:page.presentation?.nid}));
-const shared={configuration,routes,base,production,stylesheet:bundle.stylesheet_path,withdrawn:bundle.withdrawn_paths||[]};
+const shared={configuration,base,production,stylesheet:bundle.stylesheet_path};
+// Route membership affects same-origin links and withdrawn HTML anchors. Hash
+// the existing rendering helpers' outputs, rather than the entire route table.
+function links(value){
+  if(typeof value==='string')return [href(value),html(value)];
+  if(Array.isArray(value))return value.map(links);
+  if(value && typeof value==='object')return Object.values(value).map(links);
+  return null;
+}
+function routeDependencies(page){
+  const alternatives=pages.filter(other=>other.id===page.id || (page.translation_id && other.translation_id===page.translation_id)).map(other=>({language:other.language,path:other.path}));
+  const landing=site.languages.map(language=>landingPath(pages,language));
+  const visible=page.template==='map'?pages.filter(other=>other.language===page.language && !['search','map'].includes(other.template)).map(other=>({path:other.path,title:other.title})):[];
+  const tags=site.legacy_pilot?(page.presentation?.tags||[]).map(tag=>pages.find(other=>other.id===`tag-${tag.tid}-${page.language}`)?.path):[];
+  const hero=site.legacy_pilot && page.template==='home' && page.blocks.find(block=>block.type==='split');
+  const heroLinks=hero && hero.actions==null?[2656,5].map(nid=>records.find(record=>record.language===page.language && Number(record.presentation?.nid)===nid)?.path):[];
+  return {alternatives,landing,visible,tags,heroLinks};
+}
 export function routeFile(route){
   if(typeof route!=='string'||!route.startsWith('/')||/[\\?#\u0000-\u001f]/.test(route)||route.split('/').some(part=>part==='.'||part==='..')||/%(?:2e|2f|5c)/i.test(route))throw new Error('Invalid incremental route');
   return route==='/'?'index.html':route.slice(1)+'/index.html';
@@ -20,7 +37,11 @@ export function routeKeys(){
     const selected=source?selection({source_id:source.id,limit:10000},page.language):records.filter(record=>record.language===page.language);
     const dependencies=blocks([...(page.blocks||[]),...chrome]).filter(block=>['selected','collection','collaborators'].includes(block.type)).map(block=>selection(block,page.language));
     if(['home','listing'].includes(page.template)&&!(page.blocks||[]).length)dependencies.push(selected);
-    return [page.path,hash({shared,page,labels:selected.map(record=>record.field_labels),dependencies})];
+    // Position controls collection ordering, but is not rendered by an article.
+    const {source_order,...content}=page;
+    const consumers=[page,...dependencies.flat()];
+    const labels=consumers.map(record=>Object.keys(record.fields||{}).map(key=>record.field_labels?.[key] || selected.find(item=>item.field_labels?.[key])?.field_labels[key] || key));
+    return [page.path,hash({shared,page:content,labels,dependencies,routes:routeDependencies(page),links:links([configuration,page,dependencies])})];
   }));
 }
 export function plan(){
