@@ -52,7 +52,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2662 | 0 |
-| `features` | 1305 | 138277 | 57 |
+| `features` | 1305 | 138278 | 57 |
 | `generated` | 3 | 57966 | 599 |
 | `shared` | 354 | 37502 | 514 |
 
@@ -1285,7 +1285,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/views/vault-table/keyboardOwnership.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/keyboardOwnership.ts) | 2 | `keyboardOwnership` | — |
 | [`frontend/src/features/vault/views/vault-table/metadata.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/metadata.ts) | 43 | `getMetaKey`, `getMetadataValueByNormalizedKey` | — |
 | [`frontend/src/features/vault/views/vault-table/pickerTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/pickerTypes.ts) | 40 | `isOutsidePicker` | — |
-| [`frontend/src/features/vault/views/vault-table/recordActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/recordActions.ts) | 93 | `buildRecordActions` | — |
+| [`frontend/src/features/vault/views/vault-table/recordActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/recordActions.ts) | 94 | `buildRecordActions` | — |
 | [`frontend/src/features/vault/views/vault-table/rowDescriptors.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/rowDescriptors.ts) | 88 | `buildTableRowDescriptors` | — |
 | [`frontend/src/features/vault/views/vault-table/rowKeys.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/rowKeys.ts) | 14 | `tableRowKeys` | — |
 | [`frontend/src/features/vault/views/vault-table/rowTree.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-table/rowTree.ts) | 65 | `buildTableGroupMetadata`, `buildTableRowTree` | — |
