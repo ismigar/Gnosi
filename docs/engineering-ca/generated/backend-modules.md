@@ -16,7 +16,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 68 |
 | `config` | 14 | 1428 |
 | `data` | 2 | 214 |
-| `domains` | 628 | 122441 |
+| `domains` | 628 | 122471 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -28,7 +28,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1067 |
 
-Total: **1126 modules** and **212134 source lines**.
+Total: **1126 modules** and **212164 source lines**.
 
 ## agent
 
@@ -539,14 +539,14 @@ Total: **1126 modules** and **212134 source lines**.
 | [`backend/domains/sites/font_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/font_routes.py) | 26 | 0 | 3 | 0 | 0 | Authenticated catalogue and local import for website typography. |
 | [`backend/domains/sites/fonts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/fonts.py) | 12 | 0 | 1 | 0 | 0 | Read only explicitly configured local website fonts for editor samples. |
 | [`backend/domains/sites/importer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/importer.py) | 344 | 0 | 15 | 0 | 4 | Freeze the existing public pilot as an explicitly selected publication source. |
-| [`backend/domains/sites/incremental_upload.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/incremental_upload.py) | 69 | 0 | 2 | 0 | 2 | Stream candidate hashes and reuse verified remote release bytes. |
+| [`backend/domains/sites/incremental_upload.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/incremental_upload.py) | 74 | 0 | 2 | 0 | 2 | Stream candidate hashes and reuse verified remote release bytes. |
 | [`backend/domains/sites/local_artifacts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/local_artifacts.py) | 190 | 0 | 17 | 0 | 0 | Canonical local release namespaces, exact inventories and atomic pointers. |
 | [`backend/domains/sites/models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/models.py) | 516 | 39 | 3 | 0 | 0 | Versioned contracts for website configuration and private operation state. |
 | [`backend/domains/sites/native_presentation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/native_presentation.py) | 172 | 0 | 8 | 0 | 1 | Legacy renderer presentation derived only from explicitly exported native fields. |
 | [`backend/domains/sites/newsletter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/newsletter.py) | 223 | 6 | 10 | 0 | 0 | Private newsletter drafts composed from an immutable published projection. |
-| [`backend/domains/sites/note_parse_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/note_parse_cache.py) | 107 | 0 | 5 | 0 | 2 | Authenticated private YAML parse reuse; original bytes are always read afresh. |
+| [`backend/domains/sites/note_parse_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/note_parse_cache.py) | 121 | 0 | 6 | 0 | 3 | Authenticated private YAML parse reuse; original bytes are always read afresh. |
 | [`backend/domains/sites/page_editor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/page_editor.py) | 102 | 0 | 3 | 0 | 2 | Non-destructive editorial projections of imported static pages. |
-| [`backend/domains/sites/pangea.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/pangea.py) | 369 | 2 | 15 | 0 | 0 | Native website releases through the existing administrator-bound Suweb bridge. |
+| [`backend/domains/sites/pangea.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/pangea.py) | 373 | 2 | 15 | 0 | 0 | Native website releases through the existing administrator-bound Suweb bridge. |
 | [`backend/domains/sites/paths.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/paths.py) | 13 | 0 | 1 | 0 | 0 | Locate the website runtime in a checkout or an immutable desktop package. |
 | [`backend/domains/sites/preview_note_reads.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/preview_note_reads.py) | 114 | 0 | 4 | 0 | 0 | Authenticated Markdown bytes reused only after fresh source version checks. |
 | [`backend/domains/sites/preview_render_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/preview_render_cache.py) | 152 | 0 | 6 | 0 | 3 | Authenticated, disposable renderer reuse for local previews only. |
@@ -556,10 +556,10 @@ Total: **1126 modules** and **212134 source lines**.
 | [`backend/domains/sites/production_routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/production_routing.py) | 43 | 0 | 1 | 0 | 0 | Reviewed root routing for a retained Drupal-to-Webs cutover. |
 | [`backend/domains/sites/public_body.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/public_body.py) | 272 | 1 | 11 | 0 | 3 | Publish authored Markdown while omitting native embedded work views/cache. |
 | [`backend/domains/sites/public_http.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/public_http.py) | 222 | 5 | 7 | 0 | 2 | Bounded public HTTP reads with the validated address pinned to the socket. |
-| [`backend/domains/sites/publication.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/publication.py) | 460 | 0 | 24 | 0 | 4 | Persistent reviewed publication jobs, immutable builds and atomic activation. |
+| [`backend/domains/sites/publication.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/publication.py) | 464 | 0 | 24 | 0 | 4 | Persistent reviewed publication jobs, immutable builds and atomic activation. |
 | [`backend/domains/sites/record_publication.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/record_publication.py) | 204 | 3 | 7 | 0 | 1 | Contextual record publication through the existing website release pipeline. |
 | [`backend/domains/sites/recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/recovery.py) | 120 | 0 | 3 | 0 | 3 | Reauthorize and resume approved website jobs after a backend restart. |
-| [`backend/domains/sites/release_retention.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/release_retention.py) | 74 | 0 | 3 | 0 | 3 | Retain the activated remote website and its predecessor under the publish lock. |
+| [`backend/domains/sites/release_retention.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/release_retention.py) | 77 | 0 | 3 | 0 | 3 | Retain the activated remote website and its predecessor under the publish lock. |
 | [`backend/domains/sites/renderer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/renderer.py) | 114 | 0 | 3 | 0 | 1 | Build reviewed website snapshots with the packaged Astro/Pagefind renderer. |
 | [`backend/domains/sites/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/runtime.py) | 464 | 0 | 24 | 0 | 5 | Owned local preview processes and administrator-bound SSH destinations. |
 | [`backend/domains/sites/site_file_transfer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/site_file_transfer.py) | 31 | 0 | 1 | 0 | 0 | SFTP transfers staged privately, then verified and promoted by the owned SSH service. |

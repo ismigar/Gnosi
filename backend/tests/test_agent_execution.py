@@ -423,10 +423,22 @@ def test_partial_repair_keeps_the_original_deadline(runtime, monkeypatch):
     scope, snapshot = runtime
     action, passages, _, patch = repair_fixture()
     calls = []
+    clock = SimpleNamespace(now=0.0)
+    timeout_budgets = []
+    monkeypatch.setattr(execution, "time", SimpleNamespace(time=execution.time.time, monotonic=lambda: clock.now))
+    def timeout(remaining):
+        timeout_budgets.append(remaining)
+        return asyncio.timeout(remaining)
+    monkeypatch.setattr(execution, "asyncio", SimpleNamespace(timeout=timeout, CancelledError=asyncio.CancelledError))
     class Application:
         async def astream(self, inputs, **kwargs):
             calls.append(inputs)
-            await asyncio.sleep(0.6)
+            if len(calls) == 1:
+                # Charge model time without making fixture/validation CPU consume
+                # the repair's budget on a loaded CI host. Cancellation stays real.
+                clock.now += 0.6
+            else:
+                await asyncio.sleep(0.6)
             answer = action if len(calls) == 1 else patch
             yield {"operation": {"messages": [AIMessage(content=json.dumps(answer))]}}
         def compile(self):
@@ -443,6 +455,8 @@ def test_partial_repair_keeps_the_original_deadline(runtime, monkeypatch):
         asyncio.run(execution.execute_operation(request, snapshot=snapshot, output_validator=validate,
             output_repair=lambda text, error: build_reading_repair(request.input, text, error)))
     assert len(calls) == 2
+    assert timeout_budgets[0] == 1
+    assert max(timeout_budgets[1:]) == pytest.approx(0.4)
     assert store.list_runs(scope)[0].status == "failed"
     assert not store.list_runs(scope)[0].result
 

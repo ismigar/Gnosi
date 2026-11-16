@@ -26,6 +26,20 @@ _FORMAT = 'safe-note-metadata-v1:' + yaml.__version__
 parsed_note_cache: ContextVar[dict[str, str] | None] = ContextVar("preview_parsed_notes", default=None)
 
 
+@contextmanager
+def parsed_metadata_context(root: Path) -> Iterator[None]:
+    """Share authenticated parses, never source bytes, across a fresh scan."""
+    if parsed_note_cache.get() is not None:
+        yield
+        return
+    with parsed_metadata(root) as cache:
+        token = parsed_note_cache.set(cache)
+        try:
+            yield
+        finally:
+            parsed_note_cache.reset(token)
+
+
 def parse_metadata(frontmatter: str, digest: str) -> dict[str, JsonValue] | None:
     """Reuse only the parse of freshly read and hashed original bytes."""
     cache = parsed_note_cache.get()

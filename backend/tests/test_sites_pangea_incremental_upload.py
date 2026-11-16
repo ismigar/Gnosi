@@ -157,3 +157,59 @@ def test_legacy_pangea_rejects_corrupted_control_manifest(legacy_transport, webs
         publish("a" * 32, None)
     assert not archives
     assert not (public / "current").exists()
+
+
+def test_unchanged_attachment_is_not_rehashed_at_every_pointer_check(legacy_transport, website, tmp_path, monkeypatch):
+    output, public, _, publish, _, _ = legacy_transport
+    attachment = b"large unchanged attachment\n" * 10000
+    (output / "asset.pdf").write_bytes(attachment)
+    (output / "index.html").write_bytes(b"article")
+    first, second, third = "a" * 32, "b" * 32, "c" * 32
+    publish(first, None)
+    publish(second, first)
+    driver = pangea.driver(website.store)
+    original_php = driver.php
+    hashes = tmp_path / "hashes.json"
+    reads = []
+
+    def measured_php(bridge, code):
+        instrument = ('$hashReads=[];function measured_hash($algorithm,$path){global $hashReads;'
+                      'if(filesize($path)===' + str(len(attachment)) + '){$hashReads[]=$path;}return hash_file($algorithm,$path);}'
+                      'register_shutdown_function(function(){global $hashReads;file_put_contents('
+                      + json.dumps(str(hashes)) + ',json_encode($hashReads));});')
+        try:
+            return original_php(bridge, instrument + code.replace("hash_file(", "measured_hash("))
+        finally:
+            reads.extend(json.loads(hashes.read_text()))
+
+    monkeypatch.setattr(driver, "php", measured_php)
+    monkeypatch.setattr(pangea, "driver", lambda store: driver)
+    (output / "index.html").write_bytes(b"edited article")
+    publish(third, second)
+    assert (public / "current/asset.pdf").read_bytes() == attachment
+    assert len(reads) <= 6, reads
+
+
+@pytest.mark.parametrize("changed", ["copy-source", "activation-parent", "activation-candidate"])
+def test_changes_after_initial_verification_cannot_activate(legacy_transport, website, monkeypatch, changed):
+    output, public, private, publish, _, _ = legacy_transport
+    (output / "index.html").write_bytes(b"stable")
+    first, second = "a" * 32, "b" * 32
+    publish(first, None)
+    parent = private / "releases" / first / "public/index.html"
+    driver = pangea.driver(website.store)
+    original_php = driver.php
+
+    def mutate(bridge, code):
+        if changed == "copy-source" and "$verifiedParent=true" in code:
+            code = code.replace("$missing=[];", 'file_put_contents(' + json.dumps(str(parent)) + ',"tampered");$missing=[];')
+        elif changed != "copy-source" and "$tmp=$link" in code:
+            path = parent if changed == "activation-parent" else private / "releases" / second / "public/index.html"
+            path.write_bytes(b"tampered")
+        return original_php(bridge, code)
+
+    monkeypatch.setattr(driver, "php", mutate)
+    monkeypatch.setattr(pangea, "driver", lambda store: driver)
+    with pytest.raises(subprocess.CalledProcessError):
+        publish(second, first)
+    assert (public / "current").readlink() == parent.parent

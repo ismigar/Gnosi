@@ -17,7 +17,7 @@ from pydantic import JsonValue
 from backend.services.plugin_access import plugins_enabled_now
 
 from . import local_artifacts, runtime
-from .exporter import build_bundle
+from .exporter import SourceSnapshot, build_bundle, source_snapshot
 from .models import SiteBundle, SiteChange, SiteConfig, SiteJob, SitePreview, SitePublishRequest, SiteRelease, SiteTarget, identifier, timestamp
 from .storage import SiteStore, fingerprint, private_json
 
@@ -112,7 +112,7 @@ def _phase(store: SiteStore, job: SiteJob, phase: str) -> None:
     _save_job(store, job)
 
 
-def _reviewed_record_selection(store: SiteStore, site: SiteConfig, pending: dict[str, JsonValue]) -> tuple[SiteConfig, SiteConfig | None]:
+def _reviewed_record_selection(store: SiteStore, site: SiteConfig, pending: dict[str, JsonValue], snapshot: SourceSnapshot | None = None) -> tuple[SiteConfig, SiteConfig | None]:
     """Revalidate a contextual source selection without saving configuration."""
     original_site = None
     record_proposal = pending.get("record_proposal")
@@ -121,10 +121,10 @@ def _reviewed_record_selection(store: SiteStore, site: SiteConfig, pending: dict
         if fingerprint(site.model_dump(mode="json")) != record_proposal.get("original_fingerprint"):
             raise HTTPException(409, "The website changed; review the record again")
         record_request = RecordPublicationReview.model_validate(record_proposal["request"])
-        if context_fingerprint(store, record_request.page_id) != record_proposal.get("record_fingerprint"):
+        if context_fingerprint(store, record_request.page_id, snapshot=snapshot) != record_proposal.get("record_fingerprint"):
             raise HTTPException(409, "The record or its table changed; review the record again")
         original_site = site
-        site = proposal(store, site, record_request)
+        site = proposal(store, site, record_request, snapshot=snapshot)
         if site.model_dump(mode="json") != record_proposal.get("site"):
             raise HTTPException(409, "The record binding changed; review the record again")
     return site, original_site
@@ -151,8 +151,12 @@ def enqueue(store: SiteStore, site: SiteConfig, request: SitePublishRequest) -> 
             raise HTTPException(409, "Review a new publication preview")
         pending: dict[str, JsonValue] = json.loads(row["payload"])
     bundle = SiteBundle.model_validate(pending["bundle"])
-    site, original_site = _reviewed_record_selection(store, site, pending)
-    current = build_bundle(store, site, row["target_id"])
+    # One fresh source scan binds the record, selection and exact projection.
+    # It is never shared with the earlier preview or the later queued worker.
+    snapshot = source_snapshot(store) if isinstance(pending.get("record_proposal"), dict) else None
+    site, original_site = _reviewed_record_selection(store, site, pending, snapshot)
+    current = (build_bundle(store, site, row["target_id"], snapshot=snapshot) if snapshot is not None
+               else build_bundle(store, site, row["target_id"]))
     if current.fingerprint != bundle.fingerprint:
         raise HTTPException(409, "The selected content or configuration changed; review a new preview")
     previous = store.active_bundle(site.id, row["target_id"])

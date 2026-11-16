@@ -142,14 +142,16 @@ function gnosi_pangea_verify($id){
  foreach($tree as $entry){$path=substr($entry->getPathname(),strlen($target)+1);if($entry->isLink()||!$entry->isDir()&&!array_key_exists($path,$manifest)){throw new Exception("Unreviewed test file");}}
  return $target;
 }
-function gnosi_pangea_current(){
+function gnosi_pangea_current($verify=true){
  global $public,$private;
  $link=$public."/current";
  if(!gnosi_exists($link)){return null;}
  if(!is_link($link)){throw new Exception("Unowned active test pointer");}
  $target=readlink($link);$prefix=$private."/releases/";
  if(!str_starts_with($target,$prefix)||!preg_match("~^([a-f0-9]{32})/public$~D",substr($target,strlen($prefix)),$match)){throw new Exception("Unknown active test version");}
- if(realpath($link)!==gnosi_pangea_verify($match[1])){throw new Exception("Foreign active test version");}
+ $canonical=gnosi_directory(gnosi_release($match[1])."/public");
+ if($canonical!==$target||realpath($link)!==$canonical){throw new Exception("Foreign active test version");}
+ if($verify){gnosi_pangea_verify($match[1]);}
  return $match[1];
 }
 gnosi_pangea_namespace();
@@ -186,9 +188,11 @@ def connection(store: SiteStore, *, bounded: bool = False) -> Iterator[tuple[Dri
 def _activate(transport: Driver, bridge: Bridge, public: str, private: str, release_id: str, parent_id: str | None, owner: str, *, retain: bool = False) -> str:
     if not re.fullmatch(r"[a-f0-9]{32}", release_id):
         raise HTTPException(409, "Invalid Pangea release identity")
-    code = _policy(public, private, owner) + '$lock=gnosi_lock();$id=' + json.dumps(release_id) + ';$link=$public."/current";$current=gnosi_pangea_current();if($current===$id){echo json_encode(["release_id"=>$id,"retention_error"=>null]);exit;}if($current!==' + json.dumps(parent_id) + '){throw new Exception("Parent changed");}$target=gnosi_pangea_verify($id);$tmp=$link.".".bin2hex(random_bytes(6));if(!symlink($target,$tmp)||!rename($tmp,$link)||readlink($link)!==$target){throw new Exception("Test activation failed");}clearstatcache(true,$link);if(gnosi_pangea_current()!==$id){throw new Exception("Active version could not be verified");}'
+    code = _policy(public, private, owner) + '$lock=gnosi_lock();$id=' + json.dumps(release_id) + ';$link=$public."/current";$current=gnosi_pangea_current();if($current===$id){echo json_encode(["release_id"=>$id,"retention_error"=>null]);exit;}if($current!==' + json.dumps(parent_id) + '){throw new Exception("Parent changed");}$target=gnosi_pangea_verify($id);$tmp=$link.".".bin2hex(random_bytes(6));if(!symlink($target,$tmp)||!rename($tmp,$link)||readlink($link)!==$target){throw new Exception("Test activation failed");}clearstatcache(true,$link);if(gnosi_pangea_current(false)!==$id){throw new Exception("Active version could not be verified");}'
     if retain:
-        code += retention_program(pangea=True)
+        # Both exact trees were verified above under this same held lock.
+        # Switching the pointer does not change either tree's bytes.
+        code += retention_program(pangea=True, verified_activation=True)
     code += 'echo json_encode(["release_id"=>$id,"retention_error"=>' + ('$retentionError' if retain else 'null') + ']);'
     return transport.php(bridge, code)
 
@@ -220,7 +224,7 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
             manifest_path.chmod(0o600)
             transport.put(bridge, manifest_path, release_root + "/checksums.json")
         manifest_expression = 'json_decode(file_get_contents($manifestFile),true,512,JSON_THROW_ON_ERROR)'
-        plan = _policy(public, private, owner) + '$lock=gnosi_lock();$id=' + json.dumps(release_id) + ';$parent=' + json.dumps(parent_id) + ';if(gnosi_pangea_current()!==$parent){throw new Exception("Parent changed");}$manifestFile=gnosi_file(gnosi_release($id),"checksums.json");if(hash_file("sha256",$manifestFile)!==' + json.dumps(hashlib.sha256(manifest_data).hexdigest()) + '){throw new Exception("Transfer manifest integrity failure");}' + reuse_program(pangea=True, manifest_expression=manifest_expression)
+        plan = _policy(public, private, owner) + '$lock=gnosi_lock();$id=' + json.dumps(release_id) + ';$parent=' + json.dumps(parent_id) + ';if(gnosi_pangea_current()!==$parent){throw new Exception("Parent changed");}$manifestFile=gnosi_file(gnosi_release($id),"checksums.json");if(hash_file("sha256",$manifestFile)!==' + json.dumps(hashlib.sha256(manifest_data).hexdigest()) + '){throw new Exception("Transfer manifest integrity failure");}' + reuse_program(pangea=True, manifest_expression=manifest_expression, verified_parent=True)
         missing = json.loads(transport.php(bridge, plan))
         if not isinstance(missing, list) or any(not isinstance(relative, str) or relative not in checks for relative in missing) or len(set(missing)) != len(missing):
             raise HTTPException(503, "The server returned an invalid release transfer plan")
