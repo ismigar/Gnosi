@@ -119,8 +119,18 @@ def _note_paths(vault: Path) -> list[Path]:
 
 
 def notes(store: SiteStore) -> list[Note]:
-    with read_session():
-        return _read_notes(store)
+    from .asset_files import parent_descriptor_cache
+    from .note_parse_cache import parsed_metadata
+    with read_session(), parent_descriptor_cache():
+        if parsed_note_cache.get() is not None:
+            return _read_notes(store)
+        # Reuse the parse, never the original bytes, during confirmation too.
+        with parsed_metadata(store.private_root) as cache:
+            token = parsed_note_cache.set(cache)
+            try:
+                return _read_notes(store)
+            finally:
+                parsed_note_cache.reset(token)
 
 
 def _read_notes(store: SiteStore) -> list[Note]:

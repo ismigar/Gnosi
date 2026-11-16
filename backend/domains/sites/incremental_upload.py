@@ -32,19 +32,24 @@ def output_manifest(output: Path) -> dict[str, str]:
     return dict(sorted(manifest.items()))
 
 
-def reuse_program(*, pangea: bool = False, manifest_expression: str | None = None) -> str:
+def reuse_program(*, pangea: bool = False, manifest_expression: str | None = None, verified_parent: bool = False) -> str:
     """Copy matching candidate entries under the existing publication lock.
 
     Both transports retain a complete independent tree. Only the Pangea layout
     and manifest input differ; canonical path and byte-copy checks are shared.
     """
     expression = manifest_expression or 'json_decode(file_get_contents("php://stdin"),true,64,JSON_THROW_ON_ERROR)'
-    code = '$manifest=' + expression + ';'
+    # Only a caller holding the publish lock after a full parent verification
+    # may reuse that verification. Every independent copied file is still hashed.
+    if verified_parent and not pangea:
+        raise ValueError("Verified parent reuse requires the Pangea transaction")
+    code = '$verifiedParent=' + ('true' if verified_parent else 'false') + ';$manifest=' + expression + ';'
     if pangea:
-        code += '$parentRoot=$parent===null?null:gnosi_pangea_verify($parent);$parentManifest=$parent===null?[]:json_decode(file_get_contents(gnosi_file(gnosi_release($parent),"checksums.json")),true,512,JSON_THROW_ON_ERROR);$release=gnosi_release($id)."/public";gnosi_directory($release,true);'
+        parent_root = 'gnosi_directory(gnosi_release($parent)."/public")' if verified_parent else 'gnosi_pangea_verify($parent)'
+        code += '$parentRoot=$parent===null?null:' + parent_root + ';$parentManifest=$parent===null?[]:json_decode(file_get_contents(gnosi_file(gnosi_release($parent),"checksums.json")),true,512,JSON_THROW_ON_ERROR);$release=gnosi_release($id)."/public";gnosi_directory($release,true);'
     else:
         code += '$parentManifest=$parent===null?[]:gnosi_manifest($parent);$parentRoot=$parent===null?null:gnosi_release($parent);$release=gnosi_release($id);'
-    current = 'gnosi_pangea_current()' if pangea else 'gnosi_current()'
+    current = ('gnosi_pangea_current(false)' if verified_parent else 'gnosi_pangea_current()') if pangea else 'gnosi_current()'
     return code + _COPY + 'if(' + current + '!==$parent){throw new Exception("Parent changed during release copy");}echo json_encode($missing,JSON_THROW_ON_ERROR);'
 
 
@@ -56,7 +61,7 @@ _COPY = r'''
         $destination=gnosi_file($release,$relative,true);
         if(!array_key_exists($relative,$parentManifest)||$parentManifest[$relative]!==$digest){$missing[]=$relative;continue;}
         $source=gnosi_file($parentRoot,$relative);
-        if(!is_file($source)||hash_file("sha256",$source)!==$digest){throw new Exception("Parent release integrity failure");}
+        if(!is_file($source)||!$verifiedParent&&hash_file("sha256",$source)!==$digest){throw new Exception("Parent release integrity failure");}
         $temporary=tempnam(dirname($destination),".gnosi-copy-");
         if($temporary===false){throw new Exception("Could not create release copy");}
         try{
