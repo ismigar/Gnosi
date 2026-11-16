@@ -13,8 +13,8 @@ from typing import cast
 from urllib.parse import quote, unquote, urlsplit
 
 import yaml
-from .asset_files import read_session
-from .note_parse_cache import parsed_note_cache as parsed_note_cache, parse_metadata
+from .asset_files import parent_descriptor_cache, read_session
+from .note_parse_cache import parsed_note_cache as parsed_note_cache, parse_metadata, parsed_metadata_context
 from fastapi import HTTPException
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
@@ -119,18 +119,8 @@ def _note_paths(vault: Path) -> list[Path]:
 
 
 def notes(store: SiteStore) -> list[Note]:
-    from .asset_files import parent_descriptor_cache
-    from .note_parse_cache import parsed_metadata
-    with read_session(), parent_descriptor_cache():
-        if parsed_note_cache.get() is not None:
-            return _read_notes(store)
-        # Reuse the parse, never the original bytes, during confirmation too.
-        with parsed_metadata(store.private_root) as cache:
-            token = parsed_note_cache.set(cache)
-            try:
-                return _read_notes(store)
-            finally:
-                parsed_note_cache.reset(token)
+    with read_session(), parent_descriptor_cache(), parsed_metadata_context(store.private_root):
+        return _read_notes(store)
 
 
 def _read_notes(store: SiteStore) -> list[Note]:
