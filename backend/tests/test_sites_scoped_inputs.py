@@ -274,3 +274,35 @@ def test_ambiguous_selected_bd_alias_never_reads_another_registered_table(websit
     monkeypatch.setattr(exporter, 'bounded_read', read)
     with pytest.raises(HTTPException, match='belongs to another registered table'):
         exporter.build_bundle(website.store, website.site, 'local')
+
+
+@pytest.mark.parametrize('by_page', [False, True])
+@pytest.mark.parametrize('cached', [False, True])
+def test_menu_never_requests_unrelated_bodies(website, monkeypatch, isolated_validation_runtime, by_page, cached):
+    from backend.api import vault_routes  # noqa: F401
+    from backend.domains.vault.links import runtime as links
+    notes = exporter.notes(website.store)
+    unrelated = website.vault / 'Mail/unavailable.md'
+    unrelated.parent.mkdir()
+    unrelated.write_text('---\nid: private-mail\nprivate: true\n---\nPRIVATE\n')
+    entries = [{'path': str(note.path), 'metadata': note.metadata} for note in notes]
+    monkeypatch.setattr(source_inputs, 'available_entries', lambda vault: entries if cached else None)
+    parsed = []
+    def body(path):
+        parsed.append(path)
+        note = next((note for note in notes if note.path == path), None)
+        return (note.metadata, note.body) if note else None
+    monkeypatch.setattr(links, '_iter_docs_cache', {})
+    monkeypatch.setattr(links._legacy.path_resolver, 'list_all_files', lambda vault: [note.path for note in notes] + [unrelated])
+    monkeypatch.setattr(links, '_get_parsed_document', body)
+    reads = []
+    original = exporter.bounded_read
+    def bounded(path, *args, **kwargs):
+        if path.suffix == '.md': reads.append(path)
+        assert path != unrelated
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(exporter, 'bounded_read', bounded)
+    result = record_publication.destinations(website.store, **({'page_id':'one'} if by_page else {'table_id':'articles'}))
+    assert [item.site_id for item in result] == [website.site.id]
+    assert unrelated not in parsed, 'Opening the publication menu requested an unrelated private body'
+    if cached: assert reads == [], 'Existing metadata inventory must not reread document bodies for a menu'

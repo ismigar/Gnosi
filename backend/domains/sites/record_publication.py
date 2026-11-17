@@ -56,35 +56,45 @@ def _context(store: SiteStore, page_id: str, snapshot: exporter.SourceSnapshot |
     return data, notes, note, str(tables[0]["id"])
 
 
-def _discovery_notes(store: SiteStore) -> list[exporter.Note]:
-    """Use the mutation-invalidated Vault inventory for non-publishing menus.
+def _discovery_notes(store: SiteStore) -> list[exporter.Note] | None:
+    """Read existing metadata hints without traversing or parsing document bodies.
 
-    Review/confirmation still reread and hash the full source via exporter.notes.
-    Never traverse OneDrive or hash every body just to display an action.
+    This inventory serves non-publishing menus only. Review and confirmation
+    retain independent fresh scoped reads before any publication mutation.
     """
-    from backend.services.context_vars import active_vault_path
-    # Initialize the compatibility composition root before its runtime ports.
-    from backend.api import vault_routes  # noqa: F401
-    from backend.domains.vault.links.runtime import _iter_linkable_page_documents
-
-    token = active_vault_path.set(store.vault)
-    try:
-        documents = _iter_linkable_page_documents()
-    finally:
-        active_vault_path.reset(token)
+    from .source_inputs import _path, available_entries
+    entries = available_entries(store.vault)
+    if entries is None:
+        return None
     notes: list[exporter.Note] = []
     identities: set[str] = set()
-    for path, metadata, _body, dashboard in documents:
-        if dashboard or not path.is_relative_to(store.vault) or path.is_symlink():
+    for entry in entries:
+        path, metadata = _path(store.vault, entry.get('path')), entry.get('metadata')
+        if path is None or entry.get('is_database') or not isinstance(metadata, dict) or not metadata.get('id'):
             continue
-        if any(part.startswith(".") for part in path.relative_to(store.vault).parts) or not metadata.get("id"):
-            continue
-        identity = str(metadata["id"])
+        identity = str(metadata['id'])
         if identity in identities:
             raise HTTPException(409, "Duplicate note identities must be resolved before publication")
         identities.add(identity)
         notes.append(exporter.Note(path, cast(dict[str, JsonValue], json.loads(json.dumps(metadata, default=str))), "", ""))
     return notes
+
+
+def _menu_notes(store: SiteStore, data: dict[str, JsonValue], page_id: str | None, table_id: str | None) -> list[exporter.Note]:
+    notes = _discovery_notes(store)
+    if notes and (not page_id or any(str(note.metadata['id']) == page_id for note in notes)):
+        return notes
+    if table_id and not any(str(table.get('id')) == table_id for table in exporter.records(data, 'tables')):
+        return []
+    from .asset_files import parent_descriptor_cache, read_session
+    from .note_parse_cache import parsed_metadata_context
+    from .source_inputs import read_inputs
+    # A missing/cold inventory may discover this record's domain; it must never
+    # fall back to the vault-wide linking inventory and its body parser.
+    lookup = SiteConfig(name='Record publication lookup', sources=[SiteSource(
+        id='record-lookup', kind='page' if page_id else 'table', source_id=page_id or table_id or '', enabled=True)])
+    with read_session(), parent_descriptor_cache(), parsed_metadata_context(store.private_root):
+        return read_inputs(store, lookup, data, {page_id} if page_id else set())[0]
 
 
 def destinations(store: SiteStore, *, page_id: str | None = None, table_id: str | None = None) -> list[RecordDestination]:
@@ -93,7 +103,7 @@ def destinations(store: SiteStore, *, page_id: str | None = None, table_id: str 
     from backend.domains.vault.tables.rows import build_table_folder_index, resolve_table_id_from_context
 
     data, _ = exporter.registry(store)
-    notes = _discovery_notes(store)
+    notes = _menu_notes(store, data, page_id, table_id)
     if page_id:
         matching = [note for note in notes if str(note.metadata["id"]) == page_id]
         if len(matching) != 1:

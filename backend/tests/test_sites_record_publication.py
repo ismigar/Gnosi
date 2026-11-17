@@ -173,17 +173,20 @@ def test_page_discovery_still_reports_registry_failure(website):
 def test_menu_discovery_uses_scoped_inventory_without_exporting_every_body(website, monkeypatch, isolated_validation_runtime):
     from backend.api import vault_routes  # noqa: F401
     from backend.domains.vault.links import runtime as links
+    from backend.domains.vault.pages import index_service
     from backend.services.context_vars import active_vault_path
     notes = records.exporter.notes(website.store)
     seen = []
-    def inventory():
+    def inventory(vault):
+        assert vault == website.vault
         seen.append(active_vault_path.get())
-        return [(note.path, note.metadata, note.body, False) for note in notes]
-    monkeypatch.setattr(links, "_iter_linkable_page_documents", inventory)
-    monkeypatch.setattr(records.exporter, "notes", lambda *_: pytest.fail("menu must not export/hash full vault bodies"))
+        return [{'path': str(note.path), 'metadata': note.metadata} for note in notes]
+    monkeypatch.setattr(index_service, 'get_available_page_entries', inventory)
+    monkeypatch.setattr(links, '_iter_linkable_page_documents', lambda: pytest.fail('menu must not invoke the vault-wide body inventory'))
+    monkeypatch.setattr(records.exporter, 'notes', lambda *_: pytest.fail('menu must not export/hash full vault bodies'))
     prior = active_vault_path.get()
-    by_page = records.destinations(website.store, page_id="one")
-    by_table = records.destinations(website.store, table_id="articles")
+    by_page = records.destinations(website.store, page_id='one')
+    by_table = records.destinations(website.store, table_id='articles')
     assert [item.site_id for item in by_page] == [website.site.id]
     assert by_page == by_table
     assert seen == [website.vault, website.vault]
