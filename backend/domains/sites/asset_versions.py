@@ -1,12 +1,14 @@
 """Preview-only reuse of verified private snapshots of unchanged local files.
 
 Confirmation and activation still hash the original source afresh. A preview
-cache hit pins the source, checks its full filesystem version, verifies the
-private bytes, and checks the source again before exposing the snapshot.
+cache hit pins the source, checks its authenticated filesystem/content version,
+verifies the private bytes, and checks the source again. Evicted files require
+a supported Darwin write-generation count; stat metadata alone is insufficient.
 """
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
@@ -15,10 +17,31 @@ import re
 from backend.platform.files.coordinated import is_cloud_placeholder
 
 from . import asset_files
+from .asset_generation import content_generation as content_generation
+from .note_parse_cache import _key
 from .storage import private_json
 
 # Windows/Python 3.11 ctime is creation time, not an edit token.
 _STRONG_CHANGE_TOKEN = os.name == "posix"
+
+
+def _signature(path: Path, directory: Path, version: dict[str, object]) -> str:
+    payload = json.dumps([str(path), version], sort_keys=True, separators=(',', ':'))
+    return hmac.new(_key(directory), b'attachment-source-version-v2\0' + payload.encode(), hashlib.sha256).hexdigest()
+
+
+def _version(entry: Path, path: Path, directory: Path) -> dict[str, object] | None:
+    try:
+        with asset_files._source(entry, 4096, directory) as (content, _):
+            version = json.loads(content.read(4097))
+        if not isinstance(version, dict):
+            return None
+        signature = version.pop('signature', None)
+        if not isinstance(signature, str) or not hmac.compare_digest(signature, _signature(path, directory, version)):
+            return None
+        return version
+    except (ValueError, OSError):
+        return None
 
 
 def _entry(path: Path, directory: Path) -> Path:
@@ -38,14 +61,11 @@ def cached_snapshot(path: Path, root: Path, directory: Path, maximum: int) -> tu
         raise asset_files.AssetFileError("Invalid source version record")
     with asset_files._source(path, maximum, root) as (source, _):
         info = os.fstat(source.fileno())
-        if is_cloud_placeholder(path, info):
+        version = _version(entry, path, directory)
+        if version is None or version.get("identity") != list(asset_files._identity(info)):
             return None
-        try:
-            with asset_files._source(entry, 4096, directory) as (content, _):
-                version = json.loads(content.read(4097))
-        except (ValueError, OSError):
-            return None
-        if not isinstance(version, dict) or version.get("identity") != list(asset_files._identity(info)):
+        generation = content_generation(source.fileno())
+        if version.get('generation') != generation or (generation is None and is_cloud_placeholder(path, info)):
             return None
         digest = version.get("digest")
         if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
@@ -55,19 +75,23 @@ def cached_snapshot(path: Path, root: Path, directory: Path, maximum: int) -> tu
             actual, copied = asset_files._chunks(content, None, maximum)
             if actual != digest or copied != size or size != info.st_size:
                 raise asset_files.AssetFileError("A reviewed attachment snapshot changed")
+        if content_generation(source.fileno()) != generation:
+            raise asset_files.SourceChanged("A selected attachment changed while verifying its snapshot")
         return digest, snapshot
 
 
-def save_version(path: Path, root: Path, directory: Path, digest: str, identity: tuple[int, ...]) -> None:
+def save_version(path: Path, root: Path, directory: Path, digest: str, identity: tuple[int, ...], generation: int | None) -> None:
     if not _STRONG_CHANGE_TOKEN:
         return
     # The completed stage already pinned and validated the descriptor/path.
     # This metadata-only check avoids opening the original a third time.
     info = path.lstat()
-    if (asset_files._identity(info) != identity or is_cloud_placeholder(path, info)
+    if (asset_files._identity(info) != identity or (generation is None and is_cloud_placeholder(path, info))
             or not path.resolve().is_relative_to(root.resolve())):
         return
     entry = _entry(path, directory)
     if entry.is_symlink():
         raise asset_files.AssetFileError("Invalid source version record")
-    private_json(entry, {"identity": list(identity), "digest": digest})
+    version: dict[str, object] = {"identity": list(identity), "digest": digest, "generation": generation}
+    version['signature'] = _signature(path, directory, version)
+    private_json(entry, version)

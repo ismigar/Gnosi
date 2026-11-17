@@ -54,10 +54,11 @@ def test_tampered_private_bytes_are_rejected_on_cache_hit(tmp_path):
         asset_files.snapshot_asset(source, tmp_path, directory, reuse_source_version=True)
 
 
-def test_placeholder_metadata_cannot_reuse_a_prior_local_version(tmp_path, monkeypatch):
+def test_placeholder_without_content_version_cannot_reuse_a_prior_local_version(tmp_path, monkeypatch):
     source = tmp_path / "source.pdf"
     source.write_bytes(b"original")
     directory = tmp_path / "snapshots"
+    monkeypatch.setattr(asset_versions, 'content_generation', lambda _: None)
     asset_files.snapshot_asset(source, tmp_path, directory)
     monkeypatch.setattr(asset_versions, "is_cloud_placeholder", lambda *args:True)
     stage = asset_files._stage
