@@ -1,6 +1,7 @@
 """Evicted attachments need a content version, not another provider download."""
 import json
 import os
+import shutil
 
 import pytest
 
@@ -60,6 +61,40 @@ def test_malformed_signature_falls_back_to_fresh_original(versioned_source, sign
     record.write_text(json.dumps(value))
     _, snapshot = asset_files.snapshot_asset(source, source.parent, directory, reuse_source_version=True)
     assert snapshot.read_bytes() == b'Original'
+
+
+@pytest.mark.parametrize('reuse', [False, True])
+@pytest.mark.parametrize('fault', ['corrupt_key', 'empty_key', 'key_directory',
+    'key_permissions', 'version_directory', 'versions_parent_file', 'write_failure'])
+def test_optional_receipt_failure_preserves_fresh_verified_snapshot(versioned_source, monkeypatch, reuse, fault):
+    source, directory, _ = versioned_source
+    asset_files.snapshot_asset(source, source.parent, directory)
+    key = directory / '.note-parse-cache-key'
+    if fault == 'corrupt_key':
+        key.write_bytes(b'corrupt')
+    elif fault == 'empty_key':
+        key.write_bytes(b'')
+    elif fault == 'key_directory':
+        key.unlink()
+        key.mkdir()
+    elif fault == 'key_permissions':
+        key.chmod(0o644)
+    elif fault == 'version_directory':
+        entry = asset_versions._entry(source, directory)
+        entry.unlink()
+        entry.mkdir()
+    elif fault == 'versions_parent_file':
+        shutil.rmtree(directory / '.source-versions')
+        (directory / '.source-versions').write_text('invalid')
+    else:
+        def unavailable(*_args):
+            raise OSError('No space left for optional metadata')
+        monkeypatch.setattr(asset_versions, 'private_json', unavailable)
+    source.write_bytes(b'Modified')
+    _, snapshot = asset_files.snapshot_asset(source, source.parent, directory, reuse_source_version=reuse)
+    assert snapshot.read_bytes() == b'Modified'
+    if fault == 'corrupt_key':
+        assert key.read_bytes() == b'corrupt'
 
 
 def test_content_change_during_cached_verification_is_rejected(versioned_source, monkeypatch):

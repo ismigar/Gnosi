@@ -96,5 +96,10 @@ def save_version(path: Path, root: Path, directory: Path, digest: str, identity:
     if entry.is_symlink():
         raise asset_files.AssetFileError("Invalid source version record")
     version: dict[str, object] = {"identity": list(identity), "digest": digest, "generation": generation}
-    version['signature'] = _signature(path, directory, version)
-    private_json(entry, version)
+    try:
+        version['signature'] = _signature(path, directory, version)
+        private_json(entry, version)
+    except (OSError, ValueError):
+        # This optional receipt cannot invalidate the freshly verified snapshot.
+        # Preserve corrupt keys; without a valid receipt later reads stay fresh.
+        pass
