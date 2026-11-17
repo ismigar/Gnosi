@@ -16,7 +16,7 @@ def content_generation(descriptor: int) -> int | None:
     """Return only an explicitly supported write-generation count.
 
     Darwin sys/attr.h: ATTR_CMN_GEN_COUNT requires FSOPT_ATTR_CMN_EXTENDED.
-    RETURNED_ATTRS distinguishes an unsupported attribute from generation zero.
+    RETURNED_ATTRS confirms support. Zero is invalid (including mapped files).
     The caller pins/rechecks the file identity; inode numbers alone are not versions.
     """
     if sys.platform != 'darwin':
@@ -32,6 +32,6 @@ def content_generation(descriptor: int) -> int | None:
             return None
         if result[0] != ctypes.sizeof(result) or result[1] != attributes.common:
             return None
-        return int(result[6])
+        return int(result[6]) or None
     except (AttributeError, OSError, ValueError):
         return None

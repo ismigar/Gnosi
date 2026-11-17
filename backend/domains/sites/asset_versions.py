@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import re
+import sys
 
 from backend.platform.files.coordinated import is_cloud_placeholder
 
@@ -65,7 +66,8 @@ def cached_snapshot(path: Path, root: Path, directory: Path, maximum: int) -> tu
         if version is None or version.get("identity") != list(asset_files._identity(info)):
             return None
         generation = content_generation(source.fileno())
-        if version.get('generation') != generation or (generation is None and is_cloud_placeholder(path, info)):
+        if (version.get('generation') != generation
+                or (generation is None and (sys.platform == 'darwin' or is_cloud_placeholder(path, info)))):
             return None
         digest = version.get("digest")
         if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
