@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 68 |
 | `config` | 14 | 1428 |
 | `data` | 2 | 214 |
-| `domains` | 628 | 122471 |
+| `domains` | 629 | 122548 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -28,7 +28,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1067 |
 
-Total: **1126 modules** and **212164 source lines**.
+Total: **1127 modules** and **212241 source lines**.
 
 ## agent
 
@@ -527,8 +527,9 @@ Total: **1126 modules** and **212164 source lines**.
 | [`backend/domains/sites/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault-scoped website management and reviewed static publication. |
 | [`backend/domains/sites/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py) | 342 | 0 | 41 | 1 | 0 | Authenticated website editor and private administrator operations. |
 | [`backend/domains/sites/asset_clone.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/asset_clone.py) | 42 | 0 | 1 | 0 | 0 | Independent copy-on-write staging on APFS; ordinary copies remain fallback. |
-| [`backend/domains/sites/asset_files.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/asset_files.py) | 370 | 4 | 15 | 0 | 9 | Bounded immutable copies of explicitly selected public attachments. |
-| [`backend/domains/sites/asset_versions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/asset_versions.py) | 73 | 0 | 3 | 0 | 0 | Preview-only reuse of verified private snapshots of unchanged local files. |
+| [`backend/domains/sites/asset_files.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/asset_files.py) | 378 | 4 | 15 | 0 | 9 | Bounded immutable copies of explicitly selected public attachments. |
+| [`backend/domains/sites/asset_generation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/asset_generation.py) | 37 | 1 | 1 | 0 | 1 | Descriptor-bound Darwin content generations without reading cloud bytes. |
+| [`backend/domains/sites/asset_versions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/asset_versions.py) | 105 | 0 | 5 | 0 | 0 | Preview-only reuse of verified private snapshots of unchanged local files. |
 | [`backend/domains/sites/bounded_bridge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_bridge.py) | 142 | 2 | 0 | 0 | 2 | Deadline-bound read sessions using the maintained SSH/Suweb login procedure. |
 | [`backend/domains/sites/bounded_child.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_child.py) | 85 | 2 | 0 | 0 | 1 | Apply a single SSH deadline even when the maintained driver uses the child directly. |
 | [`backend/domains/sites/bounded_pty.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_pty.py) | 32 | 0 | 1 | 0 | 0 | Nonblocking PTY writes with one caller-owned absolute deadline. |
