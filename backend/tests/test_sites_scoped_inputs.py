@@ -331,3 +331,18 @@ def test_imported_table_binding_without_index_preserves_existing_publication(web
     result = table_binding.bind(website.store, site, binding_request(website))
     assert result.sources[0].source_id == 'articles'
     assert result.sources[0].page_ids == ['one']
+
+
+def test_unconfigured_locator_never_bootstraps_application_api(website, monkeypatch):
+    import builtins
+    from backend.domains.vault.pages import index_service
+    from backend.services.context_vars import active_vault_path
+    original = builtins.__import__
+    def restricted(name, *args, **kwargs):
+        assert name != 'backend.api', 'Reading optional locator metadata must not initialize the application'
+        return original(name, *args, **kwargs)
+    monkeypatch.setattr(index_service, '_dependencies', None)
+    monkeypatch.setattr(builtins, '__import__', restricted)
+    prior = active_vault_path.get()
+    assert source_inputs.available_entries(website.vault) is None
+    assert active_vault_path.get() == prior

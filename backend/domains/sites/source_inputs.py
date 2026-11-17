@@ -94,9 +94,8 @@ def available_entries(vault: Path) -> list[dict[str, object]] | None:
     from backend.services.context_vars import active_vault_path
     token = active_vault_path.set(vault)
     try:
-        if index_service._dependencies is None:
-            # Configure existing index ports without requesting an index refresh.
-            from backend.api import vault_routes  # noqa: F401
+        # An unconfigured index is unavailable. Do not bootstrap the global API
+        # or read application configuration from an isolated preview/renderer.
         return index_service.get_available_page_entries(vault)
     finally:
         active_vault_path.reset(token)
