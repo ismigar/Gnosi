@@ -178,6 +178,7 @@ class _InputReader:
         self.processed: set[Path] = set()
         self.aliases: dict[str, Path] = {}
         self.scanned, self.searched = set(self.roots), set[str]()
+        self.translation_tables: set[str] = set()
 
     def relevant(self, metadata: dict[str, JsonValue], path: Path, wanted: set[str]) -> bool:
         identity = canonicalize_id(metadata.get('id'))
@@ -218,15 +219,50 @@ class _InputReader:
             if self.relevant(metadata, path, wanted):
                 self.paths.add(path)
 
+    def _translation_table(self, note: Note) -> dict[str, JsonValue] | None:
+        from . import exporter
+        tables = exporter.records(self.data, 'tables')
+        owner = self.owner(note.metadata, note.path)
+        if owner:
+            return next((item for item in tables if item.get('id') == owner), None)
+        # Legacy BD aliases may locate direct pages without conferring table
+        # membership in the exporter. Use only their fresh physical namespace
+        # to discover translation dependencies, keeping selection unchanged.
+        matches = [(len(root.parts), table) for table in tables
+                   for root in _directories(self.vault, self.data, table) if note.path.is_relative_to(root)]
+        if not matches:
+            return None
+        depth = max(item[0] for item in matches)
+        deepest = {str(table['id']): table for length, table in matches if length == depth}
+        if len(deepest) != 1:
+            raise HTTPException(409, 'A website translation location is ambiguous')
+        return next(iter(deepest.values()))
+
+    def _translation_domain(self, note: Note, wanted: set[str]) -> None:
+        # A direct original also depends on native children for language hints.
+        # Derive their namespace from the freshly verified owner's registry,
+        # never from a cached hint or from an unrelated candidate.
+        if canonicalize_id(note.metadata['id']) not in wanted and canonicalize_id(_native_origin(note.metadata)) not in wanted:
+            return
+        table = self._translation_table(note)
+        owner = str(table['id']) if table is not None else ''
+        if not owner or owner in self.tables or owner in self.translation_tables:
+            return
+        if table is not None:
+            self.translation_tables.add(owner)
+            for root in _directories(self.vault, self.data, table):
+                self.paths.update(_walk(root, self.vault, set(self.tables) | self.translation_tables, self.folders))
+                self.scanned.add(root)
+
     def _legacy_siblings(self, metadata: dict[str, JsonValue], path: Path) -> None:
-        if self.owner(metadata, path) in self.tables and path.parent != self.vault and path.parent not in self.scanned:
+        if self.owner(metadata, path) in (set(self.tables) | self.translation_tables) and path.parent != self.vault and path.parent not in self.scanned:
             # Expand legacy siblings only after reading the candidate and
             # verifying current table ownership; stale hints cannot expand scope.
             if path.parent.is_dir() and not path.parent.is_symlink():
-                self.paths.update(_walk(path.parent, self.vault, set(self.tables), self.folders))
+                self.paths.update(_walk(path.parent, self.vault, set(self.tables) | self.translation_tables, self.folders))
             self.scanned.add(path.parent)
 
-    def read_pending(self, pending: list[Path]) -> None:
+    def read_pending(self, pending: list[Path], wanted: set[str]) -> None:
         from . import exporter
         for path in pending:
             self.processed.add(path)
@@ -241,6 +277,7 @@ class _InputReader:
             note = exporter._read_note(path, self.vault)
             if note is not None:
                 self.loaded[path] = note
+                self._translation_domain(note, wanted)
                 self._legacy_siblings(note.metadata, path)
             else:
                 self.paths.remove(path)
@@ -248,11 +285,12 @@ class _InputReader:
     def read(self) -> list[Note]:
         from . import exporter
         while True:
-            self.locate(self.wanted())
+            wanted = self.wanted()
+            self.locate(wanted)
             pending = sorted(self.paths - self.processed)
             if not pending:
                 break
-            self.read_pending(pending)
+            self.read_pending(pending, wanted)
         result = list(self.loaded.values())
         identities = [str(note.metadata['id']) for note in result]
         if len(identities) != len(set(identities)):

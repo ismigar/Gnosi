@@ -209,3 +209,25 @@ def test_canonical_native_child_hint_infers_original_language(website, monkeypat
     ])
     assert legacy_bundle(website, site).records[0].language == "en-gb"
     assert exporter.build_bundle(website.store, site, "local").records[0].language == "en-gb"
+
+
+def test_cold_direct_original_keeps_nested_native_child_language_hint(website, monkeypatch):
+    origin_id = "123e4567-e89b-12d3-a456-426614174000"
+    parent = website.vault / "BD/Articles" / (origin_id + ".md")
+    child = website.vault / "BD/Articles/Original subitems/child.md"
+    child.parent.mkdir(parents=True)
+    parent.write_text("---\n" + yaml.safe_dump({"id": origin_id, "title": "Original"}) + "---\nOriginal\n")
+    child.write_text("---\n" + yaml.safe_dump({
+        "id": "child", "translation_origin_id": origin_id,
+        "translation_lang": "es", "translation_source_lang": "en",
+    }) + "---\nTranslation\n")
+    site = website.site.model_copy(deep=True)
+    site.languages = ["ca", "es", "en-gb"]
+    site.sources = [SiteSource(id="direct", kind="page", source_id=origin_id, enabled=True)]
+    monkeypatch.setattr(source_inputs, "available_entries", lambda _: None)
+    data, digest = exporter.registry(website.store)
+    baseline = exporter.build_bundle(website.store, site, "local", snapshot=exporter.SourceSnapshot(
+        website.vault.resolve(), data, digest, exporter.notes(website.store)))
+    assert baseline.records[0].language == "en-gb"
+    result = exporter.build_bundle(website.store, site, "local")
+    assert result.records[0].language == "en-gb"
