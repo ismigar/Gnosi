@@ -231,3 +231,46 @@ def test_cold_direct_original_keeps_nested_native_child_language_hint(website, m
     assert baseline.records[0].language == "en-gb"
     result = exporter.build_bundle(website.store, site, "local")
     assert result.records[0].language == "en-gb"
+
+
+@pytest.mark.parametrize("direct", [True, False])
+@pytest.mark.parametrize("canonical", [False, True])
+def test_registered_private_table_under_bd_alias_is_pruned(website, monkeypatch, direct, canonical):
+    registry = website.vault / "BD/vault_db_registry.json"
+    data = json.loads(registry.read_text())
+    if canonical:
+        data["tables"][0]["folder"] = "BD/Articles"
+    data["tables"].append({"id": "private-table", "folder": "BD/Articles/Private" if canonical else "Articles/Private", "web_publishable": False, "properties": []})
+    registry.write_text(json.dumps(data))
+    secret = website.vault / "BD/Articles/Private/secret.md"
+    secret.parent.mkdir(parents=True)
+    secret.write_text("---\n" + yaml.safe_dump({"id": "private-secret", "table_id": "private-table", "private": True}) + "---\nUnrelated private table body\n")
+    site = website.site.model_copy(deep=True)
+    if direct:
+        site.sources = [SiteSource(id="direct", kind="page", source_id="one", enabled=True)]
+    monkeypatch.setattr(source_inputs, "available_entries", lambda _: None)
+    original = exporter.bounded_read
+
+    def read(path, *args, **kwargs):
+        assert path != secret, "Registered unrelated private table was not pruned under the BD alias"
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(exporter, "bounded_read", read)
+    result = exporter.build_bundle(website.store, site, "local")
+    assert [record.id for record in result.records] == ["one"]
+
+
+def test_ambiguous_selected_bd_alias_never_reads_another_registered_table(website, monkeypatch):
+    registry = website.vault / 'BD/vault_db_registry.json'
+    data = json.loads(registry.read_text())
+    data['tables'].append({'id': 'private-table', 'folder': 'BD/Articles', 'web_publishable': False})
+    registry.write_text(json.dumps(data))
+    original = exporter.bounded_read
+
+    def read(path, *args, **kwargs):
+        assert path.suffix != '.md', 'Conflicting table ownership must fail before reading bodies'
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(exporter, 'bounded_read', read)
+    with pytest.raises(HTTPException, match='belongs to another registered table'):
+        exporter.build_bundle(website.store, website.site, 'local')

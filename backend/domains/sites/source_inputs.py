@@ -138,7 +138,27 @@ def _directories(vault: Path, data: dict[str, JsonValue], table: dict[str, JsonV
     return result
 
 
+
+def _locator_folders(data: dict[str, JsonValue]) -> dict[str, str]:
+    from .exporter import records
+    result = build_table_folder_index(cast(dict[object, object], data))
+    databases = {str(item['id']): normalize_relative_folder(item.get('folder'))
+                 for item in records(data, 'databases') if item.get('id')}
+    for table in records(data, 'tables'):
+        folder = normalize_relative_folder(table.get('folder'))
+        base = databases.get(str(table.get('database_id'))) or 'BD'
+        for candidate in (Path('BD') / folder, Path(base) / folder):
+            if folder and not candidate.is_absolute() and '..' not in candidate.parts:
+                # Canonical registrations win over compatibility aliases.
+                result.setdefault(candidate.as_posix().lower(), str(table['id']))
+    return result
+
+
 def _walk(root: Path, vault: Path, table_ids: set[str], folders: dict[str, str]) -> set[Path]:
+    owner = resolve_table_id_from_context({}, str(root.relative_to(vault)), folders)
+    if owner and owner not in table_ids:
+        raise HTTPException(409, 'A website source folder belongs to another registered table')
+
     def unavailable(error: OSError) -> None:
         raise HTTPException(409, 'A website source directory is unavailable') from error
 
@@ -163,7 +183,7 @@ class _InputReader:
         sources = [source for source in site.sources if source.enabled and not source.source_id.startswith('imported:')]
         self.tables = {str(table['id']): table for source in sources if source.kind != 'page'
                        for table, _ in [exporter._source_table(source, data)]}
-        self.folders = build_table_folder_index(cast(dict[object, object], data))
+        self.folders = _locator_folders(data)
         self.hints: dict[Path, dict[str, JsonValue]] = {}
         for entry in available_entries(self.vault) or []:
             path, metadata = _path(self.vault, entry.get('path')), entry.get('metadata')
