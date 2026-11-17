@@ -50,6 +50,18 @@ def test_forged_snapshot_mapping_cannot_replace_source_content(versioned_source)
     assert snapshot.read_bytes() == b'Original'
 
 
+@pytest.mark.parametrize('signature', ['é', None, 42, 'short', 'A' * 64])
+def test_malformed_signature_falls_back_to_fresh_original(versioned_source, signature):
+    source, directory, _ = versioned_source
+    asset_files.snapshot_asset(source, source.parent, directory)
+    record = asset_versions._entry(source, directory)
+    value = json.loads(record.read_text())
+    value['signature'] = signature
+    record.write_text(json.dumps(value))
+    _, snapshot = asset_files.snapshot_asset(source, source.parent, directory, reuse_source_version=True)
+    assert snapshot.read_bytes() == b'Original'
+
+
 def test_content_change_during_cached_verification_is_rejected(versioned_source, monkeypatch):
     source, directory, generation = versioned_source
     asset_files.snapshot_asset(source, source.parent, directory)

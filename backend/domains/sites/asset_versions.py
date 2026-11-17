@@ -38,7 +38,8 @@ def _version(entry: Path, path: Path, directory: Path) -> dict[str, object] | No
         if not isinstance(version, dict):
             return None
         signature = version.pop('signature', None)
-        if not isinstance(signature, str) or not hmac.compare_digest(signature, _signature(path, directory, version)):
+        if (not isinstance(signature, str) or re.fullmatch(r'[0-9a-f]{64}', signature) is None
+                or not hmac.compare_digest(signature, _signature(path, directory, version))):
             return None
         return version
     except (ValueError, OSError):
