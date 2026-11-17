@@ -12,14 +12,15 @@ def begin_upload_program() -> str:
     return 'gnosi_write($p,"pending-releases/".$id,"uploading");'
 
 
-def retention_program(*, pangea: bool = False) -> str:
+def retention_program(*, pangea: bool = False, verified_activation: bool = False) -> str:
     """Run only after verified activation with $id/$current and the lock held.
 
     Plan the complete deletion before touching obsolete trees. Pending uploads,
     unknown/incomplete artifacts and private service state are never removed.
     A cleanup error becomes a publication warning because activation succeeded.
     """
-    return '$legacyRetention=' + json.dumps(pangea) + ';' + _PHP
+    return ('$legacyRetention=' + json.dumps(pangea)
+            + ';$verifiedActivation=' + json.dumps(verified_activation) + ';' + _PHP)
 
 
 def record_result(store: SiteStore, site: SiteConfig, target: SiteTarget, response: str | bytes) -> None:
@@ -34,8 +35,10 @@ _PHP = r'''
 $retentionError=null;
 try {
     $verify=$legacyRetention?"gnosi_pangea_verify":"gnosi_manifest";
-    $verify($id);
-    if($current!==null&&$current!==$id){$verify($current);}
+    if(!$verifiedActivation){
+        $verify($id);
+        if($current!==null&&$current!==$id){$verify($current);}
+    }
     foreach(array_unique([$id,$current]) as $published){
         if($published===null){continue;}
         $pending=gnosi_file($p,"pending-releases/".$published);

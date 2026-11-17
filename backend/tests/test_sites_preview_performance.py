@@ -13,6 +13,11 @@ from backend.tests.test_sites import website  # noqa: F401
 from backend.tests.test_sites_record_publication import reviewed  # noqa: F401
 
 
+@pytest.fixture
+def scan_store(tmp_path, tmp_path_factory):
+    return SimpleNamespace(vault=tmp_path, private_root=tmp_path_factory.mktemp("site-data"))
+
+
 def test_record_preview_reads_each_source_twice_and_builds_one_exact_bundle(reviewed, monkeypatch):
     website, request = reviewed
     request.action = "publish"
@@ -117,20 +122,20 @@ def test_request_snapshot_cannot_be_used_for_another_vault(reviewed, tmp_path):
 
 
 @pytest.mark.parametrize("fallback", [False, True])
-def test_accelerated_and_fallback_loaders_preserve_safe_metadata(tmp_path, monkeypatch, fallback):
+def test_accelerated_and_fallback_loaders_preserve_safe_metadata(tmp_path, monkeypatch, fallback, scan_store):
     if fallback:
         monkeypatch.delattr(yaml, "CSafeLoader", raising=False)
     metadata = "id: safe\ntitle: 'A: title'\ndate: 2026-11-13\nflag: true\ntags: &tags [one, two]\ncopy: *tags\n"
     path = tmp_path / "safe.md"
     path.write_text("---\n" + metadata + "---\nPublic body\n")
-    note = exporter.notes(SimpleNamespace(vault=tmp_path))[0]
+    note = exporter.notes(scan_store)[0]
     assert note.metadata == json.loads(json.dumps(yaml.safe_load(metadata), default=str))
     path.write_text("---\nid: unsafe\nvalue: !!python/tuple [1, 2]\n---\nBody\n")
     with pytest.raises(HTTPException, match="409"):
-        exporter.notes(SimpleNamespace(vault=tmp_path))
+        exporter.notes(scan_store)
 
 
-def test_note_walk_prunes_private_indexes_before_enumerating_them(tmp_path, monkeypatch):
+def test_note_walk_prunes_private_indexes_before_enumerating_them(tmp_path, monkeypatch, scan_store):
     hidden = tmp_path / ".gnosi"
     hidden.mkdir()
     (hidden / "private.md").write_text("---\nid: duplicate\n---\nPrivate\n")
@@ -142,13 +147,13 @@ def test_note_walk_prunes_private_indexes_before_enumerating_them(tmp_path, monk
         return original(path)
 
     monkeypatch.setattr(exporter.os, "scandir", scandir)
-    assert [note.metadata["id"] for note in exporter.notes(SimpleNamespace(vault=tmp_path))] == ["public"]
+    assert [note.metadata["id"] for note in exporter.notes(scan_store)] == ["public"]
 
 
-def test_unreadable_directory_does_not_produce_an_incomplete_preview(tmp_path, monkeypatch):
+def test_unreadable_directory_does_not_produce_an_incomplete_preview(tmp_path, monkeypatch, scan_store):
     def unavailable(path):
         raise PermissionError("Synthetic unavailable directory")
 
     monkeypatch.setattr(exporter.os, "scandir", unavailable)
     with pytest.raises(HTTPException, match="409.*directory is unavailable"):
-        exporter.notes(SimpleNamespace(vault=tmp_path))
+        exporter.notes(scan_store)

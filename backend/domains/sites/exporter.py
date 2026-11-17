@@ -13,8 +13,8 @@ from typing import cast
 from urllib.parse import quote, unquote, urlsplit
 
 import yaml
-from .asset_files import read_session
-from .note_parse_cache import parsed_note_cache as parsed_note_cache, parse_metadata
+from .asset_files import parent_descriptor_cache, read_session
+from .note_parse_cache import parsed_note_cache as parsed_note_cache, parse_metadata, parsed_metadata_context
 from fastapi import HTTPException
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
@@ -119,7 +119,7 @@ def _note_paths(vault: Path) -> list[Path]:
 
 
 def notes(store: SiteStore) -> list[Note]:
-    with read_session():
+    with read_session(), parent_descriptor_cache(), parsed_metadata_context(store.private_root):
         return _read_notes(store)
 
 

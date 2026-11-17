@@ -32,6 +32,32 @@ def test_review_is_non_mutating_and_confirm_queues_existing_pipeline(reviewed):
         publication.enqueue(website.store, website.store.load(website.site.id), SitePublishRequest(preview_id=preview.id))
 
 
+@pytest.mark.parametrize("action", ["publish", "withdraw"])
+@pytest.mark.parametrize("translated", [False, True])
+def test_confirmation_reads_each_original_once_for_binding_and_projection(reviewed, monkeypatch, action, translated):
+    website, request = reviewed
+    if translated:
+        website.site.languages = ["ca", "es"]
+        website.site = website.store.save(website.site)
+        path = website.vault / "BD/Articles/translated.md"
+        path.write_text("---\nid: translated\ntable_id: articles\ntitle: Translation\nIdioma: es\ntranslation_of: one\nStatus: published\n---\nTranslated body\n")
+        request.page_id = "translated"
+    request.action = action
+    preview = records.review(website.store, website.site, request)
+    reads = []
+    original = records.exporter.bounded_read
+
+    def read(path, *args, **kwargs):
+        if path.suffix == ".md":
+            reads.append(path)
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(records.exporter, "bounded_read", read)
+    job = publication.enqueue(website.store, website.site, SitePublishRequest(preview_id=preview.id))
+    assert job.status == "queued"
+    assert len(reads) == len(set(reads)) == (3 if translated else 2)
+
+
 def test_selection_preserves_filters_siblings_and_other_sources(reviewed):
     website, request = reviewed
     website.site.sources[0].selection_mode = "selected"

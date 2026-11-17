@@ -128,13 +128,13 @@ def test_cloud_source_timeout_leaves_no_partial_snapshot(tmp_path, monkeypatch):
     assert source.read_bytes() == b"original"
 
 
-def test_cloud_notes_use_owned_reader_and_preserve_content(tmp_path, monkeypatch):
+def test_cloud_notes_use_owned_reader_and_preserve_content(tmp_path, monkeypatch, tmp_path_factory):
     from backend.domains.sites import exporter
     from types import SimpleNamespace
     path = tmp_path / "note.md"
     path.write_text("---\nid: cloud-note\ntitle: Cloud\n---\nUnchanged body\n")
     monkeypatch.setattr(io, "cloud_path", lambda _: True)
-    notes = exporter.notes(SimpleNamespace(vault=tmp_path))
+    notes = exporter.notes(SimpleNamespace(vault=tmp_path, private_root=tmp_path_factory.mktemp("site-data")))
     assert len(notes) == 1 and notes[0].metadata["id"] == "cloud-note"
     assert notes[0].body == "Unchanged body\n"
     assert notes[0].digest == hashlib.sha256(path.read_bytes()).hexdigest()

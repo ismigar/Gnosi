@@ -298,12 +298,15 @@ def _chunks(source: BinaryIO, target: BinaryIO | None, maximum: int) -> tuple[st
 
 
 def _stage(path: Path, directory: Path, maximum: int, *, root: Path | None = None,
-           expected: str | None = None, version: list[tuple[int, ...]] | None = None) -> tuple[Path, str]:
+           expected: str | None = None, version: list[tuple[int, ...]] | None = None,
+           generations: list[int | None] | None = None) -> tuple[Path, str]:
     temporary = None
     try:
         with _source(path, maximum, root) as (source, size):
+            from .asset_versions import content_generation
             if version is not None:
                 version.append(_identity(os.fstat(source.fileno())))
+            generation = content_generation(source.fileno()) if generations is not None else None
             if expected is not None and not _cloud_source.get():
                 from .asset_clone import clone
                 temporary = clone(source.fileno(), directory)
@@ -319,6 +322,10 @@ def _stage(path: Path, directory: Path, maximum: int, *, root: Path | None = Non
                 raise SourceChanged("A selected attachment changed while it was being read")
             if expected is not None and digest != expected:
                 raise AssetFileError("A reviewed asset changed before construction")
+            if generations is not None:
+                if content_generation(source.fileno()) != generation:
+                    raise SourceChanged("A selected attachment changed during its snapshot")
+                generations.append(generation)
         return temporary, digest
     except BaseException:
         if temporary is not None:
@@ -340,7 +347,8 @@ def snapshot_asset(path: Path, root: Path, directory: Path, *, reuse_source_vers
     for attempt in range(_READ_ATTEMPTS):
         try:
             version: list[tuple[int, ...]] = []
-            temporary, digest = _stage(path, directory, maximum, root=root, version=version)
+            generations: list[int | None] = []
+            temporary, digest = _stage(path, directory, maximum, root=root, version=version, generations=generations)
             break
         except SourceChanged:
             if attempt == _READ_ATTEMPTS - 1:
@@ -354,7 +362,7 @@ def snapshot_asset(path: Path, root: Path, directory: Path, *, reuse_source_vers
                     raise AssetFileError("A reviewed attachment snapshot changed")
         else:
             os.replace(temporary, snapshot)
-        save_version(path, root, directory, digest, version[0])
+        save_version(path, root, directory, digest, version[0], generations[0])
         return digest, snapshot
     finally:
         temporary.unlink(missing_ok=True)
