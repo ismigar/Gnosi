@@ -25,6 +25,8 @@ from .storage import SiteStore, fingerprint, private_json
 from .translations import PublicTranslations, public_id
 from .validation import validate_site
 
+from .source_inputs import SourceSnapshot as SourceSnapshot, source_snapshot as source_snapshot
+
 
 @dataclass
 class Note:
@@ -33,24 +35,6 @@ class Note:
     body: str
     digest: str
 
-
-@dataclass(frozen=True)
-class SourceSnapshot:
-    """Fresh request-local inputs, never retained across reviews or confirmations."""
-
-    vault: Path
-    data: dict[str, JsonValue]
-    registry_hash: str
-    notes: list[Note]
-
-    def require_vault(self, store: SiteStore) -> None:
-        if self.vault != store.vault.resolve():
-            raise HTTPException(409, "The publication snapshot belongs to another vault")
-
-
-def source_snapshot(store: SiteStore) -> SourceSnapshot:
-    data, registry_hash = registry(store)
-    return SourceSnapshot(store.vault.resolve(), data, registry_hash, notes(store))
 
 
 def is_public_metadata(metadata: dict[str, JsonValue]) -> bool:
@@ -649,12 +633,16 @@ class Projection:
 def _projection(store: SiteStore, site: SiteConfig, target_id: str, snapshot: SourceSnapshot | None = None) -> Projection:
     has_sources = any(source.enabled for source in site.sources)
     if snapshot is not None:
-        snapshot.require_vault(store)
+        snapshot.require_site(store, site)
         data, registry_hash = snapshot.data, snapshot.registry_hash
         all_notes = snapshot.notes if has_sources else []
     else:
-        data, registry_hash = registry(store) if has_sources or (store.vault / "BD/vault_db_registry.json").exists() else ({}, "")
-        all_notes = notes(store) if has_sources else []
+        if has_sources:
+            observed = source_snapshot(store, site=site)
+            data, registry_hash, all_notes = observed.data, observed.registry_hash, observed.notes
+        else:
+            data, registry_hash = registry(store) if (store.vault / "BD/vault_db_registry.json").exists() else ({}, "")
+            all_notes = []
     previous = store.active_bundle(site.id, target_id)
     raw_records = previous.get("records", []) if previous else []
     previous_records = [record for record in raw_records if isinstance(record, dict)] if isinstance(raw_records, list) else []

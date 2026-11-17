@@ -135,6 +135,9 @@ def destinations(store: SiteStore, *, page_id: str | None = None, table_id: str 
 
 
 def proposal(store: SiteStore, site: SiteConfig, request: RecordPublicationReview, *, snapshot: exporter.SourceSnapshot | None = None) -> SiteConfig:
+    if snapshot is None:
+        snapshot = exporter.source_snapshot(store, site=site, extra_page_ids={request.page_id})
+    snapshot.require_site(store, site)
     data, notes, note, table_id = _context(store, request.page_id, snapshot)
     candidate = site.model_copy(deep=True)
     language = exporter._note_identity(note, PublicTranslations(site, [item.metadata for item in notes]))[1]
@@ -174,7 +177,7 @@ def review(store: SiteStore, site: SiteConfig, request: RecordPublicationReview)
     from backend.utils.bounded_file_io import cloud_path
     if cloud_path(store.vault) and not in_worker.get():
         return run_isolated(store, site, request.target_id, record=request)
-    snapshot = exporter.source_snapshot(store)
+    snapshot = exporter.source_snapshot(store, site=site, extra_page_ids={request.page_id})
     record_fingerprint = context_fingerprint(store, request.page_id, snapshot=snapshot)
     candidate = proposal(store, site, request, snapshot=snapshot)
     bundle = exporter.build_bundle(store, candidate, request.target_id, snapshot=snapshot, reuse_asset_snapshots=True)
@@ -187,7 +190,8 @@ def review(store: SiteStore, site: SiteConfig, request: RecordPublicationReview)
     try:
         # An independent fresh scan retains duplicate-identity, source-availability
         # and record/registry freshness checks after rendering the exact bundle.
-        if context_fingerprint(store, request.page_id) != record_fingerprint:
+        fresh = exporter.source_snapshot(store, site=site, extra_page_ids={request.page_id})
+        if context_fingerprint(store, request.page_id, snapshot=fresh) != record_fingerprint:
             raise HTTPException(409, "The record changed during review; review again")
         with store.database() as db:
             row = db.execute("SELECT payload FROM previews WHERE id=?", (result.id,)).fetchone()
