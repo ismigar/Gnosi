@@ -333,6 +333,57 @@ def test_imported_table_binding_without_index_preserves_existing_publication(web
     assert result.sources[0].page_ids == ['one']
 
 
+@pytest.mark.parametrize('folder', ['BD/Articles', 'Wiki/Pages'])
+def test_cold_title_named_direct_page_uses_headers_without_unrelated_bodies(website, monkeypatch, folder):
+    original = website.vault / 'BD/Articles/one.md'
+    selected = website.vault / folder / 'Article title.md'
+    selected.parent.mkdir(parents=True, exist_ok=True)
+    original.rename(selected)
+    selected.write_text(selected.read_text().replace('---\nid: one', '---\nsummary: |\n  ---\nid: one', 1))
+    (selected.parent / '000-unrelated-link.md').symlink_to(selected)
+    private = website.vault / 'Mail/private.md'
+    note(private, {'id': 'private-mail', 'private': True}, 'PRIVATE-BODY')
+    website.site.sources = [SiteSource(id='direct', kind='page', source_id='one', enabled=True)]
+    monkeypatch.setattr(source_inputs, 'available_entries', lambda _: None)
+    original_read = exporter.bounded_read
+
+    def read(path, *args, **kwargs):
+        assert path != private, 'Cold identity lookup read an unrelated body'
+        return original_read(path, *args, **kwargs)
+
+    monkeypatch.setattr(exporter, 'bounded_read', read)
+    assert [record.id for record in exporter.build_bundle(website.store, website.site, 'local').records] == ['one']
+    selected.write_text(selected.read_text().replace('id: one', 'id: one\nprivate: true'))
+    assert exporter.build_bundle(website.store, website.site, 'local').records == []
+
+
+@pytest.mark.parametrize('warm', [False, True])
+def test_unregistered_direct_page_keeps_fresh_native_child_language_hint(website, monkeypatch, warm):
+    origin = {'id': 'wiki-original', 'title': 'Original'}
+    path = website.vault / 'Wiki/Original title.md'
+    child = website.vault / 'Wiki/Original subitems/Translated title.md'
+    note(path, origin)
+    note(child, {'id': 'wiki-child', 'translation_origin_id': 'wiki-original',
+                 'translation_lang': 'es', 'translation_source_lang': 'en'})
+    site = website.site.model_copy(deep=True)
+    site.languages = ['ca', 'en-gb', 'es']
+    site.sources = [SiteSource(id='direct', kind='page', source_id='wiki-original', enabled=True)]
+    hints = [{'path': str(path), 'metadata': origin}] if warm else None
+    monkeypatch.setattr(source_inputs, 'available_entries', lambda _: hints)
+    assert legacy_bundle(website, site).records[0].language == 'en-gb'
+    assert exporter.build_bundle(website.store, site, 'local').records[0].language == 'en-gb'
+
+
+def test_missing_selected_table_row_never_scans_unrelated_headers(website, monkeypatch):
+    website.site.sources[0].selection_mode = 'selected'
+    website.site.sources[0].page_ids = ['deleted-row']
+    monkeypatch.setattr(source_inputs, 'available_entries', lambda _: None)
+    from backend.domains.sites import asset_files
+    monkeypatch.setattr(asset_files, 'bounded_frontmatter', lambda *a: pytest.fail('Missing table row broadened locator scope'))
+    with pytest.raises(HTTPException, match='explicitly selected page'):
+        exporter.build_bundle(website.store, website.site, 'local')
+
+
 def test_unconfigured_locator_never_bootstraps_application_api(website, monkeypatch):
     import builtins
     from backend.domains.vault.pages import index_service

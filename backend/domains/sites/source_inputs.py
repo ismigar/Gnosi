@@ -180,6 +180,8 @@ class _InputReader:
         from . import exporter
         self.vault, self.site, self.data, self.requested = store.vault, site, data, requested
         sources = [source for source in site.sources if source.enabled and not source.source_id.startswith('imported:')]
+        self.direct_ids = {canonicalize_id(value) for source in sources if source.kind == 'page'
+                           for value in [source.source_id, *source.page_ids]}
         self.tables = {str(table['id']): table for source in sources if source.kind != 'page'
                        for table, _ in [exporter._source_table(source, data)]}
         self.folders = _locator_folders(data)
@@ -198,6 +200,7 @@ class _InputReader:
         self.aliases: dict[str, Path] = {}
         self.scanned, self.searched = set(self.roots), set[str]()
         self.translation_tables: set[str] = set()
+        self.metadata_searched: set[str] = set()
 
     def relevant(self, metadata: dict[str, JsonValue], path: Path, wanted: set[str]) -> bool:
         identity = canonicalize_id(metadata.get('id'))
@@ -257,6 +260,54 @@ class _InputReader:
             raise HTTPException(409, 'A website translation location is ambiguous')
         return next(iter(deepest.values()))
 
+    def locate_headers(self, paths: set[Path], unresolved: set[str]) -> set[str]:
+        from .asset_files import AssetFileError, bounded_frontmatter
+        from .note_parse_cache import parse_metadata
+        import hashlib
+        import yaml
+        found = set[str]()
+        for path in sorted(paths - self.processed):
+            if path.is_symlink():
+                continue
+            try:
+                raw = bounded_frontmatter(path, self.vault)
+            except (AssetFileError, OSError) as error:
+                raise HTTPException(409, 'A page locator is unavailable; refresh the vault index') from error
+            if not raw:
+                continue
+            try:
+                metadata = parse_metadata('\n'.join(raw.decode('utf-8').splitlines()[1:-1]), hashlib.sha256(raw).hexdigest())
+            except (UnicodeDecodeError, yaml.YAMLError):
+                continue
+            if metadata is not None and (canonicalize_id(metadata.get('id')) in unresolved
+                                         or canonicalize_id(_native_origin(metadata)) in unresolved):
+                self.paths.add(path)
+                found.add(canonicalize_id(metadata.get('id')))
+        return found
+
+    def locate_metadata(self, wanted: set[str]) -> None:
+        """Recover cold title-named direct pages/ancestors from headers only.
+
+        A missing selected table row never triggers this broader locator search.
+        Fresh target reads still establish all publication/translation authority.
+        """
+        from . import exporter
+        known = {canonicalize_id(note.metadata['id']) for note in self.loaded.values()}
+        explicit = {canonicalize_id(value) for value in self.requested}
+        unresolved = (wanted - known - self.metadata_searched) & (self.direct_ids | (wanted - explicit))
+        if not unresolved:
+            return
+        tables = [table for table in exporter.records(self.data, 'tables')
+                  if 'web_publishable' not in table or table.get('web_publishable') is True]
+        owners = {str(table['id']) for table in tables}
+        paths = {path for table in tables for root in _directories(self.vault, self.data, table)
+                 for path in _walk(root, self.vault, owners, self.folders)}
+        found = self.locate_headers(paths, unresolved)
+        remaining = unresolved - found
+        if remaining:
+            self.locate_headers(_walk(self.vault, self.vault, owners, self.folders) - paths, remaining)
+        self.metadata_searched.update(unresolved)
+
     def _translation_domain(self, note: Note, wanted: set[str]) -> None:
         # A direct original also depends on native children for language hints.
         # Derive their namespace from the freshly verified owner's registry,
@@ -264,6 +315,15 @@ class _InputReader:
         if canonicalize_id(note.metadata['id']) not in wanted and canonicalize_id(_native_origin(note.metadata)) not in wanted:
             return
         table = self._translation_table(note)
+        if table is None:
+            # Native page translations also live below unregistered originals.
+            # Refresh their actual namespace from headers, including when the
+            # original was located through a partial existing index.
+            parent = note.path.parent
+            if parent not in self.scanned:
+                self.scanned.add(parent)
+                self.locate_headers(_walk(parent, self.vault, set(self.tables) | self.translation_tables, self.folders), wanted)
+            return
         owner = str(table['id']) if table is not None else ''
         if not owner or owner in self.tables or owner in self.translation_tables:
             return
@@ -308,7 +368,10 @@ class _InputReader:
             self.locate(wanted)
             pending = sorted(self.paths - self.processed)
             if not pending:
-                break
+                self.locate_metadata(wanted)
+                pending = sorted(self.paths - self.processed)
+                if not pending:
+                    break
             self.read_pending(pending, wanted)
         result = list(self.loaded.values())
         identities = [str(note.metadata['id']) for note in result]

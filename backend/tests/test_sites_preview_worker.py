@@ -31,6 +31,26 @@ def test_worker_refuses_unowned_process_group(tmp_path):
     assert result.returncode == 74
 
 
+def test_owned_preview_reader_accepts_header_only_locator_requests(tmp_path):
+    source = tmp_path / 'title.md'
+    source.write_bytes(b'---\nid: selected\n---\nPRIVATE-BODY')
+    script = """
+import os,sys
+from pathlib import Path
+from backend.domains.sites.preview_worker import _OwnedReader
+path=Path(sys.argv[1]);reader=_OwnedReader()
+try:
+    with path.open('rb',buffering=0) as stream:
+        data,_,size=reader.run(stream.fileno(),100,frontmatter_only=True)
+        assert data==b'---\\nid: selected\\n---\\n'
+        assert os.lseek(stream.fileno(),0,os.SEEK_CUR)==size==len(data)
+finally:
+    reader.close()
+"""
+    result = subprocess.run([sys.executable, '-c', script, str(source)], start_new_session=True, timeout=15)
+    assert result.returncode == 0
+
+
 def test_wait_rejects_unexpected_channel_output():
     parent, child = socket.socketpair()
     try:
