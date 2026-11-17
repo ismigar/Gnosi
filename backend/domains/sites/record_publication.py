@@ -80,21 +80,31 @@ def _discovery_notes(store: SiteStore) -> list[exporter.Note] | None:
     return notes
 
 
-def _menu_notes(store: SiteStore, data: dict[str, JsonValue], page_id: str | None, table_id: str | None) -> list[exporter.Note]:
-    notes = _discovery_notes(store)
-    if notes and (not page_id or any(str(note.metadata['id']) == page_id for note in notes)):
-        return notes
-    if table_id and not any(str(table.get('id')) == table_id for table in exporter.records(data, 'tables')):
-        return []
+def _domain_notes(store: SiteStore, data: dict[str, JsonValue], sources: list[SiteSource]) -> list[exporter.Note]:
     from .asset_files import parent_descriptor_cache, read_session
     from .note_parse_cache import parsed_metadata_context
     from .source_inputs import read_inputs
-    # A missing/cold inventory may discover this record's domain; it must never
-    # fall back to the vault-wide linking inventory and its body parser.
-    lookup = SiteConfig(name='Record publication lookup', sources=[SiteSource(
-        id='record-lookup', kind='page' if page_id else 'table', source_id=page_id or table_id or '', enabled=True)])
+    lookup = SiteConfig(name='Record publication lookup', sources=sources)
     with read_session(), parent_descriptor_cache(), parsed_metadata_context(store.private_root):
-        return read_inputs(store, lookup, data, {page_id} if page_id else set())[0]
+        return read_inputs(store, lookup, data, set())[0]
+
+
+def _menu_notes(store: SiteStore, data: dict[str, JsonValue], page_id: str | None, table_id: str | None, sites: list[SiteConfig]) -> list[exporter.Note]:
+    notes = _discovery_notes(store)
+    if notes and (not page_id or any(str(note.metadata['id']) == page_id for note in notes)):
+        return notes
+    if table_id:
+        if not any(str(table.get('id')) == table_id for table in exporter.records(data, 'tables')):
+            return []
+        sources = [SiteSource(id='record-lookup', kind='table', source_id=table_id, enabled=True)]
+    else:
+        # Record filenames are titles, not IDs. Without a locator, enumerate
+        # configured publication table domains rather than arbitrary vault bodies.
+        bound = [source for site in sites for source in site.sources if source.enabled
+                 and source.kind in {'table', 'view'} and not source.source_id.startswith('imported:')]
+        sources = [SiteSource(id=f'record-lookup-{index}', kind=source.kind, source_id=source.source_id, enabled=True)
+                   for index, source in enumerate(bound)]
+    return _domain_notes(store, data, sources)
 
 
 def destinations(store: SiteStore, *, page_id: str | None = None, table_id: str | None = None) -> list[RecordDestination]:
@@ -103,7 +113,8 @@ def destinations(store: SiteStore, *, page_id: str | None = None, table_id: str 
     from backend.domains.vault.tables.rows import build_table_folder_index, resolve_table_id_from_context
 
     data, _ = exporter.registry(store)
-    notes = _menu_notes(store, data, page_id, table_id)
+    sites = store.list()
+    notes = _menu_notes(store, data, page_id, table_id, sites)
     if page_id:
         matching = [note for note in notes if str(note.metadata["id"]) == page_id]
         if len(matching) != 1:
@@ -120,7 +131,7 @@ def destinations(store: SiteStore, *, page_id: str | None = None, table_id: str 
         raise HTTPException(404, "Table not found")
     notes = exporter._table_notes(notes, data, table, store.vault)
     result = []
-    for site in store.list():
+    for site in sites:
         if not any(_binding(source, str(table_id), data) for source in site.sources):
             continue
         translations = PublicTranslations(site, [note.metadata for note in notes])

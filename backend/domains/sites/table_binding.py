@@ -113,7 +113,8 @@ def bind(store: SiteStore, site: SiteConfig, request: TableBindingRequest) -> Si
         source.id = imported[0].id
         if not request.enabled:
             raise HTTPException(409, "Enable the table source to replace an imported collection")
-        notes = record_publication._discovery_notes(store)
+        notes = record_publication._domain_notes(store, data, [SiteSource(
+            id='binding-lookup', kind='table', source_id=request.table_id, enabled=True)])
         selected = exporter._table_notes(notes, data, tables[0], store.vault)
         translations = PublicTranslations(site, [note.metadata for note in notes])
         identities: dict[tuple[str, str], str] = {}

@@ -8,6 +8,8 @@ from fastapi import HTTPException
 from backend.domains.sites import exporter, publication, record_publication, source_inputs
 from backend.tests.test_sites import website  # noqa: F401
 from backend.tests.test_sites_record_publication import reviewed  # noqa: F401
+from backend.tests.test_sites_table_binding import migration_site, request as binding_request
+from backend.domains.sites import table_binding
 from backend.domains.sites.models import SitePublishRequest, SiteSource
 
 
@@ -306,3 +308,26 @@ def test_menu_never_requests_unrelated_bodies(website, monkeypatch, isolated_val
     assert [item.site_id for item in result] == [website.site.id]
     assert unrelated not in parsed, 'Opening the publication menu requested an unrelated private body'
     if cached: assert reads == [], 'Existing metadata inventory must not reread document bodies for a menu'
+
+
+@pytest.mark.parametrize('inventory', ['missing', 'empty', 'partial'])
+def test_missing_index_can_find_title_named_table_row(website, monkeypatch, isolated_validation_runtime, inventory):
+    source = website.vault / 'BD/Articles/one.md'
+    source.rename(source.with_name('First article.md'))
+    entries = None if inventory == 'missing' else [] if inventory == 'empty' else [
+        {'path': str(website.vault / 'BD/Articles/two.md'), 'metadata': {'id': 'two', 'table_id': 'articles'}},
+    ]
+    monkeypatch.setattr(source_inputs, 'available_entries', lambda _: entries)
+    result = record_publication.destinations(website.store, page_id='one')
+    assert [entry.site_id for entry in result] == [website.site.id]
+
+
+def test_imported_table_binding_without_index_preserves_existing_publication(website, monkeypatch, isolated_validation_runtime):
+    discover = record_publication._discovery_notes
+    site = migration_site(website, monkeypatch, '/ca/existing-publication', '/ca/existing-publication')
+    # The shared fixture normally stubs this caller and hides a return-type regression.
+    monkeypatch.setattr(record_publication, '_discovery_notes', discover)
+    monkeypatch.setattr(source_inputs, 'available_entries', lambda _: None)
+    result = table_binding.bind(website.store, site, binding_request(website))
+    assert result.sources[0].source_id == 'articles'
+    assert result.sources[0].page_ids == ['one']
