@@ -310,10 +310,17 @@ export default defineConfig(({ mode }) => {
       // Keep Lucide's per-icon dynamic imports visible to Vite. If esbuild
       // prebundles this entry, opening any stored custom icon makes the dev
       // browser request the complete icon catalogue instead of one module.
-      // tldraw’s local assets use ?url imports handled by Vite, not the optimizer.
-      exclude: ["lucide-react/dynamic", "@tldraw/assets"],
+      // The drawing asset module resolves local fonts and SVGs relative to import.meta.url.
+      exclude: ["lucide-react/dynamic", "@bigbluebutton/assets"],
     },
     build: {
+      license: { fileName: "licenses/frontend-dependencies.md" },
+      // The whiteboard uses these URLs in unquoted CSS masks. A file URL also
+      // works on app://gnosi when an inlined SVG contains quotes or parentheses.
+      assetsInlineLimit(filePath) {
+        if (filePath.split(path.sep).join("/").includes("/@bigbluebutton/assets/icons/")) return false;
+        return undefined;
+      },
       // Identifies actual compiler outputs for immutable preview asset caching.
       manifest: true,
       // Heavy screens are route-local dynamic chunks. Some remain intentionally

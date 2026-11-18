@@ -11,6 +11,8 @@ export interface DisposableNetworkAudit {
 
 export interface DisposableNetworkOptions {
   readonly sidebarTree?: unknown;
+  /** Only API requests at this intercepted origin can use the synthetic fixtures. */
+  readonly syntheticApiOrigin?: string;
 }
 
 const SYNTHETIC_USER = {
@@ -211,12 +213,14 @@ export async function installDisposableNetwork(
   const bookmarks: components['schemas']['BookmarkCollection'] = { entries: [], sort_mode: 'manual' };
   await context.route('**/*', async (route) => {
     const url = new URL(route.request().url());
-    if (!LOOPBACK_HOSTS.has(url.hostname)) {
+    const isApi = url.pathname.startsWith('/api/');
+    const isSyntheticApi = isApi && url.origin === options.syntheticApiOrigin;
+    if (!LOOPBACK_HOSTS.has(url.hostname) && !isSyntheticApi) {
       audit.externalRequests.push(`${route.request().method()} ${url.origin}${url.pathname}`);
       await route.abort('blockedbyclient');
       return;
     }
-    if (url.pathname.startsWith('/api/')) {
+    if (isApi) {
       await syntheticApi(route, audit, options, bookmarks);
       return;
     }

@@ -7,7 +7,7 @@ import type { CanvasEditor } from './tldrawEditorTypes';
 
 const calls = vi.hoisted(() => ({ recognize: vi.fn(), warmup: vi.fn(), status: vi.fn(), cancel: vi.fn(), error: vi.fn(), success: vi.fn() }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key, i18n: { resolvedLanguage: 'ca-ES' } }) }));
-vi.mock('@tldraw/tlschema', () => ({ createShapeId: () => 'shape:result', toRichText: (text: string) => text }));
+vi.mock('@bigbluebutton/tldraw', () => ({ createShapeId: () => 'shape:result', getSvgAsImage: () => Promise.resolve(image) }));
 vi.mock('../../../../shared/api/drawings', () => ({ recognizeHandwriting: calls.recognize, warmupHandwriting: calls.warmup, fetchHandwritingStatus: calls.status, cancelHandwritingDownload: calls.cancel }));
 vi.mock('../../../../shared/notifications/toast', () => ({ toast: { error: calls.error, success: calls.success } }));
 vi.mock('../../../../shared/notifications/notifyError', () => ({ logError: vi.fn() }));
@@ -15,7 +15,8 @@ vi.mock('../../../../shared/notifications/notifyError', () => ({ logError: vi.fn
 const image = new Blob(['synthetic image']);
 const editor = {
   getSelectedShapeIds: () => ['shape:stroke'], getCurrentPageShapeIds: () => ['shape:stroke'],
-  toImage: vi.fn(() => Promise.resolve({ blob: image })),
+  getSvg: vi.fn(() => Promise.resolve(document.createElementNS('http://www.w3.org/2000/svg', 'svg'))),
+  environment: { isSafari: false },
   getSelectionPageBounds: () => ({ x: 1, y: 1, maxY: 5 }),
   getViewportPageBounds: () => ({ center: { x: 1, y: 1 } }),
   createShape: vi.fn(), select: vi.fn(),
@@ -82,7 +83,7 @@ it('passes the UI language and inserts the recognized result', async () => {
   expect(calls.recognize).toHaveBeenCalledWith(image, { language: 'ca' });
   expect(editor.createShape).toHaveBeenCalledOnce();
   const inserted: unknown = editor.createShape.mock.calls[0]?.[0];
-  expect(inserted).toMatchObject({ props: { richText: 'Original text' } });
+  expect(inserted).toMatchObject({ props: { text: 'Original text' } });
   expect(calls.success).toHaveBeenCalledWith('tldraw.recognized');
 });
 it('shows the actionable localized input error without inserting partial text', async () => {

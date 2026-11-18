@@ -1,7 +1,7 @@
 import { useContext } from 'react';
 import { ExternalLink, FileText, Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { HTMLContainer } from 'tldraw';
+import { HTMLContainer } from '@bigbluebutton/tldraw';
 
 import { InstructionMarkdownEditor } from '../../../../shared/editor/InstructionMarkdownEditor';
 import { useEditablePageCard } from './useEditablePageCard';

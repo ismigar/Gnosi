@@ -1,6 +1,6 @@
 import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Editor } from 'tldraw';
+import { MAX_SHAPES_PER_PAGE, type Editor } from '@bigbluebutton/tldraw';
 import { downloadBlob } from '../../../../shared/platform/download';
 import { toast } from '../../../../shared/notifications/toast';
 import type { TldrawVaultNote } from '../tldraw-editor/tldrawEditorTypes';
@@ -12,6 +12,7 @@ export function useJsonCanvasIO(editorRef: RefObject<Editor | null>, notes: read
     const report = (error: unknown) => {
         if (error instanceof JsonCanvasError && error.reason === 'not_empty') toast.error(t('json_canvas.not_empty', 'Open an empty drawing before importing a canvas.'));
         else if (error instanceof JsonCanvasError && error.reason === 'unsupported') toast.error(t('json_canvas.unsupported', 'This canvas contains a shape or connection that JSON Canvas cannot represent. Nothing was imported or exported.'));
+        else if (error instanceof JsonCanvasError && error.reason === 'page_limit') toast.error(t('json_canvas.page_limit', { limit: MAX_SHAPES_PER_PAGE }));
         else if (error instanceof JsonCanvasError && error.reason === 'too_large') toast.error(t('json_canvas.too_large', 'The canvas exceeds the limit of 10 MB or 5,000 items.'));
         else toast.error(t('json_canvas.invalid', 'The canvas could not be read. Check that it is a valid .canvas file.'));
     };

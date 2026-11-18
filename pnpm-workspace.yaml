@@ -16,7 +16,15 @@ fetchRetryMaxtimeout: 120000
 fetchTimeout: 300000
 networkConcurrency: 8
 
+# The Apache-licensed whiteboard imports these packages for its built-in poll shape.
+packageExtensions:
+  '@bigbluebutton/tldraw@2.0.0-alpha.36':
+    dependencies:
+      recharts: 3.11.0
+      styled-components: 6.6.0
+
 patchedDependencies:
+  '@bigbluebutton/tldraw@2.0.0-alpha.36': patches/@bigbluebutton__tldraw@2.0.0-alpha.36.patch
   emscripten-wasm-loader@3.0.3: patches/emscripten-wasm-loader@3.0.3.patch
 
 allowBuilds:
