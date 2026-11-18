@@ -77,7 +77,7 @@ class Reader:
             output.extend(data)
         return bytes(output)
 
-    def run(self, source: int, maximum: int, target: int | None = None, *, read_bytes: bool = True) -> tuple[bytes, str, int]:
+    def run(self, source: int, maximum: int, target: int | None = None, *, read_bytes: bool = True, frontmatter_only: bool = False) -> tuple[bytes, str, int]:
         if not 0 <= maximum <= _MAXIMUM:
             raise ValueError("Invalid bounded read allowance")
         channel = self._start()
@@ -85,7 +85,9 @@ class Reader:
         descriptors = array.array("i", [source] if target is None else [source, target])
         try:
             channel.settimeout(self.timeout)
-            mode = 1 if target is not None else (0 if read_bytes else 2)
+            if frontmatter_only and (target is not None or not read_bytes):
+                raise ValueError("Frontmatter requests cannot copy or hash bodies")
+            mode = 3 if frontmatter_only else (1 if target is not None else (0 if read_bytes else 2))
             request = _REQUEST.pack(mode, maximum)
             sent = channel.sendmsg([request], [(socket.SOL_SOCKET, socket.SCM_RIGHTS, descriptors)])
             if sent != len(request):
@@ -93,7 +95,7 @@ class Reader:
             status, size, digest = _RESPONSE.unpack(self._receive(_RESPONSE.size, deadline))
             if status or size > maximum + 1:
                 raise ReadUnavailable("The cloud source is unavailable")
-            data = self._receive(size, deadline) if mode == 0 else b""
+            data = self._receive(size, deadline) if mode in (0, 3) else b""
             return data, digest.hex(), size
         except (OSError, ValueError, struct.error) as error:
             self.close()
@@ -132,6 +134,34 @@ def transfer(source: int, maximum: int, target: int | None = None, *, read_bytes
         return reader.run(source, maximum, target, read_bytes=read_bytes)
 
 
+def frontmatter(source: int, maximum: int = 4_000_000) -> bytes:
+    """Read only a bounded YAML envelope, never the following document body."""
+    with session() as reader:
+        return reader.run(source, maximum, frontmatter_only=True)[0]
+
+
+def _frontmatter(source: int, maximum: int) -> bytes:
+    output, line = bytearray(), bytearray()
+    while len(output) < maximum:
+        value = os.read(source, 1)
+        if not value:
+            return bytes(output) if output != line and bytes(line).rstrip() == b"---" else b""
+        output.extend(value)
+        line.extend(value)
+        if len(output) <= 3 and not b'---'.startswith(output):
+            return b''
+        if value != b"\n":
+            continue
+        delimiter = bytes(line).rstrip() == b"---"
+        if len(output) == len(line):
+            if not delimiter:
+                return b""
+        elif delimiter:
+            return bytes(output)
+        line.clear()
+    raise ValueError("Frontmatter exceeds its allowance")
+
+
 def _watch_owner(owner: int) -> None:
     while os.getppid() == owner:
         time.sleep(0.2)
@@ -142,8 +172,11 @@ def _operation(descriptors: list[int], maximum: int, mode: int) -> tuple[bytes, 
     if len(descriptors) != (2 if mode == 1 else 1) or maximum > _MAXIMUM:
         raise ValueError("Invalid reader request")
     source = os.fstat(descriptors[0])
-    if not stat.S_ISREG(source.st_mode) or source.st_size > maximum:
+    if not stat.S_ISREG(source.st_mode) or (mode != 3 and source.st_size > maximum):
         raise ValueError("Invalid source descriptor")
+    if mode == 3:
+        data = _frontmatter(descriptors[0], maximum)
+        return data, hashlib.sha256(data).digest(), len(data)
     if mode == 1:
         target = os.fstat(descriptors[1])
         if not stat.S_ISREG(target.st_mode) or (source.st_dev, source.st_ino) == (target.st_dev, target.st_ino):
@@ -185,11 +218,11 @@ def worker_main(descriptor: int, owner: int) -> int:
                         return 74
                     header += data
                 mode, maximum = _REQUEST.unpack(header)
-                if flags & socket.MSG_CTRUNC or mode not in (0, 1, 2):
+                if flags & socket.MSG_CTRUNC or mode not in (0, 1, 2, 3):
                     raise ValueError("Invalid request framing")
                 data, digest, size = _operation(descriptors, maximum, mode)
                 channel.sendall(_RESPONSE.pack(0, size, digest))
-                if mode == 0:
+                if mode in (0, 3):
                     channel.sendall(data)
             except (OSError, ValueError, struct.error):
                 channel.sendall(_RESPONSE.pack(1, 0, bytes(32)))

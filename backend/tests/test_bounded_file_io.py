@@ -35,7 +35,8 @@ def test_one_owned_worker_reads_and_copies_multiple_files_then_exits(tmp_path):
     assert process is not None and process.poll() == 0
 
 
-def test_blocked_worker_times_out_and_is_reaped(tmp_path, monkeypatch):
+@pytest.mark.parametrize('frontmatter_only', [False, True])
+def test_blocked_worker_times_out_and_is_reaped(tmp_path, monkeypatch, frontmatter_only):
     source = tmp_path / "source"
     source.write_bytes(b"unchanged")
     real_spawn = subprocess.Popen
@@ -50,11 +51,42 @@ def test_blocked_worker_times_out_and_is_reaped(tmp_path, monkeypatch):
     started = time.monotonic()
     reader = io.Reader(timeout=0.05)
     with source.open("rb") as file, pytest.raises(io.ReadUnavailable):
-        reader.run(file.fileno(), 100)
+        reader.run(file.fileno(), 100, frontmatter_only=frontmatter_only)
     reader.close()
     assert time.monotonic() - started < 3
     assert children and all(child.poll() is not None for child in children)
     assert source.read_bytes() == b"unchanged"
+
+
+@pytest.mark.parametrize('newline', [b'\n', b'\r\n'])
+@pytest.mark.parametrize('trailing_newline', [False, True])
+def test_frontmatter_transport_stops_before_any_body_byte(tmp_path, newline, trailing_newline):
+    header = newline.join([b'---', b'id: title-named-page', b'---']) + (newline if trailing_newline else b'')
+    body = b'PRIVATE-BODY-MUST-NOT-BE-READ' * 1000 if trailing_newline else b''
+    path = tmp_path / 'note.md'
+    path.write_bytes(header + body)
+    reader = io.Reader(timeout=3)
+    try:
+        with path.open('rb', buffering=0) as stream:
+            value, digest, size = reader.run(stream.fileno(), len(header) + 1, frontmatter_only=True)
+            assert value == header and size == len(header)
+            assert digest == hashlib.sha256(header).hexdigest()
+            assert os.lseek(stream.fileno(), 0, os.SEEK_CUR) == len(header)
+    finally:
+        reader.close()
+
+
+def test_frontmatter_reader_rejects_unclosed_or_oversized_envelopes(tmp_path):
+    path = tmp_path / 'note.md'
+    path.write_bytes(b'---\nid: page\n' + b'x' * 100)
+    reader = io.Reader(timeout=3)
+    try:
+        with path.open('rb') as stream, pytest.raises(io.ReadUnavailable):
+            reader.run(stream.fileno(), 16, frontmatter_only=True)
+        with path.open('rb') as stream:
+            assert reader.run(stream.fileno(), 200, frontmatter_only=True)[0] == b''
+    finally:
+        reader.close()
 
 
 def test_worker_rejects_oversized_source_and_same_inode_output(tmp_path):

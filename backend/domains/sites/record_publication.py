@@ -56,35 +56,55 @@ def _context(store: SiteStore, page_id: str, snapshot: exporter.SourceSnapshot |
     return data, notes, note, str(tables[0]["id"])
 
 
-def _discovery_notes(store: SiteStore) -> list[exporter.Note]:
-    """Use the mutation-invalidated Vault inventory for non-publishing menus.
+def _discovery_notes(store: SiteStore) -> list[exporter.Note] | None:
+    """Read existing metadata hints without traversing or parsing document bodies.
 
-    Review/confirmation still reread and hash the full source via exporter.notes.
-    Never traverse OneDrive or hash every body just to display an action.
+    This inventory serves non-publishing menus only. Review and confirmation
+    retain independent fresh scoped reads before any publication mutation.
     """
-    from backend.services.context_vars import active_vault_path
-    # Initialize the compatibility composition root before its runtime ports.
-    from backend.api import vault_routes  # noqa: F401
-    from backend.domains.vault.links.runtime import _iter_linkable_page_documents
-
-    token = active_vault_path.set(store.vault)
-    try:
-        documents = _iter_linkable_page_documents()
-    finally:
-        active_vault_path.reset(token)
+    from .source_inputs import _path, available_entries
+    entries = available_entries(store.vault)
+    if entries is None:
+        return None
     notes: list[exporter.Note] = []
     identities: set[str] = set()
-    for path, metadata, _body, dashboard in documents:
-        if dashboard or not path.is_relative_to(store.vault) or path.is_symlink():
+    for entry in entries:
+        path, metadata = _path(store.vault, entry.get('path')), entry.get('metadata')
+        if path is None or entry.get('is_database') or not isinstance(metadata, dict) or not metadata.get('id'):
             continue
-        if any(part.startswith(".") for part in path.relative_to(store.vault).parts) or not metadata.get("id"):
-            continue
-        identity = str(metadata["id"])
+        identity = str(metadata['id'])
         if identity in identities:
             raise HTTPException(409, "Duplicate note identities must be resolved before publication")
         identities.add(identity)
         notes.append(exporter.Note(path, cast(dict[str, JsonValue], json.loads(json.dumps(metadata, default=str))), "", ""))
     return notes
+
+
+def _domain_notes(store: SiteStore, data: dict[str, JsonValue], sources: list[SiteSource]) -> list[exporter.Note]:
+    from .asset_files import parent_descriptor_cache, read_session
+    from .note_parse_cache import parsed_metadata_context
+    from .source_inputs import read_inputs
+    lookup = SiteConfig(name='Record publication lookup', sources=sources)
+    with read_session(), parent_descriptor_cache(), parsed_metadata_context(store.private_root):
+        return read_inputs(store, lookup, data, set())[0]
+
+
+def _menu_notes(store: SiteStore, data: dict[str, JsonValue], page_id: str | None, table_id: str | None, sites: list[SiteConfig]) -> list[exporter.Note]:
+    notes = _discovery_notes(store)
+    if notes and (not page_id or any(str(note.metadata['id']) == page_id for note in notes)):
+        return notes
+    if table_id:
+        if not any(str(table.get('id')) == table_id for table in exporter.records(data, 'tables')):
+            return []
+        sources = [SiteSource(id='record-lookup', kind='table', source_id=table_id, enabled=True)]
+    else:
+        # Record filenames are titles, not IDs. Without a locator, enumerate
+        # configured publication table domains rather than arbitrary vault bodies.
+        bound = [source for site in sites for source in site.sources if source.enabled
+                 and source.kind in {'table', 'view'} and not source.source_id.startswith('imported:')]
+        sources = [SiteSource(id=f'record-lookup-{index}', kind=source.kind, source_id=source.source_id, enabled=True)
+                   for index, source in enumerate(bound)]
+    return _domain_notes(store, data, sources)
 
 
 def destinations(store: SiteStore, *, page_id: str | None = None, table_id: str | None = None) -> list[RecordDestination]:
@@ -93,7 +113,8 @@ def destinations(store: SiteStore, *, page_id: str | None = None, table_id: str 
     from backend.domains.vault.tables.rows import build_table_folder_index, resolve_table_id_from_context
 
     data, _ = exporter.registry(store)
-    notes = _discovery_notes(store)
+    sites = store.list()
+    notes = _menu_notes(store, data, page_id, table_id, sites)
     if page_id:
         matching = [note for note in notes if str(note.metadata["id"]) == page_id]
         if len(matching) != 1:
@@ -110,7 +131,7 @@ def destinations(store: SiteStore, *, page_id: str | None = None, table_id: str 
         raise HTTPException(404, "Table not found")
     notes = exporter._table_notes(notes, data, table, store.vault)
     result = []
-    for site in store.list():
+    for site in sites:
         if not any(_binding(source, str(table_id), data) for source in site.sources):
             continue
         translations = PublicTranslations(site, [note.metadata for note in notes])
@@ -135,6 +156,9 @@ def destinations(store: SiteStore, *, page_id: str | None = None, table_id: str 
 
 
 def proposal(store: SiteStore, site: SiteConfig, request: RecordPublicationReview, *, snapshot: exporter.SourceSnapshot | None = None) -> SiteConfig:
+    if snapshot is None:
+        snapshot = exporter.source_snapshot(store, site=site, extra_page_ids={request.page_id})
+    snapshot.require_site(store, site)
     data, notes, note, table_id = _context(store, request.page_id, snapshot)
     candidate = site.model_copy(deep=True)
     language = exporter._note_identity(note, PublicTranslations(site, [item.metadata for item in notes]))[1]
@@ -174,7 +198,7 @@ def review(store: SiteStore, site: SiteConfig, request: RecordPublicationReview)
     from backend.utils.bounded_file_io import cloud_path
     if cloud_path(store.vault) and not in_worker.get():
         return run_isolated(store, site, request.target_id, record=request)
-    snapshot = exporter.source_snapshot(store)
+    snapshot = exporter.source_snapshot(store, site=site, extra_page_ids={request.page_id})
     record_fingerprint = context_fingerprint(store, request.page_id, snapshot=snapshot)
     candidate = proposal(store, site, request, snapshot=snapshot)
     bundle = exporter.build_bundle(store, candidate, request.target_id, snapshot=snapshot, reuse_asset_snapshots=True)
@@ -187,7 +211,8 @@ def review(store: SiteStore, site: SiteConfig, request: RecordPublicationReview)
     try:
         # An independent fresh scan retains duplicate-identity, source-availability
         # and record/registry freshness checks after rendering the exact bundle.
-        if context_fingerprint(store, request.page_id) != record_fingerprint:
+        fresh = exporter.source_snapshot(store, site=site, extra_page_ids={request.page_id})
+        if context_fingerprint(store, request.page_id, snapshot=fresh) != record_fingerprint:
             raise HTTPException(409, "The record changed during review; review again")
         with store.database() as db:
             row = db.execute("SELECT payload FROM previews WHERE id=?", (result.id,)).fetchone()

@@ -46,6 +46,12 @@ class SourceChanged(AssetFileError):
     """Discard this attempt because its open source changed during the read."""
 
 
+def bounded_frontmatter(path: Path, root: Path) -> bytes:
+    """Use confined, version-checked descriptors for cold locator metadata only."""
+    with _source(path, 4_000_000, root) as (stream, _):
+        return bounded_file_io.frontmatter(stream.fileno())
+
+
 def attachment_limit(suffix: str) -> int:
     return PUBLIC_PDF_MAX_BYTES if suffix.lower() == ".pdf" else PUBLIC_ATTACHMENT_MAX_BYTES
 

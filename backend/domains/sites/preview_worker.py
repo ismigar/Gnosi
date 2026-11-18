@@ -61,13 +61,16 @@ class _OwnedReader(bounded_file_io.Reader):
             if deadline and time.monotonic() >= deadline:
                 os.killpg(os.getpid(), signal.SIGKILL)
 
-    def run(self, source: int, maximum: int, target: int | None = None, *, read_bytes: bool = True) -> tuple[bytes, str, int]:
+    def run(self, source: int, maximum: int, target: int | None = None, *, read_bytes: bool = True, frontmatter_only: bool = False) -> tuple[bytes, str, int]:
         if not 0 <= maximum <= 1024 ** 3:
             raise ValueError("Invalid bounded read allowance")
         self.deadline = time.monotonic() + self.timeout
         try:
+            if frontmatter_only and (target is not None or not read_bytes):
+                raise ValueError("Frontmatter requests cannot copy or hash bodies")
             descriptors = [source] if target is None else [source, target]
-            data, digest, size = bounded_file_io._operation(descriptors, maximum, 1 if target is not None else (0 if read_bytes else 2))
+            mode = 3 if frontmatter_only else (1 if target is not None else (0 if read_bytes else 2))
+            data, digest, size = bounded_file_io._operation(descriptors, maximum, mode)
             return data, digest.hex(), size
         except (OSError, ValueError) as error:
             raise bounded_file_io.ReadUnavailable("The cloud source is unavailable") from error

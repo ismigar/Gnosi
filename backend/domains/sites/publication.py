@@ -153,7 +153,13 @@ def enqueue(store: SiteStore, site: SiteConfig, request: SitePublishRequest) -> 
     bundle = SiteBundle.model_validate(pending["bundle"])
     # One fresh source scan binds the record, selection and exact projection.
     # It is never shared with the earlier preview or the later queued worker.
-    snapshot = source_snapshot(store) if isinstance(pending.get("record_proposal"), dict) else None
+    record_proposal = pending.get('record_proposal')
+    if isinstance(record_proposal, dict):
+        from .record_publication import RecordPublicationReview
+        record_request = RecordPublicationReview.model_validate(record_proposal['request'])
+        snapshot = source_snapshot(store, site=site, extra_page_ids={record_request.page_id})
+    else:
+        snapshot = None
     site, original_site = _reviewed_record_selection(store, site, pending, snapshot)
     current = (build_bundle(store, site, row["target_id"], snapshot=snapshot) if snapshot is not None
                else build_bundle(store, site, row["target_id"]))
