@@ -1222,7 +1222,9 @@ Plugin suspension remains authoritative on the server and blocks execution. A su
 
 ## Reasoning effort
 
-Profiles persist optional `reasoning_effort`. The editor discovers exact OpenRouter model choices through `GET /api/ai/model-reasoning`; absent metadata exposes no choices, explicit null accepts the gateway effort set, and mandatory reasoning excludes `none`. Metadata is cached outside the vault, with a verified Luna fallback for offline first use. Settings validation rejects unsupported choices. The default-model and workflow factories forward effort only when the selected provider/model matches the profile. Explicit OpenRouter reasoning, and Luna’s default reasoning, use stateless Responses with `store=false`, full history and encrypted reasoning across tool calls. Other model defaults are unchanged.
+Profiles persist optional `reasoning_effort`. The editor reads the choices for each OpenAI or OpenRouter model through `GET /api/ai/model-reasoning`. Direct OpenAI GPT-6.1 Sol and GPT-6.2 Sol support `low`, `medium`, `high`, `xhigh` and `max`. An explicit effort is sent through the Responses API with `store=false`.
+
+For OpenRouter, absent metadata exposes no choices, explicit null accepts the gateway effort set, and mandatory reasoning excludes `none`. Metadata is cached outside the vault, with a verified Luna fallback for offline first use. Settings validation rejects unsupported choices. The default-model and workflow factories forward effort only when the selected provider/model matches the profile. Explicit OpenRouter reasoning, and Luna’s default reasoning, use stateless Responses with `store=false`, full history and encrypted reasoning across tool calls.
 
 ## Optional team help
 

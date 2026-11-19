@@ -1330,7 +1330,9 @@ Després d’un canvi de plugin es renoven les memòries cau de configuració i 
 
 ## Nivell de raonament
 
-Els perfils desen `reasoning_effort` opcional. L’editor consulta les opcions exactes d’OpenRouter amb `GET /api/ai/model-reasoning`: les metadades absents no habiliten opcions, null explícit admet els nivells de la passarel·la i el raonament obligatori exclou `none`. La memòria cau és fora del vault i inclou una alternativa verificada de Luna per al primer ús sense connexió. El desament rebutja opcions incompatibles. Les fàbriques del model predeterminat i del flux només propaguen el nivell quan proveïdor i model coincideixen amb el perfil. El raonament explícit d’OpenRouter i el predeterminat de Luna utilitzen Responses sense estat, `store=false`, historial complet i raonament xifrat entre crides d’eines. Els valors predeterminats dels altres models es conserven.
+Els perfils desen `reasoning_effort` opcional. L’editor consulta les opcions de cada model d’OpenAI i OpenRouter mitjançant `GET /api/ai/model-reasoning`. Amb OpenAI directe, GPT-6.1 Sol i GPT-6.2 Sol admeten `low`, `medium`, `high`, `xhigh` i `max`. Quan es tria un nivell, Gnosi l’envia a l’API Responses amb `store=false`.
+
+A OpenRouter, les metadades absents no habiliten opcions, null explícit admet els nivells de la passarel·la i el raonament obligatori exclou `none`. La memòria cau és fora del vault i inclou una alternativa verificada de Luna per al primer ús sense connexió. El desament rebutja opcions incompatibles. Les fàbriques del model predeterminat i del flux només propaguen el nivell quan proveïdor i model coincideixen amb el perfil. El raonament explícit d’OpenRouter i el predeterminat de Luna utilitzen Responses sense estat, `store=false`, historial complet i raonament xifrat entre crides d’eines. Els valors predeterminats dels altres models es conserven.
 
 ## Ajuda opcional de l’equip
 
