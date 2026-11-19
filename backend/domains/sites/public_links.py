@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
-from urllib.parse import urlsplit
+from urllib.parse import SplitResult, urlsplit
 
 from bs4 import BeautifulSoup
 from markdown_it import MarkdownIt
@@ -15,9 +15,21 @@ if TYPE_CHECKING:
     from .exporter import AssetExporter, Note
 
 
+def same_http_origin(url: SplitResult, origin: str) -> bool:
+    base = urlsplit(origin)
+    scheme = url.scheme or base.scheme
+    if scheme not in {"http", "https"} or scheme != base.scheme or not url.hostname or url.hostname != base.hostname:
+        return False
+    default_port = 443 if scheme == "https" else 80
+    return (default_port if url.port is None else url.port) == (default_port if base.port is None else base.port)
+
+
 def remap_url(value: str, paths: dict[str, str], origin: str) -> str:
-    url = urlsplit(value)
-    if url.scheme not in {"", "http", "https"} or (url.netloc and url.netloc != urlsplit(origin).netloc):
+    try:
+        url = urlsplit(value)
+        if (url.scheme or url.netloc) and (url.username or url.password or not same_http_origin(url, origin)):
+            return value
+    except ValueError:
         return value
     target = paths.get(url.path, paths.get(url.path.rstrip("/")))
     if target is None:

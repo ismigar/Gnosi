@@ -14,6 +14,7 @@ from fastapi import HTTPException
 from pydantic import JsonValue
 
 from .models import PublicRecord, SiteConfig, safe_path
+from .public_links import same_http_origin
 
 if TYPE_CHECKING:
     from .exporter import Note
@@ -34,7 +35,7 @@ def table_path(metadata: dict[str, JsonValue], table: dict[str, JsonValue], site
     try:
         url = urlsplit(value)
         if url.scheme or url.netloc:
-            if url.scheme not in {"http", "https"} or url.hostname != urlsplit(site.origin).hostname:
+            if not same_http_origin(url, site.origin):
                 return None  # External content links retain their card semantics.
             if url.username or url.password:
                 raise ValueError("Credentials")

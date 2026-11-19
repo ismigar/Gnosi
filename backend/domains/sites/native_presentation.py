@@ -128,6 +128,7 @@ def project_presentation(record: PublicRecord, table: dict[str, JsonValue], site
                 'dissenys': 'disseny', 'designs': 'disseny', 'collaboradores': 'col_laboradora',
                 'collaborators': 'col_laboradora'}.get(table_name, 'page')
     presentation: dict[str, JsonValue] = {'kind': kind}
+    from backend.services.field_resolver import resolve_property
     from .exporter import property_definitions
     definitions = property_definitions(table)
     chosen = [(p, record.fields[str(p.get('id'))]) for p in definitions if str(p.get('id')) in record.fields]
@@ -145,6 +146,11 @@ def project_presentation(record: PublicRecord, table: dict[str, JsonValue], site
             changed = _date(value)
             if changed is not None:
                 presentation['changed'] = changed
+    url_property = resolve_property({'properties': definitions}, 'URL')
+    if url_property:
+        content_url = _href(record.fields.get(str(url_property['id'])))
+        if content_url:
+            presentation['href'] = content_url
     image = presentation.get('image')
     if isinstance(image, dict):
         alt = next((_text(value) for definition, value in chosen if _label(definition.get('name')) in {'imagealttext', 'imatgealttext', 'imagenalttext', 'logoalttext', 'alttext'} and _text(value)), '')

@@ -155,10 +155,17 @@ def property_definitions(table: dict[str, JsonValue]) -> list[dict[str, JsonValu
         raw = [dict(value, id=key) if isinstance(value, dict) else {"id": key, "name": str(value)} for key, value in raw.items()]
     if not isinstance(raw, list):
         return []
-    return [
-        {**p, "id": p.get("id") or p.get("key"), "name": p.get("name") or p.get("label") or p.get("id")}
-        for p in raw if isinstance(p, dict) and (p.get("id") or p.get("key"))
-    ]
+    definitions: list[dict[str, JsonValue]] = []
+    for prop in raw:
+        if not isinstance(prop, dict) or not (prop.get("id") or prop.get("key")):
+            continue
+        aliases = prop.get("aliases")
+        definitions.append({
+            **prop, "id": str(prop.get("id") or prop.get("key")),
+            "name": str(prop.get("name") or prop.get("label") or prop.get("id") or ""),
+            "aliases": [alias for alias in aliases if isinstance(alias, str)] if isinstance(aliases, list) else [],
+        })
+    return definitions
 
 
 def fields(table: dict[str, JsonValue]) -> list[dict[str, str]]:
@@ -226,9 +233,7 @@ def value_for(note: Note, field_id: str, table: dict[str, JsonValue]) -> JsonVal
     definition = next((p for p in property_definitions(table) if str(p["id"]) == field_id), None)
     if definition is None:
         raise HTTPException(409, "A selected field no longer exists")
-    if definition["name"] == "URL":
-        return cast(JsonValue, get_meta_value(note.metadata, {"properties": [definition]}, field_id))
-    return note.metadata.get(field_id, note.metadata.get(str(definition["name"] or "")))
+    return cast(JsonValue, get_meta_value(note.metadata, {"properties": [definition]}, field_id))
 
 
 def match_rule(note: Note, rule: dict[str, JsonValue], table: dict[str, JsonValue]) -> bool:

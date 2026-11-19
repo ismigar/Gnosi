@@ -187,6 +187,25 @@ def test_url_registration_matches_the_fields_offered_by_the_site_catalogue(websi
     assert table_path(metadata, {'properties': properties}, website.site) == expected
 
 
+@pytest.mark.parametrize('invalid_aliases', ['NotAURLIdentifier', {'URL': False}, 12])
+def test_invalid_aliases_do_not_turn_an_unrelated_field_into_the_url(website, invalid_aliases):
+    from backend.domains.sites.article_routes import table_path
+    table = {'properties': [{'id': 'other', 'name': 'Unrelated', 'aliases': invalid_aliases}]}
+    assert table_path({'other': '/ca/local-only'}, table, website.site) is None
+
+
+@pytest.mark.parametrize('authority', ['http://example.org', 'https://example.org:8443'])
+def test_other_origins_preserve_content_links_even_on_the_same_host(website, authority):
+    from backend.domains.sites.article_routes import table_path
+    from backend.domains.sites.public_links import remap_url
+    site = website.site.model_copy(update={'origin': 'https://example.org'})
+    table = {'properties': [{'id': 'field', 'name': 'URL'}]}
+    external = authority + '/article'
+    assert table_path({'field': external}, table, site) is None
+    assert remap_url(external, {'/article': '/en/article'}, site.origin) == external
+    assert table_path({'field': 'https://example.org:443/article'}, table, site) == '/article'
+
+
 def test_editorial_links_and_foreign_links_are_projected_to_correct_destinations(imported_pilot, tmp_path):
     store, site, _, _ = imported_pilot
     english_baseline(store, site)
@@ -316,17 +335,22 @@ def test_unrelated_external_resource_url_does_not_become_a_local_route(native_si
     assert record.fields['href'] == value
 
 
-def test_external_content_url_survives_its_registered_alias_and_legacy_schema(native_site):
+@pytest.mark.parametrize(('current_name', 'stored_key'), [
+    ('URL', 'Former URL'), ('Current address', 'URL'), ('Current address', 'Former URL'),
+    ('Current address', 'href'), ('Current address', 'Current address'),
+])
+def test_external_content_url_survives_its_registered_alias_and_legacy_schema(native_site, current_name, stored_key):
     w = native_site
     w.bound.sources[0].id = 'imported-research'
     registry = w.vault / 'BD/vault_db_registry.json'
     data = json.loads(registry.read_text())
     properties = data['tables'][0]['properties']
     field = next(p for p in properties if p['id'] == 'href')
-    field.update(key=field.pop('id'), label=field.pop('name'), aliases=['Former URL'])
+    field.pop('name')
+    field.update(key=field.pop('id'), label=current_name, aliases=['URL', 'Former URL'])
     registry.write_text(json.dumps(data))
     w.metadata.pop('URL')
-    w.metadata['Former URL'] = 'https://example.org/resource'
+    w.metadata[stored_key] = 'https://example.org/resource'
     w.write()
 
     record = build_bundle(w.store, w.bound, 'local').records[0]
