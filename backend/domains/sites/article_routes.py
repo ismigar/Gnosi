@@ -21,7 +21,9 @@ if TYPE_CHECKING:
 
 def table_path(metadata: dict[str, JsonValue], table: dict[str, JsonValue], site: SiteConfig) -> str | None:
     """The registered URL field owns a native record's canonical address."""
-    from backend.services.field_resolver import get_meta_value
+    from backend.services.field_resolver import get_meta_value, resolve_property
+    if resolve_property(table, "URL") is None:
+        return None
     value = get_meta_value(metadata, table, "URL")
     if value is None or value == "":
         return None

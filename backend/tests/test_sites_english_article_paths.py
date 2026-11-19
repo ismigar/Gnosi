@@ -157,6 +157,18 @@ def test_table_url_owns_route_over_old_local_metadata_and_release(native_site, m
     assert w.note.read_bytes() == before
 
 
+def test_unregistered_url_on_public_and_private_rows_does_not_claim_a_route(website):
+    original = build_bundle(website.store, website.site, 'local')
+    folder = website.vault / 'BD/Articles'
+    for name in ('one.md', 'two.md'):
+        path = folder / name
+        path.write_text(path.read_text().replace('\n---\n', '\nURL: /ca/local-only\n---\n', 1))
+
+    result = build_bundle(website.store, website.site, 'local')
+    assert [record.path for record in result.records] == [record.path for record in original.records]
+    assert '/ca/local-only' not in {record.path for record in result.records}
+
+
 def test_editorial_links_and_foreign_links_are_projected_to_correct_destinations(imported_pilot, tmp_path):
     store, site, _, _ = imported_pilot
     english_baseline(store, site)

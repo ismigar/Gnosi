@@ -16,7 +16,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 68 |
 | `config` | 14 | 1428 |
 | `data` | 2 | 214 |
-| `domains` | 633 | 123303 |
+| `domains` | 633 | 123305 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -28,7 +28,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1100 |
 
-Total: **1131 modules** and **213044 source lines**.
+Total: **1131 modules** and **213046 source lines**.
 
 ## agent
 
@@ -526,7 +526,7 @@ Total: **1131 modules** and **213044 source lines**.
 | [`backend/domains/reader/storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/storage.py) | 200 | 0 | 18 | 0 | 0 | Durable Reader job, snapshot and checkpoint storage. |
 | [`backend/domains/sites/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault-scoped website management and reviewed static publication. |
 | [`backend/domains/sites/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/api.py) | 340 | 0 | 41 | 1 | 0 | Authenticated website editor and private administrator operations. |
-| [`backend/domains/sites/article_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/article_routes.py) | 144 | 1 | 3 | 0 | 2 | Canonical English article routes projected from selected Gnosi content. |
+| [`backend/domains/sites/article_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/article_routes.py) | 146 | 1 | 3 | 0 | 2 | Canonical English article routes projected from selected Gnosi content. |
 | [`backend/domains/sites/asset_clone.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/asset_clone.py) | 42 | 0 | 1 | 0 | 0 | Independent copy-on-write staging on APFS; ordinary copies remain fallback. |
 | [`backend/domains/sites/asset_files.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/asset_files.py) | 384 | 4 | 16 | 0 | 10 | Bounded immutable copies of explicitly selected public attachments. |
 | [`backend/domains/sites/asset_generation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/asset_generation.py) | 37 | 1 | 1 | 0 | 1 | Descriptor-bound Darwin content generations without reading cloud bytes. |

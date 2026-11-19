@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
 | Vitest | 778 | 3563 |
-| pytest | 821 | 6364 |
+| pytest | 821 | 6365 |
 
 ## Archivos
 
@@ -1411,7 +1411,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_sites_captured.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_captured.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_sites_catalogue_snapshot.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_catalogue_snapshot.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_sites_contact_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_contact_retry.py) | 3 | Python AST |
-| pytest | [`backend/tests/test_sites_english_article_paths.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_english_article_paths.py) | 15 | Python AST |
+| pytest | [`backend/tests/test_sites_english_article_paths.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_english_article_paths.py) | 16 | Python AST |
 | pytest | [`backend/tests/test_sites_font_catalogue.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_font_catalogue.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_sites_generic_configuration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_generic_configuration.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_sites_generic_rendering.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_generic_rendering.py) | 2 | Python AST |
