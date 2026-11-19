@@ -194,6 +194,24 @@ def test_invalid_aliases_do_not_turn_an_unrelated_field_into_the_url(website, in
     assert table_path({'other': '/ca/local-only'}, table, website.site) is None
 
 
+@pytest.mark.parametrize('alias', ['Private', 'private-note', 'Shared former name'])
+def test_registered_url_cannot_claim_an_unselected_fields_name_id_or_alias(native_site, alias):
+    w = native_site
+    registry = w.vault / 'BD/vault_db_registry.json'
+    data = json.loads(registry.read_text())
+    props = data['tables'][0]['properties']
+    next(p for p in props if p['id'] == 'href')['aliases'] = [alias]
+    next(p for p in props if p['id'] == 'private-note')['aliases'] = ['Shared former name']
+    registry.write_text(json.dumps(data))
+    w.metadata.pop('URL')
+    w.metadata[alias] = w.bound.origin + '/ca/unselected-value'
+    w.write()
+    record = build_bundle(w.store, w.bound, 'local').records[0]
+    assert record.path == '/ca/native-stable'
+    assert record.fields['href'] is None
+    assert 'unselected-value' not in record.model_dump_json()
+
+
 @pytest.mark.parametrize('authority', ['http://example.org', 'https://example.org:8443'])
 def test_other_origins_preserve_content_links_even_on_the_same_host(website, authority):
     from backend.domains.sites.article_routes import table_path

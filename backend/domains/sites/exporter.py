@@ -6,6 +6,7 @@ import json
 import os
 import re
 import unicodedata
+from collections import Counter
 from functools import cmp_to_key
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -155,17 +156,19 @@ def property_definitions(table: dict[str, JsonValue]) -> list[dict[str, JsonValu
         raw = [dict(value, id=key) if isinstance(value, dict) else {"id": key, "name": str(value)} for key, value in raw.items()]
     if not isinstance(raw, list):
         return []
-    definitions: list[dict[str, JsonValue]] = []
+    definitions: list[tuple[dict[str, JsonValue], list[str]]] = []
+    owners: Counter[str] = Counter()
     for prop in raw:
         if not isinstance(prop, dict) or not (prop.get("id") or prop.get("key")):
             continue
-        aliases = prop.get("aliases")
-        definitions.append({
-            **prop, "id": str(prop.get("id") or prop.get("key")),
-            "name": str(prop.get("name") or prop.get("label") or prop.get("id") or ""),
-            "aliases": [alias for alias in aliases if isinstance(alias, str)] if isinstance(aliases, list) else [],
-        })
-    return definitions
+        identifier = str(prop.get("id") or prop.get("key"))
+        name = str(prop.get("name") or prop.get("label") or prop.get("id") or "")
+        raw_aliases = prop.get("aliases")
+        aliases = [alias for alias in raw_aliases if isinstance(alias, str) and alias] if isinstance(raw_aliases, list) else []
+        owners.update({identifier, name, *aliases})
+        definitions.append(({**prop, "id": identifier, "name": name}, aliases))
+    # A reused column name can hold another, unselected field's data.
+    return [{**prop, "aliases": [alias for alias in aliases if owners[alias] == 1]} for prop, aliases in definitions]
 
 
 def fields(table: dict[str, JsonValue]) -> list[dict[str, str]]:
