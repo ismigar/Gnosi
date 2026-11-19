@@ -6,6 +6,7 @@ from backend.utils.metadata_io import MetadataUnavailable, metadata_path
 
 from backend.services.agent_behavior import resource as behavior_resource
 
+import asyncio
 import logging
 import json
 from dataclasses import dataclass, replace
@@ -121,8 +122,8 @@ async def prepare_profile(
 ) -> ProfileSetup | None:
     """Resolve one current profile without retaining import-time configuration."""
     if prepared_ai_cfg is None:
-        ai_cfg, selected_agent, resolved_runtime = dependencies.prepare_agent_runtime(
-            agent_id,
+        ai_cfg, selected_agent, resolved_runtime = await asyncio.to_thread(
+            dependencies.prepare_agent_runtime, agent_id,
             vault_path=vault_path,
             active_skill_ids=active_skill_ids,
         )
@@ -150,8 +151,8 @@ async def prepare_profile(
     agent_data["model_strategy"] = {"schema_version": 1, "mode": "pinned", "decision_engine": "rules", "allowed_models": []}
     target_id = str(agent_data.get("id") or "")
     if resolved_runtime is None:
-        resolved_runtime = dependencies.resolve_runtime_capabilities(
-            agent_data,
+        resolved_runtime = await asyncio.to_thread(
+            dependencies.resolve_runtime_capabilities, agent_data,
             vault_path=vault_path,
             active_skill_ids=active_skill_ids,
         )

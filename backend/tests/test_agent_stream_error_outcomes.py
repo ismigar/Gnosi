@@ -11,6 +11,7 @@ from backend.domains.agent.routes import chat_stream_errors as errors
 from backend.domains.agent.routes.chat_stream_state import AgentStreamState
 from backend.domains.agent.routes.contracts import ChatRequest
 from backend.domains.agent.routes.shared import _agent_stream_error_code
+from backend.utils.metadata_io import MetadataUnavailable
 
 LANGUAGES = {
     'ca': ('Busca totes les entrades de la taula Cervell Digital.', ['L’eina', 'No s’ha pogut', 'No he pogut', 'La resposta', 'L’agent', 'Aquesta conversa', 'El model', 'La conversa', 'El proveïdor', 'S’ha', 'El compte', 'Les credencials']),
@@ -29,6 +30,7 @@ LANGUAGES = {
     'agent_invalid_result', 'agent_empty_result', 'turn_timeout', 'loop', 'busy',
     'tool_use_failed', 'context_length_exceeded', 'schema_invalid', 'content_filter',
     'rate_limit', 'insufficient_credit', 'auth', 'not_found', 'timeout', 'network_error', 'server_error', 'unexpected',
+    'metadata_unavailable',
 ])
 def test_failure_events_keep_language_code_and_unsuccessful_outcome(monkeypatch, language, failure):
     from langgraph.errors import GraphRecursionError
@@ -44,11 +46,16 @@ def test_failure_events_keep_language_code_and_unsuccessful_outcome(monkeypatch,
         error = SessionBusyError(private_detail)
     elif failure == 'unexpected':
         error = ValueError(private_detail)
+    elif failure == 'metadata_unavailable':
+        error = MetadataUnavailable(private_detail)
     else:
         error = RuntimeError(failure + ':' + private_detail)
     reason = failure if failure in FAILURE_MESSAGES else None
     replay = []
-    monkeypatch.setattr(errors, '_failure_reason', lambda *_args, **_kwargs: reason)
+    if failure == 'metadata_unavailable':
+        monkeypatch.setattr(errors, 'record_failure', lambda *args, **kwargs: pytest.fail('Incorrect model attribution'))
+    else:
+        monkeypatch.setattr(errors, '_failure_reason', lambda *_args, **_kwargs: reason)
     monkeypatch.setattr(errors, 'record_replay_event', lambda *args: replay.append(args))
     monkeypatch.setattr(errors, 'record_quality_signal', lambda *_args, **_kwargs: None)
     monkeypatch.setattr(errors, 'model_evidence', lambda *_args, **_kwargs: None)
@@ -62,13 +69,18 @@ def test_failure_events_keep_language_code_and_unsuccessful_outcome(monkeypatch,
             error, state=state, vault_scope='vault',
             workspace_context=SimpleNamespace(workspace_id='workspace', user_id='user'),
             agent_id='agent', session_id='session', turn_timeout_seconds=77,
-            chat_req=ChatRequest(message=message))]
+            preferred_language=language,
+            chat_req=ChatRequest(message='hola' if failure == 'metadata_unavailable' else message))]
 
     events = asyncio.run(collect())
     result = events[0]
     assert result['type'] == 'error' and state.stream_failed
     assert result['content_language'] == language
-    assert any(result['content'].startswith(prefix) for prefix in prefixes), result['content']
+    if failure == 'metadata_unavailable':
+        assert {'ca': 'núvol', 'es': 'nube', 'en': 'Cloud', 'fr': 'cloud'}[language] in result['content']
+        assert result['code'] == failure and result['retryable'] and result['recovery']['action'] == 'retry_message'
+    else:
+        assert any(result['content'].startswith(prefix) for prefix in prefixes), result['content']
     assert private_detail not in result['content'] and 'RuntimeError' not in result['content']
     assert result['code'] == replay[0][2]['error_code']
     assert result['recovery']['automatic'] is False

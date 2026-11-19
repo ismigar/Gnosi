@@ -213,6 +213,7 @@ async def stream_agent_events(
     cancel_token: str,
     turn_claimed: bool,
     chat_principal: str,
+    preferred_language: str = "",
 ) -> AsyncIterator[str]:
     state = AgentStreamState(
         request_started_at=request_started_at,
@@ -269,6 +270,7 @@ async def stream_agent_events(
     except Exception as error:
         async for event in stream_error_events(
             error,
+            preferred_language=preferred_language,
             state=state,
             vault_scope=vault_scope,
             workspace_context=workspace_context,

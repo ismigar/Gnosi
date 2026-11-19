@@ -30,7 +30,8 @@ from backend.services.agent_quality_telemetry import record_quality_signal
 from backend.services.agent_replay import record_event as record_replay_event
 from backend.services.turn_idempotency import finish as finish_turn
 from backend.services.workspace_service import WorkspaceContext
-from backend.utils.errors import safe_error_detail
+from backend.utils.errors import metadata_unavailable_detail, safe_error_detail
+from backend.utils.metadata_io import MetadataUnavailable
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +43,8 @@ def _failure_reason(
     model_id: Any,
     reliability_scope: str,
 ) -> Optional[str]:
+    if isinstance(error, MetadataUnavailable):
+        return "metadata_unavailable"
     if isinstance(error, (SessionBusyError, TimeoutError, GraphRecursionError)):
         return None
     return record_failure(
@@ -101,6 +104,7 @@ async def stream_error_events(
     session_id: str,
     turn_timeout_seconds: int,
     chat_req: ChatRequest,
+    preferred_language: str = "",
 ) -> AsyncIterator[str]:
     state.stream_failed = True
     log.exception(
@@ -123,15 +127,18 @@ async def stream_error_events(
     )
     local_error_code = _agent_stream_error_code(error)
     response_language = _response_language(chat_req.message)
-    friendly_error = _friendly_stream_error(
-        error,
-        reason=reason,
-        provider=provider,
-        model_id=model_id,
-        reliability_scope=reliability_scope,
-        turn_timeout_seconds=turn_timeout_seconds,
-        language=response_language,
-    )
+    if isinstance(error, MetadataUnavailable):
+        response_language, friendly_error = metadata_unavailable_detail(preferred_language or response_language)
+    else:
+        friendly_error = _friendly_stream_error(
+            error,
+            reason=reason,
+            provider=provider,
+            model_id=model_id,
+            reliability_scope=reliability_scope,
+            turn_timeout_seconds=turn_timeout_seconds,
+            language=response_language,
+        )
     stable_error_code = (
         local_error_code or str(reason or "").strip() or type(error).__name__.lower()
     )[:160]

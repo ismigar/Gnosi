@@ -201,19 +201,23 @@ async def _finish_failed_turn(
 
 
 def _unavailable_response(
+    error: HTTPException | MetadataUnavailable,
     *,
-    error_code: str,
+    request: Request,
     trace_id: str,
     chat_req: ChatRequest,
     workspace_context: WorkspaceContext,
     agent_id: str,
     session_id: str,
-    preferred_language: str = "",
 ) -> StreamingResponse:
     language = _response_language(chat_req.message)
-    if error_code == "metadata_unavailable":
-        language, message = metadata_unavailable_detail(preferred_language or language)
+    if isinstance(error, MetadataUnavailable):
+        error_code = "metadata_unavailable"
+        language, message = metadata_unavailable_detail(request.headers.get("Accept-Language") or language)
     else:
+        if error.status_code != 503:
+            raise error
+        error_code = str(error.detail.get("code")) if isinstance(error.detail, dict) else "service_unavailable"
         message_key = "agent_model_unavailable" if error_code == "agent_model_unavailable" else "service_unavailable"
         message = failure_message(language, message_key)
     recovery = recovery_metadata(error_code)
@@ -454,6 +458,7 @@ async def chat_endpoint(
             if learning_memory:
                 yield json.dumps({"type": "memory_saved", "memory_id": learning_memory["memory_id"]}) + "\n"
             async for event in stream_agent_events(
+                preferred_language=request.headers.get("Accept-Language", ""),
                 request_started_at=request_started_at,
                 workflow_ready_at=workflow_ready_at,
                 llm_selection=llm_selection,
@@ -504,25 +509,14 @@ async def chat_endpoint(
             agent_id=agent_id,
             session_id=session_id,
         )
-        preferred_language = ""
-        if isinstance(error, MetadataUnavailable):
-            error_code = "metadata_unavailable"
-            preferred_language = request.headers.get("Accept-Language", "")
-        elif error.status_code == 503:
-            error_code = (
-                str(error.detail.get("code")) if isinstance(error.detail, dict)
-                else "service_unavailable"
-            )
-        else:
-            raise
         return _unavailable_response(
-            error_code=error_code,
+            error,
+            request=request,
             trace_id=trace_id,
             chat_req=chat_req,
             workspace_context=workspace_context,
             agent_id=agent_id,
             session_id=session_id,
-            preferred_language=preferred_language,
         )
     except Exception as error:
         await _finish_failed_turn(

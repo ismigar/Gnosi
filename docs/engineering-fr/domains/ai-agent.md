@@ -394,6 +394,11 @@ entre champs gérés et champs appartenant à l'utilisateur. La réconciliation 
 plugins est idempotente : désactiver un plugin suspend sa contribution gérée sans
 supprimer les personnalisations de l'utilisateur.
 
+La conversation lit les compétences personnelles attribuées à chaque profil participant
+et suit leurs liens `derived_from`. Gnosi télécharge les fichiers nécessaires depuis
+le cloud en arrière-plan pendant que la conversation attend. Si un fichier reste
+indisponible, la personne peut réessayer.
+
 Les traductions de lignes et pages utilisent l’opération
 partagée `translation`. Les boutons sélectionnent le profil du plugin Traduction ;
 les actions dans une conversation héritent du profil de l’agent en cours. Ce

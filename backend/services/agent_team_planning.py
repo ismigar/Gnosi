@@ -1,6 +1,7 @@
 """Choose an existing route, a verified continuation, or a compact director plan."""
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -27,10 +28,14 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
     route = next((r for r in team.direct_routes if r.operation == operation), None)
     semantic_plan = needs_planning(original, refs, state, operation_mode=operation_mode)
     required = [skill_id(operation)] if route else []
-    direct, reason, cost = (_candidate(owner, scope, route.agent_ids, required, original, tools=not operation_mode)
-                            if route and not semantic_plan else (None, "director_required", None))
-    catalog = planning_catalog(owner, scope, original,
-                               include_owner=not operation_mode and owner["id"] == _config().get("active_agent_id"))
+    if route and not semantic_plan:
+        direct, reason, cost = await asyncio.to_thread(
+            _candidate, owner, scope, route.agent_ids, required, original, tools=not operation_mode,
+        )
+    else:
+        direct, reason, cost = None, "director_required", None
+    include_owner = not operation_mode and owner["id"] == (await asyncio.to_thread(_config)).get("active_agent_id")
+    catalog = await asyncio.to_thread(planning_catalog, owner, scope, original, include_owner=include_owner)
     saved = artifacts.list_artifacts(scope, "plan", root_id)
     if saved:
         return (TeamPlan.model_validate(saved[0]["plan"]),
@@ -53,7 +58,9 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
             else:
                 plan = None
                 for identifier, skills in action_candidates(catalog, {"bulk_update_rows"}, owner["id"]):
-                    selected, _, _ = _candidate(owner, scope, [identifier], skills, original, tools=True, allow_owner=True)
+                    selected, _, _ = await asyncio.to_thread(
+                        _candidate, owner, scope, [identifier], skills, original, tools=True, allow_owner=True,
+                    )
                     if selected:
                         plan = TeamPlan(tasks=[TeamTask(id="titles", agent_id=identifier, objective="Prepare the original title substitutions in the active view using exact tool evidence.",
                             skill_ids=skills, read_only=False)], result_task="titles")
