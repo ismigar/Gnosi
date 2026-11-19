@@ -4637,6 +4637,8 @@
     "existing_view": "Existing view",
     "loading_views": "Loading views…",
     "create_new_view": "— Create new view —",
+    "page_copy_name": "{{name}} (page view)",
+    "protected_embed_hint": "Changes are saved in a separate view for this page.",
     "existing_hint": "You can review/override the fields in the Fields, Filters and Sorting tabs.",
     "existing_views_load_error": "Couldn't load the existing views. You can create a new view or try again.",
     "pinned_tabs": "Show tabs (views pinned to this block)",

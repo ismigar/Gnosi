@@ -13,7 +13,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Backend Python files | 1898 |
 | Backend Python test files | 770 |
 | Frontend JS/TS source files | 2444 |
-| Frontend unit test files | 756 |
+| Frontend unit test files | 757 |
 | Registered FastAPI routers | 42 |
 | Pipeline skill contracts | 17 |
 | Development-memory directives | 24 |

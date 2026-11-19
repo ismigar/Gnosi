@@ -210,17 +210,30 @@ def _find_section_upsert_index(
     sections: list[dict[str, Any]],
     new_vid: Any,
     heading: str,
+    section_id: Any = None,
+    previous: Any = None,
 ) -> int | None:
-    """Index of the section to REPLACE in an upsert, or ``None`` to add a
-    new one.
+    """Match the block across changes to its view, heading, or inline settings.
 
-    If the incoming section has ``view_id``, it's matched by ``view_id`` (stable
-    block identity): this way two embeds with the same heading (e.g. empty) but
-    different view_id do NOT collide. If it doesn't have one (inline/legacy section),
-    it's matched by ``heading`` but ONLY with sections that also lack a view_id
-    (so as not to trample a section anchored to a registry view).
-
+    Older clients identify a registered section by view id and an inline one
+    by heading. A current editor supplies that previous binding once when
+    adopting a legacy block. A newly inserted block has no previous binding.
     """
+    if section_id:
+        for index, section in enumerate(sections):
+            if section.get("section_id") == section_id:
+                return index
+        if not isinstance(previous, dict):
+            return None
+        for index, section in enumerate(sections):
+            if section.get("section_id"):
+                continue
+            previous_id = previous.get("view_id")
+            if previous_id and section.get("view_id") == previous_id:
+                return index
+            if not previous_id and not section.get("view_id") and section.get("heading") == previous.get("heading"):
+                return index
+        return None
     if new_vid:
         return next(
             (i for i, s in enumerate(sections) if s.get("view_id") == new_vid),
@@ -309,14 +322,16 @@ async def upsert_page_view(
                 page_config.setdefault("sections", []),
             )
 
-            # Upsert: identifies the section by `view_id` (STABLE identity of the
-            # block), not by heading — this way multiple embeds WITHOUT a heading on the
-            # same page do NOT collide. See `_find_section_upsert_index`.
+            # previous_section identifies an older fence during migration. It is a
+            # request hint, never part of the saved page configuration.
             new_section = view.model_dump()
             existing_idx = _find_section_upsert_index(
-                sections, new_section.get("view_id"), view.heading
+                sections, new_section.get("view_id"), view.heading,
+                new_section.get("section_id"), new_section.pop("previous_section", None),
             )
             if existing_idx is not None:
+                if sections[existing_idx].get("section_id") and not new_section.get("section_id"):
+                    new_section["section_id"] = sections[existing_idx]["section_id"]
                 sections[existing_idx] = new_section
                 action = "updated"
             else:

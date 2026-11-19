@@ -51,9 +51,9 @@ export interface PageEditorApi {
 }
 export interface ViewEditingBlock extends Omit<EditingBlock, 'props'> {
   id?: string;
-  props?: { heading?: string; heading_level?: string | number; view_id?: string; section?: string };
+  props?: { section_id?: string; heading?: string; heading_level?: string | number; view_id?: string; section?: string };
 }
-export type ApplyViewSection = (section: SavedView, editing: ViewEditingBlock | null) => void;
+export type ApplyViewSection = (section: SavedView, editing: ViewEditingBlock | null) => ViewEditingBlock | undefined;
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export type CompactPanel = 'properties' | 'links';
 export interface SaveMetadataOptions { immediate?: boolean; removeKeys?: string[] }

@@ -17,7 +17,7 @@ function table(value: unknown): value is PageTable {
 function editingBlock(value: unknown): value is ViewEditingBlock {
   return isRecord(value) && (value.id === undefined || typeof value.id === 'string')
     && (value.props === undefined || (isRecord(value.props)
-      && ['heading', 'view_id', 'section'].every(key => value.props && isRecord(value.props) && (value.props[key] === undefined || typeof value.props[key] === 'string'))
+      && ['heading', 'view_id', 'section_id', 'section'].every(key => value.props && isRecord(value.props) && (value.props[key] === undefined || typeof value.props[key] === 'string'))
       && (value.props.heading_level === undefined || typeof value.props.heading_level === 'number' || typeof value.props.heading_level === 'string')));
 }
 function pageCallback(callback: ((pageId: string) => unknown) | null | undefined): VaultEditorCallback | null {

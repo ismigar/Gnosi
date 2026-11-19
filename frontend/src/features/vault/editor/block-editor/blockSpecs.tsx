@@ -21,7 +21,7 @@ export function createBlockSpecs() {
             }, { render: (props) => <DeferredBlock><InlineDatabase block={props.block} onUpdateTable={id => { props.editor.updateBlock(props.block, { props: { ...props.block.props, database_table_id: id } }); }} /></DeferredBlock> }),
             gnosi_view: createReactBlockSpec({
                 type: "gnosi_view",
-                propSchema: { view_id: { default: "" }, heading: { default: "" }, heading_level: { default: "1" }, section: { default: "" } },
+                propSchema: { section_id: { default: "" }, view_id: { default: "" }, heading: { default: "" }, heading_level: { default: "1" }, section: { default: "" } },
                 content: "none",
             }, { render: (props) => <DeferredBlock><DbViewEmbed block={props.block} /></DeferredBlock> }),
             transclusion: createReactBlockSpec({

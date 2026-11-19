@@ -35,7 +35,7 @@ interface VaultView {
   is_locked?: unknown;
   is_main?: unknown;
   locked?: unknown;
-  name?: string | null;
+  name?: unknown;
   order?: number | null;
   table_id?: ViewKey;
 }
@@ -55,9 +55,15 @@ export const VIEW_TYPES: ViewTypeDefinition[] = [
 
 export const MAIN_VIEW_NAME = 'Main Table';
 const LEGACY_MAIN_VIEW_NAMES = new Set([
-  MAIN_VIEW_NAME,
-  'Taula Principal',
+  'main table',
+  'taula principal',
+  'vista principal',
+  'tableau principal',
 ]);
+
+function hasLegacyMainViewName(name: unknown): boolean {
+  return typeof name === 'string' && LEGACY_MAIN_VIEW_NAMES.has(name.trim().toLowerCase());
+}
 
 function isViewArray(
   value: unknown,
@@ -78,6 +84,11 @@ function isPresentView(
 export const isLockedView = (view?: VaultView | null): boolean =>
   Boolean(view?.locked || view?.is_locked || view?.isLocked);
 
+// The page editor explicitly identifies the custom views it creates, whether
+// or not the user also displays them as table tabs.
+const isCustomPageView = (view?: VaultView | null): boolean =>
+  view?.is_main === false && typeof view.embedded === 'boolean';
+
 export const isProtectedMainView = (
   view?: VaultView | null,
 ): boolean =>
@@ -85,16 +96,19 @@ export const isProtectedMainView = (
   view?.is_main === true ||
   view?.is_default === true ||
   isLockedView(view) ||
-  LEGACY_MAIN_VIEW_NAMES.has(view?.name ?? '');
+  (!isCustomPageView(view) && hasLegacyMainViewName(view?.name));
+
+export const canBeMainView = (view: VaultView): boolean =>
+  isProtectedMainView(view) || (!isCustomPageView(view) && !(view.embedded === true && view.hidden === true));
 
 export const isMainView = (
   view?: VaultView | null,
   tableViews: unknown = [],
 ): boolean => {
-  if (!view) return false;
+  if (!view || !canBeMainView(view)) return false;
 
   const safeTableViews = isViewArray(tableViews)
-    ? tableViews.filter(isPresentView)
+    ? tableViews.filter(isPresentView).filter(canBeMainView)
     : [];
 
   if (safeTableViews.length === 0) {
@@ -121,7 +135,7 @@ export const isMainView = (
   if (explicitMain) return explicitMain.id === view.id;
 
   const mainByName = effectiveCandidates.find((candidate) =>
-    LEGACY_MAIN_VIEW_NAMES.has(candidate.name ?? ''),
+    hasLegacyMainViewName(candidate.name),
   );
   if (mainByName) return mainByName.id === view.id;
 

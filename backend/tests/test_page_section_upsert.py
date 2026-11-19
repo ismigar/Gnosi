@@ -30,3 +30,13 @@ def test_inline_does_not_overwrite_view_backed_section():
     # section anchored to a registry view (which has view_id)
     sections = [{"view_id": "v1", "heading": ""}]
     assert _find_section_upsert_index(sections, None, "") is None
+
+
+def test_customizing_legacy_main_adopts_one_existing_section_and_keeps_its_identity():
+    sections = [{"view_id": "main", "heading": ""}, {"view_id": "sibling", "heading": ""}]
+    previous = {"view_id": "main", "heading": ""}
+    assert _find_section_upsert_index(sections, "custom", "", "block-a", previous) == 0
+    sections[0] = {"section_id": "block-a", "view_id": "custom", "heading": ""}
+    assert _find_section_upsert_index(sections, None, "Renamed", "block-a", previous) == 0
+    assert _find_section_upsert_index(sections, "custom", "", "new-block") is None
+    assert _find_section_upsert_index(sections, None, "", "new-inline") is None

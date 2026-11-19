@@ -11,12 +11,13 @@ export function useDraftAutosave<T>(value: T, valid: boolean, save: (value: T) =
     const running = useRef<Promise<boolean> | null>(null);
     const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     useLayoutEffect(() => { latest.current = { value, valid, key }; writer.current = save; }, [value, valid, key, save]);
-    const flush = useCallback(async (): Promise<boolean> => {
+    const flush = useCallback(async (saveUnchanged = false): Promise<boolean> => {
         if (running.current) return running.current;
         const task = async () => {
             for (;;) {
                 const snapshot = latest.current;
-                if (snapshot.key === persisted.current) return true;
+                if (!saveUnchanged && snapshot.key === persisted.current) return true;
+                saveUnchanged = false;
                 if (!snapshot.valid) return false;
                 if (mounted.current) setStatus('saving');
                 try {
@@ -24,7 +25,10 @@ export function useDraftAutosave<T>(value: T, valid: boolean, save: (value: T) =
                     persisted.current = snapshot.key;
                     if (mounted.current) { setSavedKey(snapshot.key); setStatus('saved'); }
                 } catch {
-                    if (mounted.current) setStatus('error');
+                    // A multi-step write may have committed before it failed.
+                    // Even a return to the previous value needs acknowledgement.
+                    persisted.current = null;
+                    if (mounted.current) { setSavedKey(null); setStatus('error'); }
                     return false;
                 }
             }

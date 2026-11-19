@@ -20,6 +20,16 @@ function inlineText(value: string): unknown[] {
 }
 
 describe('Markdown mapper serialization domains', () => {
+    it('round-trips the page section identity when a block changes its registered view', async () => {
+        const props = { view_id: 'customized', section_id: 'page-block' };
+        const markdown = blocksToRichMarkdown([{ type: 'gnosi_view', props }]);
+        const body = markdown.split('\n').slice(1, -1).join('\n');
+        expect(JSON.parse(body)).toEqual(props);
+        const blocks = await richMarkdownToBlocks(markdown, {
+            tryParseMarkdownToBlocks: () => Promise.resolve([{ type: 'codeBlock', props: { language: 'gnosi-view' }, content: inlineText(body) }]),
+        });
+        expect(blocks[0]).toMatchObject({ type: 'gnosi_view', props });
+    });
     it('preserves embedded queries as portable Markdown fences', async () => {
         const body = 'task-todo:(write OR review)';
         expect(blocksToRichMarkdown([{ type: 'query', props: { query: body } }])).toBe('```query\n' + body + '\n```');

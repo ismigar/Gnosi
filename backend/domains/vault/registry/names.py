@@ -65,14 +65,25 @@ def main_view_fields(registry: RegistryData, table_id: object) -> list[str]:
     return fields
 
 
+def _is_custom_page_view(view: RegistryData) -> bool:
+    return view.get("is_main") is False and isinstance(view.get("embedded"), bool)
+
+
 def is_main_or_locked_view(view: RegistryData) -> bool:
     """Return whether a view is protected as a table's main view."""
     if view.get("is_main") or view.get("is_default") or view.get("id") == "default":
         return True
     normalized_name = normalize_table_view_name(view.get("name"), "View")
-    if normalized_name.casefold() in _LEGACY_MAIN_VIEW_NAMES:
+    if not _is_custom_page_view(view) and normalized_name.casefold() in _LEGACY_MAIN_VIEW_NAMES:
         return True
     return any(bool(view.get(key)) for key in ("locked", "is_locked", "isLocked"))
+
+
+def can_be_main_view(view: RegistryData) -> bool:
+    """Keep private and explicitly shared page views out of legacy main-view repair."""
+    return is_main_or_locked_view(view) or not (
+        _is_custom_page_view(view) or (view.get("embedded") is True and view.get("hidden") is True)
+    )
 
 
 def normalize_main_view_configuration(
@@ -188,6 +199,7 @@ def sort_key_name(item: RegistryData) -> tuple[int, str]:
 
 
 __all__ = [
+    "can_be_main_view",
     "is_main_or_locked_view",
     "main_view_fields",
     "normalize_main_view_configuration",

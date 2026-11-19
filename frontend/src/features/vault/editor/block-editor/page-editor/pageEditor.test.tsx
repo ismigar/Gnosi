@@ -6,7 +6,7 @@ import { dispatchWindowEvent } from '../../../../../shared/platform/browser-even
 import { pageFreeWidthKey, readStorage, spellEnabledKey, writeStorage } from './preferences';
 import {
   advance, container, element, fixture, initialMetadata, innerProps,
-  mount, pageViewClose, patches, requests, root, setPatchResponse, state,
+  mount, pageViewClose, pageViewSave, patches, requests, root, setPatchResponse, state,
 } from './pageEditor.test-harness';
 
 describe('outer page editor metadata persistence', () => {
@@ -234,20 +234,55 @@ describe('page shell, navigation and knowledge contracts', () => {
   });
   it('applies saved view sections to the original block and increments the refresh nonce', async () => {
     const refresh = vi.fn();
-    const apply = vi.fn();
-    await mount({ view: true, onRefreshNotes: refresh });
     const block = { id: 'block', props: { view_id: 'view', heading_level: '2' } };
-    act(() => { state().applyViewSectionRef.current = apply; state().openPageViewModalFromContext('table', block); });
+    const apply = vi.fn(() => block);
+    await mount({ view: true, onRefreshNotes: refresh });
+    act(() => { state().registerSave(() => Promise.resolve(true)); state().applyViewSectionRef.current = apply; state().openPageViewModalFromContext('table', block); });
     expect(state().modalEditingBlock?.props?.heading_level).toBe(2);
     expect(state().pageViewEditingBlock).toBe(block);
     const saved = { view_id: 'view', heading: 'Saved' };
-    act(() => { pageViewClose?.(true, saved); });
+    await act(async () => { await pageViewSave?.(saved); pageViewClose?.(true, saved); });
     expect(apply).toHaveBeenCalledWith(saved, block);
     expect(state().viewSectionNonce).toBe(1);
     expect(state().pageViewEditingBlock).toBeNull();
     expect(state().pageViewPreselectedTable).toBe('');
     expect(state().isPageViewModalOpen).toBe(false);
     expect(refresh).toHaveBeenCalledOnce();
+  });
+  it('inserts a new autosaved view once and updates that block until closing', async () => {
+    const refresh = vi.fn();
+    const inserted = { id: 'inserted-block', props: { view_id: 'view' } };
+    const apply = vi.fn(() => inserted);
+    await mount({ view: true, onRefreshNotes: refresh });
+    act(() => { state().registerSave(() => Promise.resolve(true)); state().applyViewSectionRef.current = apply; state().openPageViewModalFromContext('table'); });
+    const first = { view_id: 'view', heading: 'First' };
+    await act(async () => { await pageViewSave?.(first); });
+    expect(apply).toHaveBeenNthCalledWith(1, first, null);
+    expect(state().isPageViewModalOpen).toBe(true);
+    const latest = { view_id: 'view', heading: 'Latest' };
+    await act(async () => { await pageViewSave?.(latest); });
+    expect(apply).toHaveBeenNthCalledWith(2, latest, inserted);
+    act(() => { pageViewClose?.(true, latest); });
+    expect(apply).toHaveBeenCalledTimes(2);
+    expect(state().viewSectionNonce).toBe(2);
+    expect(state().isPageViewModalOpen).toBe(false);
+  });
+  it('retains the inserted block for retry when writing its Markdown fails', async () => {
+    const inserted = { id: 'inserted-block', props: { view_id: 'view' } };
+    const apply = vi.fn(() => inserted);
+    const flush = vi.fn<() => Promise<boolean>>().mockResolvedValueOnce(false).mockResolvedValue(true);
+    await mount({ view: true });
+    act(() => {
+      state().registerSave(flush);
+      state().applyViewSectionRef.current = apply;
+      state().openPageViewModalFromContext('table');
+    });
+    const section = { section_id: 'one-section', view_id: 'view' };
+    await act(async () => { await expect(pageViewSave?.(section)).rejects.toThrow(); });
+    expect(state().viewSectionNonce).toBe(0);
+    await act(async () => { await pageViewSave?.(section); });
+    expect(apply).toHaveBeenNthCalledWith(2, section, inserted);
+    expect(state().viewSectionNonce).toBe(1);
   });
   it('keeps compact previews open until their original 120 ms close delay', async () => {
     await mount();

@@ -1,6 +1,7 @@
 import type { ModalInput } from './useViewController';
 import type { useViewStateResult } from './useViewState';
 import type { useViewOptionsResult } from './useViewOptions';
+import { isProtectedMainView } from '../../views/viewConstants';
 
 export function ViewExistingPicker({
     isTableMode, sourceTableId, t, selectedExistingViewId,
@@ -62,7 +63,9 @@ export function ViewExistingPicker({
             )}
             {selectedExistingViewId && (
                 <p className="mt-1.5 text-[11px] text-[var(--text-tertiary)] leading-tight">
-                    {t('view.existing_hint', "You can review/override the fields in the Fields, Filters and Sorting tabs.")}
+                    {isProtectedMainView(existingViews.find(view => view.id === selectedExistingViewId))
+                        ? t('view.protected_embed_hint', 'Changes are saved in a separate view for this page.')
+                        : t('view.existing_hint', "You can review/override the fields in the Fields, Filters and Sorting tabs.")}
                 </p>
             )}
         </div>

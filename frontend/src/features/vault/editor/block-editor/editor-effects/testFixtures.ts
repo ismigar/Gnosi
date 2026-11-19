@@ -13,7 +13,7 @@ export function heading(id: string, level = 1, children: EditorBlock[] = [], tex
     return { id, type: 'heading', props: { ...textProps, level, isToggleable: true }, content: text ? [{ type: 'text', text, styles: {} }] : [], children };
 }
 export function embed(id: string): EditorBlock {
-    return { id, type: 'gnosi_view', props: { view_id: '', heading: '', heading_level: '1', section: '' }, content: undefined, children: [] };
+    return { id, type: 'gnosi_view', props: { section_id: '', view_id: '', heading: '', heading_level: '1', section: '' }, content: undefined, children: [] };
 }
 
 export const pmSchema = new Schema({ nodes: {
