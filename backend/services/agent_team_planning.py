@@ -28,12 +28,12 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
     route = next((r for r in team.direct_routes if r.operation == operation), None)
     semantic_plan = needs_planning(original, refs, state, operation_mode=operation_mode)
     required = [skill_id(operation)] if route else []
-    if route and not semantic_plan:
-        direct, reason, cost = await asyncio.to_thread(
+    direct, reason, cost = (
+        await asyncio.to_thread(
             _candidate, owner, scope, route.agent_ids, required, original, tools=not operation_mode,
         )
-    else:
-        direct, reason, cost = None, "director_required", None
+        if route and not semantic_plan else (None, "director_required", None)
+    )
     include_owner = not operation_mode and owner["id"] == (await asyncio.to_thread(_config)).get("active_agent_id")
     catalog = await asyncio.to_thread(planning_catalog, owner, scope, original, include_owner=include_owner)
     saved = artifacts.list_artifacts(scope, "plan", root_id)
