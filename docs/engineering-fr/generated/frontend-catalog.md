@@ -52,7 +52,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2662 | 0 |
-| `features` | 1308 | 138308 | 57 |
+| `features` | 1308 | 138309 | 57 |
 | `generated` | 3 | 57966 | 599 |
 | `shared` | 354 | 37508 | 514 |
 
@@ -853,7 +853,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/drawings/json-canvas/whiteboard-limits.d.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/json-canvas/whiteboard-limits.d.ts) | 6 | `MAX_SHAPES_PER_PAGE` | — |
 | [`frontend/src/features/vault/drawings/tldraw-editor/HandwritingModelStatus.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/HandwritingModelStatus.tsx) | 27 | `HandwritingModelStatus` | — |
 | [`frontend/src/features/vault/drawings/tldraw-editor/PageActionsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/PageActionsPanel.tsx) | 109 | `PageActionsPanel` | — |
-| [`frontend/src/features/vault/drawings/tldraw-editor/TldrawEditorView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/TldrawEditorView.tsx) | 294 | `TldrawEditorView` | — |
+| [`frontend/src/features/vault/drawings/tldraw-editor/TldrawEditorView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/TldrawEditorView.tsx) | 295 | `TldrawEditorView` | — |
 | [`frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorBridges.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorBridges.ts) | 45 | `CANVAS_SHAPE_UTILS`, `CUSTOM_SHAPE_UTILS`, `CanvasPageProvider`, `TldrawGlobalSearchModal` | — |
 | [`frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorModel.ts) | 55 | `isAbortError`, `isRecord`, `pageCardIdsForDeletedPage`, `parseDroppedCanvasNote`, `selectedPageFromShape` | — |
 | [`frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorTypes.ts) | 49 | — | — |

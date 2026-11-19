@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 283 | 54952 |
+| `services` | 283 | 54972 |
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1100 |
 
-Total: **1131 modules** and **213086 source lines**.
+Total: **1131 modules** and **213106 source lines**.
 
 ## agent
 
@@ -1076,7 +1076,7 @@ Total: **1131 modules** and **213086 source lines**.
 | [`backend/services/google_contacts_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/google_contacts_service.py) | 350 | 0 | 7 | 0 | 7 | No module docstring |
 | [`backend/services/google_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/google_mail_service.py) | 412 | 0 | 13 | 0 | 11 | No module docstring |
 | [`backend/services/graph_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/graph_service.py) | 44 | 0 | 0 | 0 | 0 | Compatibility facade for the graph domain. |
-| [`backend/services/handwriting.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/handwriting.py) | 363 | 1 | 14 | 0 | 7 | Handwriting recognition (ink → text) LOCAL with TrOCR. |
+| [`backend/services/handwriting.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/handwriting.py) | 383 | 1 | 15 | 0 | 7 | Handwriting recognition (ink → text) LOCAL with TrOCR. |
 | [`backend/services/handwriting_download.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/handwriting_download.py) | 251 | 3 | 9 | 0 | 2 | Explicit, observable and cancellable TrOCR downloads, without loading weights. |
 | [`backend/services/hybrid_calendar_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/hybrid_calendar_service.py) | 561 | 1 | 23 | 0 | 8 | Hybrid Calendar Service — queries Google Calendar and CalDAV directly without a vault. |
 | [`backend/services/hybrid_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/hybrid_mail_service.py) | 89 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical hybrid mail provider adapters. |

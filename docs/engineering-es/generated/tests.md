@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
 | Vitest | 778 | 3563 |
-| pytest | 821 | 6370 |
+| pytest | 821 | 6372 |
 
 ## Archivos
 
@@ -1079,7 +1079,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_graph_unresolved_nodes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_graph_unresolved_nodes.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_graph_wedged_dirs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_graph_wedged_dirs.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_handwriting_download.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_handwriting_download.py) | 10 | Python AST |
-| pytest | [`backend/tests/test_handwriting_input_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_handwriting_input_contracts.py) | 10 | Python AST |
+| pytest | [`backend/tests/test_handwriting_input_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_handwriting_input_contracts.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_health_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_health_api_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_health_vault_independence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_health_vault_independence.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_host_helper_url.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_host_helper_url.py) | 3 | Python AST |
@@ -1226,7 +1226,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_openrouter_response_validation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_openrouter_response_validation.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_option_catalogs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_option_catalogs.py) | 27 | Python AST |
 | pytest | [`backend/tests/test_optional_runtime_boundaries.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_optional_runtime_boundaries.py) | 15 | Python AST |
-| pytest | [`backend/tests/test_packaged_backend_smoke.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_packaged_backend_smoke.py) | 7 | Python AST |
+| pytest | [`backend/tests/test_packaged_backend_smoke.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_packaged_backend_smoke.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_page_creation_callbacks.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_creation_callbacks.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_page_creation_crash_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_creation_crash_recovery.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_page_creation_index_reconciliation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_creation_index_reconciliation.py) | 5 | Python AST |
