@@ -159,7 +159,7 @@ it('loads direct OpenAI efforts and saves high on the selected Sol profile', asy
   vi.mocked(fetchAiModelReasoning).mockResolvedValue({
     supported_efforts: ['low', 'medium', 'high', 'xhigh', 'max'], default_effort: null, source: 'verified_snapshot',
   });
-  await act(async () => { render(sol, reasoningModels); });
+  await act(async () => { render(sol, reasoningModels); await Promise.resolve(); });
   expect(fetchAiModelReasoning).toHaveBeenCalledWith(sol.provider, sol.model, expect.any(AbortSignal));
   select('reasoning_effort', 'high');
   expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ ...sol, reasoning_effort: 'high' }));
