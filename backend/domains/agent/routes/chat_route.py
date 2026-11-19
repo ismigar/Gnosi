@@ -55,7 +55,8 @@ from backend.services.agent_stream_protocol import protocolize_stream
 from backend.services.turn_idempotency import claim as claim_turn
 from backend.services.turn_idempotency import finish as finish_turn
 from backend.services.workspace_service import WorkspaceContext, require_role
-from backend.utils.errors import safe_error_detail
+from backend.utils.errors import metadata_unavailable_detail, safe_error_detail
+from backend.utils.metadata_io import MetadataUnavailable
 
 log = logging.getLogger(__name__)
 
@@ -207,15 +208,21 @@ def _unavailable_response(
     workspace_context: WorkspaceContext,
     agent_id: str,
     session_id: str,
+    preferred_language: str = "",
 ) -> StreamingResponse:
     language = _response_language(chat_req.message)
-    message_key = "agent_model_unavailable" if error_code == "agent_model_unavailable" else "service_unavailable"
+    if error_code == "metadata_unavailable":
+        language, message = metadata_unavailable_detail(preferred_language or language)
+    else:
+        message_key = "agent_model_unavailable" if error_code == "agent_model_unavailable" else "service_unavailable"
+        message = failure_message(language, message_key)
+    recovery = recovery_metadata(error_code)
 
     async def unavailable_generator() -> AsyncIterator[str]:
         yield json.dumps({
             "type": "error", "code": error_code,
-            "content": failure_message(language, message_key),
-            "content_language": language, "recovery": recovery_metadata(error_code),
+            "content": message, "content_language": language,
+            "retryable": recovery["retryable"], "recovery": recovery,
         }) + "\n"
         yield json.dumps({"type": "done", "has_response": False, "message_count": 0}) + "\n"
 
@@ -260,10 +267,11 @@ async def chat_endpoint(
     notebook_turn: Optional[Dict[str, Any]] = None
     try:
         agent_id = _validated_identifier(chat_req.agent_id, "agent_id")
+        session_id = _validated_identifier(chat_req.session_id, "session_id")
         # Checkpoint identity stays stable when the conversation changes profile.
         profile_id = _validated_identifier(chat_req.profile_id or agent_id, "profile_id")
         from backend.services.principal_agent_migration import ensure_migrated
-        profiles = ensure_migrated().get("agents", [])
+        profiles = (await asyncio.to_thread(ensure_migrated)).get("agents", [])
         from backend.services.agent_commands import resolve_command
         try:
             command = resolve_command(chat_req.message, profiles)
@@ -276,7 +284,6 @@ async def chat_endpoint(
         if not any(p.get("id") == profile_id and p.get("enabled", True) and not p.get("plugin_suspended")
                    and p.get("managed_by") != "llm-wiki" for p in profiles if isinstance(p, dict)):
             raise HTTPException(status_code=409, detail="conversation_profile_unavailable")
-        session_id = _validated_identifier(chat_req.session_id, "session_id")
         requested_skill_ids = _validated_skill_ids(chat_req.active_skill_ids)
         vault, vault_scope = _vault_scope()
         notebook_turn, chat_principal, session_id = await _resolve_notebook_turn(
@@ -486,7 +493,7 @@ async def chat_endpoint(
             media_type="application/x-ndjson",
         )
 
-    except HTTPException as error:
+    except (HTTPException, MetadataUnavailable) as error:
         await _finish_failed_turn(
             cancel_token=cancel_token,
             turn_claimed=turn_claimed,
@@ -497,21 +504,26 @@ async def chat_endpoint(
             agent_id=agent_id,
             session_id=session_id,
         )
-        if error.status_code == 503:
+        preferred_language = ""
+        if isinstance(error, MetadataUnavailable):
+            error_code = "metadata_unavailable"
+            preferred_language = request.headers.get("Accept-Language", "")
+        elif error.status_code == 503:
             error_code = (
-                error.detail.get("code")
-                if isinstance(error.detail, dict)
+                str(error.detail.get("code")) if isinstance(error.detail, dict)
                 else "service_unavailable"
             )
-            return _unavailable_response(
-                error_code=str(error_code),
-                trace_id=trace_id,
-                chat_req=chat_req,
-                workspace_context=workspace_context,
-                agent_id=agent_id,
-                session_id=session_id,
-            )
-        raise
+        else:
+            raise
+        return _unavailable_response(
+            error_code=error_code,
+            trace_id=trace_id,
+            chat_req=chat_req,
+            workspace_context=workspace_context,
+            agent_id=agent_id,
+            session_id=session_id,
+            preferred_language=preferred_language,
+        )
     except Exception as error:
         await _finish_failed_turn(
             cancel_token=cancel_token,

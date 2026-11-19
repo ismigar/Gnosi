@@ -372,7 +372,9 @@ class SkillCatalog:
         with self._lock:
             self._plugin_providers.pop(normalized, None)
 
-    def descriptors(self, vault_path: Optional[Path] = None) -> Dict[str, SkillDescriptor]:
+    def descriptors(
+        self, vault_path: Optional[Path] = None, *, profile_skill_ids: Optional[Iterable[str]] = None,
+    ) -> Dict[str, SkillDescriptor]:
         with self._lock:
             result = dict(self._core)
             providers = tuple(self._plugin_providers.items())
@@ -394,7 +396,11 @@ class SkillCatalog:
         if vault_path is not None:
             from backend.services.user_skill_store import UserSkillStore
 
-            user_skills, _ = UserSkillStore(vault_path).load_all()
+            store = UserSkillStore(vault_path)
+            if profile_skill_ids is None:
+                user_skills, _ = store.load_all()
+            else:
+                user_skills = store.load_referenced(profile_skill_ids, result)
             for descriptor in user_skills:
                 validate_versioned_capability(descriptor)
                 if descriptor.id in result:
@@ -404,10 +410,13 @@ class SkillCatalog:
                 result[descriptor.id] = descriptor
         return result
 
-    def list_entries(self, vault_path: Optional[Path] = None) -> Tuple[SkillCatalogEntry, ...]:
+    def list_entries(
+        self, vault_path: Optional[Path] = None, *, profile_skill_ids: Optional[Iterable[str]] = None,
+    ) -> Tuple[SkillCatalogEntry, ...]:
         tools = self._tool_catalog.snapshot()
         entries = []
-        for _, descriptor in sorted(self.descriptors(vault_path).items()):
+        descriptors = self.descriptors(vault_path, profile_skill_ids=profile_skill_ids)
+        for _, descriptor in sorted(descriptors.items()):
             missing = []
             effects = set()
             for tool_id in descriptor.tool_ids:
@@ -446,7 +455,10 @@ class SkillCatalog:
         )
 
     def revision(self, vault_path: Optional[Path] = None) -> str:
-        entries = self.list_entries(vault_path)
+        return self.entries_revision(self.list_entries(vault_path))
+
+    def entries_revision(self, entries: Iterable[SkillCatalogEntry]) -> str:
+        """Bind the revision to the entries actually used by this reader."""
         return _stable_hash(
             {
                 "skills": [entry.model_dump(mode="json") for entry in entries],
@@ -705,9 +717,8 @@ def resolve_agent_runtime(
         )
     )
     catalog = get_skill_catalog()
-    entries_by_id = {
-        entry.descriptor.id: entry for entry in catalog.list_entries(vault_path)
-    }
+    entries = catalog.list_entries(vault_path, profile_skill_ids=assigned)
+    entries_by_id = {entry.descriptor.id: entry for entry in entries}
     from backend.services.agent_behavior_bindings import effective_entries
     resolved_ids, entries_by_id, aliases = effective_entries({**agent_profile, "skill_ids": assigned}, entries_by_id)
     assigned = tuple(resolved_ids)
@@ -787,5 +798,5 @@ def resolve_agent_runtime(
         skills=found,
         missing_skill_ids=missing_skills,
         unavailable_tool_ids=tuple(dict.fromkeys(unavailable)),
-        catalog_revision=catalog.revision(vault_path),
+        catalog_revision=catalog.entries_revision(entries),
     )

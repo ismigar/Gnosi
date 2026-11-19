@@ -47,3 +47,17 @@ def safe_error_detail(e: Exception, context: str = "") -> str:
     else:
         log.exception("Internal error [%s]: %r", error_id, e)
     return f"Internal error [{error_id}]: {type_name}"
+
+
+def metadata_unavailable_detail(preferred_language: str) -> tuple[str, str]:
+    """Return a localized provider failure without paths or file contents."""
+    primary = preferred_language.partition(",")[0].partition(";")[0]
+    language = primary.partition("-")[0].strip().lower()
+    messages = {
+        "ca": "Les dades del núvol encara no estan disponibles. Torna-ho a provar d’aquí a uns segons.",
+        "es": "Los datos de la nube aún no están disponibles. Vuelve a intentarlo en unos segundos.",
+        "fr": "Les données du cloud ne sont pas encore disponibles. Réessayez dans quelques secondes.",
+        "en": "Cloud data is not available yet. Retry shortly.",
+    }
+    language = language if language in messages else "en"
+    return language, messages[language]

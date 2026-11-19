@@ -12,7 +12,7 @@ import threading
 import unicodedata
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 import yaml
 
@@ -143,6 +143,34 @@ class UserSkillStore:
             if not package.is_dir():
                 raise UserSkillNotFoundError(f"skill not found: {skill_id}")
             return self._load_package(package)
+
+    def load_referenced(
+        self, skill_ids: Iterable[str], registered: Mapping[str, SkillDescriptor],
+    ) -> List[SkillDescriptor]:
+        """Read only the personal packages referenced by a profile or its ancestry."""
+        personal: List[SkillDescriptor] = []
+        pending = list(skill_ids)
+        visited: set[str] = set()
+        with self._lock:
+            if self.root.is_symlink():
+                return []
+            while pending:
+                identifier = pending.pop()
+                if identifier in visited:
+                    continue
+                visited.add(identifier)
+                descriptor = registered.get(identifier)
+                if USER_SKILL_ID_RE.fullmatch(identifier):
+                    try:
+                        descriptor = self.load(identifier)
+                    except (UserSkillStoreError, UnicodeError):
+                        continue
+                    personal.append(descriptor)
+                if descriptor is not None:
+                    parent = descriptor.metadata.get("derived_from")
+                    if isinstance(parent, dict) and isinstance(parent.get("id"), str):
+                        pending.append(parent["id"])
+        return personal
 
     def load_all(self) -> Tuple[List[SkillDescriptor], List[Dict[str, str]]]:
         """Return valid skills and visible per-package validation issues."""
