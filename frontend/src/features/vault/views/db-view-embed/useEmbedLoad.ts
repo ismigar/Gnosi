@@ -86,7 +86,9 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
                 if (viewId) {
                     const viewsData = await fetchPageViews(pageId);
                     const sections = viewsData.sections;
-                    section = sections.find(s => s.view_id === viewId)
+                    const sectionId = block?.props?.section_id;
+                    section = (sectionId && sections.find(s => s.section_id === sectionId && s.view_id === viewId))
+                        || sections.find(s => s.view_id === viewId)
                         || (headingProp ? sections.find(s => s.heading === headingProp) : null);
                     // Fallback: if this block has no registered section (e.g. because
                     // the PER HEADING section upsert has collided with another
@@ -225,11 +227,12 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
                         || (Array.isArray(v.joins) && v.joins.some(j => String(j.tableId) === tableId));
                     const tv = registryViews.filter(involves);
                     const sectionAsView: EmbedView = {
+                        ...section,
                         id: section.view_id,
                         displayTitle: section.displayTitle,
                         filterTree: section.filterTree,
                         filter: section.filter,
-                        name: section.heading || t('views_header.default_view_name', "View"),
+                        name: section.name || section.heading || t('views_header.default_view_name', "View"),
                         type: section.view_type || 'table',
                         table_id: tableId,
                         filters: section.filters || [],
@@ -269,7 +272,7 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
                     let saved = '';
                     try { saved = readText(selectedKey(pageId, viewId)) || ''; } catch { /* noop */ }
                     const def = (saved && merged.some(v => v.id === saved)) ? saved : section.view_id;
-                    setActiveViewId(prev => prev || def);
+                    setActiveViewId(prev => cached?.viewId === viewId && prev && merged.some(v => v.id === prev) ? prev : def);
                     const duration = (window.performance.now()) - startedAt;
                     setLoadDuration(duration);
                     try { writeText(`gnosi.view.lastLoad.${legacyText(pageId)}.${viewId}`, String(Math.round(duration))); } catch { /* noop */ }
@@ -292,6 +295,6 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
         // (cardSize/galleryPreview/…), because editing only the size doesn't change
         // viewId/headingProp and the useEffect wouldn't re-trigger otherwise.
     });
-    useEffect(() => beginLoad(), [viewId, pageId, headingProp, reloadKey, ctx.viewSectionNonce, block?.props?.section, sourceViews, vaultId]);
+    useEffect(() => beginLoad(), [viewId, pageId, headingProp, reloadKey, ctx.viewSectionNonce, block?.props?.section, block?.props?.section_id, sourceViews, vaultId]);
     return { publishRegistry, beginRegistryRead, isRegistryScopeCurrent };
 }

@@ -5,6 +5,7 @@ import { ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 import type { ModalInput } from './useViewController';
 import type { useViewStateResult } from './useViewState';
 import type { useViewActionsResult } from './useViewActions';
+import { isProtectedMainView } from '../../views/viewConstants';
 
 export function ViewRegistryOptions({
     isTableMode, sourceTableId, existingViews, t,
@@ -112,7 +113,7 @@ export function ViewRegistryOptions({
         </div>
     )}
 
-        {selectedExistingViewId && viewUsage.count > 0 && (
+        {selectedExistingViewId && viewUsage.count > 0 && !isProtectedMainView(existingViews.find(view => view.id === selectedExistingViewId)) && (
             <div className="border-t border-[var(--border-primary)] pt-4">
                 <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1">
                     {t('view.usage_count', { count: viewUsage.count, defaultValue: "This view is already used on {{count}} pages." })}

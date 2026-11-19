@@ -172,6 +172,19 @@ describe('templates and views', () => {
     expect(views.updateVaultView).not.toHaveBeenCalled();
     expect(harness.current.activeViewId).toBe('saved-main');
   });
+  it.each([
+    { name: 'Page copy', embedded: true, hidden: true },
+    { name: 'Published copy', embedded: false, hidden: false, is_main: false },
+    { name: 'Taula principal', embedded: false, hidden: false, is_main: false },
+  ])('keeps the saved page view "$name" out of legacy main-view selection and migration', async options => {
+    const copy = { id: 'page-copy', table_id: 'table', type: 'table', ...options,
+      sorts: [{ field: 'Date', direction: 'desc' }] };
+    await harness.run(state => { state.setRegistry({ ...CATALOG, views: [copy] }); });
+    expect(harness.current.getTableViews('table').map(v => v.id)).toEqual(['default', copy.id]);
+    expect(harness.current.getPreferredInitialViewId([copy])).toBe('default');
+    await harness.run(state => { state.migrateMainViewForTable('table'); });
+    expect(views.updateVaultView).not.toHaveBeenCalled();
+  });
   it('preserves reordered main columns in rendering, saves and migration', async () => {
     const main = { id: 'main-columns', table_id: 'table', name: 'Main Table', type: 'table', is_main: true, visibleProperties: ['title', 'Date', 'Status'] };
     await harness.run(state => { state.setRegistry({ ...CATALOG, views: [main] }); });

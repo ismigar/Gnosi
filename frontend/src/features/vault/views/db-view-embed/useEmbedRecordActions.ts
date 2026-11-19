@@ -64,8 +64,9 @@ export function useEmbedRecordActions({ ctx, tableId, block, activeViewId, effec
             // shows the view you configured).
             onOpenPageViewModal(tableId, {
                 id: block?.id,
+                anchorViewId: block?.props?.view_id || '',
                 view: effectiveView,
-                props: { view_id: activeViewId, heading: headingProp || '', heading_level: headingLevelProp || 1 },
+                props: { ...block?.props, view_id: activeViewId, heading: headingProp || '', heading_level: headingLevelProp || 1 },
             });
         }
     }, [onOpenPageViewModal, tableId, block, activeViewId, effectiveView, headingProp, headingLevelProp]);

@@ -97,15 +97,16 @@ export interface ViewConfig extends ViewAppearance {
 export type RegistryView = ViewConfig & { id: string };
 export type Usage = Pick<ViewUsage, 'count' | 'pages'>;
 export type SavedView = Record<string, unknown>;
-export type PersistView = (options?: { closeAfter?: boolean }) => Promise<SavedView | null>;
 export interface EditingBlock {
     /** Configuration already loaded by the view being edited; never persisted as block props. */
     view?: unknown;
-    props?: { heading?: string; heading_level?: number; view_id?: string; section?: string };
+    anchorViewId?: string;
+    props?: { section_id?: string; heading?: string; heading_level?: number; view_id?: string; section?: string };
 }
 export interface PageViewModalProps {
     isOpen: boolean;
     onClose: (saved?: boolean, result?: SavedView) => void;
+    onSave?: (result: SavedView) => void | Promise<void>;
     pageId: string;
     allTables?: readonly ViewTable[];
     api?: PageViewApi;

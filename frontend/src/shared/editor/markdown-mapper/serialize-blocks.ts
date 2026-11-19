@@ -77,6 +77,7 @@ function serializeGnosiBlock(block: MarkdownBlock): string | null {
     if (block.type === 'gnosi_view') {
         const heading = legacyStringOrEmpty(props.heading).trim();
         const payload: MarkdownRecord = { view_id: legacyStringOrEmpty(props.view_id) };
+        if (props.section_id) payload.section_id = legacyStringOrEmpty(props.section_id);
         if (heading) {
             payload.heading = heading;
             payload.heading_level = Number(props.heading_level) || 1;

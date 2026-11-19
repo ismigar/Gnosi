@@ -4,6 +4,8 @@ import asyncio
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from backend.api import vault_routes as vr  # noqa: E402
@@ -128,3 +130,21 @@ def test_main_and_locked_views_use_the_canonical_table_configuration():
         assert view["groupBy"] is None
         assert view["group_by"] is None
         assert view["visibleProperties"] == ["title", "Estat", "Títol"]
+
+
+@pytest.mark.parametrize("page_settings", [
+    {"name": "Articles (page view)", "embedded": True, "hidden": True},
+    {"name": "Public articles", "embedded": False, "hidden": False, "is_main": False},
+    {"name": "Taula principal", "embedded": False, "hidden": False, "is_main": False},
+])
+def test_table_main_repair_preserves_the_page_view_sort_and_name(page_settings):
+    descending = [{"field": "Date", "direction": "desc"}]
+    copy = {"id": "copy", "table_id": "t1", "type": "table", "sorts": descending, **page_settings}
+    registry = {"tables": [{"id": "t1", "name": "Articles"}], "views": [copy]}
+    vr._normalize_registry_table_view_names(registry)
+    main = vr._ensure_main_view(registry, "t1")
+    assert main and main["id"] != copy["id"] and main["is_main"]
+    assert main["sorts"] == [{"field": "title", "direction": "asc"}]
+    assert copy["sorts"] == descending and not copy.get("is_main")
+    assert copy["name"] == page_settings["name"]
+    assert vr._ensure_main_view(registry, "t1") is None
