@@ -118,3 +118,33 @@ it('keeps page-only edits local after returning to their shared source', async (
     expect(api.updateVaultView).not.toHaveBeenCalled();
     expect(api.createVaultView).not.toHaveBeenCalled();
 });
+
+it('offers one entry for a new view when the refreshed catalog includes its registry ID', async () => {
+    const catalog: unknown[] = [alternate];
+    const { api, onClose } = await renderModal(undefined, { editingBlock: null },
+        prepared => { prepared.fetchVaultViews.mockResolvedValue(catalog); });
+    const name = requireElement(dialog(), 'input[aria-label="View name"]', HTMLInputElement);
+    await actAndFlush(() => { updateInput(name, 'Reading list'); });
+    await actAndFlush(() => { requireButton(dialog(), 'Sort').click(); });
+    await actAndFlush(() => { requireButton(dialog(), 'Add criterion').click(); });
+    await select(direction(), 'desc');
+    await advance();
+    const created = api.createVaultView.mock.calls[0]?.[0];
+    expect(created).toMatchObject({ name: 'Reading list', sorts: descending });
+    catalog.push(created);
+
+    await actAndFlush(() => { requireButton(dialog(), 'General').click(); });
+    const table = requireElement(dialog(), 'select[aria-label="Source table"]', HTMLSelectElement);
+    await select(table, '');
+    await select(table, original.table_id);
+    expect(Array.from(picker().options).filter(option => option.text.includes('Reading list'))).toHaveLength(1);
+    await actAndFlush(() => { requireButton(dialog(), 'Sort').click(); });
+    await select(direction(), 'asc');
+    await advance();
+    await select(picker(), alternate.id);
+    await select(picker(), '');
+    expect(direction().value).toBe('asc');
+    await actAndFlush(() => { requireButton(dialog(), 'Close').click(); });
+    expect(onClose).toHaveBeenCalledWith(true, expect.objectContaining({ view_id: created?.id, name: 'Reading list', sorts: ascending }));
+    expect(api.createVaultView).toHaveBeenCalledTimes(1);
+});

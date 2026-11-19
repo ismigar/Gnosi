@@ -6,7 +6,7 @@ import { isProtectedMainView } from '../../views/viewConstants';
 
 export function ViewExistingPicker({
     isTableMode, sourceTableId, t, selectedExistingViewId,
-    selectExistingView, flushing, isLoadingExistingViews, existingViews, viewName, localViewName,
+    selectExistingView, flushing, isLoadingExistingViews, pickerViews, viewName, localViewName,
     existingViewsLoadError, setExistingViewsReloadKey
 }: Pick<
     ModalInput & useViewStateResult & useViewOptionsResult & useViewAutosaveResult,
@@ -17,7 +17,7 @@ export function ViewExistingPicker({
     | 'selectExistingView'
     | 'flushing'
     | 'isLoadingExistingViews'
-    | 'existingViews'
+    | 'pickerViews'
     | 'viewName'
     | 'localViewName'
     | 'existingViewsLoadError'
@@ -39,7 +39,7 @@ export function ViewExistingPicker({
                         ? t('view.loading_views', "Loading views…")
                         : localViewName || t('view.create_new_view', "— Create new view —")}
                 </option>
-                {existingViews.map(v => {
+                {pickerViews.map(v => {
                     const displayedName = v.id === selectedExistingViewId
                         ? viewName
                         : v.name;
@@ -66,7 +66,7 @@ export function ViewExistingPicker({
             )}
             {selectedExistingViewId && (
                 <p className="mt-1.5 text-[11px] text-[var(--text-tertiary)] leading-tight">
-                    {isProtectedMainView(existingViews.find(view => view.id === selectedExistingViewId))
+                    {isProtectedMainView(pickerViews.find(view => view.id === selectedExistingViewId))
                         ? t('view.protected_embed_hint', 'Changes are saved in a separate view for this page.')
                         : t('view.existing_hint', "You can review/override the fields in the Fields, Filters and Sorting tabs.")}
                 </p>

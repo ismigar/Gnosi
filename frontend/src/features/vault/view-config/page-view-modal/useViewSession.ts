@@ -7,6 +7,8 @@ export const viewSelectionKey = (tableId: string, viewId: string) => JSON.string
 
 interface SavedSelection {
     view: ViewConfig;
+    registryId: string | null;
+    sourceViewId: string;
     editScope: string;
     saveToTableViews: boolean;
     pins: Set<string>;

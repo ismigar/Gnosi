@@ -54,7 +54,8 @@ export function useViewSelection({
         const saved = savedSelections.get(key);
         const local = inlineSourceRef.current;
         const localDefaults: ViewConfig = local && (local.table_id || local.source_table_id) === sourceTableId ? local : {};
-        const v = saved?.view || updatedViewsRef.current.get(selectedExistingViewId)
+        const registered = saved?.registryId ? updatedViewsRef.current.get(saved.registryId) : undefined;
+        const v = registered || saved?.view || updatedViewsRef.current.get(selectedExistingViewId)
             || (selectedExistingViewId ? existingViews.find(x => x.id === selectedExistingViewId) : localDefaults);
         if (!v) return;
         if (appliedSelectionRef.current !== key) {

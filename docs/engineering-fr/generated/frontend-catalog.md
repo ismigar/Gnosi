@@ -52,7 +52,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2662 | 0 |
-| `features` | 1308 | 138365 | 57 |
+| `features` | 1308 | 138383 | 57 |
 | `generated` | 3 | 57966 | 599 |
 | `shared` | 354 | 37508 | 514 |
 
@@ -1182,11 +1182,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/view-config/page-view-modal/useViewFields.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewFields.ts) | 167 | `useViewFields` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/useViewInitialization.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewInitialization.ts) | 252 | `useViewInitialization` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/useViewModels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewModels.ts) | 38 | `useViewModels` | — |
-| [`frontend/src/features/vault/view-config/page-view-modal/useViewOptions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewOptions.ts) | 36 | `useViewOptions` | — |
-| [`frontend/src/features/vault/view-config/page-view-modal/useViewPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewPersistence.ts) | 176 | `useViewPersistence` | — |
+| [`frontend/src/features/vault/view-config/page-view-modal/useViewOptions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewOptions.ts) | 47 | `useViewOptions` | — |
+| [`frontend/src/features/vault/view-config/page-view-modal/useViewPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewPersistence.ts) | 180 | `useViewPersistence` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/useViewRelations.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewRelations.ts) | 45 | `useViewRelations` | — |
-| [`frontend/src/features/vault/view-config/page-view-modal/useViewSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewSelection.ts) | 113 | `useViewSelection` | — |
-| [`frontend/src/features/vault/view-config/page-view-modal/useViewSession.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewSession.ts) | 35 | `useViewSession`, `viewSelectionKey` | — |
+| [`frontend/src/features/vault/view-config/page-view-modal/useViewSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewSelection.ts) | 114 | `useViewSelection` | — |
+| [`frontend/src/features/vault/view-config/page-view-modal/useViewSession.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewSession.ts) | 37 | `useViewSession`, `viewSelectionKey` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/useViewSnapshot.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewSnapshot.ts) | 101 | `useViewSnapshot` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/useViewState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/useViewState.ts) | 135 | `useViewState` | — |
 | [`frontend/src/features/vault/views/DbViewEmbed.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/DbViewEmbed.tsx) | 56 | `DbViewEmbed` | — |

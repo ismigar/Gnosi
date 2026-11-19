@@ -4,16 +4,27 @@ import type { useViewFieldLabelsResult } from './useViewFieldLabels';
 import { viewSelectionKey, type useViewSessionResult } from './useViewSession';
 
 export function useViewOptions({
-    sortedTableFields, existingViewsStatus, existingViewsTableId, sourceTableId, savedSelections
+    sortedTableFields, existingViews, existingViewsStatus, existingViewsTableId, sourceTableId, savedSelections
 }: Pick<
     useViewFieldLabelsResult & useViewStateResult & useViewSessionResult,
     'sortedTableFields'
+    | 'existingViews'
     | 'existingViewsStatus'
     | 'existingViewsTableId'
     | 'sourceTableId'
     | 'savedSelections'
 >) {
     const localViewName = savedSelections.get(viewSelectionKey(sourceTableId, ''))?.view.name;
+    // A refreshed catalog can include the very copy already represented by
+    // the local draft or by its protected source. Keep one editable entry.
+    const catalogIds = new Set(existingViews.map(view => view.id));
+    const representedCopies = new Set<string>();
+    for (const { view, registryId, sourceViewId } of savedSelections.values()) {
+        if (view.table_id === sourceTableId && registryId && registryId !== sourceViewId && (!sourceViewId || catalogIds.has(sourceViewId))) {
+            representedCopies.add(registryId);
+        }
+    }
+    const pickerViews = existingViews.filter(view => !representedCopies.has(view.id));
     const groupFieldOptions = sortedTableFields;
     const dateFieldOptions = sortedTableFields.filter(f => DATE_FIELD_TYPES.has((f.type || '').toLowerCase()));
     const numericFieldOptions = sortedTableFields.filter(f => NUMERIC_FIELD_TYPES.has((f.type || '').toLowerCase()));
@@ -30,7 +41,7 @@ export function useViewOptions({
         && existingViewsTableId === sourceTableId;
     return {
         groupFieldOptions, dateFieldOptions, numericFieldOptions, coverFieldOptions,
-        existingViewsLoadError, isLoadingExistingViews, localViewName
+        existingViewsLoadError, isLoadingExistingViews, localViewName, pickerViews
     };
 }
 export type useViewOptionsResult = ReturnType<typeof useViewOptions>;

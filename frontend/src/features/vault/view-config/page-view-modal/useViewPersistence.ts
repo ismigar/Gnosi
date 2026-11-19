@@ -126,6 +126,7 @@ export function useViewPersistence({
                         ? t('view.page_copy_name', { name, defaultValue: '{{name}} (page view)' }) : name;
                     const pageView = { ...copy, ...config, embedded: true, hidden: true, is_main: false, name: copyName };
                     viewId = await saveRegistryView(pageView, createdId);
+                    updatedViewsRef.current.set(viewId, { ...pageView, id: viewId });
                 } else {
                     const embedded = registered?.embedded ?? source.embedded;
                     const body = { ...config, name, is_main: false, embedded: typeof embedded === 'boolean' ? embedded : hasPageFilter };
@@ -135,7 +136,9 @@ export function useViewPersistence({
             }
         } else if (saveToTableViews || createdId) {
             const pageOnly = !saveToTableViews || hasPageFilter;
-            viewId = await saveRegistryView({ ...preserved, ...config, name, embedded: pageOnly, hidden: pageOnly, is_main: false }, createdId);
+            const pageView = { ...preserved, ...config, name, embedded: pageOnly, hidden: pageOnly, is_main: false };
+            viewId = await saveRegistryView(pageView, createdId);
+            updatedViewsRef.current.set(viewId, { ...pageView, id: viewId });
         }
 
         const section = {
@@ -159,7 +162,8 @@ export function useViewPersistence({
             } } : {}),
             columns: visiblePropertiesToPersist.map(column => typeof column === 'string' ? column : column.fieldKey),
         });
-        const selection = { view: { ...localOptions, ...config, name }, editScope, saveToTableViews, pins: new Set(modalPinnedViewIds) };
+        const selection = { view: { ...localOptions, ...config, name }, registryId: viewId, sourceViewId: selectedExistingViewId,
+            editScope, saveToTableViews, pins: new Set(modalPinnedViewIds) };
         setSavedSelections(previous => new Map(previous).set(creationKey, selection));
         if (viewId) {
             try {
