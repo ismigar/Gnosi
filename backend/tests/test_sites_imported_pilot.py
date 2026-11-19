@@ -102,7 +102,8 @@ def test_actual_imported_homes_and_articles_keep_public_features(imported_pilot,
         assert collaborator.img['alt'] == 'Public collaborator' and collaborator.img['width'] == '180'
         assert home.select_one('.temenos-hero-photo')
         assert home.select_one('.staging-subscription')['action'] == '/_gnosi-proof/current/api/newsletter.php'
-        article = BeautifulSoup((output / language / 'articles/translated/index.html').read_text(), 'html.parser')
+        article_path = 'en/translated-article-en-gb' if language == 'en-gb' else language + '/articles/translated'
+        article = BeautifulSoup((output / article_path / 'index.html').read_text(), 'html.parser')
         links = article.select('.entry-sharing a')
         assert [link['class'][0] for link in links] == ['a2a_button_' + name for name in ('whatsapp', 'telegram', 'mastodon', 'bluesky', 'facebook', 'linkedin', 'email')]
         assert all(link['target'] == '_blank' and 'noreferrer' in link['rel'] for link in links)

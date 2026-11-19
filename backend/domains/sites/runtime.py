@@ -89,9 +89,17 @@ def probe(store: SiteStore, site: SiteConfig, target_id: str) -> ConnectionStatu
     if not target:
         raise HTTPException(404, "Destination not found")
     if target.adapter == "legacy-pangea":
-        from backend.domains.vault.publishing.web import _driver
-        response = _driver("status", store.context, {})
-        return ConnectionStatus(configured=bool(response.get("configured")), reachable=True, detail="staging")
+        from . import pangea
+        configured = False
+        try:
+            pangea.validate_target(site, target)
+            with pangea.connection(store, bounded=True) as (transport, bridge):
+                configured = True
+                pangea_details: object = json.loads(transport.php(bridge, 'echo json_encode(["php"=>PHP_VERSION_ID,"sqlite"=>extension_loaded("pdo_sqlite")]);'))
+            ready = isinstance(pangea_details, dict) and isinstance(pangea_details.get("php"), int) and pangea_details["php"] >= 80000 and pangea_details.get("sqlite") is True
+            return ConnectionStatus(configured=True, reachable=ready, detail="ready" if ready else "php_sqlite_unavailable")
+        except (HTTPException, ValueError):
+            return ConnectionStatus(configured=configured, reachable=False, detail="connection_failed")
     if target.adapter == "local":
         php = _php_executable()
         return ConnectionStatus(configured=True, reachable=bool(php), detail="php" if php else "php_unavailable")

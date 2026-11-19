@@ -18,6 +18,16 @@ npm ci --prefix extensions/web-publishing/renderer --no-audit --no-fund
 
 Local previews and separately scoped publication builds reuse authenticated generated pages whose content and dependencies have not changed. An article body edit rebuilds its route and dependent collections; Pagefind indexes the complete restored site. An unchanged preview skips Astro and Pagefind. Feeds still use the current preview URL. Cache faults trigger a full build, source discovery remains current, attachments keep their independent checks, and confirmation/publication never trust preview cache state. Translation publication/withdrawal invalidates its language family, relevant collections and consumed links; unrelated article order metadata does not invalidate its HTML. Legacy redirect aliases and rewrite rules are regenerated independently, so adding or retiring an alias does not invalidate unrelated HTML.
 
+For imported Temenos websites, all English articles receive a descriptive
+`/en/title-slug` URL. Existing `/en/title-slug` URLs remain stable after title
+edits. Former English article routes and their aliases are omitted from the
+generated website. Withdrawal retires the canonical article route.
+English language metadata remains `en-gb`.
+The table's `URL` field retains each canonical address, including withdrawn
+articles. Declared table URLs are reserved while generating other record paths,
+so a new duplicate title cannot take over an existing address. Authored internal links are projected onto current URLs
+in article bodies, navigation, page blocks and actions; source notes stay intact.
+
 The pinned Node executable is included by that package and is used for construction. Astro and Vite caches belong to each private temporary build directory; the installed dependencies and signed application remain immutable. Desktop packaging prepares and verifies the host architecture automatically, then includes the renderer/service outside the application archive. PHP with PDO SQLite, DOM and OpenSSL is required for the private service and local PHP preview. Destination probes report missing runtime capabilities.
 
 ## Editorial and private state
@@ -44,9 +54,34 @@ SSH connections are provider-neutral: configure host, port, remote user, paths, 
 
 SFTP transfer keeps the same owned namespace, digest verification and atomic activation contract as SSH upload. Publication still requires remote SSH commands, PHP 8 and PDO SQLite for the private service. The connection check can report a successful SFTP login separately from unavailable publication capabilities; SFTP-only shell-less accounts cannot publish this service.
 
-## Temenos compatibility
+## Temenos publishing
 
-Import the administrator-configured existing pilot to freeze its public baseline and assets. Existing URLs and translations survive the import; internal resource exclusions remain. Newly selected Gnosi sources can override matching public identities. The native Pangea adapter reuses the maintained SSH/Suweb bridge and its registered vault list. It publishes only beneath `/_gnosi-proves/webs/<site-id>/current`, inheriting the protected test namespace. Private service data lives outside the document root. Drupal and the earlier `/_gnosi-proves/current` pilot are separate.
+Content comes from Gnosi's selected native pages and tables. Once imported
+collections and selected assets have native bindings, construction does not
+require the former content snapshot. Retained archive assets are local data.
+Canonical content addresses come from the table's `URL` field, resolved by its
+stable field ID and registered aliases. An owned website URL takes precedence
+over an earlier release. English articles use `/en/title-slug`; changing a title
+or withdrawing and restoring a record keeps the address stored in `URL`.
+Duplicate owned URLs, including those of withdrawn records, require correction
+in the table before publishing. No per-record route history or new local metadata
+is written. Historical identity metadata remains data.
+
+Pangea uses Gnosi's native SSH/Suweb transport and the existing registered vault
+list. It never loads or executes scripts from the former website pilot.
+`GNOSI_PANGEA_CONFIG` selects an administrator-owned JSON registration with
+`target: "staging"`, `vault_paths` and an absolute `remote_root`. The registration
+authorizes the bridge; production still requires its separate existing
+registration. SSH host/user/port come from `SSH_HOST`, `SSH_USER`, `SSH_PORT`;
+passwords use the existing environment or system credential store. There is no
+CMS connection or database operation in the publishing path.
+
+`GNOSI_WEBSITE_IMPORT_ROOT` optionally selects a static archive for a new import.
+The previous `GNOSI_WEB_PUBLISH_DRIVER` setting is accepted only to locate that
+archive and its registration file; the named Python file need not exist.
+Archived pages, assets and translations remain available as imported data.
+Native records override matching public identities, and internal resource
+exclusions remain. Private service data stays outside the document root.
 
 ## Forms, subscribers and newsletters
 
@@ -58,7 +93,11 @@ In **Newsletters**, add already published contents to an automatically saved dra
 
 In **Newsletters → Delivery queue**, captured rows offer **Read email**. Administrators can read the subject, sender, recipient, date and plain text, or an isolated HTML preview without navigation, scripts, forms or remote images. Reading never follows lifecycle links. Verified confirmation, preferences and list/global unsubscribe links have explicit **Test link in Gnosi** forms; they use the same token operation as the public POST handler, restricted to the captured synthetic recipient. Used, expired and suppressed links are unavailable. **Open on pilot** is optional and retains the pilot’s normal HTTP authentication. Captures never become public files or synchronized editorial data.
 
-The current pilot remains **capture-only** and accepts only synthetic `.invalid` addresses. The Gnosi API keeps production publication and real delivery disabled pending pilot acceptance. Do not migrate real subscribers or replace the production contact form during this validation.
+The former staging-only `/api/vault/web-publishing` API is retired. Its status
+reports unconfigured, and its publication/newsletter operations return HTTP 410
+without executing an external publisher. Use native Webs publishing and each
+destination's private service; existing production registration and delivery
+policies remain enforced.
 
 ## Verification
 
@@ -68,7 +107,7 @@ php extensions/web-publishing/server/test.php
 python3 extensions/web-publishing/server/test_http.py
 ```
 
-Use the repository’s focused frontend checks, API generator and full pre-PR gate as well. All test data is disposable; no verification command sends real email or changes Drupal.
+Use the repository’s focused frontend checks, API generator and full pre-PR gate as well. All test data is disposable; no verification command sends real email or changes the production website.
 
 ## Header actions, page buttons and public listings
 

@@ -51,7 +51,7 @@ def seed_import(store: SiteStore, site: SiteConfig, pilot_root: Path) -> None:
     """Only administrator-bound driver paths can supply an existing public baseline."""
     pilot_root = pilot_root.resolve(strict=True)
     source = pilot_root / "src/data/site.json"
-    if not source.is_file() or not (pilot_root / "scripts/web_publish_driver.py").is_file():
+    if not source.is_file():
         raise HTTPException(409, "The configured public pilot snapshot is unavailable")
     raw = source.read_bytes()
     data = obj(json.loads(raw))
@@ -146,7 +146,7 @@ def seed_import(store: SiteStore, site: SiteConfig, pilot_root: Path) -> None:
 def imported_catalogue(store: SiteStore) -> list[CatalogueItem]:
     result: list[CatalogueItem] = []
     for site in store.list():
-        if not site.legacy_pilot:
+        if not site.legacy_pilot or not any(source.enabled and source.source_id.startswith("imported:") for source in site.sources):
             continue
         result.extend(CatalogueItem(id=source.source_id, kind="page", title=site.name + " · " + source.title) for source in site.sources if source.source_id.startswith("imported:"))
         path = store.site_dir(site.id) / "imported/baseline.json"
@@ -186,7 +186,10 @@ def imported_feed_aliases(store: SiteStore, site: SiteConfig) -> dict[str, str]:
     if not site.legacy_pilot:
         return {}
     from .models import safe_path
-    payload = obj(json.loads((store.site_dir(site.id) / "imported/baseline.json").read_text()))
+    baseline_path = store.site_dir(site.id) / "imported/baseline.json"
+    if not baseline_path.is_file():
+        return {}
+    payload = obj(json.loads(baseline_path.read_text()))
     sources = {source.source_id: source for source in site.sources if source.enabled}
     result: dict[str, str] = {}
     for alias in rows(obj(payload.get("data", {})).get("aliases", [])):

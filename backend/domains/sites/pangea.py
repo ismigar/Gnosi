@@ -3,14 +3,10 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
-import importlib.util
-from importlib import import_module
 import json
 import logging
-import os
 import re
 import shlex
-import sys
 import tarfile
 import tempfile
 import threading
@@ -49,31 +45,8 @@ class Driver(Protocol):
 
 
 def driver(store: SiteStore) -> Driver:
-    path = Path(os.environ.get("GNOSI_WEB_PUBLISH_DRIVER", ""))
-    if not path.is_absolute() or not path.is_file() or path.name != "web_publish_driver.py":
-        raise HTTPException(503, "Configure the maintained Pangea staging bridge first")
-    spec = importlib.util.spec_from_file_location("gnosi_sites_pangea_driver", path)
-    if not spec or not spec.loader:
-        raise HTTPException(503, "The Pangea bridge is unavailable")
-    module = importlib.util.module_from_spec(spec)
-    sys.path.insert(0, str(path.parent))
-    try:
-        spec.loader.exec_module(module)
-        # Preload the maintained driver's SSH/Suweb helper while its directory
-        # is importable. Its historical module name is independent of content sync.
-        import_module("snapshot_drupal")
-    finally:
-        sys.path.remove(str(path.parent))
-    result = cast(Driver, module)
-    config: object = json.loads(result.CONFIG.read_text())
-    if not isinstance(config, dict) or config.get("target") != "staging":
-        raise HTTPException(409, "Only the registered Pangea staging bridge is available")
-    vaults = config.get("vault_paths", [])
-    if not isinstance(vaults, list) or str(store.vault) not in [str(Path(value).resolve()) for value in vaults if isinstance(value, str)]:
-        raise HTTPException(403, "This vault is not registered with the Pangea bridge")
-    if not re.fullmatch(r"/[a-zA-Z0-9_./-]+", result.REMOTE_ROOT):
-        raise HTTPException(409, "Invalid maintained Pangea web root")
-    return result
+    from .pangea_driver import load_driver
+    return load_driver(store)
 
 
 def paths(transport: Driver, site: SiteConfig, target: SiteTarget | None = None) -> tuple[str, str]:

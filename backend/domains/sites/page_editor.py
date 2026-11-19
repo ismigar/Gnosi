@@ -69,7 +69,7 @@ def static_blocks(body: str) -> list[SiteBlock]:
 
 
 def imported_static_pages(store: SiteStore, site: SiteConfig) -> list[SitePage]:
-    if not site.legacy_pilot:
+    if not site.legacy_pilot or not any(source.enabled and source.source_id == "imported:pages" for source in site.sources):
         return []
     from .exporter import is_public_metadata
     payload = obj(json.loads((store.site_dir(site.id) / "imported/baseline.json").read_text()))
