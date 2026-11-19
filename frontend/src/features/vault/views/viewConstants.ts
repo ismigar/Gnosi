@@ -35,7 +35,7 @@ interface VaultView {
   is_locked?: unknown;
   is_main?: unknown;
   locked?: unknown;
-  name?: string | null;
+  name?: unknown;
   order?: number | null;
   table_id?: ViewKey;
 }
@@ -60,6 +60,10 @@ const LEGACY_MAIN_VIEW_NAMES = new Set([
   'vista principal',
   'tableau principal',
 ]);
+
+function hasLegacyMainViewName(name: unknown): boolean {
+  return typeof name === 'string' && LEGACY_MAIN_VIEW_NAMES.has(name.trim().toLowerCase());
+}
 
 function isViewArray(
   value: unknown,
@@ -92,7 +96,7 @@ export const isProtectedMainView = (
   view?.is_main === true ||
   view?.is_default === true ||
   isLockedView(view) ||
-  (!isCustomPageView(view) && LEGACY_MAIN_VIEW_NAMES.has(view?.name?.trim().toLowerCase() ?? ''));
+  (!isCustomPageView(view) && hasLegacyMainViewName(view?.name));
 
 export const canBeMainView = (view: VaultView): boolean =>
   isProtectedMainView(view) || (!isCustomPageView(view) && !(view.embedded === true && view.hidden === true));
@@ -131,7 +135,7 @@ export const isMainView = (
   if (explicitMain) return explicitMain.id === view.id;
 
   const mainByName = effectiveCandidates.find((candidate) =>
-    LEGACY_MAIN_VIEW_NAMES.has(candidate.name?.trim().toLowerCase() ?? ''),
+    hasLegacyMainViewName(candidate.name),
   );
   if (mainByName) return mainByName.id === view.id;
 

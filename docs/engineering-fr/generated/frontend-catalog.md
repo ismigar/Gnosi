@@ -52,7 +52,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2662 | 0 |
-| `features` | 1308 | 138304 | 57 |
+| `features` | 1308 | 138308 | 57 |
 | `generated` | 3 | 57966 | 599 |
 | `shared` | 354 | 37508 | 514 |
 
@@ -1343,7 +1343,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/views/vault-views-header/viewModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-views-header/viewModel.ts) | 68 | `activeViewRecordCount`, `displayedTabViews`, `sortedTemplates`, `visibleTabViews` | — |
 | [`frontend/src/features/vault/views/vaultFeedModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vaultFeedModel.ts) | 249 | `feedDateGroup`, `feedMetadataString`, `feedMetadataValue`, `feedModifiedDate`, `feedNoteTitle`, `feedValueString`, `prepareFeedBody`, `readFeedDocked`, `readFeedPaneWidth`, `readFeedReadIds`, `readLastFeedRecord`, `resolveVaultFeedSettings`, `splitFeedHighlight`, `visibleFeedColumns`, `writeFeedDocked`, `writeFeedPaneWidth`, `writeFeedReadIds`, `writeLastFeedRecord` | — |
 | [`frontend/src/features/vault/views/vaultFeedTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vaultFeedTypes.ts) | 102 | — | — |
-| [`frontend/src/features/vault/views/viewConstants.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/viewConstants.ts) | 171 | `MAIN_VIEW_NAME`, `VIEW_TYPES`, `canBeMainView`, `getViewIcon`, `isLockedView`, `isMainView`, `isPageEmbedView`, `isProtectedMainView`, `isViewHidden` | — |
+| [`frontend/src/features/vault/views/viewConstants.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/viewConstants.ts) | 175 | `MAIN_VIEW_NAME`, `VIEW_TYPES`, `canBeMainView`, `getViewIcon`, `isLockedView`, `isMainView`, `isPageEmbedView`, `isProtectedMainView`, `isViewHidden` | — |
 | [`frontend/src/features/vault-management/VaultMenu.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultMenu.tsx) | 149 | `VaultMenu`, `function` | — |
 | [`frontend/src/features/vault-management/VaultSwitcher.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultSwitcher.tsx) | 218 | `VaultSwitcher`, `function` | — |
 | [`frontend/src/features/vault-management/VaultTemplateMarketplace.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultTemplateMarketplace.tsx) | 399 | `VaultTemplateMarketplace`, `function` | — |
