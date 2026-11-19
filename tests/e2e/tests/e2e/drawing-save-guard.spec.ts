@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 import { requireJsonObject } from '../../support/json-value.ts';
@@ -96,22 +97,23 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
 
     test('format legacy Excalidraw ⇒ overlay incompatible i cap PUT (no eclipsa)', async ({ page }) => {
         const ID = 'guard-e2e-legacy';
-        // The backend returns the .excalidraw.json JSON as-is: loadSnapshot from
-        // tldraw does NOT throw an error with this format — it's a silent no-op.
-        const puts = await interceptDrawing(page, ID, (route) =>
-            route.fulfill({
-                json: {
-                    type: 'excalidraw',
-                    version: 2,
-                    elements: [{ id: 'rect-1', type: 'rectangle', x: 0, y: 0 }],
-                    appState: {},
-                },
-            })
-        );
+        const original = {
+            type: 'excalidraw', version: 2,
+            elements: [{ id: 'rect-1', type: 'rectangle', x: 0, y: 0 }], appState: {},
+        };
+        const puts = await interceptDrawing(page, ID, (route) => route.fulfill({ json: original }));
 
         await openDrawingCard(page, ID, 'Guard Legacy');
 
         await expect(page.getByText('Format de dibuix no compatible')).toBeVisible({ timeout: 30_000 });
+
+        const downloadPromise = page.waitForEvent('download');
+        await page.getByRole('button', { name: 'Descarrega el dibuix original' }).click();
+        const download = await downloadPromise;
+        expect(download.suggestedFilename()).toBe('Guard Legacy.excalidraw');
+        const file = await download.path();
+        if (!file) throw new Error('Expected the original drawing download');
+        expect(JSON.parse(await readFile(file, 'utf8'))).toEqual(original);
 
         await page.keyboard.press('ControlOrMeta+s');
         await page.waitForTimeout(3_000);
@@ -135,9 +137,9 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
 
         // Pan/zoom = scope 'session' ⇒ must NOT schedule any autosave
         const box = await canvas.boundingBox();
-        expect(box).not.toBeNull();
-        const cx = box!.x + box!.width / 2;
-        const cy = box!.y + box!.height / 2;
+        if (!box) throw new Error('The canvas has no visible bounds');
+        const cx = box.x + box.width / 2;
+        const cy = box.y + box.height / 2;
         await page.mouse.move(cx, cy);
         await page.mouse.wheel(0, 300);
         await page.mouse.wheel(0, -150);
@@ -146,7 +148,7 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
 
         // Drawing a stroke = 'document' scope ⇒ autosave in ~1 s
         await page.getByTestId('tools.draw').click();
-        await expect(page.getByTestId('tools.draw')).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.getByTestId('tools.draw')).toHaveAttribute('data-state', 'selected');
         await page.waitForTimeout(250);
         await page.mouse.move(cx - 120, cy - 40);
         await page.mouse.down();

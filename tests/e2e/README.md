@@ -167,6 +167,7 @@ Knowledge readiness, theme persistence and the Calendar, Mail and Contacts
 surfaces:
 
 ```bash
+pnpm build:frontend
 GNOSI_BASE_URL=http://127.0.0.1:5173 pnpm --filter @gnosi/e2e test:disposable-web
 ```
 

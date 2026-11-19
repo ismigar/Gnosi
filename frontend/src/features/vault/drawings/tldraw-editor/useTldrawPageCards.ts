@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { RefObject } from 'react';
-import { createShapeId, toRichText } from '@tldraw/tlschema';
+import { createShapeId } from '@bigbluebutton/tldraw';
 import { useTranslation } from 'react-i18next';
 
 import { createVaultPage } from '../../../../shared/api/vaults';
@@ -23,7 +23,7 @@ interface UseTldrawPageCardsOptions {
     readonly allNotes: readonly TldrawVaultNote[];
     readonly cardsEnabled: boolean;
     readonly editorRef: RefObject<CanvasEditor | null>;
-    readonly loadState: string;
+    readonly mountedEditor: CanvasEditor | null;
     readonly wrapperRef: RefObject<HTMLDivElement | null>;
 }
 
@@ -61,7 +61,7 @@ function insertPage(
             props: {
                 color: 'blue',
                 font: 'sans',
-                richText: toRichText(displayTitle),
+                text: displayTitle,
                 size: 'm',
             },
             type: 'note',
@@ -76,7 +76,7 @@ export function useTldrawPageCards({
     allNotes,
     cardsEnabled,
     editorRef,
-    loadState,
+    mountedEditor,
     wrapperRef,
 }: UseTldrawPageCardsOptions): TldrawPageCards {
     const { t } = useTranslation();
@@ -84,7 +84,7 @@ export function useTldrawPageCards({
     const [isSearchOpen, setIsSearchOpen] = useState(false);
 
     useEffect(() => {
-        const editor = editorRef.current;
+        const editor = mountedEditor;
         if (!editor) return undefined;
         let selectionTimer: ReturnType<typeof setTimeout> | null = null;
         const checkSelection = (): void => {
@@ -102,7 +102,7 @@ export function useTldrawPageCards({
             unsubscribe();
             if (selectionTimer !== null) clearTimeout(selectionTimer);
         };
-    }, [editorRef, loadState, t]);
+    }, [mountedEditor, t]);
 
     useEffect(() => {
         const unsubscribeDragOver = subscribeDocumentEvent('dragover', (event) => {
@@ -148,7 +148,7 @@ export function useTldrawPageCards({
                         props: {
                             color: 'blue',
                             font: 'sans',
-                            richText: toRichText(displayTitle),
+                            text: displayTitle,
                             size: 'm',
                         },
                         type: 'note',
@@ -212,7 +212,7 @@ export function useTldrawPageCards({
 
     return {
         closeSelectedPage: () => {
-            editorRef.current?.deselectAll();
+            editorRef.current?.selectNone();
             setSelectedPage(null);
         },
         createNote,

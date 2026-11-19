@@ -1,11 +1,11 @@
-import { act, type ReactNode } from 'react';
+import { act, useEffect, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import TldrawEditor from './TldrawEditor';
 
-vi.mock('@tldraw/assets/imports.vite.js', () => ({
-    getAssetUrlsByImport: () => ({ fonts: {}, icons: {}, translations: {}, embedIcons: {} }),
+vi.mock('@bigbluebutton/assets/urls.js', () => ({
+    getAssetUrlsByMetaUrl: () => ({ fonts: {}, icons: {}, translations: {}, embedIcons: {} }),
 }));
 
 interface ReactTestGlobal {
@@ -15,7 +15,7 @@ interface ReactTestGlobal {
 interface MockStore {
     listen: (
         listener: () => void,
-        options?: unknown,
+        options?: { scope?: string },
     ) => () => void;
 }
 
@@ -25,7 +25,7 @@ const testState = vi.hoisted(() => ({
     documentListener: null as (() => void) | null,
     fetchDrawing: vi.fn<(drawingId: string) => Promise<Record<string, unknown>>>(),
     getSnapshot: vi.fn<() => Record<string, unknown>>(),
-    loadSnapshot: vi.fn<(store: unknown, snapshot: unknown) => void>(),
+    loadSnapshot: vi.fn<(store: unknown, snapshot: unknown) => Record<string, unknown> | null>(),
     recognizeHandwriting: vi.fn<() => Promise<{
         corrected: boolean;
         text: string;
@@ -39,31 +39,37 @@ const testState = vi.hoisted(() => ({
 }));
 
 const store: MockStore = {
-    listen: (listener) => {
+    listen: (listener, options) => {
+        if (options?.scope !== 'document') return () => {};
         testState.documentListener = listener;
         return testState.unsubscribe;
     },
 };
 
-vi.mock('tldraw', () => ({
-    Tldraw: () => <div data-testid="tldraw-canvas" />,
+vi.mock('@bigbluebutton/tldraw', () => ({
+    Tldraw: ({ onMount }: { onMount: (editor: { store: MockStore; getSelectedShapeIds: () => string[]; user: { updateUserPreferences: () => void } }) => () => void }) => {
+        useEffect(() => onMount({ store, getSelectedShapeIds: () => [], user: { updateUserPreferences: () => {} } }), [onMount]);
+        return <div data-testid="tldraw-canvas" />;
+    },
     createTLStore: () => store,
-    getSnapshot: testState.getSnapshot,
-    loadSnapshot: testState.loadSnapshot,
+    createShapeId: () => 'shape:test',
 }));
 
-vi.mock('@tldraw/tlschema', () => ({
-    createShapeId: () => 'shape:test',
-    toRichText: (text: string) => ({ type: 'doc', text }),
+vi.mock('./drawingSnapshot', () => ({
+    serializeDrawingDocument: testState.getSnapshot,
+    loadDrawingDocument: testState.loadSnapshot,
 }));
 
 vi.mock('./tldraw-editor/tldrawEditorBridges', () => ({
     CANVAS_SHAPE_UTILS: [],
+    CUSTOM_SHAPE_UTILS: [],
     CanvasPageProvider: ({ children }: { readonly children: ReactNode }) => children,
     TldrawGlobalSearchModal: ({ isOpen }: { readonly isOpen: boolean }) => (
         isOpen ? <div data-testid="vault-search" /> : null
     ),
 }));
+
+vi.mock('../../../shared/hooks/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));
 
 vi.mock('../../../shared/hooks/useMediaQuery', () => ({
     useMediaQuery: () => false,
@@ -108,7 +114,7 @@ describe('TldrawEditor', () => {
         testState.documentListener = null;
         testState.fetchDrawing.mockReset();
         testState.getSnapshot.mockReset();
-        testState.loadSnapshot.mockReset();
+        testState.loadSnapshot.mockReset().mockReturnValue(null);
         testState.recognizeHandwriting.mockReset();
         testState.saveDrawing.mockReset();
         testState.unsubscribe.mockReset();
@@ -157,21 +163,20 @@ describe('TldrawEditor', () => {
 
         await renderEditor();
 
-        expect(testState.loadSnapshot).toHaveBeenCalledWith(store, {
-            schema: { schemaVersion: 1 },
-            store: { 'shape:legacy': { typeName: 'shape' } },
-        });
+        expect(testState.loadSnapshot).toHaveBeenCalledWith(store, wrappedSnapshot);
         expect(container.textContent).toContain('tldraw.add_note');
         expect(container.querySelector('[data-testid="tldraw-canvas"]')).not.toBeNull();
     });
 
     it('locks a legacy drawing instead of overwriting it', async () => {
+        testState.loadSnapshot.mockImplementation(() => { throw new Error('Unsupported drawing'); });
         testState.fetchDrawing.mockResolvedValue({ elements: [{ id: 'legacy' }] });
 
         await renderEditor();
 
         expect(container.textContent).toContain('tldraw.incompatible_title');
-        expect(testState.loadSnapshot).not.toHaveBeenCalled();
+        expect(testState.loadSnapshot).toHaveBeenCalledOnce();
+        expect(container.textContent).toContain('tldraw.download_original');
         expect(testState.saveDrawing).not.toHaveBeenCalled();
         expect(testState.documentListener).toBeNull();
     });

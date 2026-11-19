@@ -31,7 +31,7 @@ export interface JsonCanvasDocument extends Record<string, unknown> {
     edges: JsonCanvasEdge[];
 }
 export class JsonCanvasError extends Error {
-    constructor(readonly reason: 'invalid' | 'unsupported' | 'not_empty' | 'too_large') { super(reason); }
+    constructor(readonly reason: 'invalid' | 'unsupported' | 'not_empty' | 'too_large' | 'page_limit') { super(reason); }
 }
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === 'object' && value !== null && !Array.isArray(value);

@@ -31,7 +31,8 @@ export default defineConfig(() => ({
         environment: 'jsdom',
         // Use the browser package entry through Vite; the package's UMD main
         // expects a global jsPDF when it is executed as native Node ESM.
-        server: { deps: { inline: ['svg2pdf.js'] } },
+        // The whiteboard uses named CommonJS exports (eventemitter3) through ESM.
+        server: { deps: { inline: ['svg2pdf.js', /@bigbluebutton\//] } },
         include: [
             'tests/**/*.test.{js,ts}',
             'src/**/*.test.{js,jsx,ts,tsx}',

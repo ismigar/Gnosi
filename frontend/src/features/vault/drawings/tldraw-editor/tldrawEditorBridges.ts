@@ -3,7 +3,7 @@ import type { ComponentType, Context, ReactNode } from 'react';
 import {
     defaultShapeUtils,
     type TLAnyShapeUtilConstructor,
-} from 'tldraw';
+} from '@bigbluebutton/tldraw';
 
 import {
     CanvasPageContext,
@@ -32,11 +32,12 @@ interface CanvasPageProviderProps {
     readonly value: CanvasPageContextValue;
 }
 
-export const CANVAS_SHAPE_UTILS: readonly TLAnyShapeUtilConstructor[] = [
-    ...defaultShapeUtils,
+export const CUSTOM_SHAPE_UTILS: readonly TLAnyShapeUtilConstructor[] = [
     PageCardShapeUtil,
     JsonCanvasNodeShapeUtil,
 ];
+
+export const CANVAS_SHAPE_UTILS = [...defaultShapeUtils, ...CUSTOM_SHAPE_UTILS];
 
 const typedCanvasContext = CanvasPageContext as unknown as Context<CanvasPageContextValue>;
 export const CanvasPageProvider = typedCanvasContext.Provider as ComponentType<CanvasPageProviderProps>;
