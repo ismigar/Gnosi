@@ -23,7 +23,7 @@ vi.mock('../../../../../shared/notifications/toast', () => ({ toast: fixture.toa
 vi.mock('../../CollaborationPresence', () => ({ CollaborationPresence: () => null }));
 vi.mock('../../PageHistory', () => ({ default: () => null }));
 vi.mock('../../../view-config/PageViewModal', () => ({ PageViewModal: (props: PageViewModalProps) => {
-  useLayoutEffect(() => { pageViewClose = props.onClose; });
+  useLayoutEffect(() => { pageViewClose = props.onClose; pageViewSave = props.onSave; });
   return null;
 } }));
 vi.mock('../../IconPicker', () => ({ IconPicker: () => null }));
@@ -40,6 +40,7 @@ export let innerProps: PageEditorBodyProps | undefined;
 export let requests: RequestLog[];
 let patchResponse: (() => Promise<Response>) | undefined;
 export let pageViewClose: PageViewModalProps['onClose'] | undefined;
+export let pageViewSave: PageViewModalProps['onSave'];
 const idToTitle = { outgoing: 'Outgoing page' };
 export const initialMetadata = { title: 'Fixture page', tags: ['one'], custom: { preserve: true } };
 const allTables: PageTable[] = [];
@@ -84,6 +85,7 @@ beforeEach(() => {
   requests = [];
   patchResponse = undefined;
   pageViewClose = undefined;
+  pageViewSave = undefined;
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);

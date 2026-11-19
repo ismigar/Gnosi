@@ -4,6 +4,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+from contextlib import suppress
 from pathlib import Path
 
 import pytest
@@ -86,7 +87,6 @@ def test_php_explicit_path_takes_precedence(monkeypatch):
 
 
 def test_failed_group_leader_does_not_leave_its_child(tmp_path):
-    import signal
     import time
     import psutil
     pid_file = tmp_path / 'child.pid'
@@ -99,12 +99,15 @@ def test_failed_group_leader_does_not_leave_its_child(tmp_path):
         assert child.is_running()
         worker._kill_group(leader)
         deadline = time.monotonic() + 3
-        while child.is_running() and child.status() != psutil.STATUS_ZOMBIE and time.monotonic() < deadline:
-            time.sleep(.02)
-        assert not child.is_running() or child.status() == psutil.STATUS_ZOMBIE
+        # The orphan can be reaped between is_running() and status().
+        with suppress(psutil.NoSuchProcess):
+            while child.is_running() and child.status() != psutil.STATUS_ZOMBIE:
+                assert time.monotonic() < deadline, "The preview child is still running"
+                time.sleep(.02)
     finally:
-        if child is not None and child.is_running() and child.status() != psutil.STATUS_ZOMBIE:
-            os.kill(child.pid, signal.SIGKILL)
+        with suppress(psutil.NoSuchProcess):
+            if child is not None and child.is_running() and child.status() != psutil.STATUS_ZOMBIE:
+                child.kill()
 
 
 def test_blocked_read_deadline_kills_only_owned_preview_group(tmp_path):

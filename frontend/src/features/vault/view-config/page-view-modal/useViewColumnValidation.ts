@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 import type { ModalInput } from './useViewController';
 import type { useViewStateResult } from './useViewState';
 import type { useViewFieldsResult } from './useViewFields';
@@ -7,7 +7,7 @@ import type { VisibleProperty } from './types';
 export function useViewColumnValidation({
     selectedTable, discoveredFields, sourceTableId, joins,
     setVisibleProperties, fieldsForTable, allTables, discoveredByTable,
-    tableFields
+    tableFields, formBaselineRevision, selectedExistingViewId
 }: Pick<
     useViewFieldsResult & useViewStateResult & ModalInput,
     'selectedTable'
@@ -19,10 +19,18 @@ export function useViewColumnValidation({
     | 'allTables'
     | 't'
     | 'discoveredByTable'
-    | 'tableFields'
+    | 'tableFields' | 'formBaselineRevision' | 'selectedExistingViewId'
 >) {
+    const previousSource = useRef<{ id: string; selection: string; joins: string } | null>(null);
     const hydrate1 = useEffectEvent(() => {
-        if (!selectedTable) return;
+        if (!formBaselineRevision) return;
+        const current = { id: sourceTableId, selection: selectedExistingViewId, joins: JSON.stringify(joins.map(j => j.tableId)) };
+        const previous = previousSource.current;
+        previousSource.current = current;
+        // Loading a saved view or discovering its fields is read-only. Only
+        // reconcile columns when the user changes the set of source tables.
+        if (!selectedTable || !previous || (previous.id === current.id &&
+            (previous.selection !== current.selection || previous.joins === current.joins))) return;
         // Table without a registered schema and field discovery still pending:
         // we do NOT sanitize, or we would delete valid view columns before knowing
         // which fields exist (fields arrive async via discoveredFields).
@@ -50,7 +58,8 @@ export function useViewColumnValidation({
                 } else if (typeof entry === 'string') {
                     // Legacy string form: validate against the base table.
                     const valid = new Set(tableFields.map(f => f.name));
-                    if (valid.has(entry)) next.push(entry);
+                    // Discovery samples records. A saved column can be absent from the sample.
+                    if (!hasSchema || valid.has(entry)) next.push(entry);
                 }
             }
             // Ensure the canonical title is present (base table).
@@ -66,7 +75,7 @@ export function useViewColumnValidation({
         let active = true;
         queueMicrotask(() => { if (active) hydrate1(); });
         return () => { active = false; };
-    }, [sourceTableId, selectedTable, tableFields, discoveredFields, joins, fieldsForTable, discoveredByTable, allTables]);
+    }, [formBaselineRevision, selectedExistingViewId, sourceTableId, selectedTable, tableFields, discoveredFields, joins, fieldsForTable, discoveredByTable, allTables]);
     return {};
 }
 export type useViewColumnValidationResult = ReturnType<typeof useViewColumnValidation>;

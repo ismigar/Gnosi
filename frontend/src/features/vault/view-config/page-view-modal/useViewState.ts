@@ -99,11 +99,8 @@ export function useViewState({
     const [modalPinnedViewIds, setModalPinnedViewIds] = useState<Set<string>>(new Set());
     const [modalViewToDelete, setModalViewToDelete] = useState<RegistryView | null>(null);
     const [modalViewToDeleteUsage, setModalViewToDeleteUsage] = useState<Usage | null>(null);
-    const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
     const [formBaselineRevision, setFormBaselineRevision] = useState(0);
     const [formBaselineSnapshot, setFormBaselineSnapshot] = useState('');
-    const [autosaveStatus, setAutosaveStatus] = useState('idle');
-    const [flushing, setFlushing] = useState(false);
     const [relationCache, setRelationCache] = useState<Record<string, RelationOption[] | undefined>>({});
     return {
         activeTab, setActiveTab, heading, setHeading,
@@ -125,13 +122,13 @@ export function useViewState({
         xField, setXField, yField, setYField,
         genogram, setGenogram, aggregation, setAggregation, saveToTableViews, setSaveToTableViews,
         error, setError, viewLoadStatus, setViewLoadStatus, viewLoadRetryKey, setViewLoadRetryKey, existingViews, setExistingViews,
-        selectedExistingViewId, setSelectedExistingViewId, existingViewsStatus, setExistingViewsStatus,
+        selectedExistingViewId, setSelectedExistingViewId,
+        existingViewsStatus, setExistingViewsStatus,
         existingViewsTableId, setExistingViewsTableId, existingViewsReloadKey, setExistingViewsReloadKey,
         viewUsage, setViewUsage, editScope, setEditScope,
         modalPinnedViewIds, setModalPinnedViewIds, modalViewToDelete, setModalViewToDelete,
-        modalViewToDeleteUsage, setModalViewToDeleteUsage, discardConfirmOpen, setDiscardConfirmOpen,
+        modalViewToDeleteUsage, setModalViewToDeleteUsage,
         formBaselineRevision, setFormBaselineRevision, formBaselineSnapshot, setFormBaselineSnapshot,
-        autosaveStatus, setAutosaveStatus, flushing, setFlushing,
         relationCache, setRelationCache
     };
 }

@@ -1,8 +1,6 @@
 import { useCallback } from 'react';
 import { updateVaultView } from '../../../shared/api/vault-views';
-import { MAIN_VIEW_NAME } from '../views/viewConstants';
-import { isMainView } from '../views/viewConstants';
-import { isProtectedMainView } from '../views/viewConstants';
+import { MAIN_VIEW_NAME, canBeMainView, isMainView, isProtectedMainView } from '../views/viewConstants';
 import type { View } from './types';
 import type { DashboardState } from './useDashboardState';
 import type { useDataLoading } from './useDataLoading';
@@ -36,12 +34,12 @@ export function useViewCatalog(context: Context) {
         };
     }, [registry.tables]);
     const ensureMainViewForTable = useCallback((tableViews: readonly View[] = [], tableId: string | null = null): View[] => {
-        if (tableViews.length === 0) {
+        if (!tableViews.some(canBeMainView)) {
             return [{
                     id: 'default',
                     table_id: tableId,
                     ...buildMainViewBody(tableId),
-                }];
+                }, ...tableViews];
         }
         return tableViews.map(v => {
             if (!isProtectedMainView(v)) {

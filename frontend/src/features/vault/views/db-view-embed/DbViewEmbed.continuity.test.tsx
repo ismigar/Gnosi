@@ -100,6 +100,17 @@ async function click(element: Element | null | undefined): Promise<void> {
     if (!element) throw new Error('Missing clickable element');
     await act(async () => { await Promise.resolve(); element.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
 }
+it('immediately displays the saved ordering when the same block adopts its customized view', async () => {
+    await render();
+    const rows = () => [...container.querySelectorAll('[data-testid="body"] button')].map(node => node.textContent);
+    expect(rows()).toEqual(['Alpha', 'Beta']);
+    const customized = { ...anchor, id: 'custom', sorts: [{ field: 'title', direction: 'desc' }] };
+    vi.mocked(api.fetchPageViews).mockResolvedValue({ page_id: 'page', sections: [section, { ...section, view_id: 'custom' }] });
+    vi.mocked(api.fetchVaultViews).mockResolvedValue([anchor, other, customized]);
+    context = { ...context, viewSectionNonce: 1 };
+    await render({ ...block, props: { view_id: 'custom' } });
+    expect(rows()).toEqual(['Beta', 'Alpha']);
+});
 it('keeps view state scoped to the saved anchor across regenerated editor blocks', async () => {
     await render();
     const savedScope = fixture.body?.viewStateScope;

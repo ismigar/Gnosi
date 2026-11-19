@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from fastapi import HTTPException
 
 from backend.domains.vault.registry.names import (
+    can_be_main_view,
     normalize_main_view_configuration,
     table_name_from_registry,
 )
@@ -49,6 +50,7 @@ def ensure_main_view(registry: RegistryData, table_id: str) -> RegistryData | No
         if normalize_main_view_configuration(registry, existing_main):
             return existing_main
         return None
+    table_views = [view for view in table_views if can_be_main_view(view)]
     promote_candidate = next(
         (view for view in table_views if view.get("type") == "table"), None
     ) or (table_views[0] if table_views else None)

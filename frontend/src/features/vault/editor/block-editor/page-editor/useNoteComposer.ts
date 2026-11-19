@@ -30,8 +30,9 @@ export function useNoteComposer(state: Input) {
     onUpdate?.(id, content, patch);
   }, [noteFilename, initialContent, onUpdate]);
   const registerSave = useCallback((save: (() => Promise<boolean>) | null) => { saveRef.current = save; }, []);
+  const flushPageContent = useCallback(() => saveRef.current?.() ?? Promise.resolve(false), []);
   const flushForComposer = useCallback(async () => {
-    if (!isEditor || !saveRef.current || !await saveRef.current()) return false;
+    if (!isEditor || !await flushPageContent()) return false;
     inFlightSaves.delete(noteFilename);
     const pendingMetadata = Boolean(metaSaveTimerRef.current);
     if (metaSaveTimerRef.current) clearTimeout(metaSaveTimerRef.current);
@@ -41,7 +42,7 @@ export function useNoteComposer(state: Input) {
     }
     if (metaSaveInFlightRef.current) return false;
     return !pendingMetadata || await _doSaveMetadata(metadataRef.current, pendingRemoveKeysRef.current);
-  }, [_doSaveMetadata, isEditor, metaSaveInFlightRef, metaSaveTimerRef, metadataRef, noteFilename, pendingRemoveKeysRef]);
+  }, [_doSaveMetadata, flushPageContent, isEditor, metaSaveInFlightRef, metaSaveTimerRef, metadataRef, noteFilename, pendingRemoveKeysRef]);
   const finishComposition = useCallback((result: ComposerResult) => {
     const source = result.changes.find(change => change.id === noteFilename);
     if (source) {
@@ -55,7 +56,7 @@ export function useNoteComposer(state: Input) {
     setComposerLocked(false);
   }, [noteFilename, initialContent, onRefreshNotes, onUpdate]);
   return {
-    registerSave, composerOpen, composerLocked, closeComposer, lockComposer, flushForComposer, finishComposition, composedContent, composerRevision,
+    registerSave, flushPageContent, composerOpen, composerLocked, closeComposer, lockComposer, flushForComposer, finishComposition, composedContent, composerRevision,
     onUpdate: updateComposedPage,
     pageActions: { ...pageActions, canComposeNote: isEditor, onComposeNote: () => { setComposerOpen(true); } },
   };

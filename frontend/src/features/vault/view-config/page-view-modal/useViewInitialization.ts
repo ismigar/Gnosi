@@ -1,18 +1,18 @@
 import { useEffect, useEffectEvent } from 'react';
+import { GnosiApiError } from '../../../../shared/api/errors';
 import { TABS } from './constants';
 import { emptyFilterTree, treeFromSource } from './filter-tree';
 import { decodeView } from './decode';
 import { readPinnedViews } from './pinned-views';
 import type { ModalInput } from './useViewController';
 import type { useViewStateResult } from './useViewState';
-import type { useViewSessionResult } from './useViewSession';
+import { viewSelectionKey, type useViewSessionResult } from './useViewSession';
 import type { useViewAppearanceResult } from './useViewAppearance';
 import type { ViewConfig } from './types';
 
 export function useViewInitialization({
-    isOpen, initializedRef, createdViewIdRef, lastSavedViewRef,
-    pendingSaveRef, skipNextAutosaveRef, setAutosaveStatus, setJoins,
-    setDiscardConfirmOpen, setFormBaselineRevision, setFormBaselineSnapshot, isTableMode,
+    appliedSelectionRef, registryViewsRef, inlineSourceRef, readCatalog, setJoins,
+    setFormBaselineRevision, isTableMode,
     initialTab, setActiveTab, setError, setSaveToTableViews,
     setEditScope, setViewUsage, setSelectedExistingViewId, setSourceTableId,
     editingView, preselectedTableId, setViewType, setViewName,
@@ -23,19 +23,11 @@ export function useViewInitialization({
     api, setExistingViews, setExistingViewsStatus
 }: Pick<
     ModalInput & useViewSessionResult & useViewStateResult & useViewAppearanceResult,
-    'isOpen'
+    'appliedSelectionRef' | 'registryViewsRef' | 'inlineSourceRef' | 'readCatalog'
     | 'viewLoadRetryKey'
     | 'setViewLoadStatus'
-    | 'initializedRef'
-    | 'createdViewIdRef'
-    | 'lastSavedViewRef'
-    | 'pendingSaveRef'
-    | 'skipNextAutosaveRef'
-    | 'setAutosaveStatus'
     | 'setJoins'
-    | 'setDiscardConfirmOpen'
     | 'setFormBaselineRevision'
-    | 'setFormBaselineSnapshot'
     | 'isTableMode'
     | 't'
     | 'initialTab'
@@ -67,20 +59,6 @@ export function useViewInitialization({
     | 'setExistingViewsStatus'
 >) {
     const hydrate1 = useEffectEvent(() => {
-        if (!isOpen) {
-            // Reset the autosave bookkeeping so a reopen starts clean.
-            initializedRef.current = false;
-            createdViewIdRef.current = null;
-            lastSavedViewRef.current = null;
-            pendingSaveRef.current = null;
-            skipNextAutosaveRef.current = false;
-            setAutosaveStatus('idle');
-            setJoins([]);
-            setDiscardConfirmOpen(false);
-            setFormBaselineRevision(0);
-            setFormBaselineSnapshot('');
-            return;
-        }
         setViewLoadStatus('ready');
         // TABLE mode: we configure a registry view directly (not an
         // embed). We pre-fill from `editingView` (or defaults if we're creating one).
@@ -128,10 +106,6 @@ export function useViewInitialization({
                 setResultSnapshotLimit(500);
                 resetTypeOptions();
             }
-            // Initialization just wrote editing state: skip the first autosave
-            // tick so it isn't treated as a user change.
-            initializedRef.current = true;
-            skipNextAutosaveRef.current = true;
             setFormBaselineRevision(revision => revision + 1);
             return;
         }
@@ -162,11 +136,14 @@ export function useViewInitialization({
 
             if (vid) {
                 let cancelled = false;
-                initializedRef.current = false;
                 setViewLoadStatus('loading');
                 setSelectedExistingViewId(vid);
-                const applyView = (v: ViewConfig) => {
-                    setModalPinnedViewIds(readPinnedViews(pageId, vid, Array.isArray(v.tabs) ? v.tabs.map(String) : []));
+                const applyView = (v: ViewConfig, selectedId = vid) => {
+                    inlineSourceRef.current = selectedId ? null : v;
+                    appliedSelectionRef.current = viewSelectionKey(v.table_id || preselectedTableId || '', selectedId);
+                    setSelectedExistingViewId(selectedId);
+                    setSaveToTableViews(Boolean(selectedId) && (selectedId === 'default' || v.is_main === true));
+                    setModalPinnedViewIds(readPinnedViews(pageId, selectedId, Array.isArray(v.tabs) ? v.tabs.map(String) : []));
                     setSourceTableId(v.table_id || preselectedTableId || '');
                     setViewName(v.name || '');
                     setViewType(v.type || 'table');
@@ -177,38 +154,56 @@ export function useViewInitialization({
                     setResultSnapshotLimit(Number.isFinite(Number(v.resultSnapshotLimit)) ? Number(v.resultSnapshotLimit) : 500);
                     applyTypeOptions(v);
                     setSorts(v.sorts?.length ? v.sorts : v.sort?.field ? [v.sort] : []);
-                    setExistingViews(prev => [{ ...v, id: vid }, ...prev.filter(x => x.id !== vid)]);
-                    initializedRef.current = true;
-                    skipNextAutosaveRef.current = true;
+                    if (selectedId) setExistingViews(prev => [{ ...v, id: selectedId }, ...prev.filter(x => x.id !== selectedId)]);
                     setViewLoadStatus('ready');
                     setFormBaselineRevision(revision => revision + 1);
                 };
                 // The embed already knows the complete effective view. Reuse it so
                 // opening its settings does not depend on a second network request.
                 const loaded = editingBlock.view ? decodeView(editingBlock.view) : null;
-                if (loaded?.table_id && (!loaded.id || loaded.id === vid)) {
+                // A registered block can initially render its page section while
+                // the registry is loading. That fallback carries view_id and
+                // can lack the catalog name, protection flags and other options.
+                if (loaded?.table_id && loaded.view_id !== vid && (!loaded.id || loaded.id === vid)) {
                     applyView(loaded);
                     return;
                 }
-                api.fetchVaultView(vid)
-                    .then(payload => {
-                        if (cancelled) return;
-                        const v = payload ? decodeView(payload) : null;
-                        if (!v?.table_id || (v.id && v.id !== vid)) {
-                            setViewLoadStatus('error');
-                            return;
-                        }
-                        applyView(v);
-                    })
-                    .catch(() => {
-                        if (!cancelled) setViewLoadStatus('error');
-                    });
+                let missing = false;
+                const byId = api.fetchVaultView(vid).then(payload => {
+                    const v = decodeView(payload);
+                    missing = !payload;
+                    if (!v.table_id || (v.id && v.id !== vid)) throw new Error('Missing saved view');
+                    return v;
+                }).catch((error: unknown) => {
+                    missing ||= error instanceof GnosiApiError && error.status === 404;
+                    throw error;
+                });
+                const sources = [byId];
+                if (loaded?.view_id === vid && loaded.table_id) {
+                    sources.push(readCatalog(loaded.table_id).then(views => {
+                        const registered = views.find(v => v.id === vid);
+                        if (!registered) throw new Error('View is absent from the catalog');
+                        return registered;
+                    }));
+                }
+                void Promise.any(sources).then(v => {
+                    if (cancelled) return;
+                    registryViewsRef.current.set(vid, v);
+                    applyView(v);
+                }, () => {
+                    if (cancelled) return;
+                    // A deleted registry entry can still have a complete page
+                    // section. Keep that draft editable as a local view.
+                    if (missing && loaded?.view_id === vid && loaded.table_id) applyView(loaded, '');
+                    else setViewLoadStatus('error');
+                });
                 return () => { cancelled = true; };
             }
 
             // Local view (inline). We pre-fill from the serialized JSON.
             setSelectedExistingViewId('');
             const local = editingBlock.view ? decodeView(editingBlock.view) : inline;
+            inlineSourceRef.current = local;
             setSourceTableId(local?.table_id || local?.source_table_id || preselectedTableId || '');
             setViewName(local?.name || '');
             setJoins(local?.joins || []);
@@ -220,8 +215,6 @@ export function useViewInitialization({
             setResultSnapshotLimit(Number.isFinite(Number(local?.resultSnapshotLimit)) ? Number(local?.resultSnapshotLimit) : 500);
             applyTypeOptions(local);
             setExistingViews([]);
-            initializedRef.current = true;
-            skipNextAutosaveRef.current = true;
             setFormBaselineRevision(revision => revision + 1);
             return;
         }
@@ -246,8 +239,6 @@ export function useViewInitialization({
         setModalPinnedViewIds(new Set());
         resetTypeOptions();
         setError('');
-        initializedRef.current = true;
-        skipNextAutosaveRef.current = true;
         setFormBaselineRevision(revision => revision + 1);
     });
     useEffect(() => {
@@ -255,7 +246,7 @@ export function useViewInitialization({
         let release: (() => void) | undefined;
         queueMicrotask(() => { if (active) release = hydrate1(); });
         return () => { active = false; release?.(); };
-    }, [isOpen, preselectedTableId, editingBlock, isTableMode, editingView, initialTab, viewLoadRetryKey]);
+    }, [preselectedTableId, editingBlock, isTableMode, editingView, initialTab, viewLoadRetryKey]);
     return {};
 }
 export type useViewInitializationResult = ReturnType<typeof useViewInitialization>;

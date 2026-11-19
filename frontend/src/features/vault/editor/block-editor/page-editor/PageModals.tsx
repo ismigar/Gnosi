@@ -1,3 +1,6 @@
+import { useEffect, useRef } from 'react';
+import type { SavedView } from '../../../view-config/page-view-modal/types';
+import type { ViewEditingBlock } from './types';
 import { CoverPicker } from '../../CoverPicker';
 import { IconPicker } from '../../IconPicker';
 import { InsertContentModal } from '../../../content/InsertContentModal';
@@ -11,33 +14,31 @@ import type { PageEditorController } from './usePageEditorController';
 import { NoteComposerModal } from './NoteComposerModal';
 export function PageModals({ context }: { context: PageEditorController }) {
   const { noteFilename, isHistoryOpen, setIsHistoryOpen, isPageViewModalOpen, setIsPageViewModalOpen, pageViewEditingBlock, setPageViewPreselectedTable, setPageViewEditingBlock, applyViewSectionRef, setViewSectionNonce, onRefreshNotes, allTables, pageViewPreselectedTable, isIconPickerOpen, setIsIconPickerOpen, handleMetaChange, propertyMetadata: metadata, iconTriggerRef, isCoverPickerOpen, setIsCoverPickerOpen, coverTriggerRef, isMetadataLookupOpen, setIsMetadataLookupOpen, imagePickerProp, rawTableId, setImagePickerProp } = context;
+  const savedBlock = useRef<ViewEditingBlock | null>(null);
+  useEffect(() => { savedBlock.current = null; }, [isPageViewModalOpen, noteFilename]);
+  const applySavedView = async (section: SavedView) => {
+    const block = applyViewSectionRef.current?.(section, savedBlock.current || pageViewEditingBlock);
+    if (!block) throw new Error(context.t('errors.save_view', 'Error saving the view'));
+    savedBlock.current = block;
+    if (!await context.flushPageContent()) throw new Error(context.t('errors.save_view', 'Error saving the view'));
+    setViewSectionNonce(n => n + 1);
+    onRefreshNotes();
+  };
   return (<>{context.composerOpen && <NoteComposerModal sourceId={noteFilename} idToTitle={context.idToTitle}
     flush={context.flushForComposer} onFlushed={context.lockComposer} onClose={context.closeComposer} onApplied={context.finishComposition} />}
     <PageHistory pageId={noteFilename} open={isHistoryOpen} onClose={() => { setIsHistoryOpen(false); }} onRestore={() => { window.location.reload(); }} />
     <PageViewModal
       isOpen={isPageViewModalOpen}
-      onClose={(changed, sectionData) => {
+      onSave={applySavedView}
+      onClose={() => {
         setIsPageViewModalOpen(false);
-        // Captures editingBlock before clearing it so
-        // applyViewSectionRef can distinguish insert vs update.
-        const editing = pageViewEditingBlock;
         setPageViewPreselectedTable('');
         setPageViewEditingBlock(null);
-        if (!changed) return;
-        if (sectionData) {
-          applyViewSectionRef.current?.(sectionData, editing);
-        }
-        // Asks the page's DbViewEmbed instances to re-read the
-        // section that was just saved (card size, preview,
-        // grouping…). Without this, editing the size of a gallery
-        // embedded had no effect until reloading.
-        setViewSectionNonce(n => n + 1);
-        onRefreshNotes();
       }}
       pageId={noteFilename}
       allTables={allTables}
       preselectedTableId={pageViewPreselectedTable}
-    editingBlock={context.modalEditingBlock}
+      editingBlock={context.modalEditingBlock}
     />
 
     {/* Pickers Portals */}

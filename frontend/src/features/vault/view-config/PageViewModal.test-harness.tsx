@@ -90,7 +90,7 @@ const createApi = () => ({
         deleteVaultView: vi.fn(() => Promise.resolve({ status: 'success' })),
         fetchAiModels: vi.fn(() => Promise.resolve({ models: [], budget: {}, configured_models: [], default: [],
             currency: { code: 'EUR', symbol: '€', source: 'fixture', fetched_at: '', usd_rate: 1 } })),
-        fetchVaultPages: vi.fn(() => Promise.resolve([])),
+        fetchVaultPages: vi.fn<() => Promise<unknown>>(() => Promise.resolve([])),
         fetchVaultPagesByTable: vi.fn(() => Promise.resolve([])),
         fetchVaultSummarySettings: vi.fn(() => Promise.resolve({})),
         fetchVaultView: vi.fn<(viewId: string) => Promise<unknown>>((viewId) => Promise.resolve(

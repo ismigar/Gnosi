@@ -153,6 +153,7 @@ function viewBlock(payload: MarkdownRecord): MarkdownBlock {
     return {
         type: 'gnosi_view',
         props: {
+            ...(payload.section_id ? { section_id: legacyStringOrEmpty(payload.section_id) } : {}),
             view_id: viewId,
             heading: legacyStringOrEmpty(payload.heading),
             heading_level: String(Number(payload.heading_level) || 1),
